@@ -4664,3 +4664,240 @@ strings. Formspec uses `&` as the concatenation operator (distinct from `+`
 which is arithmetic-only). Both prevent the ambiguity of `+` on mixed types.
 No change.
 
+
+
+---
+
+## Appendix D: UDFA Cross-Analysis
+
+This appendix documents a cross-analysis with the Universal Declarative Form
+Architecture (UDFA), an independent specification addressing the same problem
+space. UDFA makes several design choices that address minor gaps in Formspec
+or make implicit design decisions more explicit. This appendix is informative
+except where noted as normative.
+
+### D.1 Features Adopted as Amendments
+
+#### D.1.1 Row-Relative Navigation in Repeats (Normative)
+
+UDFA provides `${prevRow.field}` and `${nextRow.field}` syntax for
+referencing adjacent rows within a repeat context. Formspec has `@current`,
+`@index`, `@count`, and `parent()`, but no mechanism for accessing sibling
+rows without resorting to explicit indexing (e.g.,
+`$repeat[$@index - 1].field`).
+
+Adjacent-row access is essential for:
+- Running/cumulative totals: "this row's cumulative = previous row's cumulative + this row's amount"
+- Sequential validation: "this date must be after the previous row's date"
+- Difference calculations: "change from prior period"
+
+**Amendment.** FEL adds row-relative accessor functions:
+
+| Function | Signature | Returns | Description |
+|----------|-----------|---------|-------------|
+| `prev()` | `prev() → object \| null` | object or null | Returns the previous row in the current repeat collection (the row at `@index - 1`). Returns `null` for the first row (`@index = 1`). |
+| `next()` | `next() → object \| null` | object or null | Returns the next row in the current repeat collection (the row at `@index + 1`). Returns `null` for the last row (`@index = @count`). |
+
+Usage:
+
+```
+prev().cumulative_total + @current.amount
+```
+
+```
+$ > prev().end_date
+```
+
+These functions MUST only be called within a repeat context. Calling `prev()`
+or `next()` outside a repeat is a definition error.
+
+**Dependency semantics:** An expression containing `prev()` or `next()`
+depends on the adjacent row's fields. When row order changes (insert, delete,
+reorder), all expressions using `prev()` or `next()` in the affected repeat
+MUST be re-evaluated. Implementations SHOULD treat `prev()`/`next()` as
+depending on the entire repeat collection for dependency tracking purposes.
+
+#### D.1.2 Instance Write-Protection (Normative)
+
+UDFA explicitly marks external instances as `"locked": true`, preventing
+modification. Formspec states in prose that "secondary instances are
+read-only during form completion" (§2.1.2) and flags writes to secondary
+instances as definition errors (§3.10.1), but does not provide a formal
+property for this on the instance declaration itself.
+
+**Amendment.** Formspec adds `readonly` to the Instance schema:
+
+| Property | Type | Cardinality | Description |
+|----------|------|-------------|-------------|
+| `readonly` | boolean | 0..1 (OPTIONAL) | If `true`, the instance data MUST NOT be modified by `calculate` Binds or any other mechanism during form execution. The instance is a read-only reference data source. Default: `true` for all non-primary instances. |
+
+```json
+{
+  "instances": {
+    "award": {
+      "source": "https://api.grants.example.gov/awards/{awardId}",
+      "readonly": true,
+      "data": { "award_amount": 250000.00 }
+    },
+    "scratchpad": {
+      "readonly": false,
+      "data": { "temp_total": 0 }
+    }
+  }
+}
+```
+
+When `readonly` is `true`:
+- A `calculate` Bind targeting a path within this instance is a definition
+  error.
+- The data is immutable for the duration of the form session.
+- Implementations MAY use this guarantee for aggressive caching and
+  optimization.
+
+The `readonly: false` case enables writable scratch-pad instances for complex
+multi-step calculations that don't belong in the primary response data. This
+is an uncommon but legitimate pattern for forms with intermediate computation
+states that should not be submitted.
+
+#### D.1.3 Semantic Type Annotations (Normative)
+
+UDFA draws an explicit distinction between "structural typing" (JSON's `string`,
+`number`, `object`) and "semantic typing" (what the data *means*: an EIN,
+a phone number, a DUNS number). Formspec's `dataType` property covers basic
+semantic types (`date`, `money`, `attachment`) but provides no standard way
+to annotate domain-specific semantics without resorting to extension types
+(`x-ein`, `x-phone`).
+
+This matters because:
+- Multiple domain-specific types share the same structural type and validation
+  pattern but have different semantic meaning
+- Downstream systems need to know "this is an EIN" vs "this is a phone
+  number" even though both are validated strings
+- Visual authoring tools benefit from a richer type vocabulary for
+  auto-suggesting appropriate input widgets
+
+**Amendment.** Formspec adds `semanticType` to Field items:
+
+| Property | Type | Cardinality | Description |
+|----------|------|-------------|-------------|
+| `semanticType` | string | 0..1 (OPTIONAL) | A semantic annotation indicating the domain meaning of this field's value. Formspec defines no normative vocabulary for semantic types; the value is an opaque string interpreted by the implementation. Implementations SHOULD use URIs or namespaced identifiers to avoid collisions (e.g., `"us-gov:ein"`, `"ietf:email"`, `"iso:phone-e164"`). |
+
+```json
+{
+  "key": "employer_id",
+  "type": "field",
+  "dataType": "string",
+  "semanticType": "us-gov:ein",
+  "label": "Employer Identification Number"
+}
+```
+
+`semanticType` is purely metadata. It MUST NOT affect validation, calculation,
+or any behavioral semantics defined by this specification. It exists to
+support:
+- Intelligent widget selection in visual authoring tools
+- Data classification and tagging in downstream analytics
+- Interoperability mapping between systems that share semantic vocabularies
+
+This is distinct from extension types (`x-ein` in §8.1) which *do* carry
+behavioral implications (custom validation, custom formatting). `semanticType`
+is a lightweight annotation; extension types are a heavyweight behavioral
+override.
+
+### D.2 Features Already Covered
+
+**MVC / three-layer separation.** UDFA's FormDefinition/DataInstance/BindGraph/
+ValidationShape map directly to Formspec's Definition/Instance/Bind/Shape.
+The conceptual models are isomorphic.
+
+**Model Item Properties.** UDFA's `calculate`, `constraint`, `relevant`,
+`required`, `readonly` are identical to Formspec's Bind properties.
+Inheritance rules (relevant via AND, readonly via OR) match.
+
+**Reactive dependency graph with topological sort.** Both specifications
+define the same algorithm: parse expressions for field references, build a
+DAG, topologically sort, re-evaluate only the affected subgraph on change.
+
+**Non-relevant data exclusion.** UDFA and Formspec share identical semantics:
+non-relevant nodes are pruned from submission, their validation is suppressed,
+and their `required` constraints are ignored. Formspec extends this with
+`nonRelevantBehavior` (Appendix B) offering `remove`/`empty`/`keep` modes.
+
+**Three-tier validation severity.** Both define Error/Warning/Info with
+identical semantics: only errors block submission.
+
+**SHACL-style constraint composition.** UDFA's `and`/`or`/`xone`/`not` maps
+to Formspec's identically-named composition operators.
+
+**Structured validation results.** UDFA's ValidationResult schema
+(focusNode, severity, message, sourceShape, value) maps to Formspec's
+(path, severity, message, shapeId, value, code, context).
+
+**External validation injection.** Both specifications define injection of
+externally-produced validation results into the unified report.
+
+**Validation modes.** UDFA's ValidateAndShow/ValidateAndHide/NoValidation maps
+to Formspec's continuous/deferred/disabled. The semantics are equivalent.
+
+**Canonical URL + version + status lifecycle.** Identical (both derived
+from FHIR R5).
+
+**Response pinning.** Identical.
+
+**Modular composition with $assemble.** Both define sub-form references
+resolved at publish time with key prefixing for namespace isolation and
+`assembledFrom` provenance metadata.
+
+**Multiple instances with cross-referencing.** Both support named secondary
+instances with expression-based access. UDFA's `instance('name').path` maps
+to Formspec's `@instance('name').path`.
+
+**Financial/money type.** UDFA's `financial` type (object with `amount` and
+`currency`) is equivalent to Formspec's `money` type (Appendix C, §C.1.1).
+
+**Attachment field modeling.** Both model file attachments as metadata objects
+with the actual binary storage being out of scope.
+
+**Pre-populated fields with editable vs locked distinction.** Both handle
+this through the combination of `initialValue` (or `calculate`) and
+`readonly` Binds.
+
+### D.3 Design Divergences (No Action)
+
+**Expression syntax: `${field}` vs `$field`.** UDFA uses `${...}` (curly
+braces, ODK-style); Formspec uses `$field` (bare sigil). Both are valid.
+Formspec's is more concise; UDFA's is more explicit about token boundaries.
+No change.
+
+**`nodeset` vs `path` for bind targeting.** UDFA uses `nodeset` (XForms
+terminology); Formspec uses `path`. Same semantics, different names.
+Formspec's `path` is more intuitive for JSON developers unfamiliar with
+XForms. No change.
+
+**Implicit numeric coercion in comparisons.** UDFA's JEXL-F performs
+automatic numeric coercion when comparing `${string} == ${number}`.
+Formspec's FEL requires explicit type matching (§3.4.3): comparing a string
+to a number is a type error unless explicitly cast with `number()`. This is
+a deliberate safety choice — implicit coercion is a well-documented source of
+bugs in JavaScript and similar languages. Form authors who need cross-type
+comparison must write `number($stringField) == $numberField`, making the
+intent explicit. No change.
+
+**Calculate continues regardless of relevance.** Both specifications define
+this behavior. UDFA states it explicitly in the MIP table; Formspec defines
+it in §5.6 rule 4. The semantics are identical. No change needed.
+
+**"Cryptographically locked" external data.** UDFA uses the phrase
+"cryptographically locked values representing external system truths" for
+pre-populated fields from external sources. Formspec handles this through
+`readonly: true` on Binds and `readonly: true` on instances (D.1.2 above).
+Cryptographic verification of external data integrity is an implementation
+concern outside the scope of a form definition standard. No change.
+
+**Separate "BindGraph" noun.** UDFA names the collection of Binds as a
+distinct entity ("BindGraph"). Formspec treats binds as an array property on
+the Definition without naming the collection as a separate conceptual entity.
+The BindGraph is an implementation artifact (the dependency graph constructed
+during the Rebuild phase), not a definition-time concept that needs a name in
+the schema. No change.
+

@@ -231,6 +231,20 @@ Covered</a></li>
 id="toc-c.3-design-divergences-no-action">C.3 Design Divergences (No
 Action)</a></li>
 </ul></li>
+<li><a href="#appendix-d-udfa-cross-analysis"
+id="toc-appendix-d-udfa-cross-analysis">Appendix D: UDFA
+Cross-Analysis</a>
+<ul>
+<li><a href="#d.1-features-adopted-as-amendments"
+id="toc-d.1-features-adopted-as-amendments">D.1 Features Adopted as
+Amendments</a></li>
+<li><a href="#d.2-features-already-covered"
+id="toc-d.2-features-already-covered">D.2 Features Already
+Covered</a></li>
+<li><a href="#d.3-design-divergences-no-action"
+id="toc-d.3-design-divergences-no-action">D.3 Design Divergences (No
+Action)</a></li>
+</ul></li>
 </ul></li>
 </ul>
 </nav>
@@ -7416,6 +7430,300 @@ intentional. No change.</p>
 uses <code>&amp;</code> as the concatenation operator (distinct from
 <code>+</code> which is arithmetic-only). Both prevent the ambiguity of
 <code>+</code> on mixed types. No change.</p>
+<hr />
+<h2 id="appendix-d-udfa-cross-analysis">Appendix D: UDFA
+Cross-Analysis</h2>
+<p>This appendix documents a cross-analysis with the Universal
+Declarative Form Architecture (UDFA), an independent specification
+addressing the same problem space. UDFA makes several design choices
+that address minor gaps in Formspec or make implicit design decisions
+more explicit. This appendix is informative except where noted as
+normative.</p>
+<h3 id="d.1-features-adopted-as-amendments">D.1 Features Adopted as
+Amendments</h3>
+<h4 id="d.1.1-row-relative-navigation-in-repeats-normative">D.1.1
+Row-Relative Navigation in Repeats (Normative)</h4>
+<p>UDFA provides <code>${prevRow.field}</code> and
+<code>${nextRow.field}</code> syntax for referencing adjacent rows
+within a repeat context. Formspec has <code>@current</code>,
+<code>@index</code>, <code>@count</code>, and <code>parent()</code>, but
+no mechanism for accessing sibling rows without resorting to explicit
+indexing (e.g., <code>$repeat[$@index - 1].field</code>).</p>
+<p>Adjacent-row access is essential for: - Running/cumulative totals:
+“this row’s cumulative = previous row’s cumulative + this row’s amount”
+- Sequential validation: “this date must be after the previous row’s
+date” - Difference calculations: “change from prior period”</p>
+<p><strong>Amendment.</strong> FEL adds row-relative accessor
+functions:</p>
+<table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 25%" />
+<col style="width: 20%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>prev()</code></td>
+<td><code>prev() → object \| null</code></td>
+<td>object or null</td>
+<td>Returns the previous row in the current repeat collection (the row
+at <code>@index - 1</code>). Returns <code>null</code> for the first row
+(<code>@index = 1</code>).</td>
+</tr>
+<tr class="even">
+<td><code>next()</code></td>
+<td><code>next() → object \| null</code></td>
+<td>object or null</td>
+<td>Returns the next row in the current repeat collection (the row at
+<code>@index + 1</code>). Returns <code>null</code> for the last row
+(<code>@index = @count</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>Usage:</p>
+<pre><code>prev().cumulative_total + @current.amount</code></pre>
+<pre><code>$ &gt; prev().end_date</code></pre>
+<p>These functions MUST only be called within a repeat context. Calling
+<code>prev()</code> or <code>next()</code> outside a repeat is a
+definition error.</p>
+<p><strong>Dependency semantics:</strong> An expression containing
+<code>prev()</code> or <code>next()</code> depends on the adjacent row’s
+fields. When row order changes (insert, delete, reorder), all
+expressions using <code>prev()</code> or <code>next()</code> in the
+affected repeat MUST be re-evaluated. Implementations SHOULD treat
+<code>prev()</code>/<code>next()</code> as depending on the entire
+repeat collection for dependency tracking purposes.</p>
+<h4 id="d.1.2-instance-write-protection-normative">D.1.2 Instance
+Write-Protection (Normative)</h4>
+<p>UDFA explicitly marks external instances as
+<code>"locked": true</code>, preventing modification. Formspec states in
+prose that “secondary instances are read-only during form completion”
+(§2.1.2) and flags writes to secondary instances as definition errors
+(§3.10.1), but does not provide a formal property for this on the
+instance declaration itself.</p>
+<p><strong>Amendment.</strong> Formspec adds <code>readonly</code> to
+the Instance schema:</p>
+<table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 14%" />
+<col style="width: 30%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Cardinality</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>readonly</code></td>
+<td>boolean</td>
+<td>0..1 (OPTIONAL)</td>
+<td>If <code>true</code>, the instance data MUST NOT be modified by
+<code>calculate</code> Binds or any other mechanism during form
+execution. The instance is a read-only reference data source. Default:
+<code>true</code> for all non-primary instances.</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb80"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb80-2"><a href="#cb80-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;instances&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb80-3"><a href="#cb80-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;award&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb80-4"><a href="#cb80-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;https://api.grants.example.gov/awards/{awardId}&quot;</span><span class="fu">,</span></span>
+<span id="cb80-5"><a href="#cb80-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb80-6"><a href="#cb80-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;award_amount&quot;</span><span class="fu">:</span> <span class="fl">250000.00</span> <span class="fu">}</span></span>
+<span id="cb80-7"><a href="#cb80-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb80-8"><a href="#cb80-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;scratchpad&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb80-9"><a href="#cb80-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb80-10"><a href="#cb80-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;temp_total&quot;</span><span class="fu">:</span> <span class="dv">0</span> <span class="fu">}</span></span>
+<span id="cb80-11"><a href="#cb80-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb80-12"><a href="#cb80-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb80-13"><a href="#cb80-13" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>When <code>readonly</code> is <code>true</code>: - A
+<code>calculate</code> Bind targeting a path within this instance is a
+definition error. - The data is immutable for the duration of the form
+session. - Implementations MAY use this guarantee for aggressive caching
+and optimization.</p>
+<p>The <code>readonly: false</code> case enables writable scratch-pad
+instances for complex multi-step calculations that don’t belong in the
+primary response data. This is an uncommon but legitimate pattern for
+forms with intermediate computation states that should not be
+submitted.</p>
+<h4 id="d.1.3-semantic-type-annotations-normative">D.1.3 Semantic Type
+Annotations (Normative)</h4>
+<p>UDFA draws an explicit distinction between “structural typing”
+(JSON’s <code>string</code>, <code>number</code>, <code>object</code>)
+and “semantic typing” (what the data <em>means</em>: an EIN, a phone
+number, a DUNS number). Formspec’s <code>dataType</code> property covers
+basic semantic types (<code>date</code>, <code>money</code>,
+<code>attachment</code>) but provides no standard way to annotate
+domain-specific semantics without resorting to extension types
+(<code>x-ein</code>, <code>x-phone</code>).</p>
+<p>This matters because: - Multiple domain-specific types share the same
+structural type and validation pattern but have different semantic
+meaning - Downstream systems need to know “this is an EIN” vs “this is a
+phone number” even though both are validated strings - Visual authoring
+tools benefit from a richer type vocabulary for auto-suggesting
+appropriate input widgets</p>
+<p><strong>Amendment.</strong> Formspec adds <code>semanticType</code>
+to Field items:</p>
+<table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 14%" />
+<col style="width: 30%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Cardinality</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>semanticType</code></td>
+<td>string</td>
+<td>0..1 (OPTIONAL)</td>
+<td>A semantic annotation indicating the domain meaning of this field’s
+value. Formspec defines no normative vocabulary for semantic types; the
+value is an opaque string interpreted by the implementation.
+Implementations SHOULD use URIs or namespaced identifiers to avoid
+collisions (e.g., <code>"us-gov:ein"</code>, <code>"ietf:email"</code>,
+<code>"iso:phone-e164"</code>).</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb81"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb81-2"><a href="#cb81-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;employer_id&quot;</span><span class="fu">,</span></span>
+<span id="cb81-3"><a href="#cb81-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb81-4"><a href="#cb81-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
+<span id="cb81-5"><a href="#cb81-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;semanticType&quot;</span><span class="fu">:</span> <span class="st">&quot;us-gov:ein&quot;</span><span class="fu">,</span></span>
+<span id="cb81-6"><a href="#cb81-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Employer Identification Number&quot;</span></span>
+<span id="cb81-7"><a href="#cb81-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p><code>semanticType</code> is purely metadata. It MUST NOT affect
+validation, calculation, or any behavioral semantics defined by this
+specification. It exists to support: - Intelligent widget selection in
+visual authoring tools - Data classification and tagging in downstream
+analytics - Interoperability mapping between systems that share semantic
+vocabularies</p>
+<p>This is distinct from extension types (<code>x-ein</code> in §8.1)
+which <em>do</em> carry behavioral implications (custom validation,
+custom formatting). <code>semanticType</code> is a lightweight
+annotation; extension types are a heavyweight behavioral override.</p>
+<h3 id="d.2-features-already-covered">D.2 Features Already Covered</h3>
+<p><strong>MVC / three-layer separation.</strong> UDFA’s
+FormDefinition/DataInstance/BindGraph/ ValidationShape map directly to
+Formspec’s Definition/Instance/Bind/Shape. The conceptual models are
+isomorphic.</p>
+<p><strong>Model Item Properties.</strong> UDFA’s
+<code>calculate</code>, <code>constraint</code>, <code>relevant</code>,
+<code>required</code>, <code>readonly</code> are identical to Formspec’s
+Bind properties. Inheritance rules (relevant via AND, readonly via OR)
+match.</p>
+<p><strong>Reactive dependency graph with topological sort.</strong>
+Both specifications define the same algorithm: parse expressions for
+field references, build a DAG, topologically sort, re-evaluate only the
+affected subgraph on change.</p>
+<p><strong>Non-relevant data exclusion.</strong> UDFA and Formspec share
+identical semantics: non-relevant nodes are pruned from submission,
+their validation is suppressed, and their <code>required</code>
+constraints are ignored. Formspec extends this with
+<code>nonRelevantBehavior</code> (Appendix B) offering
+<code>remove</code>/<code>empty</code>/<code>keep</code> modes.</p>
+<p><strong>Three-tier validation severity.</strong> Both define
+Error/Warning/Info with identical semantics: only errors block
+submission.</p>
+<p><strong>SHACL-style constraint composition.</strong> UDFA’s
+<code>and</code>/<code>or</code>/<code>xone</code>/<code>not</code> maps
+to Formspec’s identically-named composition operators.</p>
+<p><strong>Structured validation results.</strong> UDFA’s
+ValidationResult schema (focusNode, severity, message, sourceShape,
+value) maps to Formspec’s (path, severity, message, shapeId, value,
+code, context).</p>
+<p><strong>External validation injection.</strong> Both specifications
+define injection of externally-produced validation results into the
+unified report.</p>
+<p><strong>Validation modes.</strong> UDFA’s
+ValidateAndShow/ValidateAndHide/NoValidation maps to Formspec’s
+continuous/deferred/disabled. The semantics are equivalent.</p>
+<p><strong>Canonical URL + version + status lifecycle.</strong>
+Identical (both derived from FHIR R5).</p>
+<p><strong>Response pinning.</strong> Identical.</p>
+<p><strong>Modular composition with $assemble.</strong> Both define
+sub-form references resolved at publish time with key prefixing for
+namespace isolation and <code>assembledFrom</code> provenance
+metadata.</p>
+<p><strong>Multiple instances with cross-referencing.</strong> Both
+support named secondary instances with expression-based access. UDFA’s
+<code>instance('name').path</code> maps to Formspec’s
+<code>@instance('name').path</code>.</p>
+<p><strong>Financial/money type.</strong> UDFA’s <code>financial</code>
+type (object with <code>amount</code> and <code>currency</code>) is
+equivalent to Formspec’s <code>money</code> type (Appendix C,
+§C.1.1).</p>
+<p><strong>Attachment field modeling.</strong> Both model file
+attachments as metadata objects with the actual binary storage being out
+of scope.</p>
+<p><strong>Pre-populated fields with editable vs locked
+distinction.</strong> Both handle this through the combination of
+<code>initialValue</code> (or <code>calculate</code>) and
+<code>readonly</code> Binds.</p>
+<h3 id="d.3-design-divergences-no-action">D.3 Design Divergences (No
+Action)</h3>
+<p><strong>Expression syntax: <code>${field}</code> vs
+<code>$field</code>.</strong> UDFA uses <code>${...}</code> (curly
+braces, ODK-style); Formspec uses <code>$field</code> (bare sigil). Both
+are valid. Formspec’s is more concise; UDFA’s is more explicit about
+token boundaries. No change.</p>
+<p><strong><code>nodeset</code> vs <code>path</code> for bind
+targeting.</strong> UDFA uses <code>nodeset</code> (XForms terminology);
+Formspec uses <code>path</code>. Same semantics, different names.
+Formspec’s <code>path</code> is more intuitive for JSON developers
+unfamiliar with XForms. No change.</p>
+<p><strong>Implicit numeric coercion in comparisons.</strong> UDFA’s
+JEXL-F performs automatic numeric coercion when comparing
+<code>${string} == ${number}</code>. Formspec’s FEL requires explicit
+type matching (§3.4.3): comparing a string to a number is a type error
+unless explicitly cast with <code>number()</code>. This is a deliberate
+safety choice — implicit coercion is a well-documented source of bugs in
+JavaScript and similar languages. Form authors who need cross-type
+comparison must write <code>number($stringField) == $numberField</code>,
+making the intent explicit. No change.</p>
+<p><strong>Calculate continues regardless of relevance.</strong> Both
+specifications define this behavior. UDFA states it explicitly in the
+MIP table; Formspec defines it in §5.6 rule 4. The semantics are
+identical. No change needed.</p>
+<p><strong>“Cryptographically locked” external data.</strong> UDFA uses
+the phrase “cryptographically locked values representing external system
+truths” for pre-populated fields from external sources. Formspec handles
+this through <code>readonly: true</code> on Binds and
+<code>readonly: true</code> on instances (D.1.2 above). Cryptographic
+verification of external data integrity is an implementation concern
+outside the scope of a form definition standard. No change.</p>
+<p><strong>Separate “BindGraph” noun.</strong> UDFA names the collection
+of Binds as a distinct entity (“BindGraph”). Formspec treats binds as an
+array property on the Definition without naming the collection as a
+separate conceptual entity. The BindGraph is an implementation artifact
+(the dependency graph constructed during the Rebuild phase), not a
+definition-time concept that needs a name in the schema. No change.</p>
 <aside id="footnotes" class="footnotes footnotes-end-of-document"
 role="doc-endnotes">
 <hr />
