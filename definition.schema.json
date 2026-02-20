@@ -25,7 +25,7 @@
     "optionSets": { "type": "object", "additionalProperties": { "$ref": "#/$defs/OptionSet" } },
     "screener": { "$ref": "#/$defs/Screener" },
     "migrations": { "$ref": "#/$defs/Migrations" },
-    "extensions": { "type": "object" }
+    "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
   },
   "additionalProperties": false,
 
@@ -40,7 +40,7 @@
         "description": { "type": "string" },
         "hint": { "type": "string" },
         "labels": { "type": "object", "additionalProperties": { "type": "string" } },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "allOf": [
         {
@@ -51,7 +51,9 @@
               "children": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
               "repeatable": { "type": "boolean", "default": false },
               "minRepeat": { "type": "integer", "minimum": 0 },
-              "maxRepeat": { "type": "integer", "minimum": 1 }
+              "maxRepeat": { "type": "integer", "minimum": 1 },
+              "$ref": { "type": "string", "format": "uri" },
+              "keyPrefix": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" }
             },
             "required": ["children"],
             "additionalProperties": false
@@ -122,7 +124,7 @@
         "excludedValue": { "type": "string", "enum": ["preserve", "null"], "default": "preserve" },
         "nonRelevantBehavior": { "type": "string", "enum": ["remove", "empty", "keep"] },
         "disabledDisplay": { "type": "string", "enum": ["hidden", "protected"], "default": "hidden" },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false
     },
@@ -131,7 +133,7 @@
       "type": "object",
       "required": ["id", "target", "message"],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
+        "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$" },
         "target": { "type": "string", "minLength": 1 },
         "severity": { "type": "string", "enum": ["error", "warning", "info"], "default": "error" },
         "constraint": { "type": "string" },
@@ -144,7 +146,7 @@
         "or": { "type": "array", "items": { "type": "string" } },
         "not": { "type": "string" },
         "xone": { "type": "array", "items": { "type": "string" } },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false,
       "anyOf": [
@@ -159,12 +161,13 @@
     "Instance": {
       "type": "object",
       "properties": {
-        "source": { "type": "string", "format": "uri" },
+        "description": { "type": "string" },
+        "source": { "type": "string", "format": "uri-template" },
         "static": { "type": "boolean", "default": false },
         "data": {},
         "schema": { "type": "object", "additionalProperties": { "type": "string" } },
         "readonly": { "type": "boolean", "default": true },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "anyOf": [
         { "required": ["source"] },
@@ -180,7 +183,7 @@
         "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
         "expression": { "type": "string" },
         "scope": { "type": "string", "default": "#" },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false
     },
@@ -192,7 +195,7 @@
         "source": { "type": "string", "format": "uri" },
         "valueField": { "type": "string", "default": "value" },
         "labelField": { "type": "string", "default": "label" },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "anyOf": [
         { "required": ["options"] },
@@ -207,7 +210,7 @@
       "properties": {
         "value": { "type": "string" },
         "label": { "type": "string" },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false
     },
@@ -218,7 +221,7 @@
       "properties": {
         "items": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
         "routes": { "type": "array", "items": { "$ref": "#/$defs/Route" }, "minItems": 1 },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false
     },
@@ -230,7 +233,7 @@
         "condition": { "type": "string" },
         "target": { "type": "string", "format": "uri" },
         "label": { "type": "string" },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false
     },
@@ -242,7 +245,7 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/MigrationDescriptor" }
         },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false
     },
@@ -266,7 +269,7 @@
           }
         },
         "defaults": { "type": "object" },
-        "extensions": { "type": "object" }
+        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
       },
       "additionalProperties": false
     }

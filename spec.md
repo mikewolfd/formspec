@@ -2296,7 +2296,7 @@ JSON data.
 
 | Property | Type | Cardinality | Description |
 |---|---|---|---|
-| `id` | string | **1..1** (REQUIRED) | Unique identifier for this Shape. MUST be unique across all Shapes in the Definition. MUST match `[a-zA-Z][a-zA-Z0-9_]*`. |
+| `id` | string | **1..1** (REQUIRED) | Unique identifier for this Shape. MUST be unique across all Shapes in the Definition. MUST match `[a-zA-Z][a-zA-Z0-9_\-]*`. |
 | `target` | string | **1..1** (REQUIRED) | Path expression identifying the data node(s) this Shape validates. Uses the same path syntax as Binds (§4.3.3). The special value `"#"` targets the entire Response root. |
 | `severity` | string | **0..1** (OPTIONAL) | Severity of the validation result produced when this Shape fails. MUST be one of `"error"`, `"warning"`, `"info"`. Default: `"error"`. |
 | `constraint` | string (FEL expression → boolean) | **0..1** (OPTIONAL) | Validity predicate. The expression evaluates to `true` when the data is valid and `false` when it is invalid. REQUIRED unless the Shape uses composition operators (`and`, `or`, `not`, `xone`). |
@@ -2630,18 +2630,16 @@ lifecycle transitions are:
 
 ### 6.4 Response Pinning
 
-A Response MUST reference a specific Definition version using the fully
-qualified `url|version` syntax:
+A Response MUST reference a specific Definition version using
+`definitionUrl` and `definitionVersion` properties:
 
 ```json
 {
-  "definition": "https://example.gov/forms/annual-report|2025.1.0",
-  "data": {},
-  "meta": {
-    "created": "2025-01-15T10:00:00Z",
-    "modified": "2025-01-15T14:30:00Z",
-    "status": "in-progress"
-  }
+  "definitionUrl": "https://example.gov/forms/annual-report",
+  "definitionVersion": "2025.1.0",
+  "status": "in-progress",
+  "authored": "2025-01-15T14:30:00Z",
+  "data": {}
 }
 ```
 
@@ -2885,7 +2883,8 @@ the calculated total equals the award amount exactly.
       "type": "field",
       "dataType": "decimal",
       "label": "Authorized Award Amount",
-      "hint": "This value is pre-populated from the grants management system and cannot be edited."
+      "hint": "This value is pre-populated from the grants management system and cannot be edited.",
+      "initialValue": "=@instance('award').award_amount"
     },
     {
       "key": "line_items",
@@ -2900,7 +2899,7 @@ the calculated total equals the award amount exactly.
           "type": "field",
           "dataType": "string",
           "label": "Budget Category",
-          "choices": [
+          "options": [
             { "value": "personnel",    "label": "Personnel" },
             { "value": "fringe",       "label": "Fringe Benefits" },
             { "value": "travel",       "label": "Travel" },
@@ -2937,27 +2936,26 @@ the calculated total equals the award amount exactly.
   "binds": [
     {
       "path": "award_amount",
-      "initialValue": "@instance('award').award_amount",
-      "readonly": true
+      "readonly": "true"
     },
     {
       "path": "line_items[*].category",
-      "required": true
+      "required": "true"
     },
     {
       "path": "line_items[*].description",
-      "required": true
+      "required": "true"
     },
     {
       "path": "line_items[*].amount",
-      "required": true,
+      "required": "true",
       "constraint": "$ > 0",
       "constraintMessage": "Amount must be greater than zero."
     },
     {
       "path": "total_budget",
       "calculate": "sum(line_items[*].amount)",
-      "readonly": true
+      "readonly": "true"
     }
   ],
 
@@ -2965,7 +2963,7 @@ the calculated total equals the award amount exactly.
     {
       "id": "budget-balances",
       "severity": "error",
-      "targets": ["total_budget"],
+      "target": "total_budget",
       "constraint": "$total_budget = $award_amount",
       "message": "Total budget (${$total_budget}) must equal the authorized award amount (${$award_amount})."
     }
@@ -2980,7 +2978,8 @@ line items:
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/budget-detail|2025-06-01",
+  "definitionUrl": "https://grants.example.gov/forms/budget-detail",
+  "definitionVersion": "2025-06-01",
   "status": "in-progress",
   "data": {
     "award_amount": 250000.00,
@@ -3015,8 +3014,9 @@ must add additional line items totaling $120,000.00 to reach balance.
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/budget-detail|2025-06-01",
-  "status": "complete",
+  "definitionUrl": "https://grants.example.gov/forms/budget-detail",
+  "definitionVersion": "2025-06-01",
+  "status": "completed",
   "data": {
     "award_amount": 250000.00,
     "line_items": [
@@ -3112,7 +3112,7 @@ their validation constraints are suspended.
   "binds": [
     {
       "path": "has_subcontracts",
-      "required": true
+      "required": "true"
     },
     {
       "path": "subcontracting",
@@ -3120,29 +3120,29 @@ their validation constraints are suspended.
     },
     {
       "path": "subcontracting[*].subcontractor_name",
-      "required": true
+      "required": "true"
     },
     {
       "path": "subcontracting[*].subcontractor_ein",
-      "required": true,
+      "required": "true",
       "constraint": "matches($, '^[0-9]{2}-[0-9]{7}$')",
       "constraintMessage": "EIN must be in XX-XXXXXXX format."
     },
     {
       "path": "subcontracting[*].subcontract_amount",
-      "required": true,
+      "required": "true",
       "constraint": "$ > 0",
       "constraintMessage": "Amount must be greater than zero."
     },
     {
       "path": "subcontracting[*].work_description",
-      "required": true
+      "required": "true"
     },
     {
       "path": "subcontract_total",
       "relevant": "$has_subcontracts = true",
       "calculate": "sum(subcontracting[*].subcontract_amount)",
-      "readonly": true
+      "readonly": "true"
     }
   ]
 }
@@ -3156,8 +3156,9 @@ exclude non-relevant fields from the Response `data` object:
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/progress-report|2025-06-01",
-  "status": "complete",
+  "definitionUrl": "https://grants.example.gov/forms/progress-report",
+  "definitionVersion": "2025-06-01",
+  "status": "completed",
   "data": {
     "has_subcontracts": false
   }
@@ -3175,8 +3176,9 @@ non-relevant.
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/progress-report|2025-06-01",
-  "status": "complete",
+  "definitionUrl": "https://grants.example.gov/forms/progress-report",
+  "definitionVersion": "2025-06-01",
+  "status": "completed",
   "data": {
     "has_subcontracts": true,
     "subcontracting": [
@@ -3280,35 +3282,35 @@ total.
   "binds": [
     {
       "path": "categories[*].category_name",
-      "required": true
+      "required": "true"
     },
     {
       "path": "categories[*].personnel_costs",
-      "required": true,
+      "required": "true",
       "constraint": "$ >= 0",
       "constraintMessage": "Costs must not be negative."
     },
     {
       "path": "categories[*].travel_costs",
-      "required": true,
+      "required": "true",
       "constraint": "$ >= 0",
       "constraintMessage": "Costs must not be negative."
     },
     {
       "path": "categories[*].supply_costs",
-      "required": true,
+      "required": "true",
       "constraint": "$ >= 0",
       "constraintMessage": "Costs must not be negative."
     },
     {
       "path": "categories[*].row_total",
       "calculate": "$personnel_costs + $travel_costs + $supply_costs",
-      "readonly": true
+      "readonly": "true"
     },
     {
       "path": "grand_total",
       "calculate": "sum(categories[*].row_total)",
-      "readonly": true
+      "readonly": "true"
     }
   ],
 
@@ -3316,21 +3318,21 @@ total.
     {
       "id": "personnel-concentration-warning",
       "severity": "warning",
-      "targets": ["categories[*].personnel_costs"],
+      "target": "categories[*].personnel_costs",
       "constraint": "$row_total = 0 or ($personnel_costs div $row_total) <= 0.50",
       "message": "Personnel costs (${$personnel_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct."
     },
     {
       "id": "travel-concentration-warning",
       "severity": "warning",
-      "targets": ["categories[*].travel_costs"],
+      "target": "categories[*].travel_costs",
       "constraint": "$row_total = 0 or ($travel_costs div $row_total) <= 0.50",
       "message": "Travel costs (${$travel_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct."
     },
     {
       "id": "supply-concentration-warning",
       "severity": "warning",
-      "targets": ["categories[*].supply_costs"],
+      "target": "categories[*].supply_costs",
       "constraint": "$row_total = 0 or ($supply_costs div $row_total) <= 0.50",
       "message": "Supply costs (${$supply_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct."
     }
@@ -3361,7 +3363,8 @@ aggregation. Processors MUST distinguish between:
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/expenditure-report|2025-06-01",
+  "definitionUrl": "https://grants.example.gov/forms/expenditure-report",
+  "definitionVersion": "2025-06-01",
   "status": "in-progress",
   "data": {
     "categories": [
@@ -3393,7 +3396,8 @@ The first row has `personnel_costs` at 80% of `row_total` (80,000 /
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/expenditure-report|2025-06-01",
+  "definitionUrl": "https://grants.example.gov/forms/expenditure-report",
+  "definitionVersion": "2025-06-01",
   "valid": true,
   "results": [
     {
@@ -3506,13 +3510,13 @@ interpolated values in the message.
   "binds": [
     {
       "path": "total_expenditure",
-      "required": true,
+      "required": "true",
       "constraint": "$ > 0",
       "constraintMessage": "Total expenditure must be greater than zero."
     },
     {
       "path": "budget_justification",
-      "required": true
+      "required": "true"
     }
   ],
 
@@ -3520,7 +3524,7 @@ interpolated values in the message.
     {
       "id": "yoy-variance-warning",
       "severity": "warning",
-      "targets": ["total_expenditure"],
+      "target": "total_expenditure",
       "constraint": "$yoy_change_pct <= 0.25",
       "message": "The proposed expenditure (${$total_expenditure}) differs from the prior year actual (${$prior_total}) by ${round($yoy_change_pct * 100)}%. Changes exceeding 25% require additional justification in the narrative."
     }
@@ -3532,7 +3536,8 @@ interpolated values in the message.
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/annual-budget|2025-06-01",
+  "definitionUrl": "https://grants.example.gov/forms/annual-budget",
+  "definitionVersion": "2025-06-01",
   "status": "in-progress",
   "data": {
     "total_expenditure": 280000.00,
@@ -3548,7 +3553,8 @@ The year-over-year change is 40%, exceeding the 25% threshold.
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/annual-budget|2025-06-01",
+  "definitionUrl": "https://grants.example.gov/forms/annual-budget",
+  "definitionVersion": "2025-06-01",
   "valid": false,
   "results": [
     {
@@ -3610,7 +3616,7 @@ value is a definition URL.
       "type": "field",
       "dataType": "string",
       "label": "What type of award is this?",
-      "choices": [
+      "options": [
         { "value": "grant",             "label": "Grant" },
         { "value": "cooperative_agreement", "label": "Cooperative Agreement" },
         { "value": "contract",          "label": "Contract" }
@@ -3621,7 +3627,7 @@ value is a definition URL.
       "type": "field",
       "dataType": "string",
       "label": "Is this an interim or final report?",
-      "choices": [
+      "options": [
         { "value": "interim", "label": "Interim (Quarterly / Semi-annual)" },
         { "value": "final",   "label": "Final" }
       ]
@@ -3648,13 +3654,13 @@ value is a definition URL.
   ],
 
   "binds": [
-    { "path": "award_type",            "required": true },
-    { "path": "reporting_period_type",  "required": true },
-    { "path": "total_award_value",      "required": true, "constraint": "$ > 0" },
-    { "path": "has_subawards",          "required": true },
+    { "path": "award_type",            "required": "true" },
+    { "path": "reporting_period_type",  "required": "true" },
+    { "path": "total_award_value",      "required": "true", "constraint": "$ > 0" },
+    { "path": "has_subawards",          "required": "true" },
     {
       "path": "routed_form",
-      "readonly": true,
+      "readonly": "true",
       "calculate": "if($reporting_period_type = 'final' or $total_award_value >= 500000 or $has_subawards = true, 'https://grants.example.gov/forms/full-progress-report|2025-06-01', 'https://grants.example.gov/forms/abbreviated-progress-report|2025-06-01')"
     }
   ]
@@ -3680,9 +3686,7 @@ The full and abbreviated reports declare their lineage via `derivedFrom`:
   "version": "2025-06-01",
   "status": "active",
   "title": "Full Progress Report",
-  "derivedFrom": [
-    "https://grants.example.gov/forms/progress-screener|2025-06-01"
-  ]
+  "derivedFrom": "https://grants.example.gov/forms/progress-screener|2025-06-01"
 }
 ```
 
@@ -3692,9 +3696,7 @@ The full and abbreviated reports declare their lineage via `derivedFrom`:
   "version": "2025-06-01",
   "status": "active",
   "title": "Abbreviated Progress Report",
-  "derivedFrom": [
-    "https://grants.example.gov/forms/progress-screener|2025-06-01"
-  ]
+  "derivedFrom": "https://grants.example.gov/forms/progress-screener|2025-06-01"
 }
 ```
 
@@ -3706,8 +3708,9 @@ assist in traceability and auditing. Processors MUST NOT require
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/progress-screener|2025-06-01",
-  "status": "complete",
+  "definitionUrl": "https://grants.example.gov/forms/progress-screener",
+  "definitionVersion": "2025-06-01",
+  "status": "completed",
   "data": {
     "award_type": "grant",
     "reporting_period_type": "interim",
@@ -3773,17 +3776,17 @@ database.
   "binds": [
     {
       "path": "organization_name",
-      "required": true
+      "required": "true"
     },
     {
       "path": "ein",
-      "required": true,
+      "required": "true",
       "constraint": "matches($, '^[0-9]{2}-[0-9]{7}$')",
       "constraintMessage": "EIN must be in XX-XXXXXXX format (e.g., 12-3456789)."
     },
     {
       "path": "duns_number",
-      "required": true,
+      "required": "true",
       "constraint": "matches($, '^[A-Z0-9]{12}$')",
       "constraintMessage": "UEI must be exactly 12 alphanumeric characters."
     }
@@ -3804,7 +3807,8 @@ database.
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/entity-registration|2025-06-01",
+  "definitionUrl": "https://grants.example.gov/forms/entity-registration",
+  "definitionVersion": "2025-06-01",
   "status": "in-progress",
   "data": {
     "organization_name": "Northwind Research Foundation",
@@ -3825,7 +3829,8 @@ produce a single ValidationReport containing results from both sources:
 
 ```json
 {
-  "definition": "https://grants.example.gov/forms/entity-registration|2025-06-01",
+  "definitionUrl": "https://grants.example.gov/forms/entity-registration",
+  "definitionVersion": "2025-06-01",
   "valid": false,
   "results": [
     {
@@ -4048,7 +4053,7 @@ Usage within a shape:
 {
   "id": "unique-category-names",
   "severity": "error",
-  "targets": ["categories[*].category_name"],
+  "target": "categories[*].category_name",
   "x-unique-within": {
     "collection": "categories"
   },

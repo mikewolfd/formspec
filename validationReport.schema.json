@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://formspec.org/schemas/validationReport/1.0",
+  "title": "Formspec Validation Report",
+  "description": "A standalone Validation Report aggregating all validation results for a Response at a point in time (§5.4).",
+  "type": "object",
+  "required": ["valid", "results", "counts", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "definitionUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "The canonical URL of the Definition that was validated against."
+    },
+    "definitionVersion": {
+      "type": "string",
+      "description": "The version of the Definition that was validated against."
+    },
+    "valid": {
+      "type": "boolean",
+      "description": "true if and only if the results array contains zero entries with severity 'error'."
+    },
+    "results": {
+      "type": "array",
+      "description": "All validation results regardless of severity.",
+      "items": { "$ref": "https://formspec.org/schemas/response.schema.json#/$defs/ValidationResult" }
+    },
+    "counts": {
+      "type": "object",
+      "description": "Counts of results by severity level.",
+      "required": ["error", "warning", "info"],
+      "additionalProperties": false,
+      "properties": {
+        "error": { "type": "integer", "minimum": 0 },
+        "warning": { "type": "integer", "minimum": 0 },
+        "info": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 date-time indicating when validation was performed."
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^x-" }
+    }
+  }
+}

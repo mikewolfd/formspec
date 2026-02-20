@@ -4693,7 +4693,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb36-1"><a href=
 <td>string</td>
 <td><strong>1..1</strong> (REQUIRED)</td>
 <td>Unique identifier for this Shape. MUST be unique across all Shapes
-in the Definition. MUST match <code>[a-zA-Z][a-zA-Z0-9_]*</code>.</td>
+in the Definition. MUST match <code>[a-zA-Z][a-zA-Z0-9_\-]*</code>.</td>
 </tr>
 <tr class="even">
 <td><code>target</code></td>
@@ -5361,18 +5361,17 @@ validation step confirming that the Definition is internally consistent
 exist, etc.).</li>
 </ul>
 <h3 id="response-pinning">6.4 Response Pinning</h3>
-<p>A Response MUST reference a specific Definition version using the
-fully qualified <code>url|version</code> syntax:</p>
+<p>A Response MUST reference a specific Definition version using
+<code>definitionUrl</code> and <code>definitionVersion</code>
+properties:</p>
 <div class="sourceCode" id="cb44"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.gov/forms/annual-report|2025.1.0&quot;</span><span class="fu">,</span></span>
-<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{},</span></span>
-<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;meta&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;created&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-01-15T10:00:00Z&quot;</span><span class="fu">,</span></span>
-<span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;modified&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-01-15T14:30:00Z&quot;</span><span class="fu">,</span></span>
-<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span></span>
-<span id="cb44-8"><a href="#cb44-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb44-9"><a href="#cb44-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.gov/forms/annual-report&quot;</span><span class="fu">,</span></span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025.1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;authored&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-01-15T14:30:00Z&quot;</span><span class="fu">,</span></span>
+<span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{}</span></span>
+<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p><strong>Pinning Rule (VP-01):</strong> A Response is always validated
 against the Definition version it references, even if a newer version of
 the same logical form exists. This guarantees that existing Responses
@@ -5704,79 +5703,79 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb48-1"><a href=
 <span id="cb48-32"><a href="#cb48-32" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
 <span id="cb48-33"><a href="#cb48-33" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;decimal&quot;</span><span class="fu">,</span></span>
 <span id="cb48-34"><a href="#cb48-34" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Authorized Award Amount&quot;</span><span class="fu">,</span></span>
-<span id="cb48-35"><a href="#cb48-35" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;hint&quot;</span><span class="fu">:</span> <span class="st">&quot;This value is pre-populated from the grants management system and cannot be edited.&quot;</span></span>
-<span id="cb48-36"><a href="#cb48-36" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-37"><a href="#cb48-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb48-38"><a href="#cb48-38" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;line_items&quot;</span><span class="fu">,</span></span>
-<span id="cb48-39"><a href="#cb48-39" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;group&quot;</span><span class="fu">,</span></span>
-<span id="cb48-40"><a href="#cb48-40" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;repeatable&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb48-41"><a href="#cb48-41" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget Line Items&quot;</span><span class="fu">,</span></span>
-<span id="cb48-42"><a href="#cb48-42" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;minRepeat&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
-<span id="cb48-43"><a href="#cb48-43" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;maxRepeat&quot;</span><span class="fu">:</span> <span class="dv">50</span><span class="fu">,</span></span>
-<span id="cb48-44"><a href="#cb48-44" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;children&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb48-45"><a href="#cb48-45" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
-<span id="cb48-46"><a href="#cb48-46" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;category&quot;</span><span class="fu">,</span></span>
-<span id="cb48-47"><a href="#cb48-47" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
-<span id="cb48-48"><a href="#cb48-48" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
-<span id="cb48-49"><a href="#cb48-49" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget Category&quot;</span><span class="fu">,</span></span>
-<span id="cb48-50"><a href="#cb48-50" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;choices&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb48-51"><a href="#cb48-51" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel&quot;</span><span class="fu">,</span>    <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-52"><a href="#cb48-52" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;fringe&quot;</span><span class="fu">,</span>       <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Fringe Benefits&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-53"><a href="#cb48-53" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;travel&quot;</span><span class="fu">,</span>       <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Travel&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-54"><a href="#cb48-54" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;equipment&quot;</span><span class="fu">,</span>    <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Equipment&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-55"><a href="#cb48-55" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;supplies&quot;</span><span class="fu">,</span>     <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Supplies&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-56"><a href="#cb48-56" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;contractual&quot;</span><span class="fu">,</span>  <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Contractual&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-57"><a href="#cb48-57" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;other&quot;</span><span class="fu">,</span>        <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Other&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-58"><a href="#cb48-58" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;indirect&quot;</span><span class="fu">,</span>     <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Indirect Costs&quot;</span> <span class="fu">}</span></span>
-<span id="cb48-59"><a href="#cb48-59" aria-hidden="true" tabindex="-1"></a>          <span class="ot">]</span></span>
-<span id="cb48-60"><a href="#cb48-60" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-61"><a href="#cb48-61" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
-<span id="cb48-62"><a href="#cb48-62" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;description&quot;</span><span class="fu">,</span></span>
-<span id="cb48-63"><a href="#cb48-63" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
-<span id="cb48-64"><a href="#cb48-64" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
-<span id="cb48-65"><a href="#cb48-65" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Description&quot;</span></span>
-<span id="cb48-66"><a href="#cb48-66" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-67"><a href="#cb48-67" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
-<span id="cb48-68"><a href="#cb48-68" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;amount&quot;</span><span class="fu">,</span></span>
-<span id="cb48-69"><a href="#cb48-69" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
-<span id="cb48-70"><a href="#cb48-70" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;decimal&quot;</span><span class="fu">,</span></span>
-<span id="cb48-71"><a href="#cb48-71" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Amount ($)&quot;</span></span>
-<span id="cb48-72"><a href="#cb48-72" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
-<span id="cb48-73"><a href="#cb48-73" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
-<span id="cb48-74"><a href="#cb48-74" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb48-75"><a href="#cb48-75" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb48-76"><a href="#cb48-76" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;total_budget&quot;</span><span class="fu">,</span></span>
-<span id="cb48-77"><a href="#cb48-77" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
-<span id="cb48-78"><a href="#cb48-78" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;decimal&quot;</span><span class="fu">,</span></span>
-<span id="cb48-79"><a href="#cb48-79" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Total Budget&quot;</span><span class="fu">,</span></span>
-<span id="cb48-80"><a href="#cb48-80" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Auto-calculated. Must equal the authorized award amount.&quot;</span></span>
-<span id="cb48-81"><a href="#cb48-81" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb48-82"><a href="#cb48-82" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb48-83"><a href="#cb48-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-84"><a href="#cb48-84" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;binds&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb48-85"><a href="#cb48-85" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb48-86"><a href="#cb48-86" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;award_amount&quot;</span><span class="fu">,</span></span>
-<span id="cb48-87"><a href="#cb48-87" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;initialValue&quot;</span><span class="fu">:</span> <span class="st">&quot;@instance(&#39;award&#39;).award_amount&quot;</span><span class="fu">,</span></span>
-<span id="cb48-88"><a href="#cb48-88" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb48-35"><a href="#cb48-35" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;hint&quot;</span><span class="fu">:</span> <span class="st">&quot;This value is pre-populated from the grants management system and cannot be edited.&quot;</span><span class="fu">,</span></span>
+<span id="cb48-36"><a href="#cb48-36" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;initialValue&quot;</span><span class="fu">:</span> <span class="st">&quot;=@instance(&#39;award&#39;).award_amount&quot;</span></span>
+<span id="cb48-37"><a href="#cb48-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-38"><a href="#cb48-38" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb48-39"><a href="#cb48-39" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;line_items&quot;</span><span class="fu">,</span></span>
+<span id="cb48-40"><a href="#cb48-40" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;group&quot;</span><span class="fu">,</span></span>
+<span id="cb48-41"><a href="#cb48-41" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;repeatable&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb48-42"><a href="#cb48-42" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget Line Items&quot;</span><span class="fu">,</span></span>
+<span id="cb48-43"><a href="#cb48-43" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;minRepeat&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
+<span id="cb48-44"><a href="#cb48-44" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;maxRepeat&quot;</span><span class="fu">:</span> <span class="dv">50</span><span class="fu">,</span></span>
+<span id="cb48-45"><a href="#cb48-45" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;children&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb48-46"><a href="#cb48-46" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb48-47"><a href="#cb48-47" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;category&quot;</span><span class="fu">,</span></span>
+<span id="cb48-48"><a href="#cb48-48" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb48-49"><a href="#cb48-49" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
+<span id="cb48-50"><a href="#cb48-50" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget Category&quot;</span><span class="fu">,</span></span>
+<span id="cb48-51"><a href="#cb48-51" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;options&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb48-52"><a href="#cb48-52" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel&quot;</span><span class="fu">,</span>    <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-53"><a href="#cb48-53" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;fringe&quot;</span><span class="fu">,</span>       <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Fringe Benefits&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-54"><a href="#cb48-54" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;travel&quot;</span><span class="fu">,</span>       <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Travel&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-55"><a href="#cb48-55" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;equipment&quot;</span><span class="fu">,</span>    <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Equipment&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-56"><a href="#cb48-56" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;supplies&quot;</span><span class="fu">,</span>     <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Supplies&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-57"><a href="#cb48-57" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;contractual&quot;</span><span class="fu">,</span>  <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Contractual&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-58"><a href="#cb48-58" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;other&quot;</span><span class="fu">,</span>        <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Other&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-59"><a href="#cb48-59" aria-hidden="true" tabindex="-1"></a>            <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;indirect&quot;</span><span class="fu">,</span>     <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Indirect Costs&quot;</span> <span class="fu">}</span></span>
+<span id="cb48-60"><a href="#cb48-60" aria-hidden="true" tabindex="-1"></a>          <span class="ot">]</span></span>
+<span id="cb48-61"><a href="#cb48-61" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-62"><a href="#cb48-62" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb48-63"><a href="#cb48-63" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;description&quot;</span><span class="fu">,</span></span>
+<span id="cb48-64"><a href="#cb48-64" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb48-65"><a href="#cb48-65" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
+<span id="cb48-66"><a href="#cb48-66" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Description&quot;</span></span>
+<span id="cb48-67"><a href="#cb48-67" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-68"><a href="#cb48-68" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb48-69"><a href="#cb48-69" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;amount&quot;</span><span class="fu">,</span></span>
+<span id="cb48-70"><a href="#cb48-70" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb48-71"><a href="#cb48-71" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;decimal&quot;</span><span class="fu">,</span></span>
+<span id="cb48-72"><a href="#cb48-72" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Amount ($)&quot;</span></span>
+<span id="cb48-73"><a href="#cb48-73" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb48-74"><a href="#cb48-74" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb48-75"><a href="#cb48-75" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb48-76"><a href="#cb48-76" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb48-77"><a href="#cb48-77" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;total_budget&quot;</span><span class="fu">,</span></span>
+<span id="cb48-78"><a href="#cb48-78" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb48-79"><a href="#cb48-79" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;decimal&quot;</span><span class="fu">,</span></span>
+<span id="cb48-80"><a href="#cb48-80" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Total Budget&quot;</span><span class="fu">,</span></span>
+<span id="cb48-81"><a href="#cb48-81" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Auto-calculated. Must equal the authorized award amount.&quot;</span></span>
+<span id="cb48-82"><a href="#cb48-82" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb48-83"><a href="#cb48-83" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb48-84"><a href="#cb48-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-85"><a href="#cb48-85" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;binds&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb48-86"><a href="#cb48-86" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb48-87"><a href="#cb48-87" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;award_amount&quot;</span><span class="fu">,</span></span>
+<span id="cb48-88"><a href="#cb48-88" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb48-89"><a href="#cb48-89" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb48-90"><a href="#cb48-90" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb48-91"><a href="#cb48-91" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;line_items[*].category&quot;</span><span class="fu">,</span></span>
-<span id="cb48-92"><a href="#cb48-92" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb48-92"><a href="#cb48-92" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb48-93"><a href="#cb48-93" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb48-94"><a href="#cb48-94" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb48-95"><a href="#cb48-95" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;line_items[*].description&quot;</span><span class="fu">,</span></span>
-<span id="cb48-96"><a href="#cb48-96" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb48-96"><a href="#cb48-96" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb48-97"><a href="#cb48-97" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb48-98"><a href="#cb48-98" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb48-99"><a href="#cb48-99" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;line_items[*].amount&quot;</span><span class="fu">,</span></span>
-<span id="cb48-100"><a href="#cb48-100" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb48-100"><a href="#cb48-100" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb48-101"><a href="#cb48-101" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$ &gt; 0&quot;</span><span class="fu">,</span></span>
 <span id="cb48-102"><a href="#cb48-102" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;Amount must be greater than zero.&quot;</span></span>
 <span id="cb48-103"><a href="#cb48-103" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb48-104"><a href="#cb48-104" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb48-105"><a href="#cb48-105" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_budget&quot;</span><span class="fu">,</span></span>
 <span id="cb48-106"><a href="#cb48-106" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;calculate&quot;</span><span class="fu">:</span> <span class="st">&quot;sum(line_items[*].amount)&quot;</span><span class="fu">,</span></span>
-<span id="cb48-107"><a href="#cb48-107" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb48-107"><a href="#cb48-107" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb48-108"><a href="#cb48-108" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
 <span id="cb48-109"><a href="#cb48-109" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb48-110"><a href="#cb48-110" aria-hidden="true" tabindex="-1"></a></span>
@@ -5784,7 +5783,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb48-1"><a href=
 <span id="cb48-112"><a href="#cb48-112" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb48-113"><a href="#cb48-113" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;budget-balances&quot;</span><span class="fu">,</span></span>
 <span id="cb48-114"><a href="#cb48-114" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;error&quot;</span><span class="fu">,</span></span>
-<span id="cb48-115"><a href="#cb48-115" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;targets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;total_budget&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb48-115"><a href="#cb48-115" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;total_budget&quot;</span><span class="fu">,</span></span>
 <span id="cb48-116"><a href="#cb48-116" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$total_budget = $award_amount&quot;</span><span class="fu">,</span></span>
 <span id="cb48-117"><a href="#cb48-117" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Total budget (${$total_budget}) must equal the authorized award amount (${$award_amount}).&quot;</span></span>
 <span id="cb48-118"><a href="#cb48-118" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
@@ -5796,30 +5795,31 @@ Progress)</h4>
 three line items:</p>
 <div class="sourceCode" id="cb49"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/budget-detail|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
-<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;award_amount&quot;</span><span class="fu">:</span> <span class="fl">250000.00</span><span class="fu">,</span></span>
-<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;line_items&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
-<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel&quot;</span><span class="fu">,</span></span>
-<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Senior researcher — 0.5 FTE&quot;</span><span class="fu">,</span></span>
-<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">95000.00</span></span>
-<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
-<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;fringe&quot;</span><span class="fu">,</span></span>
-<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Benefits at 32% of personnel&quot;</span><span class="fu">,</span></span>
-<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">30400.00</span></span>
-<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
-<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;travel&quot;</span><span class="fu">,</span></span>
-<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Conference attendance — 2 domestic trips&quot;</span><span class="fu">,</span></span>
-<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">4600.00</span></span>
-<span id="cb49-21"><a href="#cb49-21" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
-<span id="cb49-22"><a href="#cb49-22" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb49-23"><a href="#cb49-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_budget&quot;</span><span class="fu">:</span> <span class="fl">130000.00</span></span>
-<span id="cb49-24"><a href="#cb49-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb49-25"><a href="#cb49-25" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/budget-detail&quot;</span><span class="fu">,</span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;award_amount&quot;</span><span class="fu">:</span> <span class="fl">250000.00</span><span class="fu">,</span></span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;line_items&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel&quot;</span><span class="fu">,</span></span>
+<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Senior researcher — 0.5 FTE&quot;</span><span class="fu">,</span></span>
+<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">95000.00</span></span>
+<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
+<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;fringe&quot;</span><span class="fu">,</span></span>
+<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Benefits at 32% of personnel&quot;</span><span class="fu">,</span></span>
+<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">30400.00</span></span>
+<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
+<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;travel&quot;</span><span class="fu">,</span></span>
+<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Conference attendance — 2 domestic trips&quot;</span><span class="fu">,</span></span>
+<span id="cb49-21"><a href="#cb49-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">4600.00</span></span>
+<span id="cb49-22"><a href="#cb49-22" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb49-23"><a href="#cb49-23" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb49-24"><a href="#cb49-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_budget&quot;</span><span class="fu">:</span> <span class="fl">130000.00</span></span>
+<span id="cb49-25"><a href="#cb49-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb49-26"><a href="#cb49-26" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>Note: <code>total_budget</code> is 130,000.00 (the calculated sum)
 while <code>award_amount</code> is 250,000.00. The
 <code>budget-balances</code> shape will produce an error-severity result
@@ -5829,22 +5829,23 @@ items totaling $120,000.00 to reach balance.</p>
 Submission)</h4>
 <div class="sourceCode" id="cb50"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/budget-detail|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;complete&quot;</span><span class="fu">,</span></span>
-<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;award_amount&quot;</span><span class="fu">:</span> <span class="fl">250000.00</span><span class="fu">,</span></span>
-<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;line_items&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel&quot;</span><span class="fu">,</span>   <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Senior researcher — 0.5 FTE&quot;</span><span class="fu">,</span>          <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">95000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;fringe&quot;</span><span class="fu">,</span>      <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Benefits at 32% of personnel&quot;</span><span class="fu">,</span>          <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">30400.00</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;travel&quot;</span><span class="fu">,</span>      <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Conference attendance — 2 domestic trips&quot;</span><span class="fu">,</span><span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">4600.00</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;equipment&quot;</span><span class="fu">,</span>   <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Lab workstation and peripherals&quot;</span><span class="fu">,</span>       <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">12000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;supplies&quot;</span><span class="fu">,</span>    <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Reagents and consumables&quot;</span><span class="fu">,</span>               <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">28000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;contractual&quot;</span><span class="fu">,</span> <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Statistical analysis subcontract&quot;</span><span class="fu">,</span>       <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">45000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb50-13"><a href="#cb50-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;indirect&quot;</span><span class="fu">,</span>    <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;F&amp;A at 52% of MTDC&quot;</span><span class="fu">,</span>                    <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">35000.00</span> <span class="fu">}</span></span>
-<span id="cb50-14"><a href="#cb50-14" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb50-15"><a href="#cb50-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_budget&quot;</span><span class="fu">:</span> <span class="fl">250000.00</span></span>
-<span id="cb50-16"><a href="#cb50-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb50-17"><a href="#cb50-17" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/budget-detail&quot;</span><span class="fu">,</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;completed&quot;</span><span class="fu">,</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;award_amount&quot;</span><span class="fu">:</span> <span class="fl">250000.00</span><span class="fu">,</span></span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;line_items&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel&quot;</span><span class="fu">,</span>   <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Senior researcher — 0.5 FTE&quot;</span><span class="fu">,</span>          <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">95000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;fringe&quot;</span><span class="fu">,</span>      <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Benefits at 32% of personnel&quot;</span><span class="fu">,</span>          <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">30400.00</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;travel&quot;</span><span class="fu">,</span>      <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Conference attendance — 2 domestic trips&quot;</span><span class="fu">,</span><span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">4600.00</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;equipment&quot;</span><span class="fu">,</span>   <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Lab workstation and peripherals&quot;</span><span class="fu">,</span>       <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">12000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;supplies&quot;</span><span class="fu">,</span>    <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Reagents and consumables&quot;</span><span class="fu">,</span>               <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">28000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb50-13"><a href="#cb50-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;contractual&quot;</span><span class="fu">,</span> <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Statistical analysis subcontract&quot;</span><span class="fu">,</span>       <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">45000.00</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb50-14"><a href="#cb50-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;indirect&quot;</span><span class="fu">,</span>    <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;F&amp;A at 52% of MTDC&quot;</span><span class="fu">,</span>                    <span class="dt">&quot;amount&quot;</span><span class="fu">:</span> <span class="fl">35000.00</span> <span class="fu">}</span></span>
+<span id="cb50-15"><a href="#cb50-15" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb50-16"><a href="#cb50-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_budget&quot;</span><span class="fu">:</span> <span class="fl">250000.00</span></span>
+<span id="cb50-17"><a href="#cb50-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb50-18"><a href="#cb50-18" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>The <code>total_budget</code> now equals <code>award_amount</code>.
 The <code>budget-balances</code> shape produces no results, and the
 Response is valid.</p>
@@ -5895,21 +5896,21 @@ period?” }, { “key”: “subcontracting”, “type”: “group”, “lab
 Amount” }],</td>
 </tr>
 <tr class="even">
-<td>“binds”: [ { “path”: “has_subcontracts”, “required”: true }, {
+<td>“binds”: [ { “path”: “has_subcontracts”, “required”: “true” }, {
 “path”: “subcontracting”, “relevant”: “<span
 class="math inline">$has_subcontracts = true" }, { "path":
-"subcontracting[*].subcontractor_name", "required": true }, { "path":
-"subcontracting[*].subcontractor_ein", "required": true, "constraint":
+"subcontracting[*].subcontractor_name", "required": "true" }, { "path":
+"subcontracting[*].subcontractor_ein", "required": "true", "constraint":
 "matches($</span>, ’<a href="#fn1" class="footnote-ref" id="fnref1"
 role="doc-noteref"><sup>1</sup></a>{2}-[0-9]{7}<span
 class="math inline">$')", "constraintMessage": "EIN must be in
 XX-XXXXXXX format." }, { "path": "subcontracting[*].subcontract_amount",
-"required": true, "constraint": "$</span> &gt; 0”, “constraintMessage”:
-“Amount must be greater than zero.” }, { “path”:
-“subcontracting[*].work_description”, “required”: true }, { “path”:
+"required": "true", "constraint": "$</span> &gt; 0”,
+“constraintMessage”: “Amount must be greater than zero.” }, { “path”:
+“subcontracting[*].work_description”, “required”: “true” }, { “path”:
 “subcontract_total”, “relevant”: “$has_subcontracts = true”,
 “calculate”: “sum(subcontracting[*].subcontract_amount)”, “readonly”:
-true }] } ```</td>
+“true” }] } ```</td>
 </tr>
 <tr class="odd">
 <td>#### 7.2.2 Response — No Subcontracting</td>
@@ -5921,7 +5922,7 @@ processors MUST exclude non-relevant fields from the Response
 <code>data</code> object:</td>
 </tr>
 <tr class="odd">
-<td><code>json { "definition": "https://grants.example.gov/forms/progress-report|2025-06-01", "status": "complete", "data": { "has_subcontracts": false } }</code></td>
+<td><code>json { "definitionUrl": "https://grants.example.gov/forms/progress-report", "definitionVersion": "2025-06-01", "status": "completed", "data": { "has_subcontracts": false } }</code></td>
 </tr>
 <tr class="even">
 <td>Note the absence of <code>subcontracting</code> and
@@ -5936,7 +5937,7 @@ relevant ancestor (<code>subcontracting</code>) is non-relevant.</td>
 <td>#### 7.2.3 Response — With Subcontracting</td>
 </tr>
 <tr class="even">
-<td><code>json { "definition": "https://grants.example.gov/forms/progress-report|2025-06-01", "status": "complete", "data": { "has_subcontracts": true, "subcontracting": [ { "subcontractor_name": "Acme Analytics, LLC", "subcontractor_ein": "84-1234567", "subcontract_amount": 45000.00, "work_description": "Statistical modeling and data analysis for Phase II trials." }, { "subcontractor_name": "BioSample Services, Inc.", "subcontractor_ein": "91-7654321", "subcontract_amount": 18500.00, "work_description": "Sample preparation and cold-chain logistics." } ], "subcontract_total": 63500.00 } }</code></td>
+<td><code>json { "definitionUrl": "https://grants.example.gov/forms/progress-report", "definitionVersion": "2025-06-01", "status": "completed", "data": { "has_subcontracts": true, "subcontracting": [ { "subcontractor_name": "Acme Analytics, LLC", "subcontractor_ein": "84-1234567", "subcontract_amount": 45000.00, "work_description": "Statistical modeling and data analysis for Phase II trials." }, { "subcontractor_name": "BioSample Services, Inc.", "subcontractor_ein": "91-7654321", "subcontract_amount": 18500.00, "work_description": "Sample preparation and cold-chain logistics." } ], "subcontract_total": 63500.00 } }</code></td>
 </tr>
 <tr class="odd">
 <td>All <code>required</code> constraints on the child fields are now
@@ -6020,35 +6021,35 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb51-1"><a href=
 <span id="cb51-56"><a href="#cb51-56" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;binds&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
 <span id="cb51-57"><a href="#cb51-57" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-58"><a href="#cb51-58" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].category_name&quot;</span><span class="fu">,</span></span>
-<span id="cb51-59"><a href="#cb51-59" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb51-59"><a href="#cb51-59" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb51-60"><a href="#cb51-60" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb51-61"><a href="#cb51-61" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-62"><a href="#cb51-62" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].personnel_costs&quot;</span><span class="fu">,</span></span>
-<span id="cb51-63"><a href="#cb51-63" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb51-63"><a href="#cb51-63" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb51-64"><a href="#cb51-64" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$ &gt;= 0&quot;</span><span class="fu">,</span></span>
 <span id="cb51-65"><a href="#cb51-65" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;Costs must not be negative.&quot;</span></span>
 <span id="cb51-66"><a href="#cb51-66" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb51-67"><a href="#cb51-67" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-68"><a href="#cb51-68" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].travel_costs&quot;</span><span class="fu">,</span></span>
-<span id="cb51-69"><a href="#cb51-69" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb51-69"><a href="#cb51-69" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb51-70"><a href="#cb51-70" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$ &gt;= 0&quot;</span><span class="fu">,</span></span>
 <span id="cb51-71"><a href="#cb51-71" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;Costs must not be negative.&quot;</span></span>
 <span id="cb51-72"><a href="#cb51-72" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb51-73"><a href="#cb51-73" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-74"><a href="#cb51-74" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].supply_costs&quot;</span><span class="fu">,</span></span>
-<span id="cb51-75"><a href="#cb51-75" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb51-75"><a href="#cb51-75" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb51-76"><a href="#cb51-76" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$ &gt;= 0&quot;</span><span class="fu">,</span></span>
 <span id="cb51-77"><a href="#cb51-77" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;Costs must not be negative.&quot;</span></span>
 <span id="cb51-78"><a href="#cb51-78" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb51-79"><a href="#cb51-79" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-80"><a href="#cb51-80" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].row_total&quot;</span><span class="fu">,</span></span>
 <span id="cb51-81"><a href="#cb51-81" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;calculate&quot;</span><span class="fu">:</span> <span class="st">&quot;$personnel_costs + $travel_costs + $supply_costs&quot;</span><span class="fu">,</span></span>
-<span id="cb51-82"><a href="#cb51-82" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb51-82"><a href="#cb51-82" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb51-83"><a href="#cb51-83" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb51-84"><a href="#cb51-84" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-85"><a href="#cb51-85" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;grand_total&quot;</span><span class="fu">,</span></span>
 <span id="cb51-86"><a href="#cb51-86" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;calculate&quot;</span><span class="fu">:</span> <span class="st">&quot;sum(categories[*].row_total)&quot;</span><span class="fu">,</span></span>
-<span id="cb51-87"><a href="#cb51-87" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb51-87"><a href="#cb51-87" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb51-88"><a href="#cb51-88" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
 <span id="cb51-89"><a href="#cb51-89" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb51-90"><a href="#cb51-90" aria-hidden="true" tabindex="-1"></a></span>
@@ -6056,21 +6057,21 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb51-1"><a href=
 <span id="cb51-92"><a href="#cb51-92" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-93"><a href="#cb51-93" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel-concentration-warning&quot;</span><span class="fu">,</span></span>
 <span id="cb51-94"><a href="#cb51-94" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
-<span id="cb51-95"><a href="#cb51-95" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;targets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;categories[*].personnel_costs&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb51-95"><a href="#cb51-95" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].personnel_costs&quot;</span><span class="fu">,</span></span>
 <span id="cb51-96"><a href="#cb51-96" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$row_total = 0 or ($personnel_costs div $row_total) &lt;= 0.50&quot;</span><span class="fu">,</span></span>
 <span id="cb51-97"><a href="#cb51-97" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel costs (${$personnel_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct.&quot;</span></span>
 <span id="cb51-98"><a href="#cb51-98" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb51-99"><a href="#cb51-99" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-100"><a href="#cb51-100" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;travel-concentration-warning&quot;</span><span class="fu">,</span></span>
 <span id="cb51-101"><a href="#cb51-101" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
-<span id="cb51-102"><a href="#cb51-102" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;targets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;categories[*].travel_costs&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb51-102"><a href="#cb51-102" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].travel_costs&quot;</span><span class="fu">,</span></span>
 <span id="cb51-103"><a href="#cb51-103" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$row_total = 0 or ($travel_costs div $row_total) &lt;= 0.50&quot;</span><span class="fu">,</span></span>
 <span id="cb51-104"><a href="#cb51-104" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Travel costs (${$travel_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct.&quot;</span></span>
 <span id="cb51-105"><a href="#cb51-105" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb51-106"><a href="#cb51-106" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb51-107"><a href="#cb51-107" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;supply-concentration-warning&quot;</span><span class="fu">,</span></span>
 <span id="cb51-108"><a href="#cb51-108" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
-<span id="cb51-109"><a href="#cb51-109" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;targets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;categories[*].supply_costs&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb51-109"><a href="#cb51-109" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].supply_costs&quot;</span><span class="fu">,</span></span>
 <span id="cb51-110"><a href="#cb51-110" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$row_total = 0 or ($supply_costs div $row_total) &lt;= 0.50&quot;</span><span class="fu">,</span></span>
 <span id="cb51-111"><a href="#cb51-111" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Supply costs (${$supply_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct.&quot;</span></span>
 <span id="cb51-112"><a href="#cb51-112" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
@@ -6103,28 +6104,29 @@ function receives all values and returns a single scalar.</li>
 Warning</h4>
 <div class="sourceCode" id="cb52"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/expenditure-report|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
-<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;categories&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
-<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category_name&quot;</span><span class="fu">:</span> <span class="st">&quot;Core Research&quot;</span><span class="fu">,</span></span>
-<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;personnel_costs&quot;</span><span class="fu">:</span> <span class="fl">80000.00</span><span class="fu">,</span></span>
-<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;travel_costs&quot;</span><span class="fu">:</span> <span class="fl">5000.00</span><span class="fu">,</span></span>
-<span id="cb52-10"><a href="#cb52-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;supply_costs&quot;</span><span class="fu">:</span> <span class="fl">15000.00</span><span class="fu">,</span></span>
-<span id="cb52-11"><a href="#cb52-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">100000.00</span></span>
-<span id="cb52-12"><a href="#cb52-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb52-13"><a href="#cb52-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
-<span id="cb52-14"><a href="#cb52-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category_name&quot;</span><span class="fu">:</span> <span class="st">&quot;Outreach&quot;</span><span class="fu">,</span></span>
-<span id="cb52-15"><a href="#cb52-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;personnel_costs&quot;</span><span class="fu">:</span> <span class="fl">3000.00</span><span class="fu">,</span></span>
-<span id="cb52-16"><a href="#cb52-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;travel_costs&quot;</span><span class="fu">:</span> <span class="fl">22000.00</span><span class="fu">,</span></span>
-<span id="cb52-17"><a href="#cb52-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;supply_costs&quot;</span><span class="fu">:</span> <span class="fl">5000.00</span><span class="fu">,</span></span>
-<span id="cb52-18"><a href="#cb52-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">30000.00</span></span>
-<span id="cb52-19"><a href="#cb52-19" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
-<span id="cb52-20"><a href="#cb52-20" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb52-21"><a href="#cb52-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;grand_total&quot;</span><span class="fu">:</span> <span class="fl">130000.00</span></span>
-<span id="cb52-22"><a href="#cb52-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb52-23"><a href="#cb52-23" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/expenditure-report&quot;</span><span class="fu">,</span></span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;categories&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category_name&quot;</span><span class="fu">:</span> <span class="st">&quot;Core Research&quot;</span><span class="fu">,</span></span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;personnel_costs&quot;</span><span class="fu">:</span> <span class="fl">80000.00</span><span class="fu">,</span></span>
+<span id="cb52-10"><a href="#cb52-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;travel_costs&quot;</span><span class="fu">:</span> <span class="fl">5000.00</span><span class="fu">,</span></span>
+<span id="cb52-11"><a href="#cb52-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;supply_costs&quot;</span><span class="fu">:</span> <span class="fl">15000.00</span><span class="fu">,</span></span>
+<span id="cb52-12"><a href="#cb52-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">100000.00</span></span>
+<span id="cb52-13"><a href="#cb52-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb52-14"><a href="#cb52-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
+<span id="cb52-15"><a href="#cb52-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;category_name&quot;</span><span class="fu">:</span> <span class="st">&quot;Outreach&quot;</span><span class="fu">,</span></span>
+<span id="cb52-16"><a href="#cb52-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;personnel_costs&quot;</span><span class="fu">:</span> <span class="fl">3000.00</span><span class="fu">,</span></span>
+<span id="cb52-17"><a href="#cb52-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;travel_costs&quot;</span><span class="fu">:</span> <span class="fl">22000.00</span><span class="fu">,</span></span>
+<span id="cb52-18"><a href="#cb52-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;supply_costs&quot;</span><span class="fu">:</span> <span class="fl">5000.00</span><span class="fu">,</span></span>
+<span id="cb52-19"><a href="#cb52-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">30000.00</span></span>
+<span id="cb52-20"><a href="#cb52-20" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb52-21"><a href="#cb52-21" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb52-22"><a href="#cb52-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;grand_total&quot;</span><span class="fu">:</span> <span class="fl">130000.00</span></span>
+<span id="cb52-23"><a href="#cb52-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb52-24"><a href="#cb52-24" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <h4 id="validationreport">7.3.3 ValidationReport</h4>
 <p>The first row has <code>personnel_costs</code> at 80% of
 <code>row_total</code> (80,000 / 100,000). The second row has
@@ -6132,33 +6134,34 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb52-1"><a href=
 30,000). Both exceed the 50% threshold:</p>
 <div class="sourceCode" id="cb53"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/expenditure-report|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;valid&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;results&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[0].personnel_costs&quot;</span><span class="fu">,</span></span>
-<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
-<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;shapeId&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel-concentration-warning&quot;</span><span class="fu">,</span></span>
-<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel costs ($80,000.00) exceed 50% of the row total ($100,000.00). Verify this allocation is correct.&quot;</span><span class="fu">,</span></span>
-<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="fl">80000.00</span><span class="fu">,</span></span>
-<span id="cb53-11"><a href="#cb53-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb53-12"><a href="#cb53-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">100000.00</span><span class="fu">,</span></span>
-<span id="cb53-13"><a href="#cb53-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;percentage&quot;</span><span class="fu">:</span> <span class="fl">0.80</span></span>
-<span id="cb53-14"><a href="#cb53-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
-<span id="cb53-15"><a href="#cb53-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb53-16"><a href="#cb53-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb53-17"><a href="#cb53-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[1].travel_costs&quot;</span><span class="fu">,</span></span>
-<span id="cb53-18"><a href="#cb53-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
-<span id="cb53-19"><a href="#cb53-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;shapeId&quot;</span><span class="fu">:</span> <span class="st">&quot;travel-concentration-warning&quot;</span><span class="fu">,</span></span>
-<span id="cb53-20"><a href="#cb53-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Travel costs ($22,000.00) exceed 50% of the row total ($30,000.00). Verify this allocation is correct.&quot;</span><span class="fu">,</span></span>
-<span id="cb53-21"><a href="#cb53-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="fl">22000.00</span><span class="fu">,</span></span>
-<span id="cb53-22"><a href="#cb53-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb53-23"><a href="#cb53-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">30000.00</span><span class="fu">,</span></span>
-<span id="cb53-24"><a href="#cb53-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;percentage&quot;</span><span class="fu">:</span> <span class="fl">0.73</span></span>
-<span id="cb53-25"><a href="#cb53-25" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
-<span id="cb53-26"><a href="#cb53-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb53-27"><a href="#cb53-27" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
-<span id="cb53-28"><a href="#cb53-28" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/expenditure-report&quot;</span><span class="fu">,</span></span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;valid&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;results&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[0].personnel_costs&quot;</span><span class="fu">,</span></span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
+<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;shapeId&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel-concentration-warning&quot;</span><span class="fu">,</span></span>
+<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel costs ($80,000.00) exceed 50% of the row total ($100,000.00). Verify this allocation is correct.&quot;</span><span class="fu">,</span></span>
+<span id="cb53-11"><a href="#cb53-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="fl">80000.00</span><span class="fu">,</span></span>
+<span id="cb53-12"><a href="#cb53-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb53-13"><a href="#cb53-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">100000.00</span><span class="fu">,</span></span>
+<span id="cb53-14"><a href="#cb53-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;percentage&quot;</span><span class="fu">:</span> <span class="fl">0.80</span></span>
+<span id="cb53-15"><a href="#cb53-15" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb53-16"><a href="#cb53-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb53-17"><a href="#cb53-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb53-18"><a href="#cb53-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[1].travel_costs&quot;</span><span class="fu">,</span></span>
+<span id="cb53-19"><a href="#cb53-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
+<span id="cb53-20"><a href="#cb53-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;shapeId&quot;</span><span class="fu">:</span> <span class="st">&quot;travel-concentration-warning&quot;</span><span class="fu">,</span></span>
+<span id="cb53-21"><a href="#cb53-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Travel costs ($22,000.00) exceed 50% of the row total ($30,000.00). Verify this allocation is correct.&quot;</span><span class="fu">,</span></span>
+<span id="cb53-22"><a href="#cb53-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="fl">22000.00</span><span class="fu">,</span></span>
+<span id="cb53-23"><a href="#cb53-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb53-24"><a href="#cb53-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;row_total&quot;</span><span class="fu">:</span> <span class="fl">30000.00</span><span class="fu">,</span></span>
+<span id="cb53-25"><a href="#cb53-25" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;percentage&quot;</span><span class="fu">:</span> <span class="fl">0.73</span></span>
+<span id="cb53-26"><a href="#cb53-26" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb53-27"><a href="#cb53-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb53-28"><a href="#cb53-28" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb53-29"><a href="#cb53-29" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p><code>valid</code> is <code>true</code> because both results have
 warning severity. Only error-severity results cause <code>valid</code>
 to be <code>false</code>. Advisory warnings SHOULD be presented to the
@@ -6240,13 +6243,13 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb54-1"><a href=
 <span id="cb54-59"><a href="#cb54-59" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;binds&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
 <span id="cb54-60"><a href="#cb54-60" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb54-61"><a href="#cb54-61" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_expenditure&quot;</span><span class="fu">,</span></span>
-<span id="cb54-62"><a href="#cb54-62" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb54-62"><a href="#cb54-62" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb54-63"><a href="#cb54-63" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$ &gt; 0&quot;</span><span class="fu">,</span></span>
 <span id="cb54-64"><a href="#cb54-64" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;Total expenditure must be greater than zero.&quot;</span></span>
 <span id="cb54-65"><a href="#cb54-65" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb54-66"><a href="#cb54-66" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb54-67"><a href="#cb54-67" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;budget_justification&quot;</span><span class="fu">,</span></span>
-<span id="cb54-68"><a href="#cb54-68" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb54-68"><a href="#cb54-68" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb54-69"><a href="#cb54-69" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
 <span id="cb54-70"><a href="#cb54-70" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb54-71"><a href="#cb54-71" aria-hidden="true" tabindex="-1"></a></span>
@@ -6254,7 +6257,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb54-1"><a href=
 <span id="cb54-73"><a href="#cb54-73" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb54-74"><a href="#cb54-74" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;yoy-variance-warning&quot;</span><span class="fu">,</span></span>
 <span id="cb54-75"><a href="#cb54-75" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
-<span id="cb54-76"><a href="#cb54-76" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;targets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;total_expenditure&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb54-76"><a href="#cb54-76" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;total_expenditure&quot;</span><span class="fu">,</span></span>
 <span id="cb54-77"><a href="#cb54-77" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$yoy_change_pct &lt;= 0.25&quot;</span><span class="fu">,</span></span>
 <span id="cb54-78"><a href="#cb54-78" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;The proposed expenditure (${$total_expenditure}) differs from the prior year actual (${$prior_total}) by ${round($yoy_change_pct * 100)}%. Changes exceeding 25% require additional justification in the narrative.&quot;</span></span>
 <span id="cb54-79"><a href="#cb54-79" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
@@ -6264,42 +6267,44 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb54-1"><a href=
 Triggering the Warning</h4>
 <div class="sourceCode" id="cb55"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/annual-budget|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
-<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_expenditure&quot;</span><span class="fu">:</span> <span class="fl">280000.00</span><span class="fu">,</span></span>
-<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budget_justification&quot;</span><span class="fu">:</span> <span class="st">&quot;&quot;</span></span>
-<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/annual-budget&quot;</span><span class="fu">,</span></span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_expenditure&quot;</span><span class="fu">:</span> <span class="fl">280000.00</span><span class="fu">,</span></span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budget_justification&quot;</span><span class="fu">:</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>The prior-year total is $200,000.00. The proposed amount is
 $280,000.00. The year-over-year change is 40%, exceeding the 25%
 threshold.</p>
 <h4 id="validationreport-1">7.4.3 ValidationReport</h4>
 <div class="sourceCode" id="cb56"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/annual-budget|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;valid&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
-<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;results&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_expenditure&quot;</span><span class="fu">,</span></span>
-<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
-<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;shapeId&quot;</span><span class="fu">:</span> <span class="st">&quot;yoy-variance-warning&quot;</span><span class="fu">,</span></span>
-<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;The proposed expenditure ($280,000.00) differs from the prior year actual ($200,000.00) by 40%. Changes exceeding 25% require additional justification in the narrative.&quot;</span><span class="fu">,</span></span>
-<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="fl">280000.00</span><span class="fu">,</span></span>
-<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb56-12"><a href="#cb56-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;prior_year_value&quot;</span><span class="fu">:</span> <span class="fl">200000.00</span><span class="fu">,</span></span>
-<span id="cb56-13"><a href="#cb56-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;change_percentage&quot;</span><span class="fu">:</span> <span class="dv">40</span></span>
-<span id="cb56-14"><a href="#cb56-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
-<span id="cb56-15"><a href="#cb56-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb56-16"><a href="#cb56-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb56-17"><a href="#cb56-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;budget_justification&quot;</span><span class="fu">,</span></span>
-<span id="cb56-18"><a href="#cb56-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;error&quot;</span><span class="fu">,</span></span>
-<span id="cb56-19"><a href="#cb56-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;required&quot;</span><span class="fu">,</span></span>
-<span id="cb56-20"><a href="#cb56-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;This field is required.&quot;</span><span class="fu">,</span></span>
-<span id="cb56-21"><a href="#cb56-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;&quot;</span></span>
-<span id="cb56-22"><a href="#cb56-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb56-23"><a href="#cb56-23" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
-<span id="cb56-24"><a href="#cb56-24" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/annual-budget&quot;</span><span class="fu">,</span></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;valid&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;results&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_expenditure&quot;</span><span class="fu">,</span></span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
+<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;shapeId&quot;</span><span class="fu">:</span> <span class="st">&quot;yoy-variance-warning&quot;</span><span class="fu">,</span></span>
+<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;The proposed expenditure ($280,000.00) differs from the prior year actual ($200,000.00) by 40%. Changes exceeding 25% require additional justification in the narrative.&quot;</span><span class="fu">,</span></span>
+<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="fl">280000.00</span><span class="fu">,</span></span>
+<span id="cb56-12"><a href="#cb56-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb56-13"><a href="#cb56-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;prior_year_value&quot;</span><span class="fu">:</span> <span class="fl">200000.00</span><span class="fu">,</span></span>
+<span id="cb56-14"><a href="#cb56-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;change_percentage&quot;</span><span class="fu">:</span> <span class="dv">40</span></span>
+<span id="cb56-15"><a href="#cb56-15" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb56-16"><a href="#cb56-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb56-17"><a href="#cb56-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb56-18"><a href="#cb56-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;budget_justification&quot;</span><span class="fu">,</span></span>
+<span id="cb56-19"><a href="#cb56-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;error&quot;</span><span class="fu">,</span></span>
+<span id="cb56-20"><a href="#cb56-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;required&quot;</span><span class="fu">,</span></span>
+<span id="cb56-21"><a href="#cb56-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;This field is required.&quot;</span><span class="fu">,</span></span>
+<span id="cb56-22"><a href="#cb56-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb56-23"><a href="#cb56-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb56-24"><a href="#cb56-24" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb56-25"><a href="#cb56-25" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p><code>valid</code> is <code>false</code> because of the
 error-severity result on <code>budget_justification</code> (empty string
 fails <code>required</code>). The warning on
@@ -6336,7 +6341,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb57-1"><a href=
 <span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
 <span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
 <span id="cb57-12"><a href="#cb57-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;What type of award is this?&quot;</span><span class="fu">,</span></span>
-<span id="cb57-13"><a href="#cb57-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;choices&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb57-13"><a href="#cb57-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;options&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
 <span id="cb57-14"><a href="#cb57-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;grant&quot;</span><span class="fu">,</span>             <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Grant&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb57-15"><a href="#cb57-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;cooperative_agreement&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Cooperative Agreement&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb57-16"><a href="#cb57-16" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;contract&quot;</span><span class="fu">,</span>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Contract&quot;</span> <span class="fu">}</span></span>
@@ -6347,7 +6352,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb57-1"><a href=
 <span id="cb57-21"><a href="#cb57-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
 <span id="cb57-22"><a href="#cb57-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
 <span id="cb57-23"><a href="#cb57-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Is this an interim or final report?&quot;</span><span class="fu">,</span></span>
-<span id="cb57-24"><a href="#cb57-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;choices&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb57-24"><a href="#cb57-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;options&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
 <span id="cb57-25"><a href="#cb57-25" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;interim&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Interim (Quarterly / Semi-annual)&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb57-26"><a href="#cb57-26" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;final&quot;</span><span class="fu">,</span>   <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Final&quot;</span> <span class="fu">}</span></span>
 <span id="cb57-27"><a href="#cb57-27" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
@@ -6374,13 +6379,13 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb57-1"><a href=
 <span id="cb57-48"><a href="#cb57-48" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb57-49"><a href="#cb57-49" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb57-50"><a href="#cb57-50" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;binds&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb57-51"><a href="#cb57-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;award_type&quot;</span><span class="fu">,</span>            <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb57-52"><a href="#cb57-52" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;reporting_period_type&quot;</span><span class="fu">,</span>  <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb57-53"><a href="#cb57-53" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_award_value&quot;</span><span class="fu">,</span>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span> <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$ &gt; 0&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb57-54"><a href="#cb57-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;has_subawards&quot;</span><span class="fu">,</span>          <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb57-51"><a href="#cb57-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;award_type&quot;</span><span class="fu">,</span>            <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb57-52"><a href="#cb57-52" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;reporting_period_type&quot;</span><span class="fu">,</span>  <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb57-53"><a href="#cb57-53" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_award_value&quot;</span><span class="fu">,</span>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span> <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;$ &gt; 0&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb57-54"><a href="#cb57-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;has_subawards&quot;</span><span class="fu">,</span>          <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb57-55"><a href="#cb57-55" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb57-56"><a href="#cb57-56" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;routed_form&quot;</span><span class="fu">,</span></span>
-<span id="cb57-57"><a href="#cb57-57" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb57-57"><a href="#cb57-57" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb57-58"><a href="#cb57-58" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;calculate&quot;</span><span class="fu">:</span> <span class="st">&quot;if($reporting_period_type = &#39;final&#39; or $total_award_value &gt;= 500000 or $has_subawards = true, &#39;https://grants.example.gov/forms/full-progress-report|2025-06-01&#39;, &#39;https://grants.example.gov/forms/abbreviated-progress-report|2025-06-01&#39;)&quot;</span></span>
 <span id="cb57-59"><a href="#cb57-59" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
 <span id="cb57-60"><a href="#cb57-60" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
@@ -6404,20 +6409,16 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb58-1"><a href=
 <span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
 <span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;active&quot;</span><span class="fu">,</span></span>
 <span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Full Progress Report&quot;</span><span class="fu">,</span></span>
-<span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;derivedFrom&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;https://grants.example.gov/forms/progress-screener|2025-06-01&quot;</span></span>
-<span id="cb58-8"><a href="#cb58-8" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
-<span id="cb58-9"><a href="#cb58-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;derivedFrom&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/progress-screener|2025-06-01&quot;</span></span>
+<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <div class="sourceCode" id="cb59"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/abbreviated-progress-report&quot;</span><span class="fu">,</span></span>
 <span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
 <span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;active&quot;</span><span class="fu">,</span></span>
 <span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Abbreviated Progress Report&quot;</span><span class="fu">,</span></span>
-<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;derivedFrom&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;https://grants.example.gov/forms/progress-screener|2025-06-01&quot;</span></span>
-<span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
-<span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;derivedFrom&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/progress-screener|2025-06-01&quot;</span></span>
+<span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>The <code>derivedFrom</code> property is informational. Processors
 SHOULD use it to assist in traceability and auditing. Processors MUST
 NOT require <code>derivedFrom</code> to be resolvable at runtime.</p>
@@ -6425,16 +6426,17 @@ NOT require <code>derivedFrom</code> to be resolvable at runtime.</p>
 and Routing Result</h4>
 <div class="sourceCode" id="cb60"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/progress-screener|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;complete&quot;</span><span class="fu">,</span></span>
-<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb60-5"><a href="#cb60-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;award_type&quot;</span><span class="fu">:</span> <span class="st">&quot;grant&quot;</span><span class="fu">,</span></span>
-<span id="cb60-6"><a href="#cb60-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;reporting_period_type&quot;</span><span class="fu">:</span> <span class="st">&quot;interim&quot;</span><span class="fu">,</span></span>
-<span id="cb60-7"><a href="#cb60-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_award_value&quot;</span><span class="fu">:</span> <span class="fl">175000.00</span><span class="fu">,</span></span>
-<span id="cb60-8"><a href="#cb60-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;has_subawards&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
-<span id="cb60-9"><a href="#cb60-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;routed_form&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/abbreviated-progress-report|2025-06-01&quot;</span></span>
-<span id="cb60-10"><a href="#cb60-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb60-11"><a href="#cb60-11" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/progress-screener&quot;</span><span class="fu">,</span></span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;completed&quot;</span><span class="fu">,</span></span>
+<span id="cb60-5"><a href="#cb60-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb60-6"><a href="#cb60-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;award_type&quot;</span><span class="fu">:</span> <span class="st">&quot;grant&quot;</span><span class="fu">,</span></span>
+<span id="cb60-7"><a href="#cb60-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;reporting_period_type&quot;</span><span class="fu">:</span> <span class="st">&quot;interim&quot;</span><span class="fu">,</span></span>
+<span id="cb60-8"><a href="#cb60-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;total_award_value&quot;</span><span class="fu">:</span> <span class="fl">175000.00</span><span class="fu">,</span></span>
+<span id="cb60-9"><a href="#cb60-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;has_subawards&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb60-10"><a href="#cb60-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;routed_form&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/abbreviated-progress-report|2025-06-01&quot;</span></span>
+<span id="cb60-11"><a href="#cb60-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb60-12"><a href="#cb60-12" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>The consuming application reads <code>routed_form</code> and
 navigates the user to the abbreviated report definition. The screener
 Response SHOULD be retained for audit purposes.</p>
@@ -6487,17 +6489,17 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb61-1"><a href=
 <span id="cb61-29"><a href="#cb61-29" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;binds&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
 <span id="cb61-30"><a href="#cb61-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb61-31"><a href="#cb61-31" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;organization_name&quot;</span><span class="fu">,</span></span>
-<span id="cb61-32"><a href="#cb61-32" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb61-32"><a href="#cb61-32" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span></span>
 <span id="cb61-33"><a href="#cb61-33" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb61-34"><a href="#cb61-34" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb61-35"><a href="#cb61-35" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;ein&quot;</span><span class="fu">,</span></span>
-<span id="cb61-36"><a href="#cb61-36" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb61-36"><a href="#cb61-36" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb61-37"><a href="#cb61-37" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;matches($, &#39;^[0-9]{2}-[0-9]{7}$&#39;)&quot;</span><span class="fu">,</span></span>
 <span id="cb61-38"><a href="#cb61-38" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;EIN must be in XX-XXXXXXX format (e.g., 12-3456789).&quot;</span></span>
 <span id="cb61-39"><a href="#cb61-39" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
 <span id="cb61-40"><a href="#cb61-40" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
 <span id="cb61-41"><a href="#cb61-41" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;duns_number&quot;</span><span class="fu">,</span></span>
-<span id="cb61-42"><a href="#cb61-42" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb61-42"><a href="#cb61-42" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;required&quot;</span><span class="fu">:</span> <span class="st">&quot;true&quot;</span><span class="fu">,</span></span>
 <span id="cb61-43"><a href="#cb61-43" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraint&quot;</span><span class="fu">:</span> <span class="st">&quot;matches($, &#39;^[A-Z0-9]{12}$&#39;)&quot;</span><span class="fu">,</span></span>
 <span id="cb61-44"><a href="#cb61-44" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;UEI must be exactly 12 alphanumeric characters.&quot;</span></span>
 <span id="cb61-45"><a href="#cb61-45" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
@@ -6515,14 +6517,15 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb61-1"><a href=
 <h4 id="instance-data">7.6.2 Instance Data</h4>
 <div class="sourceCode" id="cb62"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/entity-registration|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
-<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;organization_name&quot;</span><span class="fu">:</span> <span class="st">&quot;Northwind Research Foundation&quot;</span><span class="fu">,</span></span>
-<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ein&quot;</span><span class="fu">:</span> <span class="st">&quot;99-0000001&quot;</span><span class="fu">,</span></span>
-<span id="cb62-7"><a href="#cb62-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;duns_number&quot;</span><span class="fu">:</span> <span class="st">&quot;N8K4Q2R7J1M3&quot;</span></span>
-<span id="cb62-8"><a href="#cb62-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb62-9"><a href="#cb62-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/entity-registration&quot;</span><span class="fu">,</span></span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;in-progress&quot;</span><span class="fu">,</span></span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;organization_name&quot;</span><span class="fu">:</span> <span class="st">&quot;Northwind Research Foundation&quot;</span><span class="fu">,</span></span>
+<span id="cb62-7"><a href="#cb62-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ein&quot;</span><span class="fu">:</span> <span class="st">&quot;99-0000001&quot;</span><span class="fu">,</span></span>
+<span id="cb62-8"><a href="#cb62-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;duns_number&quot;</span><span class="fu">:</span> <span class="st">&quot;N8K4Q2R7J1M3&quot;</span></span>
+<span id="cb62-9"><a href="#cb62-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb62-10"><a href="#cb62-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>The EIN <code>99-0000001</code> matches the pattern
 <code>^[0-9]{2}-[0-9]{7}$</code>, so local validation passes. However,
 the IRS database lookup determines that this EIN does not correspond to
@@ -6534,25 +6537,26 @@ produce a single ValidationReport containing results from both
 sources:</p>
 <div class="sourceCode" id="cb63"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definition&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/entity-registration|2025-06-01&quot;</span><span class="fu">,</span></span>
-<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;valid&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
-<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;results&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb63-5"><a href="#cb63-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
-<span id="cb63-6"><a href="#cb63-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;ein&quot;</span><span class="fu">,</span></span>
-<span id="cb63-7"><a href="#cb63-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;error&quot;</span><span class="fu">,</span></span>
-<span id="cb63-8"><a href="#cb63-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;external-validation-failed&quot;</span><span class="fu">,</span></span>
-<span id="cb63-9"><a href="#cb63-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;EIN 99-0000001 was not found in the IRS database. Verify the number and try again.&quot;</span><span class="fu">,</span></span>
-<span id="cb63-10"><a href="#cb63-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;99-0000001&quot;</span><span class="fu">,</span></span>
-<span id="cb63-11"><a href="#cb63-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;external&quot;</span><span class="fu">,</span></span>
-<span id="cb63-12"><a href="#cb63-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;sourceId&quot;</span><span class="fu">:</span> <span class="st">&quot;x-irs-validation&quot;</span><span class="fu">,</span></span>
-<span id="cb63-13"><a href="#cb63-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb63-14"><a href="#cb63-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;endpoint&quot;</span><span class="fu">:</span> <span class="st">&quot;https://api.irs.gov/validate-ein&quot;</span><span class="fu">,</span></span>
-<span id="cb63-15"><a href="#cb63-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;response_code&quot;</span><span class="fu">:</span> <span class="dv">404</span><span class="fu">,</span></span>
-<span id="cb63-16"><a href="#cb63-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;checked_at&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-15T14:32:07Z&quot;</span></span>
-<span id="cb63-17"><a href="#cb63-17" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
-<span id="cb63-18"><a href="#cb63-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb63-19"><a href="#cb63-19" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
-<span id="cb63-20"><a href="#cb63-20" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionUrl&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.example.gov/forms/entity-registration&quot;</span><span class="fu">,</span></span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;definitionVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-01&quot;</span><span class="fu">,</span></span>
+<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;valid&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb63-5"><a href="#cb63-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;results&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb63-6"><a href="#cb63-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb63-7"><a href="#cb63-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;ein&quot;</span><span class="fu">,</span></span>
+<span id="cb63-8"><a href="#cb63-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;error&quot;</span><span class="fu">,</span></span>
+<span id="cb63-9"><a href="#cb63-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;external-validation-failed&quot;</span><span class="fu">,</span></span>
+<span id="cb63-10"><a href="#cb63-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;EIN 99-0000001 was not found in the IRS database. Verify the number and try again.&quot;</span><span class="fu">,</span></span>
+<span id="cb63-11"><a href="#cb63-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;99-0000001&quot;</span><span class="fu">,</span></span>
+<span id="cb63-12"><a href="#cb63-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;external&quot;</span><span class="fu">,</span></span>
+<span id="cb63-13"><a href="#cb63-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;sourceId&quot;</span><span class="fu">:</span> <span class="st">&quot;x-irs-validation&quot;</span><span class="fu">,</span></span>
+<span id="cb63-14"><a href="#cb63-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb63-15"><a href="#cb63-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;endpoint&quot;</span><span class="fu">:</span> <span class="st">&quot;https://api.irs.gov/validate-ein&quot;</span><span class="fu">,</span></span>
+<span id="cb63-16"><a href="#cb63-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;response_code&quot;</span><span class="fu">:</span> <span class="dv">404</span><span class="fu">,</span></span>
+<span id="cb63-17"><a href="#cb63-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;checked_at&quot;</span><span class="fu">:</span> <span class="st">&quot;2025-06-15T14:32:07Z&quot;</span></span>
+<span id="cb63-18"><a href="#cb63-18" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb63-19"><a href="#cb63-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb63-20"><a href="#cb63-20" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb63-21"><a href="#cb63-21" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p><strong>Key observations:</strong></p>
 <ol type="1">
 <li><p><strong>Local validation passed:</strong> There is no result for
@@ -6734,7 +6738,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb66-1"><a href=
 class="sourceCode json"><code class="sourceCode json"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;unique-category-names&quot;</span><span class="fu">,</span></span>
 <span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;severity&quot;</span><span class="fu">:</span> <span class="st">&quot;error&quot;</span><span class="fu">,</span></span>
-<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;targets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;categories[*].category_name&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;categories[*].category_name&quot;</span><span class="fu">,</span></span>
 <span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;x-unique-within&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
 <span id="cb67-6"><a href="#cb67-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;collection&quot;</span><span class="fu">:</span> <span class="st">&quot;categories&quot;</span></span>
 <span id="cb67-7"><a href="#cb67-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>

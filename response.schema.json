@@ -81,7 +81,8 @@
       }
     },
     "extensions": {
-      "type": "object"
+      "type": "object",
+      "propertyNames": { "pattern": "^x-" }
     }
   },
   "$defs": {
@@ -138,7 +139,8 @@
           "description": "Additional context data from the Shape's context expressions."
         },
         "extensions": {
-          "type": "object"
+          "type": "object",
+          "propertyNames": { "pattern": "^x-" }
         }
       }
     }
