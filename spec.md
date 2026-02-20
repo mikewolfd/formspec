@@ -2865,13 +2865,10 @@ the calculated total equals the award amount exactly.
       "description": "Pre-populated award data from grants management system",
       "source": "https://api.grants.example.gov/awards/{awardId}",
       "schema": {
-        "type": "object",
-        "properties": {
-          "award_amount": { "type": "decimal" },
-          "award_number": { "type": "string" },
-          "period_start": { "type": "date" },
-          "period_end":   { "type": "date" }
-        }
+        "award_amount": "decimal",
+        "award_number": "string",
+        "period_start": "date",
+        "period_end":   "date"
       },
       "data": {
         "award_amount": 250000.00,
@@ -3462,14 +3459,11 @@ interpolated values in the message.
       "description": "Prior-year actuals from financial system",
       "source": "https://api.grants.example.gov/actuals/{awardId}/2024",
       "schema": {
-        "type": "object",
-        "properties": {
-          "total_expenditure":  { "type": "decimal" },
-          "personnel_total":    { "type": "decimal" },
-          "travel_total":       { "type": "decimal" },
-          "equipment_total":    { "type": "decimal" },
-          "reporting_year":     { "type": "integer" }
-        }
+        "total_expenditure":  "decimal",
+        "personnel_total":    "decimal",
+        "travel_total":       "decimal",
+        "equipment_total":    "decimal",
+        "reporting_year":     "integer"
       },
       "data": {
         "total_expenditure": 200000.00,

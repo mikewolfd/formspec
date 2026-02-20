@@ -27,7 +27,6 @@
     "migrations": { "$ref": "#/$defs/Migrations" },
     "extensions": { "type": "object" }
   },
-  "patternProperties": { "^x-": {} },
   "additionalProperties": false,
 
   "$defs": {
@@ -40,21 +39,21 @@
         "label": { "type": "string" },
         "description": { "type": "string" },
         "hint": { "type": "string" },
-        "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "extensions": { "type": "object" }
       },
       "allOf": [
         {
           "if": { "properties": { "type": { "const": "group" } }, "required": ["type"] },
           "then": {
             "properties": {
-              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true,
+              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true, "extensions": true,
               "children": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
               "repeatable": { "type": "boolean", "default": false },
               "minRepeat": { "type": "integer", "minimum": 0 },
               "maxRepeat": { "type": "integer", "minimum": 1 }
             },
             "required": ["children"],
-            "patternProperties": { "^x-": {} },
             "additionalProperties": false
           }
         },
@@ -62,7 +61,7 @@
           "if": { "properties": { "type": { "const": "field" } }, "required": ["type"] },
           "then": {
             "properties": {
-              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true,
+              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true, "extensions": true,
               "dataType": {
                 "type": "string",
                 "enum": ["string", "text", "integer", "decimal", "boolean", "date", "dateTime", "time", "uri", "attachment", "choice", "multiChoice", "money"]
@@ -92,7 +91,6 @@
               "children": { "type": "array", "items": { "$ref": "#/$defs/Item" } }
             },
             "required": ["dataType"],
-            "patternProperties": { "^x-": {} },
             "additionalProperties": false
           }
         },
@@ -100,9 +98,8 @@
           "if": { "properties": { "type": { "const": "display" } }, "required": ["type"] },
           "then": {
             "properties": {
-              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true
+              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true, "extensions": true
             },
-            "patternProperties": { "^x-": {} },
             "additionalProperties": false
           }
         }
@@ -124,9 +121,9 @@
         "whitespace": { "type": "string", "enum": ["preserve", "trim", "normalize", "remove"], "default": "preserve" },
         "excludedValue": { "type": "string", "enum": ["preserve", "null"], "default": "preserve" },
         "nonRelevantBehavior": { "type": "string", "enum": ["remove", "empty", "keep"] },
-        "disabledDisplay": { "type": "string", "enum": ["hidden", "protected"], "default": "hidden" }
+        "disabledDisplay": { "type": "string", "enum": ["hidden", "protected"], "default": "hidden" },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -146,10 +143,17 @@
         "and": { "type": "array", "items": { "type": "string" } },
         "or": { "type": "array", "items": { "type": "string" } },
         "not": { "type": "string" },
-        "xone": { "type": "array", "items": { "type": "string" } }
+        "xone": { "type": "array", "items": { "type": "string" } },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["constraint"] },
+        { "required": ["and"] },
+        { "required": ["or"] },
+        { "required": ["not"] },
+        { "required": ["xone"] }
+      ]
     },
 
     "Instance": {
@@ -159,13 +163,13 @@
         "static": { "type": "boolean", "default": false },
         "data": {},
         "schema": { "type": "object", "additionalProperties": { "type": "string" } },
-        "readonly": { "type": "boolean", "default": true }
+        "readonly": { "type": "boolean", "default": true },
+        "extensions": { "type": "object" }
       },
       "anyOf": [
         { "required": ["source"] },
         { "required": ["data"] }
       ],
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -175,9 +179,9 @@
       "properties": {
         "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
         "expression": { "type": "string" },
-        "scope": { "type": "string", "default": "#" }
+        "scope": { "type": "string", "default": "#" },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -187,13 +191,13 @@
         "options": { "type": "array", "items": { "$ref": "#/$defs/OptionEntry" } },
         "source": { "type": "string", "format": "uri" },
         "valueField": { "type": "string", "default": "value" },
-        "labelField": { "type": "string", "default": "label" }
+        "labelField": { "type": "string", "default": "label" },
+        "extensions": { "type": "object" }
       },
       "anyOf": [
         { "required": ["options"] },
         { "required": ["source"] }
       ],
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -202,9 +206,9 @@
       "required": ["value", "label"],
       "properties": {
         "value": { "type": "string" },
-        "label": { "type": "string" }
+        "label": { "type": "string" },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -213,9 +217,9 @@
       "required": ["items", "routes"],
       "properties": {
         "items": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
-        "routes": { "type": "array", "items": { "$ref": "#/$defs/Route" }, "minItems": 1 }
+        "routes": { "type": "array", "items": { "$ref": "#/$defs/Route" }, "minItems": 1 },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -225,9 +229,9 @@
       "properties": {
         "condition": { "type": "string" },
         "target": { "type": "string", "format": "uri" },
-        "label": { "type": "string" }
+        "label": { "type": "string" },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -237,9 +241,9 @@
         "from": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/MigrationDescriptor" }
-        }
+        },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
 
@@ -258,13 +262,12 @@
               "transform": { "type": "string", "enum": ["preserve", "drop", "expression"] },
               "expression": { "type": "string" }
             },
-            "patternProperties": { "^x-": {} },
             "additionalProperties": false
           }
         },
-        "defaults": { "type": "object" }
+        "defaults": { "type": "object" },
+        "extensions": { "type": "object" }
       },
-      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     }
   }

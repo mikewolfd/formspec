@@ -11,7 +11,6 @@
     "data",
     "authored"
   ],
-  "patternProperties": { "^x-": {} },
   "additionalProperties": false,
   "properties": {
     "definitionUrl": {
@@ -21,7 +20,7 @@
     },
     "definitionVersion": {
       "type": "string",
-      "description": "The exact semver version of the Definition against which this Response was created."
+      "description": "The exact version of the Definition against which this Response was created."
     },
     "status": {
       "type": "string",
@@ -80,6 +79,9 @@
       "items": {
         "$ref": "#/$defs/ValidationResult"
       }
+    },
+    "extensions": {
+      "type": "object"
     }
   },
   "$defs": {
@@ -134,6 +136,9 @@
         "context": {
           "type": "object",
           "description": "Additional context data from the Shape's context expressions."
+        },
+        "extensions": {
+          "type": "object"
         }
       }
     }
