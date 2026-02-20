@@ -133,19 +133,58 @@ This specification does **not** define:
 
 ### 1.4 Conformance
 
-A conformant Formspec processor MUST:
+Formspec defines two conformance tiers.
 
-1. Parse any Definition document that conforms to the Formspec JSON schema
-   without error.
-2. Evaluate FEL expressions as specified in §3.
-3. Implement the four-phase processing model as specified in §2.4.
-4. Produce ValidationResult documents conforming to the Formspec result schema.
-5. Reject Definition documents containing circular dependencies with a
+#### 1.4.1 Formspec Core
+
+A conformant **Core** processor MUST:
+
+1. Parse and validate any FormDefinition document that conforms to the
+   Formspec JSON schema without error.
+2. Support all core data types (§4.2.3), including `money`.
+3. Implement all five Bind MIPs: `calculate`, `relevant`, `required`,
+   `readonly`, `constraint`.
+4. Implement the full FEL expression language (§3), including all built-in
+   functions.
+5. Implement validation shapes with severity levels and ValidationReport
+   generation (§5).
+6. Implement the four-phase processing model (§2.4).
+7. Implement canonical identity, versioning, and response pinning (§6).
+8. Support named option sets (§4.6).
+9. Reject Definition documents containing circular dependencies with a
    diagnostic message identifying at least one cycle.
 
-A conformant processor MAY support a subset of FEL built-in functions, provided
+A Core processor MAY support a subset of FEL built-in functions, provided
 it signals an unsupported-function error when encountering a function it does
 not implement, rather than silently ignoring the call.
+
+#### 1.4.2 Formspec Extended
+
+A conformant **Extended** processor MUST support Formspec Core plus:
+
+1. Extension data types, functions, and constraint components (§8).
+2. `mustUnderstand` extension processing (§8.4).
+3. Screener routing (§4.7).
+4. Modular composition and assembly (§6.6).
+5. Version migration maps (§6.7).
+6. Pre-population declarations (§4.2.3, `prePopulate`).
+
+A processor claiming Extended conformance implicitly claims Core conformance.
+
+#### 1.4.3 Conformance Prohibitions
+
+A conformant Formspec processor (Core or Extended) MUST NOT:
+
+1. **Silently substitute definition versions.** When validating a Response
+   pinned to version X, the processor MUST use version X. If version X is
+   unavailable, the processor MUST report an error.
+2. **Produce validation results for non-relevant fields.** Non-relevant
+   fields are exempt from all validation (§5.6 rule 1).
+3. **Block data persistence based on validation state.** Validation and
+   persistence are independent operations (§5.5).
+4. **Silently drop unknown `mustUnderstand` extensions.** If an extension
+   has `mustUnderstand: true` and the processor does not support it, the
+   processor MUST report an error (§8.4).
 
 ---
 
@@ -443,6 +482,7 @@ A Response MAY contain:
 |----------|------|-------------|
 | `id` | string | A globally unique identifier (e.g., UUID). |
 | `author` | object | Identifier and display name of the person or system that authored the Response. |
+| `subject` | object | The entity this response is about. Contains `id` (string, REQUIRED) and `type` (string, OPTIONAL). E.g., `{ "id": "grant-12345", "type": "Grant" }`. |
 | `validationResults` | array | The most recent set of ValidationResult entries. |
 
 A Response references exactly one Definition by the tuple
@@ -785,12 +825,29 @@ A single ValidationResult entry is a JSON object with the following properties:
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `severity` | string | REQUIRED | One of `"error"`, `"warning"`, or `"info"`. See §2.5.2 for severity semantics. |
-| `path` | string | REQUIRED | The dot-notation path to the data node that produced this result (e.g., `"demographics.dob"`, `"lineItems[2].amount"`). For repeat instances, the path MUST include the 1-based index. |
+| `path` | string | REQUIRED | The dot-notation path to the data node that produced this result (e.g., `"demographics.dob"`, `"lineItems[2].amount"`). For repeat instances, the path MUST include the concrete 1-based index (not the `[*]` wildcard). See §4.3.3 for the distinction between definition-time FieldRef paths and resolved instance paths. |
 | `message` | string | REQUIRED | A human-readable description of the finding. Suitable for display to end users. Processors SHOULD support localization of messages, but the mechanism is implementation-defined. |
-| `code` | string | OPTIONAL | A machine-readable identifier for this class of finding. Codes enable programmatic handling (e.g., suppressing known warnings, mapping to external error catalogs). |
+| `constraintKind` | string | REQUIRED | The category of constraint that produced this result. MUST be one of: `"required"` (required field has no value), `"type"` (value does not conform to declared `dataType`), `"cardinality"` (repeatable group violates `minRepeat`/`maxRepeat`), `"constraint"` (Bind `constraint` evaluated to `false`), `"shape"` (named Shape's constraint evaluated to `false`), `"external"` (external system injected this result). |
+| `code` | string | RECOMMENDED | A machine-readable identifier for this class of finding. Processors SHOULD include this using the standard built-in codes (see below) when no specific code is declared. Codes enable programmatic handling (e.g., suppressing known warnings, mapping to external error catalogs). |
 | `source` | string | OPTIONAL | Identifies the origin of the finding: `"bind"` (from a Bind `constraint` or `required` check) or `"shape"` (from a Validation Shape). |
 | `shapeName` | string | OPTIONAL | If `source` is `"shape"`, the `name` of the Validation Shape that produced this entry. |
 | `expression` | string | OPTIONAL | The FEL expression that was evaluated. Included for diagnostic purposes. Processors MAY omit this in production to reduce payload size. |
+
+**Standard Built-in Constraint Codes:**
+
+The following codes are RESERVED. Conformant processors MUST use these exact
+codes for the corresponding built-in constraints. Shape-level and external
+codes override the generic defaults.
+
+| Code | constraintKind | Triggered When |
+|------|---------------|---------------|
+| `REQUIRED` | `required` | A required field is null or empty string. |
+| `TYPE_MISMATCH` | `type` | Value cannot be interpreted as the field's `dataType`. |
+| `MIN_REPEAT` | `cardinality` | Fewer repeat instances than `minRepeat`. |
+| `MAX_REPEAT` | `cardinality` | More repeat instances than `maxRepeat`. |
+| `CONSTRAINT_FAILED` | `constraint` | Bind `constraint` returned `false`. |
+| `SHAPE_FAILED` | `shape` | Shape's constraint returned `false`. |
+| `EXTERNAL_FAILED` | `external` | External validation source reported a failure. |
 
 > **Example.** A set of ValidationResult entries:
 >
@@ -1049,10 +1106,24 @@ FEL defines five primitive types and one compound type.
 | Type | Description | JSON representation | Literal syntax in FEL |
 |------|------------|-------------------|---------------------|
 | `string` | A Unicode character sequence. | JSON string | `'hello'` or `"hello"` (single or double quotes) |
-| `number` | An IEEE 754 double-precision floating-point number. | JSON number | `42`, `3.14`, `-7`, `0.001` |
+| `number` | A decimal (base-10) value. Implementations MUST NOT introduce binary floating-point rounding errors in arithmetic operations on values representable as finite decimal fractions. Minimum precision: 18 significant decimal digits. | JSON number | `42`, `3.14`, `-7`, `0.001` |
 | `boolean` | A truth value. | JSON `true` or `false` | `true`, `false` |
-| `date` | A calendar date (no time component). | JSON string in ISO 8601 format (`YYYY-MM-DD`) | No date literal syntax; use `date('2025-07-10')` |
+| `date` | A calendar date (no time component). | JSON string in ISO 8601 format (`YYYY-MM-DD`) | `@2025-07-10` |
+| `money` | A monetary value with currency identity. | `{ "amount": "50000.00", "currency": "USD" }` | No literal syntax; use `money(50000, 'USD')` |
 | `null` | The absence of a value. | JSON `null` | `null` |
+
+> **Decimal precision rationale:** The `number` type uses decimal (base-10)
+> semantics rather than IEEE 754 binary floating-point. This ensures that
+> `0.1 + 0.2 = 0.3` — a critical property for financial calculations.
+> JSON serialization uses JSON number syntax per RFC 8259. Implementations
+> SHOULD preserve the original decimal representation when round-tripping
+> values through the Instance.
+
+> **Money type:** The `amount` field of a `money` value MUST be serialized as
+> a JSON string containing a decimal number (not a JSON number) to preserve
+> precision. `currency` is an ISO 4217 three-letter code. Processors that do
+> not support the `money` type MUST fall back to treating the value as a JSON
+> object with `amount` and `currency` string properties.
 
 #### 3.4.2 Compound Type
 
@@ -1129,6 +1200,7 @@ Aggregate functions operate on arrays and reduce them to a single value.
 |----------|-----------|---------|------------|
 | `sum` | `sum(array<number>) → number` | `number` | Sum of all elements. `sum([])` returns `0`. Null elements are skipped. |
 | `count` | `count(array<T>) → number` | `number` | Number of non-null elements. `count([])` returns `0`. |
+| `countWhere` | `countWhere(array, boolean) → number` | `number` | Count of elements where the expression evaluates to `true`. Within the expression, `$` refers to the current element. E.g., `countWhere($line_items[*].amount, $ > 10000)`. |
 | `avg` | `avg(array<number>) → number` | `number` | Arithmetic mean of non-null elements. `avg([])` MUST signal an error (division by zero). |
 | `min` | `min(array<number>) → number` | `number` | Smallest non-null element. `min([])` returns `null`. Also works on `array<date>` and `array<string>`. |
 | `max` | `max(array<number>) → number` | `number` | Largest non-null element. `max([])` returns `null`. Also works on `array<date>` and `array<string>`. |
@@ -1158,6 +1230,7 @@ Aggregate functions operate on arrays and reduce them to a single value.
 | `lower` | `lower(string) → string` | `string` | Convert to lowercase (Unicode-aware). |
 | `trim` | `trim(string) → string` | `string` | Remove leading and trailing whitespace. |
 | `matches` | `matches(string, string) → boolean` | `boolean` | `true` if the first string matches the regular expression in the second string. The regex syntax is a subset of ECMA-262: character classes, quantifiers, anchors, alternation, and grouping. Lookahead/lookbehind are NOT REQUIRED. |
+| `format` | `format(string, any...) → string` | `string` | String interpolation. Positional placeholders `{0}`, `{1}`, etc. are replaced with the corresponding arguments, formatted as strings. E.g., `format('{0} of {1}', $current, $total)`. |
 
 #### 3.5.3 Numeric Functions
 
@@ -1167,6 +1240,7 @@ Aggregate functions operate on arrays and reduce them to a single value.
 | `floor` | `floor(number) → number` | `number` | Largest integer ≤ the argument. |
 | `ceil` | `ceil(number) → number` | `number` | Smallest integer ≥ the argument. |
 | `abs` | `abs(number) → number` | `number` | Absolute value. |
+| `power` | `power(number, number) → number` | `number` | Exponentiation. `power(2, 10)` returns `1024`. |
 
 #### 3.5.4 Date Functions
 
@@ -1188,6 +1262,7 @@ Aggregate functions operate on arrays and reduce them to a single value.
 | `coalesce` | `coalesce(T, T, ...T) → T` | `T` | Returns the first non-null argument. If all arguments are `null`, returns `null`. All arguments MUST be of the same type (or `null`). |
 | `empty` | `empty(T) → boolean` | `boolean` | `true` if the argument is `null`, an empty string (`''`), or an empty array (`[]`). `false` otherwise. |
 | `present` | `present(T) → boolean` | `boolean` | The logical inverse of `empty()`. |
+| `selected` | `selected(array, string) → boolean` | `boolean` | Returns `true` if the multiChoice field's value array contains the specified value. Shorthand for `value in $field`. |
 
 #### 3.5.6 Type-Checking Functions
 
@@ -1198,6 +1273,58 @@ Aggregate functions operate on arrays and reduce them to a single value.
 | `isDate` | `isDate(T) → boolean` | `boolean` | `true` if the argument is of type `date`. |
 | `isNull` | `isNull(T) → boolean` | `boolean` | `true` if the argument is `null`. Equivalent to `$ = null`. |
 | `typeOf` | `typeOf(T) → string` | `string` | Returns the type name as a string: `"string"`, `"number"`, `"boolean"`, `"date"`, `"null"`, or `"array"`. |
+
+#### 3.5.7 Money Functions
+
+| Function | Signature | Returns | Description |
+|----------|-----------|---------|-------------|
+| `money` | `money(number, string) → money` | `money` | Construct a Money value. |
+| `moneyAmount` | `moneyAmount(money) → number` | `number` | Extract the decimal amount. |
+| `moneyCurrency` | `moneyCurrency(money) → string` | `string` | Extract the ISO 4217 currency code. |
+| `moneyAdd` | `moneyAdd(money, money) → money` | `money` | Add two Money values. Operands MUST have the same currency; mismatched currencies produce a type error. |
+| `moneySum` | `moneySum(array) → money` | `money` | Sum an array of Money values. All elements MUST share the same currency. Empty array returns `null`. |
+
+#### 3.5.8 MIP-State Query Functions
+
+These functions query the current computed state of model item properties.
+They are evaluated during the Revalidate phase, after all Recalculate MIPs
+have been resolved.
+
+| Function | Signature | Returns | Description |
+|----------|-----------|---------|-------------|
+| `valid` | `valid($path) → boolean` | `boolean` | `true` if the referenced field has no error-severity validation results. |
+| `relevant` | `relevant($path) → boolean` | `boolean` | `true` if the referenced field is currently relevant. |
+| `readonly` | `readonly($path) → boolean` | `boolean` | `true` if the referenced field is currently readonly. |
+| `required` | `required($path) → boolean` | `boolean` | `true` if the referenced field is currently required. |
+
+The argument is a field reference using standard FEL `$path` syntax:
+
+```
+if(not(valid($ein)), "Please correct EIN before proceeding", "")
+```
+
+#### 3.5.9 Repeat Navigation Functions
+
+These functions navigate within repeat contexts. All MUST only be called
+within a repeat context; calling them outside a repeat is a definition error.
+
+| Function | Signature | Returns | Description |
+|----------|-----------|---------|-------------|
+| `prev` | `prev() → object \| null` | object or null | Returns the previous row (`@index - 1`). Returns `null` for the first row. |
+| `next` | `next() → object \| null` | object or null | Returns the next row (`@index + 1`). Returns `null` for the last row. |
+| `parent` | `parent() → object` | object | Returns the parent context of the current repeat row. Within a nested repeat, returns the enclosing repeat row. At the top-level repeat, returns the root instance object. |
+
+Usage:
+
+```
+prev().cumulative_total + @current.amount
+parent().section_total
+```
+
+**Dependency semantics:** When row order changes (insert, delete, reorder),
+all expressions using `prev()` or `next()` in the affected repeat MUST be
+re-evaluated. Implementations SHOULD treat `prev()`/`next()` as depending on
+the entire repeat collection for dependency tracking purposes.
 
 ### 3.6 Dependency Tracking
 
@@ -1341,11 +1468,17 @@ FunctionCall   ← Identifier '(' _ (Expression (_ ',' _ Expression)*)? _ ')'
 
 ArrayLiteral   ← '[' _ (Expression (_ ',' _ Expression)*)? _ ']'
 
-Literal        ← NumberLiteral
+Literal        ← DateTimeLiteral
+               / DateLiteral
+               / NumberLiteral
                / StringLiteral
                / 'true'
                / 'false'
                / 'null'
+
+DateLiteral     ← '@' [0-9]{4} '-' [0-9]{2} '-' [0-9]{2}
+DateTimeLiteral ← '@' [0-9]{4} '-' [0-9]{2} '-' [0-9]{2} 'T'
+                   [0-9]{2} ':' [0-9]{2} ':' [0-9]{2} ('Z' / [+-][0-9]{2}':'[0-9]{2})
 
 # --- Lexical rules ---
 
@@ -1654,7 +1787,13 @@ The properties are defined as follows:
 | `shapes` | array of Shape | **0..1** (OPTIONAL) | Validation rule sets. See §5.2. |
 | `instances` | object | **0..1** (OPTIONAL) | Named secondary data sources. Keys are instance names; values are Instance objects. See §4.4. |
 | `variables` | array of Variable | **0..1** (OPTIONAL) | Named computed values with lexical scoping. See §4.5. |
-| `extensions` | object | **0..1** (OPTIONAL) | Extension namespace. Keys MUST be URIs identifying the extension. Implementations that do not recognize an extension MUST ignore it. |
+| `nonRelevantBehavior` | string | **0..1** (OPTIONAL) | Controls how non-relevant field values are handled in the submitted Response. MUST be one of `"remove"` (exclude non-relevant nodes — **DEFAULT**), `"empty"` (retain structure but set values to `null`), or `"keep"` (retain with current values intact). Individual Binds MAY override this per-path. See §5.6. |
+| `optionSets` | object | **0..1** (OPTIONAL) | Named, reusable option lists. Keys are set names; values are OptionSet objects. See §4.6. |
+| `screener` | object | **0..1** (OPTIONAL) | Routing logic that classifies respondents and directs them to a target Definition. See §4.7. |
+| `migrations` | object | **0..1** (OPTIONAL) | Maps for transforming Responses from prior Definition versions to this version. See §6.7. |
+| `date` | string (ISO 8601 date) | **0..1** (OPTIONAL) | The date this version of the Definition was published or last updated. |
+| `name` | string | **0..1** (OPTIONAL) | A machine-friendly short identifier (ASCII letters, digits, hyphens). Intended for code generation and programmatic reference. MUST match `[a-zA-Z][a-zA-Z0-9\-]*`. |
+| `extensions` | object | **0..1** (OPTIONAL) | Extension namespace. Keys MUST be URIs identifying the extension. Implementations that do not recognize an extension MUST ignore it unless `mustUnderstand` is `true` (§8.4). |
 
 Implementations MUST preserve unrecognized top-level properties during
 round-tripping but MUST NOT assign semantics to them.
@@ -1748,7 +1887,10 @@ Field-specific properties:
 | `prefix` | string | **0..1** (OPTIONAL) | Display prefix rendered before the input (e.g., `"$"`). This is a presentation hint only; the prefix MUST NOT appear in the stored data value. |
 | `suffix` | string | **0..1** (OPTIONAL) | Display suffix rendered after the input (e.g., `"%"`). This is a presentation hint only; the suffix MUST NOT appear in the stored data value. |
 | `options` | array \| string (URI) | **0..1** (OPTIONAL) | Applicable when `dataType` is `"choice"` or `"multiChoice"`. If an array, each element MUST be an object with at least `value` (string, REQUIRED) and `label` (string, REQUIRED) properties. If a string, it MUST be a URI referencing an external option set. |
-| `initialValue` | any | **0..1** (OPTIONAL) | Static initial value assigned when a new Response is created. The value MUST conform to the Field's `dataType`. Distinct from the Bind `default` property (see §4.3). |
+| `optionSet` | string | **0..1** (OPTIONAL) | Name of a top-level option set declared in `optionSets` (§4.6). Applicable when `dataType` is `"choice"` or `"multiChoice"`. When both `options` and `optionSet` are present, `optionSet` takes precedence. |
+| `initialValue` | any \| string | **0..1** (OPTIONAL) | Initial value assigned when a new Response is created or a new repeat instance is added. May be a **literal value** (any JSON value conforming to the field's `dataType`) or an **expression string** prefixed with `=` (e.g., `"=today()"`, `"=@instance('entity').name"`). An expression-based `initialValue` is evaluated **once** at creation time and is NOT re-evaluated when dependencies change (use `calculate` on a Bind for continuous recalculation). Distinct from the Bind `default` property (see §4.3). |
+| `semanticType` | string | **0..1** (OPTIONAL) | Domain meaning annotation (e.g., `"us-gov:ein"`, `"ietf:email"`, `"iso:phone-e164"`). Purely metadata — MUST NOT affect validation, calculation, or any behavioral semantics. Supports intelligent widget selection, data classification, and interoperability mapping. Implementations SHOULD use URIs or namespaced identifiers to avoid collisions. |
+| `prePopulate` | object | **0..1** (OPTIONAL) | Pre-population declaration. Contains `instance` (string, name of a secondary instance), `path` (string, dot-notation path within the instance), and `editable` (boolean, default `true`; when `false`, the field is locked after pre-population). Syntactic sugar: a processor MUST treat `prePopulate` as equivalent to an `initialValue` expression plus a `readonly` bind. When both `prePopulate` and `initialValue` are present, `prePopulate` takes precedence. |
 | `children` | array of Item | **0..1** (OPTIONAL) | Child items. Fields MAY contain children to model dependent sub-questions. When present, the children are contextually tied to the Field's value. |
 
 **Core Data Types:**
@@ -1767,6 +1909,7 @@ Field-specific properties:
 | `"attachment"` | object | A file attachment. The object MUST contain `contentType` (string, MIME type) and `url` or `data` (Base64-encoded content). |
 | `"choice"` | string | A single selection from a defined set of options. The stored value is the `value` property of the selected option. |
 | `"multiChoice"` | array of string | Multiple selections from a defined set of options. Each element is the `value` property of a selected option. |
+| `"money"` | object | A monetary value. The object contains `amount` (string, a decimal number) and `currency` (string, ISO 4217 code). See §3.4.1. |
 
 Implementations MAY support additional data types via the `extensions`
 mechanism. Unrecognized data types MUST be treated as `"string"` for storage
@@ -1826,6 +1969,9 @@ and requiredness — without embedding logic in the item tree.
 | `constraint` | string (FEL expression → boolean) | **0..1** (OPTIONAL) | Additional validity predicate evaluated after type checking and `required` checking. The token `$` within this expression is bound to the current value of the targeted node. The constraint passes when the expression evaluates to `true`. |
 | `constraintMessage` | string | **0..1** (OPTIONAL) | Human-readable message to display when `constraint` evaluates to `false`. If absent, implementations SHOULD generate a generic failure message. |
 | `default` | any | **0..1** (OPTIONAL) | Value to assign when a previously non-relevant node becomes relevant again. This is distinct from `initialValue` on the Item: `initialValue` is applied once at Response creation; `default` is applied on each relevance transition from non-relevant to relevant. |
+| `whitespace` | string | **0..1** (OPTIONAL) | Controls how text values are normalized on input. MUST be one of: `"preserve"` (no modification — **DEFAULT**), `"trim"` (remove leading/trailing whitespace), `"normalize"` (trim then collapse internal runs to a single space), `"remove"` (remove all whitespace — useful for identifiers like phone numbers and EINs). Whitespace transformation is applied **before** the value is stored in the Instance and **before** any constraint or type validation. For `"integer"` or `"decimal"` fields, whitespace is always trimmed regardless of this setting. |
+| `excludedValue` | string | **0..1** (OPTIONAL) | Controls what downstream expressions see when this field is non-relevant. MUST be one of: `"preserve"` (expressions see the field's last value — **DEFAULT**) or `"null"` (expressions see `null` when the field is non-relevant). This controls the *in-memory evaluation model*; `nonRelevantBehavior` controls the *serialized output*. |
+| `nonRelevantBehavior` | string | **0..1** (OPTIONAL) | Per-path override of the Definition-level `nonRelevantBehavior`. Takes precedence over the Definition default. See §5.6. |
 | `disabledDisplay` | string | **0..1** (OPTIONAL) | Presentation hint for non-relevant items. MUST be one of `"hidden"` or `"protected"`. When `"hidden"`, non-relevant items are removed from the visual layout. When `"protected"`, non-relevant items remain visible but are rendered as disabled/greyed-out. Default: `"hidden"`. (Borrowed from FHIR R5 Questionnaire.) |
 
 #### 4.3.2 Inheritance Rules
@@ -1873,6 +2019,12 @@ to the first repetition only).
 A path MUST resolve to at least one Item `key` in the Definition. If a path
 does not resolve, implementations MUST report a Definition error.
 
+**FieldRef vs Resolved Instance Path.** Bind `path` and Shape `target`
+properties use **FieldRef** syntax — definition-time addresses with `[*]`
+wildcards. ValidationResult `path` properties use **resolved instance paths**
+with concrete 1-based indexes (e.g., `line_items[3].amount`). This
+unambiguously identifies the specific data node that failed validation.
+
 ### 4.4 Instance Schema
 
 An **Instance** is a named secondary data source available to expressions
@@ -1914,6 +2066,7 @@ property name serves as the instance's identifier.
 | `static` | boolean | **0..1** (OPTIONAL) | If `true`, the instance data does not change during the lifetime of a single form session. Implementations MAY cache static instance data aggressively. Default: `false`. |
 | `data` | any | **0..1** (OPTIONAL) | Inline instance data. If both `source` and `data` are present, `data` serves as the fallback when the `source` is unavailable. If only `data` is present, the instance is fully inline. |
 | `schema` | object | **0..1** (OPTIONAL) | Type declarations for the instance's fields. Keys are field names; values are data type strings (using the same core data types defined in §4.2.3). Implementations SHOULD use the schema for type coercion and expression type-checking. |
+| `readonly` | boolean | **0..1** (OPTIONAL) | If `true`, the instance data MUST NOT be modified by `calculate` Binds or any other mechanism during form execution. Default: `true`. A `calculate` Bind targeting a path within a read-only instance is a definition error. When `false`, the instance acts as a writable scratch-pad for intermediate calculations that should not be submitted. |
 
 At least one of `source` or `data` MUST be present. An Instance with neither
 MUST be rejected as a Definition error.
@@ -1988,6 +2141,102 @@ Within the same dependency tier, evaluation order is implementation-defined.
 For one-time initialization semantics (compute once at Response creation,
 never recalculate), use `initialValue` on the Item rather than a variable.
 
+
+### 4.6 Option Sets
+
+**Option Sets** are named, reusable option lists declared at the top level of
+a Definition. They allow multiple `choice` or `multiChoice` fields to
+reference the same options without duplication.
+
+Option Sets are declared in the top-level `optionSets` object. The property
+name serves as the set's identifier.
+
+```json
+{
+  "optionSets": {
+    "yes_no_na": {
+      "options": [
+        { "value": "yes", "label": "Yes" },
+        { "value": "no", "label": "No" },
+        { "value": "na", "label": "Not Applicable" }
+      ]
+    },
+    "agency_list": {
+      "source": "https://api.sam.gov/agencies",
+      "valueField": "code",
+      "labelField": "name"
+    }
+  }
+}
+```
+
+#### 4.6.1 OptionSet Properties
+
+An OptionSet is defined by one of:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `options` | array of `{ value, label }` | Inline list of permitted values. Each entry MUST have `value` (string, REQUIRED) and `label` (string, REQUIRED). |
+| `source` | string (URI) | External endpoint returning an array of options. |
+| `valueField` | string | When using `source`, the JSON property name for the option value. Default: `"value"`. |
+| `labelField` | string | When using `source`, the JSON property name for the option label. Default: `"label"`. |
+
+A `choice` or `multiChoice` field references a named option set via the
+`optionSet` property on the Field item (§4.2.3).
+
+
+### 4.7 Screener Routing
+
+A **Screener** is a routing mechanism that classifies respondents and directs
+them to the appropriate target Definition. Screeners are declared in the
+optional `screener` property of a Definition.
+
+```json
+{
+  "screener": {
+    "items": [
+      {
+        "key": "award_amount",
+        "type": "field",
+        "dataType": "money",
+        "label": "Total federal award amount"
+      }
+    ],
+    "routes": [
+      {
+        "condition": "moneyAmount($award_amount) < 250000",
+        "target": "https://grants.gov/forms/sf-425-short|1.0.0",
+        "label": "SF-425 Short Form"
+      },
+      {
+        "condition": "true",
+        "target": "https://grants.gov/forms/sf-425|2.1.0",
+        "label": "SF-425 Full Form"
+      }
+    ]
+  }
+}
+```
+
+#### 4.7.1 Screener Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `screener.items` | array of Item | Fields for routing classification. These use the standard Item schema (§4.2) and their values are available to route conditions. |
+| `screener.routes` | array of Route | Ordered routing rules. |
+| `screener.routes[].condition` | string (FEL → boolean) | Expression evaluated against screener item values. |
+| `screener.routes[].target` | string (URI) | Canonical reference (`url\|version`) to the target FormDefinition. |
+| `screener.routes[].label` | string (OPTIONAL) | Human-readable route description. |
+
+Routes are evaluated in declaration order. The first route whose `condition`
+evaluates to `true` wins. A route with `"condition": "true"` acts as a
+default/fallback.
+
+Screener items are NOT part of the form's instance data — they exist only for
+routing purposes. A Definition with a `screener` section MAY also contain
+regular `items` and `binds`; in this case the screener acts as a gating step
+before the main form.
+
 ---
 
 ## 5. Validation
@@ -2048,6 +2297,8 @@ JSON data.
 | `message` | string | **1..1** (REQUIRED) | Human-readable failure message displayed when the Shape's constraint evaluates to `false`. MAY contain `{{expression}}` interpolation sequences, where `expression` is a FEL expression evaluated in the Shape's target context. |
 | `code` | string | **0..1** (OPTIONAL) | Machine-readable error code. Implementations SHOULD use these codes for programmatic error handling, localization lookups, and API responses. |
 | `context` | object | **0..1** (OPTIONAL) | Additional context data included in the ValidationResult when the Shape fails. Keys are context field names; values are FEL expressions evaluated in the Shape's target context at the time of failure. |
+| `activeWhen` | string (FEL → boolean) | **0..1** (OPTIONAL) | When present, the shape is evaluated only when this expression evaluates to `true`. When absent or `true`, the shape is always evaluated (subject to non-relevant suppression). When `false`, the shape is skipped entirely — it produces no results of any severity. `activeWhen` is evaluated during the Revalidate phase, before the shape's `constraint`. `activeWhen` is independent of the target's relevance; non-relevant suppression (§5.6 rule 1) takes precedence. |
+| `timing` | string | **0..1** (OPTIONAL) | Controls when this shape is evaluated. MUST be one of: `"continuous"` (evaluated whenever any dependency changes — **DEFAULT**), `"submit"` (evaluated only when submission is requested), `"demand"` (evaluated only when explicitly requested by the consuming application). The global validation mode (§5.5) acts as an override: when `"disabled"`, no shapes fire; when `"deferred"`, all shapes are deferred; when `"continuous"`, shapes fire per their individual `timing`. |
 
 #### 5.2.2 Composition Operators
 
@@ -2107,10 +2358,11 @@ The schema is borrowed from SHACL's Validation Result vocabulary.
 
 | Property | Type | Cardinality | Description |
 |---|---|---|---|
-| `path` | string | **1..1** (REQUIRED) | The data path of the node that failed validation. Uses the same path syntax as Binds (§4.3.3). For repeat instances, the path MUST include the concrete index (e.g., `line_items[2].amount`), not the wildcard `[*]`. |
+| `path` | string | **1..1** (REQUIRED) | The resolved instance path of the node that failed validation. For repeat instances, the path MUST include the concrete 1-based index (e.g., `line_items[2].amount`), not the wildcard `[*]`. See §4.3.3 for the FieldRef/resolved-path distinction. |
 | `severity` | string | **1..1** (REQUIRED) | The severity level. MUST be one of `"error"`, `"warning"`, `"info"`. |
+| `constraintKind` | string | **1..1** (REQUIRED) | The category of constraint that produced this result. MUST be one of: `"required"`, `"type"`, `"cardinality"`, `"constraint"`, `"shape"`, `"external"`. See §2.5.1. |
 | `message` | string | **1..1** (REQUIRED) | Human-readable description of the failure. All `{{expression}}` interpolation sequences MUST be resolved before this value is surfaced. |
-| `code` | string | **0..1** (OPTIONAL) | Machine-readable error code, propagated from the Shape or generated by the implementation for built-in checks. |
+| `code` | string | **0..1** (RECOMMENDED) | Machine-readable error code. Processors SHOULD include this using the standard built-in codes (§2.5.1) when no specific code is declared. |
 | `shapeId` | string | **0..1** (OPTIONAL) | The `id` of the Shape that produced this result, if applicable. MUST be absent for results produced by Bind constraints, type checks, or required checks. |
 | `value` | any | **0..1** (OPTIONAL) | The actual value of the node at the time of validation failure. Implementations SHOULD include this for debugging purposes. For attachment fields, the value SHOULD be omitted or replaced with metadata (filename, size) to avoid excessive payload size. |
 | `constraint` | string | **0..1** (OPTIONAL) | The constraint expression that failed, as authored in the Definition. Included for debugging and logging. Implementations MUST NOT display raw constraint expressions to end users. |
@@ -2181,6 +2433,14 @@ continuously but results are displayed only after the user has interacted with
 (blurred) the relevant field. This is a presentation-layer concern and does
 not constitute a distinct validation mode.
 
+**Per-Shape Timing Interaction:** Individual Shapes MAY declare a `timing`
+property (§5.2.1) that controls when they fire (`"continuous"`, `"submit"`,
+`"demand"`). The global validation mode acts as an override:
+
+- When the global mode is `"disabled"`, no shapes fire regardless of `timing`.
+- When the global mode is `"deferred"`, all shapes (including `"continuous"`) are deferred.
+- When the global mode is `"continuous"` (default), shapes fire per their individual `timing`.
+
 
 ### 5.6 Non-Relevant Field Handling
 
@@ -2193,11 +2453,13 @@ rules apply:
    This includes Bind constraints, Shape constraints, required checks, and
    type checks.
 
-2. **Submission exclusion.** The node's value SHOULD be excluded from the
-   submitted Response instance. Definitions MAY opt out of this behavior by
-   setting `excludeNonRelevant: false` at the Definition level, in which case
-   non-relevant values are retained in the submitted data. The default
-   behavior is exclusion.
+2. **Submission behavior.** The node's treatment in the submitted Response
+   is governed by the `nonRelevantBehavior` property (Definition-level
+   default, overridable per-Bind). The three modes are:
+   - `"remove"` (**DEFAULT**) — non-relevant nodes and descendants are
+     excluded from the submitted Response.
+   - `"empty"` — non-relevant nodes are retained but values set to `null`.
+   - `"keep"` — non-relevant nodes are retained with current values.
 
 3. **Required suppression.** A non-relevant node is never required, regardless
    of its `required` Bind. Implementations MUST NOT produce a required-
@@ -2205,8 +2467,11 @@ rules apply:
 
 4. **Calculation continuation.** A non-relevant node's `calculate` Bind
    MUST continue to evaluate. The computed value exists in the in-memory data
-   model and MAY be referenced by other expressions. However, the value is
-   excluded from the submitted instance per rule (2) unless opted out.
+   model and MAY be referenced by other expressions. For user-input fields
+   that become non-relevant, the `excludedValue` Bind property (§4.3.1)
+   controls what downstream expressions see: `"preserve"` (default, last
+   value) or `"null"` (expressions see `null`). Submission behavior is
+   governed separately by `nonRelevantBehavior` (rule 2).
 
 5. **Re-relevance.** When a previously non-relevant node becomes relevant
    again, its value is restored. If a `default` is declared on the node's
@@ -2308,6 +2573,17 @@ algorithms:
 When `versionAlgorithm` is absent, implementations MUST default to
 `"semver"`. A version string that does not conform to its declared algorithm
 MUST be treated as a Definition error.
+
+#### 6.2.1 Version Semantics for Form Definitions
+
+When `versionAlgorithm` is `"semver"`, the following guidance applies to
+form definition changes. This guidance is RECOMMENDED, not REQUIRED.
+
+| Increment | Change Type | Response Compatibility |
+|-----------|------------|----------------------|
+| **Patch** (2.1.0 → 2.1.1) | Cosmetic only — labels, descriptions, help text. | Existing responses remain fully valid. |
+| **Minor** (2.1.0 → 2.2.0) | Additive — new optional fields, relaxed constraints. | Existing responses valid but may lack new fields. |
+| **Major** (2.1.0 → 3.0.0) | Breaking — removed/renamed fields, tightened constraints. | Existing responses MAY fail. Migration (§6.7) RECOMMENDED. |
 
 
 ### 6.3 Status Lifecycle
@@ -2426,7 +2702,7 @@ address blocks, signature sections) across multiple Definitions.
 
 | Property | Type | Cardinality | Description |
 |---|---|---|---|
-| `$ref` | string (URI) | **0..1** (OPTIONAL) | Canonical reference to another Definition, using the `url\|version` syntax. All root-level Items from the referenced Definition are included as children of this Group. |
+| `$ref` | string (URI) | **0..1** (OPTIONAL) | Canonical reference to another Definition, using the `url\|version` syntax. By default, all root-level Items from the referenced Definition are included as children of this Group. A **fragment** (after `#`) MAY be appended to select a single item by `key`: e.g., `"https://grants.gov/forms/common/demographics|1.0.0#mailing_address"`. When a fragment is present, only the item with the matching key (and its descendants) is included. If the fragment key does not exist in the referenced Definition, assembly MUST fail with an error. |
 | `keyPrefix` | string | **0..1** (OPTIONAL) | A string prepended to every `key` imported from the referenced Definition. This prevents key collisions when the same referenced Definition is included multiple times or when its keys conflict with the host Definition. The prefix MUST match `[a-zA-Z][a-zA-Z0-9_]*`. Borrowed from FHIR SDC's `linkIdPrefix` concept. |
 
 #### 6.6.2 Assembly
@@ -2471,6 +2747,71 @@ listing all referenced Definitions:
 ```
 
 This metadata is informational and MUST NOT affect runtime behavior.
+
+
+### 6.7 Version Migrations
+
+Definitions MAY declare a `migrations` section describing how to transform
+Responses from prior versions into the current version's structure. This
+addresses the operational gap when a major version introduces breaking changes.
+
+```json
+{
+  "migrations": {
+    "from": {
+      "2.1.0": {
+        "description": "Restructured budget section; split other_costs into subcategories",
+        "fieldMap": [
+          {
+            "source": "expenditures.other_costs",
+            "target": "expenditures.miscellaneous.total",
+            "transform": "preserve"
+          },
+          {
+            "source": "indirect_rate",
+            "target": null,
+            "transform": "drop"
+          }
+        ],
+        "defaults": {
+          "expenditures.miscellaneous.description": "",
+          "reporting.frequency": "quarterly"
+        }
+      }
+    }
+  }
+}
+```
+
+#### 6.7.1 Migration Map Structure
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `from` | object | Keys are source version strings. Values are migration descriptors. |
+| `from[version].description` | string | Human-readable description of what changed. |
+| `from[version].fieldMap` | array | Ordered list of field mapping rules. |
+| `from[version].defaults` | object | Default values for new fields that have no source mapping. Keys are target field paths; values are literal defaults. |
+
+Each field mapping rule contains:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | Field path in the source version's instance. |
+| `target` | string or null | Field path in the target (current) version. `null` means the field is dropped. |
+| `transform` | string | One of: `"preserve"` (copy value as-is), `"drop"` (discard), `"expression"` (apply a FEL transform). |
+| `expression` | string | When `transform` is `"expression"`, a FEL expression evaluated with `$` bound to the source field's value and `@source` bound to the entire source response data. |
+
+#### 6.7.2 Migration Semantics
+
+- A conformant processor SHOULD support migrating Responses when a migration
+  map exists for the Response's pinned version.
+- Migration produces a **new** Response pinned to the target version. The
+  original Response is preserved unchanged.
+- Fields present in the source but absent from `fieldMap` are carried forward
+  by path matching (if the path exists in the target version) or dropped
+  (if it does not).
+- The migrated Response's `status` SHOULD be reset to `"in-progress"` to
+  signal that the respondent should review the migrated data.
 
 ---
 
@@ -3767,9 +4108,13 @@ The following requirements apply to extension properties:
 
 1. All keys within an `extensions` object MUST be prefixed with `x-`.
 
-2. Processors MUST ignore extension properties they do not understand.
-   Unrecognized extension properties MUST NOT cause a processing
-   error, warning, or behavioral change.
+2. Processors MUST ignore extension properties they do not understand
+   **unless `mustUnderstand` is `true`**. Unrecognized extension properties
+   without `mustUnderstand: true` MUST NOT cause a processing error,
+   warning, or behavioral change. Any extension object MAY include a
+   `mustUnderstand` boolean property (default: `false`). When `true`, a
+   processor that does not recognize or cannot evaluate the extension MUST
+   report a definition error and MUST NOT proceed with evaluation.
 
 3. Extension properties MUST NOT alter the core semantics defined by
    this specification. Specifically:
@@ -4074,10 +4419,10 @@ that address them. This appendix is informative.
 | Req | Description | Addressed By |
 |-----|-------------|--------------|
 | FT-01 | Standard types (text, numeric, date, select, etc.) | §4.2.3 Field Items — `dataType` enumeration |
-| FT-02 | Financial fields with currency formatting | §4.2.3 `decimal` dataType with `precision`, `prefix`, `suffix`; §8.1 Custom Data Types (`x-currency-usd`) |
+| FT-02 | Financial fields with currency formatting | §4.2.3 `money` dataType; §3.5.7 Money Functions; §3.4.1 decimal precision semantics |
 | FT-03 | File attachment fields | §4.2.3 `attachment` dataType |
 | FT-04 | Auto-calculated fields | §4.3 Bind `calculate` property; §3 FEL expression language |
-| FT-05 | Pre-populated fields (editable vs locked) | §4.3 Bind `initialValue` + `readonly`; §4.4 Instances with `source` |
+| FT-05 | Pre-populated fields (editable vs locked) | §4.2.3 `prePopulate` + `initialValue` (expression-based with `=` prefix); §4.3 Bind `readonly`; §4.4 Instances |
 | FM-01 | Field metadata (label, description, alt labels) | §4.2.1 `label`, `description`; `labels` object for context-specific labels |
 | FM-02 | Default value when excluded by conditional logic | §4.3 Bind `default` property |
 
@@ -4089,7 +4434,7 @@ that address them. This appendix is informative.
 | FL-02 | Non-relevant data exclusion | §5.6 Non-Relevant Field Handling; §2.5.4 |
 | FL-03 | Repeatable sections | §4.2.2 Group Items with `repeatable`, `minRepeat`, `maxRepeat` |
 | FL-04 | Cross-form field dependencies | §4.4 Named instances with cross-instance references; §3.2.3 `@instance()` |
-| FL-05 | Screener/routing logic | §7.5 Screener Routing example; `calculate` bind + `derivedFrom` |
+| FL-05 | Screener/routing logic | §4.7 Screener Routing; §7.5 example |
 
 ### Validation
 
@@ -4131,695 +4476,3 @@ that address them. This appendix is informative.
 | AD-04 | Extensible for domain-specific needs | §8 Extension Points (custom types, functions, constraints, properties, namespaces) |
 
 
----
-
-## Appendix B: Proposed Amendments
-
-This appendix collects 28 proposed amendments identified through cross-analysis
-of XForms 2.0, JDFM, UDFA, and UDF. None have been integrated into the
-normative body (§§1–9). Each amendment is self-contained and marked with its
-source analysis. This appendix is informative; amendments become normative
-only when folded into the main specification text.
-
-Amendments are organized by theme rather than source document.
-
----
-
-### B.1 Data Types & Arithmetic
-
-#### B.1.1 First-Class Money Type
-
-*Source: JDFM (C.1.1)*
-
-Formspec adds `"money"` as a core data type:
-
-| Data Type | JSON Representation | Description |
-|-----------|-------------------|-------------|
-| `"money"` | `{ "amount": "50000.00", "currency": "USD" }` | A monetary value. `amount` is a decimal string (not a floating-point number) to preserve precision. `currency` is an ISO 4217 three-letter code. |
-
-The `amount` field MUST be serialized as a JSON string containing a decimal
-number, not as a JSON number. This avoids IEEE 754 precision loss on values
-like `0.10`.
-
-FEL adds the following money functions:
-
-| Function | Signature | Returns | Description |
-|----------|-----------|---------|-------------|
-| `money(amount, currency)` | `money(number, string) → money` | money | Construct a Money value. |
-| `moneyAmount(m)` | `moneyAmount(money) → number` | number | Extract the decimal amount. |
-| `moneyCurrency(m)` | `moneyCurrency(money) → string` | string | Extract the ISO 4217 currency code. |
-| `moneyAdd(a, b)` | `moneyAdd(money, money) → money` | money | Add two Money values. Operands MUST have the same currency; mismatched currencies produce a type error. |
-| `moneySum(arr)` | `moneySum(array) → money` | money | Sum an array of Money values. All elements MUST share the same currency. Empty array returns `null`. |
-
-Processors that do not support the `money` type MUST fall back to treating
-the value as a JSON object with `amount` and `currency` string properties,
-validating only structural correctness.
-
-#### B.1.2 Arbitrary-Precision Decimal Semantics
-
-*Source: JDFM (C.1.2)*
-
-The FEL `number` type is redefined:
-
-> FEL `number` values MUST be treated as **decimal** (base-10) values during
-> arithmetic evaluation. Implementations MUST NOT introduce binary
-> floating-point rounding errors in arithmetic operations on values that are
-> representable as finite decimal fractions. The minimum precision MUST be
-> sufficient to exactly represent any value with up to 18 significant decimal
-> digits.
->
-> JSON serialization uses JSON number syntax per RFC 8259. Implementations
-> SHOULD preserve the original decimal representation when round-tripping
-> values through the Instance.
-
-This supersedes the current §3.4.1 definition of `number` as "IEEE 754
-double-precision floating-point."
-
----
-
-### B.2 Expression Language Additions
-
-#### B.2.1 Date and DateTime Literals
-
-*Source: UDF (F.1.4)*
-
-FEL adds date and dateTime literal syntax:
-
-| Literal | Format | Example |
-|---------|--------|--------|
-| Date | `@YYYY-MM-DD` | `@2025-01-15` |
-| DateTime | `@YYYY-MM-DDThh:mm:ssZ` | `@2025-01-15T14:30:00Z` |
-
-The `@` prefix avoids ambiguity with field references (`$`) and numeric
-literals. The format after `@` MUST conform to ISO 8601.
-
-The `date()` and `dateTime()` cast functions remain available for parsing
-string values at runtime. Literals are for compile-time constants.
-
-Updated grammar production (extends §3.7):
-
-```
-Literal ← NumberLiteral / StringLiteral / 'true' / 'false' / 'null'
-         / DateTimeLiteral / DateLiteral
-DateLiteral     ← '@' [0-9]{4} '-' [0-9]{2} '-' [0-9]{2}
-DateTimeLiteral ← '@' [0-9]{4} '-' [0-9]{2} '-' [0-9]{2} 'T'
-                   [0-9]{2} ':' [0-9]{2} ':' [0-9]{2} ('Z' / [+-][0-9]{2}':'[0-9]{2})
-```
-
-This supersedes the §3.4.1 note "No date literal syntax; use `date('2025-07-10')`."
-
-#### B.2.2 MIP-State Query Functions
-
-*Source: XForms 2.0 (B.2.4)*
-
-FEL adds functions to query the computed state of model item properties:
-
-| Function | Signature | Returns |
-|----------|-----------|--------|
-| `valid(ref)` | `valid($path) → boolean` | `true` if the referenced field has no error-severity validation results |
-| `relevant(ref)` | `relevant($path) → boolean` | `true` if the referenced field is currently relevant |
-| `readonly(ref)` | `readonly($path) → boolean` | `true` if the referenced field is currently readonly |
-| `required(ref)` | `required($path) → boolean` | `true` if the referenced field is currently required |
-
-These functions read the **current computed state** of the referenced field's
-MIP, not the raw expression. They are evaluated during the Revalidate phase,
-after all Recalculate MIPs have been resolved.
-
-```
-if(not(valid($ein)), "Please correct EIN before proceeding", "")
-```
-
-#### B.2.3 Row-Relative Navigation (`prev()`, `next()`)
-
-*Source: UDFA (D.1.1)*
-
-FEL adds row-relative accessor functions for repeat contexts:
-
-| Function | Signature | Returns | Description |
-|----------|-----------|---------|-------------|
-| `prev()` | `prev() → object \| null` | object or null | Returns the previous row (`@index - 1`). Returns `null` for the first row. |
-| `next()` | `next() → object \| null` | object or null | Returns the next row (`@index + 1`). Returns `null` for the last row. |
-
-Usage:
-
-```
-prev().cumulative_total + @current.amount
-```
-
-These functions MUST only be called within a repeat context. Calling `prev()`
-or `next()` outside a repeat is a definition error.
-
-**Dependency semantics:** When row order changes (insert, delete, reorder),
-all expressions using `prev()` or `next()` in the affected repeat MUST be
-re-evaluated.
-
-#### B.2.4 `parent()` Function
-
-*Source: JDFM (C.1.6)*
-
-FEL adds `parent()` for upward navigation in nested repeats:
-
-| Function | Signature | Returns | Description |
-|----------|-----------|---------|-------------|
-| `parent()` | `parent() → object` | object | Returns the parent context of the current repeat row. Within a nested repeat, returns the enclosing repeat row. At the top-level repeat, returns the root instance object. |
-
-```
-parent().section_total
-parent().parent().outer_field
-```
-
-`parent()` MUST NOT be called outside a repeat context.
-
-#### B.2.5 Additional Built-in Functions
-
-*Source: UDF (F.1.5)*
-
-| Function | Signature | Returns | Description |
-|----------|-----------|---------|-------------|
-| `countWhere(array, expr)` | `countWhere(array, boolean) → number` | number | Count of elements where the expression evaluates to `true`. Within the expression, `$` refers to the current element. |
-| `selected(field, value)` | `selected(array, string) → boolean` | boolean | Returns `true` if the multiChoice field's value array contains the specified value. |
-| `format(template, ...)` | `format(string, any...) → string` | string | String interpolation with positional `{0}`, `{1}` placeholders. |
-| `power(base, exp)` | `power(number, number) → number` | number | Exponentiation. `power(2, 10)` returns `1024`. |
-
----
-
-### B.3 Bind & Field Properties
-
-#### B.3.1 Non-Relevant Submission Modes (`nonRelevantBehavior`)
-
-*Source: XForms 2.0 (B.2.1)*
-
-Formspec adds a `nonRelevantBehavior` property at both Definition and Bind
-level, replacing the binary `excludeNonRelevant` flag in §5.6:
-
-| Value | Behavior |
-|-------|----------|
-| `"remove"` | Non-relevant nodes are excluded from the submitted Response. **DEFAULT.** |
-| `"empty"` | Non-relevant nodes are retained but values set to `null`. |
-| `"keep"` | Non-relevant nodes are retained with current values intact. |
-
-Declared at the Definition level; Binds MAY override per-path:
-
-```json
-{
-  "$formspec": "1.0",
-  "nonRelevantBehavior": "empty",
-  "binds": [
-    {
-      "path": "sensitive_section",
-      "relevant": "$show_sensitive = true",
-      "nonRelevantBehavior": "remove"
-    }
-  ]
-}
-```
-
-The per-Bind value takes precedence over the Definition-level default.
-
-#### B.3.2 Whitespace Handling
-
-*Source: XForms 2.0 (B.2.2)*
-
-Formspec adds `whitespace` to the Bind schema:
-
-| Value | Behavior |
-|-------|----------|
-| `"preserve"` | No modification. **DEFAULT.** |
-| `"trim"` | Remove leading and trailing whitespace. |
-| `"normalize"` | Trim, then collapse internal whitespace runs to a single space. |
-| `"remove"` | Remove all whitespace. Useful for identifiers (phone numbers, EINs). |
-
-Whitespace transformation is applied **before** the value is stored in the
-Instance and **before** any constraint or type validation. For `"integer"` or
-`"decimal"` fields, whitespace is always trimmed regardless of this setting.
-
-#### B.3.3 Expression-Based Initial Values
-
-*Source: XForms 2.0 (B.2.3)*
-
-The `initialValue` property on Field items MAY be either:
-
-1. **A literal value** — any JSON value conforming to the field's `dataType`.
-2. **An expression string** — prefixed with `=` to distinguish from literals.
-
-```json
-{
-  "key": "report_date",
-  "type": "field",
-  "dataType": "date",
-  "initialValue": "=today()"
-}
-```
-
-An `initialValue` expression is evaluated **once** when a new Response is
-created or when a new repeat instance is added. It is NOT re-evaluated when
-dependencies change (use `calculate` on a Bind for continuous recalculation).
-
-This supersedes the §4.2.3 description of `initialValue` as "Static initial
-value."
-
-#### B.3.4 Excluded-Value Evaluation Semantics (`excludedValue`)
-
-*Source: JDFM (C.1.3)*
-
-Formspec adds `excludedValue` to the Bind schema to clarify what downstream
-expressions see when a field is non-relevant:
-
-| Value | Behavior |
-|-------|----------|
-| `"preserve"` | Downstream expressions see the field's last value. **DEFAULT.** |
-| `"null"` | Downstream expressions see `null` when the field is non-relevant. |
-
-```json
-{
-  "path": "optional_section.subtotal",
-  "relevant": "$include_optional = true",
-  "excludedValue": "null"
-}
-```
-
-`excludedValue` controls the *in-memory evaluation model*;
-`nonRelevantBehavior` (§B.3.1) controls the *serialized output*.
-
-#### B.3.5 Semantic Type Annotations (`semanticType`)
-
-*Source: UDFA (D.1.3)*
-
-Formspec adds `semanticType` to Field items:
-
-| Property | Type | Cardinality | Description |
-|----------|------|-------------|-------------|
-| `semanticType` | string | 0..1 (OPTIONAL) | Domain meaning annotation. Implementations SHOULD use URIs or namespaced identifiers (e.g., `"us-gov:ein"`, `"ietf:email"`, `"iso:phone-e164"`). |
-
-`semanticType` is purely metadata. It MUST NOT affect validation, calculation,
-or any behavioral semantics. It supports intelligent widget selection, data
-classification, and interoperability mapping.
-
-#### B.3.6 Pre-Population Declarations (`prePopulate`)
-
-*Source: UDF (E.1.3)*
-
-Formspec adds `prePopulate` to Field items as syntactic sugar:
-
-```json
-{
-  "key": "award_amount",
-  "type": "field",
-  "dataType": "money",
-  "prePopulate": {
-    "instance": "award",
-    "path": "total_amount",
-    "editable": false
-  }
-}
-```
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `instance` | string | Name of a declared secondary instance (§4.4). |
-| `path` | string | Dot-notation path within the instance data. |
-| `editable` | boolean | Default: `true`. When `false`, the field is locked after pre-population. |
-
-A processor MUST treat `prePopulate` as equivalent to an `initialValue`
-expression plus a `readonly` bind. When both `prePopulate` and `initialValue`
-are present, `prePopulate` takes precedence.
-
----
-
-### B.4 Validation Enhancements
-
-#### B.4.1 Conditional Shape Activation (`activeWhen`)
-
-*Source: JDFM (C.1.4)*
-
-Formspec adds `activeWhen` to the Shape schema:
-
-| Property | Type | Cardinality | Description |
-|----------|------|-------------|-------------|
-| `activeWhen` | string (FEL → boolean) | 0..1 (OPTIONAL) | When present, the shape is evaluated only when this expression is `true`. When absent, the shape is always evaluated. |
-
-```json
-{
-  "id": "strict_budget_check",
-  "target": "budget_section",
-  "severity": "error",
-  "constraint": "moneyAmount(moneySum($line_items[*].amount)) = moneyAmount($award_amount)",
-  "activeWhen": "$budget_confirmed = true"
-}
-```
-
-`activeWhen` is evaluated during the Revalidate phase, *before* the shape's
-`constraint`. If `false`, the shape is skipped entirely.
-
-`activeWhen` is independent of the target's relevance. Non-relevant
-suppression (§5.6 rule 1) takes precedence.
-
-#### B.4.2 Constraint Kind (`constraintKind`)
-
-*Source: UDF (F.1.1)*
-
-Formspec adds `constraintKind` to the ValidationResult schema:
-
-| Property | Type | Cardinality | Description |
-|----------|------|-------------|-------------|
-| `constraintKind` | string | 1..1 (REQUIRED) | The category of constraint that produced this result. |
-
-Standard values:
-
-| Value | Meaning |
-|-------|--------|
-| `"required"` | Required field has no value. |
-| `"type"` | Value does not conform to declared `dataType`. |
-| `"cardinality"` | Repeatable group violates `minRepeat`/`maxRepeat`. |
-| `"constraint"` | Bind `constraint` expression evaluated to `false`. |
-| `"shape"` | Named Shape's constraint evaluated to `false`. |
-| `"external"` | External system injected this result. |
-
-#### B.4.3 Standard Built-in Constraint Codes
-
-*Source: UDF (F.1.2)*
-
-The following codes are RESERVED. Conformant processors MUST use these exact
-codes for the corresponding built-in constraints:
-
-| Code | constraintKind | Triggered When |
-|------|---------------|---------------|
-| `REQUIRED` | `required` | A required field is null or empty string. |
-| `TYPE_MISMATCH` | `type` | Value cannot be interpreted as the field's `dataType`. |
-| `MIN_REPEAT` | `cardinality` | Fewer instances than `minRepeat`. |
-| `MAX_REPEAT` | `cardinality` | More instances than `maxRepeat`. |
-| `CONSTRAINT_FAILED` | `constraint` | Bind `constraint` returned `false`. |
-| `SHAPE_FAILED` | `shape` | Shape's constraint returned `false`. |
-| `EXTERNAL_FAILED` | `external` | External validation source reported a failure. |
-
-Shape-level and external codes override the generic defaults.
-
-#### B.4.4 Per-Shape Validation Timing (`timing`)
-
-*Source: UDF (F.1.3)*
-
-Formspec adds `timing` to the Shape schema:
-
-| Property | Type | Cardinality | Description |
-|----------|------|-------------|-------------|
-| `timing` | string | 0..1 (OPTIONAL) | Controls when this shape is evaluated. Default: `"continuous"`. |
-
-| Value | Semantics |
-|-------|-----------|
-| `"continuous"` | Evaluated whenever any dependency changes. |
-| `"submit"` | Evaluated only when submission is requested. |
-| `"demand"` | Evaluated only when explicitly requested by the consuming application. |
-
-The global validation mode (§5.5) acts as an override:
-- `"disabled"`: no shapes fire regardless of `timing`.
-- `"deferred"`: all shapes deferred until explicitly requested.
-- `"continuous"` (default): shapes fire per their individual `timing`.
-
----
-
-### B.5 Instance & Definition Schema
-
-#### B.5.1 Instance Write-Protection (`readonly`)
-
-*Source: UDFA (D.1.2)*
-
-Formspec adds `readonly` to the Instance schema:
-
-| Property | Type | Cardinality | Description |
-|----------|------|-------------|-------------|
-| `readonly` | boolean | 0..1 (OPTIONAL) | If `true`, instance data MUST NOT be modified during form execution. Default: `true`. |
-
-The `readonly: false` case enables writable scratch-pad instances for complex
-multi-step calculations that should not be submitted.
-
-#### B.5.2 Named Option Sets (`optionSets`)
-
-*Source: UDF (E.1.1)*
-
-Formspec adds a top-level `optionSets` property for shared, reusable option
-lists:
-
-```json
-{
-  "optionSets": {
-    "yes_no_na": {
-      "options": [
-        { "value": "yes", "label": "Yes" },
-        { "value": "no", "label": "No" },
-        { "value": "na", "label": "Not Applicable" }
-      ]
-    },
-    "agency_list": {
-      "source": "https://api.sam.gov/agencies",
-      "valueField": "code",
-      "labelField": "name"
-    }
-  }
-}
-```
-
-An OptionSet is defined by:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `options` | array of `{ value, label }` | Inline list of permitted values. |
-| `source` | string (URI) | External endpoint returning an array of options. |
-| `valueField` | string | JSON property name for the option value. Default: `"value"`. |
-| `labelField` | string | JSON property name for the option label. Default: `"label"`. |
-
-Fields reference a named set via `optionSet`:
-
-```json
-{
-  "key": "category",
-  "type": "field",
-  "dataType": "choice",
-  "optionSet": "cost_categories"
-}
-```
-
-When both `options` and `optionSet` are present, `optionSet` takes precedence.
-
-#### B.5.3 Response Metadata: `subject`, `date`, `name`
-
-*Source: UDF (E.1.5)*
-
-Formspec adds to the **FormResponse** schema:
-
-| Property | Type | Cardinality | Description |
-|----------|------|-------------|-------------|
-| `subject` | object | 0..1 (OPTIONAL) | The entity this response is about. Contains `id` (string, REQUIRED) and `type` (string, OPTIONAL). |
-
-Formspec adds to the **FormDefinition** schema:
-
-| Property | Type | Cardinality | Description |
-|----------|------|-------------|-------------|
-| `date` | string (ISO 8601 date) | 0..1 (OPTIONAL) | Publication date of this definition version. |
-| `name` | string | 0..1 (OPTIONAL) | Machine-friendly short identifier. MUST match `[a-zA-Z][a-zA-Z0-9\-]*`. |
-
----
-
-### B.6 Versioning & Migration
-
-#### B.6.1 Version Migration Maps (`migrations`)
-
-*Source: UDF (E.1.2)*
-
-Formspec adds an optional `migrations` section for transforming responses
-between definition versions:
-
-```json
-{
-  "migrations": {
-    "from": {
-      "2.1.0": {
-        "description": "Restructured budget section",
-        "fieldMap": [
-          {
-            "source": "expenditures.other_costs",
-            "target": "expenditures.miscellaneous.total",
-            "transform": "preserve"
-          },
-          {
-            "source": "indirect_rate",
-            "target": null,
-            "transform": "drop"
-          }
-        ],
-        "defaults": {
-          "expenditures.miscellaneous.description": "",
-          "reporting.frequency": "quarterly"
-        }
-      }
-    }
-  }
-}
-```
-
-Each field mapping rule:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `source` | string | Field path in the source version. |
-| `target` | string or null | Field path in the target version. `null` = dropped. |
-| `transform` | string | `"preserve"`, `"drop"`, or `"expression"`. |
-| `expression` | string | When `transform` is `"expression"`, a FEL expression with `$` bound to source value and `@source` bound to entire source response. |
-
-Migration produces a **new** Response pinned to the target version. The
-original is preserved unchanged. Migrated Response `status` SHOULD be reset
-to `"in-progress"`.
-
-#### B.6.2 Version Semantics for Form Definitions
-
-*Source: UDF (E.1.4)*
-
-When `versionAlgorithm` is `"semver"`, the following guidance applies:
-
-| Increment | Change Type | Response Compatibility |
-|-----------|------------|----------------------|
-| **Patch** (2.1.0 → 2.1.1) | Cosmetic only — labels, descriptions, help text. | Existing responses remain fully valid. |
-| **Minor** (2.1.0 → 2.2.0) | Additive — new optional fields, relaxed constraints. | Existing responses valid but may lack new fields. |
-| **Major** (2.1.0 → 3.0.0) | Breaking — removed/renamed fields, tightened constraints. | Existing responses MAY fail. Migration RECOMMENDED. |
-
-This guidance is RECOMMENDED, not REQUIRED.
-
----
-
-### B.7 Composition & Routing
-
-#### B.7.1 Fragment-Level Composition References (`$ref#fragment`)
-
-*Source: UDF (F.1.6)*
-
-Formspec extends `$ref` to support fragment addressing:
-
-```json
-{
-  "key": "recipient_address",
-  "type": "group",
-  "$ref": "https://grants.gov/forms/common/demographics|1.0.0#mailing_address",
-  "keyPrefix": "rcpt_"
-}
-```
-
-The fragment (after `#`) is the `key` of the item to include. When present,
-only the matching item and its descendants are included. If the key does not
-exist, assembly MUST fail. When no fragment is present, existing behavior
-applies (all root items).
-
-#### B.7.2 Formal Screener Routing (`screener`)
-
-*Source: UDF (G.1.1)*
-
-Formspec adds an optional `screener` property to the Definition:
-
-```json
-{
-  "screener": {
-    "items": [
-      {
-        "key": "award_amount",
-        "type": "field",
-        "dataType": "money",
-        "label": "Total federal award amount"
-      }
-    ],
-    "routes": [
-      {
-        "condition": "moneyAmount($award_amount) < 250000",
-        "target": "https://grants.gov/forms/sf-425-short|1.0.0",
-        "label": "SF-425 Short Form"
-      },
-      {
-        "condition": "true",
-        "target": "https://grants.gov/forms/sf-425|2.1.0",
-        "label": "SF-425 Full Form"
-      }
-    ]
-  }
-}
-```
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `screener.items` | array of Item | Fields for routing classification (standard Item schema). |
-| `screener.routes` | array of Route | Ordered routing rules. First `true` condition wins. |
-| `screener.routes[].condition` | string (FEL → boolean) | Expression evaluated against screener items. |
-| `screener.routes[].target` | string (URI) | Canonical reference (`url\|version`) to the target Definition. |
-| `screener.routes[].label` | string (OPTIONAL) | Human-readable route description. |
-
-Screener items are NOT part of the form's instance data.
-
----
-
-### B.8 Extensions & Conformance
-
-#### B.8.1 `mustUnderstand` on Extensions
-
-*Source: UDF (G.1.2)*
-
-Any extension object MAY include:
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `mustUnderstand` | boolean | `false` | When `true`, a processor that cannot evaluate this extension MUST report a definition error and MUST NOT proceed. |
-
-This amends §8.4: processors MUST ignore extensions they do not understand
-**unless `mustUnderstand` is `true`**.
-
-#### B.8.2 Conformance Tiers
-
-*Source: UDF (G.1.3)*
-
-Formspec defines two conformance tiers:
-
-**Formspec Core** — MUST support:
-
-1. Parsing and validating FormDefinition documents
-2. All core data types (§4.2.3), including `money` (§B.1.1)
-3. All five Bind MIPs: `calculate`, `relevant`, `required`, `readonly`, `constraint`
-4. The full FEL expression language (§3), including all built-in functions
-5. Validation shapes with severity levels and ValidationReport generation (§5)
-6. The four-phase processing model (§2.4)
-7. Canonical identity, versioning, and response pinning (§6)
-8. Named option sets (§B.5.2)
-
-**Formspec Extended** — MUST support Core plus:
-
-1. Extension data types, functions, and constraint components (§8)
-2. `mustUnderstand` extension processing (§B.8.1)
-3. Screener routing (§B.7.2)
-4. Modular composition and assembly (§6.6)
-5. Version migration maps (§B.6.1)
-6. Pre-population declarations (§B.3.6)
-
-#### B.8.3 Conformance Prohibitions
-
-*Source: UDF (G.1.4)*
-
-A conformant Formspec processor (Core or Extended) MUST NOT:
-
-1. **Silently substitute definition versions.** When validating a Response
-   pinned to version X, the processor MUST use version X.
-2. **Produce validation results for non-relevant fields.** (§5.6 rule 1)
-3. **Block data persistence based on validation state.** (§5.5)
-4. **Silently drop unknown `mustUnderstand` extensions.** (§B.8.1)
-
----
-
-### B.9 Path Semantics Clarification
-
-#### B.9.1 FieldRef vs Resolved Instance Path
-
-*Source: JDFM (C.1.5)*
-
-Formspec clarifies the distinction between definition-time and runtime paths:
-
-- **Bind `path` and Shape `target`** use **FieldRef** syntax: dot-notation
-  with `[*]` wildcards. These are definition-time addresses.
-- **ValidationResult `path`** uses **resolved instance paths** with concrete
-  1-based indexes: `line_items[3].amount`. This unambiguously identifies
-  the specific data node that failed.
-
-This distinction was implicit in existing examples (§7.3.3 shows
-`"path": "categories[1]"`) and is now explicitly normative.
