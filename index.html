@@ -245,6 +245,20 @@ Covered</a></li>
 id="toc-d.3-design-divergences-no-action">D.3 Design Divergences (No
 Action)</a></li>
 </ul></li>
+<li><a href="#appendix-e-udf-cross-analysis"
+id="toc-appendix-e-udf-cross-analysis">Appendix E: UDF
+Cross-Analysis</a>
+<ul>
+<li><a href="#e.1-features-adopted-as-amendments"
+id="toc-e.1-features-adopted-as-amendments">E.1 Features Adopted as
+Amendments</a></li>
+<li><a href="#e.2-features-already-covered"
+id="toc-e.2-features-already-covered">E.2 Features Already
+Covered</a></li>
+<li><a href="#e.3-design-divergences-no-action"
+id="toc-e.3-design-divergences-no-action">E.3 Design Divergences (No
+Action)</a></li>
+</ul></li>
 </ul></li>
 </ul>
 </nav>
@@ -7724,6 +7738,532 @@ array property on the Definition without naming the collection as a
 separate conceptual entity. The BindGraph is an implementation artifact
 (the dependency graph constructed during the Rebuild phase), not a
 definition-time concept that needs a name in the schema. No change.</p>
+<hr />
+<h2 id="appendix-e-udf-cross-analysis">Appendix E: UDF
+Cross-Analysis</h2>
+<p>This appendix documents a cross-analysis with the Universal
+Declarative Forms (UDF) specification (v0.1.0-draft), an independent
+effort addressing the same problem space. UDF makes several design
+choices that address gaps or improve ergonomics in areas Formspec has
+not yet formalized. This appendix is informative except where noted as
+normative.</p>
+<h3 id="e.1-features-adopted-as-amendments">E.1 Features Adopted as
+Amendments</h3>
+<h4 id="e.1.1-named-option-sets-normative">E.1.1 Named Option Sets
+(Normative)</h4>
+<p>UDF extracts option lists into a top-level <code>optionSets</code>
+section, allowing multiple fields to reference the same named set.
+Formspec currently requires options to be declared inline on each field
+or referenced by external URI. This means two fields using the same
+options (e.g., “Yes/No/N/A”) must duplicate the array or both point to
+an external endpoint — neither of which handles the common case of
+<em>shared options within a single definition</em>.</p>
+<p><strong>Amendment.</strong> Formspec adds a top-level
+<code>optionSets</code> property to the Definition schema:</p>
+<div class="sourceCode" id="cb82"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb82-2"><a href="#cb82-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$formspec&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb82-3"><a href="#cb82-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;...&quot;</span><span class="fu">,</span></span>
+<span id="cb82-4"><a href="#cb82-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;optionSets&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb82-5"><a href="#cb82-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;cost_categories&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb82-6"><a href="#cb82-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;options&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb82-7"><a href="#cb82-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;personnel&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-8"><a href="#cb82-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;fringe&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Fringe Benefits&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-9"><a href="#cb82-9" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;travel&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Travel&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-10"><a href="#cb82-10" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;equipment&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Equipment&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-11"><a href="#cb82-11" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;supplies&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Supplies&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-12"><a href="#cb82-12" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;contractual&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Contractual&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-13"><a href="#cb82-13" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;other&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Other&quot;</span> <span class="fu">}</span></span>
+<span id="cb82-14"><a href="#cb82-14" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb82-15"><a href="#cb82-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb82-16"><a href="#cb82-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;yes_no_na&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb82-17"><a href="#cb82-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;options&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb82-18"><a href="#cb82-18" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;yes&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Yes&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-19"><a href="#cb82-19" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;no&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;No&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb82-20"><a href="#cb82-20" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;na&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Not Applicable&quot;</span> <span class="fu">}</span></span>
+<span id="cb82-21"><a href="#cb82-21" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb82-22"><a href="#cb82-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb82-23"><a href="#cb82-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;agency_list&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb82-24"><a href="#cb82-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;https://api.sam.gov/agencies&quot;</span><span class="fu">,</span></span>
+<span id="cb82-25"><a href="#cb82-25" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;valueField&quot;</span><span class="fu">:</span> <span class="st">&quot;code&quot;</span><span class="fu">,</span></span>
+<span id="cb82-26"><a href="#cb82-26" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;labelField&quot;</span><span class="fu">:</span> <span class="st">&quot;name&quot;</span></span>
+<span id="cb82-27"><a href="#cb82-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb82-28"><a href="#cb82-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb82-29"><a href="#cb82-29" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;items&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="er">...</span><span class="ot">]</span></span>
+<span id="cb82-30"><a href="#cb82-30" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>An OptionSet is defined by one of:</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 20%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>options</code></td>
+<td>array of <code>{ value, label }</code></td>
+<td>Inline list of permitted values. Each entry MUST have
+<code>value</code> (string, REQUIRED) and <code>label</code> (string,
+REQUIRED).</td>
+</tr>
+<tr class="even">
+<td><code>source</code></td>
+<td>string (URI)</td>
+<td>External endpoint returning an array of options.</td>
+</tr>
+<tr class="odd">
+<td><code>valueField</code></td>
+<td>string</td>
+<td>When using <code>source</code>, the JSON property name for the
+option value. Default: <code>"value"</code>.</td>
+</tr>
+<tr class="even">
+<td><code>labelField</code></td>
+<td>string</td>
+<td>When using <code>source</code>, the JSON property name for the
+option label. Default: <code>"label"</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>choice</code> or <code>multiChoice</code> field references a
+named option set via the <code>optionSet</code> property:</p>
+<div class="sourceCode" id="cb83"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb83-1"><a href="#cb83-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb83-2"><a href="#cb83-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;category&quot;</span><span class="fu">,</span></span>
+<span id="cb83-3"><a href="#cb83-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb83-4"><a href="#cb83-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;choice&quot;</span><span class="fu">,</span></span>
+<span id="cb83-5"><a href="#cb83-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;optionSet&quot;</span><span class="fu">:</span> <span class="st">&quot;cost_categories&quot;</span><span class="fu">,</span></span>
+<span id="cb83-6"><a href="#cb83-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Cost Category&quot;</span></span>
+<span id="cb83-7"><a href="#cb83-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The existing <code>options</code> property on Field items (§4.2.3)
+remains valid for one-off inline options. When both <code>options</code>
+and <code>optionSet</code> are present on a field,
+<code>optionSet</code> takes precedence and <code>options</code> is
+ignored.</p>
+<p>Named option sets enable: - <strong>DRY definitions</strong> —
+“Yes/No/N/A” declared once, referenced many times - <strong>Consistent
+vocabulary</strong> — all fields using the same set stay in sync -
+<strong>Tooling support</strong> — authoring tools can present a list of
+available sets - <strong>Dynamic loading</strong> — the
+<code>source</code> variant supports runtime option fetching with
+standard value/label field mapping</p>
+<h4 id="e.1.2-version-migration-maps-normative">E.1.2 Version Migration
+Maps (Normative)</h4>
+<p>UDF defines a <code>migrate</code> verb for transforming responses
+from one definition version to another. Formspec specifies response
+pinning (§6.4) — responses are validated against their pinned version —
+but provides no mechanism for <em>upgrading</em> a response when a new
+definition version is published.</p>
+<p>This is a real operational gap. When a form definition goes from
+v2.1.0 to v3.0.0 (a breaking change), existing in-progress responses on
+v2.1.0 need a path forward. Without a standard migration mechanism,
+implementors must write ad-hoc scripts.</p>
+<p><strong>Amendment.</strong> Formspec adds an optional
+<code>migrations</code> section to the Definition schema:</p>
+<div class="sourceCode" id="cb84"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb84-1"><a href="#cb84-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb84-2"><a href="#cb84-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$formspec&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb84-3"><a href="#cb84-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://grants.gov/forms/sf-425&quot;</span><span class="fu">,</span></span>
+<span id="cb84-4"><a href="#cb84-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;3.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb84-5"><a href="#cb84-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;active&quot;</span><span class="fu">,</span></span>
+<span id="cb84-6"><a href="#cb84-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;migrations&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb84-7"><a href="#cb84-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;from&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb84-8"><a href="#cb84-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;2.1.0&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb84-9"><a href="#cb84-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Restructured budget section; split &#39;other_costs&#39; into subcategories&quot;</span><span class="fu">,</span></span>
+<span id="cb84-10"><a href="#cb84-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;fieldMap&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb84-11"><a href="#cb84-11" aria-hidden="true" tabindex="-1"></a>          <span class="fu">{</span></span>
+<span id="cb84-12"><a href="#cb84-12" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;expenditures.other_costs&quot;</span><span class="fu">,</span></span>
+<span id="cb84-13"><a href="#cb84-13" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;expenditures.miscellaneous.total&quot;</span><span class="fu">,</span></span>
+<span id="cb84-14"><a href="#cb84-14" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;transform&quot;</span><span class="fu">:</span> <span class="st">&quot;preserve&quot;</span></span>
+<span id="cb84-15"><a href="#cb84-15" aria-hidden="true" tabindex="-1"></a>          <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb84-16"><a href="#cb84-16" aria-hidden="true" tabindex="-1"></a>          <span class="fu">{</span></span>
+<span id="cb84-17"><a href="#cb84-17" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;report_period&quot;</span><span class="fu">,</span></span>
+<span id="cb84-18"><a href="#cb84-18" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;reporting.period&quot;</span><span class="fu">,</span></span>
+<span id="cb84-19"><a href="#cb84-19" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;transform&quot;</span><span class="fu">:</span> <span class="st">&quot;preserve&quot;</span></span>
+<span id="cb84-20"><a href="#cb84-20" aria-hidden="true" tabindex="-1"></a>          <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb84-21"><a href="#cb84-21" aria-hidden="true" tabindex="-1"></a>          <span class="fu">{</span></span>
+<span id="cb84-22"><a href="#cb84-22" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;indirect_rate&quot;</span><span class="fu">,</span></span>
+<span id="cb84-23"><a href="#cb84-23" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="kw">null</span><span class="fu">,</span></span>
+<span id="cb84-24"><a href="#cb84-24" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;transform&quot;</span><span class="fu">:</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb84-25"><a href="#cb84-25" aria-hidden="true" tabindex="-1"></a>          <span class="fu">}</span></span>
+<span id="cb84-26"><a href="#cb84-26" aria-hidden="true" tabindex="-1"></a>        <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb84-27"><a href="#cb84-27" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;defaults&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb84-28"><a href="#cb84-28" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;expenditures.miscellaneous.description&quot;</span><span class="fu">:</span> <span class="st">&quot;&quot;</span><span class="fu">,</span></span>
+<span id="cb84-29"><a href="#cb84-29" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;reporting.frequency&quot;</span><span class="fu">:</span> <span class="st">&quot;quarterly&quot;</span></span>
+<span id="cb84-30"><a href="#cb84-30" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb84-31"><a href="#cb84-31" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb84-32"><a href="#cb84-32" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb84-33"><a href="#cb84-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb84-34"><a href="#cb84-34" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>A migration map declares how to transform response data from a
+specific prior version into the current version’s structure:</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 20%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>from</code></td>
+<td>object</td>
+<td>Keys are source version strings. Values are migration
+descriptors.</td>
+</tr>
+<tr class="even">
+<td><code>from[version].description</code></td>
+<td>string</td>
+<td>Human-readable description of what changed.</td>
+</tr>
+<tr class="odd">
+<td><code>from[version].fieldMap</code></td>
+<td>array</td>
+<td>Ordered list of field mapping rules.</td>
+</tr>
+<tr class="even">
+<td><code>from[version].defaults</code></td>
+<td>object</td>
+<td>Default values for new fields that have no source mapping. Keys are
+target field paths; values are literal defaults.</td>
+</tr>
+</tbody>
+</table>
+<p>Each field mapping rule contains:</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 20%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>source</code></td>
+<td>string</td>
+<td>Field path in the source version’s instance.</td>
+</tr>
+<tr class="even">
+<td><code>target</code></td>
+<td>string or null</td>
+<td>Field path in the target (current) version. <code>null</code> means
+the field is dropped.</td>
+</tr>
+<tr class="odd">
+<td><code>transform</code></td>
+<td>string</td>
+<td>One of: <code>"preserve"</code> (copy value as-is),
+<code>"drop"</code> (discard), <code>"expression"</code> (apply a FEL
+transform).</td>
+</tr>
+<tr class="even">
+<td><code>expression</code></td>
+<td>string</td>
+<td>When <code>transform</code> is <code>"expression"</code>, a FEL
+expression evaluated with <code>$</code> bound to the source field’s
+value and <code>@source</code> bound to the entire source response
+data.</td>
+</tr>
+</tbody>
+</table>
+<p>Migration semantics: - A conformant processor SHOULD support
+migrating responses when a migration map exists for the response’s
+pinned version. - Migration produces a <strong>new</strong> Response
+pinned to the target version. The original Response is preserved
+unchanged. - Fields present in the source but absent from
+<code>fieldMap</code> are carried forward by path matching (if the path
+exists in the target version) or dropped (if it does not). - The
+migrated Response’s <code>status</code> SHOULD be reset to
+<code>"in-progress"</code> to signal that the respondent should review
+the migrated data.</p>
+<h4 id="e.1.3-pre-population-declarations-on-fields-normative">E.1.3
+Pre-Population Declarations on Fields (Normative)</h4>
+<p>UDF declares pre-population directly on field definitions with a
+<code>prePopulate</code> object containing <code>source</code>,
+<code>field</code>, and <code>editable</code>. Formspec handles
+pre-population through the combination of secondary instances,
+<code>initialValue</code> expressions, and <code>readonly</code> binds —
+which works but requires three separate declarations for what is
+conceptually a single operation.</p>
+<p><strong>Amendment.</strong> Formspec adds <code>prePopulate</code> to
+the Field item schema:</p>
+<div class="sourceCode" id="cb85"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb85-2"><a href="#cb85-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;award_amount&quot;</span><span class="fu">,</span></span>
+<span id="cb85-3"><a href="#cb85-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb85-4"><a href="#cb85-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;money&quot;</span><span class="fu">,</span></span>
+<span id="cb85-5"><a href="#cb85-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Authorized Award Amount&quot;</span><span class="fu">,</span></span>
+<span id="cb85-6"><a href="#cb85-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;prePopulate&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb85-7"><a href="#cb85-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;instance&quot;</span><span class="fu">:</span> <span class="st">&quot;award&quot;</span><span class="fu">,</span></span>
+<span id="cb85-8"><a href="#cb85-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_amount&quot;</span><span class="fu">,</span></span>
+<span id="cb85-9"><a href="#cb85-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;editable&quot;</span><span class="fu">:</span> <span class="kw">false</span></span>
+<span id="cb85-10"><a href="#cb85-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb85-11"><a href="#cb85-11" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 20%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>instance</code></td>
+<td>string</td>
+<td>Name of a declared secondary instance (§4.4) to pull the value
+from.</td>
+</tr>
+<tr class="even">
+<td><code>path</code></td>
+<td>string</td>
+<td>Dot-notation path within the instance data to extract.</td>
+</tr>
+<tr class="odd">
+<td><code>editable</code></td>
+<td>boolean</td>
+<td>Default: <code>true</code>. When <code>false</code>, the field is
+locked after pre-population — equivalent to <code>readonly: true</code>
+on the bind, but expressed as an intrinsic property of the
+pre-population relationship.</td>
+</tr>
+</tbody>
+</table>
+<p><code>prePopulate</code> is syntactic sugar. A processor MUST
+treat:</p>
+<div class="sourceCode" id="cb86"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span> <span class="dt">&quot;prePopulate&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;instance&quot;</span><span class="fu">:</span> <span class="st">&quot;award&quot;</span><span class="fu">,</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;total_amount&quot;</span><span class="fu">,</span> <span class="dt">&quot;editable&quot;</span><span class="fu">:</span> <span class="kw">false</span> <span class="fu">}</span> <span class="fu">}</span></span></code></pre></div>
+<p>as equivalent to:</p>
+<div class="sourceCode" id="cb87"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb87-1"><a href="#cb87-1" aria-hidden="true" tabindex="-1"></a><span class="er">//</span> <span class="er">initialValue</span> <span class="er">on</span> <span class="er">the</span> <span class="er">field:</span></span>
+<span id="cb87-2"><a href="#cb87-2" aria-hidden="true" tabindex="-1"></a><span class="er">&quot;initialValue&quot;:</span> <span class="er">&quot;=@instance(&#39;award&#39;).total_amount&quot;</span></span>
+<span id="cb87-3"><a href="#cb87-3" aria-hidden="true" tabindex="-1"></a><span class="er">//</span> <span class="er">plus</span> <span class="er">a</span> <span class="er">bind:</span></span>
+<span id="cb87-4"><a href="#cb87-4" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;award_amount&quot;</span><span class="fu">,</span> <span class="dt">&quot;readonly&quot;</span><span class="fu">:</span> <span class="kw">true</span> <span class="fu">}</span></span></code></pre></div>
+<p>The sugar exists because pre-population is extremely common in
+government and financial forms, and the three-declaration pattern is
+error-prone (easy to forget the <code>readonly</code> bind, or to
+reference the wrong instance).</p>
+<p>When both <code>prePopulate</code> and <code>initialValue</code> are
+present on the same field, <code>prePopulate</code> takes
+precedence.</p>
+<h4 id="e.1.4-version-semantics-for-form-definitions-normative">E.1.4
+Version Semantics for Form Definitions (Normative)</h4>
+<p>UDF defines what semver patch/minor/major mean in the context of form
+definitions. Formspec specifies <code>versionAlgorithm: "semver"</code>
+but does not define what constitutes a patch, minor, or major change to
+a form definition.</p>
+<p><strong>Amendment.</strong> When <code>versionAlgorithm</code> is
+<code>"semver"</code>, the following version increment guidance
+applies:</p>
+<table>
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 26%" />
+<col style="width: 48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Increment</th>
+<th>Change Type</th>
+<th>Response Compatibility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Patch</strong> (2.1.0 → 2.1.1)</td>
+<td>Cosmetic only — label text, descriptions, help text, display
+metadata. No structural or behavioral changes.</td>
+<td>Existing responses remain fully valid. No re-validation needed.</td>
+</tr>
+<tr class="even">
+<td><strong>Minor</strong> (2.1.0 → 2.2.0)</td>
+<td>Additive — new optional fields, new option values, relaxed
+constraints (wider ranges, fewer required fields), new validation shapes
+at warning/info severity.</td>
+<td>Existing responses remain valid but may not contain data for new
+fields. Re-validation SHOULD pass.</td>
+</tr>
+<tr class="odd">
+<td><strong>Major</strong> (2.1.0 → 3.0.0)</td>
+<td>Breaking — removed fields, renamed fields, restructured groups,
+tightened constraints, new required fields, changed calculation
+logic.</td>
+<td>Existing responses MAY fail validation against the new version.
+Migration (§E.1.2) is RECOMMENDED.</td>
+</tr>
+</tbody>
+</table>
+<p>This guidance is RECOMMENDED, not REQUIRED. Organizations MAY adopt
+stricter or more relaxed conventions as appropriate for their governance
+needs.</p>
+<h4 id="e.1.5-response-metadata-subject-and-date-normative">E.1.5
+Response Metadata: <code>subject</code> and <code>date</code>
+(Normative)</h4>
+<p>UDF includes <code>subject</code> on FormResponse (identifying what
+entity the response is about) and <code>date</code> on FormDefinition
+(when this version was published). Formspec’s Response schema (§2.1.6)
+includes <code>authored</code> (last modified) and <code>author</code>
+(who), but not <code>subject</code> (about what). The Definition schema
+includes <code>title</code> and <code>description</code> but not a
+publication date.</p>
+<p><strong>Amendment.</strong> Formspec adds:</p>
+<p>To the <strong>FormResponse</strong> schema:</p>
+<table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 14%" />
+<col style="width: 30%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Cardinality</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>subject</code></td>
+<td>object</td>
+<td>0..1 (OPTIONAL)</td>
+<td>The entity this response is about. Contains <code>id</code> (string,
+REQUIRED) and <code>type</code> (string, OPTIONAL). E.g.,
+<code>{ "id": "grant-12345", "type": "Grant" }</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>To the <strong>FormDefinition</strong> schema:</p>
+<table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 14%" />
+<col style="width: 30%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Type</th>
+<th>Cardinality</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>date</code></td>
+<td>string (ISO 8601 date)</td>
+<td>0..1 (OPTIONAL)</td>
+<td>The date this version of the definition was published or last
+updated.</td>
+</tr>
+<tr class="even">
+<td><code>name</code></td>
+<td>string</td>
+<td>0..1 (OPTIONAL)</td>
+<td>A machine-friendly short identifier (ASCII letters, digits, hyphens
+only). Intended for code generation, file naming, and programmatic
+reference. MUST match <code>[a-zA-Z][a-zA-Z0-9\-]*</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="e.2-features-already-covered">E.2 Features Already Covered</h3>
+<p><strong>Four-layer separation.</strong> UDF’s
+Identity/Instance/Bind/Presentation Hints maps to Formspec’s Identity
+(§6) / Structure (Items) / Behavior (Binds + Shapes) / Presentation (out
+of scope). The models are isomorphic.</p>
+<p><strong>Core nouns and verbs.</strong> FormDefinition, Field, Group,
+Bind, Shape, OptionSet, Instance, FormResponse, ValidationReport,
+ValidationResult — all present in both specifications. The verb set
+(evaluate, recalculate, revalidate, refresh relevance, submit, assemble)
+maps to Formspec’s four-phase processing model (§2.4).</p>
+<p><strong>Canonical identity + version + status lifecycle.</strong>
+Identical patterns, both derived from FHIR R5.</p>
+<p><strong>Response pinning.</strong> Identical semantics.</p>
+<p><strong>Derivation with <code>derivedFrom</code> using
+<code>url|version</code> notation.</strong> Identical.</p>
+<p><strong>Core field types.</strong> UDF’s type set is a superset of
+Formspec’s (UDF adds <code>email</code> as a core type; Formspec handles
+this via <code>semanticType</code> annotation from Appendix D). The
+<code>currency</code> type maps to Formspec’s <code>money</code> type
+(Appendix C).</p>
+<p><strong>MIPs (calculate, relevant, required, readonly,
+constraint).</strong> Identical property set with identical
+semantics.</p>
+<p><strong>Non-relevant data exclusion.</strong> Identical five-point
+rule set (hidden + excluded from submission + validation suspended +
+required suppressed + value retained in memory for re-relevance).</p>
+<p><strong><code>defaultWhenExcluded</code>.</strong> UDF’s field-level
+<code>defaultWhenExcluded</code> is addressed by Formspec’s
+<code>excludedValue</code> on Binds (Appendix C, §C.1.3). Formspec’s
+approach is more flexible: it controls what downstream
+<em>expressions</em> see, while <code>nonRelevantBehavior</code>
+(Appendix B, §B.2.1) controls what the <em>submitted data</em>
+contains.</p>
+<p><strong>Secondary instances.</strong> UDF’s
+<code>secondaryInstances</code> with <code>source</code> and
+<code>inline</code> maps to Formspec’s <code>instances</code> with
+<code>source</code> and <code>data</code>.</p>
+<p><strong>Modular composition with assembly.</strong> Both define
+<code>$include</code>/<code>$ref</code>-based composition resolved at
+publish time with key/path prefixing.</p>
+<p><strong>Extension points.</strong> Both define extension types via
+URI registration with fallback to base types.</p>
+<h3 id="e.3-design-divergences-no-action">E.3 Design Divergences (No
+Action)</h3>
+<p><strong><code>$instances.name.path</code> vs
+<code>@instance('name').path</code>.</strong> Different syntax for
+secondary instance access. Formspec’s function-call syntax is more
+explicit about the fact that instance resolution is a runtime operation.
+No change.</p>
+<p><strong><code>[]</code> vs <code>[*]</code> for repeat template
+paths.</strong> UDF uses <code>budget_lines[].field</code>; Formspec
+uses <code>budget_lines[*].field</code>. Both are clear. Formspec’s
+<code>[*]</code> is more visually distinct from concrete indexed access
+(<code>[3]</code>). No change.</p>
+<p><strong><code>requiredFields</code> array on binds.</strong> UDF
+allows a bind to declare multiple required fields in one binding:
+<code>"requiredFields": ["section_b.narrative", "section_b.objectives_met"]</code>.
+This is syntactic sugar for multiple <code>required: true</code> binds.
+Formspec’s approach of one bind per behavior declaration is more uniform
+and composable, even if slightly more verbose. No change.</p>
+<p><strong><code>constraint</code> as inline shape on bind.</strong> UDF
+allows embedding a shape object directly in the bind’s
+<code>constraint</code> property. Formspec separates binds (for MIPs)
+from shapes (for composable validation). The separation is a core
+architectural choice that enables shape reuse and composition. No
+change.</p>
+<p><strong>Presentation Hints as a separate optional layer.</strong> UDF
+explicitly separates labels, descriptions, and help text into a distinct
+conceptual layer that can be omitted. Formspec embeds these as Item
+properties but does not require them for structural validity (a form
+without labels is processable, just not user-facing). The practical
+effect is the same. No change.</p>
 <aside id="footnotes" class="footnotes footnotes-end-of-document"
 role="doc-endnotes">
 <hr />

@@ -4901,3 +4901,345 @@ The BindGraph is an implementation artifact (the dependency graph constructed
 during the Rebuild phase), not a definition-time concept that needs a name in
 the schema. No change.
 
+
+
+---
+
+## Appendix E: UDF Cross-Analysis
+
+This appendix documents a cross-analysis with the Universal Declarative Forms
+(UDF) specification (v0.1.0-draft), an independent effort addressing the same
+problem space. UDF makes several design choices that address gaps or improve
+ergonomics in areas Formspec has not yet formalized. This appendix is
+informative except where noted as normative.
+
+### E.1 Features Adopted as Amendments
+
+#### E.1.1 Named Option Sets (Normative)
+
+UDF extracts option lists into a top-level `optionSets` section, allowing
+multiple fields to reference the same named set. Formspec currently requires
+options to be declared inline on each field or referenced by external URI.
+This means two fields using the same options (e.g., "Yes/No/N/A") must
+duplicate the array or both point to an external endpoint — neither of
+which handles the common case of *shared options within a single definition*.
+
+**Amendment.** Formspec adds a top-level `optionSets` property to the
+Definition schema:
+
+```json
+{
+  "$formspec": "1.0",
+  "url": "...",
+  "optionSets": {
+    "cost_categories": {
+      "options": [
+        { "value": "personnel", "label": "Personnel" },
+        { "value": "fringe", "label": "Fringe Benefits" },
+        { "value": "travel", "label": "Travel" },
+        { "value": "equipment", "label": "Equipment" },
+        { "value": "supplies", "label": "Supplies" },
+        { "value": "contractual", "label": "Contractual" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    "yes_no_na": {
+      "options": [
+        { "value": "yes", "label": "Yes" },
+        { "value": "no", "label": "No" },
+        { "value": "na", "label": "Not Applicable" }
+      ]
+    },
+    "agency_list": {
+      "source": "https://api.sam.gov/agencies",
+      "valueField": "code",
+      "labelField": "name"
+    }
+  },
+  "items": [...]
+}
+```
+
+An OptionSet is defined by one of:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `options` | array of `{ value, label }` | Inline list of permitted values. Each entry MUST have `value` (string, REQUIRED) and `label` (string, REQUIRED). |
+| `source` | string (URI) | External endpoint returning an array of options. |
+| `valueField` | string | When using `source`, the JSON property name for the option value. Default: `"value"`. |
+| `labelField` | string | When using `source`, the JSON property name for the option label. Default: `"label"`. |
+
+A `choice` or `multiChoice` field references a named option set via the
+`optionSet` property:
+
+```json
+{
+  "key": "category",
+  "type": "field",
+  "dataType": "choice",
+  "optionSet": "cost_categories",
+  "label": "Cost Category"
+}
+```
+
+The existing `options` property on Field items (§4.2.3) remains valid for
+one-off inline options. When both `options` and `optionSet` are present on a
+field, `optionSet` takes precedence and `options` is ignored.
+
+Named option sets enable:
+- **DRY definitions** — "Yes/No/N/A" declared once, referenced many times
+- **Consistent vocabulary** — all fields using the same set stay in sync
+- **Tooling support** — authoring tools can present a list of available sets
+- **Dynamic loading** — the `source` variant supports runtime option fetching
+  with standard value/label field mapping
+
+#### E.1.2 Version Migration Maps (Normative)
+
+UDF defines a `migrate` verb for transforming responses from one definition
+version to another. Formspec specifies response pinning (§6.4) — responses
+are validated against their pinned version — but provides no mechanism for
+*upgrading* a response when a new definition version is published.
+
+This is a real operational gap. When a form definition goes from v2.1.0 to
+v3.0.0 (a breaking change), existing in-progress responses on v2.1.0 need a
+path forward. Without a standard migration mechanism, implementors must write
+ad-hoc scripts.
+
+**Amendment.** Formspec adds an optional `migrations` section to the
+Definition schema:
+
+```json
+{
+  "$formspec": "1.0",
+  "url": "https://grants.gov/forms/sf-425",
+  "version": "3.0.0",
+  "status": "active",
+  "migrations": {
+    "from": {
+      "2.1.0": {
+        "description": "Restructured budget section; split 'other_costs' into subcategories",
+        "fieldMap": [
+          {
+            "source": "expenditures.other_costs",
+            "target": "expenditures.miscellaneous.total",
+            "transform": "preserve"
+          },
+          {
+            "source": "report_period",
+            "target": "reporting.period",
+            "transform": "preserve"
+          },
+          {
+            "source": "indirect_rate",
+            "target": null,
+            "transform": "drop"
+          }
+        ],
+        "defaults": {
+          "expenditures.miscellaneous.description": "",
+          "reporting.frequency": "quarterly"
+        }
+      }
+    }
+  }
+}
+```
+
+A migration map declares how to transform response data from a specific
+prior version into the current version's structure:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `from` | object | Keys are source version strings. Values are migration descriptors. |
+| `from[version].description` | string | Human-readable description of what changed. |
+| `from[version].fieldMap` | array | Ordered list of field mapping rules. |
+| `from[version].defaults` | object | Default values for new fields that have no source mapping. Keys are target field paths; values are literal defaults. |
+
+Each field mapping rule contains:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | Field path in the source version's instance. |
+| `target` | string or null | Field path in the target (current) version. `null` means the field is dropped. |
+| `transform` | string | One of: `"preserve"` (copy value as-is), `"drop"` (discard), `"expression"` (apply a FEL transform). |
+| `expression` | string | When `transform` is `"expression"`, a FEL expression evaluated with `$` bound to the source field's value and `@source` bound to the entire source response data. |
+
+Migration semantics:
+- A conformant processor SHOULD support migrating responses when a migration
+  map exists for the response's pinned version.
+- Migration produces a **new** Response pinned to the target version. The
+  original Response is preserved unchanged.
+- Fields present in the source but absent from `fieldMap` are carried forward
+  by path matching (if the path exists in the target version) or dropped
+  (if it does not).
+- The migrated Response's `status` SHOULD be reset to `"in-progress"` to
+  signal that the respondent should review the migrated data.
+
+#### E.1.3 Pre-Population Declarations on Fields (Normative)
+
+UDF declares pre-population directly on field definitions with a `prePopulate`
+object containing `source`, `field`, and `editable`. Formspec handles
+pre-population through the combination of secondary instances, `initialValue`
+expressions, and `readonly` binds — which works but requires three separate
+declarations for what is conceptually a single operation.
+
+**Amendment.** Formspec adds `prePopulate` to the Field item schema:
+
+```json
+{
+  "key": "award_amount",
+  "type": "field",
+  "dataType": "money",
+  "label": "Authorized Award Amount",
+  "prePopulate": {
+    "instance": "award",
+    "path": "total_amount",
+    "editable": false
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `instance` | string | Name of a declared secondary instance (§4.4) to pull the value from. |
+| `path` | string | Dot-notation path within the instance data to extract. |
+| `editable` | boolean | Default: `true`. When `false`, the field is locked after pre-population — equivalent to `readonly: true` on the bind, but expressed as an intrinsic property of the pre-population relationship. |
+
+`prePopulate` is syntactic sugar. A processor MUST treat:
+
+```json
+{ "prePopulate": { "instance": "award", "path": "total_amount", "editable": false } }
+```
+
+as equivalent to:
+
+```json
+// initialValue on the field:
+"initialValue": "=@instance('award').total_amount"
+// plus a bind:
+{ "path": "award_amount", "readonly": true }
+```
+
+The sugar exists because pre-population is extremely common in government and
+financial forms, and the three-declaration pattern is error-prone (easy to
+forget the `readonly` bind, or to reference the wrong instance).
+
+When both `prePopulate` and `initialValue` are present on the same field,
+`prePopulate` takes precedence.
+
+#### E.1.4 Version Semantics for Form Definitions (Normative)
+
+UDF defines what semver patch/minor/major mean in the context of form
+definitions. Formspec specifies `versionAlgorithm: "semver"` but does not
+define what constitutes a patch, minor, or major change to a form definition.
+
+**Amendment.** When `versionAlgorithm` is `"semver"`, the following
+version increment guidance applies:
+
+| Increment | Change Type | Response Compatibility |
+|-----------|------------|----------------------|
+| **Patch** (2.1.0 → 2.1.1) | Cosmetic only — label text, descriptions, help text, display metadata. No structural or behavioral changes. | Existing responses remain fully valid. No re-validation needed. |
+| **Minor** (2.1.0 → 2.2.0) | Additive — new optional fields, new option values, relaxed constraints (wider ranges, fewer required fields), new validation shapes at warning/info severity. | Existing responses remain valid but may not contain data for new fields. Re-validation SHOULD pass. |
+| **Major** (2.1.0 → 3.0.0) | Breaking — removed fields, renamed fields, restructured groups, tightened constraints, new required fields, changed calculation logic. | Existing responses MAY fail validation against the new version. Migration (§E.1.2) is RECOMMENDED. |
+
+This guidance is RECOMMENDED, not REQUIRED. Organizations MAY adopt stricter
+or more relaxed conventions as appropriate for their governance needs.
+
+#### E.1.5 Response Metadata: `subject` and `date` (Normative)
+
+UDF includes `subject` on FormResponse (identifying what entity the response
+is about) and `date` on FormDefinition (when this version was published).
+Formspec's Response schema (§2.1.6) includes `authored` (last modified) and
+`author` (who), but not `subject` (about what). The Definition schema
+includes `title` and `description` but not a publication date.
+
+**Amendment.** Formspec adds:
+
+To the **FormResponse** schema:
+
+| Property | Type | Cardinality | Description |
+|----------|------|-------------|-------------|
+| `subject` | object | 0..1 (OPTIONAL) | The entity this response is about. Contains `id` (string, REQUIRED) and `type` (string, OPTIONAL). E.g., `{ "id": "grant-12345", "type": "Grant" }`. |
+
+To the **FormDefinition** schema:
+
+| Property | Type | Cardinality | Description |
+|----------|------|-------------|-------------|
+| `date` | string (ISO 8601 date) | 0..1 (OPTIONAL) | The date this version of the definition was published or last updated. |
+| `name` | string | 0..1 (OPTIONAL) | A machine-friendly short identifier (ASCII letters, digits, hyphens only). Intended for code generation, file naming, and programmatic reference. MUST match `[a-zA-Z][a-zA-Z0-9\-]*`. |
+
+### E.2 Features Already Covered
+
+**Four-layer separation.** UDF's Identity/Instance/Bind/Presentation Hints
+maps to Formspec's Identity (§6) / Structure (Items) / Behavior (Binds +
+Shapes) / Presentation (out of scope). The models are isomorphic.
+
+**Core nouns and verbs.** FormDefinition, Field, Group, Bind, Shape,
+OptionSet, Instance, FormResponse, ValidationReport, ValidationResult — all
+present in both specifications. The verb set (evaluate, recalculate,
+revalidate, refresh relevance, submit, assemble) maps to Formspec's
+four-phase processing model (§2.4).
+
+**Canonical identity + version + status lifecycle.** Identical patterns,
+both derived from FHIR R5.
+
+**Response pinning.** Identical semantics.
+
+**Derivation with `derivedFrom` using `url|version` notation.** Identical.
+
+**Core field types.** UDF's type set is a superset of Formspec's (UDF adds
+`email` as a core type; Formspec handles this via `semanticType` annotation
+from Appendix D). The `currency` type maps to Formspec's `money` type
+(Appendix C).
+
+**MIPs (calculate, relevant, required, readonly, constraint).** Identical
+property set with identical semantics.
+
+**Non-relevant data exclusion.** Identical five-point rule set
+(hidden + excluded from submission + validation suspended + required
+suppressed + value retained in memory for re-relevance).
+
+**`defaultWhenExcluded`.** UDF's field-level `defaultWhenExcluded` is
+addressed by Formspec's `excludedValue` on Binds (Appendix C, §C.1.3).
+Formspec's approach is more flexible: it controls what downstream
+*expressions* see, while `nonRelevantBehavior` (Appendix B, §B.2.1)
+controls what the *submitted data* contains.
+
+**Secondary instances.** UDF's `secondaryInstances` with `source` and
+`inline` maps to Formspec's `instances` with `source` and `data`.
+
+**Modular composition with assembly.** Both define `$include`/`$ref`-based
+composition resolved at publish time with key/path prefixing.
+
+**Extension points.** Both define extension types via URI registration
+with fallback to base types.
+
+### E.3 Design Divergences (No Action)
+
+**`$instances.name.path` vs `@instance('name').path`.** Different syntax for
+secondary instance access. Formspec's function-call syntax is more explicit
+about the fact that instance resolution is a runtime operation. No change.
+
+**`[]` vs `[*]` for repeat template paths.** UDF uses `budget_lines[].field`;
+Formspec uses `budget_lines[*].field`. Both are clear. Formspec's `[*]`
+is more visually distinct from concrete indexed access (`[3]`). No change.
+
+**`requiredFields` array on binds.** UDF allows a bind to declare multiple
+required fields in one binding: `"requiredFields": ["section_b.narrative",
+"section_b.objectives_met"]`. This is syntactic sugar for multiple
+`required: true` binds. Formspec's approach of one bind per behavior
+declaration is more uniform and composable, even if slightly more verbose.
+No change.
+
+**`constraint` as inline shape on bind.** UDF allows embedding a shape
+object directly in the bind's `constraint` property. Formspec separates
+binds (for MIPs) from shapes (for composable validation). The separation
+is a core architectural choice that enables shape reuse and composition.
+No change.
+
+**Presentation Hints as a separate optional layer.** UDF explicitly separates
+labels, descriptions, and help text into a distinct conceptual layer that can
+be omitted. Formspec embeds these as Item properties but does not require
+them for structural validity (a form without labels is processable, just not
+user-facing). The practical effect is the same. No change.
+
