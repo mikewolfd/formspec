@@ -359,7 +359,7 @@ The lifecycle of a Mapping Document is as follows:
 
 1. **Authoring.** A Mapping Document is created by a form author, integration
    engineer, or automated tool. It declares which Formspec Definition (by
-   `definitionUrl`) and which external schema it targets.
+   `definitionRef`) and which external schema it targets.
 
 2. **Association.** A Mapping Document is associated with a Formspec
    Definition by reference. The Definition document itself does not contain
@@ -688,7 +688,7 @@ The following Mapping Document maps a Formspec patient-intake form to an HL7 FHI
     }
   ],
   "adapters": {
-    "fhir-r4": {
+    "x-fhir-r4": {
       "validateOnEmit": true,
       "profileUrl": "https://hl7.org/fhir/R4/patient.html"
     }
@@ -1799,7 +1799,7 @@ Maps a Formspec grant form (`applicant_name`, `ein`, `budget_total`,
 {
   "$schema": "https://formspec.org/schemas/mapping/v1",
   "version": "1.0.0",
-  "definitionUrl": "https://grants.example.gov/forms/sf-424",
+  "definitionRef": "https://grants.example.gov/forms/sf-424",
   "definitionVersion": ">=3.0.0 <4.0.0",
   "direction": "forward",
   "targetSchema": { "format": "json" },
@@ -1848,7 +1848,7 @@ delimited allergy list.
 {
   "$schema": "https://formspec.org/schemas/mapping/v1",
   "version": "1.0.0",
-  "definitionUrl": "https://clinic.example.com/forms/intake",
+  "definitionRef": "https://clinic.example.com/forms/intake",
   "definitionVersion": "1.x",
   "direction": "forward",
   "targetSchema": { "format": "csv" },
@@ -1888,7 +1888,7 @@ Observation][fhir-obs] resource.
 {
   "$schema": "https://formspec.org/schemas/mapping/v1",
   "version": "1.0.0",
-  "definitionUrl": "https://ehr.example.com/forms/vitals",
+  "definitionRef": "https://ehr.example.com/forms/vitals",
   "definitionVersion": "2.x",
   "direction": "both",
   "targetSchema": { "format": "json" },
@@ -1964,6 +1964,7 @@ Given a §6.7 migration descriptor *D* with source version *V_src*:
 {
   "$schema": "https://formspec.org/schemas/mapping/v1",
   "version": "1.0.0",
+  "definitionRef": "https://example.gov/forms/expenditure-report",
   "definitionVersion": "2.1.0",
   "direction": "forward",
   "autoMap": true,
