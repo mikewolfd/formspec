@@ -4129,3 +4129,255 @@ that address them. This appendix is informative.
 | AD-02 | Supports visual/no-code authoring | §1.2; declarative JSON is tooling-friendly by design |
 | AD-03 | Program-agnostic | §1.2; no domain-specific types in core |
 | AD-04 | Extensible for domain-specific needs | §8 Extension Points (custom types, functions, constraints, properties, namespaces) |
+
+
+---
+
+## Appendix B: XForms 2.0 Delta Analysis
+
+This appendix documents features from the W3C XForms 2.0 Community Group
+specification that were analyzed for inclusion in Formspec. XForms 2.0 is a
+living document maintained by the XForms Users Community Group; it is not a
+formal W3C Recommendation. This appendix is informative.
+
+### B.1 Features Incorporated into Formspec
+
+The following XForms 2.0 features are already addressed by Formspec's design,
+though some warrant clarification or minor enhancement.
+
+**Per-constraint error messages.** XForms 2.0 allows multiple `<bind>` elements
+to target the same node, each with its own `alert` attribute. Formspec addresses
+this through two complementary mechanisms: (a) the `constraintMessage` property
+on Bind objects, and (b) Validation Shapes (§5.2), which are inherently
+per-rule — each Shape carries its own `message`. For fields requiring multiple
+distinct validation rules with distinct messages, implementors SHOULD use
+multiple Shapes rather than a single Bind constraint.
+
+**Initial value expressions.** XForms 2.0 adds an `initial` MIP that evaluates
+an expression once during initialization. Formspec's `initialValue` on Items
+(§4.2.3) is currently defined as a static value. See §B.3 below for a
+recommended enhancement.
+
+**Batched/deferred updates.** XForms 2.0 clarifies that updates are deferred
+during action handler processing. Formspec specifies this in §2.4 (Deferred
+Processing): "During batch operations, phases 1–4 are deferred until the batch
+completes."
+
+**Empty non-required fields are valid.** XForms 2.0 clarifies that empty
+non-required fields are always valid. Formspec's validation semantics (§5.6)
+already specify that non-relevant fields skip validation and that `required`
+controls whether emptiness is an error.
+
+**JSON instance data.** XForms 2.0 adds JSON support by converting JSON to an
+XML representation. Formspec is JSON-native and requires no conversion layer.
+
+**Variables.** XForms 2.0 adds a `<var>` element for named values. Formspec
+provides this via the Variables mechanism (§4.5).
+
+**Custom functions.** XForms 2.0 adds user-defined XPath functions via a
+`<function>` element. Formspec provides this capability via Extension Functions
+(§3.12, §8.2).
+
+### B.2 Features Adopted as Amendments
+
+The following features from XForms 2.0 represent genuine gaps in the current
+Formspec specification. They are incorporated here as normative amendments.
+
+#### B.2.1 Non-Relevant Submission Modes
+
+XForms 2.0 replaces the binary `relevant` attribute on submission with a
+three-valued `nonrelevant` attribute: `keep`, `remove`, `empty`. This addresses
+a real design question: when submitting form data, some systems require the full
+data structure (with blanked-out hidden fields) rather than a pruned tree.
+
+Formspec adopts this as the `nonRelevantBehavior` property on the Definition:
+
+| Value | Behavior |
+|-------|----------|
+| `"remove"` | Non-relevant nodes and their descendants are excluded from the submitted Response instance. This is the DEFAULT. |
+| `"empty"` | Non-relevant nodes are retained in the submitted Response instance, but their values are set to `null`. The data structure is preserved. |
+| `"keep"` | Non-relevant nodes are retained in the submitted Response instance with their current values intact. |
+
+This property is declared at the Definition level:
+
+```json
+{
+  "$formspec": "1.0",
+  "url": "...",
+  "nonRelevantBehavior": "empty",
+  ...
+}
+```
+
+Binds MAY override this for individual paths:
+
+```json
+{
+  "path": "sensitive_section",
+  "relevant": "$show_sensitive = true",
+  "nonRelevantBehavior": "remove"
+}
+```
+
+The per-Bind value takes precedence over the Definition-level default.
+
+#### B.2.2 Whitespace Handling
+
+XForms 2.0 adds a `whitespace` MIP controlling how text values are normalized
+on input. This prevents an entire class of data quality issues (leading/trailing
+spaces in names, multiple spaces in addresses, etc.).
+
+Formspec adopts this as the `whitespace` property on Bind objects:
+
+| Value | Behavior |
+|-------|----------|
+| `"preserve"` | No whitespace modification. This is the DEFAULT. |
+| `"trim"` | Remove leading and trailing whitespace characters. |
+| `"normalize"` | Trim, then collapse all internal runs of whitespace to a single space. |
+| `"remove"` | Remove all whitespace characters. Useful for identifiers (phone numbers, card numbers, EINs). |
+
+```json
+{
+  "path": "contact.full_name",
+  "whitespace": "normalize"
+},
+{
+  "path": "contact.phone_number",
+  "whitespace": "remove"
+}
+```
+
+Whitespace transformation is applied **before** the value is stored in the
+Instance and **before** any constraint or type validation executes. This means
+validators see the post-whitespace value.
+
+For fields with `dataType` of `"integer"` or `"decimal"`, whitespace is always
+trimmed regardless of this setting (leading/trailing whitespace on numeric
+values is never meaningful).
+
+#### B.2.3 Expression-Based Initial Values
+
+XForms 2.0's `initial` MIP evaluates an expression once during initialization.
+Formspec's `initialValue` on Items is currently defined as a static value,
+which is insufficient for cases like "default to today's date" or "default to
+a value from a secondary instance."
+
+Amendment: The `initialValue` property on Field items MAY be either:
+
+1. **A literal value** — any JSON value conforming to the field's `dataType`.
+2. **An expression string** — prefixed with `=` to distinguish from literals.
+
+```json
+{
+  "key": "report_date",
+  "type": "field",
+  "dataType": "date",
+  "initialValue": "=today()"
+}
+```
+
+```json
+{
+  "key": "entity_name",
+  "type": "field",
+  "dataType": "string",
+  "initialValue": "=@instance('entity').name"
+}
+```
+
+An `initialValue` expression is evaluated **once** when a new Response is
+created or when a new repeat instance is added. It is NOT re-evaluated when
+dependencies change (use `calculate` on a Bind for continuous recalculation).
+
+The `=` prefix convention is chosen because:
+- It matches spreadsheet conventions (Excel, Google Sheets use `=` to introduce formulas)
+- It is unambiguous — no valid static string value would begin with `=` in practice
+- It avoids the need for a separate `initialExpression` property
+
+#### B.2.4 MIP-State Query Functions
+
+XForms 2.0 adds functions to query the current state of model item properties:
+`valid()`, `relevant()`, `readonly()`, `required()`. These enable expressions
+like "show a summary of all invalid fields" or "count how many required fields
+are empty."
+
+Formspec adopts these as built-in FEL functions:
+
+| Function | Signature | Returns |
+|----------|-----------|---------|
+| `valid(ref)` | `valid($path) → boolean` | `true` if the referenced field has no error-severity validation results |
+| `relevant(ref)` | `relevant($path) → boolean` | `true` if the referenced field is currently relevant |
+| `readonly(ref)` | `readonly($path) → boolean` | `true` if the referenced field is currently readonly |
+| `required(ref)` | `required($path) → boolean` | `true` if the referenced field is currently required |
+
+The argument is a field reference using standard FEL `$path` syntax:
+
+```
+if(not(valid($ein)), "Please correct EIN before proceeding", "")
+```
+
+```
+count($line_items[*]) > 0 and valid($line_items[*].amount)
+```
+
+These functions read the **current computed state** of the referenced field's
+MIP, not the raw expression. They are evaluated during the Revalidate phase,
+after all Recalculate MIPs have been resolved.
+
+### B.3 Features Intentionally Excluded
+
+The following XForms 2.0 features were evaluated and intentionally excluded
+from Formspec.
+
+**Attribute Value Templates (AVTs).** XForms 2.0 allows `{expression}` syntax
+in most XML attributes for dynamic values. Formspec's JSON format does not have
+"attributes" in the XML sense — properties are already first-class JSON values.
+Where dynamic values are needed, FEL expressions serve this purpose directly.
+AVTs solve an XML-specific ergonomic problem.
+
+**Declarative sorting (`sort` MIP).** XForms 2.0 adds `sort`/`direction`/
+`collation` MIPs to keep node-sets in sorted order. This is a presentation
+concern in the form context — the order items are displayed vs. the order they
+are stored are separate. Sort order belongs in the presentation layer.
+
+**Dialog/modal container.** XForms 2.0 adds a `<dialog>` element. Modals are a
+UI pattern, not a data model concern. Formspec's presentation layer exclusion
+applies.
+
+**Collapsible groups (`collapse` attribute).** This is a presentation concern —
+whether a section is expanded or collapsed is a UI state, not a data or
+validation concern.
+
+**Model-based switch/case.** XForms 2.0 enhances `<switch>` with data binding.
+Formspec's `relevant` expressions on Binds provide equivalent functionality:
+each "case" is a group with a `relevant` expression, and mutual exclusion can
+be enforced via validation shapes.
+
+**`select1` deselection.** This is a UI behavior detail.
+
+**CSS pseudo-elements for repeats.** CSS is a presentation layer technology.
+
+**Repeat over non-node sequences (e.g., `1 to 10`).** Formspec's repeatable
+groups bind to data arrays, not computed sequences. A computed sequence that
+needs UI elements should be materialized as data nodes first (via a `calculate`
+bind that populates the array).
+
+**User-defined functions as inline expressions.** XForms 2.0 allows defining
+functions with inline expression bodies (`<function>` with `<result>` child).
+Formspec supports registering external functions (§8.2) but does not support
+defining function bodies inline in the Definition. Inline function definitions
+would require adding control flow to FEL (the `if/then/else` already exists,
+but recursion and named parameters would be needed), significantly increasing
+language complexity. Extension functions with external implementations are the
+preferred approach.
+
+**URI manipulation functions.** Functions like `uri-scheme()`, `uri-host()`,
+`uri-query()` solve HTTP-specific problems. These can be added as extension
+functions by implementations that need them.
+
+**Cryptographic functions.** Domain-specific. Suitable as extension functions.
+
+**`eval()` / `eval-in-context()`.** Dynamic expression evaluation introduces
+security and predictability concerns incompatible with FEL's determinism
+guarantee (§3.1, goal 4).
+

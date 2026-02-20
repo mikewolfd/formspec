@@ -203,6 +203,20 @@ id="toc-versioning-evolution-1">Versioning &amp; Evolution</a></li>
 <li><a href="#authoring-extensibility"
 id="toc-authoring-extensibility">Authoring &amp; Extensibility</a></li>
 </ul></li>
+<li><a href="#appendix-b-xforms-2.0-delta-analysis"
+id="toc-appendix-b-xforms-2.0-delta-analysis">Appendix B: XForms 2.0
+Delta Analysis</a>
+<ul>
+<li><a href="#b.1-features-incorporated-into-formspec"
+id="toc-b.1-features-incorporated-into-formspec">B.1 Features
+Incorporated into Formspec</a></li>
+<li><a href="#b.2-features-adopted-as-amendments"
+id="toc-b.2-features-adopted-as-amendments">B.2 Features Adopted as
+Amendments</a></li>
+<li><a href="#b.3-features-intentionally-excluded"
+id="toc-b.3-features-intentionally-excluded">B.3 Features Intentionally
+Excluded</a></li>
+</ul></li>
 </ul></li>
 </ul>
 </nav>
@@ -6683,6 +6697,317 @@ properties, namespaces)</td>
 </tr>
 </tbody>
 </table>
+<hr />
+<h2 id="appendix-b-xforms-2.0-delta-analysis">Appendix B: XForms 2.0
+Delta Analysis</h2>
+<p>This appendix documents features from the W3C XForms 2.0 Community
+Group specification that were analyzed for inclusion in Formspec. XForms
+2.0 is a living document maintained by the XForms Users Community Group;
+it is not a formal W3C Recommendation. This appendix is informative.</p>
+<h3 id="b.1-features-incorporated-into-formspec">B.1 Features
+Incorporated into Formspec</h3>
+<p>The following XForms 2.0 features are already addressed by Formspec’s
+design, though some warrant clarification or minor enhancement.</p>
+<p><strong>Per-constraint error messages.</strong> XForms 2.0 allows
+multiple <code>&lt;bind&gt;</code> elements to target the same node,
+each with its own <code>alert</code> attribute. Formspec addresses this
+through two complementary mechanisms: (a) the
+<code>constraintMessage</code> property on Bind objects, and (b)
+Validation Shapes (§5.2), which are inherently per-rule — each Shape
+carries its own <code>message</code>. For fields requiring multiple
+distinct validation rules with distinct messages, implementors SHOULD
+use multiple Shapes rather than a single Bind constraint.</p>
+<p><strong>Initial value expressions.</strong> XForms 2.0 adds an
+<code>initial</code> MIP that evaluates an expression once during
+initialization. Formspec’s <code>initialValue</code> on Items (§4.2.3)
+is currently defined as a static value. See §B.3 below for a recommended
+enhancement.</p>
+<p><strong>Batched/deferred updates.</strong> XForms 2.0 clarifies that
+updates are deferred during action handler processing. Formspec
+specifies this in §2.4 (Deferred Processing): “During batch operations,
+phases 1–4 are deferred until the batch completes.”</p>
+<p><strong>Empty non-required fields are valid.</strong> XForms 2.0
+clarifies that empty non-required fields are always valid. Formspec’s
+validation semantics (§5.6) already specify that non-relevant fields
+skip validation and that <code>required</code> controls whether
+emptiness is an error.</p>
+<p><strong>JSON instance data.</strong> XForms 2.0 adds JSON support by
+converting JSON to an XML representation. Formspec is JSON-native and
+requires no conversion layer.</p>
+<p><strong>Variables.</strong> XForms 2.0 adds a
+<code>&lt;var&gt;</code> element for named values. Formspec provides
+this via the Variables mechanism (§4.5).</p>
+<p><strong>Custom functions.</strong> XForms 2.0 adds user-defined XPath
+functions via a <code>&lt;function&gt;</code> element. Formspec provides
+this capability via Extension Functions (§3.12, §8.2).</p>
+<h3 id="b.2-features-adopted-as-amendments">B.2 Features Adopted as
+Amendments</h3>
+<p>The following features from XForms 2.0 represent genuine gaps in the
+current Formspec specification. They are incorporated here as normative
+amendments.</p>
+<h4 id="b.2.1-non-relevant-submission-modes">B.2.1 Non-Relevant
+Submission Modes</h4>
+<p>XForms 2.0 replaces the binary <code>relevant</code> attribute on
+submission with a three-valued <code>nonrelevant</code> attribute:
+<code>keep</code>, <code>remove</code>, <code>empty</code>. This
+addresses a real design question: when submitting form data, some
+systems require the full data structure (with blanked-out hidden fields)
+rather than a pruned tree.</p>
+<p>Formspec adopts this as the <code>nonRelevantBehavior</code> property
+on the Definition:</p>
+<table>
+<colgroup>
+<col style="width: 41%" />
+<col style="width: 58%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Value</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>"remove"</code></td>
+<td>Non-relevant nodes and their descendants are excluded from the
+submitted Response instance. This is the DEFAULT.</td>
+</tr>
+<tr class="even">
+<td><code>"empty"</code></td>
+<td>Non-relevant nodes are retained in the submitted Response instance,
+but their values are set to <code>null</code>. The data structure is
+preserved.</td>
+</tr>
+<tr class="odd">
+<td><code>"keep"</code></td>
+<td>Non-relevant nodes are retained in the submitted Response instance
+with their current values intact.</td>
+</tr>
+</tbody>
+</table>
+<p>This property is declared at the Definition level:</p>
+<div class="sourceCode" id="cb65"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$formspec&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;...&quot;</span><span class="fu">,</span></span>
+<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;nonRelevantBehavior&quot;</span><span class="fu">:</span> <span class="st">&quot;empty&quot;</span><span class="fu">,</span></span>
+<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a>  <span class="er">...</span></span>
+<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Binds MAY override this for individual paths:</p>
+<div class="sourceCode" id="cb66"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;sensitive_section&quot;</span><span class="fu">,</span></span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;relevant&quot;</span><span class="fu">:</span> <span class="st">&quot;$show_sensitive = true&quot;</span><span class="fu">,</span></span>
+<span id="cb66-4"><a href="#cb66-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;nonRelevantBehavior&quot;</span><span class="fu">:</span> <span class="st">&quot;remove&quot;</span></span>
+<span id="cb66-5"><a href="#cb66-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The per-Bind value takes precedence over the Definition-level
+default.</p>
+<h4 id="b.2.2-whitespace-handling">B.2.2 Whitespace Handling</h4>
+<p>XForms 2.0 adds a <code>whitespace</code> MIP controlling how text
+values are normalized on input. This prevents an entire class of data
+quality issues (leading/trailing spaces in names, multiple spaces in
+addresses, etc.).</p>
+<p>Formspec adopts this as the <code>whitespace</code> property on Bind
+objects:</p>
+<table>
+<colgroup>
+<col style="width: 41%" />
+<col style="width: 58%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Value</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>"preserve"</code></td>
+<td>No whitespace modification. This is the DEFAULT.</td>
+</tr>
+<tr class="even">
+<td><code>"trim"</code></td>
+<td>Remove leading and trailing whitespace characters.</td>
+</tr>
+<tr class="odd">
+<td><code>"normalize"</code></td>
+<td>Trim, then collapse all internal runs of whitespace to a single
+space.</td>
+</tr>
+<tr class="even">
+<td><code>"remove"</code></td>
+<td>Remove all whitespace characters. Useful for identifiers (phone
+numbers, card numbers, EINs).</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb67"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;contact.full_name&quot;</span><span class="fu">,</span></span>
+<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;whitespace&quot;</span><span class="fu">:</span> <span class="st">&quot;normalize&quot;</span></span>
+<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span><span class="er">,</span></span>
+<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb67-6"><a href="#cb67-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;contact.phone_number&quot;</span><span class="fu">,</span></span>
+<span id="cb67-7"><a href="#cb67-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;whitespace&quot;</span><span class="fu">:</span> <span class="st">&quot;remove&quot;</span></span>
+<span id="cb67-8"><a href="#cb67-8" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Whitespace transformation is applied <strong>before</strong> the
+value is stored in the Instance and <strong>before</strong> any
+constraint or type validation executes. This means validators see the
+post-whitespace value.</p>
+<p>For fields with <code>dataType</code> of <code>"integer"</code> or
+<code>"decimal"</code>, whitespace is always trimmed regardless of this
+setting (leading/trailing whitespace on numeric values is never
+meaningful).</p>
+<h4 id="b.2.3-expression-based-initial-values">B.2.3 Expression-Based
+Initial Values</h4>
+<p>XForms 2.0’s <code>initial</code> MIP evaluates an expression once
+during initialization. Formspec’s <code>initialValue</code> on Items is
+currently defined as a static value, which is insufficient for cases
+like “default to today’s date” or “default to a value from a secondary
+instance.”</p>
+<p>Amendment: The <code>initialValue</code> property on Field items MAY
+be either:</p>
+<ol type="1">
+<li><strong>A literal value</strong> — any JSON value conforming to the
+field’s <code>dataType</code>.</li>
+<li><strong>An expression string</strong> — prefixed with <code>=</code>
+to distinguish from literals.</li>
+</ol>
+<div class="sourceCode" id="cb68"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;report_date&quot;</span><span class="fu">,</span></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;date&quot;</span><span class="fu">,</span></span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;initialValue&quot;</span><span class="fu">:</span> <span class="st">&quot;=today()&quot;</span></span>
+<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb69"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;entity_name&quot;</span><span class="fu">,</span></span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span></span>
+<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dataType&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
+<span id="cb69-5"><a href="#cb69-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;initialValue&quot;</span><span class="fu">:</span> <span class="st">&quot;=@instance(&#39;entity&#39;).name&quot;</span></span>
+<span id="cb69-6"><a href="#cb69-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>An <code>initialValue</code> expression is evaluated
+<strong>once</strong> when a new Response is created or when a new
+repeat instance is added. It is NOT re-evaluated when dependencies
+change (use <code>calculate</code> on a Bind for continuous
+recalculation).</p>
+<p>The <code>=</code> prefix convention is chosen because: - It matches
+spreadsheet conventions (Excel, Google Sheets use <code>=</code> to
+introduce formulas) - It is unambiguous — no valid static string value
+would begin with <code>=</code> in practice - It avoids the need for a
+separate <code>initialExpression</code> property</p>
+<h4 id="b.2.4-mip-state-query-functions">B.2.4 MIP-State Query
+Functions</h4>
+<p>XForms 2.0 adds functions to query the current state of model item
+properties: <code>valid()</code>, <code>relevant()</code>,
+<code>readonly()</code>, <code>required()</code>. These enable
+expressions like “show a summary of all invalid fields” or “count how
+many required fields are empty.”</p>
+<p>Formspec adopts these as built-in FEL functions:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 36%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>valid(ref)</code></td>
+<td><code>valid($path) → boolean</code></td>
+<td><code>true</code> if the referenced field has no error-severity
+validation results</td>
+</tr>
+<tr class="even">
+<td><code>relevant(ref)</code></td>
+<td><code>relevant($path) → boolean</code></td>
+<td><code>true</code> if the referenced field is currently relevant</td>
+</tr>
+<tr class="odd">
+<td><code>readonly(ref)</code></td>
+<td><code>readonly($path) → boolean</code></td>
+<td><code>true</code> if the referenced field is currently readonly</td>
+</tr>
+<tr class="even">
+<td><code>required(ref)</code></td>
+<td><code>required($path) → boolean</code></td>
+<td><code>true</code> if the referenced field is currently required</td>
+</tr>
+</tbody>
+</table>
+<p>The argument is a field reference using standard FEL
+<code>$path</code> syntax:</p>
+<pre><code>if(not(valid($ein)), &quot;Please correct EIN before proceeding&quot;, &quot;&quot;)</code></pre>
+<pre><code>count($line_items[*]) &gt; 0 and valid($line_items[*].amount)</code></pre>
+<p>These functions read the <strong>current computed state</strong> of
+the referenced field’s MIP, not the raw expression. They are evaluated
+during the Revalidate phase, after all Recalculate MIPs have been
+resolved.</p>
+<h3 id="b.3-features-intentionally-excluded">B.3 Features Intentionally
+Excluded</h3>
+<p>The following XForms 2.0 features were evaluated and intentionally
+excluded from Formspec.</p>
+<p><strong>Attribute Value Templates (AVTs).</strong> XForms 2.0 allows
+<code>{expression}</code> syntax in most XML attributes for dynamic
+values. Formspec’s JSON format does not have “attributes” in the XML
+sense — properties are already first-class JSON values. Where dynamic
+values are needed, FEL expressions serve this purpose directly. AVTs
+solve an XML-specific ergonomic problem.</p>
+<p><strong>Declarative sorting (<code>sort</code> MIP).</strong> XForms
+2.0 adds <code>sort</code>/<code>direction</code>/
+<code>collation</code> MIPs to keep node-sets in sorted order. This is a
+presentation concern in the form context — the order items are displayed
+vs. the order they are stored are separate. Sort order belongs in the
+presentation layer.</p>
+<p><strong>Dialog/modal container.</strong> XForms 2.0 adds a
+<code>&lt;dialog&gt;</code> element. Modals are a UI pattern, not a data
+model concern. Formspec’s presentation layer exclusion applies.</p>
+<p><strong>Collapsible groups (<code>collapse</code>
+attribute).</strong> This is a presentation concern — whether a section
+is expanded or collapsed is a UI state, not a data or validation
+concern.</p>
+<p><strong>Model-based switch/case.</strong> XForms 2.0 enhances
+<code>&lt;switch&gt;</code> with data binding. Formspec’s
+<code>relevant</code> expressions on Binds provide equivalent
+functionality: each “case” is a group with a <code>relevant</code>
+expression, and mutual exclusion can be enforced via validation
+shapes.</p>
+<p><strong><code>select1</code> deselection.</strong> This is a UI
+behavior detail.</p>
+<p><strong>CSS pseudo-elements for repeats.</strong> CSS is a
+presentation layer technology.</p>
+<p><strong>Repeat over non-node sequences (e.g.,
+<code>1 to 10</code>).</strong> Formspec’s repeatable groups bind to
+data arrays, not computed sequences. A computed sequence that needs UI
+elements should be materialized as data nodes first (via a
+<code>calculate</code> bind that populates the array).</p>
+<p><strong>User-defined functions as inline expressions.</strong> XForms
+2.0 allows defining functions with inline expression bodies
+(<code>&lt;function&gt;</code> with <code>&lt;result&gt;</code> child).
+Formspec supports registering external functions (§8.2) but does not
+support defining function bodies inline in the Definition. Inline
+function definitions would require adding control flow to FEL (the
+<code>if/then/else</code> already exists, but recursion and named
+parameters would be needed), significantly increasing language
+complexity. Extension functions with external implementations are the
+preferred approach.</p>
+<p><strong>URI manipulation functions.</strong> Functions like
+<code>uri-scheme()</code>, <code>uri-host()</code>,
+<code>uri-query()</code> solve HTTP-specific problems. These can be
+added as extension functions by implementations that need them.</p>
+<p><strong>Cryptographic functions.</strong> Domain-specific. Suitable
+as extension functions.</p>
+<p><strong><code>eval()</code> /
+<code>eval-in-context()</code>.</strong> Dynamic expression evaluation
+introduces security and predictability concerns incompatible with FEL’s
+determinism guarantee (§3.1, goal 4).</p>
 <aside id="footnotes" class="footnotes footnotes-end-of-document"
 role="doc-endnotes">
 <hr />
