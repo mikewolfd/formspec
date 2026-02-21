@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FEL Normative Grammar v1.0</title>
+<title>FEL Grammar Specification</title>
 <style>
   body { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #1f2328; line-height: 1.6; font-size: 16px; }
   #TOC { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 1rem 1.5rem; margin-bottom: 2rem; }
@@ -306,8 +306,13 @@ appear higher in the grammar (closer to the start symbol).</p>
 Expression     ← _ LetExpr _
 
 # --- Let binding ---
-LetExpr        ← &#39;let&#39; _ Identifier _ &#39;=&#39; _ LetExpr _ &#39;in&#39; _ LetExpr
+# The let-value position uses LetValue (not LetExpr/IfExpr) to avoid
+# ambiguity with the &#39;in&#39; keyword. The &#39;in&#39; membership operator is not
+# available as a bare operator in let-value position; parenthesise it:
+#   let x = (1 in $arr) in ...  
+LetExpr        ← &#39;let&#39; _ Identifier _ &#39;=&#39; _ LetValue _ &#39;in&#39; _ LetExpr
                / IfExpr
+LetValue       ← IfExpr   # but with Membership production omitted
 
 # --- If-then-else (keyword form) ---
 IfExpr         ← &#39;if&#39; _ Ternary _ &#39;then&#39; _ IfExpr _ &#39;else&#39; _ IfExpr
@@ -343,10 +348,15 @@ Multiplication ← Unary ((_ &#39;*&#39; / _ &#39;/&#39; / _ &#39;%&#39;) _ Unar
 
 # --- Unary prefix (precedence 10, right-associative) ---
 Unary          ← &#39;not&#39; !IdContinue _ Unary
-               / Atom
+               / &#39;-&#39; _ Unary
+               / Postfix
+
+# --- Postfix (dot/index access after any atom) ---
+Postfix        ← Atom PathTail*
 
 # --- Atoms ---
-Atom           ← FunctionCall
+Atom           ← IfCall
+               / FunctionCall
                / FieldRef
                / ObjectLiteral
                / ArrayLiteral
@@ -356,13 +366,19 @@ Atom           ← FunctionCall
 # --- Helper: identifier-continue character ---
 IdContinue     ← [a-zA-Z0-9_]</code></pre>
 <h3 id="function-calls">4.1 Function Calls</h3>
-<pre class="peg"><code>FunctionCall   ← Identifier &#39;(&#39; _ ArgList? _ &#39;)&#39;
+<pre class="peg"><code>IfCall         ← &#39;if&#39; _ &#39;(&#39; _ ArgList? _ &#39;)&#39;
+FunctionCall   ← Identifier &#39;(&#39; _ ArgList? _ &#39;)&#39;
 ArgList        ← Expression (_ &#39;,&#39; _ Expression)*</code></pre>
-<p>The function name is an <code>Identifier</code> and MUST NOT be a
-reserved word (§3.3). Note: <code>if(cond, a, b)</code> is a built-in
-function call, <strong>not</strong> the keyword
-<code>if-then-else</code> form — the opening parenthesis
-disambiguates.</p>
+<p>The <code>IfCall</code> production handles
+<code>if(cond, a, b)</code> as a built-in function call. Because
+<code>if</code> is a reserved word (§3.3), it cannot match the
+<code>Identifier</code> production in <code>FunctionCall</code>. The
+parser MUST try <code>IfCall</code> before <code>FunctionCall</code>.
+The opening parenthesis disambiguates <code>if(...)</code> (function
+call) from <code>if ... then ... else ...</code> (keyword
+conditional).</p>
+<p>All other function names are <code>Identifier</code>s and MUST NOT be
+reserved words.</p>
 <h3 id="object-literals">4.2 Object Literals</h3>
 <pre class="peg"><code>ObjectLiteral  ← &#39;{&#39; _ ObjectEntries? _ &#39;}&#39;
 ObjectEntries  ← ObjectEntry (_ &#39;,&#39; _ ObjectEntry)*
@@ -486,15 +502,17 @@ table is normative and matches the structural encoding in §4.</p>
 </tr>
 <tr class="even">
 <td style="text-align: center;">10</td>
-<td><code>not</code> (prefix)</td>
-<td>Logical NOT</td>
+<td><code>not</code> (prefix), <code>-</code> (negate)</td>
+<td>Unary</td>
 <td style="text-align: center;">Right</td>
-<td><code>not $flag</code></td>
+<td><code>not $flag</code>, <code>-$x</code></td>
 </tr>
 </tbody>
 </table>
 <p>Parenthesised sub-expressions (<code>( … )</code>) override
-precedence as usual.</p>
+precedence as usual. Postfix operators (<code>.field</code>,
+<code>[index]</code>) bind tighter than all prefix operators, enabling
+<code>prev().field</code> and <code>(expr).field</code>.</p>
 <h2 id="path-expressions">6. Path Expressions</h2>
 <p>Path expressions reference Instance data. They are
 <strong>not</strong> general expressions — they appear as atoms in the

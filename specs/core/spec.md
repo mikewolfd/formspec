@@ -1,10 +1,16 @@
+---
+title: Formspec Core Specification
+version: 1.0.0-draft.1
+date: 2025-07-10
+---
+
 # FORMSPEC v1.0 — A JSON-Native Declarative Form Standard
 
 **Version:** 1.0.0-draft.1  
 **Date:** 2025-07-10  
 **Editors:** Formspec Working Group  
 
----
+***
 
 ## Abstract
 
@@ -53,7 +59,7 @@ The following terms are used throughout this specification:
 
 [rfc2119]: https://www.rfc-editor.org/rfc/rfc2119
 
----
+***
 
 ## 1. Introduction
 
@@ -186,7 +192,7 @@ A conformant Formspec processor (Core or Extended) MUST NOT:
    has `mustUnderstand: true` and the processor does not support it, the
    processor MUST report an error (§8.4).
 
----
+***
 
 ## 2. Conceptual Model
 
@@ -937,7 +943,7 @@ Conversely, when a field transitions from non-relevant to relevant, the
 processor MUST evaluate all applicable Binds and Shapes for that field during
 the next Revalidate phase.
 
----
+***
 
 ## 3. Expression Language — Formspec Expression Language (FEL)
 
@@ -1783,9 +1789,9 @@ time rather than at evaluation time:
 > }
 > ```
 
----
+***
 
----
+***
 
 
 ## 4. Definition Schema
@@ -2492,7 +2498,7 @@ routing purposes. A Definition with a `screener` section MAY also contain
 regular `items` and `binds`; in this case the screener acts as a gating step
 before the main form.
 
----
+***
 
 ## 5. Validation
 
@@ -2777,7 +2783,7 @@ with the following additional properties and constraints:
 - Implementations SHOULD provide a mechanism to clear external results (e.g.,
   when the external system confirms the issue has been resolved).
 
----
+***
 
 ## 6. Versioning & Evolution
 
@@ -3067,7 +3073,7 @@ Each field mapping rule contains:
 - The migrated Response's `status` SHOULD be reset to `"in-progress"` to
   signal that the respondent should review the migrated data.
 
----
+***
 
 
 ## 7. Concrete Examples
@@ -3078,7 +3084,7 @@ realistic scenarios. Each example is a complete or near-complete JSON
 fragment. Processors conforming to this specification MUST be able to
 consume and correctly evaluate all examples in this section.
 
----
+***
 
 ### 7.1 Budget Line Items with Calculated Totals
 
@@ -3286,7 +3292,7 @@ must add additional line items totaling $120,000.00 to reach balance.
 The `total_budget` now equals `award_amount`. The `budget-balances`
 shape produces no results, and the Response is valid.
 
----
+***
 ### 7.2 Conditional Section with Dependent Validation
 
 This example demonstrates a conditional "subcontracting" section that
@@ -3454,7 +3460,7 @@ All `required` constraints on the child fields are now active and
 evaluated. The `subcontract_total` is calculated as the sum of all
 `subcontract_amount` values.
 
----
+***
 
 ### 7.3 Repeatable Rows with Per-Row Calculations and Cross-Row Total
 
@@ -3680,7 +3686,7 @@ The first row has `personnel_costs` at 80% of `row_total` (80,000 /
 error-severity results cause `valid` to be `false`. Advisory warnings
 SHOULD be presented to the user but MUST NOT block submission.
 
----
+***
 
 ### 7.4 Year-over-Year Comparison Warning
 
@@ -3835,7 +3841,7 @@ The year-over-year change is 40%, exceeding the 25% threshold.
 provides a justification narrative, `valid` will become `true` even
 though the year-over-year warning persists.
 
----
+***
 
 ### 7.5 Screener Routing to Form Variants
 
@@ -3975,7 +3981,7 @@ The consuming application reads `routed_form` and navigates the user to
 the abbreviated report definition. The screener Response SHOULD be
 retained for audit purposes.
 
----
+***
 
 ### 7.6 External Validation Failure
 
@@ -4127,7 +4133,7 @@ a ValidationReport after initial local validation. The combined report
 MUST re-evaluate the `valid` flag considering all results regardless of
 source.
 
----
+***
 
 ## 8. Extension Points
 
@@ -4143,7 +4149,7 @@ guarantee no collision with identifiers introduced in future versions of
 this specification. A processor encountering a non-prefixed identifier
 it does not recognize MUST treat it as a specification error.
 
----
+***
 
 ### 8.1 Custom Data Types
 
@@ -4204,7 +4210,7 @@ The following requirements apply to custom data types:
    a reference to an undeclared custom type MUST raise a specification
    error.
 
----
+***
 
 ### 8.2 Custom Functions
 
@@ -4265,7 +4271,7 @@ The following requirements apply to custom functions:
    Instance data. A custom function MUST NOT modify any field value
    as a side effect of evaluation.
 
----
+***
 
 ### 8.3 Custom Validation Constraint Components
 
@@ -4328,7 +4334,7 @@ The following requirements apply to custom constraint components:
    constraint, as doing so would produce a false-positive validation
    report.
 
----
+***
 
 ### 8.4 Extension Properties
 
@@ -4390,7 +4396,7 @@ The following requirements apply to extension properties:
    extension properties they do not understand. A round-trip through
    a conforming processor MUST NOT strip unrecognized extensions.
 
----
+***
 
 ### 8.5 Extension Namespaces
 
@@ -4434,7 +4440,7 @@ The following requirements apply to extension namespaces:
    (ignore, preserve, do not alter core semantics) apply to namespace
    objects in their entirety.
 
----
+***
 
 ## 9. Lineage — What Was Borrowed and Why
 
@@ -4451,7 +4457,7 @@ Transparency of lineage serves three purposes:
 3. **Design rationale.** Where Formspec diverges from a source, the
    reason is documented to prevent future re-litigation.
 
----
+***
 
 ### 9.1 From W3C XForms (2003)
 
@@ -4490,7 +4496,7 @@ cycle — all originate in XForms.
 - **Synchronous/asynchronous submission modes.** Formspec Responses are
   data documents; transport is outside the specification's scope.
 
----
+***
 
 ### 9.2 From W3C SHACL (2017)
 
@@ -4530,7 +4536,7 @@ routinely produce advisory warnings ("this value is unusually high") and
 informational notes ("this field was auto-calculated") that must not
 block submission.
 
----
+***
 
 ### 9.3 From HL7 FHIR R5 / SDC (2023)
 
@@ -4575,7 +4581,7 @@ architecture, and expression extensions.
   and `$populatelink` (link-based). Formspec uses secondary instances
   and `initialValue` expressions, which are more general.
 
----
+***
 
 ### 9.4 From Secondary Sources
 
@@ -4591,7 +4597,7 @@ architecture, and expression extensions.
 | External error injection | JSON Forms / React JSON Schema Form (RJSF) `additionalErrors` | External validation results with `source` and `sourceId` properties, merged into a single ValidationReport |
 | Mapping DSL for data transformation | CommonGrants (proposed) | Published as a companion specification: **Formspec Mapping DSL v1.0** (see [`mapping-spec.md`](mapping-spec.md)). Covers bidirectional transforms between Formspec Responses and external schemas (JSON, XML, CSV). |
 
----
+***
 
 ### 9.5 What Is Original to Formspec
 
@@ -4657,12 +4663,12 @@ combinations or new constructs not found in the source standards.
    enables domain-specific extension (federal grants, clinical trials,
    financial reporting) without fragmenting the core specification.
 
----
+***
 
 *End of Part 3 — Sections 7–9.*
 
 
----
+***
 
 ## Appendix A: Requirements Traceability
 
