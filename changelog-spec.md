@@ -93,7 +93,7 @@ Each Change describes a single atomic modification to a Definition element.
 { "type": "added", "target": "item", "path": "items.contact.phone",
   "key": "phone", "impact": "compatible",
   "description": "Added optional phone field.",
-  "after": { "key": "phone", "dataType": "phone" } }
+  "after": { "key": "phone", "type": "field", "label": "Phone", "dataType": "phone" } }
 ```
 
 **removed** — an element no longer present.
@@ -102,7 +102,7 @@ Each Change describes a single atomic modification to a Definition element.
 { "type": "removed", "target": "item", "path": "items.contact.fax",
   "key": "fax", "impact": "breaking",
   "description": "Removed fax field.",
-  "before": { "key": "fax", "dataType": "phone" },
+  "before": { "key": "fax", "type": "field", "label": "Fax", "dataType": "phone" },
   "migrationHint": "drop" }
 ```
 

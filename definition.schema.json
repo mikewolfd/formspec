@@ -4,272 +4,793 @@
   "title": "Formspec Definition",
   "description": "A Formspec Definition document per the Formspec v1.0 specification.",
   "type": "object",
-  "required": ["$formspec", "url", "version", "status", "title", "items"],
+  "required": [
+    "$formspec",
+    "url",
+    "version",
+    "status",
+    "title",
+    "items"
+  ],
   "properties": {
-    "$formspec": { "type": "string", "const": "1.0" },
-    "url": { "type": "string", "format": "uri" },
-    "version": { "type": "string", "minLength": 1 },
-    "versionAlgorithm": { "type": "string", "enum": ["semver", "date", "integer", "natural"], "default": "semver" },
-    "status": { "type": "string", "enum": ["draft", "active", "retired"] },
-    "derivedFrom": { "type": "string", "format": "uri" },
-    "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9\\-]*$" },
-    "title": { "type": "string" },
-    "description": { "type": "string" },
-    "date": { "type": "string", "format": "date" },
-    "items": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
-    "binds": { "type": "array", "items": { "$ref": "#/$defs/Bind" } },
-    "shapes": { "type": "array", "items": { "$ref": "#/$defs/Shape" } },
-    "instances": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Instance" } },
-    "variables": { "type": "array", "items": { "$ref": "#/$defs/Variable" } },
-    "nonRelevantBehavior": { "type": "string", "enum": ["remove", "empty", "keep"], "default": "remove" },
-    "optionSets": { "type": "object", "additionalProperties": { "$ref": "#/$defs/OptionSet" } },
-    "screener": { "$ref": "#/$defs/Screener" },
-    "migrations": { "$ref": "#/$defs/Migrations" },
-    "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+    "$formspec": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "versionAlgorithm": {
+      "type": "string",
+      "enum": [
+        "semver",
+        "date",
+        "integer",
+        "natural"
+      ],
+      "default": "semver"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "retired"
+      ]
+    },
+    "derivedFrom": {
+      "type": "string",
+      "format": "uri"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9\\-]*$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Item"
+      }
+    },
+    "binds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Bind"
+      }
+    },
+    "shapes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Shape"
+      }
+    },
+    "instances": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Instance"
+      }
+    },
+    "variables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Variable"
+      }
+    },
+    "nonRelevantBehavior": {
+      "type": "string",
+      "enum": [
+        "remove",
+        "empty",
+        "keep"
+      ],
+      "default": "remove"
+    },
+    "optionSets": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/OptionSet"
+      }
+    },
+    "screener": {
+      "$ref": "#/$defs/Screener"
+    },
+    "migrations": {
+      "$ref": "#/$defs/Migrations"
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^x-"
+      }
+    }
   },
   "additionalProperties": false,
-
   "$defs": {
     "Item": {
       "type": "object",
-      "required": ["key", "type", "label"],
+      "required": [
+        "key",
+        "type",
+        "label"
+      ],
       "properties": {
-        "key": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
-        "type": { "type": "string", "enum": ["group", "field", "display"] },
-        "label": { "type": "string" },
-        "description": { "type": "string" },
-        "hint": { "type": "string" },
-        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "key": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "group",
+            "field",
+            "display"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "group" } }, "required": ["type"] },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "group"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
           "then": {
             "properties": {
-              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true, "extensions": true,
-              "children": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
-              "repeatable": { "type": "boolean", "default": false },
-              "minRepeat": { "type": "integer", "minimum": 0 },
-              "maxRepeat": { "type": "integer", "minimum": 1 },
-              "$ref": { "type": "string", "format": "uri" },
-              "keyPrefix": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" }
+              "key": true,
+              "type": true,
+              "label": true,
+              "description": true,
+              "hint": true,
+              "labels": true,
+              "extensions": true,
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Item"
+                }
+              },
+              "repeatable": {
+                "type": "boolean",
+                "default": false
+              },
+              "minRepeat": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxRepeat": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "$ref": {
+                "type": "string",
+                "format": "uri"
+              },
+              "keyPrefix": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+              }
             },
-            "required": ["children"],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "anyOf": [
+              {
+                "required": [
+                  "children"
+                ]
+              },
+              {
+                "required": [
+                  "$ref"
+                ]
+              }
+            ]
           }
         },
         {
-          "if": { "properties": { "type": { "const": "field" } }, "required": ["type"] },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "field"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
           "then": {
             "properties": {
-              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true, "extensions": true,
+              "key": true,
+              "type": true,
+              "label": true,
+              "description": true,
+              "hint": true,
+              "labels": true,
+              "extensions": true,
               "dataType": {
                 "type": "string",
-                "enum": ["string", "text", "integer", "decimal", "boolean", "date", "dateTime", "time", "uri", "attachment", "choice", "multiChoice", "money"]
-              },
-              "precision": { "type": "integer", "minimum": 0 },
-              "prefix": { "type": "string" },
-              "suffix": { "type": "string" },
-              "options": {
-                "oneOf": [
-                  { "type": "array", "items": { "$ref": "#/$defs/OptionEntry" } },
-                  { "type": "string", "format": "uri" }
+                "enum": [
+                  "string",
+                  "text",
+                  "integer",
+                  "decimal",
+                  "boolean",
+                  "date",
+                  "dateTime",
+                  "time",
+                  "uri",
+                  "attachment",
+                  "choice",
+                  "multiChoice",
+                  "money"
                 ]
               },
-              "optionSet": { "type": "string" },
+              "precision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "prefix": {
+                "type": "string"
+              },
+              "suffix": {
+                "type": "string"
+              },
+              "options": {
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/OptionEntry"
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                ]
+              },
+              "optionSet": {
+                "type": "string"
+              },
               "initialValue": {},
-              "semanticType": { "type": "string" },
+              "semanticType": {
+                "type": "string"
+              },
               "prePopulate": {
                 "type": "object",
                 "properties": {
-                  "instance": { "type": "string" },
-                  "path": { "type": "string" },
-                  "editable": { "type": "boolean", "default": true }
+                  "instance": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "editable": {
+                    "type": "boolean",
+                    "default": true
+                  }
                 },
-                "required": ["instance", "path"],
+                "required": [
+                  "instance",
+                  "path"
+                ],
                 "additionalProperties": false
               },
-              "children": { "type": "array", "items": { "$ref": "#/$defs/Item" } }
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Item"
+                }
+              }
             },
-            "required": ["dataType"],
+            "required": [
+              "dataType"
+            ],
             "additionalProperties": false
           }
         },
         {
-          "if": { "properties": { "type": { "const": "display" } }, "required": ["type"] },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "display"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
           "then": {
             "properties": {
-              "key": true, "type": true, "label": true, "description": true, "hint": true, "labels": true, "extensions": true
+              "key": true,
+              "type": true,
+              "label": true,
+              "description": true,
+              "hint": true,
+              "labels": true,
+              "extensions": true
             },
             "additionalProperties": false
           }
         }
       ]
     },
-
     "Bind": {
       "type": "object",
-      "required": ["path"],
+      "required": [
+        "path"
+      ],
       "properties": {
-        "path": { "type": "string", "minLength": 1 },
-        "calculate": { "type": "string" },
-        "relevant": { "type": "string" },
-        "required": { "type": "string" },
-        "readonly": { "type": "string" },
-        "constraint": { "type": "string" },
-        "constraintMessage": { "type": "string" },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calculate": {
+          "type": "string"
+        },
+        "relevant": {
+          "type": "string"
+        },
+        "required": {
+          "type": "string"
+        },
+        "readonly": {
+          "type": "string"
+        },
+        "constraint": {
+          "type": "string"
+        },
+        "constraintMessage": {
+          "type": "string"
+        },
         "default": {},
-        "whitespace": { "type": "string", "enum": ["preserve", "trim", "normalize", "remove"], "default": "preserve" },
-        "excludedValue": { "type": "string", "enum": ["preserve", "null"], "default": "preserve" },
-        "nonRelevantBehavior": { "type": "string", "enum": ["remove", "empty", "keep"] },
-        "disabledDisplay": { "type": "string", "enum": ["hidden", "protected"], "default": "hidden" },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "whitespace": {
+          "type": "string",
+          "enum": [
+            "preserve",
+            "trim",
+            "normalize",
+            "remove"
+          ],
+          "default": "preserve"
+        },
+        "excludedValue": {
+          "type": "string",
+          "enum": [
+            "preserve",
+            "null"
+          ],
+          "default": "preserve"
+        },
+        "nonRelevantBehavior": {
+          "type": "string",
+          "enum": [
+            "remove",
+            "empty",
+            "keep"
+          ]
+        },
+        "disabledDisplay": {
+          "type": "string",
+          "enum": [
+            "hidden",
+            "protected"
+          ],
+          "default": "hidden"
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false
     },
-
     "Shape": {
       "type": "object",
-      "required": ["id", "target", "message"],
+      "required": [
+        "id",
+        "target",
+        "message"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$" },
-        "target": { "type": "string", "minLength": 1 },
-        "severity": { "type": "string", "enum": ["error", "warning", "info"], "default": "error" },
-        "constraint": { "type": "string" },
-        "message": { "type": "string" },
-        "code": { "type": "string" },
-        "context": { "type": "object" },
-        "activeWhen": { "type": "string" },
-        "timing": { "type": "string", "enum": ["continuous", "submit", "demand"], "default": "continuous" },
-        "and": { "type": "array", "items": { "type": "string" } },
-        "or": { "type": "array", "items": { "type": "string" } },
-        "not": { "type": "string" },
-        "xone": { "type": "array", "items": { "type": "string" } },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "default": "error"
+        },
+        "constraint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "context": {
+          "type": "object"
+        },
+        "activeWhen": {
+          "type": "string"
+        },
+        "timing": {
+          "type": "string",
+          "enum": [
+            "continuous",
+            "submit",
+            "demand"
+          ],
+          "default": "continuous"
+        },
+        "and": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "or": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not": {
+          "type": "string"
+        },
+        "xone": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false,
       "anyOf": [
-        { "required": ["constraint"] },
-        { "required": ["and"] },
-        { "required": ["or"] },
-        { "required": ["not"] },
-        { "required": ["xone"] }
+        {
+          "required": [
+            "constraint"
+          ]
+        },
+        {
+          "required": [
+            "and"
+          ]
+        },
+        {
+          "required": [
+            "or"
+          ]
+        },
+        {
+          "required": [
+            "not"
+          ]
+        },
+        {
+          "required": [
+            "xone"
+          ]
+        }
       ]
     },
-
     "Instance": {
       "type": "object",
       "properties": {
-        "description": { "type": "string" },
-        "source": { "type": "string", "format": "uri-template" },
-        "static": { "type": "boolean", "default": false },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri-template"
+        },
+        "static": {
+          "type": "boolean",
+          "default": false
+        },
         "data": {},
-        "schema": { "type": "object", "additionalProperties": { "type": "string" } },
-        "readonly": { "type": "boolean", "default": true },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "schema": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "readonly": {
+          "type": "boolean",
+          "default": true
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "anyOf": [
-        { "required": ["source"] },
-        { "required": ["data"] }
+        {
+          "required": [
+            "source"
+          ]
+        },
+        {
+          "required": [
+            "data"
+          ]
+        }
       ],
       "additionalProperties": false
     },
-
     "Variable": {
       "type": "object",
-      "required": ["name", "expression"],
+      "required": [
+        "name",
+        "expression"
+      ],
       "properties": {
-        "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
-        "expression": { "type": "string" },
-        "scope": { "type": "string", "default": "#" },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "name": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+        },
+        "expression": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "default": "#"
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false
     },
-
     "OptionSet": {
       "type": "object",
       "properties": {
-        "options": { "type": "array", "items": { "$ref": "#/$defs/OptionEntry" } },
-        "source": { "type": "string", "format": "uri" },
-        "valueField": { "type": "string", "default": "value" },
-        "labelField": { "type": "string", "default": "label" },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptionEntry"
+          }
+        },
+        "source": {
+          "type": "string",
+          "format": "uri"
+        },
+        "valueField": {
+          "type": "string",
+          "default": "value"
+        },
+        "labelField": {
+          "type": "string",
+          "default": "label"
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "anyOf": [
-        { "required": ["options"] },
-        { "required": ["source"] }
+        {
+          "required": [
+            "options"
+          ]
+        },
+        {
+          "required": [
+            "source"
+          ]
+        }
       ],
       "additionalProperties": false
     },
-
     "OptionEntry": {
       "type": "object",
-      "required": ["value", "label"],
+      "required": [
+        "value",
+        "label"
+      ],
       "properties": {
-        "value": { "type": "string" },
-        "label": { "type": "string" },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false
     },
-
     "Screener": {
       "type": "object",
-      "required": ["items", "routes"],
+      "required": [
+        "items",
+        "routes"
+      ],
       "properties": {
-        "items": { "type": "array", "items": { "$ref": "#/$defs/Item" } },
-        "routes": { "type": "array", "items": { "$ref": "#/$defs/Route" }, "minItems": 1 },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Item"
+          }
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Route"
+          },
+          "minItems": 1
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false
     },
-
     "Route": {
       "type": "object",
-      "required": ["condition", "target"],
+      "required": [
+        "condition",
+        "target"
+      ],
       "properties": {
-        "condition": { "type": "string" },
-        "target": { "type": "string", "format": "uri" },
-        "label": { "type": "string" },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "condition": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "format": "uri"
+        },
+        "label": {
+          "type": "string"
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false
     },
-
     "Migrations": {
       "type": "object",
       "properties": {
         "from": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/MigrationDescriptor" }
+          "additionalProperties": {
+            "$ref": "#/$defs/MigrationDescriptor"
+          }
         },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false
     },
-
     "MigrationDescriptor": {
       "type": "object",
       "properties": {
-        "description": { "type": "string" },
+        "description": {
+          "type": "string"
+        },
         "fieldMap": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["source", "target", "transform"],
+            "required": [
+              "source",
+              "target",
+              "transform"
+            ],
             "properties": {
-              "source": { "type": "string" },
-              "target": { "type": ["string", "null"] },
-              "transform": { "type": "string", "enum": ["preserve", "drop", "expression"] },
-              "expression": { "type": "string" }
+              "source": {
+                "type": "string"
+              },
+              "target": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "transform": {
+                "type": "string",
+                "enum": [
+                  "preserve",
+                  "drop",
+                  "expression"
+                ]
+              },
+              "expression": {
+                "type": "string"
+              }
             },
             "additionalProperties": false
           }
         },
-        "defaults": { "type": "object" },
-        "extensions": { "type": "object", "propertyNames": { "pattern": "^x-" } }
+        "defaults": {
+          "type": "object"
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^x-"
+          }
+        }
       },
       "additionalProperties": false
     }

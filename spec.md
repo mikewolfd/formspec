@@ -325,6 +325,7 @@ Additional `dataType` values MAY be defined via extensions (§7).
 > {
 >   "key": "demographics",
 >   "type": "group",
+>   "label": "Demographics",
 >   "children": [
 >     { "key": "heading", "type": "display", "label": "Demographics" },
 >     { "key": "dob",     "type": "field",   "dataType": "date",
@@ -430,31 +431,25 @@ and machine-to-machine validation pipelines.
 > {
 >   "shapes": [
 >     {
->       "name": "dateRangeValid",
+>       "id": "dateRangeValid",
 >       "target": "endDate",
->       "constraints": [
->         {
->           "expression": "$endDate >= $startDate",
->           "severity": "error",
->           "message": "End date must not precede start date.",
->           "code": "DATE_RANGE_001"
->         }
->       ]
+>       "severity": "error",
+>       "constraint": "$endDate >= $startDate",
+>       "message": "End date must not precede start date.",
+>       "code": "DATE_RANGE_001"
 >     },
 >     {
->       "name": "dateRangeReasonable",
+>       "id": "dateRangeReasonable",
 >       "target": "endDate",
->       "constraints": [
->         {
->           "expression": "dateDiff($endDate, $startDate, 'days') <= 365",
->           "severity": "warning",
->           "message": "Date range exceeds one year. Please verify.",
->           "code": "DATE_RANGE_002"
->         }
->       ]
+>       "severity": "warning",
+>       "constraint": "dateDiff($endDate, $startDate, 'days') <= 365",
+>       "message": "Date range exceeds one year. Please verify.",
+>       "code": "DATE_RANGE_002"
 >     },
 >     {
->       "name": "dateRangeComplete",
+>       "id": "dateRangeComplete",
+>       "target": "endDate",
+>       "message": "Date range validation failed.",
 >       "and": ["dateRangeValid", "dateRangeReasonable"]
 >     }
 >   ]
@@ -2697,6 +2692,7 @@ address blocks, signature sections) across multiple Definitions.
 {
   "key": "demographics",
   "type": "group",
+  "label": "Demographics",
   "$ref": "https://example.gov/forms/common/demographics|1.0.0",
   "keyPrefix": "demo_"
 }

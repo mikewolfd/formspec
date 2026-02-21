@@ -1351,7 +1351,7 @@ Apply `innerRules` by positional index. Each inner rule MUST include an
 {
   "sourcePath": "budget_items",
   "targetPath": "line_items",
-  "transform": "expression",
+  "transform": "preserve",
   "array": {
     "mode": "each",
     "innerRules": [
