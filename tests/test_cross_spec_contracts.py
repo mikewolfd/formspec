@@ -177,7 +177,7 @@ class TestDefinitionTopLevel:
             "derivedFrom", "name", "title", "description", "date",
             "items", "binds", "shapes", "instances", "variables",
             "nonRelevantBehavior", "optionSets", "screener", "migrations",
-            "extensions",
+            "extensions", "formPresentation",
         }
         assert _prop_keys(DEF_S) == expected
 

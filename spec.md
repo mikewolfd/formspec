@@ -103,7 +103,7 @@ principles yield to lower-numbered ones.
 | ID | Principle | Rationale |
 |----|-----------|----------|
 | **AD-01** | **Schema is data, not code.** A Formspec definition is a JSON document. It can be stored, versioned, diffed, transmitted, and validated using standard JSON tooling. No Turing-complete language is required to interpret the structure. | Enables tooling, auditing, and cross-platform portability. |
-| **AD-02** | **Separate structure from behavior from presentation.** What data is collected (Items), how it behaves (Binds, Shapes), and how it is displayed (renderer) are three independent concerns. This specification defines the first two and explicitly excludes the third. | Allows one Definition to drive web, mobile, PDF, voice, and API interfaces without modification. |
+| **AD-02** | **Separate structure from behavior from presentation.** What data is collected (Items), how it behaves (Binds, Shapes), and how it is displayed (renderer) are three independent concerns. This specification defines structure and behavior normatively. It provides OPTIONAL, advisory presentation hints (§4.2.5) that guide renderers without constraining them. Rendering engines, layout toolkits, and visual style remain out of scope. | Allows one Definition to carry rendering guidance while still driving web, mobile, PDF, voice, and API interfaces without modification. |
 | **AD-03** | **JSON-native, not JSON-ported.** Formspec is not an XML specification transliterated into JSON. Data types, paths, expressions, and idioms are designed for JSON’s type system and structure from the ground up. | Avoids impedance mismatch (e.g., XML attributes vs. elements, mixed content, namespace prefixes). |
 | **AD-04** | **Evaluable in any language.** The Formspec Expression Language (FEL) is a small, deterministic language with no host-language dependency. A conformant processor MAY be implemented in JavaScript, Python, Java, C#, Rust, Go, Swift, or any other general-purpose language. | Prevents vendor lock-in and enables server-side, client-side, and offline evaluation. |
 | **AD-05** | **Layered complexity.** A form with five text fields and no conditional logic requires no expressions, no binds, and no validation shapes. A form with cross-field validation, computed totals, and conditional repeatable sections has access to the full power of the specification. Complexity is opt-in, never mandatory. | Lowers the barrier to entry; simple forms remain simple. |
@@ -661,23 +661,34 @@ The Behavior Layer MUST NOT contain any rendering instructions, layout
 directives, widget specifications, or style information. It operates entirely
 in the data/logic domain.
 
-#### Layer 3: Presentation Layer (Out of Scope)
+#### Layer 3: Presentation Layer
 
 The Presentation Layer answers the question: **HOW is data displayed?**
 
-This layer — which this specification deliberately does **not** define —
-encompasses:
+This specification provides OPTIONAL **presentation hints** — advisory
+metadata that helps renderers make informed decisions about widget selection,
+layout, and accessibility. Presentation hints are defined in §4.2.5
+(per-item) and §4.1.1 (form-wide).
 
-- Widget selection (text input, dropdown, date picker, radio buttons).
-- Layout and flow (single page, multi-step wizard, accordion).
-- Visual style (CSS, themes, branding).
-- Platform-specific affordances (touch targets, screen reader hints).
+Presentation hints are strictly advisory:
+
+- A conforming processor MAY ignore any or all presentation hints.
+- A conforming definition MUST NOT require presentation hints for correct
+  data capture, validation, or submission.
+- Hints MUST NOT alter data semantics, validation results, or processing
+  behavior.
+
+The following remain **out of scope** and are NOT defined by this
+specification:
+
+- Rendering engines, widget toolkits, or CSS.
+- Platform-specific affordances (touch targets, screen reader APIs).
 - Navigation and focus management.
+- Visual style, themes, and branding.
 
-Implementors are free to define their own Presentation Layer conventions.
-Companion specifications MAY standardize Presentation Layer schemas for
-specific platforms (e.g., "Formspec Web Widgets" or "Formspec Mobile Layout"),
-but such specifications are independent of this document.
+Companion specifications MAY standardize richer Presentation Layer schemas
+(e.g., sidecar theme documents, component models) that consume and extend
+these hints. Such specifications are independent of this document.
 
 This separation ensures that a single Definition can drive a web form, a mobile
 form, a PDF rendering, a voice-guided form, and an API-only validation endpoint
@@ -805,6 +816,14 @@ Specifically, during a batch:
 
 A conformant processor MUST produce the same final state regardless of whether
 changes are processed individually or in a batch.
+
+#### Presentation Hints and Processing
+
+The `presentation` (§4.2.5) and `formPresentation` (§4.1.1) objects are
+metadata. They do NOT participate in the Rebuild → Recalculate → Revalidate
+→ Notify processing cycle. FEL expressions MUST NOT reference `presentation`
+properties. When a processor serializes a Response, `presentation` properties
+MUST NOT appear in the Response data.
 
 ### 2.5 Validation Results
 
@@ -1788,6 +1807,11 @@ that omits a REQUIRED property.
   "binds": [],
   "shapes": [],
   "instances": {},
+  "formPresentation": {
+    "pageMode": "single",
+    "labelPosition": "top",
+    "density": "comfortable"
+  },
   "extensions": {}
 }
 ```
@@ -1816,9 +1840,35 @@ The properties are defined as follows:
 | `date` | string (ISO 8601 date) | **0..1** (OPTIONAL) | The date this version of the Definition was published or last updated. |
 | `name` | string | **0..1** (OPTIONAL) | A machine-friendly short identifier (ASCII letters, digits, hyphens). Intended for code generation and programmatic reference. MUST match `[a-zA-Z][a-zA-Z0-9\-]*`. |
 | `extensions` | object | **0..1** (OPTIONAL) | Extension namespace. Keys MUST be URIs identifying the extension. Implementations that do not recognize an extension MUST ignore it unless `mustUnderstand` is `true` (§8.4). |
+| `formPresentation` | object | **0..1** (OPTIONAL) | Form-wide presentation defaults. All properties within are OPTIONAL and advisory. See §4.1.1. |
 
 Implementations MUST preserve unrecognized top-level properties during
 round-tripping but MUST NOT assign semantics to them.
+
+#### 4.1.1 Form Presentation
+
+The OPTIONAL `formPresentation` object on the Definition root provides
+form-wide presentation defaults. All properties within `formPresentation`
+are OPTIONAL and advisory. A conforming processor MAY ignore any or all of
+these properties.
+
+| Property | Type | Values | Default | Description |
+|---|---|---|---|---|
+| `pageMode` | string | `"single"`, `"wizard"`, `"tabs"` | `"single"` | Suggests how top-level groups are paginated. `"wizard"`: sequential steps with navigation controls. `"tabs"`: tabbed sections. `"single"`: all items on one page. Processors that do not support the declared mode SHOULD fall back to `"single"`. |
+| `labelPosition` | string | `"top"`, `"start"`, `"hidden"` | `"top"` | Default label placement for all Fields. `"top"`: label above input. `"start"`: label to the leading side (left in LTR, right in RTL). `"hidden"`: label suppressed visually but MUST remain in accessible markup. |
+| `density` | string | `"compact"`, `"comfortable"`, `"spacious"` | `"comfortable"` | Spacing density hint. |
+
+Example:
+
+```json
+{
+  "formPresentation": {
+    "pageMode": "wizard",
+    "labelPosition": "top",
+    "density": "compact"
+  }
+}
+```
 
 ### 4.2 Item Schema
 
@@ -1960,6 +2010,183 @@ Display-specific constraints:
 - Binds referencing a Display Item's key MAY use only the `relevant` property.
   All other bind properties (`required`, `calculate`, `constraint`, `readonly`)
   are meaningless for Display Items and MUST be ignored.
+
+#### 4.2.5 Presentation Hints
+
+The OPTIONAL `presentation` object MAY appear on any Item (Field, Group,
+or Display). All properties within `presentation` are OPTIONAL and advisory.
+
+A conforming processor MUST accept a `presentation` object without error.
+A conforming processor MAY ignore any property within `presentation`.
+Unknown keys within `presentation` MUST be ignored (forward-compatibility).
+
+Presentation hints MUST NOT affect data capture, validation, calculation,
+or submission semantics.
+
+##### 4.2.5.1 Widget Hint
+
+The `widgetHint` property is a string suggesting the preferred UI control.
+When present, the value SHOULD be one of the values listed in the tables
+below for the Item's type and `dataType`. Custom values MUST be prefixed
+with `x-`. A processor receiving an incompatible or unrecognized
+`widgetHint` MUST ignore it and use its default widget for that Item type
+and `dataType`.
+
+**Group Items:**
+
+| widgetHint | Description |
+|---|---|
+| `"section"` | Standard section with heading (default). |
+| `"card"` | Visually elevated card/panel. |
+| `"accordion"` | Expandable/collapsible section. |
+| `"tab"` | Tab panel (meaningful when `formPresentation.pageMode` is `"tabs"`). |
+
+**Display Items:**
+
+| widgetHint | Description |
+|---|---|
+| `"paragraph"` | Body text (default). |
+| `"heading"` | Section heading. |
+| `"divider"` | Visual separator/rule. |
+| `"banner"` | Callout or alert banner. |
+
+**Field Items (by dataType):**
+
+| dataType | Valid widgetHint values | Default |
+|---|---|---|
+| `string` | `"textInput"`, `"password"`, `"color"` | `"textInput"` |
+| `text` | `"textarea"`, `"richText"` | `"textarea"` |
+| `integer` | `"numberInput"`, `"stepper"`, `"slider"`, `"rating"` | `"numberInput"` |
+| `decimal` | `"numberInput"`, `"slider"` | `"numberInput"` |
+| `boolean` | `"checkbox"`, `"toggle"`, `"yesNo"` | `"checkbox"` |
+| `date` | `"datePicker"`, `"dateInput"` | `"datePicker"` |
+| `dateTime` | `"dateTimePicker"`, `"dateTimeInput"` | `"dateTimePicker"` |
+| `time` | `"timePicker"`, `"timeInput"` | `"timePicker"` |
+| `uri` | `"textInput"`, `"urlInput"` | `"textInput"` |
+| `attachment` | `"fileUpload"`, `"camera"`, `"signature"` | `"fileUpload"` |
+| `choice` | `"dropdown"`, `"radio"`, `"autocomplete"`, `"segmented"`, `"likert"` | Renderer decides by option count |
+| `multiChoice` | `"checkboxGroup"`, `"multiSelect"`, `"autocomplete"` | `"checkboxGroup"` |
+| `money` | `"moneyInput"` | `"moneyInput"` |
+
+When `widgetHint` is absent, unrecognized, or incompatible with the
+Item's type or `dataType`, the processor MUST use its default widget for
+that `dataType` as listed above.
+
+##### 4.2.5.2 Layout
+
+The `layout` sub-object provides spatial arrangement hints.
+
+**On Group Items:**
+
+| Property | Type | Values | Default | Description |
+|---|---|---|---|---|
+| `flow` | string | `"stack"`, `"grid"`, `"inline"` | `"stack"` | How children are arranged. `"stack"`: vertical sequence. `"grid"`: multi-column grid. `"inline"`: horizontal flow. |
+| `columns` | integer | 1–12 | 1 | Column count when `flow` is `"grid"`. Ignored otherwise. |
+| `collapsible` | boolean | | `false` | Whether the group can be collapsed by the user. |
+| `collapsedByDefault` | boolean | | `false` | Initial collapsed state. Ignored if `collapsible` is not `true`. |
+| `page` | string | non-empty | (none) | Named wizard step or tab. Groups with the same `page` value are rendered together. Only meaningful when `formPresentation.pageMode` is not `"single"`. Groups without `page` attach to the preceding page. |
+
+**On Field and Display Items:**
+
+| Property | Type | Values | Default | Description |
+|---|---|---|---|---|
+| `colSpan` | integer | 1–12 | 1 | Grid columns this item spans. Only meaningful when the parent Group has `flow: "grid"`. |
+| `newRow` | boolean | | `false` | Force this item to start a new grid row. |
+
+Layout properties do NOT cascade from parent Group to child Items. Each
+Item's layout is independent.
+
+##### 4.2.5.3 Style Hints
+
+The `styleHints` sub-object provides semantic visual tokens. These are
+NOT CSS — renderers map them to their own palette and sizing.
+
+| Property | Type | Values | Default | Description |
+|---|---|---|---|---|
+| `emphasis` | string | `"primary"`, `"success"`, `"warning"`, `"danger"`, `"muted"` | (none) | Semantic importance or tone. |
+| `size` | string | `"compact"`, `"default"`, `"large"` | `"default"` | Relative sizing. |
+
+##### 4.2.5.4 Accessibility
+
+The `accessibility` sub-object provides metadata for assistive technologies.
+
+| Property | Type | Values | Default | Description |
+|---|---|---|---|---|
+| `role` | string | free string | (none) | Semantic role hint. Well-known values: `"alert"`, `"status"`, `"navigation"`, `"complementary"`, `"region"`. Renderers SHOULD map to platform-equivalent accessibility APIs (ARIA on web, UIAccessibility on iOS, etc.). |
+| `description` | string | | (none) | Supplemental accessible description. Distinct from the Item's `hint` and `description` properties (which are visible text); this is for screen-reader-only context. |
+| `liveRegion` | string | `"off"`, `"polite"`, `"assertive"` | `"off"` | For dynamic or calculated fields: how aggressively to announce value changes to assistive technology. |
+
+The `role` and `liveRegion` properties are named after ARIA concepts but
+this specification does NOT require ARIA. Renderers on non-web platforms
+SHOULD map to equivalent accessibility APIs. Renderers on platforms
+without accessibility APIs SHOULD ignore these properties.
+
+##### 4.2.5.5 Precedence and Interaction
+
+1. **`formPresentation` provides form-wide defaults.** Item-level
+   `presentation` properties override them per-property (not per-object).
+2. **Existing Item properties are complementary.** The properties `prefix`,
+   `suffix`, `hint`, `description`, `labels`, and `semanticType` retain
+   their defined semantics and are NOT superseded by `presentation`.
+3. **`widgetHint` takes precedence over `semanticType` for widget selection.**
+   When a Field has both `semanticType` (e.g., `"ietf:email"`) and
+   `widgetHint` (e.g., `"textInput"`), the renderer SHOULD use the
+   `widgetHint` for widget selection. When only `semanticType` is present,
+   renderers MAY use it to infer a widget.
+4. **`disabledDisplay` on a Bind controls non-relevant rendering.**
+   `presentation` properties on the same Item control relevant-state
+   rendering. There is no conflict.
+5. **No cascade.** `presentation` properties do NOT cascade from parent
+   Group to child Items. Each Item's `presentation` is independent.
+
+##### 4.2.5.6 Forward Compatibility
+
+The `presentation` object permits additional properties at its top level
+(unknown keys MUST be ignored). The nested sub-objects (`layout`,
+`styleHints`, `accessibility`) do NOT permit additional properties, to
+catch typographical errors.
+
+This design allows future companion specifications to define additional
+keys inside `presentation` without breaking existing validators.
+
+> **Informative note — Future presentation tiers:**
+>
+> The `presentation` object is designed to serve as a baseline for richer
+> presentation systems. Future companion specifications may define:
+>
+> - **Sidecar theme documents** that override presentation hints with
+>   selector-based rules, design tokens, and responsive layouts.
+> - **Component documents** that define full presentation trees with
+>   slot bindings to Definition items.
+>
+> Such companion specifications are expected to treat inline
+> `presentation` hints as defaults that may be overridden.
+
+Example — a Field with full presentation hints:
+
+```json
+{
+  "key": "annual_revenue",
+  "type": "field",
+  "label": "Annual Revenue",
+  "dataType": "money",
+  "prefix": "$",
+  "presentation": {
+    "widgetHint": "moneyInput",
+    "layout": {
+      "colSpan": 6
+    },
+    "styleHints": {
+      "emphasis": "primary",
+      "size": "large"
+    },
+    "accessibility": {
+      "description": "Enter total revenue for the fiscal year",
+      "liveRegion": "polite"
+    }
+  }
+}
+```
 
 ### 4.3 Bind Schema
 
@@ -4497,5 +4724,17 @@ that address them. This appendix is informative.
 | AD-02 | Supports visual/no-code authoring | §1.2; declarative JSON is tooling-friendly by design |
 | AD-03 | Program-agnostic | §1.2; no domain-specific types in core |
 | AD-04 | Extensible for domain-specific needs | §8 Extension Points (custom types, functions, constraints, properties, namespaces) |
+
+### Presentation
+
+| Req | Description | Addressed By |
+|-----|-------------|--------------|
+| PR-01 | Advisory widget selection hints | §4.2.5.1 `widgetHint` per Item type and `dataType` |
+| PR-02 | Layout and spatial arrangement | §4.2.5.2 `layout` — `flow`, `columns`, `colSpan`, `page` |
+| PR-03 | Semantic style tokens | §4.2.5.3 `styleHints` — `emphasis`, `size` |
+| PR-04 | Accessibility metadata | §4.2.5.4 `accessibility` — `role`, `description`, `liveRegion` |
+| PR-05 | Form-wide defaults | §4.1.1 `formPresentation` — `pageMode`, `labelPosition`, `density` |
+| PR-06 | No impact on data semantics | §2.4 "Presentation Hints and Processing"; §4.2.5 normative statement |
+| PR-07 | Forward compatibility for richer systems | §4.2.5.6 `additionalProperties: true` on `presentation` |
 
 

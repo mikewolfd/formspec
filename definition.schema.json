@@ -117,6 +117,43 @@
       "propertyNames": {
         "pattern": "^x-"
       }
+    },
+    "formPresentation": {
+      "type": "object",
+      "description": "Form-wide presentation defaults per \u00a74.1.1. All properties OPTIONAL and advisory.",
+      "additionalProperties": false,
+      "properties": {
+        "pageMode": {
+          "type": "string",
+          "enum": [
+            "single",
+            "wizard",
+            "tabs"
+          ],
+          "default": "single",
+          "description": "How top-level groups are paginated."
+        },
+        "labelPosition": {
+          "type": "string",
+          "enum": [
+            "top",
+            "start",
+            "hidden"
+          ],
+          "default": "top",
+          "description": "Default label placement for all Fields."
+        },
+        "density": {
+          "type": "string",
+          "enum": [
+            "compact",
+            "comfortable",
+            "spacious"
+          ],
+          "default": "comfortable",
+          "description": "Spacing density hint."
+        }
+      }
     }
   },
   "additionalProperties": false,
@@ -209,6 +246,9 @@
               "keyPrefix": {
                 "type": "string",
                 "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+              },
+              "presentation": {
+                "$ref": "#/$defs/Presentation"
               }
             },
             "additionalProperties": false,
@@ -320,6 +360,9 @@
                 "items": {
                   "$ref": "#/$defs/Item"
                 }
+              },
+              "presentation": {
+                "$ref": "#/$defs/Presentation"
               }
             },
             "required": [
@@ -347,7 +390,10 @@
               "description": true,
               "hint": true,
               "labels": true,
-              "extensions": true
+              "extensions": true,
+              "presentation": {
+                "$ref": "#/$defs/Presentation"
+              }
             },
             "additionalProperties": false
           }
@@ -793,6 +839,116 @@
         }
       },
       "additionalProperties": false
+    },
+    "Presentation": {
+      "type": "object",
+      "description": "Advisory presentation hints per \u00a74.2.5. All properties OPTIONAL.",
+      "additionalProperties": true,
+      "properties": {
+        "widgetHint": {
+          "type": "string",
+          "description": "Preferred UI control. Compatibility with dataType is defined in spec prose \u00a74.2.5."
+        },
+        "layout": {
+          "type": "object",
+          "description": "Spatial arrangement hints.",
+          "additionalProperties": false,
+          "properties": {
+            "flow": {
+              "type": "string",
+              "enum": [
+                "stack",
+                "grid",
+                "inline"
+              ],
+              "default": "stack"
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "description": "Column count when flow is 'grid'."
+            },
+            "colSpan": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "description": "Columns this item spans in a parent grid."
+            },
+            "newRow": {
+              "type": "boolean",
+              "default": false,
+              "description": "Force start of a new grid row."
+            },
+            "collapsible": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether a group can be collapsed."
+            },
+            "collapsedByDefault": {
+              "type": "boolean",
+              "default": false,
+              "description": "Initial collapsed state. Ignored if collapsible is not true."
+            },
+            "page": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Named wizard step or tab. Only meaningful when formPresentation.pageMode is not 'single'."
+            }
+          }
+        },
+        "styleHints": {
+          "type": "object",
+          "description": "Semantic visual tokens \u2014 NOT CSS.",
+          "additionalProperties": false,
+          "properties": {
+            "emphasis": {
+              "type": "string",
+              "enum": [
+                "primary",
+                "success",
+                "warning",
+                "danger",
+                "muted"
+              ]
+            },
+            "size": {
+              "type": "string",
+              "enum": [
+                "compact",
+                "default",
+                "large"
+              ],
+              "default": "default"
+            }
+          }
+        },
+        "accessibility": {
+          "type": "object",
+          "description": "Accessibility metadata for assistive technologies.",
+          "additionalProperties": false,
+          "properties": {
+            "role": {
+              "type": "string",
+              "description": "Semantic role hint. Well-known: 'alert', 'status', 'navigation', 'complementary', 'region'."
+            },
+            "description": {
+              "type": "string",
+              "description": "Screen-reader-only supplemental description, distinct from Item description."
+            },
+            "liveRegion": {
+              "type": "string",
+              "enum": [
+                "off",
+                "polite",
+                "assertive"
+              ],
+              "default": "off",
+              "description": "How aggressively to announce value changes to assistive tech."
+            }
+          }
+        }
+      }
     }
   }
 }
