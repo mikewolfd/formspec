@@ -1,0 +1,29 @@
+{
+  "$formspec": "1.0",
+  "items": [
+    {
+      "type": "group",
+      "name": "lineItems",
+      "label": "Line Items",
+      "repeatable": true,
+      "children": [
+        {
+          "type": "number",
+          "name": "price",
+          "label": "Price"
+        },
+        {
+          "type": "number",
+          "name": "quantity",
+          "label": "Quantity"
+        },
+        {
+          "type": "number",
+          "name": "subtotal",
+          "label": "Subtotal",
+          "calculate": "lineItems[$index].price * lineItems[$index].quantity"
+        }
+      ]
+    }
+  ]
+}

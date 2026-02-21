@@ -1,0 +1,11 @@
+{
+  "$formspec": "1.0",
+  "items": [
+    {
+      "type": "string",
+      "name": "zipCode",
+      "label": "Zip Code",
+      "pattern": "^[0-9]{5}$"
+    }
+  ]
+}

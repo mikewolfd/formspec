@@ -36,46 +36,7 @@ export class FormspecRender extends HTMLElement {
         container.className = 'formspec-container';
 
         for (const item of this._definition.items) {
-            const fieldWrapper = document.createElement('div');
-            fieldWrapper.className = 'form-field';
-            fieldWrapper.dataset.name = item.name;
-
-            const label = document.createElement('label');
-            label.textContent = item.label || item.name;
-            fieldWrapper.appendChild(label);
-
-            const input = document.createElement('input');
-            input.type = item.type === 'number' ? 'number' : 'text';
-            input.name = item.name;
-            if (item.readonly || item.calculate) {
-                input.readOnly = true;
-            }
-
-            input.addEventListener('input', (e) => {
-                const target = e.target as HTMLInputElement;
-                let val: any = target.value;
-                if (item.type === 'number') {
-                    val = parseFloat(val) || 0;
-                }
-                this.engine!.setValue(item.name, val);
-            });
-
-            fieldWrapper.appendChild(input);
-            container.appendChild(fieldWrapper);
-
-            // Reactively bind value
-            this.cleanupFns.push(effect(() => {
-                const val = this.engine!.signals[item.name].value;
-                if (document.activeElement !== input) {
-                    input.value = val;
-                }
-            }));
-
-            // Reactively bind visibility
-            this.cleanupFns.push(effect(() => {
-                const isVisible = this.engine!.visibleSignals[item.name].value;
-                fieldWrapper.style.display = isVisible ? 'block' : 'none';
-            }));
+            this.renderItem(item, container);
         }
 
         const submitBtn = document.createElement('button');
@@ -91,5 +52,120 @@ export class FormspecRender extends HTMLElement {
         container.appendChild(submitBtn);
 
         this.appendChild(container);
+    }
+
+    private renderItem(item: any, parent: HTMLElement, prefix = '') {
+        const fullName = prefix ? `${prefix}.${item.name}` : item.name;
+
+        if (item.type === 'group' && item.repeatable) {
+            const groupWrapper = document.createElement('div');
+            groupWrapper.className = 'repeat-group';
+            groupWrapper.dataset.name = fullName;
+            const title = document.createElement('h3');
+            title.textContent = item.label || item.name;
+            groupWrapper.appendChild(title);
+
+            const instancesContainer = document.createElement('div');
+            groupWrapper.appendChild(instancesContainer);
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.textContent = `Add ${item.label || item.name}`;
+            addBtn.addEventListener('click', () => {
+                this.engine!.addRepeatInstance(fullName);
+            });
+            groupWrapper.appendChild(addBtn);
+
+            this.cleanupFns.push(effect(() => {
+                const count = this.engine!.repeats[fullName].value;
+                // Render instances that aren't there yet
+                const currentCount = instancesContainer.children.length;
+                for (let i = currentCount; i < count; i++) {
+                    const instanceWrapper = document.createElement('div');
+                    instanceWrapper.className = 'repeat-instance';
+                    instanceWrapper.style.border = '1px solid #ccc';
+                    instanceWrapper.style.margin = '10px';
+                    instanceWrapper.style.padding = '10px';
+                    
+                    if (item.children) {
+                        for (const child of item.children) {
+                            this.renderItem(child, instanceWrapper, `${fullName}[${i}]`);
+                        }
+                    }
+                    instancesContainer.appendChild(instanceWrapper);
+                }
+            }));
+
+            parent.appendChild(groupWrapper);
+        } else if (item.type === 'group' && item.children) {
+            const groupWrapper = document.createElement('div');
+            groupWrapper.className = 'group';
+            const title = document.createElement('h3');
+            title.textContent = item.label || item.name;
+            groupWrapper.appendChild(title);
+            for (const child of item.children) {
+                this.renderItem(child, groupWrapper, fullName);
+            }
+            parent.appendChild(groupWrapper);
+        } else {
+            const fieldWrapper = document.createElement('div');
+            fieldWrapper.className = 'form-field';
+            fieldWrapper.dataset.name = fullName;
+
+            const label = document.createElement('label');
+            label.textContent = item.label || item.name;
+            fieldWrapper.appendChild(label);
+
+            const input = document.createElement('input');
+            input.type = item.type === 'number' ? 'number' : 'text';
+            input.name = fullName;
+            if (item.readonly || item.calculate) {
+                input.readOnly = true;
+            }
+
+            input.addEventListener('input', (e) => {
+                const target = e.target as HTMLInputElement;
+                let val: any = target.value;
+                if (item.type === 'number') {
+                    val = parseFloat(val) || 0;
+                }
+                this.engine!.setValue(fullName, val);
+            });
+
+            fieldWrapper.appendChild(input);
+
+            const errorDisplay = document.createElement('div');
+            errorDisplay.className = 'error-message';
+            errorDisplay.style.color = 'red';
+            fieldWrapper.appendChild(errorDisplay);
+
+            parent.appendChild(fieldWrapper);
+
+            // Reactively bind value
+            this.cleanupFns.push(effect(() => {
+                const signal = this.engine!.signals[fullName];
+                if (!signal) return;
+                const val = signal.value;
+                if (document.activeElement !== input) {
+                    input.value = val;
+                }
+            }));
+
+            // Reactively bind visibility
+            if (this.engine!.visibleSignals[fullName]) {
+                this.cleanupFns.push(effect(() => {
+                    const isVisible = this.engine!.visibleSignals[fullName].value;
+                    fieldWrapper.style.display = isVisible ? 'block' : 'none';
+                }));
+            }
+
+            // Reactively bind validation errors
+            if (this.engine!.errorSignals[fullName]) {
+                this.cleanupFns.push(effect(() => {
+                    const error = this.engine!.errorSignals[fullName].value;
+                    errorDisplay.textContent = error || '';
+                }));
+            }
+        }
     }
 }

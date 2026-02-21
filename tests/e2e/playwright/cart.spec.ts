@@ -44,6 +44,18 @@ test.describe('Formspec <formspec-render> Component', () => {
     // Still hidden (20 <= 50)
     await expect(discountWrapper).toHaveCSS('display', 'none');
 
+    // Test Response emission while hidden
+    const responseHidden = await page.evaluate(() => {
+        return new Promise((resolve) => {
+            document.addEventListener('formspec-submit', (e: any) => resolve(e.detail), { once: true });
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const submitBtn = buttons.find(b => b.textContent === 'Submit');
+            submitBtn?.click();
+        });
+    }) as any;
+
+    expect(responseHidden.data).not.toHaveProperty('discountCode');
+
     // Fill in a value to trigger visibility
     await priceInput.fill('30');
     await page.waitForTimeout(50);
@@ -65,13 +77,11 @@ test.describe('Formspec <formspec-render> Component', () => {
         });
     });
 
-    expect(response).toEqual({
-        data: {
-            price: 30,
-            quantity: 2,
-            total: 60,
-            discountCode: 'SUMMER20'
-        }
+    expect(response.data).toEqual({
+        price: 30,
+        quantity: 2,
+        total: 60,
+        discountCode: 'SUMMER20'
     });
   });
 });
