@@ -3,23 +3,23 @@
   "items": [
     {
       "type": "group",
-      "name": "lineItems",
+      "key": "lineItems",
       "label": "Line Items",
       "repeatable": true,
       "children": [
         {
-          "type": "number",
-          "name": "price",
+          "type": "field", "dataType": "number",
+          "key": "price",
           "label": "Price"
         },
         {
-          "type": "number",
-          "name": "quantity",
+          "type": "field", "dataType": "number",
+          "key": "quantity",
           "label": "Quantity"
         },
         {
-          "type": "number",
-          "name": "subtotal",
+          "type": "field", "dataType": "number",
+          "key": "subtotal",
           "label": "Subtotal",
           "calculate": "lineItems[$index].price * lineItems[$index].quantity"
         }

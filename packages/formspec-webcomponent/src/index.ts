@@ -80,7 +80,7 @@ export class FormspecRender extends HTMLElement {
 
     private findItemByKey(key: string, items: any[] = this._definition.items): any | null {
         for (const item of items) {
-            if (item.key === key || item.name === key) return item;
+            if (item.key === key) return item;
             if (item.children) {
                 const found = this.findItemByKey(key, item.children);
                 if (found) return found;
@@ -397,9 +397,9 @@ export class FormspecRender extends HTMLElement {
     }
 
     private renderItem(item: any, parent: HTMLElement, prefix = '') {
-        const key = item.key || item.name;
+        const key = item.key;
         const fullName = prefix ? `${prefix}.${key}` : key;
-        const dataType = item.dataType || item.type;
+        const dataType = item.dataType;
 
         if (item.type === 'group' && item.repeatable) {
             const groupWrapper = document.createElement('div');

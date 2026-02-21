@@ -2,13 +2,13 @@
   "$formspec": "1.0",
   "items": [
     {
-      "type": "number",
-      "name": "startDate",
+      "type": "field", "dataType": "number",
+      "key": "startDate",
       "label": "Start Date (Number)"
     },
     {
-      "type": "number",
-      "name": "endDate",
+      "type": "field", "dataType": "number",
+      "key": "endDate",
       "label": "End Date (Number)",
       "valid": "endDate >= startDate"
     }

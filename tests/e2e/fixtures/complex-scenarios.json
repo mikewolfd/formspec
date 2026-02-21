@@ -3,77 +3,87 @@
   "items": [
     {
       "type": "group",
-      "name": "invoice",
+      "key": "invoice",
       "label": "Project Invoice",
       "children": [
         {
-          "type": "string",
-          "name": "clientName",
+          "type": "field",
+          "dataType": "string",
+          "key": "clientName",
           "label": "Client Name"
         },
         {
           "type": "group",
-          "name": "phases",
+          "key": "phases",
           "label": "Project Phases",
           "repeatable": true,
           "children": [
             {
-              "type": "string",
-              "name": "phaseName",
+              "type": "field",
+              "dataType": "string",
+              "key": "phaseName",
               "label": "Phase Name"
             },
             {
               "type": "group",
-              "name": "tasks",
+              "key": "tasks",
               "label": "Tasks in Phase",
               "repeatable": true,
               "children": [
                 {
-                  "type": "string",
-                  "name": "taskDescription",
+                  "type": "field",
+                  "dataType": "string",
+                  "key": "taskDescription",
                   "label": "Description"
                 },
                 {
-                  "type": "number",
-                  "name": "hours",
+                  "type": "field",
+                  "dataType": "number",
+                  "key": "hours",
                   "label": "Hours"
                 },
                 {
-                  "type": "number",
-                  "name": "rate",
+                  "type": "field",
+                  "dataType": "number",
+                  "key": "rate",
                   "label": "Hourly Rate"
                 },
                 {
-                  "type": "number",
-                  "name": "taskTotal",
+                  "type": "field",
+                  "dataType": "number",
+                  "key": "taskTotal",
                   "label": "Task Cost",
                   "calculate": "hours * rate"
                 }
               ]
             },
             {
-              "type": "number",
-              "name": "phaseSubtotal",
+              "type": "field",
+              "dataType": "number",
+              "key": "phaseSubtotal",
               "label": "Phase Subtotal",
               "calculate": "sum(tasks.taskTotal)"
             }
           ]
         },
         {
-          "type": "number",
-          "name": "invoiceTotal",
+          "type": "field",
+          "dataType": "number",
+          "key": "invoiceTotal",
           "label": "Total Invoice Amount",
           "calculate": "sum(phases.phaseSubtotal)"
         },
         {
-          "type": "number",
-          "name": "taxRate",
+          "type": "field",
+          "dataType": "number",
+          "key": "taxRate",
           "label": "Tax Rate (%)",
           "calculate": "if(invoiceTotal > 1000, 15, 10)"
         },
         {
-          "type": "number",
-          "name": "finalAmount",
+          "type": "field",
+          "dataType": "number",
+          "key": "finalAmount",
           "label": "Final Amount (with Tax)",
           "calculate": "round(invoiceTotal * (1 + taxRate / 100), 2)"
         }
@@ -81,35 +91,40 @@
     },
     {
       "type": "group",
-      "name": "itinerary",
+      "key": "itinerary",
       "label": "Travel Itinerary",
       "repeatable": true,
       "children": [
         {
-          "type": "string",
-          "name": "destination",
+          "type": "field",
+          "dataType": "string",
+          "key": "destination",
           "label": "Destination"
         },
         {
-          "type": "date",
-          "name": "arrival",
+          "type": "field",
+          "dataType": "date",
+          "key": "arrival",
           "label": "Arrival Date"
         },
         {
-          "type": "date",
-          "name": "departure",
+          "type": "field",
+          "dataType": "date",
+          "key": "departure",
           "label": "Departure Date",
           "valid": "departure >= arrival"
         },
         {
-          "type": "number",
-          "name": "stayDuration",
+          "type": "field",
+          "dataType": "number",
+          "key": "stayDuration",
           "label": "Days in City",
           "calculate": "dateDiff(departure, arrival, 'days')"
         },
         {
-          "type": "string",
-          "name": "travelConflict",
+          "type": "field",
+          "dataType": "string",
+          "key": "travelConflict",
           "label": "Sequence Status",
           "calculate": "if(isNull(prev('departure')), 'First Stop', if(arrival < prev('departure'), 'CONFLICT', 'OK'))",
           "visible": "present(arrival)"

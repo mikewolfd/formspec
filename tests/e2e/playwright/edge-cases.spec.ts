@@ -64,8 +64,8 @@ test.describe('Formspec Cyclic Dependency', () => {
       try {
         renderer.definition = {
           items: [
-            { type: 'number', name: 'a', calculate: 'b * 2' },
-            { type: 'number', name: 'b', calculate: 'a * 2' }
+            { type: 'field', dataType: 'number', key: 'a', calculate: 'b * 2' },
+            { type: 'field', dataType: 'number', key: 'b', calculate: 'a * 2' }
           ]
         };
         return null;

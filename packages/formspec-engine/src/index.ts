@@ -38,8 +38,7 @@ export class FormEngine {
     private discoverAllNames(items: FormspecItem[], prefix = ''): string[] {
         let names: string[] = [];
         for (const item of items) {
-            const key = item.key || item.name; // Fallback for transition
-            const fullName = prefix ? `${prefix}.${key}` : key;
+            const fullName = prefix ? `${prefix}.${item.key}` : item.key;
             names.push(fullName);
             if (item.children) {
                 names.push(...this.discoverAllNames(item.children, fullName));
@@ -84,19 +83,11 @@ export class FormEngine {
     }
 
     private initItem(item: FormspecItem, prefix = '') {
-        const key = item.key || item.name;
+        const key = item.key;
         if (!key) throw new Error("Item missing required 'key'");
         const fullName = prefix ? `${prefix}.${key}` : key;
 
-        let itemType = item.type;
-        let itemDataType = item.dataType;
-
-        if (!['group', 'field', 'display'].includes(itemType)) {
-            itemDataType = itemDataType || itemType;
-            itemType = 'field';
-        }
-
-        if (itemType === 'group') {
+        if (item.type === 'group') {
             if (item.repeatable) {
                 this.repeats[fullName] = signal(1);
                 this.initRepeatInstance(item, fullName, 0);
@@ -109,9 +100,9 @@ export class FormEngine {
                     this.initItem(child, fullName);
                 }
             }
-        } else if (itemType === 'field') {
+        } else if (item.type === 'field') {
             let initialValue: any = item.initialValue !== undefined ? item.initialValue : '';
-            const dataType = itemDataType;
+            const dataType = item.dataType;
             if (!dataType) throw new Error(`Field '${fullName}' missing required 'dataType'`);
 
             if (initialValue === '' && (dataType === 'number' || dataType === 'integer' || dataType === 'decimal')) {
@@ -176,7 +167,7 @@ export class FormEngine {
 
         for (const part of parts) {
             const cleanPart = part.replace(/\[\d+\]/g, '');
-            foundItem = currentItems.find(i => (i.key || i.name) === cleanPart);
+            foundItem = currentItems.find(i => i.key === cleanPart);
             if (!foundItem) return undefined;
             if (foundItem.children) {
                 currentItems = foundItem.children;

@@ -3,16 +3,16 @@
   "items": [
     {
       "type": "group",
-      "name": "parent",
+      "key": "parent",
       "visible": "showParent == true",
       "children": [
-        { "type": "string", "name": "child", "label": "Child Field" }
+        { "type": "field", "dataType": "string", "key": "child", "label": "Child Field" }
       ]
     },
-    { "type": "boolean", "name": "showParent", "label": "Show Parent" },
-    { "type": "number", "name": "price", "label": "Price" },
-    { "type": "number", "name": "quantity", "label": "Quantity" },
-    { "type": "number", "name": "total", "calculate": "price * quantity" },
-    { "type": "string", "name": "requiredIfVisible", "label": "Required if visible", "valid": "present(requiredIfVisible) || !relevant(requiredIfVisible)" }
+    { "type": "field", "dataType": "boolean", "key": "showParent", "label": "Show Parent" },
+    { "type": "field", "dataType": "number", "key": "price", "label": "Price" },
+    { "type": "field", "dataType": "number", "key": "quantity", "label": "Quantity" },
+    { "type": "field", "dataType": "number", "key": "total", "calculate": "price * quantity" },
+    { "type": "field", "dataType": "string", "key": "requiredIfVisible", "label": "Required if visible", "valid": "present(requiredIfVisible) || !relevant(requiredIfVisible)" }
   ]
 }

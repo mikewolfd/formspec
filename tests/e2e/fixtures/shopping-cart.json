@@ -6,29 +6,29 @@
   "title": "Shopping Cart",
   "items": [
     {
-      "type": "number",
+      "type": "field",
+      "dataType": "number",
       "key": "price",
-      "name": "price",
       "label": "Price"
     },
     {
-      "type": "number",
+      "type": "field",
+      "dataType": "number",
       "key": "quantity",
-      "name": "quantity",
       "label": "Quantity"
     },
     {
-      "type": "number",
+      "type": "field",
+      "dataType": "number",
       "key": "total",
-      "name": "total",
       "label": "Total",
       "readonly": true,
       "calculate": "price * quantity"
     },
     {
-      "type": "string",
+      "type": "field",
+      "dataType": "string",
       "key": "discountCode",
-      "name": "discountCode",
       "label": "Discount Code",
       "visible": "total > 50"
     }

@@ -2,8 +2,8 @@
   "$formspec": "1.0",
   "items": [
     {
-      "type": "string",
-      "name": "zipCode",
+      "type": "field", "dataType": "string",
+      "key": "zipCode",
       "label": "Zip Code",
       "pattern": "^[0-9]{5}$"
     }
