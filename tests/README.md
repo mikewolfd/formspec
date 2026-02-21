@@ -14,7 +14,11 @@ family of JSON Schemas (draft 2020-12).
 | All spec examples (Layer 2) | `test_spec_examples.py` | 153 |
 | Property-based / generative (Layer 3) | `test_property_based.py` | 50 |
 | Cross-spec contract (Layer 5) | `test_cross_spec_contracts.py` | 149 |
-| **Total** | | **715** |
+| FEL parser (Layer 6) | `test_fel_parser.py` | 102 |
+| FEL evaluator (Layer 6) | `test_fel_evaluator.py` | 68 |
+| FEL functions (Layer 6) | `test_fel_functions.py` | 76 |
+| FEL API & conformance (Layer 6) | `test_fel_api.py` | 40 |
+| **Total** | | **1001** |
 
 ## Test Layers
 
@@ -73,6 +77,25 @@ Pure schema introspection — no document generation, no validation calls.
 - **Format constraints** — uri, date, date-time, uri-template
 - **Default values** — every spec-declared default matches schema
 - **Conditional structure** — if/then branches navigated by scanning `if` conditions (not positional index), verifying required fields in `then` clauses
+
+### Layer 6: FEL Implementation Tests (286 tests)
+End-to-end tests for the FEL Python reference implementation (`fel/` package).
+
+Four test files:
+- **test_fel_parser.py** (102) — scannerless parser: literals, field refs, context refs,
+  operators, precedence, membership, ternary, if-then-else, let bindings, function calls,
+  postfix access, arrays, objects, comments, edge cases, reserved words, conformance
+- **test_fel_evaluator.py** (68) — evaluator: arithmetic, comparison, equality, logical
+  operators, null propagation (§3.8), string concatenation, membership, ternary,
+  if-then-else, let bindings, field refs, element-wise arrays (§3.9), postfix access
+- **test_fel_functions.py** (76) — all 55 built-in functions: aggregates (sum/count/avg/
+  min/max), string (length/contains/startsWith/endsWith/substring/replace/upper/lower/
+  trim/matches/format), numeric (round/floor/ceil/abs/power), date (year/month/day/
+  dateDiff/dateAdd/hours/minutes/seconds/time/timeDiff), logical (if/coalesce/empty/
+  present), type-checking (isNumber/isString/isNull/typeOf), cast (number/string/
+  boolean/date), money (money/moneyAmount/moneyCurrency/moneyAdd)
+- **test_fel_api.py** (40) — public API, dependency extraction, extension registration,
+  grammar conformance (§7 all 7 points), semantic conformance, spec examples
 
 ## Prerequisites
 

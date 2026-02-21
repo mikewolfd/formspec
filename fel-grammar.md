@@ -183,8 +183,13 @@ in the grammar (closer to the start symbol).
 Expression     ← _ LetExpr _
 
 # --- Let binding ---
-LetExpr        ← 'let' _ Identifier _ '=' _ IfExpr _ 'in' _ LetExpr
+# The let-value position uses LetValue (not LetExpr/IfExpr) to avoid
+# ambiguity with the 'in' keyword. The 'in' membership operator is not
+# available as a bare operator in let-value position; parenthesise it:
+#   let x = (1 in $arr) in ...  
+LetExpr        ← 'let' _ Identifier _ '=' _ LetValue _ 'in' _ LetExpr
                / IfExpr
+LetValue       ← IfExpr   # but with Membership production omitted
 
 # --- If-then-else (keyword form) ---
 IfExpr         ← 'if' _ Ternary _ 'then' _ IfExpr _ 'else' _ IfExpr
