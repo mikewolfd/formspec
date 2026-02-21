@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://formspec.org/schemas/theme/1.0",
+  "title": "Formspec Theme Document",
+  "description": "A Formspec Theme document per the Formspec Theme Specification v1.0.",
+  "type": "object",
+  "required": ["$formspecTheme", "version", "targetDefinition"],
+  "additionalProperties": false,
+  "properties": {
+    "$formspecTheme": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Theme specification version. MUST be '1.0'."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical identifier for this theme."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Version of this theme document."
+    },
+    "name": {
+      "type": "string",
+      "description": "Machine-friendly short identifier."
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable name."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description."
+    },
+    "targetDefinition": {
+      "$ref": "#/$defs/TargetDefinition"
+    },
+    "platform": {
+      "type": "string",
+      "description": "Target platform. Well-known: 'web', 'mobile', 'pdf', 'print', 'kiosk'."
+    },
+    "tokens": {
+      "$ref": "#/$defs/Tokens"
+    },
+    "defaults": {
+      "$ref": "#/$defs/PresentationBlock",
+      "description": "Cascade level 1: baseline applied to all items."
+    },
+    "selectors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Selector"
+      },
+      "description": "Cascade level 2: type/dataType-based overrides."
+    },
+    "items": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/PresentationBlock"
+      },
+      "description": "Cascade level 3: per-item overrides keyed by item key."
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Page"
+      },
+      "description": "Page layout — ordered list of pages with region assignments."
+    },
+    "breakpoints": {
+      "$ref": "#/$defs/Breakpoints"
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^x-"
+      },
+      "description": "Extension namespace. Keys MUST be x- prefixed."
+    }
+  },
+  "$defs": {
+    "TargetDefinition": {
+      "type": "object",
+      "required": ["url"],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Canonical URL of the target Definition."
+        },
+        "compatibleVersions": {
+          "type": "string",
+          "description": "Semver range expression for compatible Definition versions (e.g., '>=1.0.0 <2.0.0')."
+        }
+      }
+    },
+    "Tokens": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "number" }
+        ]
+      },
+      "description": "Flat key-value token map. Keys are dot-path names (e.g., 'color.primary'). Values are strings or numbers. Referenced as $token.<key> in widgetConfig and style."
+    },
+    "PresentationBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "widget": {
+          "type": "string",
+          "description": "Widget identifier (same vocabulary as Tier 1 widgetHint §4.2.5.1)."
+        },
+        "widgetConfig": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Widget-specific configuration. Properties depend on the widget. See spec prose §4.2 for per-widget schemas."
+        },
+        "labelPosition": {
+          "type": "string",
+          "enum": ["top", "start", "hidden"],
+          "description": "Label placement for this item or selector scope."
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "number" }
+            ]
+          },
+          "description": "Flat style overrides. Values may contain $token references (e.g., '$token.color.primary'). Keys are renderer-interpreted style names."
+        },
+        "accessibility": {
+          "$ref": "#/$defs/AccessibilityBlock"
+        },
+        "fallback": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ordered fallback widget identifiers if preferred widget is unavailable."
+        }
+      }
+    },
+    "AccessibilityBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "description": "Semantic role hint."
+        },
+        "description": {
+          "type": "string",
+          "description": "Screen-reader-only supplemental description."
+        },
+        "liveRegion": {
+          "type": "string",
+          "enum": ["off", "polite", "assertive"],
+          "description": "How aggressively to announce value changes."
+        }
+      }
+    },
+    "Selector": {
+      "type": "object",
+      "required": ["match", "apply"],
+      "additionalProperties": false,
+      "properties": {
+        "match": {
+          "$ref": "#/$defs/SelectorMatch"
+        },
+        "apply": {
+          "$ref": "#/$defs/PresentationBlock"
+        }
+      }
+    },
+    "SelectorMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["group", "field", "display"],
+          "description": "Match items of this type."
+        },
+        "dataType": {
+          "type": "string",
+          "enum": [
+            "string", "text", "integer", "decimal", "boolean",
+            "date", "dateTime", "time", "uri",
+            "attachment", "choice", "multiChoice", "money"
+          ],
+          "description": "Match fields of this dataType."
+        }
+      },
+      "anyOf": [
+        { "required": ["type"] },
+        { "required": ["dataType"] }
+      ]
+    },
+    "Page": {
+      "type": "object",
+      "required": ["id", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$",
+          "description": "Unique page identifier."
+        },
+        "title": {
+          "type": "string",
+          "description": "Page title for navigation."
+        },
+        "description": {
+          "type": "string",
+          "description": "Page description or instructions."
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Region"
+          },
+          "description": "Ordered list of regions assigning items to this page."
+        }
+      }
+    },
+    "Region": {
+      "type": "object",
+      "required": ["key"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Item key placed in this region. A group key includes its entire subtree."
+        },
+        "span": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "default": 12,
+          "description": "Grid column span (1–12). Default: full width."
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "Grid column start position."
+        },
+        "responsive": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "span": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "start": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "hidden": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Breakpoint-keyed overrides for this region (e.g., { 'sm': { 'span': 12 } })."
+        }
+      }
+    },
+    "Breakpoints": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "description": "Named breakpoints with min-width values in pixels (e.g., { 'sm': 576, 'md': 768, 'lg': 1024 })."
+    }
+  }
+}

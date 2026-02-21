@@ -686,9 +686,12 @@ specification:
 - Navigation and focus management.
 - Visual style, themes, and branding.
 
-Companion specifications MAY standardize richer Presentation Layer schemas
-(e.g., sidecar theme documents, component models) that consume and extend
-these hints. Such specifications are independent of this document.
+The [Formspec Theme Specification](theme-spec.md) defines sidecar theme
+documents that override Tier 1 presentation hints with a selector cascade,
+design tokens, widget configurations, and page layout. Companion
+specifications MAY standardize additional Presentation Layer schemas
+(e.g., component models). Such specifications are independent of this
+document.
 
 This separation ensures that a single Definition can drive a web form, a mobile
 form, a PDF rendering, a voice-guided form, and an API-only validation endpoint
@@ -2149,18 +2152,19 @@ catch typographical errors.
 This design allows future companion specifications to define additional
 keys inside `presentation` without breaking existing validators.
 
-> **Informative note — Future presentation tiers:**
+> **Informative note — Presentation tiers:**
 >
-> The `presentation` object is designed to serve as a baseline for richer
-> presentation systems. Future companion specifications may define:
+> The `presentation` object serves as a baseline (Tier 1) for richer
+> presentation systems:
 >
-> - **Sidecar theme documents** that override presentation hints with
->   selector-based rules, design tokens, and responsive layouts.
-> - **Component documents** that define full presentation trees with
->   slot bindings to Definition items.
+> - The [Formspec Theme Specification](theme-spec.md) (Tier 2) defines
+>   sidecar theme documents that override inline hints with a 3-level
+>   selector cascade, design tokens, and responsive page layouts.
+> - Future **Component specifications** (Tier 3) may define full
+>   presentation trees with slot bindings to Definition items.
 >
-> Such companion specifications are expected to treat inline
-> `presentation` hints as defaults that may be overridden.
+> Companion specifications treat inline `presentation` hints as
+> author-specified defaults that may be overridden by higher tiers.
 
 Example — a Field with full presentation hints:
 
