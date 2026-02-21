@@ -395,7 +395,7 @@ class Evaluator:
             if isinstance(eq, FelBoolean) and eq is FelTrue:
                 found = True
                 break
-        result = FelBoolean(found)
+        result = fel_bool(found)
         if node.negated:
             return FelFalse if result is FelTrue else FelTrue
         return result
