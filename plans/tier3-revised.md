@@ -111,23 +111,60 @@ A renderer that also supports all Progressive components is **Tier 3 Complete Co
 
 ### Progressive Components (15)
 
-**Layout:** `Columns` (widths array), `Tabs`, `Accordion`
+**Layout (3):**
 
-**Input:** `RadioGroup`, `MoneyInput`, `Slider`, `Rating`, `Signature` (attachment)
+| Component | Props | Children | Description | Fallback |
+|-----------|-------|----------|-------------|----------|
+| `Columns` | `widths` (array) | Yes | Multi-column layout with explicit widths. | `Grid` or `Stack` |
+| `Tabs` | `position` | Yes (Pages) | Tabbed navigation. | `Stack` |
+| `Accordion` | `allowMultiple` | Yes (Collapsibles) | Vertically stacked headers that expand. | `Stack` |
 
-**Display:** `Alert` (severity + text), `Badge`, `ProgressBar`, `Summary` (key-value pairs), `DataTable` (repeatable group)
+**Input (5) — `bind` REQUIRED:**
 
-**Container:** `Panel` (sidebar/inline), `Modal` (trigger + title)
+| Component | Binds to dataType | Props | Fallback |
+|-----------|------------------|-------|----------|
+| `RadioGroup` | choice | `columns` | `Select` |
+| `MoneyInput` | decimal, number | `currency`, `prefix`, `suffix` | `NumberInput` |
+| `Slider` | integer, decimal | `min`, `max`, `step` | `NumberInput` |
+| `Rating` | integer | `max`, `icon` | `NumberInput` |
+| `Signature` | attachment | `strokeColor`, `clearable` | `FileUpload` |
 
-Each Progressive component MUST declare a Core fallback:
-- `RadioGroup` → `Select`
-- `MoneyInput` → `NumberInput`
-- `Slider` → `NumberInput`
-- `Tabs` → `Stack` (renders all tabs as stacked sections)
-- `Accordion` → `Stack` with `Collapsible` children
-- `Modal` → `Collapsible`
-- `DataTable` → `Stack` of bound items
-- etc.
+**Display (5):**
+
+| Component | Props | bind | Description | Fallback |
+|-----------|-------|------|-------------|----------|
+| `Alert` | `severity`, `text` | Optional | Contextual feedback messages. | `Card` or `Text` |
+| `Badge` | `text`, `variant` | Optional | Small status descriptor. | `Text` |
+| `ProgressBar` | `value`, `max`, `label` | Optional | Visual progress indicator. | `Text` |
+| `Summary` | `items` (array) | No | Key-value pair list of bound values. | `Stack` of `Text` |
+| `DataTable` | `columns` (array) | Yes (Repeatable) | Tabular display of repeatable data. | `Stack` |
+
+**Container (2):**
+
+| Component | Props | Children | Description | Fallback |
+|-----------|-------|----------|-------------|----------|
+| `Panel` | `position` (left/right) | Yes | Sidebar or auxiliary container. | `Stack` |
+| `Modal` | `title`, `size` | Yes | Overlaid dialog. | `Collapsible` |
+
+Each Progressive component MUST declare a Core fallback as shown above. A renderer that does not support a Progressive component MUST render its designated fallback to ensure the form remains functional.
+
+---
+
+## §2.1 Component ↔ DataType Compatibility Matrix
+
+Each Input component is compatible with a specific subset of Formspec `dataType` values.
+
+| `dataType` | Compatible Input Components |
+|---|---|
+| `string`, `text`, `uri` | `TextInput` |
+| `integer`, `decimal` | `NumberInput`, `Slider`, `Rating`, `MoneyInput` |
+| `boolean` | `Toggle` |
+| `date`, `dateTime`, `time` | `DatePicker` |
+| `choice` | `Select`, `RadioGroup` |
+| `multiChoice` | `CheckboxGroup` |
+| `attachment` | `FileUpload`, `Signature` |
+
+Display components (`Text`, `Heading`, `Alert`, `Badge`) may bind to any `dataType` for read-only display.
 
 ---
 ## §3. Slot Binding
@@ -653,76 +690,79 @@ All 1,559 existing tests unchanged.
 
 ---
 
-## §16. Example Component Document (abbreviated)
+## §17. Success Criteria and Validation
+
+Completion of Tier 3 is defined by the following:
+
+1.  **Normative Spec:** `component-spec.md` is complete, internally consistent, and cross-referenced with `spec.md` and `theme-spec.md`.
+2.  **Structural Schema:** `component.schema.json` validates all 33 Core and Progressive components, enforces `bind` requirements for inputs, and prevents structural cycles.
+3.  **Test Coverage:** A suite of ~229 tests (in `test_component_schema.py`) achieving:
+    - 100% coverage of component types in the schema.
+    - 100% coverage of `bind` compatibility matrix.
+    - Validation of `{param}` interpolation and cycle detection.
+    - Validation of `when` expression evaluation context.
+4.  **Referential Integrity:** Proof that a validator can verify:
+    - Every `bind` resolves to a valid key in the target Definition.
+    - Every `$token` resolves to a token in the local doc or referenced theme.
+    - Every custom component reference resolves to a registry entry.
+5.  **Backward Compatibility:** All 1,559 existing tests for Tier 1 and Tier 2 continue to pass.
+
+---
+
+## §18. Appendix: Full Example — Employee Onboarding Wizard
 
 ```json
 {
   "$formspecComponent": "1.0",
-  "url": "https://acme.org/presentations/budget-wizard",
-  "version": "1.0.0",
+  "url": "https://example.com/onboarding-ui",
+  "version": "1.1.0",
   "targetDefinition": {
-    "url": "https://acme.org/definitions/budget-request",
-    "compatibleVersions": ">=1.0.0 <2.0.0"
+    "url": "https://example.com/onboarding-def",
+    "compatibleVersions": "^1.0.0"
   },
-  "breakpoints": { "sm": 640, "md": 1024 },
-  "tokens": { "color.accent": "#1e40af" },
+  "tokens": {
+    "spacing.page": "24px",
+    "color.primary": "$token.brand.blue"
+  },
   "components": {
-    "AddressBlock": {
-      "params": ["prefix"],
+    "LabeledSection": {
+      "params": ["title", "itemKey"],
       "tree": {
-        "component": "Stack", "gap": "$token.spacing.sm",
+        "component": "Stack",
         "children": [
-          { "component": "TextInput", "bind": "{prefix}_street" },
-          { "component": "Grid", "columns": 3, "children": [
-            { "component": "TextInput", "bind": "{prefix}_city" },
-            { "component": "Select", "bind": "{prefix}_state" },
-            { "component": "TextInput", "bind": "{prefix}_zip" }
-          ]}
+          { "component": "Heading", "level": 3, "text": "{title}" },
+          { "component": "TextInput", "bind": "{itemKey}" }
         ]
       }
     }
   },
   "tree": {
-    "component": "Wizard", "showProgress": true,
+    "component": "Wizard",
+    "showProgress": true,
     "children": [
       {
-        "component": "Page", "title": "Project Info",
+        "component": "Page",
+        "title": "Personal Details",
         "children": [
-          { "component": "Heading", "level": 2, "text": "Project Information" },
-          { "component": "Grid", "columns": "1fr 1fr",
-            "responsive": { "sm": { "columns": "1fr" } },
-            "children": [
-              { "component": "Select", "bind": "department", "searchable": true },
-              { "component": "Select", "bind": "fiscal_year" }
-            ]
-          },
-          { "component": "TextInput", "bind": "project_name" }
+          { "component": "Card", "title": "Basic Info", "children": [
+            { "component": "LabeledSection", "params": { "title": "First Name", "itemKey": "fname" } },
+            { "component": "LabeledSection", "params": { "title": "Last Name", "itemKey": "lname" } }
+          ]},
+          { "component": "DatePicker", "bind": "dob", "maxDate": "2007-01-01" }
         ]
       },
       {
-        "component": "Page", "title": "Budget",
+        "component": "Page",
+        "title": "Equipment",
         "children": [
-          { "component": "NumberInput", "bind": "budget_amount" },
+          { "component": "Text", "text": "Select your preferred equipment:" },
+          { "component": "CheckboxGroup", "bind": "hardware_prefs", "columns": 2 },
           { "component": "ConditionalGroup",
-            "when": "$budget_amount > 50000",
+            "when": "CONTAINS($hardware_prefs, 'other')",
             "children": [
-              { "component": "Alert", "severity": "warning",
-                "text": "Budgets over $50,000 require VP approval." }
+              { "component": "TextInput", "bind": "hardware_other_details", "placeholder": "Specify..." }
             ]
-          },
-          { "component": "TextInput", "bind": "justification", "maxLines": 5 }
-        ]
-      },
-      {
-        "component": "Page", "title": "Review",
-        "children": [
-          { "component": "Heading", "level": 2, "text": "Review & Submit" },
-          { "component": "Text", "bind": "project_name" },
-          { "component": "Text", "bind": "budget_amount" },
-          { "component": "Toggle", "bind": "is_urgent",
-            "onLabel": "Urgent", "offLabel": "Normal" },
-          { "component": "FileUpload", "bind": "attachments",
-            "accept": ".pdf,.xlsx", "multiple": true }
+          }
         ]
       }
     ]
