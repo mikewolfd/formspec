@@ -46,5 +46,22 @@ test.describe('Formspec FEL Functions', () => {
     await page.click('button:has-text("Add prices")');
     await page.fill('input[name="prices[1].val"]', '25');
     await expect(page.locator('input[name="totalSum"]')).toHaveValue('35');
+    // Test Strings: contains
+    await expect(page.locator('input[name="textContains"]')).toHaveValue('true');
+
+    // Test Math: abs & power
+    await expect(page.locator('input[name="mathPower"]')).toHaveValue('8');
+    await expect(page.locator('input[name="mathAbs"]')).toHaveValue('42');
+
+    // Test Type: empty
+    // JS checkbox for boolean
+    await expect(page.locator('input[name="typeEmpty"]')).toBeChecked();
+
+    // Test Dates: dateAdd & dateDiff
+    await expect(page.locator('input[name="dateAddStr"]')).toHaveValue('2025-01-06');
+    await expect(page.locator('input[name="dateDiffVal"]')).toHaveValue('9');
+
+    // Test Logical: if
+    await expect(page.locator('input[name="ifExpr"]')).toHaveValue('yes');
   });
 });

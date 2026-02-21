@@ -128,6 +128,19 @@ export class FormspecRender extends HTMLElement {
                         option.textContent = opt.label;
                         input.appendChild(option);
                     }
+                } else if (item.optionsUrl) {
+                    // Phase 6 REST API Binding
+                    fetch(item.optionsUrl)
+                        .then(res => res.json())
+                        .then(data => {
+                            for (const opt of data) {
+                                const option = document.createElement('option');
+                                option.value = opt.value || opt.id;
+                                option.textContent = opt.label || opt.name;
+                                input.appendChild(option);
+                            }
+                        })
+                        .catch(err => console.error('Failed to load options', err));
                 }
             } else {
                 input = document.createElement('input');

@@ -53,3 +53,27 @@ test.describe('Formspec Edge Cases', () => {
     // Let's test what happens if it's NaN or similar.
   });
 });
+
+test.describe('Formspec Cyclic Dependency', () => {
+  test('Cyclic Dependencies are detected and prevented', async ({ page }) => {
+    await page.goto('http://127.0.0.1:8080/');
+    await page.waitForSelector('formspec-render', { state: 'attached' });
+
+    const errMessage = await page.evaluate(() => {
+      const renderer: any = document.querySelector('formspec-render');
+      try {
+        renderer.definition = {
+          items: [
+            { type: 'number', name: 'a', calculate: 'b * 2' },
+            { type: 'number', name: 'b', calculate: 'a * 2' }
+          ]
+        };
+        return null;
+      } catch (e: any) {
+        return e.message;
+      }
+    });
+
+    expect(errMessage).toContain('Cyclic dependency detected');
+  });
+});

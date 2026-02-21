@@ -102,13 +102,10 @@ export class FormEngine {
     }
 
     private findItem(items: FormspecItem[], name: string): FormspecItem | undefined {
-        // Handle baseName format like "lineItems.price"
-        const parts = name.split('.');
-        const searchName = parts[parts.length - 1];
         for (const item of items) {
-            if (item.name === searchName) return item;
+            if (item.name === name) return item;
             if (item.children) {
-                const found = this.findItem(item.children, searchName);
+                const found = this.findItem(item.children, name);
                 if (found) return found;
             }
         }

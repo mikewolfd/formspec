@@ -6,19 +6,109 @@
       "name": "prices",
       "repeatable": true,
       "children": [
-        { "type": "number", "name": "val", "label": "Value" }
+        {
+          "type": "number",
+          "name": "val",
+          "label": "Value"
+        }
       ]
     },
-    { "type": "number", "name": "totalSum", "calculate": "sum(prices.val)" },
-    { "type": "string", "name": "rawText", "label": "Text" },
-    { "type": "string", "name": "upperText", "calculate": "upper(rawText)" },
-    { "type": "number", "name": "rawNum", "label": "Number" },
-    { "type": "number", "name": "roundedNum", "calculate": "round(rawNum, 2)" },
-    { "type": "date", "name": "testDate", "label": "Date" },
-    { "type": "number", "name": "dateYear", "calculate": "year(testDate)" },
-    { "type": "string", "name": "opt1", "label": "Option 1" },
-    { "type": "string", "name": "opt2", "label": "Option 2" },
-    { "type": "string", "name": "coalesced", "calculate": "coalesce(opt1, opt2, 'Default')" },
-    { "type": "boolean", "name": "isOpt1Null", "calculate": "isNull(opt1)" }
+    {
+      "type": "number",
+      "name": "totalSum",
+      "calculate": "sum(prices.val)"
+    },
+    {
+      "type": "string",
+      "name": "rawText",
+      "label": "Text"
+    },
+    {
+      "type": "string",
+      "name": "upperText",
+      "calculate": "upper(rawText)"
+    },
+    {
+      "type": "number",
+      "name": "rawNum",
+      "label": "Number"
+    },
+    {
+      "type": "number",
+      "name": "roundedNum",
+      "calculate": "round(rawNum, 2)"
+    },
+    {
+      "type": "date",
+      "name": "testDate",
+      "label": "Date"
+    },
+    {
+      "type": "number",
+      "name": "dateYear",
+      "calculate": "year(testDate)"
+    },
+    {
+      "type": "string",
+      "name": "opt1",
+      "label": "Option 1"
+    },
+    {
+      "type": "string",
+      "name": "opt2",
+      "label": "Option 2"
+    },
+    {
+      "type": "string",
+      "name": "coalesced",
+      "calculate": "coalesce(opt1, opt2, 'Default')"
+    },
+    {
+      "type": "boolean",
+      "name": "isOpt1Null",
+      "calculate": "isNull(opt1)"
+    },
+    {
+      "type": "text",
+      "name": "textContains",
+      "calculate": "contains('hello world', 'world')",
+      "readonly": true
+    },
+    {
+      "type": "number",
+      "name": "mathPower",
+      "calculate": "power(2, 3)",
+      "readonly": true
+    },
+    {
+      "type": "number",
+      "name": "mathAbs",
+      "calculate": "abs(-42)",
+      "readonly": true
+    },
+    {
+      "type": "boolean",
+      "name": "typeEmpty",
+      "calculate": "empty('')",
+      "readonly": true
+    },
+    {
+      "type": "text",
+      "name": "dateAddStr",
+      "calculate": "dateAdd('2025-01-01', 5, 'days')",
+      "readonly": true
+    },
+    {
+      "type": "number",
+      "name": "dateDiffVal",
+      "calculate": "dateDiff('2025-01-10', '2025-01-01', 'days')",
+      "readonly": true
+    },
+    {
+      "type": "text",
+      "name": "ifExpr",
+      "calculate": "if(1 > 0, 'yes', 'no')",
+      "readonly": true
+    }
   ]
 }
