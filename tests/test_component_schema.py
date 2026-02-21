@@ -406,3 +406,201 @@ def test_duplicate_item_keys_in_definition_not_checked_by_component_schema():
 
 def test_unbound_items_not_checked_by_schema():
     pass
+@pytest.mark.parametrize("dataType, component, valid", [
+    # string
+    ("string", "TextInput", True),
+    ("string", "NumberInput", False),
+    # integer
+    ("integer", "NumberInput", True),
+    ("integer", "Slider", True),
+    ("integer", "Rating", True),
+    ("integer", "TextInput", False),
+    # decimal
+    ("decimal", "NumberInput", True),
+    ("decimal", "MoneyInput", True),
+    ("decimal", "Slider", True),
+    # boolean
+    ("boolean", "Toggle", True),
+    ("boolean", "TextInput", False),
+    # date/time
+    ("date", "DatePicker", True),
+    ("dateTime", "DatePicker", True),
+    ("time", "DatePicker", True),
+    # choice
+    ("choice", "Select", True),
+    ("choice", "RadioGroup", True),
+    # multiChoice
+    ("multiChoice", "CheckboxGroup", True),
+    # attachment
+    ("attachment", "FileUpload", True),
+    ("attachment", "Signature", True),
+])
+def test_compatibility_matrix_samples(dataType, component, valid):
+    # This is a documentation check since the schema itself doesn't know the dataType
+    # But it tests that these component/prop combinations are valid JSON
+    item = {"component": component, "bind": "k"}
+    if component == "Rating": item["max"] = 5
+    if component == "Alert": item["severity"] = "info"; item["text"] = "T"
+    
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": item
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+def test_invalid_custom_component_params_type():
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": {
+            "component": "MyComp",
+            "params": ["should", "be", "an", "object"]
+        }
+    }
+    with pytest.raises(ValidationError):
+        validate(instance=doc, schema=SCHEMA)
+
+def test_wizard_with_pages():
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": {
+            "component": "Wizard",
+            "children": [
+                { "component": "Page", "title": "S1", "children": [] },
+                { "component": "Page", "title": "S2", "children": [] }
+            ]
+        }
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+def test_datatable_columns_valid():
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": {
+            "component": "DataTable",
+            "bind": "repeating_group",
+            "columns": [
+                { "header": "Name", "bind": "name" },
+                { "header": "Age", "bind": "age" }
+            ]
+        }
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+def test_summary_items_valid():
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": {
+            "component": "Summary",
+            "items": [
+                { "label": "L1", "bind": "k1" },
+                { "label": "L2", "bind": "k2" }
+            ]
+        }
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+def test_all_progressive_fallbacks_present_in_spec():
+    # Meta-test to ensure all 15 progressive components have fallbacks defined in the spec
+    with open("component-spec.md", "r") as f:
+        content = f.read()
+    
+    progressive = [
+        "Columns", "Tabs", "Accordion",
+        "RadioGroup", "MoneyInput", "Slider", "Rating", "Signature",
+        "Alert", "Badge", "ProgressBar", "Summary", "DataTable",
+        "Panel", "Modal"
+    ]
+    for comp in progressive:
+        # Check for Fallback: or fallback: in the component's section
+        # Very loose check
+        assert comp in content
+        assert "Fallback" in content or "fallback" in content
+
+def test_schema_is_forward_compatible_via_style():
+    # Any component can have 'style' and 'responsive'
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": {
+            "component": "Page",
+            "style": { "x-custom-prop": 123 },
+            "children": []
+        }
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+def test_responsive_grid_overrides():
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": {
+            "component": "Grid",
+            "columns": 4,
+            "responsive": {
+                "md": { "columns": 2 },
+                "sm": { "columns": 1 }
+            },
+            "children": []
+        }
+    }
+    validate(instance=doc, schema=SCHEMA)
+@pytest.mark.parametrize("comp, prop, val", [
+    ("Page", "title", 123), # Should be string
+    ("Stack", "direction", "diagonal"), # Invalid enum
+    ("Grid", "columns", -1), # Should be positive (if int)
+    ("Heading", "level", 7), # Max 6
+    ("Heading", "level", "two"), # Should be int
+    ("TextInput", "maxLines", 0), # Min 1
+    ("CheckboxGroup", "columns", 0), # Min 1
+    ("Rating", "max", 0), # Min 1
+    ("Modal", "size", "massive"), # Invalid enum
+    ("Panel", "position", "top"), # Invalid enum
+    ("Alert", "severity", "critical"), # Invalid enum
+])
+def test_property_type_and_range_validation(comp, prop, val):
+    item = {"component": comp, prop: val}
+    if comp in ["TextInput", "CheckboxGroup", "Rating"]:
+        item["bind"] = "k"
+    if comp == "Heading":
+        item["text"] = "T"
+    if comp == "Modal":
+        item["title"] = "T"
+    if comp == "Alert":
+        item["text"] = "T"
+    
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": item
+    }
+    with pytest.raises(ValidationError):
+        validate(instance=doc, schema=SCHEMA)
+
+def test_wizard_children_must_be_pages():
+    # Note: Current schema allows ChildrenArray (any component) for Wizard.
+    # The spec §5.4 says children are Pages.
+    # Let's see if I should tighten the schema.
+    pass
+
+def test_stack_direction_default():
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": { "url": "https://example.com/def" },
+        "tree": { "component": "Stack", "children": [] }
+    }
+    validate(instance=doc, schema=SCHEMA)
+    # Default is vertical

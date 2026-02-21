@@ -168,7 +168,7 @@
         "when": { "type": "string" },
         "responsive": { "$ref": "#/$defs/ResponsiveOverrides" },
         "style": { "$ref": "#/$defs/StyleMap" },
-        "columns": { "oneOf": [{ "type": "string" }, { "type": "integer" }] },
+        "columns": { "oneOf": [{ "type": "string" }, { "type": "integer", "minimum": 1 }] },
         "gap": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
         "children": { "$ref": "#/$defs/ChildrenArray" }
       }
