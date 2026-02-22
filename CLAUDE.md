@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Formspec is a JSON-native declarative form specification with a TypeScript reference implementation. It defines form fields, computed values, validation rules, conditional logic, repeatable sections, and structured validation results — independent of any rendering technology.
+Formspec is a JSON-native declarative form specification with a dual reference implementation (TypeScript for the client, Python for the backend/tooling). It defines form fields, computed values, validation rules, conditional logic, repeatable sections, and structured validation results — independent of any rendering technology.
 
 The specification is organized into three tiers: Core (data & logic), Theme (presentation), and Components (interaction). FEL (Formspec Expression Language) is a built-in expression language for calculated values and conditional logic.
 
@@ -21,8 +21,9 @@ Do not preserve bad code. Do not work around problems. Do not add layers to avoi
 
 ## Monorepo Structure
 
-- **`packages/formspec-engine/`** — Core form state management. FormEngine class, FEL lexer/parser/interpreter, path resolution, validation. Uses `@preact/signals-core` for reactivity and `chevrotain` for parsing.
+- **`packages/formspec-engine/`** — Core form state management (TypeScript). FormEngine class, FEL lexer/parser/interpreter, path resolution, validation. Uses `@preact/signals-core` for reactivity and `chevrotain` for parsing.
 - **`packages/formspec-webcomponent/`** — `<formspec-render>` custom element that binds FormEngine to the DOM. Component registry pattern for extensibility.
+- **`src/`** — Python reference implementation and tooling backend. Contains `src/fel/` (a standalone Python parser, AST, and evaluator for FEL) and `src/adapters/` (Mapping spec implementations for JSON/XML/CSV). This powers the Python conformance suite and acts as a server-side validation/linting engine.
 - **`schemas/`** — JSON Schema files (definition, response, validationReport, mapping, theme, component, registry).
 - **`specs/`** — Markdown specification documents organized by tier. Each spec has a compact `*.llm.md` version optimized for LLM context — **always prefer reading the `.llm.md` files** over the full specs:
   - `specs/core/spec.llm.md` — Core specification (items, binds, FEL, validation shapes, processing model)
@@ -68,11 +69,17 @@ python3 -m pytest tests/test_fel_evaluator.py::TestClassName::test_name -v
 ### FormEngine (`packages/formspec-engine/src/index.ts`)
 Central class that manages form state. Maintains separate Preact Signals for: field values, relevance, required state, readonly state, validation results, and repeat counts. Computed signals auto-update when dependencies change. Key methods: `setDefinition()`, `setValue()`, `getResponse()`, `getValidationReport()`, `compileFEL()`.
 
-### FEL Pipeline (`packages/formspec-engine/src/fel/`)
+### FEL Pipeline (`packages/formspec-engine/src/fel/` — TypeScript)
 1. **Lexer** (`lexer.ts`) — Chevrotain-based tokenization
 2. **Parser** (`parser.ts`) — Chevrotain CstParser producing CST
 3. **Interpreter** (`interpreter.ts`) — CstVisitor that evaluates expressions; includes ~40+ stdlib functions (aggregates, strings, dates, logical, math, type checking)
 4. **DependencyVisitor** (`dependency-visitor.ts`) — Extracts field references from CST to wire up reactive dependencies
+
+### Python Backend & Tooling (`src/` — Python)
+A separate Python implementation designed for server-side evaluation, strict validation, and static analysis:
+- **`src/fel/parser.py`** & **`src/fel/evaluator.py`**: A complete parsing and evaluation engine that executes FEL on backend servers (e.g., re-verifying validation on submit).
+- **`src/fel/dependencies.py`**: Builds dependency graphs and enables static analysis/linting of FEL expressions.
+- **`src/adapters/`**: Implements the Mapping spec, allowing server-side conversion of Formspec data into CSV, XML, and alternate JSON layouts.
 
 ### Web Component (`packages/formspec-webcomponent/src/`)
 `<formspec-render>` element with a component registry. Components are organized by category (layout, inputs, display, interactive, special). Each component implements a type string and render function receiving a `RenderContext` with engine access and path resolution.
