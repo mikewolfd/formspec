@@ -52,13 +52,18 @@ export class FormspecRender extends HTMLElement {
         this.cleanup();
         if (!this.engine || !this._definition) return;
 
-        // Verify targetDefinition compatibility if present
-        if (this._componentDocument && this._componentDocument.targetDefinition) {
-            const target = this._componentDocument.targetDefinition;
-            if (target.url !== this._definition.url) {
-                console.warn(`Component Document target URL (${target.url}) does not match Definition URL (${this._definition.url})`);
+        // Verify Component Document §2.1 & §2.2
+        if (this._componentDocument) {
+            if (this._componentDocument.$formspecComponent !== '1.0') {
+                console.warn(`Unsupported Component Document version: ${this._componentDocument.$formspecComponent}`);
             }
-            // Compatibility version check could be added here if a semver library is available
+
+            if (this._componentDocument.targetDefinition) {
+                const target = this._componentDocument.targetDefinition;
+                if (target.url !== this._definition.url) {
+                    console.warn(`Component Document target URL (${target.url}) does not match Definition URL (${this._definition.url})`);
+                }
+            }
         }
 
         const container = document.createElement('div');
@@ -184,23 +189,8 @@ export class FormspecRender extends HTMLElement {
         const componentType = comp.component;
         let el: HTMLElement | null = null;
 
-        // Slot Binding Resolution (§4.2)
-        let boundItem: any = null;
-        let fullName = '';
-        if (comp.bind && !isRepeatInstance) {
-            boundItem = this.findItemByKey(comp.bind);
-            fullName = prefix ? `${prefix}.${comp.bind}` : comp.bind;
-        } else if (isRepeatInstance) {
-            // In a repeat instance, 'comp' itself is the template that was bound to the group.
-            // But its children might have 'bind' too.
-            // Wait, if 'comp' is 'Stack' bound to 'inventory', then for each repeat, 
-            // we render 'Stack' with prefix 'inventory[i]'.
-            // If 'Stack' has a child 'TextInput' bound to 'itemName', 
-            // its fullName will be correctly resolved as 'inventory[i].itemName'.
-        }
-
         switch (componentType) {
-            case 'Page':
+            case 'Page': // §5.1
                 el = document.createElement('section');
                 el.className = 'formspec-page';
                 if (comp.title) {
@@ -208,23 +198,36 @@ export class FormspecRender extends HTMLElement {
                     h2.textContent = comp.title;
                     el.appendChild(h2);
                 }
+                if (comp.description) {
+                    const p = document.createElement('p');
+                    p.className = 'page-description';
+                    p.textContent = comp.description;
+                    el.appendChild(p);
+                }
                 break;
 
-            case 'Stack':
+            case 'Stack': // §5.2
                 el = document.createElement('div');
                 el.className = 'formspec-stack';
                 el.style.display = 'flex';
                 el.style.flexDirection = comp.direction === 'horizontal' ? 'row' : 'column';
-                el.style.gap = this.resolveToken(comp.gap) || '1rem';
+                el.style.gap = this.resolveToken(comp.gap) || '0';
+                el.style.alignItems = comp.align || 'stretch';
+                if (comp.wrap && comp.direction === 'horizontal') {
+                    el.style.flexWrap = 'wrap';
+                }
                 break;
 
-            case 'Grid':
+            case 'Grid': // §5.3
                 el = document.createElement('div');
                 el.className = 'formspec-grid';
                 el.style.display = 'grid';
                 const cols = comp.columns || 2;
                 el.style.gridTemplateColumns = typeof cols === 'number' ? `repeat(${cols}, 1fr)` : this.resolveToken(cols);
-                el.style.gap = this.resolveToken(comp.gap) || '1rem';
+                el.style.gap = this.resolveToken(comp.gap) || '0';
+                if (comp.rowGap) {
+                    el.style.rowGap = this.resolveToken(comp.rowGap);
+                }
                 break;
 
             case 'TextInput':
@@ -232,9 +235,10 @@ export class FormspecRender extends HTMLElement {
             case 'DatePicker':
             case 'Select':
             case 'Toggle':
+            case 'Checkbox':
             case 'CheckboxGroup':
             case 'RadioGroup':
-                // All these are Input components (§5.6-§5.9)
+                // All these are Input components (§5.6-§5.11)
                 if (comp.bind) {
                     const item = this.findItemByKey(comp.bind);
                     if (item) {
@@ -246,13 +250,14 @@ export class FormspecRender extends HTMLElement {
                 }
                 break;
 
-            case 'Heading':
+            case 'Heading': // §5.13
                 el = document.createElement(`h${comp.level || 1}`);
                 el.textContent = comp.text || '';
                 break;
 
-            case 'Text':
+            case 'Text': // §5.14
                 el = document.createElement('p');
+                el.className = `text-variant-${comp.variant || 'body'}`;
                 if (comp.bind) {
                     const itemFullName = prefix ? `${prefix}.${comp.bind}` : comp.bind;
                     this.cleanupFns.push(effect(() => {
@@ -415,6 +420,7 @@ export class FormspecRender extends HTMLElement {
         }
 
         if (el) {
+            if (comp.id) el.id = comp.id;
             this.applyStyle(el, comp.style);
             parent.appendChild(el);
             if (comp.children) {
@@ -429,25 +435,23 @@ export class FormspecRender extends HTMLElement {
         const dataType = item.dataType;
         const componentType = comp.component;
 
-        // Compatibility Matrix (§4.6)
+        // §4.6 Bind/dataType Compatibility Matrix
         const matrix: Record<string, string[]> = {
-            'string': ['TextInput'],
-            'decimal': ['NumberInput', 'Slider', 'Rating'],
-            'integer': ['NumberInput', 'Slider', 'Rating'],
-            'boolean': ['Toggle'],
-            'date': ['DatePicker'],
-            'dateTime': ['DatePicker'],
-            'time': ['DatePicker'],
-            'choice': ['Select', 'RadioGroup'],
+            'string': ['TextInput', 'Select', 'RadioGroup'],
+            'decimal': ['NumberInput', 'Slider', 'Rating', 'TextInput'],
+            'integer': ['NumberInput', 'Slider', 'Rating', 'TextInput'],
+            'boolean': ['Toggle', 'Checkbox'],
+            'date': ['DatePicker', 'TextInput'],
+            'dateTime': ['DatePicker', 'TextInput'],
+            'time': ['DatePicker', 'TextInput'],
+            'choice': ['Select', 'RadioGroup', 'TextInput'],
             'multiChoice': ['CheckboxGroup'],
-            'attachment': ['FileUpload', 'Signature']
+            'attachment': ['FileUpload', 'Signature'],
+            'money': ['NumberInput', 'TextInput']
         };
 
         if (matrix[dataType] && !matrix[dataType].includes(componentType)) {
-            // TextInput is a universal fallback
-            if (componentType !== 'TextInput') {
-                console.warn(`Incompatible component ${componentType} for dataType ${dataType}. Fallback to TextInput.`);
-            }
+            console.warn(`Incompatible component ${componentType} for dataType ${dataType}.`);
         }
 
         const fieldWrapper = document.createElement('div');
@@ -457,6 +461,16 @@ export class FormspecRender extends HTMLElement {
         const label = document.createElement('label');
         label.textContent = comp.labelOverride || item.label || item.key;
         fieldWrapper.appendChild(label);
+        
+        // §4.2.3 Required indicator
+        this.cleanupFns.push(effect(() => {
+            const isRequired = this.engine!.requiredSignals[fullName]?.value;
+            if (isRequired) {
+                label.innerHTML = `${comp.labelOverride || item.label || item.key} <span class="required-indicator" style="color: red">*</span>`;
+            } else {
+                label.textContent = comp.labelOverride || item.label || item.key;
+            }
+        }));
 
         if (item.hint || comp.hintOverride) {
             const hint = document.createElement('div');
@@ -481,7 +495,7 @@ export class FormspecRender extends HTMLElement {
                  }
              }
              input = select;
-        } else if (componentType === 'Toggle' || dataType === 'boolean') {
+        } else if (componentType === 'Toggle' || componentType === 'Checkbox' || dataType === 'boolean') {
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.name = fullName;
@@ -489,21 +503,39 @@ export class FormspecRender extends HTMLElement {
         } else {
             const htmlInput = document.createElement('input');
             htmlInput.name = fullName;
-            if (componentType === 'NumberInput' || ['integer', 'decimal'].includes(dataType)) {
+            if (componentType === 'NumberInput' || ['integer', 'decimal', 'money'].includes(dataType)) {
                 htmlInput.type = 'number';
-            } else if (componentType === 'DatePicker' || dataType === 'date') {
-                htmlInput.type = 'date';
+            } else if (componentType === 'DatePicker' || ['date', 'dateTime', 'time'].includes(dataType)) {
+                htmlInput.type = dataType === 'date' ? 'date' : (dataType === 'time' ? 'time' : 'datetime-local');
             } else {
                 htmlInput.type = 'text';
             }
-            input = htmlInput;
+            
+            // Apply TextInput specific props (§5.6)
+            if (componentType === 'TextInput') {
+                if (comp.placeholder) htmlInput.placeholder = comp.placeholder;
+                if (comp.inputMode) htmlInput.inputMode = comp.inputMode;
+                if (comp.maxLines && comp.maxLines > 1) {
+                    const textarea = document.createElement('textarea');
+                    textarea.name = fullName;
+                    textarea.rows = comp.maxLines;
+                    if (comp.placeholder) textarea.placeholder = comp.placeholder;
+                    input = textarea;
+                } else {
+                    input = htmlInput;
+                }
+            } else {
+                input = htmlInput;
+            }
         }
 
         fieldWrapper.appendChild(input);
+        if (comp.id) input.id = comp.id;
 
         const errorDisplay = document.createElement('div');
         errorDisplay.className = 'error-message';
         errorDisplay.style.color = 'red';
+        errorDisplay.style.fontSize = '0.8rem';
         fieldWrapper.appendChild(errorDisplay);
 
         // Bind events
@@ -512,7 +544,7 @@ export class FormspecRender extends HTMLElement {
             let val: any;
             if (dataType === 'boolean') {
                 val = target.checked;
-            } else if (['integer', 'decimal'].includes(dataType)) {
+            } else if (['integer', 'decimal', 'money'].includes(dataType)) {
                 val = target.value === '' ? null : Number(target.value);
             } else {
                 val = target.value;
@@ -532,7 +564,7 @@ export class FormspecRender extends HTMLElement {
             }
         }));
 
-        // Relevancy, Readonly, Error signals
+        // Relevancy, Readonly, Error signals (§4.2)
         this.cleanupFns.push(effect(() => {
             const isRelevant = this.engine!.relevantSignals[fullName]?.value ?? true;
             fieldWrapper.style.display = isRelevant ? 'block' : 'none';
@@ -540,7 +572,7 @@ export class FormspecRender extends HTMLElement {
 
         this.cleanupFns.push(effect(() => {
             const isReadonly = this.engine!.readonlySignals[fullName]?.value ?? false;
-            if (input instanceof HTMLInputElement) input.readOnly = isReadonly;
+            if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) (input as any).readOnly = isReadonly;
             else (input as any).disabled = isReadonly;
         }));
 

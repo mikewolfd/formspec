@@ -53,12 +53,33 @@ export class FormEngine {
 
     constructor(definition: FormspecDefinition) {
         this.definition = definition;
+        this.initializeBindConfigs(definition.items);
         if (definition.binds) {
             for (const bind of definition.binds) {
-                this.bindConfigs[bind.target] = bind;
+                this.bindConfigs[bind.target] = { ...this.bindConfigs[bind.target], ...bind };
             }
         }
         this.initializeSignals();
+    }
+
+    private initializeBindConfigs(items: FormspecItem[], prefix = '') {
+        for (const item of items) {
+            const fullName = prefix ? `${prefix}.${item.key}` : item.key;
+            if (item.relevant || item.required || item.calculate || item.readonly || item.constraint) {
+                this.bindConfigs[fullName] = {
+                    target: fullName,
+                    relevant: item.relevant,
+                    required: item.required,
+                    calculate: item.calculate,
+                    readonly: item.readonly,
+                    constraint: item.constraint,
+                    message: item.message
+                };
+            }
+            if (item.children) {
+                this.initializeBindConfigs(item.children, fullName);
+            }
+        }
     }
 
     private discoverAllNames(items: FormspecItem[], prefix = ''): string[] {
@@ -583,3 +604,29 @@ export class FormEngine {
         };
     }
 }
+export interface ComponentObject {
+    component: string;
+    bind?: string;
+    when?: string;
+    style?: Record<string, any>;
+    children?: ComponentObject[];
+    [key: string]: any;
+}
+
+export interface ComponentDocument {
+    $formspecComponent: string;
+    version: string;
+    targetDefinition: {
+        url: string;
+        compatibleVersions?: string;
+    };
+    url?: string;
+    name?: string;
+    title?: string;
+    description?: string;
+    breakpoints?: Record<string, number>;
+    tokens?: Record<string, any>;
+    components?: Record<string, any>;
+    tree: ComponentObject;
+}
+
