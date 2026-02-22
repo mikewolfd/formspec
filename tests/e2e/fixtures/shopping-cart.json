@@ -7,30 +7,38 @@
   "items": [
     {
       "type": "field",
-      "dataType": "number",
+      "dataType": "decimal",
       "key": "price",
       "label": "Price"
     },
     {
       "type": "field",
-      "dataType": "number",
+      "dataType": "decimal",
       "key": "quantity",
       "label": "Quantity"
     },
     {
       "type": "field",
-      "dataType": "number",
+      "dataType": "decimal",
       "key": "total",
-      "label": "Total",
-      "readonly": true,
-      "calculate": "price * quantity"
+      "label": "Total"
     },
     {
       "type": "field",
       "dataType": "string",
       "key": "discountCode",
-      "label": "Discount Code",
-      "visible": "total > 50"
+      "label": "Discount Code"
+    }
+  ],
+  "binds": [
+    {
+      "target": "total",
+      "calculate": "price * quantity",
+      "readonly": true
+    },
+    {
+      "target": "discountCode",
+      "relevant": "total > 50"
     }
   ]
 }

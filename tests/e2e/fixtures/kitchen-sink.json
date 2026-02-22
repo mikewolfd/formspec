@@ -1,0 +1,130 @@
+{
+  "$formspec": "1.0",
+  "url": "http://example.org/forms/kitchen-sink",
+  "version": "1.0.0",
+  "status": "active",
+  "title": "Formspec Kitchen Sink Demo",
+  "items": [
+    {
+      "type": "field",
+      "dataType": "string",
+      "key": "userName",
+      "label": "Full Name",
+      "initialValue": "John Doe"
+    },
+    {
+      "type": "field",
+      "dataType": "boolean",
+      "key": "showAdvanced",
+      "label": "Show Advanced Options"
+    },
+    {
+      "type": "group",
+      "key": "advancedOptions",
+      "label": "Advanced Settings",
+      "children": [
+        {
+          "type": "field",
+          "dataType": "choice",
+          "key": "theme",
+          "label": "Preferred Theme",
+          "options": [
+            { "label": "Light", "value": "light" },
+            { "label": "Dark", "value": "dark" },
+            { "label": "High Contrast", "value": "hc" }
+          ]
+        },
+        {
+          "type": "field",
+          "dataType": "multiChoice",
+          "key": "notifications",
+          "label": "Notification Preferences",
+          "options": [
+            { "label": "Email", "value": "email" },
+            { "label": "SMS", "value": "sms" },
+            { "label": "Push", "value": "push" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "key": "inventory",
+      "label": "Item Inventory",
+      "repeatable": true,
+      "minRepeat": 1,
+      "children": [
+        {
+          "type": "field",
+          "dataType": "string",
+          "key": "itemName",
+          "label": "Item Name"
+        },
+        {
+          "type": "field",
+          "dataType": "decimal",
+          "key": "price",
+          "label": "Price"
+        },
+        {
+          "type": "field",
+          "dataType": "decimal",
+          "key": "quantity",
+          "label": "Quantity"
+        },
+        {
+          "type": "field",
+          "dataType": "decimal",
+          "key": "subtotal",
+          "label": "Subtotal"
+        }
+      ]
+    },
+    {
+      "type": "field",
+      "dataType": "decimal",
+      "key": "grandTotal",
+      "label": "Grand Total"
+    },
+    {
+      "type": "field",
+      "dataType": "money",
+      "key": "budget",
+      "label": "Budget Allocation"
+    },
+    {
+      "type": "field",
+      "dataType": "date",
+      "key": "startDate",
+      "label": "Project Start Date"
+    },
+    {
+      "type": "field",
+      "dataType": "date",
+      "key": "endDate",
+      "label": "Project End Date"
+    }
+  ],
+  "binds": [
+    {
+      "target": "advancedOptions",
+      "relevant": "showAdvanced == true"
+    },
+    {
+      "target": "inventory.subtotal",
+      "calculate": "price * quantity",
+      "readonly": true
+    },
+    {
+      "target": "grandTotal",
+      "calculate": "sum(inventory.subtotal)",
+      "readonly": true
+    },
+    {
+      "target": "endDate",
+      "constraint": "endDate >= startDate",
+      "calculate": "dateAdd(startDate, 30, 'days')",
+      "message": "End date must be after start date"
+    }
+  ]
+}

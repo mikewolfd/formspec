@@ -1,0 +1,95 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "http://example.org/forms/kitchen-sink" },
+  "tokens": {
+    "primary": "#3b82f6",
+    "secondary": "#64748b",
+    "radius": "12px"
+  },
+  "tree": {
+    "component": "Wizard",
+    "children": [
+      {
+        "component": "Page",
+        "title": "Basic Information",
+        "description": "Tell us who you are.",
+        "children": [
+          {
+            "component": "Card",
+            "children": [
+              { "component": "Heading", "level": 2, "text": "Profile" },
+              { "component": "TextInput", "bind": "userName" },
+              { "component": "Toggle", "bind": "showAdvanced" }
+            ]
+          },
+          {
+            "component": "ConditionalGroup",
+            "when": "showAdvanced == true",
+            "children": [
+              {
+                "component": "Alert",
+                "severity": "info",
+                "text": "You are now editing advanced settings."
+              },
+              { "component": "Select", "bind": "theme" },
+              { "component": "Stack", "children": [
+                  { "component": "Badge", "text": "New Feature", "variant": "success" },
+                  { "component": "TextInput", "bind": "notifications" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Inventory Management",
+        "children": [
+          {
+            "component": "DataTable",
+            "bind": "inventory",
+            "columns": [
+              { "header": "Item", "bind": "itemName" },
+              { "header": "Price", "bind": "price" },
+              { "header": "Qty", "bind": "quantity" },
+              { "header": "Subtotal", "bind": "subtotal" }
+            ]
+          },
+          {
+            "component": "Summary",
+            "items": [
+              { "label": "Total Calculated Sum", "bind": "grandTotal" }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Financials & Schedule",
+        "children": [
+          {
+            "component": "Tabs",
+            "tabLabels": ["Money", "Dates"],
+            "children": [
+              {
+                "component": "Stack",
+                "children": [
+                  { "component": "NumberInput", "bind": "budget" }
+                ]
+              },
+              {
+                "component": "Grid",
+                "columns": 2,
+                "children": [
+                  { "component": "DatePicker", "bind": "startDate" },
+                  { "component": "DatePicker", "bind": "endDate" }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

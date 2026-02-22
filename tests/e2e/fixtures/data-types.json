@@ -1,5 +1,9 @@
 {
   "$formspec": "1.0",
+  "url": "http://example.org/fixtures/data-types",
+  "version": "1.0.0",
+  "status": "active",
+  "title": "Data Types Test",
   "items": [
     {
       "type": "field",

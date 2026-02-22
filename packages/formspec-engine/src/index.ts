@@ -2,36 +2,62 @@ import { signal, computed, Signal } from '@preact/signals-core';
 
 export interface FormspecItem {
     key: string;
-    type: string;
-    label?: string;
-    dataType?: string;
-    calculate?: string;
-    visible?: string;
-    valid?: string;
-    pattern?: string;
-    readonly?: boolean;
+    type: "field" | "group" | "display";
+    label: string;
+    dataType?: "string" | "text" | "integer" | "decimal" | "boolean" | "date" | "dateTime" | "time" | "uri" | "attachment" | "choice" | "multiChoice" | "money";
+    description?: string;
+    hint?: string;
     repeatable?: boolean;
+    minRepeat?: number;
+    maxRepeat?: number;
     children?: FormspecItem[];
+    options?: { value: string; label: string }[];
+    optionSet?: string;
+    initialValue?: any;
+    presentation?: any;
     [key: string]: any;
 }
 
+export interface FormspecBind {
+    target: string;
+    relevant?: string;
+    required?: string | boolean;
+    calculate?: string;
+    readonly?: string | boolean;
+    constraint?: string;
+    message?: string;
+}
+
 export interface FormspecDefinition {
+    $formspec: string;
+    url: string;
+    version: string;
+    title: string;
     items: FormspecItem[];
+    binds?: FormspecBind[];
     [key: string]: any;
 }
 
 export class FormEngine {
     private definition: FormspecDefinition;
     public signals: Record<string, any> = {};
-    public visibleSignals: Record<string, Signal<boolean>> = {};
+    public relevantSignals: Record<string, Signal<boolean>> = {};
+    public requiredSignals: Record<string, Signal<boolean>> = {};
+    public readonlySignals: Record<string, Signal<boolean>> = {};
     public errorSignals: Record<string, Signal<string | null>> = {};
     public repeats: Record<string, Signal<number>> = {};
     public dependencies: Record<string, string[]> = {};
     private knownNames: Set<string> = new Set();
+    private bindConfigs: Record<string, FormspecBind> = {};
     public structureVersion = signal(0);
 
     constructor(definition: FormspecDefinition) {
         this.definition = definition;
+        if (definition.binds) {
+            for (const bind of definition.binds) {
+                this.bindConfigs[bind.target] = bind;
+            }
+        }
         this.initializeSignals();
     }
 
@@ -86,16 +112,23 @@ export class FormEngine {
         const key = item.key;
         if (!key) throw new Error("Item missing required 'key'");
         const fullName = prefix ? `${prefix}.${key}` : key;
+        const baseKey = fullName.replace(/\[\d+\]/g, '');
+        const bind = this.bindConfigs[baseKey];
+
+        // Relevancy (Visibility)
+        this.relevantSignals[fullName] = signal(true);
+        if (bind && bind.relevant) {
+            this.relevantSignals[fullName] = computed(() => !!this.compileFEL(bind.relevant!, fullName, undefined, true)());
+        }
 
         if (item.type === 'group') {
             if (item.repeatable) {
-                this.repeats[fullName] = signal(1);
-                this.initRepeatInstance(item, fullName, 0);
-            } else if (item.children) {
-                this.visibleSignals[fullName] = signal(true);
-                if (item.visible) {
-                    this.visibleSignals[fullName] = computed(() => !!this.compileFEL(item.visible!, fullName, undefined, true)());
+                const initialCount = item.minRepeat !== undefined ? item.minRepeat : 1;
+                this.repeats[fullName] = signal(initialCount);
+                for (let i = 0; i < initialCount; i++) {
+                    this.initRepeatInstance(item, fullName, i);
                 }
+            } else if (item.children) {
                 for (const child of item.children) {
                     this.initItem(child, fullName);
                 }
@@ -105,7 +138,12 @@ export class FormEngine {
             const dataType = item.dataType;
             if (!dataType) throw new Error(`Field '${fullName}' missing required 'dataType'`);
 
-            if (initialValue === '' && (dataType === 'number' || dataType === 'integer' || dataType === 'decimal')) {
+            if (typeof initialValue === 'string' && initialValue.startsWith('=')) {
+                const expr = initialValue.substring(1);
+                initialValue = this.compileFEL(expr, fullName, undefined, true)();
+            }
+
+            if (initialValue === '' && (dataType === 'integer' || dataType === 'decimal')) {
                 initialValue = null;
             }
             if (initialValue === '' && dataType === 'boolean') {
@@ -113,31 +151,54 @@ export class FormEngine {
             }
             
             this.signals[fullName] = signal(initialValue);
-            this.visibleSignals[fullName] = signal(true);
+            this.requiredSignals[fullName] = signal(false);
+            this.readonlySignals[fullName] = signal(false);
             this.errorSignals[fullName] = signal(null);
 
-            if (item.calculate) {
-                this.signals[fullName] = computed(this.compileFEL(item.calculate, fullName, undefined, false));
+            if (bind) {
+                if (bind.calculate) {
+                    this.signals[fullName] = computed(this.compileFEL(bind.calculate, fullName, undefined, false));
+                }
+                if (bind.required) {
+                    if (typeof bind.required === 'string') {
+                        this.requiredSignals[fullName] = computed(() => !!this.compileFEL(bind.required as string, fullName, undefined, true)());
+                    } else {
+                        this.requiredSignals[fullName] = signal(!!bind.required);
+                    }
+                }
+                if (bind.readonly) {
+                    if (typeof bind.readonly === 'string') {
+                        this.readonlySignals[fullName] = computed(() => !!this.compileFEL(bind.readonly as string, fullName, undefined, true)());
+                    } else {
+                        this.readonlySignals[fullName] = signal(!!bind.readonly);
+                    }
+                }
+                
+                if (bind.constraint || bind.required) {
+                    this.errorSignals[fullName] = computed(() => {
+                        const isRequired = this.requiredSignals[fullName].value;
+                        const value = this.signals[fullName].value;
+                        
+                        if (isRequired && (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0))) {
+                            return "Required";
+                        }
+                        
+                        if (bind.constraint) {
+                            const isValid = !!this.compileFEL(bind.constraint, fullName, undefined, true)();
+                            if (!isValid) return bind.message || "Invalid";
+                        }
+                        return null;
+                    });
+                }
             }
-            if (item.visible) {
-                this.visibleSignals[fullName] = computed(() => !!this.compileFEL(item.visible!, fullName, undefined, true)());
-            }
-            if (item.valid || item.pattern) {
-                const regex = item.pattern ? new RegExp(item.pattern) : null;
-                this.errorSignals[fullName] = computed(() => {
-                    const isValid = item.valid ? !!this.compileFEL(item.valid, fullName, undefined, true)() : true;
-                    if (!isValid) return "Invalid";
-                    if (regex && !regex.test(this.signals[fullName].value)) return "Pattern mismatch";
-                    return null;
-                });
+            
+            if (item.children) {
+                for (const child of item.children) {
+                    this.initItem(child, fullName);
+                }
             }
         } else if (item.type === 'display') {
-            // Display items don't have values or visibility signals in the same way for now, 
-            // but we might want to support visibility.
-            this.visibleSignals[fullName] = signal(true);
-            if (item.visible) {
-                this.visibleSignals[fullName] = computed(() => !!this.compileFEL(item.visible!, fullName, undefined, true)());
-            }
+            // Display items don't have values, but they can have relevancy
         }
     }
 
@@ -200,7 +261,9 @@ export class FormEngine {
             coalesce: (...args: any[]) => args.find(a => a !== null && a !== undefined && a !== ''),
             isNull: (a: any) => a === null || a === undefined || a === '',
             present: (a: any) => a !== null && a !== undefined && a !== '',
-            relevant: (path: string) => this.visibleSignals[path]?.value ?? true,
+            relevant: (path: string) => this.relevantSignals[path]?.value ?? true,
+            required: (path: string) => this.requiredSignals[path]?.value ?? false,
+            readonly: (path: string) => this.readonlySignals[path]?.value ?? false,
             contains: (s: string, sub: string) => (s || '').includes(sub || ''),
             abs: (n: number) => Math.abs(n || 0),
             power: (b: number, e: number) => Math.pow(b || 0, e || 0),
@@ -407,10 +470,14 @@ export class FormEngine {
                 }
                 return false;
             });
-            for (let i = 0; i < currentParts.length; i++) {
+            for (let i = 0; i < currentParts.length - 1; i++) {
                 const subPath = currentParts.slice(0, i + 1).join('.');
                 if (this.repeats[subPath]) this.repeats[subPath].value;
+                if (this.relevantSignals[subPath]) this.relevantSignals[subPath].value;
             }
+            // For the last part (the item itself), only track repeats if it's a repeat instance
+            const lastPath = currentParts.join('.');
+            if (this.repeats[lastPath]) this.repeats[lastPath].value;
 
             const pathArrays: Record<string, any[]> = {};
             for (const m of groupMatches) {
@@ -460,8 +527,8 @@ export class FormEngine {
     public setValue(name: string, value: any) {
         const baseName = name.replace(/\[\d+\]/g, '');
         const item = this.findItem(this.definition.items, baseName);
-        const dataType = item ? (item.dataType || item.type) : null;
-        if (dataType && (dataType === 'number' || dataType === 'integer' || dataType === 'decimal') && typeof value === 'string') {
+        const dataType = item?.dataType || (item?.type as string);
+        if (dataType && (dataType === 'integer' || dataType === 'decimal') && typeof value === 'string') {
             value = value === '' ? null : Number(value);
         }
         if (this.signals[name]) {
@@ -471,18 +538,28 @@ export class FormEngine {
 
     public getResponse() {
         const data: any = {};
-        const isPathVisible = (path: string): boolean => {
-            if (this.visibleSignals[path] && !this.visibleSignals[path].value) return false;
+        const isPathRelevant = (path: string): boolean => {
+            // Check the path itself and all its parents
             const parts = path.split(/[\\\[\\\]\.]/).filter(Boolean);
-            if (parts.length > 1) {
-                const rootPart = parts[0];
-                if (this.visibleSignals[rootPart] && !this.visibleSignals[rootPart].value) return false;
+            let currentPath = '';
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                const isNumber = !isNaN(parseInt(part));
+                if (isNumber) {
+                    currentPath += `[${part}]`;
+                } else {
+                    currentPath += (currentPath ? '.' : '') + part;
+                }
+                
+                if (this.relevantSignals[currentPath] && !this.relevantSignals[currentPath].value) {
+                    return false;
+                }
             }
             return true;
         };
 
         for (const key of Object.keys(this.signals)) {
-            if (!isPathVisible(key)) continue;
+            if (!isPathRelevant(key)) continue;
             const parts = key.split(/[\\\[\\\]\.]/).filter(Boolean);
             let current = data;
             for (let i = 0; i < parts.length - 1; i++) {

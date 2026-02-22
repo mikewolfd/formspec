@@ -1,5 +1,9 @@
 {
   "$formspec": "1.0",
+  "url": "http://example.org/fixtures/fel-functions",
+  "version": "1.0.0",
+  "status": "active",
+  "title": "FEL Functions Test",
   "items": [
     {
       "type": "group",
@@ -7,26 +11,23 @@
       "repeatable": true,
       "children": [
         {
-          "type": "field", "dataType": "number",
+          "type": "field", "dataType": "decimal",
           "key": "val",
           "label": "Value"
         },
         {
-          "type": "field", "dataType": "number",
-          "key": "prevVal",
-          "calculate": "prev('val')"
+          "type": "field", "dataType": "decimal",
+          "key": "prevVal"
         },
         {
-          "type": "field", "dataType": "number",
-          "key": "nextVal",
-          "calculate": "next('val')"
+          "type": "field", "dataType": "decimal",
+          "key": "nextVal"
         }
       ]
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "totalSum",
-      "calculate": "sum(prices.val)"
+      "type": "field", "dataType": "decimal",
+      "key": "totalSum"
     },
     {
       "type": "field", "dataType": "string",
@@ -35,18 +36,16 @@
     },
     {
       "type": "field", "dataType": "string",
-      "key": "upperText",
-      "calculate": "upper(rawText)"
+      "key": "upperText"
     },
     {
-      "type": "field", "dataType": "number",
+      "type": "field", "dataType": "decimal",
       "key": "rawNum",
       "label": "Number"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "roundedNum",
-      "calculate": "round(rawNum, 2)"
+      "type": "field", "dataType": "decimal",
+      "key": "roundedNum"
     },
     {
       "type": "field", "dataType": "date",
@@ -54,9 +53,8 @@
       "label": "Date"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dateYear",
-      "calculate": "year(testDate)"
+      "type": "field", "dataType": "integer",
+      "key": "dateYear"
     },
     {
       "type": "field", "dataType": "string",
@@ -70,225 +68,175 @@
     },
     {
       "type": "field", "dataType": "string",
-      "key": "coalesced",
-      "calculate": "coalesce(opt1, opt2, 'Default')"
+      "key": "coalesced"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "isOpt1Null",
-      "calculate": "isNull(opt1)"
+      "key": "isOpt1Null"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "textContains",
-      "calculate": "contains('hello world', 'world')",
-      "readonly": true
+      "key": "textContains"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "mathPower",
-      "calculate": "power(2, 3)",
-      "readonly": true
+      "type": "field", "dataType": "decimal",
+      "key": "mathPower"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "mathAbs",
-      "calculate": "abs(-42)",
-      "readonly": true
+      "type": "field", "dataType": "decimal",
+      "key": "mathAbs"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "typeEmpty",
-      "calculate": "empty('')",
-      "readonly": true
+      "key": "typeEmpty"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "dateAddStr",
-      "calculate": "dateAdd('2025-01-01', 5, 'days')",
-      "readonly": true
+      "key": "dateAddStr"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dateDiffVal",
-      "calculate": "dateDiff('2025-01-10', '2025-01-01', 'days')",
-      "readonly": true
+      "type": "field", "dataType": "integer",
+      "key": "dateDiffVal"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "ifExpr",
-      "calculate": "if(1 > 0, 'yes', 'no')",
-      "readonly": true
+      "key": "ifExpr"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "valCount",
-      "calculate": "count(prices.val)"
+      "type": "field", "dataType": "integer",
+      "key": "valCount"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "valAvg",
-      "calculate": "avg(prices.val)"
+      "type": "field", "dataType": "decimal",
+      "key": "valAvg"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "valMin",
-      "calculate": "min(prices.val)"
+      "type": "field", "dataType": "decimal",
+      "key": "valMin"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "valMax",
-      "calculate": "max(prices.val)"
+      "type": "field", "dataType": "decimal",
+      "key": "valMax"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "valCountWhere",
-      "calculate": "countWhere(prices.val, $ > 10)"
+      "type": "field", "dataType": "integer",
+      "key": "valCountWhere"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "strLength",
-      "calculate": "length(rawText)"
+      "type": "field", "dataType": "integer",
+      "key": "strLength"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "strStartsWith",
-      "calculate": "startsWith(rawText, 'hello')"
+      "key": "strStartsWith"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "strEndsWith",
-      "calculate": "endsWith(rawText, 'world')"
+      "key": "strEndsWith"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "strSubstring",
-      "calculate": "substring(rawText, 0, 5)"
+      "key": "strSubstring"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "strReplace",
-      "calculate": "replace(rawText, 'world', 'there')"
+      "key": "strReplace"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "strLower",
-      "calculate": "lower('HELLO')"
+      "key": "strLower"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "strTrim",
-      "calculate": "trim('  trimmed  ')"
+      "key": "strTrim"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "strMatches",
-      "calculate": "matches(rawText, '^hello')"
+      "key": "strMatches"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "strFormat",
-      "calculate": "format('Value: %s', rawNum)"
+      "key": "strFormat"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "numFloor",
-      "calculate": "floor(12.9)"
+      "type": "field", "dataType": "decimal",
+      "key": "numFloor"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "numCeil",
-      "calculate": "ceil(12.1)"
+      "type": "field", "dataType": "decimal",
+      "key": "numCeil"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "dtToday",
-      "calculate": "today()"
+      "key": "dtToday"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "dtNow",
-      "calculate": "now()"
+      "key": "dtNow"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dtMonth",
-      "calculate": "month('2025-05-20')"
+      "type": "field", "dataType": "integer",
+      "key": "dtMonth"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dtDay",
-      "calculate": "day('2025-05-20')"
+      "type": "field", "dataType": "integer",
+      "key": "dtDay"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dtHours",
-      "calculate": "hours('2025-05-20T15:30:00')"
+      "type": "field", "dataType": "integer",
+      "key": "dtHours"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dtMinutes",
-      "calculate": "minutes('2025-05-20T15:30:00')"
+      "type": "field", "dataType": "integer",
+      "key": "dtMinutes"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dtSeconds",
-      "calculate": "seconds('2025-05-20T15:30:45')"
+      "type": "field", "dataType": "integer",
+      "key": "dtSeconds"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "dtTime",
-      "calculate": "time('2025-05-20T15:30:45')"
+      "key": "dtTime"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "dtTimeDiff",
-      "calculate": "timeDiff('15:30:00', '14:30:00', 'minutes')"
+      "type": "field", "dataType": "integer",
+      "key": "dtTimeDiff"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "valSelected",
-      "calculate": "selected('a', 'a')"
+      "key": "valSelected"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "valIsNumber",
-      "calculate": "isNumber(rawNum)"
+      "key": "valIsNumber"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "valIsString",
-      "calculate": "isString(rawText)"
+      "key": "valIsString"
     },
     {
       "type": "field", "dataType": "boolean",
-      "key": "valIsDate",
-      "calculate": "isDate(testDate)"
+      "key": "valIsDate"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "valTypeOf",
-      "calculate": "typeOf(rawNum)"
+      "key": "valTypeOf"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "valToNumber",
-      "calculate": "number('123.45')"
+      "type": "field", "dataType": "decimal",
+      "key": "valToNumber"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "mAmount",
-      "calculate": "moneyAmount(money(100, 'USD'))"
+      "type": "field", "dataType": "decimal",
+      "key": "mAmount"
     },
     {
       "type": "field", "dataType": "string",
-      "key": "mCurrency",
-      "calculate": "moneyCurrency(money(100, 'USD'))"
+      "key": "mCurrency"
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "mAdd",
-      "calculate": "moneyAmount(moneyAdd(money(100, 'USD'), money(50, 'USD')))"
+      "type": "field", "dataType": "decimal",
+      "key": "mAdd"
     },
     {
       "type": "group",
@@ -296,21 +244,19 @@
       "repeatable": true,
       "children": [
         {
-          "type": "field", "dataType": "number",
+          "type": "field", "dataType": "decimal",
           "key": "amount",
           "label": "Amount"
         },
         {
           "type": "field", "dataType": "string",
-          "key": "entryMoney",
-          "calculate": "money(amount, 'USD')"
+          "key": "entryMoney"
         }
       ]
     },
     {
-      "type": "field", "dataType": "number",
-      "key": "totalLedger",
-      "calculate": "moneyAmount(moneySum(ledger.entryMoney))"
+      "type": "field", "dataType": "decimal",
+      "key": "totalLedger"
     },
     {
       "type": "group",
@@ -318,10 +264,63 @@
       "children": [
         {
           "type": "field", "dataType": "string",
-          "key": "parentVal",
-          "calculate": "parent('rawText')"
+          "key": "parentVal"
         }
       ]
     }
+  ],
+  "binds": [
+    { "target": "prices.prevVal", "calculate": "prev('val')" },
+    { "target": "prices.nextVal", "calculate": "next('val')" },
+    { "target": "totalSum", "calculate": "sum(prices.val)" },
+    { "target": "upperText", "calculate": "upper(rawText)" },
+    { "target": "roundedNum", "calculate": "round(rawNum, 2)" },
+    { "target": "dateYear", "calculate": "year(testDate)" },
+    { "target": "coalesced", "calculate": "coalesce(opt1, opt2, 'Default')" },
+    { "target": "isOpt1Null", "calculate": "isNull(opt1)" },
+    { "target": "textContains", "calculate": "contains('hello world', 'world')", "readonly": true },
+    { "target": "mathPower", "calculate": "power(2, 3)", "readonly": true },
+    { "target": "mathAbs", "calculate": "abs(-42)", "readonly": true },
+    { "target": "typeEmpty", "calculate": "empty('')", "readonly": true },
+    { "target": "dateAddStr", "calculate": "dateAdd('2025-01-01', 5, 'days')", "readonly": true },
+    { "target": "dateDiffVal", "calculate": "dateDiff('2025-01-10', '2025-01-01', 'days')", "readonly": true },
+    { "target": "ifExpr", "calculate": "if(1 > 0, 'yes', 'no')", "readonly": true },
+    { "target": "valCount", "calculate": "count(prices.val)" },
+    { "target": "valAvg", "calculate": "avg(prices.val)" },
+    { "target": "valMin", "calculate": "min(prices.val)" },
+    { "target": "valMax", "calculate": "max(prices.val)" },
+    { "target": "valCountWhere", "calculate": "countWhere(prices.val, $ > 10)" },
+    { "target": "strLength", "calculate": "length(rawText)" },
+    { "target": "strStartsWith", "calculate": "startsWith(rawText, 'hello')" },
+    { "target": "strEndsWith", "calculate": "endsWith(rawText, 'world')" },
+    { "target": "strSubstring", "calculate": "substring(rawText, 0, 5)" },
+    { "target": "strReplace", "calculate": "replace(rawText, 'world', 'there')" },
+    { "target": "strLower", "calculate": "lower('HELLO')" },
+    { "target": "strTrim", "calculate": "trim('  trimmed  ')" },
+    { "target": "strMatches", "calculate": "matches(rawText, '^hello')" },
+    { "target": "strFormat", "calculate": "format('Value: %s', rawNum)" },
+    { "target": "numFloor", "calculate": "floor(12.9)" },
+    { "target": "numCeil", "calculate": "ceil(12.1)" },
+    { "target": "dtToday", "calculate": "today()" },
+    { "target": "dtNow", "calculate": "now()" },
+    { "target": "dtMonth", "calculate": "month('2025-05-20')" },
+    { "target": "dtDay", "calculate": "day('2025-05-20')" },
+    { "target": "dtHours", "calculate": "hours('2025-05-20T15:30:00')" },
+    { "target": "dtMinutes", "calculate": "minutes('2025-05-20T15:30:00')" },
+    { "target": "dtSeconds", "calculate": "seconds('2025-05-20T15:30:45')" },
+    { "target": "dtTime", "calculate": "time('2025-05-20T15:30:45')" },
+    { "target": "dtTimeDiff", "calculate": "timeDiff('15:30:00', '14:30:00', 'minutes')" },
+    { "target": "valSelected", "calculate": "selected('a', 'a')" },
+    { "target": "valIsNumber", "calculate": "isNumber(rawNum)" },
+    { "target": "valIsString", "calculate": "isString(rawText)" },
+    { "target": "valIsDate", "calculate": "isDate(testDate)" },
+    { "target": "valTypeOf", "calculate": "typeOf(rawNum)" },
+    { "target": "valToNumber", "calculate": "number('123.45')" },
+    { "target": "mAmount", "calculate": "moneyAmount(money(100, 'USD'))" },
+    { "target": "mCurrency", "calculate": "moneyCurrency(money(100, 'USD'))" },
+    { "target": "mAdd", "calculate": "moneyAmount(moneyAdd(money(100, 'USD'), money(50, 'USD')))" },
+    { "target": "ledger.entryMoney", "calculate": "money(amount, 'USD')" },
+    { "target": "totalLedger", "calculate": "moneyAmount(moneySum(ledger.entryMoney))" },
+    { "target": "parentGroup.parentVal", "calculate": "parent('rawText')" }
   ]
 }
