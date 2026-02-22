@@ -1,6 +1,7 @@
 # Formspec Theme Specification v1.0
 
 ## Status of This Document
+<!-- llm:omit -->
 
 This document is a **Draft** companion specification to the
 [Formspec v1.0 Core Specification](spec.md). It defines the Formspec Theme
@@ -15,6 +16,7 @@ document are to be interpreted as described in
 [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
 
 ## 1. Introduction
+<!-- llm:omit -->
 
 ### 1.1 Purpose and Scope
 
@@ -887,6 +889,7 @@ The 12-column grid (§6.2) uses logical column positions. Renderers
 SHOULD mirror column start positions in RTL layouts.
 
 ## Appendix A: Complete Theme Document Example
+<!-- llm:omit -->
 
 This appendix is **informative**.
 
@@ -1064,6 +1067,20 @@ Fallback column shows the required fallback.
 ## Appendix C: Token Quick Reference
 
 This appendix is **informative**.
+
+### Compact Normative Checklist
+
+- Required top-level properties: `$formspecTheme`, `version`, `targetDefinition`.
+- Optional top-level properties: `url`, `name`, `title`, `description`, `platform`, `tokens`, `defaults`, `selectors`, `items`, `pages`, `breakpoints`, `extensions`.
+- Selector cascade precedence (highest to lowest): `items` -> `selectors` -> `defaults` -> Tier 1 item `presentation` -> Tier 1 form `formPresentation` -> renderer defaults.
+- Selector processing: all matching selectors apply in document order; later matches override earlier ones per property.
+- Token rules: `tokens` is a flat object with dot-delimited keys; values are string or number; no recursive token references.
+- Widget requirements: renderers MUST support the required widget set and SHOULD support progressive widgets with fallback behavior.
+- Fallback behavior: when a widget cannot be rendered, processor MUST try fallback chain and eventually use a conformant default.
+- Layout baseline: when `pages` is absent, renderers fall back to item-tree order with cascade still applied.
+- Null theme baseline: if no theme is present, renderer MUST produce usable output from Tier 1 hints plus platform defaults.
+
+### Token Key Patterns
 
 | Token key pattern | Example | Typical value |
 |---|---|---|

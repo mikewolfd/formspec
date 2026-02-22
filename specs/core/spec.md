@@ -13,6 +13,7 @@ date: 2025-07-10
 ***
 
 ## Abstract
+<!-- llm:omit -->
 
 Formspec is a format-agnostic, JSON-native standard for declarative form
 definition and validation. It specifies how to describe form fields, computed
@@ -30,6 +31,7 @@ coherent, JSON-first specification suitable for web, mobile, server-side, and
 offline implementations.
 
 ## Status of This Document
+<!-- llm:omit -->
 
 This document is a **draft specification**. It has not been submitted to any
 standards body. The interfaces described herein are subject to change without
@@ -60,6 +62,60 @@ The following terms are used throughout this specification:
 [rfc2119]: https://www.rfc-editor.org/rfc/rfc2119
 
 ***
+
+## Quick Reference
+
+This section is a compact implementation checklist spanning the normative
+requirements in §§2–8.
+
+### Conformance Tiers
+
+- Core processors MUST implement: full Definition parsing/validation, all core
+  data types, all Bind MIPs (`calculate`, `relevant`, `required`, `readonly`,
+  `constraint`), full FEL support, shape-based validation, and the four-phase
+  processing cycle.
+- Extended processors add support for extension points, screener routing,
+  modular composition, migration maps, and pre-population features.
+- Processors MUST NOT silently substitute definition versions or emit
+  validation for non-relevant fields.
+
+### Core Abstractions
+
+- Definition: immutable identity (`url` + `version`) plus item tree, binds,
+  data sources, shapes, and metadata.
+- Instance: JSON data tree mirroring relevant field/group structure.
+- Item types: `field`, `group`, `display`.
+- Bind: reactive behavior targeting paths.
+- Validation Shape: named/composable constraints producing structured results.
+- Response: instance data pinned to specific Definition version.
+
+### Processing Model (Order is Normative)
+
+1. Rebuild dependency model for structural changes.
+2. Recalculate reactive binds in dependency order until stable.
+3. Revalidate constraints and shapes for relevant targets.
+4. Notify observers of changed values/state/results.
+
+### Validation Rules
+
+- Severity levels: `error`, `warning`, `info`.
+- Only `error` findings make a response invalid.
+- Non-relevant fields are excluded from validation.
+- Validation outputs are structured records with path, severity, message, and
+  constraint metadata.
+
+### FEL Essentials
+
+- Deterministic, side-effect-free expression language for all form logic.
+- Strong typing with explicit coercion functions; no truthy/falsy semantics.
+- Supports field paths, repeat access, cross-instance lookups, operators,
+  and built-in aggregate/string/date/math functions.
+
+### Versioning and Evolution
+
+- Definition identity is `url` + `version` and is immutable.
+- Responses are pinned to exact definition versions.
+- Variant derivation and migration maps support controlled evolution.
 
 ## 1. Introduction
 
@@ -3068,6 +3124,7 @@ Each field mapping rule contains:
 
 
 ## 7. Concrete Examples
+<!-- llm:omit -->
 
 This section provides normative examples demonstrating how Formspec
 Definitions, Instances, Responses, and ValidationReports interoperate in
@@ -4275,6 +4332,7 @@ The following requirements apply to extension namespaces:
 ***
 
 ## 9. Lineage — What Was Borrowed and Why
+<!-- llm:omit -->
 
 Formspec is not designed in a vacuum. This section documents the
 standards, specifications, and systems from which Formspec draws its
@@ -4503,6 +4561,7 @@ combinations or new constructs not found in the source standards.
 ***
 
 ## Appendix A: Requirements Traceability
+<!-- llm:omit -->
 
 This appendix maps the motivating requirements to the specification sections
 that address them. This appendix is informative.
@@ -4579,5 +4638,3 @@ that address them. This appendix is informative.
 | PR-05 | Form-wide defaults | §4.1.1 `formPresentation` — `pageMode`, `labelPosition`, `density` |
 | PR-06 | No impact on data semantics | §2.4 "Presentation Hints and Processing"; §4.2.5 normative statement |
 | PR-07 | Forward compatibility for richer systems | §4.2.5.6 `additionalProperties: true` on `presentation` |
-
-

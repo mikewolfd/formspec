@@ -5,7 +5,49 @@
 
 ---
 
+## Quick Reference
+
+This section summarizes the grammar's implementation-critical syntax rules.
+
+### Lexical Essentials (§3)
+
+- Identifiers: ASCII only, pattern `[a-zA-Z_][a-zA-Z0-9_]*`.
+- Reserved words: `true`, `false`, `null`, `and`, `or`, `not`, `in`, `if`,
+  `then`, `else`, `let` (cannot be function identifiers).
+- Strings: single or double quoted with escapes `\\`, `\'`, `\"`, `\n`,
+  `\r`, `\t`, `\uXXXX`.
+- Numbers: optional sign, optional fraction, optional exponent; no `.5` and no
+  trailing `5.` form.
+- Date literals: `@YYYY-MM-DD`; DateTime literals:
+  `@YYYY-MM-DDThh:mm:ss[Z|±hh:mm]` (DateTime must be parsed before Date).
+
+### Expression Precedence (§§4–5)
+
+- Lowest to highest: `let/if-then-else`, ternary `?:`, `or`, `and`, equality,
+  comparison, `in`/`not in`, `??`, `+ - &`, `* / %`, unary `not`/`-`, postfix
+  field/index access.
+- Postfix access (`.field`, `[index]`) binds tighter than prefix unary.
+- Membership is non-associative.
+
+### Path and Context References (§6)
+
+- `$` references current scope value.
+- `$field.subpath` traverses object paths.
+- `$group[n]` is 1-based repeat index; `$group[*]` expands all instances.
+- `@current`, `@index`, `@count`, and `@instance('name')` provide repeat/data
+  source context.
+- `@source` and `@target` are reserved context roots for Mapping DSL flows.
+
+### Conformance Rules (§7)
+
+- Parser MUST accept exactly `Expression` grammar language.
+- Parser MUST reject non-matching input with useful error location.
+- Reserved words MUST be rejected as function names.
+- Unknown escape sequences are syntax errors.
+- `|>` is reserved in v1.0 and MUST be rejected.
+
 ## 1. Introduction
+<!-- llm:omit -->
 
 This document defines the **normative** Parsing Expression Grammar (PEG) for
 the Formspec Expression Language (FEL). It is a companion to the Formspec
@@ -17,6 +59,7 @@ grammar. The semantics of each construct are defined in §§3.2–3.12 of the
 Formspec specification; this document defines only the syntax.
 
 ## 2. Notation
+<!-- llm:omit -->
 
 This grammar uses the Parsing Expression Grammar (PEG) formalism as defined by
 Bryan Ford in *"Parsing Expression Grammars: A Recognition-Based Syntactic

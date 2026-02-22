@@ -8,6 +8,7 @@
 ---
 
 ## Abstract
+<!-- llm:omit -->
 
 The Formspec Extension Registry specification defines a JSON document format
 for publishing, discovering, and validating Formspec extensions. A Registry
@@ -22,6 +23,7 @@ and validation engines to interoperate across organizational boundaries without
 out-of-band coordination.
 
 ## Status of This Document
+<!-- llm:omit -->
 
 This document is a **draft specification**. It is a companion to the Formspec
 v1.0 core specification and does not modify or extend the core extension
@@ -30,6 +32,7 @@ experiment with this specification and provide feedback, but MUST NOT treat it
 as stable for production use until a 1.0.0 release is published.
 
 ## Conventions and Terminology
+<!-- llm:omit -->
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
 "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
@@ -75,6 +78,52 @@ Document. Interoperability is achieved through the common format, not through
 centralized authority.
 
 ---
+
+## Quick Reference
+
+This section is a compact checklist of normative requirements across §§2–7.
+
+### Registry document requirements (§2)
+
+- Top-level object MUST include: `$formspecRegistry`, `publisher`, `published`, `entries`.
+- `$formspecRegistry` MUST be `"1.0"`.
+- `publisher` object MUST include `name` and `url`; `contact` is OPTIONAL.
+- `$schema` is RECOMMENDED; `extensions` is OPTIONAL and all keys MUST be `x-` prefixed.
+
+### Registry entry requirements (§3)
+
+- Each entry MUST include: `name`, `category`, `version`, `status`, `description`, `compatibility`.
+- `category` MUST be one of: `"dataType"`, `"function"`, `"constraint"`, `"property"`, `"namespace"`.
+- `status` MUST be one of: `"draft"`, `"stable"`, `"deprecated"`, `"retired"`.
+- `compatibility.formspecVersion` is a REQUIRED semver range.
+- Category-specific required fields:
+  - `dataType`: `baseType`
+  - `function`: `parameters`, `returns`
+  - `constraint`: `parameters`
+  - `property`: no additional required fields
+  - `namespace`: no additional required fields
+
+### Naming and uniqueness requirements (§4)
+
+- All extension identifiers MUST start with `x-`.
+- Identifiers MUST match `^x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$`.
+- `x-formspec-` is reserved; third-party publishers MUST NOT use it.
+- Within one registry document, `(name, version)` pairs MUST be unique.
+
+### Discovery and lifecycle essentials (§§5–6)
+
+- Recommended discovery endpoint: `https://{host}/.well-known/formspec-extensions.json`.
+- Endpoint response MUST be `application/json` and a valid registry document.
+- Lifecycle order is `draft -> stable -> deprecated -> retired`; transitions MUST NOT skip states.
+
+### Registry-aware processor requirements (§7)
+
+- MUST parse and schema-validate registry documents.
+- SHOULD resolve extensions by `name` and `category`.
+- MUST evaluate `compatibility.formspecVersion`; mismatches are warnings unless `x-formspec-strict: true`.
+- MUST warn on `retired` entries and SHOULD emit informational notices for `deprecated`.
+- If `schemaUrl` exists, SHOULD validate extension payloads against it.
+- If an entry is not found, MUST fall back to Formspec core §8 passthrough rules.
 
 ## 2. Registry Document Format
 
@@ -276,6 +325,7 @@ in Formspec v1.0 §1) that additionally implements the following behaviors:
 ---
 
 ## 8. Examples
+<!-- llm:omit -->
 
 ### 8.1 Registry Document with Two Entries
 
@@ -370,6 +420,7 @@ in Formspec v1.0 §1) that additionally implements the following behaviors:
 ---
 
 ## Appendix A — Registry Entry JSON Schema
+<!-- llm:omit -->
 
 The following JSON Schema defines the structure of a single Registry Entry.
 The full Registry Document schema wraps this in an `entries` array alongside
@@ -501,6 +552,7 @@ the top-level `$formspecRegistry`, `publisher`, and `published` properties.
 ---
 
 ## Appendix B — References
+<!-- llm:omit -->
 
 | Tag | Reference |
 |---|---|

@@ -113,6 +113,38 @@ function toLlmPath(sourcePath) {
   return sourcePath.replace(/\.md$/i, ".llm.md");
 }
 
+function toSourcePath(candidatePath) {
+  if (candidatePath.endsWith(".llm.md")) {
+    return candidatePath.replace(/\.llm\.md$/i, ".md");
+  }
+  return candidatePath;
+}
+
+function parseOnlyArgs(argv, cwd) {
+  const onlyPaths = new Set();
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    let value = null;
+
+    if (arg === "--only") {
+      value = argv[index + 1];
+      index += 1;
+    } else if (arg.startsWith("--only=")) {
+      value = arg.slice("--only=".length);
+    }
+
+    if (!value) {
+      continue;
+    }
+
+    const absolute = path.resolve(cwd, toSourcePath(value));
+    onlyPaths.add(absolute);
+  }
+
+  return onlyPaths;
+}
+
 async function readFileIfExists(filePath) {
   try {
     return await fs.readFile(filePath, "utf8");
@@ -125,10 +157,12 @@ async function readFileIfExists(filePath) {
 }
 
 async function main() {
+  const argv = process.argv.slice(2);
+  const cwd = process.cwd();
   const check = process.argv.includes("--check");
   const dryRun = process.argv.includes("--dry-run");
-  const cwd = process.cwd();
   const specRoot = path.join(cwd, SPEC_DIR);
+  const onlyPaths = parseOnlyArgs(argv, cwd);
 
   const processor = unified()
     .use(remarkParse)
@@ -143,9 +177,19 @@ async function main() {
       tightDefinitions: true,
     });
 
-  const files = await collectSourceFiles(specRoot);
-  if (files.length === 0) {
+  const discoveredFiles = await collectSourceFiles(specRoot);
+  if (discoveredFiles.length === 0) {
     throw new Error(`No markdown source files found under ${SPEC_DIR}/`);
+  }
+  const files =
+    onlyPaths.size === 0
+      ? discoveredFiles
+      : discoveredFiles.filter((filePath) =>
+          onlyPaths.has(path.resolve(filePath))
+        );
+
+  if (files.length === 0) {
+    throw new Error("No source files matched --only filter.");
   }
 
   let changed = 0;

@@ -1,6 +1,7 @@
 # Formspec Component Specification v1.0
 
 ## Status of This Document
+<!-- llm:omit -->
 
 This document is a **Draft** companion specification to the
 [Formspec v1.0 Core Specification](spec.md). It defines the Formspec Component
@@ -17,6 +18,7 @@ Specification v1.0 (theme-spec.md), FEL Normative Grammar v1.0
 ---
 
 ## Conventions and Terminology
+<!-- llm:omit -->
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
 "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
@@ -35,6 +37,7 @@ Section references (§N) refer to this document unless prefixed with
 ---
 
 ## Table of Contents
+<!-- llm:omit -->
 
 - [§1 Introduction](#1-introduction)
   - [§1.1 Purpose and Scope](#11-purpose-and-scope)
@@ -102,6 +105,7 @@ Section references (§N) refer to this document unless prefixed with
 ---
 
 ## 1. Introduction
+<!-- llm:omit -->
 
 ### 1.1 Purpose and Scope
 
@@ -2919,6 +2923,7 @@ unsupported MUST NOT cause a processing failure.
 ---
 
 ## Appendix A: Full Example — Budget Wizard
+<!-- llm:omit -->
 
 This appendix is **informative**.
 
