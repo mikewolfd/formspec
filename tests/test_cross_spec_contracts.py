@@ -27,6 +27,9 @@ RESP_S = _load("response.schema.json")
 VR_S = _load("validationReport.schema.json")
 MAP_S = _load("mapping.schema.json")
 REG_S = _load("registry.schema.json")
+THEME_S = _load("theme.schema.json")
+COMP_S = _load("component.schema.json")
+CHGLOG_S = _load("changelog.schema.json")
 
 ALL_SCHEMAS = {
     "definition": DEF_S,
@@ -34,6 +37,9 @@ ALL_SCHEMAS = {
     "validationReport": VR_S,
     "mapping": MAP_S,
     "registry": REG_S,
+    "theme": THEME_S,
+    "component": COMP_S,
+    "changelog": CHGLOG_S,
 }
 
 

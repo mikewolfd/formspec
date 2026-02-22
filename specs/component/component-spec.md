@@ -222,7 +222,10 @@ Component Document that omits a REQUIRED property.
   },
   "tokens": {},
   "components": {},
-  "tree": {}
+  "tree": {
+    "component": "Page",
+    "children": []
+  }
 }
 ```
 
@@ -364,7 +367,7 @@ object is the **root** of the component tree.
 To present multiple components at the top level, authors MUST wrap them
 in a layout component (typically `Stack` or `Page`):
 
-```json
+```jsonc
 // ✗ INVALID — tree cannot be an array
 "tree": [
   { "component": "TextInput", "bind": "name" },
@@ -446,7 +449,7 @@ of an item in the target Definition. It is NOT a dotted path, JSON
 Pointer, or FEL expression — it is a flat key that matches an item's
 `key` property exactly.
 
-```json
+```jsonc
 // Definition item:
 { "key": "projectName", "type": "field", "dataType": "string" }
 
@@ -498,7 +501,7 @@ also rendering an input elsewhere.
 
 Example:
 
-```json
+```jsonc
 // ✓ VALID — one input + one display for same key
 { "component": "NumberInput", "bind": "totalBudget" }
 // ... elsewhere in the tree:
@@ -1223,7 +1226,7 @@ absent, displays the static `text` prop.
 
 #### Example
 
-```json
+```jsonc
 // Static text
 { "component": "Text", "text": "Please review before submitting.", "format": "markdown" }
 

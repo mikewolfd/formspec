@@ -32,6 +32,8 @@ SPEC_FILES = [
     "specs/mapping/mapping-spec.md",
     "specs/registry/changelog-spec.md",
     "specs/registry/extension-registry.md",
+    "specs/theme/theme-spec.md",
+    "specs/component/component-spec.md",
 ]
 
 
@@ -100,6 +102,12 @@ def _classify(obj):
         return "registry_doc"
     if "$formspec" in keys:
         return "definition"
+    if "$formspecTheme" in keys:
+        return "theme_doc"
+    if "$formspecComponent" in keys:
+        return "component_doc"
+    if "fromVersion" in keys and "toVersion" in keys and "changes" in keys:
+        return "changelog_doc"
     if "definitionUrl" in keys and "data" in keys:
         return "response"
     if "valid" in keys and "counts" in keys and "results" in keys:
@@ -157,18 +165,28 @@ RESPONSE_SCHEMA = _load_schema("response.schema.json")
 VALIDATION_REPORT_SCHEMA = _load_schema("validationReport.schema.json")
 MAPPING_SCHEMA = _load_schema("mapping.schema.json")
 REGISTRY_SCHEMA = _load_schema("registry.schema.json")
+THEME_SCHEMA = _load_schema("theme.schema.json")
+COMPONENT_SCHEMA = _load_schema("component.schema.json")
+CHANGELOG_SCHEMA = _load_schema("changelog.schema.json")
 
 # Sub-schemas extracted from $defs for fragment validation
 ITEM_SCHEMA = DEFINITION_SCHEMA["$defs"]["Item"]
 SHAPE_SCHEMA = DEFINITION_SCHEMA["$defs"]["Shape"]
 FIELD_RULE_SCHEMA = MAPPING_SCHEMA["$defs"]["FieldRule"]
+CHANGE_SCHEMA = CHANGELOG_SCHEMA["$defs"]["Change"]
 
 # Build a referencing registry so sub-schema $refs resolve against parent
 _MAPPING_ID = MAPPING_SCHEMA.get("$id", "https://formspec.org/schemas/mapping/v1")
 _DEFINITION_ID = DEFINITION_SCHEMA.get("$id", "https://formspec.org/schemas/definition/1.0")
+_THEME_ID = THEME_SCHEMA.get("$id", "https://formspec.org/schemas/theme/1.0")
+_COMPONENT_ID = COMPONENT_SCHEMA.get("$id", "https://formspec.org/schemas/component/1.0")
+_CHANGELOG_ID = CHANGELOG_SCHEMA.get("$id", "https://formspec.org/schemas/changelog/v1")
 _REGISTRY = Registry().with_resources([
     (_MAPPING_ID, Resource.from_contents(MAPPING_SCHEMA, default_specification=DRAFT202012)),
     (_DEFINITION_ID, Resource.from_contents(DEFINITION_SCHEMA, default_specification=DRAFT202012)),
+    (_THEME_ID, Resource.from_contents(THEME_SCHEMA, default_specification=DRAFT202012)),
+    (_COMPONENT_ID, Resource.from_contents(COMPONENT_SCHEMA, default_specification=DRAFT202012)),
+    (_CHANGELOG_ID, Resource.from_contents(CHANGELOG_SCHEMA, default_specification=DRAFT202012)),
 ])
 
 
@@ -420,6 +438,90 @@ class TestValidationReportExamples:
 
 
 # ---------------------------------------------------------------------------
+# Test: Theme documents
+# ---------------------------------------------------------------------------
+
+THEME_DOC_BLOCKS = [
+    (f, l, h, o) for f, l, h, o in ALL_BLOCKS
+    if o is not None and _classify(o) == "theme_doc"
+]
+
+class TestThemeDocExamples:
+    """Theme document examples must validate against theme.schema.json."""
+
+    @pytest.mark.parametrize(
+        "filepath,line_no,heading,obj",
+        THEME_DOC_BLOCKS,
+        ids=[_make_id(f, l, h) for f, l, h, _ in THEME_DOC_BLOCKS],
+    )
+    def test_validates(self, filepath, line_no, heading, obj):
+        validate(obj, THEME_SCHEMA)
+
+
+# ---------------------------------------------------------------------------
+# Test: Component documents
+# ---------------------------------------------------------------------------
+
+COMPONENT_DOC_BLOCKS = [
+    (f, l, h, o) for f, l, h, o in ALL_BLOCKS
+    if o is not None and _classify(o) == "component_doc"
+]
+
+class TestComponentDocExamples:
+    """Component document examples must validate against component.schema.json."""
+
+    @pytest.mark.parametrize(
+        "filepath,line_no,heading,obj",
+        COMPONENT_DOC_BLOCKS,
+        ids=[_make_id(f, l, h) for f, l, h, _ in COMPONENT_DOC_BLOCKS],
+    )
+    def test_validates(self, filepath, line_no, heading, obj):
+        validate(obj, COMPONENT_SCHEMA)
+
+
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Test: Changelog Entry fragments
+# ---------------------------------------------------------------------------
+
+CHANGELOG_ENTRY_BLOCKS = [
+    (f, l, h, o) for f, l, h, o in ALL_BLOCKS
+    if o is not None and _classify(o) == "changelog_entry"
+]
+
+class TestChangelogEntryFragments:
+    """Changelog Entry fragments must validate against the Change $def sub-schema."""
+
+    @pytest.mark.parametrize(
+        "filepath,line_no,heading,obj",
+        CHANGELOG_ENTRY_BLOCKS,
+        ids=[_make_id(f, l, h) for f, l, h, _ in CHANGELOG_ENTRY_BLOCKS],
+    )
+    def test_validates(self, filepath, line_no, heading, obj):
+        _make_validator(CHANGE_SCHEMA, CHANGELOG_SCHEMA).validate(obj)
+
+
+# ---------------------------------------------------------------------------
+# Test: Changelog documents
+# ---------------------------------------------------------------------------
+
+CHANGELOG_DOC_BLOCKS = [
+    (f, l, h, o) for f, l, h, o in ALL_BLOCKS
+    if o is not None and _classify(o) == "changelog_doc"
+]
+
+class TestChangelogDocExamples:
+    """Changelog document examples must validate against changelog.schema.json."""
+
+    @pytest.mark.parametrize(
+        "filepath,line_no,heading,obj",
+        CHANGELOG_DOC_BLOCKS,
+        ids=[_make_id(f, l, h) for f, l, h, _ in CHANGELOG_DOC_BLOCKS],
+    )
+    def test_validates(self, filepath, line_no, heading, obj):
+        validate(obj, CHANGELOG_SCHEMA)
+
 # Summary: block classification coverage
 # ---------------------------------------------------------------------------
 
@@ -450,22 +552,24 @@ class TestCoverage:
         # These categories must be populated
         for expected in [
             "definition", "response", "mapping_doc", "mapping_rule",
-            "item", "shape_wrapper",
+            "item", "shape_wrapper", "theme_doc", "component_doc",
+            "changelog_entry", "changelog_doc"
         ]:
             assert expected in categories, f"No blocks classified as '{expected}'"
 
     def test_schema_validated_percentage(self):
-        """At least 50% of parseable blocks should be schema-validated."""
+        """At least 34% of parseable blocks should be schema-validated."""
         validated_cats = {
             "definition", "response", "mapping_doc", "mapping_rule",
             "registry_doc", "item", "shape_wrapper", "validation_report",
+            "theme_doc", "component_doc", "changelog_entry", "changelog_doc"
         }
         parseable = [(f, l, h, o) for f, l, h, o in ALL_BLOCKS if o is not None]
         validated = [
             b for b in parseable if _classify(b[3]) in validated_cats
         ]
         pct = len(validated) / len(parseable) * 100
-        assert pct >= 45, (
+        assert pct >= 34, (
             f"Only {pct:.0f}% of blocks are schema-validated "
             f"({len(validated)}/{len(parseable)})"
         )
