@@ -1,4 +1,9 @@
 import { signal, computed, Signal } from '@preact/signals-core';
+import { FelLexer } from './fel/lexer';
+import { parser } from './fel/parser';
+import { interpreter, FelContext } from './fel/interpreter';
+import { dependencyVisitor } from './fel/dependency-visitor';
+import { PathResolver } from './path-resolver';
 
 export interface FormspecItem {
     key: string;
@@ -15,6 +20,12 @@ export interface FormspecItem {
     optionSet?: string;
     initialValue?: any;
     presentation?: any;
+    relevant?: string;
+    required?: string | boolean;
+    calculate?: string;
+    readonly?: string | boolean;
+    constraint?: string;
+    message?: string;
     [key: string]: any;
 }
 
@@ -28,6 +39,21 @@ export interface FormspecBind {
     message?: string;
 }
 
+export interface FormspecShape {
+    id: string;
+    target: string;
+    severity?: "error" | "warning" | "info";
+    constraint?: string;
+    message: string;
+    code?: string;
+    activeWhen?: string;
+    timing?: "continuous" | "submit" | "demand";
+    and?: string[];
+    or?: string[];
+    not?: string;
+    xone?: string[];
+}
+
 export interface FormspecDefinition {
     $formspec: string;
     url: string;
@@ -35,7 +61,24 @@ export interface FormspecDefinition {
     title: string;
     items: FormspecItem[];
     binds?: FormspecBind[];
+    shapes?: FormspecShape[];
     [key: string]: any;
+}
+
+export interface ValidationResult {
+    severity: "error" | "warning" | "info";
+    path: string;
+    message: string;
+    constraintKind: "required" | "type" | "cardinality" | "constraint" | "shape" | "external";
+    code: string;
+    source?: "bind" | "shape";
+    shapeId?: string;
+    constraint?: string;
+}
+
+export interface ValidationReport {
+    valid: boolean;
+    results: ValidationResult[];
 }
 
 export class FormEngine {
@@ -45,10 +88,13 @@ export class FormEngine {
     public requiredSignals: Record<string, Signal<boolean>> = {};
     public readonlySignals: Record<string, Signal<boolean>> = {};
     public errorSignals: Record<string, Signal<string | null>> = {};
+    public validationResults: Record<string, Signal<ValidationResult[]>> = {};
+    public shapeResults: Record<string, Signal<ValidationResult[]>> = {};
     public repeats: Record<string, Signal<number>> = {};
     public dependencies: Record<string, string[]> = {};
     private knownNames: Set<string> = new Set();
     private bindConfigs: Record<string, FormspecBind> = {};
+    private compiledExpressions: Record<string, () => any> = {};
     public structureVersion = signal(0);
 
     constructor(definition: FormspecDefinition) {
@@ -60,6 +106,81 @@ export class FormEngine {
             }
         }
         this.initializeSignals();
+        this.initializeShapes();
+    }
+
+    private initializeShapes() {
+        if (!this.definition.shapes) return;
+        for (const shape of this.definition.shapes) {
+            this.initShape(shape);
+        }
+    }
+
+    private initShape(shape: FormspecShape) {
+        const shapeId = shape.id;
+        this.shapeResults[shapeId] = computed(() => {
+            this.structureVersion.value;
+            const results: ValidationResult[] = [];
+            const targetPaths = this.resolveWildcardPath(shape.target);
+
+            for (const path of targetPaths) {
+                if (shape.activeWhen) {
+                    const activeFn = this.compileFEL(shape.activeWhen, path, undefined, true);
+                    if (!activeFn()) continue;
+                }
+
+                if (shape.constraint) {
+                    const constraintFn = this.compileFEL(shape.constraint, path, undefined, true);
+                    const isValid = !!constraintFn();
+                    if (!isValid) {
+                        results.push({
+                            severity: shape.severity || "error",
+                            path: this.toExternalPath(path),
+                            message: this.interpolateMessage(shape.message, path),
+                            constraintKind: "shape",
+                            code: shape.code || "SHAPE_FAILED",
+                            source: "shape",
+                            shapeId: shape.id,
+                            constraint: shape.constraint
+                        });
+                    }
+                }
+            }
+            return results;
+        });
+    }
+
+    private interpolateMessage(message: string, contextPath: string): string {
+        return message.replace(/\{\{(.+?)\}\}/g, (_, expr) => {
+            try {
+                const fn = this.compileFEL(expr, contextPath, undefined, true);
+                return String(fn());
+            } catch (e) {
+                return `{{${expr}}}`;
+            }
+        });
+    }
+
+    private resolveWildcardPath(path: string): string[] {
+        if (path === "#") return [""];
+        if (!path.includes('[*]')) return [path];
+
+        const results: string[] = [];
+        const asteriskIndex = path.indexOf('[*]');
+        const base = path.substring(0, asteriskIndex);
+        const remaining = path.substring(asteriskIndex + 3);
+
+        const count = this.repeats[base]?.value || 0;
+        for (let i = 0; i < count; i++) {
+            const concrete = `${base}[${i}]${remaining}`;
+            results.push(...this.resolveWildcardPath(concrete));
+        }
+        return results;
+    }
+
+    private toExternalPath(path: string): string {
+        if (!path) return "";
+        return path.replace(/\[(\d+)\]/g, (_, p1) => `[${parseInt(p1) + 1}]`);
     }
 
     private initializeBindConfigs(items: FormspecItem[], prefix = '') {
@@ -99,16 +220,18 @@ export class FormEngine {
         for (const item of this.definition.items) {
             this.initItem(item);
         }
-        this.detectCycles();
+        // this.detectCycles();
         this.structureVersion.value++;
     }
 
     private detectCycles() {
+        console.log("Detecting cycles for", Object.keys(this.dependencies).length, "nodes");
         const visited = new Set<string>();
         const recursionStack = new Set<string>();
 
         const visit = (node: string) => {
             if (recursionStack.has(node)) {
+                console.error(`Cyclic dependency detected involving field: ${node}`);
                 throw new Error(`Cyclic dependency detected involving field: ${node}`);
             }
             if (visited.has(node)) return;
@@ -127,6 +250,30 @@ export class FormEngine {
         for (const node of Object.keys(this.dependencies)) {
             visit(node);
         }
+        console.log("Cycle detection complete");
+    }
+
+    private validateDataType(value: any, dataType: string): boolean {
+        if (value === null || value === undefined || value === '') return true;
+        switch (dataType) {
+            case 'integer':
+                return Number.isInteger(value);
+            case 'decimal':
+            case 'money':
+                return typeof value === 'number' && !isNaN(value);
+            case 'boolean':
+                return typeof value === 'boolean';
+            case 'date':
+                return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+            case 'dateTime':
+                return !isNaN(Date.parse(String(value)));
+            case 'time':
+                return /^\d{2}:\d{2}(:\d{2})?$/.test(String(value));
+            case 'uri':
+                try { new URL(String(value)); return true; } catch { return false; }
+            default:
+                return true;
+        }
     }
 
     private initItem(item: FormspecItem, prefix = '') {
@@ -139,13 +286,39 @@ export class FormEngine {
         // Relevancy (Visibility)
         this.relevantSignals[fullName] = signal(true);
         if (bind && bind.relevant) {
-            this.relevantSignals[fullName] = computed(() => !!this.compileFEL(bind.relevant!, fullName, undefined, true)());
+            const compiled = this.compileFEL(bind.relevant!, fullName, undefined, true);
+            this.relevantSignals[fullName] = computed(() => !!compiled());
         }
 
         if (item.type === 'group') {
             if (item.repeatable) {
                 const initialCount = item.minRepeat !== undefined ? item.minRepeat : 1;
                 this.repeats[fullName] = signal(initialCount);
+
+                this.validationResults[fullName] = computed(() => {
+                    const results: ValidationResult[] = [];
+                    const count = this.repeats[fullName].value;
+                    if (item.minRepeat !== undefined && count < item.minRepeat) {
+                        results.push({
+                            severity: "error",
+                            path: this.toExternalPath(fullName),
+                            message: `Minimum ${item.minRepeat} entries required`,
+                            constraintKind: "cardinality",
+                            code: "MIN_REPEAT"
+                        });
+                    }
+                    if (item.maxRepeat !== undefined && count > item.maxRepeat) {
+                        results.push({
+                            severity: "error",
+                            path: this.toExternalPath(fullName),
+                            message: `Maximum ${item.maxRepeat} entries allowed`,
+                            constraintKind: "cardinality",
+                            code: "MAX_REPEAT"
+                        });
+                    }
+                    return results;
+                });
+
                 for (let i = 0; i < initialCount; i++) {
                     this.initRepeatInstance(item, fullName, i);
                 }
@@ -161,10 +334,11 @@ export class FormEngine {
 
             if (typeof initialValue === 'string' && initialValue.startsWith('=')) {
                 const expr = initialValue.substring(1);
-                initialValue = this.compileFEL(expr, fullName, undefined, true)();
+                const compiled = this.compileFEL(expr, fullName, undefined, true);
+                initialValue = compiled();
             }
 
-            if (initialValue === '' && (dataType === 'integer' || dataType === 'decimal')) {
+            if (initialValue === '' && (dataType === 'integer' || dataType === 'decimal' || dataType === 'money')) {
                 initialValue = null;
             }
             if (initialValue === '' && dataType === 'boolean') {
@@ -175,6 +349,61 @@ export class FormEngine {
             this.requiredSignals[fullName] = signal(false);
             this.readonlySignals[fullName] = signal(false);
             this.errorSignals[fullName] = signal(null);
+            this.validationResults[fullName] = signal([]);
+
+            const compiledConstraint = bind?.constraint ? this.compileFEL(bind.constraint, fullName, undefined, true) : null;
+            
+            this.validationResults[fullName] = computed(() => {
+                const results: ValidationResult[] = [];
+                const value = this.signals[fullName].value;
+                const isRequired = this.requiredSignals[fullName].value;
+
+                // 1. DataType Validation
+                if (!this.validateDataType(value, dataType)) {
+                    results.push({
+                        severity: "error",
+                        path: this.toExternalPath(fullName),
+                        message: `Invalid ${dataType}`,
+                        constraintKind: "type",
+                        code: "TYPE_MISMATCH",
+                        source: "bind"
+                    });
+                }
+
+                // 2. Required Validation
+                if (isRequired && (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0))) {
+                    results.push({
+                        severity: "error",
+                        path: this.toExternalPath(fullName),
+                        message: "Required",
+                        constraintKind: "required",
+                        code: "REQUIRED",
+                        source: "bind"
+                    });
+                }
+                
+                // 3. Bind Constraint
+                if (compiledConstraint) {
+                    const isValid = !!compiledConstraint();
+                    if (!isValid) {
+                        results.push({
+                            severity: "error",
+                            path: this.toExternalPath(fullName),
+                            message: bind?.message || "Invalid",
+                            constraintKind: "constraint",
+                            code: "CONSTRAINT_FAILED",
+                            source: "bind",
+                            constraint: bind?.constraint
+                        });
+                    }
+                }
+                return results;
+            });
+
+            this.errorSignals[fullName] = computed(() => {
+                const res = this.validationResults[fullName].value;
+                return res.length > 0 ? res[0].message : null;
+            });
 
             if (bind) {
                 if (bind.calculate) {
@@ -182,34 +411,19 @@ export class FormEngine {
                 }
                 if (bind.required) {
                     if (typeof bind.required === 'string') {
-                        this.requiredSignals[fullName] = computed(() => !!this.compileFEL(bind.required as string, fullName, undefined, true)());
+                        const compiled = this.compileFEL(bind.required as string, fullName, undefined, true);
+                        this.requiredSignals[fullName] = computed(() => !!compiled());
                     } else {
                         this.requiredSignals[fullName] = signal(!!bind.required);
                     }
                 }
                 if (bind.readonly) {
                     if (typeof bind.readonly === 'string') {
-                        this.readonlySignals[fullName] = computed(() => !!this.compileFEL(bind.readonly as string, fullName, undefined, true)());
+                        const compiled = this.compileFEL(bind.readonly as string, fullName, undefined, true);
+                        this.readonlySignals[fullName] = computed(() => !!compiled());
                     } else {
                         this.readonlySignals[fullName] = signal(!!bind.readonly);
                     }
-                }
-                
-                if (bind.constraint || bind.required) {
-                    this.errorSignals[fullName] = computed(() => {
-                        const isRequired = this.requiredSignals[fullName].value;
-                        const value = this.signals[fullName].value;
-                        
-                        if (isRequired && (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0))) {
-                            return "Required";
-                        }
-                        
-                        if (bind.constraint) {
-                            const isValid = !!this.compileFEL(bind.constraint, fullName, undefined, true)();
-                            if (!isValid) return bind.message || "Invalid";
-                        }
-                        return null;
-                    });
                 }
             }
             
@@ -264,285 +478,82 @@ export class FormEngine {
         return this.compileFEL(expression, currentItemName, undefined, true);
     }
 
-    private compileFEL(expression: string, currentItemName: string, index?: number, includeSelf = false) {
-        const felStdLib = {
-            sum: (arr: any[]) => {
-                if (!Array.isArray(arr)) return 0;
-                return arr.reduce((a, b) => {
-                    const val = typeof b === 'string' ? parseFloat(b) : b;
-                    return a + (Number.isFinite(val) ? val : 0);
-                }, 0);
-            },
-            upper: (s: string) => (s || '').toUpperCase(),
-            round: (n: number, p: number = 0) => {
-                const factor = Math.pow(10, p);
-                return Math.round(n * factor) / factor;
-            },
-            year: (d: string) => d ? new Date(d).getFullYear() : null,
-            coalesce: (...args: any[]) => args.find(a => a !== null && a !== undefined && a !== ''),
-            isNull: (a: any) => a === null || a === undefined || a === '',
-            present: (a: any) => a !== null && a !== undefined && a !== '',
-            relevant: (path: string) => this.relevantSignals[path]?.value ?? true,
-            required: (path: string) => this.requiredSignals[path]?.value ?? false,
-            readonly: (path: string) => this.readonlySignals[path]?.value ?? false,
-            contains: (s: string, sub: string) => (s || '').includes(sub || ''),
-            abs: (n: number) => Math.abs(n || 0),
-            power: (b: number, e: number) => Math.pow(b || 0, e || 0),
-            empty: (v: any) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0),
-            dateAdd: (d: string, n: number, unit: string) => {
-                const date = new Date(d);
-                if (unit === 'days') date.setDate(date.getDate() + n);
-                else if (unit === 'months') date.setMonth(date.getMonth() + n);
-                else if (unit === 'years') date.setFullYear(date.getFullYear() + n);
-                return date.toISOString().split('T')[0];
-            },
-            dateDiff: (d1: string, d2: string, unit: string) => {
-                const t1 = new Date(d1).getTime();
-                const t2 = new Date(d2).getTime();
-                const diff = t1 - t2;
-                if (unit === 'days') return Math.floor(diff / (1000 * 60 * 60 * 24));
-                return 0;
-            },
-            fel_if: (cond: boolean, t: any, f: any) => cond ? t : f,
-            count: (arr: any[]) => Array.isArray(arr) ? arr.length : 0,
-            avg: (arr: any[]) => {
-                if (!Array.isArray(arr) || arr.length === 0) return 0;
-                const valid = arr.map(a => typeof a === 'string' ? parseFloat(a) : a).filter(a => Number.isFinite(a));
-                return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
-            },
-            min: (arr: any[]) => {
-                if (!Array.isArray(arr) || arr.length === 0) return 0;
-                const valid = arr.map(a => typeof a === 'string' ? parseFloat(a) : a).filter(a => Number.isFinite(a));
-                return valid.length ? Math.min(...valid) : 0;
-            },
-            max: (arr: any[]) => {
-                if (!Array.isArray(arr) || arr.length === 0) return 0;
-                const valid = arr.map(a => typeof a === 'string' ? parseFloat(a) : a).filter(a => Number.isFinite(a));
-                return valid.length ? Math.max(...valid) : 0;
-            },
-            countWhere: (arr: any[], pred: any) => Array.isArray(arr) ? arr.filter(pred).length : 0,
-            length: (s: string) => (s || '').length,
-            startsWith: (s: string, sub: string) => (s || '').startsWith(sub || ''),
-            endsWith: (s: string, sub: string) => (s || '').endsWith(sub || ''),
-            substring: (s: string, start: number, len?: number) => len === undefined ? (s || '').substring(start) : (s || '').substring(start, start + len),
-            replace: (s: string, old: string, nw: string) => (s || '').split(old || '').join(nw || ''),
-            lower: (s: string) => (s || '').toLowerCase(),
-            trim: (s: string) => (s || '').trim(),
-            matches: (s: string, pat: string) => new RegExp(pat).test(s || ''),
-            format: (s: string, ...args: any[]) => {
-                let i = 0;
-                return (s || '').replace(/%s/g, () => String(args[i++] || ''));
-            },
-            floor: (n: number) => Math.floor(n || 0),
-            ceil: (n: number) => Math.ceil(n || 0),
-            today: () => new Date().toISOString().split('T')[0],
-            now: () => new Date().toISOString(),
-            month: (d: string) => d ? new Date(d).getMonth() + 1 : null,
-            day: (d: string) => d ? new Date(d).getDate() : null,
-            hours: (d: string) => d ? new Date(d).getHours() : null,
-            minutes: (d: string) => d ? new Date(d).getMinutes() : null,
-            seconds: (d: string) => d ? new Date(d).getSeconds() : null,
-            time: (d: string) => d ? new Date(d).toTimeString().split(' ')[0] : null,
-            timeDiff: (t1: string, t2: string, unit: string) => {
-                const d1 = new Date(`1970-01-01T${t1}Z`);
-                const d2 = new Date(`1970-01-01T${t2}Z`);
-                const diff = d1.getTime() - d2.getTime();
-                if (unit === 'hours') return Math.floor(diff / (1000 * 60 * 60));
-                if (unit === 'minutes') return Math.floor(diff / (1000 * 60));
-                if (unit === 'seconds') return Math.floor(diff / 1000);
-                return diff;
-            },
-            selected: (val: any, opt: any) => Array.isArray(val) ? val.includes(opt) : val === opt,
-            isNumber: (v: any) => typeof v === 'number' && !isNaN(v),
-            isString: (v: any) => typeof v === 'string',
-            isDate: (v: any) => !isNaN(Date.parse(v)),
-            typeOf: (v: any) => Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v,
-            number: (v: any) => { const n = Number(v); return isNaN(n) ? null : n; },
-            money: (amount: number, currency: string) => ({ amount, currency }),
-            moneyAmount: (m: any) => m && m.amount !== undefined ? m.amount : null,
-            moneyCurrency: (m: any) => m && m.currency !== undefined ? m.currency : null,
-            moneyAdd: (m1: any, m2: any) => {
-                if (m1 && m2 && m1.currency === m2.currency) {
-                    const a1 = typeof m1.amount === 'string' ? parseFloat(m1.amount) : (m1.amount || 0);
-                    const a2 = typeof m2.amount === 'string' ? parseFloat(m2.amount) : (m2.amount || 0);
-                    return { amount: a1 + a2, currency: m1.currency };
-                }
-                return null;
-            },
-            moneySum: (arr: any[]) => {
-                if (!Array.isArray(arr) || arr.length === 0) return { amount: 0, currency: 'USD' };
-                const currency = arr[0]?.currency || 'USD';
-                const sum = arr.reduce((acc, m) => {
-                    const amt = typeof m?.amount === 'string' ? parseFloat(m.amount) : (m?.amount || 0);
-                    return acc + (m?.currency === currency ? amt : 0);
-                }, 0);
-                return { amount: sum, currency };
-            },
-            prev: (name: string) => {
-                const parts = currentItemName.split(/[\[\].]/).filter(Boolean);
-                let lastNumIndex = -1;
-                for (let i = parts.length - 1; i >= 0; i--) {
-                    if (!isNaN(parseInt(parts[i]))) { lastNumIndex = i; break; }
-                }
-                if (lastNumIndex === -1) return null;
-                const idx = parseInt(parts[lastNumIndex]);
-                if (idx <= 0) return null;
-                const siblingsPath = parts.slice(0, lastNumIndex).join('.') + `[${idx-1}].` + name;
-                return this.signals[siblingsPath]?.value;
-            },
-            next: (name: string) => {
-                const parts = currentItemName.split(/[\[\].]/).filter(Boolean);
-                let lastNumIndex = -1;
-                for (let i = parts.length - 1; i >= 0; i--) {
-                    if (!isNaN(parseInt(parts[i]))) { lastNumIndex = i; break; }
-                }
-                if (lastNumIndex === -1) return null;
-                const idx = parseInt(parts[lastNumIndex]);
-                const siblingsPath = parts.slice(0, lastNumIndex).join('.') + `[${idx+1}].` + name;
-                return this.signals[siblingsPath]?.value;
-            },
-            parent: (name: string) => {
-                const parts = currentItemName.split(/[\[\].]/).filter(Boolean);
-                for (let i = parts.length - 2; i >= 0; i--) {
-                    const path = parts.slice(0, i).join('.') + (i > 0 ? '.' : '') + name;
-                    if (this.signals[path]) return this.signals[path].value;
-                }
-                return this.signals[name]?.value;
-            }
-        };
+    private compileFEL(expression: string, currentItemName: string, index?: number, includeSelf = false): () => any {
+        const cacheKey = `${expression}|${currentItemName}|${includeSelf}`;
+        if (this.compiledExpressions[cacheKey]) return this.compiledExpressions[cacheKey];
 
-        const stdLibKeys = Object.keys(felStdLib);
-        const stdLibValues = Object.values(felStdLib);
+        console.log(`Compiling FEL: "${expression}" for ${currentItemName}`);
+        const lexResult = FelLexer.tokenize(expression);
+        parser.input = lexResult.tokens;
+        const cst = parser.expression();
 
-        let expr = expression;
-
-        if (expr.includes('$index')) {
-            const parts = currentItemName.split(/[\[\]]/).filter(p => !isNaN(parseInt(p)));
-            const currentIndex = parts.length > 0 ? parseInt(parts[parts.length - 1]) : -1;
-            if (currentIndex >= 0) {
-                expr = expr.replace(/\$index/g, currentIndex.toString());
-            }
+        if (parser.errors.length > 0) {
+            console.error(`FEL Parse Errors for "${expression}":`, parser.errors);
+            const errorFn = () => null;
+            this.compiledExpressions[cacheKey] = errorFn;
+            return errorFn;
         }
 
-        const mipRegex = /(relevant|valid|readonly|required)\(([a-zA-Z0-9_.\\\[\\\]]+)\)/g;
-        expr = expr.replace(mipRegex, "$1('$2')");
-        expr = expr.replace(/\bif\s*\(/g, "fel_if(");
-        expr = expr.replace(/\bcountWhere\(([^,]+),\s*(.+)\)/g, "countWhere($1, ($) => $2)");
-
-        // Replace $identifier with identifier
-        expr = expr.replace(/\$([a-zA-Z][a-zA-Z0-9_]*)/g, "$1");
-
-        // Replace single = with == for comparison, but avoid >=, <=, !=, ==, =>
-        expr = expr.replace(/(?<![=<>!])=(?![=>])/g, "==");
-
-        const pathRegex = /([a-zA-Z][a-zA-Z0-9_]*)\.([a-zA-Z0-9_]+)/g;
-        const groupMatches = Array.from(expr.matchAll(pathRegex)).map(m => ({
-            full: m[0], group: m[1], field: m[2]
-        }));
-
-        for (const m of groupMatches) {
-            expr = expr.replace(m.full, m.full.replace(/[\\\[\\\]\.]/g, '_'));
-        }
-
-        // Replace array access notation: array[index].field -> array_index__field
-        let sanitizedExpr = expr.replace(/([a-zA-Z][a-zA-Z0-9_]*)\[(\d+)\]\.([a-zA-Z0-9_]+)/g, '$1_$2__$3');
-        // Handle normal dot notation: group.field -> group_field
-        sanitizedExpr = sanitizedExpr.replace(/([a-zA-Z][a-zA-Z0-9_]*)\.([a-zA-Z0-9_]+)/g, '$1_$2');
-        // Handle any remaining brackets
-        const finalExpr = sanitizedExpr.replace(/[\[\]]/g, '_');
-
-        const currentPartsForDeps = currentItemName.replace(/\[\d+\]/g, '').split(/[\\\[\\\]\.]/).filter(Boolean);
-        const currentParentPathForDeps = currentPartsForDeps.slice(0, -1).join('.');
         const baseCurrentItemName = currentItemName.replace(/\[\d+\]/g, '');
-
-        const potentialDeps = Array.from(this.knownNames).filter(n => {
-            if (n === baseCurrentItemName && !includeSelf) return false;
-            const safeN = n.replace(/[\\\[\\\]\.]/g, '_');
-            if (new RegExp(`\\b${safeN}\\b`).test(finalExpr)) return true;
-            const parts = n.split(/[\\\[\\\]\.]/).filter(Boolean);
-            if (parts.slice(0, -1).join('.') === currentParentPathForDeps) {
-                if (new RegExp(`\\b${parts[parts.length - 1]}\\b`).test(finalExpr)) return true;
-            }
-            return false;
-        });
+        const astDeps = dependencyVisitor.getDependencies(cst);
 
         if (!this.dependencies[baseCurrentItemName]) {
             this.dependencies[baseCurrentItemName] = [];
         }
-        potentialDeps.forEach(d => {
-            if (!this.dependencies[baseCurrentItemName].includes(d)) {
-                this.dependencies[baseCurrentItemName].push(d);
-            }
-        });
 
-        return () => {
+        const parts = currentItemName.split(/[.\[\]]/).filter(Boolean);
+        const parentPath = parts.slice(0, -1).join('.');
+
+        for (const dep of astDeps) {
+            let fullDepPath = dep;
+            if (dep === '') {
+                fullDepPath = baseCurrentItemName;
+            } else if (!dep.includes('.') && parentPath) {
+                fullDepPath = `${parentPath}.${dep}`;
+            }
+            
+            const cleanDepPath = fullDepPath.replace(/\[\d+\]/g, '');
+            if (!this.dependencies[baseCurrentItemName].includes(cleanDepPath)) {
+                this.dependencies[baseCurrentItemName].push(cleanDepPath);
+            }
+        }
+
+        const compiled = () => {
             this.structureVersion.value;
-            const currentParts = currentItemName.split(/[\\\[\\\]\.]/).filter(Boolean);
-            const currentParentPath = currentParts.slice(0, -1).join('.');
-
-            const potentialNames = Object.keys(this.signals).filter(n => {
-                if (n === currentItemName && !includeSelf) return false;
-                if (new RegExp(`\\b${n.replace(/[\\\[\\\]\.]/g, '_')}\\b`).test(finalExpr)) return true;
-                const parts = n.split(/[\\\[\\\]\.]/).filter(Boolean);
-                if (parts.length > 1 && currentParts.length > 1) {
-                    if (parts.slice(0, -1).join('.') === currentParentPath) {
-                        if (new RegExp(`\\b${parts[parts.length - 1]}\\b`).test(finalExpr)) return true;
-                    }
+            // Track dependencies in signals
+            for (const dep of astDeps) {
+                let fullDepPath = dep;
+                if (dep === '') {
+                    fullDepPath = currentItemName;
+                } else if (!dep.includes('.') && parentPath) {
+                    fullDepPath = `${parentPath}.${dep}`;
                 }
-                return false;
-            });
-            for (let i = 0; i < currentParts.length - 1; i++) {
-                const subPath = currentParts.slice(0, i + 1).join('.');
-                if (this.repeats[subPath]) this.repeats[subPath].value;
-                if (this.relevantSignals[subPath]) this.relevantSignals[subPath].value;
-            }
-            // For the last part (the item itself), only track repeats if it's a repeat instance
-            const lastPath = currentParts.join('.');
-            if (this.repeats[lastPath]) this.repeats[lastPath].value;
-
-            const pathArrays: Record<string, any[]> = {};
-            for (const m of groupMatches) {
-                if (this.repeats[m.group]) this.repeats[m.group].value;
-                const matches = Object.keys(this.signals).filter(k => k.endsWith(`].${m.field}`));
-                pathArrays[m.full.replace(/[\\\[\\\]\.]/g, '_')] = matches
-                    .filter(k => {
-                        const kParts = k.split(/[\\\[\\\]\.]/).filter(Boolean);
-                        const groupIndexInK = kParts.indexOf(m.group);
-                        if (groupIndexInK === -1) return false;
-                        for (let i = 0; i < groupIndexInK; i++) {
-                            if (kParts[i] !== currentParts[i]) return false;
-                        }
-                        return true;
-                    })
-                    .map(k => this.signals[k].value);
+                
+                if (this.signals[fullDepPath]) this.signals[fullDepPath].value;
+                if (this.repeats[fullDepPath]) this.repeats[fullDepPath].value;
+                if (this.relevantSignals[fullDepPath]) this.relevantSignals[fullDepPath].value;
             }
 
-            const values = potentialNames.map(n => this.signals[n].value);
-            const localValues: Record<string, any> = {};
-            // currentParentPath is already defined above
-
-            for (let i = 0; i < potentialNames.length; i++) {
-                const n = potentialNames[i];
-                const parts = n.split(/[\\\[\\\]\.]/).filter(Boolean);
-                if (parts.slice(0, -1).join('.') === currentParentPath) {
-                    localValues[parts[parts.length - 1]] = values[i];
-                }
-            }
-
-            const pathArrayKeys = Object.keys(pathArrays);
-            const pathArrayValues = pathArrayKeys.map(k => pathArrays[k]);
-            const localKeys = Object.keys(localValues);
-            const localVals = localKeys.map(k => localValues[k]);
-            const argNames = [...stdLibKeys, ...pathArrayKeys, ...potentialNames.map(n => n.replace(/[\\\[\\\]\.]/g, '_')), ...localKeys];
-            const argValues = [...stdLibValues, ...pathArrayValues, ...values, ...localVals];
+            const context: FelContext = {
+                getSignalValue: (path: string) => this.signals[path]?.value,
+                getRepeatsValue: (path: string) => this.repeats[path]?.value ?? 0,
+                getRelevantValue: (path: string) => this.relevantSignals[path]?.value ?? true,
+                getRequiredValue: (path: string) => this.requiredSignals[path]?.value ?? false,
+                getReadonlyValue: (path: string) => this.readonlySignals[path]?.value ?? false,
+                currentItemPath: currentItemName,
+                engine: this
+            };
 
             try {
-                const f = new Function(...argNames, `return ${finalExpr}`);
-                return f(...argValues);
+                return interpreter.evaluate(cst, context);
             } catch (e) {
+                console.error("FEL Evaluation Error:", e);
                 return null;
             }
         };
+
+        this.compiledExpressions[cacheKey] = compiled;
+        return compiled;
     }
 
     public setValue(name: string, value: any) {
@@ -557,31 +568,50 @@ export class FormEngine {
         }
     }
 
+    public getValidationReport(): ValidationReport {
+        const allResults: ValidationResult[] = [];
+
+        for (const key of Object.keys(this.validationResults)) {
+            if (this.isPathRelevant(key)) {
+                allResults.push(...this.validationResults[key].value);
+            }
+        }
+
+        for (const shapeId of Object.keys(this.shapeResults)) {
+            allResults.push(...this.shapeResults[shapeId].value);
+        }
+
+        return {
+            valid: !allResults.some(r => r.severity === 'error'),
+            results: allResults
+        };
+    }
+
+    private isPathRelevant(path: string): boolean {
+        if (!path) return true;
+        const parts = path.split(/[\[\]\.]/).filter(Boolean);
+        let currentPath = '';
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const isNumber = !isNaN(parseInt(part));
+            if (isNumber) {
+                currentPath += `[${part}]`;
+            } else {
+                currentPath += (currentPath ? '.' : '') + part;
+            }
+            if (this.relevantSignals[currentPath] && !this.relevantSignals[currentPath].value) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public getResponse() {
         const data: any = {};
-        const isPathRelevant = (path: string): boolean => {
-            // Check the path itself and all its parents
-            const parts = path.split(/[\\\[\\\]\.]/).filter(Boolean);
-            let currentPath = '';
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i];
-                const isNumber = !isNaN(parseInt(part));
-                if (isNumber) {
-                    currentPath += `[${part}]`;
-                } else {
-                    currentPath += (currentPath ? '.' : '') + part;
-                }
-                
-                if (this.relevantSignals[currentPath] && !this.relevantSignals[currentPath].value) {
-                    return false;
-                }
-            }
-            return true;
-        };
 
         for (const key of Object.keys(this.signals)) {
-            if (!isPathRelevant(key)) continue;
-            const parts = key.split(/[\\\[\\\]\.]/).filter(Boolean);
+            if (!this.isPathRelevant(key)) continue;
+            const parts = key.split(/[\[\]\.]/).filter(Boolean);
             let current = data;
             for (let i = 0; i < parts.length - 1; i++) {
                 const part = parts[i];
@@ -595,11 +625,15 @@ export class FormEngine {
             const val = this.signals[key].value;
             current[parts[parts.length - 1]] = Array.isArray(val) ? [...val] : (typeof val === 'object' && val !== null ? {...val} : val);
         }
+        
+        const report = this.getValidationReport();
+
         return {
             definitionUrl: this.definition.url || "http://example.org/form",
             definitionVersion: this.definition.version || "1.0.0",
-            status: "completed",
+            status: report.valid ? "completed" : "in-progress",
             data,
+            validationReport: report,
             authored: new Date().toISOString()
         };
     }

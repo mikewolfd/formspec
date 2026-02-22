@@ -273,7 +273,11 @@ export class FelParser extends CstParser {
           this.OPTION(() => this.CONSUME(t.Identifier));
           this.MANY(() => this.SUBRULE(this.pathTail));
       }},
-      { ALT: () => this.SUBRULE(this.contextRef) }
+      { ALT: () => this.SUBRULE1(this.contextRef) },
+      { ALT: () => {
+          this.CONSUME1(t.Identifier);
+          this.MANY1(() => this.SUBRULE2(this.pathTail));
+      }}
     ]);
   });
 

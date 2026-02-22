@@ -23,6 +23,16 @@ export class FelDependencyVisitor {
                 }
             }
             deps.push(name);
+        } else if (node.children.Identifier) {
+            let name = node.children.Identifier[0].image;
+            if (node.children.pathTail) {
+                for (const tail of node.children.pathTail) {
+                    if (tail.children.Identifier) {
+                        name += (name ? '.' : '') + tail.children.Identifier[0].image;
+                    }
+                }
+            }
+            deps.push(name);
         }
     }
     
