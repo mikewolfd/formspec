@@ -15,8 +15,8 @@ import pytest
 from hypothesis import HealthCheck, assume, given, note, settings
 from hypothesis import strategies as st
 from jsonschema import Draft202012Validator, ValidationError
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT202012
+
+from conftest import build_schema_registry
 
 # ---------------------------------------------------------------------------
 # Schema loading + shared validator registry
@@ -36,18 +36,13 @@ VALIDATION_REPORT_SCHEMA = _load("validationReport.schema.json")
 MAPPING_SCHEMA = _load("mapping.schema.json")
 REGISTRY_SCHEMA = _load("registry.schema.json")
 
-# Pre-build referencing registry so cross-file $refs resolve
-_REF_REGISTRY = Registry().with_resources(
-    [
-        (s.get("$id", f"urn:{n}"), Resource.from_contents(s, default_specification=DRAFT202012))
-        for n, s in [
-            ("definition", DEFINITION_SCHEMA),
-            ("response", RESPONSE_SCHEMA),
-            ("validationReport", VALIDATION_REPORT_SCHEMA),
-            ("mapping", MAPPING_SCHEMA),
-            ("registry", REGISTRY_SCHEMA),
-        ]
-    ]
+# Pre-build referencing registry so cross-file $refs resolve.
+_REF_REGISTRY = build_schema_registry(
+    DEFINITION_SCHEMA,
+    RESPONSE_SCHEMA,
+    VALIDATION_REPORT_SCHEMA,
+    MAPPING_SCHEMA,
+    REGISTRY_SCHEMA,
 )
 
 # Cached validator instances (compiled once)

@@ -12,6 +12,13 @@ import pathlib
 import pytest
 from jsonschema import Draft202012Validator, ValidationError, validate
 
+from tests.helpers import (
+    base_definition as _base_doc,
+    minimal_display as _minimal_display,
+    minimal_field as _shared_minimal_field,
+    minimal_group as _minimal_group,
+)
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -36,34 +43,7 @@ def _validate(instance, schema):
 # ---------------------------------------------------------------------------
 
 def _minimal_field(key="f1", dataType="string"):
-    return {"key": key, "type": "field", "label": "F", "dataType": dataType}
-
-
-def _minimal_group(key="g1", children=None):
-    return {
-        "key": key,
-        "type": "group",
-        "label": "G",
-        "children": children or [_minimal_field()],
-    }
-
-
-def _minimal_display(key="d1"):
-    return {"key": key, "type": "display", "label": "D"}
-
-
-def _base_doc(**overrides):
-    """Return a minimal valid top-level document, with optional overrides."""
-    doc = {
-        "$formspec": "1.0",
-        "url": "https://example.com/forms/test",
-        "version": "1.0.0",
-        "status": "draft",
-        "title": "Test Form",
-        "items": [_minimal_field()],
-    }
-    doc.update(overrides)
-    return doc
+    return _shared_minimal_field(key=key, data_type=dataType, label="F")
 
 
 # ===================================================================

@@ -12,6 +12,13 @@ from pathlib import Path
 import jsonschema
 from jsonschema import Draft202012Validator
 
+from tests.helpers import (
+    base_definition as _base_doc,
+    minimal_display as _shared_minimal_display,
+    minimal_field as _shared_minimal_field,
+    minimal_group as _shared_minimal_group,
+)
+
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = json.loads((ROOT / "schemas/definition.schema.json").read_text())
 VALIDATOR = Draft202012Validator(SCHEMA)
@@ -19,45 +26,24 @@ VALIDATOR = Draft202012Validator(SCHEMA)
 
 def _minimal_def(**overrides):
     """Return a minimal valid definition, with optional overrides merged."""
-    d = {
-        "$formspec": "1.0",
-        "url": "https://example.com/test",
-        "version": "1.0.0",
-        "status": "draft",
-        "name": "test",
-        "title": "Test Form",
-        "items": [
-            {"key": "f1", "type": "field", "label": "F1", "dataType": "string"}
-        ],
-    }
+    d = _base_doc(name="test", url="https://example.com/test")
     d.update(overrides)
     return d
 
 
 def _minimal_field(key="f1", data_type="string", **field_overrides):
     """Return a minimal field item."""
-    f = {"key": key, "type": "field", "label": key.upper(), "dataType": data_type}
-    f.update(field_overrides)
-    return f
+    return _shared_minimal_field(key=key, data_type=data_type, **field_overrides)
 
 
 def _minimal_group(key="g1", children=None, **group_overrides):
     """Return a minimal group item."""
-    g = {
-        "key": key,
-        "type": "group",
-        "label": key.upper(),
-        "children": children or [{"key": "c1", "type": "field", "label": "C1", "dataType": "string"}],
-    }
-    g.update(group_overrides)
-    return g
+    return _shared_minimal_group(key=key, children=children, **group_overrides)
 
 
 def _minimal_display(key="d1", **display_overrides):
     """Return a minimal display item."""
-    d = {"key": key, "type": "display", "label": key.upper()}
-    d.update(display_overrides)
-    return d
+    return _shared_minimal_display(key=key, **display_overrides)
 
 
 def _valid(definition):

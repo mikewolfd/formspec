@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator, ValidationError, validate
 
+from conftest import build_schema_registry
+
 # ---------------------------------------------------------------------------
 # Schema loading
 # ---------------------------------------------------------------------------
@@ -23,18 +25,8 @@ def _load_schema(name: str) -> dict:
 RESPONSE_SCHEMA = _load_schema("response.schema.json")
 VALIDATION_REPORT_SCHEMA = _load_schema("validationReport.schema.json")
 
-# Build a resolver/registry so that the validation-report schema can follow
-# its $ref to the response schema's $defs/ValidationResult.
-from referencing import Registry, Resource
-
-_response_resource = Resource.from_contents(RESPONSE_SCHEMA)
-_report_resource = Resource.from_contents(VALIDATION_REPORT_SCHEMA)
-_REGISTRY = Registry().with_resources(
-    [
-        (RESPONSE_SCHEMA["$id"], _response_resource),
-        (VALIDATION_REPORT_SCHEMA["$id"], _report_resource),
-    ]
-)
+# Build a resolver/registry so validation-report can resolve response refs.
+_REGISTRY = build_schema_registry(RESPONSE_SCHEMA, VALIDATION_REPORT_SCHEMA)
 
 
 def _validate_response(instance: dict) -> None:
@@ -358,5 +350,4 @@ class TestValidationReportFormats:
         with pytest.raises(ValidationError):
             v = Draft202012Validator(VALIDATION_REPORT_SCHEMA, registry=_REGISTRY, format_checker=Draft202012Validator.FORMAT_CHECKER)
             v.validate(doc)
-
 

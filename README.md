@@ -65,6 +65,33 @@ print("Validation successful!")
 
 The repository includes utility adapters in the `adapters/` directory for converting data between formats (CSV, JSON, XML).
 
+## Python Linter
+
+The Python reference linter is available as a module:
+
+```bash
+python3 -m formspec.validator path/to/doc.json
+```
+
+### Modes
+
+- `authoring` (default): recoverable issues are warnings.
+- `strict`: selected warnings are escalated to errors for CI.
+
+```bash
+python3 -m formspec.validator --mode strict path/to/doc.json
+```
+
+### Component Validation with Definition Context
+
+Component documents can be linted with an explicit Definition file:
+
+```bash
+python3 -m formspec.validator \
+  --definition path/to/definition.json \
+  path/to/component.json
+```
+
 ## Testing
 
 This repository includes a comprehensive conformance test suite covering all tiers and the FEL implementation.

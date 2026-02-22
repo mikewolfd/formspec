@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator, ValidationError, validate
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT202012
+
+from conftest import build_schema_registry
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -175,19 +175,14 @@ SHAPE_SCHEMA = DEFINITION_SCHEMA["$defs"]["Shape"]
 FIELD_RULE_SCHEMA = MAPPING_SCHEMA["$defs"]["FieldRule"]
 CHANGE_SCHEMA = CHANGELOG_SCHEMA["$defs"]["Change"]
 
-# Build a referencing registry so sub-schema $refs resolve against parent
-_MAPPING_ID = MAPPING_SCHEMA.get("$id", "https://formspec.org/schemas/mapping/v1")
-_DEFINITION_ID = DEFINITION_SCHEMA.get("$id", "https://formspec.org/schemas/definition/1.0")
-_THEME_ID = THEME_SCHEMA.get("$id", "https://formspec.org/schemas/theme/1.0")
-_COMPONENT_ID = COMPONENT_SCHEMA.get("$id", "https://formspec.org/schemas/component/1.0")
-_CHANGELOG_ID = CHANGELOG_SCHEMA.get("$id", "https://formspec.org/schemas/changelog/v1")
-_REGISTRY = Registry().with_resources([
-    (_MAPPING_ID, Resource.from_contents(MAPPING_SCHEMA, default_specification=DRAFT202012)),
-    (_DEFINITION_ID, Resource.from_contents(DEFINITION_SCHEMA, default_specification=DRAFT202012)),
-    (_THEME_ID, Resource.from_contents(THEME_SCHEMA, default_specification=DRAFT202012)),
-    (_COMPONENT_ID, Resource.from_contents(COMPONENT_SCHEMA, default_specification=DRAFT202012)),
-    (_CHANGELOG_ID, Resource.from_contents(CHANGELOG_SCHEMA, default_specification=DRAFT202012)),
-])
+# Build a referencing registry so sub-schema $refs resolve against parent.
+_REGISTRY = build_schema_registry(
+    MAPPING_SCHEMA,
+    DEFINITION_SCHEMA,
+    THEME_SCHEMA,
+    COMPONENT_SCHEMA,
+    CHANGELOG_SCHEMA,
+)
 
 
 def _make_validator(sub_schema, parent_schema):
