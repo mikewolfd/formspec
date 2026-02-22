@@ -1,13 +1,15 @@
 {
   "name": "formspec-engine",
   "version": "1.0.0",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc"
   },
   "dependencies": {
-    "@preact/signals-core": "^1.6.0"
+    "@preact/signals-core": "^1.6.0",
+    "chevrotain": "^11.1.1"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
