@@ -21,6 +21,7 @@ export class FormspecRender extends HTMLElement {
             console.log("Engine initialized");
         } catch (e) {
             console.error("Engine initialization failed", e);
+            throw e;
         }
         this.render();
     }
@@ -170,11 +171,19 @@ export class FormspecRender extends HTMLElement {
                         const instanceWrapper = document.createElement('div');
                         instanceWrapper.style.display = 'contents';
                         container.appendChild(instanceWrapper);
-                        
+
                         const instancePrefix = `${fullName}[${idx}]`;
                         this.renderActualComponent(comp, instanceWrapper, instancePrefix);
                     }
                 }));
+
+                const addBtn = document.createElement('button');
+                addBtn.type = 'button';
+                addBtn.textContent = `Add ${item.label || comp.bind}`;
+                addBtn.addEventListener('click', () => {
+                    this.engine!.addRepeatInstance(fullName);
+                });
+                parent.appendChild(addBtn);
                 return;
             }
         }
@@ -257,7 +266,51 @@ export class FormspecRender extends HTMLElement {
 
         let input: HTMLElement;
 
-        if (componentType === 'Select' || (dataType === 'choice' && componentType === 'TextInput')) {
+        if (dataType === 'multiChoice' || componentType === 'CheckboxGroup') {
+            const container = document.createElement('div');
+            container.className = 'checkbox-group';
+            if (item.options) {
+                for (const opt of item.options) {
+                    const lbl = document.createElement('label');
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = opt.value;
+                    cb.name = fullName;
+                    cb.addEventListener('change', () => {
+                        const checked: string[] = [];
+                        container.querySelectorAll('input[type="checkbox"]').forEach((el: any) => {
+                            if (el.checked) checked.push(el.value);
+                        });
+                        this.engine!.setValue(fullName, checked);
+                    });
+                    lbl.appendChild(cb);
+                    lbl.appendChild(document.createTextNode(` ${opt.label}`));
+                    container.appendChild(lbl);
+                }
+            }
+            input = container;
+        } else if (dataType === 'money') {
+            const container = document.createElement('div');
+            container.className = 'money-input';
+            const amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.placeholder = 'Amount';
+            amountInput.name = `${fullName}__amount`;
+            const currencyInput = document.createElement('input');
+            currencyInput.type = 'text';
+            currencyInput.placeholder = 'Currency';
+            currencyInput.name = `${fullName}__currency`;
+            const updateMoney = () => {
+                const amount = amountInput.value === '' ? null : Number(amountInput.value);
+                const currency = currencyInput.value || '';
+                this.engine!.setValue(fullName, { amount, currency });
+            };
+            amountInput.addEventListener('input', updateMoney);
+            currencyInput.addEventListener('input', updateMoney);
+            container.appendChild(amountInput);
+            container.appendChild(currencyInput);
+            input = container;
+        } else if (componentType === 'Select' || (dataType === 'choice' && componentType === 'TextInput')) {
              const select = document.createElement('select');
              select.name = fullName;
              if (item.options) {
@@ -277,7 +330,7 @@ export class FormspecRender extends HTMLElement {
         } else {
             const htmlInput = document.createElement('input');
             htmlInput.name = fullName;
-            if (componentType === 'NumberInput' || ['integer', 'decimal', 'money'].includes(dataType)) {
+            if (componentType === 'NumberInput' || ['integer', 'decimal', 'number', 'money'].includes(dataType)) {
                 htmlInput.type = 'number';
             } else if (componentType === 'DatePicker' || ['date', 'dateTime', 'time'].includes(dataType)) {
                 htmlInput.type = dataType === 'date' ? 'date' : (dataType === 'time' ? 'time' : 'datetime-local');
@@ -312,31 +365,34 @@ export class FormspecRender extends HTMLElement {
         errorDisplay.style.fontSize = '0.8rem';
         fieldWrapper.appendChild(errorDisplay);
 
-        // Bind events
-        input.addEventListener('input', (e) => {
-            const target = e.target as any;
-            let val: any;
-            if (dataType === 'boolean') {
-                val = target.checked;
-            } else if (['integer', 'decimal', 'money'].includes(dataType)) {
-                val = target.value === '' ? null : Number(target.value);
-            } else {
-                val = target.value;
-            }
-            this.engine!.setValue(fullName, val);
-        });
+        // Bind events (skip for multiChoice and money — they handle their own)
+        const isCustomInput = dataType === 'multiChoice' || componentType === 'CheckboxGroup' || dataType === 'money';
+        if (!isCustomInput) {
+            input.addEventListener('input', (e) => {
+                const target = e.target as any;
+                let val: any;
+                if (dataType === 'boolean') {
+                    val = target.checked;
+                } else if (['integer', 'decimal', 'number'].includes(dataType)) {
+                    val = target.value === '' ? null : Number(target.value);
+                } else {
+                    val = target.value;
+                }
+                this.engine!.setValue(fullName, val);
+            });
 
-        // Reactively bind value
-        this.cleanupFns.push(effect(() => {
-            const sig = this.engine!.signals[fullName];
-            if (!sig) return;
-            const val = sig.value;
-            if (dataType === 'boolean') {
-                if (document.activeElement !== input) (input as HTMLInputElement).checked = !!val;
-            } else {
-                if (document.activeElement !== input) (input as HTMLInputElement).value = val ?? '';
-            }
-        }));
+            // Reactively bind value
+            this.cleanupFns.push(effect(() => {
+                const sig = this.engine!.signals[fullName];
+                if (!sig) return;
+                const val = sig.value;
+                if (dataType === 'boolean') {
+                    if (document.activeElement !== input) (input as HTMLInputElement).checked = !!val;
+                } else {
+                    if (document.activeElement !== input) (input as HTMLInputElement).value = val ?? '';
+                }
+            }));
+        }
 
         // Relevancy, Readonly, Error signals (§4.2)
         this.cleanupFns.push(effect(() => {
@@ -364,11 +420,38 @@ export class FormspecRender extends HTMLElement {
         const fullName = prefix ? `${prefix}.${key}` : key;
 
         if (item.type === 'group' && item.repeatable) {
-            this.renderComponent({
-                component: 'Stack',
-                bind: key,
-                children: item.children?.map((c: any) => ({ component: this.getDefaultComponent(c), bind: c.key }))
-            }, parent, prefix);
+            // Render repeatable group container with Add button
+            const fullNameForRepeat = prefix ? `${prefix}.${key}` : key;
+            const container = document.createElement('div');
+            container.className = `repeatable-container-${key}`;
+            parent.appendChild(container);
+
+            this.cleanupFns.push(effect(() => {
+                const count = this.engine!.repeats[fullNameForRepeat]?.value || 0;
+                while (container.children.length > count) {
+                    container.removeChild(container.lastChild!);
+                }
+                while (container.children.length < count) {
+                    const idx = container.children.length;
+                    const instanceWrapper = document.createElement('div');
+                    instanceWrapper.style.display = 'contents';
+                    container.appendChild(instanceWrapper);
+                    const instancePrefix = `${fullNameForRepeat}[${idx}]`;
+                    if (item.children) {
+                        for (const child of item.children) {
+                            this.renderItem(child, instanceWrapper, instancePrefix);
+                        }
+                    }
+                }
+            }));
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.textContent = `Add ${item.label || key}`;
+            addBtn.addEventListener('click', () => {
+                this.engine!.addRepeatInstance(fullNameForRepeat);
+            });
+            parent.appendChild(addBtn);
         } else if (item.type === 'group') {
             const groupWrapper = document.createElement('div');
             groupWrapper.className = 'group';
@@ -406,7 +489,8 @@ export class FormspecRender extends HTMLElement {
         switch (dataType) {
             case 'string': return 'TextInput';
             case 'integer':
-            case 'decimal': return 'NumberInput';
+            case 'decimal':
+            case 'number': return 'NumberInput';
             case 'boolean': return 'Toggle';
             case 'date': return 'DatePicker';
             case 'choice': return 'Select';

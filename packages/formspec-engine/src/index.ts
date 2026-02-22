@@ -9,7 +9,7 @@ export interface FormspecItem {
     key: string;
     type: "field" | "group" | "display";
     label: string;
-    dataType?: "string" | "text" | "integer" | "decimal" | "boolean" | "date" | "dateTime" | "time" | "uri" | "attachment" | "choice" | "multiChoice" | "money";
+    dataType?: "string" | "text" | "integer" | "decimal" | "number" | "boolean" | "date" | "dateTime" | "time" | "uri" | "attachment" | "choice" | "multiChoice" | "money";
     description?: string;
     hint?: string;
     repeatable?: boolean;
@@ -186,10 +186,11 @@ export class FormEngine {
     private initializeBindConfigs(items: FormspecItem[], prefix = '') {
         for (const item of items) {
             const fullName = prefix ? `${prefix}.${item.key}` : item.key;
-            if (item.relevant || item.required || item.calculate || item.readonly || item.constraint) {
+            const relevant = item.relevant || item.visible;
+            if (relevant || item.required || item.calculate || item.readonly || item.constraint) {
                 this.bindConfigs[fullName] = {
                     target: fullName,
-                    relevant: item.relevant,
+                    relevant: relevant,
                     required: item.required,
                     calculate: item.calculate,
                     readonly: item.readonly,
@@ -220,7 +221,7 @@ export class FormEngine {
         for (const item of this.definition.items) {
             this.initItem(item);
         }
-        // this.detectCycles();
+        this.detectCycles();
         this.structureVersion.value++;
     }
 
@@ -241,6 +242,7 @@ export class FormEngine {
 
             const deps = this.dependencies[node] || [];
             for (const dep of deps) {
+                if (dep === node) continue; // skip self-references (e.g. constraints reading own value)
                 visit(dep);
             }
 
@@ -258,6 +260,7 @@ export class FormEngine {
         switch (dataType) {
             case 'integer':
                 return Number.isInteger(value);
+            case 'number':
             case 'decimal':
             case 'money':
                 return typeof value === 'number' && !isNaN(value);
@@ -338,7 +341,7 @@ export class FormEngine {
                 initialValue = compiled();
             }
 
-            if (initialValue === '' && (dataType === 'integer' || dataType === 'decimal' || dataType === 'money')) {
+            if (initialValue === '' && (dataType === 'integer' || dataType === 'decimal' || dataType === 'number' || dataType === 'money')) {
                 initialValue = null;
             }
             if (initialValue === '' && dataType === 'boolean') {
@@ -352,7 +355,8 @@ export class FormEngine {
             this.validationResults[fullName] = signal([]);
 
             const compiledConstraint = bind?.constraint ? this.compileFEL(bind.constraint, fullName, undefined, true) : null;
-            
+            const patternRegex = item.pattern ? new RegExp(item.pattern) : null;
+
             this.validationResults[fullName] = computed(() => {
                 const results: ValidationResult[] = [];
                 const value = this.signals[fullName].value;
@@ -381,7 +385,7 @@ export class FormEngine {
                         source: "bind"
                     });
                 }
-                
+
                 // 3. Bind Constraint
                 if (compiledConstraint) {
                     const isValid = !!compiledConstraint();
@@ -394,6 +398,20 @@ export class FormEngine {
                             code: "CONSTRAINT_FAILED",
                             source: "bind",
                             constraint: bind?.constraint
+                        });
+                    }
+                }
+
+                // 4. Pattern Validation
+                if (patternRegex) {
+                    if (!patternRegex.test(String(value ?? ''))) {
+                        results.push({
+                            severity: "error",
+                            path: this.toExternalPath(fullName),
+                            message: "Pattern mismatch",
+                            constraintKind: "constraint",
+                            code: "PATTERN_MISMATCH",
+                            source: "bind"
                         });
                     }
                 }
@@ -535,7 +553,47 @@ export class FormEngine {
             }
 
             const context: FelContext = {
-                getSignalValue: (path: string) => this.signals[path]?.value,
+                getSignalValue: (path: string) => {
+                    if (this.signals[path]) return this.signals[path].value;
+                    // Check if path traverses a repeatable group — collect instances into array
+                    // Supports nested repeats by scanning each dotted segment
+                    const segments = path.split('.');
+                    const resolvedPaths = [''];
+                    for (let s = 0; s < segments.length; s++) {
+                        const seg = segments[s];
+                        const newPaths: string[] = [];
+                        for (const rp of resolvedPaths) {
+                            const candidate = rp ? `${rp}.${seg}` : seg;
+                            if (this.repeats[candidate]) {
+                                const count = this.repeats[candidate].value;
+                                for (let i = 0; i < count; i++) {
+                                    newPaths.push(`${candidate}[${i}]`);
+                                }
+                            } else {
+                                newPaths.push(candidate);
+                            }
+                        }
+                        resolvedPaths.length = 0;
+                        resolvedPaths.push(...newPaths);
+                    }
+                    // If we expanded repeats, collect leaf signal values
+                    if (resolvedPaths.length > 0 && resolvedPaths[0] !== path) {
+                        const result: any[] = [];
+                        for (const rp of resolvedPaths) {
+                            const sig = this.signals[rp];
+                            if (sig) {
+                                const val = sig.value;
+                                if (Array.isArray(val)) {
+                                    result.push(...val);
+                                } else {
+                                    result.push(val);
+                                }
+                            }
+                        }
+                        if (result.length > 0) return result;
+                    }
+                    return undefined;
+                },
                 getRepeatsValue: (path: string) => this.repeats[path]?.value ?? 0,
                 getRelevantValue: (path: string) => this.relevantSignals[path]?.value ?? true,
                 getRequiredValue: (path: string) => this.requiredSignals[path]?.value ?? false,
@@ -560,7 +618,7 @@ export class FormEngine {
         const baseName = name.replace(/\[\d+\]/g, '');
         const item = this.findItem(this.definition.items, baseName);
         const dataType = item?.dataType || (item?.type as string);
-        if (dataType && (dataType === 'integer' || dataType === 'decimal') && typeof value === 'string') {
+        if (dataType && (dataType === 'integer' || dataType === 'decimal' || dataType === 'number') && typeof value === 'string') {
             value = value === '' ? null : Number(value);
         }
         if (this.signals[name]) {

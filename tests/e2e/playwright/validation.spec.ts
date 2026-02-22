@@ -29,7 +29,7 @@ test.describe('Formspec Validation', () => {
     // Set startDate to 10, endDate is 0. 0 >= 10 is false -> Error
     await startDateInput.fill('10');
     await page.waitForTimeout(50);
-    await expect(errorDisplay).toHaveText('Invalid');
+    await expect(errorDisplay).toHaveText('End date must be >= start date');
 
     // Set endDate to 15. 15 >= 10 is true -> Error gone
     await endDateInput.fill('15');
@@ -39,6 +39,6 @@ test.describe('Formspec Validation', () => {
     // Set endDate to 5. 5 >= 10 is false -> Error back
     await endDateInput.fill('5');
     await page.waitForTimeout(50);
-    await expect(errorDisplay).toHaveText('Invalid');
+    await expect(errorDisplay).toHaveText('End date must be >= start date');
   });
 });

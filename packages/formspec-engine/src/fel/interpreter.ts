@@ -20,6 +20,12 @@ export class FelInterpreter extends BaseVisitor {
     this.validateVisitor();
   }
 
+  private getParentPath(itemPath: string): string {
+    const lastDot = itemPath.lastIndexOf('.');
+    if (lastDot === -1) return '';
+    return itemPath.substring(0, lastDot);
+  }
+
   public evaluate(cst: any, context: FelContext) {
     this.context = context;
     return this.visit(cst);
@@ -50,7 +56,9 @@ export class FelInterpreter extends BaseVisitor {
     power: (b: number, e: number) => Math.pow(b || 0, e || 0),
     empty: (v: any) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0),
     dateAdd: (d: string, n: number, unit: string) => {
+        if (!d) return null;
         const date = new Date(d);
+        if (isNaN(date.getTime())) return null;
         if (unit === 'days') date.setDate(date.getDate() + n);
         else if (unit === 'months') date.setMonth(date.getMonth() + n);
         else if (unit === 'years') date.setFullYear(date.getFullYear() + n);
@@ -128,6 +136,33 @@ export class FelInterpreter extends BaseVisitor {
         const idx = parseInt(parts[lastNumIndex]);
         const siblingsPath = parts.slice(0, lastNumIndex).join('.') + `[${idx+1}].` + name;
         return this.context.getSignalValue(siblingsPath);
+    },
+    if: (cond: any, thenVal: any, elseVal: any) => cond ? thenVal : elseVal,
+    format: (fmt: string, ...args: any[]) => {
+        if (!fmt) return '';
+        let i = 0;
+        return fmt.replace(/%s/g, () => args[i] !== undefined ? String(args[i++]) : '');
+    },
+    timeDiff: (t1: string, t2: string, unit: string) => {
+        const parse = (t: string) => {
+            const parts = t.split(':').map(Number);
+            return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+        };
+        const diff = Math.abs(parse(t1) - parse(t2));
+        if (unit === 'seconds') return diff;
+        if (unit === 'minutes') return Math.floor(diff / 60);
+        if (unit === 'hours') return Math.floor(diff / 3600);
+        return diff;
+    },
+    moneyAdd: (a: any, b: any) => {
+        if (!a || !b) return null;
+        return { amount: (a.amount || 0) + (b.amount || 0), currency: a.currency || b.currency };
+    },
+    moneySum: (arr: any[]) => {
+        if (!Array.isArray(arr)) return null;
+        const valid = arr.filter(m => m && m.amount !== undefined);
+        if (valid.length === 0) return null;
+        return { amount: valid.reduce((s, m) => s + (m.amount || 0), 0), currency: valid[0].currency };
     },
     parent: (name: string) => {
         const parts = this.context.currentItemPath.split(/[\[\].]/).filter(Boolean);
@@ -307,20 +342,17 @@ export class FelInterpreter extends BaseVisitor {
     if (ctx.Dollar) {
         let name = ctx.Identifier ? ctx.Identifier[0].image : '';
         if (ctx.pathTail) {
-            // Chained path
             for (const tail of ctx.pathTail) {
                 const tailVal = this.visit(tail);
                 name += (name ? '.' : '') + tailVal;
             }
         }
-        
-        // Use PathResolver logic
-        const parts = this.context.currentItemPath.split(/[.\[\]]/).filter(Boolean);
-        const parentPath = parts.slice(0, -1).join('.');
-        const fullPath = parentPath ? `${parentPath}.${name}` : name;
-        
+
         if (name === '') return this.context.getSignalValue(this.context.currentItemPath);
-        
+
+        const parentPath = this.getParentPath(this.context.currentItemPath);
+        const fullPath = parentPath ? `${parentPath}.${name}` : name;
+
         let val = this.context.getSignalValue(fullPath);
         if (val === undefined) {
             val = this.context.getSignalValue(name);
@@ -336,10 +368,9 @@ export class FelInterpreter extends BaseVisitor {
                 name += (name ? '.' : '') + tailVal;
             }
         }
-        const parts = this.context.currentItemPath.split(/[.\[\]]/).filter(Boolean);
-        const parentPath = parts.slice(0, -1).join('.');
+        const parentPath = this.getParentPath(this.context.currentItemPath);
         const fullPath = parentPath ? `${parentPath}.${name}` : name;
-        
+
         let val = this.context.getSignalValue(fullPath);
         if (val === undefined) {
             val = this.context.getSignalValue(name);

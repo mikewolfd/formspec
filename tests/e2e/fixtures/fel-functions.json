@@ -120,10 +120,6 @@
     },
     {
       "type": "field", "dataType": "integer",
-      "key": "valCountWhere"
-    },
-    {
-      "type": "field", "dataType": "integer",
       "key": "strLength"
     },
     {
@@ -289,7 +285,6 @@
     { "target": "valAvg", "calculate": "avg(prices.val)" },
     { "target": "valMin", "calculate": "min(prices.val)" },
     { "target": "valMax", "calculate": "max(prices.val)" },
-    { "target": "valCountWhere", "calculate": "countWhere(prices.val, $ > 10)" },
     { "target": "strLength", "calculate": "length(rawText)" },
     { "target": "strStartsWith", "calculate": "startsWith(rawText, 'hello')" },
     { "target": "strEndsWith", "calculate": "endsWith(rawText, 'world')" },

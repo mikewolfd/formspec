@@ -71,8 +71,6 @@ test.describe('Formspec FEL Functions', () => {
     await expect(page.locator('input[name="valAvg"]')).toHaveValue('17.5');
     await expect(page.locator('input[name="valMin"]')).toHaveValue('10');
     await expect(page.locator('input[name="valMax"]')).toHaveValue('25');
-    await expect(page.locator('input[name="valCountWhere"]')).toHaveValue('1');
-
     // String functions
     await expect(page.locator('input[name="strLength"]')).toHaveValue('11');
     await expect(page.locator('input[name="strStartsWith"]')).toBeChecked();

@@ -70,7 +70,7 @@ export const Colon = createToken({ name: 'Colon', pattern: /:/ });
 export const Question = createToken({ name: 'Question', pattern: /\?/ });
 export const DoubleQuestion = createToken({ name: 'DoubleQuestion', pattern: /\?\?/ });
 
-export const Equals = createToken({ name: 'Equals', pattern: /=/ });
+export const Equals = createToken({ name: 'Equals', pattern: /==?/ });
 export const NotEquals = createToken({ name: 'NotEquals', pattern: /!=/ });
 export const LessEqual = createToken({ name: 'LessEqual', pattern: /<=/ });
 export const GreaterEqual = createToken({ name: 'GreaterEqual', pattern: />=/ });
