@@ -18,7 +18,10 @@
     "tokens": { "$ref": "#/$defs/Tokens" },
     "components": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/CustomComponentDef" }
+      "patternProperties": {
+        "^[A-Z][a-zA-Z0-9]*$": { "$ref": "#/$defs/CustomComponentDef" }
+      },
+      "additionalProperties": false
     },
     "tree": { "$ref": "#/$defs/AnyComponent" }
   },

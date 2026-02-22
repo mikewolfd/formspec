@@ -129,7 +129,13 @@
           "additionalProperties": false
         },
         "license": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.\\-]*[A-Za-z0-9]$"
+        },
+        "deprecationNotice": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable deprecation message. REQUIRED when status is 'deprecated'."
         },
         "examples": {
           "type": "array",
@@ -234,6 +240,21 @@
           "then": {
             "required": [
               "parameters"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "deprecated"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": [
+              "deprecationNotice"
             ]
           }
         }

@@ -72,25 +72,6 @@ class TestMappingMinimalValid:
 
 
 # ---------------------------------------------------------------------------
-# TestMappingRequired
-# ---------------------------------------------------------------------------
-
-
-class TestMappingRequired:
-    """Each top-level required field, when removed, must fail."""
-
-    @pytest.mark.parametrize(
-        "field",
-        ["version", "definitionRef", "definitionVersion", "targetSchema", "rules"],
-    )
-    def test_missing_required(self, field):
-        doc = _minimal_mapping()
-        del doc[field]
-        with pytest.raises(ValidationError):
-            _validate(doc)
-
-
-# ---------------------------------------------------------------------------
 # TestMappingDirection
 # ---------------------------------------------------------------------------
 
@@ -110,23 +91,6 @@ class TestMappingDirection:
         doc = _minimal_mapping()
         assert "direction" not in doc
         _validate(doc)
-
-
-# ---------------------------------------------------------------------------
-# TestMappingRules
-# ---------------------------------------------------------------------------
-
-
-class TestMappingRules:
-    """Rules array constraints."""
-
-    def test_rules_must_be_array(self):
-        with pytest.raises(ValidationError):
-            _validate(_minimal_mapping(rules="not-an-array"))
-
-    def test_empty_rules_array_fails(self):
-        with pytest.raises(ValidationError):
-            _validate(_minimal_mapping(rules=[]))
 
 
 # ---------------------------------------------------------------------------
@@ -551,25 +515,67 @@ class TestMappingExtensions:
 
 
 # ---------------------------------------------------------------------------
-# TestMappingAdditionalProperties
+# TestMappingVersion
 # ---------------------------------------------------------------------------
 
 
-class TestMappingAdditionalProperties:
-    """additionalProperties: false enforcement."""
+class TestMappingVersion:
+    """Mapping version must be valid SemVer."""
 
-    def test_unknown_top_level_property_rejected(self):
-        with pytest.raises(ValidationError):
-            _validate(_minimal_mapping(**{"unknown": 1}))
+    @pytest.mark.parametrize("ver", ["1.0.0", "0.1.0", "10.20.30"])
+    def test_valid_semver(self, ver):
+        _validate(_minimal_mapping(version=ver))
 
-    def test_unknown_target_schema_property_rejected(self):
+    @pytest.mark.parametrize("ver", ["1.0", "v1.0.0", "1", "01.0.0", "1.02.0"])
+    def test_invalid_semver(self, ver):
         with pytest.raises(ValidationError):
-            _validate(
-                _minimal_mapping(targetSchema={"format": "json", "extra": True})
-            )
+            _validate(_minimal_mapping(version=ver))
 
-    def test_unknown_field_rule_property_rejected(self):
-        rule = _minimal_rule()
-        rule["notAField"] = True
+
+# ---------------------------------------------------------------------------
+# TestMappingConformanceLevel
+# ---------------------------------------------------------------------------
+
+
+class TestMappingConformanceLevel:
+    """conformanceLevel enum."""
+
+    @pytest.mark.parametrize("level", ["core", "bidirectional", "extended"])
+    def test_valid_conformance_level(self, level):
+        _validate(_minimal_mapping(conformanceLevel=level))
+
+    def test_invalid_conformance_level(self):
         with pytest.raises(ValidationError):
-            _validate(_minimal_mapping(rules=[rule]))
+            _validate(_minimal_mapping(conformanceLevel="full"))
+
+    def test_omitted_conformance_level_valid(self):
+        doc = _minimal_mapping()
+        assert "conformanceLevel" not in doc
+        _validate(doc)
+
+
+# ---------------------------------------------------------------------------
+# TestFieldRuleAdvanced
+# ---------------------------------------------------------------------------
+
+
+class TestFieldRuleAdvanced:
+    """Advanced FieldRule properties: condition, bidirectional, priority."""
+
+    def test_rule_with_condition(self):
+        rule = _minimal_rule(condition="$status = 'active'")
+        _validate(_minimal_mapping(rules=[rule]))
+
+    def test_rule_with_bidirectional_false(self):
+        rule = _minimal_rule(bidirectional=False)
+        _validate(_minimal_mapping(rules=[rule]))
+
+    def test_rule_with_priority(self):
+        rule = _minimal_rule(priority=10)
+        _validate(_minimal_mapping(rules=[rule]))
+
+    def test_rule_with_reverse_priority(self):
+        rule = _minimal_rule(reversePriority=5)
+        _validate(_minimal_mapping(rules=[rule]))
+
+

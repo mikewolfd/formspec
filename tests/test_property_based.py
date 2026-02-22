@@ -557,6 +557,9 @@ def gen_registry_entry(draw):
             "type": draw(st.sampled_from(["string", "integer", "array"])),
         }]
     # namespace and property need no extra fields
+    # Conditional: deprecated status requires deprecationNotice
+    if entry["status"] == "deprecated":
+        entry["deprecationNotice"] = draw(non_empty_str)
     if draw(st.booleans()):
         entry["license"] = "MIT"
     return entry

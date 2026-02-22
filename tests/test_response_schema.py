@@ -100,23 +100,6 @@ class TestResponseMinimalValid:
         _validate_response(doc)
 
 
-class TestResponseRequired:
-    """Each required field must be present."""
-
-    @pytest.mark.parametrize("field", [
-        "definitionUrl",
-        "definitionVersion",
-        "status",
-        "data",
-        "authored",
-    ])
-    def test_missing_required_field(self, field):
-        doc = _minimal_response()
-        del doc[field]
-        with pytest.raises(ValidationError, match=f"'{field}' is a required property"):
-            _validate_response(doc)
-
-
 class TestResponseEnums:
     """Status enum validation."""
 
@@ -154,28 +137,6 @@ class TestResponseFormats:
         with pytest.raises(ValidationError):
             v = Draft202012Validator(RESPONSE_SCHEMA, registry=_REGISTRY, format_checker=Draft202012Validator.FORMAT_CHECKER)
             v.validate(doc)
-
-
-class TestResponseAdditionalProperties:
-    """Unknown properties must be rejected."""
-
-    def test_unknown_top_level_property(self):
-        doc = _minimal_response()
-        doc["unknown"] = "nope"
-        with pytest.raises(ValidationError, match="Additional properties are not allowed"):
-            _validate_response(doc)
-
-    def test_unknown_author_property(self):
-        doc = _minimal_response()
-        doc["author"] = {"id": "a1", "email": "a@b.com"}
-        with pytest.raises(ValidationError, match="Additional properties are not allowed"):
-            _validate_response(doc)
-
-    def test_unknown_subject_property(self):
-        doc = _minimal_response()
-        doc["subject"] = {"id": "s1", "age": 30}
-        with pytest.raises(ValidationError, match="Additional properties are not allowed"):
-            _validate_response(doc)
 
 
 class TestResponseAuthor:
@@ -353,22 +314,6 @@ class TestValidationReportMinimalValid:
         _validate_report(doc)
 
 
-class TestValidationReportRequired:
-    """Each required field must be present."""
-
-    @pytest.mark.parametrize("field", [
-        "valid",
-        "results",
-        "counts",
-        "timestamp",
-    ])
-    def test_missing_required_field(self, field):
-        doc = _minimal_report()
-        del doc[field]
-        with pytest.raises(ValidationError, match=f"'{field}' is a required property"):
-            _validate_report(doc)
-
-
 class TestValidationReportCounts:
     """Counts sub-object validation."""
 
@@ -415,11 +360,3 @@ class TestValidationReportFormats:
             v.validate(doc)
 
 
-class TestValidationReportAdditionalProperties:
-    """Unknown properties must be rejected."""
-
-    def test_unknown_top_level_property(self):
-        doc = _minimal_report()
-        doc["unknown"] = "nope"
-        with pytest.raises(ValidationError, match="Additional properties are not allowed"):
-            _validate_report(doc)

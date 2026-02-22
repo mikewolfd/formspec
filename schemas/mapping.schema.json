@@ -15,12 +15,13 @@
     },
     "version": {
       "type": "string",
-      "minLength": 1,
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
       "description": "Semantic version of this Mapping Document (e.g. '1.0.0')."
     },
     "definitionRef": {
       "type": "string",
       "minLength": 1,
+      "format": "uri",
       "description": "URI or stable identifier of the target Formspec Definition (§3.1)."
     },
     "definitionVersion": {
@@ -45,6 +46,11 @@
       "type": "boolean",
       "default": false,
       "description": "When true, fields not mentioned in rules are mapped by matching path using 'preserve' (§3.5)."
+    },
+    "conformanceLevel": {
+      "type": "string",
+      "enum": ["core", "bidirectional", "extended"],
+      "description": "Declares the conformance level of this mapping document (§2.1)."
     },
     "rules": {
       "type": "array",

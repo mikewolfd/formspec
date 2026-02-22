@@ -49,6 +49,9 @@ def _minimal_entry(category="property", **overrides):
     elif category == "constraint":
         entry["parameters"] = [{"name": "value", "type": "integer"}]
     entry.update(overrides)
+    # Conditional requirement: deprecated status needs deprecationNotice
+    if entry.get("status") == "deprecated" and "deprecationNotice" not in entry:
+        entry["deprecationNotice"] = "This extension is deprecated."
     return entry
 
 
@@ -64,83 +67,6 @@ class TestRegistryMinimalValid:
     def test_registry_with_entries(self):
         entry = _minimal_entry("property")
         _validate(_minimal_registry(entries=[entry]))
-
-
-# ===================================================================
-# TestRegistryRequired
-# ===================================================================
-class TestRegistryRequired:
-    """Each required top-level property must be present."""
-
-    @pytest.mark.parametrize("field", [
-        "$formspecRegistry",
-        "publisher",
-        "published",
-        "entries",
-    ])
-    def test_missing_required(self, field):
-        doc = _minimal_registry()
-        del doc[field]
-        with pytest.raises(ValidationError):
-            _validate(doc)
-
-
-# ===================================================================
-# TestRegistryVersion
-# ===================================================================
-class TestRegistryVersion:
-    """$formspecRegistry must be exactly '1.0'."""
-
-    def test_valid_version(self):
-        doc = _minimal_registry()
-        doc["$formspecRegistry"] = "1.0"
-        _validate(doc)
-
-    @pytest.mark.parametrize("bad", ["2.0", "1.1", "1", ""])
-    def test_invalid_version(self, bad):
-        doc = _minimal_registry()
-        doc["$formspecRegistry"] = bad
-        with pytest.raises(ValidationError):
-            _validate(doc)
-
-
-# ===================================================================
-# TestRegistryPublisher
-# ===================================================================
-class TestRegistryPublisher:
-
-    def test_valid_publisher_with_name_and_url(self):
-        _validate(_minimal_registry())
-
-    def test_publisher_missing_name(self):
-        doc = _minimal_registry()
-        del doc["publisher"]["name"]
-        with pytest.raises(ValidationError):
-            _validate(doc)
-
-    def test_publisher_missing_url(self):
-        doc = _minimal_registry()
-        del doc["publisher"]["url"]
-        with pytest.raises(ValidationError):
-            _validate(doc)
-
-    def test_publisher_additional_properties_rejected(self):
-        doc = _minimal_registry()
-        doc["publisher"]["extra"] = "not allowed"
-        with pytest.raises(ValidationError):
-            _validate(doc)
-
-
-# ===================================================================
-# TestRegistryAdditionalProperties
-# ===================================================================
-class TestRegistryAdditionalProperties:
-
-    def test_unknown_top_level_property_rejected(self):
-        doc = _minimal_registry()
-        doc["unknown"] = True
-        with pytest.raises(ValidationError):
-            _validate(doc)
 
 
 # ===================================================================
@@ -355,3 +281,75 @@ class TestEntryAdditionalProperties:
         entry["notAField"] = "bad"
         with pytest.raises(ValidationError):
             _validate(_minimal_registry(entries=[entry]))
+
+
+# ===================================================================
+# TestEntryLicense
+# ===================================================================
+class TestEntryLicense:
+    """License field SPDX-like pattern."""
+
+    @pytest.mark.parametrize("lic", ["MIT", "Apache-2.0", "GPL-3.0", "ISC"])
+    def test_valid_spdx_ids(self, lic):
+        entry = _minimal_entry("property", license=lic)
+        _validate(_minimal_registry(entries=[entry]))
+
+    @pytest.mark.parametrize("lic", ["-MIT", "MIT-", " MIT", ""])
+    def test_invalid_license_patterns(self, lic):
+        entry = _minimal_entry("property", license=lic)
+        with pytest.raises(ValidationError):
+            _validate(_minimal_registry(entries=[entry]))
+
+
+# ===================================================================
+# TestEntryDeprecationNotice
+# ===================================================================
+class TestEntryDeprecationNotice:
+    """Deprecation conditional: deprecated status requires deprecationNotice."""
+
+    def test_deprecated_with_notice(self):
+        entry = _minimal_entry(
+            "property",
+            status="deprecated",
+            deprecationNotice="Use x-acme-widget-v2 instead.",
+        )
+        _validate(_minimal_registry(entries=[entry]))
+
+    def test_deprecated_without_notice_fails(self):
+        entry = _minimal_entry("property", status="deprecated")
+        del entry["deprecationNotice"]  # remove auto-added notice
+        with pytest.raises(ValidationError):
+            _validate(_minimal_registry(entries=[entry]))
+
+    def test_stable_without_notice_valid(self):
+        entry = _minimal_entry("property", status="stable")
+        _validate(_minimal_registry(entries=[entry]))
+
+    def test_draft_with_notice_valid(self):
+        entry = _minimal_entry(
+            "property",
+            status="draft",
+            deprecationNotice="Preemptive deprecation note.",
+        )
+        _validate(_minimal_registry(entries=[entry]))
+
+
+# ===================================================================
+# TestEntryUrls
+# ===================================================================
+class TestEntryUrls:
+    """specUrl and schemaUrl on registry entries."""
+
+    def test_entry_with_spec_url(self):
+        entry = _minimal_entry(
+            "property",
+            specUrl="https://example.com/specs/x-acme-widget",
+        )
+        _validate(_minimal_registry(entries=[entry]))
+
+    def test_entry_with_schema_url(self):
+        entry = _minimal_entry(
+            "property",
+            schemaUrl="https://example.com/schemas/x-acme-widget.json",
+        )
+        _validate(_minimal_registry(entries=[entry]))

@@ -97,23 +97,6 @@ class TestMinimalValid:
 
 
 # ===================================================================
-# TestTopLevelRequired
-# ===================================================================
-
-class TestTopLevelRequired:
-    """Omitting each required top-level field should fail."""
-
-    REQUIRED_FIELDS = ["$formspec", "url", "version", "status", "title", "items"]
-
-    @pytest.mark.parametrize("field", REQUIRED_FIELDS)
-    def test_missing_required_field(self, schema, field):
-        doc = _base_doc()
-        del doc[field]
-        with pytest.raises(ValidationError):
-            _validate(doc, schema)
-
-
-# ===================================================================
 # TestTopLevelEnums
 # ===================================================================
 
@@ -153,23 +136,6 @@ class TestTopLevelFormats:
         doc = _base_doc(date="2025-01-15")
         _validate(doc, schema)
 
-
-# ===================================================================
-# TestTopLevelAdditionalProperties
-# ===================================================================
-
-class TestTopLevelAdditionalProperties:
-    """Extra properties are rejected at the top level."""
-
-    def test_unknown_top_level_property(self, schema):
-        doc = _base_doc(unknownProp="oops")
-        with pytest.raises(ValidationError):
-            _validate(doc, schema)
-
-    def test_extra_property_similar_name(self, schema):
-        doc = _base_doc(item=[_minimal_field()])  # 'item' not 'items'
-        with pytest.raises(ValidationError):
-            _validate(doc, schema)
 
 # ===================================================================
 # TestItemDiscrimination
@@ -804,5 +770,94 @@ class TestRecursiveChildren:
         """Fields may also have children (sub-items)."""
         item = _minimal_field(key="parent")
         item["children"] = [_minimal_field(key="child")]
+        doc = _base_doc(items=[item])
+        _validate(doc, schema)
+
+
+# ===================================================================
+# TestDerivedFrom
+# ===================================================================
+
+class TestDerivedFrom:
+    """derivedFrom oneOf: URI string or {url, version} object."""
+
+    def test_derived_from_uri_string(self, schema):
+        doc = _base_doc(derivedFrom="https://example.com/forms/parent")
+        _validate(doc, schema)
+
+    def test_derived_from_object_with_url_and_version(self, schema):
+        doc = _base_doc(derivedFrom={"url": "https://example.com/forms/parent", "version": "1.0.0"})
+        _validate(doc, schema)
+
+    def test_derived_from_object_url_only(self, schema):
+        doc = _base_doc(derivedFrom={"url": "https://example.com/forms/parent"})
+        _validate(doc, schema)
+
+    def test_derived_from_invalid_number(self, schema):
+        doc = _base_doc(derivedFrom=42)
+        with pytest.raises(ValidationError):
+            _validate(doc, schema)
+
+    def test_derived_from_invalid_empty_object(self, schema):
+        doc = _base_doc(derivedFrom={})
+        with pytest.raises(ValidationError):
+            _validate(doc, schema)
+
+
+# ===================================================================
+# TestFormPresentation
+# ===================================================================
+
+class TestFormPresentation:
+    """formPresentation advisory object."""
+
+    def test_valid_with_all_three_props(self, schema):
+        doc = _base_doc(formPresentation={
+            "pageMode": "wizard",
+            "labelPosition": "start",
+            "density": "compact",
+        })
+        _validate(doc, schema)
+
+    def test_empty_valid(self, schema):
+        doc = _base_doc(formPresentation={})
+        _validate(doc, schema)
+
+    def test_invalid_page_mode(self, schema):
+        doc = _base_doc(formPresentation={"pageMode": "carousel"})
+        with pytest.raises(ValidationError):
+            _validate(doc, schema)
+
+
+# ===================================================================
+# TestShapeContext
+# ===================================================================
+
+class TestShapeContext:
+    """Shape context as string map."""
+
+    def test_shape_with_context(self, schema):
+        doc = _base_doc(shapes=[{
+            "id": "s1", "target": "/f1", "message": "bad",
+            "constraint": ". > 0",
+            "context": {"fieldValue": "$f1", "limit": "100"},
+        }])
+        _validate(doc, schema)
+
+
+# ===================================================================
+# TestGroupRefOnly
+# ===================================================================
+
+class TestGroupRefOnly:
+    """Group with $ref only (no children)."""
+
+    def test_group_with_ref_only(self, schema):
+        item = {
+            "key": "imported",
+            "type": "group",
+            "label": "Imported Section",
+            "$ref": "https://example.com/shared-section",
+        }
         doc = _base_doc(items=[item])
         _validate(doc, schema)

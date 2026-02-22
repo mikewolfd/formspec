@@ -294,7 +294,7 @@ An **Item** is a node in the Definition’s structural tree. Every Item MUST hav
 a `key` property — a stable, machine-readable identifier that is unique among
 its siblings. The `key` is used in Instance paths, Bind targets, Shape targets,
 and FEL field references. A `key` MUST match the regular expression
-`^[a-zA-Z_][a-zA-Z0-9_]*$`.
+`^[a-zA-Z][a-zA-Z0-9_]*$`.
 
 An Item MUST have a `type` property with one of three values:
 

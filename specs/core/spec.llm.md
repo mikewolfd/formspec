@@ -51,7 +51,7 @@ A JSON object mirroring the item tree, containing current field values. Rules:
 Supports multiple named instances: `$primary` (default, mutable) and user-defined secondary instances (read-only reference data).
 
 ### 3. Item
-A node in the definition's structural tree. Every item has a `key` (unique among siblings, matches `^[a-zA-Z_][a-zA-Z0-9_]*$`) and a `type`:
+A node in the definition's structural tree. Every item has a `key` (unique among siblings, matches `^[a-zA-Z][a-zA-Z0-9_]*$`) and a `type`:
 
 | Type | Purpose | Has value? | Has children? |
 |------|---------|-----------|--------------|

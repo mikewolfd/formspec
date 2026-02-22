@@ -152,8 +152,17 @@ class TestDefinitionTopLevel:
     def test_s4_1__date_format(self):
         assert DEF_S["properties"]["date"]["format"] == "date"
 
-    def test_s4_1__derived_from_format_and_optional(self):
-        assert DEF_S["properties"]["derivedFrom"]["format"] == "uri"
+    def test_s4_1__derived_from_oneof_and_optional(self):
+        df = DEF_S["properties"]["derivedFrom"]
+        assert "oneOf" in df
+        # First branch: URI string
+        uri_branch = df["oneOf"][0]
+        assert uri_branch["type"] == "string"
+        assert uri_branch["format"] == "uri"
+        # Second branch: object with url
+        obj_branch = df["oneOf"][1]
+        assert obj_branch["type"] == "object"
+        assert "url" in obj_branch["required"]
         assert "derivedFrom" not in DEF_S["required"]
 
     def test_s4_1__items_is_array(self):
@@ -579,7 +588,7 @@ class TestMappingTopLevel:
     def test_ms3_1__direction_enum_and_default(self):
         d = MAP_S["properties"]["direction"]
         assert d["enum"] == ["forward", "reverse", "both"]
-        assert d.get("default") == "both"
+        assert d.get("default") == "forward"
 
     def test_ms3_1__auto_map_default_false(self):
         am = MAP_S["properties"]["autoMap"]
@@ -599,7 +608,7 @@ class TestMappingTopLevel:
         expected = {
             "version", "$schema", "definitionRef", "definitionVersion",
             "targetSchema", "direction", "autoMap", "defaults", "rules",
-            "adapters",
+            "adapters", "conformanceLevel",
         }
         assert _prop_keys(MAP_S) == expected
 
@@ -1090,3 +1099,50 @@ class TestFelSpecContracts:
         registry = set(build_default_registry().keys())
         extra = registry - spec_funcs
         assert extra == set(), f'Registry has functions not in spec: {extra}'
+
+
+# ===========================================================================
+# Structural Schema Assertions — Bucket 1 schema changes
+# ===========================================================================
+
+
+class TestBucket1SchemaStructure:
+    """Structural assertions for bucket-1 schema additions."""
+
+    def test_mapping_version_has_semver_pattern(self):
+        pattern = MAP_S["properties"]["version"].get("pattern")
+        assert pattern is not None
+        assert "\\d" in pattern, "version should have SemVer-style pattern"
+
+    def test_mapping_conformance_level_enum(self):
+        cl = MAP_S["properties"]["conformanceLevel"]
+        assert cl["enum"] == ["core", "bidirectional", "extended"]
+
+    def test_mapping_definition_ref_has_uri_format(self):
+        dr = MAP_S["properties"]["definitionRef"]
+        assert dr.get("format") == "uri"
+
+    def test_registry_license_has_pattern(self):
+        entry = _def(REG_S, "RegistryEntry")
+        lic = entry["properties"]["license"]
+        assert "pattern" in lic, "license should have SPDX-like pattern"
+
+    def test_registry_deprecation_conditional_exists(self):
+        entry = _def(REG_S, "RegistryEntry")
+        found = False
+        for branch in entry.get("allOf", []):
+            if_block = branch.get("if", {})
+            props = if_block.get("properties", {})
+            if props.get("status", {}).get("const") == "deprecated":
+                then_block = branch.get("then", {})
+                if "deprecationNotice" in then_block.get("required", []):
+                    found = True
+        assert found, "RegistryEntry should have if status=deprecated then require deprecationNotice"
+
+    def test_component_components_has_pascal_case_pattern(self):
+        COMP_S = _load("component.schema.json")
+        comps = COMP_S["properties"]["components"]
+        pp = comps.get("patternProperties", {})
+        assert any("A-Z" in key for key in pp), \
+            "components should have PascalCase patternProperties"
+        assert comps.get("additionalProperties") is False

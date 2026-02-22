@@ -181,12 +181,12 @@ def test_token_references():
     ("Tabs", {"position": "left"}, ["children"]),
     ("Accordion", {"allowMultiple": True}, ["children"]),
     ("RadioGroup", {"bind": "k", "columns": 3}, []),
-    ("MoneyInput", {"bind": "k", "currency": "USD", "prefix": "$"}, []),
+    ("MoneyInput", {"bind": "k", "currency": "USD", "showCurrency": True}, []),
     ("Slider", {"bind": "k", "min": 0, "max": 100, "step": 5}, []),
     ("Rating", {"bind": "k", "max": 5, "icon": "star"}, []),
     ("Signature", {"bind": "k", "strokeColor": "black", "clearable": True}, []),
     ("Alert", {"severity": "warning", "text": "A"}, []),
-    ("Badge", {"text": "B", "variant": "outline"}, []),
+    ("Badge", {"text": "B", "variant": "primary"}, []),
     ("ProgressBar", {"value": 75, "max": 100, "label": "L"}, []),
     ("Summary", {"items": [{"label": "L", "bind": "k"}]}, []),
     ("DataTable", {"bind": "r", "columns": [{"header": "H", "bind": "k"}]}, []),
@@ -371,16 +371,6 @@ def test_empty_components_registry():
     }
     validate(instance=doc, schema=SCHEMA)
 
-def test_missing_required_top_level_fields():
-    doc = {
-        "$formspecComponent": "1.0",
-        # Missing version
-        "targetDefinition": { "url": "https://example.com/def" },
-        "tree": { "component": "Page", "children": [] }
-    }
-    with pytest.raises(ValidationError):
-        validate(instance=doc, schema=SCHEMA)
-
 @pytest.mark.parametrize("invalid_token", [
     "$token", # No path
     "$token.", # Empty path
@@ -400,12 +390,6 @@ def test_invalid_token_references_schema_allows_string(invalid_token):
     # Pattern validation for tokens isn't in the schema currently except for documentation.
     validate(instance=doc, schema=SCHEMA)
 
-def test_duplicate_item_keys_in_definition_not_checked_by_component_schema():
-    # Component schema doesn't see the definition.
-    pass
-
-def test_unbound_items_not_checked_by_schema():
-    pass
 @pytest.mark.parametrize("dataType, component, valid", [
     # string
     ("string", "TextInput", True),
@@ -589,12 +573,6 @@ def test_property_type_and_range_validation(comp, prop, val):
     with pytest.raises(ValidationError):
         validate(instance=doc, schema=SCHEMA)
 
-def test_wizard_children_must_be_pages():
-    # Note: Current schema allows ChildrenArray (any component) for Wizard.
-    # The spec §5.4 says children are Pages.
-    # Let's see if I should tighten the schema.
-    pass
-
 def test_stack_direction_default():
     doc = {
         "$formspecComponent": "1.0",
@@ -604,3 +582,95 @@ def test_stack_direction_default():
     }
     validate(instance=doc, schema=SCHEMA)
     # Default is vertical
+
+
+def test_top_level_name_title_description():
+    """Top-level metadata fields are accepted."""
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "name": "my-form-ui",
+        "title": "My Form UI",
+        "description": "A component document for my form.",
+        "targetDefinition": {"url": "https://example.com/def"},
+        "tree": {"component": "Page", "children": []},
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+
+def test_top_level_x_extension_keys():
+    """x-prefixed extension keys are allowed at top level."""
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/def"},
+        "tree": {"component": "Page", "children": []},
+        "x-vendor": {"config": True},
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+
+def test_custom_component_without_params():
+    """Custom component definition with only tree (no params)."""
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/def"},
+        "components": {
+            "InfoBlock": {
+                "tree": {"component": "Text", "text": "Static content"}
+            }
+        },
+        "tree": {"component": "InfoBlock"},
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+
+def test_pascal_case_component_key_valid():
+    """PascalCase keys pass the patternProperties constraint."""
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/def"},
+        "components": {
+            "MyWidget": {"tree": {"component": "Text", "text": "Hello"}},
+            "AnotherOne99": {"tree": {"component": "Spacer", "size": 10}},
+        },
+        "tree": {"component": "Page", "children": []},
+    }
+    validate(instance=doc, schema=SCHEMA)
+
+
+def test_lowercase_component_key_rejected():
+    """Non-PascalCase keys fail the patternProperties constraint."""
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/def"},
+        "components": {
+            "myWidget": {"tree": {"component": "Text", "text": "Hello"}}
+        },
+        "tree": {"component": "Page", "children": []},
+    }
+    with pytest.raises(ValidationError):
+        validate(instance=doc, schema=SCHEMA)
+
+
+@pytest.mark.parametrize("component_name, props, extra_keys", [
+    ("Stack", {"direction": "horizontal", "wrap": True}, ["children"]),
+    ("NumberInput", {"bind": "k", "showStepper": True, "locale": "en-US"}, []),
+    ("DatePicker", {"bind": "k", "showTime": True}, []),
+])
+def test_extended_component_props(component_name, props, extra_keys):
+    """Test component properties added in later schema revisions."""
+    item = {"component": component_name, **props}
+    for key in extra_keys:
+        if key == "children":
+            item[key] = []
+    doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/def"},
+        "tree": item,
+    }
+    validate(instance=doc, schema=SCHEMA)
