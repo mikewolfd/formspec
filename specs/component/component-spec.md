@@ -1,7 +1,6 @@
 # Formspec Component Specification v1.0
 
 ## Status of This Document
-<!-- llm:omit -->
 
 This document is a **Draft** companion specification to the
 [Formspec v1.0 Core Specification](spec.md). It defines the Formspec Component
@@ -18,7 +17,6 @@ Specification v1.0 (theme-spec.md), FEL Normative Grammar v1.0
 ---
 
 ## Conventions and Terminology
-<!-- llm:omit -->
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
 "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
@@ -37,7 +35,6 @@ Section references (§N) refer to this document unless prefixed with
 ---
 
 ## Table of Contents
-<!-- llm:omit -->
 
 - [§1 Introduction](#1-introduction)
   - [§1.1 Purpose and Scope](#11-purpose-and-scope)
@@ -105,7 +102,6 @@ Section references (§N) refer to this document unless prefixed with
 ---
 
 ## 1. Introduction
-<!-- llm:omit -->
 
 ### 1.1 Purpose and Scope
 
@@ -226,10 +222,7 @@ Component Document that omits a REQUIRED property.
   },
   "tokens": {},
   "components": {},
-  "tree": {
-    "component": "Page",
-    "children": []
-  }
+  "tree": {}
 }
 ```
 
@@ -371,7 +364,7 @@ object is the **root** of the component tree.
 To present multiple components at the top level, authors MUST wrap them
 in a layout component (typically `Stack` or `Page`):
 
-```jsonc
+```json
 // ✗ INVALID — tree cannot be an array
 "tree": [
   { "component": "TextInput", "bind": "name" },
@@ -453,7 +446,7 @@ of an item in the target Definition. It is NOT a dotted path, JSON
 Pointer, or FEL expression — it is a flat key that matches an item's
 `key` property exactly.
 
-```jsonc
+```json
 // Definition item:
 { "key": "projectName", "type": "field", "dataType": "string" }
 
@@ -505,7 +498,7 @@ also rendering an input elsewhere.
 
 Example:
 
-```jsonc
+```json
 // ✓ VALID — one input + one display for same key
 { "component": "NumberInput", "bind": "totalBudget" }
 // ... elsewhere in the tree:
@@ -1230,7 +1223,7 @@ absent, displays the static `text` prop.
 
 #### Example
 
-```jsonc
+```json
 // Static text
 { "component": "Text", "text": "Please review before submitting.", "format": "markdown" }
 
@@ -2923,7 +2916,6 @@ unsupported MUST NOT cause a processing failure.
 ---
 
 ## Appendix A: Full Example — Budget Wizard
-<!-- llm:omit -->
 
 This appendix is **informative**.
 

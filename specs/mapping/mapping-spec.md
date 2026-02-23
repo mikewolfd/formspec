@@ -8,7 +8,6 @@
 ---
 
 ## Abstract
-<!-- llm:omit -->
 
 The Formspec Mapping DSL is a companion specification to Formspec v1.0 that
 defines a declarative, JSON-native language for expressing bidirectional data
@@ -23,7 +22,6 @@ computed transforms and generalizes the version-migration `fieldMap` already
 present in §6.7 of the core specification.
 
 ## Status of This Document
-<!-- llm:omit -->
 
 This document is a **draft specification**. It is a companion to the Formspec
 v1.0 core specification and does not modify or extend that specification.
@@ -50,69 +48,7 @@ redefined.
 
 ---
 
-## Quick Reference
-
-This section summarizes high-value normative rules across §§3–7 for fast
-implementation and review.
-
-### Core Model
-
-- A Mapping Document defines bidirectional transforms between Formspec
-  Response JSON and an external schema.
-- A Field Rule is the atomic unit: it connects `sourcePath` and `targetPath`
-  with a `transform`, plus optional control fields (`condition`, `default`,
-  `priority`, `array`, `reverse`, `bidirectional`).
-- Forward direction is Response -> external. Reverse direction is external ->
-  Response.
-- Adapters handle serialization/deserialization for JSON, XML, CSV, or `x-`
-  custom formats.
-
-### Conformance Snapshot
-
-- Mapping Core: schema-valid document parsing, forward mapping, full FEL,
-  all transform types, diagnostics.
-- Mapping Bidirectional: reverse execution + round-trip guarantees for covered,
-  reversible rules.
-- Mapping Extended: XML and CSV adapters with format-specific config.
-
-### Mapping Document Essentials (§3)
-
-- Required top-level fields: `version`, `definitionRef`, `definitionVersion`,
-  `targetSchema`, `rules`.
-- `direction` defaults to `"forward"`.
-- `autoMap: true` synthesizes preserve rules for uncovered paths (lowest
-  effective precedence).
-- Rule evaluation order is by descending `priority`, then document order.
-
-### Transform Essentials (§4)
-
-- Built-in transform types: `preserve`, `drop`, `expression`, `coerce`,
-  `valueMap`, `flatten`, `nest`, `constant`, `concat`, `split`.
-- `expression`, `constant`, and conditional logic are FEL-based.
-- `valueMap` reversibility depends on bijection (or explicit reverse mapping).
-- `coerce` reversibility depends on lossless type pairs.
-- `flatten` and `nest` are inverse structural transforms when configured
-  compatibly.
-
-### Bidirectional Guardrails (§5)
-
-- Rules are bidirectional by default unless `bidirectional: false`.
-- Lossy rules MUST provide explicit reverse behavior or opt out of reverse.
-- Reverse conflicts are deterministic via precedence/order rules.
-- Round-trip fidelity is required only for reversible, covered fields.
-
-### Adapter and Runtime Rules (§§6–7)
-
-- JSON adapter is baseline identity mapping with optional formatting options.
-- XML adapter requires namespace/attribute rules and schema-aware path mapping.
-- CSV adapter requires flat column targets and explicit repeat flattening.
-- Processing pipeline: validate -> resolve direction -> apply defaults ->
-  synthesize autoMap rules -> sort -> execute -> serialize.
-- Error classes include validation, path resolution, transform, and adapter
-  failures.
-
 ## 1. Introduction
-<!-- llm:omit -->
 
 ### 1.1 Purpose
 
@@ -342,7 +278,6 @@ conventions:
 ---
 
 ## 2. Conceptual Model
-<!-- llm:omit -->
 
 ### 2.1 Overview
 
@@ -1852,7 +1787,6 @@ is similarly idempotent over the same external input.
 ---
 
 ## 8. Examples
-<!-- llm:omit -->
 
 ### 8.1 Grant Application to Federal API
 

@@ -5,7 +5,6 @@
 ---
 
 ## 1. Introduction
-<!-- llm:omit -->
 
 A **Changelog Document** is a JSON document that enumerates the differences
 between two versions of a Formspec Definition. It supports:
@@ -16,46 +15,6 @@ between two versions of a Formspec Definition. It supports:
 
 Terminology and Definition structure (items, binds, shapes, etc.) follow Formspec v1.0.
 Semver semantics follow §6.2; migration objects follow §6.7.
-
-## Quick Reference
-
-This section is a compact checklist of the normative requirements in §§2–7.
-
-### Document schema requirements (§2)
-
-- A changelog document is a top-level JSON object.
-- Required fields: `definitionUrl`, `fromVersion`, `toVersion`, `semverImpact`, `changes`.
-- `changes` is an ordered array of Change objects (§3).
-- `semverImpact` MUST equal the maximum impact in `changes`:
-  - breaking -> major
-  - compatible -> minor
-  - cosmetic -> patch
-- `$schema` and `generatedAt` are RECOMMENDED; `summary` is OPTIONAL.
-
-### Change object requirements (§3)
-
-- Required properties: `type`, `target`, `path`, `impact`.
-- `type` MUST be one of: `"added"`, `"removed"`, `"modified"`, `"moved"`, `"renamed"`.
-- `target` MUST be one of: `"item"`, `"bind"`, `"shape"`, `"optionSet"`, `"dataSource"`, `"screener"`, `"migration"`, `"metadata"`.
-- `impact` MUST be one of: `"breaking"`, `"compatible"`, `"cosmetic"`.
-- `migrationHint` MAY be a FEL expression, `"drop"`, or `"preserve"`.
-
-### Impact classification essentials (§4)
-
-- Breaking: removals, key renames, structural/type-hardening changes that can invalidate stored responses.
-- Compatible: additive or relaxed changes that preserve existing response validity.
-- Cosmetic: presentation-only or wording-only changes.
-
-### Generator requirements (§5)
-
-- Conformant generators MUST: load both versions, index by stable identifiers, detect removals/additions/modifications/renames/moves, and compute `semverImpact` from max impact.
-- The same detection pattern MUST be applied to `binds`, `shapes`, `optionSets`, `dataSources`, and `screeners`.
-
-### Migration linkage (§6.7 relationship)
-
-- Breaking changes with `migrationHint` can be converted into migration `fieldMap` entries.
-- `"drop"` means no `fieldMap` entry; expression-based hints map to concrete output keys.
-- Auto-generated migrations are advisory and SHOULD be reviewed before deployment.
 
 ## 2. Changelog Document Schema
 
@@ -76,7 +35,6 @@ A Changelog Document is a JSON object at the top level.
 (breaking → major, compatible → minor, cosmetic → patch).
 
 ### 2.1 Example
-<!-- llm:omit -->
 
 ```json
 {
@@ -128,7 +86,6 @@ Each Change describes a single atomic modification to a Definition element.
 | `migrationHint` | string | OPTIONAL | Suggested transform: a FEL expression, `"drop"`, or `"preserve"`. See §6. |
 
 ### 3.1 Change Type Examples
-<!-- llm:omit -->
 
 **added** — a new item, bind, shape, or other element.
 
