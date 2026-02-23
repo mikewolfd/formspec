@@ -46,7 +46,7 @@ Every domain schema may include:
 ### 2. Markdown Policy
 1. `spec.md` contains full normative text and remains human-readable.
 2. `<spec-file>.bluf.md` stores the bottom-line-up-front summary per spec (for example `theme-spec.bluf.md`).
-3. `<spec-file>.llm.md` is generated and intentionally short: BLUF + critical schema tables + minimum semantics.
+3. `<spec-file>.llm.md` is generated and concise, but MUST satisfy the LLM minimum content contract (defined below).
 
 ## Composition Contract
 
@@ -74,6 +74,21 @@ Generator behavior:
 2. Render deterministic markdown tables.
 3. Include pointer links in each generated row.
 
+## Structural Cutover Policy
+Where a schema-derived structural block exists, manual duplicate structural tables must be removed.
+1. Generated schema blocks are the only structural source in those sections.
+2. Hand-authored text in those sections should cover only semantics the schema cannot encode.
+3. Reintroducing manual structural duplicates is not allowed.
+
+## LLM Minimum Content Contract
+Generated `<spec-file>.llm.md` files must include, at minimum:
+1. BLUF section.
+2. Critical schema fields table.
+3. Behavioral essentials (3-8 bullets covering non-schema semantics such as processing, direction/cascade behavior, and error behavior).
+4. Conformance essentials (required capabilities and major prohibitions).
+
+This contract prevents over-compression while keeping LLM references short.
+
 ## JSON Pointer Linking Policy
 Pointers are mandatory in generated content and selective in hand-authored prose:
 1. Generated docs must have 100% pointer coverage for structural critical nodes:
@@ -85,6 +100,25 @@ Pointers are mandatory in generated content and selective in hand-authored prose
    - nodes marked `x-lm.critical=true`
 2. Hand-authored narrative sections should link at section scope, not sentence scope.
 3. Pointer resolution failures are build-breaking.
+
+## Generated Output Readability Policy
+Generated tables should remain readable for humans:
+1. Regex and pattern notes should render cleanly in markdown (prefer backticked literals).
+2. Notes columns should avoid unnecessary escaping noise.
+3. Pointer links remain mandatory even when display text is simplified.
+
+## Migration Checklist (Per Spec)
+Each spec migration to this workflow must complete all steps:
+1. Add `<spec-file>.bluf.md`.
+2. Add BLUF and schema-ref markers in canonical spec markdown.
+3. Remove duplicate hand-authored structural tables for covered sections.
+4. Run `docs:generate`.
+5. Run `docs:check`.
+6. Perform editorial review to confirm no semantic loss.
+
+## Exception Rule
+If generated sections are unreadable, fix generator formatting first.
+Do not reintroduce hand-authored duplicate structural tables as a workaround.
 
 ## Tooling and Commands
 Add/standardize scripts:
@@ -104,43 +138,54 @@ CI must fail on only these gates:
    - for every node with `x-lm.critical=true`, require `description` and `examples` with at least one item.
 4. Cross-spec contract gate (`tests/test_cross_spec_contracts.py` must pass).
 
+Gate scope is phase-based:
+1. In each rollout phase, all schemas in that phase must be covered by these gates.
+2. Schemas outside the active phase may remain warning-only until added to config.
+
 ## Rollout Plan
 
-### Phase 1: Pilot
+### Phase 1: Pilot Hardening
 Apply to:
-1. `schemas/response.schema.json`
-2. `schemas/theme.schema.json`
-3. `schemas/mapping.schema.json`
+1. `schemas/theme.schema.json`
+2. `schemas/mapping.schema.json`
 
 Deliverables:
 1. `<spec-file>.bluf.md` files for pilot specs.
 2. Injected BLUF blocks and schema refs in canonical markdown.
-3. Generated compact `*.llm.md`.
+3. Duplicate manual structural tables removed from covered sections.
+4. Generated `*.llm.md` that satisfy the LLM minimum content contract.
+5. All Critical Gates enforced for phase schemas.
 
-### Phase 2: Core Expansion
+### Phase 2: Pilot Expansion
+Apply to:
+1. `schemas/response.schema.json`
+2. `schemas/validationReport.schema.json`
+
+### Phase 3: Core Expansion
 Apply to:
 1. `schemas/definition.schema.json`
 2. `schemas/registry.schema.json`
 3. `schemas/changelog.schema.json`
-4. `schemas/validationReport.schema.json`
 
-### Phase 3: Component Expansion
+### Phase 4: Component Expansion
 Before enabling full generation for components:
 1. Raise annotation depth in `schemas/component.schema.json`.
 2. Mark critical nodes with `x-lm.critical`.
 3. Enable full pointer-linked generated refs.
 
-### Phase 4: Enforcement Tightening
+### Phase 5: Enforcement Tightening
 1. Move all checks to hard CI failures.
 2. Add contributor guidance in `CLAUDE.md`:
    - edit schemas for structural truth
    - do not hand-edit generated blocks/files
 
 ## Acceptance Criteria
-1. Structural tables in specs are generated from schema, not hand-maintained.
+1. For migrated sections, structural tables in specs are generated from schema and duplicate manual structural tables are removed.
 2. One rich schema exists per domain (no duplicate lean schema).
-3. All four Critical Gates are implemented and enforced as hard failures.
-4. At least one full pilot spec passes editorial review for readability and no normative loss.
+3. All four Critical Gates are implemented and enforced for every schema in the active rollout phase.
+4. Generated `*.llm.md` satisfy the LLM minimum content contract.
+5. Generated table formatting meets readability policy.
+6. At least one full pilot spec passes editorial review for readability and no normative loss.
 
 ## Risks and Mitigations
 1. Risk: schema bloat harms readability.

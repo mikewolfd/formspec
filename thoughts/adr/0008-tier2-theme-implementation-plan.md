@@ -1,6 +1,7 @@
-# Tier 2 Implementation Plan: Sidecar Theme Document (Approach B)
+# ADR 0008: Tier 2 Implementation Plan — Sidecar Theme Document
 
-**Status:** Planning  
+## Status
+Implemented — with deliberate simplifications (see `specs/theme/theme-spec.md`)
 **Date:** 2025-01-25  
 **Depends on:** Tier 1 (presentation hints) being finalized in `spec.md`
 

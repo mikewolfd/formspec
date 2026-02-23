@@ -1,6 +1,7 @@
-# Tier 3 Revised Plan: Component Model with Slots
+# ADR 0010: Tier 3 Revised Plan — Component Model with Slots
 
-**Status:** Final draft — ready to execute
+## Status
+Implemented — spec-schema drift on `accessibility` base property (see THOUGHTS.md)
 **Approach:** New companion spec `component-spec.md` + `component.schema.json`
 **Pattern:** Follows `mapping-spec.md` and `theme-spec.md` companion-spec precedent
 **Depends on:** Tier 1 (COMPLETE, 111 tests), Tier 2 (COMPLETE, 171 tests), 1,559 total passing

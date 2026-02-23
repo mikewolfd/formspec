@@ -1,6 +1,7 @@
-# JSON Schema Review — definition.schema.json & response.schema.json
+# ADR 0012: JSON Schema Review — definition.schema.json & response.schema.json
 
-**Date:** 2025-07-11  
+## Status
+Implemented — 3 spec example fixes remain in spec-part3.md (choices/targets/boolean binds)
 **Method:** Full spec read via 8 parallel agents (§1–§9), cross-referenced against both schemas.  
 **Source of truth priority:** §4 (Definition Schema) > §5 (Validation) > §2 (Conceptual Model) > §7 (Examples)
 

@@ -1,6 +1,7 @@
-# Tier 1 Revised Plan: Presentation Hints
+# ADR 0006: Tier 1 Revised Plan — Presentation Hints
 
-**Status:** Revised after dual review — ready to execute
+## Status
+Implemented
 **Approach:** Amend core spec (`spec.md` + `definition.schema.json`)
 
 ---

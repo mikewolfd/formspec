@@ -1,6 +1,7 @@
-# Approach C: Component Model with Slots
+# ADR 0004: Presentation Layer — Approach C (Component Model with Slots)
 
-**Formspec v1.0 — Presentation Layer Proposal**
+## Status
+Superseded — adopted as `specs/component/component-spec.md`
 
 ---
 

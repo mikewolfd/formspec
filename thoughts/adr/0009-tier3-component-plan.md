@@ -1,6 +1,7 @@
-# Tier 3 Implementation Plan — Component Model with Slots (Approach C)
+# ADR 0009: Tier 3 Implementation Plan — Component Model with Slots
 
-**Status:** Draft Plan  
+## Status
+Implemented — test coverage gap remains (~111 of ~450 planned tests)
 **Date:** 2025-01-27  
 **Depends on:** Tier 1 (presentation hints in spec.md), Tier 2 (theme-spec.md + theme.schema.json)
 

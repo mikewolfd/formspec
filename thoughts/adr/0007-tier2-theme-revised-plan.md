@@ -1,6 +1,7 @@
-# Tier 2 Revised Plan: Sidecar Theme Document
+# ADR 0007: Tier 2 Revised Plan — Sidecar Theme Document
 
-**Status:** Final draft — ready to execute
+## Status
+Implemented
 **Approach:** New companion spec `theme-spec.md` + `theme.schema.json`
 **Pattern:** Follows `mapping-spec.md` + `mapping.schema.json` companion-spec precedent
 **Depends on:** Tier 1 (presentation hints) — COMPLETE, merged, 1,358 tests passing

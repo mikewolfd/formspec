@@ -1,6 +1,7 @@
-# Formspec Feature Completedness: Spec vs Schema
+# ADR 0013: Spec vs Schema Audit
 
-> Generated 2026-02-22. Updated 2026-02-22 with resolution status for all 11 top issues.
+## Status
+Implemented — 200 FULL, 9 PARTIAL (accepted trade-offs), 3 MISSING (JSON Schema limitations)
 
 ---
 

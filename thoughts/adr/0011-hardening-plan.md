@@ -1,6 +1,7 @@
-# Formspec Hardening & Convergence Plan: Reaching "No Tech Debt"
+# ADR 0011: Hardening & Convergence Plan
 
-**Version**: 1.0
+## Status
+Partially Implemented — FEL AST and Component Registry done; PathResolver stub and innerHTML wipe remain
 **Status**: Draft
 **Objective**: Transition the Formspec Reference Implementation from a "Regex-driven Spike" to a "Specification-compliant Architecture."
 

@@ -1,6 +1,7 @@
-# Formspec v1.0 — Presentation Layer Proposal
+# ADR 0003: Presentation Layer — Approach B (Sidecar Theme Document)
 
-## Approach B: Sidecar Theme Document
+## Status
+Superseded — adopted as `specs/theme/theme-spec.md`
 
 **Status:** Draft · **Author:** Design Team · **Date:** 2025
 

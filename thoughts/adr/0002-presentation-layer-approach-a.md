@@ -1,6 +1,7 @@
-# Formspec v1.0 Presentation Layer — Approach A: "Presentation Hints"
+# ADR 0002: Presentation Layer — Approach A (Presentation Hints)
 
-**Status:** Proposal Draft  
+## Status
+Superseded — adopted as Tier 1 in `specs/core/spec.md` §4.2.5
 **Layer:** 3 (Presentation)  
 **Principle:** AD-02 — Separate structure from behavior from presentation.
 

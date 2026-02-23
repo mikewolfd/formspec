@@ -1,4 +1,7 @@
-# Formspec End-to-End Testing Plan
+# ADR 0015: End-to-End Testing Plan
+
+## Status
+Implemented — 4 missing FEL functions remain (countWhere, string, boolean, date casts)
 
 This document outlines the strategy for end-to-end (E2E) testing the Formspec standard.
 

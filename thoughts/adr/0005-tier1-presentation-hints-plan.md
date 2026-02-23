@@ -1,6 +1,7 @@
-# Implementation Plan: Tier 1 — Presentation Hints (Approach A)
+# ADR 0005: Tier 1 Implementation Plan — Presentation Hints
 
-**Status:** Planning  
+## Status
+Implemented
 **Created:** 2025-01-XX  
 **Scope:** Inline `presentation` on Items + `formPresentation` on Definition root  
 **Files modified:** `spec.md`, `definition.schema.json`, `index.html`, + new test files  
