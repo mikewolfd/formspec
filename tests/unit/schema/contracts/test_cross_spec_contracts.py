@@ -1177,3 +1177,23 @@ class TestBucket1SchemaStructure:
             props = COMP_S["$defs"][name]["properties"]
             assert "accessibility" in props, \
                 f"{name} should have accessibility property"
+
+    def test_component_base_properties_documented_in_spec(self):
+        """All schema-defined base properties must appear in the §3.1 table in component-spec.md."""
+        import re, pathlib
+        spec_path = pathlib.Path(__file__).parents[4] / "specs" / "component" / "component-spec.md"
+        spec_text = spec_path.read_text()
+
+        # Extract §3.1 table rows — backtick-quoted property names
+        table_props = set(re.findall(r"\| `(\w+)` \|", spec_text))
+
+        # Base properties that every component has in the schema (shared $defs used by all)
+        # These are the properties present in the base component schema aside from 'component' itself.
+        schema_base = {"component", "bind", "when", "responsive", "style", "cssClass",
+                       "children", "accessibility"}
+
+        missing = schema_base - table_props
+        assert not missing, (
+            f"component-spec.md §3.1 table is missing base properties: {sorted(missing)}. "
+            "Add them to the table in §3.1 to prevent schema/spec drift."
+        )

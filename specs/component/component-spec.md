@@ -347,6 +347,7 @@ are recognized on all component objects:
 | `responsive` | object | **0..1** (OPTIONAL) | Breakpoint-keyed prop overrides. See §9. |
 | `style` | object | **0..1** (OPTIONAL) | Flat style map. Values MAY contain `$token.path` references. See §10.2. |
 | `cssClass` | string \| array of strings | **0..1** (OPTIONAL) | CSS class name(s) that web renderers SHOULD apply to the component's root element. Additive to renderer-generated classes. Non-web renderers MAY ignore. Values MAY contain `$token.` references. |
+| `accessibility` | AccessibilityBlock | **0..1** (OPTIONAL) | Accessibility overrides applied to the component's root element. See §3.5. |
 | `children` | array | **0..1** (varies) | Array of child component objects. Only components that accept children (§3.4) MAY include this property. |
 
 In addition to these base properties, each component type defines its own
@@ -447,6 +448,24 @@ Rules:
 
 5. Nesting depth SHOULD NOT exceed 20 levels. Processors MAY reject
    documents exceeding this limit.
+
+---
+
+### 3.5 AccessibilityBlock
+
+The optional `accessibility` property on any component object is an
+**AccessibilityBlock** — a flat object that lets authors override or
+supplement the ARIA attributes applied to the component's root element.
+
+| Property | Type | Description |
+|---|---|---|
+| `role` | string | ARIA role override (e.g., `"region"`, `"group"`, `"status"`). Replaces any renderer-default role. |
+| `description` | string | Accessible description text. Renderers SHOULD wire this to `aria-describedby` (not `aria-description`, which is not a valid ARIA attribute). |
+| `liveRegion` | `"off"` \| `"polite"` \| `"assertive"` | Sets `aria-live` on the root element. Renderers MUST NOT apply `role="status"` or any live-region semantics unless this property is explicitly set. |
+
+Renderers MUST apply all present `AccessibilityBlock` properties to the
+component's root DOM element. If a property is absent, the renderer's
+default behaviour is preserved.
 
 ---
 
