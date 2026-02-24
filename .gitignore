@@ -12,3 +12,5 @@ project/
 .pytest_cache/
 .claude
 .serena/
+dist-playground/
+.playwright-mcp/
