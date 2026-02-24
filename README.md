@@ -1,120 +1,183 @@
-# Formspec v1.0
+# Formspec
 
-**A JSON-Native Declarative Form Standard**
+**A schema-driven declarative form framework built for structured-data workflows and LLM integration.**
 
-Formspec is a format-agnostic, JSON-native standard for declarative form definition and validation. It specifies how to describe form fields, computed values, validation rules, conditional logic, repeatable sections, versioning, and structured validation results — independent of any rendering technology, programming language, or data transport mechanism.
+Formspec is a JSON-native standard for defining forms, validation rules, computed values, conditional logic, and repeatable sections. It draws on ideas from W3C XForms (declarative binds and a model/view split), SHACL (shape-based validation graphs), HL7 FHIR Questionnaire (healthcare-grade form semantics), and JSON Forms (JSON Schema-driven UI generation) — distilled into a coherent, JSON-first design suitable for web, mobile, server-side, and offline implementations.
 
-## Overview
+Every artifact — definitions, responses, validation reports — is a JSON document backed by a JSON Schema, making Formspec a natural fit for LLM structured-output pipelines where models generate or consume form data directly.
 
-Formspec draws on ideas from W3C XForms, SHACL, and HL7 FHIR to provide a coherent, JSON-first specification suitable for web, mobile, server-side, and offline implementations.
+## Why Formspec?
 
-The specification is organized into **Tiers** to separate concerns:
+- **Schema-first** — Every artifact has a JSON Schema. LLMs can generate valid form definitions, fill responses, and interpret validation reports using structured output constraints.
+- **Expression language (FEL)** — Built-in language for calculated fields, conditional visibility, cross-field validation, and aggregation functions. No custom code required.
+- **Rendering-agnostic** — The same definition drives web, mobile, server-side, and offline implementations. Separate your data model from your UI.
+- **Tiered architecture** — Core (data & logic), Theme (presentation), and Components (interaction) are independently specifiable and composable.
+- **Dual reference implementation** — TypeScript engine with reactive signals for the client; Python implementation for server-side evaluation, static analysis, and tooling.
+
+## Specification
+
+The specification is organized into tiers that separate concerns:
 
 ### Tier 1: Core (Data & Logic)
-*   **Purpose**: Defines the data model, validation rules, conditional logic, and basic structure.
-*   **Key Files**:
-    *   [`spec.md`](spec.md): The normative core specification.
-    *   [`definition.schema.json`](definition.schema.json): JSON Schema for Formspec definitions.
-    *   [`response.schema.json`](response.schema.json): Schema for form responses.
-    *   [`validationReport.schema.json`](validationReport.schema.json): Schema for validation results.
+
+Defines the data model, bind constraints, validation shapes, FEL expressions, and the processing model.
+
+- [Core Specification](specs/core/spec.md) — Normative spec
+- [FEL Grammar](specs/fel/fel-grammar.md) — Expression language (lexical rules, operator precedence, path references, 40+ stdlib functions)
+- Schemas: [`definition`](schemas/definition.schema.json) | [`response`](schemas/response.schema.json) | [`validationReport`](schemas/validationReport.schema.json)
 
 ### Tier 2: Theme (Presentation)
-*   **Purpose**: Defines layout, styling, and design tokens to decouple visual presentation from logic.
-*   **Key Files**:
-    *   [`theme-spec.md`](theme-spec.md): The theme specification.
-    *   [`theme.schema.json`](theme.schema.json): JSON Schema for theme definitions.
+
+Defines layout, design tokens, widget styling, selector cascade, page structure, and CSS custom property interop.
+
+- [Theme Specification](specs/theme/theme-spec.md)
+- Schema: [`theme`](schemas/theme.schema.json)
 
 ### Tier 3: Components (Interaction)
-*   **Purpose**: Defines rich interactive widgets and their behaviors (e.g., date pickers, rich text editors).
-*   **Key Files**:
-    *   [`component-spec.md`](component-spec.md): The component model specification.
-    *   [`component.schema.json`](component.schema.json): JSON Schema for component definitions.
+
+Defines 33 built-in interactive components, slot binding, custom component extensions, accessibility attributes, and responsive breakpoints.
+
+- [Component Specification](specs/component/component-spec.md)
+- Schema: [`component`](schemas/component.schema.json)
 
 ### Related Specifications
-*   **FEL (Formspec Expression Language)**: A simple expression language for calculated values and conditional logic. See [`fel/`](fel/).
-*   **Mapping**: Defines how to map form data to other structures. See [`mapping-spec.md`](mapping-spec.md) and [`mapping.schema.json`](mapping.schema.json).
 
-## Documentation
+- [Mapping DSL](specs/mapping/mapping-spec.md) — Bidirectional transforms between form data and external formats (JSON, XML, CSV). Schema: [`mapping`](schemas/mapping.schema.json)
+- [Extension Registry](specs/registry/extension-registry.md) — Publishing, discovery, and lifecycle for custom extensions. Schema: [`registry`](schemas/registry.schema.json)
+- [Changelog Format](specs/registry/changelog-spec.md) — Structured change tracking with impact classification. Schema: [`changelog`](schemas/changelog.schema.json)
 
-View the documentation locally by opening `index.html` in your web browser. This provides a clear, structured view of the specification.
+## Repository Structure
 
-## Usage
+```
+schemas/                        JSON Schema files (8 schemas)
+specs/                          Specification documents by tier
+packages/
+  formspec-engine/              TypeScript core engine
+                                  FormEngine, FEL lexer/parser/interpreter,
+                                  reactive signals (@preact/signals-core),
+                                  definition assembler, path resolver
+  formspec-webcomponent/        <formspec-render> custom element
+                                  Component registry, theme resolver,
+                                  33 built-in components, accessibility
+src/formspec/                   Python reference implementation
+  fel/                            FEL parser, AST, evaluator, stdlib
+  validator/                      Static linter (schema + semantic checks)
+  adapters/                       JSON, XML, CSV serialization
+  mapping/                        Mapping DSL engine
+tests/
+  unit/                         Python conformance suite (1000+ tests)
+  e2e/                          Playwright browser tests + JSON fixtures
+```
 
-Formspec definitions are standard JSON files. You can validate them against the provided JSON Schemas using any compliant JSON Schema validator.
+## Quick Start
 
-### Example: Validating a Formspec Definition (Python)
+### Install and Build
+
+```bash
+npm install
+npm run build
+```
+
+### Validate a Definition (Python)
 
 ```python
-import json
-import jsonschema
+import json, jsonschema
 
-# Load the schema
-with open("definition.schema.json") as f:
+with open("schemas/definition.schema.json") as f:
     schema = json.load(f)
 
-# Load your form definition
 with open("my-form.json") as f:
-    form_def = json.load(f)
+    definition = json.load(f)
 
-# Validate
-jsonschema.validate(instance=form_def, schema=schema)
-print("Validation successful!")
+jsonschema.validate(instance=definition, schema=schema)
 ```
 
-## Utilities
+### Render a Form (Browser)
 
-The repository includes utility adapters in the `adapters/` directory for converting data between formats (CSV, JSON, XML).
+```html
+<script type="module">
+  import "formspec-webcomponent";
+</script>
 
-## Python Linter
+<formspec-render></formspec-render>
 
-The Python reference linter is available as a module:
-
-```bash
-python3 -m formspec.validator path/to/doc.json
+<script>
+  const el = document.querySelector("formspec-render");
+  el.definition = { /* Formspec definition JSON */ };
+  el.addEventListener("formspec-submit", (e) => {
+    console.log(e.detail); // structured response
+  });
+</script>
 ```
 
-### Modes
-
-- `authoring` (default): recoverable issues are warnings.
-- `strict`: selected warnings are escalated to errors for CI.
+### Run the Linter
 
 ```bash
-python3 -m formspec.validator --mode strict path/to/doc.json
+# Authoring mode (default) — recoverable issues are warnings
+python3 -m formspec.validator path/to/definition.json
+
+# Strict mode — warnings escalated to errors (for CI)
+python3 -m formspec.validator --mode strict path/to/definition.json
+
+# Component validation with definition context
+python3 -m formspec.validator --definition definition.json component.json
 ```
 
-### Component Validation with Definition Context
+## Development
 
-Component documents can be linted with an explicit Definition file:
+### Build Commands
 
 ```bash
-python3 -m formspec.validator \
-  --definition path/to/definition.json \
-  path/to/component.json
+npm run build              # Build TypeScript packages
+npm run start:playground   # Run unified runtime shell at http://127.0.0.1:8081/playground (and /demo)
+npm run build:playground   # Build the playground/demo app into dist-playground/
+npm run docs:generate      # Regenerate spec artifacts (BLUF, schema refs, LLM docs)
+npm run docs:check         # Enforce doc/schema freshness gates (used in CI)
+make docs                  # Build HTML documentation (requires pandoc)
 ```
 
-## Testing
+### Testing
 
-This repository includes a comprehensive conformance test suite covering all tiers and the FEL implementation.
-
-### Prerequisites
-
-*   Python 3.8+
-*   `pytest`
-*   `jsonschema`
-*   `hypothesis`
-
-### Running Tests
-
-To run the full test suite:
+Three test layers cover the full stack:
 
 ```bash
+# Python conformance suite (schema, FEL, validator, cross-spec contracts)
 python3 -m pytest tests/ -v
+
+# TypeScript unit tests (Node test runner + Vitest)
+npm run test:unit
+
+# Playwright E2E (auto-starts Vite dev server)
+npm test
+
+# Run all tests
+npm run test:all
 ```
 
-For more details on the test suite, see [`tests/README.md`](tests/README.md).
+See [`tests/README.md`](tests/README.md) for the full test suite breakdown.
+
+### Spec Authoring Workflow
+
+Any change to schemas or specification prose must follow this pipeline:
+
+1. Edit the schema (`schemas/*.json`), canonical spec (`specs/**/*.md`), and/or BLUF summary (`*.bluf.md`)
+2. Run `npm run docs:generate` to regenerate derived artifacts
+3. Run `npm run docs:check` to verify freshness and cross-spec contracts
+
+Generated files (`*.llm.md`, `*.semantic.md`) must not be hand-edited.
+
+## LLM Integration
+
+Formspec's schema-first design makes it straightforward to integrate with LLM structured-output APIs:
+
+1. **Generate forms** — Pass `schemas/definition.schema.json` as the output schema constraint. The LLM produces a valid Formspec definition directly.
+2. **Fill responses** — Pass `schemas/response.schema.json` as the schema. The LLM produces structured form responses that validate against the definition's constraints.
+3. **Interpret validation** — Feed `schemas/validationReport.schema.json`-shaped reports back into an LLM for natural-language error explanations or automated remediation.
+
+The compact `*.llm.md` spec variants under `specs/` are optimized for LLM context windows when you need the model to understand Formspec semantics.
 
 ## Status
 
-**Version**: 1.0.0-draft.1
+**Version**: 1.0.0-draft.1 — This is a draft specification under active development.
 
-This is a **draft specification** and is subject to change. It is not yet recommended for production use without careful consideration of potential breaking changes.
+Design rationale is documented in [Architecture Decision Records](thoughts/adr/).
