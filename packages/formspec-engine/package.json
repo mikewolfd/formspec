@@ -5,7 +5,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test:unit": "node --experimental-specifier-resolution=node --test tests",
+    "test": "npm run build && npm run test:unit"
   },
   "dependencies": {
     "@preact/signals-core": "^1.6.0",

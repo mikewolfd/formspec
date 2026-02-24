@@ -8,6 +8,7 @@ export interface FelContext {
   getRelevantValue: (path: string) => boolean;
   getRequiredValue: (path: string) => boolean;
   getReadonlyValue: (path: string) => boolean;
+  getValidationErrors: (path: string) => number;
   currentItemPath: string;
   engine: any;
 }
@@ -48,9 +49,6 @@ export class FelInterpreter extends BaseVisitor {
     coalesce: (...args: any[]) => args.find(a => a !== null && a !== undefined && a !== ''),
     isNull: (a: any) => a === null || a === undefined || a === '',
     present: (a: any) => a !== null && a !== undefined && a !== '',
-    relevant: (path: string) => this.context.getRelevantValue(path),
-    required: (path: string) => this.context.getRequiredValue(path),
-    readonly: (path: string) => this.context.getReadonlyValue(path),
     contains: (s: string, sub: string) => (s || '').includes(sub || ''),
     abs: (n: number) => Math.abs(n || 0),
     power: (b: number, e: number) => Math.pow(b || 0, e || 0),
@@ -107,6 +105,7 @@ export class FelInterpreter extends BaseVisitor {
     time: (d: string) => d ? new Date(d).toTimeString().split(' ')[0] : null,
     selected: (val: any, opt: any) => Array.isArray(val) ? val.includes(opt) : val === opt,
     isNumber: (v: any) => typeof v === 'number' && !isNaN(v),
+    string: (v: any) => v === null || v === undefined ? '' : String(v),
     isString: (v: any) => typeof v === 'string',
     isDate: (v: any) => !isNaN(Date.parse(v)),
     typeOf: (v: any) => Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v,
@@ -172,6 +171,28 @@ export class FelInterpreter extends BaseVisitor {
             if (val !== undefined) return val;
         }
         return this.context.getSignalValue(name);
+    },
+    valid: (path: string) => {
+        return this.context.getValidationErrors(path) === 0;
+    },
+    relevant: (path: string) => {
+        return this.context.getRelevantValue(path);
+    },
+    readonly: (path: string) => {
+        return this.context.getReadonlyValue(path);
+    },
+    required: (path: string) => {
+        return this.context.getRequiredValue(path);
+    },
+    instance: (name: string, path?: string) => {
+        if (this.context.engine?.getInstanceData) {
+            return this.context.engine.getInstanceData(name, path);
+        }
+        return undefined;
+    },
+    countWhere: (arr: any[], predicate: Function) => {
+        if (!Array.isArray(arr)) return 0;
+        return arr.filter(item => predicate(item)).length;
     }
   };
 
@@ -388,11 +409,117 @@ export class FelInterpreter extends BaseVisitor {
     if (ident === 'current') {
         return this.context.getSignalValue(this.context.currentItemPath);
     }
+    if (ident === 'count') {
+        // Return total instances in current repeat group
+        // Walk back from currentItemPath to find enclosing repeat group
+        const path = this.context.currentItemPath;
+        const bracketIdx = path.lastIndexOf('[');
+        if (bracketIdx !== -1) {
+            const groupPath = path.substring(0, bracketIdx);
+            return this.context.getRepeatsValue(groupPath);
+        }
+        return 0;
+    }
+    // Resolve @variableName via engine's lexical scope lookup
+    if (this.context.engine?.getVariableValue) {
+        const val = this.context.engine.getVariableValue(ident, this.context.currentItemPath);
+        if (val !== undefined) return val;
+    }
     return null;
+  }
+
+  // MIP query functions receive a path string, not a resolved value
+  private static MIP_QUERY_FUNCTIONS = new Set(['valid', 'relevant', 'readonly', 'required']);
+
+  private extractPathFromArgTokens(argCstNode: any): string {
+    // Collect all tokens from the argument CST node to reconstruct the path string.
+    // This handles bare identifiers (email), dollar refs ($email), and dotted paths (group.field).
+    const tokens: any[] = [];
+    const collectTokens = (node: any) => {
+        if (!node) return;
+        if (typeof node !== 'object') return;
+        // If it's a token (has image property and startOffset)
+        if (node.image !== undefined && node.startOffset !== undefined) {
+            tokens.push(node);
+            return;
+        }
+        // If it's an array, recurse
+        if (Array.isArray(node)) {
+            for (const child of node) collectTokens(child);
+            return;
+        }
+        // CST node: recurse into children
+        if (node.children) {
+            for (const key of Object.keys(node.children)) {
+                collectTokens(node.children[key]);
+            }
+        } else {
+            // Plain object with arrays/tokens as values
+            for (const key of Object.keys(node)) {
+                collectTokens(node[key]);
+            }
+        }
+    };
+    collectTokens(argCstNode);
+
+    // Sort by position and reconstruct
+    tokens.sort((a, b) => a.startOffset - b.startOffset);
+
+    // Build path from tokens: skip $ prefix, join identifiers with dots
+    let path = '';
+    for (const tok of tokens) {
+        if (tok.image === '$') continue; // skip dollar sign
+        if (tok.image === '.') continue; // skip dots (we add our own)
+        if (/^[a-zA-Z_]/.test(tok.image)) {
+            path += (path ? '.' : '') + tok.image;
+        }
+    }
+
+    // Resolve relative to parent path
+    const parentPath = this.getParentPath(this.context.currentItemPath);
+    if (path && !path.includes('.') && parentPath) {
+        return `${parentPath}.${path}`;
+    }
+    return path;
   }
 
   functionCall(ctx: any) {
     const name = ctx.Identifier[0].image;
+
+    // MIP query functions: extract path string from argument instead of evaluating
+    if (FelInterpreter.MIP_QUERY_FUNCTIONS.has(name) && ctx.argList) {
+        const argExprs = ctx.argList[0].children.expression;
+        if (argExprs && argExprs.length > 0) {
+            const path = this.extractPathFromArgTokens(argExprs[0]);
+            const fn = this.felStdLib[name];
+            if (fn) return fn(path);
+        }
+    }
+
+    // countWhere: first arg is evaluated (array), second arg is predicate evaluated per-element with $ rebound
+    if (name === 'countWhere' && ctx.argList) {
+        const argExprs = ctx.argList[0].children.expression;
+        if (argExprs && argExprs.length >= 2) {
+            const arr = this.visit(argExprs[0]);
+            if (!Array.isArray(arr)) return 0;
+            const predicateExpr = argExprs[1];
+            const savedPath = this.context.currentItemPath;
+            let count = 0;
+            for (const item of arr) {
+                // Temporarily override getSignalValue for $ to return current item
+                const origGetSignal = this.context.getSignalValue;
+                this.context.getSignalValue = (path: string) => {
+                    if (path === savedPath || path === '') return item;
+                    return origGetSignal(path);
+                };
+                const result = this.visit(predicateExpr);
+                this.context.getSignalValue = origGetSignal;
+                if (result) count++;
+            }
+            return count;
+        }
+    }
+
     const args = ctx.argList ? this.visit(ctx.argList) : [];
     const fn = this.felStdLib[name];
     if (fn) return fn(...args);
