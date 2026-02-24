@@ -1,9 +1,14 @@
 # ADR 0009: Tier 3 Implementation Plan — Component Model with Slots
 
 ## Status
-Implemented — test coverage gap remains (~111 of ~450 planned tests)
+Implemented (updated 2026-02-24) — component catalog complete; test volume remains below original estimate
 **Date:** 2025-01-27  
 **Depends on:** Tier 1 (presentation hints in spec.md), Tier 2 (theme-spec.md + theme.schema.json)
+
+### Completion Update (2026-02-24)
+- The previously missing `Popover` component is now implemented in schema, spec, and renderer (`ac86fcb`).
+- Targeted component E2E gap coverage for repeatable binding, cross-tier interaction, and compatibility assertions is in place (`684b9aa`).
+- The original plan's very large test-count target remains aspirational; implementation completeness is no longer blocked by missing component types.
 
 ---
 

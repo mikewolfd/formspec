@@ -1,9 +1,15 @@
 # ADR 0011: Hardening & Convergence Plan
 
 ## Status
-Partially Implemented — FEL AST and Component Registry done; PathResolver stub and innerHTML wipe remain
-**Status**: Draft
+Implemented (updated 2026-02-24)
+**Lifecycle**: Historical hardening plan (executed)
 **Objective**: Transition the Formspec Reference Implementation from a "Regex-driven Spike" to a "Specification-compliant Architecture."
+
+### Completion Update (2026-02-24)
+- Pillar 3.1 (FEL AST Interpreter): Complete.
+- Pillar 3.2 (Path Resolver replacement): PathResolver stub removed; runtime uses unified engine path handling.
+- Pillar 3.3 (Component Registry): Complete.
+- Pillar 3.4 (Reactive reconciliation): Host-level destructive `innerHTML` wipe removed; render root is preserved and updates are reconciled incrementally (`c452d94`).
 
 ---
 

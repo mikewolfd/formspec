@@ -1,6 +1,6 @@
 # ADR-0016: Feature Completeness Gap Remediation
 
-**Status**: Proposed
+**Status**: Implemented (execution complete, updated 2026-02-24)
 **Date**: 2026-02-23
 **Authors**: Claude (AI), exedev
 **Deciders**: exedev
@@ -50,6 +50,27 @@ Two policy decisions are fixed up front:
 
 - **`$ref`/`keyPrefix` is a full assembly concern, not a runtime shortcut**: implement publish-time-style assembly semantics (recursive resolution, rewrite, collision/cycle checks). Runtime engine consumes assembled definitions.
 - **Submit always runs submit-timed validation**: the submission path MUST evaluate continuous + submit shapes before deriving response `status`.
+
+### 4.1 Implementation Status Update (2026-02-24)
+
+All 12 phases in this remediation plan are now complete.
+
+| Phase | Status |
+|-------|--------|
+| 1 | Complete |
+| 2 | Complete |
+| 3 | Complete |
+| 4 | Complete |
+| 5 | Complete |
+| 6 | Complete |
+| 7 | Complete |
+| 8 | Complete |
+| 9 | Complete |
+| 10 | Complete |
+| 11 | Complete |
+| 12 | Complete |
+
+Recent closure work included reactive reconciliation (`c452d94`), Popover and component-spec alignment (`ac86fcb`), component E2E gap expansion (`684b9aa`), and remote options binding (`79e07aa`).
 
 ## 5. Implementation Phases
 

@@ -1,7 +1,7 @@
 # ADR 0015: End-to-End Testing Plan
 
 ## Status
-Implemented — 4 missing FEL functions remain (countWhere, string, boolean, date casts)
+Implemented (updated 2026-02-24) — Phase 6 parity items closed
 
 This document outlines the strategy for end-to-end (E2E) testing the Formspec standard.
 
@@ -72,21 +72,13 @@ The actual E2E tests driving the browser.
 3.  **Cross-Field DOM Arrays:** Implemented reactive array collection so that adding a new DOM row automatically triggers the `sum()` recalculation.
 4.  **Verification:** The entire E2E suite passes cleanly against the MVP reference implementation.
 
-### Phase 6: Achieving 100% JavaScript Implementation Parity (⏳ PENDING)
-While the E2E framework completely validates the architecture and core standard, the Javascript packages themselves are currently an advanced MVP. To reach 100% parity with the Python Core Reference (Layer 6), the following must be explicitly implemented:
+### Phase 6: Achieving 100% JavaScript Implementation Parity (✅ COMPLETE, 2026-02-24)
+Phase 6 parity items were completed after the original draft of this ADR. The following items are now implemented:
 
-1.  **Complete the FEL Standard Library:** Port the remaining standard functions from `src/fel/functions.py` into the TypeScript `compileFEL()` scope:
-    *   **Aggregates:** `count`, `avg`, `min`, `max`, `countWhere`
-    *   **Strings:** `length`, `contains`, `startsWith`, `endsWith`, `substring`, `replace`, `lower`, `trim`, `matches`, `format`
-    *   **Math:** `floor`, `ceil`, `abs`, `power`
-    *   **Dates & Time:** `today`, `now`, `month`, `day`, `hours`, `minutes`, `seconds`, `time`, `timeDiff`, `dateDiff`, `dateAdd`
-    *   **Logical / Type:** `if`, `empty`, `selected`, `isNumber`, `isString`, `isDate`, `typeOf`
-    *   **Cast:** `number`, `string`, `boolean`, `date`
-    *   **Money:** `money`, `moneyAmount`, `moneyCurrency`, `moneyAdd`, `moneySum`
-    *   **Context / Navigation:** `prev`, `next`, `parent`
-2.  **Implement Cyclic Dependency Detection:** The state engine must map the dependency graph (DAG) during `initializeSignals()`. If a form definition contains `calculate: "b"` on field A, and `calculate: "a"` on field B, it must throw a terminal error rather than letting `@preact/signals-core` enter an infinite browser-crashing loop.
-3.  **Advanced Tier 3 Components:** The `<formspec-render>` Web Component must expand beyond standard HTML inputs to handle remote REST API binding for `choice` schemas.
-4.  **Add Corresponding E2E Tests:** For every newly ported function listed above, append a test case to `tests/e2e/playwright/fel-functions.spec.ts` asserting strict compliance.
+1.  **FEL parity closure:** The identified parity gap from this ADR was closed (notably `boolean`, `date`, and `time(h,m,s)` in TypeScript), with unit + E2E coverage.
+2.  **Cyclic dependency detection:** Enforced in the TypeScript engine.
+3.  **Remote REST options binding:** Implemented for `choice`/`multiChoice` via `bind.remoteOptions`, including UI loading/fallback/error behavior (`79e07aa`).
+4.  **E2E coverage:** Added/expanded Playwright coverage for parity and remote options behaviors.
 
 ## 4. Key E2E Scenarios Automated
 

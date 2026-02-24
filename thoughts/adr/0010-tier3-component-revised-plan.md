@@ -1,10 +1,16 @@
 # ADR 0010: Tier 3 Revised Plan — Component Model with Slots
 
 ## Status
-Implemented — spec-schema drift on `accessibility` base property (see THOUGHTS.md)
+Implemented (updated 2026-02-24) — key follow-up gaps closed; test volume still below original target
 **Approach:** New companion spec `component-spec.md` + `component.schema.json`
 **Pattern:** Follows `mapping-spec.md` and `theme-spec.md` companion-spec precedent
 **Depends on:** Tier 1 (COMPLETE, 111 tests), Tier 2 (COMPLETE, 171 tests), 1,559 total passing
+
+### Completion Update (2026-02-24)
+- `accessibility` base-property drift is resolved in spec/schema contract tests.
+- Progressive `Popover` support was implemented across schema/spec/renderer (`ac86fcb`).
+- Additional E2E coverage for repeatable binding, cross-tier interaction, and compatibility checks was added (`684b9aa`).
+- Overall Tier 3 implementation is complete, with ongoing room to expand total test count toward the original planning estimate.
 
 ---
 
