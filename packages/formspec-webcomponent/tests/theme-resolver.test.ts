@@ -168,6 +168,41 @@ describe('resolvePresentation', () => {
         expect(result.widgetConfig).toEqual({ rows: 3, placeholder: 'hi' });
     });
 
+    it('merges widgetConfig x-classes maps across cascade levels', () => {
+        const theme = minimalTheme({
+            defaults: {
+                widgetConfig: {
+                    'x-classes': { root: 'base-root', control: 'base-control' },
+                },
+            },
+            selectors: [
+                {
+                    match: { type: 'field' },
+                    apply: {
+                        widgetConfig: {
+                            'x-classes': { label: 'sel-label' },
+                        },
+                    },
+                },
+            ],
+            items: {
+                f1: {
+                    widgetConfig: {
+                        'x-classes': { control: 'item-control' },
+                    },
+                },
+            },
+        });
+        const result = resolvePresentation(theme, field('f1'));
+        expect(result.widgetConfig).toEqual({
+            'x-classes': {
+                root: 'base-root',
+                label: 'sel-label',
+                control: 'item-control',
+            },
+        });
+    });
+
     it('shallow-merges accessibility', () => {
         const theme = minimalTheme({
             defaults: { accessibility: { liveRegion: 'off' } },

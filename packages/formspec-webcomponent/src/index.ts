@@ -73,10 +73,13 @@ export class FormspecRender extends HTMLElement {
     private _themeDocument: ThemeDocument | null = null;
     private engine: FormEngine | null = null;
     private cleanupFns: Array<() => void> = [];
-    private activeBreakpoint: string | null = null;
+    private _activeBreakpointSignal = signal<string | null>(null);
+    private get activeBreakpoint(): string | null { return this._activeBreakpointSignal.value; }
+    private set activeBreakpoint(val: string | null) { this._activeBreakpointSignal.value = val; }
     private breakpointCleanups: Array<() => void> = [];
     private customComponentStack: Set<string> = new Set();
-    private stylesheetElements: HTMLLinkElement[] = [];
+    private stylesheetHrefs: string[] = [];
+    private static stylesheetRefCounts: Map<string, number> = new Map();
 
     set definition(val: any) {
         this._definition = val;
@@ -116,6 +119,28 @@ export class FormspecRender extends HTMLElement {
         return this.engine;
     }
 
+    getDiagnosticsSnapshot(options?: { mode?: 'continuous' | 'submit' }) {
+        return this.engine?.getDiagnosticsSnapshot?.(options) || null;
+    }
+
+    applyReplayEvent(event: any) {
+        if (!this.engine?.applyReplayEvent) {
+            return { ok: false, event, error: 'Engine unavailable' };
+        }
+        return this.engine.applyReplayEvent(event);
+    }
+
+    replay(events: any[], options?: { stopOnError?: boolean }) {
+        if (!this.engine?.replay) {
+            return { applied: 0, results: [], errors: [{ index: 0, event: null, error: 'Engine unavailable' }] };
+        }
+        return this.engine.replay(events, options);
+    }
+
+    setRuntimeContext(context: any) {
+        this.engine?.setRuntimeContext?.(context);
+    }
+
     private getEffectiveTheme(): ThemeDocument {
         return this._themeDocument || defaultThemeJson as ThemeDocument;
     }
@@ -129,29 +154,57 @@ export class FormspecRender extends HTMLElement {
     }
 
     private cleanupStylesheets() {
-        for (const link of this.stylesheetElements) {
-            // Only remove if no other formspec-render instance is using the same href
-            const href = link.href;
-            link.remove();
-            // If another element with the same href exists, it was added by another instance
+        for (const hrefKey of this.stylesheetHrefs) {
+            const count = FormspecRender.stylesheetRefCounts.get(hrefKey) ?? 0;
+            if (count <= 1) {
+                FormspecRender.stylesheetRefCounts.delete(hrefKey);
+                const link = FormspecRender.findThemeStylesheet(hrefKey);
+                if (link) link.remove();
+            } else {
+                FormspecRender.stylesheetRefCounts.set(hrefKey, count - 1);
+            }
         }
-        this.stylesheetElements = [];
+        this.stylesheetHrefs = [];
+    }
+
+    private static canonicalizeStylesheetHref(href: string): string {
+        try {
+            return new URL(href, document.baseURI).href;
+        } catch {
+            return href;
+        }
+    }
+
+    private static findThemeStylesheet(hrefKey: string): HTMLLinkElement | null {
+        const links = document.head.querySelectorAll('link[data-formspec-theme-href]');
+        for (const link of links) {
+            const htmlLink = link as HTMLLinkElement;
+            if (htmlLink.dataset.formspecThemeHref === hrefKey) return htmlLink;
+        }
+        return null;
     }
 
     private loadStylesheets() {
         this.cleanupStylesheets();
         if (!this._themeDocument?.stylesheets) return;
-        for (const href of this._themeDocument.stylesheets) {
-            // Deduplicate: skip if a formspec theme link with the same href already exists
-            const existing = document.head.querySelector(`link[data-formspec-theme][href="${CSS.escape(href)}"]`);
-            if (existing) continue;
+        const uniqueHrefs = new Set<string>();
+        for (const rawHref of this._themeDocument.stylesheets) {
+            if (!rawHref || typeof rawHref !== 'string') continue;
+            const hrefKey = FormspecRender.canonicalizeStylesheetHref(rawHref);
+            if (uniqueHrefs.has(hrefKey)) continue;
+            uniqueHrefs.add(hrefKey);
 
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = href;
-            link.dataset.formspecTheme = 'true';
-            document.head.appendChild(link);
-            this.stylesheetElements.push(link);
+            const existingCount = FormspecRender.stylesheetRefCounts.get(hrefKey) ?? 0;
+            if (existingCount === 0) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = rawHref;
+                link.dataset.formspecTheme = 'true';
+                link.dataset.formspecThemeHref = hrefKey;
+                document.head.appendChild(link);
+            }
+            FormspecRender.stylesheetRefCounts.set(hrefKey, existingCount + 1);
+            this.stylesheetHrefs.push(hrefKey);
         }
     }
 
@@ -267,6 +320,45 @@ export class FormspecRender extends HTMLElement {
         }
     }
 
+    private applyClassValue = (el: HTMLElement, classValue: unknown): void => {
+        if (classValue === undefined || classValue === null) return;
+        const values = Array.isArray(classValue) ? classValue : [classValue];
+        for (const cls of values) {
+            const resolved = String(this.resolveToken(cls));
+            for (const c of resolved.split(/\s+/)) {
+                if (c) el.classList.add(c);
+            }
+        }
+    }
+
+    private resolveWidgetClassSlots = (presentation: PresentationBlock): {
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    } => {
+        const widgetConfig = presentation.widgetConfig;
+        if (!widgetConfig || typeof widgetConfig !== 'object') return {};
+
+        const config = widgetConfig as Record<string, unknown>;
+        const extensionSlots = (
+            config['x-classes'] &&
+            typeof config['x-classes'] === 'object' &&
+            !Array.isArray(config['x-classes'])
+        )
+            ? config['x-classes'] as Record<string, unknown>
+            : {};
+
+        return {
+            root: config.rootClass ?? extensionSlots.root,
+            label: config.labelClass ?? extensionSlots.label,
+            control: config.controlClass ?? config.inputClass ?? extensionSlots.control ?? extensionSlots.input,
+            hint: config.hintClass ?? extensionSlots.hint,
+            error: config.errorClass ?? extensionSlots.error,
+        };
+    }
+
     private applyAccessibility = (el: HTMLElement, comp: any) => {
         if (!comp.accessibility) return;
         const a11y = comp.accessibility;
@@ -317,7 +409,7 @@ export class FormspecRender extends HTMLElement {
                 }
                 if (active !== this.activeBreakpoint) {
                     this.activeBreakpoint = active;
-                    this.render();
+                    // Signal update triggers reactive re-renders in responsive components
                 }
             };
             mql.addEventListener('change', handler);
@@ -331,6 +423,14 @@ export class FormspecRender extends HTMLElement {
     }
 
     private renderComponent = (comp: any, parent: HTMLElement, prefix = '') => {
+        if (comp.responsive) {
+            this.renderResponsiveComponent(comp, parent, prefix);
+            return;
+        }
+        this.renderComponentInner(comp, parent, prefix);
+    }
+
+    private renderComponentInner(comp: any, parent: HTMLElement, prefix = '') {
         // Apply responsive overrides (mobile-first cascade)
         comp = this.resolveResponsiveProps(comp);
 
@@ -390,6 +490,39 @@ export class FormspecRender extends HTMLElement {
         this.renderActualComponent(comp, parent, prefix);
     }
 
+    /**
+     * Renders a component that has responsive overrides inside a display:contents wrapper.
+     * Uses a Preact signal effect so only this component's subtree is re-rendered when the
+     * active breakpoint changes — the rest of the form DOM is untouched.
+     */
+    private renderResponsiveComponent(comp: any, parent: HTMLElement, prefix: string) {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display: contents';
+        parent.appendChild(wrapper);
+
+        let scopedCleanups: Array<() => void> = [];
+        const dispose = () => { for (const fn of scopedCleanups) fn(); scopedCleanups = []; };
+
+        const effectDispose = effect(() => {
+            const bp = this._activeBreakpointSignal.value;
+            dispose();
+            wrapper.innerHTML = '';
+            const resolved = resolveResponsiveProps(comp, bp);
+            // Strip `responsive` to prevent re-entry into this method
+            const { responsive: _ignored, ...resolvedWithout } = resolved;
+            this.withCleanupScope(scopedCleanups, () => this.renderComponentInner(resolvedWithout, wrapper, prefix));
+        });
+
+        this.cleanupFns.push(() => { dispose(); effectDispose(); });
+    }
+
+    /** Temporarily redirects cleanupFns to a scoped array, then restores it. */
+    private withCleanupScope(scope: Array<() => void>, fn: () => void): void {
+        const saved = this.cleanupFns;
+        this.cleanupFns = scope;
+        try { fn(); } finally { this.cleanupFns = saved; }
+    }
+
     private renderActualComponent(comp: any, parent: HTMLElement, prefix = '') {
         const componentType = comp.component;
         const plugin = globalRegistry.get(componentType);
@@ -444,6 +577,7 @@ export class FormspecRender extends HTMLElement {
         // Resolve theme cascade for this item
         const itemDesc: ItemDescriptor = { key: item.key, type: item.type || 'field', dataType };
         const themePresentation = this.resolveItemPresentation(itemDesc);
+        const widgetClassSlots = this.resolveWidgetClassSlots(themePresentation);
 
         // In the component-document path, comp.component was explicitly chosen — don't override it.
         // Theme widget resolution only applies in the definition-fallback renderItem path.
@@ -473,6 +607,7 @@ export class FormspecRender extends HTMLElement {
         const fieldWrapper = document.createElement('div');
         fieldWrapper.className = 'formspec-field';
         fieldWrapper.dataset.name = fullName;
+        this.applyClassValue(fieldWrapper, widgetClassSlots.root);
 
         // Generate unique IDs for ARIA linkage
         const fieldId = comp.id || `field-${fullName.replace(/[\.\[\]]/g, '-')}`;
@@ -487,6 +622,7 @@ export class FormspecRender extends HTMLElement {
         label.className = 'formspec-label';
         label.textContent = comp.labelOverride || item.label || item.key;
         label.htmlFor = fieldId;
+        this.applyClassValue(label, widgetClassSlots.label);
 
         if (effectiveLabelPosition === 'hidden') {
             label.classList.add('formspec-sr-only');
@@ -511,6 +647,7 @@ export class FormspecRender extends HTMLElement {
             hint.className = 'formspec-hint';
             hint.id = hintId;
             hint.textContent = comp.hintOverride || item.hint;
+            this.applyClassValue(hint, widgetClassSlots.hint);
             fieldWrapper.appendChild(hint);
             describedBy.push(hintId);
         }
@@ -709,6 +846,7 @@ export class FormspecRender extends HTMLElement {
         const actualInputEl = input.querySelector('input') || input.querySelector('select') || input.querySelector('textarea') || input;
         if (actualInputEl instanceof HTMLElement) {
             actualInputEl.id = fieldId;
+            this.applyClassValue(actualInputEl, widgetClassSlots.control);
         }
 
         const errorDisplay = document.createElement('div');
@@ -716,6 +854,7 @@ export class FormspecRender extends HTMLElement {
         errorDisplay.id = errorId;
         errorDisplay.setAttribute('role', 'alert');
         errorDisplay.setAttribute('aria-live', 'polite');
+        this.applyClassValue(errorDisplay, widgetClassSlots.error);
         fieldWrapper.appendChild(errorDisplay);
         describedBy.push(errorId);
 

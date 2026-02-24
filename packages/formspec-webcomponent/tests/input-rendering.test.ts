@@ -72,6 +72,41 @@ describe('input rendering — label position cascade', () => {
     });
 });
 
+describe('input rendering — theme widgetConfig class slots', () => {
+    afterEach(() => {
+        document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('applies x-classes slots to root/label/control/hint/error elements', () => {
+        const theme = minimalTheme({
+            defaults: {
+                widgetConfig: {
+                    'x-classes': {
+                        root: 'usa-form-group',
+                        label: 'usa-label',
+                        control: 'usa-input',
+                        hint: 'usa-hint',
+                        error: 'usa-error-message',
+                    },
+                },
+            },
+        });
+        const el = renderField({ hint: 'Helpful hint' }, undefined, theme);
+
+        const field = el.querySelector('.formspec-field') as HTMLElement;
+        const label = el.querySelector('.formspec-label') as HTMLElement;
+        const input = el.querySelector('.formspec-input') as HTMLElement;
+        const hint = el.querySelector('.formspec-hint') as HTMLElement;
+        const error = el.querySelector('.formspec-error') as HTMLElement;
+
+        expect(field.classList.contains('usa-form-group')).toBe(true);
+        expect(label.classList.contains('usa-label')).toBe(true);
+        expect(input.classList.contains('usa-input')).toBe(true);
+        expect(hint.classList.contains('usa-hint')).toBe(true);
+        expect(error.classList.contains('usa-error-message')).toBe(true);
+    });
+});
+
 describe('input rendering — ARIA attributes', () => {
     afterEach(() => {
         document.body.querySelectorAll('formspec-render').forEach(el => el.remove());

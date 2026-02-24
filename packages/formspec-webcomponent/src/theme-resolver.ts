@@ -124,6 +124,11 @@ function normalizeCssClass(val: string | string[] | undefined): string[] {
     return val.split(/\s+/).filter(Boolean);
 }
 
+function asRecord(val: unknown): Record<string, unknown> | null {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) return null;
+    return val as Record<string, unknown>;
+}
+
 /**
  * Merge two PresentationBlocks. `higher` overrides `lower` for scalar
  * properties (shallow merge). `cssClass` is unioned, not replaced.
@@ -146,7 +151,21 @@ function mergeBlocks(lower: PresentationBlock, higher: PresentationBlock): Prese
 
     // Shallow-merge objects
     if (higher.widgetConfig !== undefined) {
-        merged.widgetConfig = { ...merged.widgetConfig, ...higher.widgetConfig };
+        const lowerCfg = asRecord(merged.widgetConfig) || {};
+        const higherCfg = asRecord(higher.widgetConfig) || {};
+        const combined: Record<string, unknown> = { ...lowerCfg, ...higherCfg };
+
+        // Support additive merge for `widgetConfig["x-classes"]` slot mappings.
+        const lowerSlots = asRecord(lowerCfg['x-classes']);
+        const higherSlots = asRecord(higherCfg['x-classes']);
+        if (lowerSlots || higherSlots) {
+            combined['x-classes'] = {
+                ...(lowerSlots || {}),
+                ...(higherSlots || {}),
+            };
+        }
+
+        merged.widgetConfig = combined;
     }
     if (higher.style !== undefined) {
         merged.style = { ...merged.style, ...higher.style };

@@ -111,4 +111,35 @@ describe('render lifecycle', () => {
         // Should be empty — no leftover DOM
         expect(el.querySelector('.formspec-container')).toBeNull();
     });
+
+    it('reference-counts external theme stylesheets across multiple instances', () => {
+        document.head.querySelectorAll('link[data-formspec-theme]').forEach(link => link.remove());
+
+        const theme = {
+            $formspecTheme: '1.0' as const,
+            version: '1.0.0',
+            targetDefinition: { url: 'urn:test:form' },
+            stylesheets: ['data:text/css,.formspec-test%7Bcolor%3Ainherit%7D'],
+        };
+
+        el.themeDocument = theme;
+        el.definition = singleFieldDef();
+        expect(document.head.querySelectorAll('link[data-formspec-theme]').length).toBe(1);
+
+        const el2 = document.createElement('formspec-render') as InstanceType<any>;
+        document.body.appendChild(el2);
+        el2.themeDocument = theme;
+        el2.definition = singleFieldDef();
+        expect(document.head.querySelectorAll('link[data-formspec-theme]').length).toBe(1);
+
+        el.remove();
+        expect(document.head.querySelectorAll('link[data-formspec-theme]').length).toBe(1);
+
+        el2.remove();
+        expect(document.head.querySelectorAll('link[data-formspec-theme]').length).toBe(0);
+
+        // Recreate for suite afterEach cleanup contract.
+        el = document.createElement('formspec-render');
+        document.body.appendChild(el);
+    });
 });

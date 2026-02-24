@@ -1,0 +1,34 @@
+/*
+ * Optional bridge styles for Formspec + USWDS integration.
+ * Keep this small and focused on markup differences that class names alone cannot solve.
+ */
+
+.formspec-container {
+  max-width: 64rem;
+}
+
+.formspec-field.usa-form-group {
+  margin-bottom: 1rem;
+}
+
+.formspec-field--inline.usa-form-group {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.formspec-hint.usa-hint {
+  margin-top: 0.25rem;
+}
+
+.formspec-error.usa-error-message:empty {
+  display: none;
+}
+
+.formspec-error.usa-error-message:not(:empty) {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.formspec-submit {
+  margin-top: 1.5rem;
+}
