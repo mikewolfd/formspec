@@ -63,11 +63,28 @@ export class FelInterpreter extends BaseVisitor {
         return date.toISOString().split('T')[0];
     },
     dateDiff: (d1: string, d2: string, unit: string) => {
-        const t1 = new Date(d1).getTime();
-        const t2 = new Date(d2).getTime();
-        const diff = t1 - t2;
-        if (unit === 'days') return Math.floor(diff / (1000 * 60 * 60 * 24));
-        return 0;
+        const a = new Date(d1);
+        const b = new Date(d2);
+        if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+        if (unit === 'days') {
+            const diff = a.getTime() - b.getTime();
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        }
+        if (unit === 'months') {
+            let months = (a.getFullYear() - b.getFullYear()) * 12 + (a.getMonth() - b.getMonth());
+            if (a.getDate() < b.getDate()) {
+                months -= months > 0 ? 1 : months < 0 ? -1 : 0;
+            }
+            return months;
+        }
+        if (unit === 'years') {
+            let years = a.getFullYear() - b.getFullYear();
+            if (a.getMonth() < b.getMonth() || (a.getMonth() === b.getMonth() && a.getDate() < b.getDate())) {
+                years -= years > 0 ? 1 : years < 0 ? -1 : 0;
+            }
+            return years;
+        }
+        return null;
     },
     count: (arr: any[]) => Array.isArray(arr) ? arr.length : 0,
     avg: (arr: any[]) => {

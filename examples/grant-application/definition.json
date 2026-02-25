@@ -41,7 +41,7 @@
     },
     {
       "name": "indirectCosts",
-      "expression": "if($orgType = 'government') then money(0, 'USD') else money(moneyAmount(@totalDirect) * ($indirectRate ?? 0) / 100, moneyCurrency(@totalDirect))"
+      "expression": "if($applicantInfo.orgType = 'government') then money(0, 'USD') else money(moneyAmount(@totalDirect) * ($projectNarrative.indirectRate ?? 0) / 100, moneyCurrency(@totalDirect))"
     },
     {
       "name": "grandTotal",
@@ -136,8 +136,7 @@
     },
     {
       "path": "projectNarrative.duration",
-      "calculate": "dateDiff($projectNarrative.startDate, $projectNarrative.endDate, 'months')",
-      "readonly": "true"
+      "calculate": "dateDiff($projectNarrative.endDate, $projectNarrative.startDate, 'months')"
     },
     {
       "path": "projectNarrative.indirectRate",
@@ -145,8 +144,7 @@
     },
     {
       "path": "lineItems[*].subtotal",
-      "calculate": "money(moneyAmount($unitCost) * $quantity, moneyCurrency($unitCost))",
-      "readonly": "true"
+      "calculate": "money(moneyAmount($unitCost) * $quantity, moneyCurrency($unitCost))"
     },
     {
       "path": "subcontractors",

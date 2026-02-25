@@ -174,7 +174,7 @@ def _check_item_option_set(item: ItemRef, option_set_keys: set[str]) -> list[Lin
                 code="W300",
                 message=(
                     "Field dataType is incompatible with optionSet; expected one of "
-                    "string, integer, decimal"
+                    "string, integer, decimal, choice, multiChoice"
                 ),
                 path=path,
                 category="reference",
