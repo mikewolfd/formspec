@@ -298,7 +298,8 @@ export class FormEngine {
     private resolveOptionSetsRecursive(items: FormspecItem[]) {
         for (const item of items) {
             if (item.optionSet && this.definition.optionSets?.[item.optionSet]) {
-                item.options = this.definition.optionSets[item.optionSet];
+                const entry = this.definition.optionSets[item.optionSet] as any;
+                item.options = Array.isArray(entry) ? entry : (entry.options ?? []);
             }
             if (item.children) {
                 this.resolveOptionSetsRecursive(item.children);

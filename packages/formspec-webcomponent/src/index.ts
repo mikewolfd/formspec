@@ -278,6 +278,18 @@ export class FormspecRender extends HTMLElement {
     }
 
     private findItemByKey = (key: string, items: any[] = this._definition.items): any | null => {
+        // Support dotted paths like "equipmentGroup.equipmentId"
+        const dot = key.indexOf('.');
+        if (dot !== -1) {
+            const head = key.slice(0, dot);
+            const rest = key.slice(dot + 1);
+            for (const item of items) {
+                if (item.key === head && item.children) {
+                    return this.findItemByKey(rest, item.children);
+                }
+            }
+            return null;
+        }
         for (const item of items) {
             if (item.key === key) return item;
             if (item.children) {
