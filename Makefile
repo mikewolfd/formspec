@@ -22,7 +22,8 @@ docs: spec-artifacts \
       $(DOCS_DIR)/changelog.html \
       $(DOCS_DIR)/extension-registry.html \
       $(DOCS_DIR)/theme-spec.html \
-      $(DOCS_DIR)/component-spec.html
+      $(DOCS_DIR)/component-spec.html \
+      $(DOCS_DIR)/grant-application.html
 
 $(DOCS_DIR)/spec.html: $(SPECS_DIR)/core/spec.md $(TEMPLATE)
 	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Formspec Core Specification" -o $@ $<
@@ -45,6 +46,9 @@ $(DOCS_DIR)/theme-spec.html: $(SPECS_DIR)/theme/theme-spec.md $(TEMPLATE)
 $(DOCS_DIR)/component-spec.html: $(SPECS_DIR)/component/component-spec.md $(TEMPLATE)
 	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Formspec Component Specification" -o $@ $<
 
+$(DOCS_DIR)/grant-application.html: docs/grant-application-guide.md $(TEMPLATE)
+	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Grant Application — Formspec Walkthrough" -o $@ $<
+
 setup:
 	python3 -m venv .venv
 	.venv/bin/pip install pre-commit
@@ -60,6 +64,7 @@ clean:
 	      $(DOCS_DIR)/changelog.html \
 	      $(DOCS_DIR)/extension-registry.html \
 	      $(DOCS_DIR)/theme-spec.html \
-	      $(DOCS_DIR)/component-spec.html
+	      $(DOCS_DIR)/component-spec.html \
+	      $(DOCS_DIR)/grant-application.html
 
 .PHONY: all spec-artifacts docs-check check docs setup serve clean
