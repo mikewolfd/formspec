@@ -1,0 +1,65 @@
+{
+  "version": "1.0.0",
+  "definitionRef": "https://example.gov/forms/grant-application",
+  "definitionVersion": ">=1.0.0 <2.0.0",
+  "direction": "forward",
+  "targetSchema": {
+    "format": "json",
+    "name": "Grants Management System Payload"
+  },
+  "rules": [
+    { "sourcePath": "applicantInfo.orgName",      "targetPath": "organization.name",          "transform": "preserve", "priority": 100 },
+    { "sourcePath": "applicantInfo.ein",           "targetPath": "organization.ein",           "transform": "preserve", "priority": 100 },
+    {
+      "sourcePath": "applicantInfo.orgType",
+      "targetPath": "organization.type_code",
+      "transform": "valueMap",
+      "valueMap": { "nonprofit": "NPO", "university": "EDU", "government": "GOV", "forprofit": "FP" },
+      "priority": 100
+    },
+    { "sourcePath": "applicantInfo.contactName",  "targetPath": "organization.contact.name",  "transform": "preserve", "priority": 90 },
+    { "sourcePath": "applicantInfo.contactEmail", "targetPath": "organization.contact.email", "transform": "preserve", "priority": 90 },
+    { "sourcePath": "applicantInfo.contactPhone", "targetPath": "organization.contact.phone", "transform": "preserve", "priority": 90 },
+    { "sourcePath": "projectNarrative.projectTitle", "targetPath": "project.title",          "transform": "preserve", "priority": 80 },
+    { "sourcePath": "projectNarrative.abstract",     "targetPath": "project.abstract",       "transform": "preserve", "priority": 80 },
+    { "sourcePath": "projectNarrative.startDate",    "targetPath": "project.start_date",     "transform": "preserve", "priority": 80 },
+    { "sourcePath": "projectNarrative.endDate",      "targetPath": "project.end_date",       "transform": "preserve", "priority": 80 },
+    { "sourcePath": "projectNarrative.duration",     "targetPath": "project.duration_months","transform": "preserve", "priority": 80 },
+    {
+      "sourcePath": "projectNarrative.indirectRate",
+      "targetPath": "budget.indirect_rate_pct",
+      "transform": "expression",
+      "expression": "string(@source) & '%'",
+      "priority": 70
+    },
+    {
+      "sourcePath": "budget.requestedAmount",
+      "targetPath": "budget.requested_amount",
+      "transform": "expression",
+      "expression": "@source.amount",
+      "priority": 70
+    },
+    {
+      "sourcePath": "budget.requestedAmount",
+      "targetPath": "budget.currency",
+      "transform": "expression",
+      "expression": "@source.currency",
+      "priority": 70
+    },
+    {
+      "sourcePath": "lineItems",
+      "targetPath": "budget.line_items",
+      "transform": "preserve",
+      "array": { "mode": "whole" },
+      "priority": 60
+    },
+    {
+      "sourcePath": "subcontractors",
+      "targetPath": "subcontractors",
+      "transform": "preserve",
+      "array": { "mode": "whole" },
+      "condition": "present($budget.usesSubcontractors)",
+      "priority": 50
+    }
+  ]
+}
