@@ -37,7 +37,7 @@
   "variables": [
     {
       "name": "totalDirect",
-      "expression": "moneySum($lineItems[*].subtotal)"
+      "expression": "moneySum($budget.lineItems[*].subtotal)"
     },
     {
       "name": "indirectCosts",
@@ -55,12 +55,12 @@
       "label": "Applicant Information",
       "presentation": { "page": "Applicant Info" },
       "children": [
-        { "type": "field", "key": "orgName",      "label": "Organization Name",                  "dataType": "string", "hint": "Legal name of the applying organization." },
-        { "type": "field", "key": "ein",           "label": "Employer Identification Number (EIN)", "dataType": "string", "hint": "Format: XX-XXXXXXX" },
-        { "type": "field", "key": "orgType",       "label": "Organization Type",                  "dataType": "choice", "optionSet": "orgTypes" },
-        { "type": "field", "key": "contactName",   "label": "Primary Contact Name",               "dataType": "string" },
-        { "type": "field", "key": "contactEmail",  "label": "Contact Email",                      "dataType": "string" },
-        { "type": "field", "key": "contactPhone",  "label": "Contact Phone",                      "dataType": "string" },
+        { "type": "field",   "key": "orgName",      "label": "Organization Name",                    "dataType": "string", "hint": "Legal name of the applying organization." },
+        { "type": "field",   "key": "ein",           "label": "Employer Identification Number (EIN)", "dataType": "string", "hint": "Format: XX-XXXXXXX" },
+        { "type": "field",   "key": "orgType",       "label": "Organization Type",                    "dataType": "choice", "optionSet": "orgTypes" },
+        { "type": "field",   "key": "contactName",   "label": "Primary Contact Name",                 "dataType": "string" },
+        { "type": "field",   "key": "contactEmail",  "label": "Contact Email",                        "dataType": "string" },
+        { "type": "field",   "key": "contactPhone",  "label": "Contact Phone",                        "dataType": "string" },
         { "type": "display", "key": "nonprofitPhoneHint", "label": "Include area code for nonprofit reporting requirements (e.g. 202-555-0100)." }
       ]
     },
@@ -70,12 +70,12 @@
       "label": "Project Narrative",
       "presentation": { "page": "Project Narrative" },
       "children": [
-        { "type": "field", "key": "projectTitle",  "label": "Project Title",         "dataType": "string" },
-        { "type": "field", "key": "abstract",      "label": "Project Abstract",      "dataType": "text",    "hint": "Summarize your project in 500 words or fewer." },
-        { "type": "field", "key": "startDate",     "label": "Project Start Date",    "dataType": "date" },
-        { "type": "field", "key": "endDate",       "label": "Project End Date",      "dataType": "date" },
-        { "type": "field", "key": "duration",      "label": "Duration (months)",     "dataType": "integer" },
-        { "type": "field", "key": "indirectRate",  "label": "Indirect Cost Rate (%)", "dataType": "decimal", "hint": "Enter your organization's negotiated indirect cost rate. Government entities are not eligible." }
+        { "type": "field", "key": "projectTitle", "label": "Project Title",          "dataType": "string" },
+        { "type": "field", "key": "abstract",     "label": "Project Abstract",       "dataType": "text",    "hint": "Summarize your project in 500 words or fewer." },
+        { "type": "field", "key": "startDate",    "label": "Project Start Date",     "dataType": "date" },
+        { "type": "field", "key": "endDate",      "label": "Project End Date",       "dataType": "date" },
+        { "type": "field", "key": "duration",     "label": "Duration (months)",      "dataType": "integer" },
+        { "type": "field", "key": "indirectRate", "label": "Indirect Cost Rate (%)", "dataType": "decimal", "hint": "Enter your organization's negotiated indirect cost rate. Government entities are not eligible." }
       ]
     },
     {
@@ -112,10 +112,32 @@
       "minRepeat": 1,
       "maxRepeat": 10,
       "children": [
-        { "type": "field", "key": "subName",   "label": "Contact Name",      "dataType": "string" },
-        { "type": "field", "key": "subOrg",    "label": "Organization",      "dataType": "string" },
-        { "type": "field", "key": "subAmount", "label": "Contracted Amount", "dataType": "money" },
-        { "type": "field", "key": "subScope",  "label": "Scope of Work",     "dataType": "text" }
+        { "type": "field", "key": "subName",   "label": "Contact Name",       "dataType": "string" },
+        { "type": "field", "key": "subOrg",    "label": "Organization",       "dataType": "string" },
+        { "type": "field", "key": "subAmount", "label": "Contracted Amount",  "dataType": "money" },
+        { "type": "field", "key": "subScope",  "label": "Scope of Work",      "dataType": "text" }
+      ]
+    },
+    {
+      "type": "group",
+      "key": "attachments",
+      "label": "Supporting Documents",
+      "presentation": { "page": "Review & Submit" },
+      "children": [
+        {
+          "type": "field",
+          "key": "narrativeDoc",
+          "label": "Project Narrative Document",
+          "dataType": "string",
+          "hint": "Upload a PDF or Word document with full project narrative (max 10 MB)."
+        },
+        {
+          "type": "field",
+          "key": "budgetJustification",
+          "label": "Budget Justification",
+          "dataType": "string",
+          "hint": "Upload a spreadsheet or PDF with budget detail (max 5 MB)."
+        }
       ]
     }
   ],
@@ -126,8 +148,13 @@
     },
     {
       "path": "applicantInfo.ein",
+      "whitespace": "normalize",
       "constraint": "matches($applicantInfo.ein, '^[0-9]{2}-[0-9]{7}$')",
       "constraintMessage": "EIN must be in the format XX-XXXXXXX (e.g. 12-3456789)."
+    },
+    {
+      "path": "applicantInfo.contactEmail",
+      "whitespace": "trim"
     },
     {
       "path": "projectNarrative.endDate",
@@ -136,29 +163,59 @@
     },
     {
       "path": "projectNarrative.duration",
-      "calculate": "dateDiff($projectNarrative.endDate, $projectNarrative.startDate, 'months')"
+      "calculate": "dateDiff($projectNarrative.startDate, $projectNarrative.endDate, 'months')",
+      "readonly": "true"
     },
     {
       "path": "projectNarrative.indirectRate",
       "relevant": "$applicantInfo.orgType != 'government'"
     },
     {
-      "path": "lineItems[*].subtotal",
-      "calculate": "money(moneyAmount($unitCost) * $quantity, moneyCurrency($unitCost))"
+      "path": "budget.lineItems[*].subtotal",
+      "calculate": "money(moneyAmount($unitCost) * $quantity, moneyCurrency($unitCost))",
+      "readonly": "true"
+    },
+    {
+      "path": "budget.requestedAmount",
+      "required": "true",
+      "default": "money(0, 'USD')"
     },
     {
       "path": "subcontractors",
       "relevant": "$budget.usesSubcontractors"
-    }
+    },
+    { "path": "applicantInfo.orgName",         "required": "true" },
+    { "path": "applicantInfo.ein",             "required": "true" },
+    { "path": "applicantInfo.orgType",         "required": "true" },
+    { "path": "applicantInfo.contactName",     "required": "true" },
+    { "path": "applicantInfo.contactEmail",    "required": "true" },
+    { "path": "projectNarrative.projectTitle", "required": "true" },
+    { "path": "projectNarrative.abstract",     "required": "true" },
+    { "path": "projectNarrative.startDate",    "required": "true" },
+    { "path": "projectNarrative.endDate",      "required": "true" }
   ],
   "shapes": [
+    {
+      "id": "abstractLength",
+      "target": "projectNarrative.abstract",
+      "severity": "info",
+      "timing": "continuous",
+      "constraint": "length($projectNarrative.abstract) <= 3000",
+      "message": "Abstract is approaching the 500-word / 3,000-character limit.",
+      "code": "ABSTRACT_NEAR_LIMIT"
+    },
     {
       "id": "budgetMatch",
       "target": "budget.requestedAmount",
       "severity": "error",
       "constraint": "abs(moneyAmount($budget.requestedAmount) - moneyAmount(@grandTotal)) < 1",
       "message": "Requested amount must match the calculated grand total (within $1). Check your line items.",
-      "code": "BUDGET_MISMATCH"
+      "code": "BUDGET_MISMATCH",
+      "context": {
+        "grandTotal":  "string(moneyAmount(@grandTotal))",
+        "requested":   "string(moneyAmount($budget.requestedAmount))",
+        "difference":  "string(abs(moneyAmount($budget.requestedAmount) - moneyAmount(@grandTotal)))"
+      }
     },
     {
       "id": "budgetReasonable",

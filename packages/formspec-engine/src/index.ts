@@ -1215,11 +1215,14 @@ export class FormEngine {
                     }
                     if (this.signals[path]) return this.signals[path].value;
                     // Check if path traverses a repeatable group — collect instances into array
-                    // Supports nested repeats by scanning each dotted segment
+                    // Supports nested repeats by scanning each dotted segment.
+                    // '*' segments (from [*] wildcards in FEL) are skipped — the repeat
+                    // expansion happens automatically when the group segment is encountered.
                     const segments = path.split('.');
                     const resolvedPaths = [''];
                     for (let s = 0; s < segments.length; s++) {
                         const seg = segments[s];
+                        if (seg === '*') continue; // skip wildcard markers
                         const newPaths: string[] = [];
                         for (const rp of resolvedPaths) {
                             const candidate = rp ? `${rp}.${seg}` : seg;

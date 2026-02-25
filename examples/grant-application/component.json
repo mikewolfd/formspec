@@ -19,28 +19,25 @@
             "component": "Stack",
             "gap": "lg",
             "children": [
-              { "component": "Heading", "level": 2, "text": "Applicant Information" },
               {
                 "component": "Grid",
                 "columns": 2,
                 "children": [
-                  { "component": "TextInput",  "bind": "orgName",      "placeholder": "Acme Nonprofit, Inc." },
-                  { "component": "TextInput",  "bind": "ein",          "placeholder": "12-3456789" },
-                  { "component": "RadioGroup", "bind": "orgType" },
+                  { "component": "TextInput",  "bind": "applicantInfo.orgName",      "placeholder": "Acme Nonprofit, Inc." },
+                  { "component": "TextInput",  "bind": "applicantInfo.ein",          "placeholder": "12-3456789" },
+                  { "component": "RadioGroup", "bind": "applicantInfo.orgType" },
                   { "component": "Spacer" },
-                  { "component": "TextInput",  "bind": "contactName",  "placeholder": "Jane Smith" },
-                  { "component": "TextInput",  "bind": "contactEmail", "placeholder": "jane@example.org" }
-                ]
-              },
-              {
-                "component": "Grid",
-                "columns": 2,
-                "children": [
-                  { "component": "TextInput", "bind": "contactPhone", "placeholder": "202-555-0100" },
+                  { "component": "TextInput",  "bind": "applicantInfo.contactName",  "placeholder": "Jane Smith" },
+                  { "component": "TextInput",  "bind": "applicantInfo.contactEmail", "placeholder": "jane@example.org" },
+                  { "component": "TextInput",  "bind": "applicantInfo.contactPhone", "placeholder": "202-555-0100" },
                   { "component": "Spacer" }
                 ]
               },
-              { "component": "Text", "bind": "nonprofitPhoneHint" }
+              {
+                "component": "Text",
+                "text": "Nonprofit organizations must provide a primary phone number.",
+                "when": "$applicantInfo.orgType = 'nonprofit'"
+              }
             ]
           }
         ]
@@ -53,17 +50,16 @@
             "component": "Stack",
             "gap": "lg",
             "children": [
-              { "component": "Heading", "level": 2, "text": "Project Narrative" },
-              { "component": "TextInput", "bind": "projectTitle", "placeholder": "Community Health Outreach Initiative" },
-              { "component": "TextInput", "bind": "abstract",     "maxLines": 8 },
+              { "component": "TextInput",  "bind": "projectNarrative.projectTitle", "placeholder": "Community Health Outreach Initiative" },
+              { "component": "TextInput",  "bind": "projectNarrative.abstract",     "maxLines": 8 },
               {
                 "component": "Grid",
                 "columns": 2,
                 "children": [
-                  { "component": "DatePicker",  "bind": "startDate" },
-                  { "component": "DatePicker",  "bind": "endDate" },
-                  { "component": "NumberInput", "bind": "duration" },
-                  { "component": "NumberInput", "bind": "indirectRate" }
+                  { "component": "DatePicker",  "bind": "projectNarrative.startDate" },
+                  { "component": "DatePicker",  "bind": "projectNarrative.endDate" },
+                  { "component": "NumberInput", "bind": "projectNarrative.duration" },
+                  { "component": "NumberInput", "bind": "projectNarrative.indirectRate" }
                 ]
               }
             ]
@@ -78,11 +74,12 @@
             "component": "Stack",
             "gap": "lg",
             "children": [
-              { "component": "Heading", "level": 2, "text": "Project Budget" },
               { "component": "Text", "text": "Add one row per budget line item. Subtotals are calculated automatically." },
               {
                 "component": "DataTable",
-                "bind": "lineItems",
+                "bind": "budget.lineItems",
+                "allowAdd": true,
+                "allowRemove": true,
                 "columns": [
                   { "header": "Category",    "bind": "category" },
                   { "header": "Description", "bind": "description" },
@@ -93,7 +90,6 @@
               },
               {
                 "component": "Card",
-                "style": { "background": "$token.color.primaryLight", "padding": "$token.space.lg" },
                 "children": [
                   { "component": "Heading", "level": 4, "text": "Budget Summary" },
                   {
@@ -116,11 +112,11 @@
                 "component": "Grid",
                 "columns": 2,
                 "children": [
-                  { "component": "MoneyInput", "bind": "requestedAmount" },
+                  { "component": "MoneyInput", "bind": "budget.requestedAmount" },
                   { "component": "Spacer" }
                 ]
               },
-              { "component": "Toggle", "bind": "usesSubcontractors" }
+              { "component": "Toggle", "bind": "budget.usesSubcontractors" }
             ]
           }
         ]
@@ -137,17 +133,104 @@
                 "component": "Stack",
                 "gap": "lg",
                 "children": [
-                  { "component": "Heading", "level": 2, "text": "Subcontractors" },
                   { "component": "Text", "text": "List all subcontractors. Total subcontractor costs may not exceed 49% of the project budget." },
                   {
                     "component": "DataTable",
                     "bind": "subcontractors",
+                    "allowAdd": true,
+                    "allowRemove": true,
                     "columns": [
                       { "header": "Contact Name",  "bind": "subName" },
                       { "header": "Organization",  "bind": "subOrg" },
                       { "header": "Amount",        "bind": "subAmount" },
                       { "header": "Scope of Work", "bind": "subScope" }
                     ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Review & Submit",
+        "children": [
+          {
+            "component": "Stack",
+            "gap": "lg",
+            "children": [
+              {
+                "component": "Alert",
+                "severity": "info",
+                "text": "Review all information below before submitting. Use Previous to go back and make corrections."
+              },
+              {
+                "component": "Collapsible",
+                "title": "Applicant Information",
+                "children": [
+                  {
+                    "component": "Summary",
+                    "items": [
+                      { "label": "Organization Name", "bind": "applicantInfo.orgName" },
+                      { "label": "EIN",               "bind": "applicantInfo.ein" },
+                      { "label": "Organization Type", "bind": "applicantInfo.orgType" },
+                      { "label": "Contact Name",      "bind": "applicantInfo.contactName" },
+                      { "label": "Contact Email",     "bind": "applicantInfo.contactEmail" },
+                      { "label": "Contact Phone",     "bind": "applicantInfo.contactPhone" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "component": "Collapsible",
+                "title": "Project Narrative",
+                "children": [
+                  {
+                    "component": "Summary",
+                    "items": [
+                      { "label": "Project Title",   "bind": "projectNarrative.projectTitle" },
+                      { "label": "Start Date",      "bind": "projectNarrative.startDate" },
+                      { "label": "End Date",        "bind": "projectNarrative.endDate" },
+                      { "label": "Duration",        "bind": "projectNarrative.duration" },
+                      { "label": "Indirect Rate",   "bind": "projectNarrative.indirectRate" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "component": "Collapsible",
+                "title": "Budget",
+                "children": [
+                  {
+                    "component": "Summary",
+                    "items": [
+                      { "label": "Total Direct Costs", "bind": "totalDirect" },
+                      { "label": "Indirect Costs",     "bind": "indirectCosts" },
+                      { "label": "Grand Total",        "bind": "grandTotal" },
+                      { "label": "Requested Amount",   "bind": "budget.requestedAmount" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "gap": "md",
+                "children": [
+                  { "component": "Heading", "level": 3, "text": "Supporting Documents" },
+                  {
+                    "component": "FileUpload",
+                    "bind": "attachments.narrativeDoc",
+                    "allowedTypes": ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+                    "maxSize": 10485760,
+                    "label": "Project Narrative Document"
+                  },
+                  {
+                    "component": "FileUpload",
+                    "bind": "attachments.budgetJustification",
+                    "allowedTypes": ["application/pdf", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+                    "maxSize": 5242880,
+                    "label": "Budget Justification"
                   }
                 ]
               }

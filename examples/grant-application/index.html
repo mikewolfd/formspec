@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Federal Grant Application — Formspec Demo</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "@preact/signals-core": "/node_modules/@preact/signals-core/dist/signals-core.mjs",
+      "formspec-engine": "/packages/formspec-engine/dist/index.js"
+    }
+  }
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -31,6 +39,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      padding-bottom: 56px; /* clearance for fixed totals bar */
     }
 
     /* ── Header ── */
@@ -134,6 +143,11 @@
       display: block;
     }
 
+    /* Hide the Wizard's built-in submit button — we render our own */
+    .formspec-submit {
+      display: none !important;
+    }
+
     /* ── Shape error callout ── */
     .shape-errors {
       margin-top: 24px;
@@ -183,8 +197,10 @@
 
     /* ── Sticky footer totals bar ── */
     .totals-bar {
-      position: sticky;
+      position: fixed;
       bottom: 0;
+      left: 0;
+      right: 0;
       background: var(--color-primary-dark);
       color: #fff;
       padding: 12px 40px;
@@ -253,6 +269,10 @@
         <span class="step-icon"></span>
         Subcontractors
       </li>
+      <li data-page="Review &amp; Submit">
+        <span class="step-icon"></span>
+        Review &amp; Submit
+      </li>
     </ol>
   </nav>
 
@@ -290,8 +310,10 @@
 </footer>
 
 <script type="module">
-  import { FormEngine, effect } from '../../packages/formspec-engine/dist/index.js';
-  import '../../packages/formspec-webcomponent/dist/index.js';
+  import { FormEngine } from '../../packages/formspec-engine/dist/index.js';
+  import { effect } from '@preact/signals-core';
+  import { FormspecRender } from '../../packages/formspec-webcomponent/dist/index.js';
+  customElements.define('formspec-render', FormspecRender);
 
   const SERVER = 'http://localhost:8000';
 

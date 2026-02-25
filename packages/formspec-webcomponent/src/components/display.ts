@@ -24,9 +24,16 @@ export const TextPlugin: ComponentPlugin = {
         if (comp.format === 'markdown') el.classList.add('formspec-text--markdown');
         if (comp.bind) {
             const itemFullName = ctx.prefix ? `${ctx.prefix}.${comp.bind}` : comp.bind;
+            const varKey = `#:${comp.bind}`;
             ctx.cleanupFns.push(effect(() => {
-                const sig = ctx.engine.signals[itemFullName];
-                el.textContent = sig ? String(sig.value ?? '') : '';
+                const sig = ctx.engine.signals[itemFullName] ?? ctx.engine.variableSignals?.[varKey];
+                const v = sig?.value;
+                if (v != null && typeof v === 'object' && 'amount' in v) {
+                    const n = parseFloat(v.amount);
+                    el.textContent = isNaN(n) ? '' : new Intl.NumberFormat('en-US', { style: 'currency', currency: (v as any).currency || 'USD' }).format(n);
+                } else {
+                    el.textContent = v != null ? String(v) : '';
+                }
             }));
         } else {
             el.textContent = comp.text || '';
@@ -191,9 +198,16 @@ export const SummaryPlugin: ComponentPlugin = {
 
                 if (item.bind) {
                     const fullName = ctx.prefix ? `${ctx.prefix}.${item.bind}` : item.bind;
+                    const varKey = `#:${item.bind}`;
                     ctx.cleanupFns.push(effect(() => {
-                        const sig = ctx.engine.signals[fullName];
-                        dd.textContent = sig ? String(sig.value ?? '') : '';
+                        const sig = ctx.engine.signals[fullName] ?? ctx.engine.variableSignals?.[varKey];
+                        const v = sig?.value;
+                        if (v != null && typeof v === 'object' && 'amount' in v) {
+                            const n = parseFloat(v.amount);
+                            dd.textContent = isNaN(n) ? '' : new Intl.NumberFormat('en-US', { style: 'currency', currency: (v as any).currency || 'USD' }).format(n);
+                        } else {
+                            dd.textContent = v != null ? String(v) : '';
+                        }
                     }));
                 }
             }
