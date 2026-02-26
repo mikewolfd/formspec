@@ -1,3 +1,9 @@
+// ADR-0023 Exception: This suite requires a synthetic fixture because it covers
+// TypeScript ↔ Python FEL parity (requires a deterministic event trace and known
+// Python evaluator output snapshots), screener routing, and form assembly — none
+// of which are representable through the grant application.
+// Portable conformance checks (engine identity, validation report shape, response
+// contract, non-relevant behaviour) live in grant-app-conformance.spec.ts instead.
 import { test, expect } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';

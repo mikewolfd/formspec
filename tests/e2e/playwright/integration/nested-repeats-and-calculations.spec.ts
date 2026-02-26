@@ -1,62 +1,102 @@
 import { test, expect } from '@playwright/test';
-import * as path from 'path';
-import * as fs from 'fs';
-import { gotoHarness, mountDefinition } from '../helpers/harness';
-
-const fixturePath = path.resolve(__dirname, '../../fixtures/complex-scenarios.json');
-const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+import {
+  mountGrantApplication,
+  engineSetValue,
+  engineValue,
+  engineVariable,
+  addRepeatInstance,
+} from '../helpers/grant-app';
 
 test.describe('Integration: Nested Repeats and Cross-Group Calculations', () => {
-  test('should recompute invoice and itinerary outputs when nested repeat values are edited', async ({ page }) => {
-    page.on('console', msg => {
-        console.log(`BROWSER [${msg.type()}]: ${msg.text()}`);
+  test.beforeEach(async ({ page }) => {
+    await mountGrantApplication(page);
+  });
+
+  test('should compute taskCost from hours × hourlyRate in a nested repeat', async ({ page }) => {
+    await addRepeatInstance(page, 'projectPhases');
+    await engineSetValue(page, 'projectPhases[0].phaseName', 'Phase One');
+    await addRepeatInstance(page, 'projectPhases[0].phaseTasks');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hours', 10);
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hourlyRate', { amount: 50, currency: 'USD' });
+    await page.waitForTimeout(100);
+
+    const taskCost = await engineValue(page, 'projectPhases[0].phaseTasks[0].taskCost');
+    expect(taskCost).toMatchObject({ amount: 500, currency: 'USD' });
+  });
+
+  test('should aggregate phaseTotal from all tasks in a phase', async ({ page }) => {
+    await addRepeatInstance(page, 'projectPhases');
+    await addRepeatInstance(page, 'projectPhases[0].phaseTasks');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hours', 10);
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hourlyRate', { amount: 50, currency: 'USD' });
+
+    await addRepeatInstance(page, 'projectPhases[0].phaseTasks');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[1].hours', 5);
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[1].hourlyRate', { amount: 100, currency: 'USD' });
+    await page.waitForTimeout(100);
+
+    // phaseTotal = 500 + 500 = 1000
+    const phaseTotal = await engineValue(page, 'projectPhases[0].phaseTotal');
+    expect(phaseTotal).toMatchObject({ amount: 1000, currency: 'USD' });
+  });
+
+  test('should aggregate @projectPhasesTotal across multiple phases', async ({ page }) => {
+    await addRepeatInstance(page, 'projectPhases');
+    await addRepeatInstance(page, 'projectPhases[0].phaseTasks');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hours', 10);
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hourlyRate', { amount: 100, currency: 'USD' });
+
+    await addRepeatInstance(page, 'projectPhases');
+    await addRepeatInstance(page, 'projectPhases[1].phaseTasks');
+    await engineSetValue(page, 'projectPhases[1].phaseTasks[0].hours', 5);
+    await engineSetValue(page, 'projectPhases[1].phaseTasks[0].hourlyRate', { amount: 200, currency: 'USD' });
+    await page.waitForTimeout(100);
+
+    // phase[0]=1000, phase[1]=1000 → total=2000
+    const total = await engineVariable(page, 'projectPhasesTotal');
+    expect(total).toMatchObject({ amount: 2000, currency: 'USD' });
+  });
+
+  test('should update phaseTotal when a task is removed', async ({ page }) => {
+    await addRepeatInstance(page, 'projectPhases');
+    await addRepeatInstance(page, 'projectPhases[0].phaseTasks');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hours', 10);
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hourlyRate', { amount: 100, currency: 'USD' });
+
+    await addRepeatInstance(page, 'projectPhases[0].phaseTasks');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[1].hours', 5);
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[1].hourlyRate', { amount: 100, currency: 'USD' });
+    await page.waitForTimeout(50);
+
+    const before = await engineValue(page, 'projectPhases[0].phaseTotal');
+    expect(before).toMatchObject({ amount: 1500, currency: 'USD' });
+
+    await page.evaluate(() => {
+      const el: any = document.querySelector('formspec-render');
+      el.getEngine().removeRepeatInstance('projectPhases[0].phaseTasks', 0);
     });
-    await gotoHarness(page);
-    await mountDefinition(page, fixture);
+    await page.waitForTimeout(100);
 
-    // Scenario 1: Nested Invoice
-    // Phase 1, Task 1
-    await page.fill('input[name="invoice.phases[0].tasks[0].hours"]', '10');
-    await page.fill('input[name="invoice.phases[0].tasks[0].rate"]', '50');
-    await expect(page.locator('input[name="invoice.phases[0].tasks[0].taskTotal"]')).toHaveValue('500');
-    await expect(page.locator('input[name="invoice.phases[0].phaseSubtotal"]')).toHaveValue('500');
-    await expect(page.locator('input[name="invoice.invoiceTotal"]')).toHaveValue('500');
-    await expect(page.locator('input[name="invoice.taxRate"]')).toHaveValue('10');
-    await expect(page.locator('input[name="invoice.finalAmount"]')).toHaveValue('550');
+    const after = await engineValue(page, 'projectPhases[0].phaseTotal');
+    expect(after).toMatchObject({ amount: 500, currency: 'USD' });
+  });
 
-    // Add Task 2 to Phase 1
-    await page.click('button:has-text("Add Tasks in Phase")');
-    await page.fill('input[name="invoice.phases[0].tasks[1].hours"]', '5');
-    await page.fill('input[name="invoice.phases[0].tasks[1].rate"]', '100');
-    await expect(page.locator('input[name="invoice.phases[0].phaseSubtotal"]')).toHaveValue('1000');
-    await expect(page.locator('input[name="invoice.invoiceTotal"]')).toHaveValue('1000');
-    
-    // Add Phase 2, Task 1
-    await page.click('button:has-text("Add Project Phases")');
-    // Note: The second "Add Tasks in Phase" button belongs to the second phase
-    const addTasksBtns = page.locator('button:has-text("Add Tasks in Phase")');
-    await addTasksBtns.nth(1).click();
-    await page.fill('input[name="invoice.phases[1].tasks[0].hours"]', '2');
-    await page.fill('input[name="invoice.phases[1].tasks[0].rate"]', '300');
-    
-    await expect(page.locator('input[name="invoice.phases[1].phaseSubtotal"]')).toHaveValue('600');
-    await expect(page.locator('input[name="invoice.invoiceTotal"]')).toHaveValue('1600');
-    
-    // Check dynamic tax rate shift
-    await expect(page.locator('input[name="invoice.taxRate"]')).toHaveValue('15');
-    await expect(page.locator('input[name="invoice.finalAmount"]')).toHaveValue('1840'); // 1600 * 1.15
+  test('should include nested phase data in continuous response', async ({ page }) => {
+    await addRepeatInstance(page, 'projectPhases');
+    await engineSetValue(page, 'projectPhases[0].phaseName', 'Design');
+    await addRepeatInstance(page, 'projectPhases[0].phaseTasks');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].taskName', 'Wireframes');
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hours', 8);
+    await engineSetValue(page, 'projectPhases[0].phaseTasks[0].hourlyRate', { amount: 75, currency: 'USD' });
+    await page.waitForTimeout(100);
 
-    // Scenario 2: Travel Itinerary Sequence
-    await page.fill('input[name="itinerary[0].arrival"]', '2025-06-01');
-    await page.fill('input[name="itinerary[0].departure"]', '2025-06-05');
-    await expect(page.locator('input[name="itinerary[0].stayDuration"]')).toHaveValue('4');
-    await expect(page.locator('input[name="itinerary[0].travelConflict"]')).toHaveValue('First Stop');
+    const response = await page.evaluate(() => {
+      const el: any = document.querySelector('formspec-render');
+      return el.getEngine().getResponse({ mode: 'continuous' });
+    });
 
-    await page.click('button:has-text("Add Travel Itinerary")');
-    await page.fill('input[name="itinerary[1].arrival"]', '2025-06-04'); // Overlap!
-    await expect(page.locator('input[name="itinerary[1].travelConflict"]')).toHaveValue('CONFLICT');
-    
-    await page.fill('input[name="itinerary[1].arrival"]', '2025-06-06'); // OK
-    await expect(page.locator('input[name="itinerary[1].travelConflict"]')).toHaveValue('OK');
+    expect(response.data?.projectPhases?.[0]?.phaseName).toBe('Design');
+    expect(response.data?.projectPhases?.[0]?.phaseTasks?.[0]?.taskName).toBe('Wireframes');
+    expect(response.data?.projectPhases?.[0]?.phaseTasks?.[0]?.taskCost).toMatchObject({ amount: 600, currency: 'USD' });
   });
 });

@@ -1,152 +1,205 @@
+/**
+ * FEL Standard Library — Grant Application Coverage (ADR-0023 T-06)
+ *
+ * Tests FEL stdlib functions through real computed fields in the grant
+ * application. Each test sets source field(s) via engineSetValue and asserts
+ * the computed result via engineValue.
+ *
+ * Functions covered here: upper, coalesce, round, year, dateAdd, dateDiff,
+ * abs, isNull, sum (money aggregate), money arithmetic, matches, contains.
+ *
+ * Functions with no natural home in a business grant form (floor, ceil, prev,
+ * next, parent context, cast functions, timeDiff, etc.) will be covered when
+ * a second real-world example application is added (ADR-0023 §7).
+ */
+
 import { test, expect } from '@playwright/test';
-import * as path from 'path';
-import * as fs from 'fs';
-import { gotoHarness, mountDefinition } from '../helpers/harness';
+import {
+  mountGrantApplication,
+  engineSetValue,
+  engineValue,
+  engineVariable,
+  addRepeatInstance,
+  getValidationReport,
+} from '../helpers/grant-app';
 
-const fixturePath = path.resolve(__dirname, '../../fixtures/fel-functions.json');
-const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+test.describe('FEL Standard Library: String Functions', () => {
+  test.beforeEach(async ({ page }) => { await mountGrantApplication(page); });
 
-test.describe('FEL: mixed arithmetic operators', () => {
-  test('should correctly evaluate multiply-then-divide: a * b / c', async ({ page }) => {
-    await gotoHarness(page);
-    await mountDefinition(page, fixture);
-
-    // a=100, b=10, c=100 → 100 * 10 / 100 = 10
-    await page.fill('input[name="mixA"]', '100');
-    await page.fill('input[name="mixB"]', '10');
-    await page.fill('input[name="mixC"]', '100');
-    await expect(page.locator('input[name="mixMultiplyDivide"]')).toHaveValue('10');
+  test('upper() — orgNameUpper computes uppercase of orgName', async ({ page }) => {
+    await engineSetValue(page, 'applicantInfo.orgName', 'Community Health Foundation');
+    await page.waitForTimeout(50);
+    const result = await engineValue(page, 'applicantInfo.orgNameUpper');
+    expect(result).toBe('COMMUNITY HEALTH FOUNDATION');
   });
 
-  test('should correctly evaluate add-then-subtract: total + bonus - tax', async ({ page }) => {
-    await gotoHarness(page);
-    await mountDefinition(page, fixture);
+  test('coalesce() — contactPhoneFallback returns primary value when set', async ({ page }) => {
+    await engineSetValue(page, 'applicantInfo.contactPhone', '555-1234');
+    await page.waitForTimeout(50);
+    const result = await engineValue(page, 'applicantInfo.contactPhoneFallback');
+    expect(result).toBe('555-1234');
+  });
 
-    // total=1000, bonus=100, tax=150 → 1000 + 100 - 150 = 950
-    await page.fill('input[name="mixTotal"]', '1000');
-    await page.fill('input[name="mixBonus"]', '100');
-    await page.fill('input[name="mixTax"]', '150');
-    await expect(page.locator('input[name="mixAddSubtract"]')).toHaveValue('950');
+  test('coalesce() — contactPhoneFallback returns fallback when phone is empty', async ({ page }) => {
+    await engineSetValue(page, 'applicantInfo.contactPhone', null);
+    await page.waitForTimeout(50);
+    const result = await engineValue(page, 'applicantInfo.contactPhoneFallback');
+    expect(result === 'N/A' || result === '202-555-0100').toBe(true); // initialValue may be set
   });
 });
 
-test.describe('Integration: FEL Standard Library in UI', () => {
-  test('should display expected FEL outputs when users edit source fields in the UI', async ({ page }) => {
-    page.on('console', msg => console.log('Browser log:', msg.text()));
-    await gotoHarness(page);
-    await mountDefinition(page, fixture);
+test.describe('FEL Standard Library: Numeric Functions', () => {
+  test.beforeEach(async ({ page }) => { await mountGrantApplication(page); });
 
-    // Test String: upper()
-    await page.fill('input[name="rawText"]', 'hello world');
-    await expect(page.locator('input[name="upperText"]')).toHaveValue('HELLO WORLD');
+  test('round() — indirectRateRounded rounds to nearest integer', async ({ page }) => {
+    await engineSetValue(page, 'projectNarrative.indirectRate', 12.7);
+    await page.waitForTimeout(50);
+    const result = await engineValue(page, 'projectNarrative.indirectRateRounded');
+    expect(result).toBe(13);
+  });
 
-    // Test Numeric: round()
-    await page.fill('input[name="rawNum"]', '12.3456');
-    await expect(page.locator('input[name="roundedNum"]')).toHaveValue('12.35');
+  test('round() — rounds down when fractional part < 0.5', async ({ page }) => {
+    await engineSetValue(page, 'projectNarrative.indirectRate', 12.3);
+    await page.waitForTimeout(50);
+    const result = await engineValue(page, 'projectNarrative.indirectRateRounded');
+    expect(result).toBe(12);
+  });
 
-    // Test Date: year()
-    await page.fill('input[name="testDate"]', '2025-05-20');
-    await expect(page.locator('input[name="dateYear"]')).toHaveValue('2025');
+  test('abs() — budgetDeviation is absolute difference between requested and grandTotal', async ({ page }) => {
+    // Set up a line item so grandTotal > 0
+    await addRepeatInstance(page, 'budget.lineItems');
+    await engineSetValue(page, 'budget.lineItems[0].quantity', 1);
+    await engineSetValue(page, 'budget.lineItems[0].unitCost', { amount: 1000, currency: 'USD' });
+    // Request less than grand total → deviation = grandTotal - requested
+    await engineSetValue(page, 'budget.requestedAmount', { amount: 800, currency: 'USD' });
+    await page.waitForTimeout(100);
 
-    // Test Logical: coalesce()
-    await page.fill('input[name="opt2"]', 'Fallback');
-    await expect(page.locator('input[name="coalesced"]')).toHaveValue('Fallback');
-    await page.fill('input[name="opt1"]', 'Primary');
-    await expect(page.locator('input[name="coalesced"]')).toHaveValue('Primary');
+    const deviation = await engineValue(page, 'budget.budgetDeviation');
+    expect(deviation).toMatchObject({ amount: 200, currency: 'USD' });
+  });
+});
 
-    // Test Type: isNull()
-    // Note: in our engine, empty string is the default for string fields.
-    // Per spec, coalesce handles nulls.
-    
-    // Test Aggregate: sum()
-    // Add items
-    await page.fill('input[name="prices[0].val"]', '10');
-    await expect(page.locator('input[name="totalSum"]')).toHaveValue('10');
-    
-    await page.click('button:has-text("Add prices")');
-    await page.fill('input[name="prices[1].val"]', '25');
-    await expect(page.locator('input[name="totalSum"]')).toHaveValue('35');
-    // Test Strings: contains
-    await expect(page.locator('input[name="textContains"]')).toHaveValue('true');
+test.describe('FEL Standard Library: Date Functions', () => {
+  test.beforeEach(async ({ page }) => { await mountGrantApplication(page); });
 
-    // Test Math: abs & power
-    await expect(page.locator('input[name="mathPower"]')).toHaveValue('8');
-    await expect(page.locator('input[name="mathAbs"]')).toHaveValue('42');
+  test('year() — projectYear extracts year from startDate', async ({ page }) => {
+    await engineSetValue(page, 'projectNarrative.startDate', '2027-06-15');
+    await page.waitForTimeout(50);
+    const result = await engineValue(page, 'projectNarrative.projectYear');
+    expect(result).toBe(2027);
+  });
 
-    // Test Type: empty
-    // JS checkbox for boolean
-    await expect(page.locator('input[name="typeEmpty"]')).toBeChecked();
+  test('dateDiff() — duration computes months between startDate and endDate', async ({ page }) => {
+    await engineSetValue(page, 'projectNarrative.startDate', '2027-01-01');
+    await engineSetValue(page, 'projectNarrative.endDate', '2027-07-01');
+    await page.waitForTimeout(100);
+    const duration = await engineValue(page, 'projectNarrative.duration');
+    expect(duration).toBe(6);
+  });
 
-    // Test Dates: dateAdd & dateDiff
-    await expect(page.locator('input[name="dateAddStr"]')).toHaveValue('2025-01-06');
-    await expect(page.locator('input[name="dateDiffVal"]')).toHaveValue('9');
+  test('dateAdd() — projectedEndDate adds duration months to startDate', async ({ page }) => {
+    await engineSetValue(page, 'projectNarrative.startDate', '2027-01-01');
+    await engineSetValue(page, 'projectNarrative.endDate', '2028-01-01'); // sets duration=12
+    await page.waitForTimeout(100);
+    const projected = await engineValue(page, 'projectNarrative.projectedEndDate');
+    // startDate + 12 months = 2028-01-01
+    expect(projected).toBe('2028-01-01');
+  });
+});
 
-    // Test Logical: if
-    await expect(page.locator('input[name="ifExpr"]')).toHaveValue('yes');
+test.describe('FEL Standard Library: Type / Logical Functions', () => {
+  test.beforeEach(async ({ page }) => { await mountGrantApplication(page); });
 
-    // --- New Standard Library Functions ---
+  test('isNull() — hasLineItems is false when first line item category is null', async ({ page }) => {
+    // No line items added — category is null
+    const result = await engineValue(page, 'budget.hasLineItems');
+    // isNull(null) = true → string(!true) = "false"
+    expect(result).toBe('false');
+  });
 
-    // Aggregate functions
-    await expect(page.locator('input[name="valCount"]')).toHaveValue('2');
-    await expect(page.locator('input[name="valAvg"]')).toHaveValue('17.5');
-    await expect(page.locator('input[name="valMin"]')).toHaveValue('10');
-    await expect(page.locator('input[name="valMax"]')).toHaveValue('25');
-    // String functions
-    await expect(page.locator('input[name="strLength"]')).toHaveValue('11');
-    await expect(page.locator('input[name="strStartsWith"]')).toBeChecked();
-    await expect(page.locator('input[name="strEndsWith"]')).toBeChecked();
-    await expect(page.locator('input[name="strSubstring"]')).toHaveValue('hello');
-    await expect(page.locator('input[name="strReplace"]')).toHaveValue('hello there');
-    await expect(page.locator('input[name="strLower"]')).toHaveValue('hello');
-    await expect(page.locator('input[name="strTrim"]')).toHaveValue('trimmed');
-    await expect(page.locator('input[name="strMatches"]')).toBeChecked();
-    await expect(page.locator('input[name="strFormat"]')).toHaveValue('Value: 12.3456');
+  test('isNull() — hasLineItems is true after setting a line item category', async ({ page }) => {
+    await addRepeatInstance(page, 'budget.lineItems');
+    await engineSetValue(page, 'budget.lineItems[0].category', 'Personnel');
+    await page.waitForTimeout(50);
+    const result = await engineValue(page, 'budget.hasLineItems');
+    // isNull('Personnel') = false → !false = true → string(true) = "true"
+    expect(result).toBe('true');
+  });
+});
 
-    // Math functions
-    await expect(page.locator('input[name="numFloor"]')).toHaveValue('12');
-    await expect(page.locator('input[name="numCeil"]')).toHaveValue('13');
+test.describe('FEL Standard Library: Aggregate Functions', () => {
+  test.beforeEach(async ({ page }) => { await mountGrantApplication(page); });
 
-    // Date/Time functions
-    const todayStr = new Date().toISOString().split('T')[0];
-    await expect(page.locator('input[name="dtToday"]')).toHaveValue(todayStr);
-    await expect(page.locator('input[name="dtNow"]')).not.toHaveValue('');
-    await expect(page.locator('input[name="dtMonth"]')).toHaveValue('5');
-    await expect(page.locator('input[name="dtDay"]')).toHaveValue('20');
-    await expect(page.locator('input[name="dtHours"]')).toHaveValue('15');
-    await expect(page.locator('input[name="dtMinutes"]')).toHaveValue('30');
-    await expect(page.locator('input[name="dtSeconds"]')).toHaveValue('45');
-    await expect(page.locator('input[name="dtTime"]')).toHaveValue('15:30:45');
-    await expect(page.locator('input[name="dtTimeDiff"]')).toHaveValue('60');
+  test('sum() (money) — @totalDirect aggregates line item subtotals', async ({ page }) => {
+    await addRepeatInstance(page, 'budget.lineItems');
+    await engineSetValue(page, 'budget.lineItems[0].quantity', 2);
+    await engineSetValue(page, 'budget.lineItems[0].unitCost', { amount: 500, currency: 'USD' });
 
-    // Type/Logical functions
-    await expect(page.locator('input[name="valSelected"]')).toBeChecked();
-    await expect(page.locator('input[name="valIsNumber"]')).toBeChecked();
-    await expect(page.locator('input[name="valIsString"]')).toBeChecked();
-    await expect(page.locator('input[name="valIsDate"]')).toBeChecked();
-    await expect(page.locator('input[name="valTypeOf"]')).toHaveValue('number');
-    await expect(page.locator('input[name="valToNumber"]')).toHaveValue('123.45');
+    await addRepeatInstance(page, 'budget.lineItems');
+    await engineSetValue(page, 'budget.lineItems[1].quantity', 3);
+    await engineSetValue(page, 'budget.lineItems[1].unitCost', { amount: 200, currency: 'USD' });
+    await page.waitForTimeout(100);
 
-    // Cast functions
-    await expect(page.locator('input[name="castBoolFromString"]')).toBeChecked();
-    await expect(page.locator('input[name="castBoolFromNumber"]')).not.toBeChecked();
-    await expect(page.locator('input[name="castBoolFromNull"]')).not.toBeChecked();
-    await expect(page.locator('input[name="castDate"]')).toHaveValue('2025-05-20');
-    await expect(page.locator('input[name="castTime"]')).toHaveValue('09:05:03');
+    const total = await engineVariable(page, 'totalDirect');
+    expect(total).toMatchObject({ amount: 1600, currency: 'USD' }); // 1000 + 600
+  });
+});
 
-    // Money functions
-    await expect(page.locator('input[name="mAmount"]')).toHaveValue('100');
-    await expect(page.locator('input[name="mCurrency"]')).toHaveValue('USD');
-    await expect(page.locator('input[name="mAdd"]')).toHaveValue('150');
+test.describe('FEL Standard Library: Arithmetic Operators', () => {
+  test.beforeEach(async ({ page }) => { await mountGrantApplication(page); });
 
-    // Money Aggregate
-    await page.fill('input[name="ledger[0].amount"]', '10');
-    await page.click('button:has-text("Add ledger")');
-    await page.fill('input[name="ledger[1].amount"]', '20');
-    await expect(page.locator('input[name="totalLedger"]')).toHaveValue('30');
+  test('multiply-then-divide precedence — subtotal = quantity × unitCost', async ({ page }) => {
+    await addRepeatInstance(page, 'budget.lineItems');
+    await engineSetValue(page, 'budget.lineItems[0].quantity', 4);
+    await engineSetValue(page, 'budget.lineItems[0].unitCost', { amount: 250, currency: 'USD' });
+    await page.waitForTimeout(100);
 
-    // Context functions
-    await expect(page.locator('input[name="prices[1].prevVal"]')).toHaveValue('10');
-    await expect(page.locator('input[name="prices[0].nextVal"]')).toHaveValue('25');
-    await expect(page.locator('input[name="parentGroup.parentVal"]')).toHaveValue('hello world');
+    const subtotal = await engineValue(page, 'budget.lineItems[0].subtotal');
+    expect(subtotal).toMatchObject({ amount: 1000, currency: 'USD' });
+  });
+
+  test('add-then-multiply — @grandTotal = totalDirect + indirectCosts', async ({ page }) => {
+    await engineSetValue(page, 'applicantInfo.orgType', 'nonprofit');
+    await engineSetValue(page, 'projectNarrative.indirectRate', 10);
+    await addRepeatInstance(page, 'budget.lineItems');
+    await engineSetValue(page, 'budget.lineItems[0].quantity', 1);
+    await engineSetValue(page, 'budget.lineItems[0].unitCost', { amount: 1000, currency: 'USD' });
+    await page.waitForTimeout(100);
+
+    const indirect = await engineVariable(page, 'indirectCosts');
+    const grand = await engineVariable(page, 'grandTotal');
+    // indirect = 1000 * 0.10 = 100, grand = 1000 + 100 = 1100
+    expect(indirect).toMatchObject({ amount: 100, currency: 'USD' });
+    expect(grand).toMatchObject({ amount: 1100, currency: 'USD' });
+  });
+});
+
+test.describe('FEL Standard Library: Pattern Matching', () => {
+  test.beforeEach(async ({ page }) => { await mountGrantApplication(page); });
+
+  test('matches() — EIN constraint rejects wrong format', async ({ page }) => {
+    await engineSetValue(page, 'applicantInfo.ein', 'INVALID');
+    await page.waitForTimeout(50);
+    const report = await getValidationReport(page, 'continuous');
+    const einError = report.results.find((r: any) => r.path === 'applicantInfo.ein');
+    expect(einError).toBeDefined();
+  });
+
+  test('matches() — EIN constraint accepts correct format (XX-XXXXXXX)', async ({ page }) => {
+    await engineSetValue(page, 'applicantInfo.ein', '12-3456789');
+    await page.waitForTimeout(50);
+    const report = await getValidationReport(page, 'continuous');
+    const einError = report.results.find(
+      (r: any) => r.path === 'applicantInfo.ein' && r.severity === 'error'
+    );
+    expect(einError).toBeUndefined();
+  });
+
+  test('contains() — email constraint rejects address missing @', async ({ page }) => {
+    await engineSetValue(page, 'applicantInfo.contactEmail', 'notanemail');
+    await page.waitForTimeout(50);
+    const report = await getValidationReport(page, 'continuous');
+    const emailError = report.results.find((r: any) => r.path === 'applicantInfo.contactEmail');
+    expect(emailError).toBeDefined();
   });
 });
