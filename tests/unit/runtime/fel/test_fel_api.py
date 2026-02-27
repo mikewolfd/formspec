@@ -388,7 +388,7 @@ class TestEvaluate:
 
     def test_evaluate_variable_ref_in_shape_constraint(self):
         """Shape-style constraint referencing a pre-computed variable."""
-        from formspec.fel.types import FelMoney, fel_decimal, FelTrue
+        from formspec.fel.types import FelMoney, fel_decimal
         variables = {'grandTotal': FelMoney(fel_decimal('50000'), 'USD')}
         data = {'budget': {'requestedAmount': {'amount': '50000', 'currency': 'USD'}}}
         result = evaluate(
@@ -403,5 +403,4 @@ class TestEvaluate:
         from formspec.fel.types import FelObject, FelString
         variables = {'orgProfile': FelObject({'ein': FelString('12-3456789')})}
         result = evaluate('@orgProfile.ein', data={}, variables=variables)
-        from formspec.fel.types import FelString as FS
-        assert result.value == FS('12-3456789')
+        assert result.value == FelString('12-3456789')

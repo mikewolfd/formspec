@@ -101,8 +101,11 @@ class Environment:
         """Resolve ``@name(arg).tail`` context references.
 
         Supported: @current/.tail (repeat row), @index/@count (repeat metadata),
-        @instance('name')/.tail (secondary data), @source/@target (mapping DSL).
-        Unknown names -> FelNull.
+        @instance('name')/.tail (secondary data), @source/@target (mapping DSL),
+        @name (definition variable lookup via the ``variables`` dict).
+        Built-in names (current, index, count, instance, source, target) always take
+        precedence — do not use them as variable keys.
+        Unknown names with no matching variable -> FelNull.
         """
         if name == 'current':
             if self.repeat_context is None:
