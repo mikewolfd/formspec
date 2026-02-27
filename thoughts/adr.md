@@ -31,6 +31,12 @@
 | 0020 | [0020-css-integration-and-design-system-interop.md](adr/0020-css-integration-and-design-system-interop.md) | Implemented | `cssClass`/`stylesheets` in schemas + renderer |
 | 0021 | [0021-holistic-kitchen-sink-e2e-conformance-plan.md](adr/0021-holistic-kitchen-sink-e2e-conformance-plan.md) | Implemented | All phases implemented (Python runner + Playwright) |
 | 0022 | [0022-component-playground-strategy.md](adr/0022-component-playground-strategy.md) | Superseded | Implemented then removed; runtime/library capabilities retained and ADR now records rollback lessons |
+| 0023 | [0023-e2e-tests-use-real-world-example-apps.md](adr/0023-e2e-tests-use-real-world-example-apps.md) | Accepted | E2E tests use grant-application example |
+| 0024 | [0024-grant-application-example.md](adr/0024-grant-application-example.md) | Implemented | Grant application vertical slice implementation plan |
+| 0025 | [0025-grant-application-example-design.md](adr/0025-grant-application-example-design.md) | Implemented | Grant application reference design document |
+| 0026 | [0026-grant-application-example-amendment.md](adr/0026-grant-application-example-amendment.md) | Implemented | Amendment adding missing feature coverage to grant app |
+| 0027 | [0027-self-contained-grant-app.md](adr/0027-self-contained-grant-app.md) | Implemented | Self-contained Vite app for grant-application example |
+| 0028 | [0028-definition-evaluator.md](adr/0028-definition-evaluator.md) | In Progress | DefinitionEvaluator for server-side variable/shape evaluation |
 
 ---
 
