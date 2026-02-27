@@ -132,6 +132,17 @@ Two mechanisms: **bind constraints** (field-level: required, constraint, readonl
 ### Repeatable Groups
 Tracked via separate `repeats` signals mapping group names to instance counts. Uses indexed paths like `group[0].field`. Supports nesting and min/max cardinality validation.
 
+## Development Workflow — Rapid Red-Green-Refactor
+
+Every feature or bugfix follows this loop:
+
+1. **Red — write one basic failing test** that captures the core requirement. Keep it minimal: one assertion, simplest possible setup. Run it, confirm it fails for the right reason.
+2. **Green — make it pass** with the simplest change that works. No polish, no extras.
+3. **Flesh out — add tests for the complete requirement.** Edge cases, null handling, UI rendering, validation interactions. Run them, see which fail.
+4. **Finish — implement the remaining changes** to pass all tests. Then run the full suite to confirm zero regressions.
+
+Do NOT write all tests upfront. Do NOT write implementation before a failing test exists. The loop is: one test → pass it → expand tests → pass them → verify full suite. This is non-negotiable.
+
 ## Testing Layers
 
 **Python conformance suite** (`tests/`): Schema conformance, spec example extraction, property-based generative testing (hypothesis), cross-spec contracts, FEL implementation validation.

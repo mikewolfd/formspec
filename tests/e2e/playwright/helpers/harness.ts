@@ -19,7 +19,7 @@ export async function mountDefinition(page: Page, definition: unknown): Promise<
 export async function submitAndGetResponse<T = any>(page: Page): Promise<T> {
   return await page.evaluate(() => {
     return new Promise((resolve, reject) => {
-      document.addEventListener('formspec-submit', (e: any) => resolve(e.detail), { once: true });
+      document.addEventListener('formspec-submit', (e: any) => resolve(e.detail.response), { once: true });
 
       const buttons = Array.from(document.querySelectorAll('button'));
       const submitBtn =

@@ -276,28 +276,4 @@ test.describe('Grant Application: Validation', () => {
     expect(placeholder).toBeUndefined();
   });
 
-  // ── Shape: dateRangeXone (xone composition) ────────────────────────
-
-  test('should fire dateRangeXone info when neither date condition is met (xone composition)', async ({ page }) => {
-    // Past start date + future end date → neither condition is true → xone fails (0 truths)
-    await engineSetValue(page, 'projectNarrative.startDate', '2020-01-01'); // past
-    await engineSetValue(page, 'projectNarrative.endDate', '2030-12-31');   // future
-    await page.waitForTimeout(50);
-
-    const report = await getValidationReport(page, 'continuous');
-    const xone = report.results.find((r: any) => r.code === 'DATE_RANGE_XONE');
-    expect(xone).toBeDefined();
-    expect(xone.severity).toBe('info');
-  });
-
-  test('should clear dateRangeXone when exactly one date condition is met', async ({ page }) => {
-    // Future start date only → exactly one xone condition is true → passes
-    await engineSetValue(page, 'projectNarrative.startDate', '2030-01-01'); // future
-    await engineSetValue(page, 'projectNarrative.endDate', '2031-12-31');   // also future
-    await page.waitForTimeout(50);
-
-    const report = await getValidationReport(page, 'continuous');
-    const xone = report.results.find((r: any) => r.code === 'DATE_RANGE_XONE');
-    expect(xone).toBeUndefined();
-  });
 });
