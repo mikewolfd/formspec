@@ -487,6 +487,97 @@
   color: inherit;
 }
 
+.formspec-datatable-cell-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.formspec-datatable-prefix {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.formspec-datatable-add {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px dashed #9ca3af;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.formspec-datatable-add:hover {
+  border-color: #6b7280;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.formspec-datatable-remove {
+  padding: 0.15rem 0.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.formspec-datatable-remove:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.formspec-row-number {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  text-align: center;
+  width: 2rem;
+}
+
+/* ── Validation Summary ───────────────────────────────────────── */
+.formspec-validation-summary {
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formspec-validation-summary--visible {
+  display: flex;
+}
+
+.formspec-shape-error,
+.formspec-shape-warning,
+.formspec-shape-info {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid transparent;
+  border-radius: 0 0.25rem 0.25rem 0;
+  font-size: 0.875rem;
+}
+
+.formspec-shape-error {
+  border-left-color: #cf222e;
+  background: #ffebe9;
+  color: #82071e;
+}
+
+.formspec-shape-warning {
+  border-left-color: #9a6700;
+  background: #fff8c5;
+  color: #7d4e00;
+}
+
+.formspec-shape-info {
+  border-left-color: #0969da;
+  background: #e8f4fd;
+  color: #0550ae;
+}
+
 /* ── Spacer ────────────────────────────────────────────────────── */
 .formspec-spacer {
   height: 1rem; /* default, overridden by size prop */

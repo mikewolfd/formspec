@@ -59,8 +59,9 @@ describe('render lifecycle', () => {
 
         const response = await received;
         expect(response).toBeDefined();
-        // Response should contain the value we set
-        expect(response.data?.name).toBe('Alice');
+        // Detail is now { response, validationReport }
+        expect(response.response.data?.name).toBe('Alice');
+        expect(response.validationReport).toBeDefined();
     });
 
     it('unknown component type in tree logs warning', () => {

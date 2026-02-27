@@ -1,5 +1,6 @@
 import { effect } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
+import { formatMoney } from '../format';
 
 /** Renders an `<h1>`-`<h6>` heading element based on the `level` prop (defaults to h1). */
 export const HeadingPlugin: ComponentPlugin = {
@@ -34,8 +35,7 @@ export const TextPlugin: ComponentPlugin = {
                 const sig = ctx.engine.signals[itemFullName] ?? ctx.engine.variableSignals?.[varKey];
                 const v = sig?.value;
                 if (v != null && typeof v === 'object' && 'amount' in v) {
-                    const n = parseFloat(v.amount);
-                    el.textContent = isNaN(n) ? '' : new Intl.NumberFormat('en-US', { style: 'currency', currency: (v as any).currency || 'USD' }).format(n);
+                    el.textContent = formatMoney(v as any);
                 } else {
                     el.textContent = v != null ? String(v) : '';
                 }
@@ -220,8 +220,7 @@ export const SummaryPlugin: ComponentPlugin = {
                         const sig = ctx.engine.signals[fullName] ?? ctx.engine.variableSignals?.[varKey];
                         const v = sig?.value;
                         if (v != null && typeof v === 'object' && 'amount' in v) {
-                            const n = parseFloat(v.amount);
-                            dd.textContent = isNaN(n) ? '' : new Intl.NumberFormat('en-US', { style: 'currency', currency: (v as any).currency || 'USD' }).format(n);
+                            dd.textContent = formatMoney(v as any);
                         } else if (v != null && item.optionSet) {
                             const def = (ctx.engine as any).getDefinition?.();
                             const entry = def?.optionSets?.[item.optionSet];
@@ -240,5 +239,52 @@ export const SummaryPlugin: ComponentPlugin = {
         ctx.applyAccessibility(el, comp);
         ctx.applyStyle(el, comp.style);
         parent.appendChild(el);
+    }
+};
+
+/**
+ * Renders a live validation summary that displays shape-level (cross-field) validation results.
+ * Optionally also shows field-level errors. Reactively updates as form state changes.
+ *
+ * Props: `mode` ('continuous' | 'submit', default 'continuous'), `showFieldErrors` (boolean, default false).
+ */
+export const ValidationSummaryPlugin: ComponentPlugin = {
+    type: 'ValidationSummary',
+    render: (comp, parent, ctx) => {
+        const el = document.createElement('div');
+        if (comp.id) el.id = comp.id;
+        el.className = 'formspec-validation-summary';
+        el.setAttribute('aria-live', 'polite');
+        ctx.applyCssClass(el, comp);
+        ctx.applyStyle(el, comp.style);
+        parent.appendChild(el);
+
+        const mode = comp.mode || 'continuous';
+        const showFieldErrors = comp.showFieldErrors === true;
+
+        ctx.cleanupFns.push(effect(() => {
+            // Touch structureVersion to re-run on structural changes
+            ctx.engine.structureVersion.value;
+
+            const report = ctx.engine.getValidationReport({ mode });
+            const results = report.results.filter((r: any) => {
+                if (showFieldErrors) return true;
+                return r.source === 'shape' || r.constraintKind === 'shape';
+            });
+
+            el.innerHTML = '';
+            if (results.length === 0) {
+                el.classList.remove('formspec-validation-summary--visible');
+                return;
+            }
+            el.classList.add('formspec-validation-summary--visible');
+
+            for (const r of results) {
+                const div = document.createElement('div');
+                div.className = `formspec-shape-${r.severity || 'error'}`;
+                div.textContent = r.message;
+                el.appendChild(div);
+            }
+        }));
     }
 };

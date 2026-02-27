@@ -1,5 +1,6 @@
 import { effect } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
+import { formatMoney } from '../format';
 
 /** Renders a simple wrapper `<div>` for conditional content whose visibility is controlled by bind relevance. */
 export const ConditionalGroupPlugin: ComponentPlugin = {
@@ -57,8 +58,10 @@ export const DataTablePlugin: ComponentPlugin = {
             }
         }
 
+        const defaultCurrency = ctx.engine.definition?.formPresentation?.defaultCurrency || 'USD';
+
         /** Coerces a raw input string to the appropriate type based on the field's dataType. */
-        const coerceInputValue = (raw: string, dataType: string | undefined): any => {
+        const coerceInputValue = (raw: string, dataType: string | undefined, fieldDef?: any): any => {
             const trimmed = raw.trim();
             if (trimmed === '') return null;
             if (dataType === 'integer') {
@@ -68,6 +71,12 @@ export const DataTablePlugin: ComponentPlugin = {
             if (dataType === 'decimal' || dataType === 'number') {
                 const parsed = Number.parseFloat(trimmed);
                 return Number.isFinite(parsed) ? parsed : null;
+            }
+            if (dataType === 'money') {
+                const parsed = Number.parseFloat(trimmed);
+                if (!Number.isFinite(parsed)) return null;
+                const currency = fieldDef?.currency || defaultCurrency;
+                return { amount: parsed, currency };
             }
             return raw;
         };
@@ -134,14 +143,15 @@ export const DataTablePlugin: ComponentPlugin = {
                         const input = document.createElement('input');
                         input.className = 'formspec-datatable-input';
                         input.name = sigPath;
-                        input.type = (dataType === 'integer' || dataType === 'decimal' || dataType === 'number')
+                        input.type = (dataType === 'integer' || dataType === 'decimal' || dataType === 'number' || dataType === 'money')
                             ? 'number'
                             : 'text';
                         if (input.type === 'number') {
                             input.step = dataType === 'integer' ? '1' : 'any';
+                            input.min = '0';
                         }
                         input.addEventListener('input', () => {
-                            ctx.engine.setValue(sigPath, coerceInputValue(input.value, dataType));
+                            ctx.engine.setValue(sigPath, coerceInputValue(input.value, dataType, fieldDef));
                         });
                         if (prefix || suffix) {
                             const wrapper = document.createElement('div');
@@ -184,8 +194,7 @@ export const DataTablePlugin: ComponentPlugin = {
                         const syncText = effect(() => {
                             const v = sig.value;
                             if (v !== null && v !== undefined && typeof v === 'object' && 'amount' in v) {
-                                const n = Number(v.amount);
-                                valueEl.textContent = isNaN(n) ? '' : new Intl.NumberFormat('en-US', { style: 'currency', currency: (v as any).currency || 'USD' }).format(n);
+                                valueEl.textContent = formatMoney(v as any);
                             } else {
                                 valueEl.textContent = v === null || v === undefined ? '' : String(v);
                             }

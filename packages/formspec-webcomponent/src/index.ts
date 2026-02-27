@@ -9,6 +9,7 @@ import './formspec-base.css';
 
 export { resolvePresentation, resolveWidget } from './theme-resolver';
 export type { ThemeDocument, PresentationBlock, ItemDescriptor, AccessibilityBlock, ThemeSelector, SelectorMatch, Tier1Hints, FormspecDataType, Page, Region, LayoutHints, StyleHints } from './theme-resolver';
+export { formatMoney } from './format';
 
 /**
  * Built-in default theme used when no explicit theme document is provided.
@@ -389,9 +390,10 @@ export class FormspecRender extends HTMLElement {
         submitBtn.className = 'formspec-submit';
         submitBtn.textContent = 'Submit';
         submitBtn.addEventListener('click', () => {
-            const response = this.engine!.getResponse();
+            const response = this.engine!.getResponse({ mode: 'submit' });
+            const validationReport = this.engine!.getValidationReport({ mode: 'submit' });
             this.dispatchEvent(new CustomEvent('formspec-submit', {
-                detail: response,
+                detail: { response, validationReport },
                 bubbles: true
             }));
         });

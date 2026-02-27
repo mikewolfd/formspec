@@ -99,13 +99,23 @@ export const WizardPlugin: ComponentPlugin = {
         nav.appendChild(nextBtn);
         el.appendChild(nav);
 
-        // Reactively enable/disable prev/next
+        // Reactively enable/disable prev/next and emit page-change event
         ctx.cleanupFns.push(effect(() => {
             const step = currentStep.value;
             prevBtn.disabled = step === 0;
             nextBtn.disabled = step === children.length - 1;
             prevBtn.classList.toggle('formspec-hidden', step === 0);
             nextBtn.textContent = step === children.length - 1 ? 'Finish' : 'Next';
+
+            el.dispatchEvent(new CustomEvent('formspec-page-change', {
+                detail: {
+                    index: step,
+                    total: children.length,
+                    title: children[step]?.title || '',
+                },
+                bubbles: true,
+                composed: true,
+            }));
         }));
     }
 };
