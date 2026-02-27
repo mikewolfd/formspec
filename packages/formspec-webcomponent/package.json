@@ -4,8 +4,12 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./formspec-base.css": "./dist/formspec-base.css"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/formspec-base.css dist/formspec-base.css",
     "test": "vitest run",
     "test:watch": "vitest"
   },
