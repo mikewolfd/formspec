@@ -1,6 +1,8 @@
-"""JSON format adapter — §6.2 of the Mapping DSL spec.
+"""§6.2 JSON adapter — identity serialization (JsonValue <-> JSON bytes).
 
-Identity serialization: internal JSON → JSON bytes.
+The simplest adapter: the mapping engine's internal representation is already
+JSON-compatible, so this mostly delegates to stdlib json with config-driven
+pretty-printing, key sorting, and null stripping.
 """
 
 import json
@@ -10,7 +12,7 @@ from .base import Adapter, JsonValue
 
 
 def _strip_nulls(value: Any) -> Any:
-    """Recursively remove keys with None values from dicts."""
+    """Recursively prune dict keys whose values are None (for nullHandling='omit')."""
     if isinstance(value, dict):
         return {k: _strip_nulls(v) for k, v in value.items() if v is not None}
     if isinstance(value, list):
@@ -19,21 +21,20 @@ def _strip_nulls(value: Any) -> Any:
 
 
 class JsonAdapter(Adapter):
-    """§6.2 JSON adapter.
+    """§6.2 JSON wire-format adapter.
 
-    Config:
-        pretty (bool): Emit indented JSON. Default false.
-        sortKeys (bool): Sort object keys. Default false.
-        nullHandling (str): "include" or "omit". Default "include".
+    Config keys: pretty (bool), sortKeys (bool), nullHandling ('include'|'omit').
     """
 
     def __init__(self, config: dict | None = None):
+        """Parse adapter config from the mapping document's format.config block."""
         cfg = config or {}
         self.pretty: bool = cfg.get('pretty', False)
         self.sort_keys: bool = cfg.get('sortKeys', False)
         self.null_handling: str = cfg.get('nullHandling', 'include')
 
     def serialize(self, value: JsonValue) -> bytes:
+        """Encode JsonValue to UTF-8 JSON bytes, applying null stripping and formatting."""
         data = value
         if self.null_handling == 'omit':
             data = _strip_nulls(data)
@@ -46,4 +47,5 @@ class JsonAdapter(Adapter):
         ).encode('utf-8')
 
     def deserialize(self, data: bytes) -> JsonValue:
+        """Decode JSON bytes to a JsonValue tree."""
         return json.loads(data)

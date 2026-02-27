@@ -1,4 +1,4 @@
-"""CLI entry point for the Formspec linter."""
+"""CLI entry point: parse args, load JSON files, run linter, format output (text/json/github)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ _SEVERITY_RANK = {"info": 0, "warning": 1, "error": 2}
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the argparse parser for formspec-lint: files, format, severity, mode, schema-only, no-fel, definition."""
     parser = argparse.ArgumentParser(
         prog="formspec-lint",
         description="Lint Formspec JSON documents",
@@ -56,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Load each input file, run the linter pipeline, filter by severity, print results. Returns 1 on errors, 0 clean, 2 on I/O failure."""
     args = build_parser().parse_args(argv)
     linter = FormspecLinter(policy=make_policy(args.mode))
     component_definition = None
@@ -125,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _print_output(output_format: str, rows: list[dict]) -> None:
+    """Render diagnostics to stdout in text (human), json (machine), or github (CI annotation) format."""
     if output_format == "json":
         json_rows = []
         for row in rows:
@@ -162,6 +165,7 @@ def _print_output(output_format: str, rows: list[dict]) -> None:
 
 
 def _diag_to_json(diag: LintDiagnostic) -> dict:
+    """Serialize a LintDiagnostic to a JSON-compatible dict, omitting detail if None."""
     payload = {
         "severity": diag.severity,
         "code": diag.code,

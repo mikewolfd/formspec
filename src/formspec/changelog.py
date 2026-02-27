@@ -1,11 +1,9 @@
-"""Formspec Changelog generation — diff two definition versions.
+"""Diff two Formspec definition versions into a semver-classified changelog.
 
-Compares two Formspec Definition documents and produces a Changelog document
-conforming to changelog.schema.json. Classifies changes by target category
-and impact severity.
-
-Public API:
-    generate_changelog(old_def, new_def, definition_url) -> dict
+Walks items, binds, shapes, optionSets, dataSources, screener, migrations,
+and metadata keys. Each change is classified as breaking/compatible/cosmetic;
+the aggregate determines major/minor/patch semver impact. Output conforms to
+changelog.schema.json.
 """
 
 from __future__ import annotations
@@ -34,15 +32,12 @@ def generate_changelog(
     new_def: dict,
     definition_url: str,
 ) -> dict:
-    """Generate a changelog document comparing two definition versions.
+    """Diff two definition dicts and return a changelog document.
 
-    Args:
-        old_def: The older definition document.
-        new_def: The newer definition document.
-        definition_url: Canonical URL of the definition.
-
-    Returns:
-        A changelog document conforming to changelog.schema.json.
+    Walks all diffable sections (items, binds, shapes, optionSets, dataSources,
+    screener, migrations, metadata). Each change gets an impact classification;
+    the worst impact drives the top-level semverImpact (breaking->major,
+    compatible->minor, cosmetic->patch).
     """
     changes: list[dict] = []
 
@@ -136,7 +131,11 @@ def _diff_keyed_list(
     changes: list[dict],
     key_field: str = 'key',
 ) -> None:
-    """Diff two lists of objects keyed by a field name."""
+    """Diff two lists keyed by `key_field`, emitting added/removed/modified changes.
+
+    Indexes both lists by key_field (default 'key'), then classifies additions,
+    removals, and modifications using target-specific impact heuristics.
+    """
     old_map = {item.get(key_field): item for item in old_items if item.get(key_field)}
     new_map = {item.get(key_field): item for item in new_items if item.get(key_field)}
 
@@ -176,7 +175,10 @@ def _diff_dict_section(
     prefix: str,
     changes: list[dict],
 ) -> None:
-    """Diff two dict-keyed sections (optionSets, dataSources)."""
+    """Diff two dict-keyed sections (optionSets, dataSources).
+
+    Additions are compatible, removals are breaking, modifications are compatible.
+    """
     old_keys = set(old_dict.keys())
     new_keys = set(new_dict.keys())
 
@@ -201,7 +203,7 @@ def _change(
     description: str | None = None,
     migration_hint: str | None = None,
 ) -> dict:
-    """Build a Change object."""
+    """Construct a Change dict with only non-None optional fields included."""
     c: dict = {
         'type': type_,
         'target': target,
@@ -222,42 +224,41 @@ def _change(
 
 
 def _classify_item_add(item: dict, target: str) -> str:
-    """Classify the impact of adding an item/bind/shape."""
+    """Classify addition impact: items/shapes are compatible; binds with required=true are breaking."""
     if target == 'item':
-        # Adding an optional field is compatible, adding required is breaking
-        # (because existing responses won't have it)
         return 'compatible'
     if target == 'bind':
-        # Adding a bind with required=true is breaking
         if item.get('required'):
             return 'breaking'
         return 'compatible'
     if target == 'shape':
-        # Adding a shape adds validation — could break existing responses
         return 'compatible'
     return 'compatible'
 
 
 def _classify_item_remove(item: dict, target: str) -> str:
-    """Classify the impact of removing an item/bind/shape."""
+    """Classify removal impact: shapes are compatible (loosens constraints); items/binds are breaking."""
     if target == 'item':
         return 'breaking'
     if target == 'bind':
         return 'breaking'
     if target == 'shape':
-        return 'compatible'  # Removing validation loosens constraints
+        return 'compatible'
     return 'breaking'
 
 
 def _classify_item_modify(old: dict, new: dict, target: str) -> str:
-    """Classify the impact of modifying an item/bind/shape."""
+    """Classify modification impact using target-specific heuristics.
+
+    Items: dataType/type change -> breaking; label-only -> cosmetic; else compatible.
+    Binds: gaining required -> breaking; losing required -> compatible;
+           constraint change -> compatible; else cosmetic.
+    """
     if target == 'item':
-        # Type change is breaking
         if old.get('dataType') != new.get('dataType'):
             return 'breaking'
         if old.get('type') != new.get('type'):
             return 'breaking'
-        # Label-only change is cosmetic
         non_cosmetic_keys = {'key', 'type', 'dataType', 'initialValue', 'items'}
         old_significant = {k: v for k, v in old.items() if k in non_cosmetic_keys}
         new_significant = {k: v for k, v in new.items() if k in non_cosmetic_keys}
@@ -265,13 +266,10 @@ def _classify_item_modify(old: dict, new: dict, target: str) -> str:
             return 'cosmetic'
         return 'compatible'
     if target == 'bind':
-        # Adding required where it wasn't is breaking
         if not old.get('required') and new.get('required'):
             return 'breaking'
-        # Removing required is compatible
         if old.get('required') and not new.get('required'):
             return 'compatible'
-        # Changing constraint expression could break existing data
         if old.get('constraint') != new.get('constraint'):
             return 'compatible'
         return 'cosmetic'
@@ -279,7 +277,7 @@ def _classify_item_modify(old: dict, new: dict, target: str) -> str:
 
 
 def _compute_semver_impact(changes: list[dict]) -> str:
-    """Determine overall semver impact from individual change impacts."""
+    """Aggregate per-change impacts to semver level: any breaking->major, any compatible->minor, else patch."""
     if any(c['impact'] == 'breaking' for c in changes):
         return 'major'
     if any(c['impact'] == 'compatible' for c in changes):

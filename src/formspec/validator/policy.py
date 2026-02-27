@@ -1,4 +1,4 @@
-"""Lint policy and mode-specific severity behavior."""
+"""Post-pass severity transform: authoring mode passes through; strict mode escalates select warnings to errors."""
 
 from __future__ import annotations
 
@@ -22,10 +22,12 @@ _STRICT_ESCALATIONS = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class LintPolicy:
+    """Severity transform applied after all passes complete. Strict mode escalates _STRICT_ESCALATIONS warnings to errors."""
+
     mode: LintMode = "authoring"
 
     def apply(self, diagnostics: list[LintDiagnostic]) -> list[LintDiagnostic]:
-        """Apply mode-specific severity transforms to diagnostics."""
+        """Return diagnostics with mode-specific severity adjustments. Authoring mode is identity."""
         if self.mode == "authoring":
             return diagnostics
 
@@ -39,4 +41,5 @@ class LintPolicy:
 
 
 def make_policy(mode: LintMode = "authoring") -> LintPolicy:
+    """Factory: create a LintPolicy from a mode string."""
     return LintPolicy(mode=mode)

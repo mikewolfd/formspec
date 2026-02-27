@@ -1,4 +1,4 @@
-"""Diagnostic types for Formspec static linting."""
+"""Diagnostic dataclass and severity/category type aliases used by all linter passes."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ LintCategory = Literal[
 
 @dataclass(frozen=True, slots=True)
 class LintDiagnostic:
-    """A single linter finding mapped to a JSON-path-like location."""
+    """Frozen diagnostic emitted by any linter pass: severity + coded rule + JSON-path location."""
 
     severity: LintSeverity
     code: str
@@ -30,6 +30,6 @@ class LintDiagnostic:
 
 
 def sort_key(diag: LintDiagnostic) -> tuple[str, int, str, str]:
-    """Stable sort key for diagnostics."""
+    """Deterministic sort key: path, then severity (error first), then code, then message."""
     severity_order = {"error": 0, "warning": 1, "info": 2}
     return (diag.path, severity_order[diag.severity], diag.code, diag.message)

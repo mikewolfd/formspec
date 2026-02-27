@@ -1,6 +1,12 @@
-"""FEL built-in function registry and implementations.
+"""FEL standard library: built-in functions and the function registry.
 
-All 50+ functions from spec.md §3.5, with correct null handling per §3.8.2.
+Each function is a FuncDef in a name->FuncDef dict. The evaluator dispatches calls
+through this registry, auto-propagating null unless the FuncDef opts out
+(propagate_null=False for aggregates, type-checks, casts) or is a special form
+(receives unevaluated AST: if, countWhere, MIP queries, repeat navigation).
+
+Categories: aggregates, string, numeric, date, logical, type-check, cast, money,
+MIP-state (valid/relevant/readonly/required), repeat navigation (prev/next/parent).
 """
 
 from __future__ import annotations
@@ -24,6 +30,12 @@ from .types import (
 
 @dataclass
 class FuncDef:
+    """Descriptor binding a FEL function name to its implementation and calling convention.
+
+    The evaluator uses ``propagate_null`` to short-circuit null arguments before
+    calling ``impl``, and ``special_form`` to decide whether ``impl`` receives
+    pre-evaluated FelValues or raw (evaluator, ast_args, pos) for lazy evaluation.
+    """
     name: str
     impl: Callable
     min_args: int
@@ -33,14 +45,16 @@ class FuncDef:
 
 
 def _ctx():
+    """Return a Decimal context with 34-digit precision and ROUND_HALF_EVEN (banker's rounding)."""
     return decimal.Context(prec=34, rounding=decimal.ROUND_HALF_EVEN)
 
 
 # =========================================================================
-# Aggregate functions (§3.5.1)
+# Aggregate functions (section 3.5.1)
 # =========================================================================
 
 def _fn_sum(arr: FelValue) -> FelValue:
+    """Sum non-null numeric elements. Skips nulls; returns FelNull on non-array or type mismatch."""
     if not isinstance(arr, FelArray):
         return FelNull
     total = Decimal(0)
@@ -55,12 +69,14 @@ def _fn_sum(arr: FelValue) -> FelValue:
 
 
 def _fn_count(arr: FelValue) -> FelValue:
+    """Count non-null elements in an array. Returns FelNull if not an array."""
     if not isinstance(arr, FelArray):
         return FelNull
     return FelNumber(fel_decimal(sum(1 for e in arr.elements if not is_null(e))))
 
 
 def _fn_avg(arr: FelValue) -> FelValue:
+    """Arithmetic mean of non-null numeric elements. Raises ValueError on empty array (spec: div-by-zero)."""
     if not isinstance(arr, FelArray):
         return FelNull
     non_null = [e for e in arr.elements if not is_null(e)]
@@ -79,6 +95,7 @@ def _fn_avg(arr: FelValue) -> FelValue:
 
 
 def _fn_min(arr: FelValue) -> FelValue:
+    """Minimum of non-null elements (numbers, strings, or dates). All must share a type."""
     if not isinstance(arr, FelArray):
         return FelNull
     non_null = [e for e in arr.elements if not is_null(e)]
@@ -99,6 +116,7 @@ def _fn_min(arr: FelValue) -> FelValue:
 
 
 def _fn_max(arr: FelValue) -> FelValue:
+    """Maximum of non-null elements (numbers, strings, or dates). All must share a type."""
     if not isinstance(arr, FelArray):
         return FelNull
     non_null = [e for e in arr.elements if not is_null(e)]
@@ -118,8 +136,11 @@ def _fn_max(arr: FelValue) -> FelValue:
 
 
 def _fn_countWhere(evaluator, args, pos) -> FelValue:
-    """Special form: countWhere(array, predicate).
-    Second arg is evaluated per-element with $ rebound."""
+    """Special form: count elements where a predicate holds.
+
+    Binds bare ``$`` to each element in turn, evaluates the predicate AST,
+    and counts truthy results. Example: ``countWhere($items, $ > 10)``.
+    """
     if len(args) != 2:
         evaluator._diag("countWhere() requires exactly 2 arguments", pos)
         return FelNull
@@ -141,10 +162,11 @@ def _fn_countWhere(evaluator, args, pos) -> FelValue:
 
 
 # =========================================================================
-# String functions (§3.5.2)
+# String functions (section 3.5.2)
 # =========================================================================
 
 def _fn_length(val: FelValue) -> FelValue:
+    """Character count of a string. Returns 0 for null (not FelNull), FelNull for non-strings."""
     if is_null(val):
         return FelNumber(Decimal(0))
     if not isinstance(val, FelString):
@@ -153,24 +175,28 @@ def _fn_length(val: FelValue) -> FelValue:
 
 
 def _fn_contains(s: FelValue, sub: FelValue) -> FelValue:
+    """Test whether string ``s`` contains substring ``sub``."""
     if not isinstance(s, FelString) or not isinstance(sub, FelString):
         return FelNull
     return fel_bool(sub.value in s.value)
 
 
 def _fn_startsWith(s: FelValue, prefix: FelValue) -> FelValue:
+    """Test whether string ``s`` starts with ``prefix``."""
     if not isinstance(s, FelString) or not isinstance(prefix, FelString):
         return FelNull
     return fel_bool(s.value.startswith(prefix.value))
 
 
 def _fn_endsWith(s: FelValue, suffix: FelValue) -> FelValue:
+    """Test whether string ``s`` ends with ``suffix``."""
     if not isinstance(s, FelString) or not isinstance(suffix, FelString):
         return FelNull
     return fel_bool(s.value.endswith(suffix.value))
 
 
 def _fn_substring(s: FelValue, start: FelValue, length: FelValue = None) -> FelValue:
+    """Extract substring with 1-based start index and optional length (omit for rest-of-string)."""
     if not isinstance(s, FelString) or not isinstance(start, FelNumber):
         return FelNull
     idx = int(start.value) - 1  # 1-based to 0-based
@@ -183,6 +209,7 @@ def _fn_substring(s: FelValue, start: FelValue, length: FelValue = None) -> FelV
 
 
 def _fn_replace(s: FelValue, old: FelValue, new: FelValue) -> FelValue:
+    """Replace all occurrences of ``old`` with ``new`` in string ``s``."""
     if not all(isinstance(x, FelString) for x in (s, old, new)):
         return FelNull
     return FelString(s.value.replace(old.value, new.value))
@@ -204,6 +231,7 @@ def _fn_trim(s: FelValue) -> FelValue:
 
 
 def _fn_matches(s: FelValue, pattern: FelValue) -> FelValue:
+    """Test whether ``s`` matches regex ``pattern`` (partial match via re.search). FelNull on invalid regex."""
     if not isinstance(s, FelString) or not isinstance(pattern, FelString):
         return FelNull
     try:
@@ -213,6 +241,10 @@ def _fn_matches(s: FelValue, pattern: FelValue) -> FelValue:
 
 
 def _fn_format(s: FelValue, *args: FelValue) -> FelValue:
+    """Positional string interpolation: replace ``{0}``, ``{1}``, ... in template with stringified args.
+
+    Null->'', numbers strip trailing zeros, booleans->'true'/'false', dates->ISO format.
+    """
     if not isinstance(s, FelString): return FelNull
     result = s.value
     for i, arg in enumerate(args):
@@ -234,10 +266,11 @@ def _fn_format(s: FelValue, *args: FelValue) -> FelValue:
 
 
 # =========================================================================
-# Numeric functions (§3.5.3)
+# Numeric functions (section 3.5.3)
 # =========================================================================
 
 def _fn_round(n: FelValue, precision: FelValue = None) -> FelValue:
+    """Round to ``precision`` decimal places (default 0) using banker's rounding (ROUND_HALF_EVEN)."""
     if not isinstance(n, FelNumber): return FelNull
     prec = 0
     if precision is not None:
@@ -266,6 +299,7 @@ def _fn_abs(n: FelValue) -> FelValue:
 
 
 def _fn_power(base: FelValue, exp: FelValue) -> FelValue:
+    """Raise ``base`` to ``exp``. Returns FelNull on overflow or invalid operation."""
     if not isinstance(base, FelNumber) or not isinstance(exp, FelNumber): return FelNull
     try:
         ctx = _ctx()
@@ -275,7 +309,7 @@ def _fn_power(base: FelValue, exp: FelValue) -> FelValue:
 
 
 # =========================================================================
-# Date functions (§3.5.4)
+# Date functions (section 3.5.4)
 # =========================================================================
 
 def _fn_today() -> FelValue:
@@ -302,6 +336,7 @@ def _fn_day(d: FelValue) -> FelValue:
 
 
 def _fn_hours(t: FelValue) -> FelValue:
+    """Extract the hours component from an 'HH:MM:SS' time string."""
     if not isinstance(t, FelString): return FelNull
     try:
         parts = t.value.split(':')
@@ -311,6 +346,7 @@ def _fn_hours(t: FelValue) -> FelValue:
 
 
 def _fn_minutes(t: FelValue) -> FelValue:
+    """Extract the minutes component from an 'HH:MM:SS' time string."""
     if not isinstance(t, FelString): return FelNull
     try:
         parts = t.value.split(':')
@@ -320,6 +356,7 @@ def _fn_minutes(t: FelValue) -> FelValue:
 
 
 def _fn_seconds(t: FelValue) -> FelValue:
+    """Extract the seconds component from an 'HH:MM:SS' time string."""
     if not isinstance(t, FelString): return FelNull
     try:
         parts = t.value.split(':')
@@ -329,11 +366,13 @@ def _fn_seconds(t: FelValue) -> FelValue:
 
 
 def _fn_time(h: FelValue, m: FelValue, s: FelValue) -> FelValue:
+    """Construct an 'HH:MM:SS' time string from hour, minute, and second numbers."""
     if not all(isinstance(x, FelNumber) for x in (h, m, s)): return FelNull
     return FelString(f"{int(h.value):02d}:{int(m.value):02d}:{int(s.value):02d}")
 
 
 def _fn_timeDiff(t1: FelValue, t2: FelValue) -> FelValue:
+    """Return the difference in seconds between two 'HH:MM:SS' time strings (t1 - t2)."""
     if not isinstance(t1, FelString) or not isinstance(t2, FelString): return FelNull
     def _parse_time(s):
         parts = s.split(':')
@@ -345,6 +384,7 @@ def _fn_timeDiff(t1: FelValue, t2: FelValue) -> FelValue:
 
 
 def _fn_dateDiff(d1: FelValue, d2: FelValue, unit: FelValue) -> FelValue:
+    """Signed difference (d1 - d2) in 'days', 'months', or 'years'. Partial periods truncate toward zero."""
     if not isinstance(d1, FelDate) or not isinstance(d2, FelDate) or not isinstance(unit, FelString):
         return FelNull
     v1, v2 = d1.value, d2.value
@@ -367,6 +407,7 @@ def _fn_dateDiff(d1: FelValue, d2: FelValue, unit: FelValue) -> FelValue:
 
 
 def _fn_dateAdd(d: FelValue, n: FelValue, unit: FelValue) -> FelValue:
+    """Add ``n`` units ('days'/'months'/'years') to a date. Day is clamped to month-end on overflow."""
     if not isinstance(d, FelDate) or not isinstance(n, FelNumber) or not isinstance(unit, FelString):
         return FelNull
     v = d.value
@@ -393,12 +434,15 @@ def _fn_dateAdd(d: FelValue, n: FelValue, unit: FelValue) -> FelValue:
 
 
 # =========================================================================
-# Logical functions (§3.5.5)
+# Logical functions (section 3.5.5)
 # =========================================================================
 
 def _fn_if_special(evaluator, args, pos) -> FelValue:
-    """Special form: if(condition, then, else).
-    Null condition → evaluation error → null + diagnostic."""
+    """Special form: ``if(cond, then, else)`` with short-circuit evaluation.
+
+    Only the selected branch is evaluated. Emits a diagnostic (rather than
+    silently propagating) when the condition is null or non-boolean.
+    """
     if len(args) != 3:
         evaluator._diag("if() requires exactly 3 arguments", pos)
         return FelNull
@@ -415,6 +459,7 @@ def _fn_if_special(evaluator, args, pos) -> FelValue:
 
 
 def _fn_coalesce(*args: FelValue) -> FelValue:
+    """Return the first non-null argument (variadic). FelNull if all are null."""
     for a in args:
         if not is_null(a):
             return a
@@ -422,6 +467,7 @@ def _fn_coalesce(*args: FelValue) -> FelValue:
 
 
 def _fn_empty(val: FelValue) -> FelValue:
+    """True if value is null, empty string, or zero-length array. Always returns a boolean, never null."""
     if is_null(val):
         return FelTrue
     if isinstance(val, FelString) and val.value == '':
@@ -432,11 +478,13 @@ def _fn_empty(val: FelValue) -> FelValue:
 
 
 def _fn_present(val: FelValue) -> FelValue:
+    """Logical inverse of empty(). Always returns a boolean, never null."""
     r = _fn_empty(val)
     return FelFalse if r is FelTrue else FelTrue
 
 
 def _fn_selected(arr: FelValue, val: FelValue) -> FelValue:
+    """Check if ``val`` is in ``arr`` by same-type value equality. Designed for multi-select fields."""
     if not isinstance(arr, FelArray):
         return FelNull
     for e in arr.elements:
@@ -449,7 +497,7 @@ def _fn_selected(arr: FelValue, val: FelValue) -> FelValue:
 
 
 # =========================================================================
-# Type-checking functions (§3.5.6)
+# Type-checking functions (section 3.5.6)
 # =========================================================================
 
 def _fn_isNumber(val: FelValue) -> FelValue:
@@ -473,10 +521,11 @@ def _fn_typeOf(val: FelValue) -> FelValue:
 
 
 # =========================================================================
-# Cast functions (§3.4.3)
+# Cast functions (section 3.4.3)
 # =========================================================================
 
 def _fn_cast_number(val: FelValue) -> FelValue:
+    """Cast to number. string->Decimal parse, bool->1/0, null->null. FelNull on unparseable string."""
     if is_null(val):
         return FelNull
     if isinstance(val, FelNumber):
@@ -492,7 +541,7 @@ def _fn_cast_number(val: FelValue) -> FelValue:
 
 
 def _number_to_str(d: Decimal) -> str:
-    """Convert Decimal to string, no trailing zeros."""
+    """Format Decimal as fixed-point string without trailing zeros or scientific notation."""
     # Remove trailing zeros
     normalized = d.normalize()
     # Use fixed-point notation to avoid scientific notation like '1E+2'
@@ -507,6 +556,7 @@ def _number_to_str(d: Decimal) -> str:
 
 
 def _fn_cast_string(val: FelValue) -> FelValue:
+    """Cast to string. null->'', number->clean decimal, bool->'true'/'false', date->ISO format."""
     if is_null(val):
         return FelString('')
     if isinstance(val, FelString):
@@ -524,6 +574,7 @@ def _fn_cast_string(val: FelValue) -> FelValue:
 
 
 def _fn_cast_boolean(val: FelValue) -> FelValue:
+    """Cast to boolean. null->false, 'true'/'false' strings, number 0->false else true. FelNull on other strings."""
     if is_null(val):
         return FelFalse
     if isinstance(val, FelBoolean):
@@ -540,6 +591,7 @@ def _fn_cast_boolean(val: FelValue) -> FelValue:
 
 
 def _fn_cast_date(val: FelValue) -> FelValue:
+    """Cast to date. string->ISO 8601 parse, null->null. FelNull on unparseable string."""
     if is_null(val):
         return FelNull
     if isinstance(val, FelDate):
@@ -553,10 +605,11 @@ def _fn_cast_date(val: FelValue) -> FelValue:
 
 
 # =========================================================================
-# Money functions (§3.5.7)
+# Money functions (section 3.5.7)
 # =========================================================================
 
 def _fn_money(amount: FelValue, currency: FelValue) -> FelValue:
+    """Construct a FelMoney from a numeric amount and ISO 4217 currency code string."""
     if not isinstance(amount, FelNumber) or not isinstance(currency, FelString):
         return FelNull
     return FelMoney(amount.value, currency.value)
@@ -573,6 +626,7 @@ def _fn_moneyCurrency(m: FelValue) -> FelValue:
 
 
 def _fn_moneyAdd(a: FelValue, b: FelValue) -> FelValue:
+    """Add two money values. FelNull if currencies differ (no implicit conversion)."""
     if not isinstance(a, FelMoney) or not isinstance(b, FelMoney):
         return FelNull
     if a.currency != b.currency:
@@ -581,6 +635,7 @@ def _fn_moneyAdd(a: FelValue, b: FelValue) -> FelValue:
 
 
 def _fn_moneySum(arr: FelValue) -> FelValue:
+    """Sum an array of money values. Skips nulls; FelNull if currencies are mixed."""
     if not isinstance(arr, FelArray): return FelNull
     if len(arr) == 0: return FelNull
     non_null = [e for e in arr.elements if not is_null(e)]
@@ -596,10 +651,16 @@ def _fn_moneySum(arr: FelValue) -> FelValue:
 
 
 # =========================================================================
-# MIP-state functions (§3.5.8) — special forms
+# MIP-state functions (section 3.5.8) -- special forms
 # =========================================================================
 
 def _make_mip_fn(attr: str):
+    """Factory for MIP state query special-forms (valid/relevant/readonly/required).
+
+    Returns a special-form closure that extracts the field path from unevaluated AST,
+    looks up ``attr`` in ``env.mip_states``, and falls back to spec defaults
+    (valid=true, relevant=true, readonly=false, required=false).
+    """
     def _mip_fn(evaluator, args, pos) -> FelValue:
         if len(args) != 1:
             evaluator._diag(f"{attr}() requires 1 argument", pos)
@@ -610,7 +671,7 @@ def _make_mip_fn(attr: str):
             path = '.'.join(s.name for s in arg.segments if isinstance(s, ast.DotSegment))
             if path in evaluator.env.mip_states:
                 return fel_bool(getattr(evaluator.env.mip_states[path], attr))
-            # Spec §4.3.2 defaults: valid=true, relevant=true, readonly=false, required=false
+            # Spec section 4.3.2 defaults: valid=true, relevant=true, readonly=false, required=false
             _MIP_DEFAULTS = {'valid': True, 'relevant': True, 'readonly': False, 'required': False}
             return fel_bool(_MIP_DEFAULTS[attr])
         evaluator._diag(f"{attr}() requires a field reference argument", pos)
@@ -619,10 +680,11 @@ def _make_mip_fn(attr: str):
 
 
 # =========================================================================
-# Repeat navigation functions (§3.5.9) — return FelObject
+# Repeat navigation functions (section 3.5.9) -- return FelObject
 # =========================================================================
 
 def _fn_prev_special(evaluator, args, pos) -> FelValue:
+    """Special form: return previous repeat row as FelObject. FelNull at first row or outside repeat."""
     rc = evaluator.env.repeat_context
     if rc is None:
         evaluator._diag("prev() called outside repeat context", pos)
@@ -633,6 +695,7 @@ def _fn_prev_special(evaluator, args, pos) -> FelValue:
 
 
 def _fn_next_special(evaluator, args, pos) -> FelValue:
+    """Special form: return next repeat row as FelObject. FelNull at last row or outside repeat."""
     rc = evaluator.env.repeat_context
     if rc is None:
         evaluator._diag("next() called outside repeat context", pos)
@@ -643,6 +706,7 @@ def _fn_next_special(evaluator, args, pos) -> FelValue:
 
 
 def _fn_parent_special(evaluator, args, pos) -> FelValue:
+    """Special form: return enclosing scope of current repeat group as FelObject. Diagnostic if outside repeat."""
     rc = evaluator.env.repeat_context
     if rc is None:
         evaluator._diag("parent() called outside repeat context", pos)
@@ -655,7 +719,12 @@ def _fn_parent_special(evaluator, args, pos) -> FelValue:
 # =========================================================================
 
 def build_default_registry() -> dict[str, FuncDef]:
-    """Build the default function registry with all built-in functions."""
+    """Build a fresh name->FuncDef dict of all built-in FEL functions.
+
+    Returns a new dict each call so callers can safely merge extension functions.
+    Categories: aggregates, string, numeric, date, logical, type-check, cast,
+    money, MIP-state, repeat navigation.
+    """
     r = {}
 
     def reg(name, impl, mn, mx=None, null_prop=True, special=False):
@@ -717,7 +786,7 @@ def build_default_registry() -> dict[str, FuncDef]:
     reg('isNull', _fn_isNull, 1, 1, null_prop=False)
     reg('typeOf', _fn_typeOf, 1, 1, null_prop=False)
 
-    # Cast (handle nulls per §3.8.2)
+    # Cast (handle nulls per section 3.8.2)
     reg('number', _fn_cast_number, 1, 1, null_prop=False)
     reg('string', _fn_cast_string, 1, 1, null_prop=False)
     reg('boolean', _fn_cast_boolean, 1, 1, null_prop=False)
@@ -744,4 +813,5 @@ def build_default_registry() -> dict[str, FuncDef]:
     return r
 
 
-BUILTIN_NAMES = frozenset(build_default_registry().keys())
+BUILTIN_NAMES: frozenset[str] = frozenset(build_default_registry().keys())
+"""Frozen set of all built-in function names. Used to reject extension name collisions."""

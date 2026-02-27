@@ -1,4 +1,8 @@
-"""Reference integrity checks for Formspec definition documents."""
+"""Pass 3: Validate bind/shape path references and optionSet integrity (E300-E302, W300).
+
+Checks that bind.path, shape.target, and field.optionSet values resolve to actual
+items in the tree index. Supports dot-separated paths and wildcard [*] segments.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ _OPTIONSET_COMPATIBLE_TYPES = {"string", "integer", "decimal", "choice", "multiC
 
 
 def check_references(document: dict, index: ItemTreeIndex) -> list[LintDiagnostic]:
+    """Entry point: validate bind paths (E300), shape targets (E301), and optionSet refs (E302, W300)."""
     diagnostics: list[LintDiagnostic] = []
 
     binds = document.get("binds", [])
@@ -66,7 +71,7 @@ def check_references(document: dict, index: ItemTreeIndex) -> list[LintDiagnosti
 
 
 def canonical_item_path(path: str) -> str:
-    """Normalize bind/target paths to a dot-separated key path."""
+    """Normalize bind/target path ($.foo, /foo, foo.bar) to dot-separated key form."""
     trimmed = path.strip()
     if trimmed.startswith("$."):
         trimmed = trimmed[2:]
@@ -77,7 +82,11 @@ def canonical_item_path(path: str) -> str:
 
 
 def validate_item_path(path: str, index: ItemTreeIndex) -> str | None:
-    """Return an error message when the path does not resolve; otherwise None."""
+    """Resolve a path against the item index. Returns error message or None if valid.
+
+    Handles '#' (form root), plain dot-paths, single-key shorthand, and wildcard [*]
+    paths that must target a repeatable group with valid descendant fields.
+    """
     # "#" is the spec-defined sentinel for the form root scope (shapes §5.2).
     if path.strip() == "#":
         return None
@@ -132,6 +141,7 @@ def validate_item_path(path: str, index: ItemTreeIndex) -> str | None:
 
 
 def _has_descendant(group_full_path: str, suffix: str, index: ItemTreeIndex) -> bool:
+    """Check whether any descendant of a group matches the given dotted suffix."""
     prefix = f"{group_full_path}."
     exact = f"{prefix}{suffix}"
     if exact in index.by_full_path:
@@ -146,6 +156,7 @@ def _has_descendant(group_full_path: str, suffix: str, index: ItemTreeIndex) -> 
 
 
 def _check_item_option_set(item: ItemRef, option_set_keys: set[str]) -> list[LintDiagnostic]:
+    """Validate a field's optionSet ref exists (E302) and its dataType is compatible (W300)."""
     diagnostics: list[LintDiagnostic] = []
     if item.item_type != "field":
         return diagnostics

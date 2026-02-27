@@ -1,7 +1,7 @@
-"""FEL runtime value types.
+"""FEL runtime value types — frozen dataclass wrappers for every value the evaluator can produce.
 
-All FEL values are wrapped in typed containers for strict type checking.
-The number type uses Decimal for 18+ digit precision.
+Decimal-backed numerics with banker's rounding, singleton null/boolean, and
+from_python/to_python for bridging JSON-native Python values to the FEL type system.
 """
 
 from __future__ import annotations
@@ -17,15 +17,14 @@ _FEL_CONTEXT = decimal.Context(prec=34, rounding=decimal.ROUND_HALF_EVEN)
 
 
 def fel_decimal(value) -> Decimal:
-    """Create a Decimal in the FEL context."""
+    """Create a Decimal under the FEL arithmetic context (34-digit, ROUND_HALF_EVEN)."""
     if isinstance(value, Decimal):
         return value
     return _FEL_CONTEXT.create_decimal(value)
 
 
-# Singleton null
 class _FelNullType:
-    """The FEL null value — singleton."""
+    """Singleton null type — the only instance is the module-level ``FelNull`` constant."""
     _instance = None
 
     def __new__(cls):
@@ -41,10 +40,12 @@ class _FelNullType:
 
 
 FelNull = _FelNullType()
+"""The singleton FEL null value. Use ``is_null(val)`` for type-safe null checks."""
 
 
 @dataclass(frozen=True)
 class FelNumber:
+    """Decimal-backed numeric value — all FEL arithmetic uses this wrapper."""
     value: Decimal
 
     def __repr__(self):
@@ -53,6 +54,7 @@ class FelNumber:
 
 @dataclass(frozen=True)
 class FelString:
+    """FEL string value wrapper."""
     value: str
 
     def __repr__(self):
@@ -61,6 +63,7 @@ class FelString:
 
 @dataclass(frozen=True)
 class FelBoolean:
+    """FEL boolean — use the ``FelTrue``/``FelFalse`` singletons, not the constructor."""
     value: bool
 
     def __repr__(self):
@@ -68,17 +71,20 @@ class FelBoolean:
 
 
 FelTrue = FelBoolean(True)
+"""Singleton true boolean. Use ``is FelTrue`` for identity checks."""
+
 FelFalse = FelBoolean(False)
+"""Singleton false boolean. Use ``is FelFalse`` for identity checks."""
 
 
 def fel_bool(val: bool) -> FelBoolean:
-    """Return the singleton FelTrue or FelFalse."""
+    """Map a Python bool to the ``FelTrue``/``FelFalse`` singleton."""
     return FelTrue if val else FelFalse
 
 
 @dataclass(frozen=True)
 class FelDate:
-    """Represents both date and datetime (FEL type is always 'date')."""
+    """FEL date/datetime value — both map to the single FEL 'date' type."""
     value: Union[date, datetime]
 
     def __repr__(self):
@@ -87,6 +93,7 @@ class FelDate:
 
 @dataclass(frozen=True)
 class FelArray:
+    """Immutable ordered sequence of FelValues, backed by a tuple."""
     elements: tuple
 
     def __repr__(self):
@@ -98,6 +105,7 @@ class FelArray:
 
 @dataclass(frozen=True)
 class FelMoney:
+    """Monetary amount with ISO 4217 currency code (e.g. ``FelMoney(Decimal('100'), 'USD')``)."""
     amount: Decimal
     currency: str
 
@@ -107,7 +115,7 @@ class FelMoney:
 
 @dataclass(frozen=True)
 class FelObject:
-    """Internal object type — not first-class in FEL, supports dot-access."""
+    """Internal structured value for repeat row contexts and @instance() data — not first-class in FEL."""
     fields: dict
 
     def __repr__(self):
@@ -118,10 +126,11 @@ FelValue = Union[
     _FelNullType, FelNumber, FelString, FelBoolean, FelDate,
     FelArray, FelMoney, FelObject,
 ]
+"""Union type covering all possible FEL runtime values."""
 
 
 def typeof(val: FelValue) -> str:
-    """Return the FEL type name for typeOf() function."""
+    """Return the spec-defined type name for a FEL value ('number', 'string', 'null', etc.)."""
     if isinstance(val, _FelNullType):
         return 'null'
     if isinstance(val, FelNumber):
@@ -142,11 +151,15 @@ def typeof(val: FelValue) -> str:
 
 
 def is_null(val) -> bool:
+    """Test whether a value is the FelNull singleton."""
     return isinstance(val, _FelNullType)
 
 
 def to_python(val: FelValue):
-    """Convert FEL value to Python native type for JSON serialization."""
+    """Convert a FelValue to a JSON-serializable Python native (None, Decimal, str, bool, list, dict).
+
+    Dates become ISO 8601 strings; money becomes ``{'amount': str, 'currency': str}``.
+    """
     if is_null(val):
         return None
     if isinstance(val, FelNumber):
@@ -167,7 +180,12 @@ def to_python(val: FelValue):
 
 
 def from_python(val) -> FelValue:
-    """Convert Python native value to FEL value."""
+    """Convert a JSON-native Python value to its FelValue equivalent.
+
+    Auto-detects money dicts (exactly ``{'amount', 'currency'}``).
+    Bool is checked before int to avoid Python's bool-is-int trap.
+    Returns FelNull for unsupported types.
+    """
     if val is None:
         return FelNull
     if isinstance(val, bool):

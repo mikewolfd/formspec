@@ -1,11 +1,8 @@
-"""Mapping DSL execution engine (§3-5).
+"""§3-5 Mapping engine — bidirectional rule-based data transformation.
 
-MappingEngine applies declarative field rules to transform data between
-Formspec Response format and external target schemas.
-
-Architecture:
-    MappingDocument → MappingEngine.forward(response_data) → transformed_dict
-    transformed_dict → MappingEngine.reverse(target_data) → response_data
+Applies declarative field rules (with priority ordering, FEL condition guards,
+and pluggable transforms) to map between Formspec Response dicts and external
+target-schema dicts in both forward and reverse directions.
 """
 
 from __future__ import annotations
@@ -20,10 +17,10 @@ from .transforms import TRANSFORMS, TransformContext, _DROP_SENTINEL
 
 
 class MappingEngine:
-    """Bidirectional mapping engine implementing §3-5 of the Mapping DSL spec.
+    """Bidirectional rule engine: evaluates a mapping document's rules to transform data.
 
-    Args:
-        mapping_doc: A validated mapping document conforming to mapping.schema.json.
+    Accepts a validated mapping document (mapping.schema.json) and exposes
+    forward() (Response -> target) and reverse() (target -> Response) methods.
     """
 
     def __init__(self, mapping_doc: dict):
@@ -35,14 +32,7 @@ class MappingEngine:
         self.target_schema: dict = mapping_doc.get('targetSchema', {})
 
     def forward(self, source_data: dict) -> dict:
-        """Execute forward transformation: source (Response) → target.
-
-        Args:
-            source_data: Formspec response data dict.
-
-        Returns:
-            Transformed dict matching the target schema.
-        """
+        """Transform Formspec Response data to the target schema, applying rules by descending priority."""
         # Sort rules by priority (higher first)
         sorted_rules = sorted(self.rules, key=lambda r: r.get('priority', 0), reverse=True)
 
@@ -62,14 +52,7 @@ class MappingEngine:
         return result
 
     def reverse(self, target_data: dict) -> dict:
-        """Execute reverse transformation: target → source (Response).
-
-        Args:
-            target_data: Data dict from external system.
-
-        Returns:
-            Formspec response data dict.
-        """
+        """Transform target-schema data back to Formspec Response format; skips non-bidirectional rules."""
         # Sort by reversePriority (higher first), fall back to priority
         sorted_rules = sorted(
             self.rules,
@@ -90,7 +73,7 @@ class MappingEngine:
     def _apply_rule_forward(
         self, rule: dict, source: dict, target: dict, ctx: TransformContext
     ) -> None:
-        """Apply a single rule in the forward direction."""
+        """Execute one rule forward: resolve source, run transform, write to target (or delegate to array handler)."""
         # Check condition guard
         if not self._check_condition(rule, ctx):
             return
@@ -122,7 +105,7 @@ class MappingEngine:
     def _apply_rule_reverse(
         self, rule: dict, target: dict, source: dict, ctx: TransformContext
     ) -> None:
-        """Apply a single rule in the reverse direction."""
+        """Execute one rule in reverse: swap source/target paths, auto-invert valueMaps if needed."""
         # Use reverse override if present
         reverse_override = rule.get('reverse')
         if reverse_override:
@@ -174,7 +157,7 @@ class MappingEngine:
     def _apply_array_rule_forward(
         self, rule: dict, array_desc: dict, source: dict, target: dict, ctx: TransformContext
     ) -> None:
-        """Handle array descriptor modes (§4.12)."""
+        """§4.12 Array descriptors: dispatch 'whole', 'each', or 'indexed' mode on source arrays."""
         mode = array_desc.get('mode', 'each')
         source_path = rule.get('sourcePath')
         target_path = rule.get('targetPath')
@@ -239,7 +222,7 @@ class MappingEngine:
                         _set_path(target, full_target, result_val)
 
     def _check_condition(self, rule: dict, ctx: TransformContext) -> bool:
-        """Evaluate condition guard (§4.13). Returns True if rule should execute."""
+        """§4.13 Condition guard — evaluate the rule's FEL condition; returns False to skip the rule."""
         condition = rule.get('condition')
         if not condition:
             return True
@@ -260,13 +243,7 @@ class MappingEngine:
 
 
 def _resolve_path(data: Any, path: str | None) -> Any:
-    """Resolve a dot-notation path against data, supporting bracket indices.
-
-    Examples:
-        'name' → data['name']
-        'address.city' → data['address']['city']
-        'items[0].name' → data['items'][0]['name']
-    """
+    """Walk a dot-notation path (with optional [n] indices) into a nested dict/list, returning None on miss."""
     if path is None:
         return data
     if not path:
@@ -290,13 +267,7 @@ def _resolve_path(data: Any, path: str | None) -> Any:
 
 
 def _set_path(data: dict, path: str, value: Any) -> None:
-    """Set a value at a dot-notation path, creating intermediate dicts/lists as needed.
-
-    Examples:
-        'name' → data['name'] = value
-        'address.city' → data['address']['city'] = value
-        'items[0].name' → data['items'][0]['name'] = value
-    """
+    """Set a value at a dot-notation path, auto-creating intermediate dicts and lists."""
     if not path:
         return
 
@@ -327,10 +298,7 @@ def _set_path(data: dict, path: str, value: Any) -> None:
 
 
 def _parse_path(path: str) -> list[str | int]:
-    """Parse a dot-notation path with optional bracket indices.
-
-    'a.b[0].c' → ['a', 'b', 0, 'c']
-    """
+    """Parse 'a.b[0].c' into ['a', 'b', 0, 'c'] — segment list for path traversal."""
     segments: list[str | int] = []
     for part in path.split('.'):
         # Check for bracket index: fieldName[0]

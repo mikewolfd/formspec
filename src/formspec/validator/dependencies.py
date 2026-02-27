@@ -1,4 +1,8 @@
-"""Dependency graph construction and cycle detection for bind expressions."""
+"""Pass 5: Build a bind-target dependency graph from compiled expressions and detect cycles (E500).
+
+Uses the FEL static dependency extractor to find field references in each bind's dataflow
+expressions, then runs DFS cycle detection with rotation-based deduplication.
+"""
 
 from __future__ import annotations
 
@@ -12,11 +16,14 @@ from .expressions import CompiledExpression
 
 @dataclass(slots=True)
 class DependencyAnalysisResult:
+    """Bind-target dependency graph (target -> set of referenced fields) plus E500 cycle diagnostics."""
+
     graph: dict[str, set[str]] = field(default_factory=dict)
     diagnostics: list[LintDiagnostic] = field(default_factory=list)
 
 
 def analyze_dependencies(compiled_expressions: list[CompiledExpression]) -> DependencyAnalysisResult:
+    """Entry point: build dependency graph from compiled dataflow expressions, then detect cycles (E500)."""
     result = DependencyAnalysisResult()
     bind_path_lookup: dict[str, str] = {}
 
@@ -47,6 +54,7 @@ def analyze_dependencies(compiled_expressions: list[CompiledExpression]) -> Depe
 
 
 def _find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
+    """DFS-based cycle detection returning deduplicated cycle paths (rotation-normalized)."""
     visited: set[str] = set()
     in_stack: set[str] = set()
     stack: list[str] = []
@@ -85,7 +93,7 @@ def _find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
 
 
 def _canonical_cycle_signature(cycle: list[str]) -> tuple[str, ...]:
-    """Normalize cycle signatures so rotations are deduplicated."""
+    """Rotate cycle to lexicographic minimum so A->B->A and B->A->B are the same signature."""
     nodes = cycle[:-1]
     if not nodes:
         return tuple(cycle)

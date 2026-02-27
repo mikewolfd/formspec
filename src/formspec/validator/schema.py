@@ -1,4 +1,8 @@
-"""Schema loading and validation utilities for Formspec documents."""
+"""Pass 1: JSON Schema validation against the 8 Formspec document types (E100, E101).
+
+Loads all schemas from the schemas/ directory into a jsonschema registry, detects
+document type by heuristic, and classifies structural errors that gate downstream passes.
+"""
 
 from __future__ import annotations
 
@@ -39,15 +43,18 @@ SCHEMA_FILES: dict[DocumentType, str] = {
 
 
 def _schemas_dir() -> Path:
+    """Resolve the monorepo schemas/ directory relative to this file."""
     return Path(__file__).resolve().parents[3] / "schemas"
 
 
 def _load_schema(path: Path) -> dict[str, Any]:
+    """Load and parse a JSON schema file from disk."""
     with open(path) as f:
         return json.load(f)
 
 
 def _to_json_path(path: Sequence[Any]) -> str:
+    """Convert a jsonschema absolute_path tuple to a JSONPath string (e.g. '$.items[0].key')."""
     json_path = "$"
     for part in path:
         if isinstance(part, int):
@@ -61,15 +68,18 @@ def _to_json_path(path: Sequence[Any]) -> str:
 
 @dataclass(frozen=True, slots=True)
 class SchemaValidationResult:
+    """Output of schema validation: detected type, lint diagnostics, and raw jsonschema errors."""
+
     document_type: DocumentType | None
     diagnostics: list[LintDiagnostic]
     errors: list[ValidationError]
 
 
 class SchemaValidator:
-    """Wrapper around jsonschema validation with Formspec schema registry."""
+    """Loads all 8 Formspec JSON schemas into a Draft 2020-12 registry and validates documents against them."""
 
     def __init__(self, schema_dir: Path | None = None):
+        """Load all schemas, build cross-referencing validator registry."""
         self.schema_dir = schema_dir or _schemas_dir()
         self.schemas: dict[DocumentType, dict[str, Any]] = {
             doc_type: _load_schema(self.schema_dir / filename)
@@ -97,6 +107,7 @@ class SchemaValidator:
         }
 
     def detect_document_type(self, document: Any) -> DocumentType | None:
+        """Heuristic type detection using sentinel keys ($formspec, $formspecTheme, etc.)."""
         if not isinstance(document, dict):
             return None
 
@@ -126,6 +137,7 @@ class SchemaValidator:
         document: Any,
         document_type: DocumentType | None = None,
     ) -> SchemaValidationResult:
+        """Validate document against its schema. Emits E100 (unknown type) or E101 (schema violation)."""
         detected = document_type or self.detect_document_type(document)
         if detected is None:
             return SchemaValidationResult(
@@ -162,7 +174,7 @@ class SchemaValidator:
 
 
 def is_structural_schema_error(error: ValidationError) -> bool:
-    """Return True when a schema violation blocks semantic analysis passes."""
+    """True when a schema violation makes the item/rule tree too broken for semantic passes."""
     path = list(error.absolute_path)
 
     if not path and error.validator in {"type", "required"}:
@@ -181,10 +193,12 @@ def is_structural_schema_error(error: ValidationError) -> bool:
 
 
 def has_structural_schema_errors(errors: Sequence[ValidationError]) -> bool:
+    """True if any error is structural, used to gate all downstream linter passes."""
     return any(is_structural_schema_error(error) for error in errors)
 
 
 def _missing_required_name(message: str) -> str | None:
+    """Extract the property name from a jsonschema 'X is a required property' message."""
     match = re.search(r"'([^']+)' is a required property", message)
     if not match:
         return None

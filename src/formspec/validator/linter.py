@@ -1,4 +1,17 @@
-"""Main linter orchestration for Formspec static analysis."""
+"""Multi-pass linter orchestrator. Pipeline order and gating:
+
+1. **Schema** (always) -- validate JSON against document-type schema
+   - Gated: if document type is unknown or structural schema errors exist, stop here.
+2. **Definition passes** (definition documents only):
+   a. Tree indexing (E200-E201)
+   b. Reference integrity (E300-E302, W300)
+   c. Expression compilation (E400) -- skippable via no_fel
+   d. Dependency cycle detection (E500) -- skippable via no_fel
+3. **Theme passes** (theme documents): token value + reference checks (W700-W704)
+4. **Component passes** (component documents): structural + bind checks (E800-E807, W800-W804)
+
+All diagnostics are sorted and policy-transformed before return.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +31,8 @@ from .tree import build_item_index
 
 @dataclass(slots=True)
 class FormspecLinter:
+    """Stateful pipeline orchestrator: holds a schema validator and policy, runs gated passes per document type."""
+
     schema_validator: SchemaValidator
     policy: LintPolicy
 
@@ -37,6 +52,7 @@ class FormspecLinter:
         no_fel: bool = False,
         component_definition: dict[str, Any] | None = None,
     ) -> list[LintDiagnostic]:
+        """Run the full gated pass pipeline. Returns sorted, policy-transformed diagnostics."""
         schema_result = self.schema_validator.validate(document)
         diagnostics = list(schema_result.diagnostics)
 

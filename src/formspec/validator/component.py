@@ -1,4 +1,10 @@
-"""Component document semantic linting."""
+"""Component document semantic checks (E800-E807, W800-W804).
+
+Validates the component tree: root must be a layout component, bind references must resolve
+to definition fields, input components must be type-compatible with their bound field,
+editable bindings must be unique, Wizard children must be Pages, custom component params
+must be provided, and custom component reference graphs must be acyclic.
+"""
 
 from __future__ import annotations
 
@@ -79,6 +85,8 @@ _BUILTIN_COMPONENTS = {
 
 @dataclass(frozen=True, slots=True)
 class FieldInfo:
+    """Resolved field metadata from the definition document, used for bind compatibility checks."""
+
     key: str
     full_path: str
     data_type: str
@@ -87,6 +95,8 @@ class FieldInfo:
 
 @dataclass(slots=True)
 class _WalkContext:
+    """Mutable accumulator threaded through the recursive tree walk."""
+
     custom_names: set[str]
     custom_defs: dict[str, dict]
     fields: dict[str, FieldInfo]
@@ -97,6 +107,7 @@ def lint_component_semantics(
     component_doc: dict,
     definition_doc: dict | None = None,
 ) -> list[LintDiagnostic]:
+    """Entry point: validate component tree structure, bind integrity, type compatibility, and custom component cycles."""
     diagnostics: list[LintDiagnostic] = []
 
     root_tree = component_doc.get("tree")
@@ -151,6 +162,7 @@ def _walk_component_tree(
     path: str,
     context: _WalkContext,
 ) -> list[LintDiagnostic]:
+    """Recursive tree walk: run all per-node checks then recurse into children."""
     diagnostics: list[LintDiagnostic] = []
     component_name = node.get("component")
 
@@ -178,6 +190,7 @@ def _check_component_reference(
     path: str,
     context: _WalkContext,
 ) -> list[LintDiagnostic]:
+    """E801: component name must be a built-in or defined custom component."""
     if component_name in _BUILTIN_COMPONENTS or component_name in context.custom_names:
         return []
 
@@ -198,6 +211,7 @@ def _check_custom_component_params(
     path: str,
     context: _WalkContext,
 ) -> list[LintDiagnostic]:
+    """E806: custom component invocations must provide all required params."""
     if component_name not in context.custom_names:
         return []
 
@@ -231,6 +245,7 @@ def _check_custom_component_params(
 
 
 def _check_wizard_children(component_name: str, node: dict, path: str) -> list[LintDiagnostic]:
+    """E805: Wizard direct children must all be Page components."""
     if component_name != "Wizard":
         return []
 
@@ -262,6 +277,7 @@ def _check_binds(
     path: str,
     context: _WalkContext,
 ) -> list[LintDiagnostic]:
+    """Central bind validation: W800 (unresolved), W801 (layout/container), E802/W802 (type compat), E803 (options), E804 (richtext), W803 (dup editable)."""
     bind_value = node.get("bind")
     if not isinstance(bind_value, str):
         return []
@@ -336,6 +352,7 @@ def _check_input_component_compatibility(
     field: FieldInfo,
     path: str,
 ) -> list[LintDiagnostic]:
+    """E802 (incompatible type), W802 (fallback warning), E803 (missing options source)."""
     diagnostics: list[LintDiagnostic] = []
 
     compat = classify_compatibility(component_name, field.data_type)
@@ -389,6 +406,7 @@ def _check_editable_uniqueness(
     path: str,
     context: _WalkContext,
 ) -> list[LintDiagnostic]:
+    """W803: warn when multiple input components bind to the same field."""
     if component_name not in INPUT_COMPONENTS:
         return []
 
@@ -418,6 +436,7 @@ def _check_summary_items(
     path: str,
     fields: dict[str, FieldInfo],
 ) -> list[LintDiagnostic]:
+    """W804: Summary component item binds must resolve to definition fields."""
     if component_name != "Summary":
         return []
 
@@ -452,6 +471,7 @@ def _check_datatable_columns(
     path: str,
     fields: dict[str, FieldInfo],
 ) -> list[LintDiagnostic]:
+    """W804: DataTable column binds must resolve to definition fields."""
     if component_name != "DataTable":
         return []
 
@@ -481,6 +501,7 @@ def _check_datatable_columns(
 
 
 def _detect_custom_component_cycles(custom_defs: dict[str, dict]) -> list[LintDiagnostic]:
+    """E807: detect cycles in the custom component reference graph via DFS."""
     graph: dict[str, set[str]] = {name: set() for name in custom_defs}
 
     for name, definition in custom_defs.items():
@@ -540,6 +561,7 @@ def _detect_custom_component_cycles(custom_defs: dict[str, dict]) -> list[LintDi
 
 
 def _collect_custom_refs(node: dict, custom_names: set[str]) -> set[str]:
+    """Recursively collect custom component names referenced in a component subtree."""
     refs: set[str] = set()
 
     component_name = node.get("component")
@@ -556,6 +578,7 @@ def _collect_custom_refs(node: dict, custom_names: set[str]) -> set[str]:
 
 
 def _resolve_field(bind_value: str, fields: dict[str, FieldInfo]) -> FieldInfo | None:
+    """Resolve a bind value to a FieldInfo, trying canonical full path then short key fallback."""
     canonical = canonical_item_path(bind_value)
     field = fields.get(canonical)
     if field is not None:
@@ -566,6 +589,7 @@ def _resolve_field(bind_value: str, fields: dict[str, FieldInfo]) -> FieldInfo |
 
 
 def _build_field_lookup(definition_doc: dict | None) -> dict[str, FieldInfo]:
+    """Walk definition items to build a field lookup keyed by both full path and short key."""
     if not isinstance(definition_doc, dict):
         return {}
 

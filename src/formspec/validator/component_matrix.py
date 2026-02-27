@@ -1,4 +1,8 @@
-"""Canonical component/dataType compatibility matrix."""
+"""Input component / dataType compatibility matrix for the 12 built-in input components.
+
+Each rule defines strict-mode allowed types, authoring-mode allowed types (superset for
+fallback tolerance), and whether the component requires an optionSet or inline options.
+"""
 
 from __future__ import annotations
 
@@ -33,6 +37,8 @@ _ALL_FIELD_TYPES = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class CompatibilityRule:
+    """Per-component rule: strict vs. authoring allowed dataTypes, and optionSet requirement."""
+
     strict_allowed: frozenset[str]
     authoring_allowed: frozenset[str]
     requires_options_source: bool = False
@@ -97,7 +103,7 @@ INPUT_COMPONENTS = frozenset(COMPATIBILITY_RULES.keys())
 
 
 def classify_compatibility(component_name: str, data_type: str) -> CompatibilityStatus:
-    """Classify compatibility independent of lint mode."""
+    """Return compatible/compatible_with_warning/incompatible/not_applicable for a component+dataType pair."""
     rule = COMPATIBILITY_RULES.get(component_name)
     if rule is None:
         return "not_applicable"
@@ -110,5 +116,6 @@ def classify_compatibility(component_name: str, data_type: str) -> Compatibility
 
 
 def requires_options_source(component_name: str) -> bool:
+    """True if the component needs an optionSet or inline options (Select, CheckboxGroup, RadioGroup)."""
     rule = COMPATIBILITY_RULES.get(component_name)
     return bool(rule and rule.requires_options_source)

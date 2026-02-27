@@ -1,4 +1,8 @@
-"""Tree indexing for Formspec definition items."""
+"""Pass 2: Flatten the item tree into by-key and by-full-path lookup tables (E200, E201).
+
+Walks the recursive items/children structure, detects duplicate keys and duplicate
+full paths, and records which groups are repeatable for wildcard path validation.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,8 @@ from .diagnostic import LintDiagnostic
 
 @dataclass(frozen=True, slots=True)
 class ItemRef:
+    """Single indexed item: short key, dot-separated full path, JSON-path pointer, and raw dict."""
+
     key: str
     full_path: str
     json_path: str
@@ -19,6 +25,8 @@ class ItemRef:
 
 @dataclass(slots=True)
 class ItemTreeIndex:
+    """Dual lookup table (by short key and by dotted full path) plus diagnostics from the walk."""
+
     by_key: dict[str, ItemRef] = field(default_factory=dict)
     by_full_path: dict[str, ItemRef] = field(default_factory=dict)
     repeatable_groups: set[str] = field(default_factory=set)
@@ -26,7 +34,7 @@ class ItemTreeIndex:
 
 
 def build_item_index(document: dict) -> ItemTreeIndex:
-    """Build a flattened index of all items in a definition document."""
+    """Entry point: recursively walk $.items and build a flattened ItemTreeIndex."""
     index = ItemTreeIndex()
     items = document.get("items", [])
     if not isinstance(items, list):
@@ -45,6 +53,7 @@ def _walk_item(
     parent_full_path: str | None,
     index: ItemTreeIndex,
 ) -> None:
+    """Recursive walker: register item in index, emit E200 (dup key) / E201 (dup path), recurse children."""
     if not isinstance(item, dict):
         return
 

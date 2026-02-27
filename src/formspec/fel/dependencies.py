@@ -1,4 +1,10 @@
-"""FEL dependency extraction — walk AST to find all field/context references."""
+"""FEL static dependency extraction -- walk an AST without evaluating it.
+
+Collects field paths, context refs, instance refs, MIP deps, and structural
+flags (wildcard, prev/next, bare $). Used by the linter for cycle detection,
+by the engine for reactive dependency wiring, and by tooling for
+pre-evaluation analysis of which data an expression reads.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +15,7 @@ from . import ast_nodes as ast
 
 @dataclass
 class DependencySet:
-    """All dependencies extracted from a FEL expression."""
+    """Accumulated static references from a FEL AST: dotted field paths, named instances, @context refs, MIP-queried fields, and structural flags."""
     fields: set[str] = field(default_factory=set)  # e.g. {'firstName', 'address.city'}
     instance_refs: set[str] = field(default_factory=set)  # e.g. {'priorYear'}
     context_refs: set[str] = field(default_factory=set)  # e.g. {'@current', '@index'}
@@ -20,7 +26,7 @@ class DependencySet:
 
 
 def extract_dependencies(node) -> DependencySet:
-    """Walk an AST and extract all field/context references."""
+    """Public entry point: walk an entire AST tree and return all statically-known data dependencies."""
     deps = DependencySet()
     let_vars: set[str] = set()
     _walk(node, deps, let_vars)
@@ -28,6 +34,13 @@ def extract_dependencies(node) -> DependencySet:
 
 
 def _walk(node, deps: DependencySet, let_vars: set[str]) -> None:
+    """Recursive AST walker accumulating into ``deps``.
+
+    Tracks ``let_vars`` to distinguish let-bound names from real field refs.
+    Special cases: MIP functions (valid/relevant/readonly/required) record to
+    ``mip_deps``; prev/next set ``uses_prev_next``; countWhere delegates its
+    predicate arg to ``_walk_skip_bare_dollar`` (bare $ is rebound per-element).
+    """
     if isinstance(node, ast.FieldRef):
         if not node.segments:
             deps.has_self_ref = True
@@ -108,7 +121,7 @@ def _walk(node, deps: DependencySet, let_vars: set[str]) -> None:
 
 
 def _walk_skip_bare_dollar(node, deps: DependencySet, let_vars: set[str]) -> None:
-    """Walk but skip bare $ references (for countWhere predicates)."""
+    """Walk variant for countWhere predicates: bare ``$`` is rebound to each array element at runtime, so skip it as a dependency; all other nodes delegate to ``_walk``."""
     if isinstance(node, ast.FieldRef) and not node.segments:
         return  # Skip bare $
     _walk(node, deps, let_vars)

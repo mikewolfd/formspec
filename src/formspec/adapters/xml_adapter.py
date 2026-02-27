@@ -1,17 +1,11 @@
-"""XML format adapter — §6.3 of the Mapping DSL spec.
+"""§6.3 XML adapter — JsonValue <-> XML 1.0 bytes via stdlib ElementTree.
 
-Serializes internal JSON as XML 1.0 using stdlib ElementTree.
-
-Target path conventions (applied by mapping engine before adapter sees them):
-  a.b.c     → nested elements
-  @attr     → attribute on containing element
-  [0], [1]  → repeated sibling elements (index determines order)
-
-The adapter receives a nested JSON dict where:
-  - Regular keys become child elements
-  - Keys starting with '@' become attributes on the parent element
-  - List values become repeated child elements
+Key conventions for the JSON dict this adapter receives:
+  - Plain keys ('a') become child elements
+  - '@'-prefixed keys ('@attr') become XML attributes on the parent element
+  - List values produce repeated sibling elements
   - Scalar values become text content
+  - Paths listed in config.cdata are wrapped in CDATA sections
 """
 
 from __future__ import annotations
@@ -23,20 +17,16 @@ from typing import Any
 
 from .base import Adapter, JsonValue
 
-# Sentinel for CDATA wrapping (replaced in final string output)
+#: Null-byte sentinels injected into ET text so CDATA sections survive serialization.
 _CDATA_SENTINEL = '\x00CDATA:'
 _CDATA_END = '\x00'
 
 
 class XmlAdapter(Adapter):
-    """§6.3 XML adapter.
+    """§6.3 XML wire-format adapter with attribute (@-prefix) and CDATA support.
 
-    Config:
-        declaration (bool): Include <?xml?> declaration. Default true.
-        indent (int): Spaces per level; 0 disables. Default 2.
-        cdata (list[str]): Paths whose content is wrapped in CDATA.
-
-    Requires root_element from targetSchema. Optional namespaces dict.
+    Config keys: declaration (bool), indent (int, 0=off), cdata (list of paths).
+    Requires root_element from targetSchema; optional namespaces dict.
     """
 
     def __init__(
@@ -60,7 +50,7 @@ class XmlAdapter(Adapter):
                 ET.register_namespace('', uri)
 
     def serialize(self, value: JsonValue) -> bytes:
-        """Convert a JSON dict to XML bytes."""
+        """Encode a JSON dict to XML 1.0 UTF-8 bytes with optional declaration and indentation."""
         if not isinstance(value, dict):
             raise ValueError('XML adapter requires a dict as top-level value')
 
@@ -100,7 +90,7 @@ class XmlAdapter(Adapter):
         return result.encode('utf-8')
 
     def deserialize(self, data: bytes) -> JsonValue:
-        """Convert XML bytes back to a JSON dict."""
+        """Decode XML bytes to a JSON dict; repeated sibling tags become arrays."""
         root = ET.fromstring(data)
         return self._parse_element(root)
 
@@ -109,7 +99,7 @@ class XmlAdapter(Adapter):
     # ---------------------------------------------------------------
 
     def _build_element(self, elem: ET.Element, obj: dict, path: str) -> None:
-        """Populate an XML element from a JSON dict."""
+        """Recursively populate an XML element; @-keys become attributes, lists become siblings."""
         for key, val in obj.items():
             if key.startswith('@'):
                 # Attribute
@@ -150,7 +140,7 @@ class XmlAdapter(Adapter):
         return str(val)
 
     def _restore_cdata(self, xml_str: str) -> str:
-        """Replace CDATA sentinels with actual CDATA sections."""
+        """Post-process serialized XML to swap null-byte sentinels for real CDATA sections."""
         from xml.sax.saxutils import unescape
         def _replace(m):
             # Content was XML-escaped by ET; unescape for raw CDATA
@@ -164,7 +154,7 @@ class XmlAdapter(Adapter):
     # ---------------------------------------------------------------
 
     def _parse_element(self, elem: ET.Element) -> dict:
-        """Convert an XML element to a JSON dict."""
+        """Recursively convert an XML element to a JSON dict; attributes get @-prefixed keys."""
         result: dict = {}
 
         # Attributes
@@ -210,14 +200,14 @@ class XmlAdapter(Adapter):
 
     @staticmethod
     def _local_name(tag: str) -> str:
-        """Strip namespace URI from {uri}local tag."""
+        """Strip Clark-notation namespace URI prefix from '{uri}local' tag."""
         if tag.startswith('{'):
             return tag.split('}', 1)[1]
         return tag
 
 
 def _indent_tree(elem: ET.Element, level: int = 0, indent: str = '  ') -> None:
-    """Add indentation to an ElementTree (in-place). Like ET.indent() in 3.9+."""
+    """In-place pretty-print indentation for ElementTree (backport of ET.indent from 3.9+)."""
     i = '\n' + indent * level
     if len(elem):
         if not elem.text or not elem.text.strip():

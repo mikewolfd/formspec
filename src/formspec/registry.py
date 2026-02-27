@@ -1,12 +1,8 @@
-"""Formspec Extension Registry — resolution and lifecycle validation.
+"""Formspec extension registry client: parse, query, and validate extension entries.
 
-Parses registry documents, matches extensions by (name, version) constraints,
-and validates lifecycle state transitions.
-
-Public API:
-    Registry(doc) — parsed registry with lookup methods
-    validate_lifecycle_transition(from_status, to_status) -> bool
-    WELL_KNOWN_PATH — well-known URL path for discovery
+Indexes registry documents by name for O(1) lookup, supports semver constraint
+matching (>=, <=, >, <, exact, range), and enforces lifecycle state machine
+transitions (draft -> stable -> deprecated -> retired, with un-deprecate path).
 """
 
 from __future__ import annotations
@@ -33,7 +29,7 @@ VALID_STATUSES = {'draft', 'stable', 'deprecated', 'retired'}
 
 @dataclass
 class RegistryEntry:
-    """A single extension entry from a registry document."""
+    """A single extension entry with metadata, versioning, and category-specific fields."""
     name: str
     category: str
     version: str
@@ -53,6 +49,7 @@ class RegistryEntry:
 
     @staticmethod
     def from_dict(d: dict) -> RegistryEntry:
+        """Deserialize from a registry JSON entry, mapping camelCase keys to snake_case fields."""
         return RegistryEntry(
             name=d['name'],
             category=d['category'],
@@ -74,10 +71,11 @@ class RegistryEntry:
 
 
 class Registry:
-    """Parsed extension registry with lookup methods.
+    """Parsed extension registry indexed by name for fast lookup.
 
-    Args:
-        doc: A validated registry document conforming to registry.schema.json.
+    Accepts a registry document (conforming to registry.schema.json), parses
+    all entries into RegistryEntry objects, and indexes them by name. Provides
+    filtered search with semver constraint matching.
     """
 
     def __init__(self, doc: dict):
@@ -100,18 +98,7 @@ class Registry:
         category: str | None = None,
         status: str | None = None,
     ) -> list[RegistryEntry]:
-        """Find entries matching the given criteria.
-
-        Args:
-            name: Extension name (exact match).
-            version: Semver version constraint string (e.g. '>=1.0.0 <2.0.0') to
-                     match against the entry's own version. If None, returns all versions.
-            category: Filter by category. If None, matches all.
-            status: Filter by status. If None, matches all.
-
-        Returns:
-            List of matching entries, sorted by version descending.
-        """
+        """Find entries by name with optional version/category/status filters, sorted version-descending."""
         candidates = self._by_name.get(name, [])
         results = []
         for entry in candidates:
@@ -133,7 +120,7 @@ class Registry:
         category: str | None = None,
         status: str | None = None,
     ) -> RegistryEntry | None:
-        """Find the best (highest version) matching entry, or None."""
+        """Return the highest-version matching entry, or None if no match."""
         results = self.find(name, version=version, category=category, status=status)
         return results[0] if results else None
 
@@ -146,11 +133,7 @@ class Registry:
         return [e for e in self.entries if e.status == status]
 
     def validate(self) -> list[str]:
-        """Validate the registry document for internal consistency.
-
-        Returns:
-            List of validation error messages (empty = valid).
-        """
+        """Check internal consistency: x- naming, deprecation notices, category-specific required fields."""
         errors = []
         for entry in self.entries:
             # Name must match x- pattern
@@ -172,20 +155,10 @@ class Registry:
 
 
 def validate_lifecycle_transition(from_status: str, to_status: str) -> bool:
-    """Check if a lifecycle state transition is valid.
+    """Check if a lifecycle transition is valid per the spec state machine.
 
-    Valid transitions per spec:
-        draft -> draft, stable, deprecated, retired
-        stable -> stable, deprecated, retired
-        deprecated -> deprecated, retired, stable (un-deprecate)
-        retired -> (terminal, no transitions)
-
-    Args:
-        from_status: Current lifecycle status.
-        to_status: Desired new status.
-
-    Returns:
-        True if the transition is valid.
+    retired is terminal (no outgoing transitions); deprecated can un-deprecate
+    back to stable. Returns False for unknown statuses.
     """
     if from_status not in _LIFECYCLE_TRANSITIONS:
         return False
@@ -193,20 +166,13 @@ def validate_lifecycle_transition(from_status: str, to_status: str) -> bool:
 
 
 def well_known_url(base_url: str) -> str:
-    """Construct the well-known URL for registry discovery.
-
-    Args:
-        base_url: Base URL of the registry host (e.g. 'https://example.org').
-
-    Returns:
-        Full URL to the well-known registry endpoint.
-    """
+    """Join base_url with WELL_KNOWN_PATH for registry discovery."""
     base = base_url.rstrip('/')
     return f"{base}{WELL_KNOWN_PATH}"
 
 
 def _parse_version(version: str) -> tuple[int, ...]:
-    """Parse a semver string into a comparable tuple."""
+    """Parse a dotted version string (e.g. '1.2.3') into a comparable int tuple."""
     try:
         parts = version.split('.')
         return tuple(int(p) for p in parts)
@@ -215,12 +181,10 @@ def _parse_version(version: str) -> tuple[int, ...]:
 
 
 def _version_satisfies(version: str, constraint: str) -> bool:
-    """Check if a version satisfies a constraint string.
+    """Test version against a space-separated constraint (e.g. '>=1.0.0 <2.0.0').
 
-    Supports:
-        - Exact: '1.0.0'
-        - Range: '>=1.0.0 <2.0.0'
-        - Prefix: '>=1.0.0', '<2.0.0', '<=1.5.0', '>1.0.0'
+    Supports exact match, and >=, <=, >, < prefix operators. Multiple
+    constraints are ANDed together.
     """
     ver = _parse_version(version)
     parts = constraint.strip().split()

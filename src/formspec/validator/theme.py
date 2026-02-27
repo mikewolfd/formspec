@@ -1,4 +1,8 @@
-"""Theme-specific semantic linting."""
+"""Theme document semantic checks: token value validation and $token.X reference integrity (W700-W704).
+
+Validates that token values match their implied type (color, spacing, font-weight, line-height)
+based on naming conventions, and that all $token.X references in defaults/selectors/items resolve.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ _UNITLESS_NUMBER_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
 
 
 def lint_theme_semantics(document: dict) -> list[LintDiagnostic]:
+    """Entry point: validate token values (W700-W703) and token reference integrity (W704)."""
     diagnostics: list[LintDiagnostic] = []
 
     tokens = document.get("tokens")
@@ -27,6 +32,7 @@ def lint_theme_semantics(document: dict) -> list[LintDiagnostic]:
 
 
 def _validate_token_values(tokens: dict[str, object]) -> list[LintDiagnostic]:
+    """Check each token value against its name-implied type: color (W700), spacing (W701), weight (W702), line-height (W703)."""
     diagnostics: list[LintDiagnostic] = []
 
     for token_name, token_value in tokens.items():
@@ -92,6 +98,7 @@ def _validate_token_references(
     document: dict,
     tokens: dict[str, object],
 ) -> list[LintDiagnostic]:
+    """Scan defaults, selectors, and items blocks for $token.X refs that don't exist in $.tokens (W704)."""
     diagnostics: list[LintDiagnostic] = []
     token_names = set(tokens.keys())
 
@@ -134,6 +141,7 @@ def _check_block_for_missing_tokens(
     base_path: str,
     token_names: set[str],
 ) -> list[LintDiagnostic]:
+    """Recursively scan a style block for unresolved $token.X references."""
     diagnostics: list[LintDiagnostic] = []
     for path, value in _iter_values(block, base_path):
         if not isinstance(value, str):
@@ -153,6 +161,7 @@ def _check_block_for_missing_tokens(
 
 
 def _iter_values(value: object, path: str) -> Iterator[tuple[str, object]]:
+    """Recursively yield (json_path, leaf_value) pairs from nested dicts/lists."""
     if isinstance(value, dict):
         for key, child in value.items():
             child_path = f"{path}[{key!r}]"

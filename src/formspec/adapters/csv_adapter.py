@@ -1,10 +1,7 @@
-"""CSV format adapter — §6.4 of the Mapping DSL spec.
+"""§6.4 CSV adapter — JsonValue <-> RFC 4180 delimited text.
 
-Serializes internal JSON as RFC 4180 delimited text.
-
-Structural constraint: all target paths MUST be simple identifiers
-(no dot-notation or brackets). Repeat groups emit one row per item;
-non-repeat fields are duplicated across rows.
+All target paths must be flat identifiers (no dots or brackets).
+Repeat groups expand to one row per item; scalar fields are duplicated across rows.
 """
 
 from __future__ import annotations
@@ -17,14 +14,10 @@ from .base import Adapter, JsonValue
 
 
 class CsvAdapter(Adapter):
-    """§6.4 CSV adapter.
+    """§6.4 CSV wire-format adapter (RFC 4180).
 
-    Config:
-        delimiter (str): Field delimiter. Default ",".
-        quote (str): Quote character. Default '"'.
-        header (bool): Emit header row. Default true.
-        encoding (str): Character encoding. Default "utf-8".
-        lineEnding (str): "crlf" or "lf". Default "crlf".
+    Config keys: delimiter (str), quote (str), header (bool),
+    encoding (str), lineEnding ('crlf'|'lf').
     """
 
     def __init__(self, config: dict | None = None):
@@ -36,13 +29,7 @@ class CsvAdapter(Adapter):
         self.line_ending: str = cfg.get('lineEnding', 'crlf')
 
     def serialize(self, value: JsonValue) -> bytes:
-        """Convert JSON to CSV bytes.
-
-        Accepts:
-        - A list of flat dicts (each dict is a row)
-        - A single flat dict (one row)
-        - A dict with one list-valued key (repeat group expansion)
-        """
+        """Encode JsonValue to CSV bytes; accepts flat dicts, list of dicts, or repeat-group dicts."""
         rows = self._normalize_rows(value)
         if not rows:
             return b''
@@ -76,7 +63,7 @@ class CsvAdapter(Adapter):
         return text.encode(self.encoding)
 
     def deserialize(self, data: bytes) -> JsonValue:
-        """Convert CSV bytes to a list of dicts."""
+        """Decode CSV bytes to a list of dicts (with header) or list of lists (without)."""
         text = data.decode(self.encoding)
         # Normalize line endings
         text = text.replace('\r\n', '\n').replace('\r', '\n')
@@ -110,7 +97,7 @@ class CsvAdapter(Adapter):
     # ---------------------------------------------------------------
 
     def _normalize_rows(self, value: JsonValue) -> list[dict]:
-        """Convert various input shapes to a list of flat dicts."""
+        """Coerce various JSON shapes (single dict, list, repeat-group dict) into flat row dicts."""
         if isinstance(value, list):
             # Already a list of rows
             return [r if isinstance(r, dict) else {'value': r} for r in value]

@@ -1,7 +1,17 @@
 """FEL tree-walking evaluator.
 
-Implements full FEL semantics: type strictness, null propagation,
-short-circuit evaluation, element-wise array operations, decimal arithmetic.
+Walks an AST produced by ``parser.parse()``, resolving field/context references
+via ``Environment`` and dispatching function calls through a ``FuncDef`` registry
+(built by ``functions.py``).
+
+Key semantics:
+- **Null propagation**: most binary/unary ops return FelNull when either operand is null.
+- **Exceptions to propagation**: equality (null=null -> true, null=x -> false),
+  short-circuit and/or (false and X -> false without evaluating X), ?? (null-coalesce).
+- **Array broadcasting**: binary ops on array+array zip element-wise; scalar+array broadcasts.
+- **Decimal arithmetic**: 34-digit precision (IEEE 754-2008), ROUND_HALF_EVEN.
+- **Non-fatal errors**: type mismatches, div-by-zero, undefined functions become
+  ``Diagnostic`` entries; evaluation continues and returns FelNull.
 """
 
 from __future__ import annotations
@@ -24,22 +34,29 @@ from .environment import Environment
 
 @dataclass
 class EvalResult:
-    """Result of evaluating a FEL expression."""
+    """Value + diagnostics bundle returned by the public FEL evaluate API."""
     value: FelValue
     diagnostics: list[Diagnostic] = field(default_factory=list)
 
 
 class Evaluator:
-    """Tree-walking FEL evaluator."""
+    """Tree-walking AST evaluator.
+
+    Dispatches on node type to dedicated methods. Fields resolve through
+    ``Environment``; function calls through the ``FuncDef`` registry.
+    Non-fatal issues (type mismatches, missing fields, div-by-zero) are
+    recorded as ``Diagnostic`` entries rather than raised as exceptions.
+    """
 
     def __init__(self, env: Environment, functions: dict | None = None):
+        """Bind to an evaluation environment and an optional {name: FuncDef} function registry."""
         self.env = env
         self.diagnostics: list[Diagnostic] = []
         # Function registry: name -> FuncDef (set up by functions module)
         self._functions = functions or {}
 
     def evaluate(self, node) -> FelValue:
-        """Evaluate an AST node, return a FelValue."""
+        """Main dispatch: evaluate a single AST node by type. Unknown node types -> diagnostic + FelNull."""
         if isinstance(node, ast.NumberLiteral):
             return FelNumber(node.value)
         if isinstance(node, ast.StringLiteral):
@@ -80,6 +97,7 @@ class Evaluator:
     # -- Field references --------------------------------------------------
 
     def _eval_field_ref(self, node: ast.FieldRef) -> FelValue:
+        """Flatten FieldRef segments to a mixed path (strings + Index/Wildcard) and resolve through environment."""
         path = []
         for seg in node.segments:
             if isinstance(seg, ast.DotSegment):
@@ -92,7 +110,12 @@ class Evaluator:
         return self._resolve_complex_path(path)
 
     def _resolve_complex_path(self, path) -> FelValue:
-        """Resolve a path that may contain index/wildcard segments."""
+        """Resolve a field path that may contain IndexSegment or WildcardSegment.
+
+        All-string paths delegate to ``env.resolve_field()``. Mixed paths walk
+        raw instance data directly: IndexSegment uses 1-based indexing,
+        WildcardSegment projects remaining path across all array elements.
+        """
         # Simple case: all string segments
         if all(isinstance(s, str) for s in path):
             return self.env.resolve_field(path)
@@ -128,6 +151,7 @@ class Evaluator:
         return from_python(current)
 
     def _resolve_sub_path(self, obj, path) -> FelValue:
+        """Walk remaining string segments on a raw Python dict (helper for wildcard projection)."""
         current = obj
         for seg in path:
             if isinstance(seg, str):
@@ -143,6 +167,7 @@ class Evaluator:
     # -- Binary operators --------------------------------------------------
 
     def _eval_binary_op(self, node: ast.BinaryOp) -> FelValue:
+        """Dispatch binary ops: short-circuit (and/or/??) handled specially; all others eagerly evaluate both sides, with array broadcasting when either operand is FelArray."""
         op = node.op
 
         # Short-circuit operators
@@ -163,7 +188,7 @@ class Evaluator:
         return self._apply_scalar_op(op, left, right, node.pos)
 
     def _apply_elementwise(self, op: str, left: FelValue, right: FelValue, pos) -> FelValue:
-        """Apply operator element-wise on arrays, with scalar broadcast."""
+        """Array broadcasting: zip equal-length arrays, or broadcast scalar against each element. Length mismatch -> diagnostic + null."""
         if isinstance(left, FelArray) and isinstance(right, FelArray):
             if len(left) != len(right):
                 self._diag(f"Array length mismatch: {len(left)} vs {len(right)}", pos)
@@ -185,7 +210,7 @@ class Evaluator:
         return self._apply_scalar_op(op, left, right, pos)
 
     def _apply_scalar_op(self, op: str, left: FelValue, right: FelValue, pos) -> FelValue:
-        """Apply a binary operator to scalar values."""
+        """Scalar binary dispatch. Equality ops have special null semantics (never propagate); all other ops propagate null from either operand."""
         # Equality: special null handling (not propagation)
         if op == '=':
             return self._eval_eq(left, right, pos)
@@ -213,7 +238,7 @@ class Evaluator:
         return FelNull
 
     def _eval_eq(self, left: FelValue, right: FelValue, pos) -> FelValue:
-        """Equality with special null semantics per §3.3."""
+        """Spec equality: null=null -> true, null=X -> false (not propagation!), type mismatch -> diagnostic + null."""
         if is_null(left) and is_null(right):
             return FelTrue
         if is_null(left) or is_null(right):
@@ -235,6 +260,7 @@ class Evaluator:
         return FelFalse
 
     def _eval_arithmetic(self, op: str, left: FelValue, right: FelValue, pos) -> FelValue:
+        """Decimal arithmetic (+, -, *, /, %) at 34-digit precision (ROUND_HALF_EVEN). Both operands must be FelNumber; div/mod by zero -> diagnostic + null."""
         if not isinstance(left, FelNumber) or not isinstance(right, FelNumber):
             self._diag(f"Arithmetic requires numbers, got {typeof(left)} {op} {typeof(right)}", pos)
             return FelNull
@@ -263,12 +289,14 @@ class Evaluator:
         return FelNull
 
     def _eval_concat(self, left: FelValue, right: FelValue, pos) -> FelValue:
+        """String concatenation via '&' operator. Both operands must be FelString."""
         if not isinstance(left, FelString) or not isinstance(right, FelString):
             self._diag(f"Concatenation requires strings, got {typeof(left)} & {typeof(right)}", pos)
             return FelNull
         return FelString(left.value + right.value)
 
     def _eval_comparison(self, op: str, left: FelValue, right: FelValue, pos) -> FelValue:
+        """Ordered comparison (<, >, <=, >=). Same-type only: numbers, strings, dates. Type mismatch -> diagnostic + null."""
         if type(left) != type(right):
             self._diag(f"Comparison type mismatch: {typeof(left)} vs {typeof(right)}", pos)
             return FelNull
@@ -294,6 +322,7 @@ class Evaluator:
     # -- Short-circuit operators -------------------------------------------
 
     def _eval_and(self, node: ast.BinaryOp) -> FelValue:
+        """Short-circuit 'and': null -> null, false -> false (right not evaluated), true -> evaluate right."""
         left = self.evaluate(node.left)
         if is_null(left):
             return FelNull
@@ -311,6 +340,7 @@ class Evaluator:
         return right
 
     def _eval_or(self, node: ast.BinaryOp) -> FelValue:
+        """Short-circuit 'or': null -> null, true -> true (right not evaluated), false -> evaluate right."""
         left = self.evaluate(node.left)
         if is_null(left):
             return FelNull
@@ -328,6 +358,7 @@ class Evaluator:
         return right
 
     def _eval_null_coalesce(self, node: ast.BinaryOp) -> FelValue:
+        """Null-coalesce (??): short-circuits -- returns left if non-null, otherwise evaluates right."""
         left = self.evaluate(node.left)
         if is_null(left):
             return self.evaluate(node.right)
@@ -336,6 +367,7 @@ class Evaluator:
     # -- Unary operators ---------------------------------------------------
 
     def _eval_unary_op(self, node: ast.UnaryOp) -> FelValue:
+        """Unary 'not' (boolean->boolean) or '-' (number->number). Both propagate null."""
         operand = self.evaluate(node.operand)
         if node.op == 'not':
             if is_null(operand):
@@ -356,6 +388,7 @@ class Evaluator:
     # -- Conditional -------------------------------------------------------
 
     def _eval_conditional(self, condition_node, then_node, else_node, pos) -> FelValue:
+        """Shared handler for if-then-else and ternary. Only the selected branch evaluates; null/non-boolean condition -> null."""
         cond = self.evaluate(condition_node)
         if is_null(cond):
             # For keyword if-then-else / ternary in expression context,
@@ -371,6 +404,7 @@ class Evaluator:
     # -- Let binding -------------------------------------------------------
 
     def _eval_let(self, node: ast.LetBinding) -> FelValue:
+        """Let-binding: evaluate value, push {name: value} onto Environment scope stack, evaluate body, pop. Scope is always popped (even on exception)."""
         val = self.evaluate(node.value)
         self.env.push_scope({node.name: val})
         try:
@@ -381,6 +415,7 @@ class Evaluator:
     # -- Membership --------------------------------------------------------
 
     def _eval_membership(self, node: ast.MembershipOp) -> FelValue:
+        """Evaluate 'in' / 'not in'. Container must be FelArray; element matching uses _eval_eq semantics. Null on either side -> null."""
         val = self.evaluate(node.value)
         container = self.evaluate(node.container)
         if is_null(val) or is_null(container):
@@ -402,6 +437,12 @@ class Evaluator:
     # -- Postfix access ----------------------------------------------------
 
     def _eval_postfix(self, node: ast.PostfixAccess) -> FelValue:
+        """Chain postfix access segments on an evaluated base value.
+
+        DotSegment: index into FelObject by key. IndexSegment: 1-based into
+        FelArray. WildcardSegment: project remaining segments across all array
+        elements, returning a new FelArray. Null propagates at each step.
+        """
         val = self.evaluate(node.expr)
         for seg in node.segments:
             if is_null(val):
@@ -447,6 +488,13 @@ class Evaluator:
     # -- Function calls ----------------------------------------------------
 
     def _eval_function_call(self, node: ast.FunctionCall) -> FelValue:
+        """Look up FuncDef by name, validate arity, then dispatch.
+
+        Special forms (if, countWhere, MIP queries, repeat nav) receive raw AST
+        nodes + this evaluator so they can control evaluation order. Normal forms
+        receive pre-evaluated args; if ``propagate_null`` is set on the FuncDef,
+        any null arg short-circuits to FelNull before calling the implementation.
+        """
         name = node.name
         if name not in self._functions:
             self._diag(f"Undefined function: {name}", node.pos)
@@ -484,4 +532,5 @@ class Evaluator:
     # -- Diagnostics -------------------------------------------------------
 
     def _diag(self, message: str, pos: SourcePos | None) -> None:
+        """Record a non-fatal diagnostic at the given source position."""
         self.diagnostics.append(Diagnostic(message, pos))

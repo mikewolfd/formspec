@@ -1,9 +1,8 @@
-"""Mapping DSL transform implementations (§4).
+"""§4 Transform implementations — 10 pluggable (source_value, rule, ctx) -> target_value functions.
 
-Each transform is a function:
-    (source_value, rule, context) -> target_value
-
-Where context provides access to the full source document and FEL evaluation.
+Each function receives the resolved source value, the full rule dict (for config
+like 'expression', 'valueMap', 'coerce'), and a TransformContext providing FEL
+evaluation and access to the full source/target documents.
 """
 
 from __future__ import annotations
@@ -17,14 +16,14 @@ from ..fel.types import to_python, from_python, FelNull, is_null
 
 
 class TransformContext:
-    """Shared context passed to all transform functions."""
+    """Shared state for transform execution: source/target data and FEL evaluation capability."""
 
     def __init__(self, source_data: dict, target_data: dict | None = None):
         self.source_data = source_data
         self.target_data = target_data or {}
 
     def eval_fel(self, expression: str, dollar_value: Any = None) -> Any:
-        """Evaluate a FEL expression with $ bound to dollar_value and @source to source_data."""
+        """Evaluate a FEL expression with $ bound to the current source value and source/target in scope."""
         data = dict(self.source_data) if self.source_data else {}
         data['source'] = self.source_data
         if self.target_data:
@@ -43,19 +42,19 @@ class TransformContext:
 
 
 def transform_preserve(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.2 Preserve — copy source value unchanged."""
+    """§4.2 Preserve — pass source value through unchanged (falls back to rule default if null)."""
     if value is None and 'default' in rule:
         return rule['default']
     return value
 
 
 def transform_drop(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.3 Drop — discard the value (returns sentinel)."""
+    """§4.3 Drop — return _DROP_SENTINEL so the engine omits this field from output."""
     return _DROP_SENTINEL
 
 
 def transform_expression(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.4 Expression — evaluate FEL expression."""
+    """§4.4 Expression — evaluate rule.expression as FEL with $ bound to source value."""
     expr = rule.get('expression', '')
     result = ctx.eval_fel(expr, dollar_value=value)
     if result is None and 'default' in rule:
@@ -64,7 +63,7 @@ def transform_expression(value: Any, rule: dict, ctx: TransformContext) -> Any:
 
 
 def transform_coerce(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.5 Coerce — type conversion."""
+    """§4.5 Coerce — convert source value to rule.coerce target type (string/number/integer/boolean/date/array/object)."""
     if value is None and 'default' in rule:
         return rule['default']
     if value is None:
@@ -80,7 +79,7 @@ def transform_coerce(value: Any, rule: dict, ctx: TransformContext) -> Any:
 
 
 def _coerce_value(value: Any, target_type: str) -> Any:
-    """Coerce a value to the target type."""
+    """Best-effort type coercion; returns None on failed numeric conversions."""
     if target_type == 'string':
         if isinstance(value, bool):
             return 'true' if value else 'false'
@@ -119,7 +118,7 @@ def _coerce_value(value: Any, target_type: str) -> Any:
 
 
 def transform_value_map(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.6 ValueMap — lookup table translation."""
+    """§4.6 ValueMap — translate via lookup table; unmapped handling: error/passthrough/drop/default."""
     if value is None and 'default' in rule:
         return rule['default']
 
@@ -152,7 +151,7 @@ def transform_value_map(value: Any, rule: dict, ctx: TransformContext) -> Any:
 
 
 def transform_flatten(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.7 Flatten — convert nested object to flat string."""
+    """§4.7 Flatten — collapse nested dict/list into a separator-joined string (key=value pairs)."""
     if value is None:
         return rule.get('default')
     separator = rule.get('separator', '.')
@@ -175,7 +174,7 @@ def _flatten_dict(obj: dict, parts: list, sep: str, prefix: str = '') -> None:
 
 
 def transform_nest(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.8 Nest — convert flat string to nested object."""
+    """§4.8 Nest — split a separator-delimited string into a nested dict hierarchy."""
     if value is None:
         return rule.get('default')
     separator = rule.get('separator', '.')
@@ -195,25 +194,25 @@ def transform_nest(value: Any, rule: dict, ctx: TransformContext) -> Any:
 
 
 def transform_constant(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.9 Constant — evaluate expression, ignoring source value."""
+    """§4.9 Constant — evaluate rule.expression as FEL, ignoring the source value entirely."""
     expr = rule.get('expression', '')
     return ctx.eval_fel(expr)
 
 
 def transform_concat(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.10 Concat — evaluate expression (expected to produce concatenated string)."""
+    """§4.10 Concat — evaluate a FEL expression that joins multiple source fields into one string."""
     expr = rule.get('expression', '')
     return ctx.eval_fel(expr, dollar_value=value)
 
 
 def transform_split(value: Any, rule: dict, ctx: TransformContext) -> Any:
-    """§4.11 Split — evaluate expression (expected to split value into parts)."""
+    """§4.11 Split — evaluate a FEL expression that decomposes one source value into multiple parts."""
     expr = rule.get('expression', '')
     return ctx.eval_fel(expr, dollar_value=value)
 
 
-# Sentinel for "drop this field entirely"
 class _DropSentinel:
+    """Singleton sentinel returned by transform_drop to signal field omission."""
     _instance = None
 
     def __new__(cls):

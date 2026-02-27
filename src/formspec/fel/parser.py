@@ -1,7 +1,14 @@
 """FEL scannerless recursive-descent parser.
 
-Operates directly on the source string (no separate lexer).
-Implements the normative PEG grammar from fel-grammar.md.
+Operates directly on the source string (no separate lexer). Implements the
+normative PEG grammar from fel-grammar.md, producing frozen-dataclass AST
+nodes from ``ast_nodes.py``.
+
+Precedence levels map 1:1 to parse methods (let > if > ternary > or > and >
+equality > comparison > membership > null-coalesce > addition > multiplication >
+unary > postfix > atom). A parallel ``_no_in`` method set suppresses the bare
+``in`` membership operator inside let-value position to resolve the
+``let x = expr in body`` ambiguity.
 """
 
 from __future__ import annotations
@@ -23,13 +30,11 @@ RESERVED_WORDS = frozenset({
     'and', 'or', 'not', 'in',
     'if', 'then', 'else', 'let',
 })
+"""Keywords that cannot appear as bare identifiers or function names in FEL expressions."""
 
 
 def parse(source: str):
-    """Parse a FEL expression string into an AST node.
-
-    Raises FelSyntaxError on invalid input.
-    """
+    """Parse a FEL expression string into a frozen-dataclass AST, or raise FelSyntaxError."""
     p = _Parser(source)
     node = p.parse_expression()
     p.skip_ws()
@@ -39,9 +44,16 @@ def parse(source: str):
 
 
 class _Parser:
-    """Scannerless recursive-descent parser for FEL."""
+    """Scannerless recursive-descent parser implementing the FEL PEG grammar.
+
+    Cursor-based: ``self.pos`` advances through the source string character by
+    character. Each ``parse_*`` / ``_parse_*`` method corresponds to one grammar
+    production at a specific precedence level. Pre-computed line-start offsets
+    enable O(log n) offset-to-line:col mapping for error positions.
+    """
 
     def __init__(self, src: str):
+        """Set up cursor at position 0 and pre-compute line-start offsets for error reporting."""
         self.src = src
         self.pos = 0
         # Pre-compute line starts for position mapping
@@ -53,6 +65,7 @@ class _Parser:
     # -- Position helpers --------------------------------------------------
 
     def _source_pos(self, offset: int | None = None) -> SourcePos:
+        """Map a byte offset (default: current cursor) to 1-based line:col via binary search over line starts."""
         if offset is None:
             offset = self.pos
         # Binary search for line number
@@ -68,14 +81,17 @@ class _Parser:
         return SourcePos(offset, line, col)
 
     def error(self, msg: str, offset: int | None = None) -> None:
+        """Raise a FelSyntaxError at the given offset (or current position)."""
         raise FelSyntaxError(msg, self._source_pos(offset))
 
     # -- Low-level matching ------------------------------------------------
 
     def at_end(self) -> bool:
+        """Check whether the parser has consumed all input."""
         return self.pos >= len(self.src)
 
     def peek_char(self) -> str:
+        """Return the current character without advancing, or '' at end."""
         if self.pos < len(self.src):
             return self.src[self.pos]
         return ''
@@ -88,11 +104,12 @@ class _Parser:
         return False
 
     def expect_str(self, s: str) -> None:
+        """Match a literal string or raise FelSyntaxError."""
         if not self.match_str(s):
             self.error(f"Expected {s!r}")
 
     def match_keyword(self, word: str) -> bool:
-        """Match a keyword followed by non-identifier character."""
+        """Match a keyword only if followed by a non-identifier char (prevents 'in' matching 'info')."""
         end = self.pos + len(word)
         if self.src[self.pos:end] == word:
             if end >= len(self.src) or not self._is_id_continue(self.src[end]):
@@ -101,15 +118,17 @@ class _Parser:
         return False
 
     def _is_id_start(self, ch: str) -> bool:
+        """Check if a character can start an identifier: [a-zA-Z_]."""
         return ch.isascii() and (ch.isalpha() or ch == '_')
 
     def _is_id_continue(self, ch: str) -> bool:
+        """Check if a character can continue an identifier: [a-zA-Z0-9_]."""
         return ch.isascii() and (ch.isalnum() or ch == '_')
 
     # -- Whitespace and comments -------------------------------------------
 
     def skip_ws(self) -> None:
-        """Skip whitespace and comments."""
+        """Advance past whitespace, // line comments, and /* block comments */. Rejects reserved '|>' pipe operator."""
         while self.pos < len(self.src):
             ch = self.src[self.pos]
             # Whitespace
@@ -141,7 +160,7 @@ class _Parser:
     # -- Expression grammar ------------------------------------------------
 
     def parse_expression(self):
-        """Expression ← _ LetExpr _"""
+        """Expression <- _ LetExpr _ (top-level entry; lowest precedence)."""
         self.skip_ws()
         return self.parse_let_expr()
 
@@ -167,9 +186,9 @@ class _Parser:
         return self.parse_if_expr()
 
     def parse_if_expr(self):
-        """IfExpr ← 'if' _ Ternary _ 'then' _ IfExpr _ 'else' _ IfExpr
-                  / 'if' _ '(' ...  (IfCall)
-                  / Ternary
+        """IfExpr <- 'if' Ternary 'then' IfExpr 'else' IfExpr / 'if' '(' ArgList ')' / Ternary.
+
+        Disambiguates keyword if-then-else from if() function call by peeking for '(' after 'if'.
         """
         start = self.pos
         if self.match_keyword('if'):
@@ -192,7 +211,7 @@ class _Parser:
         return self.parse_ternary()
 
     def _parse_if_call(self, start: int):
-        """Parse if(a, b, c) as FunctionCall('if', ...)."""
+        """Parse if(...) as a FunctionCall('if', args) -- the function-form alternative to keyword if-then-else."""
         self.expect_str('(')
         self.skip_ws()
         args = self._parse_arg_list()
@@ -202,7 +221,7 @@ class _Parser:
         return self._parse_postfix_tail(node, start)
 
     def parse_ternary(self):
-        """Ternary ← LogicalOr (_ '?' _ Expression _ ':' _ Expression)?"""
+        """Ternary <- LogicalOr ('?' Expression ':' Expression)? -- must not consume '??' (null-coalesce)."""
         start = self.pos
         left = self.parse_logical_or()
         self.skip_ws()
@@ -249,7 +268,7 @@ class _Parser:
         return left
 
     def parse_equality(self):
-        """Equality ← Comparison ((_ '!=' / _ '=') _ Comparison)*"""
+        """Equality <- Comparison (('!=' / '=') Comparison)* -- single '=' is equality, not assignment."""
         start = self.pos
         left = self.parse_comparison()
         while True:
@@ -287,10 +306,9 @@ class _Parser:
         return left
 
     def _parse_let_value(self):
-        """Parse expression for let-value position.
+        """Parse let-value position with 'in' suppressed to resolve the 'let x = expr in body' ambiguity.
 
-        Same as parse_if_expr but skips the membership 'in' operator
-        to avoid ambiguity with let...in.
+        Parenthesized membership still works: let x = (1 in $y) in ...
         """
         start = self.pos
         if self.match_keyword('if'):
@@ -313,6 +331,7 @@ class _Parser:
         return self._parse_ternary_no_in()
 
     def _parse_ternary_no_in(self):
+        """Ternary <- LogicalOrNoIn ('?' Expression ':' Expression)? -- no-in variant."""
         start = self.pos
         left = self._parse_logical_or_no_in()
         self.skip_ws()
@@ -330,6 +349,7 @@ class _Parser:
         return left
 
     def _parse_logical_or_no_in(self):
+        """LogicalOrNoIn <- LogicalAndNoIn ('or' LogicalAndNoIn)* -- no-in variant."""
         start = self.pos
         left = self._parse_logical_and_no_in()
         while True:
@@ -343,6 +363,7 @@ class _Parser:
         return left
 
     def _parse_logical_and_no_in(self):
+        """LogicalAndNoIn <- EqualityNoIn ('and' EqualityNoIn)* -- no-in variant."""
         start = self.pos
         left = self._parse_equality_no_in()
         while True:
@@ -356,6 +377,7 @@ class _Parser:
         return left
 
     def _parse_equality_no_in(self):
+        """EqualityNoIn <- ComparisonNoIn (('=' / '!=') ComparisonNoIn)* -- no-in variant."""
         start = self.pos
         left = self._parse_comparison_no_in()
         while True:
@@ -374,6 +396,7 @@ class _Parser:
         return left
 
     def _parse_comparison_no_in(self):
+        """ComparisonNoIn <- NullCoalesce (('<=' / '>=' / '<' / '>') NullCoalesce)* -- skips Membership entirely."""
         start = self.pos
         left = self.parse_null_coalesce()  # Skip membership entirely
         while True:
@@ -392,8 +415,7 @@ class _Parser:
         return left
 
     def parse_membership(self):
-        """Membership ← NullCoalesce (_ 'not' _ 'in' _ NullCoalesce
-                                      / _ 'in' !IdContinue _ NullCoalesce)?"""
+        """Membership <- NullCoalesce (('not')? 'in' NullCoalesce)? -- non-associative (no chaining)."""
         start = self.pos
         left = self.parse_null_coalesce()
         self.skip_ws()
@@ -515,8 +537,10 @@ class _Parser:
         return segments
 
     def parse_atom(self):
-        """Atom ← IfCall / FunctionCall / FieldRef / ObjectLiteral
-                  / ArrayLiteral / Literal / '(' _ Expression _ ')'"""
+        """Atom <- '(' Expr ')' / FieldRef / ContextRef / DateLiteral / Array / Object / String / Number / Bool / Null / Call.
+
+        Dispatches on first character: $ -> field, @ -> context/date, [ -> array, { -> object, etc.
+        """
         self.skip_ws()
         if self.at_end():
             self.error("Unexpected end of expression")
@@ -565,7 +589,7 @@ class _Parser:
     # -- Atom sub-parsers --------------------------------------------------
 
     def _parse_field_ref(self):
-        """FieldRef ← '$' Identifier PathTail* / '$'"""
+        """FieldRef <- '$' Identifier? PathTail* -- bare '$' (no segments) refers to current context value."""
         start = self.pos
         self.pos += 1  # consume '$'
         name = self._try_identifier_raw()  # No reserved-word check for field names
@@ -577,7 +601,7 @@ class _Parser:
         return FieldRef(tuple(segments), self._source_pos(start))
 
     def _parse_at_prefix(self):
-        """@ followed by digits = date/datetime. @ followed by letter = ContextRef."""
+        """Disambiguate '@': @digits -> date/datetime literal, @letter -> ContextRef with optional (arg) and .tail."""
         start = self.pos
         # Look ahead past '@'
         if self.pos + 1 < len(self.src) and self.src[self.pos + 1].isdigit():
@@ -608,7 +632,7 @@ class _Parser:
         return ContextRef(name, arg, tuple(tail), self._source_pos(start))
 
     def _parse_date_or_datetime_literal(self):
-        """DateTimeLiteral / DateLiteral starting with '@'."""
+        """DateLiteral <- '@' YYYY-MM-DD ('T' HH:MM:SS TZ?)? -- ISO 8601 date or datetime."""
         start = self.pos
         self.pos += 1  # consume '@'
         # Match YYYY-MM-DD
@@ -647,7 +671,7 @@ class _Parser:
         return DateLiteral(d, self._source_pos(start))
 
     def _parse_string_literal(self):
-        """StringLiteral ← single or double quoted with escape sequences."""
+        """StringLiteral <- ('"' / \"'\") chars* ('"' / \"'\") with \\n \\t \\uXXXX escapes."""
         start = self.pos
         quote = self.src[self.pos]
         if quote not in "'\"":
@@ -692,7 +716,7 @@ class _Parser:
         self.error("Unterminated string literal", start)
 
     def _parse_number_literal(self):
-        """NumberLiteral (positive only — unary minus handled in parse_unary)."""
+        """NumberLiteral <- [0-9]+ ('.' [0-9]+)? ([eE] [+-]? [0-9]+)? -- positive only; negation is unary op."""
         start = self.pos
         m = re.match(r'(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?', self.src[self.pos:])
         if not m or not m.group(0):
@@ -771,7 +795,7 @@ class _Parser:
         return key, val
 
     def _parse_identifier_or_keyword_or_call(self):
-        """Parse an identifier-starting atom: true/false/null, or function call."""
+        """Parse identifier-starting atom: true/false/null keywords, name(...) function calls, or bare name (let-bound variable, emitted as single-segment FieldRef)."""
         start = self.pos
         # Try boolean/null literals
         for kw, factory in [('true', lambda s: BooleanLiteral(True, s)),
@@ -812,7 +836,7 @@ class _Parser:
         return args
 
     def _parse_postfix_tail(self, node, start):
-        """Wrap node in PostfixAccess if path tails follow."""
+        """Optionally wrap node in PostfixAccess if '.field' or '[n]' / '[*]' path tails follow."""
         segments = self._parse_path_tails()
         if segments:
             return PostfixAccess(node, tuple(segments), self._source_pos(start))
@@ -821,7 +845,7 @@ class _Parser:
     # -- Identifier helpers ------------------------------------------------
 
     def _try_identifier_raw(self) -> str | None:
-        """Match [a-zA-Z_][a-zA-Z0-9_]* without reserved word check."""
+        """Match [a-zA-Z_][a-zA-Z0-9_]* without reserved-word rejection. Used for $field names and object keys."""
         if self.pos >= len(self.src) or not self._is_id_start(self.src[self.pos]):
             return None
         start = self.pos
@@ -831,7 +855,7 @@ class _Parser:
         return self.src[start:self.pos]
 
     def _try_identifier(self) -> str | None:
-        """Match Identifier (excluding reserved words)."""
+        """Match an identifier, returning None for reserved words (rewinds cursor)."""
         save = self.pos
         name = self._try_identifier_raw()
         if name is None:
@@ -842,6 +866,7 @@ class _Parser:
         return name
 
     def _expect_identifier(self) -> str:
+        """Match an identifier or raise FelSyntaxError."""
         name = self._try_identifier()
         if name is None:
             self.error("Expected identifier")

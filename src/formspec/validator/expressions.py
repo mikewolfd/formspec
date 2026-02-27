@@ -1,4 +1,9 @@
-"""FEL expression parsing pass for Formspec linting."""
+"""Pass 4: Parse all FEL expression slots in binds, shapes, and screener routes (E400).
+
+Compiles each expression string via the Python FEL parser. Dataflow fields (calculate,
+relevant, readonly, required) track their bind target for dependency analysis. Validation
+fields (constraint) are parsed but excluded from the dependency graph to allow self-reference.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +27,8 @@ _BIND_EXPRESSION_FIELDS = _BIND_DATAFLOW_FIELDS + _BIND_VALIDATION_FIELDS
 
 @dataclass(frozen=True, slots=True)
 class CompiledExpression:
+    """Successfully parsed FEL expression with its AST and optional bind target for dependency wiring."""
+
     ast: Any
     expression: str
     expression_path: str
@@ -31,12 +38,14 @@ class CompiledExpression:
 
 @dataclass(slots=True)
 class ExpressionCompilationResult:
+    """Accumulated compiled expressions and E400 syntax error diagnostics."""
+
     compiled: list[CompiledExpression] = field(default_factory=list)
     diagnostics: list[LintDiagnostic] = field(default_factory=list)
 
 
 def compile_expressions(document: dict) -> ExpressionCompilationResult:
-    """Compile all FEL-bearing expression slots in a definition document."""
+    """Entry point: compile all FEL expressions in binds, shapes, and screener routes. Emits E400 on syntax errors."""
     result = ExpressionCompilationResult()
 
     binds = document.get("binds", [])
@@ -147,6 +156,7 @@ def _parse_one(
     bind_target: str | None = None,
     bind_path_pointer: str | None = None,
 ) -> None:
+    """Parse a single FEL string; append CompiledExpression on success or E400 diagnostic on failure."""
     try:
         ast = parse(expression)
     except FelSyntaxError as exc:
@@ -174,6 +184,7 @@ def _parse_one(
 
 
 def _looks_like_fel(value: str) -> bool:
+    """Heuristic: return True if a bind.default string looks like a FEL expression rather than a literal."""
     text = value.strip()
     if not text:
         return False
