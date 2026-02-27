@@ -1,6 +1,7 @@
 import { effect } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
 
+/** Renders a text input field by delegating to `ctx.renderInputComponent()`. */
 const TextInputPlugin: ComponentPlugin = {
     type: 'TextInput',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -13,6 +14,7 @@ const TextInputPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a number input field by delegating to `ctx.renderInputComponent()`. */
 const NumberInputPlugin: ComponentPlugin = {
     type: 'NumberInput',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -25,6 +27,7 @@ const NumberInputPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a select dropdown by delegating to `ctx.renderInputComponent()`. */
 const SelectPlugin: ComponentPlugin = {
     type: 'Select',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -37,6 +40,7 @@ const SelectPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a toggle switch by delegating to `ctx.renderInputComponent()`. */
 const TogglePlugin: ComponentPlugin = {
     type: 'Toggle',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -49,6 +53,7 @@ const TogglePlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a checkbox input by delegating to `ctx.renderInputComponent()`. */
 const CheckboxPlugin: ComponentPlugin = {
     type: 'Checkbox',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -61,6 +66,7 @@ const CheckboxPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a date picker input by delegating to `ctx.renderInputComponent()`. */
 const DatePickerPlugin: ComponentPlugin = {
     type: 'DatePicker',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -73,6 +79,7 @@ const DatePickerPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a radio button group by delegating to `ctx.renderInputComponent()`. */
 const RadioGroupPlugin: ComponentPlugin = {
     type: 'RadioGroup',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -85,6 +92,7 @@ const RadioGroupPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a checkbox group by delegating to `ctx.renderInputComponent()`. */
 const CheckboxGroupPlugin: ComponentPlugin = {
     type: 'CheckboxGroup',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -97,6 +105,11 @@ const CheckboxGroupPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a range `<input>` slider with configurable min/max/step.
+ * Subscribes to the field signal to sync the slider position and an optional value display `<span>`.
+ * Avoids overwriting the input while the user is actively dragging.
+ */
 const SliderPlugin: ComponentPlugin = {
     type: 'Slider',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -159,6 +172,11 @@ const SliderPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a star-rating control using clickable `<span>` elements.
+ * Supports configurable max rating and icon character. Subscribes to the field signal
+ * to toggle a selected CSS class on each star.
+ */
 const RatingPlugin: ComponentPlugin = {
     type: 'Rating',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -216,6 +234,11 @@ const RatingPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a file `<input>` with optional drag-and-drop zone.
+ * When `dragDrop` is enabled, creates a drop zone `<div>` that handles dragover/drop events
+ * and hides the native file input. Stores file metadata (name, size, type) in the engine.
+ */
 const FileUploadPlugin: ComponentPlugin = {
     type: 'FileUpload',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -286,6 +309,11 @@ const FileUploadPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a `<canvas>` for freehand signature capture with mouse event drawing.
+ * Stores the signature as a data URL on mouseup. Includes a clear button that resets
+ * the canvas and sets the field value to null.
+ */
 const SignaturePlugin: ComponentPlugin = {
     type: 'Signature',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -360,6 +388,7 @@ const SignaturePlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a money input by delegating to `ctx.renderInputComponent()` as a NumberInput with `dataType: 'money'`. */
 const MoneyInputPlugin: ComponentPlugin = {
     type: 'MoneyInput',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -372,6 +401,7 @@ const MoneyInputPlugin: ComponentPlugin = {
     }
 };
 
+/** All 13 built-in input component plugins, exported as a single array for bulk registration. */
 export const InputPlugins: ComponentPlugin[] = [
     TextInputPlugin,
     NumberInputPlugin,

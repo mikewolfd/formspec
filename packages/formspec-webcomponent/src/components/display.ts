@@ -1,6 +1,7 @@
 import { effect } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
 
+/** Renders an `<h1>`-`<h6>` heading element based on the `level` prop (defaults to h1). */
 export const HeadingPlugin: ComponentPlugin = {
     type: 'Heading',
     render: (comp, parent, ctx) => {
@@ -15,6 +16,10 @@ export const HeadingPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a `<p>` text element. When `bind` is set, subscribes to the field or variable signal
+ * and reactively updates the text content, including currency formatting for money values.
+ */
 export const TextPlugin: ComponentPlugin = {
     type: 'Text',
     render: (comp, parent, ctx) => {
@@ -45,6 +50,7 @@ export const TextPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a `<div>` card container with optional `<h3>` title, `<p>` subtitle, and elevation data attribute. */
 export const CardPlugin: ComponentPlugin = {
     type: 'Card',
     render: (comp, parent, ctx) => {
@@ -78,6 +84,7 @@ export const CardPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders an empty `<div>` spacer with token-resolved height from the `size` prop. */
 export const SpacerPlugin: ComponentPlugin = {
     type: 'Spacer',
     render: (comp, parent, ctx) => {
@@ -92,6 +99,7 @@ export const SpacerPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a `<div>` alert with severity variant CSS class and optional dismiss button that removes the element. */
 export const AlertPlugin: ComponentPlugin = {
     type: 'Alert',
     render: (comp, parent, ctx) => {
@@ -121,6 +129,7 @@ export const AlertPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders an inline `<span>` badge with a variant CSS class. */
 export const BadgePlugin: ComponentPlugin = {
     type: 'Badge',
     render: (comp, parent, ctx) => {
@@ -135,6 +144,10 @@ export const BadgePlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a `<progress>` element with optional percentage label.
+ * When `bind` is set, subscribes to the field signal to reactively update the progress value.
+ */
 export const ProgressBarPlugin: ComponentPlugin = {
     type: 'ProgressBar',
     render: (comp, parent, ctx) => {
@@ -180,6 +193,10 @@ export const ProgressBarPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a `<dl>` definition list with reactive `<dd>` values bound to field or variable signals.
+ * Supports currency formatting for money values and optionSet label lookup.
+ */
 export const SummaryPlugin: ComponentPlugin = {
     type: 'Summary',
     render: (comp, parent, ctx) => {

@@ -1,24 +1,78 @@
 import { FormEngine } from 'formspec-engine';
 import { ThemeDocument, PresentationBlock, ItemDescriptor } from './theme-resolver';
 
+/**
+ * Context object passed to every {@link ComponentPlugin} render function.
+ *
+ * Provides access to the form engine, theme/component documents, and a
+ * toolkit of rendering helpers so plugins can build DOM, resolve tokens,
+ * apply theme styles, and recursively render child components without
+ * depending on the `FormspecRender` element directly.
+ */
 export interface RenderContext {
+    /** The active FormEngine instance managing reactive form state. */
     engine: FormEngine;
+
+    /** The loaded component document (component tree, custom components, tokens, breakpoints). */
     componentDocument: any;
+
+    /** The loaded theme document, or `null` when no theme is provided. */
     themeDocument: ThemeDocument | null;
+
+    /** Dotted path prefix for the current render scope (e.g. `"group[0]"`). */
     prefix: string;
+
+    /** Recursively render a child component descriptor into a parent element. */
     renderComponent: (comp: any, parent: HTMLElement, prefix?: string) => void;
+
+    /** Resolve a `$token.xxx` reference against component and theme token maps. Non-token values pass through unchanged. */
     resolveToken: (val: any) => any;
+
+    /** Apply an inline style object to an element, resolving token references in values. */
     applyStyle: (el: HTMLElement, style: any) => void;
+
+    /** Apply `cssClass` entries from a component descriptor to an element's classList. */
     applyCssClass: (el: HTMLElement, comp: any) => void;
+
+    /** Apply accessibility attributes (role, aria-description, aria-live) from a component descriptor. */
     applyAccessibility: (el: HTMLElement, comp: any) => void;
+
+    /** Resolve the effective PresentationBlock for a definition item via the 5-level theme cascade. */
     resolveItemPresentation: (item: ItemDescriptor) => PresentationBlock;
+
+    /** Disposal callbacks for signal effects and event listeners created during this render cycle. */
     cleanupFns: Array<() => void>;
+
+    /** Look up a definition item by key (supports dotted paths like `"group.field"`). Returns `null` if not found. */
     findItemByKey: (key: string, items?: any[]) => any | null;
+
+    /**
+     * Build and return a fully-wired field input element (label, input control,
+     * hint, error display, signal bindings, ARIA attributes) for a bound field.
+     */
     renderInputComponent: (comp: any, item: any, fullName: string) => HTMLElement;
+
+    /** The currently active responsive breakpoint name, or `null` when no breakpoint matches. */
     activeBreakpoint: string | null;
 }
 
+/**
+ * Contract for a component plugin registered with the {@link ComponentRegistry}.
+ *
+ * Each plugin declares a `type` string (e.g. `"TextInput"`, `"Wizard"`) that
+ * maps to a component document's `component` field, and a `render` function
+ * that builds the DOM for that component type.
+ */
 export interface ComponentPlugin {
+    /** Component type identifier matched against `comp.component` at render time. */
     type: string;
+
+    /**
+     * Build DOM for this component and append it to `parent`.
+     *
+     * @param comp   - The component descriptor object from the component tree.
+     * @param parent - The parent DOM element to append rendered content into.
+     * @param ctx    - Rendering context providing engine access, helpers, and cleanup tracking.
+     */
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => void;
 }

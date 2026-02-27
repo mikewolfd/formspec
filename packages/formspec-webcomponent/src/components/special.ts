@@ -1,6 +1,7 @@
 import { effect } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
 
+/** Renders a simple wrapper `<div>` for conditional content whose visibility is controlled by bind relevance. */
 export const ConditionalGroupPlugin: ComponentPlugin = {
     type: 'ConditionalGroup',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -19,6 +20,13 @@ export const ConditionalGroupPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders an editable `<table>` bound to a repeatable group.
+ * Supports add/remove row buttons, optional row numbers, and signal-driven cell updates.
+ * Editable cells use `<input>` elements with type coercion; read-only cells display formatted text
+ * including currency formatting for money values. Cell effect subscriptions are tracked and
+ * disposed on re-render to prevent leaks.
+ */
 export const DataTablePlugin: ComponentPlugin = {
     type: 'DataTable',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -49,6 +57,7 @@ export const DataTablePlugin: ComponentPlugin = {
             }
         }
 
+        /** Coerces a raw input string to the appropriate type based on the field's dataType. */
         const coerceInputValue = (raw: string, dataType: string | undefined): any => {
             const trimmed = raw.trim();
             if (trimmed === '') return null;

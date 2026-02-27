@@ -9,11 +9,24 @@ import './formspec-base.css';
 
 export { resolvePresentation, resolveWidget } from './theme-resolver';
 export type { ThemeDocument, PresentationBlock, ItemDescriptor, AccessibilityBlock, ThemeSelector, SelectorMatch, Tier1Hints, FormspecDataType, Page, Region, LayoutHints, StyleHints } from './theme-resolver';
+
+/**
+ * Built-in default theme used when no explicit theme document is provided.
+ * Supplies baseline tokens, selector rules, and presentation defaults.
+ */
 export { defaultThemeJson as defaultTheme };
 
 // ── Standalone utility functions (extracted for testability) ────────
 
-/** Replace `{param}` placeholders in a tree node with values from `params`. */
+/**
+ * Replace `{param}` placeholders in a component tree node with values from
+ * a params object. Walks string properties, arrays, and nested objects
+ * recursively. Used during custom component expansion to substitute
+ * parameterized values declared in component document templates.
+ *
+ * @param node   - The component descriptor (or subtree) to mutate in place.
+ * @param params - Key/value map of parameter names to replacement values.
+ */
 export function interpolateParams(node: any, params: any): void {
     for (const key of Object.keys(node)) {
         if (typeof node[key] === 'string') {
@@ -32,7 +45,18 @@ export function interpolateParams(node: any, params: any): void {
     }
 }
 
-/** Merge responsive breakpoint overrides onto a component descriptor. */
+/**
+ * Merge responsive breakpoint overrides onto a component descriptor.
+ *
+ * If the component has a `responsive` map and the given breakpoint name
+ * appears as a key, shallow-merges those overrides onto a copy of the
+ * descriptor. Returns the original descriptor unchanged when no overrides
+ * apply.
+ *
+ * @param comp             - Component descriptor that may contain a `responsive` map.
+ * @param activeBreakpoint - Currently active breakpoint name, or `null` if none match.
+ * @returns A (possibly new) component descriptor with breakpoint overrides applied.
+ */
 export function resolveResponsiveProps(comp: any, activeBreakpoint: string | null): any {
     if (!comp.responsive || !activeBreakpoint) return comp;
     const overrides = comp.responsive[activeBreakpoint];
@@ -42,7 +66,15 @@ export function resolveResponsiveProps(comp: any, activeBreakpoint: string | nul
 
 /**
  * Resolve a `$token.xxx` reference against component and theme token maps.
- * Non-token values pass through unchanged.
+ *
+ * Component tokens take precedence over theme tokens. Values that are not
+ * `$token.` prefixed strings pass through unchanged. Logs a warning when
+ * a token reference cannot be resolved in either map.
+ *
+ * @param val             - The value to resolve. Only strings starting with `$token.` are looked up.
+ * @param componentTokens - Token map from the component document (higher priority).
+ * @param themeTokens     - Token map from the theme document (lower priority).
+ * @returns The resolved token value, or the original value if it is not a token reference.
  */
 export function resolveToken(
     val: any,
@@ -67,6 +99,31 @@ registerDefaultComponents();
 /** Counter for generating unique IDs for accessibility description elements. */
 let a11yDescIdCounter = 0;
 
+/**
+ * `<formspec-render>` custom element -- the entry point for rendering a
+ * Formspec form in the browser.
+ *
+ * Orchestrates the full rendering pipeline:
+ * - Accepts a definition, optional component document, and optional theme document.
+ * - Creates and manages a {@link FormEngine} instance for reactive form state.
+ * - Builds the DOM by walking the component tree (or falling back to definition items).
+ * - Applies the 5-level theme cascade, token resolution, responsive breakpoints,
+ *   and accessibility attributes.
+ * - Manages ref-counted stylesheet injection, signal-driven DOM updates, and
+ *   cleanup of effects and event listeners on disconnect.
+ * - Supports replay, diagnostics snapshots, and runtime context injection.
+ *
+ * @example
+ * ```html
+ * <formspec-render></formspec-render>
+ * <script>
+ *   const el = document.querySelector('formspec-render');
+ *   el.definition = myDefinition;
+ *   el.componentDocument = myComponentDoc;
+ *   el.themeDocument = myTheme;
+ * </script>
+ * ```
+ */
 export class FormspecRender extends HTMLElement {
     private _definition: any;
     private _componentDocument: any;
@@ -92,6 +149,10 @@ export class FormspecRender extends HTMLElement {
         });
     }
 
+    /**
+     * Set the form definition. Creates a new {@link FormEngine} instance and
+     * schedules a re-render. Throws if engine initialization fails.
+     */
     set definition(val: any) {
         this._definition = val;
         try {
@@ -103,37 +164,66 @@ export class FormspecRender extends HTMLElement {
         this.scheduleRender();
     }
 
+    /** The currently loaded form definition object. */
     get definition() {
         return this._definition;
     }
 
+    /**
+     * Set the component document (component tree, custom components, tokens,
+     * breakpoints). Schedules a re-render.
+     */
     set componentDocument(val: any) {
         this._componentDocument = val;
         this.scheduleRender();
     }
 
+    /** The currently loaded component document. */
     get componentDocument() {
         return this._componentDocument;
     }
 
+    /**
+     * Set the theme document. Loads/unloads referenced stylesheets via
+     * ref-counting and schedules a re-render.
+     */
     set themeDocument(val: ThemeDocument | null) {
         this._themeDocument = val;
         this.loadStylesheets();
         this.scheduleRender();
     }
 
+    /** The currently loaded theme document, or `null` if none. */
     get themeDocument(): ThemeDocument | null {
         return this._themeDocument;
     }
 
+    /**
+     * Return the underlying {@link FormEngine} instance, or `null` if no
+     * definition has been set yet. Useful for direct engine access in tests
+     * or advanced integrations.
+     */
     getEngine() {
         return this.engine;
     }
 
+    /**
+     * Capture a diagnostics snapshot from the engine, including current signal
+     * values, validation state, and repeat counts.
+     *
+     * @param options - Optional mode (`'continuous'` or `'submit'`) controlling which validation shapes to evaluate.
+     * @returns The diagnostics snapshot object, or `null` if the engine is not initialized.
+     */
     getDiagnosticsSnapshot(options?: { mode?: 'continuous' | 'submit' }) {
         return this.engine?.getDiagnosticsSnapshot?.(options) || null;
     }
 
+    /**
+     * Apply a single replay event (e.g. `setValue`, `addRepeat`) to the engine.
+     *
+     * @param event - The replay event descriptor.
+     * @returns A result object with `ok` status and error details if the engine is unavailable.
+     */
     applyReplayEvent(event: any) {
         if (!this.engine?.applyReplayEvent) {
             return { ok: false, event, error: 'Engine unavailable' };
@@ -141,6 +231,13 @@ export class FormspecRender extends HTMLElement {
         return this.engine.applyReplayEvent(event);
     }
 
+    /**
+     * Replay a sequence of events against the engine in order.
+     *
+     * @param events  - Array of replay event descriptors to apply.
+     * @param options - Optional settings; `stopOnError` halts replay on the first failure.
+     * @returns A result object with counts of applied events, individual results, and any errors.
+     */
     replay(events: any[], options?: { stopOnError?: boolean }) {
         if (!this.engine?.replay) {
             return { applied: 0, results: [], errors: [{ index: 0, event: null, error: 'Engine unavailable' }] };
@@ -148,6 +245,12 @@ export class FormspecRender extends HTMLElement {
         return this.engine.replay(events, options);
     }
 
+    /**
+     * Inject a runtime context (e.g. `now`, user metadata) into the engine.
+     * This context is available to FEL expressions via `@context` references.
+     *
+     * @param context - The runtime context object to pass to the engine.
+     */
     setRuntimeContext(context: any) {
         this.engine?.setRuntimeContext?.(context);
     }
@@ -232,6 +335,15 @@ export class FormspecRender extends HTMLElement {
         }
     }
 
+    /**
+     * Perform a full synchronous render of the form.
+     *
+     * Tears down existing signal effects, sets up responsive breakpoints,
+     * validates the component document, emits CSS token custom properties,
+     * and walks the component tree (or definition items as fallback) to
+     * build the DOM. Appends a submit button that dispatches a
+     * `formspec-submit` CustomEvent with the engine response.
+     */
     render() {
         this.cleanup();
         if (!this.engine || !this._definition) return;
@@ -1190,6 +1302,11 @@ export class FormspecRender extends HTMLElement {
         }
     }
 
+    /**
+     * Custom element lifecycle callback. Disposes all signal effects,
+     * decrements stylesheet ref-counts (removing orphaned `<link>` elements),
+     * tears down breakpoint media query listeners, and removes the root container.
+     */
     disconnectedCallback() {
         this.cleanup();
         this.cleanupStylesheets();

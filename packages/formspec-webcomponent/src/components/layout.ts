@@ -1,6 +1,7 @@
 import { effect, signal } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
 
+/** Renders a `<section>` page container with optional `<h2>` title and `<p>` description. */
 export const PagePlugin: ComponentPlugin = {
     type: 'Page',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -30,6 +31,7 @@ export const PagePlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a flex `<div>` stack with configurable direction, alignment, wrap, and gap (token-resolved). */
 export const StackPlugin: ComponentPlugin = {
     type: 'Stack',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -52,6 +54,7 @@ export const StackPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a CSS grid `<div>` with configurable column count, gap, and row gap. */
 export const GridPlugin: ComponentPlugin = {
     type: 'Grid',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -73,6 +76,7 @@ export const GridPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders an `<hr>` divider, or a labeled divider with `<hr>` lines flanking a `<span>` label. */
 export const DividerPlugin: ComponentPlugin = {
     type: 'Divider',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -110,6 +114,7 @@ export const DividerPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a `<details>`/`<summary>` collapsible section with optional default-open state. */
 export const CollapsiblePlugin: ComponentPlugin = {
     type: 'Collapsible',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -139,6 +144,7 @@ export const CollapsiblePlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a multi-column `<div>` layout with configurable column count and token-resolved gap. */
 export const ColumnsPlugin: ComponentPlugin = {
     type: 'Columns',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -159,6 +165,7 @@ export const ColumnsPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a `<div>` panel container with optional header and configurable width. */
 export const PanelPlugin: ComponentPlugin = {
     type: 'Panel',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -191,6 +198,10 @@ export const PanelPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders an accordion using `<details>`/`<summary>` elements for each child.
+ * Supports single-open mode (default) via toggle event listeners, or multi-open via `allowMultiple`.
+ */
 export const AccordionPlugin: ComponentPlugin = {
     type: 'Accordion',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -232,6 +243,7 @@ export const AccordionPlugin: ComponentPlugin = {
     }
 };
 
+/** Renders a `<dialog>` modal with optional close button, title, and a trigger button that calls `showModal()`. */
 export const ModalPlugin: ComponentPlugin = {
     type: 'Modal',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -281,6 +293,10 @@ export const ModalPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a popover with a trigger button and content panel.
+ * Trigger label can be bound to a field signal. Uses the Popover API when available, falls back to hidden toggle.
+ */
 export const PopoverPlugin: ComponentPlugin = {
     type: 'Popover',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {

@@ -2,6 +2,11 @@ import { signal } from '@preact/signals-core';
 import { effect } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
 
+/**
+ * Renders a multi-step wizard with signal-driven panel visibility.
+ * Creates a step progress indicator (numbered spans), prev/next navigation buttons, and optional skip button.
+ * The last step shows "Finish" instead of "Next". Panel switching uses a Preact signal for the current step index.
+ */
 export const WizardPlugin: ComponentPlugin = {
     type: 'Wizard',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
@@ -105,6 +110,11 @@ export const WizardPlugin: ComponentPlugin = {
     }
 };
 
+/**
+ * Renders a tabbed interface with click-based tab switching.
+ * Supports configurable tab bar position (top or bottom) and default active tab.
+ * Each tab button toggles visibility of its corresponding panel.
+ */
 export const TabsPlugin: ComponentPlugin = {
     type: 'Tabs',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
