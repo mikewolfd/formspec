@@ -17,5 +17,5 @@ dist-playground/
 
 # Generated API docs (make api-docs)
 docs/api/
-**/API.llm.md
+
 
