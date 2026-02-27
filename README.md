@@ -131,7 +131,8 @@ python3 -m formspec.validator --definition definition.json component.json
 npm run build              # Build TypeScript packages
 npm run docs:generate      # Regenerate spec artifacts (BLUF, schema refs, LLM docs)
 npm run docs:check         # Enforce doc/schema freshness gates (used in CI)
-make docs                  # Build HTML documentation (requires pandoc)
+make docs                  # Build all docs: HTML specs + API reference (requires pandoc, pdoc)
+make api-docs              # Generate Python API docs only (HTML + LLM markdown)
 ```
 
 ### Testing
@@ -172,7 +173,7 @@ Formspec's schema-first design makes it straightforward to integrate with LLM st
 2. **Fill responses** — Pass `schemas/response.schema.json` as the schema. The LLM produces structured form responses that validate against the definition's constraints.
 3. **Interpret validation** — Feed `schemas/validationReport.schema.json`-shaped reports back into an LLM for natural-language error explanations or automated remediation.
 
-The compact `*.llm.md` spec variants under `specs/` are optimized for LLM context windows when you need the model to understand Formspec semantics.
+The compact `*.llm.md` spec variants under `specs/` are optimized for LLM context windows when you need the model to understand Formspec semantics. `make api-docs` also generates `docs/api/*.llm.md` — Markdown API reference for the Python package (FEL, validator, adapters, mapping, changelog, registry).
 
 ## Status
 

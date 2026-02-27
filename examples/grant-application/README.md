@@ -13,28 +13,34 @@ A complete vertical slice demonstrating the full Formspec lifecycle:
 | `mapping.json` | Transforms submission → grants-management flat JSON |
 | `sample-submission.json` | A complete valid response for curl testing |
 | `index.html` | Styled portal page with sticky totals footer |
+| `main.js` | App entry point — loads artifacts, wires engine signals, handles submit |
+| `grant-bridge.css` | Portal-specific styles layered on top of formspec-base.css |
+| `vite.config.ts` | Vite dev server config (port 8081) |
 | `server/main.py` | FastAPI server: POST /submit → re-validate + map |
 
 ## Running
 
-### 1. Build the TypeScript packages (one-time)
+### 1. Install and build (one-time)
 
 ```bash
-# From repo root
+# From repo root — installs workspaces including the grant-application example
+npm install
+
+# Build the TypeScript packages
 npm run build
 ```
 
 ### 2. Start the form (browser)
 
 ```bash
-# From repo root
-npm run start:demo
+# From examples/grant-application
+npm run dev
 ```
 
-Then open: `http://127.0.0.1:8082/examples/grant-application/index.html`
+Then open: `http://localhost:8081`
 
-> **Note:** The `start:test-server` script (port 8080) serves the Playwright test harness,
-> not the project root. Use `start:demo` (port 8082) for the grant application demo.
+> **Note:** `npm run start:grant-app` from the repo root is an alias for the same thing.
+> The `start:test-server` script (port 8080) serves the Playwright test harness — use `npm run dev` here for the demo.
 
 ### 3. Start the API server (separate terminal)
 
@@ -61,6 +67,7 @@ curl -X POST http://localhost:8000/submit \
 - **Validation shapes** — cross-field budget match, 49% subcontractor cap, $500k warning threshold
 - **Mapping DSL** — value maps, expression transforms (money field splitting), conditional rules
 - **Server-side re-validation** — Python FEL evaluator re-checks constraints independently of the client
+- **Reactive footer** — sticky totals bar driven by `engine.variableSignals` and `@preact/signals-core` effects
 
 ## What this does NOT cover
 
