@@ -285,28 +285,13 @@
       display: none !important;
     }
 
-    /* ── Shape error callout ── */
-    .shape-errors {
-      margin-top: 24px;
-      display: none;
-    }
-    .shape-errors.visible { display: block; }
-    .shape-error-callout {
-      background: #fff3f2;
-      border-left: 4px solid var(--color-error);
-      padding: 12px 16px;
-      border-radius: 0 var(--radius) var(--radius) 0;
-      margin-bottom: 8px;
-      font-size: 14px;
+    /* ── Validation summary overrides (themed colors) ── */
+    .formspec-shape-error {
+      border-left-color: var(--color-error);
       color: var(--color-error);
     }
-    .shape-warning-callout {
-      background: #faf3d1;
-      border-left: 4px solid var(--color-warning);
-      padding: 12px 16px;
-      border-radius: 0 var(--radius) var(--radius) 0;
-      margin-bottom: 8px;
-      font-size: 14px;
+    .formspec-shape-warning {
+      border-left-color: var(--color-warning);
       color: #7a4f00;
     }
 
@@ -416,9 +401,6 @@
   <!-- Main form content -->
   <main class="form-area">
     <formspec-render id="form"></formspec-render>
-
-    <!-- Shape-level error/warning callouts -->
-    <div class="shape-errors" id="shape-errors" aria-live="polite"></div>
 
     <!-- Submit -->
     <div class="submit-area">

@@ -135,13 +135,30 @@
                 "text": "Add one phase per project phase. Tasks and costs are calculated automatically."
               },
               {
-                "component": "DataTable",
+                "component": "Card",
                 "bind": "projectPhases",
-                "allowAdd": true,
-                "allowRemove": true,
-                "columns": [
-                  { "header": "Phase Name",  "bind": "phaseName" },
-                  { "header": "Phase Total", "bind": "phaseTotal" }
+                "children": [
+                  { "component": "TextInput", "bind": "phaseName", "placeholder": "e.g. Design Phase" },
+                  {
+                    "component": "DataTable",
+                    "bind": "phaseTasks",
+                    "allowAdd": true,
+                    "allowRemove": true,
+                    "columns": [
+                      { "header": "Task Name",   "bind": "taskName" },
+                      { "header": "Hours",        "bind": "hours" },
+                      { "header": "Hourly Rate",  "bind": "hourlyRate" },
+                      { "header": "Task Cost",    "bind": "taskCost" }
+                    ]
+                  },
+                  {
+                    "component": "Grid",
+                    "columns": 2,
+                    "children": [
+                      { "component": "Text", "text": "Phase Total", "style": { "fontWeight": "bold" } },
+                      { "component": "Text", "bind": "phaseTotal", "style": { "textAlign": "right", "fontWeight": "bold" } }
+                    ]
+                  }
                 ]
               },
               {
@@ -202,6 +219,10 @@
             "gap": "$token.space.lg",
             "children": [
               {
+                "component": "ValidationSummary",
+                "mode": "continuous"
+              },
+              {
                 "component": "Alert",
                 "severity": "info",
                 "text": "Review all information below before submitting. Use Previous to go back and make corrections."
@@ -209,6 +230,7 @@
               {
                 "component": "Collapsible",
                 "title": "Applicant Information",
+                "defaultOpen": true,
                 "children": [
                   {
                     "component": "Summary",
@@ -227,6 +249,7 @@
               {
                 "component": "Collapsible",
                 "title": "Project Narrative",
+                "defaultOpen": true,
                 "children": [
                   {
                     "component": "Summary",
@@ -244,6 +267,7 @@
               {
                 "component": "Collapsible",
                 "title": "Budget",
+                "defaultOpen": true,
                 "children": [
                   {
                     "component": "Summary",
@@ -259,6 +283,7 @@
               {
                 "component": "Collapsible",
                 "title": "Project Phases",
+                "defaultOpen": true,
                 "children": [
                   {
                     "component": "Summary",

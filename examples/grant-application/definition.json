@@ -31,21 +31,54 @@
   "optionSets": {
     "budgetCategories": {
       "options": [
-        { "value": "personnel",    "label": "Personnel" },
-        { "value": "fringe",       "label": "Fringe Benefits" },
-        { "value": "travel",       "label": "Travel" },
-        { "value": "equipment",    "label": "Equipment" },
-        { "value": "supplies",     "label": "Supplies" },
-        { "value": "contractual",  "label": "Contractual" },
-        { "value": "other",        "label": "Other Direct Costs" }
+        {
+          "value": "personnel",
+          "label": "Personnel"
+        },
+        {
+          "value": "fringe",
+          "label": "Fringe Benefits"
+        },
+        {
+          "value": "travel",
+          "label": "Travel"
+        },
+        {
+          "value": "equipment",
+          "label": "Equipment"
+        },
+        {
+          "value": "supplies",
+          "label": "Supplies"
+        },
+        {
+          "value": "contractual",
+          "label": "Contractual"
+        },
+        {
+          "value": "other",
+          "label": "Other Direct Costs"
+        }
       ]
     },
     "orgTypes": {
       "options": [
-        { "value": "nonprofit",    "label": "Nonprofit Organization" },
-        { "value": "university",   "label": "University / Research Institution" },
-        { "value": "government",   "label": "State / Local Government" },
-        { "value": "forprofit",    "label": "For-Profit Entity" }
+        {
+          "value": "nonprofit",
+          "label": "Nonprofit Organization"
+        },
+        {
+          "value": "university",
+          "label": "University / Research Institution"
+        },
+        {
+          "value": "government",
+          "label": "State / Local Government"
+        },
+        {
+          "value": "forprofit",
+          "label": "For-Profit Entity"
+        }
       ]
     }
   },
@@ -72,7 +105,9 @@
       "type": "group",
       "key": "applicantInfo",
       "label": "Applicant Information",
-      "presentation": { "page": "Applicant Info" },
+      "presentation": {
+        "page": "Applicant Info"
+      },
       "children": [
         {
           "type": "field",
@@ -90,7 +125,13 @@
             "editable": true
           }
         },
-        { "type": "field",   "key": "ein",           "label": "Employer Identification Number (EIN)", "dataType": "string", "hint": "Format: XX-XXXXXXX" },
+        {
+          "type": "field",
+          "key": "ein",
+          "label": "Employer Identification Number (EIN)",
+          "dataType": "string",
+          "hint": "Format: XX-XXXXXXX"
+        },
         {
           "type": "field",
           "key": "orgType",
@@ -107,26 +148,92 @@
             }
           ]
         },
-        { "type": "field",   "key": "contactName",   "label": "Primary Contact Name",                 "dataType": "string" },
-        { "type": "field",   "key": "contactEmail",  "label": "Contact Email",                        "dataType": "string", "semanticType": "email" },
-        { "type": "field",   "key": "contactPhone",  "label": "Contact Phone",                        "dataType": "string", "semanticType": "phone", "initialValue": "202-555-0100" },
-        { "type": "display", "key": "nonprofitPhoneHint", "label": "Include area code for nonprofit reporting requirements (e.g. 202-555-0100)." },
-        { "type": "field", "key": "orgNameUpper", "dataType": "string", "label": "Org Name (uppercase)" },
-        { "type": "field", "key": "contactPhoneFallback", "dataType": "string", "label": "Contact Phone (or N/A)" }
+        {
+          "type": "field",
+          "key": "contactName",
+          "label": "Primary Contact Name",
+          "dataType": "string"
+        },
+        {
+          "type": "field",
+          "key": "contactEmail",
+          "label": "Contact Email",
+          "dataType": "string",
+          "semanticType": "email"
+        },
+        {
+          "type": "field",
+          "key": "contactPhone",
+          "label": "Contact Phone",
+          "dataType": "string",
+          "semanticType": "phone",
+          "initialValue": "202-555-0100"
+        },
+        {
+          "type": "display",
+          "key": "nonprofitPhoneHint",
+          "label": "Include area code for nonprofit reporting requirements (e.g. 202-555-0100)."
+        },
+        {
+          "type": "field",
+          "key": "orgNameUpper",
+          "dataType": "string",
+          "label": "Org Name (uppercase)"
+        },
+        {
+          "type": "field",
+          "key": "contactPhoneFallback",
+          "dataType": "string",
+          "label": "Contact Phone (or N/A)"
+        }
       ]
     },
     {
       "type": "group",
       "key": "projectNarrative",
       "label": "Project Narrative",
-      "presentation": { "page": "Project Narrative" },
+      "presentation": {
+        "page": "Project Narrative"
+      },
       "children": [
-        { "type": "field", "key": "projectTitle", "label": "Project Title",          "dataType": "string" },
-        { "type": "field", "key": "abstract",     "label": "Project Abstract",       "dataType": "text",    "hint": "Summarize your project in 500 words or fewer." },
-        { "type": "field", "key": "startDate",    "label": "Project Start Date",     "dataType": "date" },
-        { "type": "field", "key": "endDate",      "label": "Project End Date",       "dataType": "date" },
-        { "type": "field", "key": "duration",     "label": "Duration (months)",      "dataType": "integer" },
-        { "type": "field", "key": "indirectRate", "label": "Indirect Cost Rate (%)", "dataType": "decimal", "hint": "Enter your organization's negotiated indirect cost rate. Government entities are not eligible." },
+        {
+          "type": "field",
+          "key": "projectTitle",
+          "label": "Project Title",
+          "dataType": "string"
+        },
+        {
+          "type": "field",
+          "key": "abstract",
+          "label": "Project Abstract",
+          "dataType": "text",
+          "hint": "Summarize your project in 500 words or fewer."
+        },
+        {
+          "type": "field",
+          "key": "startDate",
+          "label": "Project Start Date",
+          "dataType": "date"
+        },
+        {
+          "type": "field",
+          "key": "endDate",
+          "label": "Project End Date",
+          "dataType": "date"
+        },
+        {
+          "type": "field",
+          "key": "duration",
+          "label": "Duration (months)",
+          "dataType": "integer"
+        },
+        {
+          "type": "field",
+          "key": "indirectRate",
+          "label": "Indirect Cost Rate (%)",
+          "dataType": "decimal",
+          "hint": "Enter your organization's negotiated indirect cost rate. Government entities are not eligible."
+        },
         {
           "type": "field",
           "key": "focusAreas",
@@ -134,23 +241,55 @@
           "dataType": "multiChoice",
           "hint": "Select all that apply.",
           "options": [
-            { "value": "health",         "label": "Health & Human Services" },
-            { "value": "education",      "label": "Education & Workforce" },
-            { "value": "environment",    "label": "Environment & Climate" },
-            { "value": "infrastructure", "label": "Infrastructure & Housing" },
-            { "value": "equity",         "label": "Equity & Civil Rights" }
+            {
+              "value": "health",
+              "label": "Health & Human Services"
+            },
+            {
+              "value": "education",
+              "label": "Education & Workforce"
+            },
+            {
+              "value": "environment",
+              "label": "Environment & Climate"
+            },
+            {
+              "value": "infrastructure",
+              "label": "Infrastructure & Housing"
+            },
+            {
+              "value": "equity",
+              "label": "Equity & Civil Rights"
+            }
           ]
         },
-        { "type": "field", "key": "indirectRateRounded", "dataType": "integer", "label": "Indirect Rate (rounded)" },
-        { "type": "field", "key": "projectYear", "dataType": "integer", "label": "Project Start Year" },
-        { "type": "field",   "key": "projectedEndDate",      "label": "Projected End Date", "dataType": "date" }
+        {
+          "type": "field",
+          "key": "indirectRateRounded",
+          "dataType": "integer",
+          "label": "Indirect Rate (rounded)"
+        },
+        {
+          "type": "field",
+          "key": "projectYear",
+          "dataType": "integer",
+          "label": "Project Start Year"
+        },
+        {
+          "type": "field",
+          "key": "projectedEndDate",
+          "label": "Projected End Date",
+          "dataType": "date"
+        }
       ]
     },
     {
       "type": "group",
       "key": "budget",
       "label": "Budget",
-      "presentation": { "page": "Budget" },
+      "presentation": {
+        "page": "Budget"
+      },
       "children": [
         {
           "type": "group",
@@ -160,29 +299,86 @@
           "minRepeat": 1,
           "maxRepeat": 20,
           "children": [
-            { "type": "field", "key": "category",    "label": "Category",    "dataType": "choice",  "optionSet": "budgetCategories" },
-            { "type": "field", "key": "description", "label": "Description", "dataType": "string" },
-            { "type": "field", "key": "quantity",    "label": "Qty",         "dataType": "integer" },
-            { "type": "field", "key": "unitCost",    "label": "Unit Cost",   "dataType": "decimal", "prefix": "$", "precision": 2 },
-            { "type": "field", "key": "subtotal",    "label": "Subtotal",    "dataType": "decimal", "precision": 2 }
+            {
+              "type": "field",
+              "key": "category",
+              "label": "Category",
+              "dataType": "choice",
+              "optionSet": "budgetCategories"
+            },
+            {
+              "type": "field",
+              "key": "description",
+              "label": "Description",
+              "dataType": "string"
+            },
+            {
+              "type": "field",
+              "key": "quantity",
+              "label": "Qty",
+              "dataType": "integer"
+            },
+            {
+              "type": "field",
+              "key": "unitCost",
+              "label": "Unit Cost",
+              "dataType": "decimal",
+              "prefix": "$",
+              "precision": 2
+            },
+            {
+              "type": "field",
+              "key": "subtotal",
+              "label": "Subtotal",
+              "dataType": "decimal",
+              "precision": 2
+            }
           ]
         },
-        { "type": "field",   "key": "requestedAmount",    "label": "Total Requested Amount",               "dataType": "money",   "hint": "Must match the calculated grand total." },
-        { "type": "field",   "key": "usesSubcontractors", "label": "Does this project use subcontractors?", "dataType": "boolean" },
-        { "type": "field",   "key": "budgetDeviation",    "label": "Budget Deviation",                      "dataType": "money" },
-        { "type": "field", "key": "hasLineItems", "dataType": "string", "label": "Has line items" }
+        {
+          "type": "field",
+          "key": "requestedAmount",
+          "label": "Total Requested Amount",
+          "dataType": "money",
+          "hint": "Must match the calculated grand total."
+        },
+        {
+          "type": "field",
+          "key": "usesSubcontractors",
+          "label": "Does this project use subcontractors?",
+          "dataType": "boolean"
+        },
+        {
+          "type": "field",
+          "key": "budgetDeviation",
+          "label": "Budget Deviation",
+          "dataType": "money"
+        },
+        {
+          "type": "field",
+          "key": "hasLineItems",
+          "dataType": "string",
+          "label": "Has line items"
+        }
       ]
     },
     {
       "type": "group",
       "key": "projectPhases",
       "label": "Project Phases",
-      "presentation": { "page": "Project Phases" },
+      "presentation": {
+        "page": "Project Phases"
+      },
       "repeatable": true,
       "minRepeat": 1,
       "maxRepeat": 10,
       "children": [
-        { "type": "field", "key": "phaseName", "label": "Phase Name", "dataType": "string" },
+        {
+          "type": "field",
+          "key": "phaseName",
+          "label": "Phase Name",
+          "dataType": "string"
+        },
         {
           "type": "group",
           "key": "phaseTasks",
@@ -191,35 +387,85 @@
           "minRepeat": 1,
           "maxRepeat": 20,
           "children": [
-            { "type": "field", "key": "taskName",   "label": "Task Name",    "dataType": "string" },
-            { "type": "field", "key": "hours",      "label": "Hours",        "dataType": "decimal", "precision": 2 },
-            { "type": "field", "key": "hourlyRate", "label": "Hourly Rate",  "dataType": "money" },
-            { "type": "field", "key": "taskCost",   "label": "Task Cost",    "dataType": "money" }
+            {
+              "type": "field",
+              "key": "taskName",
+              "label": "Task Name",
+              "dataType": "string"
+            },
+            {
+              "type": "field",
+              "key": "hours",
+              "label": "Hours",
+              "dataType": "decimal",
+              "precision": 2
+            },
+            {
+              "type": "field",
+              "key": "hourlyRate",
+              "label": "Hourly Rate",
+              "dataType": "money"
+            },
+            {
+              "type": "field",
+              "key": "taskCost",
+              "label": "Task Cost",
+              "dataType": "money"
+            }
           ]
         },
-        { "type": "field", "key": "phaseTotal", "label": "Phase Total", "dataType": "money" }
+        {
+          "type": "field",
+          "key": "phaseTotal",
+          "label": "Phase Total",
+          "dataType": "money"
+        }
       ]
     },
     {
       "type": "group",
       "key": "subcontractors",
       "label": "Subcontractors",
-      "presentation": { "page": "Subcontractors" },
+      "presentation": {
+        "page": "Subcontractors"
+      },
       "repeatable": true,
       "minRepeat": 1,
       "maxRepeat": 10,
       "children": [
-        { "type": "field", "key": "subName",   "label": "Contact Name",       "dataType": "string" },
-        { "type": "field", "key": "subOrg",    "label": "Organization",       "dataType": "string" },
-        { "type": "field", "key": "subAmount", "label": "Contracted Amount",  "dataType": "decimal" },
-        { "type": "field", "key": "subScope",  "label": "Scope of Work",      "dataType": "text" }
+        {
+          "type": "field",
+          "key": "subName",
+          "label": "Contact Name",
+          "dataType": "string"
+        },
+        {
+          "type": "field",
+          "key": "subOrg",
+          "label": "Organization",
+          "dataType": "string"
+        },
+        {
+          "type": "field",
+          "key": "subAmount",
+          "label": "Contracted Amount",
+          "dataType": "decimal"
+        },
+        {
+          "type": "field",
+          "key": "subScope",
+          "label": "Scope of Work",
+          "dataType": "text"
+        }
       ]
     },
     {
       "type": "group",
       "key": "attachments",
       "label": "Supporting Documents",
-      "presentation": { "page": "Review & Submit" },
+      "presentation": {
+        "page": "Review & Submit"
+      },
       "children": [
         {
           "type": "field",
@@ -265,12 +511,12 @@
     },
     {
       "path": "projectNarrative.endDate",
-      "constraint": "$projectNarrative.endDate > $projectNarrative.startDate",
+      "constraint": "empty($projectNarrative.endDate) or empty($projectNarrative.startDate) or $projectNarrative.endDate > $projectNarrative.startDate",
       "constraintMessage": "End date must be after start date."
     },
     {
       "path": "projectNarrative.duration",
-      "calculate": "dateDiff($projectNarrative.endDate, $projectNarrative.startDate, 'months')",
+      "calculate": "if empty($projectNarrative.startDate) or empty($projectNarrative.endDate) or $projectNarrative.endDate <= $projectNarrative.startDate then null else dateDiff($projectNarrative.endDate, $projectNarrative.startDate, 'months')",
       "readonly": "true",
       "disabledDisplay": "protected"
     },
@@ -334,16 +580,47 @@
       "path": "budget.hasLineItems",
       "calculate": "string(not isNull($budget.lineItems[0].category))"
     },
-    { "path": "applicantInfo.orgName",         "required": "true" },
-    { "path": "applicantInfo.ein",             "required": "true" },
-    { "path": "applicantInfo.orgType",         "required": "true", "default": "'nonprofit'" },
-    { "path": "applicantInfo.contactName",     "required": "true" },
-    { "path": "applicantInfo.contactEmail",    "required": "true" },
-    { "path": "projectNarrative.projectTitle", "required": "true" },
-    { "path": "projectNarrative.abstract",     "required": "true" },
-    { "path": "projectNarrative.startDate",    "required": "true" },
-    { "path": "projectNarrative.endDate",      "required": "true" },
-    { "path": "projectNarrative.focusAreas",   "required": "true" }
+    {
+      "path": "applicantInfo.orgName",
+      "required": "true"
+    },
+    {
+      "path": "applicantInfo.ein",
+      "required": "true"
+    },
+    {
+      "path": "applicantInfo.orgType",
+      "required": "true",
+      "default": "'nonprofit'"
+    },
+    {
+      "path": "applicantInfo.contactName",
+      "required": "true"
+    },
+    {
+      "path": "applicantInfo.contactEmail",
+      "required": "true"
+    },
+    {
+      "path": "projectNarrative.projectTitle",
+      "required": "true"
+    },
+    {
+      "path": "projectNarrative.abstract",
+      "required": "true"
+    },
+    {
+      "path": "projectNarrative.startDate",
+      "required": "true"
+    },
+    {
+      "path": "projectNarrative.endDate",
+      "required": "true"
+    },
+    {
+      "path": "projectNarrative.focusAreas",
+      "required": "true"
+    }
   ],
   "shapes": [
     {
@@ -363,9 +640,9 @@
       "message": "Requested amount must match the calculated grand total (within $1). Check your line items.",
       "code": "BUDGET_MISMATCH",
       "context": {
-        "grandTotal":  "string(moneyAmount(@grandTotal))",
-        "requested":   "string(moneyAmount($budget.requestedAmount))",
-        "difference":  "string(abs(moneyAmount($budget.requestedAmount) - moneyAmount(@grandTotal)))"
+        "grandTotal": "string(moneyAmount(@grandTotal))",
+        "requested": "string(moneyAmount($budget.requestedAmount))",
+        "difference": "string(abs(moneyAmount($budget.requestedAmount) - moneyAmount(@grandTotal)))"
       }
     },
     {
@@ -412,17 +689,6 @@
       "message": "Abstract appears to contain placeholder text. Replace 'TBD' with actual content.",
       "code": "ABSTRACT_PLACEHOLDER",
       "not": "contains(lower($projectNarrative.abstract), 'tbd')"
-    },
-    {
-      "id": "dateRangeXone",
-      "target": "#",
-      "severity": "info",
-      "message": "Project timeline should either start in the future or have already ended, but not both.",
-      "code": "DATE_RANGE_XONE",
-      "xone": [
-        "$projectNarrative.startDate > today()",
-        "$projectNarrative.endDate < today()"
-      ]
     },
     {
       "id": "subcontractorEntryRequired",

@@ -22,8 +22,6 @@ from pydantic import BaseModel
 
 from formspec.validator.linter import lint
 from formspec.mapping.engine import MappingEngine
-from formspec.fel import evaluate
-from formspec.fel.types import to_python
 from formspec.evaluator import DefinitionEvaluator
 
 EXAMPLE_DIR = Path(__file__).resolve().parent.parent
@@ -72,27 +70,6 @@ def get_definition():
     return _definition
 
 
-def _check_constraint(
-    expression: str,
-    field_data: dict,
-    path: str,
-    message: str,
-    code: str,
-    out: list,
-) -> None:
-    result = evaluate(expression, field_data)
-    value = to_python(result.value)
-    if value is False:
-        out.append({
-            "severity": "error",
-            "path": path,
-            "message": message,
-            "constraintKind": "constraint",
-            "code": code,
-            "source": "bind",
-        })
-
-
 @app.post("/submit", response_model=SubmitResponse)
 def submit(request: SubmitRequest):
     if request.definitionUrl != _definition["url"]:
@@ -108,44 +85,13 @@ def submit(request: SubmitRequest):
         if d.severity in ("error", "warning")
     ]
 
-    data = request.data
-    validation_results: list[dict] = []
+    result = _evaluator.process(request.data)
 
-    # Bind-level constraint re-validation (server-side defence-in-depth)
-    applicant = data.get("applicantInfo", {})
-    narrative = data.get("projectNarrative", {})
-
-    # EIN format — use character class regex since FEL doesn't support \d shorthand
-    if applicant.get("ein"):
-        _check_constraint(
-            r"matches($ein, '^[0-9]{2}-[0-9]{7}$')",
-            {"ein": applicant["ein"]},
-            "applicantInfo.ein",
-            "EIN must be in the format XX-XXXXXXX.",
-            "CONSTRAINT_FAILED",
-            validation_results,
-        )
-
-    # Date ordering
-    if narrative.get("startDate") and narrative.get("endDate"):
-        _check_constraint(
-            "$endDate > $startDate",
-            {"startDate": narrative["startDate"], "endDate": narrative["endDate"]},
-            "projectNarrative.endDate",
-            "End date must be after start date.",
-            "CONSTRAINT_FAILED",
-            validation_results,
-        )
-
-    # Shape constraints — evaluated directly from the definition
-    validation_results.extend(_evaluator.validate(data))
-
-    mapped = _mapping_engine.forward(data)
-    valid = not any(r["severity"] == "error" for r in validation_results)
+    mapped = _mapping_engine.forward(result.data)
 
     return SubmitResponse(
-        valid=valid,
-        validationResults=validation_results,
+        valid=result.valid,
+        validationResults=result.results,
         mapped=mapped,
         diagnostics=diagnostics,
     )

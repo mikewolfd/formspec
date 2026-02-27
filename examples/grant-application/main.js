@@ -1,6 +1,6 @@
 import 'formspec-webcomponent/formspec-base.css';
 import { effect } from '@preact/signals-core';
-import { FormspecRender } from 'formspec-webcomponent';
+import { FormspecRender, formatMoney } from 'formspec-webcomponent';
 customElements.define('formspec-render', FormspecRender);
 
 const SERVER = 'http://localhost:8000';
@@ -11,15 +11,8 @@ async function loadJSON(path) {
   return res.json();
 }
 
-function formatMoney(moneyVal) {
-  if (!moneyVal || moneyVal.amount == null) return '—';
-  const n = parseFloat(moneyVal.amount);
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: moneyVal.currency || 'USD' }).format(n);
-}
-
 const formEl = document.getElementById('form');
 const btnSubmit = document.getElementById('btn-submit');
-const shapeErrorsEl = document.getElementById('shape-errors');
 const serverResponseEl = document.getElementById('server-response');
 const serverResponsePre = document.getElementById('server-response-pre');
 const footerGrandTotal = document.getElementById('footer-grand-total');
@@ -41,17 +34,13 @@ const engine = formEl.getEngine();
 
 // ── Reactive footer totals ──
 effect(() => {
-  // Touch structureVersion to re-run on structural changes
   engine.structureVersion.value;
 
-  const grandTotalSignal = engine.variableSignals['#:grandTotal'];
-  const requestedSignal  = engine.signals['budget.requestedAmount'];
+  const gt = engine.variableSignals['#:grandTotal']?.value;
+  const rq = engine.signals['budget.requestedAmount']?.value;
 
-  const gt = grandTotalSignal?.value;
-  const rq = requestedSignal?.value;
-
-  footerGrandTotal.textContent = formatMoney(gt);
-  footerRequested.textContent  = formatMoney(rq);
+  footerGrandTotal.textContent = formatMoney(gt) || '—';
+  footerRequested.textContent  = formatMoney(rq) || '—';
 
   if (gt && rq && gt.amount != null && rq.amount != null) {
     const diff = Math.abs(parseFloat(gt.amount) - parseFloat(rq.amount));
@@ -59,7 +48,7 @@ effect(() => {
       footerMatch.textContent = '✓ Amounts match';
       footerMatch.className = 'totals-match ok';
     } else {
-      footerMatch.textContent = `⚠ Difference: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(diff)}`;
+      footerMatch.textContent = `⚠ Difference: ${formatMoney({ amount: diff })}`;
       footerMatch.className = 'totals-match mismatch';
     }
   } else {
@@ -67,21 +56,15 @@ effect(() => {
   }
 });
 
-// ── Wizard page tracking ──
+// ── Wizard page tracking (via formspec-page-change event) ──
 const progressStepEls = Array.from(document.querySelectorAll('#progress-steps li'));
 const submitAreaEl = document.querySelector('.submit-area');
 const PAGE_TITLES = progressStepEls.map(li => li.getAttribute('data-page'));
-const LAST_PAGE = PAGE_TITLES[PAGE_TITLES.length - 1];
 
-function getCurrentPageTitle() {
-  const panel = formEl.querySelector('.formspec-wizard-panel:not(.formspec-hidden)');
-  return panel?.querySelector('h2')?.textContent?.trim() ?? '';
-}
-
-function updateWizardUI() {
-  const current = getCurrentPageTitle();
-  const currentIdx = PAGE_TITLES.indexOf(current);
-  const isLastPage = current === LAST_PAGE;
+formEl.addEventListener('formspec-page-change', (e) => {
+  const { index, total, title } = e.detail;
+  const isLastPage = index === total - 1;
+  const currentIdx = PAGE_TITLES.indexOf(title);
 
   progressStepEls.forEach((li, i) => {
     li.classList.toggle('active', i === currentIdx);
@@ -89,45 +72,16 @@ function updateWizardUI() {
     li.classList.toggle('invalid', false);
   });
 
-  // Show our submit button only on last page
   submitAreaEl.style.display = isLastPage ? '' : 'none';
 
-  // Hide the wizard's "Finish" nav button on last page — our Submit button handles it
   const wizardNextBtn = formEl.querySelector('button.formspec-wizard-next');
   if (wizardNextBtn) wizardNextBtn.style.display = isLastPage ? 'none' : '';
-}
-
-new MutationObserver(updateWizardUI).observe(formEl, { subtree: true, attributeFilter: ['class'] });
-requestAnimationFrame(updateWizardUI);
-
-// ── Shape error display ──
-function refreshShapeErrors(mode = 'continuous') {
-  const report = engine.getValidationReport({ mode });
-  const shapeResults = report.results.filter(r => r.source === 'shape' || r.constraintKind === 'shape');
-  shapeErrorsEl.innerHTML = '';
-  if (shapeResults.length === 0) {
-    shapeErrorsEl.classList.remove('visible');
-    return;
-  }
-  shapeErrorsEl.classList.add('visible');
-  for (const r of shapeResults) {
-    const div = document.createElement('div');
-    div.className = r.severity === 'warning' ? 'shape-warning-callout' : 'shape-error-callout';
-    div.textContent = r.message;
-    shapeErrorsEl.appendChild(div);
-  }
-}
-
-effect(() => {
-  engine.structureVersion.value;
-  refreshShapeErrors('continuous');
 });
 
 // ── Submit ──
 btnSubmit.addEventListener('click', async () => {
   const report = engine.getValidationReport({ mode: 'submit' });
   if (!report.valid) {
-    refreshShapeErrors('submit');
     alert(`Please fix ${report.counts.error} error(s) before submitting.`);
     return;
   }

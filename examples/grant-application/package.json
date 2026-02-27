@@ -4,16 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 8081 --open",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --port 8081"
   },
   "dependencies": {
     "@preact/signals-core": "*",
     "formspec-engine": "*",
     "formspec-webcomponent": "*"
-  },
-  "devDependencies": {
-    "vite": "^5.0.0"
   }
 }
