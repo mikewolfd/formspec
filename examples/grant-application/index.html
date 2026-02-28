@@ -38,28 +38,10 @@
       cursor: pointer;
     }
 
-    /* ── Wizard step indicators ── */
-    .formspec-wizard-step {
-      background: var(--color-neutral-100);
-      color: var(--color-neutral-700);
-      font-weight: 700;
-      min-width: 2rem;
-      text-align: center;
-      border: 2px solid transparent;
+    /* ── Wizard step indicators — hidden (sidebar nav is the primary indicator) ── */
+    .formspec-wizard-steps {
+      display: none !important;
     }
-    .formspec-wizard-step--active {
-      background: var(--color-primary);
-      color: #fff;
-    }
-    .formspec-wizard-step--completed {
-      background: var(--color-success);
-      color: #fff;
-    }
-    .formspec-wizard-step--completed::after {
-      content: '✓';
-    }
-    .formspec-wizard-step--completed { font-size: 0; }
-    .formspec-wizard-step--completed::after { font-size: 0.85rem; }
 
     /* ── Wizard nav buttons ── */
     .formspec-wizard-next {
@@ -214,7 +196,7 @@
     }
 
     /* ── Mobile layout ── */
-    @media (max-width: 700px) {
+    @media (max-width: 768px) {
       body { padding-bottom: 100px; }
 
       .site-header { padding: 10px 16px; }
@@ -262,8 +244,9 @@
         padding: 16px;
       }
 
-      /* Stack 2-column grids to single column on mobile */
-      .formspec-grid {
+      /* Stack multi-column layouts to single column on mobile */
+      .formspec-grid,
+      .formspec-columns {
         grid-template-columns: 1fr !important;
       }
 
@@ -285,6 +268,17 @@
       display: none !important;
     }
 
+    /* ── Page heading spacing ── */
+    .formspec-page > h2 + * {
+      margin-top: 0.25rem;
+    }
+
+    /* ── Stack within page should have more breathing room ── */
+    .formspec-page > .formspec-stack,
+    .formspec-page > .formspec-columns {
+      margin-top: 0.5rem;
+    }
+
     /* ── Validation summary overrides (themed colors) ── */
     .formspec-shape-error {
       border-left-color: var(--color-error);
@@ -297,7 +291,7 @@
 
     /* ── Submit button ── */
     .submit-area {
-      margin-top: 32px;
+      margin-top: 12px;
       display: flex;
       justify-content: flex-end;
     }
@@ -386,6 +380,10 @@
       <li data-page="Budget">
         <span class="step-icon"></span>
         Budget
+      </li>
+      <li data-page="Project Phases">
+        <span class="step-icon"></span>
+        Project Phases
       </li>
       <li data-page="Subcontractors">
         <span class="step-icon"></span>

@@ -102,11 +102,11 @@
                 "width": "280px",
                 "children": [
                   { "component": "Alert", "severity": "info", "text": "EIN must be in XX-XXXXXXX format (e.g. 12-3456789)." },
-                  {
-                    "component": "Text",
-                    "format": "markdown",
-                    "text": "**Organization Types:**\n- **Nonprofit** — 501(c)(3) or similar\n- **University** — accredited research institutions\n- **Government** — state or local agencies\n- **For-Profit** — commercial entities"
-                  }
+                  { "component": "Heading", "level": 4, "text": "Organization Types" },
+                  { "component": "Text", "text": "Nonprofit — 501(c)(3) or similar" },
+                  { "component": "Text", "text": "University — accredited research institutions" },
+                  { "component": "Text", "text": "Government — state or local agencies" },
+                  { "component": "Text", "text": "For-Profit — commercial entities" }
                 ]
               }
             ]
@@ -124,7 +124,7 @@
               { "component": "TextInput", "bind": "projectNarrative.projectTitle", "placeholder": "Community Health Outreach Initiative" },
               { "component": "TextInput", "bind": "projectNarrative.abstract", "maxLines": 8 },
               { "component": "Badge", "text": "Draft", "variant": "warning", "when": "empty($projectNarrative.abstract)" },
-              { "component": "Rating", "bind": "projectNarrative.selfAssessment", "max": 5, "icon": "star" },
+              { "component": "Rating", "bind": "projectNarrative.selfAssessment", "max": 5 },
               {
                 "component": "Tabs",
                 "tabLabels": ["Schedule", "Rates & Areas"],
@@ -243,8 +243,10 @@
               { "component": "Text", "text": "Define project phases and their tasks. Costs are calculated automatically." },
               {
                 "component": "Accordion",
+                "bind": "projectPhases",
                 "allowMultiple": true,
                 "defaultOpen": 0,
+                "labels": ["Phase Details"],
                 "children": [
                   {
                     "component": "Card",
@@ -440,7 +442,8 @@
                     "component": "FileUpload",
                     "bind": "attachments.budgetJustification",
                     "accept": "application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    "maxSize": 5242880
+                    "maxSize": 5242880,
+                    "dragDrop": true
                   },
                   {
                     "component": "Signature",
