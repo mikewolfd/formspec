@@ -37,6 +37,10 @@
 | 0026 | [0026-grant-application-example-amendment.md](adr/0026-grant-application-example-amendment.md) | Implemented | Amendment adding missing feature coverage to grant app |
 | 0027 | [0027-self-contained-grant-app.md](adr/0027-self-contained-grant-app.md) | Implemented | Self-contained Vite app for grant-application example |
 | 0028 | [0028-definition-evaluator.md](adr/0028-definition-evaluator.md) | In Progress | DefinitionEvaluator for server-side variable/shape evaluation |
+| 0029 | [0029-schema-parity-phase1-enrich-existing.md](adr/0029-schema-parity-phase1-enrich-existing.md) | Proposed | Schema parity Phase 1: enrich existing grant-app JSON files (~60 gaps) |
+| 0030 | [0030-schema-parity-phase2-new-artifacts.md](adr/0030-schema-parity-phase2-new-artifacts.md) | Proposed | Schema parity Phase 2: new artifacts, mapping depth, changelog (~40 gaps) |
+| 0031 | [0031-schema-parity-phase3-new-subsystems.md](adr/0031-schema-parity-phase3-new-subsystems.md) | Proposed | Schema parity Phase 3: screener, registry, scoped vars, writable instances (~20 gaps) |
+| 0032 | [0032-ralph-loop-execution-plan.md](adr/0032-ralph-loop-execution-plan.md) | Proposed | Ralph Loop execution plan: 3 phases x 15 iterations for schema parity |
 
 ---
 

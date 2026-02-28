@@ -49,6 +49,7 @@
       {
         "component": "Page",
         "title": "Applicant Info",
+        "description": "Enter your organization details and primary contact information.",
         "children": [
           {
             "component": "Columns",
@@ -68,6 +69,7 @@
                     ]
                   },
                   { "component": "RadioGroup", "bind": "applicantInfo.orgType", "orientation": "horizontal", "columns": 2 },
+                  { "component": "TextInput", "bind": "applicantInfo.projectWebsite", "prefix": "https://", "suffix": ".org", "inputMode": "url" },
                   {
                     "component": "ConditionalGroup",
                     "when": "$applicantInfo.orgType != null",
@@ -92,6 +94,17 @@
                     "text": "**Nonprofit organizations** must provide a primary phone number for federal reporting requirements.",
                     "format": "markdown",
                     "when": "$applicantInfo.orgType = 'nonprofit'"
+                  },
+                  {
+                    "component": "Stack",
+                    "direction": "horizontal",
+                    "align": "center",
+                    "wrap": true,
+                    "gap": "$token.space.md",
+                    "children": [
+                      { "component": "SummaryRow", "params": { "label": "Org Name", "field": "applicantInfo.orgName" } },
+                      { "component": "SummaryRow", "params": { "label": "EIN", "field": "applicantInfo.ein" } }
+                    ]
                   }
                 ]
               },
@@ -128,6 +141,8 @@
               {
                 "component": "Tabs",
                 "tabLabels": ["Schedule", "Rates & Areas"],
+                "position": "top",
+                "defaultTab": 0,
                 "children": [
                   {
                     "component": "Stack",
@@ -139,7 +154,7 @@
                         "children": [
                           { "component": "DatePicker", "bind": "projectNarrative.startDate", "format": "MM/DD/YYYY" },
                           { "component": "DatePicker", "bind": "projectNarrative.endDate" },
-                          { "component": "NumberInput", "bind": "projectNarrative.duration" },
+                          { "component": "NumberInput", "bind": "projectNarrative.duration", "step": 1, "min": 1, "max": 60, "showStepper": true },
                           { "component": "Spacer", "size": "$token.space.lg" }
                         ]
                       }
@@ -193,8 +208,17 @@
                 ]
               },
               {
+                "component": "Select",
+                "bind": "budget.lineItems[0].category",
+                "searchable": true,
+                "placeholder": "Choose category...",
+                "clearable": true,
+                "cssClass": ["budget-select", "usa-select"]
+              },
+              {
                 "component": "Card",
                 "title": "Budget Summary",
+                "subtitle": "Calculated totals for all line items",
                 "elevation": 1,
                 "children": [
                   {
@@ -209,13 +233,22 @@
               },
               {
                 "component": "Grid",
-                "columns": 2,
+                "columns": "1fr 2fr 1fr",
+                "gap": "$token.space.md",
+                "rowGap": "$token.space.sm",
                 "children": [
+                  { "component": "Spacer" },
                   { "component": "MoneyInput", "bind": "budget.requestedAmount", "currency": "USD", "showCurrency": true },
                   { "component": "Spacer" }
                 ]
               },
               { "component": "Toggle", "bind": "budget.usesSubcontractors", "onLabel": "Yes", "offLabel": "No" },
+              {
+                "component": "Alert",
+                "severity": "success",
+                "text": "Budget data saved successfully.",
+                "when": "not empty($budget.requestedAmount)"
+              },
               {
                 "component": "Popover",
                 "triggerLabel": "Budget Guidelines",

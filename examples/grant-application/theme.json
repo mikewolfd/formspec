@@ -36,7 +36,11 @@
     "type.lineHeight":     "1.5",
     "radius.sm":           "4px",
     "radius.md":           "8px",
+    "elevation.sm":        "0 1px 3px rgba(0,0,0,0.12)",
+    "elevation.md":        "0 4px 6px rgba(0,0,0,0.15)",
+    "elevation.lg":        "0 10px 20px rgba(0,0,0,0.19)",
     "focusRing":           "0 0 0 0.25rem #2491ff",
+    "grid.columns":        12,
     "uswds.formGroup":     "usa-form-group",
     "uswds.label":         "usa-label",
     "uswds.input":         "usa-input",
@@ -83,6 +87,50 @@
           }
         }
       }
+    },
+    {
+      "match": { "type": "group" },
+      "apply": {
+        "style": {
+          "marginBottom": "$token.space.lg",
+          "borderLeft": "3px solid $token.color.primary"
+        }
+      }
+    },
+    {
+      "match": { "type": "field", "dataType": "attachment" },
+      "apply": {
+        "widget": "FileUpload",
+        "labelPosition": "hidden",
+        "fallback": ["camera", "fileUpload"],
+        "cssClass": "attachment-field",
+        "accessibility": {
+          "liveRegion": "polite"
+        }
+      }
     }
-  ]
+  ],
+  "items": {
+    "applicantInfo.orgName": {
+      "style": {
+        "fontWeight": "bold",
+        "borderBottom": "2px solid $token.color.primary"
+      }
+    },
+    "applicantInfo.ein": {
+      "style": {
+        "fontFamily": "monospace"
+      },
+      "cssClass": "ein-field"
+    },
+    "projectNarrative.abstract": {
+      "style": {
+        "minHeight": "$token.space.xl"
+      },
+      "accessibility": {
+        "description": "Enter a detailed project abstract",
+        "liveRegion": "polite"
+      }
+    }
+  }
 }

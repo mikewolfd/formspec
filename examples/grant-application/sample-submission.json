@@ -1,4 +1,5 @@
 {
+  "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
   "definitionUrl": "https://example.gov/forms/grant-application",
   "definitionVersion": "1.0.0",
   "status": "completed",
@@ -7,11 +8,84 @@
     "id": "user-001",
     "name": "Jane Smith"
   },
+  "subject": {
+    "id": "GRANT-2026-001",
+    "type": "grant-application"
+  },
+  "validationResults": [
+    {
+      "path": "applicantInfo.orgName",
+      "severity": "error",
+      "constraintKind": "required",
+      "message": "Organization Name is required.",
+      "code": "FIELD_REQUIRED",
+      "source": "bind",
+      "sourceId": "applicantInfo.orgName",
+      "value": "Community Health Partners, Inc."
+    },
+    {
+      "path": "applicantInfo.ein",
+      "severity": "error",
+      "constraintKind": "type",
+      "message": "EIN must be a valid string value.",
+      "code": "TYPE_MISMATCH",
+      "source": "bind",
+      "sourceId": "applicantInfo.ein",
+      "value": "47-1234567"
+    },
+    {
+      "path": "budget.lineItems",
+      "severity": "warning",
+      "constraintKind": "cardinality",
+      "message": "Budget should have at least 3 line items for a complete application.",
+      "code": "MIN_LINE_ITEMS",
+      "source": "shape",
+      "shapeId": "budgetReasonable",
+      "value": 2,
+      "constraint": "count($budget.lineItems[*].category) >= 3"
+    },
+    {
+      "path": "applicantInfo.contactEmail",
+      "severity": "error",
+      "constraintKind": "constraint",
+      "message": "Contact email must contain @.",
+      "code": "EMAIL_FORMAT",
+      "source": "bind",
+      "sourceId": "applicantInfo.contactEmail",
+      "value": "jane.smith@chp.example.org",
+      "constraint": "contains($applicantInfo.contactEmail, '@')"
+    },
+    {
+      "path": "#",
+      "severity": "warning",
+      "constraintKind": "shape",
+      "message": "Requested amount must match the calculated grand total (within $1).",
+      "code": "BUDGET_MISMATCH",
+      "source": "shape",
+      "shapeId": "budgetMatch",
+      "context": {
+        "grandTotal": "126000.00",
+        "requested": "126000.00",
+        "difference": "0.00"
+      }
+    },
+    {
+      "path": "applicantInfo.projectWebsite",
+      "severity": "info",
+      "constraintKind": "external",
+      "message": "Project website URL could not be verified against the agency registry.",
+      "code": "WEBSITE_VERIFY_FAILED",
+      "source": "external",
+      "sourceId": "agency-url-checker",
+      "value": "https://example.org/project"
+    }
+  ],
   "data": {
     "applicantInfo": {
       "orgName": "Community Health Partners, Inc.",
       "ein": "47-1234567",
       "orgType": "nonprofit",
+      "projectWebsite": "https://chp.example.org/telehealth",
       "contactName": "Jane Smith",
       "contactEmail": "jane.smith@chp.example.org",
       "contactPhone": "202-555-0142"
@@ -19,10 +93,14 @@
     "projectNarrative": {
       "projectTitle": "Rural Telehealth Access Initiative",
       "abstract": "This project will expand telehealth services to underserved rural communities in three counties, providing access to primary care, mental health, and chronic disease management for an estimated 4,200 residents currently lacking regular healthcare access.",
+      "submissionDeadline": "2026-06-30T17:00:00",
+      "meetingTime": "14:30",
       "startDate": "2026-09-01",
       "endDate": "2027-08-31",
       "duration": 12,
-      "indirectRate": 20
+      "indirectRate": 20,
+      "focusAreas": ["health", "equity"],
+      "selfAssessment": 4
     },
     "budget": {
       "lineItems": [
@@ -44,13 +122,57 @@
       "requestedAmount": { "amount": "126000.00", "currency": "USD" },
       "usesSubcontractors": true
     },
+    "projectPhases": [
+      {
+        "phaseName": "Planning & Setup",
+        "phaseTasks": [
+          {
+            "taskName": "Needs Assessment",
+            "hours": 80.00,
+            "hourlyRate": { "amount": "75.00", "currency": "USD" },
+            "taskCost": { "amount": "6000.00", "currency": "USD" }
+          },
+          {
+            "taskName": "Technology Procurement",
+            "hours": 40.00,
+            "hourlyRate": { "amount": "100.00", "currency": "USD" },
+            "taskCost": { "amount": "4000.00", "currency": "USD" }
+          }
+        ],
+        "phaseTotal": { "amount": "10000.00", "currency": "USD" }
+      },
+      {
+        "phaseName": "Implementation",
+        "phaseTasks": [
+          {
+            "taskName": "Platform Deployment",
+            "hours": 120.00,
+            "hourlyRate": { "amount": "100.00", "currency": "USD" },
+            "taskCost": { "amount": "12000.00", "currency": "USD" }
+          }
+        ],
+        "phaseTotal": { "amount": "12000.00", "currency": "USD" }
+      }
+    ],
     "subcontractors": [
       {
         "subName": "Dr. Maria Gonzalez",
         "subOrg": "Regional Medical Consulting Group",
-        "subAmount": { "amount": "40000.00", "currency": "USD" },
+        "subAmount": { "amount": "40000.00", "currency": "EUR" },
         "subScope": "Clinical protocol development and physician oversight for telehealth platform deployment."
       }
-    ]
+    ],
+    "attachments": {
+      "narrativeDoc": {
+        "filename": "narrative-telehealth-2026.pdf",
+        "contentType": "application/pdf",
+        "size": 2457600
+      },
+      "budgetJustification": {
+        "filename": "budget-detail-2026.xlsx",
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "size": 156000
+      }
+    }
   }
 }

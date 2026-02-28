@@ -8,7 +8,15 @@
   "description": "Standard federal grant application demonstrating the full Formspec feature set.",
   "date": "2026-02-25",
   "name": "grant-application",
+  "derivedFrom": {
+    "url": "https://example.gov/forms/generic-application-template",
+    "version": "2.0.0"
+  },
   "nonRelevantBehavior": "remove",
+  "extensions": {
+    "x-agency": "DOH",
+    "x-program-code": "RHI-2026"
+  },
   "formPresentation": {
     "pageMode": "wizard",
     "labelPosition": "top",
@@ -21,7 +29,8 @@
       "readonly": true,
       "data": {
         "maxAward": 500000,
-        "fiscalYear": "FY2026"
+        "fiscalYear": "FY2026",
+        "ein": "47-1234567"
       }
     }
   },
@@ -114,6 +123,7 @@
           "key": "orgName",
           "label": "Organization Name",
           "dataType": "string",
+          "description": "The full legal name of the organization applying for the grant, as registered with the IRS.",
           "hint": "Legal name of the applying organization.",
           "labels": {
             "short": "Org",
@@ -130,7 +140,21 @@
           "key": "ein",
           "label": "Employer Identification Number (EIN)",
           "dataType": "string",
-          "hint": "Format: XX-XXXXXXX"
+          "description": "The 9-digit federal tax identification number assigned by the IRS.",
+          "hint": "Format: XX-XXXXXXX",
+          "prePopulate": {
+            "instance": "agencyData",
+            "path": "ein",
+            "editable": false
+          }
+        },
+        {
+          "type": "field",
+          "key": "projectWebsite",
+          "label": "Project Website",
+          "dataType": "uri",
+          "description": "URL for the project's public website or information page.",
+          "hint": "e.g. https://example.org/project"
         },
         {
           "type": "field",
@@ -200,7 +224,22 @@
           "type": "field",
           "key": "projectTitle",
           "label": "Project Title",
-          "dataType": "string"
+          "dataType": "string",
+          "description": "A concise title that clearly identifies the proposed project."
+        },
+        {
+          "type": "field",
+          "key": "submissionDeadline",
+          "label": "Submission Deadline",
+          "dataType": "dateTime",
+          "hint": "Date and time by which this application must be submitted."
+        },
+        {
+          "type": "field",
+          "key": "meetingTime",
+          "label": "Preferred Meeting Time",
+          "dataType": "time",
+          "hint": "Your preferred time for the review panel meeting (HH:MM)."
         },
         {
           "type": "field",
@@ -213,7 +252,8 @@
           "type": "field",
           "key": "startDate",
           "label": "Project Start Date",
-          "dataType": "date"
+          "dataType": "date",
+          "initialValue": "=today()"
         },
         {
           "type": "field",
@@ -230,9 +270,13 @@
         {
           "type": "field",
           "key": "indirectRate",
-          "label": "Indirect Cost Rate (%)",
+          "label": "Indirect Cost Rate",
           "dataType": "decimal",
-          "hint": "Enter your organization's negotiated indirect cost rate. Government entities are not eligible."
+          "suffix": "%",
+          "hint": "Enter your organization's negotiated indirect cost rate. Government entities are not eligible.",
+          "presentation": {
+            "widgetHint": "Slider"
+          }
         },
         {
           "type": "field",
@@ -295,7 +339,25 @@
       "key": "budget",
       "label": "Budget",
       "presentation": {
-        "page": "Budget"
+        "page": "Budget",
+        "layout": {
+          "flow": "grid",
+          "columns": 2,
+          "collapsible": true,
+          "collapsedByDefault": false
+        },
+        "styleHints": {
+          "emphasis": "primary",
+          "size": "default"
+        },
+        "accessibility": {
+          "role": "region",
+          "description": "Budget entry section for grant line items",
+          "liveRegion": "polite"
+        }
+      },
+      "extensions": {
+        "x-budget-version": "2.0"
       },
       "children": [
         {
@@ -456,7 +518,8 @@
           "type": "field",
           "key": "subAmount",
           "label": "Contracted Amount",
-          "dataType": "decimal"
+          "dataType": "decimal",
+          "currency": "EUR"
         },
         {
           "type": "field",
@@ -634,6 +697,25 @@
     {
       "path": "projectNarrative.focusAreas",
       "required": "true"
+    },
+    {
+      "path": "applicantInfo.projectWebsite",
+      "required": "$applicantInfo.orgType = 'university'",
+      "extensions": {
+        "x-validation-group": "contact"
+      }
+    },
+    {
+      "path": "projectNarrative.submissionDeadline",
+      "readonly": "$projectNarrative.startDate != null and $projectNarrative.endDate != null"
+    },
+    {
+      "path": "applicantInfo.orgType.orgSubType",
+      "whitespace": "remove"
+    },
+    {
+      "path": "applicantInfo.nonprofitPhoneHint",
+      "nonRelevantBehavior": "empty"
     }
   ],
   "shapes": [
@@ -714,6 +796,29 @@
       "and": [
         "$budget.usesSubcontractors",
         "count($subcontractors[*].subName) >= 1"
+      ]
+    },
+    {
+      "id": "websiteFormat",
+      "target": "applicantInfo.projectWebsite",
+      "severity": "info",
+      "timing": "demand",
+      "constraint": "empty($applicantInfo.projectWebsite) or matches($applicantInfo.projectWebsite, '^https?://')",
+      "message": "Project website should start with http:// or https://. Current value: {{$applicantInfo.projectWebsite}}",
+      "code": "WEBSITE_FORMAT",
+      "extensions": {
+        "x-help-link": "https://example.gov/help/uri-format"
+      }
+    },
+    {
+      "id": "budgetMethodExclusive",
+      "target": "#",
+      "severity": "warning",
+      "message": "Project must use either line items or subcontractors as primary budget method, not both equally.",
+      "code": "BUDGET_METHOD_EXCLUSIVE",
+      "xone": [
+        "count($budget.lineItems[*].category) > count($subcontractors[*].subName)",
+        "count($subcontractors[*].subName) > count($budget.lineItems[*].category)"
       ]
     }
   ]
