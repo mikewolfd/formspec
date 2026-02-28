@@ -122,7 +122,11 @@ export interface FormspecDefinition {
     optionSets?: Record<string, FormspecOption[]>;
     nonRelevantBehavior?: 'remove' | 'empty' | 'keep';
     formPresentation?: any;
-    screener?: { routes: Array<{ condition?: string; target: string; label?: string }> };
+    screener?: {
+        items: FormspecItem[];
+        routes: Array<{ condition: string; target: string; label?: string; extensions?: Record<string, any> }>;
+        extensions?: Record<string, any>;
+    };
     migrations?: Array<{ fromVersion: string; changes: Array<{ type: string; [key: string]: any }> }>;
     [key: string]: any;
 }
@@ -279,6 +283,8 @@ export class FormEngine {
 
     /** Static instance data loaded from the definition's `instances` section, keyed by instance name. */
     public instanceData: Record<string, any> = {};
+    /** Version signal incremented whenever instance data changes, enabling FEL reactivity for @instance() reads. */
+    public instanceVersion = signal(0);
 
     /** Dependency graph mapping each field path to the paths it depends on, built during FEL compilation. */
     public dependencies: Record<string, string[]> = {};
@@ -286,6 +292,8 @@ export class FormEngine {
     private bindConfigs: Record<string, FormspecBind> = {};
     private compiledExpressions: Record<string, () => any> = {};
     private remoteOptionsTasks: Array<Promise<void>> = [];
+    private instanceSourceTasks: Array<Promise<void>> = [];
+    private static instanceSourceCache = new Map<string, any>();
     private runtimeContext: {
         nowProvider: () => Date;
         locale?: string;
@@ -326,6 +334,7 @@ export class FormEngine {
         this.initializeSignals();
         this.initializeShapes();
         this.initializeVariables();
+        this.initializeInstanceCalculates();
     }
 
     private coerceDate(value: EngineNowInput): Date {
@@ -502,12 +511,151 @@ export class FormEngine {
         await Promise.allSettled(this.remoteOptionsTasks);
     }
 
+    /** Waits for all in-flight instance source fetches to settle (resolve or reject). */
+    public async waitForInstanceSources(): Promise<void> {
+        if (this.instanceSourceTasks.length === 0) return;
+        await Promise.allSettled(this.instanceSourceTasks);
+    }
+
+    private parseInstanceTarget(path: string): { instanceName: string; instancePath?: string } | null {
+        const explicit = path.match(/^instances\.([a-zA-Z][a-zA-Z0-9_]*)\.?(.*)$/);
+        if (explicit) {
+            const [, instanceName, instancePath] = explicit;
+            return { instanceName, instancePath: instancePath || undefined };
+        }
+
+        const felSyntax = path.match(/^@instance\((['"])([^'"]+)\1\)\.?(.*)$/);
+        if (felSyntax) {
+            const [, , instanceName, instancePath] = felSyntax;
+            return { instanceName, instancePath: instancePath || undefined };
+        }
+        return null;
+    }
+
+    private valuesEqual(a: any, b: any): boolean {
+        if (a === b) return true;
+        try {
+            return JSON.stringify(a) === JSON.stringify(b);
+        } catch {
+            return false;
+        }
+    }
+
+    private setObjectPath(target: Record<string, any>, path: string, value: any) {
+        const parts = path.split('.').filter(Boolean);
+        if (parts.length === 0) return;
+        let current: any = target;
+        for (let i = 0; i < parts.length - 1; i++) {
+            const part = parts[i];
+            if (current[part] === null || current[part] === undefined || typeof current[part] !== 'object' || Array.isArray(current[part])) {
+                current[part] = {};
+            }
+            current = current[part];
+        }
+        current[parts[parts.length - 1]] = value;
+    }
+
+    private validateInstanceSchema(instanceName: string, data: any) {
+        const schema = this.definition.instances?.[instanceName]?.schema;
+        if (!schema || typeof schema !== 'object') return;
+        for (const [path, dataType] of Object.entries(schema)) {
+            if (typeof dataType !== 'string') continue;
+            const value = this.getValueFromDataPath(data ?? {}, path);
+            if (value === null || value === undefined) continue;
+            if (!this.validateDataType(value, dataType)) {
+                throw new Error(
+                    `Instance '${instanceName}' schema mismatch at '${path}': expected ${dataType}`
+                );
+            }
+        }
+    }
+
+    private writeInstanceValue(
+        instanceName: string,
+        path: string | undefined,
+        value: any,
+        options?: { bypassReadonly?: boolean }
+    ) {
+        const instanceConfig = this.definition.instances?.[instanceName];
+        if (!instanceConfig) {
+            throw new Error(`Unknown instance '${instanceName}'`);
+        }
+        if (!options?.bypassReadonly && instanceConfig.readonly !== false) {
+            throw new Error(`Instance '${instanceName}' is readonly`);
+        }
+
+        let nextData: any;
+        if (!path) {
+            nextData = this.cloneValue(value);
+        } else {
+            const base = this.cloneValue(this.instanceData[instanceName] ?? {});
+            const container = (base && typeof base === 'object' && !Array.isArray(base)) ? base : {};
+            this.setObjectPath(container, path, this.cloneValue(value));
+            nextData = container;
+        }
+
+        this.validateInstanceSchema(instanceName, nextData);
+        if (this.valuesEqual(this.instanceData[instanceName], nextData)) return;
+        this.instanceData[instanceName] = nextData;
+        this.instanceVersion.value++;
+    }
+
+    /**
+     * Writes to a named instance. Intended for writable (`readonly: false`) scratch-pad instances.
+     * @param name - Instance name.
+     * @param path - Optional dot path inside the instance object.
+     * @param value - New value (or subtree value when path is provided).
+     */
+    public setInstanceValue(name: string, path: string | undefined, value: any) {
+        this.writeInstanceValue(name, path, value);
+    }
+
+    private initializeInstanceSource(name: string, inst: FormspecInstance) {
+        if (!inst.source) return;
+        if (inst.static && FormEngine.instanceSourceCache.has(inst.source)) {
+            const cached = this.cloneValue(FormEngine.instanceSourceCache.get(inst.source));
+            if (!this.valuesEqual(this.instanceData[name], cached)) {
+                this.instanceData[name] = cached;
+                this.instanceVersion.value++;
+            }
+            return;
+        }
+
+        const source = inst.source;
+        const task = fetch(source)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Instance source fetch failed (${response.status})`);
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                this.validateInstanceSchema(name, payload);
+                const nextData = this.cloneValue(payload);
+                if (inst.static) {
+                    FormEngine.instanceSourceCache.set(source, this.cloneValue(nextData));
+                }
+                if (!this.valuesEqual(this.instanceData[name], nextData)) {
+                    this.instanceData[name] = nextData;
+                    this.instanceVersion.value++;
+                }
+            })
+            .catch((error) => {
+                // Keep fallback inline data if source retrieval fails.
+                console.error(`Failed to load instance source '${name}':`, error);
+            });
+        this.instanceSourceTasks.push(task);
+    }
+
     private initializeInstances() {
         if (!this.definition.instances) return;
         for (const [name, inst] of Object.entries(this.definition.instances)) {
             if (inst.data !== undefined) {
-                this.instanceData[name] = inst.data;
+                const fallback = this.cloneValue(inst.data);
+                this.validateInstanceSchema(name, fallback);
+                this.instanceData[name] = fallback;
             }
+            this.initializeInstanceSource(name, inst);
         }
     }
 
@@ -609,6 +757,33 @@ export class FormEngine {
         }
     }
 
+    private initializeInstanceCalculates() {
+        if (!this.definition.binds) return;
+        for (const bind of this.definition.binds) {
+            if (!bind.calculate) continue;
+            const target = this.parseInstanceTarget(bind.path);
+            if (!target) continue;
+
+            const instanceConfig = this.definition.instances?.[target.instanceName];
+            if (!instanceConfig) {
+                throw new Error(`Unknown instance '${target.instanceName}' targeted by bind '${bind.path}'`);
+            }
+            if (instanceConfig.readonly !== false) {
+                throw new Error(`Calculate bind cannot target readonly instance '${target.instanceName}'`);
+            }
+
+            const compiledCalc = this.compileFEL(bind.calculate, '', undefined, false);
+            effect(() => {
+                const value = compiledCalc();
+                try {
+                    this.writeInstanceValue(target.instanceName, target.instancePath, value, { bypassReadonly: true });
+                } catch (error) {
+                    console.error(`Failed to apply calculate bind to instance '${target.instanceName}':`, error);
+                }
+            });
+        }
+    }
+
     /**
      * Resolves a computed variable by name using lexical scope lookup.
      * Searches from the given scope path upward through ancestor scopes to the global scope (`#`).
@@ -617,19 +792,30 @@ export class FormEngine {
      * @returns The computed variable value, or `undefined` if not found.
      */
     public getVariableValue(name: string, scopePath: string): any {
-        // Try exact scope first, then walk up ancestors, then global
-        const parts = scopePath.split('.');
-        for (let i = parts.length; i >= 0; i--) {
-            const scope = i === 0 ? '#' : parts.slice(0, i).join('.');
-            const key = `${scope}:${name}`;
-            if (this.variableSignals[key]) {
-                return this.variableSignals[key].value;
-            }
+        const parts = scopePath ? scopePath.split('.').filter(Boolean) : [];
+        const scopesToTry: string[] = [];
+        const seen = new Set<string>();
+
+        const pushScope = (scope: string) => {
+            if (!scope || seen.has(scope)) return;
+            seen.add(scope);
+            scopesToTry.push(scope);
+        };
+
+        // Try exact scope path and each ancestor, then index-stripped variants.
+        for (let i = parts.length; i >= 1; i--) {
+            const rawScope = parts.slice(0, i).join('.');
+            pushScope(rawScope);
+            const normalizedScope = rawScope.replace(/\[\d+\]/g, '');
+            pushScope(normalizedScope);
         }
-        // Try global as fallback if scopePath was empty
-        const globalKey = `#:${name}`;
-        if (this.variableSignals[globalKey]) {
-            return this.variableSignals[globalKey].value;
+
+        // Always include definition-wide fallback.
+        pushScope('#');
+
+        for (const scope of scopesToTry) {
+            const key = `${scope}:${name}`;
+            if (this.variableSignals[key]) return this.variableSignals[key].value;
         }
         return undefined;
     }
@@ -1327,6 +1513,7 @@ export class FormEngine {
 
         const compiled = () => {
             this.structureVersion.value;
+            this.instanceVersion.value;
             // Track dependencies in signals
             for (const dep of astDeps) {
                 let fullDepPath = dep;
@@ -1516,6 +1703,12 @@ export class FormEngine {
      * @param value - The new value to set.
      */
     public setValue(name: string, value: any) {
+        const instanceTarget = this.parseInstanceTarget(name);
+        if (instanceTarget) {
+            this.writeInstanceValue(instanceTarget.instanceName, instanceTarget.instancePath, value);
+            return;
+        }
+
         const baseName = name.replace(/\[\d+\]/g, '');
         const item = this.findItem(this.definition.items, baseName);
         const dataType = item?.dataType || (item?.type as string);
@@ -1862,21 +2055,52 @@ export class FormEngine {
     }
 
     /**
-     * Evaluates the definition's screener routes against the current form state.
-     * Returns the first route whose condition is truthy (or unconditional), or null if no route matches.
-     * Used for conditional form routing before the main form is presented.
+     * Evaluates the definition's screener routes against provided answers.
+     * Screener items are NOT part of the form's instance data — answers are passed
+     * directly and evaluated in isolation. Routes are evaluated in declaration order;
+     * first match wins. Returns the matching route or null if none match.
      */
-    public evaluateScreener(): { target: string; label?: string } | null {
+    public evaluateScreener(answers: Record<string, any>): { target: string; label?: string; extensions?: Record<string, any> } | null {
         const screener = this.definition.screener;
         if (!screener?.routes) return null;
+
+        // Build a FelContext that reads from the answers object, not form signals
+        const screenerContext: FelContext = {
+            getSignalValue: (path: string) => {
+                // Simple path lookup in answers (supports dotted paths)
+                const segments = path.split('.');
+                let value: any = answers;
+                for (const seg of segments) {
+                    if (value == null) return null;
+                    value = value[seg];
+                }
+                return value ?? null;
+            },
+            getRepeatsValue: () => 0,
+            getRelevantValue: () => true,
+            getRequiredValue: () => false,
+            getReadonlyValue: () => false,
+            getValidationErrors: () => 0,
+            currentItemPath: '',
+            engine: this
+        };
+
         for (const route of screener.routes) {
-            if (!route.condition) {
-                return { target: route.target, label: route.label };
-            }
-            const fn = this.compileFEL(route.condition, '');
-            const result = fn();
-            if (result) {
-                return { target: route.target, label: route.label };
+            const lexResult = FelLexer.tokenize(route.condition);
+            parser.input = lexResult.tokens;
+            const cst = parser.expression();
+            if (parser.errors.length > 0) continue;
+
+            try {
+                const result = interpreter.evaluate(cst, screenerContext);
+                if (result) {
+                    const out: { target: string; label?: string; extensions?: Record<string, any> } = { target: route.target };
+                    if (route.label !== undefined) out.label = route.label;
+                    if (route.extensions !== undefined) out.extensions = route.extensions;
+                    return out;
+                }
+            } catch {
+                continue;
             }
         }
         return null;

@@ -37,22 +37,22 @@ test('should return the first matching screener route when multiple conditions a
     url: 'http://example.org/test',
     version: '1.0.0',
     title: 'Screener Test',
-    items: [
-      { key: 'age', type: 'field', dataType: 'integer', label: 'Age', initialValue: 25 },
-      { key: 'income', type: 'field', dataType: 'integer', label: 'Income', initialValue: 60000 }
-    ],
+    items: [],
     screener: {
+      items: [
+        { key: 'age', type: 'field', dataType: 'integer', label: 'Age' },
+        { key: 'income', type: 'field', dataType: 'integer', label: 'Income' }
+      ],
       routes: [
-        { condition: 'age < 18', target: '/forms/minor', label: 'Minor Form' },
-        { condition: 'income > 50000', target: '/forms/premium', label: 'Premium Form' },
-        { target: '/forms/standard', label: 'Standard Form' }
+        { condition: '$age < 18', target: '/forms/minor', label: 'Minor Form' },
+        { condition: '$income > 50000', target: '/forms/premium', label: 'Premium Form' },
+        { condition: 'true', target: '/forms/standard', label: 'Standard Form' }
       ]
     }
   });
 
-  const routeWhenAdult = engine.evaluateScreener();
-  engine.setValue('age', 15);
-  const routeWhenMinor = engine.evaluateScreener();
+  const routeWhenAdult = engine.evaluateScreener({ age: 25, income: 60000 });
+  const routeWhenMinor = engine.evaluateScreener({ age: 15, income: 60000 });
 
   assert.deepEqual(routeWhenAdult, { target: '/forms/premium', label: 'Premium Form' });
   assert.deepEqual(routeWhenMinor, { target: '/forms/minor', label: 'Minor Form' });
@@ -67,15 +67,15 @@ test('should return null screener route when the definition has no routes', () =
     items: []
   });
 
-  assert.equal(engine.evaluateScreener(), null);
+  assert.equal(engine.evaluateScreener({}), null);
 });
 
-test('should switch label output when label context changes', () => {
+test('should resolve pdf and csv labels when those contexts are active', () => {
   const engine = new FormEngine({
     $formspec: '1.0',
     url: 'http://example.org/test',
     version: '1.0.0',
-    title: 'i18n Test',
+    title: 'Label Context Test',
     items: [
       {
         key: 'name',
@@ -83,9 +83,9 @@ test('should switch label output when label context changes', () => {
         dataType: 'string',
         label: 'Name',
         labels: {
-          en: 'Name',
-          es: 'Nombre',
-          fr: 'Nom'
+          pdf: 'Applicant Name',
+          csv: 'applicant_name',
+          short: 'Name'
         }
       },
       {
@@ -100,19 +100,49 @@ test('should switch label output when label context changes', () => {
   const items = engine.getDefinition().items;
 
   const defaultLabel = engine.getLabel(items[0]);
-  engine.setLabelContext('es');
-  const spanishLabel = engine.getLabel(items[0]);
-  const emailLabel = engine.getLabel(items[1]);
-  engine.setLabelContext('fr');
-  const frenchLabel = engine.getLabel(items[0]);
+  engine.setLabelContext('pdf');
+  const pdfLabel = engine.getLabel(items[0]);
+  engine.setLabelContext('csv');
+  const csvLabel = engine.getLabel(items[0]);
   engine.setLabelContext(null);
   const clearedLabel = engine.getLabel(items[0]);
 
   assert.equal(defaultLabel, 'Name');
-  assert.equal(spanishLabel, 'Nombre');
-  assert.equal(emailLabel, 'Email');
-  assert.equal(frenchLabel, 'Nom');
+  assert.equal(pdfLabel, 'Applicant Name');
+  assert.equal(csvLabel, 'applicant_name');
   assert.equal(clearedLabel, 'Name');
+});
+
+test('should fall back to default labels when context-specific label is missing', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Label Fallback Test',
+    items: [
+      {
+        key: 'email',
+        type: 'field',
+        dataType: 'string',
+        label: 'Email Address',
+        labels: {
+          pdf: 'Email (PDF)'
+        }
+      },
+      {
+        key: 'phone',
+        type: 'field',
+        dataType: 'string',
+        label: 'Phone Number'
+      }
+    ]
+  });
+
+  const [emailItem, phoneItem] = engine.getDefinition().items;
+  engine.setLabelContext('csv');
+
+  assert.equal(engine.getLabel(emailItem), 'Email Address');
+  assert.equal(engine.getLabel(phoneItem), 'Phone Number');
 });
 
 test('should apply rename remove and add migration steps when migrating response data', () => {

@@ -1321,10 +1321,10 @@
         "target": {
           "type": "string",
           "format": "uri",
-          "description": "Canonical reference (url|version) to the target FormDefinition the user should be directed to.",
+          "description": "Canonical reference URI to the target FormDefinition the user should be directed to.",
           "examples": [
-            "https://grants.gov/forms/sf-425-short|1.0.0",
-            "https://grants.gov/forms/sf-425|2.1.0"
+            "https://grants.gov/forms/sf-425-short/1.0.0",
+            "https://grants.gov/forms/sf-425/2.1.0"
           ]
         },
         "label": {

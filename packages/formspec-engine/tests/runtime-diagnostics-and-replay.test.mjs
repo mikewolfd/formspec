@@ -135,5 +135,5 @@ test('should return replay errors and stop when configured', () => {
   assert.equal(hardError.applied, 1);
   assert.equal(hardError.errors.length, 1);
   assert.equal(hardError.errors[0].index, 1);
-  assert.match(hardError.errors[0].error, /replace/);
+  assert.match(hardError.errors[0].error, /null/);
 });

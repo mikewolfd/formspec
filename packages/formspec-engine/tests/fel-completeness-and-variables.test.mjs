@@ -141,6 +141,65 @@ test('should resolve scoped variables from nearest lexical scope when evaluating
   assert.equal(engine.signals['order.tax'].value, 20);
 });
 
+test('should not expose a scoped variable outside its scope', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Scoped Visibility Test',
+    items: [
+      {
+        key: 'order',
+        type: 'group',
+        label: 'Order',
+        children: [
+          { key: 'amount', type: 'field', dataType: 'decimal', label: 'Amount', initialValue: 200 },
+          { key: 'tax', type: 'field', dataType: 'decimal', label: 'Tax' }
+        ]
+      },
+      { key: 'summaryTax', type: 'field', dataType: 'decimal', label: 'Summary Tax' }
+    ],
+    variables: [{ name: 'localTax', expression: 'amount * 0.1', scope: 'order' }],
+    binds: [
+      { path: 'order.tax', calculate: '@localTax' },
+      { path: 'summaryTax', calculate: '@localTax' }
+    ]
+  });
+
+  assert.equal(engine.signals['order.tax'].value, 20);
+  assert.equal(engine.signals.summaryTax.value, null);
+});
+
+test('should resolve scoped variables for repeat descendants using lexical scope ancestry', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Scoped Repeat Lookup Test',
+    items: [
+      {
+        key: 'items',
+        type: 'group',
+        label: 'Items',
+        repeatable: true,
+        minRepeat: 2,
+        children: [
+          { key: 'amount', type: 'field', dataType: 'decimal', label: 'Amount' },
+          { key: 'fee', type: 'field', dataType: 'decimal', label: 'Fee' }
+        ]
+      }
+    ],
+    variables: [{ name: 'rowRate', expression: '0.2', scope: 'items' }],
+    binds: [{ path: 'items[*].fee', calculate: 'amount * @rowRate' }]
+  });
+
+  engine.setValue('items[0].amount', 100);
+  engine.setValue('items[1].amount', 50);
+
+  assert.equal(engine.signals['items[0].fee'].value, 20);
+  assert.equal(engine.signals['items[1].fee'].value, 10);
+});
+
 test('should throw an error when variable definitions contain circular dependencies', () => {
   assert.throws(
     () =>
