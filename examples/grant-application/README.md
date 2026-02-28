@@ -40,7 +40,7 @@ npm run dev
 Then open: `http://localhost:8081`
 
 > **Note:** `npm run start:grant-app` from the repo root is an alias for the same thing.
-> The `start:test-server` script (port 8080) serves the Playwright test harness — use `npm run dev` here for the demo.
+> The `test:serve` script (port 8080) serves the Playwright test harness — use `npm run dev` here for the demo.
 
 ### 3. Start the API server (separate terminal)
 

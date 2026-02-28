@@ -84,8 +84,8 @@ make api-docs
 # Set up pre-commit hooks (one-time)
 make setup
 
-# Start Vite dev server (serves demo pages and test fixtures)
-npm run start:test-server        # http://127.0.0.1:8080
+# Start Vite dev server for Playwright E2E test harness
+npm run test:serve               # http://127.0.0.1:8080
 
 # Run Playwright E2E tests (auto-starts Vite server)
 npm test

@@ -17,7 +17,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run start:test-server',
+    command: 'npm run test:serve',
     port: 8080,
     reuseExistingServer: !process.env.CI,
   },
