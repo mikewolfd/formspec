@@ -10,7 +10,7 @@ This is a greenfield project with zero users. Nothing is precious.
 - **Fix at the right layer.** If a component looks wrong everywhere, fix the component or base CSS — not every usage in component.json. If only *this* demo looks wrong, fix index.html or component.json — don't pollute the shared base.
 - **Boy Scout Rule.** Leave every file cleaner than you found it. If you're in a render function fixing one thing and notice dead code, redundant wrappers, or copy-pasted blocks — clean them up while you're there.
 - **DRY.** If you see the same styling pattern, DOM structure, or CSS block repeated across components, extract it. Shared styles belong in `formspec-base.css`. Shared render helpers belong in the component file. Don't let copy-paste accumulate.
-- **Don't over-polish.** When all 6 pages look clean, consistent, and professional — stop. Don't keep tweaking pixel values. "Good enough" is the goal, not "pixel perfect."
+- **Don't over-polish.** When all pages look clean, consistent, and professional — stop. Don't keep tweaking pixel values. "Good enough" is the goal, not "pixel perfect."
 - **Leave what works.** If a page already looks fine, move on. Only touch things that are visibly broken or ugly.
 
 ## Setup
@@ -22,30 +22,10 @@ This is a greenfield project with zero users. Nothing is precious.
 ## Review Loop — Do This Every Iteration
 
 ### 1. Screenshot every page
-Navigate through all 6 wizard pages by clicking Next:
-- Page 1: Applicant Info
-- Page 2: Project Narrative
-- Page 3: Budget
-- Page 4: Project Phases
-- Page 5: Subcontractors
-- Page 6: Review & Submit
-
-Take a screenshot of each page. Note any issues with spacing, alignment, typography, button styling, or visual hierarchy.
+Navigate through all wizard pages by clicking Next. Take a screenshot of each page. Note any issues with spacing, alignment, typography, button styling, or visual hierarchy.
 
 ### 2. Exercise interactive elements
-On each page, click/interact with everything:
-- Radio buttons, checkboxes, toggles
-- Tabs (Schedule vs Rates & Areas on page 2)
-- Accordion expand/collapse (page 4)
-- Popover triggers (Budget Guidelines on page 3)
-- Modal triggers (Certification Requirements on page 5)
-- ConditionalGroup visibility (select org type on page 1, toggle subcontractors on page 3)
-- DataTable add/remove rows
-- Collapsible sections on Review page
-- Previous/Next wizard navigation buttons
-- The sticky totals footer bar
-
-Take screenshots of these expanded/active states too.
+On each page, click/interact with all interactive elements — radio buttons, checkboxes, toggles, tabs, accordions, popovers, modals, conditional groups, data tables, collapsible sections, wizard navigation, etc. Take screenshots of expanded/active states too.
 
 ### 3. Evaluate and fix
 Diagnose the root cause before touching code. Ask: is this a component-level problem (bad markup/styles in the render function), a base CSS problem (missing or wrong default styles), or a demo-level problem (this page's layout or component.json props)?
@@ -62,18 +42,14 @@ After making changes, rebuild (`npm run build` from the repo root) and refresh t
 - Inconsistent spacing between fields, sections, and components
 - Buttons that look unstyled or misaligned
 - Labels/hints that are too close or too far from their inputs
-- Tabs, accordions, modals, popovers that look broken or unstyled
+- Interactive components (tabs, accordions, modals, popovers) that look broken or unstyled
 - DataTable layout issues (column widths, add/remove buttons)
 - Card/Panel borders, padding, elevation looking off
-- Progress bar, rating, slider, badge rendering quality
-- Summary component layout on the Review page
-- Sticky footer totals bar alignment
-- Responsive issues if viewport is narrow
 - Visual hierarchy — headings should look like headings, hints should be subtle
 - Overall polish — does this look like a real government form portal?
 
 ## Key Files
-- `examples/grant-application/component.json` — the full component tree (all 6 pages, 33 component types)
+- `examples/grant-application/component.json` — the full component tree
 - `examples/grant-application/definition.json` — field definitions, binds, validation shapes
 - `examples/grant-application/index.html` — page shell, CSS variables, layout grid
 - `packages/formspec-webcomponent/src/formspec-base.css` — base component stylesheet
@@ -84,4 +60,4 @@ After making changes, rebuild (`npm run build` from the repo root) and refresh t
 - `packages/formspec-webcomponent/src/components/special.ts` — FileUpload, Signature, DataTable, etc.
 
 ## Completion
-Output <promise>LOOKS GOOD</promise> when all 6 pages and their interactive states look clean, consistent, and professional. Don't chase perfection — stop when it looks like a real government form portal and nothing is visibly broken.
+Output <promise>LOOKS GOOD</promise> when all pages and their interactive states look clean, consistent, and professional. Don't chase perfection — stop when it looks like a real government form portal and nothing is visibly broken.

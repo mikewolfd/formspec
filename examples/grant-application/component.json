@@ -110,7 +110,7 @@
               },
               {
                 "component": "Panel",
-                "position": "right",
+                "position": "left",
                 "title": "Applicant Help",
                 "width": "280px",
                 "children": [
@@ -137,7 +137,11 @@
               { "component": "TextInput", "bind": "projectNarrative.projectTitle", "placeholder": "Community Health Outreach Initiative" },
               { "component": "TextInput", "bind": "projectNarrative.abstract", "maxLines": 8 },
               { "component": "Badge", "text": "Draft", "variant": "warning", "when": "empty($projectNarrative.abstract)" },
-              { "component": "Rating", "bind": "projectNarrative.selfAssessment", "max": 5 },
+              { "component": "Badge", "text": "Initialized", "variant": "default", "when": "not empty($projectNarrative.projectTitle)" },
+              { "component": "Badge", "text": "Ready for Review", "variant": "primary", "when": "not empty($projectNarrative.abstract)" },
+              { "component": "Badge", "text": "High Confidence", "variant": "success", "when": "$projectNarrative.selfAssessment >= 4" },
+              { "component": "Badge", "text": "Needs Work", "variant": "error", "when": "$projectNarrative.selfAssessment <= 2" },
+              { "component": "Rating", "bind": "projectNarrative.selfAssessment", "max": 5, "icon": "heart", "allowHalf": true },
               {
                 "component": "Tabs",
                 "tabLabels": ["Schedule", "Rates & Areas"],
@@ -152,10 +156,10 @@
                         "component": "Grid",
                         "columns": 2,
                         "children": [
-                          { "component": "DatePicker", "bind": "projectNarrative.startDate", "format": "MM/DD/YYYY" },
+                          { "component": "DatePicker", "bind": "projectNarrative.startDate", "format": "MM/DD/YYYY", "minDate": "2026-01-01", "maxDate": "2027-12-31" },
                           { "component": "DatePicker", "bind": "projectNarrative.endDate" },
-                          { "component": "NumberInput", "bind": "projectNarrative.duration", "step": 1, "min": 1, "max": 60, "showStepper": true },
-                          { "component": "Spacer", "size": "$token.space.lg" }
+                          { "component": "DatePicker", "bind": "projectNarrative.submissionDeadline", "showTime": true },
+                          { "component": "NumberInput", "bind": "projectNarrative.duration", "step": 1, "min": 1, "max": 60, "showStepper": true }
                         ]
                       }
                     ]
@@ -179,7 +183,7 @@
                   }
                 ]
               },
-              { "component": "ProgressBar", "value": 3, "max": 6, "label": "Narrative completion", "showPercent": true }
+              { "component": "ProgressBar", "bind": "projectNarrative.selfAssessment", "max": 5, "label": "Proposal confidence", "showPercent": true }
             ]
           }
         ]
@@ -238,7 +242,7 @@
                 "rowGap": "$token.space.sm",
                 "children": [
                   { "component": "Spacer" },
-                  { "component": "MoneyInput", "bind": "budget.requestedAmount", "currency": "USD", "showCurrency": true },
+                  { "component": "MoneyInput", "bind": "budget.requestedAmount", "currency": "USD", "showCurrency": true, "locale": "en-US" },
                   { "component": "Spacer" }
                 ]
               },
@@ -250,6 +254,34 @@
                 "when": "not empty($budget.requestedAmount)"
               },
               {
+                "component": "Alert",
+                "severity": "error",
+                "text": "Requested amount exceeds the agency maximum award of $500,000.",
+                "when": "moneyAmount($budget.requestedAmount) > 500000"
+              },
+              {
+                "component": "Popover",
+                "triggerLabel": "Budget Checklist",
+                "placement": "top",
+                "children": [
+                  {
+                    "component": "Text",
+                    "text": "Confirm all budget categories have supporting descriptions and documented rates."
+                  }
+                ]
+              },
+              {
+                "component": "Popover",
+                "triggerLabel": "Cost Share Policy",
+                "placement": "right",
+                "children": [
+                  {
+                    "component": "Text",
+                    "text": "Federal guidance allows voluntary cost sharing but it is not required for this program."
+                  }
+                ]
+              },
+              {
                 "component": "Popover",
                 "triggerLabel": "Budget Guidelines",
                 "placement": "bottom",
@@ -258,6 +290,18 @@
                     "component": "Text",
                     "format": "markdown",
                     "text": "**Budget Rules:**\n- Each line item must have a category and description\n- Subtotals are calculated as Qty × Unit Cost\n- Indirect costs apply to non-government organizations\n- Requested amount must match the grand total"
+                  }
+                ]
+              },
+              {
+                "component": "Popover",
+                "triggerBind": "budget.lineItems[0].description",
+                "triggerLabel": "Line Item Details",
+                "placement": "left",
+                "children": [
+                  {
+                    "component": "Text",
+                    "text": "This popover trigger mirrors the first line item's description value."
                   }
                 ]
               }
@@ -368,6 +412,35 @@
                         "text": "**Federal Subcontractor Requirements:**\n\n1. All subcontractors must be registered in SAM.gov\n2. Subcontractor costs may not exceed 49% of total project budget\n3. Each subcontractor must provide a detailed scope of work\n4. Subcontracts over $25,000 require prior agency approval"
                       }
                     ]
+                  },
+                  {
+                    "component": "Modal",
+                    "title": "Subcontractor Risk Checklist",
+                    "trigger": "button",
+                    "triggerLabel": "View Risk Checklist",
+                    "size": "full",
+                    "closable": true,
+                    "children": [
+                      {
+                        "component": "Text",
+                        "format": "markdown",
+                        "text": "**Risk Checklist:**\n\n- Verify conflict-of-interest disclosures\n- Confirm subcontractor insurance certificates\n- Validate cost reasonableness and procurement records\n- Ensure deliverables and milestone dates are documented"
+                      }
+                    ]
+                  },
+                  {
+                    "component": "Modal",
+                    "title": "Automatic Compliance Notice",
+                    "trigger": "auto",
+                    "when": "$budget.usesSubcontractors",
+                    "size": "sm",
+                    "closable": true,
+                    "children": [
+                      {
+                        "component": "Text",
+                        "text": "Compliance reminder: review subcontractor eligibility before final submission."
+                      }
+                    ]
                   }
                 ]
               }
@@ -476,6 +549,7 @@
                     "bind": "attachments.budgetJustification",
                     "accept": "application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     "maxSize": 5242880,
+                    "multiple": true,
                     "dragDrop": true
                   },
                   {

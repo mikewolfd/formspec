@@ -10,6 +10,7 @@ A complete vertical slice demonstrating the full Formspec lifecycle:
 | `definition.json` | 4-page grant application definition (items, binds, variables, shapes) |
 | `component.json` | Wizard layout tree with DataTable budget and ConditionalGroup subcontractors page |
 | `theme.json` | USWDS-flavored token set |
+| `theme-pdf.json` | PDF-specific theme with print-first tokens and static selectors |
 | `mapping.json` | Transforms submission → grants-management flat JSON |
 | `sample-submission.json` | A complete valid response for curl testing |
 | `index.html` | Styled portal page with sticky totals footer |

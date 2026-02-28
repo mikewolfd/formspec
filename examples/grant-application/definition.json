@@ -23,6 +23,65 @@
     "density": "comfortable",
     "defaultCurrency": "USD"
   },
+  "screener": {
+    "items": [
+      {
+        "key": "applicantType",
+        "type": "field",
+        "dataType": "choice",
+        "label": "What type of organization are you?",
+        "hint": "Select the category that best describes your organization.",
+        "options": [
+          { "value": "nonprofit", "label": "Nonprofit (501(c)(3))" },
+          { "value": "government", "label": "State/Local Government" },
+          { "value": "tribal", "label": "Tribal Organization" },
+          { "value": "forprofit", "label": "For-Profit Entity" }
+        ]
+      },
+      {
+        "key": "isReturning",
+        "type": "field",
+        "dataType": "boolean",
+        "label": "Have you received this grant before?",
+        "hint": "Select yes if your organization has been previously awarded under this program."
+      },
+      {
+        "key": "requestedAmount",
+        "type": "field",
+        "dataType": "money",
+        "label": "Estimated award amount",
+        "hint": "Approximate amount you plan to request."
+      }
+    ],
+    "routes": [
+      {
+        "condition": "$applicantType = 'forprofit'",
+        "target": "https://example.gov/forms/grant-application-forprofit/1.0.0",
+        "label": "For-Profit Application",
+        "extensions": {
+          "x-route-category": "restricted"
+        }
+      },
+      {
+        "condition": "$isReturning = true and moneyAmount($requestedAmount) < 250000",
+        "target": "https://example.gov/forms/grant-application-renewal-short/1.0.0",
+        "label": "Simplified Renewal (Under $250K)"
+      },
+      {
+        "condition": "$isReturning = true",
+        "target": "https://example.gov/forms/grant-application-renewal/1.0.0",
+        "label": "Standard Renewal Application"
+      },
+      {
+        "condition": "true",
+        "target": "https://example.gov/forms/grant-application/1.0.0",
+        "label": "New Application"
+      }
+    ],
+    "extensions": {
+      "x-screener-version": "1.0"
+    }
+  },
   "instances": {
     "agencyData": {
       "description": "Agency-provided reference data injected at form load",
@@ -32,10 +91,64 @@
         "fiscalYear": "FY2026",
         "ein": "47-1234567"
       }
+    },
+    "scratchPad": {
+      "description": "Writable scratch-pad for intermediate calculations that should not be submitted",
+      "readonly": false,
+      "data": {
+        "lastSavedTotal": 0,
+        "budgetNotes": ""
+      },
+      "schema": {
+        "lastSavedTotal": "decimal",
+        "budgetNotes": "string"
+      },
+      "extensions": {
+        "x-purpose": "intermediate-calculations"
+      }
+    },
+    "priorYearData": {
+      "description": "Prior-year performance data fetched from agency API",
+      "source": "https://api.example.gov/responses/2024/{entityId}",
+      "static": true,
+      "data": {
+        "priorAwardAmount": 250000,
+        "performanceRating": "satisfactory"
+      },
+      "schema": {
+        "priorAwardAmount": "integer",
+        "performanceRating": "string"
+      }
     }
   },
   "migrations": {
-    "from": {}
+    "from": {
+      "0.9.0": {
+        "description": "Renamed contact channels, removed legacy outreach field, and normalized requested amount storage.",
+        "fieldMap": [
+          {
+            "source": "applicantInfo.contactName",
+            "target": "applicantInfo.contactName",
+            "transform": "preserve"
+          },
+          {
+            "source": "applicantInfo.faxNumber",
+            "target": null,
+            "transform": "drop"
+          },
+          {
+            "source": "budget.requestedAmountRaw",
+            "target": "budget.requestedAmount.amount",
+            "transform": "expression",
+            "expression": "string(round(number($), 2))"
+          }
+        ],
+        "defaults": {
+          "budget.requestedAmount.currency": "USD",
+          "projectNarrative.selfAssessment": 3
+        }
+      }
+    }
   },
   "optionSets": {
     "budgetCategories": {
@@ -97,8 +210,18 @@
       "expression": "money(sum($budget.lineItems[*].subtotal), 'USD')"
     },
     {
+      "name": "budgetHasLineItems",
+      "expression": "not isNull($lineItems[0].category)",
+      "scope": "budget"
+    },
+    {
       "name": "indirectCosts",
       "expression": "if $applicantInfo.orgType = 'government' then money(0, 'USD') else money(moneyAmount(@totalDirect) * ($projectNarrative.indirectRate ?? 0) / 100, moneyCurrency(@totalDirect))"
+    },
+    {
+      "name": "narrativeHasDateRange",
+      "expression": "not empty($startDate) and not empty($endDate)",
+      "scope": "projectNarrative"
     },
     {
       "name": "grandTotal",
@@ -115,7 +238,9 @@
       "key": "applicantInfo",
       "label": "Applicant Information",
       "presentation": {
-        "page": "Applicant Info"
+        "layout": {
+          "page": "Applicant Info"
+        }
       },
       "children": [
         {
@@ -127,7 +252,9 @@
           "hint": "Legal name of the applying organization.",
           "labels": {
             "short": "Org",
-            "aria": "Applying Organization Full Legal Name"
+            "aria": "Applying Organization Full Legal Name",
+            "pdf": "Applicant Organization Name",
+            "csv": "applicant_org_name"
           },
           "prePopulate": {
             "instance": "agencyData",
@@ -142,6 +269,10 @@
           "dataType": "string",
           "description": "The 9-digit federal tax identification number assigned by the IRS.",
           "hint": "Format: XX-XXXXXXX",
+          "labels": {
+            "pdf": "Applicant EIN",
+            "csv": "applicant_ein"
+          },
           "prePopulate": {
             "instance": "agencyData",
             "path": "ein",
@@ -171,6 +302,13 @@
               "hint": "Specify sub-category if applicable (e.g., 501(c)(3), 501(c)(4))."
             }
           ]
+        },
+        {
+          "type": "group",
+          "key": "alternateContact",
+          "label": "Alternate Contact",
+          "$ref": "https://example.gov/forms/fragments/contact-fragment#contactCore",
+          "keyPrefix": "altContact"
         },
         {
           "type": "field",
@@ -217,7 +355,9 @@
       "key": "projectNarrative",
       "label": "Project Narrative",
       "presentation": {
-        "page": "Project Narrative"
+        "layout": {
+          "page": "Project Narrative"
+        }
       },
       "children": [
         {
@@ -225,7 +365,11 @@
           "key": "projectTitle",
           "label": "Project Title",
           "dataType": "string",
-          "description": "A concise title that clearly identifies the proposed project."
+          "description": "A concise title that clearly identifies the proposed project.",
+          "labels": {
+            "pdf": "Proposed Project Title",
+            "csv": "project_title"
+          }
         },
         {
           "type": "field",
@@ -339,8 +483,8 @@
       "key": "budget",
       "label": "Budget",
       "presentation": {
-        "page": "Budget",
         "layout": {
+          "page": "Budget",
           "flow": "grid",
           "columns": 2,
           "collapsible": true,
@@ -441,7 +585,9 @@
       "key": "projectPhases",
       "label": "Project Phases",
       "presentation": {
-        "page": "Project Phases"
+        "layout": {
+          "page": "Project Phases"
+        }
       },
       "repeatable": true,
       "minRepeat": 1,
@@ -501,7 +647,9 @@
       "key": "subcontractors",
       "label": "Subcontractors",
       "presentation": {
-        "page": "Subcontractors"
+        "layout": {
+          "page": "Subcontractors"
+        }
       },
       "repeatable": true,
       "minRepeat": 1,
@@ -539,7 +687,9 @@
       "key": "attachments",
       "label": "Supporting Documents",
       "presentation": {
-        "page": "Review & Submit"
+        "layout": {
+          "page": "Review & Submit"
+        }
       },
       "children": [
         {
@@ -598,7 +748,7 @@
     },
     {
       "path": "projectNarrative.duration",
-      "calculate": "if empty($projectNarrative.startDate) or empty($projectNarrative.endDate) or $projectNarrative.endDate <= $projectNarrative.startDate then null else dateDiff($projectNarrative.endDate, $projectNarrative.startDate, 'months')",
+      "calculate": "if not @narrativeHasDateRange or $projectNarrative.endDate <= $projectNarrative.startDate then null else dateDiff($projectNarrative.endDate, $projectNarrative.startDate, 'months')",
       "readonly": "true",
       "disabledDisplay": "protected"
     },
@@ -660,7 +810,11 @@
     },
     {
       "path": "budget.hasLineItems",
-      "calculate": "string(not isNull($budget.lineItems[0].category))"
+      "calculate": "string(@budgetHasLineItems)"
+    },
+    {
+      "path": "instances.scratchPad.lastSavedTotal",
+      "calculate": "moneyAmount(@grandTotal)"
     },
     {
       "path": "applicantInfo.orgName",
@@ -814,6 +968,33 @@
       "extensions": {
         "x-help-link": "https://example.gov/help/uri-format"
       }
+    },
+    {
+      "id": "shapeRefCoverageAlwaysTrueA",
+      "target": "#",
+      "severity": "info",
+      "constraint": "true",
+      "message": "Shape reference coverage helper A.",
+      "code": "SHAPE_REF_COVERAGE_A"
+    },
+    {
+      "id": "shapeRefCoverageAlwaysTrueB",
+      "target": "#",
+      "severity": "info",
+      "constraint": "true",
+      "message": "Shape reference coverage helper B.",
+      "code": "SHAPE_REF_COVERAGE_B"
+    },
+    {
+      "id": "shapeRefCompositionCoverage",
+      "target": "#",
+      "severity": "info",
+      "message": "Shape composition via shape-id references is supported.",
+      "code": "SHAPE_REF_COMPOSITION",
+      "and": [
+        "shapeRefCoverageAlwaysTrueA",
+        "shapeRefCoverageAlwaysTrueB"
+      ]
     },
     {
       "id": "budgetMethodExclusive",

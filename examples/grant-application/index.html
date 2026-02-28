@@ -38,6 +38,19 @@
       cursor: pointer;
     }
 
+    /* ── Screener continue button ── */
+    .formspec-screener-continue {
+      background: var(--color-primary);
+      color: #fff;
+      border: none;
+      padding: 10px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: var(--radius);
+      margin-top: 0.5rem;
+    }
+    .formspec-screener-continue:hover { background: var(--color-primary-dark); }
+
     /* ── Wizard step indicators — hidden (sidebar nav is the primary indicator) ── */
     .formspec-wizard-steps {
       display: none !important;
@@ -268,17 +281,6 @@
       display: none !important;
     }
 
-    /* ── Page heading spacing ── */
-    .formspec-page > h2 + * {
-      margin-top: 0.25rem;
-    }
-
-    /* ── Stack within page should have more breathing room ── */
-    .formspec-page > .formspec-stack,
-    .formspec-page > .formspec-columns {
-      margin-top: 0.5rem;
-    }
-
     /* ── Validation summary overrides (themed colors) ── */
     .formspec-shape-error {
       border-left-color: var(--color-error);
@@ -292,7 +294,7 @@
     /* ── Submit button ── */
     .submit-area {
       margin-top: 12px;
-      display: flex;
+      display: none;
       justify-content: flex-end;
     }
     .btn-submit {

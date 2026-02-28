@@ -72,7 +72,7 @@ formEl.addEventListener('formspec-page-change', (e) => {
     li.classList.toggle('invalid', false);
   });
 
-  submitAreaEl.style.display = isLastPage ? '' : 'none';
+  submitAreaEl.style.display = isLastPage ? 'flex' : 'none';
 
   const wizardNextBtn = formEl.querySelector('button.formspec-wizard-next');
   if (wizardNextBtn) wizardNextBtn.style.display = isLastPage ? 'none' : '';
