@@ -7,8 +7,43 @@
     "url": "https://example.gov/forms/grant-application",
     "compatibleVersions": ">=1.0.0 <2.0.0"
   },
+  "breakpoints": {
+    "sm": 576,
+    "md": 768,
+    "lg": 1024
+  },
+  "tokens": {
+    "space.lg": "32px",
+    "color.accent": "#2e7d32",
+    "border.card": "1px solid #dfe1e2"
+  },
+  "components": {
+    "ContactField": {
+      "params": ["field"],
+      "tree": {
+        "component": "Stack",
+        "gap": "$token.space.sm",
+        "children": [
+          { "component": "TextInput", "bind": "{field}" }
+        ]
+      }
+    },
+    "SummaryRow": {
+      "params": ["label", "field"],
+      "tree": {
+        "component": "Columns",
+        "widths": ["1fr", "2fr"],
+        "gap": "$token.space.md",
+        "children": [
+          { "component": "Text", "text": "{label}", "style": { "fontWeight": "bold" } },
+          { "component": "Text", "bind": "{field}" }
+        ]
+      }
+    }
+  },
   "tree": {
     "component": "Wizard",
+    "showProgress": true,
     "allowSkip": false,
     "children": [
       {
@@ -16,27 +51,63 @@
         "title": "Applicant Info",
         "children": [
           {
-            "component": "Stack",
-            "gap": "$token.space.lg",
+            "component": "Columns",
+            "widths": ["2fr", "1fr"],
             "children": [
               {
-                "component": "Grid",
-                "columns": 2,
+                "component": "Stack",
+                "gap": "$token.space.lg",
                 "children": [
-                  { "component": "TextInput",  "bind": "applicantInfo.orgName",      "placeholder": "Acme Nonprofit, Inc." },
-                  { "component": "TextInput",  "bind": "applicantInfo.ein",          "placeholder": "12-3456789" },
-                  { "component": "RadioGroup", "bind": "applicantInfo.orgType" },
-                  { "component": "TextInput",  "bind": "applicantInfo.orgType.orgSubType", "placeholder": "e.g. 501(c)(3)" },
-                  { "component": "TextInput",  "bind": "applicantInfo.contactName",  "placeholder": "Jane Smith" },
-                  { "component": "TextInput",  "bind": "applicantInfo.contactEmail", "placeholder": "jane@example.org" },
-                  { "component": "TextInput",  "bind": "applicantInfo.contactPhone", "placeholder": "202-555-0100" },
-                  { "component": "Spacer" }
+                  {
+                    "component": "Grid",
+                    "columns": 2,
+                    "responsive": { "sm": { "columns": 1 } },
+                    "children": [
+                      { "component": "TextInput", "bind": "applicantInfo.orgName", "placeholder": "Acme Nonprofit, Inc." },
+                      { "component": "TextInput", "bind": "applicantInfo.ein", "placeholder": "12-3456789" }
+                    ]
+                  },
+                  { "component": "RadioGroup", "bind": "applicantInfo.orgType", "orientation": "horizontal", "columns": 2 },
+                  {
+                    "component": "ConditionalGroup",
+                    "when": "$applicantInfo.orgType != null",
+                    "children": [
+                      { "component": "TextInput", "bind": "applicantInfo.orgType.orgSubType", "placeholder": "e.g. 501(c)(3)" }
+                    ]
+                  },
+                  { "component": "Divider" },
+                  { "component": "Heading", "level": 3, "text": "Contact Details" },
+                  {
+                    "component": "Grid",
+                    "columns": 3,
+                    "responsive": { "sm": { "columns": 1 }, "md": { "columns": 2 } },
+                    "children": [
+                      { "component": "ContactField", "params": { "field": "applicantInfo.contactName" } },
+                      { "component": "ContactField", "params": { "field": "applicantInfo.contactEmail" } },
+                      { "component": "ContactField", "params": { "field": "applicantInfo.contactPhone" } }
+                    ]
+                  },
+                  {
+                    "component": "Text",
+                    "text": "**Nonprofit organizations** must provide a primary phone number for federal reporting requirements.",
+                    "format": "markdown",
+                    "when": "$applicantInfo.orgType = 'nonprofit'"
+                  }
                 ]
               },
               {
-                "component": "Text",
-                "text": "Nonprofit organizations must provide a primary phone number.",
-                "when": "$applicantInfo.orgType = 'nonprofit'"
+                "component": "Panel",
+                "position": "right",
+                "title": "Applicant Help",
+                "width": "280px",
+                "children": [
+                  { "component": "Alert", "severity": "info", "text": "EIN must be in XX-XXXXXXX format (e.g. 12-3456789)." },
+                  {
+                    "component": "Text",
+                    "format": "markdown",
+                    "text": "**Organization Types:**\n- **Nonprofit** — 501(c)(3) or similar\n- **University** — accredited research institutions\n- **Government** — state or local agencies\n- **For-Profit** — commercial entities"
+                  }
+                ]
               }
             ]
           }
@@ -50,19 +121,50 @@
             "component": "Stack",
             "gap": "$token.space.lg",
             "children": [
-              { "component": "TextInput",  "bind": "projectNarrative.projectTitle", "placeholder": "Community Health Outreach Initiative" },
-              { "component": "TextInput",  "bind": "projectNarrative.abstract",     "maxLines": 8 },
+              { "component": "TextInput", "bind": "projectNarrative.projectTitle", "placeholder": "Community Health Outreach Initiative" },
+              { "component": "TextInput", "bind": "projectNarrative.abstract", "maxLines": 8 },
+              { "component": "Badge", "text": "Draft", "variant": "warning", "when": "empty($projectNarrative.abstract)" },
+              { "component": "Rating", "bind": "projectNarrative.selfAssessment", "max": 5, "icon": "star" },
               {
-                "component": "Grid",
-                "columns": 2,
+                "component": "Tabs",
+                "tabLabels": ["Schedule", "Rates & Areas"],
                 "children": [
-                  { "component": "DatePicker",  "bind": "projectNarrative.startDate" },
-                  { "component": "DatePicker",  "bind": "projectNarrative.endDate" },
-                  { "component": "NumberInput", "bind": "projectNarrative.duration" },
-                  { "component": "NumberInput", "bind": "projectNarrative.indirectRate" }
+                  {
+                    "component": "Stack",
+                    "gap": "$token.space.md",
+                    "children": [
+                      {
+                        "component": "Grid",
+                        "columns": 2,
+                        "children": [
+                          { "component": "DatePicker", "bind": "projectNarrative.startDate", "format": "MM/DD/YYYY" },
+                          { "component": "DatePicker", "bind": "projectNarrative.endDate" },
+                          { "component": "NumberInput", "bind": "projectNarrative.duration" },
+                          { "component": "Spacer", "size": "$token.space.lg" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "component": "Stack",
+                    "gap": "$token.space.md",
+                    "children": [
+                      {
+                        "component": "Slider",
+                        "bind": "projectNarrative.indirectRate",
+                        "min": 0,
+                        "max": 60,
+                        "step": 0.5,
+                        "showValue": true,
+                        "showTicks": true,
+                        "when": "$applicantInfo.orgType != 'government'"
+                      },
+                      { "component": "CheckboxGroup", "bind": "projectNarrative.focusAreas", "columns": 2, "selectAll": true }
+                    ]
+                  }
                 ]
               },
-              { "component": "CheckboxGroup", "bind": "projectNarrative.focusAreas" }
+              { "component": "ProgressBar", "value": 3, "max": 6, "label": "Narrative completion", "showPercent": true }
             ]
           }
         ]
@@ -81,30 +183,26 @@
                 "bind": "budget.lineItems",
                 "allowAdd": true,
                 "allowRemove": true,
+                "showRowNumbers": true,
                 "columns": [
-                  { "header": "Category",    "bind": "category" },
+                  { "header": "Category", "bind": "category" },
                   { "header": "Description", "bind": "description" },
-                  { "header": "Qty",         "bind": "quantity" },
-                  { "header": "Unit Cost",   "bind": "unitCost" },
-                  { "header": "Subtotal",    "bind": "subtotal" }
+                  { "header": "Qty", "bind": "quantity" },
+                  { "header": "Unit Cost", "bind": "unitCost" },
+                  { "header": "Subtotal", "bind": "subtotal" }
                 ]
               },
               {
                 "component": "Card",
+                "title": "Budget Summary",
+                "elevation": 1,
                 "children": [
-                  { "component": "Heading", "level": 4, "text": "Budget Summary" },
                   {
-                    "component": "Grid",
-                    "columns": 2,
-                    "children": [
-                      { "component": "Text", "text": "Total Direct Costs" },
-                      { "component": "Text", "bind": "totalDirect",   "style": { "textAlign": "right", "fontWeight": "bold" } },
-                      { "component": "Text", "text": "Indirect Costs" },
-                      { "component": "Text", "bind": "indirectCosts", "style": { "textAlign": "right" } },
-                      { "component": "Divider" },
-                      { "component": "Divider" },
-                      { "component": "Text", "text": "Grand Total", "style": { "fontWeight": "bold" } },
-                      { "component": "Text", "bind": "grandTotal",    "style": { "textAlign": "right", "fontWeight": "bold" } }
+                    "component": "Summary",
+                    "items": [
+                      { "label": "Total Direct Costs", "bind": "totalDirect" },
+                      { "label": "Indirect Costs", "bind": "indirectCosts" },
+                      { "label": "Grand Total", "bind": "grandTotal" }
                     ]
                   }
                 ]
@@ -113,11 +211,23 @@
                 "component": "Grid",
                 "columns": 2,
                 "children": [
-                  { "component": "MoneyInput", "bind": "budget.requestedAmount" },
+                  { "component": "MoneyInput", "bind": "budget.requestedAmount", "currency": "USD", "showCurrency": true },
                   { "component": "Spacer" }
                 ]
               },
-              { "component": "Toggle", "bind": "budget.usesSubcontractors" }
+              { "component": "Toggle", "bind": "budget.usesSubcontractors", "onLabel": "Yes", "offLabel": "No" },
+              {
+                "component": "Popover",
+                "triggerLabel": "Budget Guidelines",
+                "placement": "bottom",
+                "children": [
+                  {
+                    "component": "Text",
+                    "format": "markdown",
+                    "text": "**Budget Rules:**\n- Each line item must have a category and description\n- Subtotals are calculated as Qty × Unit Cost\n- Indirect costs apply to non-government organizations\n- Requested amount must match the grand total"
+                  }
+                ]
+              }
             ]
           }
         ]
@@ -130,41 +240,45 @@
             "component": "Stack",
             "gap": "$token.space.lg",
             "children": [
+              { "component": "Text", "text": "Define project phases and their tasks. Costs are calculated automatically." },
               {
-                "component": "Text",
-                "text": "Add one phase per project phase. Tasks and costs are calculated automatically."
-              },
-              {
-                "component": "Card",
-                "bind": "projectPhases",
+                "component": "Accordion",
+                "allowMultiple": true,
+                "defaultOpen": 0,
                 "children": [
-                  { "component": "TextInput", "bind": "phaseName", "placeholder": "e.g. Design Phase" },
                   {
-                    "component": "DataTable",
-                    "bind": "phaseTasks",
-                    "allowAdd": true,
-                    "allowRemove": true,
-                    "columns": [
-                      { "header": "Task Name",   "bind": "taskName" },
-                      { "header": "Hours",        "bind": "hours" },
-                      { "header": "Hourly Rate",  "bind": "hourlyRate" },
-                      { "header": "Task Cost",    "bind": "taskCost" }
-                    ]
-                  },
-                  {
-                    "component": "Grid",
-                    "columns": 2,
+                    "component": "Card",
+                    "title": "Phase",
                     "children": [
-                      { "component": "Text", "text": "Phase Total", "style": { "fontWeight": "bold" } },
-                      { "component": "Text", "bind": "phaseTotal", "style": { "textAlign": "right", "fontWeight": "bold" } }
+                      { "component": "TextInput", "bind": "phaseName", "placeholder": "e.g. Design Phase" },
+                      {
+                        "component": "DataTable",
+                        "bind": "phaseTasks",
+                        "allowAdd": true,
+                        "allowRemove": true,
+                        "columns": [
+                          { "header": "Task Name", "bind": "taskName" },
+                          { "header": "Hours", "bind": "hours" },
+                          { "header": "Hourly Rate", "bind": "hourlyRate" },
+                          { "header": "Task Cost", "bind": "taskCost" }
+                        ]
+                      },
+                      {
+                        "component": "Grid",
+                        "columns": 2,
+                        "children": [
+                          { "component": "Text", "text": "Phase Total", "style": { "fontWeight": "bold" } },
+                          { "component": "Text", "bind": "phaseTotal", "style": { "textAlign": "right", "fontWeight": "bold" } }
+                        ]
+                      }
                     ]
                   }
                 ]
               },
               {
                 "component": "Card",
+                "title": "Phases Summary",
                 "children": [
-                  { "component": "Heading", "level": 4, "text": "Phases Summary" },
                   {
                     "component": "Grid",
                     "columns": 2,
@@ -186,22 +300,38 @@
           {
             "component": "ConditionalGroup",
             "when": "$budget.usesSubcontractors",
+            "fallback": "No subcontractors are needed for this project.",
             "children": [
               {
                 "component": "Stack",
                 "gap": "$token.space.lg",
                 "children": [
-                  { "component": "Text", "text": "List all subcontractors. Total subcontractor costs may not exceed 49% of the project budget." },
+                  { "component": "Alert", "severity": "info", "text": "List all subcontractors. Total costs may not exceed 49% of the project budget.", "dismissible": true },
                   {
                     "component": "DataTable",
                     "bind": "subcontractors",
                     "allowAdd": true,
                     "allowRemove": true,
                     "columns": [
-                      { "header": "Contact Name",  "bind": "subName" },
-                      { "header": "Organization",  "bind": "subOrg" },
-                      { "header": "Amount",        "bind": "subAmount" },
+                      { "header": "Contact Name", "bind": "subName" },
+                      { "header": "Organization", "bind": "subOrg" },
+                      { "header": "Amount", "bind": "subAmount" },
                       { "header": "Scope of Work", "bind": "subScope" }
+                    ]
+                  },
+                  {
+                    "component": "Modal",
+                    "title": "Subcontractor Certification Requirements",
+                    "trigger": "button",
+                    "triggerLabel": "View Certification Requirements",
+                    "size": "md",
+                    "closable": true,
+                    "children": [
+                      {
+                        "component": "Text",
+                        "format": "markdown",
+                        "text": "**Federal Subcontractor Requirements:**\n\n1. All subcontractors must be registered in SAM.gov\n2. Subcontractor costs may not exceed 49% of total project budget\n3. Each subcontractor must provide a detailed scope of work\n4. Subcontracts over $25,000 require prior agency approval"
+                      }
                     ]
                   }
                 ]
@@ -217,11 +347,11 @@
           {
             "component": "Stack",
             "gap": "$token.space.lg",
+            "accessibility": {
+              "role": "region",
+              "description": "Application review and submission"
+            },
             "children": [
-              {
-                "component": "ValidationSummary",
-                "mode": "continuous"
-              },
               {
                 "component": "Alert",
                 "severity": "info",
@@ -236,12 +366,12 @@
                     "component": "Summary",
                     "items": [
                       { "label": "Organization Name", "bind": "applicantInfo.orgName" },
-                      { "label": "EIN",               "bind": "applicantInfo.ein" },
+                      { "label": "EIN", "bind": "applicantInfo.ein" },
                       { "label": "Organization Type", "bind": "applicantInfo.orgType", "optionSet": "orgTypes" },
-                      { "label": "Sub-Type",          "bind": "applicantInfo.orgType.orgSubType" },
-                      { "label": "Contact Name",      "bind": "applicantInfo.contactName" },
-                      { "label": "Contact Email",     "bind": "applicantInfo.contactEmail" },
-                      { "label": "Contact Phone",     "bind": "applicantInfo.contactPhone" }
+                      { "label": "Sub-Type", "bind": "applicantInfo.orgType.orgSubType" },
+                      { "label": "Contact Name", "bind": "applicantInfo.contactName" },
+                      { "label": "Contact Email", "bind": "applicantInfo.contactEmail" },
+                      { "label": "Contact Phone", "bind": "applicantInfo.contactPhone" }
                     ]
                   }
                 ]
@@ -254,12 +384,13 @@
                   {
                     "component": "Summary",
                     "items": [
-                      { "label": "Project Title",   "bind": "projectNarrative.projectTitle" },
-                      { "label": "Start Date",      "bind": "projectNarrative.startDate" },
-                      { "label": "End Date",        "bind": "projectNarrative.endDate" },
-                      { "label": "Duration",        "bind": "projectNarrative.duration" },
-                      { "label": "Indirect Rate",   "bind": "projectNarrative.indirectRate" },
-                      { "label": "Focus Areas",    "bind": "projectNarrative.focusAreas" }
+                      { "label": "Project Title", "bind": "projectNarrative.projectTitle" },
+                      { "label": "Start Date", "bind": "projectNarrative.startDate" },
+                      { "label": "End Date", "bind": "projectNarrative.endDate" },
+                      { "label": "Duration", "bind": "projectNarrative.duration" },
+                      { "label": "Indirect Rate", "bind": "projectNarrative.indirectRate" },
+                      { "label": "Focus Areas", "bind": "projectNarrative.focusAreas" },
+                      { "label": "Confidence", "bind": "projectNarrative.selfAssessment" }
                     ]
                   }
                 ]
@@ -273,9 +404,9 @@
                     "component": "Summary",
                     "items": [
                       { "label": "Total Direct Costs", "bind": "totalDirect" },
-                      { "label": "Indirect Costs",     "bind": "indirectCosts" },
-                      { "label": "Grand Total",        "bind": "grandTotal" },
-                      { "label": "Requested Amount",   "bind": "budget.requestedAmount" }
+                      { "label": "Indirect Costs", "bind": "indirectCosts" },
+                      { "label": "Grand Total", "bind": "grandTotal" },
+                      { "label": "Requested Amount", "bind": "budget.requestedAmount" }
                     ]
                   }
                 ]
@@ -283,7 +414,7 @@
               {
                 "component": "Collapsible",
                 "title": "Project Phases",
-                "defaultOpen": true,
+                "defaultOpen": false,
                 "children": [
                   {
                     "component": "Summary",
@@ -293,26 +424,39 @@
                   }
                 ]
               },
+              { "component": "Divider", "label": "Supporting Documents" },
               {
                 "component": "Stack",
                 "gap": "$token.space.md",
                 "children": [
-                  { "component": "Heading", "level": 3, "text": "Supporting Documents" },
                   {
                     "component": "FileUpload",
                     "bind": "attachments.narrativeDoc",
-                    "allowedTypes": ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+                    "accept": "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     "maxSize": 10485760,
-                    "label": "Project Narrative Document"
+                    "dragDrop": true
                   },
                   {
                     "component": "FileUpload",
                     "bind": "attachments.budgetJustification",
-                    "allowedTypes": ["application/pdf", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
-                    "maxSize": 5242880,
-                    "label": "Budget Justification"
+                    "accept": "application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "maxSize": 5242880
+                  },
+                  {
+                    "component": "Signature",
+                    "bind": "attachments.approverSignature",
+                    "strokeColor": "#000000",
+                    "height": 200,
+                    "penWidth": 2,
+                    "clearable": true
                   }
                 ]
+              },
+              {
+                "component": "Alert",
+                "severity": "warning",
+                "text": "Please ensure all required fields are completed before submitting your application.",
+                "cssClass": "review-alert"
               }
             ]
           }
