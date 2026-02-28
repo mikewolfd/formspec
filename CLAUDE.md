@@ -47,7 +47,9 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
   - `src/formspec/API.llm.md` — Python package API reference (all subpackages: fel, validator, adapters, mapping, changelog, registry).
   - `packages/formspec-engine/API.llm.md` — TypeScript engine API reference (FormEngine, interfaces, assembler, runtime mapping).
   - `packages/formspec-webcomponent/API.llm.md` — TypeScript webcomponent API reference (FormspecRender, ComponentRegistry, theme resolver, RenderContext).
-- **`thoughts/adr/`** — Architecture decision records and implementation plans. When creating new plans, put them here with the naming convention `NNNN-short-name.md` (next available number; check existing files). Update `thoughts/adr.md` index when adding entries.
+- **`thoughts/`** — All plans, ADRs, research, and design artifacts. **Never put plans in `docs/`.**
+  - `thoughts/adr/` — Architecture decision records and implementation plans (`NNNN-short-name.md`).
+  - `thoughts/research/` — Exploratory research, comparative analysis, external doc captures.
 - **`tests/`** — Python conformance test suite (pytest + jsonschema + hypothesis).
 - **`tests/e2e/`** — Playwright E2E tests and JSON fixtures.
 
