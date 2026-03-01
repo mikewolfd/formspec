@@ -181,7 +181,19 @@ curl -X POST http://localhost:8000/submit \
 
 ### FEL (expression language)
 
-<!-- filled by Task 4 -->
+- **Arithmetic** — `*` (e.g. `$unitCost * $quantity`), `-` (e.g. `moneyAmount($budget.requestedAmount) - moneyAmount(@grandTotal)`), `/` (e.g. `/ 100` in indirect cost calc)
+- **Comparison** — `=` (e.g. `$applicantInfo.orgType = 'nonprofit'`), `!=` (e.g. `$applicantInfo.orgType != 'government'`), `<` `>` `<=` `>=` (e.g. `$projectNarrative.endDate > $projectNarrative.startDate`, `length(...) <= 3000`)
+- **Logical** — `and` (e.g. `$isReturning = true and moneyAmount($requestedAmount) < 250000`), `or` (e.g. `empty($endDate) or empty($startDate) or ...`), `not` (e.g. `not empty($startDate)`)
+- **Null coalescing** — `??` (e.g. `$projectNarrative.indirectRate ?? 0`, `$hourlyRate ?? money(0, 'USD')`)
+- **if/then/else** — conditional expressions (e.g. `if $applicantInfo.orgType = 'government' then money(0, 'USD') else money(...)`)
+- **Money** — `money()` constructor (e.g. `money(0, 'USD')`), `moneyAmount()` extractor, `moneyCurrency()` extractor, `moneyAdd()` (e.g. `moneyAdd(@totalDirect, @indirectCosts)`)
+- **String** — `upper()` (e.g. `upper($applicantInfo.orgName)`), `lower()` (e.g. `lower($projectNarrative.abstract)`), `contains()` (e.g. `contains($contactEmail, '@')`), `matches()` regex (e.g. `matches($ein, '^[0-9]{2}-[0-9]{7}$')`), `length()` (e.g. `length($abstract) <= 3000`), `string()` type cast (e.g. `string(@budgetHasLineItems)`)
+- **Date** — `today()` (e.g. `=today()` as initialValue), `year()` (e.g. `year($startDate)`), `dateDiff()` (e.g. `dateDiff($endDate, $startDate, 'months')`), `dateAdd()` (e.g. `dateAdd($startDate, $duration, 'months')`)
+- **Aggregates** — `sum()` with wildcard paths (e.g. `sum($budget.lineItems[*].subtotal)`, `sum($phaseTasks[*].taskCost)`), `count()` (e.g. `count($subcontractors[*].subName) >= 1`)
+- **Null/presence** — `empty()` (e.g. `empty($projectNarrative.endDate)`), `present()` (e.g. `present($attachments.narrativeDoc)`), `isNull()` (e.g. `isNull($lineItems[0].category)`), `coalesce()` (e.g. `coalesce($contactPhone, 'N/A')`)
+- **Math** — `round()` (e.g. `round($indirectRate, 0)`), `abs()` (e.g. `abs(moneyAmount($requestedAmount) - moneyAmount(@grandTotal))`)
+- **Type conversion** — `string()` and `number()` (e.g. migration expression `string(round(number($), 2))`)
+- **Path references** — `$field` (simple), `$group.field` (dotted), `$repeat[n].field` (indexed, e.g. `$lineItems[0].category`), `$repeat[*].field` (wildcard/element-wise, e.g. `$budget.lineItems[*].subtotal`), `@variable` (named computed values, e.g. `@totalDirect`, `@grandTotal`)
 
 ### Theme (presentation)
 
