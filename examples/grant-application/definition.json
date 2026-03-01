@@ -742,6 +742,12 @@
       "constraintMessage": "Phone must be in the format XXX-XXX-XXXX (e.g. 202-555-0100)."
     },
     {
+      "path": "applicantInfo.projectWebsite",
+      "whitespace": "trim",
+      "constraint": "empty($applicantInfo.projectWebsite) or matches(lower($applicantInfo.projectWebsite), '^https?://([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\\\.)+[a-z]{2,63}(:[0-9]{1,5})?(/[\\\\S]*)?$')",
+      "constraintMessage": "Project website must be a valid http(s) URL with a domain (e.g. https://example.org/project)."
+    },
+    {
       "path": "projectNarrative.endDate",
       "constraint": "empty($projectNarrative.endDate) or empty($projectNarrative.startDate) or $projectNarrative.endDate > $projectNarrative.startDate",
       "constraintMessage": "End date must be after start date."
@@ -755,6 +761,21 @@
     {
       "path": "projectNarrative.indirectRate",
       "relevant": "$applicantInfo.orgType != 'government'"
+    },
+    {
+      "path": "budget.lineItems[*].quantity",
+      "constraint": "$quantity = null or $quantity >= 0",
+      "constraintMessage": "Quantity must not be negative."
+    },
+    {
+      "path": "budget.lineItems[*].unitCost",
+      "constraint": "$unitCost = null or $unitCost >= 0",
+      "constraintMessage": "Unit cost must not be negative."
+    },
+    {
+      "path": "projectPhases[*].phaseTasks[*].hourlyRate",
+      "constraint": "$hourlyRate = null or moneyAmount($hourlyRate) >= 0",
+      "constraintMessage": "Hourly rate must not be negative."
     },
     {
       "path": "budget.lineItems[*].subtotal",

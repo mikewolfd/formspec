@@ -1,6 +1,53 @@
 import { effect, signal } from '@preact/signals-core';
 import { ComponentPlugin, RenderContext } from '../types';
 
+type PopupPlacement = 'top' | 'right' | 'bottom' | 'left';
+
+const POPUP_EDGE_PADDING = 8;
+const POPUP_TRIGGER_GAP = 8;
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Position an overlay near the trigger while keeping it on-screen.
+ * Uses viewport-fixed positioning so native <dialog> and Popover API content
+ * behave consistently across layouts.
+ */
+function positionOverlayNearTrigger(
+    triggerEl: HTMLElement,
+    overlayEl: HTMLElement,
+    placement: PopupPlacement = 'bottom'
+): void {
+    const triggerRect = triggerEl.getBoundingClientRect();
+    const overlayRect = overlayEl.getBoundingClientRect();
+    if (overlayRect.width <= 0 || overlayRect.height <= 0) return;
+
+    let left = triggerRect.left + ((triggerRect.width - overlayRect.width) / 2);
+    let top = triggerRect.bottom + POPUP_TRIGGER_GAP;
+
+    if (placement === 'top') {
+        top = triggerRect.top - overlayRect.height - POPUP_TRIGGER_GAP;
+    } else if (placement === 'right') {
+        left = triggerRect.right + POPUP_TRIGGER_GAP;
+        top = triggerRect.top + ((triggerRect.height - overlayRect.height) / 2);
+    } else if (placement === 'left') {
+        left = triggerRect.left - overlayRect.width - POPUP_TRIGGER_GAP;
+        top = triggerRect.top + ((triggerRect.height - overlayRect.height) / 2);
+    }
+
+    left = clamp(left, POPUP_EDGE_PADDING, Math.max(POPUP_EDGE_PADDING, window.innerWidth - overlayRect.width - POPUP_EDGE_PADDING));
+    top = clamp(top, POPUP_EDGE_PADDING, Math.max(POPUP_EDGE_PADDING, window.innerHeight - overlayRect.height - POPUP_EDGE_PADDING));
+
+    overlayEl.style.position = 'fixed';
+    overlayEl.style.inset = 'auto';
+    overlayEl.style.left = `${Math.round(left)}px`;
+    overlayEl.style.top = `${Math.round(top)}px`;
+    overlayEl.style.margin = '0';
+    overlayEl.style.maxHeight = `${Math.max(120, window.innerHeight - (POPUP_EDGE_PADDING * 2))}px`;
+}
+
 /** Renders a `<section>` page container with optional `<h2>` title and `<p>` description. */
 export const PagePlugin: ComponentPlugin = {
     type: 'Page',
@@ -262,6 +309,7 @@ export const AccordionPlugin: ComponentPlugin = {
 export const ModalPlugin: ComponentPlugin = {
     type: 'Modal',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
+        const placement: PopupPlacement = comp.placement || 'bottom';
         const dialog = document.createElement('dialog');
         if (comp.id) dialog.id = comp.id;
         dialog.className = 'formspec-modal';
@@ -323,7 +371,19 @@ export const ModalPlugin: ComponentPlugin = {
         triggerBtn.type = 'button';
         triggerBtn.className = 'formspec-modal-trigger';
         triggerBtn.textContent = comp.triggerLabel || 'Open';
-        triggerBtn.addEventListener('click', () => dialog.showModal());
+        const repositionDialog = () => {
+            if (dialog.open) positionOverlayNearTrigger(triggerBtn, dialog, placement);
+        };
+        triggerBtn.addEventListener('click', () => {
+            if (!dialog.open) dialog.showModal();
+            queueMicrotask(repositionDialog);
+        });
+        window.addEventListener('resize', repositionDialog);
+        window.addEventListener('scroll', repositionDialog, true);
+        ctx.cleanupFns.push(() => {
+            window.removeEventListener('resize', repositionDialog);
+            window.removeEventListener('scroll', repositionDialog, true);
+        });
         parent.appendChild(triggerBtn);
     }
 };
@@ -335,6 +395,7 @@ export const ModalPlugin: ComponentPlugin = {
 export const PopoverPlugin: ComponentPlugin = {
     type: 'Popover',
     render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
+        const placement: PopupPlacement = comp.placement || 'bottom';
         const wrapper = document.createElement('div');
         if (comp.id) wrapper.id = comp.id;
         wrapper.className = 'formspec-popover';
@@ -375,11 +436,17 @@ export const PopoverPlugin: ComponentPlugin = {
         const contentAny = content as any;
         if (typeof contentAny.showPopover === 'function') {
             contentAny.popover = 'auto';
-            triggerBtn.addEventListener('click', () => contentAny.togglePopover());
+            triggerBtn.addEventListener('click', () => {
+                contentAny.togglePopover();
+                queueMicrotask(() => positionOverlayNearTrigger(triggerBtn, content, placement));
+            });
         } else {
             content.hidden = true;
             triggerBtn.addEventListener('click', () => {
                 content.hidden = !content.hidden;
+                if (!content.hidden) {
+                    queueMicrotask(() => positionOverlayNearTrigger(triggerBtn, content, placement));
+                }
             });
         }
 

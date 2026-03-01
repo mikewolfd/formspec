@@ -961,6 +961,25 @@ class TestGrantApplicationIntegration:
         paths = {r['path'] for r in constraint_errors}
         assert 'applicantInfo.contactEmail' in paths
 
+    def test_project_website_rejects_invalid_domain_or_scheme(self):
+        defn = _load_grant_def()
+        ev = DefinitionEvaluator(defn)
+        data = _valid_grant_data()
+        data['applicantInfo']['projectWebsite'] = 'example/project'
+        result = ev.process(data)
+        constraint_errors = [r for r in result.results if r['code'] == 'CONSTRAINT_FAILED']
+        paths = {r['path'] for r in constraint_errors}
+        assert 'applicantInfo.projectWebsite' in paths
+
+    def test_project_website_allows_valid_https_url_with_path(self):
+        defn = _load_grant_def()
+        ev = DefinitionEvaluator(defn)
+        data = _valid_grant_data()
+        data['applicantInfo']['projectWebsite'] = 'https://example.org/programs/telehealth'
+        result = ev.process(data)
+        website_errors = [r for r in result.results if r.get('path') == 'applicantInfo.projectWebsite' and r['code'] == 'CONSTRAINT_FAILED']
+        assert website_errors == []
+
     def test_date_ordering_constraint(self):
         defn = _load_grant_def()
         ev = DefinitionEvaluator(defn)

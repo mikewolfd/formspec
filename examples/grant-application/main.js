@@ -13,8 +13,12 @@ async function loadJSON(path) {
 
 const formEl = document.getElementById('form');
 const btnSubmit = document.getElementById('btn-submit');
+const btnBackScreener = document.getElementById('btn-back-screener');
 const serverResponseEl = document.getElementById('server-response');
 const serverResponsePre = document.getElementById('server-response-pre');
+const validationPanelEl = document.getElementById('validation-panel');
+const validationPanelSummaryEl = document.getElementById('validation-panel-summary');
+const validationPanelListEl = document.getElementById('validation-panel-list');
 const footerGrandTotal = document.getElementById('footer-grand-total');
 const footerRequested = document.getElementById('footer-requested');
 const footerMatch = document.getElementById('footer-match');
@@ -58,33 +62,262 @@ effect(() => {
 
 // ── Wizard page tracking (via formspec-page-change event) ──
 const progressStepEls = Array.from(document.querySelectorAll('#progress-steps li'));
+const progressScreenerEl = document.querySelector('#progress-steps li[data-step="screener"]');
+const progressFormStepEls = progressStepEls.filter(li => !li.hasAttribute('data-step'));
 const submitAreaEl = document.querySelector('.submit-area');
-const PAGE_TITLES = progressStepEls.map(li => li.getAttribute('data-page'));
+const backScreenerAreaEl = document.querySelector('.back-screener-area');
+const PAGE_TITLES = progressFormStepEls.map(li => li.getAttribute('data-page'));
+let screenerCompleted = false;
+let currentFormPageIndex = -1;
+
+function hideValidationPanel() {
+  validationPanelEl?.classList.remove('visible');
+  if (validationPanelListEl) validationPanelListEl.innerHTML = '';
+  if (validationPanelSummaryEl) validationPanelSummaryEl.textContent = '';
+}
+
+function normalizePath(path) {
+  return typeof path === 'string' ? path.trim() : '';
+}
+
+function findFieldElement(path) {
+  if (!path || path === '#') return null;
+  const escapedPath = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(path) : path;
+  let fieldEl = formEl.querySelector(`.formspec-field[data-name="${escapedPath}"]`);
+  if (fieldEl) return fieldEl;
+  const allFields = Array.from(formEl.querySelectorAll('.formspec-field[data-name]'));
+  fieldEl = allFields.find((el) => {
+    const name = el.getAttribute('data-name');
+    return name === path || name?.startsWith(`${path}.`) || name?.startsWith(`${path}[`);
+  });
+  return fieldEl || null;
+}
+
+function resolveValidationTarget(result) {
+  const path = normalizePath(result?.sourceId || result?.path);
+  const fieldEl = findFieldElement(path);
+  const labelText = fieldEl?.querySelector('.formspec-label')?.textContent?.trim()
+    || (path && path !== '#' ? path : 'Application-level validation');
+  return { path, fieldEl, labelText };
+}
+
+function navigateToWizardPage(targetPageIndex) {
+  if (targetPageIndex < 0 || currentFormPageIndex < 0 || currentFormPageIndex === targetPageIndex) return;
+  const maxHops = Math.max(PAGE_TITLES.length * 2, 8);
+  let hops = 0;
+
+  while (currentFormPageIndex < targetPageIndex && hops < maxHops) {
+    const nextBtn = formEl.querySelector('button.formspec-wizard-next');
+    if (!nextBtn) break;
+    nextBtn.click();
+    hops += 1;
+  }
+  while (currentFormPageIndex > targetPageIndex && hops < maxHops) {
+    const prevBtn = formEl.querySelector('button.formspec-wizard-prev');
+    if (!prevBtn) break;
+    prevBtn.click();
+    hops += 1;
+  }
+}
+
+function revealTabsForField(fieldEl) {
+  let tabPanel = fieldEl.closest('.formspec-tab-panel');
+  while (tabPanel) {
+    if (tabPanel.classList.contains('formspec-hidden')) {
+      const tabsRoot = tabPanel.closest('.formspec-tabs');
+      if (tabsRoot) {
+        const panels = Array.from(tabsRoot.querySelectorAll('.formspec-tab-panel'));
+        const panelIdx = panels.indexOf(tabPanel);
+        const tabButtons = tabsRoot.querySelectorAll('.formspec-tab-bar .formspec-tab');
+        const tabBtn = tabButtons[panelIdx];
+        if (tabBtn instanceof HTMLButtonElement) tabBtn.click();
+      }
+    }
+    tabPanel = tabPanel.parentElement?.closest('.formspec-tab-panel') || null;
+  }
+}
+
+function focusValidationTarget(path) {
+  const normalizedPath = normalizePath(path);
+  const fieldEl = findFieldElement(normalizedPath);
+  if (!fieldEl) return;
+
+  const panels = Array.from(formEl.querySelectorAll('.formspec-wizard-panel'));
+  const targetPanelIndex = panels.findIndex((panel) => panel.contains(fieldEl));
+  if (targetPanelIndex >= 0) {
+    navigateToWizardPage(targetPanelIndex);
+  }
+
+  // Re-resolve after page navigation in case the form re-rendered.
+  const targetField = findFieldElement(normalizedPath);
+  if (!targetField) return;
+
+  const collapsible = targetField.closest('details.formspec-collapsible');
+  if (collapsible) collapsible.open = true;
+  revealTabsForField(targetField);
+
+  const inputEl = targetField.querySelector('input, select, textarea, button, [tabindex]');
+  targetField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (inputEl instanceof HTMLElement) {
+    inputEl.focus({ preventScroll: true });
+  }
+}
+
+function renderValidationPanel(report) {
+  if (!validationPanelEl || !validationPanelSummaryEl || !validationPanelListEl) return;
+  const errorResults = report.results.filter((result) => (result?.severity || 'error') === 'error');
+  if (errorResults.length === 0) {
+    hideValidationPanel();
+    return;
+  }
+
+  const seen = new Set();
+  const uniqueErrors = [];
+  for (const result of errorResults) {
+    const key = `${result?.sourceId || result?.path || '#'}|${result?.message || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueErrors.push(result);
+  }
+
+  validationPanelSummaryEl.textContent = `${uniqueErrors.length} issue${uniqueErrors.length === 1 ? '' : 's'} must be corrected.`;
+  validationPanelListEl.innerHTML = '';
+
+  for (const result of uniqueErrors) {
+    const { path, fieldEl, labelText } = resolveValidationTarget(result);
+    const li = document.createElement('li');
+    const message = result?.message || 'Validation error';
+
+    if (fieldEl && path && path !== '#') {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'validation-jump';
+      btn.dataset.path = path;
+      btn.textContent = `${labelText}: ${message}`;
+      li.appendChild(btn);
+    } else {
+      li.textContent = `${labelText}: ${message}`;
+    }
+
+    validationPanelListEl.appendChild(li);
+  }
+
+  validationPanelEl.classList.add('visible');
+  validationPanelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderProgress() {
+  progressStepEls.forEach((li) => {
+    li.classList.remove('active', 'valid', 'invalid');
+  });
+
+  if (!screenerCompleted) {
+    progressScreenerEl?.classList.add('active');
+    return;
+  }
+
+  progressScreenerEl?.classList.add('valid');
+  progressFormStepEls.forEach((li, i) => {
+    li.classList.toggle('active', i === currentFormPageIndex);
+    li.classList.toggle('valid', i < currentFormPageIndex);
+  });
+}
+
+renderProgress();
 
 formEl.addEventListener('formspec-page-change', (e) => {
   const { index, total, title } = e.detail;
   const isLastPage = index === total - 1;
+  const isFirstPage = index === 0;
   const currentIdx = PAGE_TITLES.indexOf(title);
+  currentFormPageIndex = currentIdx;
+  screenerCompleted = true;
+  renderProgress();
 
-  progressStepEls.forEach((li, i) => {
-    li.classList.toggle('active', i === currentIdx);
-    li.classList.toggle('valid', i < currentIdx);
-    li.classList.toggle('invalid', false);
-  });
-
-  submitAreaEl.style.display = isLastPage ? 'flex' : 'none';
-
+  const wizardNav = formEl.querySelector('.formspec-wizard-nav');
   const wizardNextBtn = formEl.querySelector('button.formspec-wizard-next');
-  if (wizardNextBtn) wizardNextBtn.style.display = isLastPage ? 'none' : '';
+
+  if (isLastPage && wizardNav) {
+    // Move submit button into the wizard nav row, hide the Next/Finish button
+    if (wizardNextBtn) wizardNextBtn.style.display = 'none';
+    wizardNav.appendChild(btnSubmit);
+    btnSubmit.style.display = '';
+  } else {
+    // Move submit button back out, restore Next button
+    if (wizardNextBtn) wizardNextBtn.style.display = '';
+    submitAreaEl.appendChild(btnSubmit);
+    btnSubmit.style.display = 'none';
+  }
+
+  if (isFirstPage && screenerCompleted && wizardNav) {
+    btnBackScreener.style.display = '';
+    wizardNav.insertBefore(btnBackScreener, wizardNav.firstChild);
+  } else {
+    backScreenerAreaEl.appendChild(btnBackScreener);
+    btnBackScreener.style.display = 'none';
+  }
+});
+
+formEl.addEventListener('formspec-screener-route', () => {
+  screenerCompleted = true;
+  currentFormPageIndex = 0;
+  renderProgress();
+});
+
+progressScreenerEl?.addEventListener('click', () => {
+  if (!screenerCompleted) return;
+  if (typeof formEl.restartScreener === 'function') {
+    formEl.restartScreener();
+  }
+  screenerCompleted = false;
+  currentFormPageIndex = -1;
+  renderProgress();
+  submitAreaEl.appendChild(btnSubmit);
+  btnSubmit.style.display = 'none';
+  backScreenerAreaEl.appendChild(btnBackScreener);
+  btnBackScreener.style.display = 'none';
+  hideValidationPanel();
+});
+
+btnBackScreener.addEventListener('click', () => {
+  if (typeof formEl.restartScreener === 'function') {
+    formEl.restartScreener();
+  }
+  screenerCompleted = false;
+  currentFormPageIndex = -1;
+  renderProgress();
+  submitAreaEl.appendChild(btnSubmit);
+  btnSubmit.style.display = 'none';
+  backScreenerAreaEl.appendChild(btnBackScreener);
+  btnBackScreener.style.display = 'none';
+  hideValidationPanel();
+});
+
+validationPanelListEl?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const jumpBtn = target.closest('button.validation-jump');
+  if (!(jumpBtn instanceof HTMLButtonElement)) return;
+  const { path } = jumpBtn.dataset;
+  if (path) {
+    focusValidationTarget(path);
+  }
 });
 
 // ── Submit ──
 btnSubmit.addEventListener('click', async () => {
+  // Trigger built-in submit flow once so all fields become touched and inline errors are visible.
+  const internalSubmitBtn = formEl.querySelector('button.formspec-submit');
+  if (internalSubmitBtn instanceof HTMLButtonElement) {
+    internalSubmitBtn.click();
+  }
+
   const report = engine.getValidationReport({ mode: 'submit' });
   if (!report.valid) {
-    alert(`Please fix ${report.counts.error} error(s) before submitting.`);
+    renderValidationPanel(report);
     return;
   }
+  hideValidationPanel();
 
   const response = engine.getResponse({ mode: 'submit' });
   btnSubmit.disabled = true;

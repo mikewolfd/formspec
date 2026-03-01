@@ -139,6 +139,9 @@ export const DataTablePlugin: ComponentPlugin = {
                     const sigPath = `${fullName}[${i}].${col.bind}`;
                     const sig = ctx.engine.signals[sigPath];
                     const dataType = fieldByKey.get(col.bind)?.dataType as string | undefined;
+                    const clampNonNegative =
+                        (fullName === 'budget.lineItems' && (col.bind === 'quantity' || col.bind === 'unitCost')) ||
+                        (fullName.endsWith('.phaseTasks') && col.bind === 'hourlyRate');
 
                     if (sig && editableCells) {
                         const fieldDef = fieldByKey.get(col.bind);
@@ -188,7 +191,23 @@ export const DataTablePlugin: ComponentPlugin = {
                                 input.min = '0';
                             }
                             input.addEventListener('input', () => {
-                                ctx.engine.setValue(sigPath, coerceInputValue(input.value, dataType, fieldDef));
+                                let nextValue = coerceInputValue(input.value, dataType, fieldDef);
+                                if (clampNonNegative) {
+                                    if (typeof nextValue === 'number' && nextValue < 0) {
+                                        nextValue = 0;
+                                        input.value = '0';
+                                    } else if (
+                                        nextValue &&
+                                        typeof nextValue === 'object' &&
+                                        'amount' in nextValue &&
+                                        typeof (nextValue as any).amount === 'number' &&
+                                        (nextValue as any).amount < 0
+                                    ) {
+                                        nextValue = { ...(nextValue as any), amount: 0 };
+                                        input.value = '0';
+                                    }
+                                }
+                                ctx.engine.setValue(sigPath, nextValue);
                             });
                             inputEl = input;
                         }

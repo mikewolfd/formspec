@@ -46,6 +46,7 @@
 
 .formspec-label {
   display: block;
+  white-space: nowrap;
 }
 
 .formspec-hint {
@@ -59,6 +60,46 @@
 
 .formspec-input {
   display: block;
+}
+
+.formspec-field--readonly {
+  background: var(--formspec-readonly-field-bg, #f8fafc);
+  border: 1px solid var(--formspec-readonly-field-border, #cbd5e1);
+  border-left: 4px solid var(--formspec-readonly-field-accent, #64748b);
+  border-radius: 0.5rem;
+  padding: 0.625rem;
+}
+
+.formspec-field--readonly .formspec-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.formspec-field--readonly .formspec-label::after {
+  content: 'Read only';
+  display: inline-block;
+  font-size: 0.7rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--formspec-readonly-badge-border, #94a3b8);
+  background: var(--formspec-readonly-badge-bg, #eef2f7);
+  color: var(--formspec-readonly-badge-text, #334155);
+  font-weight: 700;
+}
+
+.formspec-field--readonly .formspec-input,
+.formspec-field--readonly input,
+.formspec-field--readonly textarea,
+.formspec-field--readonly select,
+.formspec-field [aria-readonly="true"] {
+  background: var(--formspec-readonly-input-bg, #f1f5f9);
+  border-color: var(--formspec-readonly-input-border, #cbd5e1);
+  color: var(--formspec-readonly-input-text, #334155);
+  cursor: default;
 }
 
 .formspec-input-wrapper {
@@ -215,13 +256,13 @@ hr.formspec-divider {
 
 /* ── Panel ─────────────────────────────────────────────────────── */
 .formspec-panel {
-  border: 1px solid;
+  border: 1px solid var(--formspec-color-border, #e5e7eb);
   border-radius: 0.25rem;
 }
 
 .formspec-panel-header {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid;
+  border-bottom: 1px solid var(--formspec-color-border, #e5e7eb);
   font-weight: bold;
 }
 
@@ -231,7 +272,7 @@ hr.formspec-divider {
 
 /* ── Card ──────────────────────────────────────────────────────── */
 .formspec-card {
-  border: 1px solid;
+  border: 1px solid var(--formspec-color-border, #e5e7eb);
   border-radius: 0.5rem;
   padding: 1rem;
 }
@@ -348,20 +389,57 @@ hr.formspec-divider {
 .formspec-summary {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.25rem 1rem;
+  gap: 0.5rem 1.5rem;
+}
+
+.formspec-summary dt {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--formspec-color-text-muted, #6b7280);
+  padding: 0.25rem 0;
 }
 
 .formspec-summary dd {
   margin: 0;
+  padding: 0.25rem 0;
 }
 
 /* ── Collapsible ───────────────────────────────────────────────── */
+.formspec-collapsible {
+  border: 1px solid var(--formspec-color-border, #e5e7eb);
+  border-radius: 0.375rem;
+}
+
 .formspec-collapsible summary {
   cursor: pointer;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+}
+
+.formspec-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.formspec-collapsible summary::after {
+  content: '+';
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: var(--formspec-color-primary, #2563eb);
+}
+
+.formspec-collapsible[open] > summary::after {
+  content: '\2212';
 }
 
 .formspec-collapsible-content {
-  padding-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--formspec-color-border, #e5e7eb);
 }
 
 /* ── Accordion ─────────────────────────────────────────────────── */
@@ -416,11 +494,12 @@ hr.formspec-divider {
 /* ── Modal ─────────────────────────────────────────────────────── */
 .formspec-modal {
   position: relative;
-  border: 1px solid;
+  border: 1px solid var(--formspec-color-border, #e5e7eb);
   border-radius: 0.5rem;
   padding: 1.5rem;
   width: 100%;
   max-width: 600px;
+  background: var(--formspec-color-background, #fff);
 }
 
 .formspec-modal[data-size="sm"] { max-width: 400px; }
@@ -481,13 +560,14 @@ hr.formspec-divider {
   font-size: 0.85rem;
   background: transparent;
   color: var(--formspec-color-primary, #2563eb);
-  border: 1px solid var(--formspec-color-primary, #2563eb);
+  border: 1px solid var(--formspec-color-border, #d1d5db);
   border-radius: 0.25rem;
   cursor: pointer;
 }
 
 .formspec-popover-trigger:hover {
   background: var(--formspec-color-primary-light, #eff6ff);
+  border-color: var(--formspec-color-primary, #2563eb);
 }
 
 .formspec-popover-content {
@@ -515,6 +595,11 @@ hr.formspec-divider {
 /* ── Tabs ──────────────────────────────────────────────────────── */
 .formspec-tab-bar {
   display: flex;
+}
+
+.formspec-tabs:not([data-position]) .formspec-tab-panels,
+.formspec-tabs[data-position="top"] .formspec-tab-panels {
+  padding-top: 0.75rem;
 }
 
 .formspec-tabs[data-position="left"],
@@ -747,7 +832,7 @@ hr.formspec-divider {
 /* ── Signature ─────────────────────────────────────────────────── */
 .formspec-signature-canvas {
   display: block;
-  border: 1px solid;
+  border: 1px solid var(--formspec-color-border, #d1d5db);
   border-radius: 0.25rem;
   cursor: crosshair;
   touch-action: none;
@@ -757,6 +842,19 @@ hr.formspec-divider {
 
 .formspec-signature-clear {
   margin-top: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  font: inherit;
+  font-size: 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.formspec-signature-clear:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
 }
 
 /* ── Conditional Group ─────────────────────────────────────────── */
@@ -809,10 +907,9 @@ hr.formspec-divider {
 }
 
 .formspec-datatable-input:disabled {
-  border-color: transparent;
-  background: transparent;
-  padding-left: 0;
-  color: inherit;
+  border-color: var(--formspec-readonly-input-border, #cbd5e1);
+  background: var(--formspec-readonly-input-bg, #f1f5f9);
+  color: var(--formspec-readonly-input-text, #334155);
 }
 
 .formspec-datatable-cell-wrapper {

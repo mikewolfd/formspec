@@ -53,7 +53,7 @@
         "children": [
           {
             "component": "Columns",
-            "widths": ["2fr", "1fr"],
+            "widths": ["3fr", "1fr"],
             "children": [
               {
                 "component": "Stack",
@@ -69,7 +69,7 @@
                     ]
                   },
                   { "component": "RadioGroup", "bind": "applicantInfo.orgType", "orientation": "horizontal", "columns": 2 },
-                  { "component": "TextInput", "bind": "applicantInfo.projectWebsite", "prefix": "https://", "suffix": ".org", "inputMode": "url" },
+                  { "component": "TextInput", "bind": "applicantInfo.projectWebsite", "prefix": "https://", "inputMode": "url" },
                   {
                     "component": "ConditionalGroup",
                     "when": "$applicantInfo.orgType != null",
@@ -110,9 +110,9 @@
               },
               {
                 "component": "Panel",
-                "position": "left",
+                "position": "right",
                 "title": "Applicant Help",
-                "width": "280px",
+                "width": "260px",
                 "children": [
                   { "component": "Alert", "severity": "info", "text": "EIN must be in XX-XXXXXXX format (e.g. 12-3456789)." },
                   { "component": "Heading", "level": 4, "text": "Organization Types" },
@@ -260,48 +260,56 @@
                 "when": "moneyAmount($budget.requestedAmount) > 500000"
               },
               {
-                "component": "Popover",
-                "triggerLabel": "Budget Checklist",
-                "placement": "top",
+                "component": "Grid",
+                "columns": 2,
+                "gap": "12px",
+                "responsive": { "sm": { "columns": 1 } },
                 "children": [
                   {
-                    "component": "Text",
-                    "text": "Confirm all budget categories have supporting descriptions and documented rates."
-                  }
-                ]
-              },
-              {
-                "component": "Popover",
-                "triggerLabel": "Cost Share Policy",
-                "placement": "right",
-                "children": [
+                    "component": "Popover",
+                    "triggerLabel": "Budget Checklist",
+                    "placement": "top",
+                    "children": [
+                      {
+                        "component": "Text",
+                        "text": "Confirm all budget categories have supporting descriptions and documented rates."
+                      }
+                    ]
+                  },
                   {
-                    "component": "Text",
-                    "text": "Federal guidance allows voluntary cost sharing but it is not required for this program."
-                  }
-                ]
-              },
-              {
-                "component": "Popover",
-                "triggerLabel": "Budget Guidelines",
-                "placement": "bottom",
-                "children": [
+                    "component": "Popover",
+                    "triggerLabel": "Cost Share Policy",
+                    "placement": "right",
+                    "children": [
+                      {
+                        "component": "Text",
+                        "text": "Federal guidance allows voluntary cost sharing but it is not required for this program."
+                      }
+                    ]
+                  },
                   {
-                    "component": "Text",
-                    "format": "markdown",
-                    "text": "**Budget Rules:**\n- Each line item must have a category and description\n- Subtotals are calculated as Qty × Unit Cost\n- Indirect costs apply to non-government organizations\n- Requested amount must match the grand total"
-                  }
-                ]
-              },
-              {
-                "component": "Popover",
-                "triggerBind": "budget.lineItems[0].description",
-                "triggerLabel": "Line Item Details",
-                "placement": "left",
-                "children": [
+                    "component": "Popover",
+                    "triggerLabel": "Budget Guidelines",
+                    "placement": "bottom",
+                    "children": [
+                      {
+                        "component": "Text",
+                        "format": "markdown",
+                        "text": "**Budget Rules:**\n- Each line item must have a category and description\n- Subtotals are calculated as Qty × Unit Cost\n- Indirect costs apply to non-government organizations\n- Requested amount must match the grand total"
+                      }
+                    ]
+                  },
                   {
-                    "component": "Text",
-                    "text": "This popover trigger mirrors the first line item's description value."
+                    "component": "Popover",
+                    "triggerBind": "budget.lineItems[0].description",
+                    "triggerLabel": "Line Item Details",
+                    "placement": "left",
+                    "children": [
+                      {
+                        "component": "Text",
+                        "text": "This popover trigger mirrors the first line item's description value."
+                      }
+                    ]
                   }
                 ]
               }
@@ -429,18 +437,9 @@
                     ]
                   },
                   {
-                    "component": "Modal",
-                    "title": "Automatic Compliance Notice",
-                    "trigger": "auto",
-                    "when": "$budget.usesSubcontractors",
-                    "size": "sm",
-                    "closable": true,
-                    "children": [
-                      {
-                        "component": "Text",
-                        "text": "Compliance reminder: review subcontractor eligibility before final submission."
-                      }
-                    ]
+                    "component": "Alert",
+                    "severity": "info",
+                    "text": "**Compliance reminder:** Review subcontractor eligibility before final submission."
                   }
                 ]
               }
@@ -522,7 +521,7 @@
               {
                 "component": "Collapsible",
                 "title": "Project Phases",
-                "defaultOpen": false,
+                "defaultOpen": true,
                 "children": [
                   {
                     "component": "Summary",

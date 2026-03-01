@@ -451,6 +451,17 @@ export class FormspecRender extends HTMLElement {
         heading.textContent = this._definition.title || 'Screening Questions';
         panel.appendChild(heading);
 
+        if (this._definition.description) {
+            const intro = document.createElement('p');
+            intro.className = 'formspec-screener-intro';
+            intro.textContent = this._definition.description;
+            panel.appendChild(intro);
+        }
+
+        const fieldsContainer = document.createElement('div');
+        fieldsContainer.className = 'formspec-screener-fields';
+        panel.appendChild(fieldsContainer);
+
         // Track screener field values
         const answers: Record<string, any> = {};
 
@@ -522,7 +533,7 @@ export class FormspecRender extends HTMLElement {
                 fieldWrapper.appendChild(input);
             }
 
-            panel.appendChild(fieldWrapper);
+            fieldsContainer.appendChild(fieldWrapper);
         }
 
         const continueBtn = document.createElement('button');
@@ -566,6 +577,13 @@ export class FormspecRender extends HTMLElement {
     /** Programmatically skip the screener and proceed to the main form. */
     skipScreener() {
         this._screenerCompleted = true;
+        this.scheduleRender();
+    }
+
+    /** Return to the screener from the main form. */
+    restartScreener() {
+        this._screenerCompleted = false;
+        this._screenerRoute = null;
         this.scheduleRender();
     }
 
@@ -1381,6 +1399,7 @@ export class FormspecRender extends HTMLElement {
             if (actualInputEl instanceof HTMLElement) {
                 actualInputEl.setAttribute('aria-readonly', String(isReadonly));
             }
+            fieldWrapper.classList.toggle('formspec-field--readonly', isReadonly);
         }));
 
         this.cleanupFns.push(effect(() => {
