@@ -5,7 +5,53 @@ A complete vertical slice demonstrating the full Formspec lifecycle and nearly e
 
 ## What's here
 
-<!-- filled by Task 2 -->
+**Spec artifacts (the form itself):**
+
+| File | Spec | Purpose |
+|---|---|---|
+| `definition.json` | Core | 6-page grant application: items, binds, variables, shapes, screener, instances, migrations |
+| `component.json` | Component | Wizard layout tree with 33 components, custom components, responsive design |
+| `theme.json` | Theme | USWDS-flavored web theme: tokens, selectors, cascade, pages |
+| `theme-pdf.json` | Theme | PDF-specific theme with print-first tokens and static selectors |
+| `mapping.json` | Mapping | Bidirectional JSON transform (18 rules, valueMap, coerce, expression, array modes) |
+| `mapping-csv.json` | Mapping | CSV export adapter (6 rules, flatten, column mapping) |
+| `mapping-xml.json` | Mapping | XML export with namespaces, CDATA, element/attribute mapping |
+| `changelog.json` | Changelog | Version 1.0→1.1 migration guide (8 change entries, impact levels) |
+| `registry.json` | Registry | Extension registry: custom SSN type, fiscal-year function, DUNS constraint |
+| `contact-fragment.json` | Core | Reusable contact group ($ref target for modular composition) |
+
+**Submission samples:**
+
+| File | Purpose |
+|---|---|
+| `sample-submission.json` | Complete valid response for curl testing |
+| `submission-in-progress.json` | Partial submission (missing required fields) |
+| `submission-amended.json` | Previously submitted form with corrections |
+| `submission-stopped.json` | Abandoned/stopped submission state |
+
+**Application shell:**
+
+| File | Purpose |
+|---|---|
+| `index.html` | Portal page: gov header, sidebar progress nav, grid layout, sticky totals footer |
+| `main.js` | Entry point: loads artifacts, wires reactive footer, handles wizard nav + submit |
+| `grant-bridge.css` | Component styling layered on formspec-base.css (cards, tables, popovers, etc.) |
+| `vite.config.js` | Dev server (port 8081) with repo-root middleware |
+| `package.json` | Workspace config |
+
+**Server:**
+
+| File | Purpose |
+|---|---|
+| `server/main.py` | FastAPI: POST /submit → Python FEL re-validation + mapping output |
+| `server/requirements.txt` | Python dependencies (fastapi, uvicorn, jsonschema, pydantic) |
+
+**Documentation:**
+
+| File | Purpose |
+|---|---|
+| `README.md` | This file |
+| `REVIEW-PROMPT.md` | Design review workflow for frontend polish |
 
 ## Running
 
