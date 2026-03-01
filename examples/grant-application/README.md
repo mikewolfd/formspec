@@ -243,4 +243,13 @@ curl -X POST http://localhost:8000/submit \
 
 ## What this does NOT cover
 
-<!-- filled by Task 9 -->
+These Formspec features are defined in the specifications but not exercised by this example:
+
+- **External option set sources** — all `optionSets` and inline `options` use static inline values; none use the `source` URI mechanism for fetching options from an external endpoint.
+- **`formspec-fn:` data sources** — instance data uses inline `data` or an `https://` source URL; the host-provided `formspec-fn:` function URI scheme for dynamic data injection is not demonstrated.
+- **Some FEL stdlib functions** — unused functions include: `countWhere()`, `min()`, `max()`, `avg()`, `floor()`, `ceil()`, `power()`, `selected()`, repeat navigation (`prev()`, `next()`, `parent()`), and MIP state queries (`readonly()`, `required()`, `relevant()`).
+- **Recursive custom components** — the two custom components (`ContactField`, `SummaryRow`) use only built-in components in their trees; custom components nesting other custom components is not shown.
+
+For complete feature inventories, see the generated spec summaries:
+`specs/core/spec.llm.md`, `specs/fel/fel-grammar.llm.md`, `specs/theme/theme-spec.llm.md`, `specs/component/component-spec.llm.md`, `specs/mapping/mapping-spec.llm.md`, `specs/registry/extension-registry.llm.md`.
+
