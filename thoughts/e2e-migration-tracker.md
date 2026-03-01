@@ -5,11 +5,11 @@
 
 ## Current Status
 
-- **Current Phase:** 4
+- **Current Phase:** 5
 - **Blockers:** None
-- **Engine tests:** 27 files pass (2026-03-01, post-Phase 3 gate)
-- **Webcomponent tests:** Unknown
-- **Playwright tests:** 105 pass (2026-03-01, post-Phase 3 gate)
+- **Engine tests:** 205 pass (2026-03-01, post-Phase 4 gate)
+- **Webcomponent tests:** 121 pass (2026-03-01, post-Phase 4 gate)
+- **Playwright tests:** 81 pass (2026-03-01, post-Phase 4 gate)
 
 ---
 
@@ -74,12 +74,12 @@ Port these 4 complete Playwright files to engine unit tests, then delete each Pl
 
 **WARNING:** Tests that use `getComputedStyle` (boxShadow, rowGap, gridTemplateColumns, flexDirection, backgroundColor) MUST stay in Playwright — happy-dom does not compute CSS. Do NOT migrate any test whose E2E-KEEP rationale mentions `getComputedStyle`.
 
-- [ ] **4.1** Create `packages/formspec-webcomponent/tests/component-props.test.ts`. Port 6 static-attribute tests from `core-component-props-and-fixes.spec.ts`: NumberInput min/max/step, Select clearable/placeholder, DatePicker min/max, TextInput prefix/suffix, Tabs defaultTab, Page description. Remove from Playwright file.
-- [ ] **4.2** Create `packages/formspec-webcomponent/tests/layout-components.test.ts`. Port 7 from `progressive-component-rendering.spec.ts`: Divider, Collapsible defaultOpen, Panel chrome, Accordion defaultOpen, FileUpload drop zone, Signature canvas, ProgressBar static. Remove from Playwright file.
-- [ ] **4.3** Create `packages/formspec-webcomponent/tests/a11y-attributes.test.ts`. Port 3 from `accessibility-responsive-custom-components.spec.ts`: label/describedby, role/live-region, accessibility metadata. Remove from Playwright file.
-- [ ] **4.4** Create `packages/formspec-webcomponent/tests/custom-components.test.ts`. Port template expansion test. Create `compatibility-matrix.test.ts`. Port matrix test from `component-gap-coverage.spec.ts` using `vi.spyOn(console, 'warn')`. Remove from Playwright files.
-- [ ] **4.5** Port remaining COMPONENT-MIGRATE tests from `renderer-parity-gaps.spec.ts` (Popover text fallback, Popover field value, Grid data-columns, Stack horizontal class) and `component-tree-rendering.spec.ts` (DataTable/Summary tab-sync) into appropriate webcomponent test files. Remove from Playwright files. Note: ProgressBar reactive update (`progressive-component-rendering.spec.ts` test 14) is E2E-KEEP — do NOT migrate. The renderer-parity-gaps tests are borderline — if migrating to happy-dom requires excessive grant-app fixture setup, keep them in Playwright instead.
-- [ ] **GATE** Webcomponent tests pass: `npx vitest run --config packages/formspec-webcomponent/vitest.config.ts` AND Playwright passes: `npx playwright test`
+- [x] **4.1** Create `packages/formspec-webcomponent/tests/component-props.test.ts`. Port 6 static-attribute tests from `core-component-props-and-fixes.spec.ts`: NumberInput min/max/step, Select clearable/placeholder, DatePicker min/max, TextInput prefix/suffix, Tabs defaultTab, Page description. Remove from Playwright file.
+- [x] **4.2** Create `packages/formspec-webcomponent/tests/layout-components.test.ts`. Port 7 from `progressive-component-rendering.spec.ts`: Divider, Collapsible defaultOpen, Panel chrome, Accordion defaultOpen, FileUpload drop zone, Signature canvas, ProgressBar static. Remove from Playwright file.
+- [x] **4.3** Create `packages/formspec-webcomponent/tests/a11y-attributes.test.ts`. Port 3 from `accessibility-responsive-custom-components.spec.ts`: label/describedby, role/live-region, accessibility metadata. Remove from Playwright file.
+- [x] **4.4** Create `packages/formspec-webcomponent/tests/custom-components.test.ts`. Port template expansion test. Create `compatibility-matrix.test.ts`. Port matrix test from `component-gap-coverage.spec.ts` using `vi.spyOn(console, 'warn')`. Remove from Playwright files.
+- [x] **4.5** Port remaining COMPONENT-MIGRATE tests from `renderer-parity-gaps.spec.ts` (Popover text fallback, Popover field value, Grid data-columns, Stack horizontal class) and `component-tree-rendering.spec.ts` (DataTable/Summary tab-sync) into appropriate webcomponent test files. Remove from Playwright files. Note: ProgressBar reactive update (`progressive-component-rendering.spec.ts` test 14) is E2E-KEEP — do NOT migrate. The renderer-parity-gaps tests are borderline — if migrating to happy-dom requires excessive grant-app fixture setup, keep them in Playwright instead.
+- [x] **GATE** Webcomponent tests pass: `npx vitest run --config packages/formspec-webcomponent/vitest.config.ts` AND Playwright passes: `npx playwright test`
 
 **Commit:** `test: migrate ~25 component tests to webcomponent unit tests`
 
