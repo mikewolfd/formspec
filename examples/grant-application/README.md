@@ -221,7 +221,22 @@ curl -X POST http://localhost:8000/submit \
 
 ### Registry & Changelog (extensions & versioning)
 
-<!-- filled by Task 8 -->
+**Extension registry (registry.json)**
+- **Publisher** — "US Grants Modernization Office" with url and contact email; registry version 1.0
+- **5 entries** across all extension categories: `dataType` (x-grants-gov-ssn), `function` (x-grants-gov-fiscal-year), `constraint` (x-grants-gov-duns-valid), `property` (x-grants-gov-agency-code), `namespace` (x-grants-gov)
+- **All lifecycle statuses** — stable (SSN type, namespace), draft (fiscal-year function v0.9.0), deprecated (DUNS constraint with deprecationNotice pointing to UEI replacement), retired (agency-code property with retiredOn date)
+- **Namespace grouping** — x-grants-gov namespace entry with `members` array collecting all four extensions under a single umbrella
+- **Concrete entries** — SSN type with `baseType: string`, pattern constraint `^[0-9]{3}-[0-9]{2}-[0-9]{4}$`, mask metadata, and usage example; fiscal-year function with `date` parameter and `integer` return type; DUNS constraint deprecated in favor of x-grants-gov-uei-valid after SAM migration; agency-code property retired 2025-12-31
+- **Compatibility ranges** — all entries declare `formspecVersion` and `mappingDslVersion` ranges (`>=1.0.0 <2.0.0`)
+- **Registry-level extensions** — approval board (Schema Council), ticket reference (FSM-2031), per-entry x-grants-gov-owner tags
+
+**Changelog (changelog.json)**
+- **Version range** — 1.0.0 to 1.1.0, semverImpact: `minor`
+- **8 change entries** covering all change types: `added` (collaborationPlan field, migration descriptor), `removed` (legacyTotal bind), `modified` (EIN shape message, screener route, form title), `moved` (focusAreas optionSet to programFocusAreas), `renamed` (agencyData dataSource to organizationProfile)
+- **All impact levels** — `breaking` (removed bind, renamed dataSource), `compatible` (added field, moved optionSet, expanded screener route, migration descriptor), `cosmetic` (updated validation message, clarified title)
+- **Migration hints** — `preserve` (carry forward unchanged), `drop` (remove obsolete), `$old.agencyData` (expression-based remap for renamed source)
+- **Migration descriptor** — dedicated "added migration" entry for upgrading 1.0.0 responses to 1.1.0 with carry-forward and source remapping
+- **Targets** — item, bind, shape, optionSet, dataSource, screener, migration, metadata — broad cross-spec coverage
 
 ## What this does NOT cover
 
