@@ -197,7 +197,10 @@ curl -X POST http://localhost:8000/submit \
 
 ### Theme (presentation)
 
-<!-- filled by Task 5 -->
+- **Web theme (theme.json)** — USWDS-flavored tokens (13 colors, 5 spacing xs-xl, 3 typography, 2 radius, 3 elevation, focusRing, grid columns, 5 USWDS class tokens), 3-level cascade (defaults -> selectors -> items), widget declarations (MoneyInput for money, RadioGroup for choice, Toggle for boolean, FileUpload for attachment), 2 stylesheets (USWDS bridge + grant bridge), responsive breakpoints (sm/md/lg/xl), 2 page regions (applicant-info with 5 responsive grid cells, project-budget with 4 cells), target definition binding with semver range `>=1.0.0 <2.0.0`
+- **PDF theme (theme-pdf.json)** — print-first tokens (Times New Roman serif, 11pt, narrow mm spacing, monochrome palette), platform: pdf, static widget overrides (paragraph default for fields, section for groups, heading for display items), item overrides (ein monospace + letter-spacing, abstract pre-wrap, requestedAmount bold), x-pdf extension metadata (letter, portrait, page numbers), 3 page regions (applicant-info, project-budget, review-submit), 5 selectors (group, field, boolean, money, display)
+- **Cascade demonstrated** — defaults (labelPosition top, widgetConfig with USWDS x-classes mapping root/label/control/hint/error), 5 selectors matching by dataType (money, choice, boolean, attachment) and item type (group), per-item overrides (orgName bold + primary underline, ein monospace + cssClass, abstract with minHeight + ARIA description + liveRegion)
+- **Accessibility** — liveRegion (polite) on attachment fields and abstract textarea, ARIA description on projectNarrative.abstract ("Enter a detailed project abstract")
 
 ### Components (interaction)
 
