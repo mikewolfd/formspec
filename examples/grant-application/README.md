@@ -95,7 +95,89 @@ curl -X POST http://localhost:8000/submit \
 
 ### Core (data & logic)
 
-<!-- filled by Task 3 -->
+**Form structure**
+- **Item types** — field (data entry), group (container/section), display (read-only text like nonprofitPhoneHint)
+- **Nested children** — field-under-field hierarchy (orgType > orgSubType yields path applicantInfo.orgType.orgSubType)
+- **6 wizard pages** — Applicant Info, Project Narrative, Budget, Project Phases, Subcontractors, Review & Submit (via presentation.layout.page)
+
+**Data types**
+- **13 data types used** — string, integer, boolean, date, dateTime, time, choice, multiChoice, money, attachment, text, decimal, uri
+
+**Bind MIPs**
+- **calculate** — subtotals (unitCost * quantity), duration (dateDiff), phaseTotal (sum of taskCosts), orgNameUpper, indirectRateRounded, projectedEndDate, budgetDeviation, contactPhoneFallback, hasLineItems, scratchPad write-back
+- **relevant** — nonprofitPhoneHint shown only for nonprofits, indirectRate hidden for government, subcontractors conditional on usesSubcontractors
+- **required** — static (orgName, ein, abstract, startDate, endDate, focusAreas) and conditional (projectWebsite required only for universities)
+- **readonly** — static (subtotal, duration, phaseTotal, projectedEndDate, budgetDeviation) and conditional (submissionDeadline readonly when both dates set)
+- **constraint** — EIN pattern (XX-XXXXXXX), email contains @, phone format (XXX-XXX-XXXX), endDate > startDate
+- **default** — orgType defaults to 'nonprofit', requestedAmount defaults to money(0, 'USD')
+
+**Advanced bind features**
+- **whitespace** — normalize (ein), trim (contactEmail), remove (orgSubType) — all three modes represented
+- **nonRelevantBehavior** — form-level "remove" default, per-bind "keep" override on subcontractors, per-bind "empty" on nonprofitPhoneHint display item
+- **constraintMessage** — custom validation messages on EIN, email, phone, and date ordering constraints
+- **disabledDisplay** — "protected" on duration (readonly field styling hint)
+- **excludedValue** — "null" on requestedAmount (exclude null from response data)
+
+**Repeatable groups**
+- **4 groups** — lineItems (1-20), projectPhases (1-10), phaseTasks (1-20), subcontractors (1-10)
+- **Nested repeats** — phaseTasks nested inside projectPhases (two-level repeat)
+- **Min/max cardinality** — minRepeat and maxRepeat set on all four groups
+
+**Variables**
+- **6 named computed values** — @totalDirect (line item sum), @indirectCosts (rate-based with government exemption), @grandTotal (direct + indirect), @projectPhasesTotal (phase sum), @budgetHasLineItems (presence check), @narrativeHasDateRange (date completeness)
+- **Scoping** — @budgetHasLineItems scoped to budget, @narrativeHasDateRange scoped to projectNarrative; others form-wide
+
+**Validation shapes**
+- **12 shapes** — field-level and form-level (target "#"), all severity levels (error, warning, info)
+- **Composition operators** — or (contactProvided), not (abstractNotPlaceholder), and (subcontractorEntryRequired), xone (budgetMethodExclusive), shape-id references (shapeRefCompositionCoverage)
+- **activeWhen** — subcontractorCap and subcontractorEntryRequired active only when usesSubcontractors is true
+- **Timing** — continuous (abstractLength), submit (narrativeDocRequired), demand (websiteFormat)
+- **Context blocks** — budgetMatch includes computed metadata (grandTotal, requested, difference)
+- **Shape codes** — every shape has a unique code (BUDGET_MISMATCH, SUBCONTRACTOR_CAP_EXCEEDED, etc.)
+
+**Screener routing**
+- **3 classification fields** — applicantType (choice), isReturning (boolean), requestedAmount (money)
+- **4 conditional routes** — for-profit redirect, simplified renewal (returning + under $250K), standard renewal, new application (catch-all)
+
+**Instance data**
+- **Readonly** — agencyData (maxAward, fiscalYear, ein) with readonly: true
+- **Writable with schema** — scratchPad (lastSavedTotal, budgetNotes) with typed schema and readonly: false
+- **Source-based static** — priorYearData fetched from external API URL with static: true
+
+**Pre-population**
+- **orgName** — pre-populated from agencyData with editable: true (user can override)
+- **ein** — pre-populated from agencyData with editable: false (locked to source value)
+
+**Modular composition**
+- **$ref** — alternateContact group references contact-fragment.json#contactCore with keyPrefix "altContact"
+
+**Version migrations**
+- **v0.9 to v1.0 fieldMap** — preserve (contactName), drop (faxNumber), expression (requestedAmountRaw to requestedAmount.amount with rounding)
+- **Defaults for new fields** — requestedAmount.currency set to "USD", selfAssessment set to 3
+
+**Option sets**
+- **budgetCategories** — 7 choices (personnel, fringe, travel, equipment, supplies, contractual, other)
+- **orgTypes** — 4 choices (nonprofit, university, government, forprofit)
+- **Inline options** — focusAreas has 5 inline options on the field itself
+
+**Presentation hints**
+- **widgetHint** — Slider on indirectRate
+- **Layout modes** — page (wizard pages), flow: grid with columns: 2 (budget), collapsible with collapsedByDefault (budget)
+- **styleHints** — emphasis: primary, size: default on budget group
+- **Accessibility** — role: region, description, liveRegion: polite on budget group
+- **Labels** — multi-label support (short, aria, pdf, csv) on orgName and other fields
+- **Prefix/suffix** — "$" prefix on unitCost, "%" suffix on indirectRate
+- **initialValue** — contactPhone defaults to "202-555-0100", startDate uses FEL expression "=today()"
+- **semanticType** — email and phone on contact fields
+
+**Extensions**
+- **x- properties** — at definition level (x-agency, x-program-code), bind level (x-validation-group), shape level (x-help-link), route level (x-route-category), instance level (x-purpose), item level (x-budget-version), screener level (x-screener-version)
+
+**Form metadata**
+- **url, version, versionAlgorithm** — semver versioning with canonical URL
+- **status** — "active"
+- **derivedFrom** — references parent template (generic-application-template v2.0.0)
+- **title, description, date, name** — full identification metadata
 
 ### FEL (expression language)
 
