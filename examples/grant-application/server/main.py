@@ -29,7 +29,7 @@ from formspec.validator.linter import lint
 from formspec.mapping.engine import MappingEngine
 from formspec.adapters import get_adapter
 from formspec.evaluator import DefinitionEvaluator
-from formspec.fel import evaluate as fel_evaluate, to_python, typeof, FelSyntaxError
+from formspec.fel import evaluate as fel_evaluate, extract_dependencies, to_python, typeof, FelSyntaxError
 
 EXAMPLE_DIR = Path(__file__).resolve().parent.parent
 DEFINITION_PATH = EXAMPLE_DIR / "definition.json"
@@ -200,6 +200,27 @@ def registry(name: str | None = None, category: str | None = None, status: str |
     else:
         entries = _registry.entries
     return {"entries": [e.raw for e in entries]}
+
+
+@app.get("/dependencies")
+def dependencies():
+    graph = {}
+    for bind in _definition.get("binds", []):
+        path = bind.get("path", "")
+        for expr_key in ("calculate", "relevant", "constraint", "required", "readonly"):
+            expr = bind.get(expr_key)
+            if not expr:
+                continue
+            try:
+                deps = extract_dependencies(expr)
+                key = path if expr_key == "calculate" else f"{path}.{expr_key}"
+                graph[key] = {
+                    "depends_on": sorted(deps.fields),
+                    "expression": expr,
+                }
+            except Exception:
+                pass
+    return graph
 
 
 @app.post("/changelog")
