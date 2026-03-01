@@ -5,11 +5,11 @@
 
 ## Current Status
 
-- **Current Phase:** 1
+- **Current Phase:** 2
 - **Blockers:** None
 - **Engine tests:** Pass (2026-03-01)
 - **Webcomponent tests:** Unknown
-- **Playwright tests:** Unknown
+- **Playwright tests:** 235 pass, 2 pre-existing failures (grant-app-component-props.spec.ts modal close + grant-app-ux-fixes.spec.ts website URL constraint — both in files not touched by Phase 1)
 
 ---
 
@@ -27,11 +27,11 @@
 
 ## Phase 1: Delete fixture audits (~56 tests)
 
-- [ ] **1.1** In `schema-parity-phase1.spec.ts`: delete the 51 fixture-audit tests (Definition Enrichment tests that just read JSON structure, Theme Enrichment, Component Enrichment, and Response Enrichment `fs.readFileSync` tests). Keep only: dateTime/time/uri field round-trips (3 tests), initialValue today() (1 test), prePopulate readonly (1 test) — these 5 will be migrated in Phase 3.
-- [ ] **1.2** In `grant-app-data-types.spec.ts`: delete the 2 definition-introspection tests ("should have attachment dataType on narrativeDoc" and "should render money field with USD badge" if it's the fallback-to-definition-read version).
-- [ ] **1.3** In `grant-app-wizard-flow.spec.ts`: delete the 3 definition-introspection tests (migrations object, labels metadata, semanticType metadata). Delete the fragile FileUpload test with try/catch fallback.
-- [ ] **1.4** In `accessibility-responsive-custom-components.spec.ts`: delete the recursion-detection test (duplicate of existing `render-lifecycle.test.ts` unit test).
-- [ ] **GATE** Playwright passes: `npx playwright test`
+- [x] **1.1** In `schema-parity-phase1.spec.ts`: delete the 51 fixture-audit tests (Definition Enrichment tests that just read JSON structure, Theme Enrichment, Component Enrichment, and Response Enrichment `fs.readFileSync` tests). Keep only: dateTime/time/uri field round-trips (3 tests), initialValue today() (1 test), prePopulate readonly (1 test) — these 5 will be migrated in Phase 3.
+- [x] **1.2** In `grant-app-data-types.spec.ts`: delete the 2 definition-introspection tests ("should have attachment dataType on narrativeDoc" and "should render money field with USD badge" if it's the fallback-to-definition-read version).
+- [x] **1.3** In `grant-app-wizard-flow.spec.ts`: delete the 3 definition-introspection tests (migrations object, labels metadata, semanticType metadata). Delete the fragile FileUpload test with try/catch fallback.
+- [x] **1.4** In `accessibility-responsive-custom-components.spec.ts`: delete the recursion-detection test (duplicate of existing `render-lifecycle.test.ts` unit test).
+- [x] **GATE** Playwright passes: `npx playwright test` (235 pass, 2 pre-existing failures in unmodified files)
 
 **Commit:** `test: delete ~56 fixture-audit and duplicate tests from E2E suite`
 

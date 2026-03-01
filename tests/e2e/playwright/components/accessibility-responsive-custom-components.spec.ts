@@ -209,40 +209,6 @@ test.describe('Components: Accessibility, Responsive Overrides, and Custom Compo
         expect(value).toBe('John');
     });
 
-    test('should warn and prevent recursive expansion when a custom component references itself', async ({ page }) => {
-        const logs: string[] = [];
-        page.on('console', msg => {
-            if (msg.type() === 'warning') logs.push(msg.text());
-        });
-
-        await page.evaluate(() => {
-            const el = document.querySelector('formspec-render') as any;
-            el.definition = {
-                "$formspec": "1.0",
-                "url": "http://example.org/test",
-                "version": "1.0.0",
-                "title": "Recursive Custom Test",
-                "items": []
-            };
-            el.componentDocument = {
-                "$formspecComponent": "1.0",
-                "components": {
-                    "Recursive": {
-                        "tree": {
-                            "component": "Recursive"
-                        }
-                    }
-                },
-                "tree": {
-                    "component": "Recursive"
-                }
-            };
-        });
-
-        // Should warn about recursive component
-        expect(logs.some(l => l.includes('Recursive custom component detected'))).toBe(true);
-    });
-
     test('should merge responsive props when the active viewport breakpoint changes', async ({ page }) => {
         // Set viewport to a wide size first
         await page.setViewportSize({ width: 1200, height: 800 });

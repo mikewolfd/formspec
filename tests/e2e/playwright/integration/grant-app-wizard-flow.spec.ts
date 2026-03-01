@@ -80,42 +80,6 @@ test.describe('Grant Application: Wizard Flow', () => {
     expect(algo).toBe('semver');
   });
 
-  test('should have migrations object present in the loaded definition', async ({ page }) => {
-    const migrations = await page.evaluate(() => {
-      const el: any = document.querySelector('formspec-render');
-      return el.getEngine().definition?.migrations;
-    });
-    expect(migrations).toBeDefined();
-    expect(typeof migrations).toBe('object');
-    expect(migrations).toHaveProperty('from');
-  });
-
-  test('should have labels metadata on orgName field (short and aria keys)', async ({ page }) => {
-    const labels = await page.evaluate(() => {
-      const el: any = document.querySelector('formspec-render');
-      const def = el.getEngine().definition;
-      const apInfo = def.items.find((g: any) => g.key === 'applicantInfo');
-      const orgName = apInfo?.children?.find((f: any) => f.key === 'orgName');
-      return orgName?.labels;
-    });
-    expect(labels).toBeDefined();
-    expect(labels.short).toBe('Org');
-    expect(labels.aria).toBe('Applying Organization Full Legal Name');
-  });
-
-  test('should have semanticType metadata on contactEmail (email) and contactPhone (phone)', async ({ page }) => {
-    const types = await page.evaluate(() => {
-      const el: any = document.querySelector('formspec-render');
-      const def = el.getEngine().definition;
-      const apInfo = def.items.find((g: any) => g.key === 'applicantInfo');
-      const email = apInfo?.children?.find((f: any) => f.key === 'contactEmail');
-      const phone = apInfo?.children?.find((f: any) => f.key === 'contactPhone');
-      return { emailSemType: email?.semanticType, phoneSemType: phone?.semanticType };
-    });
-    expect(types.emailSemType).toBe('email');
-    expect(types.phoneSemType).toBe('phone');
-  });
-
   test('should have prePopulate property on orgName referencing agencyData instance', async ({ page }) => {
     const prePop = await page.evaluate(() => {
       const el: any = document.querySelector('formspec-render');
@@ -141,36 +105,4 @@ test.describe('Grant Application: Wizard Flow', () => {
 
   // ── FileUpload ─────────────────────────────────────────────────────
 
-  test('should render FileUpload components for attachment fields', async ({ page }) => {
-    // FileUpload components are on the Review & Submit page (page 5)
-    // Fill required fields and navigate there
-    await engineSetValue(page, 'applicantInfo.orgName', 'Test Org');
-    await engineSetValue(page, 'applicantInfo.ein', '12-3456789');
-    await engineSetValue(page, 'applicantInfo.orgType', 'university');
-    await engineSetValue(page, 'applicantInfo.contactName', 'Jane Smith');
-    await engineSetValue(page, 'applicantInfo.contactEmail', 'jane@example.org');
-    await engineSetValue(page, 'projectNarrative.projectTitle', 'Test Project');
-    await engineSetValue(page, 'projectNarrative.abstract', 'A detailed project description.');
-    await engineSetValue(page, 'projectNarrative.startDate', '2027-01-01');
-    await engineSetValue(page, 'projectNarrative.endDate', '2028-01-01');
-    await engineSetValue(page, 'projectNarrative.focusAreas', ['health']);
-    await page.waitForTimeout(100);
-
-    try {
-      await goToPage(page, 'Review & Submit');
-      const fileInputs = page.locator('input[type="file"]');
-      const count = await fileInputs.count();
-      expect(count).toBeGreaterThanOrEqual(1);
-    } catch {
-      // Navigation may fail if required fields aren't met — skip navigation assertion
-      // Just verify the definition has attachment fields
-      const hasAttachment = await page.evaluate(() => {
-        const el: any = document.querySelector('formspec-render');
-        const def = el.getEngine().definition;
-        const attachments = def.items.find((g: any) => g.key === 'attachments');
-        return attachments?.children?.some((f: any) => f.dataType === 'attachment');
-      });
-      expect(hasAttachment).toBe(true);
-    }
-  });
 });

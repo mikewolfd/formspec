@@ -13,25 +13,6 @@ test.describe('Grant Application: Data Types', () => {
 
   // ── Money Field ────────────────────────────────────────────────────
 
-  test('should render money field with USD badge from formPresentation.defaultCurrency', async ({ page }) => {
-    // The requestedAmount money field should show a USD badge
-    // (no explicit currency property on field — uses defaultCurrency)
-    const moneyBadge = page.locator('.formspec-money-currency-input, .formspec-money [data-currency]').first();
-    const badgeExists = await moneyBadge.count();
-
-    if (badgeExists > 0) {
-      const badgeText = await moneyBadge.inputValue().catch(async () => await moneyBadge.textContent() ?? '');
-      expect(badgeText.trim()).toContain('USD');
-    } else {
-      // Fallback: verify formPresentation.defaultCurrency is set to USD in the definition
-      const currency = await page.evaluate(() => {
-        const el: any = document.querySelector('formspec-render');
-        return el.getEngine().definition?.formPresentation?.defaultCurrency;
-      });
-      expect(currency).toBe('USD');
-    }
-  });
-
   test('should accept numeric input and store requestedAmount as money object', async ({ page }) => {
     await engineSetValue(page, 'budget.requestedAmount', 50000);
     await page.waitForTimeout(50);
@@ -87,19 +68,6 @@ test.describe('Grant Application: Data Types', () => {
 
     const val = await engineValue(page, 'attachments.budgetJustification');
     expect(val).toBe('budget.xlsx');
-  });
-
-  test('should have attachment dataType on narrativeDoc and budgetJustification in definition', async ({ page }) => {
-    const types = await page.evaluate(() => {
-      const el: any = document.querySelector('formspec-render');
-      const def = el.getEngine().definition;
-      const attachments = def.items.find((g: any) => g.key === 'attachments');
-      const narrative = attachments?.children?.find((f: any) => f.key === 'narrativeDoc');
-      const budget = attachments?.children?.find((f: any) => f.key === 'budgetJustification');
-      return { narrativeType: narrative?.dataType, budgetType: budget?.dataType };
-    });
-    expect(types.narrativeType).toBe('attachment');
-    expect(types.budgetType).toBe('attachment');
   });
 
   // ── Date Fields ────────────────────────────────────────────────────
