@@ -1,123 +1,236 @@
 # Formspec Studio V1 — Definition-First, Reuse-First Plan
 
-**Visual Design Spec:** [`formspec-studio-design-spec.md`](formspec-studio-design-spec.md) — colors, typography, layout, component specs, accessibility, motion.
+**Visual Design Spec:** [`formspec-studio-design-spec.md`](formspec-studio-design-spec.md) — colors, typography, layout, component catalog, accessibility, motion.
 
 ## Summary
-Build a greenfield web tool at `examples/form-builder` focused on no-code authoring of `definition.json` as the primary workflow, with always-visible optional tabs for `component`, `theme`, `mapping`, `registry`, and `changelog`.  
-Do not implement new parsers/validators for Formspec semantics. Reuse existing `packages/formspec-engine` and `packages/formspec-webcomponent` at runtime, and reuse `src/formspec` in contract tests/tooling to enforce parity.
+
+Build `form-builder/` as a top-level monorepo app for no-code authoring of `definition.json`. The tool consumes `packages/formspec-engine` and `packages/formspec-webcomponent` as workspace dependencies — the same way any external consumer would. It is not an example or demo; it is a first-class tool.
+
+Core principle: **reuse-first.** No new FEL parser, no custom semantic validator, no reimplementation of what FormEngine already does. The app is a UI layer over existing runtime components.
 
 ## Scope
-1. Primary required capability: full no-code create/edit/validate/preview/export for `definition.json`.
-2. Optional capabilities: create/edit/validate/export for `component`, `theme`, `mapping`, `registry`, `changelog`.
-3. Optional artifacts must not block the primary definition workflow.
-4. Runtime stack is browser-only JavaScript for end users.
-5. No runtime Python sidecar in V1.
-6. Support partial projects: definition-only projects are first-class.
-7. Keep optional editors always visible as tabs.
+
+1. **Primary:** Full no-code create / edit / validate / preview / export for `definition.json`.
+2. **Secondary:** Create / edit / validate / export for `component`, `theme`, `mapping`, `registry`, `changelog`.
+3. Secondary artifacts must never block the primary definition workflow.
+4. Definition-only projects are first-class. All secondary artifacts are independently optional.
+5. Runtime stack: Preact + `@preact/signals` (browser-only). No Python sidecar.
 
 ## Reuse-First Architecture
-1. Use `FormEngine` for all definition semantics:
-1. FEL parsing and evaluation.
-2. Bind logic.
-3. Shape validation.
-4. Screener evaluation.
-5. Response serialization.
-2. Use `RuntimeMappingEngine` for mapping preview where applicable.
-3. Use `<formspec-render>` for live preview and component/theme integration.
-4. Use repository `schemas/*.json` with AJV for schema-level document validation.
-5. Use `src/formspec` in non-runtime parity tooling:
-1. `formspec.validator.lint` for semantic cross-checks in CI/e2e contracts.
-2. `formspec.evaluator.DefinitionEvaluator` for server-grade validation parity checks.
-3. `formspec.mapping.MappingEngine` for mapping parity checks.
 
-## Product UX
+| Need | Source |
+|------|--------|
+| FEL parsing, bind logic, shape validation, screener, response serialization | `FormEngine` |
+| Mapping preview | `RuntimeMappingEngine` |
+| Live form preview, component/theme integration | `<formspec-render>` web component |
+| Schema-level document validation | Repository `schemas/*.json` + AJV |
+| Python parity checks (CI only) | `src/formspec` — `validator.lint`, `DefinitionEvaluator`, `MappingEngine` |
 
-See [`formspec-studio-design-spec.md`](formspec-studio-design-spec.md) for full visual specifications (colors, typography, layout dimensions, component anatomy, motion, accessibility). Summary of the information architecture:
+## UI Technology
 
-1. **Three-panel workspace:** sidebar (200px) · editor (flex) · inspector (340px). Topbar (50px) spans full width.
-2. **Sidebar** — artifact tabs: `Definition`, `Component`, `Theme`, `Mapping`, `Registry`, `Changelog`. Each shows configured/unconfigured status.
-3. **Editor** — mode toggle between `Guided` (tree editor) and `JSON` (raw editor). Tree is the primary interaction surface for the Definition tab; other tabs use JSON or empty-state prompts.
-4. **Inspector** — three tabs: `Properties` (context-sensitive for selected tree node), `Preview` (live `<formspec-render>`), `Diagnostics` (normalized validation results with severity counts).
-5. Definition tab is the default landing tab and has highest UX polish.
-6. Optional tabs show “Not configured yet” state with create/import actions and can be skipped safely.
+Preact + `@preact/signals` for the application UI.
+
+1. **Shared reactive primitive.** `formspec-engine` uses `@preact/signals-core` internally. Engine signals (field values, relevance, validation) drive UI updates directly — no adapter layer.
+2. **Tiny footprint.** Preact is ~4KB gzipped. Component composition, JSX, reactive DOM updates with effectively zero bundle cost.
+3. **Complexity warrants it.** Tree editor, property panel, live diagnostics, and multi-panel workspace are stateful interactive surfaces that would require an ad-hoc reactive system in vanilla JS.
+4. **Not a framework commitment.** No router, no global store convention. Functions that return JSX, compiled by Vite.
+5. **`<formspec-render>` stays a web component.** Preview panel mounts the existing custom element. Preact renders the builder UI; the preview is an isolated web component inside it.
+
+## Workspace Layout
+
+Four-zone collapsible workspace with side-by-side tree + preview as the default view.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Topbar (48px)                                                     │
+├────┬────────────────────┬───────────────────┬────────────────────┤
+│ ◆  │  Tree Editor        │  Live Preview     │  Properties       │
+│ ◇  │  (structure)        │  (rendered form)  │  + Diagnostics    │
+│ ◈  │                     │                   │                   │
+│ ⬡  │  ← selection syncs →                   │  ← collapsible →  │
+│ ▢  │                     │                   │                   │
+│ ▤  │  Guided | JSON      │                   │  Props | Diags    │
+└────┴────────────────────┴───────────────────┴────────────────────┘
+```
+
+**Sidebar:** ~48px icon-only by default. Tooltip labels on hover. Expand to ~180px on click. Contains artifact tabs (Definition, Component, Theme, Mapping, Registry, Changelog) with configured/unconfigured status.
+
+**Tree + Preview:** Split the flex area with a resizable divider, default 50/50. Tree is the structural editing surface; preview shows the live rendered form via `<formspec-render>`. Selecting a node in either surface syncs the other.
+
+**Properties + Diagnostics:** ~320px right panel, collapsible to zero via toggle button. Two tabs: Properties (context-sensitive for selected node) and Diagnostics (normalized validation results).
+
+**Topbar:** Brand, form title (editable), version/status, import/export buttons.
+
+**Responsive:**
+- **1440+px:** All four zones visible, comfortable.
+- **1280–1439px:** All visible. Properties starts collapsed.
+- **1024–1279px:** Preview becomes a toggleable overlay or tab.
+- **<1024px:** "Desktop required" message.
+
+## Tree Editor
+
+The tree is the primary structural editing surface. It must feel fast, scannable, and forgiving.
+
+### Node anatomy
+
+Each node shows: type dot (color-coded), label, data type badge, bind indicators. On hover: grab handle (for drag), action buttons (move up/down, delete), field key. On select: accent background, left border, properties panel populates.
+
+### Smart inline add
+
+Click between nodes to insert. A faint dashed line with "+" appears in the gap on hover. Clicking opens an inline creation row in place:
+
+```
+  ● Full Name           string  *
+  ┌──────────────────────────────────────────────┐
+  │ [Phone Number     ] [field ▾]  [↵]  [×]     │
+  └──────────────────────────────────────────────┘
+  ● Email Address       string
+```
+
+- Text input auto-focused for label. Key auto-derived (kebab-case).
+- Type dropdown defaults to `field`. Options: `field`, `group`, `display`.
+- Enter creates, Escape cancels. New node is selected after creation.
+- Persistent `+ Add` affordance at the end of each group's children.
+
+### Drag-and-drop reorder
+
+- Grab handle (⠿ grip icon) appears on node hover, left edge.
+- Drag vertically to reorder within the same parent.
+- Drag into a group to reparent (group highlights with drop indicator).
+- Drop position shown with a horizontal insertion line (accent color).
+- Dragging a group moves it with all children.
+- Up/down buttons remain as keyboard-accessible fallback.
+
+### Selection sync
+
+- Tree selection scrolls preview to that field and highlights it (subtle accent outline, fades after 1.5s).
+- Clicking a field in preview selects the corresponding tree node and scrolls it into view.
+- Either surface drives the Properties panel.
+
+### Modes
+
+- **Guided** (default): Tree editor.
+- **JSON**: Raw textarea with apply/revert. Full schema authoring fallback for any artifact.
+
+## Property Panel
+
+Context-sensitive editor driven by tree/preview selection.
+
+- **Empty state:** "Select an item to edit its properties."
+- **Field selected:** Sections for Identity (key, label), Data (type, placeholder, options), Behavior (relevant, required, readonly, calculate), Validation (constraint, message). FEL inputs use monospace font.
+- **Group selected:** Identity (key, label), Behavior (relevant, readonly), Repeat (min, max).
+- **Root selected:** Form metadata (url, title, version, description).
 
 ## Data Model and I/O
-1. `BuilderProject` model contains independent artifact slots, each nullable except `definition`.
-2. Minimal valid project requires only `definition`.
-3. Import supports:
-1. Single JSON file (`definition`).
-2. Multi-file upload.
-3. ZIP bundle.
-4. Export supports:
-1. Definition-only ZIP.
-2. Extended ZIP including any optional artifacts present.
-3. Unknown extra files preserved on round-trip when imported from ZIP.
 
-## Validation and Diagnostics Flow
-1. Schema pass for each loaded artifact against canonical repo schema.
-2. Definition semantic pass via `FormEngine` instantiation and validation report.
-3. Preview compatibility pass via `<formspec-render>` render lifecycle warnings/errors.
-4. Mapping runtime pass via `RuntimeMappingEngine` diagnostics.
-5. Diagnostics are normalized into one UI format with `severity`, `artifact`, `path`, `message`, `source`.
-6. Blocking rules:
-1. Definition schema/semantic errors block publish/export.
-2. Optional artifact errors do not block definition-only export.
-3. Optional artifact errors block “full bundle export” only when that artifact is included.
+1. `BuilderProject` contains independent artifact slots, each nullable except `definition`.
+2. Minimal valid project requires only `definition`.
+3. **Import:** Single JSON file, multi-file upload, ZIP bundle.
+4. **Export:** Definition-only ZIP, full-bundle ZIP (includes present optional artifacts). Unknown extra files preserved on ZIP round-trip.
+
+## Validation and Diagnostics
+
+1. Schema pass: each artifact against its canonical `schemas/*.json` via AJV.
+2. Semantic pass: `FormEngine` instantiation, validation report, FEL errors.
+3. Preview pass: `<formspec-render>` lifecycle warnings/errors.
+4. Mapping pass: `RuntimeMappingEngine` diagnostics (when mapping present).
+5. All diagnostics normalized to: `{ severity, artifact, path, message, source }`.
+6. **Blocking rules:** Definition errors block all export. Optional artifact errors block only full-bundle export when that artifact is included. Optional errors never block definition-only export.
 
 ## Random Response Preview
-1. Add deterministic generator seeded by user input.
-2. Generate candidate data from definition structure and data types.
-3. Validate candidates through `FormEngine.getValidationReport`.
-4. Retry bounded times for better validity.
-5. Always show unresolved rule list when perfect validity cannot be achieved.
 
-## Important Changes/Additions to Public APIs/Interfaces/Types
-1. App-local types in `examples/form-builder/src/types.ts`:
-1. `ArtifactKind`.
-2. `ArtifactState`.
-3. `BuilderProject`.
-4. `BuilderDiagnostic`.
-5. `ExportProfile` (`definition-only` | `full-bundle`).
-2. Non-breaking enhancement in `formspec-webcomponent`:
-1. Add structured diagnostics event `formspec-diagnostic` emitted alongside existing warnings.
-2. Event payload includes `code?`, `severity`, `message`, `path?`, `source`.
-3. No breaking change in `formspec-engine` API required.
-4. Add test-time parity harness interface (app-local) that serializes current artifacts for Python contract checks.
+1. Deterministic generator seeded by user input.
+2. Generates candidate data from definition structure and data types.
+3. Validates through `FormEngine.getValidationReport`.
+4. Retries bounded times for better validity.
+5. Shows unresolved rule list when perfect validity cannot be achieved.
 
 ## Implementation Phases
-1. Phase 1: Scaffold `examples/form-builder`, routing, project state, definition-first editor shell.
-2. Phase 2: Integrate definition guided tree editor + advanced JSON + FormEngine diagnostics.
-3. Phase 3: Integrate live preview with `<formspec-render>` and response preview panel.
-4. Phase 4: Add optional tabs (`component/theme/mapping/registry/changelog`) with schema validation and save/export support.
-5. Phase 5: Add deterministic random response generation and regeneration controls.
-6. Phase 6: Add import/export profiles (`definition-only`, `full-bundle`) and robust ZIP round-trip.
-7. Phase 7: Add Python parity contract suite using `src/formspec` in CI and e2e fixtures.
 
-## Test Cases and Scenarios
-1. Definition-only project can be created, validated, previewed, and exported.
-2. Optional artifact tabs can stay empty without blocking definition workflow.
-3. Optional artifact with invalid schema surfaces diagnostics in its tab.
-4. Full bundle export includes only valid selected optional artifacts plus definition.
-5. FEL behavior in editor uses engine results only (no custom parser path).
-6. Random generator is deterministic for a fixed seed.
-7. Generated response validation report is visible and reproducible.
-8. Import definition-only JSON then re-export preserves semantic content.
-9. Import full ZIP then re-export preserves known artifacts and unknown extras.
-10. Python parity test: exported definition lint result from `src/formspec.validator` matches app blocking status.
-11. Python parity test: generated response evaluated by `DefinitionEvaluator` does not contradict engine validity for shared supported cases.
-12. Python parity test: mapping output parity checks on supported transform subset.
+### Phase 1: Workspace + Definition Tree
+
+Scaffold `form-builder/` with Preact + signals + Vite. Build the four-zone workspace (icon-only sidebar, tree + preview split, collapsible properties). Implement tree editor with:
+- Node rendering (labels, type dots, badges, depth guides)
+- Smart inline add (gap insertion, inline creation form)
+- Drag-and-drop reorder
+- Node selection → Properties panel wiring
+- Guided (tree) and JSON mode toggle
+- FormEngine integration (FEL, binds, validation)
+- Diagnostics tab
+
+**Milestone:** Create, edit, reorder, and validate a definition. JSON fallback available. Diagnostics surface errors.
+
+### Phase 2: Live Preview + Selection Sync
+
+Integrate `<formspec-render>` in the preview panel:
+- Live rendering (debounced updates)
+- Bidirectional selection sync (tree ↔ preview)
+- Scroll-to-field on selection
+- Respects component/theme if present
+
+**Milestone:** Tree and preview side-by-side with synced selection. Form takes shape in real-time.
+
+### Phase 3: Import / Export + Optional Tabs
+
+- Import: single JSON, multi-file, ZIP bundle
+- Export: definition-only ZIP, full-bundle ZIP
+- Optional tabs (Component, Theme, Mapping, Registry, Changelog): empty states, JSON editor, schema validation
+- Unknown files preserved on ZIP round-trip
+
+**Milestone:** Full project I/O. Optional artifacts editable but never blocking.
+
+### Phase 4: Polish + Response Generation + Parity
+
+- Deterministic random response generation and preview
+- Python parity contract suite (CI, using `src/formspec`)
+- Keyboard shortcuts, accessibility audit, reduced motion
+- Performance tuning
+
+**Milestone:** Production-quality V1.
+
+## Types
+
+App-local types in `form-builder/src/types.ts`:
+- `ArtifactKind` — union of artifact names
+- `ArtifactState` — loaded/validated state per artifact
+- `BuilderProject` — project model with nullable artifact slots
+- `BuilderDiagnostic` — normalized diagnostic format
+- `ExportProfile` — `'definition-only' | 'full-bundle'`
+
+Non-breaking enhancement in `formspec-webcomponent`:
+- `formspec-diagnostic` event: `{ code?, severity, message, path?, source }`.
+
+No breaking changes in `formspec-engine`.
+
+## Test Scenarios
+
+1. Definition-only project: create, validate, preview, export.
+2. Optional tabs empty: no blocking, no errors.
+3. Invalid optional artifact: diagnostics surface in its tab, don't block definition export.
+4. Full bundle export: includes only valid optional artifacts plus definition.
+5. FEL behavior: engine results only, no custom parser.
+6. Drag-and-drop: reorder within parent, reparent into groups.
+7. Inline add: create field/group/display via gap insertion.
+8. Selection sync: tree ↔ preview bidirectional.
+9. Random generator: deterministic for fixed seed, validation report visible.
+10. Import JSON → re-export: preserves semantic content.
+11. Import ZIP → re-export: preserves known artifacts and unknown extras.
+12. Python parity: lint, evaluation, and mapping output match engine behavior.
 
 ## Acceptance Criteria
-1. Non-technical user can build/edit a definition without touching raw JSON.
-2. Definition validation and preview rely on existing Formspec runtime components, not custom parsers.
-3. Optional artifacts are editable but not mandatory.
-4. Definition-only export is always available when definition is valid.
-5. Full-bundle export is available when included artifacts pass validation.
-6. CI enforces parity contracts using `src/formspec` to prevent drift.
 
-## Assumptions and Defaults
-1. V1 runtime uses JS only; Python is used in tooling/tests, not in-browser.
-2. `definition` is mandatory; all other artifact files are optional.
-3. Optional artifact tabs remain always visible per preference.
-4. “Reuse-first” forbids introducing a new FEL grammar/parser/semantic validator in the app.
-5. Full schema authoring support remains available via advanced JSON fallback in every tab.
+1. Non-technical user can build/edit a definition without touching raw JSON.
+2. Validation and preview rely on existing Formspec runtime components only.
+3. Optional artifacts are editable but never mandatory.
+4. Definition-only export always available when definition is valid.
+5. Full-bundle export available when included artifacts pass validation.
+6. CI enforces parity contracts using `src/formspec`.
+
+## Assumptions
+
+1. V1 is JS-only at runtime. Python is CI/test tooling.
+2. `definition` is mandatory; everything else is optional.
+3. Optional artifact tabs always visible in sidebar.
+4. Reuse-first: no new FEL grammar/parser/semantic validator in the app.
+5. JSON fallback available in every tab for full schema authoring.
+6. `form-builder/` is a top-level monorepo app consuming formspec packages via workspace dependencies.
