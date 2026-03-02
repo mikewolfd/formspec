@@ -1,3 +1,6 @@
+import { project } from '../state/project';
+import { showToast } from '../state/toast';
+import { ARTIFACT_TEMPLATES } from './artifact-editor';
 import type { ArtifactKind } from '../types';
 
 const TAB_INFO: Record<string, { icon: string; description: string }> = {
@@ -23,6 +26,35 @@ const TAB_INFO: Record<string, { icon: string; description: string }> = {
   },
 };
 
+function handleCreateFromScratch(kind: ArtifactKind) {
+  const template = ARTIFACT_TEMPLATES[kind];
+  if (!template) return;
+  project.value = { ...project.value, [kind]: structuredClone(template) };
+  showToast(`${kind} created`, 'success');
+}
+
+function handleImportJSON(kind: ArtifactKind) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+        project.value = { ...project.value, [kind]: parsed };
+        showToast(`${kind} imported`, 'success');
+      } catch {
+        showToast('Invalid JSON file', 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 export function EmptyTab({ kind }: { kind: ArtifactKind }) {
   const info = TAB_INFO[kind];
   if (!info) {
@@ -37,8 +69,12 @@ export function EmptyTab({ kind }: { kind: ArtifactKind }) {
       <h2 class="empty-tab-title">{title} not configured</h2>
       <p class="empty-tab-desc">{info.description}</p>
       <div class="empty-tab-actions">
-        <button class="btn-primary">Create from Scratch</button>
-        <button class="btn-ghost">Import JSON</button>
+        <button class="btn-primary" onClick={() => handleCreateFromScratch(kind)}>
+          Create from Scratch
+        </button>
+        <button class="btn-ghost" onClick={() => handleImportJSON(kind)}>
+          Import JSON
+        </button>
       </div>
     </div>
   );
