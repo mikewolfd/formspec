@@ -44,6 +44,7 @@ Defines 33 built-in interactive components, slot binding, custom component exten
 
 - [Mapping DSL](specs/mapping/mapping-spec.md) — Bidirectional transforms between form data and external formats (JSON, XML, CSV). Schema: [`mapping`](schemas/mapping.schema.json)
 - [Extension Registry](specs/registry/extension-registry.md) — Publishing, discovery, and lifecycle for custom extensions. Schema: [`registry`](schemas/registry.schema.json)
+- [Common Extensions Registry](registries/formspec-common.registry.json) — Ready-to-use extensions for email, phone, percentage, currency, SSN, credit card, color, slug, IPv4, and more (12 data types, 2 functions, 1 constraint)
 - [Changelog Format](specs/registry/changelog-spec.md) — Structured change tracking with impact classification. Schema: [`changelog`](schemas/changelog.schema.json)
 
 ## Repository Structure
@@ -51,6 +52,8 @@ Defines 33 built-in interactive components, slot binding, custom component exten
 ```
 schemas/                        JSON Schema files (8 schemas)
 specs/                          Specification documents by tier
+registries/                     Extension registry documents
+  formspec-common.registry.json   Common extensions (email, phone, %, $, SSN, etc.)
 packages/
   formspec-engine/              TypeScript core engine
                                   FormEngine, FEL lexer/parser/interpreter,
