@@ -4,22 +4,13 @@ import type { ArtifactKind } from '../types';
 
 const expanded = signal(false);
 
-const TABS: Array<{ kind: ArtifactKind; icon: string; label: string }> = [
-  { kind: 'definition', icon: '◆', label: 'Definition' },
-  { kind: 'component', icon: '◇', label: 'Component' },
-  { kind: 'theme', icon: '◈', label: 'Theme' },
-  { kind: 'mapping', icon: '⬡', label: 'Mapping' },
-  { kind: 'registry', icon: '▢', label: 'Registry' },
-  { kind: 'changelog', icon: '▤', label: 'Changelog' },
+const TABS: Array<{ kind: 'build' | 'library' | 'design'; icon: string; label: string }> = [
+  { kind: 'build', icon: '◆', label: 'Build' },
+  { kind: 'library', icon: '◇', label: 'Component Library' },
+  { kind: 'design', icon: '◈', label: 'Global Design' },
 ];
 
-function isConfigured(kind: ArtifactKind): boolean {
-  const current = project.value;
-  if (kind === 'definition') {
-    return current.definition !== null;
-  }
-  return current[kind] !== null;
-}
+export const activeTool = signal<'build' | 'library' | 'design'>('build');
 
 export function Sidebar() {
   return (
@@ -36,8 +27,7 @@ export function Sidebar() {
       aria-orientation="vertical"
     >
       {TABS.map((tab) => {
-        const active = activeArtifact.value === tab.kind;
-        const configured = isConfigured(tab.kind);
+        const active = activeTool.value === tab.kind;
         return (
           <button
             key={tab.kind}
@@ -46,7 +36,7 @@ export function Sidebar() {
             class="sidebar-tab"
             data-active={active || undefined}
             onClick={() => {
-              activeArtifact.value = tab.kind;
+              activeTool.value = tab.kind;
             }}
             title={tab.label}
           >
@@ -57,14 +47,6 @@ export function Sidebar() {
               {tab.icon}
             </span>
             {expanded.value && <span class="sidebar-tab-label">{tab.label}</span>}
-            {expanded.value && tab.kind !== 'definition' && (
-              <span
-                class="sidebar-tab-status"
-                style={{ color: configured ? 'var(--success)' : 'var(--text-3)' }}
-              >
-                {configured ? '✓' : '—'}
-              </span>
-            )}
           </button>
         );
       })}

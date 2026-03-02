@@ -42,7 +42,7 @@ export function JsonEditor() {
           status.value = 'ok';
           errorMessage.value = '';
         }}
-        spellCheck={false}
+        spellcheck={false}
       />
       <div class="json-editor-actions">
         <button class="btn-primary" onClick={handleApply}>
