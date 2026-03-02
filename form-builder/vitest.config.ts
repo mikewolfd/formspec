@@ -10,6 +10,12 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['src/**/*.test.{ts,tsx}'],
   },
+  resolve: {
+    alias: {
+      'formspec-webcomponent': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/index.ts'),
+      'formspec-engine': path.resolve(repoRoot, 'packages/formspec-engine/src/index.ts'),
+    },
+  },
   server: {
     fs: {
       allow: [repoRoot],

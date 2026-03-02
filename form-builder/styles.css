@@ -1064,3 +1064,38 @@ body {
 .add-option-btn:hover {
   color: var(--accent);
 }
+
+/* ── Preview ───────────────────────────────────────────────────────── */
+.preview-container {
+  height: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+.preview-container formspec-render {
+  display: block;
+  min-height: 100%;
+}
+
+.formspec-field.preview-highlight {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+  transition: outline-color 0.3s ease;
+}
+
+.formspec-field.preview-highlight-fade {
+  outline-color: transparent;
+}
+
+.preview-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  font-size: 13px;
+  background: rgba(14, 17, 23, 0.7);
+  pointer-events: none;
+}
