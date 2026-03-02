@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { ArtifactEditor } from './components/artifact-editor';
 import { EmptyTab } from './components/empty-tab';
 import { JsonEditor } from './components/json-editor';
 import { Preview } from './components/preview';
@@ -28,7 +29,7 @@ export function App() {
         <div class="studio-editor">
           {showEmpty ? (
             <EmptyTab kind={artifact} />
-          ) : (
+          ) : isDefinition ? (
             <>
               <div class="editor-mode-bar">
                 <button
@@ -53,15 +54,7 @@ export function App() {
                   class="studio-tree-pane"
                   style={{ flex: `0 0 ${splitPercent.value}%` }}
                 >
-                  {isDefinition ? (
-                    editorMode.value === 'guided' ? (
-                      <TreeEditor />
-                    ) : (
-                      <JsonEditor />
-                    )
-                  ) : (
-                    <div class="artifact-placeholder">Artifact editor coming in a later phase.</div>
-                  )}
+                  {editorMode.value === 'guided' ? <TreeEditor /> : <JsonEditor />}
                 </div>
                 <Splitter
                   onResize={(delta) => {
@@ -83,6 +76,8 @@ export function App() {
                 </div>
               </div>
             </>
+          ) : (
+            <ArtifactEditor kind={artifact} />
           )}
         </div>
         <PropertiesPanel
