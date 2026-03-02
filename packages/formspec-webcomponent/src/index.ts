@@ -470,8 +470,10 @@ export class FormspecRender extends HTMLElement {
             fieldWrapper.className = 'formspec-field formspec-screener-field';
             fieldWrapper.dataset.name = item.key;
 
+            const fieldId = `screener-${item.key}`;
             const label = document.createElement('label');
             label.textContent = this.engine!.getLabel(item);
+            label.htmlFor = fieldId;
             fieldWrapper.appendChild(label);
 
             if (item.hint) {
@@ -484,6 +486,7 @@ export class FormspecRender extends HTMLElement {
             if (item.dataType === 'choice' && item.options) {
                 const select = document.createElement('select');
                 select.className = 'formspec-input';
+                select.id = fieldId;
                 const emptyOpt = document.createElement('option');
                 emptyOpt.value = '';
                 emptyOpt.textContent = '-- Select --';
@@ -502,6 +505,7 @@ export class FormspecRender extends HTMLElement {
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'formspec-input';
+                checkbox.id = fieldId;
                 checkbox.addEventListener('change', () => {
                     answers[item.key] = checkbox.checked;
                 });
@@ -510,6 +514,7 @@ export class FormspecRender extends HTMLElement {
                 const input = document.createElement('input');
                 input.type = 'number';
                 input.className = 'formspec-input';
+                input.id = fieldId;
                 input.placeholder = 'Amount';
                 input.addEventListener('input', () => {
                     const val = parseFloat(input.value);
@@ -520,6 +525,7 @@ export class FormspecRender extends HTMLElement {
                 const input = document.createElement('input');
                 input.type = item.dataType === 'integer' || item.dataType === 'decimal' || item.dataType === 'number' ? 'number' : 'text';
                 input.className = 'formspec-input';
+                input.id = fieldId;
                 input.addEventListener('input', () => {
                     const val = input.value;
                     if (item.dataType === 'integer') {
@@ -561,8 +567,8 @@ export class FormspecRender extends HTMLElement {
                 }
             }
 
-            // For non-matching routes (external redirect), mark complete but don't render main form
-            this._screenerCompleted = true;
+            // For non-matching routes (external redirect), leave screener visible.
+            // The host app should handle the formspec-screener-route event to redirect.
         });
         panel.appendChild(continueBtn);
 

@@ -54,15 +54,16 @@
           {
             "component": "Columns",
             "widths": ["3fr", "1fr"],
+            "responsive": { "sm": { "widths": ["1fr"] }, "md": { "widths": ["1fr"] } },
             "children": [
               {
                 "component": "Stack",
                 "gap": "$token.space.lg",
                 "children": [
                   {
-                    "component": "Grid",
-                    "columns": 2,
-                    "responsive": { "sm": { "columns": 1 } },
+                    "component": "Columns",
+                    "widths": ["2fr", "1fr"],
+                    "responsive": { "sm": { "widths": ["1fr"] } },
                     "children": [
                       { "component": "TextInput", "bind": "applicantInfo.orgName", "placeholder": "Acme Nonprofit, Inc." },
                       { "component": "TextInput", "bind": "applicantInfo.ein", "placeholder": "12-3456789" }
@@ -81,8 +82,8 @@
                   { "component": "Heading", "level": 3, "text": "Contact Details" },
                   {
                     "component": "Grid",
-                    "columns": 3,
-                    "responsive": { "sm": { "columns": 1 }, "md": { "columns": 2 } },
+                    "columns": 2,
+                    "responsive": { "sm": { "columns": 1 } },
                     "children": [
                       { "component": "ContactField", "params": { "field": "applicantInfo.contactName" } },
                       { "component": "ContactField", "params": { "field": "applicantInfo.contactEmail" } },

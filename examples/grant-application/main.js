@@ -258,7 +258,28 @@ formEl.addEventListener('formspec-page-change', (e) => {
   }
 });
 
-formEl.addEventListener('formspec-screener-route', () => {
+formEl.addEventListener('formspec-screener-route', (e) => {
+  const { route } = e.detail;
+  const defUrl = definition.url;
+  const isInternal = route && (route.target === defUrl || route.target.startsWith(defUrl + '/') || route.target.split('|')[0] === defUrl);
+
+  if (!isInternal && route) {
+    // External route — show a redirect notice instead of the form
+    const notice = document.createElement('div');
+    notice.className = 'formspec-screener';
+    notice.innerHTML = `
+      <h2 class="formspec-screener-heading">You're being redirected</h2>
+      <p class="formspec-screener-intro">Based on your answers, the appropriate form is:</p>
+      <p style="font-weight:600; color: var(--color-primary)">${route.label || route.target}</p>
+      <p class="formspec-screener-intro" style="font-size:14px; color: var(--color-neutral-700)">In a production system this would navigate to the correct form automatically.</p>
+    `;
+    const formArea = formEl.closest('.form-area');
+    formArea.querySelector('.formspec-screener-redirect')?.remove();
+    notice.classList.add('formspec-screener-redirect');
+    formEl.after(notice);
+    return;
+  }
+
   screenerCompleted = true;
   currentFormPageIndex = 0;
   renderProgress();

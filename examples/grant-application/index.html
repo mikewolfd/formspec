@@ -340,12 +340,6 @@
         grid-template-columns: 1fr;
       }
 
-      /* Stack multi-column layouts to single column on mobile */
-      .formspec-grid,
-      .formspec-columns {
-        grid-template-columns: 1fr !important;
-      }
-
       .totals-bar {
         gap: 12px;
         padding: 10px 16px;
@@ -353,6 +347,14 @@
       }
       .totals-bar .totals-amount { font-size: 14px; }
       .totals-bar .totals-match { margin-left: auto; font-size: 12px; }
+    }
+
+    /* Stack all multi-column layouts below the sm breakpoint (576px) */
+    @media (max-width: 575px) {
+      .formspec-grid,
+      .formspec-columns {
+        grid-template-columns: 1fr !important;
+      }
     }
 
     formspec-render {
