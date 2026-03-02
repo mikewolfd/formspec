@@ -12,7 +12,6 @@ async function loadJSON(path) {
 }
 
 const formEl = document.getElementById('form');
-const btnSubmit = document.getElementById('btn-submit');
 const btnBackScreener = document.getElementById('btn-back-screener');
 const serverResponseEl = document.getElementById('server-response');
 const serverResponsePre = document.getElementById('server-response-pre');
@@ -64,7 +63,6 @@ effect(() => {
 const progressStepEls = Array.from(document.querySelectorAll('#progress-steps li'));
 const progressScreenerEl = document.querySelector('#progress-steps li[data-step="screener"]');
 const progressFormStepEls = progressStepEls.filter(li => !li.hasAttribute('data-step'));
-const submitAreaEl = document.querySelector('.submit-area');
 const backScreenerAreaEl = document.querySelector('.back-screener-area');
 const PAGE_TITLES = progressFormStepEls.map(li => li.getAttribute('data-page'));
 let screenerCompleted = false;
@@ -101,66 +99,16 @@ function resolveValidationTarget(result) {
   return { path, fieldEl, labelText };
 }
 
-function navigateToWizardPage(targetPageIndex) {
-  if (targetPageIndex < 0 || currentFormPageIndex < 0 || currentFormPageIndex === targetPageIndex) return;
-  const maxHops = Math.max(PAGE_TITLES.length * 2, 8);
-  let hops = 0;
-
-  while (currentFormPageIndex < targetPageIndex && hops < maxHops) {
-    const nextBtn = formEl.querySelector('button.formspec-wizard-next');
-    if (!nextBtn) break;
-    nextBtn.click();
-    hops += 1;
-  }
-  while (currentFormPageIndex > targetPageIndex && hops < maxHops) {
-    const prevBtn = formEl.querySelector('button.formspec-wizard-prev');
-    if (!prevBtn) break;
-    prevBtn.click();
-    hops += 1;
-  }
-}
-
-function revealTabsForField(fieldEl) {
-  let tabPanel = fieldEl.closest('.formspec-tab-panel');
-  while (tabPanel) {
-    if (tabPanel.classList.contains('formspec-hidden')) {
-      const tabsRoot = tabPanel.closest('.formspec-tabs');
-      if (tabsRoot) {
-        const panels = Array.from(tabsRoot.querySelectorAll('.formspec-tab-panel'));
-        const panelIdx = panels.indexOf(tabPanel);
-        const tabButtons = tabsRoot.querySelectorAll('.formspec-tab-bar .formspec-tab');
-        const tabBtn = tabButtons[panelIdx];
-        if (tabBtn instanceof HTMLButtonElement) tabBtn.click();
-      }
-    }
-    tabPanel = tabPanel.parentElement?.closest('.formspec-tab-panel') || null;
-  }
-}
-
 function focusValidationTarget(path) {
   const normalizedPath = normalizePath(path);
-  const fieldEl = findFieldElement(normalizedPath);
-  if (!fieldEl) return;
-
-  const panels = Array.from(formEl.querySelectorAll('.formspec-wizard-panel'));
-  const targetPanelIndex = panels.findIndex((panel) => panel.contains(fieldEl));
-  if (targetPanelIndex >= 0) {
-    navigateToWizardPage(targetPanelIndex);
+  if (!normalizedPath) return;
+  if (typeof formEl.focusField === 'function') {
+    formEl.focusField(normalizedPath);
+    return;
   }
-
-  // Re-resolve after page navigation in case the form re-rendered.
-  const targetField = findFieldElement(normalizedPath);
-  if (!targetField) return;
-
-  const collapsible = targetField.closest('details.formspec-collapsible');
-  if (collapsible) collapsible.open = true;
-  revealTabsForField(targetField);
-
-  const inputEl = targetField.querySelector('input, select, textarea, button, [tabindex]');
-  targetField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  if (inputEl instanceof HTMLElement) {
-    inputEl.focus({ preventScroll: true });
-  }
+  const fallbackField = findFieldElement(normalizedPath);
+  if (!fallbackField) return;
+  fallbackField.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function renderValidationPanel(report) {
@@ -226,34 +174,16 @@ function renderProgress() {
 renderProgress();
 
 formEl.addEventListener('formspec-page-change', (e) => {
-  const { index, total, title } = e.detail;
-  const isLastPage = index === total - 1;
+  const { index, title } = e.detail;
   const isFirstPage = index === 0;
   const currentIdx = PAGE_TITLES.indexOf(title);
   currentFormPageIndex = currentIdx;
   screenerCompleted = true;
   renderProgress();
 
-  const wizardNav = formEl.querySelector('.formspec-wizard-nav');
-  const wizardNextBtn = formEl.querySelector('button.formspec-wizard-next');
-
-  if (isLastPage && wizardNav) {
-    // Move submit button into the wizard nav row, hide the Next/Finish button
-    if (wizardNextBtn) wizardNextBtn.style.display = 'none';
-    wizardNav.appendChild(btnSubmit);
-    btnSubmit.style.display = '';
-  } else {
-    // Move submit button back out, restore Next button
-    if (wizardNextBtn) wizardNextBtn.style.display = '';
-    submitAreaEl.appendChild(btnSubmit);
-    btnSubmit.style.display = 'none';
-  }
-
-  if (isFirstPage && screenerCompleted && wizardNav) {
+  if (isFirstPage && screenerCompleted) {
     btnBackScreener.style.display = '';
-    wizardNav.insertBefore(btnBackScreener, wizardNav.firstChild);
   } else {
-    backScreenerAreaEl.appendChild(btnBackScreener);
     btnBackScreener.style.display = 'none';
   }
 });
@@ -293,9 +223,7 @@ progressScreenerEl?.addEventListener('click', () => {
   screenerCompleted = false;
   currentFormPageIndex = -1;
   renderProgress();
-  submitAreaEl.appendChild(btnSubmit);
-  btnSubmit.style.display = 'none';
-  backScreenerAreaEl.appendChild(btnBackScreener);
+  backScreenerAreaEl?.appendChild(btnBackScreener);
   btnBackScreener.style.display = 'none';
   hideValidationPanel();
 });
@@ -307,9 +235,7 @@ btnBackScreener.addEventListener('click', () => {
   screenerCompleted = false;
   currentFormPageIndex = -1;
   renderProgress();
-  submitAreaEl.appendChild(btnSubmit);
-  btnSubmit.style.display = 'none';
-  backScreenerAreaEl.appendChild(btnBackScreener);
+  backScreenerAreaEl?.appendChild(btnBackScreener);
   btnBackScreener.style.display = 'none';
   hideValidationPanel();
 });
@@ -325,24 +251,29 @@ validationPanelListEl?.addEventListener('click', (event) => {
   }
 });
 
-// ── Submit ──
-btnSubmit.addEventListener('click', async () => {
-  // Trigger built-in submit flow once so all fields become touched and inline errors are visible.
-  const internalSubmitBtn = formEl.querySelector('button.formspec-submit');
-  if (internalSubmitBtn instanceof HTMLButtonElement) {
-    internalSubmitBtn.click();
+function setSubmitButtonState(disabled, textWhenDisabled = 'Submitting…') {
+  const buttons = Array.from(formEl.querySelectorAll('button.formspec-submit'));
+  for (const button of buttons) {
+    if (!(button instanceof HTMLButtonElement)) continue;
+    if (!button.dataset.defaultLabel) {
+      button.dataset.defaultLabel = button.textContent || 'Submit';
+    }
+    button.disabled = disabled;
+    button.textContent = disabled ? textWhenDisabled : button.dataset.defaultLabel;
   }
+}
 
-  const report = engine.getValidationReport({ mode: 'submit' });
+formEl.addEventListener('formspec-submit', async (e) => {
+  const submitDetail = e.detail || {};
+  const report = submitDetail.validationReport;
   if (!report.valid) {
     renderValidationPanel(report);
     return;
   }
   hideValidationPanel();
 
-  const response = engine.getResponse({ mode: 'submit' });
-  btnSubmit.disabled = true;
-  btnSubmit.textContent = 'Submitting…';
+  const response = submitDetail.response;
+  setSubmitButtonState(true);
 
   try {
     const res = await fetch(`${SERVER}/submit`, {
@@ -358,7 +289,6 @@ btnSubmit.addEventListener('click', async () => {
     serverResponsePre.textContent = `Error contacting server: ${e.message}\n\nMake sure the server is running:\n  cd examples/grant-application\n  pip install -r server/requirements.txt\n  PYTHONPATH=../../src uvicorn server.main:app --port 8000`;
     serverResponseEl.classList.add('visible');
   } finally {
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = 'Submit Application';
+    setSubmitButtonState(false);
   }
 });

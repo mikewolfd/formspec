@@ -361,11 +361,6 @@
       display: block;
     }
 
-    /* Hide the Wizard's built-in submit button — we render our own */
-    .formspec-submit {
-      display: none !important;
-    }
-
     /* ── Collapsible review sections ── */
     .formspec-collapsible {
       border-color: var(--color-neutral-200);
@@ -540,11 +535,8 @@
       box-shadow: 0 0 0 3px rgba(214, 28, 24, 0.24);
     }
 
-    /* ── Submit button (moves into .formspec-wizard-nav on last page) ── */
-    .submit-area {
-      display: none;
-    }
-    .btn-submit {
+    /* ── Submit button ── */
+    .formspec-submit {
       background: var(--color-primary);
       color: #fff;
       border: 2px solid var(--color-primary);
@@ -555,10 +547,10 @@
       cursor: pointer;
       font-family: var(--font);
     }
-    .btn-submit:hover { background: var(--color-primary-dark); }
-    .btn-submit:focus { outline: none; box-shadow: 0 0 0 3px #2491ff; }
-    @media (forced-colors: active) { .btn-submit:focus { outline: 3px solid Highlight; } }
-    .btn-submit:disabled { opacity: 0.5; cursor: default; }
+    .formspec-submit:hover { background: var(--color-primary-dark); }
+    .formspec-submit:focus { outline: none; box-shadow: 0 0 0 3px #2491ff; }
+    @media (forced-colors: active) { .formspec-submit:focus { outline: 3px solid Highlight; } }
+    .formspec-submit:disabled { opacity: 0.5; cursor: default; }
     .btn-back-screener {
       background: transparent;
       color: var(--color-primary);
@@ -674,10 +666,6 @@
 
     <formspec-render id="form"></formspec-render>
 
-    <!-- Submit -->
-    <div class="submit-area">
-      <button class="btn-submit" id="btn-submit" type="button">Submit Application</button>
-    </div>
     <div class="back-screener-area">
       <button class="btn-back-screener" id="btn-back-screener" type="button">Back to Screening</button>
     </div>

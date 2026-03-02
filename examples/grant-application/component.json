@@ -567,6 +567,11 @@
                 "severity": "warning",
                 "text": "Please ensure all required fields are completed before submitting your application.",
                 "cssClass": "review-alert"
+              },
+              {
+                "component": "SubmitButton",
+                "label": "Submit Application",
+                "mode": "submit"
               }
             ]
           }
