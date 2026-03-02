@@ -18,20 +18,14 @@ export async function mountDefinition(page: Page, definition: unknown): Promise<
 
 export async function submitAndGetResponse<T = any>(page: Page): Promise<T> {
   return await page.evaluate(() => {
-    return new Promise((resolve, reject) => {
-      document.addEventListener('formspec-submit', (e: any) => resolve(e.detail.response), { once: true });
-
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const submitBtn =
-        buttons.find((b) => b.textContent?.trim() === 'Submit') ??
-        (document.querySelector('button[type=\"button\"]') as HTMLButtonElement | null);
-
-      if (!submitBtn) {
-        reject(new Error('Submit button not found'));
-        return;
-      }
-
-      submitBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
+    const renderer: any = document.querySelector('formspec-render');
+    if (!renderer || typeof renderer.submit !== 'function') {
+      throw new Error('formspec-render.submit() is unavailable');
+    }
+    const detail = renderer.submit({ emitEvent: false, mode: 'submit' });
+    if (!detail) {
+      throw new Error('submit() returned null');
+    }
+    return detail.response;
   }) as T;
 }

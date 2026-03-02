@@ -146,6 +146,27 @@ describe('Wizard plugin', () => {
         });
         expect(el.querySelector('.formspec-wizard-skip')).toBeNull();
     });
+
+    it('responds to formspec-wizard-set-step control event', () => {
+        const el = renderWithTree({
+            component: 'Wizard',
+            children: [
+                { component: 'Text', text: 'Step 1' },
+                { component: 'Text', text: 'Step 2' },
+                { component: 'Text', text: 'Step 3' },
+            ],
+        });
+        const wizard = el.querySelector('.formspec-wizard') as HTMLElement;
+        wizard.dispatchEvent(new CustomEvent('formspec-wizard-set-step', {
+            detail: { index: 2 },
+            bubbles: false,
+        }));
+
+        const panels = el.querySelectorAll('.formspec-wizard-panel');
+        expect(panels[0].classList.contains('formspec-hidden')).toBe(true);
+        expect(panels[1].classList.contains('formspec-hidden')).toBe(true);
+        expect(panels[2].classList.contains('formspec-hidden')).toBe(false);
+    });
 });
 
 describe('Tabs plugin', () => {
@@ -220,6 +241,93 @@ describe('Tabs plugin', () => {
         const panelIndex = children.findIndex(c => c.classList.contains('formspec-tab-panels'));
         const barIndex = children.findIndex(c => c.classList.contains('formspec-tab-bar'));
         expect(panelIndex).toBeLessThan(barIndex);
+    });
+
+    it('responds to formspec-tabs-set-active control event', () => {
+        const el = renderWithTree({
+            component: 'Tabs',
+            tabLabels: ['Tab A', 'Tab B', 'Tab C'],
+            children: [
+                { component: 'Text', text: 'Panel A' },
+                { component: 'Text', text: 'Panel B' },
+                { component: 'Text', text: 'Panel C' },
+            ],
+        });
+        const tabs = el.querySelector('.formspec-tabs') as HTMLElement;
+        tabs.dispatchEvent(new CustomEvent('formspec-tabs-set-active', {
+            detail: { index: 2 },
+            bubbles: false,
+        }));
+
+        const panels = el.querySelectorAll('.formspec-tab-panel');
+        expect(panels[0].classList.contains('formspec-hidden')).toBe(true);
+        expect(panels[1].classList.contains('formspec-hidden')).toBe(true);
+        expect(panels[2].classList.contains('formspec-hidden')).toBe(false);
+    });
+});
+
+describe('SubmitButton plugin', () => {
+    afterEach(() => {
+        document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('click dispatches formspec-submit with response + validationReport', async () => {
+        const el = document.createElement('formspec-render') as any;
+        document.body.appendChild(el);
+        el.definition = {
+            $formspec: '1.0',
+            url: 'urn:test:form',
+            version: '1.0.0',
+            title: 'Test',
+            items: [{ key: 'name', type: 'field', dataType: 'string', label: 'Name' }],
+        };
+        el.componentDocument = minimalComponentDoc({
+            component: 'Stack',
+            children: [
+                { component: 'TextInput', bind: 'name' },
+                { component: 'SubmitButton', label: 'Save Draft' },
+            ],
+        });
+        el.render();
+        el.getEngine().setValue('name', 'Alice');
+
+        const received = new Promise<any>((resolve) => {
+            el.addEventListener('formspec-submit', (e: CustomEvent) => resolve(e.detail), { once: true });
+        });
+
+        const submitBtn = el.querySelector('.formspec-submit') as HTMLButtonElement;
+        expect(submitBtn).not.toBeNull();
+        expect(submitBtn.textContent).toBe('Save Draft');
+        submitBtn.click();
+
+        const detail = await received;
+        expect(detail.response.data?.name).toBe('Alice');
+        expect(detail.validationReport).toBeDefined();
+        expect(typeof detail.validationReport.valid).toBe('boolean');
+    });
+
+    it('emitEvent=false suppresses formspec-submit event', () => {
+        const el = document.createElement('formspec-render') as any;
+        document.body.appendChild(el);
+        el.definition = {
+            $formspec: '1.0',
+            url: 'urn:test:form',
+            version: '1.0.0',
+            title: 'Test',
+            items: [],
+        };
+        el.componentDocument = minimalComponentDoc({
+            component: 'SubmitButton',
+            emitEvent: false,
+        });
+        el.render();
+
+        let emitted = false;
+        el.addEventListener('formspec-submit', () => {
+            emitted = true;
+        });
+        (el.querySelector('.formspec-submit') as HTMLButtonElement).click();
+        expect(emitted).toBe(false);
     });
 });
 

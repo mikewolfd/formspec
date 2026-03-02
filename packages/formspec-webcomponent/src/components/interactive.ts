@@ -23,6 +23,10 @@ export const WizardPlugin: ComponentPlugin = {
 
         const defaultStep = 0;
         const currentStep = signal(defaultStep);
+        const setStep = (nextStep: number) => {
+            const bounded = Math.max(0, Math.min(children.length - 1, Math.trunc(nextStep)));
+            currentStep.value = bounded;
+        };
 
         // Progress indicator
         if (comp.showProgress !== false) {
@@ -85,7 +89,7 @@ export const WizardPlugin: ComponentPlugin = {
         prevBtn.className = 'formspec-wizard-prev';
         prevBtn.textContent = 'Previous';
         prevBtn.addEventListener('click', () => {
-            if (currentStep.value > 0) currentStep.value = currentStep.value - 1;
+            if (currentStep.value > 0) setStep(currentStep.value - 1);
         });
 
         const nextBtn = document.createElement('button');
@@ -93,7 +97,7 @@ export const WizardPlugin: ComponentPlugin = {
         nextBtn.className = 'formspec-wizard-next';
         nextBtn.textContent = 'Next';
         nextBtn.addEventListener('click', () => {
-            if (currentStep.value < children.length - 1) currentStep.value = currentStep.value + 1;
+            if (currentStep.value < children.length - 1) setStep(currentStep.value + 1);
         });
 
         nav.appendChild(prevBtn);
@@ -104,13 +108,25 @@ export const WizardPlugin: ComponentPlugin = {
             skipBtn.className = 'formspec-wizard-skip';
             skipBtn.textContent = 'Skip';
             skipBtn.addEventListener('click', () => {
-                if (currentStep.value < children.length - 1) currentStep.value = currentStep.value + 1;
+                if (currentStep.value < children.length - 1) setStep(currentStep.value + 1);
             });
             nav.appendChild(skipBtn);
         }
 
         nav.appendChild(nextBtn);
         el.appendChild(nav);
+
+        const onSetStep = (event: Event) => {
+            const customEvent = event as CustomEvent<{ index?: unknown }>;
+            const requestedIndex = Number(customEvent.detail?.index);
+            if (!Number.isFinite(requestedIndex)) return;
+            setStep(requestedIndex);
+            event.stopPropagation();
+        };
+        el.addEventListener('formspec-wizard-set-step', onSetStep as EventListener);
+        ctx.cleanupFns.push(() => {
+            el.removeEventListener('formspec-wizard-set-step', onSetStep as EventListener);
+        });
 
         // Reactively enable/disable prev/next and emit page-change event
         ctx.cleanupFns.push(effect(() => {
@@ -154,6 +170,11 @@ export const TabsPlugin: ComponentPlugin = {
         const tabLabels: string[] = comp.tabLabels || [];
         const children: any[] = comp.children || [];
         const defaultTab = comp.defaultTab || 0;
+        const activeTab = signal(defaultTab);
+        const setActiveTab = (nextTab: number) => {
+            const bounded = Math.max(0, Math.min(children.length - 1, Math.trunc(nextTab)));
+            activeTab.value = bounded;
+        };
 
         // Tab bar
         const tabBar = document.createElement('div');
@@ -181,14 +202,30 @@ export const TabsPlugin: ComponentPlugin = {
             btn.type = 'button';
             btn.textContent = tabLabels[i] || `Tab ${i + 1}`;
             btn.className = 'formspec-tab';
-            if (i === defaultTab) btn.classList.add('formspec-tab--active');
             btn.addEventListener('click', () => {
-                panels.forEach((p, idx) => p.classList.toggle('formspec-hidden', idx !== i));
-                buttons.forEach((b, idx) => b.classList.toggle('formspec-tab--active', idx === i));
+                setActiveTab(i);
             });
             tabBar.appendChild(btn);
             buttons.push(btn);
         }
+
+        ctx.cleanupFns.push(effect(() => {
+            const active = activeTab.value;
+            panels.forEach((p, idx) => p.classList.toggle('formspec-hidden', idx !== active));
+            buttons.forEach((b, idx) => b.classList.toggle('formspec-tab--active', idx === active));
+        }));
+
+        const onSetActive = (event: Event) => {
+            const customEvent = event as CustomEvent<{ index?: unknown }>;
+            const requestedIndex = Number(customEvent.detail?.index);
+            if (!Number.isFinite(requestedIndex)) return;
+            setActiveTab(requestedIndex);
+            event.stopPropagation();
+        };
+        el.addEventListener('formspec-tabs-set-active', onSetActive as EventListener);
+        ctx.cleanupFns.push(() => {
+            el.removeEventListener('formspec-tabs-set-active', onSetActive as EventListener);
+        });
 
         // Placement based on position
         if (position === 'bottom') {
@@ -199,4 +236,29 @@ export const TabsPlugin: ComponentPlugin = {
             el.appendChild(panelContainer);
         }
     }
+};
+
+/**
+ * Renders a submit button that invokes the host renderer's `submit()` API.
+ * Supports submit mode selection and optional event dispatch control.
+ */
+export const SubmitButtonPlugin: ComponentPlugin = {
+    type: 'SubmitButton',
+    render: (comp: any, parent: HTMLElement, ctx: RenderContext) => {
+        const button = document.createElement('button');
+        if (comp.id) button.id = comp.id;
+        button.type = 'button';
+        button.className = 'formspec-submit';
+        button.textContent = comp.label || 'Submit';
+        ctx.applyCssClass(button, comp);
+        ctx.applyAccessibility(button, comp);
+        ctx.applyStyle(button, comp.style);
+        button.addEventListener('click', () => {
+            ctx.submit({
+                mode: comp.mode || 'submit',
+                emitEvent: comp.emitEvent !== false,
+            });
+        });
+        parent.appendChild(button);
+    },
 };

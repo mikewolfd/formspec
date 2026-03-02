@@ -287,6 +287,7 @@
         { "$ref": "#/$defs/ConditionalGroup" },
         { "$ref": "#/$defs/Columns" },
         { "$ref": "#/$defs/Tabs" },
+        { "$ref": "#/$defs/SubmitButton" },
         { "$ref": "#/$defs/Accordion" },
         { "$ref": "#/$defs/RadioGroup" },
         { "$ref": "#/$defs/MoneyInput" },
@@ -909,6 +910,37 @@
       ]
     },
 
+    "SubmitButton": {
+      "$ref": "#/$defs/ComponentBase",
+      "description": "Button that triggers renderer submission. Calls the host renderer's submit API and can optionally emit the formspec-submit event.",
+      "x-lm": {
+        "category": "display",
+        "level": "core",
+        "children": false,
+        "bind": "forbidden"
+      },
+      "properties": {
+        "component": { "const": "SubmitButton" },
+        "label": {
+          "type": "string",
+          "description": "Button label text."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["continuous", "submit"],
+          "description": "Validation mode used for response/report generation when clicked."
+        },
+        "emitEvent": {
+          "type": "boolean",
+          "description": "Whether clicking the button dispatches the formspec-submit CustomEvent."
+        }
+      },
+      "unevaluatedProperties": false,
+      "examples": [
+        { "component": "SubmitButton", "label": "Submit Application", "mode": "submit", "emitEvent": true }
+      ]
+    },
+
     "Accordion": {
       "$ref": "#/$defs/ComponentBase",
       "description": "Vertical list of collapsible sections. By default only one expanded at a time. Children SHOULD have title props (Page, Card, Collapsible) for section headers.",
@@ -1391,7 +1423,7 @@
               "TextInput", "NumberInput", "DatePicker", "Select", "CheckboxGroup", "Toggle", "FileUpload",
               "Heading", "Text", "Divider",
               "Card", "Collapsible", "ConditionalGroup",
-              "Columns", "Tabs", "Accordion",
+              "Columns", "Tabs", "SubmitButton", "Accordion",
               "RadioGroup", "MoneyInput", "Slider", "Rating", "Signature",
               "Alert", "Badge", "ProgressBar", "Summary", "DataTable",
               "Panel", "Modal", "Popover"

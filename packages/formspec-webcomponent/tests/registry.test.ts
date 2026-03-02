@@ -43,7 +43,7 @@ describe('ComponentRegistry', () => {
             // Display
             'Heading', 'Text', 'Card', 'Spacer', 'Alert', 'Badge', 'ProgressBar', 'Summary', 'ValidationSummary',
             // Interactive
-            'Wizard', 'Tabs',
+            'Wizard', 'Tabs', 'SubmitButton',
             // Special
             'ConditionalGroup', 'DataTable',
         ];

@@ -142,10 +142,50 @@ export class FormspecRender extends HTMLElement {
     private _renderPending = false;
     /** Fields the user has interacted with (blur). Validation errors are hidden until touched. */
     private touchedFields: Set<string> = new Set();
+    /** Incremented when touched state changes so error-display effects can react. */
+    private touchedVersion = signal(0);
     /** Whether the screener has been completed (route selected). */
     private _screenerCompleted = false;
     /** The route selected by the screener, if any. */
     private _screenerRoute: { target: string; label?: string; extensions?: Record<string, any> } | null = null;
+
+    private normalizeFieldPath(path: unknown): string {
+        return typeof path === 'string' ? path.trim() : '';
+    }
+
+    private findFieldElement(path: string): HTMLElement | null {
+        if (!path || path === '#') return null;
+        const escapedPath = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(path) : path;
+        let fieldEl = this.querySelector(`.formspec-field[data-name="${escapedPath}"]`) as HTMLElement | null;
+        if (fieldEl) return fieldEl;
+        const allFields = Array.from(this.querySelectorAll('.formspec-field[data-name]'));
+        fieldEl = allFields.find((el) => {
+            const name = el.getAttribute('data-name');
+            return name === path || name?.startsWith(`${path}.`) || name?.startsWith(`${path}[`);
+        }) as HTMLElement | undefined || null;
+        return fieldEl;
+    }
+
+    private revealTabsForField(fieldEl: HTMLElement): void {
+        let tabPanel = fieldEl.closest('.formspec-tab-panel') as HTMLElement | null;
+        while (tabPanel) {
+            const tabsRoot = tabPanel.closest('.formspec-tabs');
+            if (tabsRoot instanceof HTMLElement) {
+                const panelContainer = tabPanel.parentElement;
+                const panels = panelContainer
+                    ? Array.from(panelContainer.children).filter((child) => child.classList.contains('formspec-tab-panel'))
+                    : [];
+                const panelIndex = panels.indexOf(tabPanel);
+                if (panelIndex >= 0) {
+                    tabsRoot.dispatchEvent(new CustomEvent('formspec-tabs-set-active', {
+                        detail: { index: panelIndex },
+                        bubbles: false,
+                    }));
+                }
+            }
+            tabPanel = tabPanel.parentElement?.closest('.formspec-tab-panel') as HTMLElement | null;
+        }
+    }
 
     private scheduleRender() {
         if (this._renderPending) return;
@@ -264,6 +304,119 @@ export class FormspecRender extends HTMLElement {
         this.engine?.setRuntimeContext?.(context);
     }
 
+    /**
+     * Mark all registered fields as touched so validation errors become visible.
+     * Useful for submit attempts where all invalid fields should surface inline.
+     */
+    touchAllFields() {
+        if (!this.engine) return;
+        let touchedAny = false;
+        for (const key of Object.keys(this.engine.errorSignals)) {
+            if (this.touchedFields.has(key)) continue;
+            this.touchedFields.add(key);
+            touchedAny = true;
+        }
+        if (touchedAny) {
+            this.touchedVersion.value += 1;
+        }
+    }
+
+    /**
+     * Build a submit payload and validation report from the current form state.
+     * Optionally dispatches `formspec-submit` with `{ response, validationReport }`.
+     */
+    submit(options?: { mode?: 'continuous' | 'submit'; emitEvent?: boolean }) {
+        if (!this.engine) return null;
+        const mode = options?.mode || 'submit';
+        const emitEvent = options?.emitEvent !== false;
+
+        this.touchAllFields();
+
+        const response = this.engine.getResponse({ mode });
+        const results = Array.isArray(response?.validationResults) ? response.validationResults : [];
+        const counts = { error: 0, warning: 0, info: 0 };
+        for (const result of results) {
+            const severity = result?.severity as 'error' | 'warning' | 'info' | undefined;
+            if (severity === 'error' || severity === 'warning' || severity === 'info') {
+                counts[severity] += 1;
+            }
+        }
+        const validationReport = {
+            valid: counts.error === 0,
+            results,
+            counts,
+            timestamp: response?.authored || new Date().toISOString(),
+        };
+        const detail = { response, validationReport };
+
+        if (emitEvent) {
+            this.dispatchEvent(new CustomEvent('formspec-submit', {
+                detail,
+                bubbles: true,
+                composed: true,
+            }));
+        }
+
+        return detail;
+    }
+
+    /**
+     * Programmatically navigate to a wizard step in the first rendered wizard.
+     * Returns false when no wizard exists.
+     */
+    goToWizardStep(index: number): boolean {
+        const wizardEl = this.querySelector('.formspec-wizard');
+        if (!(wizardEl instanceof HTMLElement)) return false;
+        wizardEl.dispatchEvent(new CustomEvent('formspec-wizard-set-step', {
+            detail: { index },
+            bubbles: false,
+        }));
+        return true;
+    }
+
+    /**
+     * Reveal and focus a field by bind path. Handles wizard step navigation,
+     * hidden tab activation, collapsible expansion, scroll, and focus.
+     */
+    focusField(path: string): boolean {
+        const normalizedPath = this.normalizeFieldPath(path);
+        let fieldEl = this.findFieldElement(normalizedPath);
+        if (!fieldEl) return false;
+
+        const wizardPanel = fieldEl.closest('.formspec-wizard-panel');
+        const wizardRoot = wizardPanel?.closest('.formspec-wizard');
+        if (wizardPanel instanceof HTMLElement && wizardRoot instanceof HTMLElement) {
+            const panelList = Array.from(wizardRoot.children)
+                .filter((child) => child.classList.contains('formspec-wizard-panel'));
+            const panelIndex = panelList.indexOf(wizardPanel);
+            if (panelIndex >= 0) {
+                wizardRoot.dispatchEvent(new CustomEvent('formspec-wizard-set-step', {
+                    detail: { index: panelIndex },
+                    bubbles: false,
+                }));
+                fieldEl = this.findFieldElement(normalizedPath);
+                if (!fieldEl) return false;
+            }
+        }
+
+        this.revealTabsForField(fieldEl);
+        fieldEl = this.findFieldElement(normalizedPath);
+        if (!fieldEl) return false;
+
+        let collapsible = fieldEl.closest('details.formspec-collapsible') as HTMLDetailsElement | null;
+        while (collapsible) {
+            collapsible.open = true;
+            collapsible = collapsible.parentElement?.closest('details.formspec-collapsible') as HTMLDetailsElement | null;
+        }
+
+        const inputEl = fieldEl.querySelector('input, select, textarea, button, [tabindex]');
+        fieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (inputEl instanceof HTMLElement) {
+            inputEl.focus({ preventScroll: true });
+        }
+        return true;
+    }
+
     private getEffectiveTheme(): ThemeDocument {
         return this._themeDocument || defaultThemeJson as ThemeDocument;
     }
@@ -274,24 +427,7 @@ export class FormspecRender extends HTMLElement {
         }
         this.cleanupFns = [];
         this.touchedFields.clear();
-    }
-
-    /** Mark all registered fields as touched so validation errors become visible. */
-    private touchAllFields() {
-        if (!this.engine) return;
-        for (const key of Object.keys(this.engine.errorSignals)) {
-            this.touchedFields.add(key);
-        }
-        // Force re-render of all error displays
-        const errorEls = this.querySelectorAll('.formspec-error');
-        for (const el of errorEls) {
-            const field = el.closest('.formspec-field');
-            const name = field?.getAttribute('data-name');
-            if (name) {
-                const error = this.engine.errorSignals[name]?.value;
-                el.textContent = error || '';
-            }
-        }
+        this.touchedVersion.value += 1;
     }
 
     private cleanupStylesheets() {
@@ -369,8 +505,7 @@ export class FormspecRender extends HTMLElement {
      * Tears down existing signal effects, sets up responsive breakpoints,
      * validates the component document, emits CSS token custom properties,
      * and walks the component tree (or definition items as fallback) to
-     * build the DOM. Appends a submit button that dispatches a
-     * `formspec-submit` CustomEvent with the engine response.
+     * build the DOM.
      */
     render() {
         this.cleanup();
@@ -417,23 +552,6 @@ export class FormspecRender extends HTMLElement {
                 this.renderItem(item, container);
             }
         }
-
-        const submitBtn = document.createElement('button');
-        submitBtn.type = 'button';
-        submitBtn.className = 'formspec-submit';
-        submitBtn.textContent = 'Submit';
-        submitBtn.addEventListener('click', () => {
-            // Touch all fields so validation errors become visible
-            this.touchAllFields();
-            const response = this.engine!.getResponse({ mode: 'submit' });
-            const validationReport = this.engine!.getValidationReport({ mode: 'submit' });
-            this.dispatchEvent(new CustomEvent('formspec-submit', {
-                detail: { response, validationReport },
-                bubbles: true
-            }));
-        });
-        container.appendChild(submitBtn);
-
     }
 
     /**
@@ -904,6 +1022,7 @@ export class FormspecRender extends HTMLElement {
             componentDocument: this._componentDocument,
             themeDocument: this._themeDocument,
             prefix,
+            submit: this.submit.bind(this),
             renderComponent: this.renderComponent,
             resolveToken: this.resolveToken,
             applyStyle: this.applyStyle,
@@ -1365,12 +1484,7 @@ export class FormspecRender extends HTMLElement {
         const markTouched = () => {
             if (!this.touchedFields.has(fullName)) {
                 this.touchedFields.add(fullName);
-                // Re-evaluate error display now that field is touched
-                const error = this.engine!.errorSignals[fullName]?.value;
-                errorDisplay.textContent = error || '';
-                if (actualInputEl instanceof HTMLElement) {
-                    actualInputEl.setAttribute('aria-invalid', String(!!error));
-                }
+                this.touchedVersion.value += 1;
             }
         };
         fieldWrapper.addEventListener('focusout', markTouched);
@@ -1409,6 +1523,7 @@ export class FormspecRender extends HTMLElement {
         }));
 
         this.cleanupFns.push(effect(() => {
+            this.touchedVersion.value;
             const error = this.engine!.errorSignals[fullName]?.value;
             // Only show errors for fields the user has interacted with
             const showError = this.touchedFields.has(fullName) ? (error || '') : '';

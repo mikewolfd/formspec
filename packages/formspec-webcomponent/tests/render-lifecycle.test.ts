@@ -48,7 +48,7 @@ describe('render lifecycle', () => {
         expect(el.querySelectorAll('.formspec-field').length).toBe(2);
     });
 
-    it('submit button dispatches formspec-submit event with response payload', async () => {
+    it('submit() dispatches formspec-submit event with response payload', async () => {
         el.definition = singleFieldDef();
         el.render();
         el.getEngine().setValue('name', 'Alice');
@@ -57,15 +57,80 @@ describe('render lifecycle', () => {
             el.addEventListener('formspec-submit', (e: CustomEvent) => resolve(e.detail));
         });
 
-        const submitBtn = el.querySelector('.formspec-submit') as HTMLButtonElement;
-        expect(submitBtn).not.toBeNull();
-        submitBtn.click();
+        const detail = el.submit();
+        expect(detail).toBeDefined();
 
         const response = await received;
         expect(response).toBeDefined();
-        // Detail is now { response, validationReport }
         expect(response.response.data?.name).toBe('Alice');
         expect(response.validationReport).toBeDefined();
+    });
+
+    it('does not auto-append a submit button', () => {
+        el.definition = singleFieldDef();
+        el.render();
+        expect(el.querySelector('.formspec-submit')).toBeNull();
+    });
+
+    it('focusField navigates wizard and tabs to reveal target field', () => {
+        el.definition = {
+            $formspec: '1.0',
+            url: 'urn:test:form',
+            version: '1.0.0',
+            title: 'Test',
+            items: [
+                {
+                    key: 'applicant',
+                    type: 'group',
+                    children: [
+                        { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+                    ],
+                },
+                {
+                    key: 'narrative',
+                    type: 'group',
+                    children: [
+                        { key: 'summary', type: 'field', dataType: 'string', label: 'Summary' },
+                        { key: 'details', type: 'field', dataType: 'string', label: 'Details' },
+                    ],
+                },
+            ],
+        };
+        el.componentDocument = minimalComponentDoc({
+            component: 'Wizard',
+            children: [
+                {
+                    component: 'Page',
+                    title: 'Applicant',
+                    children: [{ component: 'TextInput', bind: 'applicant.name' }],
+                },
+                {
+                    component: 'Page',
+                    title: 'Narrative',
+                    children: [
+                        {
+                            component: 'Tabs',
+                            tabLabels: ['Summary', 'Details'],
+                            children: [
+                                { component: 'TextInput', bind: 'narrative.summary' },
+                                { component: 'TextInput', bind: 'narrative.details' },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        });
+        el.render();
+
+        const focused = el.focusField('narrative.details');
+        expect(focused).toBe(true);
+
+        const panels = el.querySelectorAll('.formspec-wizard-panel');
+        expect(panels[0].classList.contains('formspec-hidden')).toBe(true);
+        expect(panels[1].classList.contains('formspec-hidden')).toBe(false);
+
+        const tabs = el.querySelectorAll('.formspec-tab');
+        expect(tabs[1].classList.contains('formspec-tab--active')).toBe(true);
     });
 
     it('unknown component type in tree logs warning', () => {

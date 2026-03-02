@@ -22,6 +22,17 @@ export interface RenderContext {
     /** Dotted path prefix for the current render scope (e.g. `"group[0]"`). */
     prefix: string;
 
+    /** Build submit payload + validation report and optionally dispatch `formspec-submit`. */
+    submit: (options?: { mode?: 'continuous' | 'submit'; emitEvent?: boolean }) => {
+        response: any;
+        validationReport: {
+            valid: boolean;
+            results: any[];
+            counts: { error: number; warning: number; info: number };
+            timestamp: string;
+        };
+    } | null;
+
     /** Recursively render a child component descriptor into a parent element. */
     renderComponent: (comp: any, parent: HTMLElement, prefix?: string) => void;
 
