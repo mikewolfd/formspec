@@ -1,8 +1,6 @@
-import { signal } from '@preact/signals';
+import { definition, updateDefinition } from '../state/definition';
 import { project } from '../state/project';
 import { showToast } from '../state/toast';
-
-const formTitle = signal('Untitled Form');
 
 export function Topbar() {
   const def = project.value.definition;
@@ -35,10 +33,12 @@ export function Topbar() {
       <div class="topbar-center">
         <input
           class="topbar-title-input"
-          value={formTitle.value}
+          value={definition.value.title ?? 'Untitled Form'}
           onInput={(event) => {
             const next = (event.target as HTMLInputElement).value;
-            formTitle.value = next;
+            updateDefinition((d) => {
+              d.title = next;
+            });
           }}
           aria-label="Form title"
         />

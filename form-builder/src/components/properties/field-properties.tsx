@@ -14,6 +14,44 @@ export function FieldProperties({ item }: { item: FormspecItem }) {
     });
   }
 
+  const isChoice = item.dataType === 'choice' || item.dataType === 'multiChoice';
+  const options = (item as Record<string, unknown>).options as
+    | { value: string; label?: string }[]
+    | undefined;
+
+  function addOption() {
+    updateDefinition((def) => {
+      const found = findItemByKey(item.key, def.items);
+      if (!found) return;
+      const draft = found.item as Record<string, unknown>;
+      const current = (draft.options as { value: string; label?: string }[] | undefined) ?? [];
+      draft.options = [...current, { value: '', label: '' }];
+    });
+  }
+
+  function updateOption(index: number, field: 'value' | 'label', val: string) {
+    updateDefinition((def) => {
+      const found = findItemByKey(item.key, def.items);
+      if (!found) return;
+      const draft = found.item as Record<string, unknown>;
+      const current = (draft.options as { value: string; label?: string }[]) ?? [];
+      const updated = current.map((opt, i) =>
+        i === index ? { ...opt, [field]: val } : opt,
+      );
+      draft.options = updated;
+    });
+  }
+
+  function removeOption(index: number) {
+    updateDefinition((def) => {
+      const found = findItemByKey(item.key, def.items);
+      if (!found) return;
+      const draft = found.item as Record<string, unknown>;
+      const current = (draft.options as { value: string; label?: string }[]) ?? [];
+      draft.options = current.filter((_, i) => i !== index);
+    });
+  }
+
   return (
     <div class="properties-content">
       <div class="property-type-header">
@@ -76,6 +114,44 @@ export function FieldProperties({ item }: { item: FormspecItem }) {
           onInput={(event) => updateField('placeholder', (event.target as HTMLInputElement).value)}
         />
       </PropertyRow>
+
+      {isChoice && (
+        <div class="options-editor">
+          <div class="section-title">Options</div>
+          {(options ?? []).map((opt, i) => (
+            <div class="option-row" key={i}>
+              <input
+                class="studio-input studio-input-mono option-value-input"
+                value={opt.value}
+                placeholder="value"
+                aria-label={`Option ${i + 1} value`}
+                onInput={(event) =>
+                  updateOption(i, 'value', (event.target as HTMLInputElement).value)
+                }
+              />
+              <input
+                class="studio-input option-label-input"
+                value={opt.label ?? ''}
+                placeholder="label (optional)"
+                aria-label={`Option ${i + 1} label`}
+                onInput={(event) =>
+                  updateOption(i, 'label', (event.target as HTMLInputElement).value)
+                }
+              />
+              <button
+                class="btn-ghost option-remove-btn"
+                aria-label={`Remove option ${i + 1}`}
+                onClick={() => removeOption(i)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button class="btn-ghost add-option-btn" onClick={addOption}>
+            + Add Option
+          </button>
+        </div>
+      )}
 
       <div class="section-title">Behavior</div>
       <PropertyRow label="Relevant">

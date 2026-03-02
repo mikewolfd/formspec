@@ -1,34 +1,16 @@
-import { batch, effect, signal } from '@preact/signals';
+import { batch, signal } from '@preact/signals';
 import { FormEngine, type FormspecDefinition, type FormspecItem } from 'formspec-engine';
 import type { BuilderDiagnostic } from '../types';
 import { diagnostics, engine, project } from './project';
+import { createEmptyDefinition } from '../logic/seed-definition';
+import { findItemByKey as findItemByKeyPure } from '../logic/find-item';
+
+export { createEmptyDefinition };
 
 export const definition = signal<FormspecDefinition>(createEmptyDefinition());
 export const definitionVersion = signal(0);
 
 project.value = { ...project.value, definition: definition.value };
-
-export function createEmptyDefinition(): FormspecDefinition {
-  return {
-    $formspec: '1.0',
-    url: 'https://example.gov/forms/untitled',
-    version: '0.1.0',
-    status: 'draft',
-    title: 'Untitled Form',
-    items: [
-      {
-        key: 'basicInfo',
-        type: 'group',
-        label: 'Basic Information',
-        children: [
-          { key: 'fullName', type: 'field', label: 'Full Name', dataType: 'string' },
-          { key: 'email', type: 'field', label: 'Email Address', dataType: 'string' },
-        ],
-      },
-      { key: 'notes', type: 'field', label: 'Additional Notes', dataType: 'text' },
-    ],
-  } as FormspecDefinition;
-}
 
 export function updateDefinition(mutator: (def: FormspecDefinition) => void) {
   const current = definition.value;
@@ -37,6 +19,7 @@ export function updateDefinition(mutator: (def: FormspecDefinition) => void) {
     definitionVersion.value += 1;
     project.value = { ...project.value, definition: current };
   });
+  rebuildEngine(current);
 }
 
 export function setDefinition(next: FormspecDefinition) {
@@ -45,31 +28,17 @@ export function setDefinition(next: FormspecDefinition) {
     definitionVersion.value += 1;
     project.value = { ...project.value, definition: next };
   });
+  rebuildEngine(next);
 }
 
 export function findItemByKey(
   key: string,
   items: FormspecItem[] = definition.value.items,
 ): { item: FormspecItem; siblings: FormspecItem[]; index: number } | null {
-  for (let i = 0; i < items.length; i += 1) {
-    const candidate = items[i];
-    if (candidate.key === key) {
-      return { item: candidate, siblings: items, index: i };
-    }
-    if (candidate.children?.length) {
-      const found = findItemByKey(key, candidate.children);
-      if (found) {
-        return found;
-      }
-    }
-  }
-  return null;
+  return findItemByKeyPure(key, items);
 }
 
-effect(() => {
-  definitionVersion.value;
-  const current = definition.value;
-
+function rebuildEngine(current: FormspecDefinition) {
   try {
     const nextEngine = new FormEngine(current);
     const report = nextEngine.getValidationReport();
@@ -99,4 +68,6 @@ effect(() => {
       ];
     });
   }
-});
+}
+
+rebuildEngine(definition.value);

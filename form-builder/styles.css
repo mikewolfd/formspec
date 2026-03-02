@@ -1018,3 +1018,49 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── Options editor (choice / multiChoice fields) ───────────────────── */
+.options-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.option-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.option-value-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-label-input {
+  flex: 1.5;
+  min-width: 0;
+}
+
+.option-remove-btn {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-2);
+}
+
+.option-remove-btn:hover {
+  color: var(--error);
+}
+
+.add-option-btn {
+  align-self: flex-start;
+  font-size: 11.5px;
+  color: var(--text-1);
+  padding: 3px 6px;
+}
+
+.add-option-btn:hover {
+  color: var(--accent);
+}
