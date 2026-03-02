@@ -34,15 +34,17 @@ getDiagnosticsSnapshot(options?: { mode?: 'continuous' | 'submit' }): any
 applyReplayEvent(event: any): { ok: boolean; event: any; error?: string }
 replay(events: any[], options?: { stopOnError?: boolean }): { applied: number; results: any[]; errors: any[] }
 setRuntimeContext(context: any): void
+touchAllFields(): void
+submit(options?: { mode?: 'continuous' | 'submit'; emitEvent?: boolean }): { response: any; validationReport: any } | null
 ```
 
-All except `getEngine()` proxy directly to the internal `FormEngine` instance.
+Most methods proxy to the internal `FormEngine` instance. `touchAllFields()` and `submit()` are renderer-level helpers.
 
 ### Custom Events
 
 | Event | Dispatched When | `detail` |
 |---|---|---|
-| `formspec-submit` | User clicks the auto-generated Submit button | `engine.getResponse()` |
+| `formspec-submit` | `submit()` is called with `emitEvent !== false` (including via `SubmitButton`) | `{ response, validationReport }` |
 
 ### Lifecycle
 
@@ -57,7 +59,6 @@ All except `getEngine()` proxy directly to the internal `FormEngine` instance.
 4. Create (or reuse stable) `.formspec-container` div
 5. Emit CSS custom properties from theme/component tokens onto the container
 6. Render component document tree **or** fall back to auto-rendering from definition items
-7. Append Submit button (always)
 
 ### Private State
 
@@ -90,7 +91,7 @@ export const globalRegistry = new ComponentRegistry();
 
 Third-party components: `globalRegistry.register({ type: 'x-my-component', render: ... })`.
 
-`registerDefaultComponents()` (called at module load in `src/components/index.ts`) registers all 35 built-in components into `globalRegistry`.
+`registerDefaultComponents()` (called at module load in `src/components/index.ts`) registers all 37 built-in components into `globalRegistry`.
 
 ---
 
@@ -106,6 +107,7 @@ interface RenderContext {
   componentDocument: any;
   themeDocument: ThemeDocument | null;
   prefix: string;                    // Path prefix for current repeat context
+  submit: (options?: { mode?: 'continuous' | 'submit'; emitEvent?: boolean }) => { response: any; validationReport: any } | null;
   renderComponent: (comp: any, parent: HTMLElement, prefix?: string) => void;
   resolveToken: (val: any) => any;   // Resolves $token.xxx references
   applyStyle: (el: HTMLElement, style: any) => void;
@@ -121,7 +123,7 @@ interface RenderContext {
 
 ---
 
-## Built-in Components (35 total)
+## Built-in Components (37 total)
 
 ### Layout (10) — `src/components/layout.ts`
 
@@ -175,12 +177,13 @@ All except Slider, Rating, FileUpload, Signature, MoneyInput delegate to `ctx.re
 
 `Text`: reactive if `bind` provided (reads engine signal). `ProgressBar`: reactive if `bind` provided.
 
-### Interactive (2) — `src/components/interactive.ts`
+### Interactive (3) — `src/components/interactive.ts`
 
 | Type | HTML | Key Props | Behavior |
 |---|---|---|---|
 | `Wizard` | `.formspec-wizard` + panels + nav | `children`, `showProgress` (default true), `allowSkip` | Step navigation via Preact signal. Progress indicators with active/completed states. Previous hidden at step 0; Next shows "Finish" at last step. |
 | `Tabs` | `.formspec-tabs` + tab bar + panels | `tabLabels`, `children`, `defaultTab` (0), `position` (top/bottom/left/right) | Tab switching via DOM class toggling. |
+| `SubmitButton` | `<button class="formspec-submit">` | `label`, `mode` (`submit`/`continuous`), `emitEvent` | Calls `ctx.submit()` and optionally emits `formspec-submit`. |
 
 ### Special (2) — `src/components/special.ts`
 

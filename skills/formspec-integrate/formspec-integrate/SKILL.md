@@ -34,8 +34,11 @@ and the Python backend for server-side validation.
   const el = document.querySelector('formspec-render');
   el.definition = { /* your Formspec definition JSON */ };
   el.addEventListener('formspec-submit', (e) => {
-    console.log(e.detail); // structured response object
+    console.log(e.detail.response);         // response payload
+    console.log(e.detail.validationReport); // { valid, results, counts, timestamp }
   });
+  // Trigger from your own UI button:
+  const detail = el.submit({ mode: 'submit' });
 </script>
 ```
 
@@ -48,17 +51,25 @@ default theme. A component document and theme document are optional enhancements
 
 ```json
 {
-  "definitionUrl": "https://example.org/forms/my-form",
-  "definitionVersion": "1.0.0",
-  "status": "completed",
-  "data": { "fieldKey": "value" },
-  "validationResults": [],
-  "authored": "2024-01-15T10:30:00Z"
+  "response": {
+    "definitionUrl": "https://example.org/forms/my-form",
+    "definitionVersion": "1.0.0",
+    "status": "completed",
+    "data": { "fieldKey": "value" },
+    "validationResults": [],
+    "authored": "2024-01-15T10:30:00Z"
+  },
+  "validationReport": {
+    "valid": true,
+    "results": [],
+    "counts": { "error": 0, "warning": 0, "info": 0 },
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
 }
 ```
 
-`status` is `"completed"` only when all error-level validation passes (warnings don't block it).
-`data` reflects `nonRelevantBehavior` — by default non-relevant fields are omitted (`"remove"`).
+`response.status` is `"completed"` only when all error-level validation passes (warnings don't block it).
+`response.data` reflects `nonRelevantBehavior` — by default non-relevant fields are omitted (`"remove"`).
 
 ## Accessing the engine directly
 

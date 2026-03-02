@@ -105,8 +105,11 @@ jsonschema.validate(instance=definition, schema=schema)
   const el = document.querySelector("formspec-render");
   el.definition = { /* Formspec definition JSON */ };
   el.addEventListener("formspec-submit", (e) => {
-    console.log(e.detail); // structured response
+    console.log(e.detail.response);         // response payload
+    console.log(e.detail.validationReport); // { valid, results, counts, timestamp }
   });
+  // Call this from your own UI action (e.g. Submit button click):
+  const detail = el.submit({ mode: "submit" });
 </script>
 ```
 
