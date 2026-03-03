@@ -14,7 +14,7 @@ project/
 .serena/
 dist-playground/
 .playwright-mcp/
-
+.playwright-cli/
 # Generated API docs (make api-docs)
 docs/api/
 

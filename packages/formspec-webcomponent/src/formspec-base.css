@@ -1,9 +1,8 @@
 /*
- * formspec-base.css — Structural-only default stylesheet
+ * formspec-base.css — Default stylesheet
  *
- * Provides layout (flex, grid, display toggling) for the formspec-*
- * class contract. No colors, fonts, or decoration — those belong in
- * theme bridge CSS or the design system stylesheet.
+ * Provides layout, structure, and default visual styling for the
+ * formspec-* class contract.
  */
 
 /* ── Visibility ────────────────────────────────────────────────── */
@@ -16,6 +15,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  color: #1f2937;
 }
 
 /* ── Screen reader only (labelPosition: hidden) ───────────────── */
@@ -31,6 +31,45 @@
   border: 0;
 }
 
+/* ── Native element resets ─────────────────────────────────────── */
+input:not([type="radio"]):not([type="checkbox"]):not([type="range"]):not([hidden]),
+textarea,
+select {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  background: #fff;
+  line-height: 1.4;
+  outline: none;
+  box-sizing: border-box;
+}
+
+input:not([hidden]):focus,
+textarea:focus,
+select:focus {
+  border-color: #4f88e8;
+  box-shadow: 0 0 0 3px rgba(79, 136, 232, 0.15);
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+button { cursor: pointer; font-size: 13px; }
+h1 { font-size: 22px; font-weight: 700; line-height: 1.2; }
+h2 { font-size: 18px; font-weight: 700; line-height: 1.25; }
+h3 { font-size: 15px; font-weight: 600; line-height: 1.3; }
+h4 { font-size: 13px; font-weight: 600; line-height: 1.3; }
+h5, h6 { font-size: 12px; font-weight: 600; line-height: 1.3; }
+
 /* ── Fields ────────────────────────────────────────────────────── */
 .formspec-field {
   display: flex;
@@ -43,6 +82,8 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+.formspec-field--inline > label { margin-bottom: 0; }
 
 .formspec-label {
   display: block;
@@ -60,6 +101,10 @@
 
 .formspec-input {
   display: block;
+}
+
+.formspec-input[hidden] {
+  display: none;
 }
 
 .formspec-field--readonly {
@@ -153,7 +198,15 @@
 .formspec-radio-group {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
+}
+
+.formspec-radio-group label,
+.formspec-checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
 }
 
 .formspec-radio-group[data-orientation="horizontal"] {
@@ -164,7 +217,7 @@
 
 .formspec-checkbox-group[data-columns] {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 .formspec-checkbox-group[data-columns="2"] { grid-template-columns: repeat(2, 1fr); }
 .formspec-checkbox-group[data-columns="3"] { grid-template-columns: repeat(3, 1fr); }
@@ -230,28 +283,30 @@
 /* ── Divider ───────────────────────────────────────────────────── */
 hr.formspec-divider {
   border: none;
-  border-top: 1px solid var(--formspec-color-border, #e5e7eb);
-  opacity: 0.6;
-  margin: 1rem 0;
+  border-top: 1px solid var(--formspec-color-border, #d1d5db);
+  margin: 0;
 }
 
 .formspec-divider--labeled {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 1rem 0;
+  gap: 10px;
+  margin: 0;
 }
 
 .formspec-divider-line {
   flex: 1;
   border: none;
   border-top: 1px solid currentColor;
-  opacity: 0.3;
+  height: 0;
+  opacity: 0.2;
+  margin: 0;
 }
 
 .formspec-divider-label {
-  font-size: 0.85rem;
-  opacity: 0.75;
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
 }
 
 /* ── Panel ─────────────────────────────────────────────────────── */
@@ -262,7 +317,9 @@ hr.formspec-divider {
 
 .formspec-panel-header {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--formspec-color-border, #e5e7eb);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
   font-weight: bold;
 }
 
@@ -284,41 +341,50 @@ hr.formspec-divider {
 
 .formspec-card-title {
   margin: -1rem -1rem 0.75rem -1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--formspec-color-border, #e5e7eb);
-  font-size: 1rem;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .formspec-card-subtitle {
-  margin-top: -0.5rem;
-  opacity: 0.75;
+  color: #666;
+  font-size: 12px;
+  margin-top: 0;
+  margin-bottom: 10px;
+  line-height: 1.4;
 }
 
 /* ── Alert ─────────────────────────────────────────────────────── */
 .formspec-alert {
-  padding: 0.75rem 1.25rem;
+  padding: 10px 14px;
   margin-bottom: 1rem;
-  border-left: 4px solid transparent;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   position: relative;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .formspec-alert--info {
-  background-color: #e8f4fd;
-  border-left-color: #0969da;
-  color: #0550ae;
+  background: #e3f2fd;
+  color: #1565c0;
 }
 
 .formspec-alert--warning {
-  background-color: #fff8c5;
-  border-left-color: #9a6700;
-  color: #7d4e00;
+  background: #fff8e1;
+  color: #e65100;
 }
 
 .formspec-alert--error {
-  background-color: #ffebe9;
-  border-left-color: #cf222e;
-  color: #82071e;
+  background: #fce4ec;
+  color: #b71c1c;
+}
+
+.formspec-alert--success {
+  background: #e8f5e9;
+  color: #1b5e20;
 }
 
 .formspec-alert--dismissible {
@@ -331,39 +397,40 @@ hr.formspec-divider {
   right: 0.75rem;
   background: none;
   border: none;
-  font-size: 1.25rem;
+  font-size: 16px;
   cursor: pointer;
   color: inherit;
+  margin-left: auto;
+  opacity: 0.7;
 }
 
 /* ── Badge ─────────────────────────────────────────────────────── */
 .formspec-badge {
   display: inline-block;
-  padding: 0.2em 0.5em;
-  font-size: 0.8rem;
+  padding: 2px 8px;
+  font-size: 11px;
   font-weight: 700;
-  border-radius: 0.25rem;
-  background-color: var(--formspec-color-border, #e5e7eb);
-  color: var(--formspec-color-text, #374151);
+  border-radius: 12px;
 }
 
-.formspec-badge--primary { background-color: #dbeafe; color: #1d4ed8; }
-.formspec-badge--success { background-color: #dcfce7; color: #166534; }
-.formspec-badge--warning { background-color: #fef3c7; color: #92400e; }
-.formspec-badge--error   { background-color: #fecaca; color: #991b1b; }
+.formspec-badge--default { background: #eee; color: #555; }
+.formspec-badge--primary { background: #4f88e8; color: white; }
+.formspec-badge--success { background: #34a853; color: white; }
+.formspec-badge--warning { background: #fbbc04; color: #333; }
+.formspec-badge--error   { background: #ea4335; color: white; }
 
 /* ── Progress bar ──────────────────────────────────────────────── */
 .formspec-progress-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .formspec-progress-bar progress {
   flex: 1;
   appearance: none;
   -webkit-appearance: none;
-  height: 0.625rem;
+  height: 8px;
   border: none;
   border-radius: 0.3125rem;
   overflow: hidden;
@@ -385,11 +452,20 @@ hr.formspec-divider {
   border-radius: 0.3125rem;
 }
 
+.formspec-progress-percent {
+  min-width: 36px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+}
+
 /* ── Summary ───────────────────────────────────────────────────── */
 .formspec-summary {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.5rem 1.5rem;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 16px;
+  align-items: baseline;
 }
 
 .formspec-summary dt {
@@ -397,34 +473,45 @@ hr.formspec-divider {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--formspec-color-text-muted, #6b7280);
-  padding: 0.25rem 0;
+  color: #555;
 }
 
 .formspec-summary dd {
   margin: 0;
-  padding: 0.25rem 0;
+  color: #222;
 }
 
 /* ── Collapsible ───────────────────────────────────────────────── */
 .formspec-collapsible {
-  border: 1px solid var(--formspec-color-border, #e5e7eb);
-  border-radius: 0.375rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+.formspec-collapsible + .formspec-collapsible {
+  margin-top: 6px;
 }
 
 .formspec-collapsible summary {
   cursor: pointer;
-  padding: 0.75rem 1rem;
-  font-weight: 600;
+  padding: 10px 14px;
+  font-weight: 500;
+  font-size: 13px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   list-style: none;
+  background: #fafafa;
+  user-select: none;
 }
+
+.formspec-collapsible summary:hover { background: #f3f4f6; }
 
 .formspec-collapsible summary::-webkit-details-marker {
   display: none;
 }
+
+/* Suppress ::before — use ::after for the +/− indicator */
+.formspec-collapsible summary::before { content: none; }
 
 .formspec-collapsible summary::after {
   content: '+';
@@ -437,38 +524,33 @@ hr.formspec-divider {
   content: '\2212';
 }
 
+.formspec-collapsible[open] > summary {
+  border-bottom: 1px solid #e0e0e0;
+  background: #f3f4f6;
+}
+
 .formspec-collapsible-content {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--formspec-color-border, #e5e7eb);
+  padding: 12px 14px;
+  font-size: 13px;
 }
 
 /* ── Accordion ─────────────────────────────────────────────────── */
 .formspec-accordion-item {
-  border: 1px solid var(--formspec-color-border, #e5e7eb);
-  border-radius: 0.25rem;
-  margin-bottom: -1px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 4px;
   overflow: hidden;
-}
-
-.formspec-accordion-item:first-child {
-  border-top-left-radius: 0.375rem;
-  border-top-right-radius: 0.375rem;
-}
-
-.formspec-accordion-item:last-child {
-  border-bottom-left-radius: 0.375rem;
-  border-bottom-right-radius: 0.375rem;
-  margin-bottom: 0;
 }
 
 .formspec-accordion-item summary {
   cursor: pointer;
-  padding: 0.75rem 1rem;
-  font-weight: 600;
+  padding: 10px 14px;
+  font-weight: 500;
   background: var(--formspec-color-surface, #f9fafb);
   list-style: none;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
 }
 
@@ -476,29 +558,34 @@ hr.formspec-divider {
   display: none;
 }
 
-.formspec-accordion-item summary::before {
-  content: '\25B6';
-  font-size: 0.65rem;
-  transition: transform 0.2s;
+/* Suppress ::before triangle — use ::after chevron on the right */
+.formspec-accordion-item summary::before { content: none; }
+
+.formspec-accordion-item summary::after {
+  content: '▾';
+  font-size: 12px;
+  color: #888;
 }
 
-.formspec-accordion-item[open] > summary::before {
-  transform: rotate(90deg);
+.formspec-accordion-item[open] summary::after {
+  content: '▴';
 }
 
 .formspec-accordion-content {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--formspec-color-border, #e5e7eb);
+  padding: 12px 14px;
+  border-top: 1px solid #e0e0e0;
 }
 
 /* ── Modal ─────────────────────────────────────────────────────── */
 .formspec-modal {
   position: relative;
-  border: 1px solid var(--formspec-color-border, #e5e7eb);
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 600px;
+  border: none;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  width: auto;
+  min-width: 320px;
+  max-width: min(560px, 90vw);
   background: var(--formspec-color-background, #fff);
 }
 
@@ -509,7 +596,7 @@ hr.formspec-divider {
 .formspec-modal[data-size="full"] { max-width: none; }
 
 .formspec-modal::backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,0,0,0.4);
 }
 
 .formspec-modal-close {
@@ -518,26 +605,32 @@ hr.formspec-divider {
   right: 1rem;
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 20px;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
   line-height: 1;
-  color: var(--formspec-color-text-muted, #6b7280);
+  color: #999;
 }
 
 .formspec-modal-close:hover {
   color: inherit;
 }
 
+.formspec-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
 .formspec-modal-trigger {
-  padding: 0.5rem 1.5rem;
+  padding: 6px 16px;
   font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
-  background: transparent;
+  background: white;
   color: var(--formspec-color-primary, #2563eb);
-  border: 2px solid var(--formspec-color-primary, #2563eb);
-  border-radius: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
   cursor: pointer;
   width: 100%;
 }
@@ -555,13 +648,13 @@ hr.formspec-divider {
 }
 
 .formspec-popover-trigger {
-  padding: 0.35rem 0.75rem;
+  padding: 6px 16px;
   font: inherit;
   font-size: 0.85rem;
-  background: transparent;
+  background: white;
   color: var(--formspec-color-primary, #2563eb);
-  border: 1px solid var(--formspec-color-border, #d1d5db);
-  border-radius: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -571,30 +664,27 @@ hr.formspec-divider {
 }
 
 .formspec-popover-content {
-  border: 1px solid var(--formspec-color-border, #d1d5db);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
   max-width: 28rem;
   background: var(--formspec-color-background, #fff);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 100;
+  min-width: 200px;
 }
 
-.formspec-popover-content[data-placement="top"] {
-  margin-bottom: 0.5rem;
-}
-.formspec-popover-content[data-placement="right"] {
-  margin-left: 0.5rem;
-}
-.formspec-popover-content[data-placement="left"] {
-  margin-right: 0.5rem;
-}
-.formspec-popover-content[data-placement="bottom"] {
-  margin-top: 0.5rem;
-}
+.formspec-popover-content[data-placement="top"] { margin-bottom: 0.5rem; }
+.formspec-popover-content[data-placement="right"] { margin-left: 0.5rem; }
+.formspec-popover-content[data-placement="left"] { margin-right: 0.5rem; }
+.formspec-popover-content[data-placement="bottom"] { margin-top: 0.5rem; }
 
 /* ── Tabs ──────────────────────────────────────────────────────── */
 .formspec-tab-bar {
   display: flex;
+  gap: 2px;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 12px;
 }
 
 .formspec-tabs:not([data-position]) .formspec-tab-panels,
@@ -623,15 +713,18 @@ hr.formspec-divider {
 
 .formspec-tab {
   cursor: pointer;
-  padding: 0.5rem 1rem;
+  padding: 6px 14px;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   font: inherit;
+  color: #666;
+  margin-bottom: -2px;
 }
 
 .formspec-tab--active {
-  border-bottom-color: currentColor;
+  color: #4f88e8;
+  border-bottom-color: #4f88e8;
   font-weight: 600;
 }
 
@@ -669,8 +762,9 @@ hr.formspec-divider {
 /* ── Wizard ────────────────────────────────────────────────────── */
 .formspec-wizard-steps {
   display: flex;
-  gap: 0.25rem;
-  margin-bottom: 1rem;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .formspec-wizard-step-wrapper {
@@ -679,11 +773,12 @@ hr.formspec-divider {
   align-items: center;
   flex: 1;
   min-width: 0;
+  gap: 4px;
 }
 
 .formspec-wizard-step-label {
-  font-size: 0.7rem;
-  color: var(--formspec-color-text-muted, #6b7280);
+  font-size: 11px;
+  color: #666;
   text-align: center;
   margin-top: 0.25rem;
   max-width: 100%;
@@ -693,35 +788,34 @@ hr.formspec-divider {
 }
 
 .formspec-wizard-step-label--active {
-  font-weight: 700;
-  color: var(--formspec-color-primary, #2563eb);
+  color: #4f88e8;
+  font-weight: 600;
 }
 
 .formspec-wizard-step {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.85rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 12px;
   font-weight: 600;
-  background: var(--formspec-color-border, #e5e7eb);
-  color: var(--formspec-color-text-muted, #6b7280);
+  background: #ddd;
+  color: #555;
   border: 2px solid transparent;
 }
 
 .formspec-wizard-step--active {
-  background: var(--formspec-color-primary, #2563eb);
-  color: #fff;
-  border-color: var(--formspec-color-primary, #2563eb);
+  background: #4f88e8;
+  color: white;
+  border-color: #4f88e8;
 }
 
 .formspec-wizard-step--completed {
-  background: var(--formspec-color-success, #16a34a);
-  color: #fff;
-  border-color: var(--formspec-color-success, #16a34a);
+  background: #34a853;
+  color: white;
+  border-color: #34a853;
   font-size: 0;
 }
 
@@ -732,24 +826,20 @@ hr.formspec-divider {
 
 .formspec-wizard-nav {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .formspec-wizard-prev,
 .formspec-wizard-next {
-  padding: 0.5rem 1.5rem;
+  padding: 6px 16px;
   font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
-  border-radius: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
   cursor: pointer;
-}
-
-.formspec-wizard-prev {
-  background: transparent;
-  color: var(--formspec-color-primary, #2563eb);
-  border: 2px solid var(--formspec-color-primary, #2563eb);
+  background: white;
 }
 
 .formspec-wizard-prev:hover {
@@ -757,9 +847,9 @@ hr.formspec-divider {
 }
 
 .formspec-wizard-next {
-  background: var(--formspec-color-primary, #2563eb);
-  color: #fff;
-  border: 2px solid var(--formspec-color-primary, #2563eb);
+  background: #4f88e8;
+  color: white;
+  border-color: #4f88e8;
 }
 
 .formspec-wizard-next:hover {
@@ -777,14 +867,14 @@ hr.formspec-divider {
 .formspec-submit {
   display: block;
   width: 100%;
-  padding: 0.75rem 2rem;
+  padding: 8px 24px;
   font: inherit;
   font-size: 1rem;
   font-weight: 600;
-  background: var(--formspec-color-primary, #2563eb);
+  background: #4f88e8;
   color: #fff;
   border: none;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   cursor: pointer;
   margin-top: 1rem;
 }
@@ -794,7 +884,7 @@ hr.formspec-divider {
 }
 
 .formspec-submit:disabled {
-  opacity: 0.4;
+  opacity: 0.6;
   cursor: default;
 }
 
@@ -819,14 +909,14 @@ hr.formspec-divider {
 /* ── Rating ────────────────────────────────────────────────────── */
 .formspec-rating-stars {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
   cursor: pointer;
-  font-size: 1.5rem;
+  font-size: 24px;
 }
 
 .formspec-rating-star {
   display: inline-block;
-  color: rgb(204, 204, 204);
+  color: #ddd;
   cursor: pointer;
   transition: color 0.15s;
 }
@@ -836,7 +926,7 @@ hr.formspec-divider {
 }
 
 .formspec-rating-star--selected {
-  color: rgb(245, 166, 35);
+  color: #ffc107;
 }
 
 .formspec-rating-star--half {
@@ -848,36 +938,40 @@ hr.formspec-divider {
 
 /* ── File Upload ───────────────────────────────────────────────── */
 .formspec-drop-zone {
-  border: 2px dashed;
-  border-radius: 0.5rem;
+  border: 2px dashed #ccc;
+  border-radius: 6px;
   padding: 2rem;
   text-align: center;
   cursor: pointer;
   opacity: 0.7;
+  color: #888;
+  font-size: 13px;
 }
 
 .formspec-drop-zone--active {
   opacity: 1;
+  border-color: #4f88e8;
+  background: #e8f0fe;
 }
 
 /* ── Signature ─────────────────────────────────────────────────── */
 .formspec-signature-canvas {
   display: block;
-  border: 1px solid var(--formspec-color-border, #d1d5db);
-  border-radius: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
   cursor: crosshair;
   touch-action: none;
   max-width: 100%;
-  height: 150px;
 }
 
 .formspec-signature-clear {
-  margin-top: 0.25rem;
-  padding: 0.25rem 0.75rem;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 10px;
   font: inherit;
   font-size: 0.8rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
   background: #fff;
   color: #374151;
   cursor: pointer;
@@ -886,6 +980,19 @@ hr.formspec-divider {
 .formspec-signature-clear:hover {
   border-color: #9ca3af;
   background: #f9fafb;
+}
+
+/* ── Page ──────────────────────────────────────────────────────── */
+.formspec-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.formspec-page-description {
+  color: #555;
+  line-height: 1.5;
+  font-size: 13px;
 }
 
 /* ── Conditional Group ─────────────────────────────────────────── */
@@ -919,22 +1026,29 @@ hr.formspec-divider {
 .formspec-data-table {
   border-collapse: collapse;
   width: 100%;
+  font-size: 12.5px;
 }
 
 .formspec-data-table th,
 .formspec-data-table td {
-  padding: 0.5rem 0.75rem;
+  padding: 6px 10px;
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  border: 1px solid #e0e0e0;
+}
+
+.formspec-data-table th {
+  font-weight: 600;
+  background: #f5f5f5;
 }
 
 .formspec-datatable-input {
   width: 100%;
   min-width: 4rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 0.2rem 0.35rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 3px 6px;
   font: inherit;
+  font-size: 12px;
 }
 
 .formspec-datatable-input:disabled {
@@ -965,16 +1079,19 @@ hr.formspec-divider {
   margin-left: -1px;
 }
 
-.formspec-datatable-add {
-  margin-top: 0.5rem;
-  padding: 0.35rem 0.75rem;
+.formspec-datatable-add,
+.formspec-datatable-remove {
+  padding: 4px 10px;
   font: inherit;
-  font-size: 0.85rem;
-  border: 1px dashed #9ca3af;
+  font-size: 12px;
+  border: 1px solid #ccc;
   border-radius: 4px;
-  background: transparent;
-  color: inherit;
+  background: white;
   cursor: pointer;
+}
+
+.formspec-datatable-add {
+  margin-top: 6px;
 }
 
 .formspec-datatable-add:hover {
@@ -983,14 +1100,10 @@ hr.formspec-divider {
 }
 
 .formspec-datatable-remove {
-  padding: 0.15rem 0.5rem;
-  font: inherit;
-  font-size: 0.8rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
+  display: block;
+  margin: 0 auto;
+  background: #fce4ec;
+  border-color: #f48fb1;
 }
 
 .formspec-datatable-remove:hover {
@@ -1010,20 +1123,49 @@ hr.formspec-divider {
 .formspec-validation-summary {
   display: none;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
 .formspec-validation-summary--visible {
   display: flex;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.formspec-validation-summary-header {
+  margin: 0;
+  padding: 10px 14px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7f1d1d;
+  background: #fef2f2;
+  border-bottom: 1px solid #fca5a5;
 }
 
 .formspec-shape-error,
 .formspec-shape-warning,
 .formspec-shape-info {
-  padding: 0.75rem 1rem;
-  border-left: 4px solid transparent;
-  border-radius: 0 0.25rem 0.25rem 0;
-  font-size: 0.875rem;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  font-size: 12.5px;
+}
+
+.formspec-shape-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .formspec-shape-error {

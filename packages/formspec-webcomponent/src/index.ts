@@ -1271,6 +1271,9 @@ export class FormspecRender extends HTMLElement {
             label.classList.add('formspec-sr-only');
         } else if (effectiveLabelPosition === 'start') {
             fieldWrapper.classList.add('formspec-field--inline');
+        } else if (effectiveLabelPosition === 'top' && (componentType === 'Toggle' || componentType === 'Checkbox')) {
+            // Boolean fields are inline by default: [label] [control]
+            fieldWrapper.classList.add('formspec-field--inline');
         }
 
         fieldWrapper.appendChild(label);
@@ -1455,18 +1458,21 @@ export class FormspecRender extends HTMLElement {
             checkbox.type = 'checkbox';
             checkbox.className = 'formspec-input';
             checkbox.name = fullName;
-            if (comp.onLabel || comp.offLabel) {
+            if (componentType === 'Toggle') {
+                // Always wrap in toggle container so the switch styling applies
                 const toggleContainer = document.createElement('div');
                 toggleContainer.className = 'formspec-toggle';
-                const toggleLabel = document.createElement('span');
-                toggleLabel.className = 'formspec-toggle-label';
-                toggleLabel.textContent = comp.offLabel || '';
                 toggleContainer.appendChild(checkbox);
-                toggleContainer.appendChild(toggleLabel);
-                this.cleanupFns.push(effect(() => {
-                    const sig = this.engine!.signals[fullName];
-                    toggleLabel.textContent = sig?.value ? (comp.onLabel || '') : (comp.offLabel || '');
-                }));
+                if (comp.onLabel || comp.offLabel) {
+                    const toggleLabel = document.createElement('span');
+                    toggleLabel.className = 'formspec-toggle-label';
+                    toggleLabel.textContent = comp.offLabel || '';
+                    toggleContainer.appendChild(toggleLabel);
+                    this.cleanupFns.push(effect(() => {
+                        const sig = this.engine!.signals[fullName];
+                        toggleLabel.textContent = sig?.value ? (comp.onLabel || '') : (comp.offLabel || '');
+                    }));
+                }
                 input = toggleContainer;
             } else {
                 input = checkbox;

@@ -376,12 +376,24 @@ const SignaturePlugin: ComponentPlugin = {
 
         const canvas = document.createElement('canvas');
         canvas.className = 'formspec-signature-canvas';
-        canvas.width = 400;
-        canvas.height = comp.height || 200;
+        const displayHeight = comp.height || 200;
+        canvas.style.height = `${displayHeight}px`;
         wrapper.appendChild(canvas);
 
+        const dpr = window.devicePixelRatio || 1;
         const canvasCtx = canvas.getContext('2d')!;
         const strokeColor = comp.strokeColor || '#000';
+
+        const resizeCanvas = () => {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvasCtx.scale(dpr, dpr);
+        };
+        resizeCanvas();
+        const ro = new ResizeObserver(resizeCanvas);
+        ro.observe(canvas);
+        ctx.cleanupFns.push(() => ro.disconnect());
         let drawing = false;
 
         const getPos = (e: MouseEvent | Touch) => {

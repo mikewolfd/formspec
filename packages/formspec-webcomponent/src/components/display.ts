@@ -379,9 +379,24 @@ export const ValidationSummaryPlugin: ComponentPlugin = {
             }
             el.classList.add('formspec-validation-summary--visible');
 
+            const errorCount = rows.filter(({ result }) => (result.severity || 'error') === 'error').length;
+            const header = document.createElement('p');
+            header.className = 'formspec-validation-summary-header';
+            header.textContent = errorCount > 0
+                ? `Please fix ${errorCount === 1 ? 'this error' : `these ${errorCount} errors`} before continuing:`
+                : 'Please review the following before continuing:';
+            el.appendChild(header);
+
+            const severityIcon: Record<string, string> = { error: '✕', warning: '!', info: 'i' };
+
             for (const { result, target } of rows) {
                 const div = document.createElement('div');
-                div.className = `formspec-shape-${result.severity || 'error'}`;
+                const severity = result.severity || 'error';
+                div.className = `formspec-shape-${severity}`;
+                const icon = document.createElement('span');
+                icon.className = 'formspec-shape-icon';
+                icon.setAttribute('aria-hidden', 'true');
+                icon.textContent = severityIcon[severity] ?? '!';
                 const message = result?.message || 'Validation error';
                 const withLabel = target.formLevel ? message : `${target.label}: ${message}`;
                 if (jumpLinks && target.jumpable) {
@@ -392,9 +407,11 @@ export const ValidationSummaryPlugin: ComponentPlugin = {
                     button.addEventListener('click', () => {
                         ctx.focusField(target.path);
                     });
+                    div.appendChild(icon);
                     div.appendChild(button);
                 } else {
-                    div.textContent = withLabel;
+                    div.appendChild(icon);
+                    div.appendChild(document.createTextNode(withLabel));
                 }
                 el.appendChild(div);
             }
