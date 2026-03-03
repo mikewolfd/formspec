@@ -2,6 +2,7 @@ import { signal } from '@preact/signals';
 import { definitionVersion, findItemByKey } from '../../state/definition';
 import { diagnosticCounts, diagnostics } from '../../state/project';
 import { selectedPath } from '../../state/selection';
+import { DisplayProperties } from './display-properties';
 import { FieldProperties } from './field-properties';
 import { GroupProperties } from './group-properties';
 import { RootProperties } from './root-properties';
@@ -83,6 +84,10 @@ function PropertiesContent() {
 
   if (found.item.type === 'group') {
     return <GroupProperties item={found.item} />;
+  }
+
+  if (found.item.type === 'display') {
+    return <DisplayProperties item={found.item} />;
   }
 
   return <FieldProperties item={found.item} />;

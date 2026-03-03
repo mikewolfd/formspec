@@ -1,5 +1,5 @@
 import type { FormspecItem } from 'formspec-engine';
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { definition, definitionVersion } from '../../state/definition';
 import felFunctionsSchema from '../../../../schemas/fel-functions.schema.json';
 
@@ -57,6 +57,15 @@ function readTriggerToken(text: string, caret: number): TriggerMatch | null {
   };
 }
 
+function scoreMatch(label: string, query: string): number {
+  if (!query) return 0;
+  if (label === query) return 0;
+  if (label.startsWith(query)) return 1;
+  const index = label.indexOf(query);
+  if (index >= 0) return 5 + index;
+  return Number.POSITIVE_INFINITY;
+}
+
 export function FelExpressionInput({
   value,
   placeholder,
@@ -72,7 +81,9 @@ export function FelExpressionInput({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [match, setMatch] = useState<TriggerMatch | null>(null);
+  const [openUpward, setOpenUpward] = useState(false);
   const version = definitionVersion.value;
+  const listboxId = useMemo(() => `fel-autocomplete-${Math.random().toString(36).slice(2)}`, []);
 
   const itemKeys = useMemo(
     () => Array.from(collectItemKeys(definition.value.items)).sort((a, b) => a.localeCompare(b)),
@@ -128,6 +139,13 @@ export function FelExpressionInput({
           text: token,
           insertText: token,
         }))
+        .sort((left, right) => {
+          const leftLabel = left.text.slice(1).toLowerCase();
+          const rightLabel = right.text.slice(1).toLowerCase();
+          const scoreDelta = scoreMatch(leftLabel, trigger.query) - scoreMatch(rightLabel, trigger.query);
+          if (scoreDelta !== 0) return scoreDelta;
+          return leftLabel.localeCompare(rightLabel);
+        })
         .slice(0, MAX_SUGGESTIONS);
 
       setSuggestions(filtered);
@@ -138,6 +156,13 @@ export function FelExpressionInput({
 
     const filtered = functionSuggestions
       .filter((item) => item.text.slice(1).toLowerCase().includes(trigger.query))
+      .sort((left, right) => {
+        const leftLabel = left.text.slice(1).toLowerCase();
+        const rightLabel = right.text.slice(1).toLowerCase();
+        const scoreDelta = scoreMatch(leftLabel, trigger.query) - scoreMatch(rightLabel, trigger.query);
+        if (scoreDelta !== 0) return scoreDelta;
+        return leftLabel.localeCompare(rightLabel);
+      })
       .slice(0, MAX_SUGGESTIONS);
 
     setSuggestions(filtered);
@@ -192,6 +217,37 @@ export function FelExpressionInput({
     }
   }
 
+  function syncDropdownDirection() {
+    const inputEl = inputRef.current;
+    if (!inputEl || suggestions.length === 0) {
+      setOpenUpward(false);
+      return;
+    }
+    const rect = inputEl.getBoundingClientRect();
+    const estimatedHeight = Math.min(220, suggestions.length * 42 + 8);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const shouldOpenUpward = spaceBelow < Math.min(160, estimatedHeight) && spaceAbove > spaceBelow;
+    setOpenUpward(shouldOpenUpward);
+  }
+
+  useLayoutEffect(() => {
+    if (suggestions.length === 0) {
+      setOpenUpward(false);
+      return;
+    }
+    syncDropdownDirection();
+    const onViewportChange = () => {
+      syncDropdownDirection();
+    };
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
+    };
+  }, [suggestions.length]);
+
   return (
     <div class="fel-input-wrap">
       <input
@@ -200,16 +256,28 @@ export function FelExpressionInput({
         value={value}
         placeholder={placeholder}
         autoComplete="off"
+        aria-expanded={suggestions.length > 0}
+        aria-controls={suggestions.length > 0 ? listboxId : undefined}
+        aria-activedescendant={suggestions.length > 0 ? `${listboxId}-opt-${activeIndex}` : undefined}
         spellcheck={false}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
+        onFocus={(event) => {
+          const inputEl = event.currentTarget as HTMLInputElement;
+          updateSuggestionsForInput(inputEl.value, inputEl);
+        }}
         onBlur={closeSuggestions}
       />
       {suggestions.length > 0 && (
-        <div class="fel-autocomplete" role="listbox">
+        <div
+          id={listboxId}
+          class={`fel-autocomplete ${openUpward ? 'fel-autocomplete--up' : ''}`}
+          role="listbox"
+        >
           {suggestions.map((suggestion, index) => (
             <div
               key={suggestion.key}
+              id={`${listboxId}-opt-${index}`}
               role="option"
               aria-selected={index === activeIndex}
               class={`fel-autocomplete-option ${index === activeIndex ? 'active' : ''}`}

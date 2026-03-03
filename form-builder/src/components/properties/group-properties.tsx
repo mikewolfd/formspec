@@ -3,9 +3,10 @@ import type { FormspecItem } from 'formspec-engine';
 import { findItemByKey, updateDefinition } from '../../state/definition';
 import { FelExpressionInput } from './fel-expression-input';
 import { FelHelper } from './fel-helper';
+import { JsonPropertyEditor } from './json-property-editor';
 
 export function GroupProperties({ item }: { item: FormspecItem }) {
-  function updateGroup(field: string, value: string) {
+  function updateGroup(field: string, value: unknown) {
     updateDefinition((def) => {
       const found = findItemByKey(item.key, def.items);
       if (!found) {
@@ -20,7 +21,11 @@ export function GroupProperties({ item }: { item: FormspecItem }) {
         draft[field] = value ? Number(value) : undefined;
         return;
       }
-      draft[field] = value ? value : undefined;
+      if (value === '' || value === null || value === undefined) {
+        draft[field] = undefined;
+        return;
+      }
+      draft[field] = value;
     });
   }
 
@@ -53,6 +58,63 @@ export function GroupProperties({ item }: { item: FormspecItem }) {
           class="studio-input"
           value={item.label || ''}
           onInput={(event) => updateGroup('label', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Description">
+        <input
+          class="studio-input"
+          value={item.description || ''}
+          onInput={(event) => updateGroup('description', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Hint">
+        <input
+          class="studio-input"
+          value={item.hint || ''}
+          onInput={(event) => updateGroup('hint', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Reference URI">
+        <input
+          class="studio-input studio-input-mono"
+          value={String((item as Record<string, unknown>).$ref ?? '')}
+          placeholder="https://example.gov/forms/common|1.0.0"
+          onInput={(event) => updateGroup('$ref', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Key Prefix">
+        <input
+          class="studio-input studio-input-mono"
+          value={String((item as Record<string, unknown>).keyPrefix ?? '')}
+          placeholder="demo_"
+          onInput={(event) => updateGroup('keyPrefix', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Labels (JSON)">
+        <JsonPropertyEditor
+          label="Labels"
+          value={(item as Record<string, unknown>).labels}
+          onChange={(value) => updateGroup('labels', value)}
+          placeholder='{"short":"Address"}'
+          rows={3}
+        />
+      </PropertyRow>
+      <PropertyRow label="Presentation (JSON)">
+        <JsonPropertyEditor
+          label="Presentation"
+          value={(item as Record<string, unknown>).presentation}
+          onChange={(value) => updateGroup('presentation', value)}
+          placeholder="{}"
+          rows={3}
+        />
+      </PropertyRow>
+      <PropertyRow label="Extensions (JSON)">
+        <JsonPropertyEditor
+          label="Extensions"
+          value={(item as Record<string, unknown>).extensions}
+          onChange={(value) => updateGroup('extensions', value)}
+          placeholder='{"x-namespace":{}}'
+          rows={3}
         />
       </PropertyRow>
 
@@ -99,6 +161,15 @@ export function GroupProperties({ item }: { item: FormspecItem }) {
           min="0"
           value={typeof item.maxRepeat === 'number' ? String(item.maxRepeat) : ''}
           onInput={(event) => updateGroup('maxRepeat', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Children (JSON)">
+        <JsonPropertyEditor
+          label="Children"
+          value={(item as Record<string, unknown>).children}
+          onChange={(value) => updateGroup('children', value)}
+          placeholder="[]"
+          rows={3}
         />
       </PropertyRow>
     </div>

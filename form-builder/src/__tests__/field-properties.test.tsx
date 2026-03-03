@@ -68,7 +68,7 @@ describe('FieldProperties', () => {
     expect(select.value).toBe('string');
   });
 
-  test('renders all 14 data type options', () => {
+  test('renders all schema data type options', () => {
     render(<FieldProperties item={baseItem} />);
     const select = document.querySelector('select') as HTMLSelectElement;
     const options = Array.from(select.options).map((o) => o.value);
@@ -77,7 +77,6 @@ describe('FieldProperties', () => {
       'text',
       'integer',
       'decimal',
-      'number',
       'boolean',
       'date',
       'dateTime',
@@ -323,5 +322,77 @@ describe('FieldProperties', () => {
 
     const { item } = findItemByKey('targetField')!;
     expect((item as Record<string, unknown>).relevant).toBe('sum()');
+  });
+
+  test('FEL autocomplete supports keyboard selection for function suggestions', () => {
+    const def = createEmptyDefinition();
+    def.items = [
+      {
+        key: 'targetField',
+        type: 'field',
+        label: 'Target',
+        dataType: 'string',
+      } as FormspecItem,
+    ];
+    setDefinition(def);
+    const selected = findItemByKey('targetField')!.item;
+
+    render(<FieldProperties item={selected} />);
+
+    const relevantLabel = screen.getByText('Relevant');
+    const relevantRow = relevantLabel.closest('.property-row') as HTMLElement;
+    const relevantInput = relevantRow.querySelector('.fel-input-wrap input') as HTMLInputElement;
+
+    relevantInput.focus();
+    relevantInput.value = '@su';
+    relevantInput.setSelectionRange(3, 3);
+    fireEvent.input(relevantInput, { target: { value: '@su' } });
+
+    fireEvent.keyDown(relevantInput, { key: 'ArrowDown' });
+    fireEvent.keyDown(relevantInput, { key: 'Enter' });
+
+    const { item } = findItemByKey('targetField')!;
+    expect((item as Record<string, unknown>).relevant).toBe('sum()');
+  });
+
+  test('FEL autocomplete prioritizes prefix variable matches', () => {
+    const def = createEmptyDefinition();
+    def.items = [
+      {
+        key: 'targetField',
+        type: 'field',
+        label: 'Target',
+        dataType: 'string',
+      } as FormspecItem,
+      {
+        key: 'fullName',
+        type: 'field',
+        label: 'Full Name',
+        dataType: 'string',
+      } as FormspecItem,
+      {
+        key: 'notes',
+        type: 'field',
+        label: 'Notes',
+        dataType: 'text',
+      } as FormspecItem,
+    ];
+    setDefinition(def);
+    const selected = findItemByKey('targetField')!.item;
+
+    render(<FieldProperties item={selected} />);
+
+    const relevantLabel = screen.getByText('Relevant');
+    const relevantRow = relevantLabel.closest('.property-row') as HTMLElement;
+    const relevantInput = relevantRow.querySelector('.fel-input-wrap input') as HTMLInputElement;
+
+    relevantInput.focus();
+    relevantInput.value = '$f';
+    relevantInput.setSelectionRange(2, 2);
+    fireEvent.input(relevantInput, { target: { value: '$f' } });
+
+    const options = Array.from(relevantRow.querySelectorAll('[role="option"]'));
+    expect(options.length).toBeGreaterThan(0);
+    expect(options[0].textContent).toContain('$fullName');
   });
 });

@@ -3,21 +3,28 @@ import type { FormspecItem } from 'formspec-engine';
 import { findItemByKey, updateDefinition } from '../../state/definition';
 import { FelExpressionInput } from './fel-expression-input';
 import { FelHelper } from './fel-helper';
+import { JsonPropertyEditor } from './json-property-editor';
 
 export function FieldProperties({ item }: { item: FormspecItem }) {
-  function updateField(field: string, value: string) {
+  function updateField(field: string, value: unknown) {
     updateDefinition((def) => {
       const found = findItemByKey(item.key, def.items);
       if (!found) {
         return;
       }
       const draft = found.item as Record<string, unknown>;
-      draft[field] = value ? value : undefined;
+      if (value === '' || value === null || value === undefined) {
+        draft[field] = undefined;
+        return;
+      }
+      draft[field] = value;
     });
   }
 
   const isChoice = item.dataType === 'choice' || item.dataType === 'multiChoice';
-  const options = (item as Record<string, unknown>).options as
+  const rawOptions = (item as Record<string, unknown>).options;
+  const optionsSource = typeof rawOptions === 'string' ? rawOptions : '';
+  const options = rawOptions as
     | { value: string; label?: string }[]
     | undefined;
 
@@ -97,7 +104,6 @@ export function FieldProperties({ item }: { item: FormspecItem }) {
           <option value="text">text</option>
           <option value="integer">integer</option>
           <option value="decimal">decimal</option>
-          <option value="number">number</option>
           <option value="boolean">boolean</option>
           <option value="date">date</option>
           <option value="dateTime">dateTime</option>
@@ -116,8 +122,135 @@ export function FieldProperties({ item }: { item: FormspecItem }) {
           onInput={(event) => updateField('placeholder', (event.target as HTMLInputElement).value)}
         />
       </PropertyRow>
+      <PropertyRow label="Description">
+        <input
+          class="studio-input"
+          value={item.description || ''}
+          onInput={(event) => updateField('description', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Hint">
+        <input
+          class="studio-input"
+          value={item.hint || ''}
+          onInput={(event) => updateField('hint', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Semantic Type">
+        <input
+          class="studio-input studio-input-mono"
+          value={String((item as Record<string, unknown>).semanticType ?? '')}
+          onInput={(event) => updateField('semanticType', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Currency">
+        <input
+          class="studio-input studio-input-mono"
+          value={String((item as Record<string, unknown>).currency ?? '')}
+          placeholder="USD"
+          onInput={(event) => updateField('currency', (event.target as HTMLInputElement).value.toUpperCase())}
+        />
+      </PropertyRow>
+      <PropertyRow label="Precision">
+        <input
+          class="studio-input"
+          type="number"
+          min="0"
+          value={typeof (item as Record<string, unknown>).precision === 'number'
+            ? String((item as Record<string, unknown>).precision)
+            : ''}
+          onInput={(event) => {
+            const value = (event.target as HTMLInputElement).value;
+            updateField('precision', value ? Number(value) : undefined);
+          }}
+        />
+      </PropertyRow>
+      <PropertyRow label="Prefix">
+        <input
+          class="studio-input"
+          value={String((item as Record<string, unknown>).prefix ?? '')}
+          onInput={(event) => updateField('prefix', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Suffix">
+        <input
+          class="studio-input"
+          value={String((item as Record<string, unknown>).suffix ?? '')}
+          onInput={(event) => updateField('suffix', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Option Set">
+        <input
+          class="studio-input studio-input-mono"
+          value={String((item as Record<string, unknown>).optionSet ?? '')}
+          placeholder="yesNoNa"
+          onInput={(event) => updateField('optionSet', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Options Source URI">
+        <input
+          class="studio-input studio-input-mono"
+          value={optionsSource}
+          placeholder="https://example.gov/options"
+          onInput={(event) => updateField('options', (event.target as HTMLInputElement).value)}
+        />
+      </PropertyRow>
+      <PropertyRow label="Initial Value (JSON)">
+        <JsonPropertyEditor
+          label="Initial Value"
+          value={(item as Record<string, unknown>).initialValue}
+          onChange={(value) => updateField('initialValue', value)}
+          placeholder="0"
+          rows={2}
+        />
+      </PropertyRow>
+      <PropertyRow label="Pre-Populate (JSON)">
+        <JsonPropertyEditor
+          label="Pre-Populate"
+          value={(item as Record<string, unknown>).prePopulate}
+          onChange={(value) => updateField('prePopulate', value)}
+          placeholder='{"instance":"priorYear","path":"totalExpenditure"}'
+          rows={3}
+        />
+      </PropertyRow>
+      <PropertyRow label="Labels (JSON)">
+        <JsonPropertyEditor
+          label="Labels"
+          value={(item as Record<string, unknown>).labels}
+          onChange={(value) => updateField('labels', value)}
+          placeholder='{"short":"Budget"}'
+          rows={3}
+        />
+      </PropertyRow>
+      <PropertyRow label="Presentation (JSON)">
+        <JsonPropertyEditor
+          label="Presentation"
+          value={(item as Record<string, unknown>).presentation}
+          onChange={(value) => updateField('presentation', value)}
+          placeholder="{}"
+          rows={3}
+        />
+      </PropertyRow>
+      <PropertyRow label="Extensions (JSON)">
+        <JsonPropertyEditor
+          label="Extensions"
+          value={(item as Record<string, unknown>).extensions}
+          onChange={(value) => updateField('extensions', value)}
+          placeholder='{"x-namespace":{}}'
+          rows={3}
+        />
+      </PropertyRow>
+      <PropertyRow label="Children (JSON)">
+        <JsonPropertyEditor
+          label="Children"
+          value={(item as Record<string, unknown>).children}
+          onChange={(value) => updateField('children', value)}
+          placeholder="[]"
+          rows={3}
+        />
+      </PropertyRow>
 
-      {isChoice && (
+      {isChoice && !optionsSource && (
         <div class="options-editor">
           <div class="section-title">Options</div>
           {(options ?? []).map((opt, i) => (

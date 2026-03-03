@@ -227,6 +227,12 @@ body {
   color: var(--text-3);
 }
 
+.studio-json-input {
+  min-height: 76px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .studio-input-mono {
   font-family: var(--font-mono);
 }
@@ -1124,6 +1130,11 @@ body {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
   max-height: 220px;
   overflow-y: auto;
+}
+
+.fel-autocomplete--up {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 .fel-autocomplete-option {
