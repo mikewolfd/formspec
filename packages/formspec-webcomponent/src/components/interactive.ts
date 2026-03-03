@@ -249,10 +249,18 @@ export const SubmitButtonPlugin: ComponentPlugin = {
         if (comp.id) button.id = comp.id;
         button.type = 'button';
         button.className = 'formspec-submit';
-        button.textContent = comp.label || 'Submit';
+        const defaultLabel = comp.label || 'Submit';
+        const pendingLabel = comp.pendingLabel || 'Submitting…';
+        const disableWhenPending = comp.disableWhenPending !== false;
+        button.textContent = defaultLabel;
         ctx.applyCssClass(button, comp);
         ctx.applyAccessibility(button, comp);
         ctx.applyStyle(button, comp.style);
+        ctx.cleanupFns.push(effect(() => {
+            const pending = ctx.submitPendingSignal.value;
+            button.textContent = pending ? pendingLabel : defaultLabel;
+            button.disabled = disableWhenPending ? pending : false;
+        }));
         button.addEventListener('click', () => {
             ctx.submit({
                 mode: comp.mode || 'submit',

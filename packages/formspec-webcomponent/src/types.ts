@@ -1,5 +1,33 @@
 import { FormEngine } from 'formspec-engine';
+import type { Signal } from '@preact/signals-core';
 import { ThemeDocument, PresentationBlock, ItemDescriptor } from './theme-resolver';
+
+/** Metadata describing where a validation result points and whether it is jumpable. */
+export interface ValidationTargetMetadata {
+    path: string;
+    label: string;
+    formLevel: boolean;
+    jumpable: boolean;
+    fieldElement?: HTMLElement | null;
+}
+
+/** Selected screener route target (if any). */
+export interface ScreenerRoute {
+    target: string;
+    label?: string;
+    extensions?: Record<string, any>;
+}
+
+/** Classifies the screener route relative to the current definition URL. */
+export type ScreenerRouteType = 'none' | 'internal' | 'external';
+
+/** Snapshot of current screener completion and routing state. */
+export interface ScreenerStateSnapshot {
+    hasScreener: boolean;
+    completed: boolean;
+    routeType: ScreenerRouteType;
+    route: ScreenerRoute | null;
+}
 
 /**
  * Context object passed to every {@link ComponentPlugin} render function.
@@ -32,6 +60,32 @@ export interface RenderContext {
             timestamp: string;
         };
     } | null;
+
+    /** Resolve a validation result/path to a target path + label + jump metadata. */
+    resolveValidationTarget: (resultOrPath: any) => ValidationTargetMetadata;
+
+    /** Reveal and focus a field by path; returns false when no target field is found. */
+    focusField: (path: string) => boolean;
+
+    /** Reactive shared submit pending signal used by submit-oriented plugins. */
+    submitPendingSignal: Signal<boolean>;
+
+    /** Latest renderer submit detail (`{ response, validationReport }`), or null before first submit. */
+    latestSubmitDetailSignal: Signal<{
+        response: any;
+        validationReport: {
+            valid: boolean;
+            results: any[];
+            counts: { error: number; warning: number; info: number };
+            timestamp: string;
+        };
+    } | null>;
+
+    /** Set shared submit pending state and emit change event when it toggles. */
+    setSubmitPending: (pending: boolean) => void;
+
+    /** Read shared submit pending state. */
+    isSubmitPending: () => boolean;
 
     /** Recursively render a child component descriptor into a parent element. */
     renderComponent: (comp: any, parent: HTMLElement, prefix?: string) => void;

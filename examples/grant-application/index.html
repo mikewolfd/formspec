@@ -461,55 +461,6 @@
       color: #7a4f00;
     }
 
-    /* ── Submit validation panel ── */
-    .validation-panel {
-      margin-bottom: 16px;
-      border: 1px solid var(--color-error);
-      border-left-width: 6px;
-      border-radius: var(--radius);
-      background: #fff6f6;
-      padding: 14px 16px 12px;
-      display: none;
-    }
-    .validation-panel.visible {
-      display: block;
-    }
-    .validation-panel h3 {
-      margin: 0 0 8px;
-      color: #8b0a03;
-      font-size: 16px;
-      font-weight: 700;
-    }
-    .validation-panel p {
-      margin: 0 0 10px;
-      color: #3d3d3d;
-      font-size: 14px;
-    }
-    .validation-panel ul {
-      margin: 0;
-      padding-left: 18px;
-      display: grid;
-      gap: 6px;
-    }
-    .validation-panel li {
-      color: #1b1b1b;
-      font-size: 14px;
-      line-height: 1.35;
-    }
-    .validation-jump {
-      border: 0;
-      background: transparent;
-      color: var(--color-primary);
-      cursor: pointer;
-      font: inherit;
-      padding: 0;
-      text-decoration: underline;
-      text-align: left;
-    }
-    .validation-jump:hover {
-      color: var(--color-primary-dark);
-    }
-
     /* ── Inline field validation styling ── */
     .formspec-error:not(:empty) {
       color: var(--color-error);
@@ -658,12 +609,6 @@
 
   <!-- Main form content -->
   <main class="form-area">
-    <section id="validation-panel" class="validation-panel" aria-live="polite" aria-labelledby="validation-panel-title">
-      <h3 id="validation-panel-title">Please fix the highlighted fields before submitting.</h3>
-      <p id="validation-panel-summary"></p>
-      <ul id="validation-panel-list"></ul>
-    </section>
-
     <formspec-render id="form"></formspec-render>
 
     <div class="back-screener-area">

@@ -466,6 +466,12 @@
                 "text": "Review all information below before submitting. Use Previous to go back and make corrections."
               },
               {
+                "component": "ValidationSummary",
+                "mode": "submit",
+                "showFieldErrors": true,
+                "jumpLinks": true
+              },
+              {
                 "component": "Collapsible",
                 "title": "Applicant Information",
                 "defaultOpen": true,

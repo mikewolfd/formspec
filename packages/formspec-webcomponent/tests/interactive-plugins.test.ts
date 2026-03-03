@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { minimalComponentDoc } from './helpers/engine-fixtures';
 
 let FormspecRender: any;
@@ -328,6 +328,102 @@ describe('SubmitButton plugin', () => {
         });
         (el.querySelector('.formspec-submit') as HTMLButtonElement).click();
         expect(emitted).toBe(false);
+    });
+
+    it('reacts to shared submit pending state', () => {
+        const el = document.createElement('formspec-render') as any;
+        document.body.appendChild(el);
+        el.definition = {
+            $formspec: '1.0',
+            url: 'urn:test:form',
+            version: '1.0.0',
+            title: 'Test',
+            items: [],
+        };
+        el.componentDocument = minimalComponentDoc({
+            component: 'Stack',
+            children: [
+                { component: 'SubmitButton', label: 'Save', pendingLabel: 'Saving...' },
+                { component: 'SubmitButton', label: 'Queue', pendingLabel: 'Queued...', disableWhenPending: false },
+            ],
+        });
+        el.render();
+
+        const buttons = el.querySelectorAll('.formspec-submit') as NodeListOf<HTMLButtonElement>;
+        expect(buttons[0].disabled).toBe(false);
+        expect(buttons[0].textContent).toBe('Save');
+        expect(buttons[1].disabled).toBe(false);
+        expect(buttons[1].textContent).toBe('Queue');
+
+        el.setSubmitPending(true);
+        expect(buttons[0].disabled).toBe(true);
+        expect(buttons[0].textContent).toBe('Saving...');
+        expect(buttons[1].disabled).toBe(false);
+        expect(buttons[1].textContent).toBe('Queued...');
+
+        el.setSubmitPending(false);
+        expect(buttons[0].disabled).toBe(false);
+        expect(buttons[0].textContent).toBe('Save');
+        expect(buttons[1].disabled).toBe(false);
+        expect(buttons[1].textContent).toBe('Queue');
+    });
+});
+
+describe('ValidationSummary plugin', () => {
+    afterEach(() => {
+        document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('renders submit-source results with dedupe and jump links', async () => {
+        const el = document.createElement('formspec-render') as any;
+        document.body.appendChild(el);
+        el.definition = {
+            $formspec: '1.0',
+            url: 'urn:test:form',
+            version: '1.0.0',
+            title: 'Test',
+            items: [{ key: 'name', type: 'field', dataType: 'string', label: 'Name', required: true }],
+            shapes: [
+                {
+                    id: 'dup-a',
+                    target: 'name',
+                    timing: 'submit',
+                    constraint: 'false',
+                    message: 'Name is required.',
+                    severity: 'error',
+                },
+                {
+                    id: 'dup-b',
+                    target: 'name',
+                    timing: 'submit',
+                    constraint: 'false',
+                    message: 'Name is required.',
+                    severity: 'error',
+                },
+            ],
+        };
+        el.componentDocument = minimalComponentDoc({
+            component: 'Stack',
+            children: [
+                { component: 'TextInput', bind: 'name' },
+                { component: 'ValidationSummary', source: 'submit', dedupe: true, jumpLinks: true },
+            ],
+        });
+        el.render();
+
+        const focusSpy = vi.spyOn(el, 'focusField').mockReturnValue(true);
+        el.submit();
+
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const summary = el.querySelector('.formspec-validation-summary') as HTMLElement;
+        expect(summary.classList.contains('formspec-validation-summary--visible')).toBe(true);
+
+        const links = summary.querySelectorAll('.formspec-validation-summary-link');
+        expect(links.length).toBe(1);
+        (links[0] as HTMLButtonElement).click();
+        expect(focusSpy).toHaveBeenCalledWith('name');
     });
 });
 

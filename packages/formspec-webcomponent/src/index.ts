@@ -2,7 +2,14 @@ import { effect, signal } from '@preact/signals-core';
 import { FormEngine } from 'formspec-engine';
 import { globalRegistry } from './registry';
 import { registerDefaultComponents } from './components';
-import { RenderContext, ComponentPlugin } from './types';
+import {
+    RenderContext,
+    ComponentPlugin,
+    ValidationTargetMetadata,
+    ScreenerRoute,
+    ScreenerRouteType,
+    ScreenerStateSnapshot,
+} from './types';
 import { ThemeDocument, PresentationBlock, ItemDescriptor, Tier1Hints, resolvePresentation, resolveWidget } from './theme-resolver';
 import defaultThemeJson from './default-theme.json';
 import './formspec-base.css';
@@ -147,10 +154,64 @@ export class FormspecRender extends HTMLElement {
     /** Whether the screener has been completed (route selected). */
     private _screenerCompleted = false;
     /** The route selected by the screener, if any. */
-    private _screenerRoute: { target: string; label?: string; extensions?: Record<string, any> } | null = null;
+    private _screenerRoute: ScreenerRoute | null = null;
+    /** Shared pending state for submit flows (e.g. async host submits). */
+    private _submitPendingSignal = signal(false);
+    /** Latest submit detail payload (`{ response, validationReport }`). */
+    private _latestSubmitDetailSignal = signal<{
+        response: any;
+        validationReport: {
+            valid: boolean;
+            results: any[];
+            counts: { error: number; warning: number; info: number };
+            timestamp: string;
+        };
+    } | null>(null);
 
     private normalizeFieldPath(path: unknown): string {
         return typeof path === 'string' ? path.trim() : '';
+    }
+
+    private externalPathToInternal(path: string): string {
+        return path.replace(/\[(\d+)\]/g, (_match: string, rawIndex: string) => {
+            const parsed = Number.parseInt(rawIndex, 10);
+            if (!Number.isFinite(parsed)) return `[${rawIndex}]`;
+            return `[${Math.max(0, parsed - 1)}]`;
+        });
+    }
+
+    private isInternalScreenerTarget(target: string): boolean {
+        const defUrl = this._definition?.url;
+        if (!defUrl || !target) return false;
+        return target === defUrl || target.startsWith(defUrl + '/') || target.split('|')[0] === defUrl;
+    }
+
+    private classifyScreenerRoute(route: ScreenerRoute | null | undefined): ScreenerRouteType {
+        if (!route?.target) return 'none';
+        return this.isInternalScreenerTarget(route.target) ? 'internal' : 'external';
+    }
+
+    /** Returns the current screener completion + routing state. */
+    getScreenerState(): ScreenerStateSnapshot {
+        const hasScreener = !!this._definition?.screener?.items;
+        return {
+            hasScreener,
+            completed: hasScreener ? this._screenerCompleted : true,
+            routeType: this.classifyScreenerRoute(this._screenerRoute),
+            route: this._screenerRoute,
+        };
+    }
+
+    private emitScreenerStateChange(reason: string, answers?: Record<string, any>): void {
+        this.dispatchEvent(new CustomEvent('formspec-screener-state-change', {
+            detail: {
+                ...this.getScreenerState(),
+                reason,
+                ...(answers ? { answers } : {}),
+            },
+            bubbles: true,
+            composed: true,
+        }));
     }
 
     private findFieldElement(path: string): HTMLElement | null {
@@ -210,6 +271,7 @@ export class FormspecRender extends HTMLElement {
             console.error("Engine initialization failed", e);
             throw e;
         }
+        this.emitScreenerStateChange('definition-set');
         this.scheduleRender();
     }
 
@@ -348,6 +410,7 @@ export class FormspecRender extends HTMLElement {
             timestamp: response?.authored || new Date().toISOString(),
         };
         const detail = { response, validationReport };
+        this._latestSubmitDetailSignal.value = detail;
 
         if (emitEvent) {
             this.dispatchEvent(new CustomEvent('formspec-submit', {
@@ -358,6 +421,69 @@ export class FormspecRender extends HTMLElement {
         }
 
         return detail;
+    }
+
+    /**
+     * Resolve a validation result/path to a navigation target with metadata.
+     * Used by components like ValidationSummary to render labels and jump links.
+     */
+    resolveValidationTarget(resultOrPath: any): ValidationTargetMetadata {
+        const rawPath = typeof resultOrPath === 'string'
+            ? resultOrPath
+            : (typeof resultOrPath?.sourceId === 'string'
+                ? resultOrPath.sourceId
+                : (typeof resultOrPath?.path === 'string' ? resultOrPath.path : ''));
+        const normalizedPath = this.normalizeFieldPath(rawPath);
+        const formLevel = normalizedPath === '' || normalizedPath === '#';
+
+        let path = formLevel ? '' : normalizedPath;
+        let fieldElement: HTMLElement | null = null;
+
+        if (!formLevel) {
+            const candidatePaths = [normalizedPath, this.externalPathToInternal(normalizedPath)]
+                .filter((candidate, index, all) => candidate && all.indexOf(candidate) === index);
+            for (const candidate of candidatePaths) {
+                const match = this.findFieldElement(candidate);
+                if (!match) continue;
+                path = candidate;
+                fieldElement = match;
+                break;
+            }
+        }
+
+        const keyPath = (path || normalizedPath).replace(/\[\d+\]/g, '');
+        const item = keyPath ? this.findItemByKey(keyPath) : null;
+        const label = formLevel
+            ? (this._definition?.title || 'Form')
+            : (item?.label || keyPath || normalizedPath || 'Field');
+
+        return {
+            path,
+            label,
+            formLevel,
+            jumpable: !!fieldElement,
+            fieldElement,
+        };
+    }
+
+    /**
+     * Toggle shared submit pending state and emit `formspec-submit-pending-change`
+     * whenever the value changes.
+     */
+    setSubmitPending(pending: boolean): void {
+        const next = !!pending;
+        if (next === this._submitPendingSignal.value) return;
+        this._submitPendingSignal.value = next;
+        this.dispatchEvent(new CustomEvent('formspec-submit-pending-change', {
+            detail: { pending: next },
+            bubbles: true,
+            composed: true,
+        }));
+    }
+
+    /** Returns the current shared submit pending state. */
+    isSubmitPending(): boolean {
+        return this._submitPendingSignal.value;
     }
 
     /**
@@ -667,26 +793,26 @@ export class FormspecRender extends HTMLElement {
         continueBtn.addEventListener('click', () => {
             const route = this.engine!.evaluateScreener(answers);
             this._screenerRoute = route;
+            const routeType = this.classifyScreenerRoute(route);
+            const isInternal = routeType === 'internal';
 
             this.dispatchEvent(new CustomEvent('formspec-screener-route', {
-                detail: { route, answers },
+                detail: { route, answers, routeType, isInternal },
                 bubbles: true,
                 composed: true,
             }));
 
             // If the route target matches this definition's URL, show the main form
-            if (route) {
-                const defUrl = this._definition.url;
-                const target = route.target;
-                if (target === defUrl || target.startsWith(defUrl + '/') || target.split('|')[0] === defUrl) {
-                    this._screenerCompleted = true;
-                    this.render();
-                    return;
-                }
+            if (isInternal) {
+                this._screenerCompleted = true;
+                this.emitScreenerStateChange('route-internal', answers);
+                this.render();
+                return;
             }
 
             // For non-matching routes (external redirect), leave screener visible.
             // The host app should handle the formspec-screener-route event to redirect.
+            this.emitScreenerStateChange(route ? 'route-external' : 'route-none', answers);
         });
         panel.appendChild(continueBtn);
 
@@ -701,6 +827,8 @@ export class FormspecRender extends HTMLElement {
     /** Programmatically skip the screener and proceed to the main form. */
     skipScreener() {
         this._screenerCompleted = true;
+        this._screenerRoute = null;
+        this.emitScreenerStateChange('skip');
         this.scheduleRender();
     }
 
@@ -708,6 +836,7 @@ export class FormspecRender extends HTMLElement {
     restartScreener() {
         this._screenerCompleted = false;
         this._screenerRoute = null;
+        this.emitScreenerStateChange('restart');
         this.scheduleRender();
     }
 
@@ -1023,6 +1152,12 @@ export class FormspecRender extends HTMLElement {
             themeDocument: this._themeDocument,
             prefix,
             submit: this.submit.bind(this),
+            resolveValidationTarget: this.resolveValidationTarget.bind(this),
+            focusField: this.focusField.bind(this),
+            submitPendingSignal: this._submitPendingSignal,
+            latestSubmitDetailSignal: this._latestSubmitDetailSignal,
+            setSubmitPending: this.setSubmitPending.bind(this),
+            isSubmitPending: this.isSubmitPending.bind(this),
             renderComponent: this.renderComponent,
             resolveToken: this.resolveToken,
             applyStyle: this.applyStyle,

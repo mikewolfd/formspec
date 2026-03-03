@@ -308,10 +308,15 @@ export const SummaryPlugin: ComponentPlugin = {
 };
 
 /**
- * Renders a live validation summary that displays shape-level (cross-field) validation results.
- * Optionally also shows field-level errors. Reactively updates as form state changes.
+ * Renders validation summary messages from either live validation state or
+ * the latest submit event detail, with optional jump links to target fields.
  *
- * Props: `mode` ('continuous' | 'submit', default 'continuous'), `showFieldErrors` (boolean, default false).
+ * Props:
+ * - `source`: 'live' | 'submit' (default 'live')
+ * - `mode`: validation mode for live source (default 'continuous')
+ * - `showFieldErrors`: include bind-level field errors (default false)
+ * - `jumpLinks`: render clickable jump buttons to focus related fields
+ * - `dedupe`: deduplicate repeated messages (default true)
  */
 export const ValidationSummaryPlugin: ComponentPlugin = {
     type: 'ValidationSummary',
@@ -321,33 +326,76 @@ export const ValidationSummaryPlugin: ComponentPlugin = {
         el.className = 'formspec-validation-summary';
         el.setAttribute('aria-live', 'polite');
         ctx.applyCssClass(el, comp);
+        ctx.applyAccessibility(el, comp);
         ctx.applyStyle(el, comp.style);
         parent.appendChild(el);
 
+        const source = comp.source || 'live';
         const mode = comp.mode || 'continuous';
         const showFieldErrors = comp.showFieldErrors === true;
+        const jumpLinks = comp.jumpLinks === true;
+        const dedupe = comp.dedupe !== false;
 
         ctx.cleanupFns.push(effect(() => {
-            // Touch structureVersion to re-run on structural changes
-            ctx.engine.structureVersion.value;
+            let rawResults: any[] = [];
+            if (source === 'submit') {
+                const detail = ctx.latestSubmitDetailSignal.value;
+                const fromReport = detail?.validationReport?.results;
+                const fromResponse = detail?.response?.validationResults;
+                rawResults = Array.isArray(fromReport)
+                    ? fromReport
+                    : (Array.isArray(fromResponse) ? fromResponse : []);
+            } else {
+                ctx.engine.structureVersion.value;
+                rawResults = ctx.engine.getValidationReport({ mode }).results;
+            }
 
-            const report = ctx.engine.getValidationReport({ mode });
-            const results = report.results.filter((r: any) => {
+            const filteredResults = rawResults.filter((r: any) => {
                 if (showFieldErrors) return true;
                 return r.source === 'shape' || r.constraintKind === 'shape';
             });
 
-            el.innerHTML = '';
-            if (results.length === 0) {
+            const resolved = filteredResults.map((result: any) => ({
+                result,
+                target: ctx.resolveValidationTarget(result),
+            }));
+
+            const rows = dedupe
+                ? (() => {
+                    const seen = new Set<string>();
+                    return resolved.filter(({ result, target }) => {
+                        const key = `${result?.severity || 'error'}|${target.path || result?.path || ''}|${result?.message || ''}`;
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+                })()
+                : resolved;
+
+            el.replaceChildren();
+            if (rows.length === 0) {
                 el.classList.remove('formspec-validation-summary--visible');
                 return;
             }
             el.classList.add('formspec-validation-summary--visible');
 
-            for (const r of results) {
+            for (const { result, target } of rows) {
                 const div = document.createElement('div');
-                div.className = `formspec-shape-${r.severity || 'error'}`;
-                div.textContent = r.message;
+                div.className = `formspec-shape-${result.severity || 'error'}`;
+                const message = result?.message || 'Validation error';
+                const withLabel = target.formLevel ? message : `${target.label}: ${message}`;
+                if (jumpLinks && target.jumpable) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'formspec-validation-summary-link';
+                    button.textContent = withLabel;
+                    button.addEventListener('click', () => {
+                        ctx.focusField(target.path);
+                    });
+                    div.appendChild(button);
+                } else {
+                    div.textContent = withLabel;
+                }
                 el.appendChild(div);
             }
         }));

@@ -15,9 +15,6 @@ const formEl = document.getElementById('form');
 const btnBackScreener = document.getElementById('btn-back-screener');
 const serverResponseEl = document.getElementById('server-response');
 const serverResponsePre = document.getElementById('server-response-pre');
-const validationPanelEl = document.getElementById('validation-panel');
-const validationPanelSummaryEl = document.getElementById('validation-panel-summary');
-const validationPanelListEl = document.getElementById('validation-panel-list');
 const footerGrandTotal = document.getElementById('footer-grand-total');
 const footerRequested = document.getElementById('footer-requested');
 const footerMatch = document.getElementById('footer-match');
@@ -65,93 +62,27 @@ const progressScreenerEl = document.querySelector('#progress-steps li[data-step=
 const progressFormStepEls = progressStepEls.filter(li => !li.hasAttribute('data-step'));
 const backScreenerAreaEl = document.querySelector('.back-screener-area');
 const PAGE_TITLES = progressFormStepEls.map(li => li.getAttribute('data-page'));
-let screenerCompleted = false;
 let currentFormPageIndex = -1;
+let screenerState = typeof formEl.getScreenerState === 'function'
+  ? formEl.getScreenerState()
+  : { completed: false, routeType: 'none', route: null };
 
-function hideValidationPanel() {
-  validationPanelEl?.classList.remove('visible');
-  if (validationPanelListEl) validationPanelListEl.innerHTML = '';
-  if (validationPanelSummaryEl) validationPanelSummaryEl.textContent = '';
+function clearRedirectNotice() {
+  const formArea = formEl.closest('.form-area');
+  formArea?.querySelector('.formspec-screener-redirect')?.remove();
 }
 
-function normalizePath(path) {
-  return typeof path === 'string' ? path.trim() : '';
-}
-
-function findFieldElement(path) {
-  if (!path || path === '#') return null;
-  const escapedPath = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(path) : path;
-  let fieldEl = formEl.querySelector(`.formspec-field[data-name="${escapedPath}"]`);
-  if (fieldEl) return fieldEl;
-  const allFields = Array.from(formEl.querySelectorAll('.formspec-field[data-name]'));
-  fieldEl = allFields.find((el) => {
-    const name = el.getAttribute('data-name');
-    return name === path || name?.startsWith(`${path}.`) || name?.startsWith(`${path}[`);
-  });
-  return fieldEl || null;
-}
-
-function resolveValidationTarget(result) {
-  const path = normalizePath(result?.sourceId || result?.path);
-  const fieldEl = findFieldElement(path);
-  const labelText = fieldEl?.querySelector('.formspec-label')?.textContent?.trim()
-    || (path && path !== '#' ? path : 'Application-level validation');
-  return { path, fieldEl, labelText };
-}
-
-function focusValidationTarget(path) {
-  const normalizedPath = normalizePath(path);
-  if (!normalizedPath) return;
-  if (typeof formEl.focusField === 'function') {
-    formEl.focusField(normalizedPath);
-    return;
-  }
-  const fallbackField = findFieldElement(normalizedPath);
-  if (!fallbackField) return;
-  fallbackField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function renderValidationPanel(report) {
-  if (!validationPanelEl || !validationPanelSummaryEl || !validationPanelListEl) return;
-  const errorResults = report.results.filter((result) => (result?.severity || 'error') === 'error');
-  if (errorResults.length === 0) {
-    hideValidationPanel();
-    return;
-  }
-
-  const seen = new Set();
-  const uniqueErrors = [];
-  for (const result of errorResults) {
-    const key = `${result?.sourceId || result?.path || '#'}|${result?.message || ''}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    uniqueErrors.push(result);
-  }
-
-  validationPanelSummaryEl.textContent = `${uniqueErrors.length} issue${uniqueErrors.length === 1 ? '' : 's'} must be corrected.`;
-  validationPanelListEl.innerHTML = '';
-
-  for (const result of uniqueErrors) {
-    const { path, fieldEl, labelText } = resolveValidationTarget(result);
-    const li = document.createElement('li');
-    const message = result?.message || 'Validation error';
-
-    if (fieldEl && path && path !== '#') {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'validation-jump';
-      btn.dataset.path = path;
-      btn.textContent = `${labelText}: ${message}`;
-      li.appendChild(btn);
-    } else {
-      li.textContent = `${labelText}: ${message}`;
-    }
-
-    validationPanelListEl.appendChild(li);
-  }
-
-  validationPanelEl.classList.add('visible');
-  validationPanelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function showRedirectNotice(route) {
+  const notice = document.createElement('div');
+  notice.className = 'formspec-screener formspec-screener-redirect';
+  notice.innerHTML = `
+    <h2 class="formspec-screener-heading">You're being redirected</h2>
+    <p class="formspec-screener-intro">Based on your answers, the appropriate form is:</p>
+    <p style="font-weight:600; color: var(--color-primary)">${route.label || route.target}</p>
+    <p class="formspec-screener-intro" style="font-size:14px; color: var(--color-neutral-700)">In a production system this would navigate to the correct form automatically.</p>
+  `;
+  clearRedirectNotice();
+  formEl.after(notice);
 }
 
 function renderProgress() {
@@ -159,7 +90,7 @@ function renderProgress() {
     li.classList.remove('active', 'valid', 'invalid');
   });
 
-  if (!screenerCompleted) {
+  if (!screenerState?.completed) {
     progressScreenerEl?.classList.add('active');
     return;
   }
@@ -171,109 +102,86 @@ function renderProgress() {
   });
 }
 
+function syncBackScreenerButton() {
+  const show = !!screenerState?.completed && currentFormPageIndex === 0;
+  btnBackScreener.style.display = show ? 'inline-block' : 'none';
+}
+
+function restartToScreener() {
+  if (typeof formEl.restartScreener === 'function') {
+    formEl.restartScreener();
+  }
+  currentFormPageIndex = -1;
+  backScreenerAreaEl?.appendChild(btnBackScreener);
+  btnBackScreener.style.display = 'none';
+}
+
 renderProgress();
+syncBackScreenerButton();
 
 formEl.addEventListener('formspec-page-change', (e) => {
-  const { index, title } = e.detail;
-  const isFirstPage = index === 0;
+  const { title } = e.detail;
   const currentIdx = PAGE_TITLES.indexOf(title);
   currentFormPageIndex = currentIdx;
-  screenerCompleted = true;
   renderProgress();
-
-  if (isFirstPage && screenerCompleted) {
-    btnBackScreener.style.display = '';
-  } else {
-    btnBackScreener.style.display = 'none';
-  }
+  syncBackScreenerButton();
 });
 
-formEl.addEventListener('formspec-screener-route', (e) => {
-  const { route } = e.detail;
-  const defUrl = definition.url;
-  const isInternal = route && (route.target === defUrl || route.target.startsWith(defUrl + '/') || route.target.split('|')[0] === defUrl);
+formEl.addEventListener('formspec-screener-state-change', (e) => {
+  const detail = e.detail || {};
+  screenerState = detail;
 
-  if (!isInternal && route) {
-    // External route — show a redirect notice instead of the form
-    const notice = document.createElement('div');
-    notice.className = 'formspec-screener';
-    notice.innerHTML = `
-      <h2 class="formspec-screener-heading">You're being redirected</h2>
-      <p class="formspec-screener-intro">Based on your answers, the appropriate form is:</p>
-      <p style="font-weight:600; color: var(--color-primary)">${route.label || route.target}</p>
-      <p class="formspec-screener-intro" style="font-size:14px; color: var(--color-neutral-700)">In a production system this would navigate to the correct form automatically.</p>
-    `;
-    const formArea = formEl.closest('.form-area');
-    formArea.querySelector('.formspec-screener-redirect')?.remove();
-    notice.classList.add('formspec-screener-redirect');
-    formEl.after(notice);
-    return;
+  if (!screenerState.completed) {
+    currentFormPageIndex = -1;
+  } else if (currentFormPageIndex < 0) {
+    currentFormPageIndex = 0;
   }
 
-  screenerCompleted = true;
-  currentFormPageIndex = 0;
+  if (detail.routeType === 'external' && detail.route) {
+    showRedirectNotice(detail.route);
+  } else {
+    clearRedirectNotice();
+  }
+
   renderProgress();
+  syncBackScreenerButton();
 });
 
 progressScreenerEl?.addEventListener('click', () => {
-  if (!screenerCompleted) return;
-  if (typeof formEl.restartScreener === 'function') {
-    formEl.restartScreener();
-  }
-  screenerCompleted = false;
-  currentFormPageIndex = -1;
-  renderProgress();
-  backScreenerAreaEl?.appendChild(btnBackScreener);
-  btnBackScreener.style.display = 'none';
-  hideValidationPanel();
+  if (!screenerState?.completed) return;
+  restartToScreener();
 });
 
 btnBackScreener.addEventListener('click', () => {
-  if (typeof formEl.restartScreener === 'function') {
-    formEl.restartScreener();
-  }
-  screenerCompleted = false;
-  currentFormPageIndex = -1;
-  renderProgress();
-  backScreenerAreaEl?.appendChild(btnBackScreener);
-  btnBackScreener.style.display = 'none';
-  hideValidationPanel();
+  restartToScreener();
 });
 
-validationPanelListEl?.addEventListener('click', (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-  const jumpBtn = target.closest('button.validation-jump');
-  if (!(jumpBtn instanceof HTMLButtonElement)) return;
-  const { path } = jumpBtn.dataset;
-  if (path) {
-    focusValidationTarget(path);
+function setSubmitPending(isPending, textWhenPending = 'Submitting…') {
+  if (typeof formEl.setSubmitPending === 'function') {
+    try {
+      formEl.setSubmitPending(isPending);
+      return;
+    } catch {
+    }
   }
-});
 
-function setSubmitButtonState(disabled, textWhenDisabled = 'Submitting…') {
   const buttons = Array.from(formEl.querySelectorAll('button.formspec-submit'));
   for (const button of buttons) {
     if (!(button instanceof HTMLButtonElement)) continue;
     if (!button.dataset.defaultLabel) {
       button.dataset.defaultLabel = button.textContent || 'Submit';
     }
-    button.disabled = disabled;
-    button.textContent = disabled ? textWhenDisabled : button.dataset.defaultLabel;
+    button.disabled = isPending;
+    button.textContent = isPending ? textWhenPending : button.dataset.defaultLabel;
   }
 }
 
 formEl.addEventListener('formspec-submit', async (e) => {
   const submitDetail = e.detail || {};
-  const report = submitDetail.validationReport;
-  if (!report.valid) {
-    renderValidationPanel(report);
-    return;
-  }
-  hideValidationPanel();
+  if (!submitDetail.validationReport?.valid) return;
 
   const response = submitDetail.response;
-  setSubmitButtonState(true);
+  setSubmitPending(true);
 
   try {
     const res = await fetch(`${SERVER}/submit`, {
@@ -289,6 +197,6 @@ formEl.addEventListener('formspec-submit', async (e) => {
     serverResponsePre.textContent = `Error contacting server: ${e.message}\n\nMake sure the server is running:\n  cd examples/grant-application\n  pip install -r server/requirements.txt\n  PYTHONPATH=../../src uvicorn server.main:app --port 8000`;
     serverResponseEl.classList.add('visible');
   } finally {
-    setSubmitButtonState(false);
+    setSubmitPending(false);
   }
 });

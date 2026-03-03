@@ -36,15 +36,26 @@ replay(events: any[], options?: { stopOnError?: boolean }): { applied: number; r
 setRuntimeContext(context: any): void
 touchAllFields(): void
 submit(options?: { mode?: 'continuous' | 'submit'; emitEvent?: boolean }): { response: any; validationReport: any } | null
+resolveValidationTarget(resultOrPath: any): { path: string; label: string; formLevel: boolean; jumpable: boolean; fieldElement?: HTMLElement | null }
+focusField(path: string): boolean
+setSubmitPending(pending: boolean): void
+isSubmitPending(): boolean
+getScreenerRoute(): { target: string; label?: string; extensions?: Record<string, any> } | null
+getScreenerState(): { hasScreener: boolean; completed: boolean; routeType: 'none' | 'internal' | 'external'; route: { target: string; label?: string; extensions?: Record<string, any> } | null }
+skipScreener(): void
+restartScreener(): void
 ```
 
-Most methods proxy to the internal `FormEngine` instance. `touchAllFields()` and `submit()` are renderer-level helpers.
+Most methods proxy to the internal `FormEngine` instance. `touchAllFields()`, `submit()`, and screener/pending helpers are renderer-level APIs.
 
 ### Custom Events
 
 | Event | Dispatched When | `detail` |
 |---|---|---|
 | `formspec-submit` | `submit()` is called with `emitEvent !== false` (including via `SubmitButton`) | `{ response, validationReport }` |
+| `formspec-submit-pending-change` | `setSubmitPending()` toggles pending state | `{ pending: boolean }` |
+| `formspec-screener-route` | Screener Continue evaluates a route | `{ route, answers, routeType: 'none' \| 'internal' \| 'external', isInternal }` |
+| `formspec-screener-state-change` | Screener state changes (definition set, route eval, skip, restart) | `{ hasScreener, completed, routeType, route, reason, answers? }` |
 
 ### Lifecycle
 
@@ -108,6 +119,12 @@ interface RenderContext {
   themeDocument: ThemeDocument | null;
   prefix: string;                    // Path prefix for current repeat context
   submit: (options?: { mode?: 'continuous' | 'submit'; emitEvent?: boolean }) => { response: any; validationReport: any } | null;
+  resolveValidationTarget: (resultOrPath: any) => { path: string; label: string; formLevel: boolean; jumpable: boolean; fieldElement?: HTMLElement | null };
+  focusField: (path: string) => boolean;
+  submitPendingSignal: Signal<boolean>;
+  latestSubmitDetailSignal: Signal<{ response: any; validationReport: any } | null>;
+  setSubmitPending: (pending: boolean) => void;
+  isSubmitPending: () => boolean;
   renderComponent: (comp: any, parent: HTMLElement, prefix?: string) => void;
   resolveToken: (val: any) => any;   // Resolves $token.xxx references
   applyStyle: (el: HTMLElement, style: any) => void;
@@ -162,7 +179,7 @@ All except Slider, Rating, FileUpload, Signature, MoneyInput delegate to `ctx.re
 | `Signature` | `<canvas>` with mouse drawing (custom render) | `bind`, `height`, `strokeColor` |
 | `MoneyInput` | Delegates to `renderInputComponent` with `component:'NumberInput', dataType:'money'` | `bind` |
 
-### Display (8) — `src/components/display.ts`
+### Display (9) — `src/components/display.ts`
 
 | Type | HTML | Key Props |
 |---|---|---|
@@ -174,6 +191,7 @@ All except Slider, Rating, FileUpload, Signature, MoneyInput delegate to `ctx.re
 | `Badge` | `<span class="formspec-badge formspec-badge--{variant}">` | `text`, `variant` |
 | `ProgressBar` | `<progress>` in wrapper | `value`, `max`, `bind`, `showPercent` |
 | `Summary` | `<dl class="formspec-summary">` | `items: [{ label, bind }]` |
+| `ValidationSummary` | `<div class="formspec-validation-summary">` | `source` (`live`/`submit`), `mode`, `showFieldErrors`, `jumpLinks`, `dedupe` |
 
 `Text`: reactive if `bind` provided (reads engine signal). `ProgressBar`: reactive if `bind` provided.
 
@@ -183,7 +201,7 @@ All except Slider, Rating, FileUpload, Signature, MoneyInput delegate to `ctx.re
 |---|---|---|---|
 | `Wizard` | `.formspec-wizard` + panels + nav | `children`, `showProgress` (default true), `allowSkip` | Step navigation via Preact signal. Progress indicators with active/completed states. Previous hidden at step 0; Next shows "Finish" at last step. |
 | `Tabs` | `.formspec-tabs` + tab bar + panels | `tabLabels`, `children`, `defaultTab` (0), `position` (top/bottom/left/right) | Tab switching via DOM class toggling. |
-| `SubmitButton` | `<button class="formspec-submit">` | `label`, `mode` (`submit`/`continuous`), `emitEvent` | Calls `ctx.submit()` and optionally emits `formspec-submit`. |
+| `SubmitButton` | `<button class="formspec-submit">` | `label`, `mode` (`submit`/`continuous`), `emitEvent`, `pendingLabel`, `disableWhenPending` | Calls `ctx.submit()`, and reacts to shared submit pending state for disabled/label behavior. |
 
 ### Special (2) — `src/components/special.ts`
 

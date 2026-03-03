@@ -66,6 +66,141 @@ describe('render lifecycle', () => {
         expect(response.validationReport).toBeDefined();
     });
 
+    it('setSubmitPending() toggles state and emits pending-change events', () => {
+        const pendingValues: boolean[] = [];
+        el.addEventListener('formspec-submit-pending-change', (event: Event) => {
+            pendingValues.push(!!(event as CustomEvent).detail?.pending);
+        });
+
+        expect(el.isSubmitPending()).toBe(false);
+        el.setSubmitPending(true);
+        el.setSubmitPending(true);
+        expect(el.isSubmitPending()).toBe(true);
+        el.setSubmitPending(false);
+        expect(el.isSubmitPending()).toBe(false);
+
+        expect(pendingValues).toEqual([true, false]);
+    });
+
+    it('resolveValidationTarget() returns field metadata and jumpability', () => {
+        el.definition = singleFieldDef();
+        el.render();
+
+        const fieldTarget = el.resolveValidationTarget({ path: 'name' });
+        expect(fieldTarget.path).toBe('name');
+        expect(fieldTarget.label).toBe('Name');
+        expect(fieldTarget.formLevel).toBe(false);
+        expect(fieldTarget.jumpable).toBe(true);
+
+        const formTarget = el.resolveValidationTarget('#');
+        expect(formTarget.formLevel).toBe(true);
+        expect(formTarget.jumpable).toBe(false);
+    });
+
+    it('screener route event includes internal/external classification', async () => {
+        el.definition = {
+            $formspec: '1.0',
+            url: 'urn:test:screened',
+            version: '1.0.0',
+            title: 'Screened Test',
+            items: [{ key: 'name', type: 'field', dataType: 'string', label: 'Name' }],
+            screener: {
+                items: [
+                    {
+                        key: 'kind',
+                        type: 'field',
+                        dataType: 'choice',
+                        label: 'Kind',
+                        options: [
+                            { value: 'internal', label: 'Internal' },
+                            { value: 'external', label: 'External' },
+                        ],
+                    },
+                ],
+                routes: [
+                    { condition: "$kind = 'internal'", target: 'urn:test:screened' },
+                    { condition: "$kind = 'external'", target: 'https://example.org/forms/external' },
+                ],
+            },
+        };
+        el.render();
+
+        const routeEvent = new Promise<any>((resolve) => {
+            el.addEventListener('formspec-screener-route', (event: CustomEvent) => resolve(event.detail), { once: true });
+        });
+        const select = el.querySelector('.formspec-screener select') as HTMLSelectElement;
+        const continueBtn = el.querySelector('.formspec-screener-continue') as HTMLButtonElement;
+        select.value = 'external';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        continueBtn.click();
+
+        const routeDetail = await routeEvent;
+        expect(routeDetail.routeType).toBe('external');
+        expect(routeDetail.isInternal).toBe(false);
+        expect(el.getScreenerState().completed).toBe(false);
+    });
+
+    it('getScreenerState updates across internal route, restart, and skip', () => {
+        const stateEvents: any[] = [];
+        el.addEventListener('formspec-screener-state-change', (event: CustomEvent) => {
+            stateEvents.push(event.detail);
+        });
+
+        el.definition = {
+            $formspec: '1.0',
+            url: 'urn:test:screened',
+            version: '1.0.0',
+            title: 'Screened Test',
+            items: [{ key: 'name', type: 'field', dataType: 'string', label: 'Name' }],
+            screener: {
+                items: [
+                    {
+                        key: 'kind',
+                        type: 'field',
+                        dataType: 'choice',
+                        label: 'Kind',
+                        options: [{ value: 'internal', label: 'Internal' }],
+                    },
+                ],
+                routes: [{ condition: "$kind = 'internal'", target: 'urn:test:screened' }],
+            },
+        };
+        el.render();
+
+        const select = el.querySelector('.formspec-screener select') as HTMLSelectElement;
+        const continueBtn = el.querySelector('.formspec-screener-continue') as HTMLButtonElement;
+        select.value = 'internal';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        continueBtn.click();
+
+        expect(el.getScreenerState()).toMatchObject({
+            hasScreener: true,
+            completed: true,
+            routeType: 'internal',
+        });
+
+        el.restartScreener();
+        expect(el.getScreenerState()).toMatchObject({
+            hasScreener: true,
+            completed: false,
+            routeType: 'none',
+            route: null,
+        });
+
+        el.skipScreener();
+        expect(el.getScreenerState()).toMatchObject({
+            hasScreener: true,
+            completed: true,
+            routeType: 'none',
+            route: null,
+        });
+
+        expect(stateEvents.map((event) => event.reason)).toContain('definition-set');
+        expect(stateEvents.map((event) => event.reason)).toContain('route-internal');
+        expect(stateEvents.map((event) => event.reason)).toContain('restart');
+        expect(stateEvents.map((event) => event.reason)).toContain('skip');
+    });
+
     it('does not auto-append a submit button', () => {
         el.definition = singleFieldDef();
         el.render();

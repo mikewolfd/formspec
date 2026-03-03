@@ -298,6 +298,7 @@
         { "$ref": "#/$defs/Badge" },
         { "$ref": "#/$defs/ProgressBar" },
         { "$ref": "#/$defs/Summary" },
+        { "$ref": "#/$defs/ValidationSummary" },
         { "$ref": "#/$defs/DataTable" },
         { "$ref": "#/$defs/Panel" },
         { "$ref": "#/$defs/Modal" },
@@ -933,11 +934,20 @@
         "emitEvent": {
           "type": "boolean",
           "description": "Whether clicking the button dispatches the formspec-submit CustomEvent."
+        },
+        "pendingLabel": {
+          "type": "string",
+          "description": "Label text shown while shared submit pending state is true."
+        },
+        "disableWhenPending": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the button is disabled while shared submit pending state is true."
         }
       },
       "unevaluatedProperties": false,
       "examples": [
-        { "component": "SubmitButton", "label": "Submit Application", "mode": "submit", "emitEvent": true }
+        { "component": "SubmitButton", "label": "Submit Application", "mode": "submit", "emitEvent": true, "pendingLabel": "Submitting…" }
       ]
     },
 
@@ -1252,6 +1262,53 @@
       ]
     },
 
+    "ValidationSummary": {
+      "$ref": "#/$defs/ComponentBase",
+      "description": "Validation message panel for live validation or the latest submit result. Can render jump links to focus affected fields.",
+      "x-lm": {
+        "category": "display",
+        "level": "progressive",
+        "children": false,
+        "bind": "forbidden",
+        "fallback": "Alert",
+        "fallbackNotes": "severity + message rows shown as warning/error alerts."
+      },
+      "properties": {
+        "component": { "const": "ValidationSummary" },
+        "source": {
+          "type": "string",
+          "enum": ["live", "submit"],
+          "default": "live",
+          "description": "Validation source. 'live' reads continuous engine state; 'submit' reads the latest formspec-submit event detail."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["continuous", "submit"],
+          "default": "continuous",
+          "description": "Validation mode used when source is 'live'."
+        },
+        "showFieldErrors": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to include bind-level field errors in addition to shape-level findings."
+        },
+        "jumpLinks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to render clickable links/buttons that call focusField(path) for jumpable targets."
+        },
+        "dedupe": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether duplicate messages (same severity/path/message) are collapsed."
+        }
+      },
+      "unevaluatedProperties": false,
+      "examples": [
+        { "component": "ValidationSummary", "source": "submit", "jumpLinks": true, "showFieldErrors": true }
+      ]
+    },
+
     "DataTable": {
       "$ref": "#/$defs/ComponentBase",
       "description": "Tabular display of repeatable group data. Each repeat instance becomes a row; each column displays a field within the repeat. One of the few components that MAY bind to a repeatable group.",
@@ -1425,7 +1482,7 @@
               "Card", "Collapsible", "ConditionalGroup",
               "Columns", "Tabs", "SubmitButton", "Accordion",
               "RadioGroup", "MoneyInput", "Slider", "Rating", "Signature",
-              "Alert", "Badge", "ProgressBar", "Summary", "DataTable",
+              "Alert", "Badge", "ProgressBar", "Summary", "ValidationSummary", "DataTable",
               "Panel", "Modal", "Popover"
             ]
           },
