@@ -1,0 +1,75 @@
+import type { NavigationHost } from './index.js';
+import { normalizeFieldPath } from './paths.js';
+
+export function findFieldElement(host: NavigationHost, path: string): HTMLElement | null {
+    if (!path || path === '#') return null;
+    const escapedPath = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(path) : path;
+    let fieldEl = host.querySelector(`.formspec-field[data-name="${escapedPath}"]`) as HTMLElement | null;
+    if (fieldEl) return fieldEl;
+    const allFields = Array.from(host.querySelectorAll('.formspec-field[data-name]'));
+    fieldEl = allFields.find((el) => {
+        const name = el.getAttribute('data-name');
+        return name === path || name?.startsWith(`${path}.`) || name?.startsWith(`${path}[`);
+    }) as HTMLElement | undefined || null;
+    return fieldEl;
+}
+
+export function revealTabsForField(_host: NavigationHost, fieldEl: HTMLElement): void {
+    let tabPanel = fieldEl.closest('.formspec-tab-panel') as HTMLElement | null;
+    while (tabPanel) {
+        const tabsRoot = tabPanel.closest('.formspec-tabs');
+        if (tabsRoot instanceof HTMLElement) {
+            const panelContainer = tabPanel.parentElement;
+            const panels = panelContainer
+                ? Array.from(panelContainer.children).filter((child) => child.classList.contains('formspec-tab-panel'))
+                : [];
+            const panelIndex = panels.indexOf(tabPanel);
+            if (panelIndex >= 0) {
+                tabsRoot.dispatchEvent(new CustomEvent('formspec-tabs-set-active', {
+                    detail: { index: panelIndex },
+                    bubbles: false,
+                }));
+            }
+        }
+        tabPanel = tabPanel.parentElement?.closest('.formspec-tab-panel') as HTMLElement | null;
+    }
+}
+
+export function focusField(host: NavigationHost, path: string): boolean {
+    const normalizedPath = normalizeFieldPath(path);
+    let fieldEl = findFieldElement(host, normalizedPath);
+    if (!fieldEl) return false;
+
+    const wizardPanel = fieldEl.closest('.formspec-wizard-panel');
+    const wizardRoot = wizardPanel?.closest('.formspec-wizard');
+    if (wizardPanel instanceof HTMLElement && wizardRoot instanceof HTMLElement) {
+        const panelList = Array.from(wizardRoot.children)
+            .filter((child) => child.classList.contains('formspec-wizard-panel'));
+        const panelIndex = panelList.indexOf(wizardPanel);
+        if (panelIndex >= 0) {
+            wizardRoot.dispatchEvent(new CustomEvent('formspec-wizard-set-step', {
+                detail: { index: panelIndex },
+                bubbles: false,
+            }));
+            fieldEl = findFieldElement(host, normalizedPath);
+            if (!fieldEl) return false;
+        }
+    }
+
+    revealTabsForField(host, fieldEl);
+    fieldEl = findFieldElement(host, normalizedPath);
+    if (!fieldEl) return false;
+
+    let collapsible = fieldEl.closest('details.formspec-collapsible') as HTMLDetailsElement | null;
+    while (collapsible) {
+        collapsible.open = true;
+        collapsible = collapsible.parentElement?.closest('details.formspec-collapsible') as HTMLDetailsElement | null;
+    }
+
+    const inputEl = fieldEl.querySelector('input, select, textarea, button, [tabindex]');
+    fieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (inputEl instanceof HTMLElement) {
+        inputEl.focus({ preventScroll: true });
+    }
+    return true;
+}
