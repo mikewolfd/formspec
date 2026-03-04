@@ -1,5 +1,10 @@
 import { signal } from '@preact/signals';
-import type { InlineAddState } from '../types';
 
 export const selectedPath = signal<string | null>(null);
-export const inlineAddState = signal<InlineAddState | null>(null);
+
+export interface AddPickerState {
+  parentPath: string;
+  insertIndex: number;
+}
+
+export const addPickerState = signal<AddPickerState | null>(null);

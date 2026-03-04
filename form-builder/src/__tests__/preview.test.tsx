@@ -11,18 +11,20 @@ vi.mock('formspec-webcomponent', () => ({
 vi.mock('../state/definition', () => ({
   definition: { value: { items: [], title: 'Test', $formspec: '1.0' } },
   definitionVersion: { value: 0 },
+  assembledDefinition: { value: { items: [], title: 'Test', $formspec: '1.0' } },
 }));
 
 vi.mock('../state/project', () => ({
   engine: { value: null },
   diagnostics: { value: [] },
-  activeArtifact: { value: 'definition' },
+  project: { value: { theme: null, component: null } },
   editorMode: { value: 'guided' },
+  componentDoc: { value: null },
+  componentVersion: { value: 0 },
 }));
 
 vi.mock('../state/selection', () => ({
   selectedPath: { value: null },
-  inlineAddState: { value: null },
 }));
 
 describe('Preview', () => {

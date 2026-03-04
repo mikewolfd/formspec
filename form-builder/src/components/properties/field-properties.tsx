@@ -1,6 +1,31 @@
 import type { ComponentChildren } from 'preact';
 import type { FormspecItem } from 'formspec-engine';
-import { findItemByKey, updateDefinition } from '../../state/definition';
+import { useState } from 'preact/hooks';
+import { applyNumericConstraint } from '../../logic/semantic-constraints';
+import {
+  getEffectiveWidget,
+  getThemeWidgetConfig,
+  setComponentWidget,
+  setThemeWidget,
+  setThemeWidgetConfig,
+} from '../../logic/presentation-docs';
+import {
+  addMappingRule,
+  changelogChangesForField,
+  createMappingDocument,
+  mappingRulesForField,
+  moveMappingRule,
+  removeMappingRule,
+  type MappingDocumentRecord,
+  type MappingRuleTransform,
+  updateMappingRule,
+} from '../../logic/sidecars';
+import { definition, findItemByKey, updateDefinition } from '../../state/definition';
+import { componentDoc, componentVersion, project, selectedChangelogIndex, selectedMappingIndex, setComponentDoc } from '../../state/project';
+import { selectedPath } from '../../state/selection';
+import { resolveNode } from '../../logic/component-tree';
+import { updateNodeProps } from '../../logic/component-tree-ops';
+import { showToast } from '../../state/toast';
 import { FelExpressionInput } from './fel-expression-input';
 import { FelHelper } from './fel-helper';
 import { JsonPropertyEditor } from './json-property-editor';
@@ -27,6 +52,128 @@ export function FieldProperties({ item }: { item: FormspecItem }) {
   const options = rawOptions as
     | { value: string; label?: string }[]
     | undefined;
+  const effectiveWidget = getEffectiveWidget(item, project.value);
+  const fieldMappingRules = mappingRulesForField(project.value.mappings, item.key);
+  const fieldHistory =
+    project.value.changelogs.length === 0
+      ? []
+      : changelogChangesForField(
+          project.value.changelogs[
+            Math.min(selectedChangelogIndex.value, project.value.changelogs.length - 1)
+          ],
+          item.key,
+        );
+  const [newTargetPath, setNewTargetPath] = useState('');
+  const [newTransform, setNewTransform] = useState<MappingRuleTransform>('preserve');
+  const [editingRuleKey, setEditingRuleKey] = useState<string | null>(null);
+  const [editingTargetPath, setEditingTargetPath] = useState('');
+  const [editingTransform, setEditingTransform] = useState<MappingRuleTransform>('preserve');
+  const [editingPriority, setEditingPriority] = useState(0);
+  const [draggingRuleKey, setDraggingRuleKey] = useState<string | null>(null);
+  const minConfig = getThemeWidgetConfig(project.value, item.key, 'min');
+  const maxConfig = getThemeWidgetConfig(project.value, item.key, 'max');
+  const stepConfig = getThemeWidgetConfig(project.value, item.key, 'step');
+
+  function updateWidgetOverride(widget: string) {
+    project.value = setThemeWidget(project.value, definition.value, item.key, widget);
+  }
+
+  function updateNumericConfig(key: 'min' | 'max' | 'step', raw: string) {
+    const value = raw === '' ? undefined : Number(raw);
+    project.value = setThemeWidgetConfig(project.value, definition.value, item.key, key, value);
+    if (value !== undefined && !Number.isNaN(value)) {
+      updateDefinition((draft) => {
+        applyNumericConstraint(draft, item.key, key, value);
+      });
+    }
+  }
+
+  function createMappingForField() {
+    const created = createMappingDocument(definition.value, {
+      title: `Mapping ${project.value.mappings.length + 1}`,
+    });
+    const nextMappings = [...project.value.mappings, created];
+    project.value = { ...project.value, mappings: nextMappings };
+    selectedMappingIndex.value = nextMappings.length - 1;
+    showToast('Mapping created for field', 'success');
+  }
+
+  function addFieldMappingRule() {
+    if (!newTargetPath.trim()) {
+      showToast('Destination path is required', 'error');
+      return;
+    }
+    const mappings = [...project.value.mappings];
+    if (mappings.length === 0) {
+      mappings.push(
+        createMappingDocument(definition.value, {
+          title: 'Mapping 1',
+        }),
+      );
+      selectedMappingIndex.value = 0;
+    }
+    const mappingIndex = Math.min(selectedMappingIndex.value, mappings.length - 1);
+    const mapping = mappings[mappingIndex] as MappingDocumentRecord;
+    const updated = addMappingRule(mapping, {
+      sourcePath: item.key,
+      targetPath: newTargetPath.trim(),
+      transform: newTransform,
+      priority: 0,
+    });
+    mappings[mappingIndex] = updated;
+    project.value = { ...project.value, mappings };
+    setNewTargetPath('');
+    setNewTransform('preserve');
+    showToast('Mapping rule added', 'success');
+  }
+
+  function startEditRule(entry: { mappingIndex: number; ruleIndex: number; rule: { targetPath?: string | null; transform: MappingRuleTransform } }) {
+    setEditingRuleKey(`${entry.mappingIndex}-${entry.ruleIndex}`);
+    setEditingTargetPath(String(entry.rule.targetPath ?? ''));
+    setEditingTransform(entry.rule.transform);
+    setEditingPriority(Number((entry.rule as { priority?: number }).priority ?? 0));
+  }
+
+  function saveEditRule(mappingIndex: number, ruleIndex: number) {
+    const mappings = [...project.value.mappings];
+    const mapping = mappings[mappingIndex] as MappingDocumentRecord;
+    mappings[mappingIndex] = updateMappingRule(mapping, ruleIndex, {
+      targetPath: editingTargetPath.trim(),
+      transform: editingTransform,
+      priority: editingPriority,
+    });
+    project.value = { ...project.value, mappings };
+    setEditingRuleKey(null);
+    showToast('Mapping rule updated', 'success');
+  }
+
+  function deleteRule(mappingIndex: number, ruleIndex: number) {
+    const mappings = [...project.value.mappings];
+    const mapping = mappings[mappingIndex] as MappingDocumentRecord;
+    mappings[mappingIndex] = removeMappingRule(mapping, ruleIndex);
+    project.value = { ...project.value, mappings };
+    showToast('Mapping rule removed', 'success');
+  }
+
+  function shiftRule(mappingIndex: number, ruleIndex: number, delta: -1 | 1) {
+    const mappings = [...project.value.mappings];
+    const mapping = mappings[mappingIndex] as MappingDocumentRecord;
+    const toIndex = ruleIndex + delta;
+    if (toIndex < 0 || toIndex >= mapping.rules.length) {
+      return;
+    }
+    mappings[mappingIndex] = moveMappingRule(mapping, ruleIndex, toIndex);
+    project.value = { ...project.value, mappings };
+    showToast(delta < 0 ? 'Rule moved up' : 'Rule moved down', 'success');
+  }
+
+  function reorderRule(mappingIndex: number, fromRuleIndex: number, toRuleIndex: number) {
+    const mappings = [...project.value.mappings];
+    const mapping = mappings[mappingIndex] as MappingDocumentRecord;
+    mappings[mappingIndex] = moveMappingRule(mapping, fromRuleIndex, toRuleIndex);
+    project.value = { ...project.value, mappings };
+    showToast('Rule reordered', 'success');
+  }
 
   function addOption() {
     updateDefinition((def) => {
@@ -82,7 +229,21 @@ export function FieldProperties({ item }: { item: FormspecItem }) {
         <input
           class="studio-input studio-input-mono"
           value={item.key}
-          onInput={(event) => updateField('key', (event.target as HTMLInputElement).value)}
+          onInput={(event) => {
+            const newKey = (event.target as HTMLInputElement).value;
+            const oldKey = item.key;
+            updateField('key', newKey);
+            // Sync component tree bind reference
+            const doc = componentDoc.value;
+            const path = selectedPath.value;
+            if (doc && path) {
+              const node = resolveNode(doc.tree, path);
+              if (node?.bind === oldKey) {
+                const newTree = updateNodeProps(doc.tree, path, { bind: newKey });
+                setComponentDoc({ ...doc, tree: newTree });
+              }
+            }
+          }}
         />
       </PropertyRow>
       <PropertyRow label="Label">
@@ -248,6 +409,293 @@ export function FieldProperties({ item }: { item: FormspecItem }) {
           placeholder="[]"
           rows={3}
         />
+      </PropertyRow>
+
+      <div class="section-title">Presentation (Composite)</div>
+      <PropertyRow label="Effective Widget">
+        <div class="property-static-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>{effectiveWidget.widget ?? 'renderer default'}</span>
+          <span
+            class="effective-widget-source"
+            style={{
+              fontSize: '10px',
+              padding: '1px 5px',
+              borderRadius: '3px',
+              background: effectiveWidget.source === 'component' ? 'var(--accent)'
+                : effectiveWidget.source === 'theme' ? 'var(--info, #3b82f6)'
+                : effectiveWidget.source === 'definition' ? 'var(--muted, #6b7280)'
+                : 'var(--border)',
+              color: effectiveWidget.source === 'renderer-default' ? 'var(--fg)' : '#fff',
+            }}
+          >
+            {effectiveWidget.source}
+          </span>
+        </div>
+      </PropertyRow>
+      <PropertyRow label="Theme Widget Override">
+        <select
+          class="studio-select"
+          value={effectiveWidget.source === 'theme' ? effectiveWidget.widget ?? '' : ''}
+          onChange={(event) => updateWidgetOverride((event.target as HTMLSelectElement).value)}
+        >
+          <option value="">(no override)</option>
+          <option value="TextInput">TextInput</option>
+          <option value="Textarea">Textarea</option>
+          <option value="NumberInput">NumberInput</option>
+          <option value="Select">Select</option>
+          <option value="CheckboxGroup">CheckboxGroup</option>
+          <option value="RadioGroup">RadioGroup</option>
+          <option value="Toggle">Toggle</option>
+          <option value="DatePicker">DatePicker</option>
+          <option value="FileUpload">FileUpload</option>
+          <option value="Slider">Slider</option>
+          <option value="Signature">Signature</option>
+        </select>
+      </PropertyRow>
+      {project.value.component && (
+        <PropertyRow label="Component Widget">
+          <select
+            class="studio-select"
+            value={effectiveWidget.source === 'component' ? effectiveWidget.widget ?? '' : ''}
+            onChange={(event) => {
+              project.value = setComponentWidget(project.value, definition.value, item.key, (event.target as HTMLSelectElement).value);
+            }}
+          >
+            <option value="">(no override)</option>
+            <option value="TextInput">TextInput</option>
+            <option value="Textarea">Textarea</option>
+            <option value="NumberInput">NumberInput</option>
+            <option value="Select">Select</option>
+            <option value="CheckboxGroup">CheckboxGroup</option>
+            <option value="RadioGroup">RadioGroup</option>
+            <option value="Toggle">Toggle</option>
+            <option value="DatePicker">DatePicker</option>
+            <option value="FileUpload">FileUpload</option>
+            <option value="Slider">Slider</option>
+            <option value="Signature">Signature</option>
+          </select>
+        </PropertyRow>
+      )}
+      {(item.dataType === 'integer' || item.dataType === 'decimal') && (
+        <>
+          <PropertyRow label="Min">
+            <input
+              class="studio-input"
+              type="number"
+              value={typeof minConfig === 'number' ? String(minConfig) : ''}
+              onInput={(event) => updateNumericConfig('min', (event.target as HTMLInputElement).value)}
+            />
+          </PropertyRow>
+          <PropertyRow label="Max">
+            <input
+              class="studio-input"
+              type="number"
+              value={typeof maxConfig === 'number' ? String(maxConfig) : ''}
+              onInput={(event) => updateNumericConfig('max', (event.target as HTMLInputElement).value)}
+            />
+          </PropertyRow>
+          <PropertyRow label="Step">
+            <input
+              class="studio-input"
+              type="number"
+              step="any"
+              value={typeof stepConfig === 'number' ? String(stepConfig) : ''}
+              onInput={(event) => updateNumericConfig('step', (event.target as HTMLInputElement).value)}
+            />
+          </PropertyRow>
+        </>
+      )}
+      <PropertyRow label="Theme JSON (Advanced)">
+        <JsonPropertyEditor
+          label="Theme"
+          value={project.value.theme}
+          onChange={(value) => {
+            project.value = { ...project.value, theme: value as Record<string, unknown> };
+          }}
+          placeholder="{}"
+          rows={4}
+        />
+      </PropertyRow>
+      <PropertyRow label="Component JSON (Advanced)">
+        <JsonPropertyEditor
+          label="Component"
+          value={project.value.component}
+          onChange={(value) => {
+            project.value = { ...project.value, component: value as Record<string, unknown> };
+          }}
+          placeholder="{}"
+          rows={4}
+        />
+      </PropertyRow>
+      <PropertyRow label="Mappings (Sidecar)">
+        <div class="properties-inline-list">
+          {project.value.mappings.length === 0 ? (
+            <button class="btn-ghost" onClick={createMappingForField}>Create Mapping</button>
+          ) : (
+            <>
+              <select
+                class="studio-select"
+                value={String(Math.min(selectedMappingIndex.value, project.value.mappings.length - 1))}
+                onChange={(event) => {
+                  selectedMappingIndex.value = Number((event.target as HTMLSelectElement).value);
+                }}
+              >
+                {project.value.mappings.map((entry, index) => {
+                  const mapping = entry as MappingDocumentRecord;
+                  return (
+                    <option key={`${mapping.title ?? 'mapping'}-${index}`} value={String(index)}>
+                      {mapping.title ?? `Mapping ${index + 1}`}
+                    </option>
+                  );
+                })}
+              </select>
+              <input
+                class="studio-input studio-input-mono"
+                placeholder="target path (e.g. grant.applicant.name)"
+                value={newTargetPath}
+                onInput={(event) => setNewTargetPath((event.target as HTMLInputElement).value)}
+              />
+              <select
+                class="studio-select"
+                value={newTransform}
+                onChange={(event) => setNewTransform((event.target as HTMLSelectElement).value as MappingRuleTransform)}
+              >
+                <option value="preserve">preserve</option>
+                <option value="coerce">coerce</option>
+                <option value="expression">expression</option>
+                <option value="valueMap">valueMap</option>
+                <option value="drop">drop</option>
+              </select>
+              <button class="btn-ghost" onClick={addFieldMappingRule}>Add Rule</button>
+            </>
+          )}
+          {fieldMappingRules.length === 0 ? (
+            <div class="property-static-value">No mapping rules for this field.</div>
+          ) : (
+            fieldMappingRules.map((entry) => (
+              <div
+                key={`${entry.mappingIndex}-${entry.ruleIndex}`}
+                class="properties-inline-card"
+                draggable
+                onDragStart={(event) => {
+                  const key = `${entry.mappingIndex}:${entry.ruleIndex}`;
+                  setDraggingRuleKey(key);
+                  event.dataTransfer?.setData('text/plain', key);
+                }}
+                onDragEnd={() => {
+                  setDraggingRuleKey(null);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const raw = event.dataTransfer?.getData('text/plain') || draggingRuleKey;
+                  if (!raw) return;
+                  const [fromMappingRaw, fromRuleRaw] = raw.split(':');
+                  const fromMapping = Number(fromMappingRaw);
+                  const fromRule = Number(fromRuleRaw);
+                  if (
+                    Number.isNaN(fromMapping) ||
+                    Number.isNaN(fromRule) ||
+                    fromMapping !== entry.mappingIndex
+                  ) {
+                    return;
+                  }
+                  reorderRule(entry.mappingIndex, fromRule, entry.ruleIndex);
+                }}
+              >
+                <div class="property-static-value">
+                  Mapping {entry.mappingIndex + 1}: {entry.rule.sourcePath} →
+                  {' '}
+                  {entry.rule.targetPath}
+                  {' '}
+                  ({entry.rule.transform}, p={entry.rule.priority ?? 0})
+                </div>
+                {editingRuleKey === `${entry.mappingIndex}-${entry.ruleIndex}` ? (
+                  <div class="properties-inline-list">
+                    <input
+                      class="studio-input studio-input-mono"
+                      value={editingTargetPath}
+                      onInput={(event) => setEditingTargetPath((event.target as HTMLInputElement).value)}
+                    />
+                    <select
+                      class="studio-select"
+                      value={editingTransform}
+                      onChange={(event) =>
+                        setEditingTransform((event.target as HTMLSelectElement).value as MappingRuleTransform)}
+                    >
+                      <option value="preserve">preserve</option>
+                      <option value="coerce">coerce</option>
+                      <option value="expression">expression</option>
+                      <option value="valueMap">valueMap</option>
+                      <option value="drop">drop</option>
+                    </select>
+                    <input
+                      class="studio-input"
+                      type="number"
+                      value={String(editingPriority)}
+                      onInput={(event) => {
+                        const next = Number((event.target as HTMLInputElement).value);
+                        setEditingPriority(Number.isNaN(next) ? 0 : next);
+                      }}
+                    />
+                    <div class="drawer-actions">
+                      <button
+                        class="btn-ghost"
+                        onClick={() => saveEditRule(entry.mappingIndex, entry.ruleIndex)}
+                      >
+                        Save
+                      </button>
+                      <button class="btn-ghost" onClick={() => setEditingRuleKey(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div class="drawer-actions">
+                    <button
+                      class="btn-ghost"
+                      onClick={() => shiftRule(entry.mappingIndex, entry.ruleIndex, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      class="btn-ghost"
+                      onClick={() => shiftRule(entry.mappingIndex, entry.ruleIndex, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button class="btn-ghost" onClick={() => startEditRule(entry)}>
+                      Edit
+                    </button>
+                    <button
+                      class="btn-ghost"
+                      onClick={() => deleteRule(entry.mappingIndex, entry.ruleIndex)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </PropertyRow>
+      <PropertyRow label="History (Sidecar)">
+        <div class="properties-inline-list">
+          {project.value.changelogs.length === 0 ? (
+            <div class="property-static-value">No changelog loaded.</div>
+          ) : fieldHistory.length === 0 ? (
+            <div class="property-static-value">No history entries for this field.</div>
+          ) : (
+            fieldHistory.map((entry, index) => (
+              <div key={`${item.key}-history-${index}`} class="property-static-value">
+                {String(entry.description ?? entry.type ?? 'Change')} ({String(entry.impact ?? 'n/a')})
+              </div>
+            ))
+          )}
+        </div>
       </PropertyRow>
 
       {isChoice && !optionsSource && (

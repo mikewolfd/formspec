@@ -29,7 +29,15 @@ const TAB_INFO: Record<string, { icon: string; description: string }> = {
 function handleCreateFromScratch(kind: ArtifactKind) {
   const template = ARTIFACT_TEMPLATES[kind];
   if (!template) return;
-  project.value = { ...project.value, [kind]: structuredClone(template) };
+  if (kind === 'mapping') {
+    project.value = { ...project.value, mappings: [structuredClone(template)] };
+  } else if (kind === 'registry') {
+    project.value = { ...project.value, registries: [structuredClone(template)] };
+  } else if (kind === 'changelog') {
+    project.value = { ...project.value, changelogs: [structuredClone(template)] };
+  } else {
+    project.value = { ...project.value, [kind]: structuredClone(template) };
+  }
   showToast(`${kind} created`, 'success');
 }
 
@@ -44,7 +52,15 @@ function handleImportJSON(kind: ArtifactKind) {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result as string);
-        project.value = { ...project.value, [kind]: parsed };
+        if (kind === 'mapping') {
+          project.value = { ...project.value, mappings: [parsed] };
+        } else if (kind === 'registry') {
+          project.value = { ...project.value, registries: [parsed] };
+        } else if (kind === 'changelog') {
+          project.value = { ...project.value, changelogs: [parsed] };
+        } else {
+          project.value = { ...project.value, [kind]: parsed };
+        }
         showToast(`${kind} imported`, 'success');
       } catch {
         showToast('Invalid JSON file', 'error');

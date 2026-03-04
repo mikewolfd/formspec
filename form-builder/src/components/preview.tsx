@@ -1,29 +1,29 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { FormspecRender } from 'formspec-webcomponent';
-import { definition, definitionVersion } from '../state/definition';
-import { engine } from '../state/project';
+import { assembledDefinition, definitionVersion } from '../state/definition';
+import { engine, project, componentDoc, componentVersion } from '../state/project';
 import { selectedPath } from '../state/selection';
-import uswdsTheme from '../../../packages/formspec-webcomponent/examples/uswds-theme.json';
 
 if (!customElements.get('formspec-render')) {
   customElements.define('formspec-render', FormspecRender);
 }
 
-const previewTheme = {
-  ...uswdsTheme,
-  stylesheets: ['/assets/formspec-uswds-bridge.css'],
-};
-
 export function Preview() {
   const containerRef = useRef<HTMLDivElement>(null);
   const renderRef = useRef<any>(null);
+
+  // Read signals in render body to create subscriptions.
+  // useEffect reads do NOT subscribe in @preact/signals.
+  const hasEngine = engine.value !== null;
+  const _cv = componentVersion.value;
+  const _dv = definitionVersion.value;
+  const _sel = selectedPath.value;
 
   // On mount, create the web component and append it
   useEffect(() => {
     const el = document.createElement('formspec-render') as any;
     containerRef.current?.appendChild(el);
     renderRef.current = el;
-    el.themeDocument = previewTheme;
 
     // Click handler: preview -> tree selection
     const handleClick = (event: MouseEvent) => {
@@ -45,10 +45,22 @@ export function Preview() {
     };
   }, []);
 
+  // Sync theme from project
+  useEffect(() => {
+    if (!renderRef.current) return;
+    renderRef.current.themeDocument = project.value.theme;
+  });
+
+  // Sync component document on every tree edit
+  useEffect(() => {
+    if (!renderRef.current) return;
+    const doc = componentDoc.value;
+    renderRef.current.componentDocument = doc ? structuredClone(doc) : null;
+  });
+
   // Debounced definition sync
   useEffect(() => {
-    const _version = definitionVersion.value;
-    const def = definition.value;
+    const def = assembledDefinition.value;
     const timer = setTimeout(() => {
       if (renderRef.current) {
         try {
@@ -86,8 +98,6 @@ export function Preview() {
       el.classList.remove('preview-highlight', 'preview-highlight-fade');
     };
   });
-
-  const hasEngine = engine.value !== null;
 
   return (
     <div ref={containerRef} class="preview-container">

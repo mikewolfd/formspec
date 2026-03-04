@@ -59,10 +59,17 @@ export function Topbar() {
         </button>
         <button
           class="btn-primary"
-          aria-label="Export project"
-          onClick={handleExport}
+          aria-label="Export definition"
+          onClick={() => handleExport('definition-only')}
         >
-          <span aria-hidden="true">↑</span> Export
+          <span aria-hidden="true">↑</span> Export Definition
+        </button>
+        <button
+          class="btn-ghost"
+          aria-label="Export core bundle"
+          onClick={() => handleExport('full-bundle')}
+        >
+          <span aria-hidden="true">↑</span> Export Bundle
         </button>
       </div>
     </header>

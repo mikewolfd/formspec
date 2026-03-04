@@ -6,11 +6,13 @@ import { toasts } from '../state/toast';
 beforeEach(() => {
   project.value = {
     definition: null,
+    previousDefinitions: [],
     component: null,
     theme: null,
-    mapping: null,
-    registry: null,
-    changelog: null,
+    mappings: [],
+    registries: [],
+    changelogs: [],
+    library: [],
   };
   toasts.value = [];
 });
@@ -24,14 +26,14 @@ describe('EmptyTab', () => {
   it('renders the correct title for the given artifact kind', async () => {
     const { EmptyTab } = await import('../components/empty-tab');
     const { container } = render(<EmptyTab kind="component" />);
-    expect(within(container).getByText(/Component not configured/)).toBeTruthy();
+    expect(within(container as HTMLElement).getByText(/Component not configured/)).toBeTruthy();
   });
 
   it('renders title and description for theme', async () => {
     const { EmptyTab } = await import('../components/empty-tab');
     const { container } = render(<EmptyTab kind="theme" />);
-    expect(within(container).getByText(/Theme not configured/)).toBeTruthy();
-    expect(within(container).getByText(/colors, typography/)).toBeTruthy();
+    expect(within(container as HTMLElement).getByText(/Theme not configured/)).toBeTruthy();
+    expect(within(container as HTMLElement).getByText(/colors, typography/)).toBeTruthy();
   });
 
   it('clicking Create from Scratch sets the artifact on project', async () => {
@@ -39,7 +41,7 @@ describe('EmptyTab', () => {
     const { ARTIFACT_TEMPLATES } = await import('../components/artifact-editor');
 
     const { container } = render(<EmptyTab kind="component" />);
-    within(container).getByText('Create from Scratch').click();
+    within(container as HTMLElement).getByText('Create from Scratch').click();
 
     expect(project.value.component).toEqual(ARTIFACT_TEMPLATES.component);
   });
@@ -48,7 +50,7 @@ describe('EmptyTab', () => {
     const { EmptyTab } = await import('../components/empty-tab');
 
     const { container } = render(<EmptyTab kind="theme" />);
-    within(container).getByText('Create from Scratch').click();
+    within(container as HTMLElement).getByText('Create from Scratch').click();
 
     expect(toasts.value.length).toBeGreaterThan(0);
     expect(toasts.value[0].type).toBe('success');
@@ -60,9 +62,9 @@ describe('EmptyTab', () => {
     const { ARTIFACT_TEMPLATES } = await import('../components/artifact-editor');
 
     const { container } = render(<EmptyTab kind="mapping" />);
-    within(container).getByText('Create from Scratch').click();
+    within(container as HTMLElement).getByText('Create from Scratch').click();
 
-    const projectMapping = project.value.mapping as any;
+    const projectMapping = project.value.mappings[0] as any;
     projectMapping.rules = [{ id: 'mutated' }];
 
     // Template should be unaffected
@@ -84,7 +86,7 @@ describe('EmptyTab', () => {
     });
 
     const { container } = render(<EmptyTab kind="registry" />);
-    within(container).getByText('Import JSON').click();
+    within(container as HTMLElement).getByText('Import JSON').click();
 
     expect(capturedInput).not.toBeNull();
     expect((capturedInput as any).type).toBe('file');

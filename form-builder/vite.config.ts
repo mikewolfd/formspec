@@ -5,6 +5,7 @@ import path from 'path';
 const repoRoot = path.resolve(__dirname, '..');
 
 export default defineConfig({
+  base: './',
   plugins: [preact()],
   server: {
     port: 8082,

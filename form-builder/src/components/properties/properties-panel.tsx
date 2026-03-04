@@ -1,14 +1,18 @@
 import { signal } from '@preact/signals';
+import { collectSidecarDiagnostics } from '../../logic/sidecar-diagnostics';
 import { definitionVersion, findItemByKey } from '../../state/definition';
-import { diagnosticCounts, diagnostics } from '../../state/project';
+import { componentDoc, componentVersion, diagnostics, project } from '../../state/project';
 import { selectedPath } from '../../state/selection';
+import { resolveNode, classifyNode } from '../../logic/component-tree';
 import { DisplayProperties } from './display-properties';
 import { FieldProperties } from './field-properties';
 import { GroupProperties } from './group-properties';
+import { LayoutProperties } from './layout-properties';
 import { RootProperties } from './root-properties';
 
 type PropertiesTab = 'properties' | 'diagnostics';
 const activeTab = signal<PropertiesTab>('properties');
+const diagnosticsFilter = signal<'all' | 'definition' | 'presentation' | 'mapping' | 'history' | 'extension'>('all');
 
 export function PropertiesPanel({
   collapsed,
@@ -17,6 +21,13 @@ export function PropertiesPanel({
   collapsed: boolean;
   onToggle: () => void;
 }) {
+  const combinedDiagnostics = [...diagnostics.value, ...collectSidecarDiagnostics(project.value)];
+  const combinedCounts = {
+    error: combinedDiagnostics.filter((d) => d.severity === 'error').length,
+    warning: combinedDiagnostics.filter((d) => d.severity === 'warning').length,
+    info: combinedDiagnostics.filter((d) => d.severity === 'info').length,
+  };
+
   if (collapsed) {
     return (
       <button class="properties-toggle-btn" onClick={onToggle} title="Open properties panel">
@@ -48,8 +59,8 @@ export function PropertiesPanel({
             aria-selected={activeTab.value === 'diagnostics'}
           >
             Diagnostics
-            {diagnosticCounts.value.error > 0 && (
-              <span class="diagnostics-badge">{diagnosticCounts.value.error}</span>
+            {combinedCounts.error > 0 && (
+              <span class="diagnostics-badge">{combinedCounts.error}</span>
             )}
           </button>
         </div>
@@ -59,7 +70,11 @@ export function PropertiesPanel({
       </div>
 
       <div class="properties-body" role="tabpanel">
-        {activeTab.value === 'properties' ? <PropertiesContent /> : <DiagnosticsContent />}
+        {activeTab.value === 'properties' ? (
+          <PropertiesContent />
+        ) : (
+          <DiagnosticsContent diagnosticsList={combinedDiagnostics} counts={combinedCounts} />
+        )}
       </div>
     </div>
   );
@@ -67,6 +82,7 @@ export function PropertiesPanel({
 
 function PropertiesContent() {
   definitionVersion.value;
+  componentVersion.value;
   const path = selectedPath.value;
 
   if (path === null) {
@@ -77,25 +93,59 @@ function PropertiesContent() {
     return <RootProperties />;
   }
 
-  const found = findItemByKey(path);
-  if (!found) {
-    return <div class="properties-empty">Item not found</div>;
+  const doc = componentDoc.value;
+  if (!doc) {
+    return <div class="properties-empty">No component tree loaded</div>;
   }
 
-  if (found.item.type === 'group') {
-    return <GroupProperties item={found.item} />;
+  const node = resolveNode(doc.tree, path);
+  if (!node) {
+    return <div class="properties-empty">Node not found</div>;
   }
 
-  if (found.item.type === 'display') {
-    return <DisplayProperties item={found.item} />;
+  const kind = classifyNode(node);
+
+  if (kind === 'bound-input' && node.bind) {
+    const found = findItemByKey(node.bind);
+    if (found) return <FieldProperties item={found.item} />;
   }
 
-  return <FieldProperties item={found.item} />;
+  if (kind === 'group' && node.bind) {
+    const found = findItemByKey(node.bind);
+    if (found) return <GroupProperties item={found.item} />;
+  }
+
+  if (kind === 'bound-display' && node.bind) {
+    const found = findItemByKey(node.bind);
+    if (found) return <DisplayProperties item={found.item} />;
+  }
+
+  // Layout or structure-only
+  return <LayoutProperties node={node} path={path} />;
 }
 
-function DiagnosticsContent() {
-  const current = diagnostics.value;
-  const counts = diagnosticCounts.value;
+function DiagnosticsContent({
+  diagnosticsList,
+  counts,
+}: {
+  diagnosticsList: typeof diagnostics.value;
+  counts: { error: number; warning: number; info: number };
+}) {
+  const current = diagnosticsList;
+  const filtered = diagnosticsFilter.value === 'all'
+    ? current
+    : current.filter((diag) => {
+      if (diagnosticsFilter.value === 'presentation') {
+        return diag.artifact === 'theme' || diag.artifact === 'component';
+      }
+      if (diagnosticsFilter.value === 'extension') {
+        return diag.artifact === 'registry';
+      }
+      if (diagnosticsFilter.value === 'history') {
+        return diag.artifact === 'changelog';
+      }
+      return diag.artifact === diagnosticsFilter.value;
+    });
 
   if (current.length === 0) {
     return (
@@ -115,8 +165,28 @@ function DiagnosticsContent() {
         )}
         {counts.info > 0 && <span class="diagnostics-pill info">{counts.info} info</span>}
       </div>
+      <div class="diagnostics-filter-row">
+        {[
+          ['all', 'All'],
+          ['definition', 'Definition'],
+          ['presentation', 'Presentation'],
+          ['mapping', 'Mapping'],
+          ['history', 'History'],
+          ['extension', 'Extensions'],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            class={`btn-ghost diagnostics-filter-btn ${diagnosticsFilter.value === value ? 'active' : ''}`}
+            onClick={() => {
+              diagnosticsFilter.value = value as typeof diagnosticsFilter.value;
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      {current.map((diag, index) => (
+      {filtered.map((diag, index) => (
         <div
           key={`${diag.path}-${index}`}
           class="diagnostics-row"

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDefinitionJSON, serializeDefinition } from '../import-export';
+import { parseDefinitionJSON, parseImportedProject, serializeDefinition } from '../import-export';
 import type { FormspecDefinition } from 'formspec-engine';
 
 const minimalDef: FormspecDefinition = {
@@ -50,6 +50,34 @@ describe('parseDefinitionJSON', () => {
     expect(() => parseDefinitionJSON(JSON.stringify(badItems))).toThrow(
       'Definition is missing required field: items',
     );
+  });
+});
+
+describe('parseImportedProject', () => {
+  it('accepts definition-only JSON and initializes empty sidecars', () => {
+    const project = parseImportedProject(JSON.stringify(minimalDef));
+    expect(project.definition?.url).toBe(minimalDef.url);
+    expect(project.theme).toBeNull();
+    expect(project.registries).toEqual([]);
+  });
+
+  it('accepts bundle JSON and hydrates sidecars', () => {
+    const bundle = {
+      definition: minimalDef,
+      theme: { $formspecTheme: '1.0', version: '1.0.0' },
+      component: { $formspecComponent: '1.0', version: '1.0.0', tree: {} },
+      registries: [{ $formspecRegistry: '1.0' }],
+      mappings: [{ $formspecMapping: '1.0' }],
+      changelogs: [{ $formspecChangelog: '1.0' }],
+      previousDefinitions: [minimalDef],
+    };
+    const project = parseImportedProject(JSON.stringify(bundle));
+    expect(project.theme).toEqual(bundle.theme);
+    expect(project.component).toEqual(bundle.component);
+    expect(project.registries).toHaveLength(1);
+    expect(project.mappings).toHaveLength(1);
+    expect(project.changelogs).toHaveLength(1);
+    expect(project.previousDefinitions).toHaveLength(1);
   });
 });
 

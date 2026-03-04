@@ -100,21 +100,6 @@ body {
   position: relative;
 }
 
-.studio-sidebar {
-  width: 48px;
-  background: var(--bg-1);
-  border-right: 1px solid var(--border-0);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  transition: width var(--duration-normal) var(--ease-out);
-  overflow: hidden;
-}
-
-.studio-sidebar.expanded {
-  width: 180px;
-}
-
 .studio-editor {
   flex: 1;
   display: flex;
@@ -279,49 +264,6 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-.sidebar-tab {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border: none;
-  border-left: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-1);
-  font: 500 12.5px var(--font-ui);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.sidebar-tab:hover {
-  background: var(--bg-3);
-}
-
-.sidebar-tab[data-active] {
-  background: var(--accent-bg-strong);
-  color: var(--accent);
-  border-left-color: var(--accent);
-}
-
-.sidebar-tab-icon {
-  font-size: 14px;
-  width: 18px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.sidebar-tab-label {
-  flex: 1;
-}
-
-.sidebar-tab-status {
-  font-size: 12px;
-  flex-shrink: 0;
 }
 
 .topbar-brand {
@@ -567,6 +509,25 @@ body {
   flex-shrink: 0;
 }
 
+.tree-ref-badge {
+  background: var(--info);
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.tree-ref-child {
+  opacity: 0.6;
+}
+
+.tree-ref-child .tree-node-grip,
+.tree-ref-child .tree-node-actions {
+  display: none;
+}
+
 .tree-node-actions {
   display: flex;
   gap: 2px;
@@ -711,6 +672,18 @@ body {
   border-radius: 4px;
 }
 
+.tree-root-drop-zone {
+  height: 24px;
+  margin: 0 8px;
+  border-radius: 4px;
+  transition: background var(--duration-fast);
+}
+
+.tree-root-drop-zone.drop-active {
+  background: var(--accent-bg);
+  border: 2px dashed var(--accent);
+}
+
 .properties-header {
   display: flex;
   align-items: center;
@@ -803,6 +776,27 @@ body {
   color: var(--text-1);
 }
 
+.property-static-value {
+  font: 400 12px var(--font-ui);
+  color: var(--text-0);
+  background: var(--bg-2);
+  border: 1px solid var(--border-1);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.properties-inline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.properties-inline-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .properties-toggle-btn {
   position: fixed;
   right: 0;
@@ -843,6 +837,24 @@ body {
   display: flex;
   gap: 8px;
   padding-bottom: 8px;
+}
+
+.diagnostics-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.diagnostics-filter-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.diagnostics-filter-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg-strong);
 }
 
 .diagnostics-pill {
@@ -1363,4 +1375,117 @@ body {
   text-align: center;
   padding: 32px;
   color: var(--text-2);
+}
+
+/* --- Add Picker --- */
+.add-picker {
+  background: var(--bg-1);
+  border: 1px solid var(--border-0);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 4px 12px;
+}
+
+.add-picker-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-0);
+  padding-bottom: 4px;
+}
+
+.add-picker-tab {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font: var(--font-ui);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.add-picker-tab.active {
+  color: var(--text-0);
+  background: var(--bg-2);
+}
+
+.add-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.add-picker-option {
+  background: var(--bg-2);
+  border: 1px solid var(--border-0);
+  border-radius: 4px;
+  color: var(--text-1);
+  font: var(--font-ui);
+  font-size: 11px;
+  padding: 6px 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.add-picker-option:hover {
+  background: var(--bg-active);
+  color: var(--text-0);
+}
+
+.add-picker-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-picker-label-header {
+  font: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-1);
+  font-weight: 500;
+}
+
+.add-picker-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/* --- Node kind colors in tree --- */
+.tree-node-datatype {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.tree-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-2);
+  font: var(--font-ui);
+  font-size: 12px;
+}
+
+/* --- Component props editor --- */
+.component-props {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.properties-empty-section {
+  padding: 12px;
+  color: var(--text-2);
+  font: var(--font-ui);
+  font-size: 11px;
+  text-align: center;
+}
+
+.properties-section-subtitle {
+  font: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-2);
+  padding: 0 12px 8px;
 }

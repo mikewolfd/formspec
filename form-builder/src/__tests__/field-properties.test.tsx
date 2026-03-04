@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/preact';
 import { resetState } from './setup';
 import { FieldProperties } from '../components/properties/field-properties';
 import { findItemByKey, setDefinition, createEmptyDefinition } from '../state/definition';
+import { project, selectedMappingIndex } from '../state/project';
 import type { FormspecItem } from 'formspec-engine';
 
 const baseItem: FormspecItem = {
@@ -394,5 +395,187 @@ describe('FieldProperties', () => {
     const options = Array.from(relevantRow.querySelectorAll('[role="option"]'));
     expect(options.length).toBeGreaterThan(0);
     expect(options[0].textContent).toContain('$fullName');
+  });
+
+  test('adds a mapping rule for selected field via inline mappings section', () => {
+    const def = createEmptyDefinition();
+    const field = {
+      key: 'totalBudget',
+      type: 'field',
+      label: 'Total Budget',
+      dataType: 'decimal',
+    } as FormspecItem;
+    def.items = [field];
+    setDefinition(def);
+
+    project.value = {
+      ...project.value,
+      mappings: [
+        {
+          $formspecMapping: '1.0',
+          version: '1.0.0',
+          definitionRef: def.url,
+          definitionVersion: `>=${def.version} <1.0.0`,
+          targetSchema: { format: 'json' },
+          rules: [],
+          title: 'Primary Mapping',
+        },
+      ],
+    };
+    selectedMappingIndex.value = 0;
+
+    render(<FieldProperties item={field} />);
+
+    fireEvent.input(screen.getByPlaceholderText(/target path/), {
+      target: { value: 'payload.total_budget' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Rule' }));
+
+    const rules = (project.value.mappings[0] as any).rules as any[];
+    expect(rules.length).toBe(1);
+    expect(rules[0].sourcePath).toBe('totalBudget');
+    expect(rules[0].targetPath).toBe('payload.total_budget');
+    expect(screen.getByText(/totalBudget → payload\.total_budget/)).toBeTruthy();
+  });
+
+  test('edits and removes a field mapping rule inline', () => {
+    const def = createEmptyDefinition();
+    const field = {
+      key: 'totalBudget',
+      type: 'field',
+      label: 'Total Budget',
+      dataType: 'decimal',
+    } as FormspecItem;
+    def.items = [field];
+    setDefinition(def);
+
+    project.value = {
+      ...project.value,
+      mappings: [
+        {
+          $formspecMapping: '1.0',
+          version: '1.0.0',
+          definitionRef: def.url,
+          definitionVersion: `>=${def.version} <1.0.0`,
+          targetSchema: { format: 'json' },
+          rules: [{ sourcePath: 'totalBudget', targetPath: 'payload.total_budget', transform: 'preserve' }],
+          title: 'Primary Mapping',
+        },
+      ],
+    };
+    selectedMappingIndex.value = 0;
+
+    render(<FieldProperties item={field} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const editTarget = screen.getByDisplayValue('payload.total_budget') as HTMLInputElement;
+    fireEvent.input(editTarget, { target: { value: 'payload.amount' } });
+    const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
+    fireEvent.change(selects[selects.length - 1], { target: { value: 'coerce' } });
+    const priorityInput = screen.getByDisplayValue('0') as HTMLInputElement;
+    fireEvent.input(priorityInput, { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    let rules = (project.value.mappings[0] as any).rules as any[];
+    expect(rules[0].targetPath).toBe('payload.amount');
+    expect(rules[0].transform).toBe('coerce');
+    expect(rules[0].priority).toBe(3);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    rules = (project.value.mappings[0] as any).rules as any[];
+    expect(rules).toHaveLength(0);
+  });
+
+  test('reorders field mapping rules with up/down controls', () => {
+    const def = createEmptyDefinition();
+    const field = {
+      key: 'totalBudget',
+      type: 'field',
+      label: 'Total Budget',
+      dataType: 'decimal',
+    } as FormspecItem;
+    def.items = [field];
+    setDefinition(def);
+
+    project.value = {
+      ...project.value,
+      mappings: [
+        {
+          $formspecMapping: '1.0',
+          version: '1.0.0',
+          definitionRef: def.url,
+          definitionVersion: `>=${def.version} <1.0.0`,
+          targetSchema: { format: 'json' },
+          rules: [
+            { sourcePath: 'totalBudget', targetPath: 'payload.first', transform: 'preserve' },
+            { sourcePath: 'totalBudget', targetPath: 'payload.second', transform: 'preserve' },
+          ],
+          title: 'Primary Mapping',
+        },
+      ],
+    };
+    selectedMappingIndex.value = 0;
+
+    render(<FieldProperties item={field} />);
+
+    const downButtons = screen.getAllByRole('button', { name: '↓' });
+    fireEvent.click(downButtons[0]);
+
+    let rules = (project.value.mappings[0] as any).rules as any[];
+    expect(rules[0].targetPath).toBe('payload.second');
+    expect(rules[1].targetPath).toBe('payload.first');
+
+    const upButtons = screen.getAllByRole('button', { name: '↑' });
+    fireEvent.click(upButtons[1]);
+    rules = (project.value.mappings[0] as any).rules as any[];
+    expect(rules[0].targetPath).toBe('payload.first');
+  });
+
+  test('reorders field mapping rules via drag and drop', () => {
+    const def = createEmptyDefinition();
+    const field = {
+      key: 'totalBudget',
+      type: 'field',
+      label: 'Total Budget',
+      dataType: 'decimal',
+    } as FormspecItem;
+    def.items = [field];
+    setDefinition(def);
+
+    project.value = {
+      ...project.value,
+      mappings: [
+        {
+          $formspecMapping: '1.0',
+          version: '1.0.0',
+          definitionRef: def.url,
+          definitionVersion: `>=${def.version} <1.0.0`,
+          targetSchema: { format: 'json' },
+          rules: [
+            { sourcePath: 'totalBudget', targetPath: 'payload.first', transform: 'preserve' },
+            { sourcePath: 'totalBudget', targetPath: 'payload.second', transform: 'preserve' },
+          ],
+          title: 'Primary Mapping',
+        },
+      ],
+    };
+    selectedMappingIndex.value = 0;
+
+    render(<FieldProperties item={field} />);
+
+    const rows = document.querySelectorAll('.properties-inline-card');
+    const dataTransfer = {
+      payload: '',
+      setData: (_type: string, value: string) => {
+        dataTransfer.payload = value;
+      },
+      getData: () => dataTransfer.payload,
+    };
+
+    fireEvent.dragStart(rows[0], { dataTransfer });
+    fireEvent.drop(rows[1], { dataTransfer });
+
+    const rules = (project.value.mappings[0] as any).rules as any[];
+    expect(rules[0].targetPath).toBe('payload.second');
   });
 });

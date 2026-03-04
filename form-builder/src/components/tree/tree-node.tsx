@@ -1,94 +1,95 @@
 import { type Signal, signal } from '@preact/signals';
 import type { FormspecItem } from 'formspec-engine';
-import { dropTarget, draggedKey, executeDrop } from './drag-drop';
-import { InsertionGap } from './inline-add';
-import { findItemByKey, updateDefinition } from '../../state/definition';
-import { inlineAddState, selectedPath } from '../../state/selection';
+import { assembledDefinition, definition, definitionVersion, setDefinition } from '../../state/definition';
+import { componentDoc, componentVersion, setComponentDoc } from '../../state/project';
+import { selectedPath } from '../../state/selection';
+import { classifyNode, getNodeLabel, parentPath, childIndex } from '../../logic/component-tree';
+import { removeNode } from '../../logic/component-tree-ops';
+import { removeBoundItem } from '../../logic/component-def-sync';
+import { draggedPath, dropTarget, executeDrop } from './drag-drop';
+import type { ComponentNode, NodeKind } from '../../types';
 
-const NODE_TYPE_COLORS: Record<string, string> = {
-  field: '#D4A34A',
-  group: '#5A8FBB',
-  display: '#706C68',
+const NODE_KIND_COLORS: Record<NodeKind, string> = {
+  layout: '#5A8FBB',
+  'bound-input': '#D4A34A',
+  'bound-display': '#706C68',
+  group: '#5AAFBB',
+  'structure-only': '#888',
 };
 
-const DATA_TYPE_COLORS: Record<string, string> = {
-  string: 'var(--text-1)',
-  text: 'var(--text-1)',
-  integer: '#5AAFBB',
-  decimal: '#5AAFBB',
-  number: '#5AAFBB',
-  boolean: '#5FAF5F',
-  date: '#C47AB0',
-  dateTime: '#C47AB0',
-  time: '#C47AB0',
-  choice: '#D48A4A',
-  multiChoice: '#D48A4A',
-  money: '#5FAF5F',
-  uri: '#5ABBB0',
-  attachment: '#706C68',
-};
+const CONTAINER_KINDS = new Set<NodeKind>(['layout', 'group']);
 
-const expandedByKey = new Map<string, Signal<boolean>>();
+const expandedByPath = new Map<string, Signal<boolean>>();
 
-function expansionSignal(key: string): Signal<boolean> {
-  const existing = expandedByKey.get(key);
-  if (existing) {
-    return existing;
-  }
+function expansionSignal(path: string): Signal<boolean> {
+  const existing = expandedByPath.get(path);
+  if (existing) return existing;
   const created = signal(true);
-  expandedByKey.set(key, created);
+  expandedByPath.set(path, created);
   return created;
 }
 
-interface TreeNodeProps {
-  item: FormspecItem;
+interface UnifiedTreeNodeProps {
+  node: ComponentNode;
+  path: string;
   depth: number;
-  parentKey: string | null;
-  index: number;
 }
 
-export function TreeNode({ item, depth, parentKey, index }: TreeNodeProps) {
-  const selected = selectedPath.value === item.key;
-  const isGroup = item.type === 'group';
-  const expanded = expansionSignal(item.key);
-  const isDragging = draggedKey.value === item.key;
-  const currentDrop = dropTarget.value;
+export function UnifiedTreeNode({ node, path, depth }: UnifiedTreeNodeProps) {
+  definitionVersion.value;
+  componentVersion.value;
 
-  const dropClass =
-    currentDrop &&
-    ((currentDrop.mode === 'above' && currentDrop.parentKey === parentKey && currentDrop.insertIndex === index) ||
-      (currentDrop.mode === 'below' && currentDrop.parentKey === parentKey && currentDrop.insertIndex === index + 1) ||
-      (currentDrop.mode === 'inside' && currentDrop.parentKey === item.key))
-      ? currentDrop.mode === 'above'
-        ? 'drop-above'
-        : currentDrop.mode === 'below'
-          ? 'drop-below'
-          : 'drop-inside'
-      : '';
+  const kind = classifyNode(node);
+  const label = getNodeLabel(node, definition.value.items);
+  const selected = selectedPath.value === path;
+  const hasChildren = (node.children?.length ?? 0) > 0;
+  const canContain = CONTAINER_KINDS.has(kind);
+  const expanded = (hasChildren || canContain) ? expansionSignal(path) : null;
+  const isDragging = draggedPath.value === path;
+
+  // Resolve bound definition item for badge info
+  const boundItem = node.bind ? findDefItem(node.bind) : null;
+
+  // Compute drop indicator class
+  const pPath = parentPath(path);
+  const idx = childIndex(path);
+  const dt = dropTarget.value;
+  let dropClass = '';
+  if (dt && draggedPath.value && draggedPath.value !== path) {
+    if (dt.mode === 'above' && dt.parentPath === pPath && dt.insertIndex === idx) {
+      dropClass = 'drop-above';
+    } else if (dt.mode === 'below' && dt.parentPath === pPath && dt.insertIndex === idx + 1) {
+      dropClass = 'drop-below';
+    } else if (dt.mode === 'inside' && dt.parentPath === path) {
+      dropClass = 'drop-inside';
+    }
+  }
 
   function handleDragOver(event: DragEvent) {
-    if (!draggedKey.value || draggedKey.value === item.key) {
-      return;
-    }
-
+    const dragged = draggedPath.value;
+    if (!dragged || dragged === path || path.startsWith(dragged + '.')) return;
     event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const offsetY = event.clientY - rect.top;
     const upper = rect.height * 0.3;
     const lower = rect.height * 0.7;
 
-    if (isGroup && offsetY > upper && offsetY < lower) {
-      const insertIndex = item.children?.length ?? 0;
-      dropTarget.value = { parentKey: item.key, insertIndex, mode: 'inside' };
+    // Middle zone → drop inside (only if container)
+    if (canContain && offsetY > upper && offsetY < lower) {
+      dropTarget.value = { parentPath: path, insertIndex: node.children?.length ?? 0, mode: 'inside' };
       return;
     }
 
+    // Upper half → above
     if (offsetY <= rect.height / 2) {
-      dropTarget.value = { parentKey, insertIndex: index, mode: 'above' };
+      dropTarget.value = { parentPath: pPath, insertIndex: idx, mode: 'above' };
       return;
     }
 
-    dropTarget.value = { parentKey, insertIndex: index + 1, mode: 'below' };
+    // Lower half → below
+    dropTarget.value = { parentPath: pPath, insertIndex: idx + 1, mode: 'below' };
   }
 
   return (
@@ -98,6 +99,7 @@ export function TreeNode({ item, depth, parentKey, index }: TreeNodeProps) {
       onDragOver={handleDragOver}
       onDrop={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         executeDrop();
       }}
     >
@@ -107,11 +109,11 @@ export function TreeNode({ item, depth, parentKey, index }: TreeNodeProps) {
         class={`tree-node ${selected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
         style={{ paddingLeft: `${depth * 24 + 12}px` }}
         onClick={() => {
-          selectedPath.value = item.key;
+          selectedPath.value = path;
         }}
         role="treeitem"
         aria-selected={selected}
-        aria-expanded={isGroup ? expanded.value : undefined}
+        aria-expanded={hasChildren ? expanded?.value : undefined}
         aria-level={depth + 2}
         tabIndex={0}
       >
@@ -120,30 +122,30 @@ export function TreeNode({ item, depth, parentKey, index }: TreeNodeProps) {
           aria-hidden="true"
           draggable
           onDragStart={(event) => {
-            event.dataTransfer?.setData('text/plain', item.key);
+            event.dataTransfer?.setData('text/plain', path);
             event.dataTransfer!.effectAllowed = 'move';
-            draggedKey.value = item.key;
+            draggedPath.value = path;
           }}
           onDragEnd={() => {
-            draggedKey.value = null;
+            draggedPath.value = null;
             dropTarget.value = null;
           }}
         >
           ⠿
         </span>
 
-        {isGroup && (
+        {hasChildren && (
           <button
             class="tree-node-toggle"
             onClick={(event) => {
               event.stopPropagation();
-              expanded.value = !expanded.value;
+              if (expanded) expanded.value = !expanded.value;
             }}
-            aria-label={expanded.value ? 'Collapse' : 'Expand'}
+            aria-label={expanded?.value ? 'Collapse' : 'Expand'}
           >
             <span
               style={{
-                transform: expanded.value ? 'rotate(90deg)' : 'none',
+                transform: expanded?.value ? 'rotate(90deg)' : 'none',
                 display: 'inline-block',
                 transition: 'transform var(--duration-normal) var(--ease-out)',
               }}
@@ -155,70 +157,44 @@ export function TreeNode({ item, depth, parentKey, index }: TreeNodeProps) {
 
         <span
           class="tree-node-dot"
-          style={{ background: NODE_TYPE_COLORS[item.type] ?? 'var(--text-2)' }}
+          style={{ background: NODE_KIND_COLORS[kind] }}
           aria-hidden="true"
         />
 
-        <span class="tree-node-label">{item.label || item.key}</span>
-        <span class="tree-node-key">{item.key}</span>
+        <span class="tree-node-label">{label}</span>
 
-        {item.dataType && (
-          <span
-            class="tree-node-badge"
-            style={{ color: DATA_TYPE_COLORS[item.dataType] ?? 'var(--text-1)' }}
-          >
-            {item.dataType}
-          </span>
+        {boundItem && (
+          <span class="tree-node-key">{boundItem.key}</span>
         )}
 
-        {item.required && (
-          <span class="tree-node-bind" title="Required">
-            *
-          </span>
+        <span class="tree-node-badge" style={{ color: NODE_KIND_COLORS[kind] }}>
+          {boundItem?.dataType || node.component}
+        </span>
+
+        {boundItem?.required && (
+          <span class="tree-node-bind" title="Required">R</span>
         )}
-        {item.calculate && (
-          <span class="tree-node-bind" title="Calculated">
-            ƒ
-          </span>
+        {boundItem?.calculate && (
+          <span class="tree-node-bind" title="Calculated">C</span>
         )}
-        {item.constraint && (
-          <span class="tree-node-bind" title="Constraint">
-            ✓
-          </span>
+        {boundItem?.constraint && (
+          <span class="tree-node-bind" title="Constraint">V</span>
         )}
-        {item.relevant && (
-          <span class="tree-node-bind" title="Conditional">
-            ⚡
-          </span>
+        {(boundItem?.relevant || node.when) && (
+          <span class="tree-node-bind" title="Conditional">⚡</span>
+        )}
+
+        {boundItem?.$ref && (
+          <span class="tree-ref-badge">linked</span>
         )}
 
         <span class="tree-node-actions">
-          <button
-            class="tree-action"
-            title="Move up"
-            onClick={(event) => {
-              event.stopPropagation();
-              moveItem(item.key, -1);
-            }}
-          >
-            ↑
-          </button>
-          <button
-            class="tree-action"
-            title="Move down"
-            onClick={(event) => {
-              event.stopPropagation();
-              moveItem(item.key, 1);
-            }}
-          >
-            ↓
-          </button>
           <button
             class="tree-action tree-action-danger"
             title="Delete"
             onClick={(event) => {
               event.stopPropagation();
-              deleteItem(item.key);
+              deleteNode(path, node);
             }}
           >
             ×
@@ -226,61 +202,78 @@ export function TreeNode({ item, depth, parentKey, index }: TreeNodeProps) {
         </span>
       </div>
 
-      {isGroup && expanded.value && (
+      {hasChildren && expanded?.value && (
         <div role="group">
-          <InsertionGap parentKey={item.key} insertIndex={0} />
-          {item.children?.map((child, childIndex) => (
-            <div key={child.key}>
-              <TreeNode item={child} depth={depth + 1} parentKey={item.key} index={childIndex} />
-              <InsertionGap parentKey={item.key} insertIndex={childIndex + 1} />
-            </div>
+          {node.children!.map((child, index) => (
+            <UnifiedTreeNode
+              key={`${path}.${index}`}
+              node={child}
+              path={`${path}.${index}`}
+              depth={depth + 1}
+            />
           ))}
-          <div class="tree-group-add-row" style={{ paddingLeft: `${(depth + 1) * 24 + 12}px` }}>
-            <button
-              class="tree-add-btn tree-add-btn-inline"
-              onClick={() => {
-                inlineAddState.value = {
-                  parentKey: item.key,
-                  insertIndex: item.children?.length ?? 0,
-                };
-              }}
-            >
-              + Add Item
-            </button>
-          </div>
         </div>
+      )}
+
+      {boundItem?.$ref && !hasChildren && expanded?.value !== false && (
+        <RefChildren itemKey={node.bind!} depth={depth + 1} />
       )}
     </div>
   );
 }
 
-function moveItem(key: string, direction: -1 | 1) {
-  updateDefinition((def) => {
-    const found = findItemByKey(key, def.items);
-    if (!found) {
-      return;
-    }
-    const nextIndex = found.index + direction;
-    if (nextIndex < 0 || nextIndex >= found.siblings.length) {
-      return;
-    }
-    [found.siblings[found.index], found.siblings[nextIndex]] = [
-      found.siblings[nextIndex],
-      found.siblings[found.index],
-    ];
-  });
-}
+function deleteNode(path: string, node: ComponentNode) {
+  const doc = componentDoc.value;
+  if (!doc) return;
 
-function deleteItem(key: string) {
-  updateDefinition((def) => {
-    const found = findItemByKey(key, def.items);
-    if (!found) {
-      return;
-    }
-    found.siblings.splice(found.index, 1);
-  });
+  // Remove from component tree
+  const newTree = removeNode(doc.tree, path);
+  setComponentDoc({ ...doc, tree: newTree });
 
-  if (selectedPath.value === key) {
+  // Remove bound definition item if applicable
+  if (node.bind) {
+    const newDef = removeBoundItem(definition.value, node.bind);
+    setDefinition(newDef);
+  }
+
+  // Clear selection if deleted node was selected
+  if (selectedPath.value === path || selectedPath.value?.startsWith(path + '.')) {
     selectedPath.value = null;
   }
+}
+
+function findDefItem(key: string): FormspecItem | null {
+  return findDeep(definition.value.items, key);
+}
+
+function findDeep(items: FormspecItem[], key: string): FormspecItem | null {
+  for (const item of items) {
+    if (item.key === key) return item;
+    if (item.children) {
+      const found = findDeep(item.children, key);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function RefChildren({ itemKey, depth }: { itemKey: string; depth: number }) {
+  const assembled = assembledDefinition.value;
+  if (!assembled) return null;
+  const group = findDeep(assembled.items, itemKey);
+  if (!group?.children) return null;
+  return (
+    <>
+      {group.children.map((child) => (
+        <div
+          key={child.key}
+          class="tree-ref-child"
+          style={{ paddingLeft: `${depth * 24 + 12}px` }}
+        >
+          <span class="tree-node-dot" style={{ background: '#888', opacity: 0.5 }} />
+          <span class="tree-node-label" style={{ opacity: 0.6 }}>{child.label || child.key}</span>
+        </div>
+      ))}
+    </>
+  );
 }

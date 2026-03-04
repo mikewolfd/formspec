@@ -49,9 +49,38 @@ const editorState: Partial<
   >
 > = {};
 
+function getArtifactData(kind: ArtifactKind): unknown | null {
+  const current = project.value;
+  if (kind === 'mapping') return current.mappings[0] ?? null;
+  if (kind === 'registry') return current.registries[0] ?? null;
+  if (kind === 'changelog') return current.changelogs[0] ?? null;
+  if (kind === 'definition') return current.definition;
+  return current[kind];
+}
+
+function setArtifactData(kind: ArtifactKind, data: unknown | null) {
+  if (kind === 'mapping') {
+    project.value = { ...project.value, mappings: data ? [data] : [] };
+    return;
+  }
+  if (kind === 'registry') {
+    project.value = { ...project.value, registries: data ? [data] : [] };
+    return;
+  }
+  if (kind === 'changelog') {
+    project.value = { ...project.value, changelogs: data ? [data] : [] };
+    return;
+  }
+  if (kind === 'definition') {
+    project.value = { ...project.value, definition: data as any };
+    return;
+  }
+  project.value = { ...project.value, [kind]: data };
+}
+
 function getState(kind: ArtifactKind) {
   if (!editorState[kind]) {
-    const data = project.value[kind as keyof typeof project.value];
+    const data = getArtifactData(kind);
     editorState[kind] = {
       jsonText: signal(data ? JSON.stringify(data, null, 2) : ''),
       status: signal('idle'),
@@ -75,15 +104,15 @@ export function ArtifactEditor({ kind }: { kind: ArtifactKind }) {
   const { jsonText, status, errorMsg } = getState(kind);
 
   // Sync textarea with current project data (e.g. when artifact is first loaded)
-  const currentData = project.value[kind as keyof typeof project.value];
+  const currentData = getArtifactData(kind);
   if (!jsonText.value && currentData) {
     jsonText.value = JSON.stringify(currentData, null, 2);
   }
 
   function applyChanges() {
     try {
-      const parsed = JSON.parse(jsonText.value);
-      project.value = { ...project.value, [kind]: parsed };
+      const parsed = JSON.parse(jsonText.value ?? '');
+      setArtifactData(kind, parsed);
       // Update the editor text to the canonical re-serialized form
       jsonText.value = JSON.stringify(parsed, null, 2);
       status.value = 'applied';
@@ -96,14 +125,14 @@ export function ArtifactEditor({ kind }: { kind: ArtifactKind }) {
   }
 
   function revert() {
-    const current = project.value[kind as keyof typeof project.value];
+    const current = getArtifactData(kind);
     jsonText.value = current ? JSON.stringify(current, null, 2) : '';
     status.value = 'idle';
     errorMsg.value = '';
   }
 
   function removeArtifact() {
-    project.value = { ...project.value, [kind]: null };
+    setArtifactData(kind, null);
     resetArtifactEditorState(kind);
     showToast(`${kind} removed`, 'info');
   }
@@ -112,13 +141,13 @@ export function ArtifactEditor({ kind }: { kind: ArtifactKind }) {
     <div class="json-editor">
       <textarea
         class="json-editor-textarea"
-        value={jsonText.value}
+        value={jsonText.value ?? ''}
         onInput={(e) => {
           jsonText.value = (e.target as HTMLTextAreaElement).value;
           status.value = 'idle';
           errorMsg.value = '';
         }}
-        spellCheck={false}
+        spellcheck={false}
       />
       <div class="json-editor-actions">
         <button class="btn-primary" onClick={applyChanges}>

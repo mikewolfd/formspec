@@ -1,14 +1,17 @@
 import { batch, signal } from '@preact/signals';
-import { FormEngine, type FormspecDefinition, type FormspecItem } from 'formspec-engine';
+import { FormEngine, assembleDefinitionSync, type FormspecDefinition, type FormspecItem } from 'formspec-engine';
 import type { BuilderDiagnostic } from '../types';
-import { diagnostics, engine, project } from './project';
+import { diagnostics, engine, project, componentDoc, setComponentDoc } from './project';
 import { createEmptyDefinition } from '../logic/seed-definition';
 import { findItemByKey as findItemByKeyPure } from '../logic/find-item';
+import { createResolver } from '../logic/definition-library';
+import { generateComponentTree } from '../logic/component-tree';
 
 export { createEmptyDefinition };
 
 export const definition = signal<FormspecDefinition>(createEmptyDefinition());
 export const definitionVersion = signal(0);
+export const assembledDefinition = signal<FormspecDefinition | null>(null);
 
 project.value = { ...project.value, definition: definition.value };
 
@@ -29,6 +32,17 @@ export function setDefinition(next: FormspecDefinition) {
     project.value = { ...project.value, definition: next };
   });
   rebuildEngine(next);
+
+  // Auto-generate component tree if none exists
+  if (!componentDoc.value) {
+    const tree = generateComponentTree(next);
+    setComponentDoc({
+      $formspecComponent: '1.0',
+      version: '1.0.0',
+      targetDefinition: { url: next.url },
+      tree,
+    });
+  }
 }
 
 export function findItemByKey(
@@ -39,8 +53,30 @@ export function findItemByKey(
 }
 
 function rebuildEngine(current: FormspecDefinition) {
+  const assemblyDiags: BuilderDiagnostic[] = [];
+  let defForEngine = current;
+
+  // Attempt assembly if any group has $ref
+  const hasRefs = current.items?.some((item) => item.type === 'group' && item.$ref);
+  if (hasRefs) {
+    try {
+      const resolver = createResolver(project.value.library);
+      const result = assembleDefinitionSync(current, resolver);
+      defForEngine = result.definition;
+    } catch (error) {
+      assemblyDiags.push({
+        severity: 'error',
+        artifact: 'definition',
+        path: '',
+        message: (error as Error).message,
+        source: 'assembler',
+      });
+      // Fall through to build engine with unassembled definition
+    }
+  }
+
   try {
-    const nextEngine = new FormEngine(current);
+    const nextEngine = new FormEngine(defForEngine);
     const report = nextEngine.getValidationReport();
     const mapped: BuilderDiagnostic[] = report.results.map((result) => ({
       severity: result.severity,
@@ -51,13 +87,16 @@ function rebuildEngine(current: FormspecDefinition) {
     }));
 
     batch(() => {
+      assembledDefinition.value = defForEngine;
       engine.value = nextEngine;
-      diagnostics.value = mapped;
+      diagnostics.value = [...assemblyDiags, ...mapped];
     });
   } catch (error) {
     batch(() => {
+      assembledDefinition.value = defForEngine;
       engine.value = null;
       diagnostics.value = [
+        ...assemblyDiags,
         {
           severity: 'error',
           artifact: 'definition',
@@ -71,3 +110,14 @@ function rebuildEngine(current: FormspecDefinition) {
 }
 
 rebuildEngine(definition.value);
+
+// Auto-generate initial component tree
+if (!componentDoc.value) {
+  const tree = generateComponentTree(definition.value);
+  setComponentDoc({
+    $formspecComponent: '1.0',
+    version: '1.0.0',
+    targetDefinition: { url: definition.value.url },
+    tree,
+  });
+}

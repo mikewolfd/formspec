@@ -1,4 +1,5 @@
 import type { FormspecDefinition } from 'formspec-engine';
+import type { BuilderProject } from '../types';
 
 /**
  * Parse a JSON string into a FormspecDefinition.
@@ -25,6 +26,44 @@ export function parseDefinitionJSON(jsonString: string): FormspecDefinition {
   }
 
   return parsed as FormspecDefinition;
+}
+
+export function parseImportedProject(jsonString: string): BuilderProject {
+  const parsed = JSON.parse(jsonString) as Record<string, unknown>;
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Project must be a JSON object');
+  }
+
+  const hasBundleShape = 'definition' in parsed;
+  if (!hasBundleShape) {
+    const definition = parseDefinitionJSON(jsonString);
+    return {
+      definition,
+      previousDefinitions: [],
+      theme: null,
+      component: null,
+      mappings: [],
+      registries: [],
+      changelogs: [],
+      library: [],
+    };
+  }
+
+  const definition = parsed.definition as FormspecDefinition | undefined;
+  if (!definition || typeof definition !== 'object' || !Array.isArray((definition as Record<string, unknown>).items)) {
+    throw new Error('Bundle is missing a valid definition');
+  }
+
+  return {
+    definition,
+    previousDefinitions: Array.isArray(parsed.previousDefinitions) ? (parsed.previousDefinitions as FormspecDefinition[]) : [],
+    theme: parsed.theme ?? null,
+    component: parsed.component ?? null,
+    mappings: Array.isArray(parsed.mappings) ? parsed.mappings : [],
+    registries: Array.isArray(parsed.registries) ? parsed.registries : [],
+    changelogs: Array.isArray(parsed.changelogs) ? parsed.changelogs : [],
+    library: [],
+  };
 }
 
 /**
@@ -64,13 +103,32 @@ export function exportDefinitionJSON(def: FormspecDefinition): void {
   downloadFile(json, filename, 'application/json');
 }
 
+export function exportCoreBundle(project: BuilderProject): void {
+  if (!project.definition) {
+    throw new Error('No definition to export');
+  }
+  const bundle = {
+    definition: project.definition,
+    previousDefinitions: project.previousDefinitions,
+    theme: project.theme,
+    component: project.component,
+    registries: project.registries,
+    mappings: project.mappings,
+    changelogs: project.changelogs,
+  };
+  const filename = project.definition.title
+    ? `${kebabCase(project.definition.title)}-bundle.json`
+    : 'formspec-core-bundle.json';
+  downloadFile(JSON.stringify(bundle, null, 2), filename, 'application/json');
+}
+
 /**
  * Open a file picker dialog and read the selected JSON file.
  * Returns a promise that resolves with the parsed definition.
  * Rejects with an error if no file is selected, the file is not valid JSON,
  * or the file cannot be read.
  */
-export function pickAndReadJSONFile(): Promise<FormspecDefinition> {
+export function pickAndReadJSONFile(): Promise<string> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -84,8 +142,7 @@ export function pickAndReadJSONFile(): Promise<FormspecDefinition> {
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const parsed = JSON.parse(reader.result as string);
-          resolve(parsed as FormspecDefinition);
+          resolve(reader.result as string);
         } catch {
           reject(new Error('Invalid JSON file'));
         }

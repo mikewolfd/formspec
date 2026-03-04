@@ -66,9 +66,15 @@ describe('Topbar', () => {
     expect(importBtn).toBeTruthy();
   });
 
-  test('renders Export button', () => {
+  test('renders Export Definition button', () => {
     render(<Topbar />);
-    const exportBtn = screen.getByRole('button', { name: /Export project/ });
+    const exportBtn = screen.getByRole('button', { name: /Export definition/ });
+    expect(exportBtn).toBeTruthy();
+  });
+
+  test('renders Export Bundle button', () => {
+    render(<Topbar />);
+    const exportBtn = screen.getByRole('button', { name: /Export core bundle/ });
     expect(exportBtn).toBeTruthy();
   });
 });

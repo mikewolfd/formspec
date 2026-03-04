@@ -1,6 +1,8 @@
 import type { ComponentChildren } from 'preact';
 import type { FormspecItem } from 'formspec-engine';
-import { findItemByKey, updateDefinition } from '../../state/definition';
+import { assembledDefinition, definition, findItemByKey, setDefinition, updateDefinition } from '../../state/definition';
+import { componentDoc } from '../../state/project';
+import { forkRefGroup } from '../../logic/definition-library';
 import { FelExpressionInput } from './fel-expression-input';
 import { FelHelper } from './fel-helper';
 import { JsonPropertyEditor } from './json-property-editor';
@@ -90,6 +92,23 @@ export function GroupProperties({ item }: { item: FormspecItem }) {
           onInput={(event) => updateGroup('keyPrefix', (event.target as HTMLInputElement).value)}
         />
       </PropertyRow>
+      {!!(item as Record<string, unknown>).$ref && (
+        <div class="drawer-actions" style={{ padding: '4px 0' }}>
+          <button
+            class="btn-ghost"
+            onClick={() => {
+              const assembled = assembledDefinition.value;
+              if (!assembled) return;
+              const result = forkRefGroup(definition.value, assembled, item.key);
+              componentDoc.value = null; // Regenerate component tree with forked children
+              setDefinition(result);
+            }}
+          >
+            Fork (make editable)
+          </button>
+        </div>
+      )}
+
       <PropertyRow label="Labels (JSON)">
         <JsonPropertyEditor
           label="Labels"
