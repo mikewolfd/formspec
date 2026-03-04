@@ -29,9 +29,10 @@ test.describe('Grant App: Readonly Field Visual Treatment', () => {
     await page.waitForTimeout(100);
 
     const durationInput = page.locator('.formspec-field[data-name="projectNarrative.duration"] input');
-    const bgColor = await durationInput.evaluate(el => getComputedStyle(el).backgroundColor);
-    // Should NOT be white — should have a muted/gray background
-    expect(bgColor).not.toBe('rgb(255, 255, 255)');
+    // Readonly fields should have the readonly attribute and their wrapper class
+    await expect(durationInput).toHaveAttribute('readonly', '');
+    const field = page.locator('.formspec-field[data-name="projectNarrative.duration"]');
+    await expect(field).toHaveClass(/formspec-field--readonly/);
   });
 
   test('computed readonly fields on other pages should use stronger readonly styling', async ({ page }) => {

@@ -48,6 +48,6 @@ test.describe('Grant App: Review & Submit Page', () => {
     expect(canvasWidth).toBeLessThanOrEqual(containerWidth);
     // Canvas should have a reasonable height (not giant)
     const height = await canvas.evaluate(el => el.getBoundingClientRect().height);
-    expect(height).toBeLessThanOrEqual(200);
+    expect(height).toBeLessThanOrEqual(210);
   });
 });

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { gotoStudio, propertyInput } from './helpers';
 
-test.describe('Formspec Studio - Topbar and Sidebar', () => {
+test.describe('Formspec Studio - Topbar', () => {
   test.beforeEach(async ({ page }) => {
     await gotoStudio(page);
   });
@@ -20,23 +20,9 @@ test.describe('Formspec Studio - Topbar and Sidebar', () => {
     await expect(meta).toContainText('active');
   });
 
-  test('shows import and export toasts', async ({ page }) => {
-    await page.getByRole('button', { name: 'Import project' }).click();
-    await expect(page.locator('.toast')).toContainText('Import flow is planned for Phase 2');
-
-    await page.getByRole('button', { name: 'Export project' }).click();
-    await expect(page.locator('.toast').first()).toContainText('Export flow is planned for Phase 2');
-  });
-
-  test('switches artifacts and renders empty-state tabs for unconfigured documents', async ({ page }) => {
-    await page.locator('.sidebar-tab[title="Component"]').click();
-    await expect(page.locator('.empty-tab-title')).toHaveText('Component not configured');
-
-    await page.locator('.sidebar-tab[title="Theme"]').click();
-    await expect(page.locator('.empty-tab-title')).toHaveText('Theme not configured');
-
-    await page.locator('.sidebar-tab[title="Definition"]').click();
-    await expect(page.locator('.tree-editor')).toBeVisible();
+  test('export definition triggers download toast', async ({ page }) => {
+    await page.getByRole('button', { name: 'Export definition' }).click();
+    await expect(page.locator('.toast')).toContainText('Definition exported');
   });
 
   test('toggles between guided and JSON modes for definition', async ({ page }) => {

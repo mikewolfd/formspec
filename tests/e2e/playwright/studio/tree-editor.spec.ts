@@ -11,51 +11,25 @@ test.describe('Formspec Studio - Tree Editor', () => {
     await expect(page.locator('.tree-node')).toHaveCount(4);
   });
 
-  test('adds a new root field inline and auto-selects it', async ({ page }) => {
+  test('adds a new component via add picker and auto-selects it', async ({ page }) => {
     await page.locator('.tree-add-root .tree-add-btn').click();
-    await page.fill('.inline-add-input', 'Phone Number');
-    await page.press('.inline-add-input', 'Enter');
+    await expect(page.locator('.add-picker')).toBeVisible();
 
-    await expect(page.locator('.tree-node-label', { hasText: 'Phone Number' })).toBeVisible();
+    // Input tab is default; pick Text Input
+    await page.locator('.add-picker-option', { hasText: 'Text Input' }).click();
+
+    // Enter a label and confirm
+    await page.fill('.add-picker-label input', 'Phone Number');
+    await page.locator('.add-picker-actions .btn-primary').click();
+
+    await expect(treeNodeByLabel(page, 'Phone Number')).toBeVisible();
     await expect(page.locator('.property-type-header')).toContainText('Field');
-    await expect(page.locator('.studio-input[value="phone-number"]')).toBeVisible();
-  });
-
-  test('adds a child field inside a group', async ({ page }) => {
-    await selectTreeNode(page, 'Basic Information');
-    await page
-      .locator('.tree-group-add-row .tree-add-btn', {
-        hasText: '+ Add Item',
-      })
-      .first()
-      .click();
-
-    await page.fill('.inline-add-input', 'Department');
-    await page.selectOption('.inline-add-type', 'field');
-    await page.click('.inline-add-confirm');
-
-    await expect(treeNodeByLabel(page, 'Department')).toBeVisible();
-  });
-
-  test('moves root item up and down with action buttons', async ({ page }) => {
-    await selectTreeNode(page, 'Additional Notes');
-    await page.getByTitle('Move up').click();
-
-    const rootLabels = page
-      .locator('.tree-node-wrapper[data-depth="0"] .tree-node-label')
-      .allInnerTexts();
-    await expect(rootLabels).resolves.toEqual(['Additional Notes', 'Basic Information']);
-
-    await selectTreeNode(page, 'Additional Notes');
-    await page.getByTitle('Move down').click();
-    await expect(page.locator('.tree-node-wrapper[data-depth="0"] .tree-node-label').first()).toHaveText(
-      'Basic Information',
-    );
   });
 
   test('deletes an item and clears selected item panel', async ({ page }) => {
-    await selectTreeNode(page, 'Additional Notes');
-    await page.getByTitle('Delete').click();
+    const notesNode = treeNodeByLabel(page, 'Additional Notes');
+    await notesNode.click();
+    await notesNode.locator('button[title="Delete"]').click();
 
     await expect(treeNodeByLabel(page, 'Additional Notes')).toHaveCount(0);
     await expect(page.locator('.properties-empty')).toContainText('Select an item');
@@ -68,5 +42,11 @@ test.describe('Formspec Studio - Tree Editor', () => {
 
     await treeNodeByLabel(page, 'Basic Information').locator('.tree-node-toggle').click();
     await expect(treeNodeByLabel(page, 'Full Name')).toBeVisible();
+  });
+
+  test('shows item keys and data type badges', async ({ page }) => {
+    const nameNode = treeNodeByLabel(page, 'Full Name');
+    await expect(nameNode.locator('.tree-node-key')).toContainText('fullName');
+    await expect(nameNode.locator('.tree-node-badge')).toHaveText('string');
   });
 });

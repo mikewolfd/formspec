@@ -22,12 +22,12 @@ test.describe('Formspec Studio - Properties Panel', () => {
     await expect(page.locator('.property-type-header')).toContainText('Field');
 
     await propertyInput(page, 'Label').fill('Legal Name');
-    await propertyInput(page, 'Key').fill('legalName');
     await propertyInput(page, 'Data Type').selectOption('date');
     await propertyInput(page, 'Required').fill('true()');
     await propertyInput(page, 'Calculate').fill("'Jane Doe'");
     await propertyInput(page, 'Constraint').fill('string-length(.) > 0');
     await propertyInput(page, 'Relevant').fill('true()');
+    await propertyInput(page, 'Key').fill('legalName');
 
     const node = treeNodeByLabel(page, 'Legal Name');
     await expect(node.locator('.tree-node-key')).toContainText('legalName');

@@ -1,0 +1,21 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.gov/forms/common-contact",
+  "version": "1.0.0",
+  "title": "Common Contact Fields",
+  "status": "active",
+  "items": [
+    {
+      "key": "email",
+      "type": "field",
+      "label": "Email Address",
+      "dataType": "string"
+    },
+    {
+      "key": "phone",
+      "type": "field",
+      "label": "Phone Number",
+      "dataType": "string"
+    }
+  ]
+}

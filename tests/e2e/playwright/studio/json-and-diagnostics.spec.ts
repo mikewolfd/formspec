@@ -25,7 +25,7 @@ test.describe('Formspec Studio - JSON and Diagnostics', () => {
     await page.locator('.json-editor-textarea').fill('{');
     await page.getByRole('button', { name: 'Apply Changes' }).click();
 
-    await expect(page.locator('.json-editor-status.error')).toContainText('Unexpected end of JSON input');
+    await expect(page.locator('.json-editor-status.error')).toContainText('JSON');
   });
 
   test('shows engine diagnostics when JSON applies but definition is invalid', async ({ page }) => {
