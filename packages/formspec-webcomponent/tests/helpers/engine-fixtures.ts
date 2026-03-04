@@ -1,4 +1,4 @@
-import type { ThemeDocument, PresentationBlock } from '../../src/theme-resolver';
+import type { ThemeDocument, PresentationBlock } from 'formspec-layout';
 
 /**
  * Minimal valid Formspec definition with a single string field.

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { resolvePresentation, resolveWidget } from '../src/theme-resolver';
-import type { ThemeDocument, PresentationBlock, ItemDescriptor, Tier1Hints } from '../src/theme-resolver';
+import { resolvePresentation, resolveWidget } from 'formspec-layout';
+import type { ThemeDocument, PresentationBlock, ItemDescriptor, Tier1Hints } from 'formspec-layout';
 import { minimalTheme } from './helpers/engine-fixtures';
 
 const field = (key = 'f1', dataType?: string): ItemDescriptor => ({
