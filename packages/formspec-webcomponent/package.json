@@ -14,7 +14,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "formspec-engine": "*"
+    "formspec-engine": "*",
+    "formspec-layout": "*"
   },
   "devDependencies": {
     "happy-dom": "^17.6.1",

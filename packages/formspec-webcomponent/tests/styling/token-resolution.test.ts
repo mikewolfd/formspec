@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resolveToken } from '../src/index';
+import { resolveToken } from '../../src/index';
 
 describe('resolveToken (standalone)', () => {
     it('passes non-token strings through unchanged', () => {
@@ -40,7 +40,7 @@ describe('resolveToken (standalone)', () => {
 describe('emitTokenProperties (via FormspecRender)', () => {
     it('sets --formspec-{name} CSS custom properties with dots→dashes', async () => {
         // Import the full module to get the class and side effects
-        const { FormspecRender } = await import('../src/index');
+        const { FormspecRender } = await import('../../src/index');
         if (!customElements.get('formspec-render')) {
             customElements.define('formspec-render', FormspecRender);
         }
@@ -72,7 +72,7 @@ describe('emitTokenProperties (via FormspecRender)', () => {
     });
 
     it('component tokens override theme tokens in CSS property emission', async () => {
-        const { FormspecRender } = await import('../src/index');
+        const { FormspecRender } = await import('../../src/index');
         if (!customElements.get('formspec-render')) {
             customElements.define('formspec-render', FormspecRender);
         }

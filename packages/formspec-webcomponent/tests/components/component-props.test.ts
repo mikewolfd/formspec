@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 let FormspecRender: any;
 
 beforeAll(async () => {
-    const mod = await import('../src/index');
+    const mod = await import('../../src/index');
     FormspecRender = mod.FormspecRender;
     if (!customElements.get('formspec-render')) {
         customElements.define('formspec-render', FormspecRender);

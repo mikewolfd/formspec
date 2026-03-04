@@ -285,28 +285,8 @@ describe('render lifecycle', () => {
         warn.mockRestore();
     });
 
-    it('custom component recursion detected with console.warn', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        el.definition = {
-            $formspec: '1.0',
-            url: 'urn:test:form',
-            version: '1.0.0',
-            title: 'Test',
-            items: [],
-        };
-        el.componentDocument = {
-            $formspecComponent: '1.0',
-            version: '1.0.0',
-            targetDefinition: { url: 'urn:test:form' },
-            tree: { component: 'SelfRef' },
-            components: {
-                SelfRef: { tree: { component: 'SelfRef' } },
-            },
-        };
-        el.render();
-        expect(warn).toHaveBeenCalledWith(expect.stringContaining('Recursive'));
-        warn.mockRestore();
-    });
+    // Removed: custom component recursion is now handled by the planner
+    // (planComponentTree expands custom components before render).
 
     it('disconnectedCallback drains cleanup functions', () => {
         el.definition = singleFieldDef();

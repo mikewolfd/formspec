@@ -1,6 +1,6 @@
 import { FormEngine } from 'formspec-engine';
 import type { Signal } from '@preact/signals-core';
-import { ThemeDocument, PresentationBlock, ItemDescriptor } from './theme-resolver';
+import { ThemeDocument, PresentationBlock, ItemDescriptor } from 'formspec-layout';
 
 /** Metadata describing where a validation result points and whether it is jumpable. */
 export interface ValidationTargetMetadata {

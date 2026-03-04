@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
-import { singleFieldDef, minimalComponentDoc, minimalTheme } from './helpers/engine-fixtures';
+import { singleFieldDef, minimalComponentDoc, minimalTheme } from '../helpers/engine-fixtures';
 
 let FormspecRender: any;
 
 beforeAll(async () => {
-    const mod = await import('../src/index');
+    const mod = await import('../../src/index');
     FormspecRender = mod.FormspecRender;
     if (!customElements.get('formspec-render')) {
         customElements.define('formspec-render', FormspecRender);

@@ -2,31 +2,134 @@
 
 *Auto-generated from TypeScript declarations — do not hand-edit.*
 
-`<formspec-render>` custom element that binds a FormEngine to the DOM. Provides a component registry, theme cascade resolver, token resolution, responsive breakpoints, and accessibility attributes. Ships with 35 built-in component plugins.
+`<formspec-render>` custom element that binds a FormEngine to the DOM. Provides a component registry, styling pipeline, navigation (wizard/field focus), and accessibility attributes.
 
-## `interpolateParams(node: any, params: any): void`
+## `HeadingPlugin: ComponentPlugin`
 
-Replace `{param}` placeholders in a component tree node with values from
-a params object. Walks string properties, arrays, and nested objects
-recursively. Used during custom component expansion to substitute
-parameterized values declared in component document templates.
+Renders an `<h1>`-`<h6>` heading element based on the `level` prop (defaults to h1).
 
-## `resolveResponsiveProps(comp: any, activeBreakpoint: string | null): any`
+## `TextPlugin: ComponentPlugin`
 
-Merge responsive breakpoint overrides onto a component descriptor.
+Renders a `<p>` text element. When `bind` is set, subscribes to the field or variable signal
+and reactively updates the text content, including currency formatting for money values.
 
-If the component has a `responsive` map and the given breakpoint name
-appears as a key, shallow-merges those overrides onto a copy of the
-descriptor. Returns the original descriptor unchanged when no overrides
-apply.
+## `CardPlugin: ComponentPlugin`
 
-## `resolveToken(val: any, componentTokens: Record<string, string | number> | undefined, themeTokens: Record<string, string | number> | undefined): any`
+Renders a `<div>` card container with optional `<h3>` title, `<p>` subtitle, and elevation data attribute.
 
-Resolve a `$token.xxx` reference against component and theme token maps.
+## `SpacerPlugin: ComponentPlugin`
 
-Component tokens take precedence over theme tokens. Values that are not
-`$token.` prefixed strings pass through unchanged. Logs a warning when
-a token reference cannot be resolved in either map.
+Renders an empty `<div>` spacer with token-resolved height from the `size` prop.
+
+## `AlertPlugin: ComponentPlugin`
+
+Renders a `<div>` alert with severity variant CSS class and optional dismiss button that removes the element.
+
+## `BadgePlugin: ComponentPlugin`
+
+Renders an inline `<span>` badge with a variant CSS class.
+
+## `ProgressBarPlugin: ComponentPlugin`
+
+Renders a `<progress>` element with optional percentage label.
+When `bind` is set, subscribes to the field signal to reactively update the progress value.
+
+## `SummaryPlugin: ComponentPlugin`
+
+Renders a `<dl>` definition list with reactive `<dd>` values bound to field or variable signals.
+Supports currency formatting for money values and optionSet label lookup.
+
+## `ValidationSummaryPlugin: ComponentPlugin`
+
+Renders validation summary messages from either live validation state or
+the latest submit event detail, with optional jump links to target fields.
+
+Props:
+- `source`: 'live' | 'submit' (default 'live')
+- `mode`: validation mode for live source (default 'continuous')
+- `showFieldErrors`: include bind-level field errors (default false)
+- `jumpLinks`: render clickable jump buttons to focus related fields
+- `dedupe`: deduplicate repeated messages (default true)
+
+## `registerDefaultComponents(): void`
+
+Registers all 37 built-in component plugins with the global registry.
+Includes layout (10), input (13), display (9), interactive (3), and special (2) plugins.
+
+## `InputPlugins: ComponentPlugin[]`
+
+All 13 built-in input component plugins, exported as a single array for bulk registration.
+
+## `WizardPlugin: ComponentPlugin`
+
+Renders a multi-step wizard with signal-driven panel visibility.
+Creates a step progress indicator (numbered spans), prev/next navigation buttons, and optional skip button.
+The last step shows "Finish" instead of "Next". Panel switching uses a Preact signal for the current step index.
+
+## `TabsPlugin: ComponentPlugin`
+
+Renders a tabbed interface with click-based tab switching.
+Supports configurable tab bar position (top or bottom) and default active tab.
+Each tab button toggles visibility of its corresponding panel.
+
+## `SubmitButtonPlugin: ComponentPlugin`
+
+Renders a submit button that invokes the host renderer's `submit()` API.
+Supports submit mode selection and optional event dispatch control.
+
+## `PagePlugin: ComponentPlugin`
+
+Renders a `<section>` page container with optional `<h2>` title and `<p>` description.
+
+## `StackPlugin: ComponentPlugin`
+
+Renders a flex `<div>` stack with configurable direction, alignment, wrap, and gap (token-resolved).
+
+## `GridPlugin: ComponentPlugin`
+
+Renders a CSS grid `<div>` with configurable column count, gap, and row gap.
+
+## `DividerPlugin: ComponentPlugin`
+
+Renders an `<hr>` divider, or a labeled divider with `<hr>` lines flanking a `<span>` label.
+
+## `CollapsiblePlugin: ComponentPlugin`
+
+Renders a `<details>`/`<summary>` collapsible section with optional default-open state.
+
+## `ColumnsPlugin: ComponentPlugin`
+
+Renders a multi-column `<div>` layout with configurable column count and token-resolved gap.
+
+## `PanelPlugin: ComponentPlugin`
+
+Renders a `<div>` panel container with optional header and configurable width.
+
+## `AccordionPlugin: ComponentPlugin`
+
+Renders an accordion using `<details>`/`<summary>` elements for each child.
+Supports single-open mode (default) via toggle event listeners, or multi-open via `allowMultiple`.
+
+## `ModalPlugin: ComponentPlugin`
+
+Renders a `<dialog>` modal with optional close button, title, and a trigger button that calls `showModal()`.
+
+## `PopoverPlugin: ComponentPlugin`
+
+Renders a popover with a trigger button and content panel.
+Trigger label can be bound to a field signal. Uses the Popover API when available, falls back to hidden toggle.
+
+## `ConditionalGroupPlugin: ComponentPlugin`
+
+Renders a simple wrapper `<div>` for conditional content whose visibility is controlled by bind relevance.
+
+## `DataTablePlugin: ComponentPlugin`
+
+Renders an editable `<table>` bound to a repeatable group.
+Supports add/remove row buttons, optional row numbers, and signal-driven cell updates.
+Editable cells use `<input>` elements with type coercion; read-only cells display formatted text
+including currency formatting for money values. Cell effect subscriptions are tracked and
+disposed on re-render to prevent leaks.
 
 #### class `FormspecRender`
 
@@ -43,6 +146,31 @@ Orchestrates the full rendering pipeline:
   cleanup of effects and event listeners on disconnect.
 - Supports replay, diagnostics snapshots, and runtime context injection.
 
+##### `constructor()`
+
+- **_definition** (`any`): @internal
+- **_componentDocument** (`any`): @internal
+- **_themeDocument** (`ThemeDocument | null`): @internal
+- **engine** (`FormEngine | null`): @internal
+- **cleanupFns** (`Array<() => void>`): @internal
+- **stylesheetHrefs** (`string[]`): @internal
+- **touchedFields** (`Set<string>`): Fields the user has interacted with (blur). Validation errors are hidden until touched.
+- **touchedVersion** (`import("@preact/signals-core").Signal<number>`): Incremented when touched state changes so error-display effects can react.
+- **_screenerCompleted** (`boolean`): Whether the screener has been completed (route selected).
+- **_screenerRoute** (`ScreenerRoute | null`): The route selected by the screener, if any.
+- **resolveToken** (`(val: any) => any`): @internal
+- **resolveItemPresentation** (`(itemDesc: ItemDescriptor) => PresentationBlock`): @internal
+- **applyStyle** (`(el: HTMLElement, style: any) => void`): @internal
+- **applyCssClass** (`(el: HTMLElement, comp: any) => void`): @internal
+- **applyClassValue** (`(el: HTMLElement, classValue: unknown) => void`): @internal
+- **resolveWidgetClassSlots** (`(presentation: PresentationBlock) => {
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    }`): @internal
+- **applyAccessibility** (`(el: HTMLElement, comp: any) => void`): @internal
 - **(set) definition** (`any`): Set the form definition. Creates a new {@link FormEngine} instance and
 schedules a re-render. Throws if engine initialization fails.
 - **(get) definition** (`any`): The currently loaded form definition object.
@@ -52,6 +180,19 @@ breakpoints). Schedules a re-render.
 - **(set) themeDocument** (`ThemeDocument | null`): Set the theme document. Loads/unloads referenced stylesheets via
 ref-counting and schedules a re-render.
 - **(get) themeDocument** (`ThemeDocument | null`): The currently loaded theme document, or `null` if none.
+- **findItemByKey** (`(key: string, items?: any[]) => any | null`): @internal
+
+##### `classifyScreenerRoute(route: ScreenerRoute | null | undefined): ScreenerRouteType`
+
+@internal
+
+##### `getScreenerState(): ScreenerStateSnapshot`
+
+Returns the current screener completion + routing state.
+
+##### `emitScreenerStateChange(reason: string, answers?: Record<string, any>): void`
+
+@internal
 
 ##### `getEngine(): FormEngine | null`
 
@@ -91,23 +232,127 @@ Replay a sequence of events against the engine in order.
 ##### `setRuntimeContext(context: any): void`
 
 Inject a runtime context (e.g. `now`, user metadata) into the engine.
-This context is available to FEL expressions via `@context` references.
+
+##### `touchAllFields(): void`
+
+Mark all registered fields as touched so validation errors become visible.
+
+##### `submit(options?: {
+        mode?: 'continuous' | 'submit';
+        emitEvent?: boolean;
+    }): {
+        response: any;
+        validationReport: {
+            valid: boolean;
+            results: any;
+            counts: {
+                error: number;
+                warning: number;
+                info: number;
+            };
+            timestamp: any;
+        };
+    } | null`
+
+Build a submit payload and validation report from the current form state.
+Optionally dispatches `formspec-submit` with `{ response, validationReport }`.
+
+##### `resolveValidationTarget(resultOrPath: any): ValidationTargetMetadata`
+
+Resolve a validation result/path to a navigation target with metadata.
+
+##### `setSubmitPending(pending: boolean): void`
+
+Toggle shared submit pending state and emit `formspec-submit-pending-change`
+whenever the value changes.
+
+##### `isSubmitPending(): boolean`
+
+Returns the current shared submit pending state.
+
+##### `goToWizardStep(index: number): boolean`
+
+Programmatically navigate to a wizard step in the first rendered wizard.
+
+##### `focusField(path: string): boolean`
+
+Reveal and focus a field by bind path.
+
+##### `getEffectiveTheme(): ThemeDocument`
+
+@internal
 
 ##### `render(): void`
 
 Perform a full synchronous render of the form.
 
-Tears down existing signal effects, sets up responsive breakpoints,
-validates the component document, emits CSS token custom properties,
-and walks the component tree (or definition items as fallback) to
-build the DOM. Appends a submit button that dispatches a
-`formspec-submit` CustomEvent with the engine response.
+##### `getScreenerRoute(): ScreenerRoute | null`
+
+Returns the screener route selected during the screening phase, or null.
+
+##### `skipScreener(): void`
+
+Programmatically skip the screener and proceed to the main form.
+
+##### `restartScreener(): void`
+
+Return to the screener from the main form.
 
 ##### `disconnectedCallback(): void`
 
 Custom element lifecycle callback. Disposes all signal effects,
-decrements stylesheet ref-counts (removing orphaned `<link>` elements),
-tears down breakpoint media query listeners, and removes the root container.
+decrements stylesheet ref-counts, tears down breakpoint listeners,
+and removes the root container.
+
+## `renderInputComponent(host: FieldInputHost, comp: any, item: any, fullName: string): HTMLElement`
+
+#### interface `FieldInputHost`
+
+##### `resolveItemPresentation(itemDesc: ItemDescriptor): PresentationBlock`
+
+##### `resolveWidgetClassSlots(presentation: PresentationBlock): {
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    }`
+
+##### `applyClassValue(el: HTMLElement, classValue: unknown): void`
+
+##### `applyCssClass(el: HTMLElement, comp: any): void`
+
+##### `applyStyle(el: HTMLElement, style: any): void`
+
+##### `applyAccessibility(el: HTMLElement, comp: any): void`
+
+##### `render(): void`
+
+## `formatMoney(moneyVal: {
+    amount: any;
+    currency?: string;
+} | null | undefined, locale?: string): string`
+
+Format a Formspec money value `{amount, currency}` as a localized currency string.
+Returns `''` when the amount is missing or not a finite number.
+
+## `normalizeFieldPath(path: unknown): string`
+
+## `externalPathToInternal(path: string): string`
+
+## `findFieldElement(host: NavigationHost, path: string): HTMLElement | null`
+
+## `revealTabsForField(_host: NavigationHost, fieldEl: HTMLElement): void`
+
+## `goToWizardStep(host: NavigationHost, index: number): boolean`
+
+## `focusField(host: NavigationHost, path: string): boolean`
+
+#### interface `NavigationHost`
+
+##### `querySelector(selectors: string): Element | null`
+
+##### `querySelectorAll(selectors: string): NodeListOf<Element>`
 
 ## `globalRegistry: ComponentRegistry`
 
@@ -139,6 +384,166 @@ If a plugin with the same type already exists it is silently replaced.
 ##### `get(type: string): ComponentPlugin | undefined`
 
 Look up a registered plugin by component type.
+
+## `createBreakpointState(): BreakpointState`
+
+## `setupBreakpoints(host: BreakpointHost, state: BreakpointState): void`
+
+## `cleanupBreakpoints(state: BreakpointState): void`
+
+#### interface `BreakpointHost`
+
+##### `scheduleRender(): void`
+
+#### interface `BreakpointState`
+
+- **activeBreakpointSignal**: `ReturnType<typeof signal<string | null>>`
+- **cleanups**: `Array<() => void>`
+
+## `emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement, prefix: string): void`
+
+Walk a LayoutNode tree from the planner and emit DOM.
+
+## `renderComponent(host: RenderHost, comp: any, parent: HTMLElement, prefix?: string): void`
+
+Render a component, handling LayoutNode objects by delegating to emitNode.
+
+## `renderActualComponent(host: RenderHost, comp: any, parent: HTMLElement, prefix?: string): void`
+
+Look up a component plugin and invoke its render function with a full RenderContext.
+
+#### interface `RenderHost`
+
+Interface for what emitNode/renderActualComponent need from FormspecRender.
+
+##### `resolveToken(val: any): any`
+
+##### `resolveItemPresentation(itemDesc: ItemDescriptor): PresentationBlock`
+
+##### `applyStyle(el: HTMLElement, style: any): void`
+
+##### `applyCssClass(el: HTMLElement, comp: any): void`
+
+##### `applyClassValue(el: HTMLElement, classValue: unknown): void`
+
+##### `resolveWidgetClassSlots(presentation: PresentationBlock): {
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    }`
+
+##### `applyAccessibility(el: HTMLElement, comp: any): void`
+
+##### `findItemByKey(key: string, items?: any[]): any | null`
+
+##### `submit(options?: any): any`
+
+##### `resolveValidationTarget(resultOrPath: any): ValidationTargetMetadata`
+
+##### `focusField(path: string): boolean`
+
+##### `setSubmitPending(pending: boolean): void`
+
+##### `isSubmitPending(): boolean`
+
+##### `render(): void`
+
+## `renderScreener(host: ScreenerHost, container: HTMLElement): void`
+
+#### interface `ScreenerHost`
+
+##### `classifyScreenerRoute(route: ScreenerRoute | null | undefined): 'none' | 'internal' | 'external'`
+
+##### `emitScreenerStateChange(reason: string, answers?: Record<string, any>): void`
+
+##### `dispatchEvent(event: Event): boolean`
+
+##### `render(): void`
+
+## `resolveToken(host: StylingHost, val: any): any`
+
+## `resolveItemPresentation(host: StylingHost, itemDesc: ItemDescriptor): PresentationBlock`
+
+## `applyStyle(host: StylingHost, el: HTMLElement, style: any): void`
+
+## `applyCssClass(host: StylingHost, el: HTMLElement, comp: any): void`
+
+## `applyClassValue(host: StylingHost, el: HTMLElement, classValue: unknown): void`
+
+## `resolveWidgetClassSlots(_host: StylingHost, presentation: PresentationBlock): {
+    root?: unknown;
+    label?: unknown;
+    control?: unknown;
+    hint?: unknown;
+    error?: unknown;
+}`
+
+## `applyAccessibility(_host: StylingHost, el: HTMLElement, comp: any): void`
+
+## `emitTokenProperties(host: StylingHost, container: HTMLElement): void`
+
+## `loadStylesheets(host: StylingHost): void`
+
+## `cleanupStylesheets(host: StylingHost): void`
+
+## `canonicalizeStylesheetHref(href: string): string`
+
+## `findThemeStylesheet(hrefKey: string): HTMLLinkElement | null`
+
+## `stylesheetRefCounts: Map<string, number>`
+
+Module-level ref counts (was static on the class).
+
+#### interface `StylingHost`
+
+##### `getEffectiveTheme(): ThemeDocument`
+
+##### `findItemByKey(key: string, items?: any[]): any | null`
+
+## `touchAllFields(host: SubmitHost): void`
+
+Mark all registered fields as touched so validation errors become visible.
+
+## `submit(host: SubmitHost, options?: {
+    mode?: 'continuous' | 'submit';
+    emitEvent?: boolean;
+}): {
+    response: any;
+    validationReport: {
+        valid: boolean;
+        results: any;
+        counts: {
+            error: number;
+            warning: number;
+            info: number;
+        };
+        timestamp: any;
+    };
+} | null`
+
+Build a submit payload and validation report from the current form state.
+Optionally dispatches `formspec-submit` with `{ response, validationReport }`.
+
+## `setSubmitPending(host: SubmitHost, pending: boolean): void`
+
+Toggle shared submit pending state and emit `formspec-submit-pending-change`
+whenever the value changes.
+
+## `isSubmitPending(host: SubmitHost): boolean`
+
+Returns the current shared submit pending state.
+
+## `resolveValidationTarget(host: SubmitHost, resultOrPath: any): ValidationTargetMetadata`
+
+Resolve a validation result/path to a navigation target with metadata.
+
+#### interface `SubmitHost`
+
+##### `dispatchEvent(event: Event): boolean`
+
+##### `findItemByKey(key: string, items?: any[]): any | null`
 
 Theme cascade resolver.
 
@@ -308,6 +713,33 @@ Union of all `dataType` values recognized by the Formspec schema for selector ma
 type FormspecDataType = 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'dateTime' | 'time' | 'uri' | 'attachment' | 'choice' | 'multiChoice' | 'money';
 ```
 
+#### interface `ValidationTargetMetadata`
+
+Metadata describing where a validation result points and whether it is jumpable.
+
+- **path**: `string`
+- **label**: `string`
+- **formLevel**: `boolean`
+- **jumpable**: `boolean`
+- **fieldElement?**: `HTMLElement | null`
+
+#### interface `ScreenerRoute`
+
+Selected screener route target (if any).
+
+- **target**: `string`
+- **label?**: `string`
+- **extensions?**: `Record<string, any>`
+
+#### interface `ScreenerStateSnapshot`
+
+Snapshot of current screener completion and routing state.
+
+- **hasScreener**: `boolean`
+- **completed**: `boolean`
+- **routeType**: `ScreenerRouteType`
+- **route**: `ScreenerRoute | null`
+
 #### interface `RenderContext`
 
 Context object passed to every {@link ComponentPlugin} render function.
@@ -321,6 +753,40 @@ depending on the `FormspecRender` element directly.
 - **componentDocument** (`any`): The loaded component document (component tree, custom components, tokens, breakpoints).
 - **themeDocument** (`ThemeDocument | null`): The loaded theme document, or `null` when no theme is provided.
 - **prefix** (`string`): Dotted path prefix for the current render scope (e.g. `"group[0]"`).
+- **submit** (`(options?: {
+        mode?: 'continuous' | 'submit';
+        emitEvent?: boolean;
+    }) => {
+        response: any;
+        validationReport: {
+            valid: boolean;
+            results: any[];
+            counts: {
+                error: number;
+                warning: number;
+                info: number;
+            };
+            timestamp: string;
+        };
+    } | null`): Build submit payload + validation report and optionally dispatch `formspec-submit`.
+- **resolveValidationTarget** (`(resultOrPath: any) => ValidationTargetMetadata`): Resolve a validation result/path to a target path + label + jump metadata.
+- **focusField** (`(path: string) => boolean`): Reveal and focus a field by path; returns false when no target field is found.
+- **submitPendingSignal** (`Signal<boolean>`): Reactive shared submit pending signal used by submit-oriented plugins.
+- **latestSubmitDetailSignal** (`Signal<{
+        response: any;
+        validationReport: {
+            valid: boolean;
+            results: any[];
+            counts: {
+                error: number;
+                warning: number;
+                info: number;
+            };
+            timestamp: string;
+        };
+    } | null>`): Latest renderer submit detail (`{ response, validationReport }`), or null before first submit.
+- **setSubmitPending** (`(pending: boolean) => void`): Set shared submit pending state and emit change event when it toggles.
+- **isSubmitPending** (`() => boolean`): Read shared submit pending state.
 - **renderComponent** (`(comp: any, parent: HTMLElement, prefix?: string) => void`): Recursively render a child component descriptor into a parent element.
 - **resolveToken** (`(val: any) => any`): Resolve a `$token.xxx` reference against component and theme token maps. Non-token values pass through unchanged.
 - **applyStyle** (`(el: HTMLElement, style: any) => void`): Apply an inline style object to an element, resolving token references in values.
@@ -343,4 +809,12 @@ that builds the DOM for that component type.
 
 - **type** (`string`): Component type identifier matched against `comp.component` at render time.
 - **render** (`(comp: any, parent: HTMLElement, ctx: RenderContext) => void`): Build DOM for this component and append it to `parent`.
+
+#### type `ScreenerRouteType`
+
+Classifies the screener route relative to the current definition URL.
+
+```ts
+type ScreenerRouteType = 'none' | 'internal' | 'external';
+```
 
