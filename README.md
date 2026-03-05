@@ -132,6 +132,7 @@ src/formspec/                   Python implementation
   mapping/                        Bidirectional rule engine
   adapters/                       JSON, XML, CSV serializers
   evaluator.py                    4-phase form processor (rebuild → recalculate → revalidate → apply NRB)
+  validate.py                     Directory-level artifact validator (9-pass, auto-discovery)
 
 examples/
   grant-application/            Full-stack demo — 6-page federal grant form, all tiers exercised
@@ -179,6 +180,22 @@ python3 -m formspec.validator path/to/definition.json
 # Strict mode — warnings escalated to errors (for CI)
 python3 -m formspec.validator --mode strict path/to/definition.json
 ```
+
+### Validate a Project Directory (Python)
+
+Point the validator at a directory containing any mix of Formspec artifacts — definitions, themes, components, mappings, responses, changelogs, registries — and it auto-discovers, classifies, cross-references, and runs 9 validation passes:
+
+```bash
+python3 -m formspec.validate path/to/project/
+
+# Include an external registry and custom fixture subdirectory
+python3 -m formspec.validate path/to/project/ \
+  --registry registries/common.registry.json \
+  --fixtures test-data \
+  --title "My Form Suite"
+```
+
+The 9 passes: definition linting, sidecar linting (theme/mapping/changelog), component linting with definition context, response schema validation, runtime evaluation, mapping forward transforms, changelog generation, registry resolution, and FEL expression parsing.
 
 ### Server-Side Evaluation (Python)
 

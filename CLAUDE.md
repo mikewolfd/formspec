@@ -98,6 +98,9 @@ npx playwright test tests/e2e/playwright/fel-functions.spec.ts
 # Run Playwright tests matching a pattern
 npx playwright test --grep "pattern"
 
+# Validate all artifacts in a directory (auto-discovery, 9 passes)
+python3 -m formspec.validate examples/grant-report/ --registry registries/formspec-common.registry.json
+
 # Run Python conformance tests
 python3 -m pytest tests/ -v
 

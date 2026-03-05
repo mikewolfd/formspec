@@ -20,5 +20,4 @@ docs/api/
 
 
 .ralph/
-examples/
 *.egg-info/
