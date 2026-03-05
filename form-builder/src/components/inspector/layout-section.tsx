@@ -52,6 +52,32 @@ export function LayoutSection({ node, path }: { node: ComponentNode; path: strin
                     onInput={(e) => updateProp('when', (e.target as HTMLInputElement).value)}
                 />
             </div>
+            {node.component === 'Wizard' && (
+                <>
+                    <div class="property-row">
+                        <label class="property-label">Show Progress</label>
+                        <select
+                            class="studio-select"
+                            value={node.showProgress !== false ? 'true' : 'false'}
+                            onChange={(e) => updateProp('showProgress', (e.target as HTMLSelectElement).value === 'true')}
+                        >
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                        </select>
+                    </div>
+                    <div class="property-row">
+                        <label class="property-label">Allow Skip</label>
+                        <select
+                            class="studio-select"
+                            value={node.allowSkip ? 'true' : 'false'}
+                            onChange={(e) => updateProp('allowSkip', (e.target as HTMLSelectElement).value === 'true')}
+                        >
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                        </select>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

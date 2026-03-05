@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import { definitionVersion, findItemByKey } from '../../state/definition';
+import { definition, definitionVersion, findBindByPath, findItemByKey } from '../../state/definition';
 import { componentDoc, componentVersion, diagnostics } from '../../state/project';
 import { selectedPath } from '../../state/selection';
 import { resolveNode, classifyNode, nodeKindColor } from '../../logic/component-tree';
@@ -10,9 +10,18 @@ import { BehaviorSection } from './behavior-section';
 import { ValidationSection } from './validation-section';
 import { LayoutSection } from './layout-section';
 import { RootSection } from './root-section';
+import { ShapesSection } from './shapes-section';
 
 type InspectorTab = 'properties' | 'diagnostics';
+type InspectorMode = 'simple' | 'advanced';
+
 const activeTab = signal<InspectorTab>('properties');
+const inspectorMode = signal<InspectorMode>('simple');
+const sectionState = signal<Record<string, boolean>>({
+    basics: true,
+    logic: false,
+    validation: false,
+});
 
 export function InspectorPanel({
     collapsed,
@@ -80,7 +89,12 @@ function PropertiesContent() {
     }
 
     if (path === '') {
-        return <RootSection />;
+        return (
+            <>
+                <RootSection />
+                <ShapesSection />
+            </>
+        );
     }
 
     const doc = componentDoc.value;
@@ -96,7 +110,6 @@ function PropertiesContent() {
     const kind = classifyNode(node);
     const color = nodeKindColor(kind);
 
-    // For bound items (fields, groups, displays), show definition properties
     if ((kind === 'bound-input' || kind === 'group' || kind === 'bound-display') && node.bind) {
         const found = findItemByKey(node.bind);
         if (found) {
@@ -109,22 +122,121 @@ function PropertiesContent() {
                         <span class="property-type-dot" style={{ background: color }} />
                         {kindLabel} — {node.component}
                     </div>
-                    <IdentitySection item={item} />
+
                     {kind === 'bound-input' && (
-                        <>
-                            <DataSection item={item} />
-                            <BehaviorSection item={item} />
-                            <ValidationSection item={item} />
-                        </>
+                        <div class="inspector-mode-toggle">
+                            <button
+                                class={`inspector-mode-btn${inspectorMode.value === 'simple' ? ' active' : ''}`}
+                                onClick={() => { inspectorMode.value = 'simple'; }}
+                            >
+                                Simple
+                            </button>
+                            <button
+                                class={`inspector-mode-btn${inspectorMode.value === 'advanced' ? ' active' : ''}`}
+                                onClick={() => { inspectorMode.value = 'advanced'; }}
+                            >
+                                Advanced
+                            </button>
+                        </div>
                     )}
-                    {kind === 'group' && <BehaviorSection item={item} />}
+
+                    <InspectorSection
+                        id="basics"
+                        title="Basics"
+                        summary={item.label || item.key}
+                    >
+                        <IdentitySection item={item} />
+                        {kind === 'bound-input' && <DataSection item={item} />}
+                    </InspectorSection>
+
+                    {(kind === 'bound-input' || kind === 'group') && (
+                        <InspectorSection
+                            id="logic"
+                            title="Logic"
+                            summary={logicSummary(found.path, item)}
+                        >
+                            <BehaviorSection
+                                item={item}
+                                inspectorMode={inspectorMode.value}
+                                showHeader={false}
+                            />
+                        </InspectorSection>
+                    )}
+
+                    {kind === 'bound-input' && (
+                        <InspectorSection
+                            id="validation"
+                            title="Validation"
+                            summary={validationSummary(found.path, item)}
+                        >
+                            <ValidationSection item={item} />
+                        </InspectorSection>
+                    )}
                 </div>
             );
         }
     }
 
-    // Layout or unbound node
     return <LayoutSection node={node} path={path} />;
+}
+
+function InspectorSection({
+    id,
+    title,
+    summary,
+    children,
+}: {
+    id: 'basics' | 'logic' | 'validation';
+    title: string;
+    summary?: string;
+    children: any;
+}) {
+    const isOpen = sectionState.value[id] ?? false;
+    return (
+        <div class="inspector-section" data-section={id}>
+            <button
+                class="inspector-section-toggle"
+                onClick={() => {
+                    sectionState.value = {
+                        ...sectionState.value,
+                        [id]: !isOpen,
+                    };
+                }}
+            >
+                <span class="inspector-section-title">{title}</span>
+                {!isOpen && summary && <span class="inspector-section-summary">{summary}</span>}
+                <span class="inspector-section-chevron">{isOpen ? '▾' : '▸'}</span>
+            </button>
+            {isOpen && <div class="inspector-section-body">{children}</div>}
+        </div>
+    );
+}
+
+function hasLogic(bindLike: Record<string, unknown> | undefined, key: string): boolean {
+    if (!bindLike) return false;
+    const value = bindLike[key];
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (typeof value === 'boolean') return value;
+    return true;
+}
+
+function logicSummary(path: string, item: Record<string, unknown>): string {
+    const bind = (findBindByPath(definition.value, path) || {}) as Record<string, unknown>;
+    const parts: string[] = [];
+
+    if (hasLogic(bind, 'required') || hasLogic(item, 'required')) parts.push('Required');
+    if (hasLogic(bind, 'relevant') || hasLogic(item, 'relevant')) parts.push('Show when');
+    if (hasLogic(bind, 'calculate') || hasLogic(item, 'calculate')) parts.push('Calculated');
+    if (hasLogic(bind, 'readonly') || hasLogic(item, 'readonly')) parts.push('Read only');
+
+    return parts.join(' · ');
+}
+
+function validationSummary(path: string, item: Record<string, unknown>): string {
+    const bind = (findBindByPath(definition.value, path) || {}) as Record<string, unknown>;
+    if (hasLogic(bind, 'constraint') || hasLogic(item, 'constraint')) return 'Constraint';
+    return '';
 }
 
 function DiagnosticsContent() {

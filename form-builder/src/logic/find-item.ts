@@ -3,13 +3,16 @@ import type { FormspecItem } from 'formspec-engine';
 export function findItemByKey(
     key: string,
     items: FormspecItem[],
-): { item: FormspecItem; siblings: FormspecItem[]; index: number } | null {
+    prefix = '',
+): { item: FormspecItem; siblings: FormspecItem[]; index: number; path: string } | null {
     for (let i = 0; i < items.length; i++) {
-        if (items[i].key === key) {
-            return { item: items[i], siblings: items, index: i };
+        const item = items[i];
+        const currentPath = prefix ? `${prefix}.${item.key}` : item.key;
+        if (item.key === key) {
+            return { item, siblings: items, index: i, path: currentPath };
         }
-        if (items[i].children) {
-            const found = findItemByKey(key, items[i].children!);
+        if (item.children) {
+            const found = findItemByKey(key, item.children, item.repeatable ? `${currentPath}[*]` : currentPath);
             if (found) return found;
         }
     }

@@ -58,7 +58,7 @@ export type ComponentTreePath = string;
 
 /* ── Add Picker ─────────────────────────────────────────────── */
 
-export type AddCategory = 'layout' | 'input' | 'display' | 'structure';
+export type AddCategory = 'layout' | 'input' | 'display' | 'structure' | 'extension';
 
 export interface AddPickerEntry {
     component: string;
@@ -68,4 +68,5 @@ export interface AddPickerEntry {
     createsDefinitionItem?: boolean;
     definitionType?: 'field' | 'group' | 'display';
     promptForLabel?: boolean;
+    registryEntry?: any;
 }

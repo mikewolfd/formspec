@@ -1,9 +1,11 @@
+import { signal } from '@preact/signals';
 import type { AddPickerEntry } from '../types';
 
-export const ADD_CATALOG: AddPickerEntry[] = [
+const STATIC_CATALOG: AddPickerEntry[] = [
     // --- Layout ---
     { component: 'Stack', label: 'Stack', category: 'layout' },
     { component: 'Grid', label: 'Grid', category: 'layout' },
+    { component: 'Wizard', label: 'Wizard', category: 'layout' },
     { component: 'Page', label: 'Page', category: 'layout', promptForLabel: true },
     { component: 'Card', label: 'Card', category: 'layout', promptForLabel: true },
     { component: 'Collapsible', label: 'Collapsible', category: 'layout', promptForLabel: true },
@@ -22,6 +24,7 @@ export const ADD_CATALOG: AddPickerEntry[] = [
     { component: 'FileUpload', label: 'File Upload', category: 'input', defaultDataType: 'attachment', createsDefinitionItem: true, definitionType: 'field', promptForLabel: true },
     { component: 'Slider', label: 'Slider', category: 'input', defaultDataType: 'decimal', createsDefinitionItem: true, definitionType: 'field', promptForLabel: true },
     { component: 'Signature', label: 'Signature', category: 'input', defaultDataType: 'attachment', createsDefinitionItem: true, definitionType: 'field', promptForLabel: true },
+    { component: 'MoneyInput', label: 'Money Input', category: 'input', defaultDataType: 'money', createsDefinitionItem: true, definitionType: 'field', promptForLabel: true },
 
     // --- Display ---
     { component: 'Heading', label: 'Heading', category: 'display', createsDefinitionItem: true, definitionType: 'display', promptForLabel: true },
@@ -29,6 +32,8 @@ export const ADD_CATALOG: AddPickerEntry[] = [
     { component: 'Divider', label: 'Divider', category: 'display' },
     { component: 'ProgressBar', label: 'Progress Bar', category: 'display' },
     { component: 'Summary', label: 'Summary', category: 'display' },
+    { component: 'Alert', label: 'Alert', category: 'display' },
+    { component: 'Badge', label: 'Badge', category: 'display' },
     { component: 'SubmitButton', label: 'Submit Button', category: 'display' },
 
     // --- Structure ---
@@ -37,11 +42,18 @@ export const ADD_CATALOG: AddPickerEntry[] = [
     { component: 'Spacer', label: 'Spacer', category: 'structure' },
 ];
 
+export const ADD_CATALOG = signal<AddPickerEntry[]>(STATIC_CATALOG);
+
+export function appendToCatalog(entries: AddPickerEntry[]) {
+    ADD_CATALOG.value = [...ADD_CATALOG.value, ...entries];
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
     layout: 'var(--color-layout)',
     input: 'var(--color-field)',
     display: 'var(--color-display)',
     structure: 'var(--color-group)',
+    extension: 'var(--color-accent, #6366f1)',
 };
 
 export function getCategoryColor(category: string): string {
@@ -49,8 +61,15 @@ export function getCategoryColor(category: string): string {
 }
 
 export function getCatalogByCategory(): Record<string, AddPickerEntry[]> {
-    const result: Record<string, AddPickerEntry[]> = { layout: [], input: [], display: [], structure: [] };
-    for (const entry of ADD_CATALOG) {
+    const result: Record<string, AddPickerEntry[]> = {
+        layout: [],
+        input: [],
+        display: [],
+        structure: [],
+        extension: []
+    };
+    for (const entry of ADD_CATALOG.value) {
+        if (!result[entry.category]) result[entry.category] = [];
         result[entry.category].push(entry);
     }
     return result;
@@ -58,7 +77,7 @@ export function getCatalogByCategory(): Record<string, AddPickerEntry[]> {
 
 export function searchCatalog(query: string): AddPickerEntry[] {
     const lower = query.toLowerCase();
-    return ADD_CATALOG.filter(
+    return ADD_CATALOG.value.filter(
         (entry) =>
             entry.label.toLowerCase().includes(lower) ||
             entry.component.toLowerCase().includes(lower) ||

@@ -1,11 +1,12 @@
 import { definition, updateDefinition, setDefinition } from '../state/definition';
-import { commandBarOpen } from '../state/project';
+import { centerPanelMode, commandBarOpen, showTemplatePicker, structurePanelOpen } from '../state/project';
 import { handleImport, handleExport } from '../logic/import-export';
 
 export function Topbar() {
     const def = definition.value;
     const version = def?.version ?? '0.1.0';
     const status = (def as { status?: string })?.status ?? 'draft';
+    const isSplash = showTemplatePicker.value;
 
     return (
         <header class="studio-topbar">
@@ -23,45 +24,70 @@ export function Topbar() {
                 </span>
             </div>
 
-            <div class="topbar-center">
-                <input
-                    class="topbar-title-input"
-                    value={def.title ?? 'Untitled Form'}
-                    onInput={(event) => {
-                        const next = (event.target as HTMLInputElement).value;
-                        updateDefinition((d) => { d.title = next; });
-                    }}
-                    aria-label="Form title"
-                />
-                <span class="topbar-meta">
-                    <span class="topbar-status">{status}</span>
-                    <span>v{version}</span>
-                </span>
-            </div>
+            {!isSplash && (
+                <div class="topbar-center">
+                    <input
+                        class="topbar-title-input"
+                        value={def.title ?? 'Untitled Form'}
+                        onInput={(event) => {
+                            const next = (event.target as HTMLInputElement).value;
+                            updateDefinition((d) => { d.title = next; });
+                        }}
+                        aria-label="Form title"
+                    />
+                    <span class="topbar-meta">
+                        <span class="topbar-status">{status}</span>
+                        <span>v{version}</span>
+                    </span>
+                </div>
+            )}
 
-            <div class="topbar-actions">
-                <button
-                    class="btn-ghost"
-                    onClick={() => { commandBarOpen.value = true; }}
-                    title="Command palette (⌘K)"
-                >
-                    ⌘K
-                </button>
-                <button
-                    class="btn-ghost"
-                    aria-label="Import"
-                    onClick={() => handleImport(setDefinition)}
-                >
-                    ↓ Import
-                </button>
-                <button
-                    class="btn-primary"
-                    aria-label="Export"
-                    onClick={() => handleExport(def)}
-                >
-                    ↑ Export
-                </button>
-            </div>
+            {!isSplash && (
+                <div class="topbar-actions">
+                    <button
+                        class={`btn-ghost${centerPanelMode.value === 'document' ? ' active' : ''}`}
+                        onClick={() => { centerPanelMode.value = 'document'; }}
+                        aria-label="Document mode"
+                    >
+                        Document
+                    </button>
+                    <button
+                        class={`btn-ghost${centerPanelMode.value === 'preview' ? ' active' : ''}`}
+                        onClick={() => { centerPanelMode.value = 'preview'; }}
+                        aria-label="Preview mode"
+                    >
+                        Preview
+                    </button>
+                    <button
+                        class={`btn-ghost${structurePanelOpen.value ? ' active' : ''}`}
+                        onClick={() => { structurePanelOpen.value = !structurePanelOpen.value; }}
+                        aria-label="Toggle structure panel"
+                    >
+                        Structure
+                    </button>
+                    <button
+                        class="btn-ghost"
+                        onClick={() => { commandBarOpen.value = true; }}
+                        title="Command palette (⌘K)"
+                    >
+                        ⌘K
+                    </button>
+                    <button
+                        class="btn-ghost"
+                        aria-label="Import"
+                        onClick={() => handleImport(setDefinition)}
+                    >
+                        ↓ Import
+                    </button>
+                    <button
+                        class="btn-primary"
+                        aria-label="Export"
+                        onClick={() => handleExport(def)}
+                    >
+                        ↑ Export
+                    </button>
+                </div>
+            )}
         </header>
     );
 }

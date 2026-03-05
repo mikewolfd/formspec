@@ -3,16 +3,17 @@ import felFunctionsSchema from '../../../../schemas/fel-functions.schema.json';
 
 const FEL_GRAMMAR = `Variables:
 $fieldKey       (Field from nearest scope)
-$parent.child   (Nested field via dot-notation)
-$repeat[n]      (1-based target in repeat array)
+$               (Current node value)
 @index          (1-based position in repeat)
 @current        (Current repeat instance)
+@count          (Total repeat instances)
+@instance('n')  (Secondary data source)
 
 Operators (highest to lowest precedence):
 postfix         ($a.b, $a[1])
-unary           (-, not)
+unary           (not, -)
 multiply        (*, /, %)
-add/concat      (+, -, &)
+add/concat      (+, -, &)  // & is for strings
 null-coalesce   (??)
 membership      (in, not in)
 comparison      (<, >, <=, >=)

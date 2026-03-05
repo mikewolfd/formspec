@@ -54,6 +54,12 @@ export function AddPicker({ parentPath, insertIndex, onAdd, onCancel }: AddPicke
                 if (entry.defaultDataType) {
                     newItem.dataType = entry.defaultDataType;
                 }
+                if (entry.registryEntry && entry.registryEntry.category === 'dataType') {
+                    newItem.extensions = { [entry.registryEntry.name]: true };
+                    if (entry.registryEntry.metadata) {
+                        Object.assign(newItem, entry.registryEntry.metadata);
+                    }
+                }
                 def.items.push(newItem as any);
             });
         }
@@ -101,7 +107,9 @@ export function AddPicker({ parentPath, insertIndex, onAdd, onCancel }: AddPicke
                             >
                                 <span class="add-picker-item-dot" style={{ background: getCategoryColor(entry.category) }} />
                                 <span class="add-picker-item-label">{entry.label}</span>
-                                <span class="add-picker-item-type">{entry.component}</span>
+                                <span class="add-picker-item-type">
+                                    {entry.registryEntry ? entry.registryEntry.name : entry.component}
+                                </span>
                             </div>
                         ))
                     ) : (
@@ -118,7 +126,9 @@ export function AddPicker({ parentPath, insertIndex, onAdd, onCancel }: AddPicke
                                             >
                                                 <span class="add-picker-item-dot" style={{ background: getCategoryColor(entry.category) }} />
                                                 <span class="add-picker-item-label">{entry.label}</span>
-                                                <span class="add-picker-item-type">{entry.component}</span>
+                                                <span class="add-picker-item-type">
+                                                    {entry.registryEntry ? entry.registryEntry.name : entry.component}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>

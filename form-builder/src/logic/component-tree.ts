@@ -32,12 +32,36 @@ const INPUT_COMPONENTS = new Set([
 ]);
 
 const DISPLAY_COMPONENTS = new Set([
-    'Heading', 'Text', 'Summary', 'ValidationSummary', 'ProgressBar', 'DataTable',
+    'Heading', 'Text', 'Summary', 'ValidationSummary', 'ProgressBar', 'DataTable', 'Alert', 'Badge',
 ]);
 
 const CONTAINER_COMPONENTS = new Set([
     'Card', 'Collapsible', 'ConditionalGroup', 'Panel', 'Modal', 'Popover',
 ]);
+
+// --- Widget Hint → Component mapping ---
+
+const WIDGET_HINT_MAP: Record<string, string> = {
+    section: 'Card',
+    card: 'Card',
+    wizard: 'Wizard',
+    tabs: 'Tabs',
+    accordion: 'Accordion',
+    textInput: 'TextInput',
+    textarea: 'TextInput',
+    numberInput: 'NumberInput',
+    slider: 'Slider',
+    rating: 'Rating',
+    toggle: 'Toggle',
+    datePicker: 'DatePicker',
+    dropdown: 'Select',
+    radio: 'RadioGroup',
+    checkboxGroup: 'CheckboxGroup',
+    moneyInput: 'MoneyInput',
+    paragraph: 'Text',
+    heading: 'Heading',
+    divider: 'Divider',
+};
 
 export function classifyNode(node: ComponentNode): NodeKind {
     const { component, bind } = node;
@@ -116,14 +140,22 @@ function findItemByKeyFlat(key: string, items: FormspecItem[]): FormspecItem | n
 // --- Component tree generation from definition ---
 
 function itemToNode(item: FormspecItem): ComponentNode {
+    const hint = item.presentation?.widgetHint;
+    const hintedComponent = hint ? WIDGET_HINT_MAP[hint] : null;
+
     if (item.type === 'display') {
-        return { component: 'Text', bind: item.key };
+        return { component: hintedComponent ?? 'Text', bind: item.key };
     }
     if (item.type === 'group') {
         const children = (item.children ?? []).map(itemToNode);
-        return { component: 'Card', bind: item.key, title: item.label || item.key, children };
+        return {
+            component: hintedComponent ?? 'Card',
+            bind: item.key,
+            title: item.label || item.key,
+            children
+        };
     }
-    const component = DATA_TYPE_COMPONENT[item.dataType ?? 'string'] ?? 'TextInput';
+    const component = hintedComponent ?? DATA_TYPE_COMPONENT[item.dataType ?? 'string'] ?? 'TextInput';
     return { component, bind: item.key };
 }
 

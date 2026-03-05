@@ -79,7 +79,7 @@ export function Preview() {
             }
         }, 200);
         return () => clearTimeout(timer);
-    }, [definitionVersion.value]);
+    }, [assembledDefinition.value]);
 
     // Highlight selected element inside the shadow DOM
     useEffect(() => {

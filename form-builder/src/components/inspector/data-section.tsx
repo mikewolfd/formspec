@@ -1,6 +1,7 @@
 import type { FormspecItem } from 'formspec-engine';
 import { useState } from 'preact/hooks';
 import { updateDefinition, findItemByKey } from '../../state/definition';
+import { project } from '../../state/project';
 
 export function DataSection({ item }: { item: FormspecItem }) {
     function updateField(field: string, value: unknown) {
@@ -58,21 +59,52 @@ export function DataSection({ item }: { item: FormspecItem }) {
                 <select
                     class="studio-select"
                     value={item.dataType || 'string'}
-                    onChange={(e) => updateField('dataType', (e.target as HTMLSelectElement).value)}
+                    onChange={(e) => {
+                        const val = (e.target as HTMLSelectElement).value;
+                        const registryType = project.value.registries
+                            .flatMap(r => (r as any).entries)
+                            .find(e => e.name === val);
+
+                        if (registryType) {
+                            updateDefinition((def) => {
+                                const found = findItemByKey(item.key, def.items);
+                                if (!found) return;
+                                const draft = found.item as Record<string, unknown>;
+                                draft.dataType = registryType.baseType || 'string';
+                                draft.extensions = { ...(draft.extensions as any || {}), [val]: true };
+                                if (registryType.metadata) {
+                                    Object.assign(draft, registryType.metadata);
+                                }
+                            });
+                        } else {
+                            updateField('dataType', val);
+                        }
+                    }}
                 >
-                    <option value="string">string</option>
-                    <option value="text">text</option>
-                    <option value="integer">integer</option>
-                    <option value="decimal">decimal</option>
-                    <option value="boolean">boolean</option>
-                    <option value="date">date</option>
-                    <option value="dateTime">dateTime</option>
-                    <option value="time">time</option>
-                    <option value="choice">choice</option>
-                    <option value="multiChoice">multiChoice</option>
-                    <option value="money">money</option>
-                    <option value="uri">uri</option>
-                    <option value="attachment">attachment</option>
+                    <optgroup label="Core Types">
+                        <option value="string">string</option>
+                        <option value="text">text</option>
+                        <option value="integer">integer</option>
+                        <option value="decimal">decimal</option>
+                        <option value="boolean">boolean</option>
+                        <option value="date">date</option>
+                        <option value="dateTime">dateTime</option>
+                        <option value="time">time</option>
+                        <option value="choice">choice</option>
+                        <option value="multiChoice">multiChoice</option>
+                        <option value="money">money</option>
+                        <option value="uri">uri</option>
+                        <option value="attachment">attachment</option>
+                    </optgroup>
+                    {project.value.registries.map((reg: any) => (
+                        <optgroup label={reg.publisher.name} key={reg.publisher.name}>
+                            {reg.entries
+                                .filter((e: any) => e.category === 'dataType')
+                                .map((e: any) => (
+                                    <option value={e.name} key={e.name}>{e.metadata?.displayName || e.name}</option>
+                                ))}
+                        </optgroup>
+                    ))}
                 </select>
             </div>
             <div class="property-row">

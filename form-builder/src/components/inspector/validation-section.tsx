@@ -1,21 +1,19 @@
-import type { FormspecItem } from 'formspec-engine';
-import { updateDefinition, findItemByKey } from '../../state/definition';
+import { type FormspecItem } from 'formspec-engine';
+import { definition, updateBind, findItemByKey, findBindByPath } from '../../state/definition';
 import { FelExpressionInput } from '../properties/fel-expression-input';
 import { FelHelper } from '../properties/fel-helper';
 
 export function ValidationSection({ item }: { item: FormspecItem }) {
-    function updateField(field: string, value: unknown) {
-        updateDefinition((def: any) => {
-            const found = findItemByKey(item.key, def.items);
-            if (!found) return;
-            const draft = found.item as Record<string, unknown>;
-            if (value === '' || value === null || value === undefined) {
-                draft[field] = undefined;
-                return;
-            }
-            draft[field] = value;
-        });
-    }
+    // Determine canonical path
+    const pathResult = findItemByKey(item.key);
+    const path = pathResult?.path || item.key;
+
+    // Resolve current bind properties
+    const bind = (findBindByPath(definition.value, path) || {}) as any;
+
+    // Fallback to inline item properties (migration support)
+    const constraintValue = bind.constraint ?? item.constraint ?? '';
+    const messageValue = bind.constraintMessage ?? item.message ?? '';
 
     return (
         <div class="properties-content">
@@ -26,18 +24,18 @@ export function ValidationSection({ item }: { item: FormspecItem }) {
             <div class="property-row">
                 <label class="property-label">Constraint (FEL)</label>
                 <FelExpressionInput
-                    value={item.constraint || ''}
+                    value={(constraintValue as string) || ''}
                     placeholder="FEL expression"
-                    onValueChange={(val) => updateField('constraint', val)}
+                    onValueChange={(val) => updateBind(path, { constraint: val })}
                 />
             </div>
             <div class="property-row">
                 <label class="property-label">Validation Message</label>
                 <input
                     class="studio-input"
-                    value={item.message || ''}
+                    value={(messageValue as string) || ''}
                     placeholder="Error message shown on constraint failure"
-                    onInput={(e) => updateField('message', (e.target as HTMLInputElement).value)}
+                    onInput={(e) => updateBind(path, { constraintMessage: (e.target as HTMLInputElement).value })}
                 />
             </div>
         </div>

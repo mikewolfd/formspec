@@ -38,3 +38,13 @@ export function setComponentDoc(doc: ComponentDocument | null) {
 
 // --- Command Bar ---
 export const commandBarOpen = signal(false);
+export const structurePanelOpen = signal(false);
+export const centerPanelMode = signal<'document' | 'preview'>('document');
+export const documentInsertNonce = signal(0);
+
+export function requestDocumentInsert() {
+    documentInsertNonce.value += 1;
+}
+
+/** Starts true — shows the template picker on first load */
+export const showTemplatePicker = signal(true);

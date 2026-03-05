@@ -2,63 +2,96 @@ import { signal } from '@preact/signals';
 import { Topbar } from './components/topbar';
 import { TreeEditor } from './components/canvas/tree-editor';
 import { Preview } from './components/preview';
+import { DocumentEditor } from './components/document/document-editor';
 import { InspectorPanel } from './components/inspector/inspector-panel';
 import { CommandBar } from './components/command-bar';
 import { ToastContainer } from './components/toast';
-import { editorMode } from './state/project';
-import { definition, definitionVersion, setDefinition } from './state/definition';
+import { centerPanelMode, editorMode, showTemplatePicker, structurePanelOpen } from './state/project';
+import { definition, setDefinition } from './state/definition';
 import { FORM_TEMPLATES } from './logic/seed-definition';
+import { useEffect } from 'preact/hooks';
+import { registryToPickerEntries } from './logic/registry';
+import { appendToCatalog } from './logic/add-picker-catalog';
+import { project } from './state/project';
+import commonRegistry from '../../registries/formspec-common.registry.json';
 import './state/definition'; // ensure engine is bootstrapped
 
 const inspectorCollapsed = signal(false);
 
-/** Starts true — shows the template picker on first load */
-export const showTemplatePicker = signal(true);
-
 export function App() {
+    useEffect(() => {
+        // Load the common registry from the bundled JSON
+        const reg = commonRegistry as any;
+        const pickerEntries = registryToPickerEntries(reg);
+        appendToCatalog(pickerEntries);
+        project.value = {
+            ...project.value,
+            registries: [...project.value.registries, reg]
+        };
+    }, []);
+
     const showPicker = showTemplatePicker.value;
 
     return (
         <div class="studio-root">
             <Topbar />
             <div class="studio-workspace">
-                {/* Canvas (Tree) Panel */}
-                <div class="canvas-panel">
-                    <div class="canvas-header">
-                        <span class="canvas-header-title">Structure</span>
-                        <div class="mode-tabs">
-                            <button
-                                class={`mode-tab${editorMode.value === 'guided' ? ' active' : ''}`}
-                                onClick={() => { editorMode.value = 'guided'; }}
-                            >
-                                Tree
-                            </button>
-                            <button
-                                class={`mode-tab${editorMode.value === 'json' ? ' active' : ''}`}
-                                onClick={() => { editorMode.value = 'json'; }}
-                            >
-                                JSON
-                            </button>
+                {/* Structure (Tree) Panel */}
+                {!showPicker && structurePanelOpen.value && (
+                    <div class="canvas-panel">
+                        <div class="canvas-header">
+                            <span class="canvas-header-title">Structure</span>
+                            <div class="mode-tabs">
+                                <button
+                                    class={`mode-tab${editorMode.value === 'guided' ? ' active' : ''}`}
+                                    onClick={() => { editorMode.value = 'guided'; }}
+                                >
+                                    Tree
+                                </button>
+                                <button
+                                    class={`mode-tab${editorMode.value === 'json' ? ' active' : ''}`}
+                                    onClick={() => { editorMode.value = 'json'; }}
+                                >
+                                    JSON
+                                </button>
+                            </div>
                         </div>
+                        {editorMode.value === 'guided' ? (
+                            <TreeEditor />
+                        ) : (
+                            <JsonEditor />
+                        )}
                     </div>
-                    {editorMode.value === 'guided' ? (
-                        <TreeEditor />
-                    ) : (
-                        <JsonEditor />
-                    )}
-                </div>
+                )}
 
-                {/* Preview Panel — or Template Picker on first launch */}
+                {/* Center Panel — document-first */}
                 {showPicker ? (
                     <EmptyState onTemplateSelect={(def) => {
                         setDefinition(def);
                         showTemplatePicker.value = false;
+                        centerPanelMode.value = 'document';
                     }} />
                 ) : (
-                    <Preview />
+                    <div class="center-panel">
+                        <div class="center-panel-tabs">
+                            <button
+                                class={`center-panel-tab${centerPanelMode.value === 'document' ? ' active' : ''}`}
+                                onClick={() => { centerPanelMode.value = 'document'; }}
+                            >
+                                Document
+                            </button>
+                            <button
+                                class={`center-panel-tab${centerPanelMode.value === 'preview' ? ' active' : ''}`}
+                                onClick={() => { centerPanelMode.value = 'preview'; }}
+                            >
+                                Preview
+                            </button>
+                        </div>
+                        {centerPanelMode.value === 'document' ? <DocumentEditor /> : <Preview />}
+                    </div>
                 )}
 
-                {/* Inspector Panel */}
+                {/* Inspector Panel — hidden during splash */}
                 {!showPicker && (
                     <InspectorPanel
                         collapsed={inspectorCollapsed.value}

@@ -4,26 +4,29 @@ import * as path from 'path';
 
 const ROOT = path.resolve(__dirname, '../../../../');
 const GRANT_DIR = path.join(ROOT, 'examples/grant-application');
+const REGISTRIES_DIR = path.join(ROOT, 'registries');
 
 export function loadGrantArtifacts() {
   return {
     definition: JSON.parse(fs.readFileSync(path.join(GRANT_DIR, 'definition.json'), 'utf8')),
     component:  JSON.parse(fs.readFileSync(path.join(GRANT_DIR, 'component.json'),  'utf8')),
     theme:      JSON.parse(fs.readFileSync(path.join(GRANT_DIR, 'theme.json'),       'utf8')),
+    registry:   JSON.parse(fs.readFileSync(path.join(REGISTRIES_DIR, 'formspec-common.registry.json'), 'utf8')),
   };
 }
 
 export async function mountGrantApplication(page: Page): Promise<void> {
-  const { definition, component, theme } = loadGrantArtifacts();
+  const { definition, component, theme, registry } = loadGrantArtifacts();
   await page.goto('/');
   await page.waitForSelector('formspec-render', { state: 'attached' });
-  await page.evaluate(({ def, comp, thm }) => {
+  await page.evaluate(({ def, comp, thm, reg }) => {
     const el: any = document.querySelector('formspec-render');
+    el.registryDocuments = reg;
     el.definition        = def;
     el.skipScreener();   // Skip screener so tests go directly to the main form
     el.componentDocument = comp;
     el.themeDocument     = thm;
-  }, { def: definition, comp: component, thm: theme });
+  }, { def: definition, comp: component, thm: theme, reg: registry });
   await page.waitForTimeout(200);
 }
 

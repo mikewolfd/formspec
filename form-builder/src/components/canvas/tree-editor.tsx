@@ -18,10 +18,12 @@ export function TreeEditor() {
 
     if (!doc) {
         return (
-            <div class="canvas-body" role="tree" aria-label="Component tree">
-                <div class="inspector-empty">
-                    <span class="inspector-empty-icon">🌿</span>
-                    <span>No component tree</span>
+            <div class="tree-editor">
+                <div class="canvas-body" role="tree" aria-label="Component tree">
+                    <div class="inspector-empty">
+                        <span class="inspector-empty-icon">🌿</span>
+                        <span>No component tree</span>
+                    </div>
                 </div>
             </div>
         );
@@ -42,7 +44,7 @@ export function TreeEditor() {
     }
 
     return (
-        <>
+        <div class="tree-editor">
             <div class="canvas-body" role="tree" aria-label="Component tree">
                 <div
                     class={`tree-header ${rootSelected ? 'selected' : ''}`}
@@ -113,6 +115,6 @@ export function TreeEditor() {
                     onCancel={() => { addPickerState.value = null; }}
                 />
             )}
-        </>
+        </div>
     );
 }

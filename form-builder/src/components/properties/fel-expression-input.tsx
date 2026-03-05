@@ -1,6 +1,7 @@
 import type { FormspecItem } from 'formspec-engine';
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { definition, definitionVersion } from '../../state/definition';
+import { project } from '../../state/project';
 import felFunctionsSchema from '../../../../schemas/fel-functions.schema.json';
 
 type TriggerKind = '$' | '@';
@@ -46,14 +47,15 @@ function readTriggerToken(text: string, caret: number): TriggerMatch | null {
 
     const token = text.slice(start, caret);
     if (!token) return null;
-    const trigger = token[0];
-    if (trigger !== '$' && trigger !== '@') return null;
+
+    const firstChar = token[0];
+    const trigger: TriggerKind = (firstChar === '$' || firstChar === '@') ? firstChar as TriggerKind : null as any;
 
     return {
         trigger,
         start,
         end,
-        query: token.slice(1).toLowerCase(),
+        query: trigger ? token.slice(1).toLowerCase() : token.toLowerCase(),
     };
 }
 
@@ -91,25 +93,48 @@ export function FelExpressionInput({
     );
 
     const variableSuggestions = useMemo(() => {
-        const base = ['$', '$index', '$parent'];
-        return Array.from(new Set([...base, ...itemKeys.map((key) => `$${key}`)]));
+        return Array.from(new Set(['$', ...itemKeys.map((key) => `$${key}`)]));
     }, [itemKeys]);
 
+    const contextSuggestions = useMemo(() => {
+        return [
+            { key: 'context-current', text: '@current', detail: 'Current repeat instance', insertText: '@current' },
+            { key: 'context-index', text: '@index', detail: '1-based repeat index', insertText: '@index' },
+            { key: 'context-count', text: '@count', detail: 'Total repeat count', insertText: '@count' },
+            { key: 'context-instance', text: '@instance', detail: 'Secondary data instance', insertText: 'instance("")', caretOffset: -2 },
+        ];
+    }, []);
+
     const functionSuggestions = useMemo(() => {
-        const funcs = felFunctionsSchema.functions
+        return felFunctionsSchema.functions
             .map((fn: any) => ({
                 key: `fn-${fn.name}`,
-                text: `@${fn.name}`,
+                text: fn.name,
                 detail: fn.description,
                 insertText: `${fn.name}()`,
                 caretOffset: -1,
             }))
             .sort((a, b) => a.text.localeCompare(b.text));
-        return [
-            { key: 'symbol-current', text: '@current', detail: 'Current repeat instance', insertText: '@current' },
-            ...funcs,
-        ];
     }, []);
+
+    const registrySuggestions = useMemo(() => {
+        const registries = (project.value.registries || []) as any[];
+        return registries.flatMap(reg =>
+            reg.entries
+                .filter((e: any) => e.category === 'function' || e.category === 'constraint')
+                .map((e: any) => ({
+                    key: `reg-${e.name}`,
+                    text: e.name,
+                    detail: `[${e.category}] ${e.description}`,
+                    insertText: `${e.name}()`,
+                    caretOffset: -1,
+                }))
+        );
+    }, [version]);
+
+    const allFunctionSuggestions = useMemo(() => {
+        return [...functionSuggestions, ...registrySuggestions].sort((a, b) => a.text.localeCompare(b.text));
+    }, [functionSuggestions, registrySuggestions]);
 
     function closeSuggestions() {
         setSuggestions([]);
@@ -133,15 +158,15 @@ export function FelExpressionInput({
 
         if (trigger.trigger === '$') {
             const filtered = variableSuggestions
-                .filter((token) => token.slice(1).toLowerCase().includes(trigger.query))
+                .filter((token) => token.toLowerCase().includes(trigger.query))
                 .map((token) => ({
                     key: `var-${token}`,
                     text: token,
                     insertText: token,
                 }))
                 .sort((left, right) => {
-                    const leftLabel = left.text.slice(1).toLowerCase();
-                    const rightLabel = right.text.slice(1).toLowerCase();
+                    const leftLabel = left.text.toLowerCase();
+                    const rightLabel = right.text.toLowerCase();
                     const scoreDelta = scoreMatch(leftLabel, trigger.query) - scoreMatch(rightLabel, trigger.query);
                     if (scoreDelta !== 0) return scoreDelta;
                     return leftLabel.localeCompare(rightLabel);
@@ -154,16 +179,43 @@ export function FelExpressionInput({
             return;
         }
 
-        const filtered = functionSuggestions
-            .filter((item) => item.text.slice(1).toLowerCase().includes(trigger.query))
+        if (trigger.trigger === '@') {
+            const filtered = contextSuggestions
+                .filter((item) => item.text.toLowerCase().includes(trigger.query))
+                .sort((left, right) => {
+                    const leftLabel = left.text.toLowerCase();
+                    const rightLabel = right.text.toLowerCase();
+                    const scoreDelta = scoreMatch(leftLabel, trigger.query) - scoreMatch(rightLabel, trigger.query);
+                    if (scoreDelta !== 0) return scoreDelta;
+                    return leftLabel.localeCompare(rightLabel);
+                })
+                .slice(0, MAX_SUGGESTIONS);
+
+            setSuggestions(filtered);
+            setActiveIndex(0);
+            setMatch(trigger);
+            return;
+        }
+
+        // Only show function suggestions if they typed at least 2 characters of a bare word
+        if (!trigger.trigger && trigger.query.length < 2) {
+            closeSuggestions();
+            return;
+        }
+
+        const filtered = allFunctionSuggestions
+            .filter((item) => item.text.toLowerCase().startsWith(trigger.query))
             .sort((left, right) => {
-                const leftLabel = left.text.slice(1).toLowerCase();
-                const rightLabel = right.text.slice(1).toLowerCase();
-                const scoreDelta = scoreMatch(leftLabel, trigger.query) - scoreMatch(rightLabel, trigger.query);
-                if (scoreDelta !== 0) return scoreDelta;
+                const leftLabel = left.text.toLowerCase();
+                const rightLabel = right.text.toLowerCase();
                 return leftLabel.localeCompare(rightLabel);
             })
             .slice(0, MAX_SUGGESTIONS);
+
+        if (filtered.length === 0) {
+            closeSuggestions();
+            return;
+        }
 
         setSuggestions(filtered);
         setActiveIndex(0);
@@ -205,7 +257,12 @@ export function FelExpressionInput({
             return;
         }
 
-        if (event.key === 'Enter' || event.key === 'Tab') {
+        if (event.key === 'Tab') {
+            closeSuggestions();
+            return;
+        }
+
+        if (event.key === 'Enter') {
             event.preventDefault();
             applySuggestion(suggestions[activeIndex]);
             return;

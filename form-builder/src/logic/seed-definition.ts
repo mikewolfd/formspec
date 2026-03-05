@@ -3,22 +3,18 @@ import type { FormspecDefinition } from 'formspec-engine';
 export function createEmptyDefinition(): FormspecDefinition {
     return {
         $formspec: '1.0',
-        url: 'https://example.gov/forms/untitled',
+        url: 'https://example.gov/forms/new',
         version: '0.1.0',
         status: 'draft',
-        title: 'Untitled Form',
-        items: [
-            {
-                key: 'basicInfo',
-                type: 'group',
-                label: 'Basic Information',
-                children: [
-                    { key: 'fullName', type: 'field', label: 'Full Name', dataType: 'string' },
-                    { key: 'email', type: 'field', label: 'Email Address', dataType: 'string' },
-                ],
-            },
-            { key: 'notes', type: 'field', label: 'Additional Notes', dataType: 'text' },
-        ],
+        title: 'New Form',
+        items: [],
+        binds: [],
+        shapes: [],
+        formPresentation: {
+            pageMode: 'single',
+            labelPosition: 'top',
+            density: 'comfortable',
+        },
     } as FormspecDefinition;
 }
 
@@ -30,10 +26,7 @@ export const FORM_TEMPLATES: { id: string; icon: string; label: string; desc: st
         label: 'Blank Form',
         desc: 'Start fresh',
         factory: () => ({
-            $formspec: '1.0',
-            url: 'https://example.gov/forms/new',
-            version: '0.1.0',
-            status: 'draft',
+            ...createEmptyDefinition(),
             title: 'New Form',
             items: [],
         } as FormspecDefinition),
@@ -44,10 +37,8 @@ export const FORM_TEMPLATES: { id: string; icon: string; label: string; desc: st
         label: 'Contact Form',
         desc: 'Name, email, message',
         factory: () => ({
-            $formspec: '1.0',
+            ...createEmptyDefinition(),
             url: 'https://example.gov/forms/contact',
-            version: '0.1.0',
-            status: 'draft',
             title: 'Contact Us',
             items: [
                 { key: 'name', type: 'field', label: 'Full Name', dataType: 'string' },
@@ -63,10 +54,8 @@ export const FORM_TEMPLATES: { id: string; icon: string; label: string; desc: st
         label: 'Survey',
         desc: 'Questions with choices',
         factory: () => ({
-            $formspec: '1.0',
+            ...createEmptyDefinition(),
             url: 'https://example.gov/forms/survey',
-            version: '0.1.0',
-            status: 'draft',
             title: 'Customer Survey',
             items: [
                 {
@@ -104,10 +93,8 @@ export const FORM_TEMPLATES: { id: string; icon: string; label: string; desc: st
         label: 'Registration',
         desc: 'User signup form',
         factory: () => ({
-            $formspec: '1.0',
+            ...createEmptyDefinition(),
             url: 'https://example.gov/forms/register',
-            version: '0.1.0',
-            status: 'draft',
             title: 'Registration Form',
             items: [
                 {
