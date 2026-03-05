@@ -1171,7 +1171,14 @@ export class FormEngine {
             }
 
             const compiledConstraint = bind?.constraint ? this.compileFEL(bind.constraint, fullName, undefined, true) : null;
-            const patternRegex = item.pattern ? new RegExp(item.pattern) : null;
+            let patternRegex: RegExp | null = null;
+            if (item.pattern) {
+                try {
+                    patternRegex = new RegExp(item.pattern);
+                } catch {
+                    patternRegex = null;
+                }
+            }
 
             this.validationResults[fullName] = computed(() => {
                 const results: ValidationResult[] = [];
@@ -1191,7 +1198,15 @@ export class FormEngine {
                 }
 
                 // 2. Required Validation
-                if (isRequired && (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0))) {
+                // Money fields store objects like { amount, currency }; treat missing amount as empty.
+                const isMoneyEmpty = dataType === 'money'
+                    && value !== null
+                    && value !== undefined
+                    && typeof value === 'object'
+                    && 'amount' in (value as any)
+                    && (((value as any).amount === null) || ((value as any).amount === undefined) || ((value as any).amount === ''));
+
+                if (isRequired && (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0) || isMoneyEmpty)) {
                     results.push({
                         severity: "error",
                         path: this.toExternalPath(fullName),
@@ -1219,8 +1234,9 @@ export class FormEngine {
                 }
 
                 // 4. Pattern Validation
-                if (patternRegex) {
-                    if (!patternRegex.test(String(value ?? ''))) {
+                // Null-propagating: do not emit pattern errors for empty optional values.
+                if (patternRegex && !(value === null || value === undefined || value === '')) {
+                    if (!patternRegex.test(String(value))) {
                         results.push({
                             severity: "error",
                             path: this.toExternalPath(fullName),
