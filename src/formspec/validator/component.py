@@ -78,10 +78,12 @@ _BUILTIN_COMPONENTS = {
     "Badge",
     "ProgressBar",
     "Summary",
+    "ValidationSummary",
     "DataTable",
     "Panel",
     "Modal",
     "Popover",
+    "SubmitButton",
 }
 
 
@@ -95,6 +97,14 @@ class FieldInfo:
     has_options_source: bool
 
 
+@dataclass(frozen=True, slots=True)
+class RepeatableGroupInfo:
+    """Resolved repeatable group metadata from the definition document, used for repeat binding checks."""
+
+    key: str
+    full_path: str
+
+
 @dataclass(slots=True)
 class _WalkContext:
     """Mutable accumulator threaded through the recursive tree walk."""
@@ -102,6 +112,7 @@ class _WalkContext:
     custom_names: set[str]
     custom_defs: dict[str, dict]
     fields: dict[str, FieldInfo]
+    repeatable_groups: dict[str, RepeatableGroupInfo]
     first_editable_binding: dict[str, str]
 
 
@@ -136,11 +147,13 @@ def lint_component_semantics(
         custom_names=custom_names,
         custom_defs=custom_defs,
         fields=_build_field_lookup(definition_doc) if isinstance(definition_doc, dict) else {},
+        repeatable_groups=_build_repeatable_group_lookup(definition_doc) if isinstance(definition_doc, dict) else {},
         first_editable_binding={},
     )
 
     if isinstance(root_tree, dict):
-        diagnostics.extend(_walk_component_tree(root_tree, "$.tree", context))
+        root_label = _node_label(root_tree)
+        diagnostics.extend(_walk_component_tree(root_tree, root_label, context))
 
     if isinstance(custom_defs, dict):
         for name, component_def in custom_defs.items():
@@ -157,6 +170,22 @@ def lint_component_semantics(
                 )
 
     return diagnostics
+
+
+def _node_label(node: dict) -> str:
+    """Build a short human-readable label for a component tree node."""
+    comp = node.get("component", "?")
+    title = node.get("title")
+    if isinstance(title, str):
+        return f'{comp}("{title}")'
+    bind = node.get("bind")
+    if isinstance(bind, str):
+        return f"{comp}({bind})"
+    text = node.get("text")
+    if isinstance(text, str):
+        short = text if len(text) <= 30 else text[:27] + "..."
+        return f'{comp}("{short}")'
+    return comp
 
 
 def _walk_component_tree(
@@ -180,8 +209,9 @@ def _walk_component_tree(
     if isinstance(children, list):
         for i, child in enumerate(children):
             if isinstance(child, dict):
+                child_label = _node_label(child)
                 diagnostics.extend(
-                    _walk_component_tree(child, f"{path}.children[{i}]", context)
+                    _walk_component_tree(child, f"{path} > {child_label}", context)
                 )
 
     return diagnostics
@@ -286,6 +316,13 @@ def _check_binds(
 
     diagnostics: list[LintDiagnostic] = []
 
+    # Allow a small set of repeat renderers to bind to repeatable groups.
+    if component_name in ("Accordion", "Tabs"):
+        group = _resolve_repeatable_group(bind_value, context.repeatable_groups)
+        if group is not None:
+            return diagnostics
+        # Otherwise fall through to the normal container/layout bind rules.
+
     if component_name in _LAYOUT_COMPONENTS:
         diagnostics.append(
             LintDiagnostic(
@@ -311,6 +348,22 @@ def _check_binds(
                 category="component",
             )
         )
+        return diagnostics
+
+    if component_name == "DataTable":
+        group = _resolve_repeatable_group(bind_value, context.repeatable_groups)
+        if group is None:
+            diagnostics.append(
+                LintDiagnostic(
+                    severity="warning",
+                    code="W800",
+                    message=(
+                        f"Component bind '{bind_value}' does not resolve to a repeatable group in the supplied definition"
+                    ),
+                    path=f"{path}.bind",
+                    category="component",
+                )
+            )
         return diagnostics
 
     field = _resolve_field(bind_value, context.fields)
@@ -586,8 +639,30 @@ def _resolve_field(bind_value: str, fields: dict[str, FieldInfo]) -> FieldInfo |
     if field is not None:
         return field
 
+    # Only apply short-key fallback for simple single-segment binds.
+    # For dotted binds, falling back by leaf key can alias unrelated fields
+    # that share names like "total" and trigger false diagnostics.
+    if "." in canonical:
+        return None
+
     short_name = canonical.split(".")[-1]
     return fields.get(short_name)
+
+
+def _resolve_repeatable_group(
+    bind_value: str, groups: dict[str, RepeatableGroupInfo]
+) -> RepeatableGroupInfo | None:
+    """Resolve a bind value to a RepeatableGroupInfo, trying canonical full path then short key fallback."""
+    canonical = canonical_item_path(bind_value)
+    group = groups.get(canonical)
+    if group is not None:
+        return group
+
+    if "." in canonical:
+        return None
+
+    short_name = canonical.split(".")[-1]
+    return groups.get(short_name)
 
 
 def _build_field_lookup(definition_doc: dict | None) -> dict[str, FieldInfo]:
@@ -621,6 +696,36 @@ def _build_field_lookup(definition_doc: dict | None) -> dict[str, FieldInfo]:
                     )
                     lookup.setdefault(full, info)
                     lookup.setdefault(key, info)
+
+            walk(item.get("children"), (*chain, key))
+
+    walk(definition_doc.get("items"), ())
+    return lookup
+
+
+def _build_repeatable_group_lookup(definition_doc: dict | None) -> dict[str, RepeatableGroupInfo]:
+    """Walk definition items to build a repeatable-group lookup keyed by both full path and short key."""
+    if not isinstance(definition_doc, dict):
+        return {}
+
+    lookup: dict[str, RepeatableGroupInfo] = {}
+
+    def walk(items: object, chain: tuple[str, ...]) -> None:
+        if not isinstance(items, list):
+            return
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            if not isinstance(key, str):
+                continue
+
+            full = ".".join((*chain, key))
+            if item.get("type") == "group" and item.get("repeatable") is True:
+                info = RepeatableGroupInfo(key=key, full_path=full)
+                lookup.setdefault(full, info)
+                lookup.setdefault(key, info)
 
             walk(item.get("children"), (*chain, key))
 

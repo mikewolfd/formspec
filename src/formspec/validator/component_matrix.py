@@ -47,7 +47,8 @@ class CompatibilityRule:
 # Authoring mode permits deterministic fallbacks for some disputed mappings.
 COMPATIBILITY_RULES: dict[str, CompatibilityRule] = {
     "TextInput": CompatibilityRule(
-        strict_allowed=frozenset({"string"}),
+        # Treat Formspec `text` as a multi-line string for input compatibility.
+        strict_allowed=frozenset({"string", "text"}),
         authoring_allowed=_ALL_FIELD_TYPES,
     ),
     "NumberInput": CompatibilityRule(

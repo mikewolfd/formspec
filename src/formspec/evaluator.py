@@ -750,6 +750,13 @@ def _is_empty(value) -> bool:
         return True
     if isinstance(value, list) and len(value) == 0:
         return True
+    # Money values are objects; treat "no amount" as empty so required/constraints behave.
+    if isinstance(value, dict) and 'amount' in value and 'currency' in value and len(value) == 2:
+        amt = value.get('amount')
+        if amt is None:
+            return True
+        if isinstance(amt, str) and amt.strip() == '':
+            return True
     return False
 
 
