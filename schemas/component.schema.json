@@ -1034,20 +1034,24 @@
         "level": "progressive",
         "children": false,
         "bind": "required",
-        "compatibleDataTypes": ["number", "integer"],
+        "compatibleDataTypes": ["money"],
         "fallback": "NumberInput",
         "fallbackNotes": "Currency symbol rendered as prefix if bound item has prefix hint."
       },
       "properties": {
         "component": { "const": "MoneyInput" },
         "bind": { "type": "string", "description": "Item key from the target Definition." },
+        "step": { "type": "number", "description": "Increment/decrement step value (applies to amount)." },
+        "min": { "type": "number", "description": "Minimum allowed amount." },
+        "max": { "type": "number", "description": "Maximum allowed amount." },
+        "showStepper": { "type": "boolean", "description": "Whether to show increment/decrement buttons (amount input)." },
         "currency": { "type": "string", "description": "ISO 4217 currency code (e.g. 'USD', 'EUR', 'GBP')." },
         "showCurrency": { "type": "boolean", "description": "Whether to display the currency symbol." },
         "locale": { "type": "string", "description": "Locale for number/currency formatting (e.g. 'en-US')." }
       },
       "unevaluatedProperties": false,
       "examples": [
-        { "component": "MoneyInput", "bind": "totalBudget", "currency": "USD", "showCurrency": true }
+        { "component": "MoneyInput", "bind": "totalBudget", "currency": "USD", "showCurrency": true, "min": 0, "step": 0.01 }
       ]
     },
 
@@ -1333,7 +1337,10 @@
             "additionalProperties": false,
             "properties": {
               "header": { "type": "string", "description": "Column header text." },
-              "bind": { "type": "string", "description": "Item key within the repeat group." }
+              "bind": { "type": "string", "description": "Item key within the repeat group." },
+              "min": { "type": "number", "description": "Optional minimum value for numeric inputs." },
+              "max": { "type": "number", "description": "Optional maximum value for numeric inputs." },
+              "step": { "type": "number", "description": "Optional step for numeric inputs." }
             }
           }
         },

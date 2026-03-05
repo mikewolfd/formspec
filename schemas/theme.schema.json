@@ -259,7 +259,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "format": "uri"
+        "format": "uri-reference"
       },
       "description": "External CSS stylesheet URIs. Web renderers SHOULD load these before rendering the form. Loaded in array order — later sheets take CSS precedence over earlier sheets. Renderers MUST NOT fail if a stylesheet cannot be loaded; they SHOULD warn and continue. Non-web renderers (PDF, native) MAY ignore stylesheets. Subject to host application security policy (CSP, CORS).",
       "examples": [
