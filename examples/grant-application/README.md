@@ -204,7 +204,7 @@ The FastAPI server (`server/main.py`) exposes these endpoints:
 - **Accessibility** — role: region, description, liveRegion: polite on budget group
 - **Labels** — multi-label support (short, aria, pdf, csv) on orgName and other fields
 - **Prefix/suffix** — "$" prefix on unitCost, "%" suffix on indirectRate
-- **initialValue** — contactPhone defaults to "202-555-0100", startDate uses FEL expression "=today()"
+- **initialValue** — contactPhone defaults to "(202) 555-0100", startDate uses FEL expression "=today()"
 - **semanticType** — email and phone on contact fields
 
 **Extensions**
@@ -289,4 +289,3 @@ These Formspec features are defined in the specifications but not exercised by t
 
 For complete feature inventories, see the generated spec summaries:
 `specs/core/spec.llm.md`, `specs/fel/fel-grammar.llm.md`, `specs/theme/theme-spec.llm.md`, `specs/component/component-spec.llm.md`, `specs/mapping/mapping-spec.llm.md`, `specs/registry/extension-registry.llm.md`.
-

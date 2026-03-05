@@ -104,6 +104,17 @@
       }
     },
     {
+      "name": "x-budget-version",
+      "category": "property",
+      "version": "1.0.0",
+      "status": "stable",
+      "description": "Version marker for budget section semantics and downstream mappings.",
+      "compatibility": {
+        "formspecVersion": ">=1.0.0 <2.0.0",
+        "mappingDslVersion": ">=1.0.0 <2.0.0"
+      }
+    },
+    {
       "name": "x-grants-gov",
       "category": "namespace",
       "version": "2.0.0",

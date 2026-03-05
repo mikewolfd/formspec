@@ -88,7 +88,7 @@
       "projectWebsite": "https://chp.example.org/telehealth",
       "contactName": "Jane Smith",
       "contactEmail": "jane.smith@chp.example.org",
-      "contactPhone": "202-555-0142"
+      "contactPhone": "(202) 555-0142"
     },
     "projectNarrative": {
       "projectTitle": "Rural Telehealth Access Initiative",
@@ -104,21 +104,21 @@
     },
     "budget": {
       "lineItems": [
-        {
-          "category": "personnel",
-          "description": "Program Director (0.5 FTE) + Care Coordinator (1.5 FTE)",
-          "quantity": 2,
-          "unitCost": { "amount": "50000.00", "currency": "USD" },
-          "subtotal":  { "amount": "100000.00", "currency": "USD" }
-        },
-        {
-          "category": "travel",
-          "description": "Site visits and stakeholder meetings",
-          "quantity": 1,
-          "unitCost": { "amount": "5000.00", "currency": "USD" },
-          "subtotal":  { "amount": "5000.00", "currency": "USD" }
-        }
-      ],
+	        {
+	          "category": "personnel",
+	          "description": "Program Director (0.5 FTE) + Care Coordinator (1.5 FTE)",
+	          "quantity": 2,
+	          "unitCost": 50000,
+	          "subtotal": 100000
+	        },
+	        {
+	          "category": "travel",
+	          "description": "Site visits and stakeholder meetings",
+	          "quantity": 1,
+	          "unitCost": 5000,
+	          "subtotal": 5000
+	        }
+	      ],
       "requestedAmount": { "amount": "126000.00", "currency": "USD" },
       "usesSubcontractors": true
     },
@@ -155,13 +155,13 @@
       }
     ],
     "subcontractors": [
-      {
-        "subName": "Dr. Maria Gonzalez",
-        "subOrg": "Regional Medical Consulting Group",
-        "subAmount": { "amount": "40000.00", "currency": "EUR" },
-        "subScope": "Clinical protocol development and physician oversight for telehealth platform deployment."
-      }
-    ],
+	      {
+	        "subName": "Dr. Maria Gonzalez",
+	        "subOrg": "Regional Medical Consulting Group",
+	        "subAmount": 40000,
+	        "subScope": "Clinical protocol development and physician oversight for telehealth platform deployment."
+	      }
+	    ],
     "attachments": {
       "narrativeDoc": {
         "filename": "narrative-telehealth-2026.pdf",

@@ -207,8 +207,8 @@
                 "columns": [
                   { "header": "Category", "bind": "category" },
                   { "header": "Description", "bind": "description" },
-                  { "header": "Qty", "bind": "quantity" },
-                  { "header": "Unit Cost", "bind": "unitCost" },
+                  { "header": "Qty", "bind": "quantity", "min": 0, "step": 1 },
+                  { "header": "Unit Cost", "bind": "unitCost", "min": 0, "step": 0.01 },
                   { "header": "Subtotal", "bind": "subtotal" }
                 ]
               },
@@ -346,8 +346,8 @@
                         "allowRemove": true,
                         "columns": [
                           { "header": "Task Name", "bind": "taskName" },
-                          { "header": "Hours", "bind": "hours" },
-                          { "header": "Hourly Rate", "bind": "hourlyRate" },
+                          { "header": "Hours", "bind": "hours", "min": 0, "step": 0.01 },
+                          { "header": "Hourly Rate", "bind": "hourlyRate", "min": 0, "step": 0.01 },
                           { "header": "Task Cost", "bind": "taskCost" }
                         ]
                       },
@@ -403,7 +403,7 @@
                     "columns": [
                       { "header": "Contact Name", "bind": "subName" },
                       { "header": "Organization", "bind": "subOrg" },
-                      { "header": "Amount", "bind": "subAmount" },
+                      { "header": "Amount", "bind": "subAmount", "min": 0, "step": 0.01 },
                       { "header": "Scope of Work", "bind": "subScope" }
                     ]
                   },

@@ -14,6 +14,10 @@
   },
   "nonRelevantBehavior": "remove",
   "extensions": {
+    "x-formspec-common": {
+      "registryUrl": "https://formspec.org/registries/formspec-common.registry.json",
+      "version": "1.0.0"
+    },
     "x-agency": "DOH",
     "x-program-code": "RHI-2026"
   },
@@ -321,7 +325,8 @@
           "key": "contactEmail",
           "label": "Contact Email",
           "dataType": "string",
-          "semanticType": "email"
+          "semanticType": "email",
+          "extensions": { "x-formspec-email": true }
         },
         {
           "type": "field",
@@ -329,12 +334,13 @@
           "label": "Contact Phone",
           "dataType": "string",
           "semanticType": "phone",
-          "initialValue": "202-555-0100"
+          "extensions": { "x-formspec-phone-nanp": true },
+          "initialValue": "(202) 555-0100"
         },
         {
           "type": "display",
           "key": "nonprofitPhoneHint",
-          "label": "Include area code for nonprofit reporting requirements (e.g. 202-555-0100)."
+          "label": "Include area code for nonprofit reporting requirements (e.g. (202) 555-0100)."
         },
         {
           "type": "field",
@@ -732,13 +738,17 @@
     },
     {
       "path": "applicantInfo.contactEmail",
-      "constraint": "contains($applicantInfo.contactEmail, '@')",
-      "constraintMessage": "Contact email must contain @."
+      "constraint": "empty($) or matches($, '^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$')",
+      "constraintMessage": "Contact email must be a valid email address."
     },
     {
       "path": "applicantInfo.contactPhone",
-      "constraint": "matches($applicantInfo.contactPhone, '^[0-9]{3}-[0-9]{3}-[0-9]{4}$')",
-      "constraintMessage": "Phone must be in the format XXX-XXX-XXXX (e.g. 202-555-0100)."
+      "whitespace": "normalize"
+    },
+    {
+      "path": "applicantInfo.contactPhone",
+      "constraint": "empty($) or matches($, '^\\\\([2-9]\\\\d{2}\\\\) [2-9]\\\\d{2}-\\\\d{4}$')",
+      "constraintMessage": "Phone must be in the format (###) ###-#### (e.g. (202) 555-0100)."
     },
     {
       "path": "applicantInfo.projectWebsite",
@@ -762,6 +772,16 @@
       "relevant": "$applicantInfo.orgType != 'government'"
     },
     {
+      "path": "projectNarrative.indirectRate",
+      "constraint": "$ = null or ($ >= 0 and $ <= 100)",
+      "constraintMessage": "Indirect cost rate must be between 0 and 100."
+    },
+    {
+      "path": "projectNarrative.selfAssessment",
+      "constraint": "$ = null or ($ >= 1 and $ <= 5)",
+      "constraintMessage": "Proposal confidence must be between 1 and 5."
+    },
+    {
       "path": "budget.lineItems[*].quantity",
       "constraint": "$quantity = null or $quantity >= 0",
       "constraintMessage": "Quantity must not be negative."
@@ -772,6 +792,11 @@
       "constraintMessage": "Unit cost must not be negative."
     },
     {
+      "path": "projectPhases[*].phaseTasks[*].hours",
+      "constraint": "$hours = null or $hours >= 0",
+      "constraintMessage": "Hours must not be negative."
+    },
+    {
       "path": "projectPhases[*].phaseTasks[*].hourlyRate",
       "constraint": "$hourlyRate = null or moneyAmount($hourlyRate) >= 0",
       "constraintMessage": "Hourly rate must not be negative."
@@ -780,6 +805,11 @@
       "path": "budget.lineItems[*].subtotal",
       "calculate": "$unitCost * $quantity",
       "readonly": "true"
+    },
+    {
+      "path": "subcontractors[*].subAmount",
+      "constraint": "$subAmount = null or $subAmount >= 0",
+      "constraintMessage": "Amount must not be negative."
     },
     {
       "path": "projectPhases[*].phaseTasks[*].taskCost",
@@ -831,10 +861,6 @@
     {
       "path": "budget.hasLineItems",
       "calculate": "string(@budgetHasLineItems)"
-    },
-    {
-      "path": "instances.scratchPad.lastSavedTotal",
-      "calculate": "moneyAmount(@grandTotal)"
     },
     {
       "path": "applicantInfo.orgName",
