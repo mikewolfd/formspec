@@ -31,6 +31,67 @@ function sortedOperators(tokenMap: Record<string, any[] | undefined>): string[] 
   return all.map(t => t.image);
 }
 
+function isNullish(value: any): boolean {
+  return value === null || value === undefined;
+}
+
+function isBoolean(value: any): value is boolean {
+  return typeof value === 'boolean';
+}
+
+function isNumber(value: any): value is number {
+  return typeof value === 'number' && !Number.isNaN(value);
+}
+
+function isString(value: any): value is string {
+  return typeof value === 'string';
+}
+
+function isMoney(value: any): boolean {
+  return !!value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && 'amount' in value
+    && 'currency' in value;
+}
+
+function valueKind(value: any): string {
+  if (isNullish(value)) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (isMoney(value)) return 'money';
+  return typeof value;
+}
+
+function setNestedValue(target: any, path: string, value: any): void {
+  if (!path) return;
+  const segments = path.match(/([^[.\]]+)|\[(\d+)\]/g) ?? [];
+  let current = target;
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    const isIndex = segment.startsWith('[');
+    const key: string | number = isIndex ? Number(segment.slice(1, -1)) : segment;
+    const isLast = i === segments.length - 1;
+
+    if (isLast) {
+      current[key] = value;
+      return;
+    }
+
+    const nextIsIndex = segments[i + 1].startsWith('[');
+    if (current[key] === undefined) {
+      current[key] = nextIsIndex ? [] : {};
+    }
+    current = current[key];
+  }
+}
+
+export class FelUnsupportedFunctionError extends Error {
+  constructor(functionName: string) {
+    super(`Unsupported FEL function: ${functionName}`);
+    this.name = 'FelUnsupportedFunctionError';
+  }
+}
+
 /**
  * Runtime context provided to the interpreter for each FEL evaluation.
  *
@@ -84,6 +145,49 @@ export class FelInterpreter extends BaseVisitor {
     return itemPath.substring(0, lastDot);
   }
 
+  private normalizeSpecPathToSignalPath(path: string): string {
+    return path.replace(/\[(\d+)\]/g, (_match, rawIndex) => `[${Number(rawIndex) - 1}]`);
+  }
+
+  private candidateLookupPaths(path: string): string[] {
+    if (path === '') return [this.context.currentItemPath];
+
+    const parentPath = this.getParentPath(this.context.currentItemPath);
+    const normalizedPath = this.normalizeSpecPathToSignalPath(path);
+    const candidates = [
+      parentPath ? `${parentPath}.${normalizedPath}` : null,
+      normalizedPath,
+    ]
+      .filter((candidate): candidate is string => Boolean(candidate))
+
+    return [...new Set(candidates)];
+  }
+
+  private resolveValueLookupPath(path: string): string {
+    const candidates = this.candidateLookupPaths(path);
+    for (const candidate of candidates) {
+      if (this.context.getSignalValue(candidate) !== undefined) return candidate;
+    }
+    return candidates[0] ?? path;
+  }
+
+  private resolveMipLookupPath(path: string): string {
+    const candidates = this.candidateLookupPaths(path);
+    const engine = this.context.engine;
+    for (const candidate of candidates) {
+      if (
+        engine?.signals?.[candidate] !== undefined ||
+        engine?.relevantSignals?.[candidate] !== undefined ||
+        engine?.requiredSignals?.[candidate] !== undefined ||
+        engine?.readonlySignals?.[candidate] !== undefined ||
+        engine?.validationResults?.[candidate] !== undefined
+      ) {
+        return candidate;
+      }
+    }
+    return candidates[0] ?? path;
+  }
+
   /**
    * Evaluate a FEL CST and return the computed value.
    *
@@ -95,6 +199,123 @@ export class FelInterpreter extends BaseVisitor {
   public evaluate(cst: any, context: FelContext) {
     this.context = context;
     return this.visit(cst);
+  }
+
+  private getRepeatContextInfo():
+    | { groupPath: string; rowPath: string; index: number; count: number }
+    | null {
+    const match = this.context.currentItemPath.match(/^(.*)\[(\d+)\](?:\.|$)/);
+    if (!match) return null;
+    const groupPath = match[1];
+    const index = Number(match[2]);
+    return {
+      groupPath,
+      rowPath: `${groupPath}[${index}]`,
+      index,
+      count: this.context.getRepeatsValue(groupPath),
+    };
+  }
+
+  private buildRepeatRow(rowPath: string): any {
+    const signals = this.context.engine?.signals ?? {};
+    const row: Record<string, any> = {};
+    const prefix = `${rowPath}.`;
+    for (const [path, signal] of Object.entries(signals)) {
+      if (!path.startsWith(prefix)) continue;
+      const relativePath = path.slice(prefix.length);
+      setNestedValue(row, relativePath, (signal as any).value);
+    }
+    return Object.keys(row).length > 0 ? row : null;
+  }
+
+  private buildObjectAtPath(basePath: string): any {
+    const signals = this.context.engine?.signals ?? {};
+    const obj: Record<string, any> = {};
+    const prefix = basePath ? `${basePath}.` : '';
+    for (const [path, signal] of Object.entries(signals)) {
+      if (!path.startsWith(prefix)) continue;
+      const relativePath = path.slice(prefix.length);
+      if (!relativePath || relativePath.startsWith('[')) continue;
+      setNestedValue(obj, relativePath, (signal as any).value);
+    }
+    return Object.keys(obj).length > 0 ? obj : null;
+  }
+
+  private getRepeatParentInfo():
+    | { parentPath: string; parentValue: any }
+    | null {
+    const repeat = this.getRepeatContextInfo();
+    if (!repeat) return null;
+    const lastDot = repeat.groupPath.lastIndexOf('.');
+    if (lastDot === -1) return null;
+    const parentPath = repeat.groupPath.slice(0, lastDot);
+    return { parentPath, parentValue: this.buildObjectAtPath(parentPath) };
+  }
+
+  private applyBinaryOp(op: string, left: any, right: any): any {
+    if (Array.isArray(left) || Array.isArray(right)) {
+      return this.applyElementwiseBinaryOp(op, left, right);
+    }
+    return this.applyScalarBinaryOp(op, left, right);
+  }
+
+  private applyElementwiseBinaryOp(op: string, left: any, right: any): any {
+    if (Array.isArray(left) && Array.isArray(right)) {
+      if (left.length !== right.length) return null;
+      return left.map((item, index) => this.applyScalarBinaryOp(op, item, right[index]));
+    }
+    if (Array.isArray(left)) {
+      return left.map((item) => this.applyScalarBinaryOp(op, item, right));
+    }
+    if (Array.isArray(right)) {
+      return right.map((item) => this.applyScalarBinaryOp(op, left, item));
+    }
+    return this.applyScalarBinaryOp(op, left, right);
+  }
+
+  private applyScalarBinaryOp(op: string, left: any, right: any): any {
+    if (op === '=' || op === '!=') {
+      const eq = this.applyScalarEquality(left, right);
+      return op === '=' || eq === null ? eq : !eq;
+    }
+
+    if (isNullish(left) || isNullish(right)) return null;
+
+    if (op === '&') {
+      if (!isString(left) || !isString(right)) return null;
+      return left + right;
+    }
+
+    if (op === '+' || op === '-' || op === '*' || op === '/' || op === '%') {
+      if (!isNumber(left) || !isNumber(right)) return null;
+      if ((op === '/' || op === '%') && right === 0) return null;
+      if (op === '+') return left + right;
+      if (op === '-') return left - right;
+      if (op === '*') return left * right;
+      if (op === '/') return left / right;
+      return left % right;
+    }
+
+    if (op === '<' || op === '>' || op === '<=' || op === '>=') {
+      if (valueKind(left) !== valueKind(right)) return null;
+      if (!isNumber(left) && !isString(left)) return null;
+      if (op === '<') return left < right;
+      if (op === '>') return left > right;
+      if (op === '<=') return left <= right;
+      return left >= right;
+    }
+
+    return null;
+  }
+
+  private applyScalarEquality(left: any, right: any): boolean | null {
+    if (isNullish(left) && isNullish(right)) return true;
+    if (isNullish(left) || isNullish(right)) return false;
+    if (valueKind(left) !== valueKind(right)) return null;
+    if (isMoney(left) && isMoney(right)) {
+      return left.amount === right.amount && left.currency === right.currency;
+    }
+    return left === right;
   }
 
   /**
@@ -252,30 +473,27 @@ export class FelInterpreter extends BaseVisitor {
     moneyAmount: (m: any) => m && m.amount !== undefined ? m.amount : null,
     /** Extracts the currency code from a money object, or null if the input is not a money object. */
     moneyCurrency: (m: any) => m && m.currency !== undefined ? m.currency : null,
-    /** Returns the value of a sibling field from the previous repeat instance (index - 1). Returns null if at the first instance or not inside a repeat. */
-    prev: (name: string) => {
-        const parts = this.context.currentItemPath.split(/[\[\].]/).filter(Boolean);
-        let lastNumIndex = -1;
-        for (let i = parts.length - 1; i >= 0; i--) {
-            if (!isNaN(parseInt(parts[i]))) { lastNumIndex = i; break; }
+    /** Returns the previous repeat row, or a named sibling field from it when `name` is provided. */
+    prev: (name?: string) => {
+        const repeat = this.getRepeatContextInfo();
+        if (!repeat || repeat.index <= 0) return null;
+        const prevRowPath = `${repeat.groupPath}[${repeat.index - 1}]`;
+        if (name) {
+            const value = this.context.getSignalValue(`${prevRowPath}.${name}`);
+            return value === undefined ? null : value;
         }
-        if (lastNumIndex === -1) return null;
-        const idx = parseInt(parts[lastNumIndex]);
-        if (idx <= 0) return null;
-        const siblingsPath = parts.slice(0, lastNumIndex).join('.') + `[${idx-1}].` + name;
-        return this.context.getSignalValue(siblingsPath);
+        return this.buildRepeatRow(prevRowPath);
     },
-    /** Returns the value of a sibling field from the next repeat instance (index + 1). Returns null if not inside a repeat. */
-    next: (name: string) => {
-        const parts = this.context.currentItemPath.split(/[\[\].]/).filter(Boolean);
-        let lastNumIndex = -1;
-        for (let i = parts.length - 1; i >= 0; i--) {
-            if (!isNaN(parseInt(parts[i]))) { lastNumIndex = i; break; }
+    /** Returns the next repeat row, or a named sibling field from it when `name` is provided. */
+    next: (name?: string) => {
+        const repeat = this.getRepeatContextInfo();
+        if (!repeat || repeat.index >= repeat.count - 1) return null;
+        const nextRowPath = `${repeat.groupPath}[${repeat.index + 1}]`;
+        if (name) {
+            const value = this.context.getSignalValue(`${nextRowPath}.${name}`);
+            return value === undefined ? null : value;
         }
-        if (lastNumIndex === -1) return null;
-        const idx = parseInt(parts[lastNumIndex]);
-        const siblingsPath = parts.slice(0, lastNumIndex).join('.') + `[${idx+1}].` + name;
-        return this.context.getSignalValue(siblingsPath);
+        return this.buildRepeatRow(nextRowPath);
     },
     /** Functional if: returns `thenVal` when `cond` is truthy, `elseVal` otherwise. Alternative to the `if ... then ... else` syntax. */
     if: (cond: any, thenVal: any, elseVal: any) => cond ? thenVal : elseVal,
@@ -309,31 +527,29 @@ export class FelInterpreter extends BaseVisitor {
         if (valid.length === 0) return null;
         return { amount: valid.reduce((s, m) => s + (m.amount || 0), 0), currency: valid[0].currency };
     },
-    /** Walks up the path hierarchy from the current item, returning the value of the first ancestor field matching `name`. */
-    parent: (name: string) => {
-        const parts = this.context.currentItemPath.split(/[\[\].]/).filter(Boolean);
-        for (let i = parts.length - 2; i >= 0; i--) {
-            const path = parts.slice(0, i).join('.') + (i > 0 ? '.' : '') + name;
-            const val = this.context.getSignalValue(path);
-            if (val !== undefined) return val;
-        }
-        return this.context.getSignalValue(name);
+    /** Returns the parent object for the current repeat context, or a named field from it when `name` is provided. */
+    parent: (name?: string) => {
+        const parent = this.getRepeatParentInfo();
+        if (!parent) return null;
+        if (!name) return parent.parentValue;
+        const value = this.context.getSignalValue(`${parent.parentPath}.${name}`);
+        return value === undefined ? null : value;
     },
     /** MIP query: returns true if the field at `path` has zero validation errors. Argument is extracted as a path string, not evaluated. */
     valid: (path: string) => {
-        return this.context.getValidationErrors(path) === 0;
+        return this.context.getValidationErrors(this.resolveMipLookupPath(path)) === 0;
     },
     /** MIP query: returns the relevance (visibility) state of the field at `path`. Argument is extracted as a path string, not evaluated. */
     relevant: (path: string) => {
-        return this.context.getRelevantValue(path);
+        return this.context.getRelevantValue(this.resolveMipLookupPath(path));
     },
     /** MIP query: returns the readonly state of the field at `path`. Argument is extracted as a path string, not evaluated. */
     readonly: (path: string) => {
-        return this.context.getReadonlyValue(path);
+        return this.context.getReadonlyValue(this.resolveMipLookupPath(path));
     },
     /** MIP query: returns the required state of the field at `path`. Argument is extracted as a path string, not evaluated. */
     required: (path: string) => {
-        return this.context.getRequiredValue(path);
+        return this.context.getRequiredValue(this.resolveMipLookupPath(path));
     },
     /** Retrieves inline instance data by name, optionally drilling into a sub-path. Delegates to `engine.getInstanceData()`. */
     instance: (name: string, path?: string) => {
@@ -364,6 +580,8 @@ export class FelInterpreter extends BaseVisitor {
   ifExpr(ctx: any) {
     if (ctx.If) {
         const condition = this.visit(ctx.condition);
+        if (isNullish(condition)) return null;
+        if (!isBoolean(condition)) return null;
         if (condition) {
             return this.visit(ctx.thenExpr);
         } else {
@@ -376,6 +594,8 @@ export class FelInterpreter extends BaseVisitor {
   ternary(ctx: any) {
     const val = this.visit(ctx.logicalOr);
     if (ctx.Question) {
+        if (isNullish(val)) return null;
+        if (!isBoolean(val)) return null;
         return val ? this.visit(ctx.trueExpr) : this.visit(ctx.falseExpr);
     }
     return val;
@@ -383,16 +603,30 @@ export class FelInterpreter extends BaseVisitor {
 
   logicalOr(ctx: any) {
     let result = this.visit(ctx.logicalAnd[0]);
+    if (ctx.logicalAnd.length <= 1) return result;
+    if (isNullish(result)) return null;
+    if (!isBoolean(result)) return null;
     for (let i = 1; i < ctx.logicalAnd.length; i++) {
-        result = result || this.visit(ctx.logicalAnd[i]);
+        if (result) return result;
+        const next = this.visit(ctx.logicalAnd[i]);
+        if (isNullish(next)) return null;
+        if (!isBoolean(next)) return null;
+        result = next;
     }
     return result;
   }
 
   logicalAnd(ctx: any) {
     let result = this.visit(ctx.equality[0]);
+    if (ctx.equality.length <= 1) return result;
+    if (isNullish(result)) return null;
+    if (!isBoolean(result)) return null;
     for (let i = 1; i < ctx.equality.length; i++) {
-        result = result && this.visit(ctx.equality[i]);
+        if (!result) return result;
+        const next = this.visit(ctx.equality[i]);
+        if (isNullish(next)) return null;
+        if (!isBoolean(next)) return null;
+        result = next;
     }
     return result;
   }
@@ -401,11 +635,7 @@ export class FelInterpreter extends BaseVisitor {
     let result = this.visit(ctx.comparison[0]);
     for (let i = 1; i < ctx.comparison.length; i++) {
         const next = this.visit(ctx.comparison[i]);
-        if (ctx.Equals && ctx.Equals[i-1]) {
-            result = result === next;
-        } else {
-            result = result !== next;
-        }
+        result = this.applyBinaryOp(ctx.Equals && ctx.Equals[i - 1] ? '=' : '!=', result, next);
     }
     return result;
   }
@@ -414,10 +644,10 @@ export class FelInterpreter extends BaseVisitor {
     let result = this.visit(ctx.membership[0]);
     for (let i = 1; i < ctx.membership.length; i++) {
         const next = this.visit(ctx.membership[i]);
-        if (ctx.LessEqual && ctx.LessEqual[i-1]) result = result <= next;
-        else if (ctx.GreaterEqual && ctx.GreaterEqual[i-1]) result = result >= next;
-        else if (ctx.Less && ctx.Less[i-1]) result = result < next;
-        else if (ctx.Greater && ctx.Greater[i-1]) result = result > next;
+        if (ctx.LessEqual && ctx.LessEqual[i - 1]) result = this.applyBinaryOp('<=', result, next);
+        else if (ctx.GreaterEqual && ctx.GreaterEqual[i - 1]) result = this.applyBinaryOp('>=', result, next);
+        else if (ctx.Less && ctx.Less[i - 1]) result = this.applyBinaryOp('<', result, next);
+        else if (ctx.Greater && ctx.Greater[i - 1]) result = this.applyBinaryOp('>', result, next);
     }
     return result;
   }
@@ -426,7 +656,9 @@ export class FelInterpreter extends BaseVisitor {
     const val = this.visit(ctx.nullCoalesce[0]);
     if (ctx.In || ctx.Not) {
         const list = this.visit(ctx.nullCoalesce[1]);
-        const isIn = Array.isArray(list) ? list.includes(val) : false;
+        if (isNullish(val) || isNullish(list)) return null;
+        if (!Array.isArray(list)) return null;
+        const isIn = list.some((item) => this.applyScalarEquality(val, item) === true);
         return ctx.Not ? !isIn : isIn;
     }
     return val;
@@ -446,10 +678,7 @@ export class FelInterpreter extends BaseVisitor {
     const ops = sortedOperators({ Plus: ctx.Plus, Minus: ctx.Minus, Ampersand: ctx.Ampersand });
     for (let i = 1; i < ctx.multiplication.length; i++) {
         const next = this.visit(ctx.multiplication[i]);
-        const op = ops[i - 1];
-        if (op === '+') result = result + next;
-        else if (op === '-') result = result - next;
-        else if (op === '&') result = String(result) + String(next);
+        result = this.applyBinaryOp(ops[i - 1], result, next);
     }
     return result;
   }
@@ -460,20 +689,21 @@ export class FelInterpreter extends BaseVisitor {
     const ops = sortedOperators({ Asterisk: ctx.Asterisk, Slash: ctx.Slash, Percent: ctx.Percent });
     for (let i = 1; i < ctx.unary.length; i++) {
         const next = this.visit(ctx.unary[i]);
-        const op = ops[i - 1];
-        if (op === '*') result = result * next;
-        else if (op === '/') result = result / next;
-        else if (op === '%') result = result % next;
+        result = this.applyBinaryOp(ops[i - 1], result, next);
     }
     return result;
   }
 
   unary(ctx: any) {
     if (ctx.Not) {
-        return !this.visit(ctx.unary);
+        const value = this.visit(ctx.unary);
+        if (isNullish(value) || !isBoolean(value)) return null;
+        return !value;
     }
     if (ctx.Minus) {
-        return -this.visit(ctx.unary);
+        const value = this.visit(ctx.unary);
+        if (isNullish(value) || !isNumber(value)) return null;
+        return -value;
     }
     return this.visit(ctx.postfix);
   }
@@ -482,7 +712,25 @@ export class FelInterpreter extends BaseVisitor {
     let val = this.visit(ctx.atom);
     if (ctx.pathTail) {
         for (const tail of ctx.pathTail) {
-            // postfix resolution
+            if (isNullish(val)) return null;
+            const tailValue = this.visit(tail);
+            if (tailValue === '*') {
+                if (!Array.isArray(val)) return null;
+                continue;
+            }
+            if (typeof tailValue === 'string' && tailValue.startsWith('[')) {
+                if (!Array.isArray(val)) return null;
+                const index = Number(tailValue.slice(1, -1));
+                if (!Number.isInteger(index) || index < 1 || index > val.length) return null;
+                val = val[index - 1];
+                continue;
+            }
+            if (typeof tailValue === 'string') {
+                if (typeof val !== 'object') return null;
+                val = (val as any)[tailValue];
+                continue;
+            }
+            return null;
         }
     }
     return val;
@@ -534,15 +782,8 @@ export class FelInterpreter extends BaseVisitor {
         }
 
         if (name === '') return this.context.getSignalValue(this.context.currentItemPath);
-
-        const parentPath = this.getParentPath(this.context.currentItemPath);
-        const fullPath = parentPath ? `${parentPath}.${name}` : name;
-
-        let val = this.context.getSignalValue(fullPath);
-        if (val === undefined) {
-            val = this.context.getSignalValue(name);
-        }
-        return val;
+        const val = this.context.getSignalValue(this.resolveValueLookupPath(name));
+        return val === undefined ? null : val;
     }
     if (ctx.contextRef) return this.visit(ctx.contextRef);
     if (ctx.Identifier) {
@@ -552,43 +793,42 @@ export class FelInterpreter extends BaseVisitor {
                 name = this.appendPathTail(name, this.visit(tail));
             }
         }
-        const parentPath = this.getParentPath(this.context.currentItemPath);
-        const fullPath = parentPath ? `${parentPath}.${name}` : name;
-
-        let val = this.context.getSignalValue(fullPath);
-        if (val === undefined) {
-            val = this.context.getSignalValue(name);
-        }
-        return val;
+        const val = this.context.getSignalValue(this.resolveValueLookupPath(name));
+        return val === undefined ? null : val;
     }
   }
 
   contextRef(ctx: any) {
     const ident = ctx.Identifier[0].image;
+    const tail = (ctx.Identifier.slice(1) ?? []).map((token: any) => token.image);
+    const applyTail = (value: any) => {
+        let current = value;
+        for (const segment of tail) {
+            if (current === null || current === undefined || typeof current !== 'object') {
+                return null;
+            }
+            current = current[segment];
+        }
+        return current === undefined ? null : current;
+    };
     if (ident === 'index') {
-        const parts = this.context.currentItemPath.split(/[\[\]]/).filter(p => !isNaN(parseInt(p)));
-        return parts.length > 0 ? parseInt(parts[parts.length - 1]) + 1 : 1; // 1-based as per spec
+        const repeat = this.getRepeatContextInfo();
+        return applyTail(repeat ? repeat.index + 1 : null); // 1-based as per spec
     }
     if (ident === 'current') {
-        return this.context.getSignalValue(this.context.currentItemPath);
+        const repeat = this.getRepeatContextInfo();
+        return applyTail(repeat ? this.buildRepeatRow(repeat.rowPath) : null);
     }
     if (ident === 'count') {
-        // Return total instances in current repeat group
-        // Walk back from currentItemPath to find enclosing repeat group
-        const path = this.context.currentItemPath;
-        const bracketIdx = path.lastIndexOf('[');
-        if (bracketIdx !== -1) {
-            const groupPath = path.substring(0, bracketIdx);
-            return this.context.getRepeatsValue(groupPath);
-        }
-        return 0;
+        const repeat = this.getRepeatContextInfo();
+        return applyTail(repeat ? repeat.count : null);
     }
     // Resolve @variableName via engine's lexical scope lookup
     if (this.context.engine?.getVariableValue) {
         const val = this.context.engine.getVariableValue(ident, this.context.currentItemPath);
-        if (val !== undefined) return val;
+        if (val !== undefined) return applyTail(val);
     }
-    return null;
+    return applyTail(null);
   }
 
   /**
@@ -641,20 +881,11 @@ export class FelInterpreter extends BaseVisitor {
     // Sort by position and reconstruct
     tokens.sort((a, b) => a.startOffset - b.startOffset);
 
-    // Build path from tokens: skip $ prefix, join identifiers with dots
+    // Build the raw path string exactly as written, minus the leading `$`.
     let path = '';
     for (const tok of tokens) {
-        if (tok.image === '$') continue; // skip dollar sign
-        if (tok.image === '.') continue; // skip dots (we add our own)
-        if (/^[a-zA-Z_]/.test(tok.image)) {
-            path += (path ? '.' : '') + tok.image;
-        }
-    }
-
-    // Resolve relative to parent path
-    const parentPath = this.getParentPath(this.context.currentItemPath);
-    if (path && !path.includes('.') && parentPath) {
-        return `${parentPath}.${path}`;
+        if (tok.image === '$') continue;
+        path += tok.image;
     }
     return path;
   }
@@ -670,6 +901,14 @@ export class FelInterpreter extends BaseVisitor {
             const fn = this.felStdLib[name];
             if (fn) return fn(path);
         }
+    }
+
+    if (name === 'if' && ctx.argList) {
+        const argExprs = ctx.argList[0].children.expression;
+        if (!argExprs || argExprs.length < 3) return null;
+        const condition = this.visit(argExprs[0]);
+        if (isNullish(condition) || !isBoolean(condition)) return null;
+        return condition ? this.visit(argExprs[1]) : this.visit(argExprs[2]);
     }
 
     // countWhere: first arg is evaluated (array), second arg is predicate evaluated per-element with $ rebound
@@ -699,12 +938,7 @@ export class FelInterpreter extends BaseVisitor {
     const args = ctx.argList ? this.visit(ctx.argList) : [];
     const fn = this.felStdLib[name];
     if (fn) return fn(...args);
-    return null;
-  }
-
-  ifCall(ctx: any) {
-    const args = ctx.argList ? this.visit(ctx.argList) : [];
-    return args[0] ? args[1] : args[2];
+    throw new FelUnsupportedFunctionError(name);
   }
 
   argList(ctx: any) {

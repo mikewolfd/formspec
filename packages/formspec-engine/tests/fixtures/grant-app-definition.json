@@ -211,7 +211,7 @@
     },
     {
       "name": "budgetHasLineItems",
-      "expression": "not isNull($lineItems[0].category)",
+      "expression": "not isNull($lineItems[1].category)",
       "scope": "budget"
     },
     {

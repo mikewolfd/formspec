@@ -47,7 +47,7 @@ test('should expose repeat instance count via @count when repeat groups change s
       { key: 'total', type: 'field', dataType: 'string', label: 'Total' }
     ],
     binds: [
-      { path: 'items[*].position', calculate: "string(@index) + ' of ' + string(@count)" },
+      { path: 'items[*].position', calculate: "string(@index) & ' of ' & string(@count)" },
       { path: 'total', calculate: 'string(count(items.label))' }
     ]
   });

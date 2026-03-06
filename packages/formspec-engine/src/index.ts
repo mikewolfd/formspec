@@ -1,7 +1,7 @@
 import { signal, computed, effect, batch, Signal } from '@preact/signals-core';
 import { FelLexer } from './fel/lexer.js';
 import { parser } from './fel/parser.js';
-import { interpreter, FelContext } from './fel/interpreter.js';
+import { interpreter, FelContext, FelUnsupportedFunctionError } from './fel/interpreter.js';
 import { dependencyVisitor } from './fel/dependency-visitor.js';
 
 export { assembleDefinition, assembleDefinitionSync, rewriteFEL, rewriteMessageTemplate } from './assembler.js';
@@ -157,6 +157,11 @@ export interface ValidationReport {
         info: number;
     };
     timestamp: string;
+}
+
+export interface PinnedResponseReference {
+    definitionUrl: string;
+    definitionVersion: string;
 }
 
 /** Accepted input types for the engine's "now" provider: a Date object, an ISO string, or a Unix timestamp. */
@@ -335,6 +340,30 @@ export class FormEngine {
         this.initializeShapes();
         this.initializeVariables();
         this.initializeInstanceCalculates();
+    }
+
+    public static resolvePinnedDefinition<T extends { url?: string; version?: string }>(
+        response: PinnedResponseReference,
+        definitions: T[],
+    ): T {
+        const exact = definitions.find(
+            (definition) =>
+                definition.url === response.definitionUrl
+                && definition.version === response.definitionVersion,
+        );
+        if (exact) return exact;
+
+        const availableVersions = definitions
+            .filter((definition) => definition.url === response.definitionUrl)
+            .map((definition) => definition.version)
+            .filter((version): version is string => typeof version === 'string')
+            .sort();
+
+        let message = `No definition found for pinned response ${response.definitionUrl}@${response.definitionVersion}`;
+        if (availableVersions.length > 0) {
+            message += `; available versions: ${availableVersions.join(', ')}`;
+        }
+        throw new Error(message);
     }
 
     private coerceDate(value: EngineNowInput): Date {
@@ -835,6 +864,8 @@ export class FormEngine {
         const targetPaths = this.resolveWildcardPath(shape.target);
 
         for (const path of targetPaths) {
+            if (path && !this.isPathRelevant(path)) continue;
+
             if (shape.activeWhen) {
                 const activeFn = this.compileFEL(shape.activeWhen, path, undefined, true);
                 if (!activeFn()) continue;
@@ -946,7 +977,7 @@ export class FormEngine {
     }
 
     private toExternalPath(path: string): string {
-        if (!path) return "";
+        if (!path) return "#";
         return path.replace(/\[(\d+)\]/g, (_, p1) => `[${parseInt(p1) + 1}]`);
     }
 
@@ -1059,7 +1090,10 @@ export class FormEngine {
         this.relevantSignals[fullName] = signal(true);
         if (bind && bind.relevant) {
             const compiled = this.compileFEL(bind.relevant!, fullName, undefined, true);
-            this.relevantSignals[fullName] = computed(() => !!compiled());
+            this.relevantSignals[fullName] = computed(() => {
+                const value = compiled();
+                return value === null || value === undefined ? true : !!value;
+            });
         }
 
         if (item.type === 'group') {
@@ -1219,7 +1253,8 @@ export class FormEngine {
 
                 // 3. Bind Constraint
                 if (compiledConstraint) {
-                    const isValid = !!compiledConstraint();
+                    const raw = compiledConstraint();
+                    const isValid = raw === null || raw === undefined ? true : !!raw;
                     if (!isValid) {
                         results.push({
                             severity: "error",
@@ -1612,6 +1647,9 @@ export class FormEngine {
             try {
                 return interpreter.evaluate(cst, context);
             } catch (e) {
+                if (e instanceof FelUnsupportedFunctionError) {
+                    throw e;
+                }
                 console.error("FEL Evaluation Error:", e);
                 return null;
             }
