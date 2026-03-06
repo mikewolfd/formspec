@@ -135,8 +135,16 @@ export function planComponentTree(
     ctx: PlanContext,
     prefix = '',
     customComponentStack?: Set<string>,
+    applyThemePages = prefix === '',
 ): LayoutNode {
     if (!customComponentStack) customComponentStack = new Set();
+
+    if (applyThemePages && !prefix && ctx.theme?.pages?.length) {
+        const themed = planThemePagesFromComponentTree(tree, ctx, customComponentStack);
+        if (themed) {
+            return themed;
+        }
+    }
 
     // Apply responsive overrides
     const comp = resolveResponsiveProps(tree, ctx.activeBreakpoint ?? null);
@@ -162,7 +170,7 @@ export function planComponentTree(
         interpolateParams(template, comp.params || comp);
 
         customComponentStack.add(componentType);
-        const result = planComponentTree(template, ctx, prefix, customComponentStack);
+        const result = planComponentTree(template, ctx, prefix, customComponentStack, false);
         customComponentStack.delete(componentType);
         return result;
     }
@@ -260,7 +268,7 @@ export function planComponentTree(
     if (Array.isArray(comp.children)) {
         for (const child of comp.children) {
             node.children.push(
-                planComponentTree(child, ctx, childPrefix, customComponentStack),
+                planComponentTree(child, ctx, childPrefix, customComponentStack, false),
             );
         }
     }
@@ -284,96 +292,393 @@ export function planDefinitionFallback(
     items: any[],
     ctx: PlanContext,
     prefix = '',
+    applyThemePages = prefix === '',
 ): LayoutNode[] {
-    const nodes: LayoutNode[] = [];
-
-    for (const item of items) {
-        const key = item.key || item.name;
-        const fullPath = prefix ? `${prefix}.${key}` : key;
-
-        // Resolve theme presentation
-        const itemDesc: ItemDescriptor = {
-            key,
-            type: item.type,
-            dataType: item.dataType,
-        };
-        const tier1: Tier1Hints = {
-            formPresentation: ctx.formPresentation,
-            itemPresentation: item.presentation,
-        };
-        const presentation = resolvePresentation(ctx.theme, itemDesc, tier1);
-
-        if (item.type === 'group') {
-            const isRepeat = item.repeatable === true;
-
-            const groupNode: LayoutNode = {
-                id: nextId('group'),
-                component: 'Stack',
-                category: 'layout',
-                props: { title: item.label || key, bind: key },
-                cssClasses: normalizeCssClass(presentation.cssClass),
-                children: [],
-                bindPath: fullPath,
-                scopeChange: true,
-            };
-
-            if (isRepeat) {
-                groupNode.repeatGroup = key;
-                groupNode.repeatPath = fullPath;
-                groupNode.isRepeatTemplate = true;
-            }
-
-            // Recurse into children
-            const childPrefix = isRepeat ? `${fullPath}[0]` : fullPath;
-            if (Array.isArray(item.children)) {
-                groupNode.children = planDefinitionFallback(item.children, ctx, childPrefix);
-            }
-
-            nodes.push(groupNode);
-        } else if (item.type === 'field') {
-            // Select widget via theme cascade or default
-            const isAvailable = ctx.isComponentAvailable ?? (() => true);
-            const themeWidget = resolveWidget(presentation, isAvailable);
-            const widget = themeWidget || item.presentation?.widgetHint || getDefaultComponent(item);
-
-            const fieldNode: LayoutNode = {
-                id: nextId('field'),
-                component: widget,
-                category: 'field',
-                props: { bind: key },
-                cssClasses: normalizeCssClass(presentation.cssClass),
-                children: [],
-                bindPath: fullPath,
-                fieldItem: {
-                    key,
-                    label: item.label ?? key,
-                    hint: item.hint,
-                    dataType: item.dataType,
-                },
-                presentation,
-                labelPosition: presentation.labelPosition ?? 'top',
-            };
-
-            nodes.push(fieldNode);
-        } else if (item.type === 'display') {
-            const displayNode: LayoutNode = {
-                id: nextId('display'),
-                component: 'Text',
-                category: 'display',
-                props: { text: item.label || '' },
-                cssClasses: normalizeCssClass(presentation.cssClass),
-                children: [],
-            };
-
-            // Display items may have relevance conditions via bind
-            if (item.relevant) {
-                displayNode.when = item.relevant;
-                displayNode.whenPrefix = prefix;
-            }
-
-            nodes.push(displayNode);
+    if (applyThemePages && !prefix && ctx.theme?.pages?.length) {
+        const themed = planThemePagesFromDefinitionItems(items, ctx);
+        if (themed.length > 0) {
+            return themed;
         }
     }
 
+    const nodes: LayoutNode[] = [];
+
+    for (const item of items) {
+        nodes.push(planDefinitionItem(item, ctx, prefix));
+    }
+
     return nodes;
+}
+
+function planDefinitionItem(item: any, ctx: PlanContext, prefix = ''): LayoutNode {
+    const key = item.key || item.name;
+    const fullPath = prefix ? `${prefix}.${key}` : key;
+
+    const itemDesc: ItemDescriptor = {
+        key,
+        type: item.type,
+        dataType: item.dataType,
+    };
+    const tier1: Tier1Hints = {
+        formPresentation: ctx.formPresentation,
+        itemPresentation: item.presentation,
+    };
+    const presentation = resolvePresentation(ctx.theme, itemDesc, tier1);
+
+    if (item.type === 'group') {
+        const isRepeat = item.repeatable === true;
+
+        const groupNode: LayoutNode = {
+            id: nextId('group'),
+            component: 'Stack',
+            category: 'layout',
+            props: { title: item.label || key, bind: key },
+            cssClasses: normalizeCssClass(presentation.cssClass),
+            children: [],
+            bindPath: fullPath,
+            scopeChange: true,
+        };
+
+        if (isRepeat) {
+            groupNode.repeatGroup = key;
+            groupNode.repeatPath = fullPath;
+            groupNode.isRepeatTemplate = true;
+        }
+
+        const childPrefix = isRepeat ? `${fullPath}[0]` : fullPath;
+        if (Array.isArray(item.children)) {
+            groupNode.children = planDefinitionFallback(item.children, ctx, childPrefix, false);
+        }
+
+        return groupNode;
+    }
+
+    if (item.type === 'field') {
+        const isAvailable = ctx.isComponentAvailable ?? (() => true);
+        const themeWidget = resolveWidget(presentation, isAvailable);
+        const widget = themeWidget || item.presentation?.widgetHint || getDefaultComponent(item);
+
+        return {
+            id: nextId('field'),
+            component: widget,
+            category: 'field',
+            props: { bind: key },
+            cssClasses: normalizeCssClass(presentation.cssClass),
+            children: [],
+            bindPath: fullPath,
+            fieldItem: {
+                key,
+                label: item.label ?? key,
+                hint: item.hint,
+                dataType: item.dataType,
+            },
+            presentation,
+            labelPosition: presentation.labelPosition ?? 'top',
+        };
+    }
+
+    const displayNode: LayoutNode = {
+        id: nextId('display'),
+        component: 'Text',
+        category: 'display',
+        props: { text: item.label || '' },
+        cssClasses: normalizeCssClass(presentation.cssClass),
+        children: [],
+    };
+
+    if (item.relevant) {
+        displayNode.when = item.relevant;
+        displayNode.whenPrefix = prefix;
+    }
+
+    return displayNode;
+}
+
+function planThemePagesFromDefinitionItems(items: any[], ctx: PlanContext): LayoutNode[] {
+    const pageNodes = buildThemePageNodes((regionPath) => {
+        const item = findItemAtPath(items, regionPath);
+        if (!item) return null;
+        const parentPath = getParentPath(regionPath);
+        return planDefinitionItem(item, ctx, parentPath);
+    }, items, ctx);
+
+    if (pageNodes.length === 0) {
+        return [];
+    }
+
+    const assignedTopLevelKeys = collectAssignedTopLevelKeys(items, ctx.theme.pages);
+    const unassigned = items
+        .filter((item) => !assignedTopLevelKeys.has(item.key))
+        .map((item) => planDefinitionItem(item, ctx, ''));
+
+    return [...pageNodes, ...unassigned];
+}
+
+function planThemePagesFromComponentTree(
+    tree: any,
+    ctx: PlanContext,
+    customComponentStack: Set<string>,
+): LayoutNode | null {
+    const baseCtx = withoutThemePages(ctx);
+    const root = planComponentTree(tree, baseCtx, '', customComponentStack, false);
+    const pageNodes = buildThemePageNodes((regionPath) => {
+        const componentNode = findComponentNodeByPath(ctx.items, tree, regionPath);
+        if (!componentNode) {
+            return null;
+        }
+        return planComponentTree(componentNode, baseCtx, '', customComponentStack, false);
+    }, ctx.items, ctx);
+
+    if (pageNodes.length === 0) {
+        return null;
+    }
+
+    const assignedTopLevelKeys = collectAssignedTopLevelKeys(ctx.items, ctx.theme.pages);
+    const unassigned = ctx.items
+        .filter((item) => !assignedTopLevelKeys.has(item.key))
+        .map((item) => {
+            const componentNode = findComponentNodeByPath(ctx.items, tree, item.key);
+            return componentNode
+                ? planComponentTree(componentNode, baseCtx, '', customComponentStack, false)
+                : planDefinitionItem(item, baseCtx, '');
+        });
+
+    return {
+        ...root,
+        children: [...pageNodes, ...unassigned],
+    };
+}
+
+function buildThemePageNodes(
+    planRegionNode: (regionPath: string) => LayoutNode | null,
+    items: any[],
+    ctx: PlanContext,
+): LayoutNode[] {
+    const pages = Array.isArray(ctx.theme?.pages) ? ctx.theme.pages : [];
+    const nodes: LayoutNode[] = [];
+
+    for (const page of pages) {
+        const regionNodes: LayoutNode[] = [];
+        for (const region of Array.isArray(page.regions) ? page.regions : []) {
+            const regionPath = findItemPathByKey(items, region.key);
+            if (!regionPath) continue;
+            const plannedNode = planRegionNode(regionPath);
+            if (!plannedNode) continue;
+
+            const wrapped = wrapRegionNode(plannedNode, region, ctx.activeBreakpoint ?? null);
+            if (wrapped) {
+                regionNodes.push(wrapped);
+            }
+        }
+
+        nodes.push({
+            id: nextId('page'),
+            component: 'Page',
+            category: 'layout',
+            props: {
+                id: page.id,
+                title: page.title,
+                ...(page.description ? { description: page.description } : {}),
+            },
+            cssClasses: [],
+            children: [
+                {
+                    id: nextId('grid'),
+                    component: 'Grid',
+                    category: 'layout',
+                    props: { columns: 12 },
+                    cssClasses: [],
+                    children: regionNodes,
+                },
+            ],
+        });
+    }
+
+    return nodes;
+}
+
+function wrapRegionNode(
+    node: LayoutNode,
+    region: any,
+    activeBreakpoint: string | null,
+): LayoutNode | null {
+    const resolved = resolveRegionPlacement(region, activeBreakpoint);
+    if (resolved.hidden) {
+        return null;
+    }
+
+    const style: Record<string, string> = {
+        gridColumn: resolved.start !== undefined
+            ? `${resolved.start} / span ${resolved.span}`
+            : `span ${resolved.span}`,
+    };
+
+    return {
+        id: nextId('region'),
+        component: 'Stack',
+        category: 'layout',
+        props: {},
+        style,
+        cssClasses: [],
+        children: [node],
+    };
+}
+
+function resolveRegionPlacement(region: any, activeBreakpoint: string | null): { span: number; start?: number; hidden: boolean } {
+    const override = activeBreakpoint && region?.responsive ? region.responsive[activeBreakpoint] : null;
+    const span = typeof override?.span === 'number'
+        ? override.span
+        : typeof region?.span === 'number'
+            ? region.span
+            : 12;
+    const start = typeof override?.start === 'number'
+        ? override.start
+        : typeof region?.start === 'number'
+            ? region.start
+            : undefined;
+    const hidden = override?.hidden === true;
+
+    return { span, start, hidden };
+}
+
+function collectAssignedTopLevelKeys(items: any[], pages: any[]): Set<string> {
+    const assigned = new Set<string>();
+
+    for (const page of Array.isArray(pages) ? pages : []) {
+        for (const region of Array.isArray(page.regions) ? page.regions : []) {
+            const path = findItemPathByKey(items, region.key);
+            if (!path) continue;
+            assigned.add(path.split('.')[0]);
+        }
+    }
+
+    return assigned;
+}
+
+function withoutThemePages(ctx: PlanContext): PlanContext {
+    if (!ctx.theme?.pages) {
+        return ctx;
+    }
+
+    const theme = { ...ctx.theme };
+    delete theme.pages;
+    return { ...ctx, theme };
+}
+
+function findItemPathByKey(items: any[], key: string, prefix = ''): string | null {
+    for (const item of items) {
+        const itemKey = item?.key || item?.name;
+        if (!itemKey) continue;
+        const fullPath = prefix ? `${prefix}.${itemKey}` : itemKey;
+        if (itemKey === key) {
+            return fullPath;
+        }
+        if (Array.isArray(item.children)) {
+            const nested = findItemPathByKey(item.children, key, fullPath);
+            if (nested) return nested;
+        }
+    }
+    return null;
+}
+
+function findItemAtPath(items: any[], path: string): any | null {
+    const segments = path.split('.').filter(Boolean);
+    let current = items;
+
+    for (let index = 0; index < segments.length; index += 1) {
+        const segment = segments[index];
+        const found = current.find((item: any) => item?.key === segment || item?.name === segment);
+        if (!found) return null;
+        if (index === segments.length - 1) {
+            return found;
+        }
+        current = Array.isArray(found.children) ? found.children : [];
+    }
+
+    return null;
+}
+
+function getParentPath(path: string): string {
+    const segments = path.split('.').filter(Boolean);
+    return segments.slice(0, -1).join('.');
+}
+
+function findComponentNodeByPath(items: any[], rootNode: any, path: string): any | null {
+    const segments = path.split('.').filter(Boolean);
+    if (!segments.length) return null;
+    return findNodeInLevel(items, rootNode.children ?? [], segments, 0);
+}
+
+function findNodeInLevel(items: any[], nodes: any[], segments: string[], depth: number): any | null {
+    let itemIndex = 0;
+    let nodeIndex = 0;
+
+    while (itemIndex < items.length && nodeIndex < nodes.length) {
+        const item = items[itemIndex];
+        const node = nodes[nodeIndex];
+
+        if (node?.component === 'Wizard' && isPageItem(item)) {
+            const result = findNodeInWizardRun(items, itemIndex, node, segments, depth);
+            if (result.found) {
+                return result.node;
+            }
+            itemIndex = result.nextItemIndex;
+            nodeIndex += 1;
+            continue;
+        }
+
+        if (item?.key === segments[depth]) {
+            if (depth === segments.length - 1) {
+                return node;
+            }
+            if (!Array.isArray(item.children)) {
+                return null;
+            }
+            return findNodeInLevel(item.children, node?.children ?? [], segments, depth + 1);
+        }
+
+        itemIndex += 1;
+        nodeIndex += 1;
+    }
+
+    return null;
+}
+
+function findNodeInWizardRun(
+    items: any[],
+    startIndex: number,
+    wizardNode: any,
+    segments: string[],
+    depth: number,
+): { found: boolean; node: any | null; nextItemIndex: number } {
+    let pageOffset = 0;
+    let nextItemIndex = startIndex;
+
+    while (nextItemIndex < items.length && isPageItem(items[nextItemIndex])) {
+        const pageItem = items[nextItemIndex];
+        const pageNode = wizardNode.children?.[pageOffset] ?? null;
+
+        if (pageItem?.key === segments[depth]) {
+            if (depth === segments.length - 1) {
+                return { found: true, node: pageNode, nextItemIndex: nextItemIndex + 1 };
+            }
+            if (!Array.isArray(pageItem.children) || !pageNode) {
+                return { found: true, node: null, nextItemIndex: nextItemIndex + 1 };
+            }
+            return {
+                found: true,
+                node: findNodeInLevel(pageItem.children, pageNode.children ?? [], segments, depth + 1),
+                nextItemIndex: nextItemIndex + 1,
+            };
+        }
+
+        nextItemIndex += 1;
+        pageOffset += 1;
+    }
+
+    return { found: false, node: null, nextItemIndex };
+}
+
+function isPageItem(item: any): boolean {
+    return item?.type === 'group' && item?.presentation?.widgetHint === 'Page';
 }

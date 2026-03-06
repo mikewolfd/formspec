@@ -434,9 +434,9 @@ describe('grant-application integration', () => {
         // Should have children (wizard pages)
         expect(node.children.length).toBeGreaterThan(0);
 
-        // First child should be a Page
+        // First child should be a theme-defined page
         expect(node.children[0].component).toBe('Page');
-        expect(node.children[0].props.title).toBe('Applicant Info');
+        expect(node.children[0].props.title).toBe('Applicant Information');
     });
 
     it('expands custom components (ContactField)', () => {
@@ -502,5 +502,81 @@ describe('grant-application integration', () => {
         const applicantInfo = nodes.find(n => n.bindPath === 'applicantInfo');
         expect(applicantInfo).toBeDefined();
         expect(applicantInfo!.children.length).toBeGreaterThan(0);
+    });
+
+    it('lays out definition fallback items into theme pages with region spans', () => {
+        const items = [
+            { key: 'projectName', type: 'field', dataType: 'string', label: 'Project Name' },
+            { key: 'projectCode', type: 'field', dataType: 'string', label: 'Project Code' },
+            { key: 'certify', type: 'field', dataType: 'boolean', label: 'Certify' },
+        ];
+
+        const ctx: PlanContext = {
+            items,
+            theme: {
+                pages: [
+                    {
+                        id: 'info',
+                        title: 'Project Information',
+                        regions: [
+                            { key: 'projectName', span: 8 },
+                            { key: 'projectCode', span: 4 },
+                        ],
+                    },
+                ],
+            },
+            findItem: makeFindItem(items),
+            isComponentAvailable: () => true,
+        };
+
+        const nodes = planDefinitionFallback(items, ctx);
+        expect(nodes[0].component).toBe('Page');
+        expect(nodes[0].props.title).toBe('Project Information');
+        expect(nodes[0].children[0].component).toBe('Grid');
+        expect(nodes[0].children[0].children[0].style).toEqual({ gridColumn: 'span 8' });
+        expect(nodes[0].children[0].children[0].children[0].bindPath).toBe('projectName');
+        expect(nodes[0].children[0].children[1].style).toEqual({ gridColumn: 'span 4' });
+        expect(nodes[1].bindPath).toBe('certify');
+    });
+
+    it('applies theme pages to component trees while preserving planned field nodes', () => {
+        const items = [
+            { key: 'projectName', type: 'field', dataType: 'string', label: 'Project Name' },
+            { key: 'amount', type: 'field', dataType: 'money', label: 'Amount' },
+        ];
+        const tree = {
+            component: 'Stack',
+            children: [
+                { component: 'TextInput', bind: 'projectName' },
+                { component: 'MoneyInput', bind: 'amount' },
+            ],
+        };
+
+        const ctx: PlanContext = {
+            items,
+            componentDocument: { tree },
+            theme: {
+                pages: [
+                    {
+                        id: 'details',
+                        title: 'Details',
+                        regions: [
+                            { key: 'projectName', span: 7 },
+                            { key: 'amount', span: 5 },
+                        ],
+                    },
+                ],
+            },
+            findItem: makeFindItem(items),
+            isComponentAvailable: () => true,
+        };
+
+        const node = planComponentTree(tree, ctx);
+        expect(node.component).toBe('Stack');
+        expect(node.children[0].component).toBe('Page');
+        expect(node.children[0].children[0].component).toBe('Grid');
+        expect(node.children[0].children[0].children[0].style).toEqual({ gridColumn: 'span 7' });
+        expect(node.children[0].children[0].children[0].children[0].component).toBe('TextInput');
+        expect(node.children[0].children[0].children[1].children[0].component).toBe('MoneyInput');
     });
 });
