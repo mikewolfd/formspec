@@ -661,6 +661,19 @@ def _make_mip_fn(attr: str):
     looks up ``attr`` in ``env.mip_states``, and falls back to spec defaults
     (valid=true, relevant=true, readonly=false, required=false).
     """
+    def _field_ref_to_path(arg: ast.FieldRef) -> str:
+        parts: list[str] = []
+        for seg in arg.segments:
+            if isinstance(seg, ast.DotSegment):
+                if parts:
+                    parts.append('.')
+                parts.append(seg.name)
+            elif isinstance(seg, ast.IndexSegment):
+                parts.append(f'[{seg.index}]')
+            elif isinstance(seg, ast.WildcardSegment):
+                parts.append('[*]')
+        return ''.join(parts)
+
     def _mip_fn(evaluator, args, pos) -> FelValue:
         if len(args) != 1:
             evaluator._diag(f"{attr}() requires 1 argument", pos)
@@ -668,7 +681,7 @@ def _make_mip_fn(attr: str):
         # Extract field path from AST
         arg = args[0]
         if isinstance(arg, ast.FieldRef):
-            path = '.'.join(s.name for s in arg.segments if isinstance(s, ast.DotSegment))
+            path = _field_ref_to_path(arg)
             if path in evaluator.env.mip_states:
                 return fel_bool(getattr(evaluator.env.mip_states[path], attr))
             # Spec section 4.3.2 defaults: valid=true, relevant=true, readonly=false, required=false

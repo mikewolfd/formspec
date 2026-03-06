@@ -20,10 +20,12 @@ from decimal import Decimal, ROUND_HALF_EVEN
 
 from .fel import (
     evaluate, extract_dependencies, parse,
-    FelTrue, FelValue, Environment, Evaluator as FelEvaluator,
+    FelTrue, FelValue, Environment, Evaluator as FelEvaluator, FelNull,
 )
 from .fel.types import from_python, to_python
 from .fel.functions import build_default_registry
+
+_UNSET = object()
 
 
 @dataclass
@@ -37,6 +39,8 @@ class ItemInfo:
     parent: str | None      # full path of parent, or None for top-level
     children: list[str]     # full paths of direct children
     precision: int | None   # decimal precision
+    initial_value: object = None
+    pre_populate: dict | None = None
 
 
 @dataclass
@@ -75,6 +79,7 @@ class DefinitionEvaluator:
     def __init__(self, definition: dict) -> None:
         self._definition = definition
         self._default_nrb = definition.get('nonRelevantBehavior', 'remove')
+        self._last_relevance: dict[str, bool] = {}
 
         # Phase 1a: Build item registry
         self._items: dict[str, ItemInfo] = {}
@@ -125,6 +130,8 @@ class DefinitionEvaluator:
                 parent=parent_path,
                 children=child_paths,
                 precision=item.get('precision'),
+                initial_value=item.get('initialValue'),
+                pre_populate=item.get('prePopulate'),
             )
             self._items[full_path] = info
 
@@ -228,9 +235,13 @@ class DefinitionEvaluator:
             self._ast_cache[expr] = parse(expr)
         return self._ast_cache[expr]
 
-    def _eval_fel(self, expr: str, data: dict, variables: dict[str, FelValue],
-                  scope: dict | None = None):
+    def _eval_fel(
+        self, expr: str, data: dict, variables: dict[str, FelValue],
+        scope: dict | None = None, path: str | None = None,
+    ):
         """Evaluate a FEL expression, optionally with a scope pushed."""
+        if path is not None:
+            variables = self._evaluate_variables_for_path(data, path)
         if scope is not None:
             ast = self._parse_cached(expr)
             env = Environment(
@@ -275,31 +286,74 @@ class DefinitionEvaluator:
                     row[field_name] = _transform_whitespace(val, ws)
 
     def evaluate_variables(self, data: dict) -> dict[str, FelValue]:
-        """Evaluate all definition variables in dependency order."""
+        """Evaluate definition-wide variables in dependency order."""
+        return self._evaluate_variables_for_path(data, None)
+
+    def _evaluate_variables_for_path(self, data: dict, path: str | None) -> dict[str, FelValue]:
+        """Evaluate variables visible at a given concrete evaluation path."""
         variables: dict[str, FelValue] = {}
         for name in self._var_order:
-            expr = self._variables[name]['expression']
-            result = evaluate(expr, data, variables=variables, instances=self._instances)
-            variables[name] = result.value
+            variable = self._variables[name]
+            scope_path = variable.get('scope', '#')
+            scope = self._resolve_variable_scope(data, path, scope_path)
+            if scope_path != '#' and scope is None:
+                continue
+            expr = variable['expression']
+            result = self._eval_fel(expr, data, variables, scope=scope)
+            variables[name] = result
         return variables
 
-    def _eval_relevance(self, data: dict, variables: dict[str, FelValue]) -> dict[str, bool]:
+    def _resolve_variable_scope(self, data: dict, path: str | None, scope_path: str | None):
+        if scope_path in (None, '#'):
+            return None
+        if path is None:
+            return None
+        concrete_scope_path = _concrete_scope_path(path, scope_path)
+        if concrete_scope_path is None:
+            return None
+        scope_value = _get_path(data, concrete_scope_path)
+        return scope_value if isinstance(scope_value, dict) else None
+
+    def _eval_relevance(
+        self, data: dict, variables: dict[str, FelValue], concrete_paths: set[str] | None = None,
+    ) -> dict[str, bool]:
         """Evaluate relevant binds. Apply AND inheritance (parent false → children false)."""
-        relevance: dict[str, bool] = {}
+        concrete_paths = concrete_paths or set()
+        relevance: dict[str, bool] = {path: True for path in self._items}
+        for path in concrete_paths:
+            relevance[path] = True
         # First pass: evaluate explicit relevant binds
-        for path, info in self._items.items():
-            bind = self._get_bind_for_path(path)
-            if bind and 'relevant' in bind:
-                val = self._eval_fel(bind['relevant'], data, variables)
-                relevance[path] = val is FelTrue
+        for bind_path, bind in self._binds.items():
+            if 'relevant' not in bind:
+                continue
+            if '[*]' in bind_path:
+                for concrete_path, _, scope in _resolve_target_contexts(data, bind_path):
+                    val = self._eval_fel(bind['relevant'], data, variables, scope=scope, path=concrete_path)
+                    relevance[concrete_path] = val is FelTrue or val is FelNull
             else:
-                relevance[path] = True
+                val = self._eval_fel(bind['relevant'], data, variables, path=bind_path)
+                relevance[bind_path] = val is FelTrue or val is FelNull
 
         # Second pass: AND inheritance
         for path, info in self._items.items():
             if info.parent and info.parent in relevance:
                 if not relevance[info.parent]:
                     relevance[path] = False
+
+        for path in sorted(concrete_paths, key=lambda p: p.count('.') + p.count('[')):
+            if not relevance.get(path, True):
+                continue
+            for ancestor in _concrete_ancestors(path):
+                if relevance.get(ancestor) is False:
+                    relevance[path] = False
+                    break
+            if not relevance.get(path, True):
+                continue
+            definition_path = _strip_indices(path)
+            for ancestor in _definition_ancestors(definition_path):
+                if relevance.get(ancestor) is False:
+                    relevance[path] = False
+                    break
 
         return relevance
 
@@ -309,7 +363,7 @@ class DefinitionEvaluator:
         for path in self._items:
             bind = self._get_bind_for_path(path)
             if bind and 'required' in bind:
-                val = self._eval_fel(bind['required'], data, variables)
+                val = self._eval_fel(bind['required'], data, variables, path=path)
                 required[path] = val is FelTrue
         return required
 
@@ -319,7 +373,7 @@ class DefinitionEvaluator:
         for path in self._items:
             bind = self._get_bind_for_path(path)
             if bind and 'readonly' in bind:
-                val = self._eval_fel(bind['readonly'], data, variables)
+                val = self._eval_fel(bind['readonly'], data, variables, path=path)
                 readonly[path] = val is FelTrue
             else:
                 readonly[path] = False
@@ -342,7 +396,7 @@ class DefinitionEvaluator:
             if '[*]' in path:
                 self._eval_calculate_wildcard(data, path, calc, variables)
             else:
-                val = self._eval_fel(calc, data, variables)
+                val = self._eval_fel(calc, data, variables, path=path)
                 py_val = to_python(val)
                 py_val = self._apply_precision(path, py_val)
                 _set_nested(data, path, py_val)
@@ -364,7 +418,8 @@ class DefinitionEvaluator:
             if not isinstance(row, dict):
                 continue
             # Use scope stack for bare field references within the row
-            result = self._eval_fel(calc, data, variables, scope=row)
+            concrete_path = f'{base}[{i + 1}].{suffix}' if suffix else f'{base}[{i + 1}]'
+            result = self._eval_fel(calc, data, variables, scope=row, path=concrete_path)
             py_val = to_python(result)
             py_val = self._apply_precision(path, py_val)
             if suffix and '.' not in suffix:
@@ -398,22 +453,30 @@ class DefinitionEvaluator:
             return self._binds[path]
         return None
 
+    def _get_bind_property_for_path(self, path: str, prop: str, default=None):
+        for candidate in _bind_lookup_candidates(path):
+            bind = self._binds.get(candidate)
+            if bind and prop in bind:
+                return bind[prop]
+        return default
+
     def _eval_constraint(
         self, expr: str, data: dict, variables: dict[str, FelValue],
-        self_value=None, row: dict | None = None,
+        self_value=_UNSET, row: dict | None = None, path: str | None = None,
+        null_passes: bool = False,
     ) -> bool:
         """Evaluate a FEL constraint. Injects self_value as bare $ (scope key '').
         If row is provided, row fields are also pushed into scope (for wildcard binds)."""
-        if self_value is not None or row is not None:
+        if self_value is not _UNSET or row is not None:
             scope = {}
             if row is not None:
                 scope.update(row)
-            if self_value is not None:
+            if self_value is not _UNSET:
                 scope[''] = self_value
-            result = self._eval_fel(expr, data, variables, scope=scope)
+            result = self._eval_fel(expr, data, variables, scope=scope, path=path)
         else:
-            result = self._eval_fel(expr, data, variables)
-        return result is FelTrue
+            result = self._eval_fel(expr, data, variables, path=path)
+        return result is FelTrue or (null_passes and result is FelNull)
 
     # ── Phase 3: Revalidate ──────────────────────────────────────────────
 
@@ -461,7 +524,9 @@ class DefinitionEvaluator:
                 })
 
             if bind and 'constraint' in bind and not _is_empty(val):
-                if not self._eval_constraint(bind['constraint'], data, variables, self_value=val):
+                if not self._eval_constraint(
+                    bind['constraint'], data, variables, self_value=val, path=path, null_passes=True,
+                ):
                     msg = bind.get('constraintMessage', f'Constraint failed for {path}')
                     results.append({
                         'severity': 'error',
@@ -527,12 +592,14 @@ class DefinitionEvaluator:
             if not isinstance(row, dict):
                 continue
             concrete_path = f'{base}[{i}].{suffix}' if suffix else f'{base}[{i}]'
+            if not relevance.get(concrete_path, relevance.get(_strip_indices(concrete_path), True)):
+                continue
 
             val = row.get(suffix) if suffix and '.' not in suffix else None
 
             # Required
             if 'required' in bind:
-                req_val = self._eval_fel(bind['required'], data, variables, scope=row)
+                req_val = self._eval_fel(bind['required'], data, variables, scope=row, path=concrete_path)
                 if req_val is FelTrue and _is_empty(val):
                     results.append({
                         'severity': 'error',
@@ -544,7 +611,10 @@ class DefinitionEvaluator:
                     })
 
             if 'constraint' in bind and not _is_empty(val):
-                if not self._eval_constraint(bind['constraint'], data, variables, self_value=val, row=row):
+                if not self._eval_constraint(
+                    bind['constraint'], data, variables,
+                    self_value=val, row=row, path=concrete_path, null_passes=True,
+                ):
                     msg = bind.get('constraintMessage', f'Constraint failed for {concrete_path}')
                     results.append({
                         'severity': 'error',
@@ -556,7 +626,7 @@ class DefinitionEvaluator:
                     })
 
     def _eval_shapes(
-        self, data: dict, variables: dict[str, FelValue], mode: str,
+        self, data: dict, variables: dict[str, FelValue], mode: str, relevance: dict[str, bool],
     ) -> list[dict]:
         """Evaluate shape constraints, respecting timing."""
         results: list[dict] = []
@@ -564,42 +634,56 @@ class DefinitionEvaluator:
             timing = shape.get('timing', 'continuous')
             if timing == 'submit' and mode != 'submit':
                 continue
-            self._eval_shape(shape, data, variables, results)
+            self._eval_shape(shape, data, variables, results, relevance)
         return results
 
     def _eval_shape(
         self, shape: dict, data: dict, variables: dict[str, FelValue],
-        out: list[dict],
+        out: list[dict], relevance: dict[str, bool],
+    ) -> bool:
+        target = shape.get('target', '#')
+        contexts = self._resolve_shape_targets(data, target)
+        if not contexts:
+            return True
+
+        passed = True
+        for target_path, target_val, scope in contexts:
+            if target_path != '#' and not relevance.get(target_path, relevance.get(_strip_indices(target_path), True)):
+                continue
+            if not self._eval_shape_at_target(shape, data, variables, out, target_path, target_val, scope):
+                passed = False
+        return passed
+
+    def _eval_shape_at_target(
+        self, shape: dict, data: dict, variables: dict[str, FelValue],
+        out: list[dict], target_path: str, target_val, scope: dict | None,
     ) -> bool:
         if 'activeWhen' in shape:
-            guard = evaluate(shape['activeWhen'], data, variables=variables, instances=self._instances)
-            if guard.value is not FelTrue:
+            if not self._eval_expr(shape['activeWhen'], data, variables, self_value=target_val, row=scope, path=target_path):
                 return True
 
         passed = True
 
         if 'constraint' in shape:
-            target = shape.get('target')
-            target_val = _get_nested(data, target) if (target and target != '#') else None
-            passed = self._eval_constraint(shape['constraint'], data, variables, self_value=target_val)
+            passed = self._eval_constraint(shape['constraint'], data, variables, self_value=target_val, row=scope, path=target_path)
 
         if passed and 'and' in shape:
-            passed = all(self._eval_expr(e, data, variables) for e in shape['and'])
+            passed = all(self._eval_expr(e, data, variables, self_value=target_val, row=scope, path=target_path) for e in shape['and'])
 
         if passed and 'or' in shape:
-            passed = any(self._eval_expr(e, data, variables) for e in shape['or'])
+            passed = any(self._eval_expr(e, data, variables, self_value=target_val, row=scope, path=target_path) for e in shape['or'])
 
         if passed and 'not' in shape:
-            passed = not self._eval_expr(shape['not'], data, variables)
+            passed = not self._eval_expr(shape['not'], data, variables, self_value=target_val, row=scope, path=target_path)
 
         if passed and 'xone' in shape:
-            passing = sum(1 for e in shape['xone'] if self._eval_expr(e, data, variables))
+            passing = sum(1 for e in shape['xone'] if self._eval_expr(e, data, variables, self_value=target_val, row=scope, path=target_path))
             passed = passing == 1
 
         if not passed:
             out.append({
                 'severity': shape.get('severity', 'error'),
-                'path': shape.get('target', '#'),
+                'path': target_path,
                 'message': shape['message'],
                 'constraintKind': 'shape',
                 'code': shape.get('code', 'SHAPE_FAILED'),
@@ -609,13 +693,23 @@ class DefinitionEvaluator:
 
         return passed
 
-    def _eval_expr(self, expr: str, data: dict, variables: dict[str, FelValue]) -> bool:
+    def _resolve_shape_targets(self, data: dict, target: str) -> list[tuple[str, object, dict | None]]:
+        if target == '#':
+            return [('#', None, None)]
+        return _resolve_target_contexts(data, target)
+
+    def _eval_expr(
+        self, expr: str, data: dict, variables: dict[str, FelValue],
+        self_value=_UNSET, row: dict | None = None, path: str | None = None,
+    ) -> bool:
         shape = self._shapes_by_id.get(expr)
         if shape is not None:
             out: list[dict] = []
-            return self._eval_shape(shape, data, variables, out)
-        result = evaluate(expr, data, variables=variables, instances=self._instances)
-        return result.value is FelTrue
+            return self._eval_shape(shape, data, variables, out, {'#': True})
+        if self_value is not _UNSET or row is not None:
+            return self._eval_constraint(expr, data, variables, self_value=self_value, row=row, path=path)
+        result = self._eval_fel(expr, data, variables, path=path)
+        return result is FelTrue
 
     # ── Phase 4: Apply NRB ───────────────────────────────────────────────
 
@@ -628,27 +722,100 @@ class DefinitionEvaluator:
             nrb = self._get_nrb_for_path(path)
 
             if nrb == 'remove':
-                _delete_nested(data, path)
+                _delete_path(data, path)
             elif nrb == 'empty':
-                _set_nested(data, path, None)
+                _set_path(data, path, None)
             # 'keep' — do nothing
 
         return data
 
     def _get_nrb_for_path(self, path: str) -> str:
         """Get nonRelevantBehavior: field bind → ancestor binds → definition default."""
-        bind = self._get_bind_for_path(path)
-        if bind and 'nonRelevantBehavior' in bind:
-            return bind['nonRelevantBehavior']
+        return self._get_bind_property_for_path(path, 'nonRelevantBehavior', self._default_nrb)
 
-        # Walk ancestors
-        info = self._items.get(path)
-        if info and info.parent:
-            parent_bind = self._get_bind_for_path(info.parent)
-            if parent_bind and 'nonRelevantBehavior' in parent_bind:
-                return parent_bind['nonRelevantBehavior']
+    def _get_excluded_value_for_path(self, path: str) -> str:
+        return self._get_bind_property_for_path(path, 'excludedValue', 'preserve')
 
-        return self._default_nrb
+    def _apply_excluded_values(self, data: dict, relevance: dict[str, bool]) -> dict:
+        for path, is_relevant in relevance.items():
+            if is_relevant or path == '#':
+                continue
+            if self._get_excluded_value_for_path(path) != 'null':
+                continue
+            _set_path(data, path, None)
+        return data
+
+    def _apply_initializers(self, data: dict) -> None:
+        self._apply_initializers_to_items(self._definition.get('items', []), data, data)
+
+    def _apply_initializers_to_items(self, items: list[dict], container: dict, root_data: dict) -> None:
+        for item in items:
+            key = item.get('key')
+            if not key:
+                continue
+            item_type = item.get('type', 'field')
+
+            if item_type == 'group':
+                if item.get('repeatable', False):
+                    arr = container.get(key, [])
+                    if isinstance(arr, list):
+                        for row in arr:
+                            if isinstance(row, dict):
+                                self._apply_initializers_to_items(item.get('children', []), row, root_data)
+                    continue
+
+                subcontainer = container.get(key)
+                created = False
+                if not isinstance(subcontainer, dict):
+                    subcontainer = {}
+                    created = True
+                self._apply_initializers_to_items(item.get('children', []), subcontainer, root_data)
+                if created and subcontainer:
+                    container[key] = subcontainer
+                continue
+
+            if key not in container:
+                value = self._evaluate_initializer(item, root_data)
+                if value is not _UNSET:
+                    container[key] = value
+
+            if item.get('children'):
+                subcontainer = container.get(key)
+                if isinstance(subcontainer, dict):
+                    self._apply_initializers_to_items(item['children'], subcontainer, root_data)
+
+    def _evaluate_initializer(self, item: dict, root_data: dict):
+        pre_populate = item.get('prePopulate')
+        if isinstance(pre_populate, dict):
+            instance_name = pre_populate.get('instance')
+            instance_path = pre_populate.get('path')
+            if instance_name and instance_path:
+                return _get_nested(self._instances.get(instance_name, {}), instance_path)
+
+        initial_value = item.get('initialValue', _UNSET)
+        if initial_value is _UNSET:
+            return _UNSET
+        if isinstance(initial_value, str) and initial_value.startswith('='):
+            result = self._eval_fel(initial_value[1:], root_data, {})
+            return to_python(result)
+        return copy.deepcopy(initial_value)
+
+    def _apply_relevance_defaults(self, data: dict, relevance: dict[str, bool]) -> bool:
+        changed = False
+        for path, is_relevant in relevance.items():
+            if not is_relevant:
+                continue
+            if self._last_relevance.get(path, True):
+                continue
+            default_value = self._get_bind_property_for_path(path, 'default', _UNSET)
+            if default_value is _UNSET:
+                continue
+            current_value = _get_path(data, path)
+            if not _is_empty(current_value):
+                continue
+            _set_path(data, path, copy.deepcopy(default_value))
+            changed = True
+        return changed
 
     # ── Public API ───────────────────────────────────────────────────────
 
@@ -656,6 +823,7 @@ class DefinitionEvaluator:
         """Run all 4 phases and return a ProcessingResult."""
         # Deep copy to avoid mutating caller's data
         data = copy.deepcopy(data)
+        self._apply_initializers(data)
 
         # Phase 1: Expand repeats
         repeat_counts, concrete_paths = self._expand_repeats(data)
@@ -665,13 +833,19 @@ class DefinitionEvaluator:
         # Calculate binds first (so computed fields have values for variable expressions)
         self._eval_calculates(data, {})
         variables = self.evaluate_variables(data)
-        relevance = self._eval_relevance(data, variables)
-        required = self._eval_required(data, variables)
-        readonly = self._eval_readonly(data, variables)
+        relevance = self._eval_relevance(data, variables, concrete_paths)
+        if self._apply_relevance_defaults(data, relevance):
+            self._eval_calculates(data, {})
+            variables = self.evaluate_variables(data)
+            relevance = self._eval_relevance(data, variables, concrete_paths)
+        eval_data = self._apply_excluded_values(copy.deepcopy(data), relevance)
+        variables = self.evaluate_variables(eval_data)
+        required = self._eval_required(eval_data, variables)
+        readonly = self._eval_readonly(eval_data, variables)
 
         # Phase 3: Revalidate
-        bind_results = self._validate_binds(data, variables, relevance, required, repeat_counts)
-        shape_results = self._eval_shapes(data, variables, mode)
+        bind_results = self._validate_binds(eval_data, variables, relevance, required, repeat_counts)
+        shape_results = self._eval_shapes(eval_data, variables, mode, relevance)
         all_results = bind_results + shape_results
 
         # Phase 4: Apply NRB
@@ -685,6 +859,7 @@ class DefinitionEvaluator:
                 counts[sev] += 1
 
         valid = counts['error'] == 0
+        self._last_relevance = dict(relevance)
 
         return ProcessingResult(
             valid=valid,
@@ -697,6 +872,43 @@ class DefinitionEvaluator:
     def validate(self, data: dict, *, mode: str = 'submit') -> list[dict]:
         """Convenience: return just the validation results."""
         return self.process(data, mode=mode).results
+
+    def evaluate_screener(
+        self, answers: dict,
+    ) -> dict[str, object] | None:
+        """Evaluate screener routes in declaration order against screener-only answers."""
+        screener = self._definition.get('screener')
+        if not isinstance(screener, dict):
+            return None
+
+        routes = screener.get('routes')
+        if not isinstance(routes, list):
+            return None
+
+        for route in routes:
+            if not isinstance(route, dict):
+                continue
+            condition = route.get('condition')
+            target = route.get('target')
+            if not isinstance(condition, str) or not isinstance(target, str):
+                continue
+
+            try:
+                result = evaluate(condition, answers, instances=self._instances).value
+            except Exception:
+                continue
+
+            if result is not FelTrue:
+                continue
+
+            match: dict[str, object] = {'target': target}
+            if 'label' in route:
+                match['label'] = route['label']
+            if 'extensions' in route:
+                match['extensions'] = copy.deepcopy(route['extensions'])
+            return match
+
+        return None
 
 
 # ── Utility functions ────────────────────────────────────────────────────────
@@ -742,6 +954,99 @@ def _delete_nested(data: dict, path: str) -> None:
         current.pop(parts[-1], None)
 
 
+def _path_tokens(path: str) -> list[object]:
+    tokens: list[object] = []
+    for segment in path.split('.'):
+        key_match = re.match(r'^([a-zA-Z][a-zA-Z0-9_]*)', segment)
+        if key_match:
+            tokens.append(key_match.group(1))
+        for index in re.findall(r'\[(\d+)\]', segment):
+            tokens.append(int(index))
+    return tokens
+
+
+def _set_path(data: dict, path: str, value) -> None:
+    tokens = _path_tokens(path)
+    if not tokens:
+        return
+    current = data
+    for token in tokens[:-1]:
+        if isinstance(token, str):
+            if not isinstance(current, dict):
+                return
+            if token not in current or current[token] is None:
+                current[token] = {}
+            current = current[token]
+        else:
+            if not isinstance(current, list):
+                return
+            index = token - 1
+            if index < 0 or index >= len(current):
+                return
+            current = current[index]
+    last = tokens[-1]
+    if isinstance(last, str):
+        if isinstance(current, dict):
+            current[last] = value
+    else:
+        if isinstance(current, list):
+            index = last - 1
+            if 0 <= index < len(current):
+                current[index] = value
+
+
+def _get_path(data: dict, path: str):
+    tokens = _path_tokens(path)
+    if not tokens:
+        return None
+    current = data
+    for token in tokens:
+        if isinstance(token, str):
+            if not isinstance(current, dict):
+                return None
+            current = current.get(token)
+        else:
+            if not isinstance(current, list):
+                return None
+            index = token - 1
+            if index < 0 or index >= len(current):
+                return None
+            current = current[index]
+        if current is None:
+            return None
+    return current
+
+
+def _delete_path(data: dict, path: str) -> None:
+    tokens = _path_tokens(path)
+    if not tokens:
+        return
+    current = data
+    for token in tokens[:-1]:
+        if isinstance(token, str):
+            if not isinstance(current, dict):
+                return
+            current = current.get(token)
+        else:
+            if not isinstance(current, list):
+                return
+            index = token - 1
+            if index < 0 or index >= len(current):
+                return
+            current = current[index]
+        if current is None:
+            return
+    last = tokens[-1]
+    if isinstance(last, str):
+        if isinstance(current, dict):
+            current.pop(last, None)
+    else:
+        if isinstance(current, list):
+            index = last - 1
+            if 0 <= index < len(current):
+                current[index] = None
+
+
 def _is_empty(value) -> bool:
     """Check if a value is empty (null, empty string, empty list)."""
     if value is None:
@@ -769,3 +1074,103 @@ def _transform_whitespace(value: str, mode: str) -> str:
     elif mode == 'remove':
         return re.sub(r'\s+', '', value)
     return value
+
+
+_TARGET_SEGMENT_RE = re.compile(r'^(?P<key>[a-zA-Z][a-zA-Z0-9_]*)(?:\[(?P<index>\*|\d+)\])?$')
+
+
+def _strip_indices(path: str) -> str:
+    return re.sub(r'\[\d+\]', '', path)
+
+
+def _definition_ancestors(path: str) -> list[str]:
+    ancestors: list[str] = []
+    current = path
+    while '.' in current:
+        current = current.rsplit('.', 1)[0]
+        ancestors.append(current)
+    return ancestors
+
+
+def _concrete_ancestors(path: str) -> list[str]:
+    ancestors: list[str] = []
+    current = path
+    while '.' in current:
+        current = current.rsplit('.', 1)[0]
+        ancestors.append(current)
+    return ancestors
+
+
+def _concrete_scope_path(path: str, scope_path: str) -> str | None:
+    for candidate in [path, *_concrete_ancestors(path)]:
+        if _strip_indices(candidate) == scope_path:
+            return candidate
+    return None
+
+
+def _to_wildcard_path(path: str) -> str:
+    return re.sub(r'\[\d+\]', '[*]', path)
+
+
+def _bind_lookup_candidates(path: str) -> list[str]:
+    candidates: list[str] = []
+    current: str | None = path
+    while current:
+        for candidate in (current, _to_wildcard_path(current), _strip_indices(current)):
+            if candidate not in candidates:
+                candidates.append(candidate)
+        current = current.rsplit('.', 1)[0] if '.' in current else None
+    return candidates
+
+
+def _resolve_target_contexts(data: dict, target: str) -> list[tuple[str, object, dict | None]]:
+    """Resolve a shape target path to concrete runtime paths and evaluation scopes."""
+    parts = target.split('.')
+    resolved: list[tuple[str, object, dict | None]] = []
+
+    def walk(container: object, index: int, concrete_parts: list[str]) -> None:
+        if index >= len(parts) or not isinstance(container, dict):
+            return
+
+        match = _TARGET_SEGMENT_RE.match(parts[index])
+        if not match:
+            return
+
+        key = match.group('key')
+        segment_index = match.group('index')
+        node = container.get(key)
+        concrete_key = key
+
+        if segment_index is None:
+            if index == len(parts) - 1:
+                resolved.append(('.'.join(concrete_parts + [concrete_key]), node, container))
+                return
+            walk(node, index + 1, concrete_parts + [concrete_key])
+            return
+
+        if not isinstance(node, list):
+            return
+
+        if segment_index == '*':
+            for position, entry in enumerate(node, 1):
+                concrete_segment = f'{key}[{position}]'
+                if index == len(parts) - 1:
+                    scope = entry if isinstance(entry, dict) else container
+                    resolved.append(('.'.join(concrete_parts + [concrete_segment]), entry, scope))
+                else:
+                    walk(entry, index + 1, concrete_parts + [concrete_segment])
+            return
+
+        position = int(segment_index)
+        if position < 1 or position > len(node):
+            return
+        entry = node[position - 1]
+        concrete_segment = f'{key}[{position}]'
+        if index == len(parts) - 1:
+            scope = entry if isinstance(entry, dict) else container
+            resolved.append(('.'.join(concrete_parts + [concrete_segment]), entry, scope))
+            return
+        walk(entry, index + 1, concrete_parts + [concrete_segment])
+
+    walk(data, 0, [])
+    return resolved

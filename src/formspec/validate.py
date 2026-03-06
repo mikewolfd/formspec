@@ -44,6 +44,7 @@ class ArtifactFile:
 @dataclass
 class DefinitionArtifact(ArtifactFile):
     url: str = ""
+    version: str = ""
     derived_from_url: str = ""
 
 
@@ -60,6 +61,7 @@ class MappingArtifact(ArtifactFile):
 @dataclass
 class ResponseArtifact(ArtifactFile):
     definition_url: str = ""
+    definition_version: str = ""
     status: str = ""
 
 
@@ -71,6 +73,7 @@ class ChangelogArtifact(ArtifactFile):
 @dataclass
 class DiscoveredArtifacts:
     definitions: dict[str, DefinitionArtifact] = field(default_factory=dict)
+    definition_versions: dict[tuple[str, str], DefinitionArtifact] = field(default_factory=dict)
     fragments: dict[str, DefinitionArtifact] = field(default_factory=dict)
     components: list[ComponentArtifact] = field(default_factory=list)
     themes: list[ArtifactFile] = field(default_factory=list)
@@ -156,12 +159,15 @@ def discover_artifacts(
         doc_type = sv.detect_document_type(doc)
         if doc_type == "definition":
             url = doc.get("url", "")
+            version = doc.get("version", "")
             derived = ""
             if isinstance(doc.get("derivedFrom"), dict):
                 derived = doc["derivedFrom"].get("url", "")
-            arts.definitions[url] = DefinitionArtifact(
-                path=path, doc=doc, url=url, derived_from_url=derived
+            artifact = DefinitionArtifact(
+                path=path, doc=doc, url=url, version=version, derived_from_url=derived
             )
+            arts.definitions[url] = artifact
+            arts.definition_versions[(url, version)] = artifact
         elif doc_type == "component":
             target = ""
             if isinstance(doc.get("targetDefinition"), dict):
@@ -183,6 +189,7 @@ def discover_artifacts(
                     path=path,
                     doc=doc,
                     definition_url=doc.get("definitionUrl", ""),
+                    definition_version=doc.get("definitionVersion", ""),
                     status=doc.get("status", ""),
                 )
             )
@@ -324,15 +331,35 @@ def _pass_runtime_evaluation(arts: DiscoveredArtifacts) -> PassResult:
     if not arts.responses or not arts.definitions:
         return PassResult(title="Runtime evaluation (DefinitionEvaluator)", empty=True)
 
-    # Build evaluators keyed by definition URL
-    evaluators: dict[str, DefinitionEvaluator] = {}
-    for url, da in arts.definitions.items():
-        evaluators[url] = DefinitionEvaluator(da.doc)
+    evaluators: dict[tuple[str, str], DefinitionEvaluator] = {}
+    for identity, da in arts.definition_versions.items():
+        evaluators[identity] = DefinitionEvaluator(da.doc)
 
     pr = PassResult(title="Runtime evaluation (DefinitionEvaluator)")
     for resp in arts.responses:
-        ev = evaluators.get(resp.definition_url)
+        ev = evaluators.get((resp.definition_url, resp.definition_version))
         if not ev:
+            message = (
+                "No definition found for pinned response "
+                f"{resp.definition_url}@{resp.definition_version}"
+            )
+            available_versions = sorted(
+                version
+                for (url, version) in arts.definition_versions
+                if url == resp.definition_url
+            )
+            if available_versions:
+                message += f"; available versions: {', '.join(available_versions)}"
+
+            pr.items.append(
+                PassItemResult(
+                    label=resp.path.name,
+                    error_count=1,
+                    runtime_results=[
+                        {"severity": "error", "message": message, "path": ""}
+                    ],
+                )
+            )
             continue
 
         data = resp.doc.get("data", {})
