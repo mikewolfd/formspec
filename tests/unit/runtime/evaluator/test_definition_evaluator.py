@@ -108,6 +108,76 @@ class TestEvaluateVariables:
         result = ev.process({'items': [{'amount': 100}, {'amount': 200}]})
         assert to_python(result.variables['total']) == pytest.approx(300)
 
+    def test_scoped_variable_resolves_from_nearest_group_scope(self):
+        ev = DefinitionEvaluator({
+            'items': [
+                {'type': 'field', 'key': 'rate', 'dataType': 'decimal'},
+                {
+                    'type': 'group', 'key': 'order',
+                    'children': [
+                        {'type': 'field', 'key': 'amount', 'dataType': 'decimal'},
+                        {'type': 'field', 'key': 'tax', 'dataType': 'decimal'},
+                    ],
+                },
+            ],
+            'variables': [
+                {'name': 'globalRate', 'expression': 'rate'},
+                {'name': 'localTax', 'expression': 'amount * @globalRate', 'scope': 'order'},
+            ],
+            'binds': [
+                {'path': 'order.tax', 'calculate': '@localTax'},
+            ],
+        })
+
+        result = ev.process({'rate': 0.1, 'order': {'amount': 200, 'tax': None}})
+        assert result.data['order']['tax'] == pytest.approx(20)
+
+    def test_scoped_variable_is_not_visible_outside_its_scope(self):
+        ev = DefinitionEvaluator({
+            'items': [
+                {
+                    'type': 'group', 'key': 'order',
+                    'children': [
+                        {'type': 'field', 'key': 'amount', 'dataType': 'decimal'},
+                        {'type': 'field', 'key': 'tax', 'dataType': 'decimal'},
+                    ],
+                },
+                {'type': 'field', 'key': 'summaryTax', 'dataType': 'decimal'},
+            ],
+            'variables': [
+                {'name': 'localTax', 'expression': 'amount * 0.1', 'scope': 'order'},
+            ],
+            'binds': [
+                {'path': 'order.tax', 'calculate': '@localTax'},
+                {'path': 'summaryTax', 'calculate': '@localTax'},
+            ],
+        })
+
+        result = ev.process({'order': {'amount': 200, 'tax': None}, 'summaryTax': None})
+        assert result.data['order']['tax'] == pytest.approx(20)
+        assert result.data['summaryTax'] is None
+
+    def test_scoped_variable_resolves_for_repeat_descendants(self):
+        ev = DefinitionEvaluator({
+            'items': [{
+                'type': 'group', 'key': 'items', 'repeatable': True,
+                'children': [
+                    {'type': 'field', 'key': 'amount', 'dataType': 'decimal'},
+                    {'type': 'field', 'key': 'fee', 'dataType': 'decimal'},
+                ],
+            }],
+            'variables': [
+                {'name': 'rowRate', 'expression': '0.2', 'scope': 'items'},
+            ],
+            'binds': [
+                {'path': 'items[*].fee', 'calculate': 'amount * @rowRate'},
+            ],
+        })
+
+        result = ev.process({'items': [{'amount': 100, 'fee': None}, {'amount': 50, 'fee': None}]})
+        assert result.data['items'][0]['fee'] == pytest.approx(20)
+        assert result.data['items'][1]['fee'] == pytest.approx(10)
+
 
 # ── Shape evaluation ─────────────────────────────────────────────────────────
 
@@ -259,6 +329,42 @@ class TestValidate:
         }])
         assert ev.validate({'text': 'Real content'}) == []
         assert ev.validate({'text': 'Content TBD'}) != []
+
+    def test_wildcard_target_shape_emits_concrete_repeat_path(self):
+        ev = self._ev([{
+            'id': 'nonNegativeRowAmount',
+            'target': 'rows[*].amount',
+            'severity': 'error',
+            'message': 'Amount must be non-negative',
+            'code': 'ROW_AMOUNT',
+            'constraint': '$ >= 0',
+        }])
+        data = {'rows': [{'amount': 10}, {'amount': -5}]}
+        results = ev.validate(data)
+        assert len(results) == 1
+        assert results[0]['code'] == 'ROW_AMOUNT'
+        assert results[0]['path'] == 'rows[2].amount'
+
+    def test_wildcard_target_shape_uses_row_scope_for_sibling_references(self):
+        ev = self._ev([{
+            'id': 'childAgeRule',
+            'target': 'rows[*].age',
+            'severity': 'error',
+            'message': 'Child age invalid',
+            'code': 'CHILD_AGE',
+            'activeWhen': '$role = "child"',
+            'constraint': '$ < 19 or ($ < 22 and $isStudent = true)',
+        }])
+        data = {
+            'rows': [
+                {'role': 'adult', 'age': 40, 'isStudent': False},
+                {'role': 'child', 'age': 21, 'isStudent': False},
+            ]
+        }
+        results = ev.validate(data)
+        assert len(results) == 1
+        assert results[0]['code'] == 'CHILD_AGE'
+        assert results[0]['path'] == 'rows[2].age'
 
 
 # ── Item registry + bind index ───────────────────────────────────────────────
@@ -817,6 +923,41 @@ class TestBindValidation:
         errors = [r for r in result.results if r['code'] == 'TYPE_ERROR']
         assert len(errors) == 0
 
+    def test_constraint_null_in_bind_context_passes(self):
+        ev = DefinitionEvaluator({
+            'items': [{'type': 'field', 'key': 'amount', 'dataType': 'integer'}],
+            'binds': [{'path': 'amount', 'constraint': '$missing > 0'}],
+        })
+        result = ev.process({'amount': 5})
+        errors = [r for r in result.results if r['code'] == 'CONSTRAINT_FAILED']
+        assert errors == []
+
+
+class TestBindContextNullSemantics:
+    def test_relevant_null_defaults_true(self):
+        ev = DefinitionEvaluator({
+            'items': [{'type': 'field', 'key': 'name', 'dataType': 'string'}],
+            'binds': [{'path': 'name', 'relevant': '$missing > 0'}],
+        })
+        relevance = ev._eval_relevance({'name': 'x'}, {})
+        assert relevance['name'] is True
+
+    def test_required_null_defaults_false(self):
+        ev = DefinitionEvaluator({
+            'items': [{'type': 'field', 'key': 'name', 'dataType': 'string'}],
+            'binds': [{'path': 'name', 'required': '$missing > 0'}],
+        })
+        required = ev._eval_required({'name': ''}, {})
+        assert required['name'] is False
+
+    def test_readonly_null_defaults_false(self):
+        ev = DefinitionEvaluator({
+            'items': [{'type': 'field', 'key': 'name', 'dataType': 'string'}],
+            'binds': [{'path': 'name', 'readonly': '$missing > 0'}],
+        })
+        readonly = ev._eval_readonly({'name': 'x'}, {})
+        assert readonly['name'] is False
+
 
 # ── Cardinality validation ───────────────────────────────────────────────────
 
@@ -970,6 +1111,130 @@ class TestNonRelevantBehavior:
         result = ev.process({'show': True, 'name': 'visible'})
         assert result.data['name'] == 'visible'
 
+    def test_wildcard_required_suppressed_for_nonrelevant_repeat_field(self):
+        ev = DefinitionEvaluator({
+            'items': [
+                {
+                    'type': 'group', 'key': 'rows', 'repeatable': True,
+                    'children': [
+                        {'type': 'field', 'key': 'enabled', 'dataType': 'boolean'},
+                        {'type': 'field', 'key': 'note', 'dataType': 'string'},
+                    ],
+                }
+            ],
+            'binds': [
+                {'path': 'rows[*].note', 'relevant': '$enabled'},
+                {'path': 'rows[*].note', 'required': 'true'},
+            ],
+        })
+        result = ev.process({'rows': [{'enabled': False, 'note': ''}]})
+        required_errors = [r for r in result.results if r['code'] == 'REQUIRED']
+        assert required_errors == []
+
+    def test_shape_target_nonrelevant_field_emits_no_result(self):
+        ev = DefinitionEvaluator({
+            'items': [
+                {'type': 'field', 'key': 'show', 'dataType': 'boolean'},
+                {'type': 'field', 'key': 'secret', 'dataType': 'string'},
+            ],
+            'binds': [
+                {'path': 'secret', 'relevant': '$show'},
+            ],
+            'shapes': [{
+                'id': 'secret-shape',
+                'target': 'secret',
+                'message': 'Secret must be present',
+                'code': 'SECRET',
+                'constraint': 'present($)',
+            }],
+        })
+        result = ev.process({'show': False, 'secret': ''})
+        assert [r for r in result.results if r['code'] == 'SECRET'] == []
+
+    def test_excluded_value_null_hides_hidden_value_from_shapes_while_keep_preserves_output(self):
+        ev = DefinitionEvaluator({
+            'nonRelevantBehavior': 'keep',
+            'items': [
+                {'type': 'field', 'key': 'showSecret', 'dataType': 'boolean'},
+                {'type': 'field', 'key': 'secret', 'dataType': 'string'},
+            ],
+            'binds': [
+                {
+                    'path': 'secret',
+                    'relevant': '$showSecret',
+                    'excludedValue': 'null',
+                    'nonRelevantBehavior': 'keep',
+                },
+            ],
+            'shapes': [{
+                'id': 'hidden-secret-visible-to-shape',
+                'target': '#',
+                'message': 'Hidden secret should not be visible to FEL',
+                'code': 'HIDDEN_SECRET',
+                'constraint': 'present($secret) = false',
+            }],
+        })
+        result = ev.process({'showSecret': False, 'secret': 'retain-me'})
+        assert [r for r in result.results if r['code'] == 'HIDDEN_SECRET'] == []
+        assert result.data['secret'] == 'retain-me'
+
+
+class TestCreationTimeInitializers:
+    def test_initial_value_literal_applied_when_field_missing(self):
+        ev = DefinitionEvaluator({
+            'items': [
+                {'type': 'field', 'key': 'status', 'dataType': 'string', 'initialValue': 'draft'},
+            ],
+        })
+        result = ev.process({})
+        assert result.data['status'] == 'draft'
+
+    def test_prepopulate_reads_from_instance_when_field_missing(self):
+        ev = DefinitionEvaluator({
+            'instances': {
+                'profile': {
+                    'data': {
+                        'email': 'person@example.org',
+                    }
+                }
+            },
+            'items': [
+                {
+                    'type': 'field',
+                    'key': 'email',
+                    'dataType': 'string',
+                    'prePopulate': {'instance': 'profile', 'path': 'email', 'editable': False},
+                },
+            ],
+        })
+        result = ev.process({})
+        assert result.data['email'] == 'person@example.org'
+
+
+class TestDefaultRelevanceTransition:
+    def test_default_applies_only_on_nonrelevant_to_relevant_transition_when_empty(self):
+        ev = DefinitionEvaluator({
+            'items': [
+                {'type': 'field', 'key': 'show', 'dataType': 'boolean'},
+                {'type': 'field', 'key': 'coupon', 'dataType': 'string'},
+            ],
+            'binds': [
+                {'path': 'coupon', 'relevant': '$show', 'default': 'AUTO10'},
+            ],
+        })
+
+        first = ev.process({'show': False, 'coupon': ''})
+        assert 'coupon' not in first.data
+
+        second = ev.process({'show': True, 'coupon': ''})
+        assert second.data['coupon'] == 'AUTO10'
+
+        third = ev.process({'show': False, 'coupon': 'MANUAL'})
+        assert 'coupon' not in third.data
+
+        fourth = ev.process({'show': True, 'coupon': 'MANUAL'})
+        assert fourth.data['coupon'] == 'MANUAL'
+
 
 # ── Integration: Grant Application ───────────────────────────────────────────
 
@@ -992,7 +1257,7 @@ def _valid_grant_data():
             'orgType': 'nonprofit',
             'contactName': 'Jane Doe',
             'contactEmail': 'jane@example.com',
-            'contactPhone': '202-555-0100',
+            'contactPhone': '(202) 555-0100',
         },
         'projectNarrative': {
             'projectTitle': 'Research Project',

@@ -80,6 +80,11 @@ def test_mip_with_dotted_path():
     assert result is FelFalse
 
 
+def test_mip_with_indexed_path():
+    result, _ = _eval_with_mip('valid($rows[2].amount)', {'rows[2].amount': MipState(valid=False)})
+    assert result is FelFalse
+
+
 def test_multiple_mip_checks():
     both = {'a': MipState(valid=True), 'b': MipState(valid=True)}
     r1, _ = _eval_with_mip('valid($a) and valid($b)', both)
