@@ -11,7 +11,9 @@ import {
   normalizeBreakpoints,
   projectSignal,
   resolveActiveBreakpointName,
+  type FormspecCustomComponentDefinition,
   type FormspecMappingDocument,
+  type FormspecThemePage,
   type LoadedExtensionRegistry,
   type MappingRule,
   type MappingTransformType,
@@ -24,6 +26,7 @@ import {
 import {
   buildComponentNodesForItems,
   collectFieldPaths,
+  findComponentNodeByPath,
   type GeneratedComponentNode,
   getLeafKey,
   joinPath,
@@ -46,15 +49,23 @@ import {
   type FormspecChangelogDocument,
   type SemverImpact
 } from './versioning';
+import { pushHistory, clearHistory, undoProject, redoProject } from './history';
+
+export { undoProject, redoProject };
 
 /** Input contract for inserting an item into the definition tree. */
 export interface AddItemInput {
   type: 'field' | 'group' | 'display';
   dataType?: FormspecItem['dataType'];
+  componentType?: string;
   key?: string;
   label?: string;
   parentPath?: string | null;
   index?: number;
+  /** Optional pre-configured item properties merged onto the created item (key and type are ignored). */
+  itemSeed?: Partial<FormspecItem>;
+  /** Optional bind properties applied to the new item's path. */
+  bindSeed?: Partial<Omit<FormspecBind, 'path'>>;
 }
 
 /** Target position for `moveItem`. */
@@ -164,12 +175,24 @@ export function addItem(
   commitProject(project, (state) => {
     const targetList = resolveItemArray(state.definition.items, input.parentPath ?? null);
     const key = ensureUniqueSiblingKey(targetList, input.key ?? defaultKeyForType(input.type));
-    const item = buildItem(key, input);
-    const index = clampInsertIndex(targetList, input.index);
+    const baseItem = buildItem(key, input);
 
+    const item: FormspecItem = input.itemSeed
+      ? ({ ...baseItem, ...input.itemSeed, key: baseItem.key, type: baseItem.type } as FormspecItem)
+      : baseItem;
+
+    const index = clampInsertIndex(targetList, input.index);
     targetList.splice(index, 0, item);
     insertedPath = joinPath(input.parentPath ?? null, key);
     state.selection = insertedPath;
+
+    if (input.bindSeed && Object.keys(input.bindSeed).length > 0) {
+      if (!state.definition.binds) {
+        state.definition.binds = [];
+      }
+      const nonEmptyBind = { path: insertedPath, ...input.bindSeed };
+      state.definition.binds.push(nonEmptyBind as FormspecBind);
+    }
 
     return { rebuildComponentTree: true };
   });
@@ -329,6 +352,25 @@ export function moveItem(
   return movedPath;
 }
 
+/** Moves an item one position up or down within its sibling list. No-op at boundaries. */
+export function reorderItem(
+  project: Signal<ProjectState> = projectSignal,
+  path: string,
+  direction: 'up' | 'down'
+): void {
+  commitProject(project, (state) => {
+    const location = findItemLocation(state.definition.items, path);
+    if (!location) return {};
+
+    const { items, index } = location;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= items.length) return {};
+
+    [items[index], items[targetIndex]] = [items[targetIndex], items[index]];
+    return { rebuildComponentTree: true };
+  });
+}
+
 /** Mutable bind keys supported by `setBind`. */
 export type BindProperty = Exclude<keyof FormspecBind, 'path'>;
 
@@ -407,6 +449,61 @@ export function setPresentation(
   });
 }
 
+/**
+ * Sets or clears a single top-level key (or nested key via dotted path) in
+ * `definition.items[path].presentation`. Removes the sub-object when empty;
+ * removes `presentation` entirely when all keys are cleared.
+ *
+ * `nestedKey` may be dot-separated: e.g. `'layout.flow'` sets `presentation.layout.flow`.
+ */
+export function setDefinitionPresentationKey(
+  project: Signal<ProjectState> = projectSignal,
+  itemPath: string,
+  nestedKey: string,
+  value: unknown
+): void {
+  commitProject(project, (state) => {
+    const location = findItemLocation(state.definition.items, itemPath);
+    if (!location) {
+      throw new Error(`Cannot set presentation for missing item at path: ${itemPath}`);
+    }
+    const item = location.item as Record<string, unknown>;
+    const pres = { ...(item.presentation as Record<string, unknown> | undefined ?? {}) };
+    const normalized = normalizeOptionalValue(value);
+    const parts = nestedKey.split('.');
+
+    if (parts.length === 1) {
+      if (normalized === undefined) {
+        delete pres[parts[0]];
+      } else {
+        pres[parts[0]] = normalized;
+      }
+    } else {
+      const parent = parts[0];
+      const child = parts.slice(1).join('.');
+      const sub = { ...(pres[parent] as Record<string, unknown> | undefined ?? {}) };
+      if (normalized === undefined) {
+        delete sub[child];
+      } else {
+        sub[child] = normalized;
+      }
+      if (Object.keys(sub).length > 0) {
+        pres[parent] = sub;
+      } else {
+        delete pres[parent];
+      }
+    }
+
+    if (Object.keys(pres).length > 0) {
+      item.presentation = pres;
+    } else {
+      delete item.presentation;
+    }
+
+    return {};
+  });
+}
+
 /** Sets the form title, falling back to `Untitled Form` when empty. */
 export function setFormTitle(project: Signal<ProjectState> = projectSignal, title: string): void {
   commitProject(project, (state) => {
@@ -420,7 +517,7 @@ export function setFormTitle(project: Signal<ProjectState> = projectSignal, titl
 export function setSelection(project: Signal<ProjectState> = projectSignal, path: string | null): void {
   commitProject(project, (state) => {
     state.selection = path;
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -435,7 +532,7 @@ export function setInspectorSectionOpen(
       ...state.uiState.inspectorSections,
       [sectionKey]: open
     };
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -526,6 +623,133 @@ export function setItemProperty(
       (location.item as Record<string, unknown>)[property] = normalized;
     }
 
+    return {};
+  });
+}
+
+/** Adds or replaces a named option set. `name` must be a non-empty identifier. */
+export function setOptionSet(
+  project: Signal<ProjectState> = projectSignal,
+  name: string,
+  options: Array<{ value: string; label: string }>,
+  source?: string
+): void {
+  if (!name.trim()) {
+    return;
+  }
+  commitProject(project, (state) => {
+    const current = (state.definition.optionSets as unknown as Record<string, unknown>) ?? {};
+    const entry: Record<string, unknown> = { options };
+    if (source?.trim()) {
+      entry.source = source.trim();
+    }
+    (state.definition as unknown as Record<string, unknown>).optionSets = { ...current, [name]: entry };
+    return {};
+  });
+}
+
+/** Deletes a named option set. */
+export function deleteOptionSet(
+  project: Signal<ProjectState> = projectSignal,
+  name: string
+): void {
+  commitProject(project, (state) => {
+    const current = { ...((state.definition as unknown as Record<string, unknown>).optionSets as Record<string, unknown> | undefined) ?? {} };
+    delete current[name];
+    (state.definition as unknown as Record<string, unknown>).optionSets = Object.keys(current).length > 0 ? current : undefined;
+    return {};
+  });
+}
+
+/** Promotes a field's inline options to a named option set and links the field to it. */
+export function promoteOptionsToOptionSet(
+  project: Signal<ProjectState> = projectSignal,
+  fieldPath: string,
+  setName: string
+): void {
+  const trimmedName = setName.trim();
+  if (!trimmedName) {
+    return;
+  }
+  commitProject(project, (state) => {
+    const location = findItemLocation(state.definition.items, fieldPath);
+    if (!location || location.item.type !== 'field') {
+      return {};
+    }
+    const options = Array.isArray(location.item.options) ? [...location.item.options] : [];
+    if (!options.length) {
+      return {};
+    }
+    const current = (state.definition.optionSets as unknown as Record<string, unknown>) ?? {};
+    (state.definition as unknown as Record<string, unknown>).optionSets = {
+      ...current,
+      [trimmedName]: { options }
+    };
+    location.item.optionSet = trimmedName;
+    delete location.item.options;
+    return {};
+  });
+}
+
+/** Sets the component document identity property (name, title, description). */
+export function setComponentDocumentProperty(
+  project: Signal<ProjectState> = projectSignal,
+  property: 'name' | 'title' | 'description',
+  value: string
+): void {
+  commitProject(project, (state) => {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized.length === 0) {
+      delete (state.component as Record<string, unknown>)[property];
+    } else {
+      (state.component as Record<string, unknown>)[property] = normalized;
+    }
+    return {};
+  });
+}
+
+/** Replaces the component document custom-component registry. Pass `undefined` to clear it. */
+export function setComponentRegistry(
+  project: Signal<ProjectState> = projectSignal,
+  components: Record<string, FormspecCustomComponentDefinition> | undefined
+): void {
+  commitProject(project, (state) => {
+    const normalized = normalizeComponentRegistry(components);
+    if (normalized && Object.keys(normalized).length > 0) {
+      state.component.components = normalized;
+    } else {
+      delete (state.component as Record<string, unknown>).components;
+    }
+    return {};
+  });
+}
+
+/** Sets or clears a single key within the item `labels` object. Removes the object entirely when empty. */
+export function setItemLabel(
+  project: Signal<ProjectState> = projectSignal,
+  path: string,
+  context: string,
+  value: string
+): void {
+  commitProject(project, (state) => {
+    const location = findItemLocation(state.definition.items, path);
+    if (!location) {
+      throw new Error(`Cannot set label for missing item at path: ${path}`);
+    }
+    const item = location.item as Record<string, unknown>;
+    const current = (item.labels as Record<string, string> | undefined) ?? {};
+    const next = { ...current };
+    const trimmed = value.trim();
+    if (trimmed) {
+      next[context] = trimmed;
+    } else {
+      delete next[context];
+    }
+    if (Object.keys(next).length > 0) {
+      item.labels = next;
+    } else {
+      delete item.labels;
+    }
     return {};
   });
 }
@@ -623,6 +847,7 @@ export function importArtifacts(
   input: ImportArtifactsInput
 ): ImportArtifactsResult {
   const parsed = parseImportedProjectPayload(input.payload);
+  clearHistory();
   project.value = buildProjectStateFromImport(project.value, parsed);
   return {
     kind: parsed.kind,
@@ -797,7 +1022,7 @@ export function setFormPresentationProperty(
     }
 
     state.definition.formPresentation = Object.keys(next).length > 0 ? next : undefined;
-    return {};
+    return { rebuildComponentTree: property === 'pageMode' };
   });
 }
 
@@ -1166,6 +1391,41 @@ export function setThemeToken(
   });
 }
 
+/** Sets the component document design tokens (flat key-value). Replaces the whole object; pass undefined to clear. */
+export function setComponentTokens(
+  project: Signal<ProjectState> = projectSignal,
+  tokens: Record<string, string | number> | undefined
+): void {
+  commitProject(project, (state) => {
+    const comp = state.component as Record<string, unknown>;
+    if (!tokens || Object.keys(tokens).length === 0) {
+      delete comp.tokens;
+    } else {
+      comp.tokens = tokens;
+    }
+    return {};
+  });
+}
+
+/** Sets or clears a single top-level property on `theme.defaults` (the cascade level-1 PresentationBlock). */
+export function setThemeDefaultsProperty(
+  project: Signal<ProjectState> = projectSignal,
+  property: string,
+  value: unknown
+): void {
+  commitProject(project, (state) => {
+    const current = { ...(state.theme.defaults as Record<string, unknown> | undefined ?? {}) };
+    const normalized = normalizeOptionalValue(value);
+    if (normalized === undefined) {
+      delete current[property];
+    } else {
+      current[property] = normalized;
+    }
+    state.theme.defaults = Object.keys(current).length > 0 ? current : undefined;
+    return {};
+  });
+}
+
 /** Adds a theme selector rule and returns its index. */
 export function addThemeSelector(
   project: Signal<ProjectState> = projectSignal,
@@ -1315,7 +1575,7 @@ export function setPreviewWidth(project: Signal<ProjectState> = projectSignal, w
     const normalizedWidth = clampPreviewWidth(width);
     state.uiState.previewWidth = normalizedWidth;
     state.uiState.activeBreakpoint = resolveActiveBreakpointName(state.theme.breakpoints ?? {}, normalizedWidth);
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1324,15 +1584,15 @@ export function setActiveBreakpoint(project: Signal<ProjectState> = projectSigna
   commitProject(project, (state) => {
     const normalized = breakpointName.trim();
     if (!normalized) {
-      return {};
+      return { skipHistory: true };
     }
 
     if ((state.theme.breakpoints ?? {})[normalized] === undefined) {
-      return {};
+      return { skipHistory: true };
     }
 
     state.uiState.activeBreakpoint = normalized;
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1347,7 +1607,7 @@ export function setJsonEditorOpen(
     if (tab) {
       state.uiState.jsonEditorTab = tab;
     }
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1361,7 +1621,7 @@ export function toggleJsonEditor(
     if (tab) {
       state.uiState.jsonEditorTab = tab;
     }
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1372,7 +1632,7 @@ export function setJsonEditorTab(
 ): void {
   commitProject(project, (state) => {
     state.uiState.jsonEditorTab = tab;
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1476,6 +1736,100 @@ export function setFieldWidgetComponent(
 
     node.component = resolveFieldWidgetSelection(location.item.dataType, widget);
     return {};
+  });
+}
+
+/** Sets or clears a single property on the component node for a field. */
+export function setComponentNodeProperty(
+  project: Signal<ProjectState> = projectSignal,
+  path: string,
+  property: string,
+  value: unknown
+): void {
+  commitProject(project, (state) => {
+    const node = findComponentNodeByPath(state.definition.items, state.component.tree, path);
+    if (!node) {
+      return {};
+    }
+    const normalized = normalizeOptionalValue(value);
+    if (normalized === undefined) {
+      delete (node as unknown as Record<string, unknown>)[property];
+    } else {
+      (node as unknown as Record<string, unknown>)[property] = normalized;
+    }
+    return {};
+  });
+}
+
+/** Sets or clears a property on the generated wizard wrapper for top-level page flows. */
+export function setWizardProperty(
+  project: Signal<ProjectState> = projectSignal,
+  property: 'showProgress' | 'allowSkip',
+  value: unknown
+): void {
+  commitProject(project, (state) => {
+    const wizardNodes = findGeneratedWizardNodes(state.definition.items, state.component.tree);
+    if (wizardNodes.length === 0) {
+      return {};
+    }
+
+    const normalized = normalizeOptionalValue(value);
+    for (const node of wizardNodes) {
+      if (normalized === undefined) {
+        delete (node as Record<string, unknown>)[property];
+      } else {
+        (node as Record<string, unknown>)[property] = normalized;
+      }
+    }
+
+    return {};
+  });
+}
+
+/**
+ * Toggles repeatability on a group and rewrites all descendant bind/FEL paths
+ * to add or remove the `[*]` wildcard subscript. This keeps the definition
+ * internally consistent — `group.field` becomes `group[*].field` when the
+ * group is made repeatable, and reverts when repeatability is removed.
+ */
+export function setGroupRepeatable(
+  project: Signal<ProjectState> = projectSignal,
+  path: string,
+  enable: boolean
+): void {
+  commitProject(project, (state) => {
+    const location = findItemLocation(state.definition.items, path);
+    if (!location || location.item.type !== 'group') {
+      return {};
+    }
+
+    if (enable === Boolean(location.item.repeatable)) {
+      return {};
+    }
+
+    const descendants = collectItemPaths(location.item.children ?? [], path);
+    const rewriteMap: PathRewriteMap = {};
+
+    for (const descendantPath of descendants) {
+      const rest = descendantPath.slice(path.length + 1);
+      if (enable) {
+        rewriteMap[descendantPath] = `${path}[*].${rest}`;
+      } else {
+        rewriteMap[`${path}[*].${rest}`] = descendantPath;
+      }
+    }
+
+    location.item.repeatable = enable ? true : undefined;
+    if (!enable) {
+      delete (location.item as Record<string, unknown>).minRepeat;
+      delete (location.item as Record<string, unknown>).maxRepeat;
+    }
+
+    if (Object.keys(rewriteMap).length > 0) {
+      state.definition = rewriteDefinitionPathReferences(state.definition, rewriteMap);
+    }
+
+    return { rebuildComponentTree: true };
   });
 }
 
@@ -1739,7 +2093,15 @@ export function toggleStructurePanel(project: Signal<ProjectState> = projectSign
     if (!state.uiState.structurePanelOpen && state.uiState.mobilePanel === 'structure') {
       state.uiState.mobilePanel = 'none';
     }
-    return {};
+    return { skipHistory: true };
+  });
+}
+
+/** Cycles inspector between simple and advanced mode. */
+export function toggleInspectorMode(project: Signal<ProjectState> = projectSignal): void {
+  commitProject(project, (state) => {
+    state.uiState.inspectorMode = state.uiState.inspectorMode === 'simple' ? 'advanced' : 'simple';
+    return { skipHistory: true };
   });
 }
 
@@ -1747,7 +2109,7 @@ export function toggleStructurePanel(project: Signal<ProjectState> = projectSign
 export function toggleDiagnosticsOpen(project: Signal<ProjectState> = projectSignal): void {
   commitProject(project, (state) => {
     state.uiState.diagnosticsOpen = !state.uiState.diagnosticsOpen;
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1761,7 +2123,7 @@ export function setMobilePanel(
     if (state.uiState.mobilePanel === 'structure') {
       state.uiState.structurePanelOpen = true;
     }
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1775,7 +2137,7 @@ export function togglePreviewMode(project: Signal<ProjectState> = projectSignal)
     } else {
       state.uiState.viewMode = 'edit';
     }
-    return {};
+    return { skipHistory: true };
   });
 }
 
@@ -1953,9 +2315,10 @@ function applyOptionalSortDirection(
 
 function commitProject(
   project: Signal<ProjectState>,
-  updater: (draft: ProjectState) => { rebuildComponentTree?: boolean }
+  updater: (draft: ProjectState) => { rebuildComponentTree?: boolean; skipHistory?: boolean }
 ): void {
-  const draft = structuredClone(project.value);
+  const before = project.value;
+  const draft = structuredClone(before);
   ensureVersioningState(draft);
   const result = updater(draft);
 
@@ -1971,7 +2334,11 @@ function commitProject(
       : resolveActiveBreakpointName(draft.theme.breakpoints, draft.uiState.previewWidth);
 
   if (result.rebuildComponentTree) {
-    draft.component.tree = rebuildComponentTreeFromDefinition(draft.definition);
+    draft.component.tree = rebuildComponentTreeFromDefinition(draft.definition, draft.component.tree);
+  }
+
+  if (!result.skipHistory) {
+    pushHistory(before);
   }
 
   project.value = draft;
@@ -1992,42 +2359,41 @@ function ensureVersioningState(state: ProjectState): ProjectState['versioning'] 
   return state.versioning;
 }
 
-function findComponentNodeByPath(
+function findGeneratedWizardNodes(
   items: FormspecItem[],
-  rootNode: GeneratedComponentNode,
-  path: string
-): GeneratedComponentNode | null {
-  const segments = toPathSegments(path);
-  if (!segments.length) {
-    return null;
+  rootNode: GeneratedComponentNode
+): GeneratedComponentNode[] {
+  const wizardNodes: GeneratedComponentNode[] = [];
+  const nodes = rootNode.children ?? [];
+  let itemIndex = 0;
+  let nodeIndex = 0;
+
+  while (itemIndex < items.length && nodeIndex < nodes.length) {
+    const item = items[itemIndex];
+    const node = nodes[nodeIndex];
+
+    if (node.component === 'Wizard' && isPageItem(item)) {
+      wizardNodes.push(node);
+      while (itemIndex < items.length && isPageItem(items[itemIndex])) {
+        itemIndex += 1;
+      }
+      nodeIndex += 1;
+      continue;
+    }
+
+    itemIndex += 1;
+    nodeIndex += 1;
   }
 
-  return findNodeInLevel(items, rootNode.children ?? [], segments, 0);
+  return wizardNodes;
 }
 
-function findNodeInLevel(
-  items: FormspecItem[],
-  nodes: GeneratedComponentNode[],
-  segments: string[],
-  depth: number
-): GeneratedComponentNode | null {
-  const key = segments[depth];
-  const itemIndex = items.findIndex((item) => item.key === key);
-  if (itemIndex < 0 || itemIndex >= nodes.length) {
-    return null;
-  }
-
-  const item = items[itemIndex];
-  const node = nodes[itemIndex];
-  if (depth === segments.length - 1) {
-    return node;
-  }
-
+function isPageItem(item: FormspecItem): boolean {
   if (item.type !== 'group') {
-    return null;
+    return false;
   }
-
-  return findNodeInLevel(item.children ?? [], node.children ?? [], segments, depth + 1);
+  const presentation = item.presentation as Record<string, unknown> | undefined;
+  return presentation?.widgetHint === 'Page';
 }
 
 function applyResponsiveNumber(
@@ -2075,19 +2441,27 @@ function buildItem(key: string, input: AddItemInput): FormspecItem {
   }
 
   if (input.type === 'group') {
-    return {
+    const groupItem: FormspecItem = {
       type: 'group',
       key,
       label: input.label ?? 'Untitled group',
       children: []
     };
+    if (input.componentType && input.componentType !== 'Stack') {
+      groupItem.presentation = { widgetHint: input.componentType };
+    }
+    return groupItem;
   }
 
-  return {
+  const displayItem: FormspecItem = {
     type: 'display',
     key,
     label: input.label ?? 'Untitled text'
   };
+  if (input.componentType && input.componentType !== 'Text') {
+    displayItem.presentation = { widgetHint: input.componentType };
+  }
+  return displayItem;
 }
 
 function defaultKeyForType(type: AddItemInput['type']): string {
@@ -2126,8 +2500,8 @@ function resolveItemArray(items: FormspecItem[], parentPath: string | null): For
     throw new Error(`Cannot resolve missing parent path: ${parentPath}`);
   }
 
-  if (location.item.type !== 'group') {
-    throw new Error(`Target parent path is not a group: ${parentPath}`);
+  if (location.item.type !== 'group' && location.item.type !== 'field') {
+    throw new Error(`Target parent path is not a group or field: ${parentPath}`);
   }
 
   if (!location.item.children) {
@@ -2191,7 +2565,7 @@ function findItemLocation(items: FormspecItem[], path: string): ItemLocation | n
       };
     }
 
-    if (item.type !== 'group') {
+    if (item.type !== 'group' && item.type !== 'field') {
       return null;
     }
 
@@ -2573,6 +2947,93 @@ function normalizeMappingDocument(mapping: FormspecMappingDocument, definition: 
   return nextMapping;
 }
 
+function normalizeComponentRegistry(
+  components: Record<string, FormspecCustomComponentDefinition> | undefined
+): Record<string, FormspecCustomComponentDefinition> | undefined {
+  if (!components || !isRecord(components)) {
+    return undefined;
+  }
+
+  const next: Record<string, FormspecCustomComponentDefinition> = {};
+
+  for (const [name, definition] of Object.entries(components)) {
+    const normalizedName = normalizeOptionalString(name);
+    if (!normalizedName || !definition || !isRecord(definition.tree)) {
+      continue;
+    }
+
+    const params = Array.isArray(definition.params)
+      ? definition.params
+        .map((param) => normalizeOptionalString(param))
+        .filter((param): param is string => typeof param === 'string')
+      : undefined;
+
+    next[normalizedName] = {
+      tree: structuredClone(definition.tree),
+      ...(params && params.length > 0 ? { params } : {})
+    };
+  }
+
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function normalizeThemePages(
+  pages: FormspecThemePage[] | undefined
+): FormspecThemePage[] | undefined {
+  if (!Array.isArray(pages)) {
+    return undefined;
+  }
+
+  const next = pages
+    .filter((page) => isRecord(page))
+    .map((page) => {
+      const regions = Array.isArray(page.regions)
+        ? page.regions
+          .filter((region) => isRecord(region))
+          .map((region) => {
+            const responsive = isRecord(region.responsive)
+              ? Object.fromEntries(
+                  Object.entries(region.responsive)
+                    .filter(([, override]) => isRecord(override))
+                    .map(([breakpoint, override]) => {
+                      const nextOverride: Record<string, unknown> = {};
+                      const span = normalizeOptionalNumber(override.span);
+                      const start = normalizeOptionalNumber(override.start);
+                      if (span !== undefined) {
+                        nextOverride.span = span;
+                      }
+                      if (start !== undefined) {
+                        nextOverride.start = start;
+                      }
+                      if (typeof override.hidden === 'boolean') {
+                        nextOverride.hidden = override.hidden;
+                      }
+                      return [breakpoint, nextOverride];
+                    })
+                    .filter(([, override]) => Object.keys(override).length > 0)
+                )
+              : undefined;
+
+            return {
+              key: typeof region.key === 'string' ? region.key : '',
+              ...(normalizeOptionalNumber(region.span) !== undefined ? { span: normalizeOptionalNumber(region.span) } : {}),
+              ...(normalizeOptionalNumber(region.start) !== undefined ? { start: normalizeOptionalNumber(region.start) } : {}),
+              ...(responsive && Object.keys(responsive).length > 0 ? { responsive } : {})
+            };
+          })
+        : undefined;
+
+      return {
+        id: typeof page.id === 'string' ? page.id : '',
+        title: typeof page.title === 'string' ? page.title : '',
+        ...(typeof page.description === 'string' ? { description: page.description } : {}),
+        ...(regions && regions.length > 0 ? { regions } : {})
+      };
+    });
+
+  return next.length > 0 ? next : undefined;
+}
+
 function normalizeThemeSelector(selector: Partial<ThemeSelectorRule>): ThemeSelectorRule {
   const match = ensureThemeSelectorMatch(isRecord(selector.match) ? selector.match : {});
   const apply = isRecord(selector.apply) ? { ...selector.apply } : {};
@@ -2803,6 +3264,187 @@ function rewriteShapeReferences(shape: FormspecShape, fromShapeId: string, toSha
   }
 
   return nextShape;
+}
+
+/** Input contract for creating a secondary data source instance. */
+export interface InstanceInput {
+  name: string;
+  description?: string;
+  source?: string;
+  isStatic?: boolean;
+}
+
+/** Adds or replaces a named secondary data source instance. */
+export function addInstance(
+  project: Signal<ProjectState> = projectSignal,
+  input: InstanceInput
+): void {
+  if (!input.name.trim()) {
+    return;
+  }
+  commitProject(project, (state) => {
+    const instances = { ...((state.definition as Record<string, unknown>).instances as Record<string, unknown> | undefined) ?? {} };
+    const entry: Record<string, unknown> = {};
+    if (input.description?.trim()) {
+      entry.description = input.description.trim();
+    }
+    if (input.source?.trim()) {
+      entry.source = input.source.trim();
+    }
+    if (input.isStatic !== undefined) {
+      entry.static = input.isStatic;
+    }
+    instances[input.name.trim()] = entry;
+    (state.definition as Record<string, unknown>).instances = instances;
+    return {};
+  });
+}
+
+/** Sets or clears a property on a named secondary data source instance. */
+export function setInstanceProperty(
+  project: Signal<ProjectState> = projectSignal,
+  name: string,
+  property: string,
+  value: unknown
+): void {
+  commitProject(project, (state) => {
+    const instances = (state.definition as Record<string, unknown>).instances as Record<string, unknown> | undefined;
+    if (!instances?.[name]) {
+      return {};
+    }
+    const entry = instances[name] as Record<string, unknown>;
+    const normalized = normalizeOptionalValue(value);
+    if (normalized === undefined) {
+      delete entry[property];
+    } else {
+      entry[property] = normalized;
+    }
+    return {};
+  });
+}
+
+/** Renames a secondary data source instance (changes its key). */
+export function renameInstance(
+  project: Signal<ProjectState> = projectSignal,
+  oldName: string,
+  newName: string
+): void {
+  const trimmedNew = newName.trim();
+  if (!trimmedNew || trimmedNew === oldName) {
+    return;
+  }
+  commitProject(project, (state) => {
+    const instances = (state.definition as Record<string, unknown>).instances as Record<string, unknown> | undefined;
+    if (!instances?.[oldName]) {
+      return {};
+    }
+    const entry = instances[oldName];
+    delete instances[oldName];
+    instances[trimmedNew] = entry;
+    return {};
+  });
+}
+
+/** Deletes a named secondary data source instance. */
+export function deleteInstance(
+  project: Signal<ProjectState> = projectSignal,
+  name: string
+): void {
+  commitProject(project, (state) => {
+    const instances = (state.definition as Record<string, unknown>).instances as Record<string, unknown> | undefined;
+    if (!instances) {
+      return {};
+    }
+    delete instances[name];
+    if (Object.keys(instances).length === 0) {
+      delete (state.definition as Record<string, unknown>).instances;
+    }
+    return {};
+  });
+}
+
+/** Sets or clears a top-level identity property on the theme document (name, title, description, url, platform). */
+export function setThemeDocumentProperty(
+  project: Signal<ProjectState> = projectSignal,
+  property: 'name' | 'title' | 'description' | 'url' | 'platform',
+  value: string
+): void {
+  commitProject(project, (state) => {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized.length === 0) {
+      delete (state.theme as Record<string, unknown>)[property];
+    } else {
+      (state.theme as Record<string, unknown>)[property] = normalized;
+    }
+    return {};
+  });
+}
+
+/** Replaces the theme document page layout array. Pass `undefined` to clear it. */
+export function setThemePages(
+  project: Signal<ProjectState> = projectSignal,
+  pages: FormspecThemePage[] | undefined
+): void {
+  commitProject(project, (state) => {
+    const normalized = normalizeThemePages(pages);
+    if (normalized && normalized.length > 0) {
+      state.theme.pages = normalized;
+    } else {
+      delete (state.theme as Record<string, unknown>).pages;
+    }
+    return {};
+  });
+}
+
+/** Sets the `stylesheets` array on the theme document. Removes the property when array is empty. */
+export function setThemeStylesheets(
+  project: Signal<ProjectState> = projectSignal,
+  stylesheets: string[]
+): void {
+  commitProject(project, (state) => {
+    const filtered = stylesheets.map((s) => s.trim()).filter(Boolean);
+    if (filtered.length === 0) {
+      delete (state.theme as Record<string, unknown>).stylesheets;
+    } else {
+      (state.theme as Record<string, unknown>).stylesheets = filtered;
+    }
+    return {};
+  });
+}
+
+/** Duplicates an item (and its bind, if any) inserting it immediately after the original. */
+export function duplicateItem(
+  project: Signal<ProjectState> = projectSignal,
+  path: string
+): string {
+  let dupedPath = '';
+
+  commitProject(project, (state) => {
+    const location = findItemLocation(state.definition.items, path);
+    if (!location) {
+      return {};
+    }
+
+    const cloned = structuredClone(location.item) as FormspecItem;
+    const newKey = ensureUniqueSiblingKey(location.items, cloned.key);
+    cloned.key = newKey;
+    dupedPath = joinPath(location.parentPath, newKey);
+
+    location.items.splice(location.index + 1, 0, cloned);
+    state.selection = dupedPath;
+
+    const sourceBind = state.definition.binds?.find((b) => b.path === path);
+    if (sourceBind) {
+      if (!state.definition.binds) {
+        state.definition.binds = [];
+      }
+      state.definition.binds.push({ ...(structuredClone(sourceBind) as FormspecBind), path: dupedPath });
+    }
+
+    return { rebuildComponentTree: true };
+  });
+
+  return dupedPath;
 }
 
 function removeShapeReferences(shape: FormspecShape, removedShapeId: string): FormspecShape {

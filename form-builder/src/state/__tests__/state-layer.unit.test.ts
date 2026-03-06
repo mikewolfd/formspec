@@ -27,14 +27,23 @@ import {
   setGroupDataTableConfig,
   setGroupDisplayMode,
   setThemeBreakpoint,
+  setThemePages,
   setThemeToken,
+  setComponentRegistry,
   addMappingRule,
   deleteMappingRule,
   importSubform,
   setMappingProperty,
   setMappingRuleProperty,
   setMappingTargetSchemaProperty,
-  publishVersion
+  publishVersion,
+  setGroupRepeatable,
+  addInstance,
+  setInstanceProperty,
+  deleteInstance,
+  setComponentNodeProperty,
+  setItemText,
+  setWizardProperty
 } from '../mutations';
 import { createDerivedSignals } from '../derived';
 import { generateDefinitionChangelog } from '../versioning';
@@ -219,6 +228,182 @@ describe('project state layer', () => {
     expect(project.value.theme.tokens?.['typography.body.family']).toBe('IBM Plex Sans, sans-serif');
     expect((project.value.definition.formPresentation as Record<string, unknown> | undefined)?.pageMode).toBe('wizard');
     expect((project.value.definition.formPresentation as Record<string, unknown> | undefined)?.defaultCurrency).toBe('USD');
+
+    expectStructurallyValid(project);
+  });
+
+  it('wraps top-level pages in a wizard when page mode is wizard', () => {
+    const project = createProjectSignal();
+
+    addItem(project, { type: 'group', key: 'intro', label: 'Intro' });
+    addItem(project, { type: 'field', dataType: 'string', key: 'name', label: 'Name', parentPath: 'intro' });
+    addItem(project, { type: 'group', key: 'projectInfo', label: 'Project Information', componentType: 'Page' });
+    addItem(project, {
+      type: 'field',
+      dataType: 'string',
+      key: 'projectName',
+      label: 'Project Name',
+      parentPath: 'projectInfo'
+    });
+    addItem(project, { type: 'group', key: 'budget', label: 'Budget', componentType: 'Page' });
+    addItem(project, {
+      type: 'field',
+      dataType: 'money',
+      key: 'amount',
+      label: 'Amount',
+      parentPath: 'budget'
+    });
+    setItemText(project, 'projectInfo', 'description', 'Tell us about the project.');
+    setFormPresentationProperty(project, 'pageMode', 'wizard');
+
+    expect(project.value.component.tree).toEqual({
+      component: 'Stack',
+      children: [
+        {
+          component: 'Stack',
+          children: [{ component: 'TextInput', bind: 'intro.name' }]
+        },
+        {
+          component: 'Wizard',
+          children: [
+            {
+              component: 'Page',
+              title: 'Project Information',
+              description: 'Tell us about the project.',
+              children: [{ component: 'TextInput', bind: 'projectInfo.projectName' }]
+            },
+            {
+              component: 'Page',
+              title: 'Budget',
+              children: [{ component: 'MoneyInput', bind: 'budget.amount' }]
+            }
+          ]
+        }
+      ]
+    });
+
+    expectStructurallyValid(project);
+  });
+
+  it('preserves wizard props and page node lookups across component-tree rebuilds', () => {
+    const project = createProjectSignal();
+
+    addItem(project, { type: 'group', key: 'projectInfo', label: 'Project Information', componentType: 'Page' });
+    addItem(project, {
+      type: 'field',
+      dataType: 'string',
+      key: 'projectName',
+      label: 'Project Name',
+      parentPath: 'projectInfo'
+    });
+    addItem(project, { type: 'group', key: 'budget', label: 'Budget', componentType: 'Page' });
+    setFormPresentationProperty(project, 'pageMode', 'wizard');
+
+    setWizardProperty(project, 'showProgress', false);
+    setWizardProperty(project, 'allowSkip', true);
+    setComponentNodeProperty(project, 'budget', 'when', '$projectInfo.projectName != ""');
+
+    const wizardBeforeRebuild = project.value.component.tree.children?.[0] as Record<string, unknown> | undefined;
+    const budgetPageBeforeRebuild = (wizardBeforeRebuild?.children as Array<Record<string, unknown>> | undefined)?.[1];
+    expect(budgetPageBeforeRebuild?.when).toBe('$projectInfo.projectName != ""');
+
+    addItem(project, {
+      type: 'field',
+      dataType: 'money',
+      key: 'amount',
+      label: 'Amount',
+      parentPath: 'budget'
+    });
+
+    const wizardNode = project.value.component.tree.children?.[0] as Record<string, unknown> | undefined;
+    const budgetPage = (wizardNode?.children as Array<Record<string, unknown>> | undefined)?.[1];
+
+    expect(wizardNode?.component).toBe('Wizard');
+    expect(wizardNode?.showProgress).toBe(false);
+    expect(wizardNode?.allowSkip).toBe(true);
+    expect(budgetPage?.children).toEqual([{ component: 'MoneyInput', bind: 'budget.amount' }]);
+
+    expectStructurallyValid(project);
+  });
+
+  it('stores custom component registry entries while keeping the component document valid', () => {
+    const project = createProjectSignal();
+
+    setComponentRegistry(project, {
+      ApplicantNameField: {
+        params: ['field', 'label'],
+        tree: {
+          component: 'Stack',
+          children: [
+            { component: 'Heading', level: 4, text: '{label}' },
+            { component: 'TextInput', bind: '{field}' }
+          ]
+        }
+      }
+    });
+
+    expect(project.value.component.components).toEqual({
+      ApplicantNameField: {
+        params: ['field', 'label'],
+        tree: {
+          component: 'Stack',
+          children: [
+            { component: 'Heading', level: 4, text: '{label}' },
+            { component: 'TextInput', bind: '{field}' }
+          ]
+        }
+      }
+    });
+
+    expectStructurallyValid(project);
+  });
+
+  it('stores theme pages with responsive region overrides while keeping the theme valid', () => {
+    const project = createProjectSignal();
+    addItem(project, { type: 'field', dataType: 'string', key: 'firstName', label: 'First Name' });
+    addItem(project, { type: 'field', dataType: 'string', key: 'lastName', label: 'Last Name' });
+
+    setThemePages(project, [
+      {
+        id: 'contact',
+        title: 'Contact Information',
+        regions: [
+          {
+            key: 'firstName',
+            span: 6,
+            responsive: {
+              sm: { hidden: true },
+              lg: { span: 4, start: 2 }
+            }
+          },
+          {
+            key: 'lastName',
+            span: 6
+          }
+        ]
+      }
+    ]);
+
+    expect(project.value.theme.pages).toEqual([
+      {
+        id: 'contact',
+        title: 'Contact Information',
+        regions: [
+          {
+            key: 'firstName',
+            span: 6,
+            responsive: {
+              sm: { hidden: true },
+              lg: { span: 4, start: 2 }
+            }
+          },
+          {
+            key: 'lastName',
+            span: 6
+          }
+        ]
+      }
+    ]);
 
     expectStructurallyValid(project);
   });
@@ -515,6 +700,79 @@ describe('project state layer', () => {
     );
     expect(pendingAfterPublish.changes).toHaveLength(0);
     expect(pendingAfterPublish.semverImpact).toBe('patch');
+
+    expectStructurallyValid(project);
+  });
+
+  it('enables repeatability on a group and promotes descendant bind paths to group[*].field', () => {
+    const project = createProjectSignal();
+    addItem(project, { type: 'group', key: 'lineItems', label: 'Line Items' });
+    addItem(project, { type: 'field', dataType: 'decimal', key: 'amount', label: 'Amount', parentPath: 'lineItems' });
+    addItem(project, { type: 'field', dataType: 'decimal', key: 'tax', label: 'Tax', parentPath: 'lineItems' });
+
+    setBind(project, 'lineItems.tax', 'calculate', '$lineItems.amount * 0.1');
+    setBind(project, 'lineItems.tax', 'constraint', '$lineItems.amount > 0');
+
+    setGroupRepeatable(project, 'lineItems', true);
+
+    expect(project.value.definition.items[0]?.repeatable).toBe(true);
+
+    const taxBind = project.value.definition.binds?.find((b) => b.path === 'lineItems[*].tax');
+    expect(taxBind).toBeDefined();
+    expect(taxBind?.calculate).toBe('$lineItems[*].amount * 0.1');
+    expect(taxBind?.constraint).toBe('$lineItems[*].amount > 0');
+
+    const oldTaxBind = project.value.definition.binds?.find((b) => b.path === 'lineItems.tax');
+    expect(oldTaxBind).toBeUndefined();
+
+    expectStructurallyValid(project);
+  });
+
+  it('disables repeatability and reverts group[*].field paths back to group.field', () => {
+    const project = createProjectSignal();
+    addItem(project, { type: 'group', key: 'lineItems', label: 'Line Items' });
+    addItem(project, { type: 'field', dataType: 'decimal', key: 'amount', label: 'Amount', parentPath: 'lineItems' });
+    addItem(project, { type: 'field', dataType: 'decimal', key: 'tax', label: 'Tax', parentPath: 'lineItems' });
+
+    setGroupRepeatable(project, 'lineItems', true);
+    setBind(project, 'lineItems[*].tax', 'calculate', '$lineItems[*].amount * 0.1');
+
+    setGroupRepeatable(project, 'lineItems', false);
+
+    expect(project.value.definition.items[0]?.repeatable).toBeUndefined();
+
+    const taxBind = project.value.definition.binds?.find((b) => b.path === 'lineItems.tax');
+    expect(taxBind).toBeDefined();
+    expect(taxBind?.calculate).toBe('$lineItems.amount * 0.1');
+
+    expectStructurallyValid(project);
+  });
+
+  it('adds and removes secondary data source instances', () => {
+    const project = createProjectSignal();
+
+    addInstance(project, {
+      name: 'priorYear',
+      description: 'Prior year data',
+      source: 'https://api.example.gov/prior/{{entityId}}',
+      isStatic: true
+    });
+
+    const instances = (project.value.definition as Record<string, unknown>).instances as Record<string, unknown> | undefined;
+    expect(instances).toBeDefined();
+    expect(instances?.['priorYear']).toEqual({
+      description: 'Prior year data',
+      source: 'https://api.example.gov/prior/{{entityId}}',
+      static: true
+    });
+
+    setInstanceProperty(project, 'priorYear', 'description', 'Updated description');
+    const updated = (project.value.definition as Record<string, unknown>).instances as Record<string, Record<string, unknown>>;
+    expect(updated['priorYear']?.description).toBe('Updated description');
+
+    deleteInstance(project, 'priorYear');
+    const afterDelete = (project.value.definition as Record<string, unknown>).instances;
+    expect(afterDelete).toBeUndefined();
 
     expectStructurallyValid(project);
   });

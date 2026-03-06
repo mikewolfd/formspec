@@ -9,6 +9,16 @@ export interface GeneratedComponentNode {
   component: string;
   bind?: string;
   text?: string;
+  title?: string;
+  description?: string;
+  /** FEL expression for visual-only conditional rendering. Data preserved when hidden. */
+  when?: string;
+  /** Wizard: whether to render step progress. */
+  showProgress?: boolean;
+  /** Wizard: whether non-linear step skips are allowed. */
+  allowSkip?: boolean;
+  /** Spacer component: size hint (CSS value or token name). */
+  size?: string;
   responsive?: Record<string, Record<string, unknown>>;
   columns?: Array<{
     header: string;
@@ -24,6 +34,24 @@ export interface GeneratedComponentNode {
   filterable?: boolean;
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';
+  /** Grid/Columns: number of grid columns or array of column width strings. */
+  gridColumns?: number;
+  /** Grid: gap between cells. */
+  gap?: string;
+  /** Grid: gap between rows. */
+  rowGap?: string;
+  /** Columns: array of width values (e.g. ['1fr', '2fr']). Stored as JSON string for simplicity. */
+  widths?: string;
+  /** Tabs: position of tab bar. */
+  position?: string;
+  /** Tabs: comma-separated tab labels. */
+  tabLabels?: string;
+  /** Tabs: key of the default active tab. */
+  defaultTab?: string;
+  /** Accordion: allow multiple panels open at once. */
+  allowMultiple?: boolean;
+  /** Accordion: comma-separated panel labels. */
+  labels?: string;
   children?: GeneratedComponentNode[];
 }
 
@@ -86,7 +114,15 @@ export function rewritePathByMap(path: string, rewriteMap: PathRewriteMap): stri
 }
 
 /** Rebuilds the full component tree directly from definition items. */
-export function rebuildComponentTreeFromDefinition(definition: FormspecDefinition): GeneratedComponentNode {
+export function rebuildComponentTreeFromDefinition(
+  definition: FormspecDefinition,
+  previousTree?: GeneratedComponentNode
+): GeneratedComponentNode {
+  const pageMode = getPageMode(definition);
+  if (pageMode === 'wizard') {
+    return buildWizardRootNode(definition.items, previousTree);
+  }
+
   return {
     component: 'Stack',
     children: definition.items.map((item) => buildComponentNode(item, ''))
@@ -111,6 +147,20 @@ export function collectFieldPaths(items: FormspecItem[], parentPath = ''): strin
     }
   }
   return paths;
+}
+
+/** Finds the generated component node that corresponds to a definition item path. */
+export function findComponentNodeByPath(
+  items: FormspecItem[],
+  rootNode: GeneratedComponentNode,
+  path: string
+): GeneratedComponentNode | null {
+  const segments = toPathSegments(path);
+  if (!segments.length) {
+    return null;
+  }
+
+  return findNodeInLevel(items, rootNode.children ?? [], segments, 0);
 }
 
 /**
@@ -273,16 +323,39 @@ function buildComponentNode(item: FormspecItem, parentPath: string): GeneratedCo
   const itemPath = joinPath(parentPath, item.key);
 
   if (item.type === 'group') {
-    return {
-      component: 'Stack',
+    const groupPresentation = item.presentation as Record<string, unknown> | undefined;
+    const groupComponent = typeof groupPresentation?.widgetHint === 'string' ? groupPresentation.widgetHint : 'Stack';
+    const node: GeneratedComponentNode = {
+      component: groupComponent,
       children: (item.children ?? []).map((child) => buildComponentNode(child, itemPath))
     };
+    if (groupComponent === 'Page') {
+      if (typeof item.label === 'string' && item.label.trim().length > 0) {
+        node.title = item.label;
+      }
+      if (typeof item.description === 'string' && item.description.trim().length > 0) {
+        node.description = item.description;
+      }
+    }
+    return node;
   }
 
   if (item.type === 'display') {
+    const presentation = item.presentation as Record<string, unknown> | undefined;
+    const componentType = typeof presentation?.widgetHint === 'string' ? presentation.widgetHint : 'Text';
     return {
-      component: 'Text',
+      component: componentType,
       text: item.label
+    };
+  }
+
+  if (item.children?.length) {
+    return {
+      component: 'Stack',
+      children: [
+        { component: resolveFieldComponent(item), bind: itemPath },
+        ...item.children.map((child) => buildComponentNode(child, itemPath))
+      ]
     };
   }
 
@@ -321,6 +394,149 @@ function resolveFieldComponent(item: FormspecItem): string {
   }
 
   return 'TextInput';
+}
+
+function buildWizardRootNode(items: FormspecItem[], previousTree?: GeneratedComponentNode): GeneratedComponentNode {
+  const preservedWizardProps = readWizardProps(previousTree);
+  const children: GeneratedComponentNode[] = [];
+  let index = 0;
+
+  while (index < items.length) {
+    const item = items[index];
+    if (!isPageItem(item)) {
+      children.push(buildComponentNode(item, ''));
+      index += 1;
+      continue;
+    }
+
+    const pageItems: FormspecItem[] = [];
+    while (index < items.length && isPageItem(items[index])) {
+      pageItems.push(items[index]);
+      index += 1;
+    }
+
+    const wizardNode: GeneratedComponentNode = {
+      component: 'Wizard',
+      children: pageItems.map((page) => buildComponentNode(page, ''))
+    };
+    if (typeof preservedWizardProps.showProgress === 'boolean') {
+      wizardNode.showProgress = preservedWizardProps.showProgress;
+    }
+    if (typeof preservedWizardProps.allowSkip === 'boolean') {
+      wizardNode.allowSkip = preservedWizardProps.allowSkip;
+    }
+    children.push(wizardNode);
+  }
+
+  return {
+    component: 'Stack',
+    children
+  };
+}
+
+function findNodeInLevel(
+  items: FormspecItem[],
+  nodes: GeneratedComponentNode[],
+  segments: string[],
+  depth: number
+): GeneratedComponentNode | null {
+  let itemIndex = 0;
+  let nodeIndex = 0;
+
+  while (itemIndex < items.length && nodeIndex < nodes.length) {
+    const item = items[itemIndex];
+    const node = nodes[nodeIndex];
+
+    if (node.component === 'Wizard' && isPageItem(item)) {
+      const result = findNodeInWizardRun(items, itemIndex, node, segments, depth);
+      if (result.found) {
+        return result.node;
+      }
+      itemIndex = result.nextItemIndex;
+      nodeIndex += 1;
+      continue;
+    }
+
+    if (item.key === segments[depth]) {
+      if (depth === segments.length - 1) {
+        return node;
+      }
+      if (item.type !== 'group') {
+        return null;
+      }
+      return findNodeInLevel(item.children ?? [], node.children ?? [], segments, depth + 1);
+    }
+
+    itemIndex += 1;
+    nodeIndex += 1;
+  }
+
+  return null;
+}
+
+function findNodeInWizardRun(
+  items: FormspecItem[],
+  startIndex: number,
+  wizardNode: GeneratedComponentNode,
+  segments: string[],
+  depth: number
+): { found: boolean; node: GeneratedComponentNode | null; nextItemIndex: number } {
+  let pageOffset = 0;
+  let nextItemIndex = startIndex;
+
+  while (nextItemIndex < items.length && isPageItem(items[nextItemIndex])) {
+    const pageItem = items[nextItemIndex];
+    const pageNode = wizardNode.children?.[pageOffset] ?? null;
+
+    if (pageItem.key === segments[depth]) {
+      if (depth === segments.length - 1) {
+        return { found: true, node: pageNode, nextItemIndex: nextItemIndex + 1 };
+      }
+      if (pageItem.type !== 'group' || !pageNode) {
+        return { found: true, node: null, nextItemIndex: nextItemIndex + 1 };
+      }
+      return {
+        found: true,
+        node: findNodeInLevel(pageItem.children ?? [], pageNode.children ?? [], segments, depth + 1),
+        nextItemIndex: nextItemIndex + 1
+      };
+    }
+
+    nextItemIndex += 1;
+    pageOffset += 1;
+  }
+
+  return { found: false, node: null, nextItemIndex };
+}
+
+function readWizardProps(previousTree: GeneratedComponentNode | undefined): Pick<GeneratedComponentNode, 'showProgress' | 'allowSkip'> {
+  if (!previousTree?.children?.length) {
+    return {};
+  }
+
+  for (const child of previousTree.children) {
+    if (child.component === 'Wizard') {
+      return {
+        showProgress: child.showProgress,
+        allowSkip: child.allowSkip
+      };
+    }
+  }
+
+  return {};
+}
+
+function getPageMode(definition: FormspecDefinition): string | undefined {
+  const formPresentation = definition.formPresentation as Record<string, unknown> | undefined;
+  return typeof formPresentation?.pageMode === 'string' ? formPresentation.pageMode : undefined;
+}
+
+function isPageItem(item: FormspecItem): boolean {
+  if (item.type !== 'group') {
+    return false;
+  }
+  const presentation = item.presentation as Record<string, unknown> | undefined;
+  return presentation?.widgetHint === 'Page';
 }
 
 function escapeRegex(value: string): string {

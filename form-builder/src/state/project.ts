@@ -6,6 +6,37 @@ import { signal, type Signal } from '@preact/signals';
 import type { FormspecDefinition, FormspecItem } from 'formspec-engine';
 import { rebuildComponentTreeFromDefinition, type GeneratedComponentNode } from './wiring';
 import type { FormspecChangelogDocument } from './versioning';
+import { createLoadedExtensionRegistry } from './extensions';
+import commonRegistry from '../../../registries/formspec-common.registry.json';
+
+/** Component artifact persisted by Studio. */
+export interface FormspecCustomComponentDefinition {
+  params?: string[];
+  tree: Record<string, unknown>;
+}
+
+/** Theme page-region responsive overrides. */
+export interface ThemePageRegionResponsiveOverride {
+  span?: number;
+  start?: number;
+  hidden?: boolean;
+}
+
+/** Named layout region within a theme page. */
+export interface ThemePageRegion {
+  key: string;
+  span?: number;
+  start?: number;
+  responsive?: Record<string, ThemePageRegionResponsiveOverride>;
+}
+
+/** Ordered page layout section within a theme document. */
+export interface FormspecThemePage {
+  id: string;
+  title: string;
+  description?: string;
+  regions?: ThemePageRegion[];
+}
 
 /** Component artifact persisted by Studio. */
 export interface FormspecComponentDocument {
@@ -16,6 +47,7 @@ export interface FormspecComponentDocument {
     compatibleVersions?: string;
   };
   breakpoints?: Record<string, number>;
+  components?: Record<string, FormspecCustomComponentDefinition>;
   tree: GeneratedComponentNode;
   name?: string;
   title?: string;
@@ -52,6 +84,7 @@ export interface FormspecThemeDocument {
   tokens?: Record<string, string | number>;
   selectors?: ThemeSelectorRule[];
   items?: Record<string, Record<string, unknown>>;
+  pages?: FormspecThemePage[];
   name?: string;
   title?: string;
   description?: string;
@@ -211,6 +244,7 @@ export interface ProjectVersioningState {
 /** Editor-only UI state persisted alongside artifacts. */
 export interface ProjectUIState {
   inspectorSections: Record<string, boolean>;
+  inspectorMode: 'simple' | 'advanced';
   viewMode: 'edit' | 'preview' | 'split';
   structurePanelOpen: boolean;
   diagnosticsOpen: boolean;
@@ -322,6 +356,15 @@ export function createInitialVersioningState(definition: FormspecDefinition): Pr
   };
 }
 
+let _builtinRegistry: LoadedExtensionRegistry | undefined;
+
+function getBuiltinRegistry(): LoadedExtensionRegistry {
+  if (!_builtinRegistry) {
+    _builtinRegistry = createLoadedExtensionRegistry(commonRegistry, 'inline', 'formspec-common');
+  }
+  return _builtinRegistry;
+}
+
 /**
  * Builds a normalized, self-consistent project state.
  * Repairs companion artifacts (component/theme/mapping/versioning) when partially seeded.
@@ -331,7 +374,8 @@ export function createInitialProjectState(seed: Partial<ProjectState> = {}): Pro
   const component = structuredClone(seed.component ?? createInitialComponent(definition));
   const theme = structuredClone(seed.theme ?? createInitialTheme(definition));
   const mapping = structuredClone(seed.mapping ?? createInitialMapping(definition));
-  const extensions = structuredClone(seed.extensions ?? { registries: [] });
+  const defaultRegistries: LoadedExtensionRegistry[] = [getBuiltinRegistry()];
+  const extensions = structuredClone(seed.extensions ?? { registries: defaultRegistries });
   const versioning = structuredClone(seed.versioning ?? createInitialVersioningState(definition));
   const seedUiState = seed.uiState;
 
@@ -399,6 +443,7 @@ export function createInitialProjectState(seed: Partial<ProjectState> = {}): Pro
     selection: seed.selection ?? null,
     uiState: {
       inspectorSections: seedUiState?.inspectorSections ?? {},
+      inspectorMode: seedUiState?.inspectorMode ?? 'simple',
       viewMode: seedUiState?.viewMode ?? 'edit',
       structurePanelOpen: seedUiState?.structurePanelOpen ?? false,
       diagnosticsOpen: seedUiState?.diagnosticsOpen ?? false,

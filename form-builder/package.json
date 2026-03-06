@@ -18,6 +18,7 @@
     "formspec-engine": "*",
     "formspec-layout": "*",
     "formspec-webcomponent": "*",
+    "jszip": "^3.10.1",
     "preact": "^10.26.4"
   },
   "devDependencies": {
