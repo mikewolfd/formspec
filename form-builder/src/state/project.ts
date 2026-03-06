@@ -253,6 +253,7 @@ export interface ProjectUIState {
   activeBreakpoint: string;
   jsonEditorOpen: boolean;
   jsonEditorTab: 'definition' | 'component' | 'theme';
+  activePage: string | null;
 }
 
 /** Top-level Studio project state. */
@@ -451,7 +452,8 @@ export function createInitialProjectState(seed: Partial<ProjectState> = {}): Pro
       previewWidth,
       activeBreakpoint,
       jsonEditorOpen: seedUiState?.jsonEditorOpen ?? false,
-      jsonEditorTab
+      jsonEditorTab,
+      activePage: seedUiState?.activePage ?? null
     }
   };
 }

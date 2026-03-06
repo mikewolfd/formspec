@@ -14,7 +14,7 @@ import {
   setSelection
 } from '../../state/mutations';
 import { projectSignal, type ProjectState } from '../../state/project';
-import { joinPath } from '../../state/wiring';
+import { findActivePage, getPageMode, joinPath } from '../../state/wiring';
 import { AddBetween } from './AddBetween';
 import { buildSlashTemplates, type FieldTemplate } from './field-templates';
 import type { FieldLogicBadgeKey } from './FieldBlock';
@@ -58,6 +58,12 @@ export function FormSurface(props: FormSurfaceProps) {
     () => buildSlashTemplates(state.extensions.registries),
     [state.extensions.registries]
   );
+
+  const pageMode = getPageMode(state.definition);
+  const isPagedMode = pageMode === 'wizard' || pageMode === 'tabs';
+  const activePageItem = isPagedMode ? findActivePage(state.definition, state.uiState.activePage) : null;
+  const displayItems = activePageItem?.children ?? state.definition.items;
+  const displayParentPath = activePageItem ? activePageItem.key : null;
 
   const closeSlashMenu = () => {
     setSlashMenu(null);
@@ -276,20 +282,21 @@ export function FormSurface(props: FormSurfaceProps) {
 
         event.preventDefault();
         event.stopPropagation();
-        const target = inferInsertionTarget(state.definition.items, state.selection);
-        openSlashMenu(target.parentPath, target.index, event.currentTarget as HTMLElement);
+        const target = inferInsertionTarget(displayItems, state.selection);
+        const insertParent = target.parentPath ?? displayParentPath;
+        openSlashMenu(insertParent, target.index, event.currentTarget as HTMLElement);
       }}
     >
-      {state.definition.items.length > 0 ? (
+      {displayItems.length > 0 ? (
         <Fragment>
-          {renderItemList(state.definition.items, null)}
+          {renderItemList(displayItems, displayParentPath)}
           <p class="form-surface__slash-hint">
             Press <kbd>/</kbd> to insert a field
           </p>
         </Fragment>
       ) : (
         <div class="form-surface__empty-state">
-          <h2>Start your form</h2>
+          <h2>{isPagedMode ? 'Empty page' : 'Start your form'}</h2>
           <p>Type <kbd>/</kbd> to add a field, or click the button below.</p>
           <button
             type="button"
@@ -297,10 +304,10 @@ export function FormSurface(props: FormSurfaceProps) {
             data-testid="surface-add-first-item"
             onClick={(event) => {
               event.stopPropagation();
-              openSlashMenu(null, 0, event.currentTarget as HTMLElement);
+              openSlashMenu(displayParentPath, 0, event.currentTarget as HTMLElement);
             }}
           >
-            + Add first field
+            {isPagedMode ? '+ Add first field to this page' : '+ Add first field'}
           </button>
         </div>
       )}

@@ -27,6 +27,10 @@ import {
   buildComponentNodesForItems,
   collectFieldPaths,
   findComponentNodeByPath,
+  findActivePage,
+  getPageItems,
+  getPageMode,
+  isPageItem,
   type GeneratedComponentNode,
   getLeafKey,
   joinPath,
@@ -1022,8 +1026,136 @@ export function setFormPresentationProperty(
     }
 
     state.definition.formPresentation = Object.keys(next).length > 0 ? next : undefined;
+
+    if (property === 'pageMode' && (normalized === 'wizard' || normalized === 'tabs')) {
+      const pages = getPageItems(state.definition);
+
+      if (pages.length === 0 && state.definition.items.length > 0) {
+        const existingItems = [...state.definition.items];
+        const pageKey = ensureUniqueSiblingKey([], 'page_1');
+        const pageGroup: FormspecItem = {
+          type: 'group',
+          key: pageKey,
+          label: 'Page 1',
+          children: existingItems,
+          presentation: { widgetHint: 'Page' }
+        };
+        state.definition.items = [pageGroup];
+        state.uiState.activePage = pageKey;
+      } else if (pages.length > 0 && !state.uiState.activePage) {
+        state.uiState.activePage = pages[0].key;
+      }
+    }
+
+    if (property === 'pageMode' && normalized !== 'wizard' && normalized !== 'tabs') {
+      state.uiState.activePage = null;
+    }
+
     return { rebuildComponentTree: property === 'pageMode' };
   });
+}
+
+/** Sets the active page key in UI state. */
+export function setActivePage(
+  project: Signal<ProjectState> = projectSignal,
+  pageKey: string | null
+): void {
+  commitProject(project, (state) => {
+    state.uiState.activePage = pageKey;
+    return { skipHistory: true };
+  });
+}
+
+/** Adds a new page group at root level and sets it as the active page. */
+export function addPage(
+  project: Signal<ProjectState> = projectSignal,
+  label?: string
+): string {
+  let pageKey = '';
+
+  commitProject(project, (state) => {
+    const existingPages = getPageItems(state.definition);
+    const pageNumber = existingPages.length + 1;
+    const requestedKey = `page_${pageNumber}`;
+    pageKey = ensureUniqueSiblingKey(state.definition.items, requestedKey);
+
+    const pageGroup: FormspecItem = {
+      type: 'group',
+      key: pageKey,
+      label: label?.trim() || `Page ${pageNumber}`,
+      children: [],
+      presentation: { widgetHint: 'Page' }
+    };
+
+    state.definition.items.push(pageGroup);
+    state.uiState.activePage = pageKey;
+    state.selection = pageKey;
+    return { rebuildComponentTree: true };
+  });
+
+  return pageKey;
+}
+
+/** Deletes a page group and all its children. Returns false if deletion would leave no pages. */
+export function deletePage(
+  project: Signal<ProjectState> = projectSignal,
+  pageKey: string
+): boolean {
+  const state = project.value;
+  const pages = getPageItems(state.definition);
+
+  if (pages.length <= 1) {
+    return false;
+  }
+
+  const pageIndex = pages.findIndex((p) => p.key === pageKey);
+  if (pageIndex < 0) {
+    return false;
+  }
+
+  commitProject(project, (draft) => {
+    const location = findItemLocation(draft.definition.items, pageKey);
+    if (!location) return {};
+
+    const [removed] = location.items.splice(location.index, 1);
+    const removedPaths = collectItemPaths([removed], null);
+    const removedPrefixes = new Set(removedPaths);
+
+    if (draft.definition.binds?.length) {
+      draft.definition.binds = draft.definition.binds.filter((bind) => !isPathRemoved(bind.path, removedPrefixes));
+      if (draft.definition.binds.length === 0) draft.definition.binds = undefined;
+    }
+
+    if (draft.definition.shapes?.length) {
+      draft.definition.shapes = draft.definition.shapes.filter((shape) =>
+        shape.target === '#' || !isPathRemoved(shape.target, removedPrefixes)
+      );
+      if (draft.definition.shapes.length === 0) draft.definition.shapes = undefined;
+    }
+
+    if (draft.selection && isPathRemoved(draft.selection, removedPrefixes)) {
+      draft.selection = null;
+    }
+
+    if (draft.uiState.activePage === pageKey) {
+      const remainingPages = getPageItems(draft.definition);
+      const nextIndex = Math.min(pageIndex, remainingPages.length - 1);
+      draft.uiState.activePage = remainingPages[nextIndex]?.key ?? null;
+    }
+
+    return { rebuildComponentTree: true };
+  });
+
+  return true;
+}
+
+/** Reorders a page among root-level page groups. */
+export function reorderPage(
+  project: Signal<ProjectState> = projectSignal,
+  pageKey: string,
+  direction: 'up' | 'down'
+): void {
+  reorderItem(project, pageKey, direction);
 }
 
 /** Appends a new variable entry and returns its index. */
@@ -2386,14 +2518,6 @@ function findGeneratedWizardNodes(
   }
 
   return wizardNodes;
-}
-
-function isPageItem(item: FormspecItem): boolean {
-  if (item.type !== 'group') {
-    return false;
-  }
-  const presentation = item.presentation as Record<string, unknown> | undefined;
-  return presentation?.widgetHint === 'Page';
 }
 
 function applyResponsiveNumber(

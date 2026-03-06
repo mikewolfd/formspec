@@ -241,7 +241,8 @@ describe('form surface', () => {
         viewMode: 'edit',
         structurePanelOpen: false,
         diagnosticsOpen: false,
-        mobilePanel: 'none'
+        mobilePanel: 'none',
+        activePage: null
       }
     });
 

@@ -526,17 +526,28 @@ function readWizardProps(previousTree: GeneratedComponentNode | undefined): Pick
   return {};
 }
 
-function getPageMode(definition: FormspecDefinition): string | undefined {
+export function getPageMode(definition: FormspecDefinition): string | undefined {
   const formPresentation = definition.formPresentation as Record<string, unknown> | undefined;
   return typeof formPresentation?.pageMode === 'string' ? formPresentation.pageMode : undefined;
 }
 
-function isPageItem(item: FormspecItem): boolean {
+export function isPageItem(item: FormspecItem): boolean {
   if (item.type !== 'group') {
     return false;
   }
   const presentation = item.presentation as Record<string, unknown> | undefined;
   return presentation?.widgetHint === 'Page';
+}
+
+/** Returns all root-level page groups from the definition. */
+export function getPageItems(definition: FormspecDefinition): FormspecItem[] {
+  return definition.items.filter(isPageItem);
+}
+
+/** Finds a page group by key among root-level items. */
+export function findActivePage(definition: FormspecDefinition, activePageKey: string | null): FormspecItem | null {
+  if (!activePageKey) return null;
+  return definition.items.find((item) => isPageItem(item) && item.key === activePageKey) ?? null;
 }
 
 function escapeRegex(value: string): string {

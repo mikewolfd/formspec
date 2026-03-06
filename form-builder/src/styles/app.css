@@ -2729,6 +2729,142 @@ body {
   color: #64748b;
 }
 
+.pages-bar {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.pages-bar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.15rem 0.25rem;
+}
+
+.pages-bar__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pages-bar__add {
+  background: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.3rem;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1;
+  padding: 0.1rem 0.4rem;
+  cursor: pointer;
+}
+
+.pages-bar__add:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.pages-bar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.pages-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #334155;
+  transition: background-color 0.1s ease;
+}
+
+.pages-bar__item:hover {
+  background: #e2e8f0;
+}
+
+.pages-bar__item--active {
+  background: #dbeafe;
+  color: #1e40af;
+  border-left: 2px solid #3b82f6;
+}
+
+.pages-bar__item--active:hover {
+  background: #bfdbfe;
+}
+
+.pages-bar__reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pages-bar__reorder-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.5rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.pages-bar__reorder-btn:hover:not(:disabled) {
+  color: #475569;
+}
+
+.pages-bar__reorder-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pages-bar__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.pages-bar__edit-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  padding: 0.05rem 0.2rem;
+  border: 1px solid #93c5fd;
+  border-radius: 0.2rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.pages-bar__delete {
+  background: none;
+  border: none;
+  padding: 0 0.15rem;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.pages-bar__item:hover .pages-bar__delete {
+  opacity: 1;
+}
+
+.pages-bar__delete:hover {
+  color: #ef4444;
+}
+
 .structure-tree__list {
   list-style: none;
   margin: 0;

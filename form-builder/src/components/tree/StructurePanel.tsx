@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { FormspecBind, FormspecItem } from 'formspec-engine';
 import { moveItem, reorderItem, setSelection } from '../../state/mutations';
 import { projectSignal, type ProjectState } from '../../state/project';
-import { joinPath } from '../../state/wiring';
+import { findActivePage, getPageMode, joinPath } from '../../state/wiring';
+import { PagesBar } from './PagesBar';
 import { TreeNode } from './TreeNode';
 
 export interface StructurePanelProps {
@@ -181,12 +182,21 @@ export function StructurePanel(props: StructurePanelProps) {
     );
   };
 
+  const pageMode = getPageMode(state.definition);
+  const isPagedMode = pageMode === 'wizard' || pageMode === 'tabs';
+  const activePage = isPagedMode ? findActivePage(state.definition, state.uiState.activePage) : null;
+  const displayItems = activePage?.children ?? state.definition.items;
+  const displayParentPath = activePage ? activePage.key : null;
+
   return (
     <section class="structure-panel" data-testid="structure-tree">
-      {state.definition.items.length ? (
-        renderLevel(state.definition.items, null, 0)
+      {isPagedMode && <PagesBar project={project} />}
+      {displayItems.length ? (
+        renderLevel(displayItems, displayParentPath, 0)
       ) : (
-        <p class="structure-panel__empty">No form items yet.</p>
+        <p class="structure-panel__empty">
+          {isPagedMode ? 'No items on this page.' : 'No form items yet.'}
+        </p>
       )}
     </section>
   );
