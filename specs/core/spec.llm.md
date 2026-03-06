@@ -71,7 +71,7 @@ Behavioral declaration attached to data nodes by path. Each bind has a `target` 
 | `required` | boolean | true → field must have non-null, non-empty value |
 | `readonly` | boolean | true → no user modification; calculate can still write |
 | `constraint` | boolean | false → field invalid; pair with `constraintMessage` |
-| `default` | field's dataType | Initial value at instance creation; evaluated once, not reactively |
+| `default` | field's dataType | Value applied when a previously non-relevant field becomes relevant again; distinct from item `initialValue`/`prePopulate` and not continuously reactive like `calculate` |
 
 Binds are **reactive** — when a dependency changes, all affected binds re-evaluate per the processing model.
 

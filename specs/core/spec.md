@@ -308,16 +308,19 @@ Field items MUST declare a `dataType` from the following set:
 
 | `dataType` | JSON representation | FEL type | Notes |
 |------------|-------------------|----------|-------|
-| `"string"` | JSON string | `string` | |
-| `"number"` | JSON number | `number` | IEEE 754 double. |
+| `"string"` | JSON string | `string` | Short-form text. |
+| `"text"` | JSON string | `string` | Long-form text. May span multiple lines. |
 | `"integer"` | JSON number (no fraction) | `number` | Processors MUST reject fractional values. |
+| `"decimal"` | JSON number | `number` | Fractional numeric input; `precision` MAY constrain stored scale. |
 | `"boolean"` | JSON `true` / `false` | `boolean` | |
 | `"date"` | JSON string, ISO 8601 date (`YYYY-MM-DD`) | `date` | |
 | `"dateTime"` | JSON string, ISO 8601 date-time | `date` | |
 | `"time"` | JSON string, ISO 8601 time (`HH:MM:SS`) | `string` | Supports time extraction and construction via `hours()`, `minutes()`, `seconds()`, and `time()` functions (§3.5). |
+| `"uri"` | JSON string | `string` | Syntactically valid URI per RFC 3986. |
+| `"attachment"` | JSON object `{ "url": "...", "contentType": "...", "size": ... }` | N/A | Binary content is out-of-band; the Instance stores a reference. |
 | `"choice"` | JSON string (selected option key) | `string` | Valid values constrained by an `options` array or data source reference. |
 | `"multiChoice"` | JSON array of strings | `array` | |
-| `"attachment"` | JSON object `{ "url": "...", "contentType": "...", "size": ... }` | N/A | Binary content is out-of-band; the Instance stores a reference. |
+| `"money"` | JSON object `{ "amount": "...", "currency": "..." }` | `money` | Amount is a string to preserve decimal precision. |
 
 Additional `dataType` values MAY be defined via extensions (§7).
 
@@ -351,7 +354,7 @@ path. Binds are the bridge between the structural layer (Items) and the
 behavioral layer (reactive expressions). A Bind is not a visual concept; it
 exists purely in the data/logic domain.
 
-Each Bind MUST specify a `target` — a path expression (using dot-separated
+Each Bind MUST specify a `path` — a path expression (using dot-separated
 `key` notation) that identifies the data node(s) to which the Bind applies. A
 Bind MAY specify one or more of the following properties, each containing a
 FEL expression:
@@ -363,7 +366,7 @@ FEL expression:
 | `required` | `boolean` | If `true`, the target field MUST have a non-null, non-empty-string value for the Instance to be valid. This is evaluated dynamically — a field may be required only when other conditions hold. |
 | `readonly` | `boolean` | If `true`, the field’s value MUST NOT be modified by user input. It MAY still be modified by a `calculate` expression. |
 | `constraint` | `boolean` | A per-field validation expression. If it evaluates to `false`, the field is invalid. The Bind SHOULD include a `constraintMessage` string for human-readable feedback. |
-| `default` | Same as target field’s `dataType` | The initial value assigned to the field when the Instance is first created or when a new repeat instance is added. Evaluated once at initialization, not reactively. |
+| `default` | Same as target field’s `dataType` | The value assigned when a previously non-relevant field becomes relevant again. This is distinct from Item `initialValue` and `prePopulate`, which apply at response or repeat-instance creation time. `default` is not reactive like `calculate`; it applies on each non-relevant → relevant transition. |
 
 Binds are evaluated **reactively**. When a value in the Instance changes, the
 processor MUST re-evaluate all Binds whose expressions reference the changed
@@ -375,21 +378,21 @@ value, directly or transitively, following the processing model (§2.4).
 > {
 >   "binds": [
 >     {
->       "target": "totalIncome",
+>       "path": "totalIncome",
 >       "calculate": "$wages + $interest + $dividends"
 >     },
 >     {
->       "target": "spouseInfo",
+>       "path": "spouseInfo",
 >       "relevant": "$filingStatus = 'married'"
 >     },
 >     {
->       "target": "ssn",
+>       "path": "ssn",
 >       "required": "true",
 >       "constraint": "matches($ssn, '^[0-9]{3}-[0-9]{2}-[0-9]{4}$')",
 >       "constraintMessage": "SSN must be in the format 000-00-0000."
 >     },
 >     {
->       "target": "filingDate",
+>       "path": "filingDate",
 >       "default": "today()"
 >     }
 >   ]
@@ -404,13 +407,11 @@ Formspec’s JSON-native context.
 
 Each Shape MUST have:
 
-- A `name` — a unique identifier within the Definition.
-- A `target` — one or more data paths to which the Shape applies.
-- One or more **constraints**, each with:
-  - An `expression` (FEL, returning `boolean`) — the condition that MUST hold.
-  - A `severity` — one of `"error"`, `"warning"`, or `"info"`.
-  - A `message` — a human-readable description of the violation.
-  - An optional `code` — a machine-readable identifier for the violation.
+- An `id` — a unique identifier within the Definition.
+- A `target` — a data path, or the special root path `"#"`, to which the Shape applies.
+- A `message` — a human-readable description of the violation.
+- Either a `constraint` expression (FEL, returning `boolean`) or a composition over other Shapes.
+- Optional `severity`, `code`, `activeWhen`, and `timing` properties controlling how and when the Shape fires.
 
 Shapes MAY compose with other Shapes using the following logical operators:
 
@@ -422,7 +423,7 @@ Shapes MAY compose with other Shapes using the following logical operators:
 | `xone` | Exactly one of the referenced Shapes MUST pass. |
 
 Shapes produce **ValidationResult** entries. A ValidationResult is a structured
-JSON object, not a boolean flag. Each result entry includes the Shape name,
+JSON object, not a boolean flag. Each result entry includes the Shape `id`,
 target path, severity, message, code, and the evaluated expression. This
 structured output supports accessibility tooling, multi-level review workflows,
 and machine-to-machine validation pipelines.
@@ -842,7 +843,7 @@ A single ValidationResult entry is a JSON object with the following properties:
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `severity` | string | REQUIRED | One of `"error"`, `"warning"`, or `"info"`. See §2.5.2 for severity semantics. |
-| `path` | string | REQUIRED | The dot-notation path to the data node that produced this result (e.g., `"demographics.dob"`, `"lineItems[2].amount"`). For repeat instances, the path MUST include the concrete 1-based index (not the `[*]` wildcard). See §4.3.3 for the distinction between definition-time FieldRef paths and resolved instance paths. |
+| `path` | string | REQUIRED | The dot-notation path to the data node that produced this result (e.g., `"demographics.dob"`, `"lineItems[2].amount"`). For repeat instances, the path MUST include the concrete 0-based index (not the `[*]` wildcard). See §4.3.3 for the distinction between definition-time FieldRef paths and resolved instance paths. |
 | `message` | string | REQUIRED | A human-readable description of the finding. Suitable for display to end users. Processors SHOULD support localization of messages, but the mechanism is implementation-defined. |
 | `constraintKind` | string | REQUIRED | The category of constraint that produced this result. MUST be one of: `"required"` (required field has no value), `"type"` (value does not conform to declared `dataType`), `"cardinality"` (repeatable group violates `minRepeat`/`maxRepeat`), `"constraint"` (Bind `constraint` evaluated to `false`), `"shape"` (named Shape's constraint evaluated to `false`), `"external"` (external system injected this result). |
 | `code` | string | RECOMMENDED | A machine-readable identifier for this class of finding. Processors SHOULD include this using the standard built-in codes (see below) when no specific code is declared. Codes enable programmatic handling (e.g., suppressing known warnings, mapping to external error catalogs). |
@@ -888,7 +889,7 @@ codes override the generic defaults.
 >   },
 >   {
 >     "severity": "error",
->     "path": "lineItems[3].quantity",
+>     "path": "lineItems[2].quantity",
 >     "message": "This field is required.",
 >     "code": "REQUIRED",
 >     "source": "bind"
@@ -996,14 +997,15 @@ Within repeatable contexts, additional reference forms are available:
 
 | Syntax | Resolves to | Example |
 |--------|------------|--------|
-| `$repeatKey[index].fieldKey` | The value of `fieldKey` in the repeat instance at the given 1-based `index`. | `$lineItems[1].amount` → `100.00` |
+| `$repeatKey[index].fieldKey` | The value of `fieldKey` in the repeat instance at the given 0-based `index`. | `$lineItems[0].amount` → `100.00` |
 | `$repeatKey[*].fieldKey` | An **array** of all values of `fieldKey` across all instances of the repeat. Intended for use with aggregate functions. | `sum($lineItems[*].amount)` → `350.00` |
 | `@current` | An explicit reference to the current repeat instance object. Useful for disambiguation. | `@current.quantity * @current.unitPrice` |
-| `@index` | The 1-based position of the current repeat instance within its parent array. | `if(@index = 1, 'First', 'Subsequent')` |
+| `@index` | The 0-based position of the current repeat instance within its parent array. | `if(@index = 0, 'First', 'Subsequent')` |
 | `@count` | The total number of instances in the current repeat collection. | `@count >= 1` (at least one entry required) |
 
 A conformant processor MUST signal an error if an explicit index is out of
-bounds (less than 1 or greater than the number of repeat instances).
+bounds (less than 0 or greater than or equal to the number of repeat
+instances).
 
 #### 3.2.3 Cross-Instance References
 
@@ -2281,13 +2283,15 @@ forms are defined:
 | `fieldKey` | A root-level field | `entity_name` |
 | `groupKey.fieldKey` | A field nested inside a group | `budget_section.total_budget` |
 | `groupKey[*].fieldKey` | A field inside each repetition of a repeatable group | `line_items[*].amount` |
-| `groupKey[@index = N].fieldKey` | A field in a specific repetition (1-based index) | `line_items[@index = 1].amount` |
+| `groupKey[@index = N].fieldKey` | A field in a specific repetition (0-based index) | `line_items[@index = 0].amount` |
 | `groupA.groupB[*].fieldKey` | Deep nesting across multiple groups | `budget_section.line_items[*].amount` |
 
 The `[*]` wildcard MUST be used when a Bind applies uniformly to all
 repetitions of a repeatable group. Index-based addressing (`[@index = N]`)
 SHOULD be used only in exceptional circumstances (e.g., binding a calculation
-to the first repetition only).
+to the first repetition only). Repeat indexes are 0-based throughout
+Formspec path syntax and resolved ValidationResult paths to align with JSON
+array indexing.
 
 A path MUST resolve to at least one Item `key` in the Definition. If a path
 does not resolve, implementations MUST report a Definition error.
@@ -2295,7 +2299,7 @@ does not resolve, implementations MUST report a Definition error.
 **FieldRef vs Resolved Instance Path.** Bind `path` and Shape `target`
 properties use **FieldRef** syntax — definition-time addresses with `[*]`
 wildcards. ValidationResult `path` properties use **resolved instance paths**
-with concrete 1-based indexes (e.g., `line_items[3].amount`). This
+with concrete 0-based indexes (e.g., `line_items[2].amount`). This
 unambiguously identifies the specific data node that failed validation.
 
 ### 4.4 Instance Schema
@@ -2355,7 +2359,7 @@ Instance data is accessed in FEL expressions via the `@instance()` function:
 
 The argument to `@instance()` MUST be a string literal matching an instance
 name declared in the `instances` object. References to undeclared instances
-MUST produce an evaluation error.
+MUST produce a Definition error.
 
 When instance data is unavailable (e.g., a network fetch fails and no `data`
 fallback exists), `@instance()` MUST return `null`. Expressions SHOULD be
@@ -2659,7 +2663,7 @@ The schema is borrowed from SHACL's Validation Result vocabulary.
 
 | Property | Type | Cardinality | Description |
 |---|---|---|---|
-| `path` | string | **1..1** (REQUIRED) | The resolved instance path of the node that failed validation. For repeat instances, the path MUST include the concrete 1-based index (e.g., `line_items[2].amount`), not the wildcard `[*]`. See §4.3.3 for the FieldRef/resolved-path distinction. |
+| `path` | string | **1..1** (REQUIRED) | The resolved instance path of the node that failed validation. For repeat instances, the path MUST include the concrete 0-based index (e.g., `line_items[2].amount`), not the wildcard `[*]`. See §4.3.3 for the FieldRef/resolved-path distinction. |
 | `severity` | string | **1..1** (REQUIRED) | The severity level. MUST be one of `"error"`, `"warning"`, `"info"`. |
 | `constraintKind` | string | **1..1** (REQUIRED) | The category of constraint that produced this result. MUST be one of: `"required"`, `"type"`, `"cardinality"`, `"constraint"`, `"shape"`, `"external"`. See §2.5.1. |
 | `message` | string | **1..1** (REQUIRED) | Human-readable description of the failure. All `{{expression}}` interpolation sequences MUST be resolved before this value is surfaced. |
@@ -3260,7 +3264,7 @@ the calculated total equals the award amount exactly.
     },
     {
       "path": "total_budget",
-      "calculate": "sum(line_items[*].amount)",
+      "calculate": "sum($line_items[*].amount)",
       "readonly": "true"
     }
   ],
@@ -3271,7 +3275,7 @@ the calculated total equals the award amount exactly.
       "severity": "error",
       "target": "total_budget",
       "constraint": "$total_budget = $award_amount",
-      "message": "Total budget (${$total_budget}) must equal the authorized award amount (${$award_amount})."
+      "message": "Total budget ({{$total_budget}}) must equal the authorized award amount ({{$award_amount}})."
     }
   ]
 }
@@ -3447,7 +3451,7 @@ their validation constraints are suspended.
     {
       "path": "subcontract_total",
       "relevant": "$has_subcontracts = true",
-      "calculate": "sum(subcontracting[*].subcontract_amount)",
+      "calculate": "sum($subcontracting[*].subcontract_amount)",
       "readonly": "true"
     }
   ]
@@ -3615,7 +3619,7 @@ total.
     },
     {
       "path": "grand_total",
-      "calculate": "sum(categories[*].row_total)",
+      "calculate": "sum($categories[*].row_total)",
       "readonly": "true"
     }
   ],
@@ -3625,22 +3629,22 @@ total.
       "id": "personnel-concentration-warning",
       "severity": "warning",
       "target": "categories[*].personnel_costs",
-      "constraint": "$row_total = 0 or ($personnel_costs div $row_total) <= 0.50",
-      "message": "Personnel costs (${$personnel_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct."
+      "constraint": "$row_total = 0 or ($personnel_costs / $row_total) <= 0.50",
+      "message": "Personnel costs ({{$personnel_costs}}) exceed 50% of the row total ({{$row_total}}). Verify this allocation is correct."
     },
     {
       "id": "travel-concentration-warning",
       "severity": "warning",
       "target": "categories[*].travel_costs",
-      "constraint": "$row_total = 0 or ($travel_costs div $row_total) <= 0.50",
-      "message": "Travel costs (${$travel_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct."
+      "constraint": "$row_total = 0 or ($travel_costs / $row_total) <= 0.50",
+      "message": "Travel costs ({{$travel_costs}}) exceed 50% of the row total ({{$row_total}}). Verify this allocation is correct."
     },
     {
       "id": "supply-concentration-warning",
       "severity": "warning",
       "target": "categories[*].supply_costs",
-      "constraint": "$row_total = 0 or ($supply_costs div $row_total) <= 0.50",
-      "message": "Supply costs (${$supply_costs}) exceed 50% of the row total (${$row_total}). Verify this allocation is correct."
+      "constraint": "$row_total = 0 or ($supply_costs / $row_total) <= 0.50",
+      "message": "Supply costs ({{$supply_costs}}) exceed 50% of the row total ({{$row_total}}). Verify this allocation is correct."
     }
   ]
 }
@@ -3655,14 +3659,14 @@ per repeat instance, scoped to that instance's data. The expression
 `$personnel_costs` within the third repeat instance refers to
 `categories[2].personnel_costs`, not to a global field.
 
-The `grand_total` bind uses `sum(categories[*].row_total)`, which
+The `grand_total` bind uses `sum($categories[*].row_total)`, which
 aggregates across ALL repeat instances. The `[*]` within a `sum()`,
 `count()`, or other aggregate function denotes collection-level
 aggregation. Processors MUST distinguish between:
 
 - **Per-instance context:** `categories[*].row_total` as a bind path —
   the expression evaluates once per row.
-- **Aggregate context:** `sum(categories[*].row_total)` as an expression —
+- **Aggregate context:** `sum($categories[*].row_total)` as an expression —
   the function receives all values and returns a single scalar.
 
 #### 7.3.2 Instance Data with Warning
@@ -3789,12 +3793,12 @@ interpolated values in the message.
     {
       "name": "prior_total",
       "expression": "@instance('prior_year').total_expenditure",
-      "scope": "global"
+      "scope": "#"
     },
     {
       "name": "yoy_change_pct",
-      "expression": "if($prior_total != 0, abs($total_expenditure - $prior_total) div $prior_total, 0)",
-      "scope": "global"
+      "expression": "if(@prior_total != 0, abs($total_expenditure - @prior_total) / @prior_total, 0)",
+      "scope": "#"
     }
   ],
 
@@ -3831,8 +3835,8 @@ interpolated values in the message.
       "id": "yoy-variance-warning",
       "severity": "warning",
       "target": "total_expenditure",
-      "constraint": "$yoy_change_pct <= 0.25",
-      "message": "The proposed expenditure (${$total_expenditure}) differs from the prior year actual (${$prior_total}) by ${round($yoy_change_pct * 100)}%. Changes exceeding 25% require additional justification in the narrative."
+      "constraint": "@yoy_change_pct <= 0.25",
+      "message": "The proposed expenditure ({{$total_expenditure}}) differs from the prior year actual ({{@prior_total}}) by {{round(@yoy_change_pct * 100)}}%. Changes exceeding 25% require additional justification in the narrative."
     }
   ]
 }
@@ -3877,7 +3881,7 @@ The year-over-year change is 40%, exceeding the 25% threshold.
     {
       "path": "budget_justification",
       "severity": "error",
-      "code": "required",
+      "code": "REQUIRED",
       "message": "This field is required.",
       "value": ""
     }

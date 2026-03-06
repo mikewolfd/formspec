@@ -27,6 +27,7 @@ The canvas/inspector model (Figma/Webflow) exists as a *layer underneath* — av
 Nothing appears until you select something. The right panel is empty (or hidden) until you click a field. Then it shows exactly the properties relevant to *that* field — grouped by frequency of use, with advanced sections collapsed.
 
 Different selections show different panels:
+
 - Select a text field → label, placeholder, required toggle, validation
 - Select a choice field → label, options editor, required toggle, validation
 - Select a section → title, collapse behavior, repeat settings
@@ -128,6 +129,7 @@ Typing filters instantly: `/em` → Email, `/dat` → Date + Data Table. Arrow k
 Between existing fields, a `+` button appears on hover — clicking it opens the same picker.
 
 **What happens behind the scenes:** Each insert atomically creates:
+
 - A Definition item (with `key` derived from the label, `dataType` from the field type)
 - A Component node (type inferred: string → TextInput, choice → Select, boolean → Toggle, etc.)
 - No Bind is created yet — Binds are created on-demand the first time logic is added (required toggle, show-when, calculate, constraint). This keeps simple forms clean: a 10-field form with no logic has zero binds.
@@ -137,6 +139,7 @@ The user never thinks about any of this.
 ### 3.3. Editing Fields: Inline + Inspector
 
 **Inline editing (on the form surface):**
+
 - Click a field's label to edit it in place
 - Click a description to edit it in place
 - For choice fields: click the options area to add/edit/reorder options inline (type a value, Enter to add another, drag to reorder)
@@ -301,6 +304,7 @@ Clicking "+ Add" or expanding a rule shows:
 ```
 
 Key schema mappings:
+
 - **Name** → auto-generates shape `id` (slugified: "Budget must balance" → `budget-must-balance`)
 - **Applies to: Entire form** → shape `target: "#"` (the form root)
 - **Applies to: Specific field** → shape `target: "fieldPath"` (single field)
@@ -341,6 +345,7 @@ Behind the scenes: form rules generate Shape objects in the definition's `shapes
 Brand colors write to theme tokens. Layout settings write to `formPresentation` and theme defaults. The user is picking colors and fonts — the spec artifacts are generated underneath.
 
 **Advanced (collapsed sections):**
+
 - **Design Tokens**: full token vocabulary editor. For users who think in design systems: `color.primary`, `spacing.md`, `typography.body`, `border.radius`. Each token is a named value referenced by `$token.key` throughout the theme.
 - **Style Rules**: theme selectors in plain language. "All date fields use compact style." "All required fields have a red asterisk." These generate theme `selectors` with `match` conditions.
 - **Custom CSS**: raw stylesheet editor for complete visual control. Writes to theme `stylesheets`.
@@ -385,6 +390,7 @@ Fields with logic show small, color-coded badges directly on the form surface:
 ```
 
 Badge legend:
+
 - `●` Required (always or conditional)
 - `?` Conditional visibility (has `relevant` expression)
 - `=` Calculated value (has `calculate` expression)
@@ -417,6 +423,7 @@ These write to Component `responsive` blocks. The user is "designing at this scr
 The form preview is always available — either as a split pane or a full-screen toggle. It renders via `<formspec-render>` in an isolated iframe, using the same engine and components that will render the deployed form.
 
 In preview mode, the form is fully interactive:
+
 - Fill out fields, navigate wizard pages, trigger validation
 - See calculated values update in real-time
 - See conditional fields appear/disappear
@@ -706,6 +713,7 @@ Theme internals: cascade rules, selector matching, platform hints.
 The current form-builder (branch: `feat/unified-component-tree-editor`) implements:
 
 ### Working
+
 - Tree-based canvas with drag/drop
 - 43 built-in components in add picker (4 categories)
 - 8 inspector panels: root metadata, identity, data types, FEL behavior, validation, layout, shapes
@@ -717,6 +725,7 @@ The current form-builder (branch: `feat/unified-component-tree-editor`) implemen
 - 4 starter templates, import/export
 
 ### Gaps (from this PRD)
+
 - **No document-first editing.** The current UI is tree + inspector. Needs: inline editing on the form surface, slash commands, hover-to-reveal affordances.
 - **No visual logic builders.** FEL expressions are raw text inputs. Needs: visual condition builder, formula templates, expression ↔ visual toggle.
 - **No brand/style panel.** Form presentation editing exists (pageMode, density) but no color pickers, font selectors, or token management.
@@ -730,6 +739,7 @@ The current form-builder (branch: `feat/unified-component-tree-editor`) implemen
 ## 7. Technical Foundation
 
 ### 7.1. Stack
+
 - **Framework:** Preact + Preact Signals
 - **Language:** TypeScript (strict)
 - **Build:** Vite
@@ -751,6 +761,7 @@ Single `project` signal containing all artifacts. Focused mutation functions per
 ### 7.4. Automatic Wiring
 
 The user never manually connects artifacts:
+
 - **Add** → definition item + component node created atomically. No bind yet (created on-demand when logic is added).
 - **Delete** → component node, definition item, bind (if any), and any shapes targeting the field — all cleaned up.
 - **Rename** → key updated in: definition item, bind path, component node `bind` property, all FEL `$path` references across binds/shapes/variables, shape composition references. This is the most complex operation.
@@ -760,6 +771,7 @@ The user never manually connects artifacts:
 ### 7.5. Validation Pipeline
 
 Two layers, continuous:
+
 1. **Structural** — Ajv against all JSON schemas on every state change
 2. **Logical** — FormEngine evaluates FEL expressions and validates constraints/shapes
 
@@ -776,6 +788,7 @@ Diagnostics surface in a bottom bar with counts and a clickable detail panel.
 ### Phase 1: The Google Forms Moment
 
 Transform the current tree+inspector into a document-first experience:
+
 - Slash commands for field insertion
 - Inline label/description/option editing on the form surface
 - Visual condition builder for "show when" and "required when"
@@ -851,12 +864,14 @@ The schema separates **structure** (Items) from **behavior** (Binds). Items defi
 | Re-relevance default | `binds[].default` | Bind property, applied on relevance transition |
 
 **Bind lifecycle:**
+
 1. Field created → no bind exists
 2. User toggles Required ON → bind created: `{ path: "<fieldPath>", required: "true" }`
 3. User adds Show When → same bind updated: `{ path: "<fieldPath>", required: "true", relevant: "<FEL>" }`
 4. User removes all logic → bind deleted (garbage collected when all properties are empty)
 
 **Bind path derivation** (automatic from tree position):
+
 - Top-level field `firstName` → path: `firstName`
 - Field `orgName` inside group `applicantInfo` → path: `applicantInfo.orgName`
 - Field `amount` inside repeating group `lineItems` → path: `lineItems[*].amount`
@@ -887,6 +902,7 @@ Shapes are the schema's mechanism for cross-field and form-level validation. The
 | Context data | `shape.context` | Object of FEL expressions for diagnostics |
 
 **Critical distinction — Bind constraint vs Shape constraint:**
+
 - **Bind constraint** uses bare `$` → the field's own value: `$ > 0`, `length($) <= 500`
 - **Shape constraint** uses `$path` → any field in the form: `$totalBudget = $awardAmount`
 
@@ -908,6 +924,7 @@ The toggle between visual builder and expression editor must handle round-trippi
 **Visual → FEL** (always works): The builder generates FEL from the UI state. A visual condition `[Budget Type] [equals] [Detailed]` generates `$budgetType = 'detailed'`. Multiple conditions with AND generate `$a = 'x' and $b > 5`.
 
 **FEL → Visual** (works for simple expressions): The Studio parses the FEL and reconstructs the visual builder state IF the expression matches supported patterns:
+
 - Binary comparison: `$field = 'value'`, `$field > 5`, `$field != null`
 - Conjunction/disjunction: `expr1 and expr2`, `expr1 or expr2`
 - Function calls: `empty($field)`, `contains($field, 'text')`, `matches($field, 'pattern')`
@@ -942,6 +959,7 @@ Bind path: lineItems[*].amount
 ```
 
 **What this means for the UI:**
+
 - The "required" toggle on `amount` means "required in every line item"
 - A constraint `$ > 0` means "each amount must be positive"
 - A calculate expression runs independently per instance
