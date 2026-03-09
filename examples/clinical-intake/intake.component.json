@@ -79,7 +79,7 @@
             ]
           },
           { "component": "DatePicker", "bind": "currentVisit.appointmentDateTime", "showTime": true },
-          { "component": "Select", "bind": "currentVisit.provider", "searchable": true, "placeholder": "Loading clinic options..." }
+          { "component": "Select", "bind": "currentVisit.provider", "searchable": true, "placeholder": "Select a clinic type" }
         ]
       },
       {

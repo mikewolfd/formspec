@@ -342,15 +342,11 @@
         },
 	        {
 	            "path": "basicInfo.phone",
-	            "required": "true",
-	            "constraint": "empty($) or matches($, '^\\\\([2-9]\\\\d{2}\\\\) [2-9]\\\\d{2}-\\\\d{4}$')",
-	            "constraintMessage": "Phone must be in the format (###) ###-####."
+	            "required": "true"
 	        },
 	        {
 	            "path": "basicInfo.email",
-	            "required": "true",
-	            "constraint": "empty($) or matches($, '^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$')",
-	            "constraintMessage": "Email must be a valid email address."
+	            "required": "true"
 	        },
         {
             "path": "applicableTopics",

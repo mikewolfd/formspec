@@ -35,6 +35,7 @@
         "dataType": "choice",
         "label": "What type of organization are you?",
         "hint": "Select the category that best describes your organization.",
+        "required": true,
         "options": [
           { "value": "nonprofit", "label": "Nonprofit (501(c)(3))" },
           { "value": "government", "label": "State/Local Government" },
@@ -54,7 +55,8 @@
         "type": "field",
         "dataType": "money",
         "label": "Estimated award amount",
-        "hint": "Approximate amount you plan to request."
+        "hint": "Approximate amount you plan to request.",
+        "required": true
       }
     ],
     "routes": [
@@ -112,9 +114,8 @@
       }
     },
     "priorYearData": {
-      "description": "Prior-year performance data fetched from agency API",
-      "source": "http://localhost:8000/api/prior-year-data",
-      "static": true,
+      "description": "Prior-year performance data (inline static data for standalone example)",
+      "readonly": true,
       "data": {
         "priorAwardAmount": 250000,
         "performanceRating": "satisfactory"
@@ -277,6 +278,7 @@
             "pdf": "Applicant EIN",
             "csv": "applicant_ein"
           },
+          "extensions": { "x-formspec-ein": true },
           "prePopulate": {
             "instance": "agencyData",
             "path": "ein",
@@ -728,27 +730,15 @@
     },
     {
       "path": "applicantInfo.ein",
-      "whitespace": "normalize",
-      "constraint": "matches($applicantInfo.ein, '^[0-9]{2}-[0-9]{7}$')",
-      "constraintMessage": "EIN must be in the format XX-XXXXXXX (e.g. 12-3456789)."
+      "whitespace": "normalize"
     },
     {
       "path": "applicantInfo.contactEmail",
       "whitespace": "trim"
     },
     {
-      "path": "applicantInfo.contactEmail",
-      "constraint": "empty($) or matches($, '^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$')",
-      "constraintMessage": "Contact email must be a valid email address."
-    },
-    {
       "path": "applicantInfo.contactPhone",
       "whitespace": "normalize"
-    },
-    {
-      "path": "applicantInfo.contactPhone",
-      "constraint": "empty($) or matches($, '^\\\\([2-9]\\\\d{2}\\\\) [2-9]\\\\d{2}-\\\\d{4}$')",
-      "constraintMessage": "Phone must be in the format (###) ###-#### (e.g. (202) 555-0100)."
     },
     {
       "path": "applicantInfo.projectWebsite",

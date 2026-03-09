@@ -179,7 +179,7 @@ The FastAPI server (`server/main.py`) exposes these endpoints:
 **Instance data**
 - **Readonly** — agencyData (maxAward, fiscalYear, ein) with readonly: true
 - **Writable with schema** — scratchPad (lastSavedTotal, budgetNotes) with typed schema and readonly: false
-- **Source-based static** — priorYearData fetched from the local API server (`GET /api/prior-year-data`) with static: true and inline fallback data
+- **Readonly inline** — priorYearData uses inline static data (priorAwardAmount, performanceRating) so the standalone example works without a backend server
 
 **Pre-population**
 - **orgName** — pre-populated from agencyData with editable: true (user can override)

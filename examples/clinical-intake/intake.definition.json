@@ -432,8 +432,6 @@
     { "path": "medicalHistory.conditions[*].conditionName", "required": "true" },
     { "path": "medicalHistory.conditions[*].severity", "required": "true" },
 
-    { "path": "patient.email", "constraint": "empty($) or matches($, '^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$')", "constraintMessage": "Email must be a valid email address." },
-    { "path": "patient.phone", "constraint": "empty($) or matches($, '^\\\\([2-9]\\\\d{2}\\\\) [2-9]\\\\d{2}-\\\\d{4}$')", "constraintMessage": "Phone must be in the format (###) ###-####." },
     { "path": "currentVisit.onsetDate", "constraint": "date($) <= today()", "constraintMessage": "Onset date cannot be in the future" },
     { "path": "medicalHistory.conditions[*].diagnosedDate", "constraint": "date($) <= today()", "constraintMessage": "Diagnosis date cannot be in the future" },
     { "path": "medicalHistory.conditions[*].medications[*].medStartDate", "constraint": "date($) <= today()", "constraintMessage": "Medication start date cannot be in the future" }

@@ -111,8 +111,7 @@
       "title": "Applicant Information",
       "description": "Applicant identity and contact profile for the grant record.",
       "regions": [
-        { "key": "applicantInfo", "span": 12 },
-        { "key": "altContact", "span": 12 }
+        { "key": "applicantInfo", "span": 12 }
       ]
     },
     {
@@ -127,9 +126,10 @@
     {
       "id": "review-submit-pdf",
       "title": "Review and Certification",
-      "description": "Final review and certification statements.",
+      "description": "Remaining sections and supporting documents.",
       "regions": [
-        { "key": "review", "span": 12 }
+        { "key": "subcontractors", "span": 12 },
+        { "key": "attachments", "span": 12 }
       ]
     }
   ],

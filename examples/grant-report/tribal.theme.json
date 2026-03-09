@@ -67,16 +67,6 @@
                 "fontWeight": "bold",
                 "borderTop": "2px solid $token.color.border"
             }
-        },
-        "demographics.sexBreakdown.sexTotal": {
-            "style": {
-                "fontWeight": "bold"
-            }
-        },
-        "demographics.employmentStatus.employmentTotal": {
-            "style": {
-                "fontWeight": "bold"
-            }
         }
     }
 }

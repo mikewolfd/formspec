@@ -178,11 +178,6 @@
       "whitespace": "trim"
     },
     {
-      "path": "header.customerEmail",
-      "constraint": "empty($) or matches($, '^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$')",
-      "constraintMessage": "Customer email must be a valid email address."
-    },
-    {
       "path": "header.invoiceDate",
       "required": "true"
     },
