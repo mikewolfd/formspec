@@ -1,7 +1,8 @@
-# ADR 0010: Inspector Panel UX Redesign
+# ADR 0034: Inspector Panel UX Redesign
 
-**Status:** Proposed
+**Status:** Implemented (Phase 1-5 core; Phase 6 partial)
 **Date:** 2026-03-05
+**Implemented:** 2026-03-09
 **Context:** The inspector panel's information architecture mirrors the spec's data model (items + binds + theme + component) rather than the user's mental model (question + answer type + rules + appearance). This redesign targets non-technical users — people who currently use Google Forms or Notion and want more power without more complexity.
 
 ---
@@ -344,3 +345,54 @@ A marketing coordinator with no development experience should be able to:
 3. Add a validation rule ("email must contain @") without writing an expression
 4. Understand what every visible control does without external documentation
 5. Never encounter the word "widget", "bind", "FEL", or "presentation"
+
+---
+
+## Implementation Notes
+
+### What was implemented
+
+| Step | Status | Notes |
+|---|---|---|
+| 1.1 — Answer type picker | **Done** | `AnswerTypePicker.tsx` — 18 types, primary strip + "More types..." expansion. `setFieldAnswerType` mutation updates `dataType` + `component` atomically. |
+| 1.2 — Basics → Question | **Done** | `QuestionSection.tsx` — Key/Description/Prefix/Suffix hidden below Advanced tier. Default value at Standard+. "Question text", "Help text", "Shared answer choices" labels. |
+| 1.3 — Logic + Validation → Rules | **Done** | `RulesSection.tsx` — Required toggle + Show when + Validation always visible. Calculate/Required-when at Standard+. Lock when at Advanced. Uses ExpressionToggle for all. |
+| 1.4 — Appearance + Presentation → Layout & Style | **Done** | `LayoutStyleSection.tsx` — Label position + responsive at Standard+. CSS/a11y/widget-config/fallback at Advanced. Writes to correct backing store. |
+| 1.5 — Answer-type-specific settings | **Partial** | WidgetPropsSection still shown as a separate collapsible (now visible for any field with widget props, not just Advanced). Not yet inlined below the picker. |
+| 1.6 — AdvancedSection breakup | **Done** | `DataHandlingSection.tsx` — Advanced-only section with initial value, text trimming, empty value handling, when-hidden behavior, precision, remote options, semantic type, currency, export labels, pre-populate. |
+| 1.7 — Sub-questions rename | **Done** | Renamed to "Follow-up questions" in FieldInspector. |
+| 2.1 — Prominent form identity | **Done** | Large title input + description textarea + status dropdown at top of FormInspector, not in a collapsible. |
+| 2.2 — Group form sections | **Done** | Sections grouped into Form Settings (Standard+), Answer Choices (always), Variables/Lookup/Rules (Standard+), Brand (always), Import/Export (always), Developer Tools (Advanced). |
+| 3.1 — Three-tier mode | **Done** | `InspectorTier` type, `tierLevel()`, `meetsMinTier()` utilities. Segmented control in Inspector header. `inspectorMode` cycles simple→standard→advanced. |
+| 3.2 — Tier-aware rendering | **Done** | All new sections use `meetsMinTier()` to gate controls. Empty sections hidden via tier checks. |
+| 4.1 — Surface indicators | **Done** | Updated LogicBadges icons: ✱ (required), 👁 (relevant), ⚡ (calculate), ✓ (constraint), 🔒 (readonly). Click opens `field:rules` section. |
+| 4.2 — Better summary badges | **Not started** | Collapsible summary badges still use generic tokens. |
+| 5.1 — Inline hints | **Done** | `InlineHint.tsx` — visible in Simple/Standard, hidden in Advanced. Added to RulesSection, QuestionSection, LayoutStyleSection. |
+| 5.2 — Empty state guidance | **Partial** | LayoutStyleSection has "Customize sizing, positioning, or styling" hint. Other sections not yet done. |
+| 6 — Vocabulary renames | **Partial** | Done in new sections (Question text, Help text, Validation rule, Auto-calculate, Lock when, Shared answer choices, etc.). Not yet swept across GroupInspector, DisplayInspector, or other remaining UI surfaces. |
+
+### Files added
+
+- `src/components/inspector/AnswerTypePicker.tsx`
+- `src/components/inspector/InlineHint.tsx`
+- `src/components/inspector/sections/QuestionSection.tsx`
+- `src/components/inspector/sections/RulesSection.tsx`
+- `src/components/inspector/sections/LayoutStyleSection.tsx`
+- `src/components/inspector/sections/DataHandlingSection.tsx`
+
+### Files significantly modified
+
+- `src/components/inspector/Inspector.tsx` — three-tier system, segmented control, tier utilities
+- `src/components/inspector/FieldInspector.tsx` — full rewrite using new sections
+- `src/components/inspector/FormInspector.tsx` — full rewrite with form identity + grouped sections
+- `src/state/project.ts` — `inspectorMode` type widened to three tiers
+- `src/state/mutations.ts` — `setInspectorMode`, `setFieldAnswerType` added
+
+### Remaining work
+
+- **1.5** — Inline answer-type-specific settings below the picker (currently separate WidgetPropsSection)
+- **4.2** — Descriptive summary badges ("Shows when Country = US" instead of "Conditional")
+- **5.2** — Empty state guidance for Rules and Follow-up sections
+- **6 (full sweep)** — Vocabulary renames in GroupInspector, DisplayInspector, and other surfaces
+- **GroupInspector/DisplayInspector** — Still use old BasicsSection, LogicSection, AppearanceSection; not yet migrated to new section components
+- **Old section cleanup** — ValidationSection.tsx and AdvancedSection.tsx are no longer used by FieldInspector and can be removed once GroupInspector/DisplayInspector are migrated

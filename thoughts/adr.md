@@ -41,6 +41,8 @@
 | 0030 | [0030-schema-parity-phase2-new-artifacts.md](adr/0030-schema-parity-phase2-new-artifacts.md) | Proposed | Schema parity Phase 2: new artifacts, mapping depth, changelog (~40 gaps) |
 | 0031 | [0031-schema-parity-phase3-new-subsystems.md](adr/0031-schema-parity-phase3-new-subsystems.md) | Proposed | Schema parity Phase 3: screener, registry, scoped vars, writable instances (~20 gaps) |
 | 0032 | [0032-ralph-loop-execution-plan.md](adr/0032-ralph-loop-execution-plan.md) | Proposed | Ralph Loop execution plan: 3 phases x 15 iterations for schema parity |
+| 0033 | [0033-core-semantics-conformance-matrix.md](adr/0033-core-semantics-conformance-matrix.md) | — | Core semantics conformance matrix |
+| 0034 | [0034-reference-examples-smoke-test-issues.md](adr/0034-reference-examples-smoke-test-issues.md) | Proposed | Smoke test issues from reference examples: 6 parallel tracks (FEL bugs, wizard UX, fixture fixes, infra, E2E coverage, smoke test consolidation) |
 
 ---
 
