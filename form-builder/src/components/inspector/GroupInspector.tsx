@@ -37,10 +37,13 @@ import {
   getThemeItemPresentation
 } from './utils';
 
+import type { InspectorTier } from './Inspector';
+
 interface GroupInspectorProps {
   project: Signal<ProjectState>;
   path: string;
   item: FormspecItem;
+  tier?: InspectorTier;
 }
 
 export function GroupInspector(props: GroupInspectorProps) {

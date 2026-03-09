@@ -1,11 +1,31 @@
 import type { Signal } from '@preact/signals';
 import { projectSignal, type ProjectState } from '../../state/project';
-import { toggleInspectorMode } from '../../state/mutations';
+import { setInspectorMode } from '../../state/mutations';
 import { DisplayInspector } from './DisplayInspector';
 import { FieldInspector } from './FieldInspector';
 import { FormInspector } from './FormInspector';
 import { GroupInspector } from './GroupInspector';
 import { findItemByPath } from './utils';
+
+export type InspectorTier = 'simple' | 'standard' | 'advanced';
+
+/** Returns a numeric tier level for comparison: simple=1, standard=2, advanced=3. */
+export function tierLevel(tier: InspectorTier): number {
+  if (tier === 'simple') return 1;
+  if (tier === 'standard') return 2;
+  return 3;
+}
+
+/** Returns true when the active tier meets or exceeds the required tier. */
+export function meetsMinTier(active: InspectorTier, minTier: InspectorTier): boolean {
+  return tierLevel(active) >= tierLevel(minTier);
+}
+
+const TIERS: { value: InspectorTier; label: string }[] = [
+  { value: 'simple', label: 'Simple' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'advanced', label: 'Advanced' }
+];
 
 interface InspectorProps {
   project?: Signal<ProjectState>;
@@ -14,26 +34,21 @@ interface InspectorProps {
 export function Inspector(props: InspectorProps) {
   const project = props.project ?? projectSignal;
   const state = project.value;
-  const isAdvanced = state.uiState.inspectorMode === 'advanced';
+  const tier = state.uiState.inspectorMode;
 
   const modeToggle = (
     <div class="inspector-mode-toggle" data-testid="inspector-mode-toggle">
-      <button
-        type="button"
-        class={`inspector-mode-toggle__btn${!isAdvanced ? ' is-active' : ''}`}
-        data-testid="inspector-mode-simple"
-        onClick={() => { if (isAdvanced) toggleInspectorMode(project); }}
-      >
-        Simple
-      </button>
-      <button
-        type="button"
-        class={`inspector-mode-toggle__btn${isAdvanced ? ' is-active' : ''}`}
-        data-testid="inspector-mode-advanced"
-        onClick={() => { if (!isAdvanced) toggleInspectorMode(project); }}
-      >
-        Advanced
-      </button>
+      {TIERS.map(({ value, label }) => (
+        <button
+          key={value}
+          type="button"
+          class={`inspector-mode-toggle__btn${tier === value ? ' is-active' : ''}`}
+          data-testid={`inspector-mode-${value}`}
+          onClick={() => { if (tier !== value) setInspectorMode(project, value); }}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 
@@ -41,7 +56,7 @@ export function Inspector(props: InspectorProps) {
     return (
       <>
         {modeToggle}
-        <FormInspector project={project} />
+        <FormInspector project={project} tier={tier} />
       </>
     );
   }
@@ -59,7 +74,7 @@ export function Inspector(props: InspectorProps) {
     return (
       <>
         {modeToggle}
-        <FieldInspector project={project} path={state.selection} item={item} advancedMode={isAdvanced} />
+        <FieldInspector project={project} path={state.selection} item={item} tier={tier} />
       </>
     );
   }
@@ -67,7 +82,7 @@ export function Inspector(props: InspectorProps) {
     return (
       <>
         {modeToggle}
-        <GroupInspector project={project} path={state.selection} item={item} />
+        <GroupInspector project={project} path={state.selection} item={item} tier={tier} />
       </>
     );
   }
