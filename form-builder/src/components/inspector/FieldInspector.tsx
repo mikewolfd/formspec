@@ -9,9 +9,9 @@ import {
   renameItem,
   setBind,
   setComponentNodeProperty,
-  setFieldWidgetComponent,
   setComponentResponsiveOverride,
   setDefinitionPresentationKey,
+  setFieldAnswerType,
   setInspectorSectionOpen,
   setItemLabel,
   setItemProperty,
@@ -21,15 +21,15 @@ import {
   promoteOptionsToOptionSet
 } from '../../state/mutations';
 import type { ProjectState } from '../../state/project';
-import { getFieldWidgetOptions, resolveDefaultFieldWidget } from '../../state/field-widgets';
 import { buildExtensionCatalog } from '../../state/extensions';
-import { AdvancedSection, type PrePopulateValue } from './sections/AdvancedSection';
-import { AppearanceSection, type AccessibilityOverride } from './sections/AppearanceSection';
-import { BasicsSection } from './sections/BasicsSection';
-import { LogicSection } from './sections/LogicSection';
-import { type PresentationHints, PresentationSection } from './sections/PresentationSection';
-import { ValidationSection } from './sections/ValidationSection';
+import type { InspectorTier } from './Inspector';
+import { meetsMinTier } from './Inspector';
+import { AnswerTypePicker } from './AnswerTypePicker';
+import { QuestionSection } from './sections/QuestionSection';
+import { RulesSection } from './sections/RulesSection';
+import { LayoutStyleSection, type AccessibilityOverride } from './sections/LayoutStyleSection';
 import { WidgetPropsSection } from './sections/WidgetPropsSection';
+import { DataHandlingSection, type PrePopulateValue } from './sections/DataHandlingSection';
 import {
   findBindByPath,
   getComponentNodeByPath,
@@ -41,7 +41,7 @@ interface FieldInspectorProps {
   project: Signal<ProjectState>;
   path: string;
   item: FormspecItem;
-  advancedMode?: boolean;
+  tier: InspectorTier;
 }
 
 export function FieldInspector(props: FieldInspectorProps) {
@@ -61,10 +61,6 @@ export function FieldInspector(props: FieldInspectorProps) {
     props.path,
     activeBreakpoint
   );
-  const defaultWidget = resolveDefaultFieldWidget(props.item.dataType);
-  const selectedWidgetComponent = componentNode?.component ?? defaultWidget;
-  const selectedWidgetValue = selectedWidgetComponent === defaultWidget ? '' : selectedWidgetComponent;
-  const widgetOptions = getFieldWidgetOptions(props.item.dataType, selectedWidgetComponent);
   const extensionCatalog = buildExtensionCatalog(props.project.value.extensions.registries);
 
   const requiredIsBoolean = typeof bind?.required === 'boolean' ? bind.required : false;
@@ -75,7 +71,6 @@ export function FieldInspector(props: FieldInspectorProps) {
   const [saveTemplateName, setSaveTemplateName] = useState('');
   const [saveTemplateNotice, setSaveTemplateNotice] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // Tracks the live path even when auto-key renames the item within the same render cycle.
   const currentPathRef = useRef(props.path);
   currentPathRef.current = props.path;
 
@@ -85,13 +80,9 @@ export function FieldInspector(props: FieldInspectorProps) {
     if (panel) {
       panel.scrollTop = 0;
     }
-    // Focus the first focusable element in the basics section so keyboard users
-    // can immediately start editing after selecting a field.
     requestAnimationFrame(() => {
       const container = containerRef.current;
-      if (!container) {
-        return;
-      }
+      if (!container) return;
       const firstFocusable = container.querySelector<HTMLElement>(
         'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
       );
@@ -102,9 +93,10 @@ export function FieldInspector(props: FieldInspectorProps) {
   const setSectionOpen = (sectionId: string, open: boolean) => {
     setInspectorSectionOpen(props.project, `field:${props.path}:${sectionId}`, open);
   };
-  const FIELD_SECTION_DEFAULTS: Record<string, boolean> = { basics: true };
+  const FIELD_SECTION_DEFAULTS: Record<string, boolean> = { question: true };
   const isSectionOpen = (sectionId: string) =>
-    props.project.value.uiState.inspectorSections[`field:${props.path}:${sectionId}`] ?? FIELD_SECTION_DEFAULTS[sectionId] ?? false;
+    props.project.value.uiState.inspectorSections[`field:${props.path}:${sectionId}`]
+    ?? FIELD_SECTION_DEFAULTS[sectionId] ?? false;
 
   const updateDefinitionPresentation = (key: string, value: unknown) => {
     const next = { ...itemPresentation };
@@ -130,11 +122,29 @@ export function FieldInspector(props: FieldInspectorProps) {
     setPresentation(props.project, currentPathRef.current, Object.keys(next).length ? next : null, 'theme');
   };
 
+  const selectedWidget = componentNode?.component ?? '';
+
+  // Layout & style presentation hints from definition
+  const layoutPresentation = (props.item.presentation as Record<string, unknown> | undefined) ?? {};
+  const layoutObj = (layoutPresentation.layout as Record<string, unknown> | undefined) ?? {};
+  const styleHintsObj = (layoutPresentation.styleHints as Record<string, unknown> | undefined) ?? {};
+
   return (
     <div ref={containerRef} class="inspector-content" data-testid="field-inspector">
-      <BasicsSection
+      {/* Answer type picker — always at top, never collapsible */}
+      <AnswerTypePicker
+        currentDataType={props.item.dataType}
+        currentComponent={selectedWidget}
+        onChange={(dataType, component) => {
+          setFieldAnswerType(props.project, currentPathRef.current, dataType, component);
+        }}
+      />
+
+      {/* Question section (was Basics) */}
+      <QuestionSection
         testIdPrefix="field"
-        open={isSectionOpen('basics')}
+        open={isSectionOpen('question')}
+        tier={props.tier}
         keyValue={props.item.key}
         label={props.item.label}
         description={props.item.description}
@@ -142,23 +152,16 @@ export function FieldInspector(props: FieldInspectorProps) {
         placeholder={typeof itemPresentation.placeholder === 'string' ? itemPresentation.placeholder : undefined}
         prefix={typeof (props.item as Record<string, unknown>).prefix === 'string' ? (props.item as Record<string, unknown>).prefix as string : undefined}
         suffix={typeof (props.item as Record<string, unknown>).suffix === 'string' ? (props.item as Record<string, unknown>).suffix as string : undefined}
+        defaultValue={typeof bind?.default === 'string' ? bind.default : undefined}
         optionSet={typeof (props.item as Record<string, unknown>).optionSet === 'string' ? (props.item as Record<string, unknown>).optionSet as string : undefined}
         availableOptionSets={Object.keys((props.project.value.definition.optionSets as Record<string, unknown> | undefined) ?? {})}
-        required={requiredIsBoolean}
-        showDescription
-        showHint
-        showPlaceholder
+        showPlaceholder={props.item.dataType === 'string' || props.item.dataType === 'text' || props.item.dataType === 'decimal' || props.item.dataType === 'integer'}
         showPrefixSuffix
         showOptionSet={props.item.dataType === 'choice' || props.item.dataType === 'multiChoice'}
         canPromoteToOptionSet={Array.isArray(props.item.options) && props.item.options.length > 0}
-        showRequired
-        onToggle={(open) => {
-          setSectionOpen('basics', open);
-        }}
+        onToggle={(open) => setSectionOpen('question', open)}
         onKeyCommit={(value) => {
-          if (!value.trim().length || value === props.item.key) {
-            return;
-          }
+          if (!value.trim().length || value === props.item.key) return;
           setAutoKey(false);
           const newPath = renameItem(props.project, currentPathRef.current, value);
           currentPathRef.current = newPath;
@@ -188,35 +191,62 @@ export function FieldInspector(props: FieldInspectorProps) {
         onSuffixInput={(value) => {
           setItemProperty(props.project, currentPathRef.current, 'suffix', value);
         }}
+        onDefaultValueInput={(value) => {
+          setBind(props.project, currentPathRef.current, 'default', value);
+        }}
         onOptionSetChange={(value) => {
           setItemProperty(props.project, currentPathRef.current, 'optionSet', value || undefined);
         }}
         onPromoteToOptionSet={() => {
-          const suggestedName = props.item.key;
-          promoteOptionsToOptionSet(props.project, currentPathRef.current, suggestedName);
-        }}
-        onRequiredToggle={(value) => {
-          setBind(props.project, currentPathRef.current, 'required', value ? true : undefined);
+          promoteOptionsToOptionSet(props.project, currentPathRef.current, props.item.key);
         }}
       />
 
-      <LogicSection
+      {/* Answer type settings — contextual, shown inline based on selected component */}
+      {selectedWidget ? (
+        <WidgetPropsSection
+          testIdPrefix="field"
+          open={isSectionOpen('widget-props')}
+          component={selectedWidget}
+          componentNode={componentNode ? (componentNode as unknown as Record<string, unknown>) : {}}
+          onToggle={(open) => { setSectionOpen('widget-props', open); }}
+          onChange={(property, value) => {
+            setComponentNodeProperty(props.project, currentPathRef.current, property, value);
+          }}
+        />
+      ) : null}
+
+      {/* Rules (merged Logic + Validation) */}
+      <RulesSection
         testIdPrefix="field"
-        open={isSectionOpen('logic')}
-        fields={logicCatalog.fields}
-        groups={logicCatalog.groups}
+        open={isSectionOpen('rules')}
+        tier={props.tier}
+        requiredBoolean={requiredIsBoolean}
+        requiredExpression={requiredExpression}
         relevant={bind?.relevant}
-        required={requiredExpression}
+        dataType={props.item.dataType}
+        constraint={bind?.constraint}
+        constraintMessage={bind?.constraintMessage}
         calculate={bind?.calculate}
         readonly={typeof bind?.readonly === 'string' ? bind.readonly : undefined}
-        onToggle={(open) => {
-          setSectionOpen('logic', open);
+        fields={logicCatalog.fields}
+        groups={logicCatalog.groups}
+        customConstraints={extensionCatalog.constraints}
+        onToggle={(open) => setSectionOpen('rules', open)}
+        onRequiredToggle={(value) => {
+          setBind(props.project, currentPathRef.current, 'required', value ? true : undefined);
         }}
         onRelevantInput={(value) => {
           setBind(props.project, currentPathRef.current, 'relevant', value);
         }}
-        onRequiredInput={(value) => {
+        onRequiredWhenInput={(value) => {
           setBind(props.project, currentPathRef.current, 'required', value);
+        }}
+        onConstraintInput={(value) => {
+          setBind(props.project, currentPathRef.current, 'constraint', value);
+        }}
+        onConstraintMessageInput={(value) => {
+          setBind(props.project, currentPathRef.current, 'constraintMessage', value);
         }}
         onCalculateInput={(value) => {
           setBind(props.project, currentPathRef.current, 'calculate', value);
@@ -226,38 +256,24 @@ export function FieldInspector(props: FieldInspectorProps) {
         }}
       />
 
-      <ValidationSection
+      {/* Layout & Style (merged Appearance + Presentation) */}
+      <LayoutStyleSection
         testIdPrefix="field"
-        open={isSectionOpen('validation')}
-        dataType={props.item.dataType}
-        fields={logicCatalog.fields}
-        constraint={bind?.constraint}
-        message={bind?.constraintMessage}
-        customConstraints={extensionCatalog.constraints}
-        onToggle={(open) => {
-          setSectionOpen('validation', open);
-        }}
-        onConstraintInput={(value) => {
-          setBind(props.project, currentPathRef.current, 'constraint', value);
-        }}
-        onMessageInput={(value) => {
-          setBind(props.project, currentPathRef.current, 'constraintMessage', value);
-        }}
-      />
-
-      <AppearanceSection
-        testIdPrefix="field"
-        open={isSectionOpen('appearance')}
-        widget={selectedWidgetValue}
-        widgetOptions={widgetOptions}
-        cssClass={typeof themePresentation.cssClass === 'string' ? themePresentation.cssClass : undefined}
+        open={isSectionOpen('layout-style')}
+        tier={props.tier}
         labelPosition={typeof themePresentation.labelPosition === 'string' ? themePresentation.labelPosition : undefined}
-        componentWhen={componentNode?.when}
-        accessibility={isRecord(themePresentation.accessibility) ? themePresentation.accessibility as AccessibilityOverride : undefined}
+        cssClass={typeof themePresentation.cssClass === 'string' ? themePresentation.cssClass : undefined}
         style={isRecord(themePresentation.style) ? themePresentation.style as Record<string, string | number> : undefined}
+        accessibility={isRecord(themePresentation.accessibility) ? themePresentation.accessibility as AccessibilityOverride : undefined}
         widgetConfig={isRecord(themePresentation.widgetConfig) ? themePresentation.widgetConfig as Record<string, string | number> : undefined}
         fallback={Array.isArray(themePresentation.fallback) ? themePresentation.fallback as string[] : undefined}
-        felFieldOptions={logicCatalog.fields.map((f) => ({ path: f.path, label: f.label }))}
+        componentWhen={componentNode?.when}
+        presentationHints={{
+          colSpan: typeof layoutObj.colSpan === 'number' ? layoutObj.colSpan : undefined,
+          newRow: typeof layoutObj.newRow === 'boolean' ? layoutObj.newRow : undefined,
+          emphasis: typeof styleHintsObj.emphasis === 'string' ? styleHintsObj.emphasis : undefined,
+          size: typeof styleHintsObj.size === 'string' ? styleHintsObj.size : undefined
+        }}
         breakpoints={props.project.value.theme.breakpoints ?? {}}
         activeBreakpoint={activeBreakpoint}
         responsiveOverride={{
@@ -265,32 +281,32 @@ export function FieldInspector(props: FieldInspectorProps) {
           start: typeof responsiveOverride.start === 'number' ? responsiveOverride.start : undefined,
           hidden: typeof responsiveOverride.hidden === 'boolean' ? responsiveOverride.hidden : undefined
         }}
-        onToggle={(open) => {
-          setSectionOpen('appearance', open);
-        }}
-        onWidgetChange={(value) => {
-          setFieldWidgetComponent(props.project, currentPathRef.current, value);
+        felFieldOptions={logicCatalog.fields.map((f) => ({ path: f.path, label: f.label }))}
+        disabledDisplay={bind?.disabledDisplay}
+        onToggle={(open) => setSectionOpen('layout-style', open)}
+        onLabelPositionChange={(value) => {
+          updateThemePresentation('labelPosition', value);
         }}
         onCssClassInput={(value) => {
           updateThemePresentation('cssClass', value);
         }}
-        onLabelPositionChange={(value) => {
-          updateThemePresentation('labelPosition', value);
-        }}
-        onComponentWhenChange={(value) => {
-          setComponentNodeProperty(props.project, currentPathRef.current, 'when', value || undefined);
+        onStyleChange={(value) => {
+          updateThemePresentation('style', value);
         }}
         onAccessibilityChange={(value) => {
           updateThemePresentation('accessibility', value);
-        }}
-        onStyleChange={(value) => {
-          updateThemePresentation('style', value);
         }}
         onWidgetConfigChange={(value) => {
           updateThemePresentation('widgetConfig', value);
         }}
         onFallbackChange={(value) => {
           updateThemePresentation('fallback', value);
+        }}
+        onComponentWhenChange={(value) => {
+          setComponentNodeProperty(props.project, currentPathRef.current, 'when', value || undefined);
+        }}
+        onPresentationChange={(key, value) => {
+          setDefinitionPresentationKey(props.project, currentPathRef.current, key, value);
         }}
         onBreakpointChange={(value) => {
           setActiveBreakpoint(props.project, value);
@@ -303,94 +319,67 @@ export function FieldInspector(props: FieldInspectorProps) {
             value
           );
         }}
+        onDisabledDisplayChange={(value) => {
+          setBind(props.project, currentPathRef.current, 'disabledDisplay', value || undefined);
+        }}
       />
 
-      {props.advancedMode ? (
-        <WidgetPropsSection
+      {/* Data Handling — advanced only */}
+      {meetsMinTier(props.tier, 'advanced') ? (
+        <DataHandlingSection
           testIdPrefix="field"
-          open={isSectionOpen('widget-props')}
-          component={selectedWidgetComponent}
-          componentNode={componentNode ? (componentNode as unknown as Record<string, unknown>) : {}}
-          onToggle={(open) => { setSectionOpen('widget-props', open); }}
-          onChange={(property, value) => {
-            setComponentNodeProperty(props.project, currentPathRef.current, property, value);
+          open={isSectionOpen('data-handling')}
+          initialValue={typeof (props.item as Record<string, unknown>).initialValue === 'string' ? (props.item as Record<string, unknown>).initialValue as string : undefined}
+          whitespace={bind?.whitespace}
+          excludedValue={bind?.excludedValue}
+          nonRelevantBehavior={bind?.nonRelevantBehavior}
+          precision={typeof (props.item as Record<string, unknown>).precision === 'number' ? (props.item as Record<string, unknown>).precision as number : undefined}
+          remoteOptions={bind?.remoteOptions}
+          semanticType={typeof (props.item as Record<string, unknown>).semanticType === 'string' ? (props.item as Record<string, unknown>).semanticType as string : undefined}
+          currency={typeof (props.item as Record<string, unknown>).currency === 'string' ? (props.item as Record<string, unknown>).currency as string : undefined}
+          labels={((props.item as Record<string, unknown>).labels as Record<string, string> | undefined) ? {
+            short: ((props.item as Record<string, unknown>).labels as Record<string, string>).short,
+            pdf: ((props.item as Record<string, unknown>).labels as Record<string, string>).pdf,
+            csv: ((props.item as Record<string, unknown>).labels as Record<string, string>).csv,
+            accessibility: ((props.item as Record<string, unknown>).labels as Record<string, string>).accessibility
+          } : undefined}
+          prePopulate={(props.item as Record<string, unknown>).prePopulate as PrePopulateValue | undefined}
+          onToggle={(open) => setSectionOpen('data-handling', open)}
+          onInitialValueInput={(value) => {
+            setItemProperty(props.project, currentPathRef.current, 'initialValue', value);
+          }}
+          onWhitespaceChange={(value) => {
+            setBind(props.project, currentPathRef.current, 'whitespace', value || undefined);
+          }}
+          onExcludedValueChange={(value) => {
+            setBind(props.project, currentPathRef.current, 'excludedValue', value || undefined);
+          }}
+          onNonRelevantBehaviorChange={(value) => {
+            setBind(props.project, currentPathRef.current, 'nonRelevantBehavior', value || undefined);
+          }}
+          onPrecisionInput={(value) => {
+            setItemProperty(props.project, currentPathRef.current, 'precision', value);
+          }}
+          onRemoteOptionsInput={(value) => {
+            setBind(props.project, currentPathRef.current, 'remoteOptions', value);
+          }}
+          onSemanticTypeInput={(value) => {
+            setItemProperty(props.project, currentPathRef.current, 'semanticType', value);
+          }}
+          onCurrencyInput={(value) => {
+            setItemProperty(props.project, currentPathRef.current, 'currency', value || undefined);
+          }}
+          onLabelsInput={(key, value) => {
+            setItemLabel(props.project, currentPathRef.current, key, value);
+          }}
+          onPrePopulateChange={(value) => {
+            setItemProperty(props.project, currentPathRef.current, 'prePopulate', value ?? undefined);
           }}
         />
       ) : null}
 
-      {props.advancedMode ? <PresentationSection
-        testIdPrefix="field"
-        open={isSectionOpen('presentation')}
-        isGroup={false}
-        hints={(props.item.presentation as PresentationHints | undefined) ?? {}}
-        onToggle={(open) => { setSectionOpen('presentation', open); }}
-        onChange={(key, value) => {
-          setDefinitionPresentationKey(props.project, currentPathRef.current, key, value);
-        }}
-      /> : null}
-
-      {props.advancedMode ? <AdvancedSection
-        testIdPrefix="field"
-        open={isSectionOpen('advanced')}
-        defaultValue={typeof bind?.default === 'string' ? bind.default : undefined}
-        initialValue={typeof (props.item as Record<string, unknown>).initialValue === 'string' ? (props.item as Record<string, unknown>).initialValue as string : undefined}
-        whitespace={bind?.whitespace}
-        excludedValue={bind?.excludedValue}
-        nonRelevantBehavior={bind?.nonRelevantBehavior}
-        disabledDisplay={bind?.disabledDisplay}
-        precision={typeof (props.item as Record<string, unknown>).precision === 'number' ? (props.item as Record<string, unknown>).precision as number : undefined}
-        remoteOptions={bind?.remoteOptions}
-        semanticType={typeof (props.item as Record<string, unknown>).semanticType === 'string' ? (props.item as Record<string, unknown>).semanticType as string : undefined}
-        currency={typeof (props.item as Record<string, unknown>).currency === 'string' ? (props.item as Record<string, unknown>).currency as string : undefined}
-        labels={((props.item as Record<string, unknown>).labels as Record<string, string> | undefined) ? {
-          short: ((props.item as Record<string, unknown>).labels as Record<string, string>).short,
-          pdf: ((props.item as Record<string, unknown>).labels as Record<string, string>).pdf,
-          csv: ((props.item as Record<string, unknown>).labels as Record<string, string>).csv,
-          accessibility: ((props.item as Record<string, unknown>).labels as Record<string, string>).accessibility
-        } : undefined}
-        onToggle={(open) => {
-          setSectionOpen('advanced', open);
-        }}
-        onDefaultValueInput={(value) => {
-          setBind(props.project, currentPathRef.current, 'default', value);
-        }}
-        onInitialValueInput={(value) => {
-          setItemProperty(props.project, currentPathRef.current, 'initialValue', value);
-        }}
-        onWhitespaceChange={(value) => {
-          setBind(props.project, currentPathRef.current, 'whitespace', value || undefined);
-        }}
-        onExcludedValueChange={(value) => {
-          setBind(props.project, currentPathRef.current, 'excludedValue', value || undefined);
-        }}
-        onNonRelevantBehaviorChange={(value) => {
-          setBind(props.project, currentPathRef.current, 'nonRelevantBehavior', value || undefined);
-        }}
-        onDisabledDisplayChange={(value) => {
-          setBind(props.project, currentPathRef.current, 'disabledDisplay', value || undefined);
-        }}
-        onPrecisionInput={(value) => {
-          setItemProperty(props.project, currentPathRef.current, 'precision', value);
-        }}
-        onRemoteOptionsInput={(value) => {
-          setBind(props.project, currentPathRef.current, 'remoteOptions', value);
-        }}
-        onSemanticTypeInput={(value) => {
-          setItemProperty(props.project, currentPathRef.current, 'semanticType', value);
-        }}
-        onCurrencyInput={(value) => {
-          setItemProperty(props.project, currentPathRef.current, 'currency', value || undefined);
-        }}
-        onLabelsInput={(key, value) => {
-          setItemLabel(props.project, currentPathRef.current, key, value);
-        }}
-        prePopulate={((props.item as Record<string, unknown>).prePopulate as PrePopulateValue | undefined)}
-        onPrePopulateChange={(value) => {
-          setItemProperty(props.project, currentPathRef.current, 'prePopulate', value ?? undefined);
-        }}
-      /> : null}
-
-      <SubQuestionsSection
+      {/* Follow-up questions (was Sub-questions) */}
+      <FollowUpQuestionsSection
         path={currentPathRef.current}
         item={props.item}
         open={isSectionOpen('sub-questions')}
@@ -410,6 +399,7 @@ export function FieldInspector(props: FieldInspectorProps) {
         }}
       />
 
+      {/* Save as template */}
       <div class="inspector-field-template-save" data-testid="save-field-template-section">
         {!saveTemplateMode ? (
           <button
@@ -422,7 +412,7 @@ export function FieldInspector(props: FieldInspectorProps) {
               setSaveTemplateNotice(null);
             }}
           >
-            Save as template…
+            Save as template...
           </button>
         ) : (
           <div class="inspector-field-template-save__form">
@@ -469,9 +459,7 @@ export function FieldInspector(props: FieldInspectorProps) {
                 type="button"
                 class="inspector-btn"
                 data-testid="save-field-template-cancel"
-                onClick={() => {
-                  setSaveTemplateMode(false);
-                }}
+                onClick={() => { setSaveTemplateMode(false); }}
               >
                 Cancel
               </button>
@@ -488,7 +476,9 @@ export function FieldInspector(props: FieldInspectorProps) {
   );
 }
 
-interface SubQuestionsSectionProps {
+// ── Follow-up questions (renamed from Sub-questions) ──
+
+interface FollowUpQuestionsSectionProps {
   path: string;
   item: FormspecItem;
   open: boolean;
@@ -497,9 +487,9 @@ interface SubQuestionsSectionProps {
   onSelectChild: (childPath: string) => void;
 }
 
-function SubQuestionsSection(props: SubQuestionsSectionProps) {
+function FollowUpQuestionsSection(props: FollowUpQuestionsSectionProps) {
   const children = Array.isArray(props.item.children) ? props.item.children : [];
-  const summary = children.length > 0 ? `${children.length} sub-question${children.length === 1 ? '' : 's'}` : null;
+  const summary = children.length > 0 ? `${children.length} follow-up${children.length === 1 ? '' : 's'}` : null;
 
   return (
     <section class="inspector-section" data-testid="sub-questions-section">
@@ -509,7 +499,7 @@ function SubQuestionsSection(props: SubQuestionsSectionProps) {
         aria-expanded={props.open}
         onClick={() => props.onToggle(!props.open)}
       >
-        <span>{props.open ? '▾' : '▸'} Sub-questions</span>
+        <span>{props.open ? '▾' : '▸'} Follow-up questions</span>
         {!props.open && summary ? <span class="inspector-section__summary">{summary}</span> : null}
       </button>
       <div
@@ -536,7 +526,7 @@ function SubQuestionsSection(props: SubQuestionsSectionProps) {
             })}
           </ul>
         ) : (
-          <p class="inspector-hint">No sub-questions yet. Use to show dependent follow-ups.</p>
+          <p class="inspector-hint">No follow-ups yet. Add questions that appear nested under this one.</p>
         )}
         <button
           type="button"
@@ -544,7 +534,7 @@ function SubQuestionsSection(props: SubQuestionsSectionProps) {
           data-testid="add-sub-question"
           onClick={props.onAddSubQuestion}
         >
-          + Add sub-question
+          + Add follow-up question
         </button>
       </div>
     </section>
@@ -562,8 +552,6 @@ function labelToKey(label: string): string {
     .replace(/[^a-z0-9\s]/g, '')
     .split(/\s+/)
     .filter(Boolean);
-  if (!words.length) {
-    return '';
-  }
+  if (!words.length) return '';
   return words[0] + words.slice(1).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
 }
