@@ -4,7 +4,7 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import type { FormspecBind, FormspecItem } from 'formspec-engine';
 import { App } from '../../App';
-import { createInitialDefinition, createInitialProjectState, projectSignal } from '../../state/project';
+import { createInitialDefinition, createInitialProjectState, projectSignal, type ProjectState } from '../../state/project';
 
 function mountApp() {
   const host = document.createElement('div');
@@ -13,13 +13,14 @@ function mountApp() {
   return host;
 }
 
-function seedState(items: FormspecItem[], selection: string) {
+function seedState(items: FormspecItem[], selection: string, inspectorMode: 'simple' | 'standard' | 'advanced' = 'standard') {
   projectSignal.value = createInitialProjectState({
     definition: createInitialDefinition({
       title: 'Logic Builder Test Form',
       items
     }),
-    selection
+    selection,
+    uiState: { inspectorMode } as ProjectState['uiState']
   });
 }
 

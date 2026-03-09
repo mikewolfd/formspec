@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { App } from '../../App';
-import { createInitialDefinition, createInitialProjectState, projectSignal } from '../../state/project';
+import { createInitialDefinition, createInitialProjectState, projectSignal, type ProjectState } from '../../state/project';
 import { moveItem, setFormTitle, setItemText, setJsonEditorOpen } from '../../state/mutations';
 
 vi.mock('formspec-webcomponent', () => {
@@ -440,7 +440,8 @@ describe('studio shell layout', () => {
           { type: 'field', key: 'total', label: 'Total', dataType: 'number' }
         ],
         binds: [{ path: 'total', calculate: '$amount + 1' }]
-      })
+      }),
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState']
     });
 
     const host = mountApp();

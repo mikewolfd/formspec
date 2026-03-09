@@ -234,9 +234,8 @@ describe('form surface', () => {
       }),
       uiState: {
         inspectorSections: {
-          'field:basics': false,
-          'field:logic': false,
-          'field:validation': false
+          'field:question': false,
+          'field:rules': false
         },
         viewMode: 'edit',
         structurePanelOpen: false,
@@ -253,29 +252,29 @@ describe('form surface', () => {
     const constraintBadge = host.querySelector<HTMLButtonElement>('[data-testid="logic-badge-firstName-constraint"]');
     const readonlyBadge = host.querySelector<HTMLButtonElement>('[data-testid="logic-badge-firstName-readonly"]');
 
-    expect(requiredBadge?.textContent).toBe('●');
-    expect(relevantBadge?.textContent).toBe('?');
-    expect(calculateBadge?.textContent).toBe('=');
-    expect(constraintBadge?.textContent).toBe('!');
+    expect(requiredBadge?.textContent).toBe('✱');
+    expect(relevantBadge?.textContent).toBe('👁');
+    expect(calculateBadge?.textContent).toBe('⚡');
+    expect(constraintBadge?.textContent).toBe('✓');
     expect(readonlyBadge?.textContent).toBe('🔒');
 
     await act(async () => {
       relevantBadge?.click();
     });
     expect(projectSignal.value.selection).toBe('firstName');
-    expect(projectSignal.value.uiState.inspectorSections['field:logic']).toBe(true);
+    expect(projectSignal.value.uiState.inspectorSections['field:rules']).toBe(true);
     expect(host.querySelector('[data-testid="field-relevant-expression-toggle"]')).not.toBeNull();
 
     await act(async () => {
       constraintBadge?.click();
     });
-    expect(projectSignal.value.uiState.inspectorSections['field:validation']).toBe(true);
+    expect(projectSignal.value.uiState.inspectorSections['field:rules']).toBe(true);
     expect(host.querySelector('[data-testid="field-constraint-expression-toggle"]')).not.toBeNull();
 
     await act(async () => {
       requiredBadge?.click();
     });
-    expect(projectSignal.value.uiState.inspectorSections['field:basics']).toBe(true);
+    expect(projectSignal.value.uiState.inspectorSections['field:rules']).toBe(true);
     expect(host.querySelector('[data-testid="field-required-toggle"]')).not.toBeNull();
   });
 });

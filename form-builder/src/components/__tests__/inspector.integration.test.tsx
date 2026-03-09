@@ -10,7 +10,8 @@ import {
   createInitialMapping,
   createInitialProjectState,
   createInitialTheme,
-  projectSignal
+  projectSignal,
+  type ProjectState
 } from '../../state/project';
 
 function mountApp() {
@@ -60,12 +61,19 @@ describe('inspector panel', () => {
     const host = mountApp();
 
     expect(host.querySelector('[data-testid="field-inspector"]')).not.toBeNull();
-    expect(host.querySelector('[data-testid="section-basics"]')).not.toBeNull();
-    expect(host.querySelector('[data-testid="section-logic"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="section-question"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="section-rules"]')).not.toBeNull();
   });
 
   it('writes field inspector edits back to project state', async () => {
-    seedState([{ type: 'field', key: 'firstName', label: 'First Name', dataType: 'string' }], 'firstName');
+    projectSignal.value = createInitialProjectState({
+      definition: createInitialDefinition({
+        title: 'Inspector Test Form',
+        items: [{ type: 'field', key: 'firstName', label: 'First Name', dataType: 'string' }]
+      }),
+      selection: 'firstName',
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState']
+    });
     const host = mountApp();
 
     const labelInput = host.querySelector<HTMLInputElement>('[data-testid="field-label-input"]');
@@ -98,8 +106,15 @@ describe('inspector panel', () => {
     expect(bind?.required).toBe(true);
   });
 
-  it('writes responsive overrides from appearance section to component responsive blocks', async () => {
-    seedState([{ type: 'field', key: 'firstName', label: 'First Name', dataType: 'string' }], 'firstName');
+  it('writes responsive overrides from layout-style section to component responsive blocks', async () => {
+    projectSignal.value = createInitialProjectState({
+      definition: createInitialDefinition({
+        title: 'Inspector Test Form',
+        items: [{ type: 'field', key: 'firstName', label: 'First Name', dataType: 'string' }]
+      }),
+      selection: 'firstName',
+      uiState: { inspectorMode: 'standard' } as ProjectState['uiState']
+    });
     const host = mountApp();
 
     const breakpointInput = host.querySelector<HTMLSelectElement>('[data-testid="field-responsive-breakpoint-input"]');
@@ -135,22 +150,35 @@ describe('inspector panel', () => {
     });
   });
 
-  it('filters field widget overrides by data type and writes to component node type', async () => {
+  it('switches answer type via the picker and writes to component node type', async () => {
     seedState([{ type: 'field', key: 'organizationType', label: 'Organization Type', dataType: 'choice' }], 'organizationType');
     const host = mountApp();
 
-    const widgetInput = host.querySelector<HTMLSelectElement>('[data-testid="field-widget-input"]');
-    expect(widgetInput).not.toBeNull();
-    if (!widgetInput) {
+    const picker = host.querySelector('[data-testid="answer-type-picker"]');
+    expect(picker).not.toBeNull();
+    if (!picker) {
       return;
     }
 
-    const optionValues = Array.from(widgetInput.querySelectorAll('option')).map((option) => option.value);
-    expect(optionValues).toEqual(['', 'Select', 'RadioGroup', 'TextInput']);
+    // The "radio" answer type is in the secondary (More types) drawer
+    const moreButton = host.querySelector<HTMLButtonElement>('[data-testid="answer-type-more"]');
+    expect(moreButton).not.toBeNull();
+    if (!moreButton) {
+      return;
+    }
 
     await act(async () => {
-      widgetInput.value = 'RadioGroup';
-      widgetInput.dispatchEvent(new Event('change', { bubbles: true }));
+      moreButton.click();
+    });
+
+    const radioButton = host.querySelector<HTMLButtonElement>('[data-testid="answer-type-radio"]');
+    expect(radioButton).not.toBeNull();
+    if (!radioButton) {
+      return;
+    }
+
+    await act(async () => {
+      radioButton.click();
     });
 
     expect(projectSignal.value.component.tree.children?.[0].component).toBe('RadioGroup');
@@ -305,7 +333,14 @@ describe('inspector panel', () => {
   });
 
   it('edits custom component registry entries from the component document section', async () => {
-    seedState([], null);
+    projectSignal.value = createInitialProjectState({
+      definition: createInitialDefinition({
+        title: 'Inspector Test Form',
+        items: []
+      }),
+      selection: null,
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState']
+    });
     const host = mountApp();
 
     const addButton = host.querySelector<HTMLButtonElement>('[data-testid="component-registry-add-button"]');
@@ -452,7 +487,14 @@ describe('inspector panel', () => {
   });
 
   it('imports a linked sub-form from URL in the form inspector', async () => {
-    seedState([], null);
+    projectSignal.value = createInitialProjectState({
+      definition: createInitialDefinition({
+        title: 'Inspector Test Form',
+        items: []
+      }),
+      selection: null,
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState']
+    });
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -524,7 +566,8 @@ describe('inspector panel', () => {
         binds: [{ path: 'total', calculate: '@totalAmount' }],
         variables: [{ name: 'totalAmount', expression: '$amount', scope: '#' }]
       }),
-      selection: null
+      selection: null,
+      uiState: { inspectorMode: 'standard' } as ProjectState['uiState']
     });
     const host = mountApp();
 
@@ -577,6 +620,7 @@ describe('inspector panel', () => {
         items: [{ type: 'field', key: 'organizationName', label: 'Organization Name', dataType: 'string' }]
       }),
       selection: null,
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState'],
       versioning: {
         baselineDefinition: createInitialDefinition({
           title: 'Versioned Form',
@@ -760,7 +804,14 @@ describe('inspector panel', () => {
   });
 
   it('edits mapping rules and runs round-trip mapping test UI', async () => {
-    seedState([{ type: 'field', key: 'firstName', label: 'First Name', dataType: 'string' }], null);
+    projectSignal.value = createInitialProjectState({
+      definition: createInitialDefinition({
+        title: 'Inspector Test Form',
+        items: [{ type: 'field', key: 'firstName', label: 'First Name', dataType: 'string' }]
+      }),
+      selection: null,
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState']
+    });
     const host = mountApp();
 
     expect(host.querySelector('[data-testid="section-form-mapping"]')).not.toBeNull();
@@ -845,7 +896,14 @@ describe('inspector panel', () => {
   });
 
   it('loads extension registries and exposes custom entries in editor workflows', async () => {
-    seedState([{ type: 'field', key: 'email', label: 'Email', dataType: 'string' }], null);
+    projectSignal.value = createInitialProjectState({
+      definition: createInitialDefinition({
+        title: 'Inspector Test Form',
+        items: [{ type: 'field', key: 'email', label: 'Email', dataType: 'string' }]
+      }),
+      selection: null,
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState']
+    });
     const host = mountApp();
 
     const registryPayload = {
@@ -1129,13 +1187,17 @@ describe('inspector panel', () => {
   });
 
   it('builds form rules (shapes) with composition editing', async () => {
-    seedState(
-      [
-        { type: 'field', key: 'totalBudget', label: 'Total Budget', dataType: 'number' },
-        { type: 'field', key: 'awardAmount', label: 'Award Amount', dataType: 'number' }
-      ],
-      null
-    );
+    projectSignal.value = createInitialProjectState({
+      definition: createInitialDefinition({
+        title: 'Inspector Test Form',
+        items: [
+          { type: 'field', key: 'totalBudget', label: 'Total Budget', dataType: 'number' },
+          { type: 'field', key: 'awardAmount', label: 'Award Amount', dataType: 'number' }
+        ]
+      }),
+      selection: null,
+      uiState: { inspectorMode: 'standard' } as ProjectState['uiState']
+    });
     const host = mountApp();
 
     const addRule = host.querySelector<HTMLButtonElement>('[data-testid="shape-add-button"]');
