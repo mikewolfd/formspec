@@ -13,8 +13,29 @@ export function loadTribalShortArtifacts() {
   };
 }
 
+export function loadTribalLongArtifacts() {
+  return {
+    definition: JSON.parse(fs.readFileSync(path.join(REPORT_DIR, 'tribal-long.definition.json'), 'utf8')),
+    component:  JSON.parse(fs.readFileSync(path.join(REPORT_DIR, 'tribal-long.component.json'),  'utf8')),
+    theme:      JSON.parse(fs.readFileSync(path.join(REPORT_DIR, 'tribal.theme.json'),            'utf8')),
+  };
+}
+
 export async function mountTribalShort(page: Page): Promise<void> {
   const { definition, component, theme } = loadTribalShortArtifacts();
+  await page.goto('/');
+  await page.waitForSelector('formspec-render', { state: 'attached' });
+  await page.evaluate(({ def, comp, thm }) => {
+    const el: any = document.querySelector('formspec-render');
+    el.definition        = def;
+    el.componentDocument = comp;
+    el.themeDocument     = thm;
+  }, { def: definition, comp: component, thm: theme });
+  await page.waitForTimeout(200);
+}
+
+export async function mountTribalLong(page: Page): Promise<void> {
+  const { definition, component, theme } = loadTribalLongArtifacts();
   await page.goto('/');
   await page.waitForSelector('formspec-render', { state: 'attached' });
   await page.evaluate(({ def, comp, thm }) => {

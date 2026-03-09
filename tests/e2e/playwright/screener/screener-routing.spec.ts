@@ -6,15 +6,16 @@ import { loadGrantArtifacts } from '../helpers/grant-app';
  * This gives us the raw screener UI to interact with.
  */
 async function mountWithScreener(page: any) {
-  const { definition, component, theme } = loadGrantArtifacts();
+  const { definition, component, theme, registry } = loadGrantArtifacts();
   await page.goto('/');
   await page.waitForSelector('formspec-render', { state: 'attached' });
-  await page.evaluate(({ def, comp, thm }: any) => {
+  await page.evaluate(({ def, comp, thm, reg }: any) => {
     const el: any = document.querySelector('formspec-render');
+    el.registryDocuments = reg;
     el.definition = def;
     el.componentDocument = comp;
     el.themeDocument = thm;
-  }, { def: definition, comp: component, thm: theme });
+  }, { def: definition, comp: component, thm: theme, reg: registry });
   await page.waitForTimeout(200);
 }
 
@@ -100,8 +101,9 @@ test.describe('Screener: Rendering and Route Selection', () => {
       });
     });
 
-    // Select for-profit
+    // Select for-profit + fill required amount
     await page.locator('[data-name="applicantType"] select').selectOption('forprofit');
+    await page.locator('[data-name="requestedAmount"] input[type="number"]').fill('50000');
     await page.locator('.formspec-screener-continue').click();
 
     const detail = await routePromise;
@@ -172,8 +174,9 @@ test.describe('Screener: Rendering and Route Selection', () => {
       });
     });
 
-    // Don't select for-profit, don't check returning → falls through to catch-all (condition: "true")
+    // Nonprofit, not returning, with required amount → falls through to catch-all (condition: "true")
     await page.locator('[data-name="applicantType"] select').selectOption('nonprofit');
+    await page.locator('[data-name="requestedAmount"] input[type="number"]').fill('100000');
     await page.locator('.formspec-screener-continue').click();
 
     const detail = await routePromise;
@@ -200,8 +203,9 @@ test.describe('Screener: Rendering and Route Selection', () => {
     });
     expect(routeBefore).toBeNull();
 
-    // Complete screener
+    // Complete screener (fill required fields)
     await page.locator('[data-name="applicantType"] select').selectOption('nonprofit');
+    await page.locator('[data-name="requestedAmount"] input[type="number"]').fill('100000');
     await page.locator('.formspec-screener-continue').click();
     await page.waitForTimeout(100);
 
@@ -214,16 +218,17 @@ test.describe('Screener: Rendering and Route Selection', () => {
   });
 
   test('skipScreener bypasses screener and goes straight to main form', async ({ page }) => {
-    const { definition, component, theme } = loadGrantArtifacts();
+    const { definition, component, theme, registry } = loadGrantArtifacts();
     await page.goto('/');
     await page.waitForSelector('formspec-render', { state: 'attached' });
-    await page.evaluate(({ def, comp, thm }: any) => {
+    await page.evaluate(({ def, comp, thm, reg }: any) => {
       const el: any = document.querySelector('formspec-render');
+      el.registryDocuments = reg;
       el.definition = def;
       el.skipScreener();
       el.componentDocument = comp;
       el.themeDocument = thm;
-    }, { def: definition, comp: component, thm: theme });
+    }, { def: definition, comp: component, thm: theme, reg: registry });
     await page.waitForTimeout(200);
 
     // Main form should be visible, no screener
@@ -231,6 +236,94 @@ test.describe('Screener: Rendering and Route Selection', () => {
     await expect(wizard).toBeVisible();
     const screener = page.locator('.formspec-screener');
     await expect(screener).toHaveCount(0);
+  });
+
+  // ── Validation & Boolean Semantics ─────────────────────────────────
+
+  test('nonprofit without amount: blocked because requestedAmount is required', async ({ page }) => {
+    await mountWithScreener(page);
+
+    await page.locator('[data-name="applicantType"] select').selectOption('nonprofit');
+    // Leave requestedAmount empty, don't touch isReturning checkbox
+    await page.locator('.formspec-screener-continue').click();
+    await page.waitForTimeout(200);
+
+    // Should stay on screener
+    const screenerFields = page.locator('.formspec-screener-fields');
+    await expect(screenerFields).toBeVisible();
+
+    // requestedAmount should show a required error
+    const amountError = page.locator('[data-name="requestedAmount"] .formspec-error');
+    await expect(amountError).toBeVisible();
+
+    // isReturning (checkbox) should NOT show an error — unchecked = false = valid
+    const returningError = page.locator('[data-name="isReturning"] .formspec-error');
+    await expect(returningError).toHaveCount(0);
+  });
+
+  test('filling a required field clears its validation error immediately', async ({ page }) => {
+    await mountWithScreener(page);
+
+    // Trigger validation with only applicantType filled
+    await page.locator('[data-name="applicantType"] select').selectOption('nonprofit');
+    await page.locator('.formspec-screener-continue').click();
+    await page.waitForTimeout(200);
+
+    // requestedAmount should show a required error
+    const amountError = page.locator('[data-name="requestedAmount"] .formspec-error');
+    await expect(amountError).toBeVisible();
+
+    // Now fill the field — error should clear without clicking Continue again
+    await page.locator('[data-name="requestedAmount"] input[type="number"]').fill('50000');
+    await expect(amountError).toHaveCount(0);
+  });
+
+  test('untouched boolean checkbox is treated as false, not undefined', async ({ page }) => {
+    await mountWithScreener(page);
+
+    const routePromise = page.evaluate(() => {
+      return new Promise<any>((resolve) => {
+        document.querySelector('formspec-render')!.addEventListener(
+          'formspec-screener-route',
+          (e: any) => resolve(e.detail),
+          { once: true }
+        );
+      });
+    });
+
+    // Fill all required fields, but don't touch the checkbox
+    await page.locator('[data-name="applicantType"] select').selectOption('nonprofit');
+    await page.locator('[data-name="requestedAmount"] input[type="number"]').fill('100000');
+    await page.locator('.formspec-screener-continue').click();
+
+    const detail = await routePromise;
+    // isReturning should be false (not undefined/null)
+    expect(detail.answers.isReturning).toBe(false);
+    // With isReturning=false, should fall through to catch-all "New Application"
+    expect(detail.route.label).toBe('New Application');
+  });
+
+  test('nonprofit new applicant flow: wizard renders with content on first page', async ({ page }) => {
+    await mountWithScreener(page);
+
+    // Select nonprofit, fill amount, don't check returning
+    await page.locator('[data-name="applicantType"] select').selectOption('nonprofit');
+    await page.locator('[data-name="requestedAmount"] input[type="number"]').fill('100000');
+    await page.locator('.formspec-screener-continue').click();
+    await page.waitForTimeout(500);
+
+    // Wizard should be visible
+    const wizard = page.locator('.formspec-wizard');
+    await expect(wizard).toBeVisible();
+
+    // First page heading should be visible
+    const heading = page.locator('.formspec-wizard-panel:not(.formspec-hidden) h2').first();
+    await expect(heading).toContainText('Applicant');
+
+    // Page should have visible inputs (not empty)
+    const inputs = page.locator('.formspec-wizard-panel:not(.formspec-hidden) input, .formspec-wizard-panel:not(.formspec-hidden) select, .formspec-wizard-panel:not(.formspec-hidden) textarea');
+    const inputCount = await inputs.count();
+    expect(inputCount).toBeGreaterThan(0);
   });
 
   test('screener answers are included in the route event detail', async ({ page }) => {

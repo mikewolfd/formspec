@@ -67,9 +67,10 @@ test.describe('Grant Report: Default Bind Re-relevance', () => {
     await page.waitForTimeout(100);
     expect(await isRelevant(page, 'expenditures.employment')).toBe(true);
 
-    // Set a value
+    // Set a value (setValue coerces numbers to money objects for money-typed fields)
     await engineSetValue(page, 'expenditures.employment', 45000);
-    expect(await engineValue(page, 'expenditures.employment')).toBe(45000);
+    const setVal = await engineValue(page, 'expenditures.employment');
+    expect(setVal).toEqual(expect.objectContaining({ amount: 45000 }));
 
     // Deselect → non-relevant
     await engineSetValue(page, 'applicableTopics', []);
@@ -82,9 +83,9 @@ test.describe('Grant Report: Default Bind Re-relevance', () => {
     await engineSetValue(page, 'applicableTopics', ['employment']);
     await page.waitForTimeout(100);
 
-    // The default bind should set the value to 0
+    // The default bind should set the value to money object with amount 0
     const val = await engineValue(page, 'expenditures.employment');
-    expect(val).toBe(0);
+    expect(val).toEqual(expect.objectContaining({ amount: 0, currency: 'USD' }));
   });
 
   test('no constraint errors for default value 0 with $ >= 0', async ({ page }) => {
@@ -114,7 +115,10 @@ test.describe('Grant Report: Calculate + Admin Gate', () => {
     await page.waitForTimeout(100);
 
     const total = await engineValue(page, 'expenditures.total');
-    expect(total).toBe(77000);
+    // moneySum returns a money object; verify amount
+    const totalAmount = total && typeof total === 'object' && 'amount' in total
+      ? Number(total.amount) : Number(total);
+    expect(totalAmount).toBe(77000);
   });
 
   test('administration expenditure only relevant when hasAdministrationCosts is true', async ({ page }) => {
