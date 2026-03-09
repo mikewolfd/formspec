@@ -309,6 +309,152 @@
   color: #fff;
 }
 
+/*── Answer type picker ──*/
+
+.answer-type-picker {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.answer-type-picker__label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.answer-type-picker__strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+}
+
+.answer-type-picker__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #475569;
+  font-size: 0.68rem;
+  padding: 0.35rem 0.2rem;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.answer-type-picker__btn:hover {
+  border-color: #0f766e;
+  background: #f0fdf4;
+  color: #0f766e;
+}
+
+.answer-type-picker__btn.is-active {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+
+.answer-type-picker__btn--secondary {
+  flex-direction: row;
+  gap: 0.35rem;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.72rem;
+}
+
+.answer-type-picker__icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.answer-type-picker__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.answer-type-picker__more-btn {
+  background: none;
+  border: none;
+  color: #0f766e;
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.answer-type-picker__more-btn:hover {
+  color: #0d9488;
+}
+
+.answer-type-picker__expanded {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.2rem;
+}
+
+/*── Form identity (prominent title) ──*/
+
+.inspector-form-identity {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.inspector-form-identity__title {
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  padding: 0.15rem 0;
+  line-height: 1.3;
+}
+
+.inspector-form-identity__title:focus {
+  outline: none;
+  border-bottom: 2px solid #0f766e;
+}
+
+.inspector-form-identity__title::placeholder {
+  color: #94a3b8;
+}
+
+.inspector-form-identity__description {
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  background: transparent;
+  font-size: 0.82rem;
+  color: #475569;
+  padding: 0.25rem 0.35rem;
+  resize: vertical;
+  min-height: 2rem;
+  font-family: inherit;
+}
+
+.inspector-form-identity__description:focus {
+  border-color: #0f766e;
+  outline: 2px solid rgba(15, 118, 110, 0.15);
+  background: #fff;
+}
+
+.inspector-form-identity__description::placeholder {
+  color: #94a3b8;
+}
+
+/*── Inline hints ──*/
+
+.inspector-inline-hint {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-style: italic;
+  margin: 0;
+  line-height: 1.35;
+}
+
 /*── Theme stylesheet editor ──*/
 
 .property-editor {
