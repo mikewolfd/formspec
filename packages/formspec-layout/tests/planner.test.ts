@@ -539,6 +539,119 @@ describe('grant-application integration', () => {
         expect(nodes[1].bindPath).toBe('certify');
     });
 
+    it('resolves dotted region keys (e.g. "group.field") in definition fallback', () => {
+        const items = [
+            {
+                key: 'applicantInfo',
+                type: 'group',
+                label: 'Applicant Info',
+                children: [
+                    { key: 'orgName', type: 'field', dataType: 'string', label: 'Org Name' },
+                    { key: 'contactName', type: 'field', dataType: 'string', label: 'Contact' },
+                    { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+                ],
+            },
+        ];
+
+        const ctx: PlanContext = {
+            items,
+            theme: {
+                pages: [
+                    {
+                        id: 'page1',
+                        title: 'Applicant',
+                        regions: [
+                            { key: 'applicantInfo.orgName', span: 12 },
+                        ],
+                    },
+                ],
+            },
+            findItem: makeFindItem(items),
+            isComponentAvailable: () => true,
+        };
+
+        const nodes = planDefinitionFallback(items, ctx);
+
+        // The page should contain the orgName field
+        expect(nodes[0].component).toBe('Page');
+        expect(nodes[0].props.title).toBe('Applicant');
+        const grid = nodes[0].children[0];
+        expect(grid.component).toBe('Grid');
+        expect(grid.children[0].children[0].bindPath).toBe('applicantInfo.orgName');
+
+        // The parent group should still appear in unassigned (field-level
+        // region does NOT exclude entire parent group)
+        const unassignedGroup = nodes.find(n => n.bindPath === 'applicantInfo');
+        expect(unassignedGroup).toBeDefined();
+    });
+
+    it('finds component nodes by bind in nested layouts (Columns→Stack→Input)', () => {
+        const items = [
+            {
+                key: 'applicantInfo',
+                type: 'group',
+                label: 'Applicant Info',
+                children: [
+                    { key: 'orgName', type: 'field', dataType: 'string', label: 'Org Name' },
+                    { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+                ],
+            },
+        ];
+
+        // Nested layout: Columns wrapping Stacks wrapping inputs —
+        // positional parallel walk would fail here
+        const tree = {
+            component: 'Stack',
+            children: [
+                {
+                    component: 'Columns',
+                    children: [
+                        {
+                            component: 'Stack',
+                            children: [
+                                { component: 'TextInput', bind: 'applicantInfo.orgName' },
+                            ],
+                        },
+                        {
+                            component: 'Stack',
+                            children: [
+                                { component: 'TextInput', bind: 'applicantInfo.email' },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        };
+
+        const ctx: PlanContext = {
+            items,
+            componentDocument: { tree },
+            theme: {
+                pages: [
+                    {
+                        id: 'page1',
+                        title: 'Applicant',
+                        regions: [
+                            { key: 'applicantInfo.orgName', span: 6 },
+                            { key: 'applicantInfo.email', span: 6 },
+                        ],
+                    },
+                ],
+            },
+            findItem: makeFindItem(items),
+            isComponentAvailable: () => true,
+        };
+
+        const node = planComponentTree(tree, ctx);
+        expect(node.children[0].component).toBe('Page');
+        const grid = node.children[0].children[0];
+        expect(grid.component).toBe('Grid');
+        // Both fields should be found despite nested layout structure
+        expect(grid.children).toHaveLength(2);
+        expect(grid.children[0].children[0].bindPath).toBe('applicantInfo.orgName');
+        expect(grid.children[1].children[0].bindPath).toBe('applicantInfo.email');
+    });
+
     it('applies theme pages to component trees while preserving planned field nodes', () => {
         const items = [
             { key: 'projectName', type: 'field', dataType: 'string', label: 'Project Name' },

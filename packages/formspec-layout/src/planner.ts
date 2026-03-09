@@ -189,6 +189,11 @@ export function planComponentTree(
     // Build the node
     const props = extractProps(comp);
 
+    // Default maxLines for text dataType fields rendered as TextInput
+    if (componentType === 'TextInput' && item?.dataType === 'text' && props.maxLines == null) {
+        props.maxLines = 3;
+    }
+
     // Resolve token values in known prop positions
     if (props.gap !== undefined) props.gap = resolveTokenInContext(props.gap, ctx);
     if (props.size !== undefined) props.size = resolveTokenInContext(props.size, ctx);
@@ -358,11 +363,17 @@ function planDefinitionItem(item: any, ctx: PlanContext, prefix = ''): LayoutNod
         const themeWidget = resolveWidget(presentation, isAvailable);
         const widget = themeWidget || item.presentation?.widgetHint || getDefaultComponent(item);
 
+        // Default maxLines for text dataType fields rendered as TextInput
+        const fieldProps: Record<string, unknown> = { bind: key };
+        if (widget === 'TextInput' && item.dataType === 'text') {
+            fieldProps.maxLines = 3;
+        }
+
         return {
             id: nextId('field'),
             component: widget,
             category: 'field',
-            props: { bind: key },
+            props: fieldProps,
             cssClasses: normalizeCssClass(presentation.cssClass),
             children: [],
             bindPath: fullPath,
@@ -470,6 +481,10 @@ function buildThemePageNodes(
                 regionNodes.push(wrapped);
             }
         }
+
+        // Skip theme pages where no regions resolved — prevents empty grids
+        // from replacing the component tree's own layout.
+        if (regionNodes.length === 0) continue;
 
         nodes.push({
             id: nextId('page'),
