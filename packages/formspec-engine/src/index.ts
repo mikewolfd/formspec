@@ -175,6 +175,22 @@ export interface FormEngineRuntimeContext {
     seed?: string | number;
 }
 
+/** A registry extension entry providing constraints and metadata for custom data types. */
+export interface RegistryEntry {
+    name: string;
+    category?: string;
+    version?: string;
+    status?: string;
+    baseType?: string;
+    constraints?: {
+        pattern?: string;
+        maxLength?: number;
+        [key: string]: any;
+    };
+    metadata?: Record<string, any>;
+    [key: string]: any;
+}
+
 /** A complete point-in-time snapshot of engine state for debugging: all values, MIP states, dependencies, and validation. */
 export interface FormEngineDiagnosticsSnapshot {
     definition: {
@@ -296,6 +312,7 @@ export class FormEngine {
     private knownNames: Set<string> = new Set();
     private bindConfigs: Record<string, FormspecBind> = {};
     private compiledExpressions: Record<string, () => any> = {};
+    private registryEntries: Map<string, RegistryEntry> = new Map();
     private remoteOptionsTasks: Array<Promise<void>> = [];
     private instanceSourceTasks: Array<Promise<void>> = [];
     private static instanceSourceCache = new Map<string, any>();
@@ -318,11 +335,17 @@ export class FormEngine {
      *
      * @param definition - The complete Formspec definition document.
      * @param runtimeContext - Optional runtime overrides for time, locale, timezone, and seed.
+     * @param registryEntries - Optional registry extension entries for enforcing extension constraints.
      */
-    constructor(definition: FormspecDefinition, runtimeContext?: FormEngineRuntimeContext) {
+    constructor(definition: FormspecDefinition, runtimeContext?: FormEngineRuntimeContext, registryEntries?: RegistryEntry[]) {
         this.definition = definition;
         if (runtimeContext) {
             this.setRuntimeContext(runtimeContext);
+        }
+        if (registryEntries) {
+            for (const entry of registryEntries) {
+                if (entry.name) this.registryEntries.set(entry.name, entry);
+            }
         }
         this.resolveOptionSets();
         this.initializeOptionSignals();
@@ -1214,6 +1237,34 @@ export class FormEngine {
                 }
             }
 
+            // Resolve registry extension constraints (pattern, maxLength) for this field.
+            let registryPatternRegex: RegExp | null = null;
+            let registryMaxLength: number | null = null;
+            let registryMinimum: number | null = null;
+            let registryMaximum: number | null = null;
+            const exts = item.extensions;
+            if (exts && typeof exts === 'object') {
+                for (const [extName, extEnabled] of Object.entries(exts)) {
+                    if (!extEnabled) continue;
+                    const entry = this.registryEntries.get(extName);
+                    if (!entry?.constraints) continue;
+                    if (entry.constraints.pattern && !registryPatternRegex) {
+                        try {
+                            registryPatternRegex = new RegExp(entry.constraints.pattern);
+                        } catch { /* skip invalid patterns */ }
+                    }
+                    if (entry.constraints.maxLength != null && registryMaxLength == null) {
+                        registryMaxLength = entry.constraints.maxLength;
+                    }
+                    if (entry.constraints.minimum != null && registryMinimum == null) {
+                        registryMinimum = entry.constraints.minimum;
+                    }
+                    if (entry.constraints.maximum != null && registryMaximum == null) {
+                        registryMaximum = entry.constraints.maximum;
+                    }
+                }
+            }
+
             this.validationResults[fullName] = computed(() => {
                 const results: ValidationResult[] = [];
                 const value = this.signals[fullName].value;
@@ -1282,6 +1333,54 @@ export class FormEngine {
                         });
                     }
                 }
+
+                // 5. Registry extension constraints (pattern, maxLength, minimum, maximum)
+                // Null-propagating: skip for empty optional values.
+                if (!(value === null || value === undefined || value === '')) {
+                    if (registryPatternRegex && !registryPatternRegex.test(String(value))) {
+                        results.push({
+                            severity: "error",
+                            path: this.toExternalPath(fullName),
+                            message: "Pattern mismatch",
+                            constraintKind: "constraint",
+                            code: "PATTERN_MISMATCH",
+                            source: "bind"
+                        });
+                    }
+                    if (registryMaxLength != null && String(value).length > registryMaxLength) {
+                        results.push({
+                            severity: "error",
+                            path: this.toExternalPath(fullName),
+                            message: `Must be at most ${registryMaxLength} characters`,
+                            constraintKind: "constraint",
+                            code: "MAX_LENGTH_EXCEEDED",
+                            source: "bind"
+                        });
+                    }
+                    const numVal = typeof value === 'number' ? value : Number(value);
+                    if (!isNaN(numVal)) {
+                        if (registryMinimum != null && numVal < registryMinimum) {
+                            results.push({
+                                severity: "error",
+                                path: this.toExternalPath(fullName),
+                                message: `Must be at least ${registryMinimum}`,
+                                constraintKind: "constraint",
+                                code: "RANGE_UNDERFLOW",
+                                source: "bind"
+                            });
+                        }
+                        if (registryMaximum != null && numVal > registryMaximum) {
+                            results.push({
+                                severity: "error",
+                                path: this.toExternalPath(fullName),
+                                message: `Must be at most ${registryMaximum}`,
+                                constraintKind: "constraint",
+                                code: "RANGE_OVERFLOW",
+                                source: "bind"
+                            });
+                        }
+                    }
+                }
                 return results;
             });
 
@@ -1293,8 +1392,11 @@ export class FormEngine {
             // Default bind: apply default value on relevance transition
             if (bind?.default !== undefined) {
                 let prevRelevant = this.relevantSignals[fullName]?.peek?.() ?? true;
-                // Use a computed that watches relevance and applies default
-                const defaultVal = bind.default;
+                // Coerce money defaults: ensure amount is numeric, not string
+                let defaultVal = bind.default;
+                if (dataType === 'money' && defaultVal && typeof defaultVal === 'object' && 'amount' in defaultVal && typeof defaultVal.amount === 'string') {
+                    defaultVal = { ...defaultVal, amount: defaultVal.amount === '' ? null : Number(defaultVal.amount) };
+                }
                 const sigRef = this.signals[fullName];
                 if (this.relevantSignals[fullName] && sigRef && !('_dispose' in sigRef)) {
                     // Only for writable signals (not computed/calculated)

@@ -507,6 +507,7 @@
         "maxLines": {
           "type": "integer",
           "minimum": 1,
+          "default": 1,
           "description": "Maximum visible lines. 1 = single-line input, >1 = multi-line textarea."
         },
         "inputMode": {
