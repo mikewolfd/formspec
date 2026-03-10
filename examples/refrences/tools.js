@@ -67,7 +67,7 @@ let currentDefinition = null;
 
 function toExamplesRelPath(dir, file) {
   // Convert '/examples/foo' + 'bar.json' -> 'foo/bar.json' for server-side loading.
-  const base = String(dir || '').replace(/^\\/?examples\\//, '');
+  const base = String(dir || '').replace(/^\/?examples\//, '');
   return file ? `${base}/${file}` : base;
 }
 

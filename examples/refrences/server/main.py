@@ -17,6 +17,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -147,8 +149,14 @@ class SubmitRequest(BaseModel):
 
 
 class SubmitResponse(BaseModel):
+    """Canonical ValidationReport shape (valid, results, counts, timestamp,
+    definitionUrl, definitionVersion) plus server-only extras (mapped, diagnostics)."""
+    definitionUrl: str
+    definitionVersion: str
     valid: bool
-    validationResults: list[dict]
+    results: list[dict]
+    counts: dict[str, int]
+    timestamp: str
     mapped: dict
     diagnostics: list[str]
 
@@ -259,8 +267,12 @@ def submit(request: SubmitRequest):
     mapped = mapping_engine.forward(result.data) if mapping_engine else {}
 
     return SubmitResponse(
+        definitionUrl=request.definitionUrl,
+        definitionVersion=request.definitionVersion,
         valid=result.valid,
-        validationResults=result.results,
+        results=result.results,
+        counts=result.counts,
+        timestamp=datetime.now(timezone.utc).isoformat(),
         mapped=mapped,
         diagnostics=diagnostics,
     )

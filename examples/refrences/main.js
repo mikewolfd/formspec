@@ -19,6 +19,12 @@ const EXAMPLES = [
     server: true,
     mappings: ['mapping.json', 'mapping-csv.json', 'mapping-xml.json'],
     registry: 'registry.json',
+    fixtures: [
+      { id: 'sample-submission', label: 'Complete Submission', file: 'fixtures/sample-submission.json' },
+      { id: 'submission-amended', label: 'Amended', file: 'fixtures/submission-amended.json' },
+      { id: 'submission-in-progress', label: 'In Progress', file: 'fixtures/submission-in-progress.json' },
+      { id: 'submission-stopped', label: 'Stopped', file: 'fixtures/submission-stopped.json' },
+    ],
   },
   {
     id: 'tribal-short',
@@ -26,6 +32,12 @@ const EXAMPLES = [
     description: 'Short-form grant report with expenditure tracking',
     dir: '/examples/grant-report',
     artifacts: { definition: 'tribal-short.definition.json', component: 'tribal-short.component.json', theme: 'tribal.theme.json' },
+    server: true,
+    fixtures: [
+      { id: 'short-empty', label: 'Empty', file: 'fixtures/short-empty.response.json' },
+      { id: 'short-partial', label: 'Partial', file: 'fixtures/short-partial.response.json' },
+      { id: 'short-complete', label: 'Complete', file: 'fixtures/short-complete.response.json' },
+    ],
   },
   {
     id: 'tribal-long',
@@ -33,6 +45,11 @@ const EXAMPLES = [
     description: 'Detailed report with narratives and service data',
     dir: '/examples/grant-report',
     artifacts: { definition: 'tribal-long.definition.json', component: 'tribal-long.component.json', theme: 'tribal.theme.json' },
+    server: true,
+    fixtures: [
+      { id: 'long-complete', label: 'Complete', file: 'fixtures/long-complete.response.json' },
+      { id: 'short-to-long-migrated', label: 'Migrated from Short', file: 'fixtures/short-to-long-migrated.response.json' },
+    ],
   },
   {
     id: 'invoice',
@@ -40,6 +57,13 @@ const EXAMPLES = [
     description: 'Repeat groups + calculated totals + CSV export mapping',
     dir: '/examples/invoice',
     artifacts: { definition: 'invoice.definition.json', component: 'invoice.component.json', theme: 'invoice.theme.json' },
+    server: true,
+    fixtures: [
+      { id: 'invoice-empty', label: 'Empty', file: 'fixtures/invoice-empty.response.json' },
+      { id: 'invoice-single', label: 'Single Item', file: 'fixtures/invoice-single.response.json' },
+      { id: 'invoice-multi', label: 'Multiple Items', file: 'fixtures/invoice-multi.response.json' },
+      { id: 'invoice-max', label: 'Max Items', file: 'fixtures/invoice-max.response.json' },
+    ],
   },
   {
     id: 'clinical-intake',
@@ -47,6 +71,13 @@ const EXAMPLES = [
     description: 'Screener routing, instances/pre-population, nested repeats',
     dir: '/examples/clinical-intake',
     artifacts: { definition: 'intake.definition.json', component: 'intake.component.json', theme: 'intake.theme.json' },
+    server: true,
+    fixtures: [
+      { id: 'intake-empty', label: 'Empty', file: 'fixtures/intake-empty.response.json' },
+      { id: 'intake-partial', label: 'Partial', file: 'fixtures/intake-partial.response.json' },
+      { id: 'intake-complete', label: 'Complete', file: 'fixtures/intake-complete.response.json' },
+      { id: 'intake-nested-repeat', label: 'Nested Repeat', file: 'fixtures/intake-nested-repeat.response.json' },
+    ],
   },
 ];
 
@@ -57,6 +88,44 @@ const emptyState = document.getElementById('empty-state');
 
 let activeExampleId = null;
 let activeBridgeLink = null;
+
+// ── Restore saved state ──
+// Walks a response `data` object and applies values to a fresh engine.
+// Must be called right after setDefinition — before the DOM renders —
+// so that initial renders pick up the restored values and calculated
+// fields recompute from the full dependency graph.
+//
+// Uses the engine's public `signals` and `repeats` to distinguish
+// container groups from leaf values (including complex types like money
+// and multi-valued fields like multiChoice arrays).
+function applyResponseData(engine, data, prefix = '') {
+  for (const [key, value] of Object.entries(data)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+
+    // If the engine has a signal for this path, it's a field — set directly
+    // (handles primitives, money objects, and multiChoice arrays).
+    // Skip computed signals (calculated fields) — they recompute from deps.
+    const sig = engine.signals[path];
+    if (sig && Object.getOwnPropertyDescriptor(Object.getPrototypeOf(sig), 'value')?.set) {
+      engine.setValue(path, value);
+    } else if (Array.isArray(value)) {
+      // No signal → repeat group: ensure enough instances, then recurse
+      const currentCount = engine.repeats[path]?.value ?? 0;
+      for (let i = currentCount; i < value.length; i++) {
+        engine.addRepeatInstance(path);
+      }
+      for (let i = 0; i < value.length; i++) {
+        if (value[i] != null && typeof value[i] === 'object') {
+          applyResponseData(engine, value[i], `${path}[${i}]`);
+        }
+      }
+    } else if (value !== null && typeof value === 'object') {
+      // No signal, non-array object → container group, recurse
+      applyResponseData(engine, value, path);
+    }
+    // else: primitive with no signal — skip (not a known field)
+  }
+}
 
 // ── Build sidebar ──
 for (const ex of EXAMPLES) {
@@ -78,8 +147,10 @@ async function loadJSON(url) {
 }
 
 // ── Load & render an example ──
-async function loadExample(ex) {
-  if (activeExampleId === ex.id) return;
+// fixture: optional { id, label, file } to restore saved state into the form
+async function loadExample(ex, fixture = null) {
+  // Allow reload when switching fixtures on the same example
+  if (activeExampleId === ex.id && !fixture) return;
   activeExampleId = ex.id;
 
   // Update sidebar
@@ -105,14 +176,16 @@ async function loadExample(ex) {
   }
 
   try {
-    // Load artifacts
+    // Load artifacts (+ fixture in parallel if restoring saved state)
     const loads = [loadJSON(`${ex.dir}/${ex.artifacts.definition}`)];
     if (ex.artifacts.component) loads.push(loadJSON(`${ex.dir}/${ex.artifacts.component}`));
     else loads.push(Promise.resolve(null));
     if (ex.artifacts.theme) loads.push(loadJSON(`${ex.dir}/${ex.artifacts.theme}`));
     else loads.push(Promise.resolve(null));
+    if (fixture) loads.push(loadJSON(`${ex.dir}/${fixture.file}`));
+    else loads.push(Promise.resolve(null));
 
-    const [definition, componentDoc, themeDoc] = await Promise.all(loads);
+    const [definition, componentDoc, themeDoc, fixtureResponse] = await Promise.all(loads);
 
     // Load bridge CSS if specified
     if (ex.css) {
@@ -166,14 +239,37 @@ async function loadExample(ex) {
     serverPanel.setAttribute('aria-live', 'polite');
     serverPanel.innerHTML = `
       <h3>Server Response</h3>
+      <div class="server-meta" id="server-meta"></div>
       <p class="server-empty" id="server-empty">No server response yet. Submit a valid form to send it to the server.</p>
-      <pre id="server-response-pre"></pre>
+      <details class="server-details" open>
+        <summary>Validation Report</summary>
+        <pre id="server-validation-pre"></pre>
+      </details>
+      <details class="server-details">
+        <summary>Mapped Data</summary>
+        <pre id="server-mapped-pre"></pre>
+      </details>
+      <details class="server-details">
+        <summary>Diagnostics</summary>
+        <pre id="server-diagnostics-pre"></pre>
+      </details>
+      <pre id="server-response-pre" style="display:none"></pre>
     `;
 
     // Toolbar actions
     const actions = document.createElement('div');
     actions.className = 'form-actions';
+
+    // Fixture selector (if example has fixtures)
+    const fixtureHTML = ex.fixtures?.length
+      ? `<select id="fixture-select" class="fixture-select">
+           <option value="">Load fixture…</option>
+           ${ex.fixtures.map(f => `<option value="${f.id}"${fixture?.id === f.id ? ' selected' : ''}>${f.label}</option>`).join('')}
+         </select>`
+      : '';
+
     actions.innerHTML = `
+      ${fixtureHTML}
       <button type="button" class="action-btn" id="action-submit">Submit (Client)</button>
       <button type="button" class="action-btn secondary" id="action-reset">Reset</button>
     `;
@@ -267,10 +363,29 @@ async function loadExample(ex) {
     });
 
     actions.querySelector('#action-reset').addEventListener('click', () => {
-      // Reloading the same example is the simplest reset semantics.
+      // Reload the example with no fixture — clean slate.
       activeExampleId = null;
       loadExample(ex);
     });
+
+    // Fixture selector: reload the form with the selected fixture's saved state
+    const fixtureSelect = actions.querySelector('#fixture-select');
+    if (fixtureSelect) {
+      fixtureSelect.addEventListener('change', () => {
+        const fixtureId = fixtureSelect.value;
+        if (!fixtureId) {
+          // "Load fixture…" selected — reset to clean state
+          activeExampleId = null;
+          loadExample(ex);
+          return;
+        }
+        const selected = ex.fixtures.find(f => f.id === fixtureId);
+        if (!selected) return;
+        // Full reload with fixture — same as restoring a saved session
+        activeExampleId = null;
+        loadExample(ex, selected);
+      });
+    }
 
     container.appendChild(actions);
     container.appendChild(tabs);
@@ -280,10 +395,18 @@ async function loadExample(ex) {
 
     mainArea.appendChild(container);
 
-    // Set artifacts
+    // Set artifacts — this creates the engine and triggers rendering
     formEl.definition = definition;
     if (componentDoc) formEl.componentDocument = componentDoc;
     if (themeDoc) formEl.themeDocument = themeDoc;
+
+    // Restore saved state: apply fixture data to the fresh engine so that
+    // reactive signals fire, calculated fields recompute, and relevance
+    // cascades (e.g. applicableTopics → expenditure visibility).
+    if (fixtureResponse?.data) {
+      const engine = formEl.getEngine();
+      if (engine) applyResponseData(engine, fixtureResponse.data);
+    }
 
     // Always show the client-side submit detail (response + validationReport).
     // Optionally forward valid responses to the server (grant-application).
@@ -315,12 +438,35 @@ async function loadExample(ex) {
         const result = await res.json();
         const serverEmpty = serverPanel.querySelector('#server-empty');
         if (serverEmpty) serverEmpty.remove();
-        serverPanel.querySelector('pre').textContent = JSON.stringify(result, null, 2);
+
+        // Meta line — same format as client
+        const serverMeta = serverPanel.querySelector('#server-meta');
+        serverMeta.textContent = result.counts
+          ? `valid=${!!result.valid}  errors=${result.counts.error || 0}  warnings=${result.counts.warning || 0}`
+          : `valid=${!!result.valid}`;
+
+        // Validation results
+        const reportData = { valid: result.valid, results: result.results, counts: result.counts, timestamp: result.timestamp };
+        serverPanel.querySelector('#server-validation-pre').textContent = JSON.stringify(reportData, null, 2);
+
+        // Mapped data
+        serverPanel.querySelector('#server-mapped-pre').textContent = JSON.stringify(result.mapped, null, 2);
+
+        // Diagnostics
+        serverPanel.querySelector('#server-diagnostics-pre').textContent = result.diagnostics?.length
+          ? JSON.stringify(result.diagnostics, null, 2)
+          : '(none)';
+
+        // Keep the full response in the hidden pre for test access
+        serverPanel.querySelector('#server-response-pre').textContent = JSON.stringify(result, null, 2);
+
         setActiveTab('server');
       } catch (err) {
         const serverEmpty = serverPanel.querySelector('#server-empty');
         if (serverEmpty) serverEmpty.remove();
-        serverPanel.querySelector('pre').textContent = `Error contacting server: ${err.message}`;
+        serverPanel.querySelector('#server-meta').textContent = 'Error';
+        serverPanel.querySelector('#server-validation-pre').textContent = `Error contacting server: ${err.message}`;
+        serverPanel.querySelector('#server-response-pre').textContent = '';
         setActiveTab('server');
       }
     });

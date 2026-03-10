@@ -4,12 +4,14 @@ import fs from 'fs';
 
 const repoRoot = path.resolve(__dirname, '../..');
 
+const backendPort = process.env.FORMSPEC_BACKEND_PORT || '8000';
+
 export default defineConfig({
   server: {
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: `http://localhost:${backendPort}`,
         rewrite: (p) => p.replace(/^\/api/, ''),
       },
     },
