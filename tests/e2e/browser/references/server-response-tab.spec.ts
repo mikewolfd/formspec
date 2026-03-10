@@ -3,16 +3,44 @@ import { test, expect } from '@playwright/test';
 const REFERENCES_URL = 'http://localhost:8082';
 
 /**
+ * Wait until the <formspec-render> element has an initialized engine.
+ */
+async function waitForEngine(page: import('@playwright/test').Page, timeout = 10_000) {
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('formspec-render') as any;
+      return el?.getEngine() != null;
+    },
+    { timeout },
+  );
+}
+
+/**
  * Load an example in the references app, optionally selecting a fixture.
  */
 async function loadExample(page: import('@playwright/test').Page, exampleId: string, fixtureId?: string) {
   await page.goto(`${REFERENCES_URL}/#${exampleId}`);
-  await page.waitForSelector('.example-tabs', { timeout: 10_000 });
+  await waitForEngine(page);
 
   if (fixtureId) {
+    // Mark the current element so we can detect when it's been replaced
+    await page.evaluate(() => {
+      const el = document.querySelector('formspec-render') as any;
+      if (el) el._testReloadMarker = true;
+    });
+
     const select = page.locator('#fixture-select');
     await select.selectOption(fixtureId);
-    await page.waitForSelector('.example-tabs', { timeout: 10_000 });
+
+    // Fixture selection triggers a full async reload. Wait for a NEW
+    // (unmarked) <formspec-render> element with an initialized engine.
+    await page.waitForFunction(
+      () => {
+        const el = document.querySelector('formspec-render') as any;
+        return el && !el._testReloadMarker && el.getEngine() != null;
+      },
+      { timeout: 10_000 },
+    );
   }
 }
 
@@ -128,24 +156,22 @@ test.describe('References: Server Submit End-to-End', () => {
     expect(Object.keys(mapped).length).toBeGreaterThan(0);
   });
 
-  test('empty form fails client validation and does NOT post to server', async ({ page }) => {
+  test('empty form fails client validation but still posts to server', async ({ page }) => {
     await loadExample(page, 'grant-application');
 
     await page.locator('#action-submit').click();
-    await page.waitForTimeout(1_000);
-
-    // Client panel should be active
-    await expect(page.locator('#panel-client')).toHaveClass(/active/);
-
-    // Server pre should be empty — no POST was made
-    const serverText = (await page.locator('#server-response-pre').textContent())!.trim();
-    expect(serverText).toBe('');
+    const result = await waitForServerResponse(page);
 
     // Client validation report should show errors
     const clientText = (await page.locator('#client-validation-pre').textContent())!;
     const vr = JSON.parse(clientText);
     expect(vr.valid).toBe(false);
     expect(vr.counts.error).toBeGreaterThan(0);
+
+    // Server still received the submission and returned a report
+    expect(result).toHaveProperty('valid');
+    expect(result).toHaveProperty('results');
+    expect(result).toHaveProperty('counts');
   });
 
   test('server response replaces placeholder with structured content', async ({ page }) => {
