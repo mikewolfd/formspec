@@ -12,74 +12,7 @@
     "id": "GRANT-2026-001",
     "type": "grant-application"
   },
-  "validationResults": [
-    {
-      "path": "applicantInfo.orgName",
-      "severity": "error",
-      "constraintKind": "required",
-      "message": "Organization Name is required.",
-      "code": "FIELD_REQUIRED",
-      "source": "bind",
-      "sourceId": "applicantInfo.orgName",
-      "value": "Community Health Partners, Inc."
-    },
-    {
-      "path": "applicantInfo.ein",
-      "severity": "error",
-      "constraintKind": "type",
-      "message": "EIN must be a valid string value.",
-      "code": "TYPE_MISMATCH",
-      "source": "bind",
-      "sourceId": "applicantInfo.ein",
-      "value": "47-1234567"
-    },
-    {
-      "path": "budget.lineItems",
-      "severity": "warning",
-      "constraintKind": "cardinality",
-      "message": "Budget should have at least 3 line items for a complete application.",
-      "code": "MIN_LINE_ITEMS",
-      "source": "shape",
-      "shapeId": "budgetReasonable",
-      "value": 2,
-      "constraint": "count($budget.lineItems[*].category) >= 3"
-    },
-    {
-      "path": "applicantInfo.contactEmail",
-      "severity": "error",
-      "constraintKind": "constraint",
-      "message": "Contact email must contain @.",
-      "code": "EMAIL_FORMAT",
-      "source": "bind",
-      "sourceId": "applicantInfo.contactEmail",
-      "value": "jane.smith@chp.example.org",
-      "constraint": "contains($applicantInfo.contactEmail, '@')"
-    },
-    {
-      "path": "#",
-      "severity": "warning",
-      "constraintKind": "shape",
-      "message": "Requested amount must match the calculated grand total (within $1).",
-      "code": "BUDGET_MISMATCH",
-      "source": "shape",
-      "shapeId": "budgetMatch",
-      "context": {
-        "grandTotal": "126000.00",
-        "requested": "126000.00",
-        "difference": "0.00"
-      }
-    },
-    {
-      "path": "applicantInfo.projectWebsite",
-      "severity": "info",
-      "constraintKind": "external",
-      "message": "Project website URL could not be verified against the agency registry.",
-      "code": "WEBSITE_VERIFY_FAILED",
-      "source": "external",
-      "sourceId": "agency-url-checker",
-      "value": "https://example.org/project"
-    }
-  ],
+  "validationResults": [],
   "data": {
     "applicantInfo": {
       "orgName": "Community Health Partners, Inc.",

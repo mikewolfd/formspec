@@ -33,20 +33,6 @@
       "value": "TBD - will fill in later"
     },
     {
-      "path": "budget.requestedAmount",
-      "severity": "error",
-      "constraintKind": "shape",
-      "message": "Requested amount must match the calculated grand total.",
-      "code": "BUDGET_MISMATCH",
-      "source": "shape",
-      "shapeId": "budgetMatch",
-      "context": {
-        "grandTotal": "0.00",
-        "requested": "0.00",
-        "difference": "0.00"
-      }
-    },
-    {
       "path": "projectNarrative.startDate",
       "severity": "error",
       "constraintKind": "required",

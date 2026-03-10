@@ -70,7 +70,9 @@
             "housingDesc": "Completed emergency housing repairs and weatherization for 15 tribally-owned homes.",
             "healthDesc": "Operated mobile health clinic serving 280 individuals across three communities twice monthly.",
             "civicDesc": "N/A",
-            "transportationDesc": "N/A"
+            "transportationDesc": "N/A",
+            "partnershipsDesc": "N/A",
+            "otherDesc": "N/A"
         },
         "demographics": {
             "totalServed": null,

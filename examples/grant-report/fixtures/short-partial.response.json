@@ -28,7 +28,10 @@
                 "amount": "0.00",
                 "currency": "USD"
             },
-            "housing": null,
+            "housing": {
+                "amount": "0.00",
+                "currency": "USD"
+            },
             "health": {
                 "amount": "0.00",
                 "currency": "USD"
@@ -63,7 +66,9 @@
             "housingDesc": null,
             "healthDesc": "N/A",
             "civicDesc": "N/A",
-            "transportationDesc": "N/A"
+            "transportationDesc": "N/A",
+            "partnershipsDesc": "N/A",
+            "otherDesc": "N/A"
         }
     }
 }

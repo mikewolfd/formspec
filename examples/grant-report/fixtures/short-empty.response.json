@@ -30,7 +30,9 @@
             "housingDesc": null,
             "healthDesc": null,
             "civicDesc": null,
-            "transportationDesc": null
+            "transportationDesc": null,
+            "partnershipsDesc": null,
+            "otherDesc": null
         }
     }
 }

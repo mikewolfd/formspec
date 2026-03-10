@@ -2,7 +2,7 @@
   "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
   "definitionUrl": "https://example.gov/forms/grant-application",
   "definitionVersion": "1.0.0",
-  "status": "amended",
+  "status": "in-progress",
   "authored": "2026-02-28T16:45:00.000Z",
   "author": {
     "id": "user-001",
@@ -14,7 +14,7 @@
   },
   "validationResults": [
     {
-      "path": "budget.lineItems[3].quantity",
+      "path": "budget.lineItems[2].quantity",
       "severity": "error",
       "constraintKind": "type",
       "message": "Quantity must be an integer value.",
@@ -39,20 +39,6 @@
       },
       "extensions": {
         "x-reviewAction": "retry-before-complete"
-      }
-    },
-    {
-      "path": "#",
-      "severity": "info",
-      "constraintKind": "shape",
-      "message": "Amendment increased total request by 8.1% versus the last completed submission.",
-      "code": "AMENDMENT_DELTA",
-      "source": "shape",
-      "shapeId": "amendmentDeltaSummary",
-      "context": {
-        "previousTotal": "126000.00",
-        "amendedTotal": "136200.00",
-        "deltaPercent": 8.1
       }
     }
   ],

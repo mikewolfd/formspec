@@ -18,7 +18,7 @@
       "severity": "error",
       "constraintKind": "required",
       "message": "Organization Name is required.",
-      "code": "REQUIRED",
+      "code": "FIELD_REQUIRED",
       "source": "bind",
       "sourceId": "applicantInfo.orgName",
       "value": ""
