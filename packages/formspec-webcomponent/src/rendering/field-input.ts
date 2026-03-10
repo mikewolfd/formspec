@@ -467,6 +467,14 @@ export function renderInputComponent(host: FieldInputHost, comp: any, item: any,
             const radios = input.querySelectorAll('input[type="radio"]') as NodeListOf<HTMLInputElement>;
             radios.forEach(rb => { rb.checked = rb.value === String(val ?? ''); });
         }));
+    } else if (dataType === 'multiChoice' || componentType === 'CheckboxGroup') {
+        host.cleanupFns.push(effect(() => {
+            const sig = host.engine.signals[fullName];
+            if (!sig) return;
+            const val: string[] = Array.isArray(sig.value) ? sig.value : [];
+            const cbs = input.querySelectorAll(`input[type="checkbox"][name="${fullName}"]`) as NodeListOf<HTMLInputElement>;
+            cbs.forEach(cb => { cb.checked = val.includes(cb.value); });
+        }));
     }
 
     const markTouched = () => {
