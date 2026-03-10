@@ -22,6 +22,7 @@ export function Collapsible(props: CollapsibleProps) {
       <button
         type="button"
         class="inspector-section__header"
+        data-testid={`section-${props.id}-header`}
         aria-expanded={props.open}
         onClick={() => {
           props.onToggle(!props.open);

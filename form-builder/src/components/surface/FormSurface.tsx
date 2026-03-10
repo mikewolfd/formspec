@@ -220,7 +220,7 @@ export function FormSurface(props: FormSurfaceProps) {
                   setFieldOptions(project, targetPath, options);
                 }}
                 onRequiredToggle={(targetPath, required) => {
-                  setBind(project, targetPath, 'required', required ? true : undefined);
+                  setBind(project, targetPath, 'required', required ? 'true' : undefined);
                 }}
                 renderChildren={(children, childParentPath) => renderItemList(children, childParentPath)}
               />

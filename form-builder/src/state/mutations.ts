@@ -1033,6 +1033,11 @@ export function setFormPresentationProperty(
       if (pages.length === 0 && state.definition.items.length > 0) {
         const existingItems = [...state.definition.items];
         const pageKey = ensureUniqueSiblingKey([], 'page_1');
+        const rewriteMap: PathRewriteMap = {};
+        for (const item of existingItems) {
+          const oldPath = item.key;
+          rewriteMap[oldPath] = joinPath(pageKey, item.key);
+        }
         const pageGroup: FormspecItem = {
           type: 'group',
           key: pageKey,
@@ -1041,6 +1046,10 @@ export function setFormPresentationProperty(
           presentation: { widgetHint: 'Page' }
         };
         state.definition.items = [pageGroup];
+        state.definition = rewriteDefinitionPathReferences(state.definition, rewriteMap);
+        if (state.selection) {
+          state.selection = rewritePathByMap(state.selection, rewriteMap);
+        }
         state.uiState.activePage = pageKey;
       } else if (pages.length > 0 && !state.uiState.activePage) {
         state.uiState.activePage = pages[0].key;

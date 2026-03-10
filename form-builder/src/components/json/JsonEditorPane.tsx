@@ -49,6 +49,29 @@ const EMPTY_VALIDATION: JsonValidationState = {
   applyError: null
 };
 
+function validateJsonText(artifact: JsonArtifactKey, text: string): JsonValidationState {
+  const parsed = parseJsonDocument(text);
+  if (!parsed.ok) {
+    return {
+      parseError: parsed.error,
+      schemaErrors: [],
+      applyError: null
+    };
+  }
+
+  const validator = validators[artifact];
+  const valid = validator(parsed.value);
+  if (!valid) {
+    return {
+      parseError: null,
+      schemaErrors: summarizeSchemaErrors(validator.errors),
+      applyError: null
+    };
+  }
+
+  return EMPTY_VALIDATION;
+}
+
 function navigateToLine(textarea: HTMLTextAreaElement | null, gutter: HTMLDivElement | null, lineNumber: number): void {
   if (!textarea) {
     return;
@@ -119,6 +142,27 @@ export function JsonEditorPane(props: JsonEditorPaneProps) {
     setBaseline(serialized);
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setValidation((current) => ({
+      definition: {
+        ...validateJsonText('definition', serialized.definition),
+        applyError: null
+      },
+      component: {
+        ...validateJsonText('component', serialized.component),
+        applyError: null
+      },
+      theme: {
+        ...validateJsonText('theme', serialized.theme),
+        applyError: null
+      }
+    }));
+  }, [isOpen, serialized.definition, serialized.component, serialized.theme]);
+
   if (!isOpen) {
     return null;
   }
@@ -129,30 +173,17 @@ export function JsonEditorPane(props: JsonEditorPaneProps) {
       [artifact]: text
     }));
 
-    const parsed = parseJsonDocument(text);
-    if (!parsed.ok) {
+    const validationState = validateJsonText(artifact, text);
+    if (validationState.parseError || validationState.schemaErrors.length > 0) {
       setValidation((current) => ({
         ...current,
-        [artifact]: {
-          parseError: parsed.error,
-          schemaErrors: [],
-          applyError: null
-        }
+        [artifact]: validationState
       }));
       return;
     }
 
-    const validator = validators[artifact];
-    const valid = validator(parsed.value);
-    if (!valid) {
-      setValidation((current) => ({
-        ...current,
-        [artifact]: {
-          parseError: null,
-          schemaErrors: summarizeSchemaErrors(validator.errors),
-          applyError: null
-        }
-      }));
+    const parsed = parseJsonDocument(text);
+    if (!parsed.ok) {
       return;
     }
 

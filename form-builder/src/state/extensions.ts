@@ -77,6 +77,11 @@ export interface ExtensionCatalog {
 
 /** Validates and parses a registry payload using the registry JSON schema. */
 export function parseExtensionRegistryDocument(payload: unknown): ExtensionRegistryDocument {
+  const missingRequired = findMissingRegistryFields(payload);
+  if (missingRequired.length > 0) {
+    throw new Error(missingRequired.join('; '));
+  }
+
   const valid = validateRegistry(payload);
   if (!valid) {
     const messages = summarizeValidationErrors(validateRegistry.errors);
@@ -234,6 +239,24 @@ function summarizeValidationErrors(errors: ErrorObject[] | null | undefined): st
     const message = error.message ?? 'Invalid value';
     return `${path}: ${message}`;
   });
+}
+
+function findMissingRegistryFields(payload: unknown): string[] {
+  if (!isRecord(payload)) {
+    return ['/: registry payload must be an object'];
+  }
+
+  const missing: string[] = [];
+  for (const property of ['$formspecRegistry', 'publisher', 'published', 'entries']) {
+    if (!(property in payload)) {
+      missing.push(`/: must have required property '${property}'`);
+    }
+  }
+  return missing;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isSupportedCategory(value: unknown): value is ExtensionEntryCategory {

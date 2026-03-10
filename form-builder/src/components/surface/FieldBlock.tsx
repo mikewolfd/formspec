@@ -33,13 +33,13 @@ export function FieldBlock(props: FieldBlockProps) {
         {props.onRequiredToggle ? (
           <button
             type="button"
-            class={`field-block__required-toggle${typeof props.bind?.required === 'boolean' && props.bind.required ? ' is-required' : ''}`}
-            title={typeof props.bind?.required === 'boolean' && props.bind.required ? 'Remove required' : 'Mark required'}
-            aria-label={typeof props.bind?.required === 'boolean' && props.bind.required ? 'Remove required' : 'Mark required'}
+            class={`field-block__required-toggle${isRequiredToggleActive(props.bind?.required) ? ' is-required' : ''}`}
+            title={isRequiredToggleActive(props.bind?.required) ? 'Remove required' : 'Mark required'}
+            aria-label={isRequiredToggleActive(props.bind?.required) ? 'Remove required' : 'Mark required'}
             data-testid={`required-toggle-${props.path}`}
             onClick={(event) => {
               event.stopPropagation();
-              const isCurrentlyRequired = typeof props.bind?.required === 'boolean' && props.bind.required;
+              const isCurrentlyRequired = isRequiredToggleActive(props.bind?.required);
               props.onRequiredToggle?.(!isCurrentlyRequired);
             }}
           >
@@ -194,7 +194,7 @@ function ChoiceOptionsEditor(props: {
                 }}
                 onInput={(event) => {
                   const newLabel = (event.currentTarget as HTMLInputElement).value;
-                  setDraft(draft.map((o, i) => i === index ? { ...o, label: newLabel } : o));
+                  setDraft(d => d.map((o, i) => i === index ? { ...o, label: newLabel } : o));
                 }}
                 onBlur={() => {
                   props.onCommit(stripIds(draft));
@@ -219,7 +219,7 @@ function ChoiceOptionsEditor(props: {
                 }}
                 onInput={(event) => {
                   const newValue = (event.currentTarget as HTMLInputElement).value;
-                  setDraft(draft.map((o, i) => i === index ? { ...o, value: newValue } : o));
+                  setDraft(d => d.map((o, i) => i === index ? { ...o, value: newValue } : o));
                 }}
                 onBlur={() => {
                   props.onCommit(stripIds(draft));
@@ -337,4 +337,14 @@ function hasLogicValue(value: unknown): boolean {
     return value.trim().length > 0;
   }
   return true;
+}
+
+function isRequiredToggleActive(value: unknown): boolean {
+  if (value === true) {
+    return true;
+  }
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return value.trim().toLowerCase() === 'true';
 }

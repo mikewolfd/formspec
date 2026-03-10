@@ -63,8 +63,8 @@ export function FieldInspector(props: FieldInspectorProps) {
   );
   const extensionCatalog = buildExtensionCatalog(props.project.value.extensions.registries);
 
-  const requiredIsBoolean = typeof bind?.required === 'boolean' ? bind.required : false;
-  const requiredExpression = typeof bind?.required === 'string' ? bind.required : undefined;
+  const requiredIsBoolean = isStaticRequired(bind?.required);
+  const requiredExpression = typeof bind?.required === 'string' && !isStaticRequired(bind.required) ? bind.required : undefined;
 
   const [autoKey, setAutoKey] = useState(true);
   const [saveTemplateMode, setSaveTemplateMode] = useState(false);
@@ -234,7 +234,7 @@ export function FieldInspector(props: FieldInspectorProps) {
         customConstraints={extensionCatalog.constraints}
         onToggle={(open) => setSectionOpen('rules', open)}
         onRequiredToggle={(value) => {
-          setBind(props.project, currentPathRef.current, 'required', value ? true : undefined);
+          setBind(props.project, currentPathRef.current, 'required', value ? 'true' : undefined);
         }}
         onRelevantInput={(value) => {
           setBind(props.project, currentPathRef.current, 'relevant', value);
@@ -474,6 +474,16 @@ export function FieldInspector(props: FieldInspectorProps) {
       </div>
     </div>
   );
+}
+
+function isStaticRequired(value: unknown): boolean {
+  if (value === true) {
+    return true;
+  }
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return value.trim().toLowerCase() === 'true';
 }
 
 // ── Follow-up questions (renamed from Sub-questions) ──

@@ -108,27 +108,28 @@ export function VersionPanel(props: VersionPanelProps) {
         </button>
       </div>
 
-      <PublishDialog
-        open={publishDialogOpen}
-        recommendedBump={pendingChangelog.semverImpact}
-        pendingChangeCount={pendingChangelog.changes.length}
-        onCancel={() => {
-          setPublishDialogOpen(false);
-        }}
-        onConfirm={(input) => {
-          try {
-            const changelog = publishVersion(props.project, {
-              bump: input.bump,
-              summary: input.summary
-            });
+      {publishDialogOpen && (
+        <PublishDialog
+          recommendedBump={pendingChangelog.semverImpact}
+          pendingChangeCount={pendingChangelog.changes.length}
+          onCancel={() => {
             setPublishDialogOpen(false);
-            setPublishError(null);
-            downloadJson(changelog, buildFilename(state.definition.title, 'release-changelog.json'));
-          } catch (error) {
-            setPublishError(error instanceof Error ? error.message : String(error));
-          }
-        }}
-      />
+          }}
+          onConfirm={(input) => {
+            try {
+              const changelog = publishVersion(props.project, {
+                bump: input.bump,
+                summary: input.summary
+              });
+              setPublishDialogOpen(false);
+              setPublishError(null);
+              downloadJson(changelog, buildFilename(state.definition.title, 'release-changelog.json'));
+            } catch (error) {
+              setPublishError(error instanceof Error ? error.message : String(error));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -147,7 +147,7 @@
 }
 
 .add-between {
-  height: 0;
+  height: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -156,7 +156,7 @@
 }
 
 .add-between.is-drag-active {
-  height: 0.5rem;
+  height: 0.75rem;
 }
 
 .add-between.is-drag-active .add-between__button {

@@ -28,9 +28,9 @@ export const QUICKSTART_TEMPLATES: QuickstartTemplate[] = [
         { type: 'field', key: 'message', dataType: 'text', label: 'Message' }
       ],
       binds: [
-        { path: 'name', required: true },
-        { path: 'email', required: true },
-        { path: 'message', required: true }
+        { path: 'name', required: 'true' },
+        { path: 'email', required: 'true' },
+        { path: 'message', required: 'true' }
       ]
     }
   },
@@ -75,7 +75,7 @@ export const QUICKSTART_TEMPLATES: QuickstartTemplate[] = [
         }
       ],
       binds: [
-        { path: 'overallSatisfaction', required: true }
+        { path: 'overallSatisfaction', required: 'true' }
       ]
     }
   },
@@ -136,11 +136,11 @@ export const QUICKSTART_TEMPLATES: QuickstartTemplate[] = [
         }
       ],
       binds: [
-        { path: 'personalInfo.firstName', required: true },
-        { path: 'personalInfo.lastName', required: true },
-        { path: 'personalInfo.email', required: true },
-        { path: 'eventDetails.session', required: true },
-        { path: 'eventDetails.agreeTerms', required: true }
+        { path: 'personalInfo.firstName', required: 'true' },
+        { path: 'personalInfo.lastName', required: 'true' },
+        { path: 'personalInfo.email', required: 'true' },
+        { path: 'eventDetails.session', required: 'true' },
+        { path: 'eventDetails.agreeTerms', required: 'true' }
       ]
     }
   },
@@ -204,13 +204,13 @@ export const QUICKSTART_TEMPLATES: QuickstartTemplate[] = [
         }
       ],
       binds: [
-        { path: 'organization.orgName', required: true },
-        { path: 'organization.orgType', required: true },
-        { path: 'project.projectTitle', required: true },
-        { path: 'project.summary', required: true },
-        { path: 'project.budget', required: true },
-        { path: 'contact.contactName', required: true },
-        { path: 'contact.contactEmail', required: true }
+        { path: 'organization.orgName', required: 'true' },
+        { path: 'organization.orgType', required: 'true' },
+        { path: 'project.projectTitle', required: 'true' },
+        { path: 'project.summary', required: 'true' },
+        { path: 'project.budget', required: 'true' },
+        { path: 'contact.contactName', required: 'true' },
+        { path: 'contact.contactEmail', required: 'true' }
       ]
     }
   }

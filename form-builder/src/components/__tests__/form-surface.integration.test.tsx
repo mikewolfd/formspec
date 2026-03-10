@@ -224,7 +224,7 @@ describe('form surface', () => {
         binds: [
           {
             path: 'firstName',
-            required: true,
+            required: 'true',
             relevant: '$other = "yes"',
             calculate: 'concat($first, " ", $last)',
             constraint: '$ != ""',

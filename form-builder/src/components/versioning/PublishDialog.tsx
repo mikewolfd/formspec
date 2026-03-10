@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import type { SemverImpact } from '../../state/versioning';
 
 interface PublishDialogProps {
-  open: boolean;
   recommendedBump: SemverImpact;
   pendingChangeCount: number;
   onConfirm: (input: { bump: SemverImpact; summary: string }) => void;
@@ -12,18 +11,6 @@ interface PublishDialogProps {
 export function PublishDialog(props: PublishDialogProps) {
   const [bump, setBump] = useState<SemverImpact>(props.recommendedBump);
   const [summary, setSummary] = useState('');
-
-  useEffect(() => {
-    if (!props.open) {
-      return;
-    }
-    setBump(props.recommendedBump);
-    setSummary('');
-  }, [props.open, props.recommendedBump]);
-
-  if (!props.open) {
-    return null;
-  }
 
   return (
     <div class="publish-dialog" role="dialog" aria-modal="true" aria-label="Publish version" data-testid="publish-dialog">

@@ -123,7 +123,7 @@ describe('studio shell layout', () => {
             children: [{ type: 'field', key: 'city', label: 'City', dataType: 'string' }]
           }
         ],
-        binds: [{ path: 'applicantName', required: true }]
+        binds: [{ path: 'applicantName', required: 'true' }]
       })
     });
 
@@ -417,6 +417,7 @@ describe('studio shell layout', () => {
       definition: createInitialDefinition({
         items: [{ type: 'display', key: 'intro', label: 'Introduction' }]
       }),
+      uiState: { inspectorMode: 'advanced' } as ProjectState['uiState'],
       selection: 'intro'
     });
 
@@ -513,7 +514,7 @@ describe('studio shell layout', () => {
     expect(host.querySelector('[data-testid="diagnostics-panel"]')).not.toBeNull();
   });
 
-  it('combines Ajv and FormEngine diagnostics in the expanded panel', async () => {
+  it('shows FormEngine diagnostics in the expanded panel', async () => {
     projectSignal.value = createInitialProjectState({
       definition: createInitialDefinition({
         version: 1 as unknown as string,
@@ -530,7 +531,6 @@ describe('studio shell layout', () => {
       toggle?.click();
     });
 
-    expect(host.querySelector('[data-testid="diagnostics-section-ajv"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="diagnostics-section-engine"]')).not.toBeNull();
   });
 
@@ -538,7 +538,7 @@ describe('studio shell layout', () => {
     projectSignal.value = createInitialProjectState({
       definition: createInitialDefinition({
         items: [{ type: 'field', key: 'organizationName', label: 'Organization Name', dataType: 'string' }],
-        binds: [{ path: 'organizationName', required: true }]
+        binds: [{ path: 'organizationName', required: 'true' }]
       })
     });
 

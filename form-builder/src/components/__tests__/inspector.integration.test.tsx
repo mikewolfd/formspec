@@ -103,7 +103,7 @@ describe('inspector panel', () => {
     expect(findItem('applicantName')?.hint).toBe('Use legal full name');
     expect(projectSignal.value.selection).toBe('applicantName');
     const bind = projectSignal.value.definition.binds?.find((entry) => entry.path === 'applicantName');
-    expect(bind?.required).toBe(true);
+    expect(bind?.required).toBe('true');
   });
 
   it('writes responsive overrides from layout-style section to component responsive blocks', async () => {
@@ -991,8 +991,8 @@ describe('inspector panel', () => {
     );
     // builtin registry (1) + loaded Acme registry (1) = 2
     expect(projectSignal.value.extensions.registries).toHaveLength(2);
-    // combined catalog: 12 builtin dataTypes + 1 Acme = 13; 2 builtin functions + 1 Acme = 3; 1 builtin constraint + 1 Acme = 2
-    expect(host.querySelector('[data-testid="extension-summary-datatypes"]')?.textContent).toContain('13');
+    // combined catalog: 13 builtin dataTypes + 1 Acme = 14; 2 builtin functions + 1 Acme = 3; 1 builtin constraint + 1 Acme = 2
+    expect(host.querySelector('[data-testid="extension-summary-datatypes"]')?.textContent).toContain('14');
     expect(host.querySelector('[data-testid="extension-summary-functions"]')?.textContent).toContain('3');
     expect(host.querySelector('[data-testid="extension-summary-constraints"]')?.textContent).toContain('2');
     expect(host.querySelector('[data-testid="extension-entry-status-x-acme-unique"]')?.textContent).toContain(
