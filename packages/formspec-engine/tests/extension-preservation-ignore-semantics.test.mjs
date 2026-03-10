@@ -49,10 +49,20 @@ test('unknown extensions do not change core engine behavior', () => {
   const plainPresent = plain.getValidationReport({ mode: 'submit' });
   const extendedPresent = extended.getValidationReport({ mode: 'submit' });
 
-  assert.deepEqual(extendedMissing.results, plainMissing.results);
-  assert.equal(extendedMissing.valid, plainMissing.valid);
-  assert.deepEqual(extendedPresent.results, plainPresent.results);
-  assert.equal(extendedPresent.valid, plainPresent.valid);
+  // Filter out UNRESOLVED_EXTENSION errors — those are expected when no registry
+  // is loaded. The point of this test is that core validation (required, constraint,
+  // shape) behaves identically regardless of unknown extensions.
+  const coreOnly = (results) =>
+    results.filter((r) => r.code !== 'UNRESOLVED_EXTENSION');
+
+  assert.deepEqual(coreOnly(extendedMissing.results), coreOnly(plainMissing.results));
+  assert.deepEqual(coreOnly(extendedPresent.results), coreOnly(plainPresent.results));
+
+  // Extended definition should emit UNRESOLVED_EXTENSION for unresolved item extensions
+  const unresolvedCodes = extendedMissing.results.filter(
+    (r) => r.code === 'UNRESOLVED_EXTENSION'
+  );
+  assert.ok(unresolvedCodes.length > 0, 'expected UNRESOLVED_EXTENSION errors for unknown extensions');
 });
 
 test('unknown extensions are preserved on the loaded definition object', () => {

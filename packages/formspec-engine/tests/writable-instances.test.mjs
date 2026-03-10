@@ -12,6 +12,14 @@ import {
   addRepeatInstance,
 } from './helpers/grant-app.mjs';
 
+// Suppress expected console.error from instance source fetch failures
+// (grant-app helper stubs fetch, but inline tests also create engines with source URLs)
+const _consoleError = console.error;
+console.error = (...args) => {
+  if (typeof args[0] === 'string' && args[0].startsWith('Failed to load instance source')) return;
+  _consoleError.apply(console, args);
+};
+
 test('writable instance (scratchPad) value can be set and read', () => {
   const engine = createGrantEngine();
 
