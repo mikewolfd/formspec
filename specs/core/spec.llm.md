@@ -323,7 +323,7 @@ Named reusable option lists in top-level `optionSets`. Either inline `options` (
 
 ### Screener Routing
 
-Optional `screener` section with `items` (classification fields) and `routes` (ordered rules with `condition` FEL expression, `target` definition URL, `label`). First matching condition wins. `"condition": "true"` = default. Screener items are NOT part of form instance data.
+Optional `screener` section with `items` (classification fields), optional `binds` (scoped bind declarations for screener items — supports `required`, `relevant`, `constraint`, `calculate`; evaluated in screener scope only, do NOT interact with main form binds), and `routes` (ordered rules with `condition` FEL expression, `target` definition URL, `label`). First matching condition wins. `"condition": "true"` = default. Screener items are NOT part of form instance data.
 
 ## Validation (detailed)
 

@@ -7,4 +7,5 @@
 - External composition points (instances, optionSets, extensions, optional `$ref` assembly mechanisms) expand authoring capability while preserving core validation contracts.
 - Closed-world validation still applies: unknown non-extension properties should be rejected even when processors support additional extension namespaces.
 - Conformance expectation: processor evaluation phases must remain deterministic so equal input state yields equal computed binds/shapes/validation outputs.
+- Screener scope: the optional `screener` property supports its own `binds` array for scoped validation (required, relevant, constraint, calculate) evaluated against screener item keys only — screener binds do not interact with main form binds.
 - Migration semantics: changelog/migration artifacts should preserve key intent and avoid silent destructive transforms unless explicitly declared.

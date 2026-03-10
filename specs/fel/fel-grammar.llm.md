@@ -71,6 +71,7 @@ Postfix (`.field`, `[index]`) binds tighter than all prefix operators.
 | `@current` | Current repeat instance |
 | `@index` | 1-based position in repeat |
 | `@count` | Total repeat instances |
+| `@name` | Named variable from `variables` |
 | `@instance('name')` | Secondary data source |
 | `@source`, `@target` | Mapping DSL bindings |
 

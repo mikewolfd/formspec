@@ -46,6 +46,7 @@ Source schema: `schemas/registry.schema.json`
 - Publisher provenance: publisher metadata establishes trust and support contact paths for extension consumers.
 - Discovery behavior: well-known registry endpoints are advisory discovery mechanisms; offline/local registry bundles remain valid.
 - Processor conformance: malformed entries, duplicate identities, and invalid category fields must be rejected instead of silently accepted.
+- Unresolved extension enforcement: when an item declares an enabled extension (`"extensions": { "x-example": true }`) and no matching registry entry exists, the processor MUST emit `UNRESOLVED_EXTENSION` — passthrough is not permitted. Disabled extensions (`false`) are exempt.
 
 ## Conformance Essentials
 
