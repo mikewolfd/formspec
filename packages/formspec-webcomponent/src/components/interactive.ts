@@ -5,7 +5,8 @@ import { touchFieldsInContainer } from '../submit/index.js';
 
 /**
  * Renders a multi-step wizard with signal-driven panel visibility.
- * Creates a step progress indicator (numbered spans), prev/next navigation buttons, and optional skip button.
+ * By default renders a collapsible side navigation listing all steps; set `sidenav: false`
+ * to fall back to the classic horizontal progress bar at the top.
  * The last step shows "Finish" instead of "Next". Panel switching uses a Preact signal for the current step index.
  */
 export const WizardPlugin: ComponentPlugin = {
@@ -29,11 +30,86 @@ export const WizardPlugin: ComponentPlugin = {
             currentStep.value = bounded;
         };
 
-        // Progress indicator
-        if (comp.showProgress !== false) {
+        const showSideNav = comp.sidenav !== false;
+        // container is where panels + nav live — either the root el or a content div inside the sidenav layout
+        let container: HTMLElement = el;
+
+        if (showSideNav) {
+            el.classList.add('formspec-wizard--with-sidenav');
+            const collapsed = signal(false);
+
+            // ── Side nav ────────────────────────────────────────────
+            const sidenav = document.createElement('nav');
+            sidenav.className = 'formspec-wizard-sidenav';
+            sidenav.setAttribute('aria-label', 'Form steps');
+            el.appendChild(sidenav);
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'formspec-wizard-sidenav-toggle';
+            sidenav.appendChild(toggleBtn);
+
+            const stepList = document.createElement('ol');
+            stepList.className = 'formspec-wizard-sidenav-list';
+            sidenav.appendChild(stepList);
+
+            // Collapse/expand toggle
+            ctx.cleanupFns.push(effect(() => {
+                const isCollapsed = collapsed.value;
+                sidenav.classList.toggle('formspec-wizard-sidenav--collapsed', isCollapsed);
+                toggleBtn.setAttribute('aria-label', isCollapsed ? 'Expand navigation' : 'Collapse navigation');
+                toggleBtn.title = isCollapsed ? 'Expand' : 'Collapse';
+                toggleBtn.innerHTML = isCollapsed
+                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+                    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
+            }));
+            toggleBtn.addEventListener('click', () => { collapsed.value = !collapsed.value; });
+
+            // Step list items — rebuilt on step change
+            ctx.cleanupFns.push(effect(() => {
+                const step = currentStep.value;
+                stepList.innerHTML = '';
+                for (let i = 0; i < children.length; i++) {
+                    const item = document.createElement('li');
+                    item.className = 'formspec-wizard-sidenav-item';
+                    if (i === step) item.classList.add('formspec-wizard-sidenav-item--active');
+                    if (i < step) item.classList.add('formspec-wizard-sidenav-item--completed');
+                    item.setAttribute('role', 'button');
+                    item.tabIndex = 0;
+                    item.setAttribute('aria-current', i === step ? 'step' : 'false');
+
+                    const circle = document.createElement('span');
+                    circle.className = 'formspec-wizard-sidenav-step';
+                    circle.textContent = i < step ? '\u2713' : String(i + 1);
+                    item.appendChild(circle);
+
+                    const label = document.createElement('span');
+                    label.className = 'formspec-wizard-sidenav-label';
+                    label.textContent = (children[i] as any)?.props?.title || `Step ${i + 1}`;
+                    item.appendChild(label);
+
+                    const idx = i;
+                    item.addEventListener('click', () => setStep(idx));
+                    item.addEventListener('keydown', (e: KeyboardEvent) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStep(idx); }
+                    });
+
+                    stepList.appendChild(item);
+                }
+            }));
+
+            // Content area to the right of the side nav
+            const content = document.createElement('div');
+            content.className = 'formspec-wizard-content';
+            el.appendChild(content);
+            container = content;
+        }
+
+        // Top progress indicator — only when side nav is hidden
+        if (comp.showProgress !== false && !showSideNav) {
             const progress = document.createElement('div');
             progress.className = 'formspec-wizard-steps';
-            el.appendChild(progress);
+            container.appendChild(progress);
 
             ctx.cleanupFns.push(effect(() => {
                 const step = currentStep.value;
@@ -70,7 +146,7 @@ export const WizardPlugin: ComponentPlugin = {
             panel.className = 'formspec-wizard-panel';
             if (i !== defaultStep) panel.classList.add('formspec-hidden');
             ctx.renderComponent(children[i], panel, ctx.prefix);
-            el.appendChild(panel);
+            container.appendChild(panel);
             panels.push(panel);
         }
 
@@ -124,7 +200,7 @@ export const WizardPlugin: ComponentPlugin = {
         }
 
         nav.appendChild(nextBtn);
-        el.appendChild(nav);
+        container.appendChild(nav);
 
         const onSetStep = (event: Event) => {
             const customEvent = event as CustomEvent<{ index?: unknown }>;

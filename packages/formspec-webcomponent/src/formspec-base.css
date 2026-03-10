@@ -1008,6 +1008,153 @@ hr.formspec-divider {
 }
 
 /* ── Wizard ────────────────────────────────────────────────────── */
+
+/* Side nav layout */
+.formspec-wizard--with-sidenav {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--formspec-color-border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.formspec-wizard-sidenav {
+  width: 216px;
+  flex-shrink: 0;
+  background: #f8fafc;
+  border-right: 1px solid var(--formspec-color-border, #e5e7eb);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.22s ease;
+  overflow: hidden;
+}
+
+.formspec-wizard-sidenav--collapsed {
+  width: 48px;
+}
+
+.formspec-wizard-sidenav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--formspec-color-border, #e5e7eb);
+  cursor: pointer;
+  color: #6b7280;
+  width: 100%;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.formspec-wizard-sidenav--collapsed .formspec-wizard-sidenav-toggle {
+  justify-content: center;
+  padding: 10px;
+}
+
+.formspec-wizard-sidenav-toggle:hover {
+  background: #f1f5f9;
+  color: #111827;
+}
+
+.formspec-wizard-sidenav-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  overflow: hidden;
+}
+
+.formspec-wizard-sidenav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+  outline: none;
+}
+
+.formspec-wizard-sidenav-item:hover {
+  background: #f1f5f9;
+}
+
+.formspec-wizard-sidenav-item:focus-visible {
+  background: #eff6ff;
+}
+
+.formspec-wizard-sidenav-item--active {
+  border-left-color: #4f88e8;
+  background: #eff6ff;
+}
+
+.formspec-wizard-sidenav-item--completed {
+  opacity: 0.72;
+}
+
+.formspec-wizard-sidenav-item--completed:hover {
+  opacity: 1;
+}
+
+.formspec-wizard-sidenav-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #475569;
+  border: 2px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.formspec-wizard-sidenav-item--active .formspec-wizard-sidenav-step {
+  background: #4f88e8;
+  color: #fff;
+  border-color: #4f88e8;
+}
+
+.formspec-wizard-sidenav-item--completed .formspec-wizard-sidenav-step {
+  background: #34a853;
+  color: #fff;
+  border-color: #34a853;
+}
+
+.formspec-wizard-sidenav-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.formspec-wizard-sidenav--collapsed .formspec-wizard-sidenav-label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.formspec-wizard-sidenav-item--active .formspec-wizard-sidenav-label {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.formspec-wizard-content {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  flex: 1;
+  min-width: 0;
+}
+
 .formspec-wizard-steps {
   display: flex;
   gap: 8px;
