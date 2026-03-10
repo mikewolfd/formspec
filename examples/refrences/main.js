@@ -33,6 +33,7 @@ const EXAMPLES = [
     dir: '/examples/grant-report',
     artifacts: { definition: 'tribal-short.definition.json', component: 'tribal-short.component.json', theme: 'tribal.theme.json' },
     server: true,
+    registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'short-empty', label: 'Empty', file: 'fixtures/short-empty.response.json' },
       { id: 'short-partial', label: 'Partial', file: 'fixtures/short-partial.response.json' },
@@ -46,6 +47,7 @@ const EXAMPLES = [
     dir: '/examples/grant-report',
     artifacts: { definition: 'tribal-long.definition.json', component: 'tribal-long.component.json', theme: 'tribal.theme.json' },
     server: true,
+    registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'long-complete', label: 'Complete', file: 'fixtures/long-complete.response.json' },
       { id: 'short-to-long-migrated', label: 'Migrated from Short', file: 'fixtures/short-to-long-migrated.response.json' },
@@ -58,6 +60,7 @@ const EXAMPLES = [
     dir: '/examples/invoice',
     artifacts: { definition: 'invoice.definition.json', component: 'invoice.component.json', theme: 'invoice.theme.json' },
     server: true,
+    registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'invoice-empty', label: 'Empty', file: 'fixtures/invoice-empty.response.json' },
       { id: 'invoice-single', label: 'Single Item', file: 'fixtures/invoice-single.response.json' },
@@ -72,6 +75,7 @@ const EXAMPLES = [
     dir: '/examples/clinical-intake',
     artifacts: { definition: 'intake.definition.json', component: 'intake.component.json', theme: 'intake.theme.json' },
     server: true,
+    registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'intake-empty', label: 'Empty', file: 'fixtures/intake-empty.response.json' },
       { id: 'intake-partial', label: 'Partial', file: 'fixtures/intake-partial.response.json' },
