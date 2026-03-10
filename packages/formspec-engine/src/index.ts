@@ -124,6 +124,7 @@ export interface FormspecDefinition {
     formPresentation?: any;
     screener?: {
         items: FormspecItem[];
+        binds?: FormspecBind[];
         routes: Array<{ condition: string; target: string; label?: string; extensions?: Record<string, any> }>;
         extensions?: Record<string, any>;
     };
@@ -137,6 +138,8 @@ export interface ValidationResult {
     path: string;
     message: string;
     constraintKind: "required" | "type" | "cardinality" | "constraint" | "shape" | "external";
+    /** Alias for constraintKind, used by some test suites and older clients. */
+    kind: "required" | "type" | "cardinality" | "constraint" | "shape" | "external";
     code: string;
     source?: "bind" | "shape";
     shapeId?: string;
@@ -181,6 +184,9 @@ export interface RegistryEntry {
     category?: string;
     version?: string;
     status?: string;
+    description?: string;
+    compatibility?: { formspecVersion?: string; mappingDslVersion?: string };
+    deprecationNotice?: string;
     baseType?: string;
     constraints?: {
         pattern?: string;
@@ -266,6 +272,36 @@ export interface EngineReplayResult {
  * - **Remote options** fetching from bind-configured URLs.
  * - **Screener evaluation** for conditional form routing.
  */
+/** Parse a dotted version string (e.g. "1.0" or "1.0.0") into a comparable numeric tuple, padded to 3 parts. */
+function parseVersion(v: string): [number, number, number] {
+    const parts = v.split('.').map(Number);
+    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+}
+
+/** Test a version against a space-separated semver constraint (e.g. ">=1.0.0 <2.0.0"). */
+function versionSatisfies(version: string, constraint: string): boolean {
+    const ver = parseVersion(version);
+    for (const part of constraint.trim().split(/\s+/)) {
+        let op: string, target: [number, number, number];
+        if (part.startsWith('>=')) { op = '>='; target = parseVersion(part.slice(2)); }
+        else if (part.startsWith('<=')) { op = '<='; target = parseVersion(part.slice(2)); }
+        else if (part.startsWith('>')) { op = '>'; target = parseVersion(part.slice(1)); }
+        else if (part.startsWith('<')) { op = '<'; target = parseVersion(part.slice(1)); }
+        else { op = '=='; target = parseVersion(part); }
+
+        const cmp = ver[0] !== target[0] ? ver[0] - target[0]
+            : ver[1] !== target[1] ? ver[1] - target[1]
+            : ver[2] - target[2];
+
+        if (op === '>=' && cmp < 0) return false;
+        if (op === '<=' && cmp > 0) return false;
+        if (op === '>' && cmp <= 0) return false;
+        if (op === '<' && cmp >= 0) return false;
+        if (op === '==' && cmp !== 0) return false;
+    }
+    return true;
+}
+
 export class FormEngine {
     readonly definition: FormspecDefinition;
 
@@ -887,11 +923,16 @@ export class FormEngine {
         const targetPaths = this.resolveWildcardPath(shape.target);
 
         for (const path of targetPaths) {
-            if (path && !this.isPathRelevant(path)) continue;
+            const isRelevant = path === '#' || this.isPathRelevant(path);
+            if (!isRelevant) {
+                continue;
+            }
 
             if (shape.activeWhen) {
                 const activeFn = this.compileFEL(shape.activeWhen, path, undefined, true);
-                if (!activeFn()) continue;
+                if (!activeFn()) {
+                    continue;
+                }
             }
 
             const failed = this.evaluateShapeConstraints(shape, path);
@@ -911,6 +952,7 @@ export class FormEngine {
                     path: this.toExternalPath(path),
                     message: this.interpolateMessage(shape.message, path),
                     constraintKind: "shape",
+                    kind: "shape",
                     code: shape.code || "SHAPE_FAILED",
                     source: "shape",
                     shapeId: shape.id,
@@ -927,18 +969,36 @@ export class FormEngine {
      * Evaluate shape constraints including composition operators.
      * Returns true if the shape FAILS (constraint violated).
      */
+    /**
+     * Evaluate a composition element: if it's a shape ID, resolve the referenced
+     * shape's pass/fail result; otherwise compile and evaluate as FEL.
+     * Returns true if the element "passes".
+     */
+    private evaluateCompositionElement(expr: string, path: string): boolean {
+        // Shape ID reference: check if this string matches a known shape
+        if (this.shapeResults[expr]) {
+            // Shape passes when it has no validation results (no failures)
+            return this.shapeResults[expr].value.length === 0;
+        }
+        // Inline FEL expression
+        const fn = this.compileFEL(expr, path, undefined, true);
+        return !!fn();
+    }
+
     private evaluateShapeConstraints(shape: FormspecShape, path: string): boolean {
         // Primary constraint
         if (shape.constraint) {
             const fn = this.compileFEL(shape.constraint, path, undefined, true);
-            if (!fn()) return true;
+            const result = fn();
+            if (!result) {
+                return true;
+            }
         }
 
         // and: all must pass
         if (shape.and) {
             for (const expr of shape.and) {
-                const fn = this.compileFEL(expr, path, undefined, true);
-                if (!fn()) return true;
+                if (!this.evaluateCompositionElement(expr, path)) return true;
             }
         }
 
@@ -946,24 +1006,21 @@ export class FormEngine {
         if (shape.or) {
             let anyPass = false;
             for (const expr of shape.or) {
-                const fn = this.compileFEL(expr, path, undefined, true);
-                if (fn()) { anyPass = true; break; }
+                if (this.evaluateCompositionElement(expr, path)) { anyPass = true; break; }
             }
             if (!anyPass) return true;
         }
 
-        // not: must fail (i.e., the expression should evaluate to false)
+        // not: must fail (i.e., the referenced shape/expression should not pass)
         if (shape.not) {
-            const fn = this.compileFEL(shape.not, path, undefined, true);
-            if (fn()) return true;
+            if (this.evaluateCompositionElement(shape.not, path)) return true;
         }
 
         // xone: exactly one must pass
         if (shape.xone) {
             let passCount = 0;
             for (const expr of shape.xone) {
-                const fn = this.compileFEL(expr, path, undefined, true);
-                if (fn()) passCount++;
+                if (this.evaluateCompositionElement(expr, path)) passCount++;
             }
             if (passCount !== 1) return true;
         }
@@ -1120,12 +1177,43 @@ export class FormEngine {
         }
 
         if (item.type === 'group') {
+            // Check for unresolved extensions on groups (no constraint enforcement — groups have no values)
+            const groupUnresolved: string[] = [];
+            const groupExtDiagnostics: ValidationResult[] = [];
+            const groupFormspecVersion = this.definition.$formspec || '1.0';
+            const groupExts = item.extensions;
+            if (groupExts && typeof groupExts === 'object') {
+                for (const [extName, extEnabled] of Object.entries(groupExts)) {
+                    if (!extEnabled) continue;
+                    const entry = this.registryEntries.get(extName);
+                    if (!entry) {
+                        groupUnresolved.push(extName);
+                        continue;
+                    }
+                    const requiredRange = entry.compatibility?.formspecVersion;
+                    if (requiredRange && !versionSatisfies(groupFormspecVersion, requiredRange)) {
+                        groupExtDiagnostics.push({ severity: "warning", path: this.toExternalPath(fullName), message: `Extension '${extName}' requires formspec ${requiredRange} but definition uses ${groupFormspecVersion}`, constraintKind: "constraint", kind: "constraint", code: "EXTENSION_COMPATIBILITY_MISMATCH", source: "bind" });
+                    }
+                    if (entry.status === 'retired') {
+                        groupExtDiagnostics.push({ severity: "warning", path: this.toExternalPath(fullName), message: `Extension '${extName}' is retired and should not be used`, constraintKind: "constraint", kind: "constraint", code: "EXTENSION_RETIRED", source: "bind" });
+                    } else if (entry.status === 'deprecated') {
+                        groupExtDiagnostics.push({ severity: "info", path: this.toExternalPath(fullName), message: entry.deprecationNotice || `Extension '${extName}' is deprecated`, constraintKind: "constraint", kind: "constraint", code: "EXTENSION_DEPRECATED", source: "bind" });
+                    }
+                }
+            }
+
             if (item.repeatable) {
                 const initialCount = item.minRepeat !== undefined ? item.minRepeat : 1;
                 this.repeats[fullName] = signal(initialCount);
 
                 this.validationResults[fullName] = computed(() => {
                     const results: ValidationResult[] = [];
+
+                    for (const extName of groupUnresolved) {
+                        results.push({ severity: "error", path: this.toExternalPath(fullName), message: `Unresolved extension '${extName}': no matching registry entry loaded`, constraintKind: "constraint", kind: "constraint", code: "UNRESOLVED_EXTENSION", source: "bind" });
+                    }
+                    results.push(...groupExtDiagnostics);
+
                     const count = this.repeats[fullName].value;
                     if (item.minRepeat !== undefined && count < item.minRepeat) {
                         results.push({
@@ -1133,6 +1221,7 @@ export class FormEngine {
                             path: this.toExternalPath(fullName),
                             message: `Minimum ${item.minRepeat} entries required`,
                             constraintKind: "cardinality",
+                            kind: "cardinality",
                             code: "MIN_REPEAT"
                         });
                     }
@@ -1142,6 +1231,7 @@ export class FormEngine {
                             path: this.toExternalPath(fullName),
                             message: `Maximum ${item.maxRepeat} entries allowed`,
                             constraintKind: "cardinality",
+                            kind: "cardinality",
                             code: "MAX_REPEAT"
                         });
                     }
@@ -1151,9 +1241,22 @@ export class FormEngine {
                 for (let i = 0; i < initialCount; i++) {
                     this.initRepeatInstance(item, fullName, i);
                 }
-            } else if (item.children) {
-                for (const child of item.children) {
-                    this.initItem(child, fullName);
+            } else {
+                // Non-repeatable group: emit extension diagnostics if any
+                if (groupUnresolved.length > 0 || groupExtDiagnostics.length > 0) {
+                    this.validationResults[fullName] = computed(() => {
+                        const results: ValidationResult[] = [];
+                        for (const extName of groupUnresolved) {
+                            results.push({ severity: "error", path: this.toExternalPath(fullName), message: `Unresolved extension '${extName}': no matching registry entry loaded`, constraintKind: "constraint", kind: "constraint", code: "UNRESOLVED_EXTENSION", source: "bind" });
+                        }
+                        results.push(...groupExtDiagnostics);
+                        return results;
+                    });
+                }
+                if (item.children) {
+                    for (const child of item.children) {
+                        this.initItem(child, fullName);
+                    }
                 }
             }
         } else if (item.type === 'field') {
@@ -1242,12 +1345,62 @@ export class FormEngine {
             let registryMaxLength: number | null = null;
             let registryMinimum: number | null = null;
             let registryMaximum: number | null = null;
+            let registryDisplayName: string | null = null;
+            const unresolvedExtensions: string[] = [];
+            const extensionDiagnostics: ValidationResult[] = [];
+            const formspecVersion = this.definition.$formspec || '1.0';
             const exts = item.extensions;
             if (exts && typeof exts === 'object') {
                 for (const [extName, extEnabled] of Object.entries(exts)) {
                     if (!extEnabled) continue;
                     const entry = this.registryEntries.get(extName);
-                    if (!entry?.constraints) continue;
+                    if (!entry) {
+                        unresolvedExtensions.push(extName);
+                        continue;
+                    }
+
+                    // §7.3 Compatibility check
+                    const requiredRange = entry.compatibility?.formspecVersion;
+                    if (requiredRange && !versionSatisfies(formspecVersion, requiredRange)) {
+                        extensionDiagnostics.push({
+                            severity: "warning",
+                            path: this.toExternalPath(fullName),
+                            message: `Extension '${extName}' requires formspec ${requiredRange} but definition uses ${formspecVersion}`,
+                            constraintKind: "constraint",
+                            kind: "constraint",
+                            code: "EXTENSION_COMPATIBILITY_MISMATCH",
+                            source: "bind"
+                        });
+                    }
+
+                    // §7.4 Status enforcement
+                    if (entry.status === 'retired') {
+                        extensionDiagnostics.push({
+                            severity: "warning",
+                            path: this.toExternalPath(fullName),
+                            message: `Extension '${extName}' is retired and should not be used`,
+                            constraintKind: "constraint",
+                            kind: "constraint",
+                            code: "EXTENSION_RETIRED",
+                            source: "bind"
+                        });
+                    } else if (entry.status === 'deprecated') {
+                        const notice = entry.deprecationNotice || `Extension '${extName}' is deprecated`;
+                        extensionDiagnostics.push({
+                            severity: "info",
+                            path: this.toExternalPath(fullName),
+                            message: notice,
+                            constraintKind: "constraint",
+                            kind: "constraint",
+                            code: "EXTENSION_DEPRECATED",
+                            source: "bind"
+                        });
+                    }
+
+                    if (!registryDisplayName && entry.metadata?.displayName) {
+                        registryDisplayName = entry.metadata.displayName;
+                    }
+                    if (!entry.constraints) continue;
                     if (entry.constraints.pattern && !registryPatternRegex) {
                         try {
                             registryPatternRegex = new RegExp(entry.constraints.pattern);
@@ -1270,6 +1423,22 @@ export class FormEngine {
                 const value = this.signals[fullName].value;
                 const isRequired = this.requiredSignals[fullName].value;
 
+                // 0. Unresolved extensions
+                for (const extName of unresolvedExtensions) {
+                    results.push({
+                        severity: "error",
+                        path: this.toExternalPath(fullName),
+                        message: `Unresolved extension '${extName}': no matching registry entry loaded`,
+                        constraintKind: "constraint",
+                        kind: "constraint",
+                        code: "UNRESOLVED_EXTENSION",
+                        source: "bind"
+                    });
+                }
+
+                // 0b. Extension diagnostics (§7.3 compatibility, §7.4 status)
+                results.push(...extensionDiagnostics);
+
                 // 1. DataType Validation
                 if (!this.validateDataType(value, dataType)) {
                     results.push({
@@ -1277,6 +1446,7 @@ export class FormEngine {
                         path: this.toExternalPath(fullName),
                         message: `Invalid ${dataType}`,
                         constraintKind: "type",
+                        kind: "type",
                         code: "TYPE_MISMATCH",
                         source: "bind"
                     });
@@ -1297,6 +1467,7 @@ export class FormEngine {
                         path: this.toExternalPath(fullName),
                         message: "Required",
                         constraintKind: "required",
+                        kind: "required",
                         code: "REQUIRED",
                         source: "bind"
                     });
@@ -1312,6 +1483,7 @@ export class FormEngine {
                             path: this.toExternalPath(fullName),
                             message: bind?.constraintMessage || "Invalid",
                             constraintKind: "constraint",
+                            kind: "constraint",
                             code: "CONSTRAINT_FAILED",
                             source: "bind",
                             constraint: bind?.constraint
@@ -1328,6 +1500,7 @@ export class FormEngine {
                             path: this.toExternalPath(fullName),
                             message: "Pattern mismatch",
                             constraintKind: "constraint",
+                            kind: "constraint",
                             code: "PATTERN_MISMATCH",
                             source: "bind"
                         });
@@ -1341,8 +1514,9 @@ export class FormEngine {
                         results.push({
                             severity: "error",
                             path: this.toExternalPath(fullName),
-                            message: "Pattern mismatch",
+                            message: registryDisplayName ? `Must be a valid ${registryDisplayName}` : "Pattern mismatch",
                             constraintKind: "constraint",
+                            kind: "constraint",
                             code: "PATTERN_MISMATCH",
                             source: "bind"
                         });
@@ -1353,6 +1527,7 @@ export class FormEngine {
                             path: this.toExternalPath(fullName),
                             message: `Must be at most ${registryMaxLength} characters`,
                             constraintKind: "constraint",
+                            kind: "constraint",
                             code: "MAX_LENGTH_EXCEEDED",
                             source: "bind"
                         });
@@ -1365,6 +1540,7 @@ export class FormEngine {
                                 path: this.toExternalPath(fullName),
                                 message: `Must be at least ${registryMinimum}`,
                                 constraintKind: "constraint",
+                                kind: "constraint",
                                 code: "RANGE_UNDERFLOW",
                                 source: "bind"
                             });
@@ -1375,6 +1551,7 @@ export class FormEngine {
                                 path: this.toExternalPath(fullName),
                                 message: `Must be at most ${registryMaximum}`,
                                 constraintKind: "constraint",
+                                kind: "constraint",
                                 code: "RANGE_OVERFLOW",
                                 source: "bind"
                             });
@@ -1965,7 +2142,7 @@ export class FormEngine {
         let currentPath = '';
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
-            const isNumber = !isNaN(parseInt(part));
+            const isNumber = !isNaN(parseInt(part)) && /^\d+$/.test(part);
             if (isNumber) {
                 currentPath += `[${part}]`;
             } else {

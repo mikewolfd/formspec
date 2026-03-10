@@ -177,6 +177,114 @@ test('should evaluate submit-timed shapes only when validation mode is submit', 
   assert.equal(submitResponse.status, 'in-progress');
 });
 
+// ── Shape ID references in composition ───────────────────────────────
+
+test('and-composition resolves shape ID references (both pass)', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Shape Ref And Test',
+    items: [
+      { key: 'age', type: 'field', dataType: 'integer', label: 'Age', initialValue: 25 },
+      { key: 'income', type: 'field', dataType: 'integer', label: 'Income', initialValue: 50000 },
+    ],
+    shapes: [
+      { id: 'ageCheck', target: '#', constraint: 'age >= 18', message: 'Too young' },
+      { id: 'incomeCheck', target: '#', constraint: 'income >= 30000', message: 'Income too low' },
+      { id: 'composite', target: '#', message: 'Not eligible', and: ['ageCheck', 'incomeCheck'] },
+    ],
+  });
+
+  const report = engine.getValidationReport();
+  assert.equal(report.valid, true, 'Both referenced shapes pass — composite should pass');
+});
+
+test('and-composition resolves shape ID references (one fails)', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Shape Ref And Fail Test',
+    items: [
+      { key: 'age', type: 'field', dataType: 'integer', label: 'Age', initialValue: 15 },
+      { key: 'income', type: 'field', dataType: 'integer', label: 'Income', initialValue: 50000 },
+    ],
+    shapes: [
+      { id: 'ageCheck', target: '#', constraint: 'age >= 18', message: 'Too young' },
+      { id: 'incomeCheck', target: '#', constraint: 'income >= 30000', message: 'Income too low' },
+      { id: 'composite', target: '#', message: 'Not eligible', and: ['ageCheck', 'incomeCheck'] },
+    ],
+  });
+
+  const report = engine.getValidationReport();
+  const compositeErr = report.results.find(r => r.shapeId === 'composite');
+  assert.ok(compositeErr, 'Composite should fail when referenced shape fails');
+});
+
+test('or-composition resolves shape ID references', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Shape Ref Or Test',
+    items: [
+      { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+      { key: 'phone', type: 'field', dataType: 'string', label: 'Phone', initialValue: '555-1234' },
+    ],
+    shapes: [
+      { id: 'hasEmail', target: '#', constraint: 'present(email)', message: 'No email' },
+      { id: 'hasPhone', target: '#', constraint: 'present(phone)', message: 'No phone' },
+      { id: 'hasContact', target: '#', message: 'Provide email or phone', or: ['hasEmail', 'hasPhone'] },
+    ],
+  });
+
+  const report = engine.getValidationReport();
+  const contactErr = report.results.find(r => r.shapeId === 'hasContact');
+  assert.equal(contactErr, undefined, 'Or-composite should pass when one referenced shape passes');
+});
+
+test('not-composition resolves shape ID reference', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Shape Ref Not Test',
+    items: [
+      { key: 'blacklisted', type: 'field', dataType: 'boolean', label: 'Blacklisted', initialValue: false },
+    ],
+    shapes: [
+      { id: 'isBlacklisted', target: '#', constraint: 'blacklisted == true', message: 'Is blacklisted' },
+      { id: 'notBlacklisted', target: '#', message: 'Must not be blacklisted', not: 'isBlacklisted' },
+    ],
+  });
+
+  // blacklisted = false → isBlacklisted fails → not(isBlacklisted) passes
+  const report = engine.getValidationReport();
+  const notErr = report.results.find(r => r.shapeId === 'notBlacklisted');
+  assert.equal(notErr, undefined, 'not-composite should pass when referenced shape fails');
+});
+
+test('mixed shape ID refs and inline FEL in and-composition', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Mixed Ref Test',
+    items: [
+      { key: 'age', type: 'field', dataType: 'integer', label: 'Age', initialValue: 25 },
+      { key: 'income', type: 'field', dataType: 'integer', label: 'Income', initialValue: 50000 },
+    ],
+    shapes: [
+      { id: 'ageCheck', target: '#', constraint: 'age >= 18', message: 'Too young' },
+      { id: 'composite', target: '#', message: 'Not eligible', and: ['ageCheck', 'income >= 30000'] },
+    ],
+  });
+
+  const report = engine.getValidationReport();
+  assert.equal(report.valid, true, 'Mixed refs and FEL should both work in and-composition');
+});
+
 test('should evaluate demand-timed shapes only when evaluateShape() is called', () => {
   const engine = new FormEngine({
     $formspec: '1.0',

@@ -182,7 +182,7 @@ export class FormspecRender extends HTMLElement {
         this.touchedFields.clear();
         this.touchedVersion.value = 0;
         try {
-            this.engine = new FormEngine(val);
+            this.engine = new FormEngine(val, undefined, Array.from(this._registryEntries.values()));
         } catch (e) {
             console.error("Engine initialization failed", e);
             throw e;
