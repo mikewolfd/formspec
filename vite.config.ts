@@ -19,7 +19,8 @@ export default defineConfig({
         const studioDir = path.resolve(__dirname, 'form-builder/dist');
         server.middlewares.use((req, res, next) => {
           if (!req.url?.startsWith('/studio')) return next();
-          const relPath = req.url.replace(/^\/studio/, '').split('?')[0] || '/index.html';
+          let relPath = req.url.replace(/^\/studio/, '').split('?')[0];
+          if (!relPath || relPath === '/') relPath = '/index.html';
           const filePath = path.join(studioDir, relPath);
           const ext = path.extname(filePath).toLowerCase();
           const mime = MIME[ext] || 'application/octet-stream';

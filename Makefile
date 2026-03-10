@@ -13,7 +13,18 @@ spec-artifacts:
 docs-check:
 	npm run docs:check
 
-check: docs-check
+test-js:
+	npm run test:unit
+
+test-e2e:
+	npm run test:e2e
+
+test-python:
+	pytest
+
+test: test-js test-python test-e2e
+
+check: docs-check test
 
 api-docs:
 	PYTHONPATH=src python3 -m pdoc formspec --output-directory $(DOCS_DIR)/api/formspec
@@ -83,4 +94,4 @@ clean:
 	      form-builder/API.llm.md
 	rm -rf form-builder/dist-types
 
-.PHONY: all spec-artifacts docs-check check docs api-docs setup serve clean
+.PHONY: all spec-artifacts docs-check check docs api-docs test test-js test-python setup serve clean

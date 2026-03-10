@@ -138,8 +138,15 @@ examples/
   grant-application/            Full-stack demo — 6-page federal grant form, all tiers exercised
 
 tests/
-  unit/                         Python conformance suite
-  e2e/                          Playwright browser tests + JSON fixtures
+  unit/                         Pure logic unit tests (Python)
+  integration/                  Integration tests (CLI, pipelines)
+  conformance/                  Schema validation, spec examples, fuzzing, parity
+  component/                    Component-level Playwright tests
+  fixtures/                     Shared JSON test fixtures
+  e2e/
+    api/                        Server API tests (Python)
+    browser/                    Browser E2E tests (Playwright)
+    headless/                   Headless evaluation tests (Python)
 ```
 
 ## Quick Start
