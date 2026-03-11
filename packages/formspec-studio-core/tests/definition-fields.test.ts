@@ -55,6 +55,38 @@ describe('definition.setItemProperty', () => {
 
     expect(project.definition.items[0].children![0].label).toBe('Nested Label');
   });
+
+  it('sets nested property path on the target item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'amount' } });
+
+    project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'amount', property: 'presentation.widgetHint', value: 'currency' },
+    });
+
+    expect((project.definition.items[0] as any).presentation?.widgetHint).toBe('currency');
+  });
+
+  it('throws when setting a field-only property on a group item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+
+    expect(() => project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'g', property: 'optionSet', value: 'choices' },
+    })).toThrow('only valid for field items');
+  });
+
+  it('throws when setting a group-only property on a field item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
+
+    expect(() => project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'f', property: 'repeatable', value: true },
+    })).toThrow('only valid for group items');
+  });
 });
 
 describe('definition.setFieldDataType', () => {

@@ -193,4 +193,20 @@ describe('mapping.preview', () => {
     expect(result.output).toBeDefined();
     expect(result.output.fullName).toBe('Alice');
   });
+
+  it('uses runtime mapping semantics for nested paths and coercion', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'mapping.addRule', payload: { sourcePath: 'profile.age', targetPath: 'out.age', transform: 'coerce' } },
+      { type: 'mapping.setRule', payload: { index: 0, property: 'coerce', value: 'number' } },
+      { type: 'mapping.addRule', payload: { sourcePath: 'profile.name', targetPath: 'out.name', transform: 'preserve' } },
+    ]);
+
+    const result = project.dispatch({
+      type: 'mapping.preview',
+      payload: { sampleData: { profile: { age: '42', name: 'Alice' } }, direction: 'forward' },
+    }) as any;
+
+    expect(result.output).toEqual({ out: { age: 42, name: 'Alice' } });
+  });
 });

@@ -197,6 +197,25 @@ describe('definition.renameItem', () => {
     expect(result.newPath).toBe('g.renamed');
     expect(project.definition.items[0].children![0].key).toBe('renamed');
   });
+
+  it('rewrites references by full path, not by bare key', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'group', key: 'g1' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'g2' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'x', parentPath: 'g1' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'x', parentPath: 'g2' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'total' } },
+      { type: 'definition.setBind', payload: { path: 'total', properties: { calculate: '$g1.x + $g2.x' } } },
+    ]);
+
+    project.dispatch({
+      type: 'definition.renameItem',
+      payload: { path: 'g1.x', newKey: 'y' },
+    });
+
+    expect(project.definition.binds?.[0].calculate).toBe('$g1.y + $g2.x');
+  });
 });
 
 describe('definition.moveItem', () => {

@@ -93,6 +93,123 @@ registerHandler('definition.setBind', (state, payload) => {
 
 // ── setItemProperty ──────────────────────────────────────────────────
 
+/** Properties accepted on any item type by `definition.setItemProperty`. */
+const COMMON_ITEM_PROPERTIES = new Set([
+  'label',
+  'description',
+  'hint',
+  'labels',
+  'presentation',
+  'relevant',
+  'required',
+  'readonly',
+  'calculate',
+  'constraint',
+  'constraintMessage',
+  'initialValue',
+]);
+
+/** Properties restricted to field items. */
+const FIELD_ONLY_PROPERTIES = new Set([
+  'dataType',
+  'currency',
+  'precision',
+  'prefix',
+  'suffix',
+  'semanticType',
+  'prePopulate',
+  'optionSet',
+  'options',
+]);
+
+/** Properties restricted to group items. */
+const GROUP_ONLY_PROPERTIES = new Set([
+  'repeatable',
+  'minRepeat',
+  'maxRepeat',
+]);
+
+/** Reject attempts to write structurally invalid properties onto an item. */
+function assertPropertyApplicable(item: FormspecItem, propertyPath: string): void {
+  const rootProperty = propertyPath.split('.').filter(Boolean)[0];
+  if (!rootProperty) {
+    throw new Error('Property path cannot be empty');
+  }
+  if (rootProperty.startsWith('x-')) return;
+  if (rootProperty === 'children') {
+    throw new Error('children is managed structurally and cannot be set with definition.setItemProperty');
+  }
+  if (COMMON_ITEM_PROPERTIES.has(rootProperty)) return;
+  if (FIELD_ONLY_PROPERTIES.has(rootProperty) && item.type !== 'field') {
+    throw new Error(`Property "${rootProperty}" is only valid for field items`);
+  }
+  if (GROUP_ONLY_PROPERTIES.has(rootProperty) && item.type !== 'group') {
+    throw new Error(`Property "${rootProperty}" is only valid for group items`);
+  }
+}
+
+/** Delete a nested property and prune any parent objects left empty by that removal. */
+function deleteNestedProperty(target: Record<string, unknown>, segments: string[]): void {
+  const stack: Array<{ obj: Record<string, unknown>; key: string }> = [];
+  let cursor: Record<string, unknown> = target;
+
+  for (let i = 0; i < segments.length - 1; i++) {
+    const key = segments[i];
+    const next = cursor[key];
+    if (!next || typeof next !== 'object' || Array.isArray(next)) return;
+    stack.push({ obj: cursor, key });
+    cursor = next as Record<string, unknown>;
+  }
+
+  delete cursor[segments[segments.length - 1]];
+
+  // Prune empty parent objects so clearing `presentation.widget`, for example,
+  // does not leave behind `{ presentation: {} }`.
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const { obj, key } = stack[i];
+    const candidate = obj[key];
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) break;
+    if (Object.keys(candidate as Record<string, unknown>).length > 0) break;
+    delete obj[key];
+  }
+}
+
+/** Set or clear a dotted property path on an item, creating intermediate objects as needed. */
+function setNestedProperty(target: Record<string, unknown>, propertyPath: string, value: unknown): void {
+  const segments = propertyPath.split('.').filter(Boolean);
+  if (segments.length === 0) {
+    throw new Error('Property path cannot be empty');
+  }
+
+  if (value === null || value === undefined) {
+    deleteNestedProperty(target, segments);
+    return;
+  }
+
+  let cursor: Record<string, unknown> = target;
+  for (let i = 0; i < segments.length - 1; i++) {
+    const key = segments[i];
+    const existing = cursor[key];
+
+    // Materialize missing intermediate objects so callers can assign deep
+    // properties like `presentation.widget` in one command.
+    if (existing === undefined || existing === null) {
+      const nested: Record<string, unknown> = {};
+      cursor[key] = nested;
+      cursor = nested;
+      continue;
+    }
+
+    if (typeof existing !== 'object' || Array.isArray(existing)) {
+      throw new Error(`Cannot assign nested property "${propertyPath}" through non-object "${key}"`);
+    }
+
+    cursor = existing as Record<string, unknown>;
+  }
+
+  cursor[segments[segments.length - 1]] = value;
+}
+
 /**
  * **Command: `definition.setItemProperty`**
  *
@@ -119,7 +236,8 @@ registerHandler('definition.setItemProperty', (state, payload) => {
   const loc = resolveItemLocation(state, path);
   if (!loc) throw new Error(`Item not found: ${path}`);
 
-  (loc.item as any)[property] = value;
+  assertPropertyApplicable(loc.item, property);
+  setNestedProperty(loc.item as Record<string, unknown>, property, value);
   return { rebuildComponentTree: false };
 });
 

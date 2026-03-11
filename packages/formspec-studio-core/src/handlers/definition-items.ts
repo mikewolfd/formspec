@@ -13,7 +13,11 @@
  */
 import { registerHandler } from '../handler-registry.js';
 import type { ProjectState } from '../types.js';
-import type { FormspecItem } from 'formspec-engine';
+import {
+  normalizeIndexedPath,
+  rewriteFELReferences,
+  type FormspecItem,
+} from 'formspec-engine';
 import { resolveItemLocation } from './helpers.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -106,6 +110,26 @@ function buildItem(payload: Record<string, unknown>): FormspecItem {
   if (payload.hint) item.hint = payload.hint as string;
   if (payload.options) item.options = payload.options as { value: string; label: string }[];
   if (payload.labels) item.labels = payload.labels as Record<string, string>;
+  for (const prop of [
+    'relevant',
+    'required',
+    'readonly',
+    'calculate',
+    'constraint',
+    'constraintMessage',
+    'initialValue',
+    'repeatable',
+    'minRepeat',
+    'maxRepeat',
+    'optionSet',
+    'currency',
+    'presentation',
+    'prePopulate',
+  ]) {
+    if (payload[prop] !== undefined) {
+      (item as any)[prop] = payload[prop];
+    }
+  }
 
   return item;
 }
@@ -152,25 +176,51 @@ function uniqueKey(key: string, siblings: FormspecItem[]): string {
   return `${key}_${suffix}`;
 }
 
-/**
- * Rewrite FEL field references from `$oldKey` to `$newKey` in an expression string.
- *
- * Uses a word-boundary-aware regex so that `$name` is replaced without
- * affecting `$namePrefix` or `$fullname`. This is critical for maintaining
- * expression correctness when items are renamed.
- *
- * Used by `definition.renameItem` to update FEL expressions in binds,
- * shapes, and variables.
- *
- * @param expr - The FEL expression string to rewrite.
- * @param oldKey - The original item key (without the `$` prefix).
- * @param newKey - The replacement item key (without the `$` prefix).
- * @returns The expression with all `$oldKey` references replaced by `$newKey`.
- */
-function rewriteFieldRef(expr: string, oldKey: string, newKey: string): string {
-  // Replace $oldKey (as a whole word, not partial match)
-  const re = new RegExp('\\$' + oldKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w.])', 'g');
-  return expr.replace(re, '$' + newKey);
+/** Split a dotted item path into non-empty segments. */
+function splitPath(path: string): string[] {
+  return path.split('.').filter(Boolean);
+}
+
+/** Strip repeat indices and wildcards from a single path segment. */
+function normalizeSegment(segment: string): string {
+  return segment.replace(/\[(?:\d+|\*)\]/g, '');
+}
+
+/** Rewrite a path only when it matches the renamed item path as a normalized prefix. */
+function rewritePathPrefix(path: string, oldPath: string, newPath: string): string {
+  const rawParts = splitPath(path);
+  const normalizedParts = rawParts.map(normalizeSegment);
+  const oldParts = splitPath(normalizeIndexedPath(oldPath));
+  const newParts = splitPath(normalizeIndexedPath(newPath));
+
+  if (oldParts.length === 0 || normalizedParts.length < oldParts.length) {
+    return path;
+  }
+
+  for (let i = 0; i < oldParts.length; i++) {
+    if (normalizedParts[i] !== oldParts[i]) {
+      return path;
+    }
+  }
+
+  const rewritten: string[] = [];
+  for (let i = 0; i < oldParts.length; i++) {
+    const suffix = rawParts[i].slice(normalizedParts[i].length);
+    rewritten.push((newParts[i] ?? oldParts[i]) + suffix);
+  }
+  for (let i = oldParts.length; i < rawParts.length; i++) {
+    rewritten.push(rawParts[i]);
+  }
+
+  return rewritten.join('.');
+}
+
+function rewriteFieldRef(expr: string, oldPath: string, newPath: string): string {
+  return rewriteFELReferences(expr, {
+    rewriteFieldPath(path) {
+      return rewritePathPrefix(path, oldPath, newPath);
+    },
+  });
 }
 
 // ── addItem ──────────────────────────────────────────────────────────
@@ -345,8 +395,11 @@ registerHandler('definition.renameItem', (state, payload) => {
       const b = bind as any;
       for (const prop of ['calculate', 'relevant', 'required', 'readonly', 'constraint']) {
         if (b[prop] && typeof b[prop] === 'string') {
-          b[prop] = rewriteFieldRef(b[prop], oldKey, newKey);
+          b[prop] = rewriteFieldRef(b[prop], path, newPath);
         }
+      }
+      if (typeof b.default === 'string' && b.default.startsWith('=')) {
+        b.default = '=' + rewriteFieldRef(b.default.slice(1), path, newPath);
       }
     }
   }
@@ -358,10 +411,17 @@ registerHandler('definition.renameItem', (state, payload) => {
       if (s.target === path) s.target = newPath;
       else if (s.target?.startsWith(path + '.')) s.target = newPath + s.target.slice(path.length);
       if (s.constraint && typeof s.constraint === 'string') {
-        s.constraint = rewriteFieldRef(s.constraint, oldKey, newKey);
+        s.constraint = rewriteFieldRef(s.constraint, path, newPath);
       }
       if (s.activeWhen && typeof s.activeWhen === 'string') {
-        s.activeWhen = rewriteFieldRef(s.activeWhen, oldKey, newKey);
+        s.activeWhen = rewriteFieldRef(s.activeWhen, path, newPath);
+      }
+      if (s.context && typeof s.context === 'object') {
+        for (const [k, value] of Object.entries(s.context as Record<string, unknown>)) {
+          if (typeof value === 'string') {
+            s.context[k] = rewriteFieldRef(value, path, newPath);
+          }
+        }
       }
     }
   }
@@ -371,7 +431,34 @@ registerHandler('definition.renameItem', (state, payload) => {
     for (const v of state.definition.variables) {
       const va = v as any;
       if (va.expression && typeof va.expression === 'string') {
-        va.expression = rewriteFieldRef(va.expression, oldKey, newKey);
+        va.expression = rewriteFieldRef(va.expression, path, newPath);
+      }
+    }
+  }
+
+  // Rewrite item-level FEL-bearing properties.
+  const rewriteItemExpressions = (items: FormspecItem[]) => {
+    for (const item of items) {
+      const dynamic = item as any;
+      for (const prop of ['relevant', 'required', 'readonly', 'calculate', 'constraint']) {
+        if (typeof dynamic[prop] === 'string') {
+          dynamic[prop] = rewriteFieldRef(dynamic[prop], path, newPath);
+        }
+      }
+      if (typeof dynamic.initialValue === 'string' && dynamic.initialValue.startsWith('=')) {
+        dynamic.initialValue = '=' + rewriteFieldRef(dynamic.initialValue.slice(1), path, newPath);
+      }
+      if (item.children) rewriteItemExpressions(item.children);
+    }
+  };
+  rewriteItemExpressions(state.definition.items);
+
+  // Rewrite screener route conditions.
+  const screenerRoutes = state.definition.screener?.routes;
+  if (Array.isArray(screenerRoutes)) {
+    for (const route of screenerRoutes) {
+      if (typeof route.condition === 'string') {
+        route.condition = rewriteFieldRef(route.condition, path, newPath);
       }
     }
   }
@@ -398,9 +485,38 @@ registerHandler('definition.renameItem', (state, payload) => {
   const rules = (state.mapping as any).rules as any[] | undefined;
   if (rules) {
     for (const rule of rules) {
-      if (rule.sourcePath === oldKey) rule.sourcePath = newKey;
-      else if (rule.sourcePath?.startsWith(oldKey + '.')) {
-        rule.sourcePath = newKey + rule.sourcePath.slice(oldKey.length);
+      if (typeof rule.sourcePath === 'string') {
+        rule.sourcePath = rewritePathPrefix(rule.sourcePath, path, newPath);
+      }
+      for (const prop of ['expression', 'condition']) {
+        if (typeof rule[prop] === 'string') {
+          rule[prop] = rewriteFieldRef(rule[prop], path, newPath);
+        }
+      }
+      if (rule.reverse && typeof rule.reverse === 'object') {
+        if (typeof rule.reverse.sourcePath === 'string') {
+          rule.reverse.sourcePath = rewritePathPrefix(rule.reverse.sourcePath, path, newPath);
+        }
+        if (typeof rule.reverse.targetPath === 'string') {
+          rule.reverse.targetPath = rewritePathPrefix(rule.reverse.targetPath, path, newPath);
+        }
+        for (const prop of ['expression', 'condition']) {
+          if (typeof rule.reverse[prop] === 'string') {
+            rule.reverse[prop] = rewriteFieldRef(rule.reverse[prop], path, newPath);
+          }
+        }
+      }
+      if (Array.isArray(rule.innerRules)) {
+        for (const inner of rule.innerRules) {
+          if (typeof inner.sourcePath === 'string') {
+            inner.sourcePath = rewritePathPrefix(inner.sourcePath, path, newPath);
+          }
+          for (const prop of ['expression', 'condition']) {
+            if (typeof inner[prop] === 'string') {
+              inner[prop] = rewriteFieldRef(inner[prop], path, newPath);
+            }
+          }
+        }
       }
     }
   }

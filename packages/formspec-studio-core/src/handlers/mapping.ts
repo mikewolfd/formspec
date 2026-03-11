@@ -29,7 +29,7 @@
  * @module handlers/mapping
  */
 import { registerHandler } from '../handler-registry.js';
-import type { FormspecItem } from 'formspec-engine';
+import { RuntimeMappingEngine, type FormspecItem } from 'formspec-engine';
 
 /**
  * Set or remove a top-level mapping document property.
@@ -398,18 +398,29 @@ registerHandler('mapping.reorderInnerRule', (state, payload) => {
  *   the transformed data.
  */
 registerHandler('mapping.preview', (state, payload) => {
-  const { sampleData } = payload as { sampleData: Record<string, unknown>; direction?: string; ruleIndices?: number[] };
-  const rules = (state.mapping.rules ?? []) as any[];
+  const {
+    sampleData,
+    direction,
+    ruleIndices,
+  } = payload as { sampleData: Record<string, unknown>; direction?: string; ruleIndices?: number[] };
 
-  // Simple preview: apply preserve rules by copying source→target
-  const output: Record<string, unknown> = {};
-  for (const rule of rules) {
-    if (rule.transform === 'preserve' && rule.sourcePath && rule.targetPath) {
-      if (sampleData[rule.sourcePath] !== undefined) {
-        output[rule.targetPath] = sampleData[rule.sourcePath];
-      }
-    }
+  const mappingDoc = structuredClone(state.mapping) as any;
+  if (Array.isArray(ruleIndices) && Array.isArray(mappingDoc.rules)) {
+    mappingDoc.rules = ruleIndices
+      .map(index => mappingDoc.rules[index])
+      .filter((rule: unknown) => rule !== undefined);
   }
 
-  return { rebuildComponentTree: false, output };
+  const runtime = new RuntimeMappingEngine(mappingDoc);
+  const result = direction === 'reverse'
+    ? runtime.reverse(sampleData)
+    : runtime.forward(sampleData);
+
+  return {
+    rebuildComponentTree: false,
+    output: result.output,
+    diagnostics: result.diagnostics,
+    appliedRules: result.appliedRules,
+    direction: result.direction,
+  };
 });

@@ -18,6 +18,7 @@
  * @module definition-instances
  */
 import { registerHandler } from '../handler-registry.js';
+import { rewriteFELReferences, type FormspecItem } from 'formspec-engine';
 
 /**
  * Monotonically increasing counter for auto-generating instance names when the
@@ -118,13 +119,12 @@ registerHandler('definition.renameInstance', (state, payload) => {
   instances[newName] = instances[name];
   delete instances[name];
 
-  // Rewrite @instance('oldName') in all FEL expressions
-  const rewrite = (expr: string): string => {
-    return expr.replace(
-      new RegExp(`@instance\\(['"]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]\\)`, 'g'),
-      `@instance('${newName}')`,
-    );
-  };
+  const rewrite = (expr: string): string =>
+    rewriteFELReferences(expr, {
+      rewriteInstanceName(instanceName) {
+        return instanceName === name ? newName : instanceName;
+      },
+    });
 
   // Binds
   for (const bind of state.definition.binds ?? []) {
@@ -134,6 +134,9 @@ registerHandler('definition.renameInstance', (state, payload) => {
         b[prop] = rewrite(b[prop]);
       }
     }
+    if (typeof b.default === 'string' && b.default.startsWith('=')) {
+      b.default = '=' + rewrite(b.default.slice(1));
+    }
   }
 
   // Shapes
@@ -141,12 +144,72 @@ registerHandler('definition.renameInstance', (state, payload) => {
     const s = shape as any;
     if (s.constraint && typeof s.constraint === 'string') s.constraint = rewrite(s.constraint);
     if (s.activeWhen && typeof s.activeWhen === 'string') s.activeWhen = rewrite(s.activeWhen);
+    if (s.context && typeof s.context === 'object') {
+      for (const [key, value] of Object.entries(s.context as Record<string, unknown>)) {
+        if (typeof value === 'string') s.context[key] = rewrite(value);
+      }
+    }
   }
 
   // Variables
   for (const v of state.definition.variables ?? []) {
     const va = v as any;
     if (va.expression && typeof va.expression === 'string') va.expression = rewrite(va.expression);
+  }
+
+  // Item-level FEL-bearing properties.
+  const rewriteItemExpressions = (items: FormspecItem[]) => {
+    for (const item of items) {
+      const dynamic = item as any;
+      for (const prop of ['relevant', 'required', 'readonly', 'calculate', 'constraint']) {
+        if (typeof dynamic[prop] === 'string') {
+          dynamic[prop] = rewrite(dynamic[prop]);
+        }
+      }
+      if (typeof dynamic.initialValue === 'string' && dynamic.initialValue.startsWith('=')) {
+        dynamic.initialValue = '=' + rewrite(dynamic.initialValue.slice(1));
+      }
+      if (item.children) rewriteItemExpressions(item.children);
+    }
+  };
+  rewriteItemExpressions(state.definition.items);
+
+  // Screener routes.
+  const screenerRoutes = state.definition.screener?.routes;
+  if (Array.isArray(screenerRoutes)) {
+    for (const route of screenerRoutes) {
+      if (typeof route.condition === 'string') {
+        route.condition = rewrite(route.condition);
+      }
+    }
+  }
+
+  // Mapping expressions.
+  const rules = (state.mapping as any).rules as any[] | undefined;
+  if (rules) {
+    for (const rule of rules) {
+      for (const prop of ['expression', 'condition']) {
+        if (typeof rule[prop] === 'string') {
+          rule[prop] = rewrite(rule[prop]);
+        }
+      }
+      if (rule.reverse && typeof rule.reverse === 'object') {
+        for (const prop of ['expression', 'condition']) {
+          if (typeof rule.reverse[prop] === 'string') {
+            rule.reverse[prop] = rewrite(rule.reverse[prop]);
+          }
+        }
+      }
+      if (Array.isArray(rule.innerRules)) {
+        for (const inner of rule.innerRules) {
+          for (const prop of ['expression', 'condition']) {
+            if (typeof inner[prop] === 'string') {
+              inner[prop] = rewrite(inner[prop]);
+            }
+          }
+        }
+      }
+    }
   }
 
   return { rebuildComponentTree: false };

@@ -101,6 +101,21 @@ describe('definition.renameInstance', () => {
     expect(project.definition.instances?.renamed).toBeDefined();
     expect(project.definition.instances!.renamed.source).toBe('https://api.example.com');
   });
+
+  it('rewrites only parsed @instance references, not literals', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addInstance', payload: { name: 'old', source: 'https://api.example.com' } },
+      { type: 'definition.addVariable', payload: { name: 'v', expression: "@instance('old').name + \"@instance('old')\"" } },
+    ]);
+
+    project.dispatch({
+      type: 'definition.renameInstance',
+      payload: { name: 'old', newName: 'renamed' },
+    });
+
+    expect(project.definition.variables?.[0].expression).toBe("@instance('renamed').name + \"@instance('old')\"");
+  });
 });
 
 describe('definition.deleteInstance', () => {
