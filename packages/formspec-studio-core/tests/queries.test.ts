@@ -1,0 +1,677 @@
+import { describe, it, expect } from 'vitest';
+import { createProject } from '../src/index.js';
+
+describe('fieldPaths', () => {
+  it('returns all leaf field paths', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'address' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'street', parentPath: 'address' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'city', parentPath: 'address' } },
+    ]);
+
+    expect(project.fieldPaths()).toEqual(['name', 'address.street', 'address.city']);
+  });
+
+  it('returns empty array for empty form', () => {
+    const project = createProject();
+    expect(project.fieldPaths()).toEqual([]);
+  });
+});
+
+describe('itemAt', () => {
+  it('resolves a root item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name', label: 'Name' } });
+
+    const item = project.itemAt('name');
+    expect(item).toBeDefined();
+    expect(item!.key).toBe('name');
+    expect(item!.label).toBe('Name');
+  });
+
+  it('resolves a nested item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
+
+    expect(project.itemAt('g.f')?.key).toBe('f');
+  });
+
+  it('returns undefined for nonexistent path', () => {
+    const project = createProject();
+    expect(project.itemAt('nonexistent')).toBeUndefined();
+  });
+});
+
+describe('statistics', () => {
+  it('counts items and structures', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'f1' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'f2' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'g1' } },
+      { type: 'definition.addItem', payload: { type: 'display', key: 'd1' } },
+      { type: 'definition.addShape', payload: { id: 's1', target: 'f1', constraint: '$f1 > 0', message: 'M' } },
+      { type: 'definition.addVariable', payload: { name: 'v1', expression: '42' } },
+      { type: 'definition.setBind', payload: { path: 'f1', properties: { required: 'true()' } } },
+    ]);
+
+    const stats = project.statistics();
+    expect(stats.fieldCount).toBe(2);
+    expect(stats.groupCount).toBe(1);
+    expect(stats.displayCount).toBe(1);
+    expect(stats.shapeCount).toBe(1);
+    expect(stats.variableCount).toBe(1);
+    expect(stats.bindCount).toBe(1);
+  });
+});
+
+// ── Simple definition readers ──────────────────────────────────────
+
+describe('instanceNames', () => {
+  it('returns all declared instance names', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addInstance', payload: { name: 'lookup', source: 'https://api.example.com/data' } },
+      { type: 'definition.addInstance', payload: { name: 'config', data: { theme: 'dark' } } },
+    ]);
+
+    expect(project.instanceNames()).toEqual(['lookup', 'config']);
+  });
+
+  it('returns empty array when no instances', () => {
+    const project = createProject();
+    expect(project.instanceNames()).toEqual([]);
+  });
+});
+
+describe('variableNames', () => {
+  it('returns all declared variable names', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addVariable', payload: { name: 'total', expression: '$a + $b' } },
+      { type: 'definition.addVariable', payload: { name: 'tax', expression: '$total * 0.1' } },
+    ]);
+
+    expect(project.variableNames()).toEqual(['total', 'tax']);
+  });
+
+  it('returns empty array when no variables', () => {
+    const project = createProject();
+    expect(project.variableNames()).toEqual([]);
+  });
+});
+
+describe('optionSetUsage', () => {
+  it('returns field paths referencing a named option set', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.setOptionSet', payload: { name: 'colors', options: [{ value: 'red', label: 'Red' }] } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'fav', dataType: 'choice' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'alt', dataType: 'choice' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'other', dataType: 'string' } },
+      { type: 'definition.setItemProperty', payload: { path: 'fav', property: 'optionSet', value: 'colors' } },
+      { type: 'definition.setItemProperty', payload: { path: 'alt', property: 'optionSet', value: 'colors' } },
+    ]);
+
+    expect(project.optionSetUsage('colors')).toEqual(['fav', 'alt']);
+  });
+
+  it('returns empty when no fields reference the set', () => {
+    const project = createProject();
+    expect(project.optionSetUsage('nonexistent')).toEqual([]);
+  });
+});
+
+describe('searchItems', () => {
+  it('filters by type', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'f1' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'g1' } },
+      { type: 'definition.addItem', payload: { type: 'display', key: 'd1' } },
+    ]);
+
+    const groups = project.searchItems({ type: 'group' });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].key).toBe('g1');
+  });
+
+  it('filters by dataType', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'n1', dataType: 'integer' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'n2', dataType: 'integer' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 's1', dataType: 'string' } },
+    ]);
+
+    const ints = project.searchItems({ dataType: 'integer' });
+    expect(ints).toHaveLength(2);
+  });
+
+  it('filters by label substring', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'email', label: 'Email Address' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name', label: 'Full Name' } },
+    ]);
+
+    const results = project.searchItems({ label: 'email' });
+    expect(results).toHaveLength(1);
+    expect(results[0].key).toBe('email');
+  });
+
+  it('searches nested items', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'group', key: 'g' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'nested', parentPath: 'g', dataType: 'decimal' } },
+    ]);
+
+    const results = project.searchItems({ dataType: 'decimal' });
+    expect(results).toHaveLength(1);
+    expect(results[0].key).toBe('nested');
+  });
+});
+
+describe('effectivePresentation', () => {
+  it('returns defaults when no selectors or overrides', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name', dataType: 'string' } },
+      { type: 'theme.setDefaults', payload: { property: 'labelPosition', value: 'top' } },
+    ]);
+
+    const pres = project.effectivePresentation('name');
+    expect(pres.labelPosition).toBe('top');
+  });
+
+  it('applies matching selectors over defaults', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'integer' } },
+      { type: 'theme.setDefaults', payload: { property: 'labelPosition', value: 'top' } },
+      { type: 'theme.addSelector', payload: { match: { dataType: 'integer' }, apply: { widget: 'NumberInput' } } },
+    ]);
+
+    const pres = project.effectivePresentation('age');
+    expect(pres.labelPosition).toBe('top');
+    expect(pres.widget).toBe('NumberInput');
+  });
+
+  it('applies per-item overrides over selectors', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'total', dataType: 'decimal' } },
+      { type: 'theme.addSelector', payload: { match: { dataType: 'decimal' }, apply: { widget: 'NumberInput' } } },
+      { type: 'theme.setItemOverride', payload: { itemKey: 'total', property: 'widget', value: 'Slider' } },
+    ]);
+
+    const pres = project.effectivePresentation('total');
+    expect(pres.widget).toBe('Slider');
+  });
+
+  it('returns empty object for nonexistent field', () => {
+    const project = createProject();
+    const pres = project.effectivePresentation('nonexistent');
+    expect(pres).toEqual({});
+  });
+});
+
+// ── Cross-artifact queries ───────────────────────────────────────
+
+describe('bindFor', () => {
+  it('returns the bind for a given path', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'age' } },
+      { type: 'definition.setBind', payload: { path: 'age', properties: { required: 'true()', constraint: '$age > 0' } } },
+    ]);
+
+    const bind = project.bindFor('age');
+    expect(bind).toBeDefined();
+    expect(bind!.required).toBe('true()');
+    expect(bind!.constraint).toBe('$age > 0');
+  });
+
+  it('returns undefined when no bind exists', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
+    expect(project.bindFor('name')).toBeUndefined();
+  });
+});
+
+describe('componentFor', () => {
+  it('returns the component tree node bound to a field', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'email' } },
+      { type: 'component.addNode', payload: { parent: { nodeId: 'root' }, component: 'TextInput', bind: 'email' } },
+    ]);
+
+    const node = project.componentFor('email');
+    expect(node).toBeDefined();
+    expect(node!.component).toBe('TextInput');
+    expect(node!.bind).toBe('email');
+  });
+
+  it('returns undefined for a nonexistent field key', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
+    expect(project.componentFor('nonexistent')).toBeUndefined();
+  });
+});
+
+describe('resolveExtension', () => {
+  it('resolves an extension name from loaded registries', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'project.loadRegistry',
+      payload: {
+        registry: {
+          url: 'urn:test-registry',
+          entries: [
+            { name: 'x-formspec-url', category: 'constraint', status: 'stable' },
+            { name: 'x-formspec-currency', category: 'dataType', status: 'stable' },
+          ],
+        },
+      },
+    });
+
+    const entry = project.resolveExtension('x-formspec-url');
+    expect(entry).toBeDefined();
+    expect(entry!.name).toBe('x-formspec-url');
+  });
+
+  it('returns undefined for unknown extension', () => {
+    const project = createProject();
+    expect(project.resolveExtension('x-nonexistent')).toBeUndefined();
+  });
+});
+
+describe('unboundItems', () => {
+  it('returns field paths not bound to any component tree node', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'email' } },
+    ]);
+    // Tree sync auto-creates nodes; manually remove one to test unboundItems
+    project.dispatch({
+      type: 'component.deleteNode',
+      payload: { node: { bind: 'email' } },
+    });
+
+    expect(project.unboundItems()).toEqual(['email']);
+  });
+
+  it('returns empty when all fields are bound', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name' } },
+      { type: 'component.addNode', payload: { parent: { nodeId: 'root' }, component: 'TextInput', bind: 'name' } },
+    ]);
+
+    expect(project.unboundItems()).toEqual([]);
+  });
+});
+
+describe('resolveToken', () => {
+  it('returns Tier 3 (component) token when set', () => {
+    const project = createProject();
+    project.dispatch({ type: 'component.setToken', payload: { key: 'color.primary', value: '#ff0000' } });
+    project.dispatch({ type: 'theme.setToken', payload: { key: 'color.primary', value: '#0000ff' } });
+
+    expect(project.resolveToken('color.primary')).toBe('#ff0000');
+  });
+
+  it('falls back to Tier 2 (theme) token', () => {
+    const project = createProject();
+    project.dispatch({ type: 'theme.setToken', payload: { key: 'color.primary', value: '#0000ff' } });
+
+    expect(project.resolveToken('color.primary')).toBe('#0000ff');
+  });
+
+  it('returns undefined when token not set anywhere', () => {
+    const project = createProject();
+    expect(project.resolveToken('color.unknown')).toBeUndefined();
+  });
+});
+
+describe('allDataTypes', () => {
+  it('returns 13 core types by default', () => {
+    const project = createProject();
+    const types = project.allDataTypes();
+
+    expect(types.length).toBe(13);
+    expect(types.every(t => t.source === 'core')).toBe(true);
+    expect(types.map(t => t.name)).toContain('string');
+    expect(types.map(t => t.name)).toContain('integer');
+    expect(types.map(t => t.name)).toContain('boolean');
+    expect(types.map(t => t.name)).toContain('date');
+  });
+
+  it('includes extension dataTypes from loaded registries', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'project.loadRegistry',
+      payload: {
+        registry: {
+          url: 'urn:test-registry',
+          entries: [
+            { name: 'x-phone-number', category: 'dataType', baseType: 'string', status: 'stable' },
+          ],
+        },
+      },
+    });
+
+    const types = project.allDataTypes();
+    expect(types.length).toBe(14);
+    const ext = types.find(t => t.name === 'x-phone-number');
+    expect(ext).toBeDefined();
+    expect(ext!.source).toBe('extension');
+    expect(ext!.baseType).toBe('string');
+    expect(ext!.registryUrl).toBe('urn:test-registry');
+  });
+});
+
+// ── FEL queries ────────────────────────────────────────────────
+
+describe('allExpressions', () => {
+  it('collects all FEL expressions with locations', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
+      { type: 'definition.setBind', payload: { path: 'a', properties: { calculate: '$b * 2', required: 'true()' } } },
+      { type: 'definition.addShape', payload: { id: 's1', target: 'a', constraint: '$a > 0', message: 'M' } },
+      { type: 'definition.addVariable', payload: { name: 'total', expression: '$a + $b' } },
+    ]);
+
+    const exprs = project.allExpressions();
+    expect(exprs.length).toBe(4); // calculate, required, shape constraint, variable
+    expect(exprs.some(e => e.expression === '$b * 2' && e.artifact === 'definition')).toBe(true);
+    expect(exprs.some(e => e.expression === '$a > 0')).toBe(true);
+    expect(exprs.some(e => e.expression === '$a + $b')).toBe(true);
+  });
+});
+
+describe('availableReferences', () => {
+  it('returns fields, variables, and instances', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name', dataType: 'string', label: 'Name' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'integer' } },
+      { type: 'definition.addVariable', payload: { name: 'total', expression: '42' } },
+      { type: 'definition.addInstance', payload: { name: 'lookup', source: 'https://api.example.com' } },
+    ]);
+
+    const refs = project.availableReferences();
+    expect(refs.fields).toHaveLength(2);
+    expect(refs.fields[0].path).toBe('name');
+    expect(refs.fields[0].dataType).toBe('string');
+    expect(refs.variables).toHaveLength(1);
+    expect(refs.variables[0].name).toBe('total');
+    expect(refs.instances).toHaveLength(1);
+    expect(refs.instances[0].name).toBe('lookup');
+  });
+});
+
+describe('felFunctionCatalog', () => {
+  it('returns built-in functions', () => {
+    const project = createProject();
+    const catalog = project.felFunctionCatalog();
+
+    expect(catalog.length).toBeGreaterThan(0);
+    expect(catalog.every(f => f.source === 'builtin' || f.source === 'extension')).toBe(true);
+    const sumFn = catalog.find(f => f.name === 'sum');
+    expect(sumFn).toBeDefined();
+    expect(sumFn!.source).toBe('builtin');
+  });
+
+  it('includes extension functions from loaded registries', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'project.loadRegistry',
+      payload: {
+        registry: {
+          url: 'urn:test',
+          entries: [
+            { name: 'customFn', category: 'function', status: 'stable' },
+          ],
+        },
+      },
+    });
+
+    const catalog = project.felFunctionCatalog();
+    const ext = catalog.find(f => f.name === 'customFn');
+    expect(ext).toBeDefined();
+    expect(ext!.source).toBe('extension');
+  });
+});
+
+describe('expressionDependencies', () => {
+  it('extracts field path references from an expression', () => {
+    const project = createProject();
+    const deps = project.expressionDependencies('$total + $items.amount * 2');
+
+    expect(deps).toContain('total');
+    expect(deps).toContain('items.amount');
+  });
+
+  it('returns empty for expression with no references', () => {
+    const project = createProject();
+    expect(project.expressionDependencies('42 + 1')).toEqual([]);
+  });
+});
+
+describe('fieldDependents', () => {
+  it('finds binds, shapes, and variables referencing a field', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'price' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'total' } },
+      { type: 'definition.setBind', payload: { path: 'total', properties: { calculate: '$price * 2' } } },
+      { type: 'definition.addShape', payload: { id: 's1', target: 'price', constraint: '$price > 0', message: 'M' } },
+      { type: 'definition.addVariable', payload: { name: 'v1', expression: '$price + 1' } },
+    ]);
+
+    const deps = project.fieldDependents('price');
+    expect(deps.binds.length).toBeGreaterThan(0);
+    expect(deps.shapes.length).toBeGreaterThan(0);
+    expect(deps.variables.length).toBeGreaterThan(0);
+  });
+});
+
+describe('variableDependents', () => {
+  it('finds fields that reference a variable in their bind expressions', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'total' } },
+      { type: 'definition.addVariable', payload: { name: 'taxRate', expression: '0.1' } },
+      { type: 'definition.setBind', payload: { path: 'total', properties: { calculate: '$total * @taxRate' } } },
+    ]);
+
+    const deps = project.variableDependents('taxRate');
+    expect(deps).toContain('total');
+  });
+});
+
+describe('dependencyGraph', () => {
+  it('builds a graph of fields, variables, and shapes', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
+      { type: 'definition.setBind', payload: { path: 'b', properties: { calculate: '$a * 2' } } },
+    ]);
+
+    const graph = project.dependencyGraph();
+    expect(graph.nodes.length).toBeGreaterThanOrEqual(2);
+    expect(graph.edges.length).toBeGreaterThan(0);
+    const edge = graph.edges.find(e => e.from === 'a' && e.to === 'b');
+    expect(edge).toBeDefined();
+  });
+});
+
+describe('parseFEL', () => {
+  it('validates a well-formed expression', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'age' } });
+
+    const result = project.parseFEL('$age > 18');
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.references).toContain('age');
+  });
+
+  it('reports references and functions', () => {
+    const project = createProject();
+    const result = project.parseFEL('sum($a, $b) + max($c, 10)');
+
+    expect(result.references).toContain('a');
+    expect(result.references).toContain('b');
+    expect(result.references).toContain('c');
+    expect(result.functions).toContain('sum');
+    expect(result.functions).toContain('max');
+  });
+});
+
+// ── Extension queries ──────────────────────────────────────────
+
+describe('listRegistries', () => {
+  it('returns loaded registries with entry counts', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'project.loadRegistry',
+      payload: {
+        registry: {
+          url: 'urn:test-registry',
+          entries: [
+            { name: 'ext1', category: 'dataType' },
+            { name: 'ext2', category: 'function' },
+          ],
+        },
+      },
+    });
+
+    const list = project.listRegistries();
+    expect(list).toHaveLength(1);
+    expect(list[0].url).toBe('urn:test-registry');
+    expect(list[0].entryCount).toBe(2);
+  });
+});
+
+describe('browseExtensions', () => {
+  it('returns all entries when no filter', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'project.loadRegistry',
+      payload: {
+        registry: {
+          url: 'urn:test-registry',
+          entries: [
+            { name: 'ext1', category: 'dataType', status: 'stable' },
+            { name: 'ext2', category: 'function', status: 'draft' },
+          ],
+        },
+      },
+    });
+
+    expect(project.browseExtensions()).toHaveLength(2);
+  });
+
+  it('filters by category', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'project.loadRegistry',
+      payload: {
+        registry: {
+          url: 'urn:test-registry',
+          entries: [
+            { name: 'ext1', category: 'dataType', status: 'stable' },
+            { name: 'ext2', category: 'function', status: 'stable' },
+          ],
+        },
+      },
+    });
+
+    const results = project.browseExtensions({ category: 'function' });
+    expect(results).toHaveLength(1);
+    expect(results[0].name).toBe('ext2');
+  });
+});
+
+// ── Versioning queries ────────────────────────────────────────
+
+describe('diffFromBaseline', () => {
+  it('detects added items', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name', label: 'Name' } });
+
+    const changes = project.diffFromBaseline();
+    expect(changes.length).toBeGreaterThan(0);
+    const added = changes.find(c => c.type === 'added' && c.path === 'name');
+    expect(added).toBeDefined();
+    expect(added!.target).toBe('item');
+    expect(added!.impact).toBe('compatible');
+  });
+
+  it('detects removed items', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: '',
+          items: [{ type: 'field', key: 'old', dataType: 'string' }],
+        },
+      },
+    });
+
+    // baseline has 'old'; now delete it
+    project.dispatch({ type: 'definition.deleteItem', payload: { path: 'old' } });
+
+    const changes = project.diffFromBaseline();
+    const removed = changes.find(c => c.type === 'removed' && c.path === 'old');
+    expect(removed).toBeDefined();
+    expect(removed!.impact).toBe('breaking');
+  });
+});
+
+describe('previewChangelog', () => {
+  it('generates a changelog preview without committing', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
+
+    const changelog = project.previewChangelog();
+    expect(changelog.definitionUrl).toBe(project.definition.url);
+    expect(changelog.fromVersion).toBeDefined();
+    expect(changelog.toVersion).toBe(project.definition.version);
+    expect(changelog.changes.length).toBeGreaterThan(0);
+    expect(['breaking', 'compatible', 'cosmetic']).toContain(changelog.semverImpact);
+  });
+});
+
+describe('export', () => {
+  it('serializes all four artifacts', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Export Test' } });
+
+    const bundle = project.export();
+
+    expect(bundle.definition).toBeDefined();
+    expect(bundle.definition.title).toBe('Export Test');
+    expect(bundle.component).toBeDefined();
+    expect(bundle.theme).toBeDefined();
+    expect(bundle.mapping).toBeDefined();
+  });
+
+  it('returns independent copies (not references)', () => {
+    const project = createProject();
+    const bundle = project.export();
+
+    bundle.definition.title = 'Mutated';
+    expect(project.definition.title).not.toBe('Mutated');
+  });
+});

@@ -63,7 +63,8 @@ All 13 built-in input component plugins, exported as a single array for bulk reg
 ## `WizardPlugin: ComponentPlugin`
 
 Renders a multi-step wizard with signal-driven panel visibility.
-Creates a step progress indicator (numbered spans), prev/next navigation buttons, and optional skip button.
+By default renders a collapsible side navigation listing all steps; set `sidenav: false`
+to fall back to the classic horizontal progress bar at the top.
 The last step shows "Finish" instead of "Next". Panel switching uses a Preact signal for the current step index.
 
 ## `TabsPlugin: ComponentPlugin`
@@ -109,6 +110,7 @@ Renders a `<div>` panel container with optional header and configurable width.
 
 Renders an accordion using `<details>`/`<summary>` elements for each child.
 Supports single-open mode (default) via toggle event listeners, or multi-open via `allowMultiple`.
+If `bind` is present, each instance of the repeating group becomes one accordion section.
 
 ## `ModalPlugin: ComponentPlugin`
 
@@ -151,6 +153,7 @@ Orchestrates the full rendering pipeline:
 - **_definition** (`any`): @internal
 - **_componentDocument** (`any`): @internal
 - **_themeDocument** (`ThemeDocument | null`): @internal
+- **_registryEntries** (`Map<string, any>`): @internal
 - **engine** (`FormEngine | null`): @internal
 - **cleanupFns** (`Array<() => void>`): @internal
 - **stylesheetHrefs** (`string[]`): @internal
@@ -180,6 +183,11 @@ breakpoints). Schedules a re-render.
 - **(set) themeDocument** (`ThemeDocument | null`): Set the theme document. Loads/unloads referenced stylesheets via
 ref-counting and schedules a re-render.
 - **(get) themeDocument** (`ThemeDocument | null`): The currently loaded theme document, or `null` if none.
+- **(set) registryDocuments** (`any | any[]`): Set one or more extension registry documents. Builds an internal lookup
+map from extension name → registry entry so that field renderers can
+apply constraints and metadata (inputMode, autocomplete, pattern, etc.)
+generically instead of hardcoding per-extension behaviour.
+- **(get) registryEntries** (`Map<string, any>`): The current registry entry lookup (extension name → entry).
 - **findItemByKey** (`(key: string, items?: any[]) => any | null`): @internal
 
 ##### `classifyScreenerRoute(route: ScreenerRoute | null | undefined): ScreenerRouteType`
@@ -304,30 +312,6 @@ Custom element lifecycle callback. Disposes all signal effects,
 decrements stylesheet ref-counts, tears down breakpoint listeners,
 and removes the root container.
 
-## `renderInputComponent(host: FieldInputHost, comp: any, item: any, fullName: string): HTMLElement`
-
-#### interface `FieldInputHost`
-
-##### `resolveItemPresentation(itemDesc: ItemDescriptor): PresentationBlock`
-
-##### `resolveWidgetClassSlots(presentation: PresentationBlock): {
-        root?: unknown;
-        label?: unknown;
-        control?: unknown;
-        hint?: unknown;
-        error?: unknown;
-    }`
-
-##### `applyClassValue(el: HTMLElement, classValue: unknown): void`
-
-##### `applyCssClass(el: HTMLElement, comp: any): void`
-
-##### `applyStyle(el: HTMLElement, style: any): void`
-
-##### `applyAccessibility(el: HTMLElement, comp: any): void`
-
-##### `render(): void`
-
 ## `formatMoney(moneyVal: {
     amount: any;
     currency?: string;
@@ -336,15 +320,9 @@ and removes the root container.
 Format a Formspec money value `{amount, currency}` as a localized currency string.
 Returns `''` when the amount is missing or not a finite number.
 
-## `normalizeFieldPath(path: unknown): string`
-
-## `externalPathToInternal(path: string): string`
-
 ## `findFieldElement(host: NavigationHost, path: string): HTMLElement | null`
 
 ## `revealTabsForField(_host: NavigationHost, fieldEl: HTMLElement): void`
-
-## `goToWizardStep(host: NavigationHost, index: number): boolean`
 
 ## `focusField(host: NavigationHost, path: string): boolean`
 
@@ -353,6 +331,12 @@ Returns `''` when the amount is missing or not a finite number.
 ##### `querySelector(selectors: string): Element | null`
 
 ##### `querySelectorAll(selectors: string): NodeListOf<Element>`
+
+## `normalizeFieldPath(path: unknown): string`
+
+## `externalPathToInternal(path: string): string`
+
+## `goToWizardStep(host: NavigationHost, index: number): boolean`
 
 ## `globalRegistry: ComponentRegistry`
 
@@ -450,6 +434,30 @@ Interface for what emitNode/renderActualComponent need from FormspecRender.
 
 ##### `render(): void`
 
+## `renderInputComponent(host: FieldInputHost, comp: any, item: any, fullName: string): HTMLElement`
+
+#### interface `FieldInputHost`
+
+##### `resolveItemPresentation(itemDesc: ItemDescriptor): PresentationBlock`
+
+##### `resolveWidgetClassSlots(presentation: PresentationBlock): {
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    }`
+
+##### `applyClassValue(el: HTMLElement, classValue: unknown): void`
+
+##### `applyCssClass(el: HTMLElement, comp: any): void`
+
+##### `applyStyle(el: HTMLElement, style: any): void`
+
+##### `applyAccessibility(el: HTMLElement, comp: any): void`
+
+##### `render(): void`
+
 ## `renderScreener(host: ScreenerHost, container: HTMLElement): void`
 
 #### interface `ScreenerHost`
@@ -462,11 +470,7 @@ Interface for what emitNode/renderActualComponent need from FormspecRender.
 
 ##### `render(): void`
 
-## `resolveToken(host: StylingHost, val: any): any`
-
-## `resolveItemPresentation(host: StylingHost, itemDesc: ItemDescriptor): PresentationBlock`
-
-## `applyStyle(host: StylingHost, el: HTMLElement, style: any): void`
+## `applyAccessibility(_host: StylingHost, el: HTMLElement, comp: any): void`
 
 ## `applyCssClass(host: StylingHost, el: HTMLElement, comp: any): void`
 
@@ -480,27 +484,39 @@ Interface for what emitNode/renderActualComponent need from FormspecRender.
     error?: unknown;
 }`
 
-## `applyAccessibility(_host: StylingHost, el: HTMLElement, comp: any): void`
-
-## `emitTokenProperties(host: StylingHost, container: HTMLElement): void`
-
-## `loadStylesheets(host: StylingHost): void`
-
-## `cleanupStylesheets(host: StylingHost): void`
-
-## `canonicalizeStylesheetHref(href: string): string`
-
-## `findThemeStylesheet(hrefKey: string): HTMLLinkElement | null`
-
-## `stylesheetRefCounts: Map<string, number>`
-
-Module-level ref counts (was static on the class).
+## `resolveItemPresentation(host: StylingHost, itemDesc: ItemDescriptor): PresentationBlock`
 
 #### interface `StylingHost`
 
 ##### `getEffectiveTheme(): ThemeDocument`
 
 ##### `findItemByKey(key: string, items?: any[]): any | null`
+
+## `applyStyle(host: StylingHost, el: HTMLElement, style: any): void`
+
+## `canonicalizeStylesheetHref(href: string): string`
+
+## `findThemeStylesheet(hrefKey: string): HTMLLinkElement | null`
+
+## `loadStylesheets(host: StylingHost): void`
+
+## `cleanupStylesheets(host: StylingHost): void`
+
+## `stylesheetRefCounts: Map<string, number>`
+
+Module-level ref counts (was static on the class).
+
+## `resolveToken(host: StylingHost, val: any): any`
+
+## `emitTokenProperties(host: StylingHost, container: HTMLElement): void`
+
+## `touchFieldsInContainer(container: Element, touchedFields: Set<string>, touchedVersion: {
+    value: number;
+}): void`
+
+Touch all fields within a specific DOM container element (e.g. a wizard panel).
+Fields are identified by `.formspec-field[data-name]` elements.
+Used for soft per-page wizard validation: errors become visible without blocking navigation.
 
 ## `touchAllFields(host: SubmitHost): void`
 
@@ -545,173 +561,7 @@ Resolve a validation result/path to a navigation target with metadata.
 
 ##### `findItemByKey(key: string, items?: any[]): any | null`
 
-Theme cascade resolver.
-
-Resolves the effective {@link PresentationBlock} for a given item by
-merging the 5-level theme cascade:
-
-  1. Tier 1 formPresentation (lowest)
-  2. Tier 1 item.presentation
-  3. Theme defaults
-  4. Matching theme selectors (document order)
-  5. Theme items[key] (highest)
-
-Also provides {@link resolveWidget} for selecting the best available
-widget from a preference + fallback chain.
-
-## `resolvePresentation(theme: ThemeDocument | null | undefined, item: ItemDescriptor, tier1?: Tier1Hints): PresentationBlock`
-
-Resolve the effective {@link PresentationBlock} for a single item by
-merging five cascade levels (lowest to highest priority):
-
-1. Tier 1 form-wide presentation hints (`formPresentation`)
-2. Tier 1 per-item presentation hints (`item.presentation`)
-3. Theme defaults
-4. Theme selectors (document order; later selectors override earlier)
-5. Theme `items[key]` overrides
-
-Scalar properties are replaced at each level. `cssClass` is unioned,
-and `style`, `widgetConfig`, and `accessibility` are shallow-merged.
-
-## `resolveWidget(presentation: PresentationBlock, isAvailable: (type: string) => boolean): string | null`
-
-Select the best available widget from a presentation block's preference
-and fallback chain.
-
-Tries the preferred `widget` first, then each entry in `fallback` in order.
-If none are available in the component registry, logs a warning (per Theme
-spec section 7) and returns `null` so the caller can fall back to the default
-component for the item's dataType.
-
-#### interface `AccessibilityBlock`
-
-ARIA-related presentation hints applied to a rendered element.
-
-- **role?**: `string`
-- **description?**: `string`
-- **liveRegion?**: `'off' | 'polite' | 'assertive'`
-
-#### interface `PresentationBlock`
-
-Merged presentation directives for a single item: widget choice, label position, styles, CSS classes, accessibility, and fallback chain.
-
-- **widget?**: `string`
-- **widgetConfig?**: `Record<string, unknown>`
-- **labelPosition?**: `'top' | 'start' | 'hidden'`
-- **style?**: `Record<string, string | number>`
-- **accessibility?**: `AccessibilityBlock`
-- **fallback?**: `string[]`
-- **cssClass?**: `string | string[]`
-
-#### interface `SelectorMatch`
-
-Criteria for a theme selector rule: matches items by type, dataType, or both.
-
-- **type?**: `'group' | 'field' | 'display'`
-- **dataType?**: `FormspecDataType`
-
-#### interface `ThemeSelector`
-
-A theme selector rule pairing a {@link SelectorMatch} condition with a {@link PresentationBlock} to apply.
-
-- **match**: `SelectorMatch`
-- **apply**: `PresentationBlock`
-
-#### interface `Region`
-
-A named layout region within a page, with optional grid span/start and responsive overrides.
-
-- **key**: `string`
-- **span?**: `number`
-- **start?**: `number`
-- **responsive?**: `Record<string, {
-        span?: number;
-        start?: number;
-        hidden?: boolean;
-    }>`
-
-#### interface `Page`
-
-A page definition within a theme, used for wizard/tab page layouts with optional region grid.
-
-- **id**: `string`
-- **title**: `string`
-- **description?**: `string`
-- **regions?**: `Region[]`
-
-#### interface `ThemeDocument`
-
-Top-level theme document: tokens, defaults, selectors, per-item overrides, pages, breakpoints, and stylesheets.
-
-- **$formspecTheme**: `'1.0'`
-- **version**: `string`
-- **targetDefinition**: `{
-        url: string;
-        compatibleVersions?: string;
-    }`
-- **url?**: `string`
-- **name?**: `string`
-- **title?**: `string`
-- **description?**: `string`
-- **platform?**: `string`
-- **tokens?**: `Record<string, string | number>`
-- **defaults?**: `PresentationBlock`
-- **selectors?**: `ThemeSelector[]`
-- **items?**: `Record<string, PresentationBlock>`
-- **pages?**: `Page[]`
-- **breakpoints?**: `Record<string, number>`
-- **stylesheets?**: `string[]`
-- **extensions?**: `Record<string, unknown>`
-
-#### interface `ItemDescriptor`
-
-Lightweight identifier for a definition item, used as the input to the theme cascade resolver.
-
-- **key**: `string`
-- **type**: `'group' | 'field' | 'display'`
-- **dataType?**: `FormspecDataType`
-
-#### interface `LayoutHints`
-
-Tier 1 layout hints from the definition: flow direction, grid columns, collapsibility, and page assignment.
-
-- **flow?**: `'stack' | 'grid' | 'inline'`
-- **columns?**: `number`
-- **colSpan?**: `number`
-- **newRow?**: `boolean`
-- **collapsible?**: `boolean`
-- **collapsedByDefault?**: `boolean`
-- **page?**: `string`
-
-#### interface `StyleHints`
-
-Tier 1 visual emphasis and sizing hints from the definition.
-
-- **emphasis?**: `'primary' | 'success' | 'warning' | 'danger' | 'muted'`
-- **size?**: `'compact' | 'default' | 'large'`
-
-#### interface `Tier1Hints`
-
-Definition-level (Tier 1) presentation hints that feed into the lowest two levels of the theme cascade.
-
-- **itemPresentation** (`{
-        widgetHint?: string;
-        layout?: LayoutHints;
-        styleHints?: StyleHints;
-    }`): Per-item presentation hints from the definition
-- **formPresentation** (`{
-        labelPosition?: 'top' | 'start' | 'hidden';
-        density?: 'compact' | 'comfortable' | 'spacious';
-        pageMode?: 'single' | 'wizard' | 'tabs';
-    }`): Form-wide presentation defaults from the definition
-
-#### type `FormspecDataType`
-
-Union of all `dataType` values recognized by the Formspec schema for selector matching and field definitions.
-
-```ts
-type FormspecDataType = 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'dateTime' | 'time' | 'uri' | 'attachment' | 'choice' | 'multiChoice' | 'money';
-```
+##### `focusField(path: string): void`
 
 #### interface `ValidationTargetMetadata`
 
@@ -794,6 +644,12 @@ depending on the `FormspecRender` element directly.
 - **applyAccessibility** (`(el: HTMLElement, comp: any) => void`): Apply accessibility attributes (role, aria-description, aria-live) from a component descriptor.
 - **resolveItemPresentation** (`(item: ItemDescriptor) => PresentationBlock`): Resolve the effective PresentationBlock for a definition item via the 5-level theme cascade.
 - **cleanupFns** (`Array<() => void>`): Disposal callbacks for signal effects and event listeners created during this render cycle.
+- **touchedFields** (`Set<string>`): Set of field paths that have been interacted with (blurred/changed).
+Errors are only displayed for touched fields. Plugins can add paths here
+to force inline error display (e.g. wizard soft-validation on Next click).
+- **touchedVersion** (`Signal<number>`): Monotonic counter that increments whenever touched state changes.
+Error-display effects subscribe to this so they re-run when fields are
+touched programmatically (e.g. wizard Next click).
 - **findItemByKey** (`(key: string, items?: any[]) => any | null`): Look up a definition item by key (supports dotted paths like `"group.field"`). Returns `null` if not found.
 - **renderInputComponent** (`(comp: any, item: any, fullName: string) => HTMLElement`): Build and return a fully-wired field input element (label, input control,
 hint, error display, signal bindings, ARIA attributes) for a bound field.

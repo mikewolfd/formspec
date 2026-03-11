@@ -1,0 +1,191 @@
+import { describe, it, expect } from 'vitest';
+import { createProject } from '../src/index.js';
+
+describe('definition.setItemProperty', () => {
+  it('sets a simple property on a field', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
+
+    project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'name', property: 'label', value: 'Full Name' },
+    });
+
+    expect(project.definition.items[0].label).toBe('Full Name');
+  });
+
+  it('sets description and hint', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
+
+    project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'f', property: 'description', value: 'Desc' },
+    });
+    project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'f', property: 'hint', value: 'A hint' },
+    });
+
+    expect(project.definition.items[0].description).toBe('Desc');
+    expect(project.definition.items[0].hint).toBe('A hint');
+  });
+
+  it('sets group repeatable property', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+
+    project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'g', property: 'repeatable', value: true },
+    });
+
+    expect(project.definition.items[0].repeatable).toBe(true);
+  });
+
+  it('sets nested property via dot-path', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
+
+    project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'g.f', property: 'label', value: 'Nested Label' },
+    });
+
+    expect(project.definition.items[0].children![0].label).toBe('Nested Label');
+  });
+});
+
+describe('definition.setFieldDataType', () => {
+  it('changes the dataType of a field', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'string' } });
+
+    project.dispatch({
+      type: 'definition.setFieldDataType',
+      payload: { path: 'age', dataType: 'integer' },
+    });
+
+    expect(project.definition.items[0].dataType).toBe('integer');
+  });
+});
+
+describe('definition.setFieldOptions', () => {
+  it('sets inline options on a choice field', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'color', dataType: 'choice' } });
+
+    const options = [
+      { value: 'red', label: 'Red' },
+      { value: 'blue', label: 'Blue' },
+    ];
+    project.dispatch({
+      type: 'definition.setFieldOptions',
+      payload: { path: 'color', options },
+    });
+
+    expect(project.definition.items[0].options).toEqual(options);
+  });
+
+  it('sets an optionSet URI string', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'status', dataType: 'choice' } });
+
+    project.dispatch({
+      type: 'definition.setFieldOptions',
+      payload: { path: 'status', options: 'statusOptions' },
+    });
+
+    expect(project.definition.items[0].optionSet).toBe('statusOptions');
+  });
+});
+
+describe('definition.setBind', () => {
+  it('creates a bind with multiple properties', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
+
+    project.dispatch({
+      type: 'definition.setBind',
+      payload: {
+        path: 'email',
+        properties: {
+          required: 'true()',
+          constraint: 'matches($email, "^[^@]+@[^@]+$")',
+          constraintMessage: 'Invalid email',
+        },
+      },
+    });
+
+    const bind = project.definition.binds![0];
+    expect(bind.path).toBe('email');
+    expect(bind.required).toBe('true()');
+    expect(bind.constraint).toBe('matches($email, "^[^@]+@[^@]+$")');
+    expect(bind.constraintMessage).toBe('Invalid email');
+  });
+
+  it('removes a property when set to null', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
+    project.dispatch({
+      type: 'definition.setBind',
+      payload: { path: 'f', properties: { required: 'true()', calculate: '$a + $b' } },
+    });
+
+    project.dispatch({
+      type: 'definition.setBind',
+      payload: { path: 'f', properties: { required: null } },
+    });
+
+    const bind = project.definition.binds![0];
+    expect(bind.required).toBeUndefined();
+    expect(bind.calculate).toBe('$a + $b');
+  });
+
+  it('removes the entire bind entry when all properties are null', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
+    project.dispatch({
+      type: 'definition.setBind',
+      payload: { path: 'f', properties: { required: 'true()' } },
+    });
+
+    project.dispatch({
+      type: 'definition.setBind',
+      payload: { path: 'f', properties: { required: null } },
+    });
+
+    expect(project.definition.binds ?? []).toHaveLength(0);
+  });
+});
+
+describe('definition.setItemExtension', () => {
+  it('sets an extension property', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
+
+    project.dispatch({
+      type: 'definition.setItemExtension',
+      payload: { path: 'email', extension: 'x-formspec-url', value: true },
+    });
+
+    expect(project.definition.items[0]['x-formspec-url']).toBe(true);
+  });
+
+  it('removes an extension when value is null', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
+    project.dispatch({
+      type: 'definition.setItemExtension',
+      payload: { path: 'email', extension: 'x-formspec-url', value: true },
+    });
+
+    project.dispatch({
+      type: 'definition.setItemExtension',
+      payload: { path: 'email', extension: 'x-formspec-url', value: null },
+    });
+
+    expect(project.definition.items[0]['x-formspec-url']).toBeUndefined();
+  });
+});

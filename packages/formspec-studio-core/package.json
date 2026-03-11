@@ -1,0 +1,19 @@
+{
+  "name": "formspec-studio-core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "formspec-engine": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "typescript": "^5.0.0"
+  }
+}

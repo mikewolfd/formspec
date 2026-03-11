@@ -360,6 +360,12 @@ const packages = [
     dir: 'form-builder',
     distDir: 'form-builder/dist-types',
   },
+  {
+    name: 'formspec-studio-core',
+    title: 'formspec-studio-core — API Reference',
+    description: 'Pure TypeScript library for creating and editing Formspec artifact bundles. Every edit is a serializable Command dispatched against a Project. No framework dependencies, no singletons, no side effects.',
+    dir: 'packages/formspec-studio-core',
+  },
 ];
 
 for (const pkg of packages) {

@@ -32,6 +32,7 @@ api-docs:
 	npx typedoc --entryPoints packages/formspec-webcomponent/src/index.ts --tsconfig packages/formspec-webcomponent/tsconfig.json --out $(DOCS_DIR)/api/formspec-webcomponent
 	npm run --workspace=form-builder build:types
 	npx typedoc --entryPoints form-builder/src/index.ts --tsconfig form-builder/tsconfig.docs.json --skipErrorChecking --out $(DOCS_DIR)/api/form-builder
+	npm run --workspace=formspec-studio-core build || true
 	PYTHONPATH=src python3 scripts/generate-api-markdown.py src/formspec/API.llm.md
 	node scripts/generate-ts-api-markdown.mjs
 

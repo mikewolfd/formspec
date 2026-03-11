@@ -1,0 +1,296 @@
+import { describe, it, expect } from 'vitest';
+import { createProject } from '../src/index.js';
+
+describe('definition.addItem', () => {
+  it('adds a field to root with auto-generated key', () => {
+    const project = createProject();
+    const result = project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', dataType: 'string', label: 'Name' },
+    });
+
+    expect(result.rebuildComponentTree).toBe(true);
+    expect(result.insertedPath).toBeTypeOf('string');
+    expect(project.definition.items).toHaveLength(1);
+    expect(project.definition.items[0].type).toBe('field');
+    expect(project.definition.items[0].dataType).toBe('string');
+    expect(project.definition.items[0].label).toBe('Name');
+    expect(project.definition.items[0].key).toBeTypeOf('string');
+  });
+
+  it('uses explicit key when provided', () => {
+    const project = createProject();
+    const result = project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', key: 'email', dataType: 'string', label: 'Email' },
+    });
+
+    expect(result.insertedPath).toBe('email');
+    expect(project.definition.items[0].key).toBe('email');
+  });
+
+  it('defaults field dataType to string', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', key: 'name' },
+    });
+
+    expect(project.definition.items[0].dataType).toBe('string');
+  });
+
+  it('adds a group with empty children', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'group', key: 'address', label: 'Address' },
+    });
+
+    expect(project.definition.items[0].type).toBe('group');
+    expect(project.definition.items[0].children).toEqual([]);
+  });
+
+  it('adds item inside a parent group', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'group', key: 'address' },
+    });
+    const result = project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', key: 'street', parentPath: 'address', dataType: 'string' },
+    });
+
+    expect(result.insertedPath).toBe('address.street');
+    expect(project.definition.items[0].children).toHaveLength(1);
+    expect(project.definition.items[0].children![0].key).toBe('street');
+  });
+
+  it('inserts at a specific index', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'c' } });
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', key: 'b', insertIndex: 1 },
+    });
+
+    expect(project.definition.items.map(i => i.key)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('sets label, description, hint on the item', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: {
+        type: 'field', key: 'notes', dataType: 'text',
+        label: 'Notes', description: 'Additional info', hint: 'Optional',
+      },
+    });
+
+    const item = project.definition.items[0];
+    expect(item.label).toBe('Notes');
+    expect(item.description).toBe('Additional info');
+    expect(item.hint).toBe('Optional');
+    expect(item.dataType).toBe('text');
+  });
+});
+
+describe('definition.deleteItem', () => {
+  it('removes an item from root', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
+
+    project.dispatch({ type: 'definition.deleteItem', payload: { path: 'name' } });
+
+    expect(project.definition.items).toHaveLength(1);
+    expect(project.definition.items[0].key).toBe('email');
+  });
+
+  it('removes a nested item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f1', parentPath: 'g' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f2', parentPath: 'g' } });
+
+    project.dispatch({ type: 'definition.deleteItem', payload: { path: 'g.f1' } });
+
+    expect(project.definition.items[0].children).toHaveLength(1);
+    expect(project.definition.items[0].children![0].key).toBe('f2');
+  });
+
+  it('removes subtree when deleting a group', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'child', parentPath: 'g' } });
+
+    project.dispatch({ type: 'definition.deleteItem', payload: { path: 'g' } });
+
+    expect(project.definition.items).toHaveLength(0);
+  });
+
+  it('cleans up binds targeting deleted paths', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
+    project.dispatch({
+      type: 'definition.setBind',
+      payload: { path: 'email', properties: { required: 'true()' } },
+    });
+
+    expect(project.definition.binds).toHaveLength(1);
+
+    project.dispatch({ type: 'definition.deleteItem', payload: { path: 'email' } });
+
+    expect(project.definition.binds ?? []).toHaveLength(0);
+  });
+
+  it('signals rebuildComponentTree', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'x' } });
+
+    const result = project.dispatch({ type: 'definition.deleteItem', payload: { path: 'x' } });
+    expect(result.rebuildComponentTree).toBe(true);
+  });
+});
+
+describe('definition.renameItem', () => {
+  it('renames an item and returns the new path', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
+
+    const result = project.dispatch({
+      type: 'definition.renameItem',
+      payload: { path: 'name', newKey: 'fullName' },
+    });
+
+    expect(result.newPath).toBe('fullName');
+    expect(project.definition.items[0].key).toBe('fullName');
+  });
+
+  it('rewrites bind paths on rename', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
+    project.dispatch({
+      type: 'definition.setBind',
+      payload: { path: 'email', properties: { required: 'true()' } },
+    });
+
+    project.dispatch({
+      type: 'definition.renameItem',
+      payload: { path: 'email', newKey: 'emailAddress' },
+    });
+
+    expect(project.definition.binds![0].path).toBe('emailAddress');
+  });
+
+  it('renames nested item and updates path', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
+
+    const result = project.dispatch({
+      type: 'definition.renameItem',
+      payload: { path: 'g.f', newKey: 'renamed' },
+    });
+
+    expect(result.newPath).toBe('g.renamed');
+    expect(project.definition.items[0].children![0].key).toBe('renamed');
+  });
+});
+
+describe('definition.moveItem', () => {
+  it('moves an item to root', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
+
+    const result = project.dispatch({
+      type: 'definition.moveItem',
+      payload: { sourcePath: 'g.f' },
+    });
+
+    expect(result.newPath).toBe('f');
+    expect(project.definition.items).toHaveLength(2);
+    expect(project.definition.items[0].children).toHaveLength(0);
+    expect(project.definition.items[1].key).toBe('f');
+  });
+
+  it('moves an item into a group', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
+
+    const result = project.dispatch({
+      type: 'definition.moveItem',
+      payload: { sourcePath: 'f', targetParentPath: 'g' },
+    });
+
+    expect(result.newPath).toBe('g.f');
+    expect(project.definition.items).toHaveLength(1); // only 'g' at root
+    expect(project.definition.items[0].children).toHaveLength(1);
+  });
+
+  it('moves to a specific index', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'b' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'c' } });
+
+    project.dispatch({
+      type: 'definition.moveItem',
+      payload: { sourcePath: 'c', targetIndex: 0 },
+    });
+
+    expect(project.definition.items.map(i => i.key)).toEqual(['c', 'a', 'b']);
+  });
+});
+
+describe('definition.reorderItem', () => {
+  it('swaps with adjacent sibling downward', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'b' } });
+
+    project.dispatch({
+      type: 'definition.reorderItem',
+      payload: { path: 'a', direction: 'down' },
+    });
+
+    expect(project.definition.items.map(i => i.key)).toEqual(['b', 'a']);
+  });
+
+  it('swaps with adjacent sibling upward', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'b' } });
+
+    project.dispatch({
+      type: 'definition.reorderItem',
+      payload: { path: 'b', direction: 'up' },
+    });
+
+    expect(project.definition.items.map(i => i.key)).toEqual(['b', 'a']);
+  });
+});
+
+describe('definition.duplicateItem', () => {
+  it('deep clones an item with a suffixed key', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', key: 'email', dataType: 'string', label: 'Email' },
+    });
+
+    const result = project.dispatch({
+      type: 'definition.duplicateItem',
+      payload: { path: 'email' },
+    });
+
+    expect(result.insertedPath).toBeTypeOf('string');
+    expect(result.insertedPath).not.toBe('email');
+    expect(project.definition.items).toHaveLength(2);
+    expect(project.definition.items[1].label).toBe('Email');
+    expect(project.definition.items[1].dataType).toBe('string');
+  });
+});

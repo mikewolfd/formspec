@@ -36,7 +36,7 @@ LayoutNode trees with no side effects, signals, or DOM references.
 
 Reset the ID counter (for testing).
 
-## `planComponentTree(tree: any, ctx: PlanContext, prefix?: string, customComponentStack?: Set<string>): LayoutNode`
+## `planComponentTree(tree: any, ctx: PlanContext, prefix?: string, customComponentStack?: Set<string>, applyThemePages?: boolean): LayoutNode`
 
 Plan a component tree node into a LayoutNode tree.
 
@@ -45,7 +45,7 @@ tokens, expands custom components, and emits a JSON-serializable
 LayoutNode tree. Conditional rendering (`when`) and repeat groups are
 emitted as markers for the renderer to handle reactively.
 
-## `planDefinitionFallback(items: any[], ctx: PlanContext, prefix?: string): LayoutNode[]`
+## `planDefinitionFallback(items: any[], ctx: PlanContext, prefix?: string, applyThemePages?: boolean): LayoutNode[]`
 
 Plan definition items into LayoutNode trees (fallback when no component
 document is provided).

@@ -130,6 +130,7 @@ and optional screener/migration/presentation configuration.
 - **formPresentation?**: `any`
 - **screener?**: `{
         items: FormspecItem[];
+        binds?: FormspecBind[];
         routes: Array<{
             condition: string;
             target: string;
@@ -150,15 +151,7 @@ and optional screener/migration/presentation configuration.
 
 A single validation finding (error, warning, or info) targeting a specific field path.
 
-- **severity**: `"error" | "warning" | "info"`
-- **path**: `string`
-- **message**: `string`
-- **constraintKind**: `"required" | "type" | "cardinality" | "constraint" | "shape" | "external"`
-- **code**: `string`
-- **source?**: `"bind" | "shape"`
-- **shapeId?**: `string`
-- **constraint?**: `string`
-- **context?**: `Record<string, any>`
+- **kind** (`"required" | "type" | "cardinality" | "constraint" | "shape" | "external"`): Alias for constraintKind, used by some test suites and older clients.
 
 #### interface `ValidationReport`
 
@@ -174,6 +167,11 @@ A report is `valid` when it contains zero errors; warnings and infos do not affe
     }`
 - **timestamp**: `string`
 
+#### interface `PinnedResponseReference`
+
+- **definitionUrl**: `string`
+- **definitionVersion**: `string`
+
 #### interface `FormEngineRuntimeContext`
 
 Runtime configuration injected into the engine to control time, locale, timezone, and deterministic seeding.
@@ -182,6 +180,28 @@ Runtime configuration injected into the engine to control time, locale, timezone
 - **locale?**: `string`
 - **timeZone?**: `string`
 - **seed?**: `string | number`
+
+#### interface `RegistryEntry`
+
+A registry extension entry providing constraints and metadata for custom data types.
+
+- **name**: `string`
+- **category?**: `string`
+- **version?**: `string`
+- **status?**: `string`
+- **description?**: `string`
+- **compatibility?**: `{
+        formspecVersion?: string;
+        mappingDslVersion?: string;
+    }`
+- **deprecationNotice?**: `string`
+- **baseType?**: `string`
+- **constraints?**: `{
+        pattern?: string;
+        maxLength?: number;
+        [key: string]: any;
+    }`
+- **metadata?**: `Record<string, any>`
 
 #### interface `FormEngineDiagnosticsSnapshot`
 
@@ -276,26 +296,7 @@ A discriminated union of events that can be replayed against a FormEngine instan
 
 #### class `FormEngine`
 
-Central reactive form state manager for Formspec definitions.
-
-FormEngine parses a {@link FormspecDefinition} and builds a network of Preact signals
-representing field values, relevance (visibility), required/readonly state, validation
-results, repeat group counts, option lists, and computed variables. All signals update
-automatically when dependencies change.
-
-Key capabilities:
-- **FEL compilation** with caching and dependency tracking for calculated fields, constraints, and shapes.
-- **Bind constraint evaluation** (field-level: required, readonly, calculate, constraint, relevance).
-- **Shape evaluation** (cross-field rules with composition operators, supporting continuous/submit/demand timing).
-- **Repeat group lifecycle** (add/remove instances with automatic signal initialization and cleanup).
-- **Response serialization** honoring nonRelevantBehavior settings.
-- **Diagnostics snapshots** for debugging.
-- **Event replay** for testing and deterministic reproduction.
-- **Version migrations** for evolving definitions.
-- **Remote options** fetching from bind-configured URLs.
-- **Screener evaluation** for conditional form routing.
-
-##### `constructor(definition: FormspecDefinition, runtimeContext?: FormEngineRuntimeContext)`
+##### `constructor(definition: FormspecDefinition, runtimeContext?: FormEngineRuntimeContext, registryEntries?: RegistryEntry[])`
 
 Creates a new FormEngine from a Formspec definition.
 
@@ -318,6 +319,8 @@ compiles bind expressions, fetches remote options, and wires up shape evaluation
 - **dependencies** (`Record<string, string[]>`): Dependency graph mapping each field path to the paths it depends on, built during FEL compilation.
 - **structureVersion** (`Signal<number>`): Monotonically increasing counter that increments whenever repeat instances are added or removed, enabling reactive UI rebuilds.
 - **(get) formPresentation** (`any`): Returns the definition's `formPresentation` block (layout, wizard, default currency, etc.), or null if absent.
+
+##### `resolvePinnedDefinition(response: PinnedResponseReference, definitions: T[]): T`
 
 ##### `setRuntimeContext(context?: FormEngineRuntimeContext): void`
 
@@ -590,6 +593,10 @@ upstream values change.
 - **currentItemPath** (`string`): The fully-qualified dotted path of the item whose bind expression is being evaluated. Used for relative `$` field references.
 - **engine** (`any`): Reference to the FormEngine instance. Used by stdlib functions that need engine-level APIs (e.g. `instance()`, variable lookup).
 
+#### class `FelUnsupportedFunctionError`
+
+##### `constructor(functionName: string)`
+
 #### class `FelInterpreter`
 
 Chevrotain CstVisitor that evaluates a FEL CST against a live {@link FelContext}.
@@ -652,8 +659,6 @@ calculated fields, conditional relevance, validation constraints, etc.
 ##### `contextRef(ctx: any): any`
 
 ##### `functionCall(ctx: any): any`
-
-##### `ifCall(ctx: any): any`
 
 ##### `argList(ctx: any): any`
 
@@ -917,12 +922,6 @@ Every FEL expression string is parsed starting from this rule. It delegates
 to `letExpr`, which cascades through the full precedence hierarchy.
 The resulting CST node is passed to {@link FelInterpreter.evaluate} or
 {@link FelDependencyVisitor.getDependencies}.
-
-#### class `PathResolver`
-
-##### `resolve(currentPath: string, targetPath: string): string`
-
-##### `getParentPath(path: string): string`
 
 #### interface `RuntimeMappingResult`
 
