@@ -32,6 +32,8 @@ export type {
   ExtensionFilter,
   Change,
   FormspecChangelog,
+  FELParseContext,
+  FELMappingContext,
   FELParseResult,
   FELReferenceSet,
   FELFunctionEntry,

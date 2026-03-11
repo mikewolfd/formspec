@@ -66,6 +66,22 @@ describe('statistics', () => {
     expect(stats.variableCount).toBe(1);
     expect(stats.bindCount).toBe(1);
   });
+
+  it('reports expression, component node, and mapping rule counts', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'a', relevant: '$b > 0' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
+      { type: 'definition.setBind', payload: { path: 'a', properties: { calculate: '$b + 1' } } },
+      { type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'out.a', transform: 'expression' } },
+      { type: 'mapping.setRule', payload: { index: 0, property: 'expression', value: '$a + $b' } },
+    ]);
+
+    const stats = project.statistics();
+    expect(stats.expressionCount).toBeGreaterThanOrEqual(3);
+    expect(stats.componentNodeCount).toBeGreaterThanOrEqual(2);
+    expect(stats.mappingRuleCount).toBe(1);
+  });
 });
 
 // ── Simple definition readers ──────────────────────────────────────
@@ -396,6 +412,29 @@ describe('allExpressions', () => {
     expect(exprs.some(e => e.expression === '$a > 0')).toBe(true);
     expect(exprs.some(e => e.expression === '$a + $b')).toBe(true);
   });
+
+  it('includes mapping expressions and conditions', () => {
+    const project = createProject();
+    project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'out.a', transform: 'expression' } });
+    project.dispatch({ type: 'mapping.setRule', payload: { index: 0, property: 'expression', value: '$a + 1' } });
+    project.dispatch({ type: 'mapping.setRule', payload: { index: 0, property: 'condition', value: '$a > 0' } });
+
+    const exprs = project.allExpressions();
+    expect(exprs.some(e => e.expression === '$a + 1' && e.artifact === 'mapping')).toBe(true);
+    expect(exprs.some(e => e.expression === '$a > 0' && e.artifact === 'mapping')).toBe(true);
+  });
+
+  it('includes component when-guards from tree nodes', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'flag' } },
+      { type: 'component.addNode', payload: { parent: { nodeId: 'root' }, component: 'TextInput', bind: 'flag' } },
+      { type: 'component.setNodeProperty', payload: { node: { bind: 'flag' }, property: 'when', value: '$flag = true' } },
+    ]);
+
+    const exprs = project.allExpressions();
+    expect(exprs.some(e => e.artifact === 'component' && e.expression === '$flag = true')).toBe(true);
+  });
 });
 
 describe('availableReferences', () => {
@@ -417,6 +456,26 @@ describe('availableReferences', () => {
     expect(refs.instances).toHaveLength(1);
     expect(refs.instances[0].name).toBe('lookup');
   });
+
+  it('adds repeat context refs when targetPath is inside a repeatable group', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'group', key: 'rows', repeatable: true } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'amount', parentPath: 'rows', dataType: 'decimal' } },
+    ]);
+
+    const refs = project.availableReferences('rows[0].amount');
+    expect(refs.contextRefs).toEqual(expect.arrayContaining(['@current', '@index', '@count']));
+  });
+
+  it('adds mapping context refs when mapping context is provided', () => {
+    const project = createProject();
+    const refs = project.availableReferences({
+      targetPath: 'total',
+      mappingContext: { ruleIndex: 0, direction: 'forward' },
+    });
+    expect(refs.contextRefs).toEqual(expect.arrayContaining(['@source', '@target']));
+  });
 });
 
 describe('felFunctionCatalog', () => {
@@ -429,6 +488,15 @@ describe('felFunctionCatalog', () => {
     const sumFn = catalog.find(f => f.name === 'sum');
     expect(sumFn).toBeDefined();
     expect(sumFn!.source).toBe('builtin');
+  });
+
+  it('includes parser/runtime-backed built-ins with categories', () => {
+    const project = createProject();
+    const catalog = project.felFunctionCatalog();
+    const countWhere = catalog.find((entry) => entry.name === 'countWhere');
+    expect(countWhere).toBeDefined();
+    expect(countWhere!.source).toBe('builtin');
+    expect(countWhere!.category).toBe('aggregate');
   });
 
   it('includes extension functions from loaded registries', () => {
@@ -465,6 +533,12 @@ describe('expressionDependencies', () => {
     const project = createProject();
     expect(project.expressionDependencies('42 + 1')).toEqual([]);
   });
+
+  it('does not include references that appear only in strings/comments', () => {
+    const project = createProject();
+    const deps = project.expressionDependencies("$price + concat('$fake', 'x') /* $ignored */");
+    expect(deps).toEqual(['price']);
+  });
 });
 
 describe('fieldDependents', () => {
@@ -482,6 +556,18 @@ describe('fieldDependents', () => {
     expect(deps.binds.length).toBeGreaterThan(0);
     expect(deps.shapes.length).toBeGreaterThan(0);
     expect(deps.variables.length).toBeGreaterThan(0);
+  });
+
+  it('does not match partial field-name substrings', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'amount' } },
+      { type: 'definition.setBind', payload: { path: 'amount', properties: { calculate: '$amount + 1' } } },
+    ]);
+
+    const deps = project.fieldDependents('a');
+    expect(deps.binds).toEqual([]);
   });
 });
 
@@ -514,6 +600,19 @@ describe('dependencyGraph', () => {
     const edge = graph.edges.find(e => e.from === 'a' && e.to === 'b');
     expect(edge).toBeDefined();
   });
+
+  it('detects cycles across bind dependencies', () => {
+    const project = createProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
+      { type: 'definition.setBind', payload: { path: 'a', properties: { calculate: '$b + 1' } } },
+      { type: 'definition.setBind', payload: { path: 'b', properties: { calculate: '$a + 1' } } },
+    ]);
+
+    const graph = project.dependencyGraph();
+    expect(graph.cycles.length).toBeGreaterThan(0);
+  });
 });
 
 describe('parseFEL', () => {
@@ -536,6 +635,31 @@ describe('parseFEL', () => {
     expect(result.references).toContain('c');
     expect(result.functions).toContain('sum');
     expect(result.functions).toContain('max');
+  });
+
+  it('returns invalid for malformed FEL', () => {
+    const project = createProject();
+    const result = project.parseFEL('$a +');
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it('supports mapping context variables when context is provided', () => {
+    const project = createProject();
+    const result = project.parseFEL('@source', {
+      targetPath: 'a',
+      mappingContext: { direction: 'forward', ruleIndex: 0 },
+    });
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('flags unknown context variables when parse context is provided', () => {
+    const project = createProject();
+    const result = project.parseFEL('@source', { targetPath: 'a' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.code === 'FEL_UNKNOWN_VARIABLE')).toBe(true);
+    expect(result.ast).toBeUndefined();
   });
 });
 
@@ -636,6 +760,71 @@ describe('diffFromBaseline', () => {
     const removed = changes.find(c => c.type === 'removed' && c.path === 'old');
     expect(removed).toBeDefined();
     expect(removed!.impact).toBe('breaking');
+  });
+
+  it('detects renamed items as renamed changes', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0',
+          url: 'urn:test',
+          version: '1.0.0',
+          title: 'Test',
+          items: [{ type: 'field', key: 'name', label: 'Name', dataType: 'string' }],
+        },
+      },
+    });
+
+    project.dispatch({ type: 'definition.renameItem', payload: { path: 'name', newKey: 'fullName' } });
+    const changes = project.diffFromBaseline();
+    expect(changes.some((change) => change.type === 'renamed' && change.path === 'name')).toBe(true);
+  });
+
+  it('detects moved items as moved changes', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0',
+          url: 'urn:test',
+          version: '1.0.0',
+          title: 'Test',
+          items: [
+            {
+              type: 'group',
+              key: 'a',
+              label: 'A',
+              children: [{ type: 'field', key: 'f', label: 'F', dataType: 'string' }],
+            },
+            { type: 'group', key: 'b', label: 'B', children: [] },
+          ],
+        },
+      },
+    });
+
+    project.dispatch({ type: 'definition.moveItem', payload: { sourcePath: 'a.f', targetParentPath: 'b' } });
+    const changes = project.diffFromBaseline();
+    expect(changes.some((change) => change.type === 'moved' && change.path === 'a.f')).toBe(true);
+  });
+
+  it('detects same-path item modifications', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0',
+          url: 'urn:test',
+          version: '1.0.0',
+          title: 'Test',
+          items: [{ type: 'field', key: 'name', label: 'Name', dataType: 'string' }],
+        },
+      },
+    });
+
+    project.dispatch({
+      type: 'definition.setItemProperty',
+      payload: { path: 'name', property: 'label', value: 'Full Name' },
+    });
+    const changes = project.diffFromBaseline();
+    expect(changes.some((change) => change.type === 'modified' && change.path === 'name')).toBe(true);
   });
 });
 

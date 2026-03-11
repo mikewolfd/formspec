@@ -377,6 +377,30 @@ export interface ExtensionFilter {
 // ── FEL query types ─────────────────────────────────────────────────
 
 /**
+ * Mapping-editor context for expression parsing/autocomplete.
+ */
+export interface FELMappingContext {
+  /** Optional mapping rule index in the current document. */
+  ruleIndex?: number;
+  /** Mapping transform direction. */
+  direction?: 'forward' | 'reverse';
+  /** Source path context for the current rule/expression. */
+  sourcePath?: string;
+  /** Target path context for the current rule/expression. */
+  targetPath?: string;
+}
+
+/**
+ * Editor context for parsing FEL and assembling reference suggestions.
+ */
+export interface FELParseContext {
+  /** Definition path currently being edited (supports repeat-scope inference). */
+  targetPath?: string;
+  /** Optional mapping-editor context for mapping-specific references. */
+  mappingContext?: FELMappingContext;
+}
+
+/**
  * Result of parsing and validating a FEL expression via `Project.parseFEL()`.
  * Enables inline validation and autocomplete in expression editors.
  */

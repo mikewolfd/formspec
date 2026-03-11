@@ -17,6 +17,7 @@ import type {
   ExtensionFilter,
   Change,
   FormspecChangelog,
+  FELParseContext,
   FELParseResult,
   FELReferenceSet,
   FELFunctionEntry,
@@ -26,7 +27,23 @@ import type {
   Diagnostics,
   Diagnostic,
 } from './types.js';
-import type { FormspecDefinition, FormspecItem } from 'formspec-engine';
+import {
+  analyzeFEL,
+  getBuiltinFELFunctionCatalog,
+  getFELDependencies,
+  itemAtPath,
+  normalizeIndexedPath,
+  validateExtensionUsage,
+  type FELAnalysis,
+  type FormspecDefinition,
+  type FormspecItem,
+} from 'formspec-engine';
+import Ajv2020 from 'ajv/dist/2020.js';
+import type { ErrorObject, ValidateFunction } from 'ajv';
+import definitionSchema from '../../../schemas/definition.schema.json';
+import componentSchema from '../../../schemas/component.schema.json';
+import themeSchema from '../../../schemas/theme.schema.json';
+import mappingSchema from '../../../schemas/mapping.schema.json';
 import { getHandler } from './handlers.js';
 
 /** Maximum number of undo snapshots retained before oldest-first pruning. */
@@ -97,6 +114,81 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
       releases: [],
     },
   };
+}
+
+const ajv = new Ajv2020({
+  allErrors: true,
+  strict: false,
+  validateFormats: false,
+});
+
+const validateDefinitionSchema = ajv.compile(definitionSchema as Record<string, unknown>);
+const validateComponentSchema = ajv.compile(componentSchema as Record<string, unknown>);
+const validateThemeSchema = ajv.compile(themeSchema as Record<string, unknown>);
+const validateMappingSchema = ajv.compile(mappingSchema as Record<string, unknown>);
+
+/** Convert an Ajv error into the JSON-pointer-ish path format used by Studio diagnostics. */
+function schemaErrorPath(error: ErrorObject): string {
+  let pointer = error.instancePath || '';
+  // Ajv reports some keywords at the parent object; append the offending key so
+  // Studio can point diagnostics at the specific missing/extra property.
+  if (error.keyword === 'required') {
+    const missingProperty = (error.params as { missingProperty?: string }).missingProperty;
+    if (missingProperty) pointer = `${pointer}/${missingProperty}`;
+  } else if (error.keyword === 'additionalProperties') {
+    const additionalProperty = (error.params as { additionalProperty?: string }).additionalProperty;
+    if (additionalProperty) pointer = `${pointer}/${additionalProperty}`;
+  }
+  return pointer || '/';
+}
+
+/** Deterministic JSON stringification used to compare item payloads independent of property order. */
+function stableStringify(value: unknown): string {
+  if (value === null || value === undefined) return JSON.stringify(value);
+  if (typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+  }
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
+  const pairs = keys.map((key) => `${JSON.stringify(key)}:${stableStringify(obj[key])}`);
+  return `{${pairs.join(',')}}`;
+}
+
+type FlattenedItem = {
+  path: string;
+  parentPath: string;
+  key: string;
+  item: FormspecItem;
+  snapshot: string;
+  signature: string;
+};
+
+/** Flatten an item tree into comparable rows carrying both exact-path and rename-tolerant signatures. */
+function flattenItems(items: FormspecItem[], prefix = ''): FlattenedItem[] {
+  const rows: FlattenedItem[] = [];
+  for (const item of items) {
+    const path = prefix ? `${prefix}.${item.key}` : item.key;
+    const parentPath = prefix;
+    const withoutChildren = { ...(item as Record<string, unknown>) };
+    delete (withoutChildren as any).children;
+    const signatureSource = { ...withoutChildren };
+    // `snapshot` detects in-place edits at the same path; `signature` ignores the
+    // key so removed/added pairs can still be matched as rename/move candidates.
+    delete (signatureSource as any).key;
+    rows.push({
+      path,
+      parentPath,
+      key: item.key,
+      item,
+      snapshot: stableStringify(withoutChildren),
+      signature: stableStringify(signatureSource),
+    });
+    if (item.children?.length) {
+      rows.push(...flattenItems(item.children, path));
+    }
+  }
+  return rows;
 }
 
 /**
@@ -213,17 +305,7 @@ export class Project {
    * @returns The matching FormspecItem, or `undefined` if not found.
    */
   itemAt(path: string): FormspecItem | undefined {
-    const parts = path.split('.');
-    let items = this._state.definition.items;
-
-    for (let i = 0; i < parts.length; i++) {
-      const found = items.find(it => it.key === parts[i]);
-      if (!found) return undefined;
-      if (i === parts.length - 1) return found;
-      if (!found.children) return undefined;
-      items = found.children;
-    }
-    return undefined;
+    return itemAtPath(this._state.definition.items, path);
   }
 
   /**
@@ -247,6 +329,21 @@ export class Project {
     walk(this._state.definition.items, 1);
 
     const def = this._state.definition;
+    const expressionCount = this.allExpressions().length;
+
+    let componentNodeCount = 0;
+    const tree = this._state.component.tree as any;
+    if (tree) {
+      const queue = [tree];
+      while (queue.length > 0) {
+        const node = queue.shift()!;
+        componentNodeCount += 1;
+        if (Array.isArray(node.children)) queue.push(...node.children);
+      }
+    }
+
+    const mappingRules = (this._state.mapping.rules as unknown[] | undefined) ?? [];
+
     return {
       fieldCount,
       groupCount,
@@ -255,9 +352,9 @@ export class Project {
       bindCount: def.binds?.length ?? 0,
       shapeCount: def.shapes?.length ?? 0,
       variableCount: def.variables?.length ?? 0,
-      expressionCount: 0,
-      componentNodeCount: 0,
-      mappingRuleCount: 0,
+      expressionCount,
+      componentNodeCount,
+      mappingRuleCount: mappingRules.length,
     };
   }
 
@@ -491,70 +588,77 @@ export class Project {
 
   // ── FEL queries ────────────────────────────────────────────────
 
-  /**
-   * Extract `$field.path` references from a FEL expression string using regex.
-   * Produces deduplicated results. This is a lightweight static analysis --
-   * it does not parse the full FEL grammar.
-   * @param expr - The FEL expression to scan.
-   * @returns Deduplicated array of field path strings (without the `$` prefix).
-   */
-  private _extractFieldRefs(expr: string): string[] {
-    const refs: string[] = [];
-    const re = /\$([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(expr)) !== null) {
-      refs.push(m[1]);
-    }
-    return [...new Set(refs)];
+  private _analyzeExpression(expression: string): FELAnalysis {
+    return analyzeFEL(expression, { includeCst: true });
   }
 
-  /**
-   * Extract `@variableName` references from a FEL expression string using regex.
-   * Produces deduplicated results.
-   * @param expr - The FEL expression to scan.
-   * @returns Deduplicated array of variable name strings (without the `@` prefix).
-   */
-  private _extractVarRefs(expr: string): string[] {
-    const refs: string[] = [];
-    const re = /@([a-zA-Z_]\w*)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(expr)) !== null) {
-      refs.push(m[1]);
-    }
-    return [...new Set(refs)];
-  }
-
-  /**
-   * Extract function call names from a FEL expression string using regex.
-   * Matches identifiers immediately followed by `(`. Produces deduplicated results.
-   * @param expr - The FEL expression to scan.
-   * @returns Deduplicated array of function name strings.
-   */
-  private _extractFunctions(expr: string): string[] {
-    const fns: string[] = [];
-    const re = /([a-zA-Z_]\w*)\s*\(/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(expr)) !== null) {
-      fns.push(m[1]);
-    }
-    return [...new Set(fns)];
+  private _resolveParseContext(context?: string | FELParseContext): FELParseContext {
+    if (!context) return {};
+    if (typeof context === 'string') return { targetPath: context };
+    return context;
   }
 
   /**
    * Parse and validate a FEL expression without saving it to project state.
-   * Extracts field references and function calls via lightweight regex scanning.
+   * Parses with shared engine semantics; optional Studio context enables
+   * scope-aware variable/reference checks for editor usage.
    * Intended for expression editor inline validation and autocomplete support.
    * @param expression - The FEL expression string to parse.
+   * @param context - Optional Studio-owned editor context (`targetPath`, mapping scope).
    * @returns A {@link FELParseResult} with validity, errors, references, and function names.
    */
-  parseFEL(expression: string): FELParseResult {
-    const references = this._extractFieldRefs(expression);
-    const functions = this._extractFunctions(expression);
+  parseFEL(expression: string, context?: FELParseContext): FELParseResult {
+    const analysis = this._analyzeExpression(expression);
+    const parseErrors: Diagnostic[] = analysis.errors.map((error) => ({
+      artifact: 'definition',
+      path: 'expression',
+      severity: 'error',
+      code: 'FEL_PARSE_ERROR',
+      message: error.message,
+    }));
+
+    const semanticErrors: Diagnostic[] = [];
+    if (context !== undefined && analysis.valid) {
+      const available = this.availableReferences(this._resolveParseContext(context));
+      const knownFieldPaths = new Set(available.fields.map((field) => normalizeIndexedPath(field.path)));
+      const knownVariables = new Set([
+        ...available.variables.map((variable) => variable.name),
+        ...available.contextRefs
+          .filter((entry) => entry.startsWith('@'))
+          .map((entry) => entry.slice(1)),
+      ]);
+
+      for (const reference of analysis.references) {
+        if (!knownFieldPaths.has(normalizeIndexedPath(reference))) {
+          semanticErrors.push({
+            artifact: 'definition',
+            path: 'expression',
+            severity: 'error',
+            code: 'FEL_UNKNOWN_REFERENCE',
+            message: `Unknown field reference "$${reference}" in this editor context`,
+          });
+        }
+      }
+
+      for (const variable of analysis.variables) {
+        if (!knownVariables.has(variable)) {
+          semanticErrors.push({
+            artifact: 'definition',
+            path: 'expression',
+            severity: 'error',
+            code: 'FEL_UNKNOWN_VARIABLE',
+            message: `Unknown variable reference "@${variable}" in this editor context`,
+          });
+        }
+      }
+    }
+
     return {
-      valid: true,
-      errors: [],
-      references,
-      functions,
+      valid: analysis.valid && semanticErrors.length === 0,
+      errors: [...parseErrors, ...semanticErrors],
+      references: analysis.references,
+      functions: analysis.functions,
+      ast: analysis.valid && semanticErrors.length === 0 ? analysis.cst : undefined,
     };
   }
 
@@ -565,36 +669,32 @@ export class Project {
    * @returns An array of {@link FELFunctionEntry} objects with name, category, and source.
    */
   felFunctionCatalog(): FELFunctionEntry[] {
-    const builtins: FELFunctionEntry[] = [
-      'sum', 'count', 'min', 'max', 'avg',
-      'if', 'coalesce', 'switch',
-      'concat', 'substring', 'length', 'contains', 'startsWith', 'endsWith',
-      'matches', 'replace', 'trim', 'upper', 'lower', 'split', 'join',
-      'round', 'floor', 'ceil', 'abs', 'pow', 'sqrt', 'mod', 'log',
-      'today', 'now', 'date', 'dateDiff', 'dateAdd', 'year', 'month', 'day',
-      'boolean', 'number', 'string', 'int',
-      'true', 'false', 'null',
-      'not', 'and', 'or',
-      'selected', 'countSelected',
-      'position', 'last',
-    ].map(name => ({ name, category: 'builtin', source: 'builtin' as const }));
+    const catalog: FELFunctionEntry[] = getBuiltinFELFunctionCatalog().map((entry) => ({
+      name: entry.name,
+      category: entry.category,
+      source: 'builtin',
+    }));
+    const seen = new Set(catalog.map((entry) => entry.name));
 
     // Extension functions from loaded registries
     for (const reg of this._state.extensions.registries) {
       for (const [_, entry] of reg.catalog.entries) {
         const e = entry as any;
-        if (e.category === 'function') {
-          builtins.push({
+        if (e.category === 'function' && typeof e.name === 'string' && !seen.has(e.name)) {
+          catalog.push({
             name: e.name,
-            category: 'function',
+            category: typeof e.functionCategory === 'string'
+              ? e.functionCategory
+              : (typeof e.group === 'string' ? e.group : 'function'),
             source: 'extension',
             registryUrl: reg.url,
           });
+          seen.add(e.name);
         }
       }
     }
 
-    return builtins;
+    return catalog;
   }
 
   /**
@@ -602,10 +702,12 @@ export class Project {
    * Always includes all fields, variables, and instances. When `contextPath`
    * points to a repeatable group, also includes `@current`, `@index`, `@count`.
    * Used by expression editors for autocomplete and reference validation.
-   * @param contextPath - Optional dot-path providing scope context (e.g., inside a repeat group).
+   * @param context - Optional scope context. Accepts either a dot-path or a full parse context object.
    * @returns A {@link FELReferenceSet} with fields, variables, instances, and context-specific refs.
    */
-  availableReferences(contextPath?: string): FELReferenceSet {
+  availableReferences(context?: string | FELParseContext): FELReferenceSet {
+    const resolved = this._resolveParseContext(context);
+    const contextPath = resolved.targetPath;
     const fields: FELReferenceSet['fields'] = [];
     const walk = (items: FormspecItem[], prefix: string) => {
       for (const item of items) {
@@ -632,15 +734,25 @@ export class Project {
     }
 
     const contextRefs: string[] = [];
-    // If inside a repeat group, add context refs
+    // If inside a repeat group scope, add context refs.
     if (contextPath) {
-      const item = this.itemAt(contextPath);
-      if (item && item.type === 'group' && (item as any).repeatable) {
-        contextRefs.push('@current', '@index', '@count');
+      const normalized = normalizeIndexedPath(contextPath);
+      const parts = normalized.split('.').filter(Boolean);
+      for (let i = parts.length; i > 0; i--) {
+        const candidate = parts.slice(0, i).join('.');
+        const item = this.itemAt(candidate);
+        if (item?.type === 'group' && (item as any).repeatable) {
+          contextRefs.push('@current', '@index', '@count');
+          break;
+        }
       }
     }
 
-    return { fields, variables, instances, contextRefs };
+    if (resolved.mappingContext) {
+      contextRefs.push('@source', '@target');
+    }
+
+    return { fields, variables, instances, contextRefs: [...new Set(contextRefs)] };
   }
 
   /**
@@ -652,49 +764,111 @@ export class Project {
   allExpressions(): ExpressionLocation[] {
     const results: ExpressionLocation[] = [];
     const def = this._state.definition;
+    const pushExpression = (
+      expression: string | undefined,
+      artifact: ExpressionLocation['artifact'],
+      location: string,
+    ) => {
+      if (!expression || typeof expression !== 'string') return;
+      results.push({ expression, artifact, location });
+    };
 
     // Bind expressions
     for (const bind of def.binds ?? []) {
       const b = bind as any;
       for (const prop of ['calculate', 'relevant', 'required', 'readonly', 'constraint']) {
-        if (b[prop] && typeof b[prop] === 'string') {
-          results.push({
-            expression: b[prop],
-            artifact: 'definition',
-            location: `binds[${b.path}].${prop}`,
-          });
-        }
+        pushExpression(b[prop], 'definition', `binds[${b.path}].${prop}`);
+      }
+      if (typeof b.default === 'string' && b.default.startsWith('=')) {
+        pushExpression(b.default.slice(1), 'definition', `binds[${b.path}].default`);
       }
     }
 
     // Shape expressions
     for (const shape of def.shapes ?? []) {
       const s = shape as any;
-      if (s.constraint) {
-        results.push({
-          expression: s.constraint,
-          artifact: 'definition',
-          location: `shapes[${s.id}].constraint`,
-        });
-      }
-      if (s.activeWhen) {
-        results.push({
-          expression: s.activeWhen,
-          artifact: 'definition',
-          location: `shapes[${s.id}].activeWhen`,
-        });
+      pushExpression(s.constraint, 'definition', `shapes[${s.id}].constraint`);
+      pushExpression(s.activeWhen, 'definition', `shapes[${s.id}].activeWhen`);
+      if (s.context && typeof s.context === 'object') {
+        for (const [key, value] of Object.entries(s.context as Record<string, unknown>)) {
+          if (typeof value === 'string') {
+            pushExpression(value, 'definition', `shapes[${s.id}].context.${key}`);
+          }
+        }
       }
     }
 
     // Variable expressions
     for (const v of def.variables ?? []) {
       const va = v as any;
-      if (va.expression) {
-        results.push({
-          expression: va.expression,
-          artifact: 'definition',
-          location: `variables[${va.name}]`,
-        });
+      pushExpression(va.expression, 'definition', `variables[${va.name}]`);
+    }
+
+    // Item-level FEL-bearing properties
+    const walkItems = (items: FormspecItem[], prefix: string) => {
+      for (const item of items) {
+        const path = prefix ? `${prefix}.${item.key}` : item.key;
+        const dynamic = item as any;
+        for (const prop of ['relevant', 'required', 'readonly', 'calculate', 'constraint']) {
+          if (typeof dynamic[prop] === 'string') {
+            pushExpression(dynamic[prop], 'definition', `items[${path}].${prop}`);
+          }
+        }
+        if (typeof dynamic.initialValue === 'string' && dynamic.initialValue.startsWith('=')) {
+          pushExpression(dynamic.initialValue.slice(1), 'definition', `items[${path}].initialValue`);
+        }
+        if (item.children) walkItems(item.children, path);
+      }
+    };
+    walkItems(def.items, '');
+
+    // Mapping rule expressions
+    const rules = (this._state.mapping as any).rules as any[] | undefined;
+    if (rules) {
+      for (let i = 0; i < rules.length; i++) {
+        const rule = rules[i];
+        pushExpression(rule.expression, 'mapping', `rules[${i}].expression`);
+        pushExpression(rule.condition, 'mapping', `rules[${i}].condition`);
+        if (rule.reverse && typeof rule.reverse === 'object') {
+          pushExpression(rule.reverse.expression, 'mapping', `rules[${i}].reverse.expression`);
+          pushExpression(rule.reverse.condition, 'mapping', `rules[${i}].reverse.condition`);
+        }
+        if (Array.isArray(rule.innerRules)) {
+          for (let j = 0; j < rule.innerRules.length; j++) {
+            const inner = rule.innerRules[j];
+            pushExpression(inner.expression, 'mapping', `rules[${i}].innerRules[${j}].expression`);
+            pushExpression(inner.condition, 'mapping', `rules[${i}].innerRules[${j}].condition`);
+          }
+        }
+      }
+    }
+
+    // Component document `when` guards
+    const walkComponentNode = (node: unknown, location: string) => {
+      if (!node || typeof node !== 'object') return;
+      const n = node as Record<string, unknown>;
+      if (typeof n.when === 'string') {
+        pushExpression(n.when, 'component', `${location}.when`);
+      }
+      if (Array.isArray(n.children)) {
+        for (let i = 0; i < n.children.length; i++) {
+          walkComponentNode(n.children[i], `${location}.children[${i}]`);
+        }
+      }
+    };
+
+    const componentDoc = this._state.component as any;
+    if (componentDoc.tree) {
+      walkComponentNode(componentDoc.tree, 'tree');
+    }
+
+    const templateRegistry = componentDoc.components ?? componentDoc.customComponents;
+    if (templateRegistry && typeof templateRegistry === 'object') {
+      for (const [name, template] of Object.entries(templateRegistry as Record<string, unknown>)) {
+        const templateTree = (template as any)?.tree;
+        if (templateTree) {
+          walkComponentNode(templateTree, `components[${name}].tree`);
+        }
       }
     }
 
@@ -708,7 +882,7 @@ export class Project {
    * @returns An array of field path strings referenced by the expression.
    */
   expressionDependencies(expression: string): string[] {
-    return this._extractFieldRefs(expression);
+    return getFELDependencies(expression);
   }
 
   /**
@@ -721,33 +895,47 @@ export class Project {
   fieldDependents(fieldPath: string): FieldDependents {
     const result: FieldDependents = { binds: [], shapes: [], variables: [], mappingRules: [] };
     const def = this._state.definition;
-    const pattern = '$' + fieldPath;
+    const target = normalizeIndexedPath(fieldPath);
+    const expressionReferencesField = (expression: string): boolean => {
+      const refs = getFELDependencies(expression).map(ref => normalizeIndexedPath(ref));
+      return refs.includes(target);
+    };
 
     // Check binds
     for (const bind of def.binds ?? []) {
       const b = bind as any;
       for (const prop of ['calculate', 'relevant', 'required', 'readonly', 'constraint']) {
-        if (b[prop] && typeof b[prop] === 'string' && b[prop].includes(pattern)) {
+        if (typeof b[prop] === 'string' && expressionReferencesField(b[prop])) {
           result.binds.push({ path: b.path, property: prop });
         }
+      }
+      if (typeof b.default === 'string' && b.default.startsWith('=') && expressionReferencesField(b.default.slice(1))) {
+        result.binds.push({ path: b.path, property: 'default' });
       }
     }
 
     // Check shapes
     for (const shape of def.shapes ?? []) {
       const s = shape as any;
-      if (s.constraint && s.constraint.includes(pattern)) {
+      if (typeof s.constraint === 'string' && expressionReferencesField(s.constraint)) {
         result.shapes.push({ id: s.id, property: 'constraint' });
       }
-      if (s.activeWhen && s.activeWhen.includes(pattern)) {
+      if (typeof s.activeWhen === 'string' && expressionReferencesField(s.activeWhen)) {
         result.shapes.push({ id: s.id, property: 'activeWhen' });
+      }
+      if (s.context && typeof s.context === 'object') {
+        for (const [key, value] of Object.entries(s.context as Record<string, unknown>)) {
+          if (typeof value === 'string' && expressionReferencesField(value)) {
+            result.shapes.push({ id: s.id, property: `context.${key}` });
+          }
+        }
       }
     }
 
     // Check variables
     for (const v of def.variables ?? []) {
       const va = v as any;
-      if (va.expression && va.expression.includes(pattern)) {
+      if (typeof va.expression === 'string' && expressionReferencesField(va.expression)) {
         result.variables.push(va.name);
       }
     }
@@ -756,7 +944,13 @@ export class Project {
     const rules = (this._state.mapping as any).rules;
     if (rules) {
       for (let i = 0; i < rules.length; i++) {
-        if (rules[i].sourcePath === fieldPath || (rules[i].expression && rules[i].expression.includes(pattern))) {
+        const rule = rules[i];
+        const sourcePath = typeof rule.sourcePath === 'string' ? normalizeIndexedPath(rule.sourcePath) : undefined;
+        const dependsOnField =
+          sourcePath === target
+          || (typeof rule.expression === 'string' && expressionReferencesField(rule.expression))
+          || (typeof rule.condition === 'string' && expressionReferencesField(rule.condition));
+        if (dependsOnField) {
           result.mappingRules.push(i);
         }
       }
@@ -772,13 +966,16 @@ export class Project {
    * @returns Deduplicated array of bind paths that reference this variable.
    */
   variableDependents(variableName: string): string[] {
-    const pattern = '@' + variableName;
     const paths: string[] = [];
+    const referencesVariable = (expression: string): boolean => {
+      const analysis = analyzeFEL(expression);
+      return analysis.valid && analysis.variables.includes(variableName);
+    };
 
     for (const bind of this._state.definition.binds ?? []) {
       const b = bind as any;
       for (const prop of ['calculate', 'relevant', 'required', 'readonly', 'constraint']) {
-        if (b[prop] && typeof b[prop] === 'string' && b[prop].includes(pattern)) {
+        if (typeof b[prop] === 'string' && referencesVariable(b[prop])) {
           paths.push(b.path);
           break;
         }
@@ -791,54 +988,136 @@ export class Project {
   /**
    * Build a full dependency graph across all FEL expressions in the project.
    * Nodes represent fields, variables, and shapes. Edges represent FEL references
-   * from bind properties and variable expressions. Cycles are reported but not
-   * currently detected (the `cycles` array is always empty).
+   * from binds, variables, and shape expressions. Cycles are detected with a
+   * DFS over the normalized node graph.
    * @returns A {@link DependencyGraph} with nodes, edges, and a cycles array.
    */
   dependencyGraph(): DependencyGraph {
     const nodes: DependencyGraph['nodes'] = [];
     const edges: DependencyGraph['edges'] = [];
     const def = this._state.definition;
+    const nodeIds = new Set<string>();
+    const addNode = (id: string, type: 'field' | 'variable' | 'shape') => {
+      if (nodeIds.has(id)) return;
+      nodeIds.add(id);
+      nodes.push({ id, type });
+    };
+    const addEdge = (from: string, to: string, via: string) => {
+      edges.push({ from, to, via });
+    };
+    const addExpressionEdges = (expression: string, to: string, via: string) => {
+      const analysis = analyzeFEL(expression);
+      if (!analysis.valid) return;
+      // Normalize field paths before graph insertion so repeat indices do not
+      // fragment the graph into separate nodes for the same logical field.
+      for (const ref of analysis.references) {
+        addEdge(normalizeIndexedPath(ref), normalizeIndexedPath(to), via);
+      }
+      for (const variable of analysis.variables) {
+        addEdge(variable, normalizeIndexedPath(to), via);
+      }
+    };
 
     // Add field nodes
     for (const path of this.fieldPaths()) {
-      nodes.push({ id: path, type: 'field' });
+      addNode(path, 'field');
     }
 
     // Add variable nodes
     for (const v of def.variables ?? []) {
       const va = v as any;
-      nodes.push({ id: va.name, type: 'variable' });
+      addNode(va.name, 'variable');
     }
 
     // Add shape nodes
     for (const s of def.shapes ?? []) {
-      nodes.push({ id: (s as any).id, type: 'shape' });
+      addNode((s as any).id, 'shape');
     }
 
     // Build edges from binds
     for (const bind of def.binds ?? []) {
       const b = bind as any;
       for (const prop of ['calculate', 'relevant', 'required', 'readonly', 'constraint']) {
-        if (b[prop] && typeof b[prop] === 'string') {
-          for (const ref of this._extractFieldRefs(b[prop])) {
-            edges.push({ from: ref, to: b.path, via: prop });
-          }
+        if (typeof b[prop] === 'string') {
+          addExpressionEdges(b[prop], b.path, prop);
         }
+      }
+      if (typeof b.default === 'string' && b.default.startsWith('=')) {
+        addExpressionEdges(b.default.slice(1), b.path, 'default');
       }
     }
 
     // Build edges from variables
     for (const v of def.variables ?? []) {
       const va = v as any;
-      if (va.expression) {
-        for (const ref of this._extractFieldRefs(va.expression)) {
-          edges.push({ from: ref, to: va.name, via: 'variable' });
+      if (typeof va.expression === 'string') {
+        addExpressionEdges(va.expression, va.name, 'variable');
+      }
+    }
+
+    // Build edges from shapes
+    for (const shape of def.shapes ?? []) {
+      const s = shape as any;
+      if (typeof s.constraint === 'string') {
+        addExpressionEdges(s.constraint, s.id, 'shape.constraint');
+      }
+      if (typeof s.activeWhen === 'string') {
+        addExpressionEdges(s.activeWhen, s.id, 'shape.activeWhen');
+      }
+      if (s.context && typeof s.context === 'object') {
+        for (const [key, value] of Object.entries(s.context as Record<string, unknown>)) {
+          if (typeof value === 'string') {
+            addExpressionEdges(value, s.id, `shape.context.${key}`);
+          }
         }
       }
     }
 
-    return { nodes, edges, cycles: [] };
+    // Detect cycles using DFS over known node IDs only.
+    const adjacency = new Map<string, Set<string>>();
+    for (const edge of edges) {
+      if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue;
+      const toSet = adjacency.get(edge.from) ?? new Set<string>();
+      toSet.add(edge.to);
+      adjacency.set(edge.from, toSet);
+    }
+
+    const visited = new Set<string>();
+    const inStack = new Set<string>();
+    const stack: string[] = [];
+    const cycles: string[][] = [];
+    const cycleKeys = new Set<string>();
+
+    const dfs = (node: string) => {
+      visited.add(node);
+      inStack.add(node);
+      stack.push(node);
+
+      for (const next of adjacency.get(node) ?? []) {
+        if (!visited.has(next)) {
+          dfs(next);
+          continue;
+        }
+        if (!inStack.has(next)) continue;
+        const start = stack.indexOf(next);
+        if (start < 0) continue;
+        const cycle = stack.slice(start);
+        const key = cycle.join('->');
+        if (!cycleKeys.has(key)) {
+          cycleKeys.add(key);
+          cycles.push(cycle);
+        }
+      }
+
+      stack.pop();
+      inStack.delete(node);
+    };
+
+    for (const node of nodeIds) {
+      if (!visited.has(node)) dfs(node);
+    }
+
+    return { nodes, edges, cycles };
   }
 
   // ── Extension queries ──────────────────────────────────────────
@@ -878,11 +1157,12 @@ export class Project {
 
   /**
    * Compute a structured diff from a baseline (or a specific published version)
-   * to the current definition state. Compares item keys to detect additions and
-   * removals, classifying removals as breaking and additions as compatible.
+   * to the current definition state. Tracks same-path edits, then pairs removed
+   * and added rows with identical non-key signatures to detect renames/moves
+   * before emitting plain additions/removals.
    * @param fromVersion - Optional version string to diff from. If omitted, uses
    *   the creation-time baseline. Throws if the specified version is not found.
-   * @returns An array of {@link Change} objects describing added/removed items with impact classification.
+   * @returns An array of {@link Change} objects with impact classification.
    */
   diffFromBaseline(fromVersion?: string): Change[] {
     let baseline: FormspecDefinition;
@@ -896,46 +1176,100 @@ export class Project {
 
     const current = this._state.definition;
     const changes: Change[] = [];
+    const baselineRows = flattenItems(baseline.items);
+    const currentRows = flattenItems(current.items);
+    const baselineByPath = new Map(baselineRows.map((row) => [row.path, row]));
+    const currentByPath = new Map(currentRows.map((row) => [row.path, row]));
 
-    // Compare items
-    const baselineKeys = new Set<string>();
-    const walkBaseline = (items: FormspecItem[]) => {
-      for (const item of items) {
-        baselineKeys.add(item.key);
-        if (item.children) walkBaseline(item.children);
-      }
-    };
-    walkBaseline(baseline.items);
+    const baselinePaths = new Set(baselineByPath.keys());
+    const currentPaths = new Set(currentByPath.keys());
 
-    const currentKeys = new Set<string>();
-    const walkCurrent = (items: FormspecItem[]) => {
-      for (const item of items) {
-        currentKeys.add(item.key);
-        if (!baselineKeys.has(item.key)) {
-          changes.push({
-            type: 'added',
-            target: 'item',
-            path: item.key,
-            impact: 'compatible',
-          });
-        }
-        if (item.children) walkCurrent(item.children);
-      }
-    };
-    walkCurrent(current.items);
-
-    for (const key of baselineKeys) {
-      if (!currentKeys.has(key)) {
-        changes.push({
-          type: 'removed',
-          target: 'item',
-          path: key,
-          impact: 'breaking',
-        });
-      }
+    // Same-path item modifications.
+    for (const path of baselinePaths) {
+      if (!currentPaths.has(path)) continue;
+      const previous = baselineByPath.get(path)!;
+      const next = currentByPath.get(path)!;
+      if (previous.snapshot === next.snapshot) continue;
+      changes.push({
+        type: 'modified',
+        target: 'item',
+        path,
+        impact: 'compatible',
+        before: previous.item,
+        after: next.item,
+      });
     }
 
-    return changes;
+    const removedPaths = [...baselinePaths].filter((path) => !currentPaths.has(path));
+    const addedPaths = [...currentPaths].filter((path) => !baselinePaths.has(path));
+    const unmatchedAdded = new Set(addedPaths);
+
+    // Pair removed/added rows greedily to collapse structural churn into a
+    // rename/move when the underlying item payload is otherwise unchanged.
+    for (const removedPath of removedPaths) {
+      const removed = baselineByPath.get(removedPath)!;
+      const pairedPath = [...unmatchedAdded].find((candidatePath) => {
+        const added = currentByPath.get(candidatePath)!;
+        return added.signature === removed.signature;
+      });
+      if (!pairedPath) continue;
+
+      const added = currentByPath.get(pairedPath)!;
+      unmatchedAdded.delete(pairedPath);
+
+      const renamedOnly = removed.parentPath === added.parentPath && removed.key !== added.key;
+      changes.push({
+        type: renamedOnly ? 'renamed' : 'moved',
+        target: 'item',
+        path: removedPath,
+        impact: 'breaking',
+        before: removedPath,
+        after: pairedPath,
+        description: `${removedPath} -> ${pairedPath}`,
+      });
+    }
+
+    const pairedRemoved = new Set(
+      changes
+        .filter((change) => change.type === 'renamed' || change.type === 'moved')
+        .map((change) => change.path),
+    );
+
+    for (const removedPath of removedPaths) {
+      if (pairedRemoved.has(removedPath)) continue;
+      changes.push({
+        type: 'removed',
+        target: 'item',
+        path: removedPath,
+        impact: 'breaking',
+      });
+    }
+
+    for (const addedPath of unmatchedAdded) {
+      changes.push({
+        type: 'added',
+        target: 'item',
+        path: addedPath,
+        impact: 'compatible',
+      });
+    }
+
+    if (baseline.title !== current.title) {
+      changes.push({
+        type: 'modified',
+        target: 'metadata',
+        path: 'title',
+        impact: 'cosmetic',
+        before: baseline.title,
+        after: current.title,
+      });
+    }
+
+    return changes.sort((a, b) => {
+      if (a.target !== b.target) return a.target.localeCompare(b.target);
+      if (a.path !== b.path) return a.path.localeCompare(b.path);
+      return a.type.localeCompare(b.type);
+    });
   }
 
   /**
@@ -969,11 +1303,12 @@ export class Project {
    * (on save, on panel open, on a debounce timer, etc.).
    *
    * Current passes:
-   * - **extensions**: Walks all items for `x-` properties not resolvable against loaded registries
-   *   (produces `UNRESOLVED_EXTENSION` errors).
-   * - **consistency**: Detects orphan component binds (bound to nonexistent fields,
-   *   `ORPHAN_COMPONENT_BIND` warnings) and stale mapping rule source paths
-   *   (`STALE_MAPPING_SOURCE` warnings).
+   * - **structural**: JSON Schema validation for artifacts that declare the
+   *   full Studio-managed document surface.
+   * - **expressions**: Parser-backed FEL validation for every indexed expression.
+   * - **extensions**: Registry-backed extension usage checks on definition items.
+   * - **consistency**: Cross-artifact reference checks (component binds, mapping
+   *   source paths, theme selectors, and stale theme overrides/region keys).
    *
    * @returns A {@link Diagnostics} object with categorized diagnostic arrays and severity counts.
    */
@@ -983,34 +1318,92 @@ export class Project {
     const extensions: Diagnostic[] = [];
     const consistency: Diagnostic[] = [];
 
-    // Extension resolution: check all items for unresolved x- properties
-    const walkExtensions = (items: FormspecItem[], prefix: string) => {
-      for (const item of items) {
-        const path = prefix ? `${prefix}.${item.key}` : item.key;
-        for (const key of Object.keys(item)) {
-          if (key.startsWith('x-') && !this.resolveExtension(key)) {
-            extensions.push({
-              artifact: 'definition',
-              path,
-              severity: 'error',
-              code: 'UNRESOLVED_EXTENSION',
-              message: `Extension "${key}" not found in any loaded registry`,
-            });
-          }
-        }
-        if (item.children) walkExtensions(item.children, path);
+    const applySchemaValidator = (
+      artifact: Diagnostic['artifact'],
+      validator: ValidateFunction,
+      document: unknown,
+    ) => {
+      const valid = validator(document);
+      if (valid || !validator.errors) return;
+      for (const error of validator.errors) {
+        structural.push({
+          artifact,
+          path: schemaErrorPath(error),
+          severity: 'error',
+          code: 'SCHEMA_VALIDATION_ERROR',
+          message: error.message ?? `Schema validation failed for ${artifact} document`,
+        });
       }
     };
-    walkExtensions(this._state.definition.items, '');
+
+    // Structural diagnostics (Ajv/JSON Schema). We only validate artifacts that
+    // opt into the full schema surface used by this project.
+    const definitionDoc = this._state.definition as Record<string, unknown>;
+    if (definitionDoc.status !== undefined) {
+      applySchemaValidator('definition', validateDefinitionSchema, definitionDoc);
+    }
+    const componentDoc = this._state.component as Record<string, unknown>;
+    if (typeof componentDoc.$formspecComponent === 'string') {
+      applySchemaValidator('component', validateComponentSchema, componentDoc);
+    }
+    const themeDoc = this._state.theme as Record<string, unknown>;
+    if (typeof themeDoc.$formspecTheme === 'string') {
+      applySchemaValidator('theme', validateThemeSchema, themeDoc);
+    }
+    const mappingDoc = this._state.mapping as Record<string, unknown>;
+    if (typeof mappingDoc.version === 'string' && Array.isArray(mappingDoc.rules)) {
+      applySchemaValidator('mapping', validateMappingSchema, mappingDoc);
+    }
+
+    // Expression diagnostics: parser-backed FEL analysis for all indexed expressions.
+    for (const expr of this.allExpressions()) {
+      const analysis = analyzeFEL(expr.expression);
+      if (analysis.valid) continue;
+      for (const error of analysis.errors) {
+        expressions.push({
+          artifact: expr.artifact,
+          path: expr.location,
+          severity: 'error',
+          code: 'FEL_PARSE_ERROR',
+          message: error.message,
+        });
+      }
+    }
+
+    // Extension diagnostics: shared engine helper over plain definition items.
+    const extensionLookup = new Map<string, Record<string, unknown>>();
+    for (const registry of this._state.extensions.registries) {
+      for (const [name, entry] of registry.catalog.entries) {
+        if (!extensionLookup.has(name)) {
+          extensionLookup.set(name, entry as Record<string, unknown>);
+        }
+      }
+    }
+    for (const issue of validateExtensionUsage(this._state.definition.items, {
+      resolveEntry: (name) => extensionLookup.get(name) as any,
+    })) {
+      extensions.push({
+        artifact: 'definition',
+        path: issue.path,
+        severity: issue.severity,
+        code: issue.code,
+        message: issue.message,
+      });
+    }
+
+    const itemRows = flattenItems(this._state.definition.items);
+    const itemKeySet = new Set(itemRows.map((row) => row.key));
+    const fieldRows = itemRows.filter((row) => row.item.type === 'field');
+    const fieldPaths = new Set(fieldRows.map((row) => row.path));
+    const normalizedFieldPaths = new Set(fieldRows.map((row) => normalizeIndexedPath(row.path)));
 
     // Consistency: orphan component binds
-    const fieldKeys = new Set(this.fieldPaths());
     const tree = this._state.component.tree as any;
     if (tree) {
       const queue = [tree];
       while (queue.length > 0) {
         const node = queue.shift()!;
-        if (node.bind && !fieldKeys.has(node.bind)) {
+        if (node.bind && !fieldPaths.has(node.bind) && !itemKeySet.has(node.bind)) {
           consistency.push({
             artifact: 'component',
             path: node.bind,
@@ -1028,13 +1421,73 @@ export class Project {
     if (rules) {
       for (let i = 0; i < rules.length; i++) {
         const sp = rules[i].sourcePath;
-        if (sp && !fieldKeys.has(sp)) {
+        if (typeof sp === 'string' && !normalizedFieldPaths.has(normalizeIndexedPath(sp))) {
           consistency.push({
             artifact: 'mapping',
             path: `rules[${i}].sourcePath`,
             severity: 'warning',
             code: 'STALE_MAPPING_SOURCE',
             message: `Mapping rule source path "${sp}" does not match any field in the definition`,
+          });
+        }
+      }
+    }
+
+    // Consistency: theme selector matches and stale item/page references.
+    const selectors = (this._state.theme as any).selectors as any[] | undefined;
+    if (Array.isArray(selectors)) {
+      for (let i = 0; i < selectors.length; i++) {
+        const selector = selectors[i];
+        const match = selector?.match;
+        if (!match || typeof match !== 'object') continue;
+        const hasMatch = itemRows.some((row) => {
+          const asAny = row.item as any;
+          if (typeof match.type === 'string' && row.item.type !== match.type) return false;
+          if (typeof match.dataType === 'string' && asAny.dataType !== match.dataType) return false;
+          return true;
+        });
+        if (!hasMatch) {
+          consistency.push({
+            artifact: 'theme',
+            path: `selectors[${i}]`,
+            severity: 'warning',
+            code: 'UNMATCHED_THEME_SELECTOR',
+            message: 'Theme selector does not match any current definition item',
+          });
+        }
+      }
+    }
+
+    const themeItems = (this._state.theme as any).items as Record<string, unknown> | undefined;
+    if (themeItems) {
+      for (const key of Object.keys(themeItems)) {
+        if (!itemKeySet.has(key) && !fieldPaths.has(key)) {
+          consistency.push({
+            artifact: 'theme',
+            path: `items.${key}`,
+            severity: 'warning',
+            code: 'STALE_THEME_ITEM_OVERRIDE',
+            message: `Theme item override "${key}" does not match any item key in the definition`,
+          });
+        }
+      }
+    }
+
+    const pages = (this._state.theme as any).pages as any[] | undefined;
+    if (Array.isArray(pages)) {
+      for (let i = 0; i < pages.length; i++) {
+        const regions = pages[i]?.regions;
+        if (!Array.isArray(regions)) continue;
+        for (let j = 0; j < regions.length; j++) {
+          const key = regions[j]?.key;
+          if (typeof key !== 'string') continue;
+          if (itemKeySet.has(key) || fieldPaths.has(key)) continue;
+          consistency.push({
+            artifact: 'theme',
+            path: `pages[${i}].regions[${j}].key`,
+            severity: 'warning',
+            code: 'STALE_THEME_REGION_KEY',
+            message: `Theme page region key "${key}" does not match any item key in the definition`,
           });
         }
       }
