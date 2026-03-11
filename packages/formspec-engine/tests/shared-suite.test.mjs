@@ -10,6 +10,18 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const suiteDir = path.join(repoRoot, 'tests', 'conformance', 'suite');
 const realExamplesManifestPath = path.join(suiteDir, 'real-examples.manifest.json');
+const originalConsoleError = console.error;
+
+console.error = (...args) => {
+  if (typeof args[0] === 'string' && args[0].startsWith('Failed to load instance source')) {
+    return;
+  }
+  originalConsoleError.apply(console, args);
+};
+
+test.after(() => {
+  console.error = originalConsoleError;
+});
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));

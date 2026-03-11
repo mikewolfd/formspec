@@ -28,6 +28,7 @@ The suite is organized into five functional tiers as defined in **ADR 0035**:
 | **Standards** | Spec Example Extraction | `conformance/spec/test_spec_examples.py` | 227 |
 | | Cross-Spec Contract | `conformance/spec/test_cross_spec_contracts.py` | 177 |
 | | Property-Based (Fuzzing) | `conformance/fuzzing/test_property_based.py` | 50 |
+| | Cross-Runtime Fuzzing | `conformance/fuzzing/test_cross_runtime_fuzzing.py` | 2 |
 | | Round-Trip fidelity | `conformance/roundtrip/test_roundtrip_contracts.py` | 11 |
 | **Runtime** | FEL Parser | `unit/test_fel_parser.py` | 109 |
 | | FEL Evaluator | `unit/test_fel_evaluator.py` | 110 |
@@ -69,7 +70,7 @@ Hand-written positive/negative test cases in `tests/conformance/schemas/`. One a
 Automatically extracts every ` ```json ` block from every `.md` spec file, classifies it, and validates against the appropriate schema in `tests/conformance/spec/test_spec_examples.py`.
 
 ### Layer 3: Property-Based / Generative Testing
-Uses Hypothesis in `tests/conformance/fuzzing/` to generate random valid documents and verify they pass validation, then applies targeted mutations to verify rejections.
+Uses Hypothesis in `tests/conformance/fuzzing/` to generate random valid documents and verify they pass validation, then applies targeted mutations to verify rejections. This directory also contains cross-runtime fuzzing that compares normalized Python and Node engine results for FEL evaluation and processing semantics.
 
 ### Layer 4: Cross-Spec Contract Tests
 Verifies normative spec prose matches actual JSON schema structure in `tests/conformance/spec/test_cross_spec_contracts.py`.
@@ -103,6 +104,7 @@ npm run test:e2e
 python3 -m pytest tests/unit/ -v
 python3 -m pytest tests/conformance/schemas/ -v
 python3 -m pytest tests/e2e/api/ -v
+python3 -m pytest tests/conformance/parity/test_shared_suite.py tests/conformance/fuzzing/test_cross_runtime_fuzzing.py -v
 
 # With coverage (Python):
 python3 -m pytest tests/ --cov=src/formspec --cov-report=term

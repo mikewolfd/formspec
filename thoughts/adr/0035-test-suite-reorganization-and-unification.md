@@ -16,6 +16,38 @@ For each migrated behavior:
 
 Build the new native parity runners first, migrate high-value cases through that duplication loop, and remove the old Playwright and matrix-based parity infrastructure only after the replacement is green in CI.
 
+## Implementation Status
+Update as of 2026-03-10:
+
+- Implemented:
+  - shared conformance schema at `schemas/conformance-suite.schema.json`
+  - shared case directory at `tests/conformance/suite/`
+  - native Python runner at `tests/conformance/parity/test_shared_suite.py`
+  - native Node runner at `packages/formspec-engine/tests/shared-suite.test.mjs`
+  - initial shared cases for six FEL parity scenarios plus real-example-backed submit-valid cases for grant-application, clinical-intake, grant-report, and invoice
+  - removal of the legacy Playwright parity runner, Python subprocess evaluator, matrix JSON, and both scaffold tests
+  - re-homing of synthetic kitchen-sink coverage into engine integration tests and browser UI coverage
+  - cross-runtime fuzzing under `tests/conformance/fuzzing/` via:
+    - `fel_cross_runtime_runner.mjs`
+    - `processing_cross_runtime_runner.mjs`
+    - `test_cross_runtime_fuzzing.py`
+- Not yet implemented:
+  - a recorded, per-case proof trail for the duplication loop described in this ADR
+
+This means the architectural migration is in place, but the full process described below was not captured for every migrated behavior.
+
+## Remaining Work
+As of 2026-03-10, the only substantive work still open for this ADR is documentation of the migration proof trail.
+
+- Still needed:
+  - record, per migrated legacy parity behavior, the overlap run, intentional break, dual failure, restoration, and legacy-test removal decision
+- Already complete:
+  - shared declarative conformance cases
+  - native Python and Node parity runners
+  - curated real-example parity coverage for `grant-application`, `clinical-intake`, `grant-report`, and `invoice`
+  - cross-runtime fuzzing for FEL and processing semantics
+  - removal of the legacy Playwright and matrix-based parity infrastructure
+
 ## Context
 The Formspec test suite grew organically across multiple languages (Python, TypeScript) and layers. We previously tried to achieve cross-runtime parity between the TypeScript client engine and the Python backend engine using two mechanisms:
 
@@ -147,6 +179,14 @@ Playwright is not the owner of runtime parity.
 - Include both deterministic canonical cases and at least one real example-backed case
 - Run the replacement runners in CI and confirm they provide useful signal before removing legacy coverage
 
+Status on 2026-03-10:
+
+- Completed for the first slice:
+  - six FEL parity cases migrated from the kitchen-sink parity fixture
+  - one grant-application submit-valid case added through the manifest-driven example flow
+- Not recorded in-repo:
+  - the full intentional-break overlap proof for each migrated legacy case
+
 Each migrated parity case follows a strict duplication loop:
 
 1. Write the new shared conformance case for one specific legacy parity behavior.
@@ -172,11 +212,26 @@ This is the migration form of red/green/refactor:
   - `invoice`
 - Compare normalized validation artifacts natively in Python and Node
 
+Status on 2026-03-10:
+
+- Completed:
+  - `grant-application.submit-valid`
+  - `clinical-intake.submit-valid`
+  - `grant-report.short-submit-valid`
+  - `invoice.single-submit-valid`
+  - manifest coverage in `tests/conformance/suite/real-examples.manifest.json`
+
 ### Phase 5: Remove Legacy Parity Infrastructure
 - Delete `tests/conformance/parity/kitchen-sink-holistic.spec.ts`
 - Delete `tests/e2e/kitchen_sink/python_fel_eval.py`
 - Delete matrix scaffolding and `core-semantics-matrix.json`
 - Remove only after the replacement runners and initial shared cases are green in CI
+
+Status on 2026-03-10:
+
+- Completed in repository state
+- The replacement runners and initial shared cases are green locally
+- The stricter migration-proof loop from this ADR should be treated as guidance for future migrations and expansions, since it was not preserved as an auditable artifact for the initial deletion set
 
 ### Phase 6: Preserve and Prune Intentionally
 - Keep valuable runtime-specific integration tests that exercise public APIs
@@ -184,9 +239,26 @@ This is the migration form of red/green/refactor:
 - For each migrated legacy parity test, document which shared case replaced it before deletion
 - Do not migrate or delete useful integration coverage just for uniformity
 
+Status on 2026-03-10:
+
+- Partially completed:
+  - migrated shared-suite cases include `legacyCoverage` references to the replaced parity behaviors
+  - useful runtime-specific integration coverage remains in place
+- Still open:
+  - the stricter per-case migration proof trail described in this ADR was not recorded as an auditable artifact
+
 ### Phase 7: Expand Fuzzing
 - Add cross-runtime fuzzing for FEL and processing semantics
 - Normalize values and error structures before comparison
+
+Status on 2026-03-10:
+
+- Completed:
+  - Node FEL runner at `tests/conformance/fuzzing/fel_cross_runtime_runner.mjs`
+  - Node processing runner at `tests/conformance/fuzzing/processing_cross_runtime_runner.mjs`
+  - Python fuzz harness at `tests/conformance/fuzzing/test_cross_runtime_fuzzing.py`
+  - cross-runtime FEL fuzzing cases with normalized comparison
+  - cross-runtime processing fuzzing cases with normalized report comparison
 
 ## Consequences
 
