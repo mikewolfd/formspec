@@ -32,21 +32,26 @@ export function Shell() {
   const [showImport, setShowImport] = useState(false);
   const WorkspaceComponent = WORKSPACES[activeTab];
   const project = useProject();
-  const { deselect } = useSelection();
+  const { selectedKey, deselect } = useSelection();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       handleKeyboardShortcut(event, {
         undo: () => project.undo(),
         redo: () => project.redo(),
-        delete: () => {},
+        delete: () => {
+          if (selectedKey) {
+            project.dispatch({ type: 'definition.deleteItem', payload: { path: selectedKey } });
+            deselect();
+          }
+        },
         escape: () => { setShowPalette(false); deselect(); },
         search: () => setShowPalette(true),
       });
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [project, deselect]);
+  }, [project, selectedKey, deselect]);
 
   return (
     <div data-testid="shell" className="h-screen flex flex-col bg-bg-default text-ink font-ui">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
 import { useDispatch } from '../../state/useDispatch';
@@ -7,6 +7,7 @@ import { FieldBlock } from './FieldBlock';
 import { GroupBlock } from './GroupBlock';
 import { DisplayBlock } from './DisplayBlock';
 import { AddItemPicker } from './AddItemPicker';
+import { EditorContextMenu } from './EditorContextMenu';
 
 interface Item {
   key: string;
@@ -73,11 +74,20 @@ function renderItems(
   return nodes;
 }
 
+interface ContextMenuState {
+  x: number;
+  y: number;
+  path: string;
+  type: string;
+}
+
 export function EditorCanvas() {
   const definition = useDefinition();
   const { selectedKey, select, deselect } = useSelection();
   const dispatch = useDispatch();
   const [showPicker, setShowPicker] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const items: Item[] = (definition?.items as Item[]) || [];
   const allBinds = definition?.binds as Record<string, Record<string, string>> | undefined;
@@ -91,6 +101,53 @@ export function EditorCanvas() {
     setShowPicker(false);
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    const target = e.target as Element;
+    const block = target.closest('[data-testid^="field-"], [data-testid^="group-"], [data-testid^="display-"]');
+    if (!block) return;
+    e.preventDefault();
+    const testId = block.getAttribute('data-testid') ?? '';
+    let itemType = 'field';
+    let itemPath = testId;
+    if (testId.startsWith('field-')) { itemType = 'field'; itemPath = testId.slice('field-'.length); }
+    else if (testId.startsWith('group-')) { itemType = 'group'; itemPath = testId.slice('group-'.length); }
+    else if (testId.startsWith('display-')) { itemType = 'display'; itemPath = testId.slice('display-'.length); }
+    setContextMenu({ x: e.clientX, y: e.clientY, path: itemPath, type: itemType });
+  };
+
+  // Close context menu on outside click or Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('mousedown', onMouseDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [contextMenu]);
+
+  const handleContextAction = (action: string) => {
+    if (!contextMenu) return;
+    switch (action) {
+      case 'duplicate':
+        dispatch({ type: 'definition.duplicateItem', payload: { path: contextMenu.path } });
+        break;
+      case 'delete':
+        dispatch({ type: 'definition.deleteItem', payload: { path: contextMenu.path } });
+        break;
+      // moveUp, moveDown, wrapInGroup: no-op for now
+    }
+    setContextMenu(null);
+  };
+
   return (
     <div
       className="flex flex-col gap-1 p-4"
@@ -98,6 +155,7 @@ export function EditorCanvas() {
         // Deselect when clicking the canvas background, not a field/group block
         if (e.target === e.currentTarget) deselect();
       }}
+      onContextMenu={handleContextMenu}
     >
       <div className="flex justify-end mb-2">
         <button
@@ -115,6 +173,19 @@ export function EditorCanvas() {
         />
       )}
       {renderItems(items, allBinds, selectedKey, select, 0, '')}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: 50 }}
+        >
+          <EditorContextMenu
+            itemPath={contextMenu.path}
+            itemType={contextMenu.type}
+            onAction={handleContextAction}
+            onClose={() => setContextMenu(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }
