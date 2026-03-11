@@ -4,6 +4,10 @@
 
 Core form state management engine. Parses a FormspecDefinition and builds a reactive signal network for field values, relevance, validation, repeat groups, computed variables, and response serialization. Includes FEL expression compilation, definition assembly, and bidirectional runtime mapping.
 
+## `getBuiltinFELFunctionCatalog(): FELBuiltinFunctionCatalogEntry[]`
+
+Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation.
+
 #### interface `FormspecItem`
 
 A single item in a Formspec definition tree: a field (data-bearing), group (container), or display (read-only content).
@@ -479,7 +483,7 @@ Three kinds of references are handled:
 2. `@current.path` references — `@current.amount` → `@current.proj_amount`
 3. `prev('name')`, `next('name')`, `parent('name')` — string literal field names are prefixed
 
-Bare `$` (current-node), `@index`, `@count`, `@instance('...')`, `#:varName`,
+Bare `$` (current-node), `@index`, `@count`, `@instance('...')`, `@varName`,
 literal values, and paths outside the imported fragment are left untouched.
 
 ## `rewriteMessageTemplate(message: string, map: RewriteMap): string`
@@ -535,6 +539,74 @@ May return synchronously or asynchronously.
 type DefinitionResolver = (url: string, version?: string) => FormspecDefinition | Promise<FormspecDefinition>;
 ```
 
+## `validateExtensionUsage(items: FormspecItem[], options: ValidateExtensionUsageOptions): ExtensionUsageIssue[]`
+
+Validate x-extension usage in a definition item tree against a registry lookup.
+The check is intentionally narrow and reusable: unresolved names, retired usage,
+and deprecated usage.
+
+#### interface `ExtensionUsageIssue`
+
+A single extension usage finding emitted while walking a definition item tree.
+
+- **path**: `string`
+- **extension**: `string`
+- **severity**: `'error' | 'warning' | 'info'`
+- **code**: `'UNRESOLVED_EXTENSION' | 'EXTENSION_RETIRED' | 'EXTENSION_DEPRECATED'`
+- **message**: `string`
+
+#### interface `ValidateExtensionUsageOptions`
+
+Lookup hooks required to validate extension usage against a registry-backed catalog.
+
+- **resolveEntry**: `(name: string) => RegistryEntry | undefined`
+
+## `analyzeFEL(expression: string, options?: {
+    includeCst?: boolean;
+}): FELAnalysis`
+
+Parse and analyze a FEL expression using the engine's Chevrotain parser stack.
+References, variables, and functions are extracted structurally from the CST.
+
+## `getFELDependencies(expression: string): string[]`
+
+Parser-backed field dependency extraction for FEL expressions that returns an empty array on parse failure.
+
+## `rewriteFELReferences(expression: string, options: FELRewriteOptions): string`
+
+Rewrites FEL references using parser-aware callbacks.
+Non-reference text is preserved untouched; invalid expressions are returned as-is.
+
+#### interface `FELAnalysisError`
+
+A parser/lexer error from FEL analysis with best-effort source location metadata.
+
+- **message**: `string`
+- **offset?**: `number`
+- **line?**: `number`
+- **column?**: `number`
+
+#### interface `FELAnalysis`
+
+Parser-backed structural analysis output for a FEL expression.
+
+- **valid**: `boolean`
+- **errors**: `FELAnalysisError[]`
+- **references**: `string[]`
+- **variables**: `string[]`
+- **functions**: `string[]`
+- **cst?**: `unknown`
+
+#### interface `FELRewriteOptions`
+
+Callback options used by {@link rewriteFELReferences}.
+
+- **rewriteFieldPath?**: `(path: string) => string`
+- **rewriteCurrentPath?**: `(path: string) => string`
+- **rewriteVariable?**: `(name: string) => string`
+- **rewriteInstanceName?**: `(name: string) => string`
+- **rewriteNavigationTarget?**: `(name: string, fn: 'prev' | 'next' | 'parent') => string`
+
 ## `dependencyVisitor: FelDependencyVisitor`
 
 Pre-instantiated dependency visitor singleton.
@@ -574,6 +646,13 @@ Shared across the engine to avoid repeated Chevrotain visitor validation.
 Usage: call `interpreter.evaluate(cst, context)` where `cst` is the output
 of `parser.expression()` and `context` is a {@link FelContext} wired to
 the FormEngine's signal graph.
+
+#### interface `FELBuiltinFunctionCatalogEntry`
+
+Built-in FEL function metadata exposed for tooling/autocomplete surfaces.
+
+- **name**: `string`
+- **category**: `string`
 
 #### interface `FelContext`
 
@@ -619,6 +698,10 @@ This is the main entry point for stage 3 of the FEL pipeline. The caller
 provides the CST (from `parser.expression()`) and a {@link FelContext}
 wired to the FormEngine's signal graph. The returned value is used for
 calculated fields, conditional relevance, validation constraints, etc.
+
+##### `listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[]`
+
+Return the built-in FEL function catalog sourced from the runtime stdlib.
 
 ##### `expression(ctx: any): any`
 
@@ -922,6 +1005,41 @@ Every FEL expression string is parsed starting from this rule. It delegates
 to `letExpr`, which cascades through the full precedence hierarchy.
 The resulting CST node is passed to {@link FelInterpreter.evaluate} or
 {@link FelDependencyVisitor.getDependencies}.
+
+## `normalizePathSegment(segment: string): string`
+
+Remove repeat indices/wildcards from a path segment (e.g. `lineItems[0]` -> `lineItems`).
+
+## `normalizeIndexedPath(path: string): string`
+
+Normalize a dotted path by stripping repeat indices/wildcards from each segment.
+
+## `splitNormalizedPath(path: string): string[]`
+
+Split a dotted path into normalized (index-free) segments.
+
+## `itemAtPath(items: T[], path: string): T | undefined`
+
+Find an item at a dotted path in a nested item tree.
+
+## `itemLocationAtPath(items: T[], path: string): ItemLocation<T> | undefined`
+
+Resolve the mutable parent/index/item triple for a dotted tree path.
+
+#### interface `TreeItemLike`
+
+Basic tree item shape used by path traversal helpers.
+
+- **key**: `string`
+- **children?**: `T[]`
+
+#### interface `ItemLocation`
+
+Resolved mutable location of an item in a tree.
+
+- **parent**: `T[]`
+- **index**: `number`
+- **item**: `T`
 
 #### interface `RuntimeMappingResult`
 
