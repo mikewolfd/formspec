@@ -28,20 +28,31 @@ Formspec inverts the usual dependency between frontend and backend. Neither impl
    │  FEL compiler        │              │  FEL compiler            │
    │  Live validation     │              │  Static linting          │
    │                      │              │  Mapping engine           │
-   └──────────┬───────────┘              └──────────────────────────┘
-              │
-              │  (presentation boundary — any renderer)
-              ▼
-   ┌─────────────────────┐
-   │  Web Component       │  ← included adapter
-   │  React, Mobile,      │  ← build your own
-   │  PDF, Server-render  │
-   └──────────────────────┘
+   └──────┬───────┬───────┘              └──────────────────────────┘
+          │       │
+          │       └──────────────────┐
+          │  (presentation)          │  (authoring)
+          ▼                          ▼
+   ┌──────────────────┐    ┌─────────────────────┐
+   │  Web Component    │    │  Studio Core         │
+   │                   │    │                      │
+   │  <formspec-render>│    │  Command model       │
+   │  33 plugin types  │    │  Queries & diagnostics│
+   │  Theme resolver   │    │  Undo/redo, replay   │
+   └──────────────────┘    └──────────┬────────────┘
+                                      │
+                           ┌──────────┼──────────┐
+                           ▼          ▼          ▼
+                       CLI tool   LLM agent  Form Builder
 ```
 
 The specification — schemas, normative prose, and FEL grammar — is the stable abstraction that both runtimes implement against. The TypeScript engine and Python evaluator share no code, but produce identical results for the same definition and data because they conform to the same contracts. A form submitted in the browser can be re-validated on the server with full confidence in semantic equivalence.
 
-This inversion runs deeper than just client/server. The TypeScript side itself has a dependency boundary: the **engine** (state, FEL, validation) is a pure logic layer with no DOM dependency. The **web component** is one possible presentation adapter — it reads engine signals and dispatches to a plugin registry. The engine is designed to drive any rendering surface: a React component tree, a native mobile form, a PDF generator, or a server-rendered page. Build a new presentation layer by subscribing to engine signals; the behavioral core doesn't change.
+This inversion runs deeper than just client/server. The TypeScript side itself has two dependency boundaries below the engine:
+
+The **web component** is a presentation adapter — it reads engine signals and dispatches to a plugin registry. The engine is designed to drive any rendering surface: a React component tree, a native mobile form, a PDF generator, or a server-rendered page. Build a new presentation layer by subscribing to engine signals; the behavioral core doesn't change.
+
+**Studio Core** is an authoring adapter — it uses the engine's FEL compiler, dependency analysis, and schema validation to power a command-based editing model for creating Formspec artifacts. Every edit is a serializable command with undo/redo, replay, and cross-artifact diagnostics. Studio Core produces the definition, theme, component, and mapping documents that the engine and web component consume at runtime. It has no UI of its own — CLI tools, LLM agents, and visual editors like the Form Builder all drive it through the same command API.
 
 ### Document Layers
 
@@ -61,7 +72,7 @@ The specification is organized as composable document layers. Each adds a concer
 ╠══════════════════════════════════════════════════════════════════╣
 ║  COMPONENT SIDECAR (Interaction)                                 ║
 ║  Explicit component tree, slot binding, responsive breakpoints   ║
-║  34 built-in components + custom templates                       ║
+║  33 built-in components + custom templates                       ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  COMPANION SPECS                                                 ║
 ║  Mapping DSL · Extension Registry · Changelog Format · FEL Grammar║
@@ -118,13 +129,17 @@ Neither runtime imports or wraps the other. They are independently deployable, i
 ## Repository Structure
 
 ```
-schemas/                        JSON Schema files (10 schemas — the structural source of truth)
+schemas/                        JSON Schema files (11 schemas — the structural source of truth)
 specs/                          Normative specifications organized by tier
 registries/                     Extension registries (common: email, phone, currency, SSN, etc.)
 
 packages/
   formspec-engine/              TypeScript engine — FormEngine, FEL pipeline, assembler, signals
-  formspec-webcomponent/        <formspec-render> — component registry, theme resolver, 34 plugins
+  formspec-webcomponent/        <formspec-render> — component registry, theme resolver, 33 plugins
+  formspec-layout/              Theme cascade resolution, responsive design, grid layout
+  formspec-studio-core/         Authoring core — command model, undo/redo, queries, diagnostics (powers CLI, LLM, Form Builder)
+
+form-builder/                   Visual form editor (Preact) — drag-and-drop, inspector, logic builders
 
 src/formspec/                   Python implementation
   fel/                            FEL parser, AST, evaluator, dependency extractor
@@ -135,12 +150,18 @@ src/formspec/                   Python implementation
   validate.py                     Directory-level artifact validator (9-pass, auto-discovery)
 
 examples/
-  grant-application/            Full-stack demo — 6-page federal grant form, all tiers exercised
+  clinical-intake/              Healthcare intake form
+  grant-application/            6-page federal grant form, all tiers exercised
+  grant-report/                 Grant reporting variants (tribal-long, tribal-short)
+  invoice/                      Invoice form
+
+docs/                           Generated HTML specs and API reference (Pandoc, pdoc, TypeDoc)
+thoughts/                       ADRs, research, and design artifacts
 
 tests/
   unit/                         Pure logic unit tests (Python)
   integration/                  Integration tests (CLI, pipelines)
-  conformance/                  Schema validation, spec examples, fuzzing, parity
+  conformance/                  Schema validation, spec examples, parity verification, fuzzing
   component/                    Component-level Playwright tests
   fixtures/                     Shared JSON test fixtures
   e2e/
@@ -230,8 +251,11 @@ Compact `*.llm.md` spec variants under `specs/` are optimized for LLM context wi
 npm run build              # Build TypeScript packages
 npm run docs:generate      # Regenerate spec artifacts
 npm run docs:check         # Enforce doc/schema freshness gates
+make api-docs              # Generate Python + TypeScript API reference
+make docs                  # Full doc build (specs + API + HTML)
+
 python3 -m pytest tests/   # Python conformance suite
-npm run test:unit          # TypeScript unit tests
+npm run test:unit          # TypeScript unit tests (engine, layout, studio-core)
 npm test                   # Playwright E2E (auto-starts dev server)
 npm run test:all           # Everything
 ```
