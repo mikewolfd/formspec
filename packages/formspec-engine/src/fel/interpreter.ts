@@ -85,6 +85,86 @@ function setNestedValue(target: any, path: string, value: any): void {
   }
 }
 
+/** Built-in FEL function metadata exposed for tooling/autocomplete surfaces. */
+export interface FELBuiltinFunctionCatalogEntry {
+  name: string;
+  category: string;
+}
+
+const FEL_BUILTIN_FUNCTION_CATEGORY: Record<string, string> = {
+  // Aggregate
+  sum: 'aggregate',
+  count: 'aggregate',
+  countWhere: 'aggregate',
+  avg: 'aggregate',
+  min: 'aggregate',
+  max: 'aggregate',
+  // String
+  upper: 'string',
+  lower: 'string',
+  length: 'string',
+  substring: 'string',
+  startsWith: 'string',
+  endsWith: 'string',
+  contains: 'string',
+  replace: 'string',
+  trim: 'string',
+  matches: 'string',
+  format: 'string',
+  // Numeric
+  round: 'numeric',
+  abs: 'numeric',
+  power: 'numeric',
+  floor: 'numeric',
+  ceil: 'numeric',
+  number: 'numeric',
+  // Date/Time
+  today: 'date',
+  now: 'date',
+  date: 'date',
+  dateAdd: 'date',
+  dateDiff: 'date',
+  year: 'date',
+  month: 'date',
+  day: 'date',
+  hours: 'date',
+  minutes: 'date',
+  seconds: 'date',
+  time: 'date',
+  timeDiff: 'date',
+  // Logical / control
+  if: 'logical',
+  coalesce: 'logical',
+  isNull: 'logical',
+  present: 'logical',
+  empty: 'logical',
+  selected: 'logical',
+  boolean: 'logical',
+  // Type
+  isNumber: 'type',
+  isString: 'type',
+  isDate: 'type',
+  typeOf: 'type',
+  string: 'type',
+  // Money
+  money: 'money',
+  moneyAmount: 'money',
+  moneyCurrency: 'money',
+  moneyAdd: 'money',
+  moneySum: 'money',
+  // Repeat/navigation
+  prev: 'repeat',
+  next: 'repeat',
+  parent: 'repeat',
+  // MIP
+  valid: 'mip',
+  relevant: 'mip',
+  readonly: 'mip',
+  required: 'mip',
+  // Instance
+  instance: 'instance',
+};
+
 export class FelUnsupportedFunctionError extends Error {
   constructor(functionName: string) {
     super(`Unsupported FEL function: ${functionName}`);
@@ -209,6 +289,16 @@ export class FelInterpreter extends BaseVisitor {
     // singleton so a previously thrown error could leave stale scope frames.
     this.letScopes = [];
     return this.visit(cst);
+  }
+
+  /** Return the built-in FEL function catalog sourced from the runtime stdlib. */
+  public listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[] {
+    return Object.keys(this.felStdLib)
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({
+        name,
+        category: FEL_BUILTIN_FUNCTION_CATEGORY[name] ?? 'function',
+      }));
   }
 
   private getRepeatContextInfo():

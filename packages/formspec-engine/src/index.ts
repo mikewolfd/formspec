@@ -1,13 +1,36 @@
 import { signal, computed, effect, batch, Signal } from '@preact/signals-core';
 import { FelLexer } from './fel/lexer.js';
 import { parser } from './fel/parser.js';
-import { interpreter, FelContext, FelUnsupportedFunctionError } from './fel/interpreter.js';
+import {
+    interpreter,
+    FelContext,
+    FelUnsupportedFunctionError,
+    type FELBuiltinFunctionCatalogEntry,
+} from './fel/interpreter.js';
 import { dependencyVisitor } from './fel/dependency-visitor.js';
+import { itemAtPath } from './path-utils.js';
 
 export { assembleDefinition, assembleDefinitionSync, rewriteFEL, rewriteMessageTemplate } from './assembler.js';
 export type { AssemblyProvenance, AssemblyResult, DefinitionResolver, RewriteMap } from './assembler.js';
 export { RuntimeMappingEngine } from './runtime-mapping.js';
 export type { MappingDirection, RuntimeMappingResult } from './runtime-mapping.js';
+export { analyzeFEL, getFELDependencies, rewriteFELReferences } from './fel/analysis.js';
+export type { FELAnalysis, FELAnalysisError, FELRewriteOptions } from './fel/analysis.js';
+export type { FELBuiltinFunctionCatalogEntry } from './fel/interpreter.js';
+export { validateExtensionUsage } from './extension-analysis.js';
+export type { ExtensionUsageIssue, ValidateExtensionUsageOptions } from './extension-analysis.js';
+export {
+    itemAtPath,
+    itemLocationAtPath,
+    normalizeIndexedPath,
+    normalizePathSegment,
+    splitNormalizedPath
+} from './path-utils.js';
+
+/** Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation. */
+export function getBuiltinFELFunctionCatalog(): FELBuiltinFunctionCatalogEntry[] {
+    return interpreter.listBuiltInFunctions();
+}
 
 /** A single item in a Formspec definition tree: a field (data-bearing), group (container), or display (read-only content). */
 export interface FormspecItem {
@@ -1774,21 +1797,7 @@ export class FormEngine {
     }
 
     private findItem(items: FormspecItem[], name: string): FormspecItem | undefined {
-        const parts = name.split('.');
-        let currentItems = items;
-        let foundItem: FormspecItem | undefined;
-
-        for (const part of parts) {
-            const cleanPart = part.replace(/\[\d+\]/g, '');
-            foundItem = currentItems.find(i => i.key === cleanPart);
-            if (!foundItem) return undefined;
-            if (foundItem.children) {
-                currentItems = foundItem.children;
-            } else {
-                if (parts.indexOf(part) !== parts.length - 1) return undefined;
-            }
-        }
-        return foundItem;
+        return itemAtPath(items, name);
     }
 
     /**

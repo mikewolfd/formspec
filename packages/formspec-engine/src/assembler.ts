@@ -1,4 +1,5 @@
-import { FormspecDefinition, FormspecItem, FormspecBind, FormspecShape, FormspecVariable } from './index.js';
+import type { FormspecDefinition, FormspecItem, FormspecBind, FormspecShape, FormspecVariable } from './index.js';
+import { rewriteFELReferences } from './fel/analysis.js';
 
 /** Provenance record for a single `$ref` inclusion resolved during definition assembly, tracking origin URL, version, prefix, and fragment. */
 export interface AssemblyProvenance {
@@ -72,55 +73,22 @@ function parseRef(ref: string): { url: string; version?: string; fragment?: stri
  * 2. `@current.path` references — `@current.amount` → `@current.proj_amount`
  * 3. `prev('name')`, `next('name')`, `parent('name')` — string literal field names are prefixed
  *
- * Bare `$` (current-node), `@index`, `@count`, `@instance('...')`, `#:varName`,
+ * Bare `$` (current-node), `@index`, `@count`, `@instance('...')`, `@varName`,
  * literal values, and paths outside the imported fragment are left untouched.
  */
 export function rewriteFEL(expression: string, map: RewriteMap): string {
-    const replacements: Array<{ start: number; end: number; text: string }> = [];
-
-    // 1. $path references
-    const dollarPathRe = /\$([a-zA-Z_]\w*(?:\[(?:\d+|\*)\])?(?:\.[a-zA-Z_]\w*(?:\[(?:\d+|\*)\])?)*)/g;
-    let m: RegExpExecArray | null;
-    while ((m = dollarPathRe.exec(expression)) !== null) {
-        const pathStr = m[1];
-        const rewritten = rewriteDollarPath(pathStr, map);
-        if (rewritten !== pathStr) {
-            replacements.push({ start: m.index, end: m.index + m[0].length, text: '$' + rewritten });
+    return rewriteFELReferences(expression, {
+        rewriteFieldPath(path) {
+            return rewriteDollarPath(path, map);
+        },
+        rewriteCurrentPath(path) {
+            return rewriteCurrentSegments(path, map);
+        },
+        rewriteNavigationTarget(fieldName) {
+            if (!map.importedKeys.has(fieldName)) return fieldName;
+            return `${map.keyPrefix}${fieldName}`;
         }
-    }
-
-    // 2. @current.path references
-    const currentPathRe = /@current\.([a-zA-Z_]\w*(?:\[(?:\d+|\*)\])?(?:\.[a-zA-Z_]\w*(?:\[(?:\d+|\*)\])?)*)/g;
-    while ((m = currentPathRe.exec(expression)) !== null) {
-        const pathStr = m[1];
-        const rewritten = rewriteCurrentSegments(pathStr, map);
-        if (rewritten !== pathStr) {
-            replacements.push({ start: m.index, end: m.index + m[0].length, text: '@current.' + rewritten });
-        }
-    }
-
-    // 3. prev/next/parent('fieldName') — single or double quoted
-    const navFuncRe = /\b(prev|next|parent)\s*\(\s*(?:'([^']*)'|"([^"]*)")\s*\)/g;
-    while ((m = navFuncRe.exec(expression)) !== null) {
-        const funcName = m[1];
-        const fieldName = m[2] !== undefined ? m[2] : m[3];
-        const quote = m[2] !== undefined ? "'" : '"';
-        if (map.importedKeys.has(fieldName)) {
-            replacements.push({
-                start: m.index,
-                end: m.index + m[0].length,
-                text: `${funcName}(${quote}${map.keyPrefix}${fieldName}${quote})`
-            });
-        }
-    }
-
-    // Apply replacements right-to-left to preserve positions
-    replacements.sort((a, b) => b.start - a.start);
-    let result = expression;
-    for (const r of replacements) {
-        result = result.slice(0, r.start) + r.text + result.slice(r.end);
-    }
-    return result;
+    });
 }
 
 /** Rewrites segments of a `$`-prefixed path. Fragment root → hostGroupKey; imported keys → prefixed. */

@@ -67,17 +67,6 @@ test('1.8 — @instance is untouched', () => {
   assert.equal(result, "@instance('priorYear').totalExpenditure");
 });
 
-test('1.9 — #:varName is untouched', () => {
-  const map = {
-    fragmentRootKey: 'budget',
-    hostGroupKey: 'projectBudget',
-    importedKeys: new Set(['budget', 'grandTotal']),
-    keyPrefix: 'proj_'
-  };
-  const result = rewriteFEL('#:budgetComplete and $budget.grandTotal > 0', map);
-  assert.equal(result, '#:budgetComplete and $projectBudget.proj_grandTotal > 0');
-});
-
 test('1.10 — Indexed repeat references', () => {
   const map = {
     fragmentRootKey: 'budget',
