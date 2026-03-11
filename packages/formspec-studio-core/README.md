@@ -88,17 +88,18 @@ The important rule is simple: read through `project.state` and query helpers, mu
 
 Every dispatch follows the same flow:
 
-1. Clone current state
-2. Apply the command handler to the clone
-3. Run cross-artifact normalization
-4. Push history
-5. Notify subscribers
+1. Run middleware chain (may transform or reject the command)
+2. Clone current state and apply the command handler
+3. Rebuild component tree (if the handler signals structural change)
+4. Run cross-artifact normalization
+5. Push history snapshot
+6. Notify subscribers
 
 That gives you atomic edits, undo/redo, command logs, and easy replay.
 
 ## Public API
 
-The main surface is intentionally small:
+The main mutation surface:
 
 - `createProject(options?)`
 - `project.dispatch(command)`
@@ -107,21 +108,51 @@ The main surface is intentionally small:
 - `project.onChange(listener)`
 - `project.export()`
 
-Useful query helpers include:
+State accessors:
 
-- `fieldPaths()`
-- `itemAt(path)`
-- `bindFor(path)`
-- `componentFor(fieldKey)`
-- `effectivePresentation(fieldKey)`
-- `searchItems(filter)`
-- `parseFEL(expression)`
-- `availableReferences(contextPath?)`
-- `allExpressions()`
-- `dependencyGraph()`
-- `fieldDependents(fieldPath)`
-- `diagnose()`
-- `previewChangelog()`
+- `project.state` — full `ProjectState` (read-only)
+- `project.definition` / `.component` / `.theme` / `.mapping` — individual artifacts
+- `project.canUndo` / `project.canRedo` — undo/redo availability
+- `project.log` — serializable command log (replayable on a fresh project)
+
+Query helpers:
+
+**Structure**
+- `fieldPaths()` — all leaf field paths in document order
+- `itemAt(path)` — resolve an item by dot-path
+- `searchItems(filter)` — filter by type, dataType, label, or extension usage
+- `statistics()` — field/group/bind/expression counts and max nesting depth
+- `instanceNames()` — declared external data source instance names
+- `variableNames()` — declared named FEL variable names
+- `optionSetUsage(name)` — field paths that reference a given option set
+
+**Cross-artifact**
+- `bindFor(path)` — bind properties for a field path
+- `componentFor(fieldKey)` — component tree node bound to a field
+- `effectivePresentation(fieldKey)` — resolved theme cascade for a field
+- `unboundItems()` — fields with no component tree node
+- `resolveToken(key)` — design token value through the two-tier cascade
+- `resolveExtension(name)` — registry entry for an extension name
+
+**FEL & expressions**
+- `parseFEL(expression, context?)` — parse and validate a FEL expression inline
+- `availableReferences(context?)` — scope-aware reference set for autocomplete
+- `felFunctionCatalog()` — built-in and extension FEL functions
+- `allExpressions()` — all FEL expressions with artifact locations
+- `expressionDependencies(expression)` — field paths referenced by an expression
+- `dependencyGraph()` — full cross-artifact FEL dependency graph with cycle detection
+- `fieldDependents(fieldPath)` — reverse lookup: binds/shapes/variables referencing a field
+- `variableDependents(variableName)` — bind paths referencing a named variable
+
+**Registries & types**
+- `allDataTypes()` — 13 core types plus extension-provided data types
+- `listRegistries()` — loaded registries with summary metadata
+- `browseExtensions(filter?)` — browse extension entries across registries
+
+**Diagnostics & versioning**
+- `diagnose()` — multi-pass validation (structural, expressions, extensions, consistency)
+- `previewChangelog()` — structured diff preview without publishing
+- `diffFromBaseline(fromVersion?)` — raw change list from a baseline version
 
 ## Command Model
 
@@ -173,12 +204,14 @@ unsubscribe();
 
 `formspec-studio-core` is not just a mutator. It also exposes authoring-time analysis helpers:
 
-- `diagnose()` for grouped structural, expression, extension, and consistency diagnostics
-- `parseFEL()` for inline expression validation
-- `availableReferences()` and `felFunctionCatalog()` for editor autocomplete
-- `allDataTypes()` and `browseExtensions()` for registry-aware tooling
-- `dependencyGraph()`, `fieldDependents()`, and `variableDependents()` for impact analysis
-- `previewChangelog()` and `diffFromBaseline()` for versioning workflows
+`diagnose()` runs four passes on demand and returns grouped results:
+
+- **structural** — JSON Schema validation for all four artifacts
+- **expressions** — parser-backed FEL validation for every indexed expression
+- **extensions** — registry-backed checks for unresolved extension names
+- **consistency** — cross-artifact reference checks (component binds, mapping source paths, theme selectors, stale overrides)
+
+Each `Diagnostic` carries an `artifact`, `path`, `severity` (`error`/`warning`/`info`), machine-readable `code`, and human-readable `message`. Aggregate counts are included for quick status display.
 
 ## Development
 

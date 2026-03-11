@@ -82,6 +82,46 @@ the target item, the item's index within that array, and the item itself.
 Used by virtually every definition-item handler (`deleteItem`, `renameItem`,
 `moveItem`, `reorderItem`, `duplicateItem`) to locate an item before mutating it.
 
+Handlers for definition bind management and field configuration commands.
+
+**Binds** in Formspec are declarative rules that connect a field (identified by
+a dot-path) to dynamic behaviors: calculated values, relevance conditions,
+required/readonly state, validation constraints, default values, and various
+processing directives. Each bind entry targets a single path and carries one
+or more property expressions (typically FEL strings). The binds array lives at
+`definition.binds` and is the primary mechanism for making fields reactive.
+
+This module also registers handlers for direct field/item property editing
+(data type, options, extensions) which operate on the `definition.items` tree
+rather than the binds array.
+
+definition-binds
+
+Handlers for definition-level metadata commands.
+
+Form metadata consists of top-level descriptive properties on the definition
+document: `title`, `name`, `description`, `url`, `version`, `status`, `date`,
+`derivedFrom`, `versionAlgorithm`, and `nonRelevantBehavior`. These properties
+identify and describe the form but do not affect field structure, binds, or
+runtime behavior.
+
+Currently only the `definition.setFormTitle` command is implemented here.
+Other metadata properties (url, version, name, description, status, date, etc.)
+are handled by the generic `definition.setDefinitionProperty` command registered
+elsewhere.
+
+definition-metadata
+
+formspec-studio-core
+
+Pure TypeScript library for creating and editing Formspec artifact bundles.
+Every edit is a serializable {@link Command} dispatched against a {@link Project}.
+
+Entry point: call {@link createProject} to get a new {@link Project} instance,
+then use `project.dispatch(command)` to apply mutations.
+
+No framework dependencies, no singletons, no side effects.
+
 ## `createProject(options?: ProjectOptions): Project`
 
 Factory function for creating a new {@link Project} instance.
@@ -206,10 +246,11 @@ Platform defaults (Tier 1) are not handled here -- the consumer provides those.
 Enumerate all valid data types: the 13 core types plus any dataType extensions
 from loaded registries. Used by editors for field type selection UI.
 
-##### `parseFEL(expression: string): FELParseResult`
+##### `parseFEL(expression: string, context?: FELParseContext): FELParseResult`
 
 Parse and validate a FEL expression without saving it to project state.
-Extracts field references and function calls via lightweight regex scanning.
+Parses with shared engine semantics; optional Studio context enables
+scope-aware variable/reference checks for editor usage.
 Intended for expression editor inline validation and autocomplete support.
 
 ##### `felFunctionCatalog(): FELFunctionEntry[]`
@@ -218,7 +259,7 @@ Enumerate the full FEL function catalog: built-in functions plus extension
 functions from loaded registries. Used by editors for autocomplete and
 function documentation popups.
 
-##### `availableReferences(contextPath?: string): FELReferenceSet`
+##### `availableReferences(context?: string | FELParseContext): FELReferenceSet`
 
 Scope-aware list of valid FEL references at a given path.
 Always includes all fields, variables, and instances. When `contextPath`
@@ -251,8 +292,8 @@ Uses substring matching on `@variableName` within bind expression strings.
 
 Build a full dependency graph across all FEL expressions in the project.
 Nodes represent fields, variables, and shapes. Edges represent FEL references
-from bind properties and variable expressions. Cycles are reported but not
-currently detected (the `cycles` array is always empty).
+from binds, variables, and shape expressions. Cycles are detected with a
+DFS over the normalized node graph.
 
 ##### `listRegistries(): RegistrySummary[]`
 
@@ -266,8 +307,9 @@ Filter criteria (category, status, namePattern) are AND-ed.
 ##### `diffFromBaseline(fromVersion?: string): Change[]`
 
 Compute a structured diff from a baseline (or a specific published version)
-to the current definition state. Compares item keys to detect additions and
-removals, classifying removals as breaking and additions as compatible.
+to the current definition state. Tracks same-path edits, then pairs removed
+and added rows with identical non-key signatures to detect renames/moves
+before emitting plain additions/removals.
 
 ##### `previewChangelog(): FormspecChangelog`
 
@@ -282,11 +324,12 @@ Not continuously computed -- the consumer decides when to call it
 (on save, on panel open, on a debounce timer, etc.).
 
 Current passes:
-- **extensions**: Walks all items for `x-` properties not resolvable against loaded registries
-  (produces `UNRESOLVED_EXTENSION` errors).
-- **consistency**: Detects orphan component binds (bound to nonexistent fields,
-  `ORPHAN_COMPONENT_BIND` warnings) and stale mapping rule source paths
-  (`STALE_MAPPING_SOURCE` warnings).
+- **structural**: JSON Schema validation for artifacts that declare the
+  full Studio-managed document surface.
+- **expressions**: Parser-backed FEL validation for every indexed expression.
+- **extensions**: Registry-backed extension usage checks on definition items.
+- **consistency**: Cross-artifact reference checks (component binds, mapping
+  source paths, theme selectors, and stale theme overrides/region keys).
 
 ##### `export(): ProjectBundle`
 
@@ -559,6 +602,22 @@ Criteria for filtering extension entries within loaded registries.
 - **category** (`'dataType' | 'function' | 'constraint' | 'property' | 'namespace'`): Filter by extension category.
 - **status** (`'draft' | 'stable' | 'deprecated' | 'retired'`): Filter by lifecycle status.
 - **namePattern** (`string`): Filter by name (substring or glob match).
+
+#### interface `FELMappingContext`
+
+Mapping-editor context for expression parsing/autocomplete.
+
+- **ruleIndex** (`number`): Optional mapping rule index in the current document.
+- **direction** (`'forward' | 'reverse'`): Mapping transform direction.
+- **sourcePath** (`string`): Source path context for the current rule/expression.
+- **targetPath** (`string`): Target path context for the current rule/expression.
+
+#### interface `FELParseContext`
+
+Editor context for parsing FEL and assembling reference suggestions.
+
+- **targetPath** (`string`): Definition path currently being edited (supports repeat-scope inference).
+- **mappingContext** (`FELMappingContext`): Optional mapping-editor context for mapping-specific references.
 
 #### interface `FELParseResult`
 
