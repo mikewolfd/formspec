@@ -28,7 +28,7 @@ export function Blueprint({ activeSection, onSectionChange }: BlueprintProps) {
   const state = useProjectState();
 
   return (
-    <nav className="flex flex-col py-2">
+    <nav data-testid="blueprint" className="flex flex-col py-2">
       {SECTIONS.map(({ name, countFn }) => {
         const isActive = activeSection === name;
         const count = countFn ? countFn(state) : null;

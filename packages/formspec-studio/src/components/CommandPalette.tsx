@@ -31,7 +31,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl">
+      <div data-testid="command-palette" className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl">
         <div className="p-3 border-b border-border">
           <input
             type="text"

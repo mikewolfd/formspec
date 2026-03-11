@@ -25,14 +25,14 @@ export function Shell() {
   const WorkspaceComponent = WORKSPACES[activeTab];
 
   return (
-    <div className="h-screen flex flex-col bg-bg-default text-ink font-ui">
+    <div data-testid="shell" className="h-screen flex flex-col bg-bg-default text-ink font-ui">
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-64 border-r border-border bg-surface overflow-y-auto">
           <Blueprint activeSection={activeSection} onSectionChange={setActiveSection} />
         </aside>
         <main className="flex-1 overflow-y-auto p-4">
-          <div data-testid="workspace-content" data-workspace={activeTab}>
+          <div data-testid={`workspace-${activeTab}`} data-workspace={activeTab}>
             {WorkspaceComponent ? <WorkspaceComponent /> : activeTab}
           </div>
         </main>

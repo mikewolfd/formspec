@@ -18,7 +18,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl">
+      <div data-testid="import-dialog" className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl">
         <div className="p-4 border-b border-border">
           <h2 className="text-sm font-semibold">Import</h2>
           <p className="text-xs text-muted mt-1">

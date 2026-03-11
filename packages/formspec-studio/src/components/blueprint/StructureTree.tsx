@@ -20,7 +20,7 @@ function TreeNode({ item, depth }: { item: ItemNode; depth: number }) {
     <>
       <button
         type="button"
-        data-testid={`tree-node-${item.key}`}
+        data-testid={`tree-item-${item.key}`}
         className={`w-full flex items-center gap-1.5 px-2 py-1 text-sm text-left rounded-sm transition-colors ${
           isSelected
             ? 'bg-accent/10 text-accent'

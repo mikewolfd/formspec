@@ -13,7 +13,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
   const state = useProjectState();
 
   return (
-    <header className="flex items-center h-12 px-4 border-b border-border bg-surface shrink-0">
+    <header data-testid="header" className="flex items-center h-12 px-4 border-b border-border bg-surface shrink-0">
       {/* Left: app title and version */}
       <div className="flex items-center gap-2 min-w-0">
         <span className="font-semibold text-sm whitespace-nowrap">The Stack</span>
@@ -27,6 +27,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
             key={tab}
             role="tab"
             aria-selected={activeTab === tab}
+            data-testid={`tab-${tab}`}
             className={`px-3 py-1 text-sm rounded transition-colors ${
               activeTab === tab
                 ? 'bg-accent text-on-accent font-medium'
@@ -42,6 +43,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
       {/* Right: undo/redo */}
       <div className="flex items-center gap-1">
         <button
+          data-testid="undo-btn"
           aria-label="Undo"
           disabled={!project.canUndo}
           className="px-2 py-1 text-sm rounded disabled:opacity-40 hover:bg-surface-hover"
@@ -50,6 +52,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
           Undo
         </button>
         <button
+          data-testid="redo-btn"
           aria-label="Redo"
           disabled={!project.canRedo}
           className="px-2 py-1 text-sm rounded disabled:opacity-40 hover:bg-surface-hover"

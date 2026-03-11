@@ -31,7 +31,7 @@ export function StatusBar() {
   const density = presentation?.density;
 
   return (
-    <div className="bg-surface border-t border-border text-xs text-muted px-4 py-1 flex items-center gap-4">
+    <div data-testid="status-bar" className="bg-surface border-t border-border text-xs text-muted px-4 py-1 flex items-center gap-4">
       <span>Formspec {formspecVersion}</span>
       <span>{status}</span>
       {pageMode && <span>{pageMode}</span>}
