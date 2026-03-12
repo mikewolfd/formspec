@@ -1700,7 +1700,7 @@ export class Project {
         const path = identity ? (parentPath ? `${parentPath}.${identity}` : identity) : parentPath;
         if (child.bind) {
           existingBound.set(path, child);
-        } else if (child.nodeId) {
+        } else if (child.nodeId && !child._layout) {
           existingDisplay.set(path, child);
         } else {
           unboundNodes.push(child);
@@ -1714,8 +1714,10 @@ export class Project {
               const nestedPath = nestedIdentity ? (currentPath ? `${currentPath}.${nestedIdentity}` : nestedIdentity) : currentPath;
               if (c.bind && !existingBound.has(nestedPath)) {
                 existingBound.set(nestedPath, c);
-              } else if (c.nodeId && !existingDisplay.has(nestedPath)) {
+              } else if (c.nodeId && !c._layout && !existingDisplay.has(nestedPath)) {
                 existingDisplay.set(nestedPath, c);
+              } else if (c._layout) {
+                unboundNodes.push(c);
               }
               collectDeep(c, nestedPath);
             }

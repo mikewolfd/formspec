@@ -163,6 +163,7 @@ registerHandler('component.addNode', (state, payload) => {
     node.bind = p.bind;
   } else {
     node.nodeId = generateNodeId();
+    node._layout = true;
   }
   if (p.props) {
     Object.assign(node, p.props);
