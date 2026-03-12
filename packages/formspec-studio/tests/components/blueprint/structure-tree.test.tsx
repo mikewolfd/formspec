@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
+import { ActivePageProvider } from '../../../src/state/useActivePage';
 import { StructureTree } from '../../../src/components/blueprint/StructureTree';
 
 const treeDef = {
@@ -22,7 +23,9 @@ function renderTree() {
   return render(
     <ProjectProvider project={project}>
       <SelectionProvider>
-        <StructureTree />
+        <ActivePageProvider>
+          <StructureTree />
+        </ActivePageProvider>
       </SelectionProvider>
     </ProjectProvider>
   );

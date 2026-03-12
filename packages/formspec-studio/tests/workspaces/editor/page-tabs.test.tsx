@@ -21,13 +21,13 @@ const multiPageDef = {
   presentation: { pageMode: 'wizard' },
 };
 
-function renderPageTabs(def?: any) {
+function renderPageTabs(def?: any, activeKey: string | null = 'page1') {
   const project = createProject({ seed: { definition: def || multiPageDef } });
   const onPageChange = vi.fn();
   return {
     ...render(
       <ProjectProvider project={project}>
-        <PageTabs activePage={0} onPageChange={onPageChange} />
+        <PageTabs activePageKey={activeKey} onPageChange={onPageChange} />
       </ProjectProvider>
     ),
     onPageChange,
@@ -50,12 +50,12 @@ describe('PageTabs', () => {
     expect(tab?.getAttribute('aria-selected')).toBe('true');
   });
 
-  it('clicking a tab calls onPageChange', async () => {
+  it('clicking a tab calls onPageChange with key', async () => {
     const { onPageChange } = renderPageTabs();
     await act(async () => {
       screen.getByTitle('Address').click();
     });
-    expect(onPageChange).toHaveBeenCalledWith(1);
+    expect(onPageChange).toHaveBeenCalledWith('page2');
   });
 
   it('shows page numbers', () => {
@@ -70,8 +70,8 @@ describe('PageTabs', () => {
       $formspec: '1.0', url: 'urn:test', version: '1.0.0',
       items: [{ key: 'name', type: 'field', dataType: 'string' }],
     };
-    renderPageTabs(singlePage);
-    // Should render even with flat items (no wizard pages)
-    expect(screen.queryByRole('tablist')).toBeInTheDocument();
+    renderPageTabs(singlePage, null);
+    // No groups → renders nothing
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 });

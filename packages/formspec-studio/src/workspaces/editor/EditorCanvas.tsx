@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
+import { useActivePage } from '../../state/useActivePage';
 import { useDispatch } from '../../state/useDispatch';
 import { bindsFor } from '../../lib/field-helpers';
 import { FieldBlock } from './FieldBlock';
@@ -83,6 +84,11 @@ function renderItems(
   return nodes;
 }
 
+let nextItemId = 1;
+function uniqueKey(prefix: string): string {
+  return `${prefix}${nextItemId++}`;
+}
+
 interface ContextMenuState {
   x: number;
   y: number;
@@ -93,9 +99,9 @@ interface ContextMenuState {
 export function EditorCanvas() {
   const definition = useDefinition();
   const { selectedKey, select, deselect } = useSelection();
+  const { activePageKey, setActivePageKey } = useActivePage();
   const dispatch = useDispatch();
   const [showPicker, setShowPicker] = useState(false);
-  const [activePage, setActivePage] = useState(0);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -106,13 +112,18 @@ export function EditorCanvas() {
   const isPaged = pageMode === 'wizard' || pageMode === 'tabs';
   const topLevelGroups = items.filter((i) => i.type === 'group');
   const hasPaged = isPaged && topLevelGroups.length > 0;
-  const safeActivePage = Math.min(activePage, Math.max(0, topLevelGroups.length - 1));
+
+  // Derive numeric index from shared activePageKey
+  const activePageIndex = hasPaged
+    ? Math.max(0, topLevelGroups.findIndex((g) => g.key === activePageKey))
+    : 0;
   const displayItems: Item[] = hasPaged
-    ? [topLevelGroups[safeActivePage]]
+    ? [topLevelGroups[activePageIndex]]
     : items;
 
   const handleAddItem = (opt: FieldTypeOption) => {
-    const key = `${opt.dataType ?? opt.itemType}${Date.now() % 10000}`;
+    const key = uniqueKey(opt.dataType ?? opt.itemType);
+    const activeGroup = hasPaged ? topLevelGroups[activePageIndex] : null;
     dispatch({
       type: 'definition.addItem',
       payload: {
@@ -120,6 +131,7 @@ export function EditorCanvas() {
         type: opt.itemType,
         dataType: opt.dataType,
         label: opt.label,
+        ...(activeGroup ? { parentPath: activeGroup.key } : {}),
         ...opt.extra,
       },
     });
@@ -205,7 +217,7 @@ export function EditorCanvas() {
       {/* Page tabs — only when in paged mode */}
       {hasPaged && (
         <div className="px-7 border-b border-border bg-surface">
-          <PageTabs activePage={safeActivePage} onPageChange={setActivePage} />
+          <PageTabs activePageKey={activePageKey} onPageChange={setActivePageKey} />
         </div>
       )}
 

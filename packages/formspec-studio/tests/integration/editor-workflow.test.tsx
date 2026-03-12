@@ -3,13 +3,16 @@ import { describe, it, expect } from 'vitest';
 import { createProject, type Project } from 'formspec-studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
+import { ActivePageProvider } from '../../src/state/useActivePage';
 import { EditorCanvas } from '../../src/workspaces/editor/EditorCanvas';
 
 function renderEditor(project: Project) {
   return render(
     <ProjectProvider project={project}>
       <SelectionProvider>
-        <EditorCanvas />
+        <ActivePageProvider>
+          <EditorCanvas />
+        </ActivePageProvider>
       </SelectionProvider>
     </ProjectProvider>
   );
