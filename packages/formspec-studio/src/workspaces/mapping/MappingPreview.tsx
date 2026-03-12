@@ -9,7 +9,7 @@ export function MappingPreview() {
   const dispatch = useDispatch();
   const [pickerOpen, setPickerOpen] = useState(false);
   const listboxId = useId();
-  const direction = mapping?.direction ?? 'outbound';
+  const direction = mapping?.direction ?? 'unset';
 
   useEffect(() => {
     if (!pickerOpen) return;
