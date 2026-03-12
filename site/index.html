@@ -1018,6 +1018,83 @@
 
     .footer-links a:hover { color: var(--text-dim); }
 
+    /* ── EXAMPLES GRID ── */
+    .examples-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .example-card {
+      display: block;
+      padding: 24px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .example-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--accent-glow), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .example-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    .example-card:hover::before { opacity: 1; }
+
+    .ex-icon {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .ex-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      position: relative;
+    }
+
+    .ex-desc {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      line-height: 1.55;
+      margin-bottom: 14px;
+      position: relative;
+    }
+
+    .ex-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      position: relative;
+    }
+
+    .ex-tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 100px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text-dimmer);
+    }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 900px) {
       .hero {
@@ -1032,6 +1109,8 @@
       }
       .features-strip { gap: 1.5rem; }
       .nav-links { display: none; }
+      .examples-grid { grid-template-columns: 1fr 1fr; }
+      .audit-strip { gap: 2rem; flex-direction: column; align-items: flex-start; padding: 28px 5vw; }
     }
   </style>
 </head>
@@ -1047,9 +1126,10 @@
       <li><a href="#how-it-works">How it works</a></li>
       <li><a href="#ai">AI-native</a></li>
       <li><a href="#open-spec">Open spec</a></li>
-      <li><a href="https://github.com" target="_blank">GitHub</a></li>
+      <li><a href="https://ice-badger.exe.xyz:8001/" target="_blank">Examples</a></li>
+      <li><a href="https://github.com/michael-f-deeb/formspec" target="_blank">GitHub</a></li>
     </ul>
-    <a href="#cta" class="nav-cta">Get early access</a>
+    <a href="https://github.com/michael-f-deeb/formspec" class="nav-cta" target="_blank">GitHub</a>
   </nav>
 
   <!-- HERO -->
@@ -1068,10 +1148,10 @@
         and speaks the same language as every AI model out there. No more chasing errors at the end.
       </p>
       <div class="hero-actions">
-        <a href="#cta" class="btn-primary">Try it free</a>
+        <a href="https://ice-badger.exe.xyz:8001/" class="btn-primary" target="_blank">Explore examples</a>
         <a href="#how-it-works" class="btn-ghost">See how it works</a>
       </div>
-      <p class="hero-note">Open specification. Runs in browser, on server, or offline.</p>
+      <p class="hero-note">Open specification · MIT licensed · Runs in browser, on server, or offline.</p>
     </div>
 
     <!-- LIVE DEMO -->
@@ -1417,16 +1497,54 @@ engine.setValue(<span class="j-str">"org_type"</span><span class="j-punct">,</sp
     </div>
   </section>
 
+  <!-- EXAMPLES SECTION -->
+  <section id="examples" style="padding-top:80px;padding-bottom:80px">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="section-eyebrow" style="justify-content:center;display:flex">Real forms</div>
+      <h2 class="section-heading" style="text-align:center">See it working on<br />forms people actually fill in.</h2>
+      <p style="color:var(--text-dim);font-size:1rem;max-width:480px;margin:0 auto;line-height:1.7">Every example is a live Formspec definition running in the browser. Click to open the interactive playground.</p>
+    </div>
+    <div class="examples-grid">
+      <a href="https://ice-badger.exe.xyz:8001/#grant-application" target="_blank" class="example-card">
+        <div class="ex-icon">📄</div>
+        <div class="ex-name">Federal Grant Application</div>
+        <div class="ex-desc">Multi-page wizard. Budget fields that calculate automatically. Validation that catches problems before you submit.</div>
+        <div class="ex-tags"><span class="ex-tag">multi-page</span><span class="ex-tag">repeats</span><span class="ex-tag">calculated</span></div>
+      </a>
+      <a href="https://ice-badger.exe.xyz:8001/#tribal-short" target="_blank" class="example-card">
+        <div class="ex-icon">📊</div>
+        <div class="ex-name">Tribal Annual Report</div>
+        <div class="ex-desc">Grant reporting with expenditure tracking. Two form variants — short and long — sharing one definition.</div>
+        <div class="ex-tags"><span class="ex-tag">variants</span><span class="ex-tag">expenditure</span></div>
+      </a>
+      <a href="https://ice-badger.exe.xyz:8001/#invoice" target="_blank" class="example-card">
+        <div class="ex-icon">🧾</div>
+        <div class="ex-name">Invoice</div>
+        <div class="ex-desc">Add line items, watch totals recalculate live. Export to CSV with one click — no ETL required.</div>
+        <div class="ex-tags"><span class="ex-tag">line items</span><span class="ex-tag">CSV export</span><span class="ex-tag">calculated totals</span></div>
+      </a>
+      <a href="https://ice-badger.exe.xyz:8001/#clinical-intake" target="_blank" class="example-card">
+        <div class="ex-icon">🏥</div>
+        <div class="ex-name">Clinical Intake</div>
+        <div class="ex-desc">Screener routing, pre-populated patient data, nested repeats for medications and visits.</div>
+        <div class="ex-tags"><span class="ex-tag">routing</span><span class="ex-tag">pre-fill</span><span class="ex-tag">nested</span></div>
+      </a>
+    </div>
+    <div style="text-align:center;margin-top:2.5rem">
+      <a href="https://ice-badger.exe.xyz:8001/" target="_blank" class="btn-ghost">Open full playground →</a>
+    </div>
+  </section>
+
   <!-- CTA -->
   <div class="cta-section" id="cta">
     <div class="cta-glow">
-      <h2 class="cta-heading">Ready to build<br /><span class="highlight">smarter forms?</span></h2>
+      <h2 class="cta-heading">Open spec.<br /><span class="highlight">Ship today.</span></h2>
       <p class="cta-sub">
-        Formspec is in open draft. Join early, shape the spec, and build forms that don't feel like 2012.
+        MIT licensed. No lock-in. Read the spec, run the examples, or drop it into your stack right now.
       </p>
       <div class="cta-actions">
-        <a href="https://github.com" class="btn-primary">Read the spec on GitHub</a>
-        <a href="#how-it-works" class="btn-ghost">See examples</a>
+        <a href="https://github.com/michael-f-deeb/formspec" class="btn-primary" target="_blank">Read the spec on GitHub</a>
+        <a href="https://ice-badger.exe.xyz:8001/" class="btn-ghost" target="_blank">Explore examples</a>
       </div>
     </div>
   </div>
@@ -1439,9 +1557,9 @@ engine.setValue(<span class="j-str">"org_type"</span><span class="j-punct">,</sp
     </a>
     <span class="footer-note">v1.0.0-draft.1 · Open specification under active development</span>
     <ul class="footer-links">
-      <li><a href="#">GitHub</a></li>
-      <li><a href="#">Spec docs</a></li>
-      <li><a href="#">Examples</a></li>
+      <li><a href="https://github.com/michael-f-deeb/formspec" target="_blank">GitHub</a></li>
+      <li><a href="https://ice-badger.exe.xyz:8001/" target="_blank">Examples</a></li>
+      <li><a href="#open-spec">Open spec</a></li>
     </ul>
   </footer>
 
