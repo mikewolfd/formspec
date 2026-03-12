@@ -1676,24 +1676,31 @@ export class Project {
 
     const tree = (this._state.component.tree as TreeNode) ?? { component: 'Stack', nodeId: 'root', children: [] };
 
-    // 1. Collect existing bound nodes by bind key (preserve their properties)
+    // 1. Collect existing nodes by identity key (preserve their properties)
+    //    - Bound nodes (fields/groups) are keyed by `bind`
+    //    - Display nodes are keyed by `nodeId` (no bind — bind implies reactive subscription)
     const existingBound = new Map<string, TreeNode>();
+    const existingById = new Map<string, TreeNode>();
     const unboundNodes: TreeNode[] = [];
 
     const collectExisting = (node: TreeNode) => {
       for (const child of node.children ?? []) {
         if (child.bind) {
           existingBound.set(child.bind, child);
+        } else if (child.nodeId) {
+          existingById.set(child.nodeId, child);
         } else {
           unboundNodes.push(child);
         }
         // Don't recurse into children — we'll rebuild the hierarchy from definition
-        // But we do need to collect deeply nested bound nodes
+        // But we do need to collect deeply nested bound/identified nodes
         if (child.children) {
           const collectDeep = (n: TreeNode) => {
             for (const c of n.children ?? []) {
               if (c.bind && !existingBound.has(c.bind)) {
                 existingBound.set(c.bind, c);
+              } else if (c.nodeId && !existingById.has(c.nodeId)) {
+                existingById.set(c.nodeId, c);
               }
               collectDeep(c);
             }
@@ -1711,7 +1718,14 @@ export class Project {
       if (item.type === 'display') {
         // Display items have no field signals; store label text directly.
         // Never set bind on display nodes — bind implies reactive field value subscription.
-        node = { component: 'Text', text: item.label ?? '' };
+        // Use nodeId for stable identity so overrides survive rebuilds.
+        const existing = existingById.get(item.key);
+        if (existing) {
+          node = { ...existing, text: item.label ?? '' };
+          existingById.delete(item.key);
+        } else {
+          node = { component: 'Text', nodeId: item.key, text: item.label ?? '' };
+        }
       } else {
         // Reuse existing node if available (preserves widget overrides, styles, etc.)
         const existing = existingBound.get(item.key);
@@ -1739,8 +1753,11 @@ export class Project {
       newRoot.children!.push(buildNode(item));
     }
 
-    // 3. Append preserved unbound layout nodes at root
+    // 3. Append preserved unbound layout nodes and unconsumed nodeId nodes at root
     for (const node of unboundNodes) {
+      newRoot.children!.push(node);
+    }
+    for (const node of existingById.values()) {
       newRoot.children!.push(node);
     }
 

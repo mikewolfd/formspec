@@ -104,13 +104,42 @@ describe('component tree sync', () => {
 
     // Display items use text prop (not bind) — they have no field signals to subscribe to
     const tree = project.component.tree as any;
-    const node = tree.children?.find((c: any) => c.component === 'Text' && c.text === 'Welcome');
+    const node = tree.children?.find((c: any) => c.nodeId === 'header');
     expect(node).toBeDefined();
     expect(node!.component).toBe('Text');
     expect(node!.text).toBe('Welcome');
     expect(node!.bind).toBeUndefined();
+    expect(node!.nodeId).toBe('header');
     // componentFor searches by bind; display items have no bind
     expect(project.componentFor('header')).toBeUndefined();
+  });
+
+  it('preserves display node overrides through tree rebuild', () => {
+    const project = createProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'display', key: 'header', label: 'Welcome' },
+    });
+
+    // Customize the display node (e.g. change component to Heading)
+    const tree1 = project.component.tree as any;
+    const displayNode = tree1.children.find((c: any) => c.nodeId === 'header');
+    displayNode.component = 'Heading';
+    displayNode.level = 2;
+
+    // Trigger rebuild by adding another item
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', key: 'name', dataType: 'string' },
+    });
+
+    // Display node overrides should survive the rebuild
+    const tree2 = project.component.tree as any;
+    const rebuilt = tree2.children.find((c: any) => c.nodeId === 'header');
+    expect(rebuilt).toBeDefined();
+    expect(rebuilt!.component).toBe('Heading');
+    expect(rebuilt!.level).toBe(2);
+    expect(rebuilt!.text).toBe('Welcome');
   });
 
   it('handles batch with multiple structural changes', () => {
