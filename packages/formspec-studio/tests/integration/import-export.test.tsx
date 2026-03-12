@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
+import { ActivePageProvider } from '../../src/state/useActivePage';
 import { EditorCanvas } from '../../src/workspaces/editor/EditorCanvas';
 
 describe('Import/Export', () => {
@@ -32,7 +33,9 @@ describe('Import/Export', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <EditorCanvas />
+          <ActivePageProvider>
+            <EditorCanvas />
+          </ActivePageProvider>
         </SelectionProvider>
       </ProjectProvider>
     );

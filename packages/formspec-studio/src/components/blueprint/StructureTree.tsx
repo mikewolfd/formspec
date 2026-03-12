@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
+import { useActivePage } from '../../state/useActivePage';
 import { useDispatch } from '../../state/useDispatch';
 import { FieldIcon } from '../ui/FieldIcon';
 import { AddItemPalette, type FieldTypeOption } from '../AddItemPalette';
@@ -12,6 +13,11 @@ interface ItemNode {
   label?: string;
   children?: ItemNode[];
   [k: string]: unknown;
+}
+
+let nextItemId = 1;
+function uniqueKey(prefix: string): string {
+  return `${prefix}${nextItemId++}`;
 }
 
 // ── Tree node (recursive item row) ──────────────────────────────────────
@@ -88,6 +94,7 @@ export function StructureTree() {
   const definition = useDefinition();
   const dispatch = useDispatch();
   const { select } = useSelection();
+  const { activePageKey, setActivePageKey } = useActivePage();
   const items = (definition.items ?? []) as ItemNode[];
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -96,27 +103,22 @@ export function StructureTree() {
 
   // Pages = top-level groups (only if pageMode is enabled)
   const pages = isPaged ? items.filter((i) => i.type === 'group') : [];
-  const hasPagés = pages.length > 0;
-
-  // Track active page key locally (separate from editor selection)
-  const [activePageKey, setActivePageKey] = useState<string | null>(null);
+  const hasPages = pages.length > 0;
 
   // Auto-select first page when pages appear / on first render
   useEffect(() => {
-    if (hasPagés) {
-      setActivePageKey((prev) => {
-        // Keep current selection if it's still valid
-        if (prev && pages.some((p) => p.key === prev)) return prev;
-        return pages[0].key;
-      });
+    if (hasPages) {
+      // Keep current selection if it's still valid
+      if (activePageKey && pages.some((p) => p.key === activePageKey)) return;
+      setActivePageKey(pages[0].key);
     } else {
       setActivePageKey(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasPagés, pages.map((p) => p.key).join(',')]);
+  }, [hasPages, pages.map((p) => p.key).join(',')]);
 
   const activePage = pages.find((p) => p.key === activePageKey) ?? null;
-  const visibleItems = hasPagés
+  const visibleItems = hasPages
     ? (activePage?.children ?? []) as ItemNode[]
     : items;
 
@@ -135,7 +137,7 @@ export function StructureTree() {
 
   // Adding a wizard page
   const handleAddPage = useCallback(() => {
-    const key = `page${Date.now() % 10000}`;
+    const key = uniqueKey('page');
     dispatch({
       type: 'definition.addItem',
       payload: { key, type: 'group', label: 'New Page' },
@@ -154,7 +156,7 @@ export function StructureTree() {
   // Adding an item from the palette
   const handleAddFromPalette = useCallback(
     (opt: FieldTypeOption) => {
-      const key = `${opt.dataType ?? opt.itemType}${Date.now() % 10000}`;
+      const key = uniqueKey(opt.dataType ?? opt.itemType);
       dispatch({
         type: 'definition.addItem',
         payload: {
@@ -163,16 +165,16 @@ export function StructureTree() {
           dataType: opt.dataType,
           label: opt.label,
           // If paged, add as a child of the active page
-          ...(hasPagés && activePageKey ? { parentPath: activePageKey } : {}),
+          ...(hasPages && activePageKey ? { parentPath: activePageKey } : {}),
           ...opt.extra,
         },
       });
     },
-    [dispatch, hasPagés, activePageKey],
+    [dispatch, hasPages, activePageKey],
   );
 
   // Items section label
-  const itemsSectionLabel = hasPagés && activePage
+  const itemsSectionLabel = hasPages && activePage
     ? `${activePage.label || activePage.key}`
     : 'Items';
 
@@ -241,14 +243,14 @@ export function StructureTree() {
             </h3>
             <AddButton
               onClick={() => setPaletteOpen(true)}
-              title={hasPagés ? `Add item to ${activePage?.label || activePage?.key}` : 'Add item'}
+              title={hasPages ? `Add item to ${activePage?.label || activePage?.key}` : 'Add item'}
             />
           </div>
 
           <div className="flex flex-col gap-px">
             {visibleItems.length === 0 ? (
               <div className="px-2 py-1 text-[12px] text-muted italic">
-                {hasPagés ? 'No items on this page' : 'No items defined'}
+                {hasPages ? 'No items on this page' : 'No items defined'}
               </div>
             ) : (
               visibleItems.map((item) => (
@@ -256,7 +258,7 @@ export function StructureTree() {
                   key={item.key}
                   item={item}
                   depth={0}
-                  pathPrefix={hasPagés && activePageKey ? activePageKey : ''}
+                  pathPrefix={hasPages && activePageKey ? activePageKey : ''}
                 />
               ))
             )}
