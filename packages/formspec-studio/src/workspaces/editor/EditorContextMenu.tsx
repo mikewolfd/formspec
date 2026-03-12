@@ -30,6 +30,7 @@ export function EditorContextMenu({
 }: EditorContextMenuProps) {
   return (
     <div
+      data-testid="context-menu"
       className="bg-surface border border-border rounded shadow-lg py-1 min-w-[160px]"
       role="menu"
     >
@@ -37,6 +38,7 @@ export function EditorContextMenu({
         <button
           key={action}
           role="menuitem"
+          data-testid={`ctx-${action}`}
           className="w-full text-left px-3 py-1.5 text-sm hover:bg-surface-hover transition-colors"
           onClick={() => {
             onAction(action);

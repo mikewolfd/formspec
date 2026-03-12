@@ -1,13 +1,22 @@
 interface PropertyRowProps {
   label: string;
   children: React.ReactNode;
+  color?: string;
 }
 
-export function PropertyRow({ label, children }: PropertyRowProps) {
+/**
+ * Label/value row for property panels.
+ * Highly compact, justified baseline alignment.
+ */
+export function PropertyRow({ label, children, color }: PropertyRowProps) {
   return (
-    <div className="flex items-start gap-2 py-1">
-      <span className="text-xs text-muted w-24 shrink-0">{label}</span>
-      <span className="text-sm text-ink flex-1">{children}</span>
+    <div className="flex justify-between items-baseline gap-4 py-0.5 border-b border-border/50 last:border-0 transition-colors hover:bg-subtle/30">
+      <span className="font-mono text-[11px] text-muted shrink-0 uppercase tracking-tight">
+        {label}
+      </span>
+      <span className={`font-mono text-[11.5px] text-right truncate flex-1 ${color || 'text-ink'}`}>
+        {children}
+      </span>
     </div>
   );
 }

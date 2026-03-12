@@ -1,29 +1,46 @@
+import { Pill } from './Pill';
+
 const severityColors: Record<string, string> = {
   error: 'border-l-error',
   warning: 'border-l-amber',
   info: 'border-l-accent',
 };
 
-const severityBadge: Record<string, string> = {
-  error: 'bg-error/10 text-error',
-  warning: 'bg-amber/10 text-amber',
-  info: 'bg-accent/10 text-accent',
-};
-
 interface ShapeCardProps {
   name: string;
   severity: string;
   constraint: string;
+  message?: string;
+  code?: string;
 }
 
-export function ShapeCard({ name, severity, constraint }: ShapeCardProps) {
+/**
+ * Severity-colored validation shape card.
+ */
+export function ShapeCard({ name, severity, constraint, message, code }: ShapeCardProps) {
+  const borderClass = severityColors[severity] || 'border-l-muted';
+  const pillColor = severity === 'error' ? 'error' : severity === 'warning' ? 'amber' : 'accent';
+
   return (
-    <div className={`border border-border ${severityColors[severity] || ''} border-l-2 rounded bg-surface p-2`}>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-ink">{name}</span>
-        <span className={`text-xs px-1.5 rounded-sm ${severityBadge[severity] || ''}`}>{severity}</span>
+    <div className={`border border-border border-l-[3px] ${borderClass} rounded-[4px] bg-surface p-2.5 mb-1.5`}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Pill text={severity} color={pillColor} size="sm" />
+        <span className="font-mono text-[9px] text-muted tracking-wide uppercase">
+          {code || name}
+        </span>
       </div>
-      <div className="text-xs font-mono text-muted mt-1">{constraint}</div>
+      
+      {message && (
+        <div className="font-ui text-[12px] text-ink leading-snug mb-1.5">
+          {message}
+        </div>
+      )}
+      
+      {constraint && (
+        <div className="font-mono text-[10px] text-muted bg-subtle px-1.5 py-1 rounded-[2px] break-all">
+          {constraint}
+        </div>
+      )}
     </div>
   );
 }

@@ -6,19 +6,28 @@ interface SectionProps {
   defaultOpen?: boolean;
 }
 
+/**
+ * Collapsible section with high-contrast uppercase header.
+ * Used in Properties Panel and Blueprint Sidebar.
+ */
 export function Section({ title, children, defaultOpen = true }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen);
+  
   return (
-    <div className="border-b border-border">
+    <div className="mb-4">
       <button
         type="button"
-        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
+        className="w-full flex items-center justify-between py-1.5 cursor-pointer group"
         onClick={() => setOpen(!open)}
       >
-        {title}
-        <span className="text-muted">{open ? '\u25BE' : '\u25B8'}</span>
+        <span className="font-mono text-[10px] font-bold tracking-[0.15em] uppercase text-muted group-hover:text-ink transition-colors">
+          {title}
+        </span>
+        <span className={`text-[10px] text-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}>
+          ▶
+        </span>
       </button>
-      {open && <div className="px-3 pb-2">{children}</div>}
+      {open && <div className="space-y-1">{children}</div>}
     </div>
   );
 }

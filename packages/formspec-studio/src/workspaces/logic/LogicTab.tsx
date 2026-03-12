@@ -28,7 +28,7 @@ export function LogicTab() {
   const definition = useDefinition();
 
   const binds = normalizeBinds(definition?.binds);
-  const shapes = Array.isArray(definition?.shapes) ? definition.shapes : [];
+  const shapes = Array.isArray(definition?.shapes) ? definition.shapes.map((s: any) => ({ name: s.id, ...s })) : [];
   const variables = Array.isArray(definition?.variables) ? definition.variables : [];
 
   return (

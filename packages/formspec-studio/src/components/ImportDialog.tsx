@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDispatch } from '../state/useDispatch';
 
 interface ImportDialogProps {
   open: boolean;
@@ -8,6 +9,7 @@ interface ImportDialogProps {
 const ARTIFACT_TYPES = ['Definition', 'Component', 'Theme', 'Mapping'] as const;
 
 export function ImportDialog({ open, onClose }: ImportDialogProps) {
+  const dispatch = useDispatch();
   const [selectedType, setSelectedType] = useState<string>(ARTIFACT_TYPES[0]);
   const [jsonText, setJsonText] = useState('');
 
@@ -18,7 +20,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl">
+      <div data-testid="import-dialog" className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl">
         <div className="p-4 border-b border-border">
           <h2 className="text-sm font-semibold">Import</h2>
           <p className="text-xs text-muted mt-1">
@@ -67,6 +69,19 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
           <button
             className="px-3 py-1.5 text-sm rounded bg-accent text-on-accent hover:opacity-90"
             disabled={!jsonText.trim()}
+            onClick={() => {
+              try {
+                const parsed = JSON.parse(jsonText);
+                const artifactKey = selectedType.toLowerCase();
+                dispatch({
+                  type: 'project.import',
+                  payload: { [artifactKey]: parsed },
+                });
+                onClose();
+              } catch (e) {
+                // ignore parse errors for now
+              }
+            }}
           >
             Load
           </button>

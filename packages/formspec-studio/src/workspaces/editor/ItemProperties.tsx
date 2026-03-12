@@ -2,11 +2,16 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useSelection } from '../../state/useSelection';
 import { useDefinition } from '../../state/useDefinition';
 import { useDispatch } from '../../state/useDispatch';
-import { flatItems, bindsFor, arrayBindsFor, dataTypeInfo } from '../../lib/field-helpers';
+import { flatItems, bindsFor, arrayBindsFor, dataTypeInfo, shapesFor } from '../../lib/field-helpers';
+import { Section } from '../../components/ui/Section';
+import { PropertyRow } from '../../components/ui/PropertyRow';
+import { BindCard } from '../../components/ui/BindCard';
+import { ShapeCard } from '../../components/ui/ShapeCard';
+import { humanizeFEL } from '../../lib/humanize';
 
 /**
  * Displays and edits properties for the currently selected item.
- * Shows an empty state when nothing is selected.
+ * High-density technical inspector.
  */
 export function ItemProperties() {
   const { selectedKey, selectedType } = useSelection();
@@ -47,7 +52,6 @@ export function ItemProperties() {
     [dispatch],
   );
 
-  // Find the item by walking the flat item tree
   const items = definition.items || [];
   const flat = flatItems(items as any);
   const found = selectedKey ? flat.find((f) => f.path === selectedKey) : null;
@@ -65,86 +69,129 @@ export function ItemProperties() {
 
   if (!selectedKey) {
     return (
-      <div className="p-4 text-sm text-muted">
-        Select an item to inspect
+      <div className="h-full flex flex-col items-center justify-center text-muted p-8">
+        <div className="w-11 h-11 border-1.5 border-dashed border-border rounded-[4px] flex items-center justify-center mb-3 opacity-50 text-lg">
+          ⬡
+        </div>
+        <div className="text-[14px] text-center leading-relaxed font-ui">
+          Select an item<br />to inspect
+        </div>
       </div>
     );
   }
 
   if (!found) {
     return (
-      <div className="p-4 text-sm text-muted">
+      <div className="p-4 text-[13px] text-muted font-ui">
         Item not found: {selectedKey}
       </div>
     );
   }
 
   const { item, path } = found;
-  // binds may be array (engine format) or object (legacy display format)
   const rawBinds = definition.binds;
   const binds = Array.isArray(rawBinds)
-    ? arrayBindsFor(rawBinds, path)
+    ? arrayBindsFor(rawBinds as any[], path)
     : bindsFor(rawBinds as any, path);
+  
+  const shapes = shapesFor((definition as any).shapes, path);
   const dtInfo = item.dataType ? dataTypeInfo(item.dataType) : null;
   const currentKey = path.split('.').pop() || path;
 
   return (
-    <div className="p-4 space-y-4">
-      <h2 className="text-sm font-medium">Properties</h2>
-
-      {/* Key (editable) */}
-      <div>
-        <label className="text-xs text-muted block mb-1">Key</label>
-        <input
-          ref={keyInputRef}
-          type="text"
-          className="w-full px-2 py-1 text-sm border border-border rounded bg-surface"
-          defaultValue={currentKey}
-        />
+    <div className="h-full flex flex-col bg-surface overflow-hidden">
+      {/* Panel Header */}
+      <div className="px-3.5 py-2.5 border-b border-border bg-surface shrink-0">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          {dtInfo && (
+            <div className={`w-5.5 h-5.5 rounded-[3px] bg-subtle flex items-center justify-center font-mono font-bold text-[10px] ${dtInfo.color}`}>
+              {dtInfo.icon}
+            </div>
+          )}
+          <h2 className="text-[15px] font-bold text-ink tracking-tight font-ui">Properties</h2>
+        </div>
+        <div className="font-mono text-[12px] text-muted truncate">
+          {(item.label as string) || currentKey}
+        </div>
       </div>
 
-      {/* Type */}
-      <div>
-        <label className="text-xs text-muted block mb-1">Type</label>
-        <div className="text-sm">{selectedType || item.type}</div>
+      {/* Inspector Scroll Area */}
+      <div className="flex-1 overflow-y-auto px-3.5 py-2 space-y-1">
+        <Section title="Identity">
+          <div className="space-y-1.5 mb-2">
+            <label className="font-mono text-[10px] text-muted uppercase tracking-wider block">Key</label>
+            <input
+              ref={keyInputRef}
+              type="text"
+              className="w-full px-2 py-1 text-[13px] font-mono border border-border rounded-[4px] bg-surface outline-none focus:border-accent transition-colors"
+              defaultValue={currentKey}
+            />
+          </div>
+          <PropertyRow label="Type">{selectedType || item.type}</PropertyRow>
+          {dtInfo && (
+            <PropertyRow label="DataType" color={dtInfo.color}>
+              <span className="mr-1">{dtInfo.icon}</span>
+              {dtInfo.label}
+            </PropertyRow>
+          )}
+          {typeof item.semanticType === 'string' && <PropertyRow label="Semantic" color="text-logic">{item.semanticType}</PropertyRow>}
+        </Section>
+
+        {item.type === 'field' && !!(item.currency || item.precision != null || item.prefix || item.suffix) && (
+          <Section title="Field Config">
+            {typeof item.currency === 'string' && <PropertyRow label="Currency">{item.currency}</PropertyRow>}
+            {typeof item.precision === 'number' && <PropertyRow label="Precision">{item.precision}</PropertyRow>}
+            {typeof item.prefix === 'string' && <PropertyRow label="Prefix">"{item.prefix}"</PropertyRow>}
+            {typeof item.suffix === 'string' && <PropertyRow label="Suffix">"{item.suffix}"</PropertyRow>}
+          </Section>
+        )}
+
+        {Object.keys(binds).length > 0 && (
+          <Section title="Behavior Rules">
+            <div className="space-y-1">
+              {Object.entries(binds).map(([type, expr]) => (
+                <BindCard
+                  key={type}
+                  bindType={type}
+                  expression={expr}
+                  humanized={humanizeFEL(expr)}
+                />
+              ))}
+            </div>
+            <button className="w-full py-2 mt-1 border border-dashed border-border rounded-[4px] text-muted font-mono text-[11px] hover:border-muted/40 hover:text-ink transition-colors cursor-pointer">
+              + Add Rule
+            </button>
+          </Section>
+        )}
+
+        {shapes.length > 0 && (
+          <Section title="Validation Shapes">
+            <div className="space-y-1">
+              {shapes.map((sh, i) => (
+                <ShapeCard
+                  key={i}
+                  name={sh.name}
+                  severity={sh.severity}
+                  constraint={sh.constraint}
+                  message={sh.message as string}
+                  code={sh.code as string}
+                />
+              ))}
+            </div>
+          </Section>
+        )}
       </div>
 
-      {/* Data type */}
-      {dtInfo && (
-        <div>
-          <label className="text-xs text-muted block mb-1">Data Type</label>
-          <div className={`text-sm ${dtInfo.color}`}>
-            <span className="mr-1">{dtInfo.icon}</span>
-            {dtInfo.label}
-          </div>
-        </div>
-      )}
-
-      {/* Binds */}
-      {Object.keys(binds).length > 0 && (
-        <div>
-          <label className="text-xs text-muted block mb-1">Binds</label>
-          <div className="space-y-1">
-            {Object.entries(binds).map(([prop, expr]) => (
-              <div key={prop} className="text-xs border border-border rounded p-2">
-                <span className="font-medium">{prop}:</span>{' '}
-                <span className="font-mono text-muted">{expr}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-2 pt-2 border-t border-border">
+      {/* Action Footer */}
+      <div className="p-3.5 border-t border-border bg-surface shrink-0 flex gap-2">
         <button
-          className="px-3 py-1 text-xs rounded bg-surface border border-border hover:bg-surface-hover"
+          className="flex-1 py-1.5 border border-border rounded-[4px] font-mono text-[11px] font-bold uppercase tracking-widest hover:bg-subtle transition-colors cursor-pointer"
           onClick={() => handleDuplicate(path)}
         >
           Duplicate
         </button>
         <button
-          className="px-3 py-1 text-xs rounded bg-error text-on-error hover:bg-error/80"
+          className="flex-1 py-1.5 border border-error/20 rounded-[4px] font-mono text-[11px] font-bold uppercase tracking-widest text-error hover:bg-error/5 transition-colors cursor-pointer"
           onClick={() => handleDelete(path)}
         >
           Delete

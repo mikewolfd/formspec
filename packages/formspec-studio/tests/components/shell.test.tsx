@@ -31,7 +31,7 @@ describe('Shell', () => {
 
   it('defaults to Editor tab', () => {
     renderShell();
-    expect(screen.getByTestId('workspace-content')).toHaveAttribute('data-workspace', 'Editor');
+    expect(screen.getByTestId('workspace-Editor')).toHaveAttribute('data-workspace', 'Editor');
   });
 
   it('clicking a tab switches workspace', async () => {
@@ -39,6 +39,6 @@ describe('Shell', () => {
     await act(async () => {
       screen.getByRole('tab', { name: 'Logic' }).click();
     });
-    expect(screen.getByTestId('workspace-content')).toHaveAttribute('data-workspace', 'Logic');
+    expect(screen.getByTestId('workspace-Logic')).toHaveAttribute('data-workspace', 'Logic');
   });
 });

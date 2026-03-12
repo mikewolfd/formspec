@@ -274,7 +274,8 @@ def _lint_pass(
 
 def _pass_definition_linting(arts: DiscoveredArtifacts) -> PassResult:
     all_defs = list(arts.definitions.values()) + list(arts.fragments.values())
-    return _lint_pass("Definition linting", all_defs)
+    regs = [r.doc for r in arts.registries]
+    return _lint_pass("Definition linting", all_defs, registry_documents=regs)
 
 
 def _pass_sidecar_linting(arts: DiscoveredArtifacts) -> PassResult:
@@ -371,9 +372,16 @@ def _pass_runtime_evaluation(arts: DiscoveredArtifacts) -> PassResult:
     if not arts.responses or not arts.definitions:
         return PassResult(title="Runtime evaluation (DefinitionEvaluator)", empty=True)
 
+    registries = []
+    for reg_art in arts.registries:
+        try:
+            registries.append(Registry(reg_art.doc))
+        except Exception:
+            pass
+
     evaluators: dict[tuple[str, str], DefinitionEvaluator] = {}
     for identity, da in arts.definition_versions.items():
-        evaluators[identity] = DefinitionEvaluator(da.doc)
+        evaluators[identity] = DefinitionEvaluator(da.doc, registries=registries)
 
     pr = PassResult(title="Runtime evaluation (DefinitionEvaluator)")
     for resp in arts.responses:

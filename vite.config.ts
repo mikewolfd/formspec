@@ -16,7 +16,7 @@ export default defineConfig({
       name: 'serve-studio-dist',
       configureServer(server) {
         const MIME: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
-        const studioDir = path.resolve(__dirname, 'form-builder/dist');
+        const studioDir = path.resolve(__dirname, 'packages/formspec-studio/dist');
         server.middlewares.use((req, res, next) => {
           if (!req.url?.startsWith('/studio')) return next();
           let relPath = req.url.replace(/^\/studio/, '').split('?')[0];

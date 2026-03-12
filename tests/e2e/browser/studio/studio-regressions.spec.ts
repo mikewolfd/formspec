@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function gotoStudio(page: Page): Promise<void> {
   await page.goto('/studio/');
-  await expect(page.getByTestId('toolbar')).toBeVisible();
+  await expect(page.getByTestId('header')).toBeVisible();
 
   const shellGrid = page.locator('.shell-grid');
   const inspectorHidden = await shellGrid.getAttribute('data-inspector-hidden');
