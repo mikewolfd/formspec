@@ -6,7 +6,8 @@ import { bindsFor } from '../../lib/field-helpers';
 import { FieldBlock } from './FieldBlock';
 import { GroupBlock } from './GroupBlock';
 import { DisplayBlock } from './DisplayBlock';
-import { AddItemPicker } from './AddItemPicker';
+import { PageTabs } from './PageTabs';
+import { AddItemPalette, type FieldTypeOption } from '../../components/AddItemPalette';
 import { EditorContextMenu } from './EditorContextMenu';
 
 interface Item {
@@ -14,6 +15,10 @@ interface Item {
   type: string;
   dataType?: string;
   label?: string;
+  hint?: string;
+  repeatable?: boolean;
+  minRepeat?: number;
+  maxRepeat?: number;
   children?: Item[];
 }
 
@@ -36,6 +41,9 @@ function renderItems(
           key={path}
           itemKey={item.key}
           label={item.label}
+          repeatable={item.repeatable}
+          minRepeat={item.minRepeat}
+          maxRepeat={item.maxRepeat}
           depth={depth}
           selected={isSelected}
           onSelect={() => select(path, 'group')}
@@ -62,6 +70,7 @@ function renderItems(
           key={path}
           itemKey={item.key}
           label={item.label}
+          hint={item.hint}
           dataType={item.dataType}
           binds={bindsFor(allBinds, path)}
           depth={depth}
@@ -86,17 +95,33 @@ export function EditorCanvas() {
   const { selectedKey, select, deselect } = useSelection();
   const dispatch = useDispatch();
   const [showPicker, setShowPicker] = useState(false);
+  const [activePage, setActivePage] = useState(0);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const items: Item[] = (definition?.items as Item[]) || [];
   const allBinds = definition?.binds as Record<string, Record<string, string>> | undefined;
 
-  const handleAddItem = (type: string, dataType?: string) => {
-    const key = `${type}${Date.now() % 10000}`;
+  const pageMode = (definition as any)?.formPresentation?.pageMode;
+  const isPaged = pageMode === 'wizard' || pageMode === 'tabs';
+  const topLevelGroups = items.filter((i) => i.type === 'group');
+  const hasPaged = isPaged && topLevelGroups.length > 0;
+  const safeActivePage = Math.min(activePage, Math.max(0, topLevelGroups.length - 1));
+  const displayItems: Item[] = hasPaged
+    ? [topLevelGroups[safeActivePage]]
+    : items;
+
+  const handleAddItem = (opt: FieldTypeOption) => {
+    const key = `${opt.dataType ?? opt.itemType}${Date.now() % 10000}`;
     dispatch({
       type: 'definition.addItem',
-      payload: { key, type, dataType, label: key },
+      payload: {
+        key,
+        type: opt.itemType,
+        dataType: opt.dataType,
+        label: opt.label,
+        ...opt.extra,
+      },
     });
     setShowPicker(false);
   };
@@ -148,31 +173,59 @@ export function EditorCanvas() {
     setContextMenu(null);
   };
 
+  const formTitle = (definition as any)?.title;
+  const formUrl = (definition as any)?.url;
+  const formVersion = (definition as any)?.version;
+  const formPresentation = (definition as any)?.formPresentation || {};
+  const defaultCurrency = formPresentation.defaultCurrency;
+
   return (
     <div
-      className="flex flex-col gap-1 p-4"
+      className="flex flex-col min-h-full max-w-[660px] mx-auto"
       onClick={(e) => {
-        // Deselect when clicking the canvas background, not a field/group block
         if (e.target === e.currentTarget) deselect();
       }}
       onContextMenu={handleContextMenu}
     >
-      <div className="flex justify-end mb-2">
+      {/* Form metadata header */}
+      {(formTitle || formUrl) && (
+        <div className="px-7 pt-4 pb-3 border-b border-border bg-surface shrink-0">
+          <div className="font-ui text-[15px] font-semibold tracking-tight text-ink leading-snug truncate">
+            {formTitle || 'Untitled Form'}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5 font-mono text-[10.5px] text-muted overflow-hidden">
+            {formUrl && <span className="truncate min-w-0">{formUrl}</span>}
+            {formVersion && <><span className="opacity-40 shrink-0">·</span><span className="shrink-0">v{formVersion}</span></>}
+            {pageMode && <><span className="opacity-40 shrink-0">·</span><span className="shrink-0">{pageMode}</span></>}
+            {defaultCurrency && <><span className="opacity-40 shrink-0">·</span><span className="shrink-0">{defaultCurrency}</span></>}
+          </div>
+        </div>
+      )}
+
+      {/* Page tabs — only when in paged mode */}
+      {hasPaged && (
+        <div className="px-7 border-b border-border bg-surface">
+          <PageTabs activePage={safeActivePage} onPageChange={setActivePage} />
+        </div>
+      )}
+
+      {/* Items list */}
+      <div className="flex flex-col gap-1 px-7 pt-3 pb-20">
+        <AddItemPalette
+          open={showPicker}
+          onClose={() => setShowPicker(false)}
+          onAdd={handleAddItem}
+        />
+        {renderItems(displayItems, allBinds, selectedKey, select, 0, '')}
         <button
           data-testid="add-item"
-          className="px-3 py-1.5 text-sm rounded bg-accent text-on-accent hover:opacity-90"
+          className="mt-3 w-full py-2.5 border border-dashed border-border rounded-[4px] font-mono text-[11.5px] text-muted hover:border-accent/50 hover:text-ink transition-colors cursor-pointer flex items-center justify-center gap-1.5"
           onClick={() => setShowPicker(!showPicker)}
         >
-          + Add
+          + Add Item
         </button>
       </div>
-      {showPicker && (
-        <AddItemPicker
-          onAdd={handleAddItem}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
-      {renderItems(items, allBinds, selectedKey, select, 0, '')}
+
       {contextMenu && (
         <div
           ref={contextMenuRef}
