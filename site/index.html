@@ -448,6 +448,195 @@
       50% { opacity: 0; }
     }
 
+    /* Repeatable section */
+    .repeat-section {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(124,106,247,0.03);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .repeat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(124,106,247,0.05);
+    }
+
+    .repeat-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .repeat-count {
+      font-size: 0.68rem;
+      color: var(--text-dimmer);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .repeat-rows { padding: 10px 12px 4px; }
+
+    .repeat-row {
+      display: grid;
+      grid-template-columns: 1fr 80px auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .repeat-row.removing {
+      opacity: 0;
+      transform: translateX(8px);
+    }
+
+    .repeat-row .field-group { margin-bottom: 0; }
+
+    .btn-remove {
+      width: 28px; height: 28px;
+      border-radius: 5px;
+      border: 1px solid rgba(248,113,113,0.3);
+      background: rgba(248,113,113,0.08);
+      color: #f87171;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+      margin-bottom: 0;
+      align-self: end;
+      padding-bottom: 2px;
+    }
+
+    .btn-remove:hover { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.5); }
+
+    .btn-add-row {
+      width: 100%;
+      padding: 7px;
+      background: transparent;
+      border: 1px dashed var(--border-bright);
+      border-radius: 5px;
+      color: var(--text-dim);
+      font-size: 0.78rem;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-add-row:hover {
+      border-color: var(--accent);
+      color: var(--accent2);
+      background: var(--accent-glow);
+    }
+
+    /* Warning state */
+    .field-input.warn {
+      border-color: rgba(251,191,36,0.5);
+      box-shadow: 0 0 0 3px rgba(251,191,36,0.1);
+    }
+
+    .field-hint {
+      font-size: 0.7rem;
+      margin-top: 4px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      line-height: 1.4;
+    }
+
+    .field-hint.warn { color: var(--amber); background: rgba(251,191,36,0.08); }
+    .field-hint.error { color: #f87171; background: rgba(248,113,113,0.08); }
+
+    /* Offline callout */
+    .offline-callout {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 2rem;
+      padding: 16px 20px;
+      background: rgba(52,211,153,0.05);
+      border: 1px solid rgba(52,211,153,0.18);
+      border-radius: var(--radius);
+    }
+
+    .offline-icon {
+      font-size: 1.6rem;
+      flex-shrink: 0;
+    }
+
+    .offline-text .offline-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--green);
+      margin-bottom: 2px;
+    }
+
+    .offline-text .offline-desc {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* Audit strip */
+    .audit-strip {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg3);
+      padding: 28px 6vw;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4rem;
+      flex-wrap: wrap;
+    }
+
+    .audit-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      max-width: 260px;
+    }
+
+    .audit-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(124,106,247,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--accent2);
+    }
+
+    .audit-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .audit-desc {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
     .demo-submit {
       width: 100%;
       padding: 10px;
@@ -927,6 +1116,31 @@
           <input class="field-input" id="f-tribal" type="text" placeholder="BIA-XXXX" autocomplete="off" />
         </div>
 
+        <!-- Repeatable team members -->
+        <div class="repeat-section" id="team-section">
+          <div class="repeat-header">
+            <span class="repeat-label">Key personnel</span>
+            <span class="repeat-count" id="team-count">1 member</span>
+          </div>
+          <div class="repeat-rows" id="team-rows">
+            <div class="repeat-row" id="tr-0">
+              <div class="field-group">
+                <label class="field-label">Name</label>
+                <input class="field-input" type="text" placeholder="Jane Smith" autocomplete="off" />
+              </div>
+              <div class="field-group">
+                <label class="field-label">Role</label>
+                <input class="field-input" type="text" placeholder="PI" autocomplete="off" />
+              </div>
+              <button class="btn-remove" onclick="removeRow(0)" title="Remove">×</button>
+            </div>
+          </div>
+          <button class="btn-add-row" onclick="addRow()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Add team member
+          </button>
+        </div>
+
         <div class="field-row">
           <div class="field-group visible" style="margin-bottom:0">
             <label class="field-label">Requested amount ($)</label>
@@ -937,7 +1151,8 @@
             <input class="field-input" id="f-months" type="number" placeholder="12" min="1" max="60" autocomplete="off" />
           </div>
         </div>
-        <div style="height:16px"></div>
+        <div id="months-hint" style="height:4px"></div>
+        <div style="height:12px"></div>
 
         <div class="field-group visible field-computed">
           <label class="field-label">
@@ -1011,15 +1226,18 @@
             <div class="runtime-desc">Re-verify submitted data with the exact same rules.</div>
           </div>
           <div class="runtime-card">
-            <div class="runtime-icon">📴</div>
-            <div class="runtime-name">Offline</div>
-            <div class="runtime-desc">Works without a connection. Syncs when back online.</div>
-          </div>
-          <div class="runtime-card">
             <div class="runtime-icon">📱</div>
             <div class="runtime-name">Mobile</div>
             <div class="runtime-desc">Same definition, adapted presentation for small screens.</div>
           </div>
+        </div>
+        <div class="offline-callout">
+          <div class="offline-icon">📴</div>
+          <div class="offline-text">
+            <div class="offline-title">Works without internet. Syncs when you're back.</div>
+            <div class="offline-desc">Field researchers, clinical coordinators, anyone going somewhere without reliable wifi — Formspec keeps working. Validation still runs, data stays safe, and everything syncs the moment you reconnect.</div>
+          </div>
+        </div>
         </div>
       </div>
       <div class="json-demo">
@@ -1051,6 +1269,37 @@
       </div>
     </div>
   </section>
+
+  <!-- AUDIT STRIP -->
+  <div class="audit-strip">
+    <div class="audit-item">
+      <div class="audit-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L3 5v4c0 3.5 2.5 6.5 6 7.5 3.5-1 6-4 6-7.5V5L9 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6 9l2 2 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <div class="audit-title">Locked to the version that created it</div>
+        <div class="audit-desc">Every submission is permanently tied to the exact form version that was live when it was filled in. Rules change — old responses don't.</div>
+      </div>
+    </div>
+    <div class="audit-item">
+      <div class="audit-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M9 5v4l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="audit-title">Warnings don't block. Errors do.</div>
+        <div class="audit-desc">Unusual but valid entries get flagged as warnings — visible but not submission-blocking. Only hard errors stop the form.</div>
+      </div>
+    </div>
+    <div class="audit-item">
+      <div class="audit-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M3 5h12M3 13h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="audit-title">Data goes anywhere, automatically</div>
+        <div class="audit-desc">A built-in mapping engine transforms responses to XML, CSV, or any JSON shape your downstream system expects — no custom glue code.</div>
+      </div>
+    </div>
+  </div>
 
   <!-- SECTION 2: AI-native -->
   <div class="ai-section">
@@ -1152,7 +1401,7 @@ engine.setValue(<span class="j-str">"org_type"</span><span class="j-punct">,</sp
         <div class="section-eyebrow">Open spec</div>
         <h2 class="section-heading">Your stack,<br />your rules.</h2>
         <p class="section-sub">
-          Formspec is an open specification, not a locked-in SaaS. Use the TypeScript engine in the browser, the Python library on your server, or implement it yourself. Both ship today.
+          If you're not an engineer: hand this page to your team. If you are: Formspec is an open specification — use the TypeScript engine in the browser, the Python library on your server, or implement it in any language. Both reference implementations ship today.
         </p>
         <div class="stack-pills">
           <span class="pill accent">TypeScript</span>
@@ -1204,7 +1453,6 @@ engine.setValue(<span class="j-str">"org_type"</span><span class="j-punct">,</sp
     const monthly   = document.getElementById('f-monthly');
     const orgName   = document.getElementById('f-org');
     const einField  = document.getElementById('f-ein');
-    const tribalField = document.getElementById('f-tribal');
     const aiPanel   = document.getElementById('ai-panel');
     const aiText    = document.getElementById('ai-text');
 
@@ -1225,22 +1473,28 @@ engine.setValue(<span class="j-str">"org_type"</span><span class="j-punct">,</sp
 
     orgType.addEventListener('change', () => {
       const v = orgType.value;
-      if (v === 'nonprofit') {
-        showField('fg-ein');
-        hideField('fg-tribal');
-      } else if (v === 'tribal') {
-        hideField('fg-ein');
-        showField('fg-tribal');
-      } else {
-        hideField('fg-ein');
-        hideField('fg-tribal');
-      }
+      if (v === 'nonprofit') { showField('fg-ein'); hideField('fg-tribal'); }
+      else if (v === 'tribal') { hideField('fg-ein'); showField('fg-tribal'); }
+      else { hideField('fg-ein'); hideField('fg-tribal'); }
       updateAI();
     });
 
     function updateMonthly() {
       const a = parseFloat(amount.value);
       const m = parseFloat(months.value);
+      const hint = document.getElementById('months-hint');
+
+      // Warning: duration > 36 months is unusual, not blocking
+      months.classList.remove('warn');
+      hint.innerHTML = '';
+      if (m > 36) {
+        months.classList.add('warn');
+        hint.innerHTML = '<div class="field-hint warn">⚠ Durations over 36 months are uncommon — double-check this is intentional.</div>';
+      } else if (m > 0 && a > 0 && (a / m) > 50000) {
+        months.classList.remove('warn');
+        hint.innerHTML = '<div class="field-hint warn">⚠ Monthly spend over $50k — you can still submit, but expect a review request.</div>';
+      }
+
       if (a > 0 && m > 0) {
         monthly.value = '$' + (a / m).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' / mo';
       } else {
@@ -1260,24 +1514,22 @@ engine.setValue(<span class="j-str">"org_type"</span><span class="j-punct">,</sp
       const ein  = einField.value.trim();
       const amt  = parseFloat(amount.value);
       const mo   = parseFloat(months.value);
-
       if (!name && !type) return null;
-
       let parts = [];
-      if (name) parts.push(`${name}`);
+      if (name) parts.push(name);
       if (type === 'nonprofit') parts.push('a registered nonprofit');
       else if (type === 'government') parts.push('a government agency');
       else if (type === 'tribal') parts.push('a tribal nation');
-
       let s = parts.length === 2 ? `${parts[0]} is ${parts[1]}` : (parts[0] || '');
-
       if (amt > 0 && mo > 0) {
-        const perMo = (amt / mo).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        const perMo = (amt / mo).toLocaleString('en-US', {maximumFractionDigits: 0});
         s += `. Requesting $${amt.toLocaleString()} over ${mo} months — that's $${perMo}/mo`;
       } else if (amt > 0) {
         s += `. Requesting $${amt.toLocaleString()}`;
       }
-
+      const teamNames = [...document.querySelectorAll('#team-rows .repeat-row input:first-of-type')]
+        .map(i => i.value.trim()).filter(Boolean);
+      if (teamNames.length) s += `. Team: ${teamNames.join(', ')}`;
       if (type === 'nonprofit' && ein) s += `. EIN ${ein} on file`;
       s += '.';
       return s;
@@ -1315,16 +1567,60 @@ engine.setValue(<span class="j-str">"org_type"</span><span class="j-punct">,</sp
     }
 
     function handleSubmit() {
-      const summary = buildSummary();
       if (!orgName.value.trim() || !orgType.value) {
         aiPanel.classList.remove('empty');
         aiPanel.classList.add('visible');
         typeText(aiText, '⚠ Organization name and type are required before submitting.');
         return;
       }
+      aiPanel.classList.remove('empty');
+      aiPanel.classList.add('visible');
       typeText(aiText, '✓ Application looks complete. Submitting…');
       setTimeout(() => typeText(aiText, '✓ Submitted! You\'ll hear back within 5 business days.'), 1400);
     }
+
+    // ── REPEATABLE ROWS ──
+    let rowCount = 1;
+
+    function addRow() {
+      const idx = rowCount++;
+      const rows = document.getElementById('team-rows');
+      const div = document.createElement('div');
+      div.className = 'repeat-row';
+      div.id = 'tr-' + idx;
+      div.innerHTML = `
+        <div class="field-group">
+          <label class="field-label">Name</label>
+          <input class="field-input" type="text" placeholder="Team member" autocomplete="off" oninput="updateAI()" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Role</label>
+          <input class="field-input" type="text" placeholder="Role" autocomplete="off" />
+        </div>
+        <button class="btn-remove" onclick="removeRow(${idx})" title="Remove">×</button>
+      `;
+      rows.appendChild(div);
+      updateTeamCount();
+      div.querySelector('input').focus();
+    }
+
+    function removeRow(idx) {
+      const el = document.getElementById('tr-' + idx);
+      if (!el) return;
+      // Don't allow removing last row
+      const rows = document.querySelectorAll('#team-rows .repeat-row');
+      if (rows.length <= 1) return;
+      el.classList.add('removing');
+      setTimeout(() => { el.remove(); updateTeamCount(); updateAI(); }, 300);
+    }
+
+    function updateTeamCount() {
+      const n = document.querySelectorAll('#team-rows .repeat-row').length;
+      document.getElementById('team-count').textContent = n === 1 ? '1 member' : `${n} members`;
+    }
+
+    // Wire up first row name input
+    document.querySelector('#tr-0 input').addEventListener('input', updateAI);
 
     // ── TABS ──
     function switchTab(lang) {
