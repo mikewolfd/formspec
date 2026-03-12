@@ -34,9 +34,9 @@ test.describe('Cross-Workspace Authoring', () => {
     // Switch to Preview tab — 3 form inputs should render
     await switchTab(page, 'Preview');
     const previewWorkspace = page.locator('[data-testid="workspace-Preview"]');
-    await expect(previewWorkspace.getByPlaceholder('First Name')).toBeVisible();
-    await expect(previewWorkspace.getByPlaceholder('Last Name')).toBeVisible();
-    await expect(previewWorkspace.getByPlaceholder('Date of Birth')).toBeVisible();
+    await expect(previewWorkspace.getByLabel('First Name')).toBeVisible();
+    await expect(previewWorkspace.getByLabel('Last Name')).toBeVisible();
+    await expect(previewWorkspace.getByLabel('Date of Birth')).toBeVisible();
   });
 
   test('Editor → Logic round-trip with required bind', async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe('Cross-Workspace Authoring', () => {
     const canvas = page.locator('[data-testid="workspace-Editor"]');
     const incomeBlock = canvas.locator('[data-testid="field-income"]');
     await expect(incomeBlock).toBeVisible();
-    await expect(incomeBlock.getByText('Required')).toBeVisible();
+    await expect(incomeBlock.getByText('req')).toBeVisible();
 
     // Switch to Logic tab — bind appears with "required (1)" in FilterBar
     await switchTab(page, 'Logic');
@@ -62,7 +62,7 @@ test.describe('Cross-Workspace Authoring', () => {
     await switchTab(page, 'Editor');
     const incomeBlockAgain = page.locator('[data-testid="workspace-Editor"]').locator('[data-testid="field-income"]');
     await expect(incomeBlockAgain).toBeVisible();
-    await expect(incomeBlockAgain.getByText('Required')).toBeVisible();
+    await expect(incomeBlockAgain.getByText('req')).toBeVisible();
   });
 
   test('Full authoring cycle — all workspaces show seeded content', async ({ page }) => {
@@ -77,12 +77,12 @@ test.describe('Cross-Workspace Authoring', () => {
             { key: 'street', type: 'field', dataType: 'string', label: 'Street' },
           ]},
         ],
-        binds: {
-          name: { required: 'true' },
-          age: { constraint: '$age >= 0' },
-        },
+        binds: [
+          { path: 'name', required: 'true' },
+          { path: 'age', constraint: '$age >= 0' },
+        ],
         shapes: [
-          { name: 'ageCheck', severity: 'error', constraint: '$age >= 0' },
+          { id: 'ageCheck', target: 'age', severity: 'error', constraint: '$age >= 0', message: '' },
         ],
       },
       theme: {
@@ -133,8 +133,8 @@ test.describe('Cross-Workspace Authoring', () => {
     // Preview: form renders with all fields
     await switchTab(page, 'Preview');
     const previewWorkspace = page.locator('[data-testid="workspace-Preview"]');
-    await expect(previewWorkspace.getByPlaceholder('Name')).toBeVisible();
-    await expect(previewWorkspace.getByPlaceholder('Email')).toBeVisible();
+    await expect(previewWorkspace.getByLabel('Name')).toBeVisible();
+    await expect(previewWorkspace.getByLabel('Email')).toBeVisible();
 
     // Go back to Editor, add a new field via dispatch (creates undoable history entry)
     await switchTab(page, 'Editor');

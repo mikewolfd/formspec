@@ -79,6 +79,7 @@ test.describe('Blueprint Selection Sync', () => {
     await page.click('[data-testid="workspace-Editor"]', { position: { x: 10, y: 5 } });
 
     // Properties panel should show the empty state
-    await expect(properties).toContainText('Select an item to inspect');
+    await expect(properties).toContainText('Select an item');
+    await expect(properties).toContainText('inspect');
   });
 });

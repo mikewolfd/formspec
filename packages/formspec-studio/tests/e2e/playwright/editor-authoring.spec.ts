@@ -4,6 +4,8 @@ import { waitForApp, seedDefinition, dispatch } from './helpers';
 test.describe('Editor Authoring', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
+    // Clear the definition to have a clean slate for authoring tests
+    await seedDefinition(page, { $formspec: '1.0', url: 'urn:test', items: [] });
   });
 
   test('add a field via AddItemPicker', async ({ page }) => {
@@ -13,11 +15,12 @@ test.describe('Editor Authoring', () => {
     // Click the Add button
     await page.click('[data-testid="add-item"]');
 
-    // Click "Field" in the picker
-    await page.getByRole('button', { name: 'Field' }).click();
+    // Search for "text" in the palette
+    const searchInput = page.locator('input[placeholder="Search field types…"]');
+    await searchInput.fill('text');
 
-    // Click "string" data type
-    await page.getByRole('button', { name: 'string' }).click();
+    // Click the "Text" option (which is a field item)
+    await page.getByRole('button', { name: 'Text Short text — names,' }).click();
 
     // A new field block should appear in the canvas
     const canvas = page.locator('[data-testid="workspace-Editor"]');
@@ -107,7 +110,8 @@ test.describe('Editor Authoring', () => {
   test('add a group with children', async ({ page }) => {
     // Add a Group via the picker
     await page.click('[data-testid="add-item"]');
-    await page.getByRole('button', { name: 'Group' }).click();
+    await page.locator('input[placeholder="Search field types…"]').fill('group');
+    await page.getByRole('button', { name: 'Group Container for a set' }).click();
 
     // A group block should appear
     const canvas = page.locator('[data-testid="workspace-Editor"]');

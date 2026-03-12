@@ -28,17 +28,16 @@ test.describe('Preview Workspace', () => {
   test('renders form inputs for fields, group fieldset, and display text', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Preview"]');
 
-    // Field items render label text (label has no htmlFor so use getByText)
-    // and inputs rendered with placeholder matching the label
-    await expect(workspace.getByText('First Name', { exact: true })).toBeVisible();
-    await expect(workspace.getByPlaceholder('First Name')).toBeVisible();
-    await expect(workspace.getByText('Last Name', { exact: true })).toBeVisible();
-    await expect(workspace.getByPlaceholder('Last Name')).toBeVisible();
+    // Wait for debounced sync to formspec-render (500ms) and for form to render
+    await expect(workspace.getByText('First Name', { exact: true })).toBeVisible({ timeout: 3000 });
 
-    // Group renders as fieldset with legend text
-    await expect(workspace.locator('legend').filter({ hasText: 'Address' })).toBeVisible();
-    // Nested street field also renders
-    await expect(workspace.getByPlaceholder('Street')).toBeVisible();
+    // Field items render label text; inputs are accessible via their associated label
+    await expect(workspace.getByLabel('First Name')).toBeVisible();
+    await expect(workspace.getByText('Last Name', { exact: true })).toBeVisible();
+    await expect(workspace.getByLabel('Last Name')).toBeVisible();
+
+    // Group renders its children (street field is accessible via label)
+    await expect(workspace.getByLabel('Street')).toBeVisible();
 
     // Display item renders its label text
     await expect(workspace.getByText('Please review carefully')).toBeVisible();

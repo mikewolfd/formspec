@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForApp, switchTab } from './helpers';
+import { waitForApp, switchTab, seedDefinition } from './helpers';
 
 const IMPORT_DEFINITION = JSON.stringify({
   $formspec: '1.0',
@@ -18,6 +18,8 @@ const IMPORT_DEFINITION = JSON.stringify({
 test.describe('Import Definition', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
+    // Clear the definition to have a clean slate for import tests
+    await seedDefinition(page, { $formspec: '1.0', url: 'urn:test', items: [] });
   });
 
   test('Import dialog opens and shows Definition selected by default', async ({ page }) => {

@@ -2,8 +2,12 @@ import fs from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 async function gotoStudio(page: Page): Promise<void> {
+  page.on('console', msg => console.log('BROWSER_CONSOLE:', msg.text()));
+  page.on('pageerror', err => console.log('BROWSER_ERROR:', err.message));
   await page.goto('/studio/');
-  await expect(page.getByTestId('toolbar')).toBeVisible();
+  await page.waitForTimeout(2000);
+  console.log('HTML_DUMP:', await page.content());
+  await expect(page.getByTestId('header')).toBeVisible();
   
   // Ensure inspector is visible
   const shellGrid = page.locator('.shell-grid');

@@ -4,6 +4,8 @@ import { waitForApp, dispatch, seedDefinition } from './helpers';
 test.describe('Undo / Redo', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
+    // Clear the definition to have a clean slate for undo/redo tests
+    await seedDefinition(page, { $formspec: '1.0', url: 'urn:test', items: [] });
   });
 
   // Helper: add a field via dispatch and wait for its block to appear.
