@@ -12,7 +12,7 @@ interface OptionSetDef {
 
 export function OptionSets() {
   const definition = useDefinition();
-  const optionSets = (definition?.optionSets as Record<string, OptionSetDef>) || {};
+  const optionSets = (definition?.optionSets as unknown as Record<string, OptionSetDef>) || {};
   const items = (definition?.items as any[]) || [];
 
   // Count how many fields reference each option set

@@ -25,7 +25,7 @@ export function ResponseSchema() {
               <td className="py-1 pr-4">
                 {item.type === 'group' ? 'object' : (item.dataType || item.type)}
               </td>
-              <td className="py-1 text-muted">{item.label || ''}</td>
+              <td className="py-1 text-muted">{(item.label as string) || ''}</td>
             </tr>
           ))}
         </tbody>

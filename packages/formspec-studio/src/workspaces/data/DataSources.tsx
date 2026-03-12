@@ -8,7 +8,10 @@ interface Instance {
 
 export function DataSources() {
   const definition = useDefinition();
-  const instances: Instance[] = (definition?.instances as Instance[]) || [];
+  const instances: Instance[] = Object.entries(definition?.instances || {}).map(([name, inst]) => ({
+    name,
+    ...(inst as object)
+  }));
 
   if (instances.length === 0) {
     return (
