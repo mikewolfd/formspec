@@ -249,6 +249,14 @@ export function planComponentTree(
         }
     }
 
+    // Display item — propagate label text and remove reactive bind (display items have no signals)
+    if (item && item.type === 'display') {
+        if (props.text == null) {
+            props.text = item.label ?? '';
+        }
+        delete props.bind;
+    }
+
     // Conditional rendering
     if (comp.when) {
         node.when = comp.when;
