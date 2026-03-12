@@ -8,7 +8,7 @@ import { MappingConfig } from '../../../src/workspaces/mapping/MappingConfig';
 function renderPreview() {
   const project = createProject({ seed: {
     definition: { $formspec: '1.0', url: 'urn:test', version: '1.0.0', items: [] } as any,
-    mapping: { direction: 'outbound', rules: [] },
+    mapping: { rules: [] },
   }});
   return render(<ProjectProvider project={project}><MappingPreview /></ProjectProvider>);
 }
@@ -24,12 +24,12 @@ function renderConfig(direction?: string) {
 describe('MappingPreview', () => {
   it('shows direction toggle', () => {
     renderPreview();
-    expect(screen.getByText(/outbound/i)).toBeInTheDocument();
+    expect(screen.getByText(/unset/i)).toBeInTheDocument();
   });
 
   it('renders direction as an interactive control', () => {
     renderPreview();
-    expect(screen.getByRole('button', { name: /direction.*outbound|outbound.*direction/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /direction.*unset|unset.*direction/i })).toBeInTheDocument();
   });
 
   it('shows input and output panels', () => {
