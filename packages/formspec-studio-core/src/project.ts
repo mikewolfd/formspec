@@ -1397,20 +1397,37 @@ export class Project {
     const fieldPaths = new Set(fieldRows.map((row) => row.path));
     const normalizedFieldPaths = new Set(fieldRows.map((row) => normalizeIndexedPath(row.path)));
 
-    // Consistency: orphan component binds
+    // Consistency: orphan or mis-bound component nodes
+    const itemTypeByKey = new Map(itemRows.map((row) => [row.key, row.item.type]));
+    // Components that legitimately bind to group/repeat items rather than fields
+    const GROUP_AWARE_COMPONENTS = new Set([
+      'Stack', 'Grid', 'Columns', 'Panel', 'Collapsible',
+      'DataTable', 'Accordion', 'Tabs',
+    ]);
     const tree = this._state.component.tree as any;
     if (tree) {
       const queue = [tree];
       while (queue.length > 0) {
         const node = queue.shift()!;
-        if (node.bind && !fieldPaths.has(node.bind) && !itemKeySet.has(node.bind)) {
-          consistency.push({
-            artifact: 'component',
-            path: node.bind,
-            severity: 'warning',
-            code: 'ORPHAN_COMPONENT_BIND',
-            message: `Component node bound to "${node.bind}" but no such item exists in the definition`,
-          });
+        if (node.bind) {
+          if (!itemKeySet.has(node.bind)) {
+            consistency.push({
+              artifact: 'component',
+              path: node.bind,
+              severity: 'warning',
+              code: 'ORPHAN_COMPONENT_BIND',
+              message: `Component node bound to "${node.bind}" but no such item exists in the definition`,
+            });
+          } else if (!fieldPaths.has(node.bind) && !GROUP_AWARE_COMPONENTS.has(node.component)) {
+            const itemType = itemTypeByKey.get(node.bind) ?? 'unknown';
+            consistency.push({
+              artifact: 'component',
+              path: node.bind,
+              severity: 'warning',
+              code: 'DISPLAY_ITEM_BIND',
+              message: `Component "${node.component}" is bound to "${node.bind}" which is a ${itemType} item, not a field — no value to display`,
+            });
+          }
         }
         if (node.children) queue.push(...node.children);
       }
@@ -1641,7 +1658,7 @@ export class Project {
   private _rebuildComponentTree(): void {
     type TreeNode = { component: string; bind?: string; nodeId?: string; children?: TreeNode[]; [k: string]: unknown };
 
-    const tree = (this._state.component.tree as TreeNode) ?? { component: 'Root', nodeId: 'root', children: [] };
+    const tree = (this._state.component.tree as TreeNode) ?? { component: 'Stack', nodeId: 'root', children: [] };
 
     // 1. Collect existing bound nodes by bind key (preserve their properties)
     const existingBound = new Map<string, TreeNode>();
@@ -1673,15 +1690,20 @@ export class Project {
 
     // 2. Build new tree from definition
     const buildNode = (item: FormspecItem): TreeNode => {
-      // Reuse existing node if available (preserves widget overrides, styles, etc.)
-      const existing = existingBound.get(item.key);
       let node: TreeNode;
 
-      if (existing) {
-        node = { ...existing };
+      if (item.type === 'display') {
+        // Display items have no field signals; store label text directly.
+        // Never set bind on display nodes — bind implies reactive field value subscription.
+        node = { component: 'Text', text: item.label ?? '' };
       } else {
-        // Create default node based on item type
-        node = { component: this._defaultComponent(item), bind: item.key };
+        // Reuse existing node if available (preserves widget overrides, styles, etc.)
+        const existing = existingBound.get(item.key);
+        if (existing) {
+          node = { ...existing };
+        } else {
+          node = { component: this._defaultComponent(item), bind: item.key };
+        }
       }
 
       // Rebuild children from definition hierarchy
@@ -1696,7 +1718,7 @@ export class Project {
       return node;
     };
 
-    const newRoot: TreeNode = { component: 'Root', nodeId: 'root', children: [] };
+    const newRoot: TreeNode = { component: 'Stack', nodeId: 'root', children: [] };
     for (const item of this._state.definition.items) {
       newRoot.children!.push(buildNode(item));
     }

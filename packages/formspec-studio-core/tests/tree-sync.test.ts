@@ -95,16 +95,22 @@ describe('component tree sync', () => {
     expect(hasDivider).toBe(true);
   });
 
-  it('creates Text nodes for display items', () => {
+  it('creates Text nodes for display items using text, not bind', () => {
     const project = createProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'display', key: 'header', label: 'Welcome' },
     });
 
-    const node = project.componentFor('header');
+    // Display items use text prop (not bind) — they have no field signals to subscribe to
+    const tree = project.component.tree as any;
+    const node = tree.children?.find((c: any) => c.component === 'Text' && c.text === 'Welcome');
     expect(node).toBeDefined();
     expect(node!.component).toBe('Text');
+    expect(node!.text).toBe('Welcome');
+    expect(node!.bind).toBeUndefined();
+    // componentFor searches by bind; display items have no bind
+    expect(project.componentFor('header')).toBeUndefined();
   });
 
   it('handles batch with multiple structural changes', () => {

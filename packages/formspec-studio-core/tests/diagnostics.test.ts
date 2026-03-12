@@ -99,6 +99,22 @@ describe('diagnose', () => {
     expect(orphan!.severity).toBe('warning');
   });
 
+  it('detects component node bound to a display item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'display', key: 'notice', label: 'Read carefully' } });
+    // Manually add a Text node bound to the display item key
+    project.dispatch({
+      type: 'component.addNode',
+      payload: { parent: { nodeId: 'root' }, component: 'Text', bind: 'notice' },
+    });
+
+    const diag = project.diagnose();
+    const displayBind = diag.consistency.find(d => d.code === 'DISPLAY_ITEM_BIND');
+    expect(displayBind).toBeDefined();
+    expect(displayBind!.severity).toBe('warning');
+    expect(displayBind!.path).toBe('notice');
+  });
+
   it('detects stale mapping rule source paths', () => {
     const project = createProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
