@@ -1,7 +1,155 @@
 # ADR 0003: Playwright E2E Tests for formspec-studio
 
-> Status: proposed
+> Status: implemented (with remaining work)
 > Date: 2026-03-11
+> Implemented: 2026-03-11
+
+## Implementation Status
+
+### What Was Implemented
+
+**59 Playwright E2E tests across 14 spec files**, all passing. The implementation also wired 5 UI features that were prerequisites (components existed but weren't connected to the Shell):
+
+| Spec File | Tests | Status |
+|-----------|-------|--------|
+| `smoke.spec.ts` | 1 | ✅ Complete |
+| `workspace-navigation.spec.ts` | 6 | ✅ Complete |
+| `editor-authoring.spec.ts` | 6 | ✅ Complete |
+| `blueprint-selection-sync.spec.ts` | 4 | ✅ Complete |
+| `undo-redo.spec.ts` | 5 | ✅ Complete |
+| `command-palette.spec.ts` | 3 | ✅ Complete |
+| `import-definition.spec.ts` | 3 | ✅ Complete |
+| `logic-authoring.spec.ts` | 3 | ✅ Complete |
+| `data-workspace.spec.ts` | 3 | ✅ Complete |
+| `theme-workspace.spec.ts` | 6 | ✅ Complete (Tokens, Defaults, Selectors + empty states) |
+| `mapping-workspace.spec.ts` | 4 | ✅ Complete |
+| `preview-workspace.spec.ts` | 4 | ✅ Complete (viewport switching, form rendering) |
+| `cross-workspace-authoring.spec.ts` | 3 | ✅ Complete |
+| `interaction-patterns.spec.ts` | 8 | ✅ Complete (context menu, keyboard delete, autofocus) |
+
+**UI features wired during implementation:**
+
+- `ItemProperties` → Shell (replacing simple PropertiesPanel with full rename/delete/duplicate)
+- `AddItemPicker` → EditorCanvas (Add button with type/dataType picker flow)
+- `CommandPalette` → Shell (Cmd+K opens, Escape closes, click selects item)
+- `ImportDialog` → Shell + Header (Import button, JSON parse, `project.import` dispatch)
+- `EditorContextMenu` → EditorCanvas (right-click context menu with duplicate/delete)
+
+**Other fixes applied during implementation:**
+
+- Keyboard handler: `Meta+Shift+Z` case sensitivity fix (key is `'Z'` not `'z'` when Shift held)
+- Keyboard handler: added `event.preventDefault()` for undo/redo/search to prevent browser defaults
+- Keyboard handler: wired Delete/Backspace to delete selected item
+- StructureTree: rendered in sidebar when Structure section is active
+- EditorCanvas: click-on-background deselect behavior
+- `playwright.config.ts`: ESM `__dirname` polyfill via `fileURLToPath`, `localhost` instead of `127.0.0.1` (Vite binding)
+- `helpers.ts`: uses `project.import` command (not `project.replaceDefinition` from the original ADR)
+
+### What Remains — Unimplemented
+
+#### 1. Drag and Drop (not started — requires component work)
+
+The entire drag-and-drop section is unimplemented. No drag handles exist in the UI, the `data-testid="drag-{key}"` convention was never added, and no reorder/reparent logic is wired through the UI.
+
+**Remaining work:**
+
+- Add drag handle elements to `FieldBlock`, `GroupBlock`, `DisplayBlock` with `data-testid="drag-{key}"`
+- Wire drag-and-drop behavior (HTML5 drag API or a library like `@dnd-kit`)
+- Dispatch `definition.reorderItem` / `definition.moveItem` on drop
+- Write 3 specs: reorder fields, move field into group, drag handle visibility
+
+**Why skipped:** Drag-and-drop requires significant component work beyond test-writing. The ADR already notes these are "the most fragile (coordinate-dependent)" tests.
+
+#### 2. Wizard Navigation in Preview (not started — requires component wiring)
+
+The `WizardNav` component exists but is not rendered in `PreviewTab`. The preview always shows all items flat — no page-based navigation.
+
+**Remaining work:**
+
+- Wire `WizardNav` into `PreviewTab` when `presentation.pageMode === 'wizard'` and pages are defined
+- Implement page-based item filtering (show only items on the current page)
+- Write specs: step indicators, Next/Back/Submit buttons, page transitions
+
+**Why skipped:** PreviewTab doesn't read `presentation.pageMode` or page definitions yet.
+
+#### 3. Theme Workspace — Item Overrides, Page Layouts, Breakpoints Sub-tabs
+
+Only Tokens, Defaults, and Selectors sub-tabs have dedicated E2E scenarios. The remaining 3 sub-tabs (Item Overrides, Page Layouts, Breakpoints) are tested only via workspace-navigation (tab renders) but have no data-seeded content verification.
+
+**Remaining work:**
+
+- Seed theme with `itemOverrides`, `pages`, and `breakpoints` data
+- Write scenarios verifying per-item override entries, 12-column grid visualization, breakpoint name+minWidth pairs
+
+**Why deferred:** Low risk — these sub-tabs are read-only displays covered by vitest component tests. Add E2E specs when they gain editing UI.
+
+#### 4. Keyboard Shortcut Tab Navigation (Cmd+1 through Cmd+6)
+
+The ADR proposed Cmd+1 through Cmd+6 for workspace switching. The `keyboard.ts` handler only supports undo/redo/delete/escape/search — no tab shortcuts exist.
+
+**Remaining work:**
+
+- Add Cmd+1 through Cmd+6 handling to `keyboard.ts` with a `switchTab` callback
+- Wire the callback in Shell.tsx
+- Add test scenarios to `workspace-navigation.spec.ts`
+
+#### 5. Context Menu — Move Up, Move Down, Wrap in Group Actions
+
+The context menu renders all 5 options but only Duplicate and Delete dispatch commands. Move Up, Move Down, and Wrap in Group are visual-only.
+
+**Remaining work:**
+
+- Wire `moveUp` → `definition.reorderItem` (index - 1)
+- Wire `moveDown` → `definition.reorderItem` (index + 1)
+- Wire `wrapInGroup` → create group + move item into it
+- Add E2E assertions for these actions
+
+#### 6. Focus Management (partially implemented)
+
+The ADR listed 3 focus scenarios. Only keyboard autofocus (Cmd+K focuses search input) was tested.
+
+**Remaining work:**
+
+- Tab order through Properties panel inputs (key → data type → action buttons)
+- Focus returns to trigger element after dialog close (AddItemPicker → Add button)
+- Focus trap in Import Dialog (Tab cycles within dialog, doesn't escape to Shell)
+
+#### 7. CI Integration
+
+No CI configuration was added. The ADR specifies: `npx playwright install --with-deps && npm run test:e2e`.
+
+**Remaining work:**
+
+- Add Playwright install + run to the CI pipeline (GitHub Actions or equivalent)
+- Ensure `forbidOnly` and `retries` work correctly in CI environment
+
+### Updated Spec Coverage Matrix
+
+| Phase | What | Spec(s) | Coverage |
+|-------|------|---------|----------|
+| 0 — Scaffolding | App boots | `smoke` | ✅ Full |
+| 1 — React hooks | State subscription | All specs (implicit) | ✅ Wiring-level |
+| 2 — Shell Chrome | Header, tabs, status, blueprint, properties | `smoke`, `workspace-navigation` | ✅ Full |
+| 3 — Shared Primitives | Pill, BindCard, Section | All specs (implicit) | ✅ Visual |
+| 4 — Editor | Canvas, blocks, properties, context menu, add picker | `editor-authoring`, `interaction-patterns` | ✅ Full (minus drag-drop) |
+| 5 — Logic | Variables, binds, shapes, filter | `logic-authoring` | ✅ Full |
+| 6 — Data | Schema, instances, option sets | `data-workspace` | ✅ Full |
+| 7 — Theme | Tokens, defaults, selectors | `theme-workspace` | ⚠️ Partial (overrides, pages, breakpoints not data-tested) |
+| 8 — Mapping | Rules, adapter, preview | `mapping-workspace` | ✅ Full |
+| 9 — Preview | Viewport, renderer | `preview-workspace` | ⚠️ Partial (wizard not wired) |
+| 10a — Structure Tree | Tree selection sync | `blueprint-selection-sync` | ✅ Full |
+| 10b — Component Tree | Node display | `smoke` (sidebar visible) | Minimal |
+| 10c — Screener | Fields, routes | (not yet covered) | Gap |
+| 10d — Migrations | Entries, field maps | (not yet covered) | Gap |
+| 10e — FEL Reference | Categories, functions | (not yet covered) | Gap |
+| 10f — Settings | Metadata, presentation | (not yet covered) | Gap |
+| 10g — Sidebar panels | Variables, data sources, option sets, mappings, theme | `blueprint-selection-sync` (sidebar visible) | Minimal |
+| 11 — Command Palette | Search, navigate | `command-palette` | ✅ Full |
+| 11 — Import Dialog | Import, validate | `import-definition` | ✅ Full |
+| 11 — Keyboard | Shortcuts | `undo-redo`, `interaction-patterns` | ⚠️ Partial (no tab shortcuts, no focus management) |
+| 12 — Cross-workspace | Wiring across tabs | `cross-workspace-authoring` | ✅ Full |
+| — — Drag and Drop | Reorder, reparent | (not implemented) | ❌ Gap |
+| — — CI | Pipeline integration | (not implemented) | ❌ Gap |
 
 ## Context
 
