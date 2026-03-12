@@ -16,6 +16,17 @@ import { handleKeyboardShortcut } from '../lib/keyboard';
 import { useProject } from '../state/useProject';
 import { useSelection } from '../state/useSelection';
 
+import { ComponentTree } from './blueprint/ComponentTree';
+import { ScreenerSection } from './blueprint/ScreenerSection';
+import { VariablesList } from './blueprint/VariablesList';
+import { DataSourcesList } from './blueprint/DataSourcesList';
+import { OptionSetsList } from './blueprint/OptionSetsList';
+import { MappingsList } from './blueprint/MappingsList';
+import { MigrationsSection } from './blueprint/MigrationsSection';
+
+import { SettingsSection } from './blueprint/SettingsSection';
+import { ThemeOverview } from './blueprint/ThemeOverview';
+
 const WORKSPACES: Record<string, React.FC> = {
   Editor: EditorCanvas,
   Logic: LogicTab,
@@ -25,12 +36,26 @@ const WORKSPACES: Record<string, React.FC> = {
   Preview: PreviewTab,
 };
 
+const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
+  'Structure': StructureTree,
+  'Component Tree': ComponentTree,
+  'Screener': ScreenerSection,
+  'Variables': VariablesList,
+  'Data Sources': DataSourcesList,
+  'Option Sets': OptionSetsList,
+  'Mappings': MappingsList,
+  'Migrations': MigrationsSection,
+  'Settings': SettingsSection,
+  'Theme': ThemeOverview,
+};
+
 export function Shell() {
   const [activeTab, setActiveTab] = useState<string>('Editor');
   const [activeSection, setActiveSection] = useState<string>('Structure');
   const [showPalette, setShowPalette] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const WorkspaceComponent = WORKSPACES[activeTab];
+  const SidebarComponent = SIDEBAR_COMPONENTS[activeSection];
   const project = useProject();
   const { selectedKey, deselect } = useSelection();
 
@@ -55,25 +80,32 @@ export function Shell() {
 
   return (
     <div data-testid="shell" className="h-screen flex flex-col bg-bg-default text-ink font-ui">
-      <Header activeTab={activeTab} onTabChange={setActiveTab} onImport={() => setShowImport(true)} />
+      <Header
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onImport={() => setShowImport(true)}
+        onSearch={() => setShowPalette(true)}
+      />
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 border-r border-border bg-surface overflow-y-auto flex flex-col">
+        <aside className="w-[230px] border-r border-border bg-surface overflow-y-auto flex flex-col shrink-0">
           <Blueprint activeSection={activeSection} onSectionChange={setActiveSection} />
-          {activeSection === 'Structure' && <StructureTree />}
+          <div className="flex-1 overflow-y-auto px-4 py-2">
+            {SidebarComponent && <SidebarComponent />}
+          </div>
         </aside>
-        <main className="flex-1 overflow-y-auto p-4">
+        <main className="flex-1 overflow-y-auto bg-bg-default">
           <div
             data-testid={`workspace-${activeTab}`}
             data-workspace={activeTab}
+            className="h-full"
             onClick={(e) => {
-              // Deselect when clicking directly on the workspace background, not on a child item
               if (e.target === e.currentTarget) deselect();
             }}
           >
             {WorkspaceComponent ? <WorkspaceComponent /> : activeTab}
           </div>
         </main>
-        <aside className="w-72 border-l border-border bg-surface overflow-y-auto" data-testid="properties">
+        <aside className="w-[270px] border-l border-border bg-surface overflow-y-auto shrink-0" data-testid="properties">
           <ItemProperties />
         </aside>
       </div>
