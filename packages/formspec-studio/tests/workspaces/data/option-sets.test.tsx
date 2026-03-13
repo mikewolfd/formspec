@@ -46,7 +46,6 @@ describe('OptionSets', () => {
 
   it('shows usage count', () => {
     renderOS();
-    // "colors" is referenced by 1 field (the "color" item)
     expect(screen.getByText(/1 ref/i)).toBeInTheDocument();
   });
 
@@ -55,13 +54,26 @@ describe('OptionSets', () => {
     expect(screen.getByTestId('option-set-colors')).toBeInTheDocument();
   });
 
-  it('add via prompt dispatches definition.setOptionSet', async () => {
-    const { dispatchSpy } = renderOS();
-    vi.spyOn(window, 'prompt').mockReturnValueOnce('sizes');
+  // --- Inline add flow ---
 
-    await act(async () => {
-      screen.getByRole('button', { name: /new table/i }).click();
-    });
+  it('clicking + New Table reveals an inline form with name input', () => {
+    renderOS();
+    fireEvent.click(screen.getByRole('button', { name: /new table/i }));
+    expect(screen.getByPlaceholderText(/state_codes/)).toBeInTheDocument();
+  });
+
+  it('inline add form shows example names', () => {
+    renderOS();
+    fireEvent.click(screen.getByRole('button', { name: /new table/i }));
+    expect(screen.getByText(/e\.g\./i)).toBeInTheDocument();
+  });
+
+  it('pressing Enter dispatches setOptionSet and auto-expands', () => {
+    const { dispatchSpy } = renderOS();
+    fireEvent.click(screen.getByRole('button', { name: /new table/i }));
+    const input = screen.getByPlaceholderText(/state_codes/);
+    fireEvent.change(input, { target: { value: 'sizes' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(dispatchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -71,16 +83,48 @@ describe('OptionSets', () => {
     );
   });
 
+  it('Escape cancels the add flow', () => {
+    renderOS();
+    fireEvent.click(screen.getByRole('button', { name: /new table/i }));
+    fireEvent.keyDown(screen.getByPlaceholderText(/state_codes/), { key: 'Escape' });
+    expect(screen.queryByPlaceholderText(/state_codes/)).not.toBeInTheDocument();
+  });
+
+  it('name input strips non-alphanumeric characters', () => {
+    renderOS();
+    fireEvent.click(screen.getByRole('button', { name: /new table/i }));
+    const input = screen.getByPlaceholderText(/state_codes/);
+    fireEvent.change(input, { target: { value: 'my set!' } });
+    expect(input).toHaveValue('my_set');
+  });
+
+  // --- Empty state ---
+
+  it('empty state explains what option sets are', () => {
+    renderOS({ $formspec: '1.0', url: 'urn:test', version: '1.0.0', items: [] });
+    expect(screen.getByText(/no lookup tables/i)).toBeInTheDocument();
+    expect(screen.getByText(/optionSet/)).toBeInTheDocument();
+  });
+
+  // --- Expanded editor ---
+
+  it('expanded card shows how fields reference this option set', async () => {
+    renderOS();
+    const card = screen.getByTestId('option-set-colors');
+    await act(async () => {
+      fireEvent.click(within(card).getByText('colors'));
+    });
+    // Should show the optionSet reference syntax
+    expect(screen.getByText(/"optionSet": "colors"/)).toBeInTheDocument();
+  });
+
   it('edit option value dispatches definition.setOptionSetProperty', async () => {
     const { dispatchSpy } = renderOS();
-
-    // Expand the colors card
     const card = screen.getByTestId('option-set-colors');
     await act(async () => {
       fireEvent.click(within(card).getByText('colors'));
     });
 
-    // Find the value input for "red" and change it
     const valueInputs = screen.getAllByDisplayValue('red');
     fireEvent.change(valueInputs[0], { target: { value: 'crimson' } });
     fireEvent.blur(valueInputs[0]);
@@ -99,8 +143,6 @@ describe('OptionSets', () => {
   it('delete dispatches definition.deleteOptionSet', async () => {
     const { dispatchSpy } = renderOS();
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
-
-    // Expand colors
     const card = screen.getByTestId('option-set-colors');
     await act(async () => {
       fireEvent.click(within(card).getByText('colors'));
@@ -127,14 +169,11 @@ describe('OptionSets', () => {
       },
     };
     const { dispatchSpy } = renderOS(remoteDef);
-
-    // Expand the countries card
     const card = screen.getByTestId('option-set-countries');
     await act(async () => {
       fireEvent.click(within(card).getByText('countries'));
     });
 
-    // Click the source InlineExpression to edit
     fireEvent.click(screen.getByText('https://api.example.com/countries'));
     const textarea = screen.getByRole('textbox');
     fireEvent.change(textarea, { target: { value: 'https://new-api.com/countries' } });
