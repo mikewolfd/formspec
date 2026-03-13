@@ -101,6 +101,21 @@ describe('renameItem — cross-artifact rewriting', () => {
     const mapping = project.mapping as any;
     expect(mapping.rules[0].sourcePath).toBe('full_name');
   });
+
+  it('rewrites theme region keys across all pages', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'phone' } });
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'P1' } });
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'P2' } });
+    const pages = project.theme.pages as any[];
+    // Assign 'phone' to page 1
+    project.dispatch({ type: 'pages.assignItem', payload: { pageId: pages[0].id, key: 'phone', span: 6 } });
+
+    project.dispatch({ type: 'definition.renameItem', payload: { path: 'phone', newKey: 'mobile' } });
+
+    const updatedPages = project.theme.pages as any[];
+    expect(updatedPages[0].regions[0].key).toBe('mobile');
+  });
 });
 
 describe('deleteItem — cross-artifact cleanup', () => {
@@ -126,6 +141,22 @@ describe('deleteItem — cross-artifact cleanup', () => {
 
     const theme = project.theme as any;
     expect(theme.items?.total).toBeUndefined();
+  });
+
+  it('removes orphaned theme regions when item is deleted', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'addr' } });
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'city' } });
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'P1' } });
+    const pageId = (project.theme.pages as any[])[0].id;
+    project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'addr', span: 6 } });
+    project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'city', span: 6 } });
+
+    project.dispatch({ type: 'definition.deleteItem', payload: { path: 'addr' } });
+
+    const page = (project.theme.pages as any[])[0];
+    expect(page.regions).toHaveLength(1);
+    expect(page.regions[0].key).toBe('city');
   });
 });
 
