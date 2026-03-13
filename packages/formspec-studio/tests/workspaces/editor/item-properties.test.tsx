@@ -391,7 +391,7 @@ describe('ItemProperties', () => {
         options: [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }],
         presentation: { widgetHint: 'radio' },
       }],
-    } as any, component: { targetDefinition: { url: 'urn:test' } } as any } });
+    } as any } });
     renderProps(project, { path: 'status', type: 'field' });
     await act(async () => { screen.getByText('Select').click(); });
 

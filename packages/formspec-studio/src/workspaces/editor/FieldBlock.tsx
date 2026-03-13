@@ -2,6 +2,7 @@ import { Pill } from '../../components/ui/Pill';
 import { FieldIcon } from '../../components/ui/FieldIcon';
 import { humanizeFEL } from '../../lib/humanize';
 import { dataTypeInfo } from '../../lib/field-helpers';
+import { blockIndent, blockRef, type BlockBaseProps } from './block-utils';
 
 const iconBgMap: Record<string, string> = {
   'text-accent': 'bg-accent/10 border-accent/20',
@@ -11,18 +12,11 @@ const iconBgMap: Record<string, string> = {
   'text-muted': 'bg-subtle border-border',
 };
 
-interface FieldBlockProps {
-  itemKey: string;
-  itemPath: string;
-  registerTarget: (path: string, element: HTMLElement | null) => void;
+interface FieldBlockProps extends BlockBaseProps {
   label?: string;
   hint?: string;
   dataType?: string;
   binds: Record<string, string>;
-  depth: number;
-  selected: boolean;
-  isInSelection?: boolean;
-  onSelect: (e: React.MouseEvent) => void;
 }
 
 export function FieldBlock({
@@ -40,7 +34,7 @@ export function FieldBlock({
 }: FieldBlockProps) {
   const dt = dataType ? dataTypeInfo(dataType) : { icon: '?', label: 'unknown', color: 'text-muted' };
   const iconBg = iconBgMap[dt.color] || 'bg-subtle border-border';
-  
+
   const hasRel = !!binds.relevant;
   const hasCal = !!binds.calculate;
   const hasCon = !!binds.constraint;
@@ -66,7 +60,7 @@ export function FieldBlock({
 
   return (
     <div
-      ref={(element) => registerTarget(itemPath, element)}
+      ref={blockRef(itemPath, registerTarget)}
       data-testid={`field-${itemKey}`}
       data-item-path={itemPath}
       data-item-type="field"
@@ -78,7 +72,7 @@ export function FieldBlock({
         : isInSelection ? 'border-accent bg-accent/5 z-10'
         : 'border-border hover:border-muted/40'
       }`}
-      style={{ marginLeft: depth > 0 ? depth * 20 : 0 }}
+      style={{ marginLeft: blockIndent(depth) }}
     >
       {/* Indentation Guide Line */}
       {depth > 0 && (

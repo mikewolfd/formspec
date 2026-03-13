@@ -1,19 +1,13 @@
 import type React from 'react';
 import type { ReactNode } from 'react';
 import { Pill } from '../../components/ui/Pill';
+import { blockIndent, blockRef, type BlockBaseProps } from './block-utils';
 
-interface GroupBlockProps {
-  itemKey: string;
-  itemPath: string;
-  registerTarget: (path: string, element: HTMLElement | null) => void;
+interface GroupBlockProps extends BlockBaseProps {
   label?: string;
   repeatable?: boolean;
   minRepeat?: number;
   maxRepeat?: number;
-  depth: number;
-  selected: boolean;
-  isInSelection?: boolean;
-  onSelect: (e: React.MouseEvent) => void;
   children: ReactNode;
 }
 
@@ -33,11 +27,11 @@ export function GroupBlock({
 }: GroupBlockProps) {
   return (
     <div
-      style={{ marginLeft: depth > 0 ? depth * 20 : 0 }}
+      style={{ marginLeft: blockIndent(depth) }}
       className={`mb-1 ${depth === 0 ? 'mt-6' : 'mt-3'}`}
     >
       <div
-        ref={(element) => registerTarget(itemPath, element)}
+        ref={blockRef(itemPath, registerTarget)}
         data-testid={`group-${itemKey}`}
         data-item-path={itemPath}
         data-item-type="group"
@@ -72,7 +66,7 @@ export function GroupBlock({
         )}
 
         <div className="flex-1" />
-        
+
         <span className="font-mono text-[9.5px] text-muted opacity-0 group-hover:opacity-60 transition-opacity">
           {itemKey}
         </span>

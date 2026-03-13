@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeDropTarget,
-  computeTreeDropTarget,
   isDescendantOf,
   buildSequentialMoveCommands,
-  type FlatEntry,
-  type DropPosition,
 } from '../../../../src/workspaces/editor/dnd/compute-drop-target';
-import type { TreeFlatEntry } from '../../../../src/lib/tree-helpers';
+import type { FlatEntry } from '../../../../src/lib/tree-helpers';
 
 // Helper to build flat lists from a simple item tree
 interface SimpleItem {
@@ -20,12 +17,42 @@ function buildFlat(items: SimpleItem[], prefix = '', depth = 0): FlatEntry[] {
   const result: FlatEntry[] = [];
   for (const item of items) {
     const path = prefix ? `${prefix}.${item.key}` : item.key;
-    result.push({ path, type: item.type, depth, hasChildren: !!(item.children?.length) });
+    const category = item.type === 'group' ? 'group' : item.type === 'display' ? 'display' : 'field';
+    result.push({
+      id: path,
+      node: item.type === 'display' ? { component: 'Text', nodeId: item.key } : { component: category === 'group' ? 'Stack' : 'TextInput', bind: item.key },
+      category,
+      depth,
+      hasChildren: !!(item.children?.length),
+      defPath: path,
+      bind: item.type === 'display' ? undefined : item.key,
+      nodeId: item.type === 'display' ? item.key : undefined,
+    });
     if (item.children) {
       result.push(...buildFlat(item.children, path, depth + 1));
     }
   }
   return result;
+}
+
+function expectDefinitionMove(
+  result: ReturnType<typeof computeDropTarget>,
+  parentPath: string | null,
+  index: number,
+  payload: Record<string, unknown>,
+) {
+  expect(result).toMatchObject({ kind: 'definition', parentPath, index });
+  expect(result?.actions[0]).toEqual({ type: 'definition.moveItem', payload });
+}
+
+function expectComponentMove(
+  result: ReturnType<typeof computeDropTarget>,
+  parentPath: string | null,
+  index: number,
+  payload: Record<string, unknown>,
+) {
+  expect(result).toMatchObject({ kind: 'component', parentPath, index });
+  expect(result?.actions[0]).toEqual({ type: 'component.moveNode', payload });
 }
 
 describe('isDescendantOf', () => {
@@ -55,9 +82,9 @@ describe('isDescendantOf', () => {
 describe('computeDropTarget', () => {
   // Simple flat list: [fieldA, fieldB, fieldC]
   const flatRoot: FlatEntry[] = [
-    { path: 'fieldA', type: 'field', depth: 0, hasChildren: false },
-    { path: 'fieldB', type: 'field', depth: 0, hasChildren: false },
-    { path: 'fieldC', type: 'field', depth: 0, hasChildren: false },
+    { id: 'fieldA', node: { component: 'TextInput', bind: 'fieldA' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldA', bind: 'fieldA' },
+    { id: 'fieldB', node: { component: 'TextInput', bind: 'fieldB' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldB', bind: 'fieldB' },
+    { id: 'fieldC', node: { component: 'TextInput', bind: 'fieldC' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldC', bind: 'fieldC' },
   ];
 
   it('returns null when dropping on itself', () => {
@@ -66,15 +93,13 @@ describe('computeDropTarget', () => {
   });
 
   it('drop field above another at root', () => {
-    // Drop fieldC above fieldA → parentPath null, index 0
     const result = computeDropTarget('fieldC', 'fieldA', 'above', flatRoot);
-    expect(result).toEqual({ parentPath: null, index: 0 });
+    expectDefinitionMove(result, null, 0, { sourcePath: 'fieldC', targetIndex: 0 });
   });
 
   it('drop field below another at root', () => {
-    // Drop fieldA below fieldC → parentPath null, index 2 (adjusted: fieldA was at 0, target after removal = 2)
     const result = computeDropTarget('fieldA', 'fieldC', 'below', flatRoot);
-    expect(result).toEqual({ parentPath: null, index: 2 });
+    expectDefinitionMove(result, null, 2, { sourcePath: 'fieldA', targetIndex: 2 });
   });
 
   it('drop field above adjacent sibling (same parent, source before target)', () => {
@@ -85,15 +110,13 @@ describe('computeDropTarget', () => {
   });
 
   it('drop field below adjacent sibling (same parent, source before target)', () => {
-    // Drop fieldA below fieldB → target index 2, adjusted by -1 = 1
     const result = computeDropTarget('fieldA', 'fieldB', 'below', flatRoot);
-    expect(result).toEqual({ parentPath: null, index: 1 });
+    expectDefinitionMove(result, null, 1, { sourcePath: 'fieldA', targetIndex: 1 });
   });
 
   it('drop field above when source is after target (no index adjustment)', () => {
-    // Drop fieldC above fieldA → target index 0, no adjustment needed (source after target)
     const result = computeDropTarget('fieldC', 'fieldA', 'above', flatRoot);
-    expect(result).toEqual({ parentPath: null, index: 0 });
+    expectDefinitionMove(result, null, 0, { sourcePath: 'fieldC', targetIndex: 0 });
   });
 
   // Tree with groups
@@ -108,36 +131,27 @@ describe('computeDropTarget', () => {
 
   it('drop field inside a group (empty append)', () => {
     const result = computeDropTarget('fieldA', 'groupX', 'inside', flatTree);
-    expect(result).toEqual({ parentPath: 'groupX', index: 2 }); // groupX has 2 children
+    expectDefinitionMove(result, 'groupX', 2, { sourcePath: 'fieldA', targetParentPath: 'groupX', targetIndex: 2 });
   });
 
   it('drop field above first child in group', () => {
-    // Drop fieldB above groupX.child1 → parentPath groupX, index 0
     const result = computeDropTarget('fieldB', 'groupX.child1', 'above', flatTree);
-    expect(result).toEqual({ parentPath: 'groupX', index: 0 });
+    expectDefinitionMove(result, 'groupX', 0, { sourcePath: 'fieldB', targetParentPath: 'groupX', targetIndex: 0 });
   });
 
   it('drop field below last child in group', () => {
-    // Drop fieldA below groupX.child2 → parentPath groupX, index 2 (after removal, source was before)
-    // fieldA is at root index 0, child2 is at sibling index 1 in groupX → different parents, no adjustment
     const result = computeDropTarget('fieldA', 'groupX.child2', 'below', flatTree);
-    expect(result).toEqual({ parentPath: 'groupX', index: 2 });
+    expectDefinitionMove(result, 'groupX', 2, { sourcePath: 'fieldA', targetParentPath: 'groupX', targetIndex: 2 });
   });
 
   it('move child out to root level above a root item', () => {
-    // Drop groupX.child1 above fieldB → parentPath null, index 2
-    // fieldB is at root index 2, but after removing child1 from groupX, root indices don't shift
-    // child1 is inside groupX (different parent), so no adjustment
     const result = computeDropTarget('groupX.child1', 'fieldB', 'above', flatTree);
-    expect(result).toEqual({ parentPath: null, index: 2 });
+    expectDefinitionMove(result, null, 2, { sourcePath: 'groupX.child1', targetIndex: 2 });
   });
 
   it('reorder within group — child1 below child2', () => {
-    // child1 is index 0 in groupX, child2 is index 1
-    // "below child2" = index 2, adjust by -1 (source before target in same parent) = 1
-    // But that's the same as current index of child2... still a valid move (child1 goes after child2)
     const result = computeDropTarget('groupX.child1', 'groupX.child2', 'below', flatTree);
-    expect(result).toEqual({ parentPath: 'groupX', index: 1 });
+    expectDefinitionMove(result, 'groupX', 1, { sourcePath: 'groupX.child1', targetParentPath: 'groupX', targetIndex: 1 });
   });
 
   // Circular guard
@@ -169,7 +183,7 @@ describe('computeDropTarget', () => {
 
   it('allows dropping deep field to root', () => {
     const result = computeDropTarget('outer.inner.deep', 'rootField', 'above', deepTree);
-    expect(result).toEqual({ parentPath: null, index: 1 });
+    expectDefinitionMove(result, null, 1, { sourcePath: 'outer.inner.deep', targetIndex: 1 });
   });
 
   it('drop inside empty group', () => {
@@ -178,7 +192,7 @@ describe('computeDropTarget', () => {
       { key: 'field1', type: 'field' },
     ]);
     const result = computeDropTarget('field1', 'emptyGroup', 'inside', withEmptyGroup);
-    expect(result).toEqual({ parentPath: 'emptyGroup', index: 0 });
+    expectDefinitionMove(result, 'emptyGroup', 0, { sourcePath: 'field1', targetParentPath: 'emptyGroup', targetIndex: 0 });
   });
 
   it('returns null for inside position on non-group item', () => {
@@ -188,13 +202,12 @@ describe('computeDropTarget', () => {
 
   // Multi-select: selected paths
   it('allows multi-select drag when no selected path is ancestor of target', () => {
-    // Drop groupX.child1 above fieldA — child1 and fieldB are selected but neither is ancestor of fieldA
     const result = computeDropTarget(
       'groupX.child1', 'fieldA', 'above', flatTree,
       new Set(['groupX.child1', 'fieldB']),
     );
     expect(result).not.toBeNull();
-    expect(result).toEqual({ parentPath: null, index: 0 });
+    expect(result).toMatchObject({ kind: 'definition', parentPath: null, index: 0 });
   });
 
   it('rejects when selected group would be dropped into its own child', () => {
@@ -209,17 +222,15 @@ describe('computeDropTarget', () => {
 describe('buildSequentialMoveCommands', () => {
   // [a, b, c, d, e] — all root-level fields
   const flat5: FlatEntry[] = [
-    { path: 'a', type: 'field', depth: 0, hasChildren: false },
-    { path: 'b', type: 'field', depth: 0, hasChildren: false },
-    { path: 'c', type: 'field', depth: 0, hasChildren: false },
-    { path: 'd', type: 'field', depth: 0, hasChildren: false },
-    { path: 'e', type: 'field', depth: 0, hasChildren: false },
+    { id: 'a', node: { component: 'TextInput', bind: 'a' }, category: 'field', depth: 0, hasChildren: false, defPath: 'a', bind: 'a' },
+    { id: 'b', node: { component: 'TextInput', bind: 'b' }, category: 'field', depth: 0, hasChildren: false, defPath: 'b', bind: 'b' },
+    { id: 'c', node: { component: 'TextInput', bind: 'c' }, category: 'field', depth: 0, hasChildren: false, defPath: 'c', bind: 'c' },
+    { id: 'd', node: { component: 'TextInput', bind: 'd' }, category: 'field', depth: 0, hasChildren: false, defPath: 'd', bind: 'd' },
+    { id: 'e', node: { component: 'TextInput', bind: 'e' }, category: 'field', depth: 0, hasChildren: false, defPath: 'e', bind: 'e' },
   ];
 
   it('multi-select drag DOWN: a+b below d', () => {
-    // Active = a, drop below d. computeDropTarget('a','d','below') → raw=4, adjusted=3.
-    // After both moves, expected order: [c, d, a, b, e]
-    const cmds = buildSequentialMoveCommands(['a', 'b'], null, 'd', 'below', flat5);
+    const cmds = buildSequentialMoveCommands(['a', 'b'], null, 4, flat5);
 
     expect(cmds).toHaveLength(2);
     // Simulate: move a to 3 → [b,c,d,a,e]. move b to 3 → [c,d,a,b,e]. ✓
@@ -228,9 +239,7 @@ describe('buildSequentialMoveCommands', () => {
   });
 
   it('multi-select drag UP: d+e above b', () => {
-    // Active = d, drop above b. computeDropTarget('d','b','above') → raw=1, adjusted=1.
-    // After both moves, expected order: [a, d, e, b, c]
-    const cmds = buildSequentialMoveCommands(['d', 'e'], null, 'b', 'above', flat5);
+    const cmds = buildSequentialMoveCommands(['d', 'e'], null, 1, flat5);
 
     expect(cmds).toHaveLength(2);
     // Simulate: move d to 1 → [a,d,b,c,e]. move e to 2 → [a,d,e,b,c]. ✓
@@ -239,9 +248,7 @@ describe('buildSequentialMoveCommands', () => {
   });
 
   it('multi-select mixed: a+d above c', () => {
-    // Active = a, drop above c. raw=2, adjusted=1 (a is before c).
-    // Expected order: [b, a, d, c, e]
-    const cmds = buildSequentialMoveCommands(['a', 'd'], null, 'c', 'above', flat5);
+    const cmds = buildSequentialMoveCommands(['a', 'd'], null, 2, flat5);
 
     expect(cmds).toHaveLength(2);
     // Simulate: move a to 1 → [b,a,c,d,e]. move d to 2 → [b,a,d,c,e]. ✓
@@ -251,14 +258,13 @@ describe('buildSequentialMoveCommands', () => {
 
   it('multi-select into group: move root items inside groupX', () => {
     const flatWithGroup: FlatEntry[] = [
-      { path: 'a', type: 'field', depth: 0, hasChildren: false },
-      { path: 'b', type: 'field', depth: 0, hasChildren: false },
-      { path: 'grp', type: 'group', depth: 0, hasChildren: true },
-      { path: 'grp.x', type: 'field', depth: 1, hasChildren: false },
+      { id: 'a', node: { component: 'TextInput', bind: 'a' }, category: 'field', depth: 0, hasChildren: false, defPath: 'a', bind: 'a' },
+      { id: 'b', node: { component: 'TextInput', bind: 'b' }, category: 'field', depth: 0, hasChildren: false, defPath: 'b', bind: 'b' },
+      { id: 'grp', node: { component: 'Stack', bind: 'grp' }, category: 'group', depth: 0, hasChildren: true, defPath: 'grp', bind: 'grp' },
+      { id: 'grp.x', node: { component: 'TextInput', bind: 'x' }, category: 'field', depth: 1, hasChildren: false, defPath: 'grp.x', bind: 'x' },
     ];
 
-    // Drop a+b inside grp (append)
-    const cmds = buildSequentialMoveCommands(['a', 'b'], 'grp', 'grp', 'inside', flatWithGroup);
+    const cmds = buildSequentialMoveCommands(['a', 'b'], 'grp', 1, flatWithGroup);
 
     expect(cmds).toHaveLength(2);
     // Both are from different parent (root → grp), so sequential insert at 1, 2
@@ -267,8 +273,7 @@ describe('buildSequentialMoveCommands', () => {
   });
 
   it('multi-select 3 items drag DOWN: a+b+c below d', () => {
-    // Expected order: [d, a, b, c, e]
-    const cmds = buildSequentialMoveCommands(['a', 'b', 'c'], null, 'd', 'below', flat5);
+    const cmds = buildSequentialMoveCommands(['a', 'b', 'c'], null, 4, flat5);
 
     expect(cmds).toHaveLength(3);
     // All 3 sources are before the target, so all use the same effective index
@@ -279,9 +284,8 @@ describe('buildSequentialMoveCommands', () => {
   });
 });
 
-describe('computeTreeDropTarget', () => {
-  // Helper to build TreeFlatEntry
-  function entry(overrides: Partial<TreeFlatEntry>): TreeFlatEntry {
+describe('computeDropTarget with layout entries', () => {
+  function entry(overrides: Partial<FlatEntry>): FlatEntry {
     return {
       id: '', node: { component: 'TextInput' }, depth: 0, hasChildren: false,
       defPath: null, category: 'field', nodeId: undefined, bind: undefined,
@@ -289,7 +293,7 @@ describe('computeTreeDropTarget', () => {
     };
   }
 
-  const flatWithLayout: TreeFlatEntry[] = [
+  const flatWithLayout: FlatEntry[] = [
     entry({ id: 'name', defPath: 'name', category: 'field', bind: 'name', depth: 0 }),
     entry({ id: '__node:card_1', defPath: null, category: 'layout', nodeId: 'card_1', depth: 0, hasChildren: true }),
     entry({ id: 'age', defPath: 'age', category: 'field', bind: 'age', depth: 1 }),
@@ -297,54 +301,72 @@ describe('computeTreeDropTarget', () => {
   ];
 
   it('returns component-only move for drag into layout container', () => {
-    const result = computeTreeDropTarget('name', '__node:card_1', 'inside', flatWithLayout);
-    expect(result).not.toBeNull();
-    expect(result!.defMove).toBeNull();
-    expect(result!.sourceRef).toEqual({ bind: 'name' });
-    expect(result!.targetParentRef).toEqual({ nodeId: 'card_1' });
+    const result = computeDropTarget('name', '__node:card_1', 'inside', flatWithLayout);
+    expectComponentMove(result, '__node:card_1', 1, {
+      source: { bind: 'name' },
+      targetParent: { nodeId: 'card_1' },
+      targetIndex: 1,
+    });
   });
 
   it('returns definition move when dragging between different groups', () => {
-    const flatWithGroups: TreeFlatEntry[] = [
+    const flatWithGroups: FlatEntry[] = [
       entry({ id: 'grpA', defPath: 'grpA', category: 'group', bind: 'grpA', depth: 0, hasChildren: true }),
       entry({ id: 'grpA.f1', defPath: 'grpA.f1', category: 'field', bind: 'f1', depth: 1 }),
       entry({ id: 'grpB', defPath: 'grpB', category: 'group', bind: 'grpB', depth: 0, hasChildren: true }),
       entry({ id: 'grpB.f2', defPath: 'grpB.f2', category: 'field', bind: 'f2', depth: 1 }),
     ];
-    // Move grpA.f1 inside grpB
-    const result = computeTreeDropTarget('grpA.f1', 'grpB', 'inside', flatWithGroups);
-    expect(result).not.toBeNull();
-    expect(result!.defMove).not.toBeNull();
-    expect(result!.defMove!.sourcePath).toBe('grpA.f1');
-    expect(result!.defMove!.targetParentPath).toBe('grpB');
+    const result = computeDropTarget('grpA.f1', 'grpB', 'inside', flatWithGroups);
+    expectDefinitionMove(result, 'grpB', 1, {
+      sourcePath: 'grpA.f1',
+      targetParentPath: 'grpB',
+      targetIndex: 1,
+    });
   });
 
   it('returns component-only move for layout node drag', () => {
-    const result = computeTreeDropTarget('__node:card_1', 'email', 'above', flatWithLayout);
-    expect(result).not.toBeNull();
-    expect(result!.defMove).toBeNull();
-    expect(result!.sourceRef).toEqual({ nodeId: 'card_1' });
+    const result = computeDropTarget('__node:card_1', 'email', 'above', flatWithLayout);
+    expect(result).toBeNull();
   });
 
   it('circular guard works with __node: ids', () => {
-    // Can't drop layout container into one of its own children
-    const result = computeTreeDropTarget('__node:card_1', 'age', 'above', flatWithLayout);
-    // age is inside card_1 (depth 1 inside card_1 at depth 0)
-    // The circular guard should NOT trigger here since age is not a descendant
-    // of card_1 in the id-path sense. But if we detect containment via the flat list...
-    // Actually, this SHOULD be allowed — it's just a reorder within the container.
-    expect(result).not.toBeNull();
+    const result = computeDropTarget('__node:card_1', 'age', 'above', flatWithLayout);
+    expect(result).toBeNull();
   });
 
   it('"inside" zone activates for layout nodes', () => {
-    // The 'inside' position should work for layout nodes, not just groups
-    const result = computeTreeDropTarget('email', '__node:card_1', 'inside', flatWithLayout);
-    expect(result).not.toBeNull();
-    expect(result!.targetParentRef).toEqual({ nodeId: 'card_1' });
+    const result = computeDropTarget('email', '__node:card_1', 'inside', flatWithLayout);
+    expect(result).toMatchObject({ kind: 'component', parentPath: '__node:card_1' });
   });
 
   it('returns null for self-drop', () => {
-    const result = computeTreeDropTarget('name', 'name', 'above', flatWithLayout);
+    const result = computeDropTarget('name', 'name', 'above', flatWithLayout);
     expect(result).toBeNull();
+  });
+
+  // Layout containers are definition-transparent — dragging into any layout
+  // container produces component.moveNode only, never a definition move.
+  it('returns component-only move for drag from page group into root-level Card', () => {
+    const wizardFlat: FlatEntry[] = [
+      entry({ id: 'page1', defPath: 'page1', category: 'group', bind: 'page1', depth: 0, hasChildren: true }),
+      entry({ id: 'page1.name', defPath: 'page1.name', category: 'field', bind: 'name', depth: 1 }),
+      entry({ id: 'page1.email', defPath: 'page1.email', category: 'field', bind: 'email', depth: 1 }),
+      entry({ id: '__node:card_1', defPath: null, category: 'layout', nodeId: 'card_1', depth: 0, hasChildren: false }),
+    ];
+
+    const result = computeDropTarget('page1.name', '__node:card_1', 'inside', wizardFlat);
+    expect(result).toMatchObject({ kind: 'component', parentPath: '__node:card_1' });
+  });
+
+  it('returns component-only move for drag into Card nested inside a group', () => {
+    const groupCardFlat: FlatEntry[] = [
+      entry({ id: 'page1', defPath: 'page1', category: 'group', bind: 'page1', depth: 0, hasChildren: true }),
+      entry({ id: 'page1.name', defPath: 'page1.name', category: 'field', bind: 'name', depth: 1 }),
+      entry({ id: '__node:card_1', defPath: null, category: 'layout', nodeId: 'card_1', depth: 1, hasChildren: false }),
+      entry({ id: 'page1.email', defPath: 'page1.email', category: 'field', bind: 'email', depth: 1 }),
+    ];
+
+    const result = computeDropTarget('page1.name', '__node:card_1', 'inside', groupCardFlat);
+    expect(result).toMatchObject({ kind: 'component', parentPath: '__node:card_1' });
   });
 });

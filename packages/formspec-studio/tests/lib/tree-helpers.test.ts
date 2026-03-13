@@ -5,7 +5,7 @@ import {
   isLayoutId,
   nodeIdFromLayoutId,
   nodeRefFor,
-  type TreeFlatEntry,
+  type FlatEntry,
 } from '../../src/lib/tree-helpers';
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -190,6 +190,63 @@ describe('flattenComponentTree', () => {
     ]);
   });
 
+  it('display nodes inside groups use defPath as id (not bare nodeId)', () => {
+    const tree = {
+      component: 'Stack', nodeId: 'root', children: [
+        groupNode('address', [
+          displayNode('note', 'Heading'),
+          fieldNode('street'),
+        ]),
+      ],
+    };
+    const items = [
+      {
+        key: 'address', type: 'group', children: [
+          { key: 'note', type: 'display' },
+          { key: 'street', type: 'field', dataType: 'string' },
+        ],
+      },
+    ];
+    const defLookup = buildDefLookup(items as any);
+    const entries = flattenComponentTree(tree, defLookup);
+
+    // Display node id must be the full defPath for DnD consistency
+    const displayEntry = entries.find(e => e.category === 'display')!;
+    expect(displayEntry.id).toBe('address.note');
+    expect(displayEntry.defPath).toBe('address.note');
+  });
+
+  it('display node inside layout container uses bindKeyMap fallback', () => {
+    // Simulates wizard mode: display is at page1.heading1 in definition,
+    // but has been moved into a root-level Card in the component tree.
+    const tree = {
+      component: 'Stack', nodeId: 'root', children: [
+        layoutNode('card_1', 'Card', [
+          displayNode('heading1', 'Heading'),
+        ]),
+        groupNode('page1', [
+          fieldNode('name'),
+        ]),
+      ],
+    };
+    const items = [
+      {
+        key: 'page1', type: 'group', children: [
+          { key: 'heading1', type: 'display' },
+          { key: 'name', type: 'field', dataType: 'string' },
+        ],
+      },
+    ];
+    const defLookup = buildDefLookup(items as any);
+    const bindKeyMap = new Map([['heading1', 'page1.heading1']]);
+    const entries = flattenComponentTree(tree, defLookup, bindKeyMap);
+
+    const displayEntry = entries.find(e => e.category === 'display')!;
+    expect(displayEntry).toBeDefined();
+    expect(displayEntry.id).toBe('page1.heading1');
+    expect(displayEntry.defPath).toBe('page1.heading1');
+  });
+
   it('returns empty array for tree with no children', () => {
     const tree = { component: 'Stack', nodeId: 'root', children: [] };
     const defLookup = buildDefLookup([]);
@@ -266,7 +323,7 @@ describe('nodeIdFromLayoutId', () => {
 
 describe('nodeRefFor', () => {
   it('returns bind ref for bound entries', () => {
-    const entry = {
+    const entry: FlatEntry = {
       id: 'name', node: fieldNode('name'), depth: 0,
       hasChildren: false, defPath: 'name', category: 'field' as const,
       bind: 'name', nodeId: undefined,
@@ -275,7 +332,7 @@ describe('nodeRefFor', () => {
   });
 
   it('returns nodeId ref for layout entries', () => {
-    const entry = {
+    const entry: FlatEntry = {
       id: '__node:node_1', node: layoutNode('node_1', 'Card'), depth: 0,
       hasChildren: false, defPath: null, category: 'layout' as const,
       bind: undefined, nodeId: 'node_1',
@@ -284,7 +341,7 @@ describe('nodeRefFor', () => {
   });
 
   it('returns nodeId ref for display entries', () => {
-    const entry = {
+    const entry: FlatEntry = {
       id: 'note', node: displayNode('note'), depth: 0,
       hasChildren: false, defPath: 'note', category: 'display' as const,
       bind: undefined, nodeId: 'note',
