@@ -15,6 +15,29 @@ describe('component tree sync', () => {
     expect(node!.component).toBe('TextInput');
   });
 
+  it('marks rebuilt trees as studio-generated internal state', () => {
+    const project = createProject({
+      seed: {
+        component: {
+          $formspecComponent: '1.0',
+          version: '1.0.0',
+          targetDefinition: { url: 'urn:test' },
+          tree: { component: 'Stack', children: [] },
+        } as any,
+      },
+    });
+
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'field', key: 'name', dataType: 'string' },
+    });
+
+    expect((project.component as any)['x-studio-generated']).toBe(true);
+    expect((project.component as any).$formspecComponent).toBeUndefined();
+    expect((project.component as any).version).toBeUndefined();
+    expect((project.component.tree as any).component).toBe('Stack');
+  });
+
   it('removes component node when item is deleted', () => {
     const project = createProject();
     project.dispatch({
