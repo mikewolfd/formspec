@@ -30,12 +30,12 @@ test.describe('Workspace state persistence', () => {
   test('Data workspace keeps the active sub-tab after switching away and back', async ({ page }) => {
     await switchTab(page, 'Data');
     const dataWorkspace = page.locator('[data-testid="workspace-Data"]');
-    await dataWorkspace.getByRole('button', { name: 'Option Sets' }).click();
-    await expect(dataWorkspace).toContainText(/option set|no option sets/i);
+    await dataWorkspace.getByRole('button', { name: 'Tables', exact: true }).click();
+    await expect(dataWorkspace).toContainText(/lookup tables|option set|no option sets/i);
 
     await switchTab(page, 'Logic');
     await switchTab(page, 'Data');
 
-    await expect(page.locator('[data-testid="workspace-Data"]').getByRole('button', { name: 'Option Sets' })).toHaveClass(/border-b-2|text-accent/);
+    await expect(page.locator('[data-testid="workspace-Data"]').getByRole('button', { name: 'Tables', exact: true })).toHaveClass(/bg-ink|text-white/);
   });
 });

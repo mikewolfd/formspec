@@ -51,15 +51,15 @@ test.describe('Data Workspace', () => {
     await switchTab(page, 'Data');
   });
 
-  test('response schema table shows fields with types', async ({ page }) => {
+  test('response schema tree shows fields with types', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Data"]');
-    // ResponseSchema renders a table with Key, Type, Label columns
-    // It uses flatItems to show all items including nested ones
-    await expect(workspace.getByText('firstName', { exact: true })).toBeVisible();
-    // Multiple string-type fields exist; verify at least one type cell shows "string"
-    await expect(workspace.getByRole('cell', { name: 'string' }).first()).toBeVisible();
-    await expect(workspace.getByText('street', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('city', { exact: true })).toBeVisible();
+    // ResponseSchema renders a JSON tree. Keys are displayed with surrounding quotes e.g. "firstName"
+    await expect(workspace.getByText('"firstName"', { exact: true })).toBeVisible();
+    // Type badges are rendered as uppercased spans next to each key
+    // Multiple string-type fields exist; verify at least one type badge shows "string"
+    await expect(workspace.getByText('string', { exact: true }).first()).toBeVisible();
+    await expect(workspace.getByText('"street"', { exact: true })).toBeVisible();
+    await expect(workspace.getByText('"city"', { exact: true })).toBeVisible();
   });
 
   test('data sources section shows instances', async ({ page }) => {
@@ -77,12 +77,19 @@ test.describe('Data Workspace', () => {
     await workspace.getByRole('button', { name: 'Tables' }).click();
     // Should show option set name
     await expect(workspace.getByText('statusValues')).toBeVisible();
-    // Should show option labels
-    await expect(workspace.getByText('Active', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('Inactive', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('Pending', { exact: true })).toBeVisible();
-    // Should show usage count
-    await expect(workspace.getByText(/Used by 1 field/)).toBeVisible();
+    // Expand the card to see the option values
+    await workspace.locator('[data-testid="option-set-statusValues"]').click();
+    // Should show option labels inside the expanded editor table.
+    // Options are rendered as <input> elements with value="Active" etc., not as visible text nodes.
+    await expect(workspace.getByRole('textbox', { name: 'key' }).first()).toBeVisible();
+    await expect(workspace.getByRole('textbox').filter({ hasText: '' }).nth(1)).toBeVisible();
+    // Verify option values appear as textbox values in the table
+    await expect(workspace.locator('tbody tr').first().locator('input').first()).toHaveValue('active');
+    await expect(workspace.locator('tbody tr').first().locator('input').nth(1)).toHaveValue('Active');
+    await expect(workspace.locator('tbody tr').nth(1).locator('input').first()).toHaveValue('inactive');
+    await expect(workspace.locator('tbody tr').nth(2).locator('input').first()).toHaveValue('pending');
+    // Should show usage count (1 field references statusValues): displayed as "1 Refs"
+    await expect(workspace.getByText(/1 Ref/)).toBeVisible();
   });
 });
 
@@ -99,16 +106,18 @@ test.describe('Data Workspace — Bug Tests', () => {
   // (mapped to --color-border: #e2e8f0 in index.css).
   // RED: The computed border color will be a dark neutral (~#374151 or #1f2937)
   // instead of the expected light theme border (#e2e8f0).
-  test('response schema table borders use light-theme token, not dark neutral [BUG-002]', async ({ page }) => {
+  test('response schema tree borders use light-theme token, not dark neutral [BUG-002]', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Data"]');
-    // Wait for the table to be visible
-    await expect(workspace.getByRole('table')).toBeVisible();
+    // ResponseSchema is rendered as a div-based tree (no table).
+    // The outer container has class "border border-border".
+    // Wait for the key "firstName" to be visible, confirming the tree has rendered.
+    await expect(workspace.getByText('"firstName"', { exact: true })).toBeVisible();
 
-    // Get the computed border color of the first data row
+    // Get the computed border color of the outer ResponseSchema container
     // border-neutral-700 in Tailwind v3/v4 resolves to approximately #374151
     // The correct light-mode border token resolves to #e2e8f0
-    const borderColor = await workspace.locator('tbody tr').first().evaluate((el) => {
-      return window.getComputedStyle(el).borderBottomColor;
+    const borderColor = await workspace.locator('.bg-surface.rounded-xl.border').first().evaluate((el) => {
+      return window.getComputedStyle(el).borderColor;
     });
 
     // Parse the RGB components. Light border #e2e8f0 has high RGB values (>200).
@@ -130,8 +139,8 @@ test.describe('Data Workspace — Bug Tests', () => {
     // Navigate to the Sources section via the "Sources" filter button
     await workspace.getByRole('button', { name: 'Sources' }).click();
 
-    // The card wrapping the instance uses border-neutral-700
-    const card = workspace.locator('.border').first();
+    // The instance card has data-testid="instance-countries" and uses border-border class
+    const card = workspace.locator('[data-testid="instance-countries"]');
     await expect(card).toBeVisible();
 
     const borderColor = await card.evaluate((el) => {
@@ -157,17 +166,26 @@ test.describe('Data Workspace — Bug Tests', () => {
     await importDefinition(page, REPEATABLE_DEFINITION);
 
     const workspace = page.locator('[data-testid="workspace-Data"]');
-    // Wait for the table to be visible (Response Schema is default tab)
-    await expect(workspace.getByRole('table')).toBeVisible();
-    await expect(workspace.getByText('members', { exact: true })).toBeVisible();
+    // ResponseSchema is rendered as a div-based JSON tree (no table).
+    // Wait for the members key to appear in the tree (displayed with quotes).
+    await expect(workspace.getByText('"members"', { exact: true })).toBeVisible();
 
-    // Find the type cell for the "members" row
-    // The members group is repeatable, so it should show "array"
-    const membersRow = workspace.locator('tbody tr').filter({ hasText: 'members' });
+    // The type badge for the members group should show "array" for repeatable groups.
+    // SchemaNode renders the key as an orange-colored span and the type badge next to it.
+    // The key span contains the text '"members"' and is a sibling of the type badge span.
+    // We locate the type badge by finding it as the sibling after '"members"' within the row.
+    // Since the row div contains: [expand button span] [key span] [colon span] [type badge span] [label button]
+    // we can locate the type badge as the span with class containing 'rounded' that follows the '"members"' span.
+    // Strategy: find the row container that contains the '"members"' span, then get its type badge.
+    const membersKeySpan = workspace.getByText('"members"', { exact: true });
+    // The type badge is the next sibling span after the colon — locate it relative to the key's parent row.
+    // The row is the flex container (a div with flex layout) that is the direct parent of the key span.
+    const membersRow = membersKeySpan.locator('xpath=ancestor::div[contains(@class,"flex") and contains(@class,"items-center")][1]');
     await expect(membersRow).toBeVisible();
 
-    // BUG: Currently shows "object" — should show "array" for repeatable groups
-    await expect(membersRow.getByRole('cell', { name: 'array' })).toBeVisible();
+    // BUG: Currently shows "object" — should show "array" for repeatable groups.
+    // The type badge text is uppercased via CSS (uppercase class), so look for "array" text.
+    await expect(membersRow.getByText('array', { exact: true })).toBeVisible();
   });
 
   test('empty data sources state stays informational without a fake creation button', async ({ page }) => {
@@ -180,18 +198,23 @@ test.describe('Data Workspace — Bug Tests', () => {
     const workspace = page.locator('[data-testid="workspace-Data"]');
     await workspace.getByRole('button', { name: 'Sources' }).click();
 
-    await expect(workspace.getByText('No data sources defined.')).toBeVisible();
+    await expect(workspace.getByText('No external sources connected.')).toBeVisible();
     await expect(workspace.getByRole('button', { name: /add data source/i })).toHaveCount(0);
   });
 
-  test('Simulation section shows an explicit not-yet-implemented state without fake controls', async ({ page }) => {
+  test('Simulation section shows a working engine simulation without fake placeholder controls', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Data"]');
-    await workspace.getByRole('button', { name: 'Simulation' }).click();
+    // Click the "Simulation" filter button — use exact match to avoid matching "Run Simulation"
+    await workspace.getByRole('button', { name: 'Simulation', exact: true }).click();
 
-    await expect(workspace.getByText('Test Response is not yet implemented.')).toBeVisible();
-    await expect(
-      workspace.getByRole('button', { name: /run test|generate response|validate response/i })
-    ).toHaveCount(0);
+    // The Simulation section renders the TestResponse component which shows "Engine Simulation"
+    await expect(workspace.getByText('Engine Simulation')).toBeVisible();
+    // A real "Run Simulation" button should exist (not a disabled placeholder)
+    const runBtn = workspace.getByRole('button', { name: /run simulation/i });
+    await expect(runBtn).toBeVisible();
+    await expect(runBtn).toBeEnabled();
+    // There should be no "not yet implemented" placeholder text
+    await expect(workspace.getByText(/not yet implemented/i)).toHaveCount(0);
   });
 
   test('option set cards are informational panels, not misleading buttons', async ({ page }) => {
@@ -205,26 +228,70 @@ test.describe('Data Workspace — Bug Tests', () => {
     await expect(workspace.getByRole('button', { name: /statusValues/i })).toHaveCount(0);
   });
 
-  // BUG #54: Option chips in OptionSets use bg-neutral-800 (dark background)
-  // in a light-mode shell, creating insufficient contrast for text.
-  // WCAG 4.5:1 contrast ratio is required for normal text.
-  // bg-neutral-800 is approximately #1f2937 (very dark gray).
-  // In a light shell, the chip text color is either the browser default (dark)
-  // or text-muted (#64748b) — both would be unreadable on a dark background.
-  // RED: The contrast ratio between chip text and chip background will fail WCAG 4.5:1.
-  test('option chips have accessible contrast ratio (WCAG 4.5:1) [BUG-054]', async ({ page }) => {
+  // BUG #54: Option labels in the expanded OptionSets table editor must have
+  // accessible contrast (WCAG 4.5:1) against their background in a light-mode shell.
+  // If the option row background were dark (e.g. bg-neutral-800 ≈ #1f2937) while
+  // text is also dark (text-ink ≈ #0f172a), contrast would be near 1:1 (failing WCAG).
+  // RED: The contrast ratio between the label text and its cell background will fail WCAG 4.5:1.
+  test('option label text has accessible contrast ratio (WCAG 4.5:1) [BUG-054]', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Data"]');
     await workspace.getByRole('button', { name: 'Tables' }).click();
 
-    // Wait for chips to be visible
-    await expect(workspace.getByText('Active', { exact: true })).toBeVisible();
+    // Expand the statusValues card to reveal the option editor table
+    await workspace.locator('[data-testid="option-set-statusValues"]').click();
 
-    // Get the computed colors of the first option chip
-    const chipColors = await workspace.getByText('Active', { exact: true }).evaluate((el) => {
+    // Wait for the expanded editor table to be visible (options are <input> elements with values)
+    await expect(workspace.locator('tbody tr').first()).toBeVisible();
+    // Verify the first row label input has value "Active"
+    await expect(workspace.locator('tbody tr').first().locator('input').nth(1)).toHaveValue('Active');
+
+    // Get the computed colors of the table row containing the "Active" label.
+    // The label is rendered in an <input> inside a <td> inside a <tr>.
+    // We check contrast of the <input> element's text color against the nearest
+    // opaque ancestor background. Semi-transparent backgrounds (rgba with alpha < 1)
+    // are blended against white (the shell background) for a conservative estimate.
+    const rowColors = await workspace.locator('tbody tr').first().locator('input').nth(1).evaluate((el) => {
+      // Helper: parse any rgb/rgba color string into [r, g, b, a]
+      function parseColor(colorStr: string): [number, number, number, number] | null {
+        const m = colorStr.match(/rgba?\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)(?:,\s*(\d+(?:\.\d+)?))?\)/);
+        if (!m) return null;
+        return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]), m[4] !== undefined ? parseFloat(m[4]) : 1];
+      }
+
+      // Walk up the tree to find the effective background color.
+      // Collect semi-transparent layers and blend them against white (255,255,255).
       const style = window.getComputedStyle(el);
+      const fgColor = style.color;
+
+      // Walk up from the element to the document root collecting background layers
+      let compositeR = 255, compositeG = 255, compositeB = 255; // start with white base
+      let foundOpaque = false;
+      let node: Element | null = el;
+      const layers: [number, number, number, number][] = [];
+
+      while (node) {
+        const bg = window.getComputedStyle(node).backgroundColor;
+        const parsed = parseColor(bg);
+        if (parsed && parsed[3] > 0) {
+          layers.unshift(parsed); // collect from outermost to innermost
+          if (parsed[3] >= 1) { foundOpaque = true; break; }
+        }
+        node = node.parentElement;
+      }
+
+      // Blend layers top-down over white base
+      if (layers.length > 0) {
+        for (const [r, g, b, a] of layers) {
+          compositeR = Math.round(r * a + compositeR * (1 - a));
+          compositeG = Math.round(g * a + compositeG * (1 - a));
+          compositeB = Math.round(b * a + compositeB * (1 - a));
+        }
+      }
+
       return {
-        color: style.color,
-        backgroundColor: style.backgroundColor,
+        color: fgColor,
+        backgroundColor: `rgb(${compositeR}, ${compositeG}, ${compositeB})`,
+        foundOpaque,
       };
     });
 
@@ -251,8 +318,8 @@ test.describe('Data Workspace — Bug Tests', () => {
       return (lighter + 0.05) / (darker + 0.05);
     }
 
-    const fgRgb = parseRgb(chipColors.color);
-    const bgRgb = parseRgb(chipColors.backgroundColor);
+    const fgRgb = parseRgb(rowColors.color);
+    const bgRgb = parseRgb(rowColors.backgroundColor);
 
     expect(fgRgb).not.toBeNull();
     expect(bgRgb).not.toBeNull();
@@ -262,11 +329,8 @@ test.describe('Data Workspace — Bug Tests', () => {
     const ratio = contrastRatio(fgLum, bgLum);
 
     // WCAG AA requires 4.5:1 for normal text.
-    // BUG: bg-neutral-800 (#1f2937 ≈ rgb(31,41,55)) is a very dark background.
-    // If the text color is also dark (e.g., text-ink #0f172a = rgb(15,23,42)),
-    // the contrast ratio dark-on-dark will be very low (< 2:1).
-    // Even with light text, the chip is styled without explicit text-white,
-    // so the contrast may fail.
+    // BUG: bg-neutral-800 (#1f2937 ≈ rgb(31,41,55)) as row background with dark
+    // text gives dark-on-dark — contrast near 1:1.
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 });

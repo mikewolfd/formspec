@@ -17,8 +17,8 @@ const SEED_DEF = {
  * NOT the children area where child field blocks intercept the event.
  */
 async function rightClickLayoutPill(page: import('@playwright/test').Page) {
-  // The pill is a direct-child <span> of the [data-item-type="layout"] div
-  const pill = page.locator('[data-item-type="layout"] > span').first();
+  // The pill span is nested inside a flex row div within [data-item-type="layout"]
+  const pill = page.locator('[data-item-type="layout"] span').first();
   await pill.click({ button: 'right' });
 }
 
