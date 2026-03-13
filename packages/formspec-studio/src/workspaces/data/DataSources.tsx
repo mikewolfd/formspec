@@ -192,6 +192,29 @@ export function DataSources() {
                   </p>
                 </div>
 
+                {/* Data format requirements */}
+                <div className="rounded-lg border border-border/60 bg-subtle/30 px-4 py-3 space-y-2" data-testid="data-format-info">
+                  <h5 className="text-[10px] font-bold text-muted uppercase tracking-widest">Data Requirements</h5>
+                  <ul className="text-[11px] text-muted space-y-1.5 leading-relaxed">
+                    <li>
+                      <span className="font-bold text-ink">Response must be JSON.</span>{' '}
+                      The source URL must return a valid JSON response (object or array).
+                    </li>
+                    <li>
+                      <span className="font-bold text-ink">At least one of source or inline data required.</span>{' '}
+                      Provide a URL, embed data directly, or both (inline data acts as fallback if the fetch fails).
+                    </li>
+                    <li>
+                      <span className="font-bold text-ink">Access via dot paths.</span>{' '}
+                      <code className="font-mono text-[10px] text-accent/80">@instance('{inst.name}').fieldName</code> navigates into the returned JSON.
+                    </li>
+                    <li>
+                      <span className="font-bold text-ink">Schema is informational.</span>{' '}
+                      The schema property aids tooling but does not enforce validation at runtime.
+                    </li>
+                  </ul>
+                </div>
+
                 {/* Description */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-muted uppercase tracking-widest block">Description</label>
