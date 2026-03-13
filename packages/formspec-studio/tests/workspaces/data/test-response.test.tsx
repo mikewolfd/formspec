@@ -4,38 +4,43 @@ import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { TestResponse } from '../../../src/workspaces/data/TestResponse';
 
-describe('TestResponse', () => {
-  it('runs the response generator and shows a JSON preview', async () => {
-    const project = createProject({
-      seed: {
-        definition: {
-          $formspec: '1.0',
-          url: 'urn:test-response',
-          version: '1.0.0',
-          items: [
-            {
-              key: 'name',
-              type: 'field',
-              dataType: 'string',
-              label: 'Name',
-              initialValue: 'Alice',
-            },
-          ],
-        } as any,
+function renderTestResponse(def?: any) {
+  const project = createProject({
+    seed: {
+      definition: def || {
+        $formspec: '1.0', url: 'urn:test', version: '1.0.0',
+        items: [
+          { key: 'name', type: 'field', dataType: 'string', label: 'Name', initialValue: 'Alice' },
+        ],
       },
-    });
+    },
+  });
+  return render(
+    <ProjectProvider project={project}>
+      <TestResponse />
+    </ProjectProvider>
+  );
+}
 
-    render(
-      <ProjectProvider project={project}>
-        <TestResponse />
-      </ProjectProvider>
-    );
+describe('TestResponse', () => {
+  it('renders run button', () => {
+    renderTestResponse();
+    expect(screen.getByRole('button', { name: /run simulation/i })).toBeInTheDocument();
+  });
 
+  it('click button shows JSON with "data" key', async () => {
+    renderTestResponse();
     await act(async () => {
-      screen.getByRole('button', { name: /run test response/i }).click();
+      screen.getByRole('button', { name: /run simulation/i }).click();
     });
-
     expect(screen.getByText(/"data"/i)).toBeInTheDocument();
+  });
+
+  it('shows initial values in output', async () => {
+    renderTestResponse();
+    await act(async () => {
+      screen.getByRole('button', { name: /run simulation/i }).click();
+    });
     expect(screen.getByText(/"name": "Alice"/i)).toBeInTheDocument();
   });
 });

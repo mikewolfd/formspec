@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { createProject } from 'formspec-studio-core';
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
@@ -27,7 +27,7 @@ import { MappingsList } from './blueprint/MappingsList';
 import { SettingsSection } from './blueprint/SettingsSection';
 import { SettingsDialog } from './SettingsDialog';
 import { ThemeOverview } from './blueprint/ThemeOverview';
-import { type Tab as DataWorkspaceTab, DataTab } from '../workspaces/data/DataTab';
+import { DataTab } from '../workspaces/data/DataTab';
 import { type ThemeTabId } from '../workspaces/theme/ThemeTab';
 import { type MappingTabId } from '../workspaces/mapping/MappingTab';
 import { type Viewport } from '../workspaces/preview/ViewportSwitcher';
@@ -36,6 +36,7 @@ import { type PreviewMode } from '../workspaces/preview/PreviewTab';
 const WORKSPACES: Record<string, React.FC> = {
   Editor: EditorCanvas,
   Logic: LogicTab,
+  Data: DataTab,
   Theme: ThemeTab,
   Mapping: MappingTab,
   Preview: PreviewTab,
@@ -53,13 +54,23 @@ const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
   'Theme': ThemeOverview,
 };
 
-export function Shell() {
+interface ShellMenuItem {
+  label: string;
+  onClick: () => void;
+  testId?: string;
+}
+
+interface ShellProps {
+  appMenuItems?: ShellMenuItem[];
+  banner?: ReactNode;
+}
+
+export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
   const [activeTab, setActiveTab] = useState<string>('Editor');
   const [activeSection, setActiveSection] = useState<string>('Structure');
   const [showPalette, setShowPalette] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showAppMenu, setShowAppMenu] = useState(false);
-  const [activeDataTab, setActiveDataTab] = useState<DataWorkspaceTab>('Response Schema');
   const [activeThemeTab, setActiveThemeTab] = useState<ThemeTabId>('tokens');
   const [activeMappingTab, setActiveMappingTab] = useState<MappingTabId>('config');
   const [mappingConfigOpen, setMappingConfigOpen] = useState(true);
@@ -77,8 +88,6 @@ export function Shell() {
 
   const workspaceContent = (() => {
     switch (activeTab) {
-      case 'Data':
-        return <DataTab activeTab={activeDataTab} onActiveTabChange={setActiveDataTab} />;
       case 'Theme':
         return <ThemeTab activeTab={activeThemeTab} onActiveTabChange={setActiveThemeTab} />;
       case 'Mapping':
@@ -140,11 +149,10 @@ export function Shell() {
   useEffect(() => {
     const onNavigateWorkspace = (event: Event) => {
       const { tab, subTab } = (event as CustomEvent<{ tab?: string; subTab?: string }>).detail ?? {};
-      if (tab && (tab === 'Data' || WORKSPACES[tab])) {
+      if (tab && WORKSPACES[tab]) {
         setActiveTab(tab);
         if (subTab) {
-          if (tab === 'Data') setActiveDataTab(subTab as DataWorkspaceTab);
-          else if (tab === 'Theme') setActiveThemeTab(subTab as ThemeTabId);
+          if (tab === 'Theme') setActiveThemeTab(subTab as ThemeTabId);
           else if (tab === 'Mapping') setActiveMappingTab(subTab as MappingTabId);
         }
       }
@@ -167,7 +175,6 @@ export function Shell() {
     project.resetHistory();
     setActiveTab('Editor');
     setActiveSection('Structure');
-    setActiveDataTab('Response Schema');
     setActiveThemeTab('tokens');
     setActiveMappingTab('config');
     setMappingConfigOpen(true);
@@ -225,6 +232,25 @@ export function Shell() {
           >
             Project settings
           </button>
+          {appMenuItems.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              data-testid={item.testId}
+              className="mt-1 w-full rounded-[4px] px-3 py-2 text-left text-sm hover:bg-subtle"
+              onClick={() => {
+                item.onClick();
+                setShowAppMenu(false);
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {banner ? (
+        <div className="border-b border-border bg-[#edf6f8] px-4 py-3 text-sm text-[#184b58]">
+          {banner}
         </div>
       ) : null}
       <CanvasTargetsProvider>
