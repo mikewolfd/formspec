@@ -249,7 +249,7 @@ describe('ItemProperties', () => {
   it('shows a label input for editable field labels', async () => {
     renderProps();
     await act(async () => { screen.getByText('Select').click(); });
-    expect(screen.getByLabelText(/label/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Label')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Full Name')).toBeInTheDocument();
   });
 
