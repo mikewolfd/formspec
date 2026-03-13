@@ -99,3 +99,58 @@ const TYPE_MAP: Record<string, DataTypeDisplay> = {
 export function dataTypeInfo(dataType: string): DataTypeDisplay {
   return TYPE_MAP[dataType] || { icon: '?', label: dataType, color: 'text-muted' };
 }
+
+/** Widget compatibility: which widgetHint values are valid for each item type + dataType. */
+const WIDGET_MAP: Record<string, string[]> = {
+  // Groups
+  'group': ['section', 'card', 'accordion', 'tab'],
+  // Display
+  'display': ['paragraph', 'heading', 'divider', 'banner'],
+  // Fields by dataType
+  'field:string': ['textInput', 'password', 'color'],
+  'field:text': ['textarea', 'richText'],
+  'field:integer': ['numberInput', 'stepper', 'slider', 'rating'],
+  'field:decimal': ['numberInput', 'slider'],
+  'field:boolean': ['checkbox', 'toggle', 'yesNo'],
+  'field:date': ['datePicker', 'dateInput'],
+  'field:time': ['timePicker', 'timeInput'],
+  'field:dateTime': ['datePicker', 'dateInput'],
+  'field:choice': ['dropdown', 'radio', 'autocomplete', 'segmented', 'likert'],
+  'field:multiChoice': ['checkboxGroup', 'multiSelect', 'autocomplete'],
+  'field:money': ['moneyInput'],
+  'field:uri': ['textInput'],
+  'field:attachment': ['textInput'],
+};
+
+/** Get compatible widgetHint values for a given item type and optional dataType. */
+export function compatibleWidgets(type: string, dataType?: string): string[] {
+  if (type === 'field' && dataType) {
+    return WIDGET_MAP[`field:${dataType}`] || [];
+  }
+  return WIDGET_MAP[type] || [];
+}
+
+/** Help text for property labels, derived from schema descriptions. */
+export const propertyHelp: Record<string, string> = {
+  key: 'Stable identifier for this item. Must be unique across the entire Definition.',
+  label: 'Primary human-readable label displayed when rendering the item.',
+  type: "Item type: 'field' captures data, 'group' is a structural container, 'display' is read-only content.",
+  dataType: 'The value type of this field. Determines JSON representation, valid operations, and default widget.',
+  description: 'Human-readable help text. Shown on demand (e.g., tooltip or help icon).',
+  hint: 'Short instructional text displayed alongside the input (e.g., below the label or as placeholder guidance).',
+  widgetHint: 'Preferred UI control. Incompatible or unrecognized values are ignored; processor uses its default widget.',
+  initialValue: 'Value assigned when a new Response is created. May be a literal or an expression prefixed with "=". Evaluated once — not reactively re-evaluated.',
+  precision: 'Number of decimal places. Implementations should round or constrain input to this precision.',
+  currency: 'ISO 4217 currency code for this money field (e.g., USD, EUR).',
+  prefix: 'Display prefix rendered before the input (e.g., "$"). Does not appear in stored data.',
+  suffix: 'Display suffix rendered after the input (e.g., "%", "kg"). Does not appear in stored data.',
+  semanticType: 'Domain meaning annotation (e.g., "us-gov:ein", "ietf:email"). Metadata only — does not affect validation.',
+  repeatable: 'When true, this group represents a one-to-many collection. Users can add/remove instances.',
+  minRepeat: 'Minimum number of repetitions. Processor pre-populates this many empty instances on creation.',
+  maxRepeat: 'Maximum number of repetitions. Absent means unbounded.',
+  options: 'Valid values for choice or multiChoice fields.',
+  prePopulate: 'Loads a value from a secondary instance at Response creation. Takes precedence over initialValue when both are present.',
+  instance: 'Name of the secondary instance to read from (must match a key in "instances").',
+  path: 'Dot-notation path within the instance to read the value from.',
+  editable: 'When false, the field is locked (readonly) after pre-population.',
+};

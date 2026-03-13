@@ -41,7 +41,7 @@ function renderProps(project?: Project, selection: { path: string; type: string 
 }
 
 describe('ItemProperties', () => {
-  it('shows empty state when nothing selected', () => {
+  it('shows definition properties when nothing selected', () => {
     const project = createProject({ seed: { definition: testDef as any } });
     render(
       <ProjectProvider project={project}>
@@ -50,7 +50,7 @@ describe('ItemProperties', () => {
         </SelectionProvider>
       </ProjectProvider>
     );
-    expect(screen.getByText(/select an item/i)).toBeInTheDocument();
+    expect(screen.getByText(/form properties/i)).toBeInTheDocument();
   });
 
   it('shows item details when selected', async () => {
@@ -230,5 +230,306 @@ describe('ItemProperties', () => {
     await act(async () => { screen.getByText('Select').click(); });
     expect(screen.getByLabelText(/label/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('Full Name')).toBeInTheDocument();
+  });
+
+  // --- Description & Hint ---
+
+  it('shows description input with existing value', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'name', type: 'field', dataType: 'string', label: 'Name', description: 'Enter full name' }],
+    } as any } });
+    renderProps(project);
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/description/i)).toHaveValue('Enter full name');
+  });
+
+  it('shows "+ Add description" placeholder when description is empty', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByText(/\+ add description/i)).toBeInTheDocument();
+  });
+
+  it('dispatches description change on blur', async () => {
+    renderProps();
+    const { project } = renderProps();
+    const spy = vi.spyOn(project, 'dispatch');
+    await act(async () => { screen.getAllByText('Select')[1].click(); });
+
+    // Click "+ Add description" to reveal input
+    await act(async () => { screen.getAllByText(/\+ add description/i)[0].click(); });
+
+    const input = screen.getByLabelText(/description/i);
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Help text' } });
+      fireEvent.blur(input);
+    });
+
+    expect(spy).toHaveBeenCalledWith({
+      type: 'definition.setItemProperty',
+      payload: { path: 'name', property: 'description', value: 'Help text' },
+    });
+  });
+
+  it('shows hint input with existing value', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'name', type: 'field', dataType: 'string', label: 'Name', hint: 'e.g. John Doe' }],
+    } as any } });
+    renderProps(project);
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/^hint$/i)).toHaveValue('e.g. John Doe');
+  });
+
+  it('shows "+ Add hint" placeholder when hint is empty', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByText(/\+ add hint/i)).toBeInTheDocument();
+  });
+
+  it('shows both add placeholders inline when neither is set', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    const descBtn = screen.getByText(/\+ add description/i);
+    const hintBtn = screen.getByText(/\+ add hint/i);
+    // Both should share the same parent (inline container)
+    expect(descBtn.parentElement).toBe(hintBtn.parentElement);
+  });
+
+  it('add placeholder buttons have help tooltips', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    const descBtn = screen.getByText(/\+ add description/i);
+    // The button or its wrapper should have a help tip
+    fireEvent.mouseEnter(descBtn.closest('[class*="cursor-help"]')!);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+  });
+
+  // --- widgetHint ---
+
+  it('shows widgetHint dropdown for fields', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/widget/i)).toBeInTheDocument();
+  });
+
+  it('dispatches widgetHint change on select', async () => {
+    const { project } = renderProps();
+    const spy = vi.spyOn(project, 'dispatch');
+    await act(async () => { screen.getByText('Select').click(); });
+
+    const select = screen.getByLabelText(/widget/i);
+    await act(async () => {
+      fireEvent.change(select, { target: { value: 'password' } });
+    });
+
+    expect(spy).toHaveBeenCalledWith({
+      type: 'definition.setItemProperty',
+      payload: { path: 'name', property: 'presentation', value: { widgetHint: 'password' } },
+    });
+  });
+
+  // --- Field config: initialValue, precision, currency, prefix, suffix, semanticType ---
+
+  it('shows initialValue input for fields', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'count', type: 'field', dataType: 'integer', label: 'Count', initialValue: 0 }],
+    } as any } });
+    renderProps(project, { path: 'count', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/initial value/i)).toBeInTheDocument();
+  });
+
+  it('shows precision for decimal fields', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'amount', type: 'field', dataType: 'decimal', label: 'Amount', precision: 2 }],
+    } as any } });
+    renderProps(project, { path: 'amount', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/precision/i)).toHaveValue(2);
+  });
+
+  it('does not show precision for string fields', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.queryByLabelText(/precision/i)).not.toBeInTheDocument();
+  });
+
+  it('shows currency for money fields', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'cost', type: 'field', dataType: 'money', label: 'Cost', currency: 'USD' }],
+    } as any } });
+    renderProps(project, { path: 'cost', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/currency/i)).toHaveValue('USD');
+  });
+
+  it('does not show currency for non-money fields', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.queryByLabelText(/currency/i)).not.toBeInTheDocument();
+  });
+
+  it('shows prefix/suffix when set', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'pct', type: 'field', dataType: 'decimal', label: 'Rate', prefix: '$', suffix: '%' }],
+    } as any } });
+    renderProps(project, { path: 'pct', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/prefix/i)).toHaveValue('$');
+    expect(screen.getByLabelText(/suffix/i)).toHaveValue('%');
+  });
+
+  it('does not show prefix/suffix when not set', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.queryByLabelText(/prefix/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/suffix/i)).not.toBeInTheDocument();
+  });
+
+  it('shows semanticType when set', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'ein', type: 'field', dataType: 'string', label: 'EIN', semanticType: 'us-gov:ein' }],
+    } as any } });
+    renderProps(project, { path: 'ein', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/semantic type/i)).toHaveValue('us-gov:ein');
+  });
+
+  // --- prePopulate ---
+
+  it('shows prePopulate editor when set', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{
+        key: 'name', type: 'field', dataType: 'string', label: 'Name',
+        prePopulate: { instance: 'priorYear', path: 'applicantName', editable: false },
+      }],
+    } as any } });
+    renderProps(project);
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/instance/i)).toHaveValue('priorYear');
+    expect(screen.getByLabelText(/^path$/i)).toHaveValue('applicantName');
+    expect(screen.getByLabelText(/editable/i)).not.toBeChecked();
+  });
+
+  it('shows "+ Add pre-population" when prePopulate not set', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByText(/\+ add pre-population/i)).toBeInTheDocument();
+  });
+
+  // --- Repeatable toggle ---
+
+  it('shows repeatable toggle for groups', async () => {
+    renderProps(undefined, { path: 'group1', type: 'group' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/repeatable/i)).toBeInTheDocument();
+  });
+
+  it('does not show repeatable toggle for fields', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.queryByLabelText(/repeatable/i)).not.toBeInTheDocument();
+  });
+
+  it('shows min/max repeat only when repeatable is true', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{ key: 'grp', type: 'group', label: 'Group', repeatable: false, children: [] }],
+    } as any } });
+    renderProps(project, { path: 'grp', type: 'group' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByLabelText(/repeatable/i)).not.toBeChecked();
+    expect(screen.queryByLabelText(/min repeat/i)).not.toBeInTheDocument();
+  });
+
+  // --- Options: add/remove ---
+
+  it('does not show options section for non-choice fields', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.queryByText(/^options$/i)).not.toBeInTheDocument();
+  });
+
+  it('shows add option button for choice fields', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{
+        key: 'color', type: 'field', dataType: 'choice', label: 'Color',
+        options: [{ value: 'red', label: 'Red' }],
+      }],
+    } as any } });
+    renderProps(project, { path: 'color', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByRole('button', { name: /add option/i })).toBeInTheDocument();
+  });
+
+  it('shows remove button for each option', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      items: [{
+        key: 'color', type: 'field', dataType: 'choice', label: 'Color',
+        options: [{ value: 'red', label: 'Red' }, { value: 'blue', label: 'Blue' }],
+      }],
+    } as any } });
+    renderProps(project, { path: 'color', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    const removeButtons = screen.getAllByRole('button', { name: /remove option/i });
+    expect(removeButtons).toHaveLength(2);
+  });
+
+  // --- Definition-level properties in empty state ---
+
+  it('shows definition properties when nothing selected', () => {
+    const project = createProject({ seed: { definition: {
+      $formspec: '1.0', url: 'urn:test', version: '1.0.0',
+      title: 'My Form', status: 'draft',
+      items: [],
+    } as any } });
+    render(
+      <ProjectProvider project={project}>
+        <SelectionProvider>
+          <ItemProperties />
+        </SelectionProvider>
+      </ProjectProvider>
+    );
+    expect(screen.getByLabelText(/title/i)).toHaveValue('My Form');
+    expect(screen.getByText(/draft/i)).toBeInTheDocument();
+  });
+
+  // --- Help tooltips ---
+
+  it('shows help tooltips on property rows', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    // The Type row should have a help tooltip
+    const helpIcons = screen.getAllByLabelText('Help');
+    expect(helpIcons.length).toBeGreaterThan(0);
+  });
+
+  // --- Link-out for binds ---
+
+  it('shows "go to logic" link on bind cards', async () => {
+    renderProps();
+    await act(async () => { screen.getByText('Select').click(); });
+    // The name field has a required bind
+    expect(screen.getByLabelText(/edit in logic/i)).toBeInTheDocument();
+  });
+
+  it('shows "+ Add behavior rule" when no binds exist', async () => {
+    const project = createProject({ seed: { definition: {
+      ...testDef,
+      binds: [],
+      items: [{ key: 'solo', type: 'field', dataType: 'string', label: 'Solo' }],
+    } as any } });
+    renderProps(project, { path: 'solo', type: 'field' });
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByText(/\+ add behavior rule/i)).toBeInTheDocument();
   });
 });
