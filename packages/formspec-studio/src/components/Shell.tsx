@@ -26,6 +26,7 @@ import { MappingsList } from './blueprint/MappingsList';
 import { MigrationsSection } from './blueprint/MigrationsSection';
 
 import { SettingsSection } from './blueprint/SettingsSection';
+import { SettingsDialog } from './SettingsDialog';
 import { ThemeOverview } from './blueprint/ThemeOverview';
 import { type Tab as DataWorkspaceTab, DataTab } from '../workspaces/data/DataTab';
 import { type ThemeTabId } from '../workspaces/theme/ThemeTab';
@@ -66,6 +67,7 @@ export function Shell() {
   const [mappingConfigOpen, setMappingConfigOpen] = useState(true);
   const [previewViewport, setPreviewViewport] = useState<Viewport>('desktop');
   const [previewMode, setPreviewMode] = useState<PreviewMode>('form');
+  const [showSettings, setShowSettings] = useState(false);
   const [isTabletLayout, setIsTabletLayout] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1024);
   const SidebarComponent = SIDEBAR_COMPONENTS[activeSection];
   const project = useProject();
@@ -148,6 +150,12 @@ export function Shell() {
     return () => window.removeEventListener('formspec:navigate-workspace', onNavigateWorkspace);
   }, []);
 
+  useEffect(() => {
+    const onOpenSettings = () => setShowSettings(true);
+    window.addEventListener('formspec:open-settings', onOpenSettings);
+    return () => window.removeEventListener('formspec:open-settings', onOpenSettings);
+  }, []);
+
   const handleNewForm = () => {
     project.dispatch({
       type: 'project.import',
@@ -194,10 +202,7 @@ export function Shell() {
         onImport={() => setShowImport(true)}
         onSearch={() => setShowPalette(true)}
         onHome={() => setShowAppMenu((current) => !current)}
-        onOpenMetadata={() => {
-          setActiveTab('Editor');
-          setActiveSection('Settings');
-        }}
+        onOpenMetadata={() => setShowSettings(true)}
         onToggleAccountMenu={() => setShowAppMenu((current) => !current)}
         isCompact={compactLayout}
       />
@@ -211,8 +216,7 @@ export function Shell() {
             type="button"
             className="w-full rounded-[4px] px-3 py-2 text-left text-sm hover:bg-subtle"
             onClick={() => {
-              setActiveTab('Editor');
-              setActiveSection('Settings');
+              setShowSettings(true);
               setShowAppMenu(false);
             }}
           >
@@ -252,6 +256,7 @@ export function Shell() {
       <StatusBar />
       <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} />
       <ImportDialog open={showImport} onClose={() => setShowImport(false)} />
+      <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }
