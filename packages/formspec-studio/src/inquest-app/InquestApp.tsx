@@ -7,6 +7,7 @@ import { RecentSessions } from '../features/recent-sessions/RecentSessions';
 import { InputInventory } from '../features/input-inventory/InputInventory';
 import { ReviewWorkspace } from '../features/review-workspace/ReviewWorkspace';
 import { RefineWorkspace } from '../features/refine-workspace/RefineWorkspace';
+import { InquestThread } from './InquestThread';
 import { diagnosticsToInquestIssues, mergeIssueSets } from '../shared/authoring/diagnostics-issues';
 import { InquestDraft } from '../shared/authoring/inquest-draft';
 import type {
@@ -176,7 +177,7 @@ export function InquestApp() {
     setSession((current) => current ? updater(current) : current);
   };
 
-  const { messages, input, setInput, handleInputChange, handleSubmit, setMessages, isLoading, append } = useChat({
+  const chat = useChat({
     initialMessages: useMemo(() => session?.input.messages.map(m => ({
       id: m.id,
       role: m.role,
@@ -195,13 +196,12 @@ export function InquestApp() {
         updatedAt: nowIso()
       }));
     },
-    fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-      const options = init;
-      const body = JSON.parse(options?.body as string);
+    fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(init?.body as string);
       const { streamChat } = await import('../shared/providers/ai-sdk-provider');
       const providerId = session?.providerId ?? 'gemini';
       const result = await streamChat(providerId, providerApiKey, body.messages);
-      return result.toDataStreamResponse();
+      return result.toTextStreamResponse();
     }
   });
 
@@ -358,23 +358,23 @@ export function InquestApp() {
   };
 
   const isSetupRequired = !session.providerId || !providerApiKey || !connection?.ok || !hasContinued;
-  const analyzeDisabled = isSetupRequired || !input.trim();
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (text?: string) => {
     if (!provider) return;
-    
-    // Add the user message via append to start the LLM stream
-    await append({
-      role: 'user',
-      content: input,
-    });
+    const description = text ?? session.input.description;
+    if (!description.trim()) return;
+
+    // Start chat stream if we have user text
+    if (text) {
+      await chat.append({ role: 'user', content: text });
+    }
 
     const analysis = await provider.runAnalysis({
       session: {
         ...session,
         input: {
           ...session.input,
-          description: input,
+          description,
         }
       },
       template,
@@ -399,6 +399,25 @@ export function InquestApp() {
         ],
       },
     }));
+  };
+
+  const handleChatNew = async (text: string) => {
+    // Save user message to session for persistence
+    updateSession((current) => ({
+      ...current,
+      input: {
+        ...current.input,
+        description: text,
+        messages: [
+          ...current.input.messages,
+          { id: crypto.randomUUID(), role: 'user' as const, text, createdAt: nowIso() },
+        ],
+      },
+      updatedAt: nowIso(),
+    }));
+
+    // Chat + analyze in one shot
+    await handleAnalyze(text);
   };
 
   const handleGenerateProposal = async () => {
@@ -558,85 +577,77 @@ export function InquestApp() {
 
             {/* Center: Chat Interface */}
             <section className="relative flex flex-1 flex-col bg-white">
-              <div className="flex-1 overflow-y-auto p-8 flex justify-center">
-                <div className="w-full max-w-3xl">
-                  {isSetupRequired ? (
-                    <div className="mt-12 flex flex-col items-center">
-                      <div className="mb-8 text-center">
-                        <div className="h-16 w-16 mx-auto mb-6 flex items-center justify-center rounded-2xl bg-accent/10 text-accent">
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3m-3-3l-2.25-2.25"/>
-                          </svg>
+              {isSetupRequired ? (
+                <>
+                  <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+                    <div className="w-full max-w-3xl">
+                      <div className="mt-12 flex flex-col items-center">
+                        <div className="mb-8 text-center">
+                          <div className="h-16 w-16 mx-auto mb-6 flex items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3m-3-3l-2.25-2.25"/>
+                            </svg>
+                          </div>
+                          <h2 className="text-2xl font-bold text-slate-900">Setup Intelligence</h2>
+                          <p className="mt-2 text-slate-500 max-w-md mx-auto">
+                            To start building with <strong>Stack</strong>, you need to connect an AI provider. Your keys stay on this browser and are never sent to our servers.
+                          </p>
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-900">Setup Intelligence</h2>
-                        <p className="mt-2 text-slate-500 max-w-md mx-auto">
-                          To start building with **Stack**, you need to connect an AI provider. Your keys stay on this browser and are never sent to our servers.
-                        </p>
-                      </div>
-                      
-                      <div className="w-full max-w-md">
-                        <ProviderSetup
-                          adapters={inquestProviderAdapters}
-                          selectedProviderId={session.providerId}
-                          apiKey={providerApiKey}
-                          rememberKey={rememberKey}
-                          connection={connection}
-                          isTesting={isTesting}
-                          onContinue={() => setHasContinued(true)}
-                          onProviderSelected={(providerId) => {
-                            setHasContinued(false);
-                            const prefs = loadProviderPreferences();
-                            setConnection(undefined);
-                            setProviderApiKey(prefs.rememberedKeys[providerId] ?? '');
-                            setRememberKey(Boolean(prefs.rememberedKeys[providerId]));
-                            saveSelectedProvider(providerId);
-                            updateSession((current) => ({
-                              ...current,
-                              providerId,
-                              updatedAt: nowIso(),
-                            }));
-                          }}
-                          onApiKeyChange={(val) => {
-                            setHasContinued(false);
-                            setProviderApiKey(val);
-                          }}
-                          onRememberChange={setRememberKey}
-                          onTestConnection={handleTestConnection}
-                          onCredentialsCleared={() => {
-                            setProviderApiKey('');
-                            setRememberKey(false);
-                            if (session.providerId) clearProviderKey(session.providerId);
-                            setConnection(undefined);
-                          }}
-                        />
+
+                        <div className="w-full max-w-md">
+                          <ProviderSetup
+                            adapters={inquestProviderAdapters}
+                            selectedProviderId={session.providerId}
+                            apiKey={providerApiKey}
+                            rememberKey={rememberKey}
+                            connection={connection}
+                            isTesting={isTesting}
+                            onContinue={() => setHasContinued(true)}
+                            onProviderSelected={(providerId) => {
+                              setHasContinued(false);
+                              const prefs = loadProviderPreferences();
+                              setConnection(undefined);
+                              setProviderApiKey(prefs.rememberedKeys[providerId] ?? '');
+                              setRememberKey(Boolean(prefs.rememberedKeys[providerId]));
+                              saveSelectedProvider(providerId);
+                              updateSession((current) => ({
+                                ...current,
+                                providerId,
+                                updatedAt: nowIso(),
+                              }));
+                            }}
+                            onApiKeyChange={(val) => {
+                              setHasContinued(false);
+                              setProviderApiKey(val);
+                            }}
+                            onRememberChange={setRememberKey}
+                            onTestConnection={handleTestConnection}
+                            onCredentialsCleared={() => {
+                              setProviderApiKey('');
+                              setRememberKey(false);
+                              if (session.providerId) clearProviderKey(session.providerId);
+                              setConnection(undefined);
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-8">
-                      {messages.map((msg: any) => (
-                        <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`flex flex-col gap-2 max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                            <div className={`px-5 py-4 text-[15px] leading-relaxed shadow-sm ${
-                              msg.role === 'user' 
-                                ? 'bg-accent text-white rounded-[20px] rounded-tr-none' 
-                                : 'bg-slate-100 text-slate-800 rounded-[20px] rounded-tl-none'
-                            }`}>
-                              {msg.content}
-                            </div>
-                            <div className="px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                              {msg.role === 'assistant' ? 'Stack Assistant' : 'You'}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
+                  </div>
+                </>
+              ) : (
+                <InquestThread
+                  chat={chat}
+                  disabled={isSetupRequired}
+                  onNew={handleChatNew}
+                  afterMessages={
+                    <>
                       {meaningfulInput(session) && (
                         <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                           <div className="text-center mb-8">
                             <h3 className="text-lg font-bold text-slate-900">Ready to build your form?</h3>
                             <p className="mt-2 text-sm text-slate-500">I have enough information to generate a scaffold. How should we proceed?</p>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-4">
                             <button
                               onClick={() => {
@@ -677,7 +688,6 @@ export function InquestApp() {
                         </div>
                       )}
 
-                      {/* Initial Recommendations or Full Gallery */}
                       {(showFullGallery || (session.input.messages.length === 1 && !meaningfulInput(session))) && (
                         <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                           <div className="mb-6 flex items-center justify-between">
@@ -689,7 +699,7 @@ export function InquestApp() {
                                <div className="h-px w-8 bg-slate-100" />
                              </div>
                              {showFullGallery && (
-                               <button 
+                               <button
                                  onClick={() => setShowFullGallery(false)}
                                  className="text-[10px] font-bold text-accent hover:underline uppercase tracking-widest"
                                >
@@ -713,39 +723,10 @@ export function InquestApp() {
                           />
                         </div>
                       )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 bg-white p-6 pb-8">
-                <div className="mx-auto max-w-3xl">
-                  <div className="relative flex items-center">
-                    <textarea
-                      className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5 text-[15px] shadow-inner outline-none transition-all focus:border-accent focus:bg-white focus:ring-4 focus:ring-accent/10"
-                      rows={2}
-                      placeholder="Ask Stack to build a form..."
-                      value={input}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          if (!analyzeDisabled) handleAnalyze();
-                        }
-                      }}
-                      onChange={handleInputChange}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-4 bottom-4 h-10 w-10 flex items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg transition-all hover:scale-105 hover:bg-black disabled:opacity-20 disabled:scale-100"
-                      disabled={analyzeDisabled}
-                      onClick={handleAnalyze}
-                    >
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between px-2 text-[12px] font-medium text-slate-400">
+                    </>
+                  }
+                  belowComposer={
+                    <div className="mt-3 flex items-center justify-between px-2 text-[12px] font-medium text-slate-400">
                       <div className="flex gap-4">
                         <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 transition-colors">
                           <input type="file" className="hidden" multiple onChange={async (e) => {
@@ -763,7 +744,7 @@ export function InquestApp() {
                           <span>Add context</span>
                         </label>
 
-                        <button 
+                        <button
                           onClick={() => setShowFullGallery(!showFullGallery)}
                           className={`flex items-center gap-1.5 transition-colors ${showFullGallery ? 'text-accent' : 'hover:text-slate-600'}`}
                         >
@@ -773,10 +754,11 @@ export function InquestApp() {
                           <span>Blueprints</span>
                         </button>
                       </div>
-                    <span>Press Enter to send</span>
-                  </div>
-                </div>
-              </div>
+                      <span>Press Enter to send</span>
+                    </div>
+                  }
+                />
+              )}
             </section>
 
             {/* Right Sidebar: Context & Templates */}
