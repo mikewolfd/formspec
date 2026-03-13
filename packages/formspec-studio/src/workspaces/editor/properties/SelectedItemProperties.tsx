@@ -8,6 +8,7 @@ import { dataTypeInfo, propertyHelp } from '../../../lib/field-helpers';
 import { humanizeFEL } from '../../../lib/humanize';
 import { ContentSection } from './ContentSection';
 import { WidgetHintSection } from './WidgetHintSection';
+import { AppearanceSection } from './AppearanceSection';
 import { FieldConfigSection } from './FieldConfigSection';
 import { GroupConfigSection } from './GroupConfigSection';
 import { OptionsSection } from './OptionsSection';
@@ -42,7 +43,7 @@ export function SelectedItemProperties({
   const currentKey = path.split('.').pop() || path;
   const isField = item.type === 'field';
   const isGroup = item.type === 'group';
-  const isChoice = dataType === 'choice' || dataType === 'multiChoice';
+  const isChoice = dataType === 'choice' || dataType === 'multiChoice' || dataType === 'select1' || dataType === 'select';
   const isDecimalLike = dataType === 'decimal' || dataType === 'money';
   const isMoney = dataType === 'money';
 
@@ -111,6 +112,7 @@ export function SelectedItemProperties({
 
         <ContentSection path={path} item={item} dispatch={dispatch} />
         <WidgetHintSection path={path} item={item} dispatch={dispatch} />
+        <AppearanceSection itemKey={currentKey} itemType={item.type} itemDataType={dataType} />
 
         {isField && (
           <FieldConfigSection

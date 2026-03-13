@@ -52,8 +52,20 @@ const sectionTabs = [
   { id: 'simulation', label: 'Simulation' },
 ] as const;
 
-export function DataTab() {
-  const [sectionFilter, setSectionFilter] = useState<typeof sectionTabs[number]['id']>('all');
+export type DataSectionFilter = typeof sectionTabs[number]['id'];
+
+interface DataTabProps {
+  sectionFilter?: DataSectionFilter;
+  onSectionFilterChange?: (filter: DataSectionFilter) => void;
+}
+
+export function DataTab({ sectionFilter: controlledFilter, onSectionFilterChange }: DataTabProps = {}) {
+  const [internalFilter, setInternalFilter] = useState<DataSectionFilter>('all');
+  const sectionFilter = controlledFilter ?? internalFilter;
+  const setSectionFilter = (filter: DataSectionFilter) => {
+    setInternalFilter(filter);
+    onSectionFilterChange?.(filter);
+  };
 
   const showStructure = sectionFilter === 'all' || sectionFilter === 'structure';
   const showTables = sectionFilter === 'all' || sectionFilter === 'tables';
