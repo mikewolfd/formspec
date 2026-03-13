@@ -654,7 +654,7 @@ function applyGeneratedPageMode(
         if (!node) continue;
 
         if (item?.type === 'group') {
-            const title = String(node.props.title || node.props.bind || item.label || item.key || `Page ${index + 1}`);
+            const title = String(node.props.title || item.label || node.props.bind || item.key || `Page ${index + 1}`);
             pageChildren.push({
                 ...node,
                 props: { ...node.props, title },

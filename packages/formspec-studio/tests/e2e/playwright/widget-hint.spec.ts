@@ -84,7 +84,7 @@ test.describe('widgetHint affects preview rendering', () => {
 });
 
 // Reproduces the exact user flow: wizard-mode definition, choice field, widget change via UI
-test.describe('widget change works in wizard mode (definition fallback)', () => {
+test.describe('widget change works in wizard mode', () => {
   const WIZARD_CHOICE_DEF = {
     $formspec: '1.0',
     url: 'urn:wizard-widget-test',
@@ -127,6 +127,25 @@ test.describe('widget change works in wizard mode (definition fallback)', () => 
 
     // Switch to Preview — should now render as a radiogroup
     await switchTab(page, 'Preview');
+    await expect.poll(async () => (
+      page.evaluate(() => {
+        const el = document.querySelector('formspec-render') as any;
+        return el?.componentDocument?.tree?.children?.[0]?.component ?? null;
+      })
+    )).toBe('RadioGroup');
+
+    const previewState = await page.evaluate(() => {
+      const el = document.querySelector('formspec-render') as any;
+      return {
+        definitionHint: el?.definition?.items?.[0]?.presentation?.widgetHint ?? null,
+        componentRoot: el?.componentDocument?.tree?.component ?? null,
+        fieldComponent: el?.componentDocument?.tree?.children?.[0]?.component ?? null,
+      };
+    });
+    expect(previewState.definitionHint).toBe('radio');
+    expect(previewState.componentRoot).toBe('Stack');
+    expect(previewState.fieldComponent).toBe('RadioGroup');
+
     await expect(workspace.getByRole('radiogroup'))
       .toBeVisible({ timeout: 5000 });
     await expect(workspace.getByRole('radio', { name: /Low/ })).toBeVisible();

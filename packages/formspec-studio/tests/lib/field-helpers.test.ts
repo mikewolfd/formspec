@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { flatItems, bindsFor, arrayBindsFor, shapesFor, dataTypeInfo, compatibleWidgets } from '../../src/lib/field-helpers';
+import {
+  flatItems,
+  bindsFor,
+  arrayBindsFor,
+  shapesFor,
+  dataTypeInfo,
+  compatibleWidgets,
+  widgetHintForComponent,
+  componentForWidgetHint,
+} from '../../src/lib/field-helpers';
 
 describe('flatItems', () => {
   it('flattens nested items with paths', () => {
@@ -179,5 +188,19 @@ describe('compatibleWidgets', () => {
 
   it('returns empty array for unknown types', () => {
     expect(compatibleWidgets('unknown')).toEqual([]);
+  });
+});
+
+describe('widget hint vocabulary', () => {
+  it('maps component ids to canonical definition hints', () => {
+    expect(widgetHintForComponent('RadioGroup', 'choice')).toBe('radio');
+    expect(widgetHintForComponent('Select', 'choice')).toBe('dropdown');
+    expect(widgetHintForComponent('DatePicker', 'date')).toBe('datePicker');
+  });
+
+  it('maps definition hints back to component ids', () => {
+    expect(componentForWidgetHint('radio')).toBe('RadioGroup');
+    expect(componentForWidgetHint('dropdown')).toBe('Select');
+    expect(componentForWidgetHint('datePicker')).toBe('DatePicker');
   });
 });

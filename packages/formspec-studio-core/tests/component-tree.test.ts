@@ -17,6 +17,20 @@ describe('component.addNode', () => {
     expect(result).toHaveProperty('nodeRef');
   });
 
+  it('marks blank component trees as studio-generated internal state', () => {
+    const project = createProject();
+
+    project.dispatch({
+      type: 'component.addNode',
+      payload: { parent: { nodeId: 'root' }, component: 'Card' },
+    });
+
+    expect((project.component as any)['x-studio-generated']).toBe(true);
+    expect((project.component as any).$formspecComponent).toBeUndefined();
+    expect((project.component as any).version).toBeUndefined();
+    expect((project.component.tree as any).component).toBe('Stack');
+  });
+
   it('adds a bound input node', () => {
     const project = createProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
