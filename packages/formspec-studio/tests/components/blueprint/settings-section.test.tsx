@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
@@ -29,46 +29,35 @@ function renderSettings(def?: any) {
 }
 
 describe('SettingsSection', () => {
-  it('shows definition metadata', () => {
+  it('shows key summary fields', () => {
     renderSettings();
-    expect(screen.getByText(/1\.0/)).toBeInTheDocument();
-    expect(screen.getByText('urn:formspec:test')).toBeInTheDocument();
+    expect(screen.getByText('My Test Form')).toBeInTheDocument();
     expect(screen.getByText('1.2.0')).toBeInTheDocument();
-  });
-
-  it('shows status', () => {
-    renderSettings();
     expect(screen.getByText(/draft/i)).toBeInTheDocument();
   });
 
-  it('shows presentation defaults', () => {
+  it('shows page mode when present', () => {
     renderSettings();
     expect(screen.getByText(/single/i)).toBeInTheDocument();
-    expect(screen.getByText(/top/i)).toBeInTheDocument();
-    expect(screen.getByText(/comfortable/i)).toBeInTheDocument();
-    expect(screen.getByText('USD')).toBeInTheDocument();
   });
 
-  it('shows form title', () => {
+  it('shows an edit settings button', () => {
     renderSettings();
-    expect(screen.getByText('My Test Form')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-edit-btn')).toBeInTheDocument();
   });
 
-  it('lets the title switch into an editable field when clicked', () => {
+  it('dispatches formspec:open-settings event when edit button is clicked', () => {
     renderSettings();
-
-    fireEvent.click(screen.getByText('My Test Form'));
-
-    expect(screen.getByDisplayValue('My Test Form')).toBeInTheDocument();
+    const handler = vi.fn();
+    window.addEventListener('formspec:open-settings', handler);
+    fireEvent.click(screen.getByTestId('settings-edit-btn'));
+    expect(handler).toHaveBeenCalled();
+    window.removeEventListener('formspec:open-settings', handler);
   });
 
-  it('preserves the full title in a tooltip when the title is long', () => {
-    const longTitle = 'This is a very long form title that should still be available in a tooltip when the sidebar truncates it';
-    renderSettings({
-      ...settingsDef,
-      title: longTitle,
-    });
-
-    expect(screen.getByText(longTitle)).toHaveAttribute('title', longTitle);
+  it('shows dash for missing title', () => {
+    const minDef = { ...settingsDef, title: undefined };
+    renderSettings(minDef);
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 });
