@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { ViewportSwitcher, type Viewport } from './ViewportSwitcher';
-import { FormspecPreviewHost } from './FormspecPreviewHost';
 import { JsonDocumentsView } from './JsonDocumentsView';
+import { BehaviorPreview } from '../../features/behavior-preview/BehaviorPreview';
 
 const viewportWidths: Record<Viewport, string> = {
   desktop: '100%',
@@ -60,24 +60,15 @@ export function PreviewTab({
         )}
       </div>
       {activeMode === 'form' ? (
-        <div className="flex-1 overflow-auto flex justify-center p-2 bg-subtle/50">
-          <div
-            className="bg-surface rounded border border-border p-4 h-fit"
-            style={{
-              width: viewportWidths[activeViewport],
-              maxWidth: '100%',
-              minWidth: activeViewport === 'desktop' ? '800px' : undefined,
-            }}
-          >
-            {items.length > 0 ? (
-              <FormspecPreviewHost width={viewportWidths[activeViewport]} />
-            ) : (
-              <div className="text-center text-muted text-sm py-8">
-                No items to preview
-              </div>
-            )}
+        items.length > 0 ? (
+          <div className="flex-1 overflow-hidden bg-subtle/50">
+            <BehaviorPreview viewport={activeViewport} />
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-center text-muted text-sm py-8">
+            No items to preview
+          </div>
+        )
       ) : (
         <JsonDocumentsView />
       )}

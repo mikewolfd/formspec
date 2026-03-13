@@ -18,8 +18,8 @@ export default defineConfig({
         const MIME: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
         const studioDir = path.resolve(__dirname, 'packages/formspec-studio/dist');
         server.middlewares.use((req, res, next) => {
-          if (!req.url?.startsWith('/studio')) return next();
-          let relPath = req.url.replace(/^\/studio/, '').split('?')[0];
+          if (!req.url?.startsWith('/studio') && !req.url?.startsWith('/inquest')) return next();
+          let relPath = req.url.replace(/^\/(?:studio|inquest)/, '').split('?')[0];
           if (!relPath || relPath === '/') relPath = '/index.html';
           const filePath = path.join(studioDir, relPath);
           const ext = path.extname(filePath).toLowerCase();

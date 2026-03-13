@@ -6,7 +6,8 @@ import path from 'path';
 const repoRoot = path.resolve(__dirname, '../..');
 
 export default defineConfig({
-  base: '/studio/',
+  base: './',
+  appType: 'spa',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
