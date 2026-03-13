@@ -22,15 +22,19 @@ export function OptionSets() {
   const optionSets = (definition?.optionSets as unknown as Record<string, OptionSetDef>) || {};
   const items = (definition?.items as any[]) || [];
   const [expandedName, setExpandedName] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState('');
 
   const handleAdd = () => {
-    const name = window.prompt('Lookup table name (e.g. state_codes)');
-    if (!name?.trim()) return;
+    const trimmed = newName.trim();
+    if (!trimmed) return;
     dispatch({
       type: 'definition.setOptionSet',
-      payload: { name: name.trim(), options: [] },
+      payload: { name: trimmed, options: [] },
     });
-    setExpandedName(name.trim());
+    setExpandedName(trimmed);
+    setNewName('');
+    setIsAdding(false);
   };
 
   const handleSetProperty = (name: string, property: string, value: unknown) => {
@@ -41,7 +45,7 @@ export function OptionSets() {
   };
 
   const handleDelete = (name: string) => {
-    if (window.confirm(`Delete "${name}"?`)) {
+    if (window.confirm(`Delete "${name}"? Its options will be inlined into referencing fields.`)) {
       dispatch({
         type: 'definition.deleteOptionSet',
         payload: { name },
@@ -49,6 +53,8 @@ export function OptionSets() {
       if (expandedName === name) setExpandedName(null);
     }
   };
+
+  const sanitizeName = (raw: string) => raw.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/_+$/, '');
 
   // Count how many fields reference each option set
   const flat = flatItems(items);
@@ -66,19 +72,68 @@ export function OptionSets() {
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-1">
         <h4 className="text-[12px] font-bold text-muted uppercase tracking-wider">Active Tables</h4>
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="text-[11px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
-        >
-          + New Table
-        </button>
+        {!isAdding && (
+          <button
+            type="button"
+            onClick={() => setIsAdding(true)}
+            className="text-[11px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
+          >
+            + New Table
+          </button>
+        )}
       </div>
 
-      {entries.length === 0 && (
-        <div className="py-2 text-sm text-muted italic opacity-50">No lookup tables defined.</div>
+      {/* Inline add form */}
+      {isAdding && (
+        <div className="border border-accent/30 rounded-xl bg-accent/5 p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              type="text"
+              placeholder="state_codes"
+              value={newName}
+              onChange={(e) => setNewName(sanitizeName(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAdd();
+                if (e.key === 'Escape') { setIsAdding(false); setNewName(''); }
+              }}
+              className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-ink placeholder:text-muted/40"
+            />
+          </div>
+          <p className="text-[11px] text-muted">
+            e.g. <code className="font-mono text-accent/70">state_codes</code>, <code className="font-mono text-accent/70">severity_levels</code>, <code className="font-mono text-accent/70">departments</code>
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => { setIsAdding(false); setNewName(''); }}
+              className="text-[10px] uppercase font-bold text-muted hover:text-ink transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="text-[10px] uppercase font-bold text-accent hover:text-accent-hover transition-colors"
+            >
+              Create
+            </button>
+          </div>
+        </div>
       )}
 
+      {/* Empty state */}
+      {entries.length === 0 && !isAdding && (
+        <div className="py-8 border-2 border-dashed border-border/50 rounded-2xl flex flex-col items-center justify-center text-center px-6">
+          <p className="text-sm text-muted font-medium mb-2">No lookup tables defined.</p>
+          <p className="text-[12px] text-muted/70 leading-relaxed max-w-[400px]">
+            Option sets are reusable lists of choices shared across fields.
+            Reference them on a field with <code className="font-mono text-accent/70">"optionSet": "name"</code>.
+          </p>
+        </div>
+      )}
+
+      {/* Option set cards */}
       {entries.map(([name, os]) => {
         const isExpanded = expandedName === name;
         const isRemote = !!os.source;
@@ -115,16 +170,26 @@ export function OptionSets() {
             {/* Expanded editor */}
             {isExpanded && (
               <div className="p-6 pt-0 border-t border-border animate-in fade-in slide-in-from-top-1 duration-200">
-                <div className="space-y-6 mt-6">
+                <div className="space-y-6 mt-4">
+                  {/* Usage hint */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-accent/5 rounded-lg border border-accent/10">
+                    <span className="text-[11px] text-muted">Reference on a field:</span>
+                    <code className="text-[12px] font-mono font-bold text-accent">"optionSet": "{name}"</code>
+                  </div>
+
                   {isRemote ? (
                     /* Remote source editing */
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] block">Source Endpoint</label>
                       <InlineExpression
                         value={os.source || ''}
                         onSave={(val) => handleSetProperty(name, 'source', val)}
                         placeholder="https://api.example.com/options"
+                        className="block w-full text-[13px] bg-subtle border border-border rounded-lg px-3 py-2.5 hover:border-accent/50 hover:bg-subtle/70 underline decoration-accent/30 decoration-dotted underline-offset-4"
                       />
+                      <p className="text-[10px] text-muted/60 italic">
+                        Must return a JSON array of objects with value/label fields.
+                      </p>
                     </div>
                   ) : (
                     /* Manual options table */
@@ -161,7 +226,6 @@ export function OptionSets() {
                                       handleSetProperty(name, 'options', next);
                                     }}
                                     onBlur={() => {
-                                      // Trigger dispatch on blur for test assertions
                                       handleSetProperty(name, 'options', os.options || []);
                                     }}
                                     placeholder="key"
@@ -191,9 +255,12 @@ export function OptionSets() {
                           </tbody>
                         </table>
                         {(!os.options || os.options.length === 0) && (
-                          <div className="py-6 text-center text-[12px] text-muted italic">No options defined.</div>
+                          <div className="py-6 text-center text-[12px] text-muted italic">No options defined. Click "+ Add Row" to start.</div>
                         )}
                       </div>
+                      <p className="text-[10px] text-muted/60 italic mt-1.5">
+                        Value is stored in the response. Label is what the user sees.
+                      </p>
                     </section>
                   )}
 
