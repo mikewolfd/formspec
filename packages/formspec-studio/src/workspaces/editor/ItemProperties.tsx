@@ -14,14 +14,15 @@ import {
   widgetHintForComponent,
   propertyHelp,
 } from '../../lib/field-helpers';
+import { isLayoutId, nodeIdFromLayoutId } from '../../lib/tree-helpers';
 import { pruneDescendants, sortForBatchDelete } from '../../lib/selection-helpers';
 import { Section } from '../../components/ui/Section';
 import { PropertyRow } from '../../components/ui/PropertyRow';
 import { BindCard } from '../../components/ui/BindCard';
 import { ShapeCard } from '../../components/ui/ShapeCard';
 import { HelpTip } from '../../components/ui/HelpTip';
+import { InlineExpression } from '../../components/ui/InlineExpression';
 import { humanizeFEL } from '../../lib/humanize';
-import { LogicEditorDialog } from '../logic/LogicEditorDialog';
 
 /** Labeled text input for a property. */
 function PropInput({
@@ -86,8 +87,6 @@ export function ItemProperties({ showActions = true }: { showActions?: boolean }
   const dispatch = useDispatch();
    const project = useProject();
    const keyInputRef = useRef<HTMLInputElement>(null);
-   const [editingBind, setEditingBind] = useState<{ path: string; type: string; expr: string } | null>(null);
-   const [editingShape, setEditingShape] = useState<{ id: string; expr: string } | null>(null);
 
   const handleRename = useCallback(
     (originalPath: string, inputEl: HTMLInputElement) => {
@@ -157,6 +156,11 @@ export function ItemProperties({ showActions = true }: { showActions?: boolean }
   // --- Nothing selected: definition-level properties ---
   if (!selectedKey) {
     return <DefinitionProperties definition={definition} dispatch={dispatch} />;
+  }
+
+  // --- Layout node selected ---
+  if (isLayoutId(selectedKey)) {
+    return <LayoutProperties layoutId={selectedKey} dispatch={dispatch} deselect={deselect} />;
   }
 
   if (!found) {
@@ -269,18 +273,18 @@ export function ItemProperties({ showActions = true }: { showActions?: boolean }
            <Section title="Behavior Rules">
             <div className="space-y-1">
               {Object.entries(binds).map(([type, expr]) => (
-                <div key={type} className="relative group">
-                  <button
-                    type="button"
-                    className="w-full text-left focus:outline-none focus:ring-1 focus:ring-accent rounded transition-transform active:scale-[0.98]"
-                    onClick={() => setEditingBind({ path, type, expr })}
-                  >
-                    <BindCard bindType={type} expression={expr} humanized={humanizeFEL(expr)} />
-                  </button>
-                  <div className="absolute top-2 right-2 text-[10px] text-muted opacity-0 group-hover:opacity-100 transition-opacity">
-                    Edit
-                  </div>
-                </div>
+                <BindCard key={type} bindType={type} expression={expr} humanized={humanizeFEL(expr)}>
+                  <InlineExpression
+                    value={expr}
+                    onSave={(val) => {
+                      dispatch({
+                        type: 'definition.setBind',
+                        payload: { path, properties: { [type]: val || null } },
+                      });
+                    }}
+                    placeholder="Click to add expression"
+                  />
+                </BindCard>
               ))}
             </div>
           </Section>
@@ -306,7 +310,9 @@ export function ItemProperties({ showActions = true }: { showActions?: boolean }
                    key={i}
                    type="button"
                    className="w-full text-left focus:outline-none focus:ring-1 focus:ring-accent rounded transition-transform active:scale-[0.98]"
-                   onClick={() => setEditingShape({ id: sh.name, expr: sh.constraint || '' })}
+                   onClick={() => {
+                     window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: { tab: 'Logic' } }));
+                   }}
                  >
                    <ShapeCard name={sh.name} severity={sh.severity}
                      constraint={sh.constraint} message={sh.message as string} code={sh.code as string} />
@@ -335,16 +341,6 @@ export function ItemProperties({ showActions = true }: { showActions?: boolean }
         </div>
       )}
 
-      <LogicEditorDialog
-        open={!!editingBind}
-        onClose={() => setEditingBind(null)}
-        target={editingBind ? { type: 'bind', nameOrPath: editingBind.path, bindType: editingBind.type, expression: editingBind.expr } : null}
-      />
-      <LogicEditorDialog
-        open={!!editingShape}
-        onClose={() => setEditingShape(null)}
-        target={editingShape ? { type: 'shape', nameOrPath: editingShape.id, expression: editingShape.expr } : null}
-      />
     </div>
   );
 }
@@ -412,8 +408,8 @@ function WidgetHintSection({ path, item, dispatch }: { path: string; item: any; 
             const widget = e.currentTarget.value || null;
             const widgetHint = widget ? widgetHintForComponent(widget, item.dataType) : null;
             // Write to both: component tree (Tier 3) for direct rendering,
-            // and definition presentation.widgetHint (Tier 1) as fallback
-            // for wizard/tabs mode where the auto-built tree is stripped.
+            // and definition presentation.widgetHint (Tier 1) so paged and
+            // definition-driven render paths resolve the same widget intent.
             try {
               dispatch({
                 type: 'component.setFieldWidget',
@@ -748,6 +744,67 @@ function MultiSelectSummary({ selectionCount, selectedKeys, project, deselect }:
         >
           Delete All
         </button>
+      </div>
+    </div>
+  );
+}
+
+function LayoutProperties({ layoutId, dispatch, deselect }: { layoutId: string; dispatch: any; deselect: () => void }) {
+  const nodeId = nodeIdFromLayoutId(layoutId);
+  const component = (useDefinition() as any); // just for re-render
+  const project = useProject();
+  const tree = (project.state.component.tree as any);
+
+  // Find the layout node in the tree
+  const findNode = (root: any): any => {
+    if (root.nodeId === nodeId) return root;
+    for (const child of root.children ?? []) {
+      const found = findNode(child);
+      if (found) return found;
+    }
+    return null;
+  };
+  const node = tree ? findNode(tree) : null;
+  const componentType = node?.component ?? 'Unknown';
+
+  return (
+    <div className="h-full flex flex-col bg-surface overflow-hidden">
+      <div className="px-3.5 py-2.5 border-b border-border bg-surface shrink-0">
+        <h2 className="text-[15px] font-bold text-ink tracking-tight font-ui">Layout</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-4">
+        <Section title="Identity">
+          <PropertyRow label="Type">
+            <span className="font-mono text-[12px] text-accent font-semibold">{componentType}</span>
+          </PropertyRow>
+          <PropertyRow label="Node ID">
+            <span className="font-mono text-[11px] text-muted">{nodeId}</span>
+          </PropertyRow>
+        </Section>
+        <Section title="Actions">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="flex-1 py-1.5 px-3 rounded text-[11.5px] font-mono border border-border text-muted hover:text-ink hover:border-ink/30 transition-colors cursor-pointer"
+              onClick={() => {
+                dispatch({ type: 'component.unwrapNode', payload: { node: { nodeId } } });
+                deselect();
+              }}
+            >
+              Unwrap
+            </button>
+            <button
+              type="button"
+              className="flex-1 py-1.5 px-3 rounded text-[11.5px] font-mono border border-red-300 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+              onClick={() => {
+                dispatch({ type: 'component.deleteNode', payload: { node: { nodeId } } });
+                deselect();
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </Section>
       </div>
     </div>
   );

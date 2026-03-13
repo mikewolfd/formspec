@@ -53,7 +53,7 @@ describe('LogicTab', () => {
 
   it('renders variables section', () => {
     renderLogic();
-    expect(screen.getByText('isAdult')).toBeInTheDocument();
+    expect(screen.getByText('@isAdult')).toBeInTheDocument();
     // $age >= 18 appears in both variables and binds sections
     const ageExprs = screen.getAllByText('$age >= 18');
     expect(ageExprs.length).toBeGreaterThanOrEqual(1);
@@ -88,7 +88,7 @@ describe('LogicTab', () => {
     expect(screen.getByTestId('selected-key')).toHaveTextContent('age');
   });
 
-  it('keeps variable expressions as read-only text', async () => {
+  it('variable expression is inline-editable on click', async () => {
     renderLogic({
       ...logicDef,
       variables: [
@@ -97,12 +97,19 @@ describe('LogicTab', () => {
     });
 
     await act(async () => {
-      screen.getByText('sum($members[*].mInc)').dispatchEvent(
-        new MouseEvent('dblclick', { bubbles: true })
-      );
+      screen.getByText('sum($members[*].mInc)').click();
     });
 
-    expect(screen.getByText('sum($members[*].mInc)')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('sum($members[*].mInc)')).toBeNull();
+    // InlineExpression should now show a textarea with the value
+    expect(screen.getByDisplayValue('sum($members[*].mInc)')).toBeInTheDocument();
+  });
+
+  it('shows Variables section even when no variables defined', () => {
+    renderLogic({
+      ...logicDef,
+      variables: [],
+    });
+    expect(screen.getByText(/Calculated Values/)).toBeInTheDocument();
+    expect(screen.getByText('+ New Variable')).toBeInTheDocument();
   });
 });
