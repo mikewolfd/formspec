@@ -11,6 +11,8 @@ import { WidgetHintSection } from './WidgetHintSection';
 import { FieldConfigSection } from './FieldConfigSection';
 import { GroupConfigSection } from './GroupConfigSection';
 import { OptionsSection } from './OptionsSection';
+import { AddBehaviorMenu } from '../../../components/ui/AddBehaviorMenu';
+import { PrePopulateCard } from '../../../components/ui/PrePopulateCard';
 
 export function SelectedItemProperties({
   item,
@@ -43,6 +45,11 @@ export function SelectedItemProperties({
   const isChoice = dataType === 'choice' || dataType === 'multiChoice';
   const isDecimalLike = dataType === 'decimal' || dataType === 'money';
   const isMoney = dataType === 'money';
+
+  const existingBehaviorTypes = [
+    ...Object.keys(binds).filter(k => binds[k] !== null && binds[k] !== undefined),
+    ...(item.prePopulate ? ['pre-populate'] : [])
+  ];
 
   return (
     <div className="h-full flex flex-col bg-surface overflow-hidden">
@@ -110,6 +117,8 @@ export function SelectedItemProperties({
             path={path}
             item={item}
             dispatch={dispatch}
+            binds={binds}
+            existingBehaviorTypes={existingBehaviorTypes}
             isDecimalLike={isDecimalLike}
             isMoney={isMoney}
           />
@@ -123,37 +132,50 @@ export function SelectedItemProperties({
           <OptionsSection path={path} item={item} dispatch={dispatch} />
         )}
 
-        {Object.keys(binds).length > 0 ? (
-          <Section title="Behavior Rules">
-            <div className="space-y-1">
-              {Object.entries(binds).map(([bindType, expression]) => (
-                <BindCard key={bindType} bindType={bindType} expression={expression} humanized={humanizeFEL(expression)}>
+        <Section title="Behavior Rules">
+          <div className="space-y-1">
+
+            {Object.entries(binds)
+              .filter(([type, expr]) => type !== 'calculate' && expr !== null && expr !== undefined)
+              .map(([bindType, expression]) => (
+                <BindCard
+                  key={bindType}
+                  bindType={bindType}
+                  expression={expression}
+                  humanized={humanizeFEL(expression)}
+                  onRemove={() => {
+                    dispatch({
+                      type: 'definition.setBind',
+                      payload: { path, properties: { [bindType]: null } },
+                    });
+                  }}
+                >
                   <InlineExpression
                     value={expression}
                     onSave={(value) => {
                       dispatch({
                         type: 'definition.setBind',
-                        payload: { path, properties: { [bindType]: value || null } },
+                        payload: { path, properties: { [bindType]: value ?? null } },
                       });
                     }}
                     placeholder="Click to add expression"
                   />
                 </BindCard>
               ))}
-            </div>
-          </Section>
-        ) : (
-          <div className="mb-4">
-            <HelpTip text="Behavior rules control when fields are visible, required, readonly, or have calculated values. Opens the Logic tab.">
-              <button
-                type="button"
-                className="text-[11px] text-muted hover:text-accent font-mono cursor-pointer transition-colors"
-              >
-                + Add behavior rule →
-              </button>
-            </HelpTip>
+
+            <AddBehaviorMenu
+              existingTypes={existingBehaviorTypes}
+              allowedTypes={['relevant', 'required', 'readonly', 'constraint']}
+              onAdd={(type: string) => {
+                dispatch({
+                  type: 'definition.setBind',
+                  payload: { path, properties: { [type]: 'true' } },
+                });
+              }}
+              className="mt-2"
+            />
           </div>
-        )}
+        </Section>
 
         {shapes.length > 0 && (
           <Section title="Validation Shapes">

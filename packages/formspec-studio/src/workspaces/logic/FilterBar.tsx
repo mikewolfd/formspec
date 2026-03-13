@@ -6,6 +6,8 @@ interface BindEntry {
   calculate?: string;
   constraint?: string;
   readonly?: string;
+  'pre-populate'?: any;
+  [key: string]: any;
 }
 
 interface FilterBarProps {
@@ -14,14 +16,15 @@ interface FilterBarProps {
   onFilterSelect?: (filter: (typeof bindTypes)[number] | null) => void;
 }
 
-const bindTypes = ['required', 'relevant', 'calculate', 'constraint', 'readonly'] as const;
+const bindTypes = ['required', 'relevant', 'calculate', 'constraint', 'readonly', 'pre-populate'] as const;
 
-const pillColors: Record<string, 'accent' | 'logic' | 'green' | 'error' | 'amber'> = {
+const pillColors: Record<string, 'accent' | 'logic' | 'green' | 'error' | 'amber' | 'indigo'> = {
   required: 'accent',
   relevant: 'logic',
   calculate: 'green',
   constraint: 'error',
   readonly: 'amber',
+  'pre-populate': 'indigo',
 };
 
 export function FilterBar({ binds, activeFilter = null, onFilterSelect }: FilterBarProps) {
