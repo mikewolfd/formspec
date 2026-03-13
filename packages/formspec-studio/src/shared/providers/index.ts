@@ -15,6 +15,7 @@ import type {
   TraceMapV1,
 } from '../contracts/inquest';
 import { findInquestTemplate } from '../templates/templates';
+import { createAiSdkAdapter } from './ai-sdk-provider';
 
 const FIELD_CATALOG: Array<{ match: RegExp; key: string; label: string; dataType: string }> = [
   { match: /\bemail\b/i, key: 'email', label: 'Email', dataType: 'string' },
@@ -230,7 +231,7 @@ function flattenDefinitionItems(items: any[], prefix = ''): Array<{ key: string;
   return results;
 }
 
-function buildAnalysis(input: InquestModelInput): AnalysisV1 {
+export function buildAnalysis(input: InquestModelInput): AnalysisV1 {
   const template = input.template ?? findInquestTemplate(input.session.input.templateId);
   const templateFields = (template?.seedAnalysis.fields ?? []).map<AnalysisField>((field) => ({
     id: `template:${field.key}`,
@@ -324,7 +325,7 @@ function buildAnalysis(input: InquestModelInput): AnalysisV1 {
   };
 }
 
-function buildProposal(input: InquestModelInput): ProposalV1 {
+export function buildProposal(input: InquestModelInput): ProposalV1 {
   const analysis = input.analysis ?? buildAnalysis(input);
   const template = input.template ?? findInquestTemplate(input.session.input.templateId);
   const sections = analysis.requirements.sections;
@@ -400,7 +401,7 @@ function buildProposal(input: InquestModelInput): ProposalV1 {
   };
 }
 
-function buildEditPatch(input: InquestModelInput): CommandPatchV1 {
+export function buildEditPatch(input: InquestModelInput): CommandPatchV1 {
   const prompt = input.prompt?.trim() ?? '';
   const definition = (input.proposal?.definition as Record<string, any> | undefined) ?? {};
   const flattened = flattenDefinitionItems(Array.isArray(definition.items) ? definition.items : []);

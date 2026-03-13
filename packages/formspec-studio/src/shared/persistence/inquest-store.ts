@@ -22,15 +22,15 @@ const memoryLocalStore = (() => {
   };
 })();
 
-function localStore() {
-  const candidate = (typeof window !== 'undefined' ? window.localStorage : (globalThis as any).localStorage) as Partial<typeof memoryLocalStore> | undefined;
+function localStore(): { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void } {
+  const candidate = (typeof window !== 'undefined' ? window.localStorage : (globalThis as any).localStorage);
   if (
     candidate
     && typeof candidate.getItem === 'function'
     && typeof candidate.setItem === 'function'
     && typeof candidate.removeItem === 'function'
   ) {
-    return candidate;
+    return candidate as any;
   }
   return memoryLocalStore;
 }
@@ -88,6 +88,13 @@ export async function saveInquestSession(session: InquestSessionV1): Promise<voi
   ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .slice(0, 12);
 
+  writeLocalJson(RECENT_SESSIONS_KEY, next);
+}
+
+export async function deleteInquestSession(sessionId: string): Promise<void> {
+  await kvStore.delete(sessionKey(sessionId));
+  const existing = readLocalJson<RecentSessionEntry[]>(RECENT_SESSIONS_KEY, []);
+  const next = existing.filter((entry) => entry.sessionId !== sessionId);
   writeLocalJson(RECENT_SESSIONS_KEY, next);
 }
 

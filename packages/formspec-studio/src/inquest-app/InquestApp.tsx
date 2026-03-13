@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useChat } from '@ai-sdk/react';
 import { createProject, type AnyCommand, type ProjectBundle } from 'formspec-studio-core';
 import { TemplateGallery } from '../features/template-gallery/TemplateGallery';
 import { ProviderSetup } from '../features/provider-setup/ProviderSetup';
@@ -19,6 +20,7 @@ import type {
 } from '../shared/contracts/inquest';
 import {
   clearProviderKey,
+  deleteInquestSession,
   listRecentInquestSessions,
   loadBootstrapProject,
   loadInquestSession,
@@ -35,7 +37,7 @@ import { inquestPath, studioPath } from '../shared/transport/routes';
 
 const DEFAULT_ASSISTANT_MESSAGE = {
   role: 'assistant' as const,
-  text: 'What form are you building? Start from a template, describe it in plain language, or upload reference material. Inquest will turn it into a structured Formspec scaffold.',
+  text: 'Hello! I am your Stack Assistant. I can help you build powerful, accessible forms for Formspec. What are we building today? You can describe a form from scratch, or I can suggest a template to get us started.',
 };
 
 function nowIso(): string {
@@ -73,7 +75,7 @@ function inferSessionTitle(session: InquestSessionV1): string {
   if (session.input.description.trim()) {
     return session.input.description.trim().split(/\n+/)[0].slice(0, 48);
   }
-  return 'Untitled Inquest';
+  return 'Untitled Project';
 }
 
 function createBlankSession(params: URLSearchParams, target?: InquestSessionTarget): InquestSessionV1 {
@@ -81,7 +83,7 @@ function createBlankSession(params: URLSearchParams, target?: InquestSessionTarg
   return {
     version: 1,
     sessionId,
-    title: 'Untitled Inquest',
+    title: 'Untitled Project',
     createdAt: nowIso(),
     updatedAt: nowIso(),
     phase: 'inputs',
@@ -165,6 +167,43 @@ export function InquestApp() {
   const [rememberKey, setRememberKey] = useState(false);
   const [connection, setConnection] = useState<ConnectionResult | undefined>();
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [showFullGallery, setShowFullGallery] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [hasContinued, setHasContinued] = useState(false);
+
+
+  const updateSession = (updater: (current: InquestSessionV1) => InquestSessionV1) => {
+    setSession((current) => current ? updater(current) : current);
+  };
+
+  const { messages, input, setInput, handleInputChange, handleSubmit, setMessages, isLoading, append } = useChat({
+    initialMessages: useMemo(() => session?.input.messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.text,
+    })) ?? [], [session?.sessionId]),
+    onFinish: (message: any) => {
+      updateSession((current: any) => ({
+        ...current,
+        input: {
+          ...current.input,
+          messages: [
+            ...current.input.messages,
+            { id: message.id, role: 'assistant', text: message.content, createdAt: nowIso() }
+          ]
+        },
+        updatedAt: nowIso()
+      }));
+    },
+    fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+      const options = init;
+      const body = JSON.parse(options?.body as string);
+      const { streamChat } = await import('../shared/providers/ai-sdk-provider');
+      const providerId = session?.providerId ?? 'gemini';
+      const result = await streamChat(providerId, providerApiKey, body.messages);
+      return result.toDataStreamResponse();
+    }
+  });
 
   useEffect(() => {
     let disposed = false;
@@ -210,6 +249,10 @@ export function InquestApp() {
       setSession((current) => current ? { ...current, providerId: selectedProviderId } : current);
       setProviderApiKey(selectedProviderId ? prefs.rememberedKeys[selectedProviderId] ?? '' : '');
       setRememberKey(Boolean(selectedProviderId && prefs.rememberedKeys[selectedProviderId]));
+
+      if (selectedProviderId && prefs.rememberedKeys[selectedProviderId]) {
+        setHasContinued(true);
+      }
 
       if (nextSession.draftBundle?.definition) {
         setDraft(createDraftFromBundle(nextSession.draftBundle));
@@ -270,22 +313,26 @@ export function InquestApp() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-[#F4EEE2] px-6 py-8 text-[#1C2433] font-ui">
-        <div className="mx-auto max-w-5xl">Loading Inquest…</div>
+      <div className="min-h-screen bg-slate-50 px-6 py-8 text-slate-900 font-ui flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <div className="text-sm font-medium text-slate-500 tracking-wide uppercase">Initializing Stack Assistant…</div>
+        </div>
       </div>
     );
   }
 
   const provider = findProviderAdapter(session.providerId) ?? inquestProviderAdapters[0];
-  const analyzeDisabled = !provider || !providerApiKey.trim() || !meaningfulInput(session);
-
-  const updateSession = (updater: (current: InquestSessionV1) => InquestSessionV1) => {
-    setSession((current) => current ? updater(current) : current);
-  };
 
   const handleCreateFreshSession = () => {
     const params = new URLSearchParams();
     window.location.assign(inquestPath(undefined, params.toString()));
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    await deleteInquestSession(sessionId);
+    // Force refresh the list since recentSessions memo depends on session update
+    updateSession((current) => ({ ...current, updatedAt: nowIso() }));
   };
 
   const handleOpenSession = (sessionId: string) => {
@@ -294,21 +341,42 @@ export function InquestApp() {
 
   const handleTestConnection = async () => {
     if (!provider) return;
-    const result = await provider.testConnection({ apiKey: providerApiKey });
-    setConnection(result);
-    saveSelectedProvider(provider.id);
-    if (result.ok && rememberKey) {
-      rememberProviderKey(provider.id, providerApiKey);
-    }
-    if (!rememberKey) {
-      clearProviderKey(provider.id);
+    setIsTesting(true);
+    try {
+      const result = await provider.testConnection({ apiKey: providerApiKey });
+      setConnection(result);
+      saveSelectedProvider(provider.id);
+      if (result.ok && rememberKey) {
+        rememberProviderKey(provider.id, providerApiKey);
+      }
+      if (!rememberKey) {
+        clearProviderKey(provider.id);
+      }
+    } finally {
+      setIsTesting(false);
     }
   };
 
+  const isSetupRequired = !session.providerId || !providerApiKey || !connection?.ok || !hasContinued;
+  const analyzeDisabled = isSetupRequired || !input.trim();
+
   const handleAnalyze = async () => {
     if (!provider) return;
+    
+    // Add the user message via append to start the LLM stream
+    await append({
+      role: 'user',
+      content: input,
+    });
+
     const analysis = await provider.runAnalysis({
-      session,
+      session: {
+        ...session,
+        input: {
+          ...session.input,
+          description: input,
+        }
+      },
       template,
     });
     updateSession((current) => ({
@@ -438,244 +506,287 @@ export function InquestApp() {
     window.location.assign(studioPath(`h=${encodeURIComponent(handoffId)}`));
   };
 
+
   return (
-    <div data-testid="inquest-shell" className="min-h-screen bg-[#F4EEE2] px-6 py-8 text-[#1C2433] font-ui">
-      <div className="mx-auto max-w-[1440px] space-y-5">
-        <header className="rounded-2xl border border-[#cfbf9f] bg-white/85 px-6 py-5 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="text-xs font-mono uppercase tracking-[0.24em] text-[#B7791F]">The Inquest</div>
-              <h1 className="mt-2 text-4xl font-semibold tracking-tight">{session.title}</h1>
-              <p className="mt-2 text-sm text-slate-600">Saved on this browser only.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-[#f3ead8] px-3 py-1 text-xs font-mono uppercase tracking-wide text-[#7b5b21]">
-                {session.mode}
-              </span>
-              <span className="rounded-full bg-[#edf6f8] px-3 py-1 text-xs font-mono uppercase tracking-wide text-[#2F6B7E]">
-                {session.workflowMode}
-              </span>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-mono uppercase tracking-wide text-slate-500">
-                {saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Save error' : 'Saved locally'}
-              </span>
+    <div data-testid="stack-assistant" className="min-h-screen bg-white text-slate-900 font-ui flex flex-col">
+      <header className="flex h-[60px] items-center justify-between border-b border-slate-200 bg-white px-6 shadow-sm shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent shadow-sm">
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+              <rect x="2" y="1.5" width="8" height="2" rx=".4" fill="white" />
+              <rect x="2" y="5" width="8" height="2" rx=".4" fill="white" fillOpacity=".7" />
+              <rect x="2" y="8.5" width="8" height="2" rx=".4" fill="white" fillOpacity=".4" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight leading-none">Stack Builder</h1>
+            <div className="mt-1 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+              Formspec AI Assistant
             </div>
           </div>
+        </div>
 
-          <div className="mt-6 flex items-center gap-4">
-            <div className="flex rounded-full bg-[#f3ead8]/50 p-1 shadow-inner">
-              {(['verify-carefully', 'draft-fast'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`relative cursor-pointer rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-200 ${
-                    session.workflowMode === mode
-                      ? 'bg-[#1C2433] text-white shadow-md'
-                      : 'text-[#1C2433]/60 hover:text-[#1C2433]'
-                  }`}
-                  onClick={() => updateSession((current) => ({
-                    ...current,
-                    workflowMode: mode,
-                    updatedAt: nowIso(),
-                  }))}
-                >
-                  {mode === 'verify-carefully' ? 'Verify carefully' : 'Draft fast'}
-                </button>
-              ))}
-            </div>
-            <div className="text-xs font-medium text-slate-500 italic">
-              {session.workflowMode === 'verify-carefully'
-                ? 'High-fidelity, checks constraints and types.'
-                : 'Rapid prototyping, focuses on core structure.'}
-            </div>
-          </div>
-        </header>
+      </header>
 
-        {session.phase === 'inputs' ? (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <div className="space-y-6">
-              <ProviderSetup
-                adapters={inquestProviderAdapters}
-                selectedProviderId={session.providerId}
-                apiKey={providerApiKey}
-                rememberKey={rememberKey}
-                connection={connection}
-                onProviderSelected={(providerId) => {
-                  const prefs = loadProviderPreferences();
-                  setConnection(undefined);
-                  setProviderApiKey(prefs.rememberedKeys[providerId] ?? '');
-                  setRememberKey(Boolean(prefs.rememberedKeys[providerId]));
-                  saveSelectedProvider(providerId);
-                  updateSession((current) => ({
-                    ...current,
-                    providerId,
-                    updatedAt: nowIso(),
-                  }));
-                }}
-                onApiKeyChange={setProviderApiKey}
-                onRememberChange={setRememberKey}
-                onTestConnection={handleTestConnection}
-                onCredentialsCleared={() => {
-                  setProviderApiKey('');
-                  setRememberKey(false);
-                  if (session.providerId) clearProviderKey(session.providerId);
-                  setConnection(undefined);
-                }}
-              />
-
-              <TemplateGallery
-                templates={inquestTemplates}
-                selectedTemplateId={session.input.templateId}
-                mode="inquest"
-                onSelect={(templateId) => {
-                  updateSession((current) => ({
-                    ...current,
-                    title: findInquestTemplate(templateId)?.name ?? current.title,
-                    input: {
-                      ...current.input,
-                      templateId,
-                    },
-                    updatedAt: nowIso(),
-                  }));
-                }}
-              />
-
-              <section className="rounded-2xl border border-[#cfbf9f] bg-white/90 p-6 shadow-md transition-all hover:bg-white">
-                <div className="mb-6">
-                  <div className="text-xs font-mono uppercase tracking-[0.24em] text-[#B7791F]">Specification</div>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight">Describe the form and add source material</h2>
-                </div>
-
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium">Description</span>
-                  <textarea
-                    className="min-h-[180px] w-full rounded-md border border-[#dbcdb2] bg-white px-3 py-3 text-sm outline-none focus:border-[#2F6B7E]"
-                    value={session.input.description}
-                    placeholder="Describe who fills out the form, what data it collects, and any conditional logic or eligibility rules."
-                    onChange={(event) => updateSession((current) => ({
-                      ...current,
-                      title: inferSessionTitle({
-                        ...current,
-                        input: { ...current.input, description: event.target.value },
-                      }),
-                      input: {
-                        ...current.input,
-                        description: event.target.value,
-                      },
-                      updatedAt: nowIso(),
-                    }))}
+        {session.phase === 'inputs' && (
+          <main className="flex flex-1 overflow-hidden">
+            {/* Left Sidebar: Navigation & History */}
+            <aside className="w-[280px] border-r border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
+              <div className="flex-1 overflow-y-auto p-4">
+                 <RecentSessions
+                    sessions={recentSessions}
+                    onOpen={handleOpenSession}
+                    onDelete={handleDeleteSession}
+                    onStartNew={handleCreateFreshSession}
                   />
-                </label>
+              </div>
+              <div className="px-4 py-6 border-t border-slate-200">
+                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Model Status</div>
+                 <div className="flex items-center gap-2 rounded-lg bg-white p-3 border border-slate-100 shadow-sm">
+                   <div className={`h-2 w-2 rounded-full ${connection?.ok ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
+                   <div className="flex-1 min-w-0">
+                     <div className="truncate text-xs font-bold text-slate-800">
+                       {session.providerId ? findProviderAdapter(session.providerId)?.label : 'No Provider'}
+                     </div>
+                     <div className="text-[10px] text-slate-400">
+                       {connection?.ok ? 'Intelligence Active' : 'Offline'}
+                     </div>
+                   </div>
+                 </div>
+              </div>
+            </aside>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-slate-700">Source Material</span>
-                    <div className="relative group">
-                      <input
-                        type="file"
-                        multiple
-                        className="block w-full cursor-pointer rounded-xl border border-dashed border-[#dbcdb2] bg-[#f9f4ea]/30 px-4 py-8 text-sm text-slate-500 transition-all hover:border-[#2F6B7E] hover:bg-[#edf6f8]/50"
-                        onChange={async (event) => {
-                          const files = Array.from(event.target.files ?? []);
-                          const uploads = await Promise.all(files.map(summarizeUpload));
-                          updateSession((current) => ({
-                            ...current,
-                            input: {
-                              ...current.input,
-                              uploads: [...current.input.uploads, ...uploads],
-                            },
-                            updatedAt: nowIso(),
-                          }));
-                          event.currentTarget.value = '';
-                        }}
-                      />
-                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-60 group-hover:opacity-100">
-                        <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <span className="text-xs font-medium">Drop files or click to upload</span>
+            {/* Center: Chat Interface */}
+            <section className="relative flex flex-1 flex-col bg-white">
+              <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+                <div className="w-full max-w-3xl">
+                  {isSetupRequired ? (
+                    <div className="mt-12 flex flex-col items-center">
+                      <div className="mb-8 text-center">
+                        <div className="h-16 w-16 mx-auto mb-6 flex items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3m-3-3l-2.25-2.25"/>
+                          </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-900">Setup Intelligence</h2>
+                        <p className="mt-2 text-slate-500 max-w-md mx-auto">
+                          To start building with **Stack**, you need to connect an AI provider. Your keys stay on this browser and are never sent to our servers.
+                        </p>
+                      </div>
+                      
+                      <div className="w-full max-w-md">
+                        <ProviderSetup
+                          adapters={inquestProviderAdapters}
+                          selectedProviderId={session.providerId}
+                          apiKey={providerApiKey}
+                          rememberKey={rememberKey}
+                          connection={connection}
+                          isTesting={isTesting}
+                          onContinue={() => setHasContinued(true)}
+                          onProviderSelected={(providerId) => {
+                            setHasContinued(false);
+                            const prefs = loadProviderPreferences();
+                            setConnection(undefined);
+                            setProviderApiKey(prefs.rememberedKeys[providerId] ?? '');
+                            setRememberKey(Boolean(prefs.rememberedKeys[providerId]));
+                            saveSelectedProvider(providerId);
+                            updateSession((current) => ({
+                              ...current,
+                              providerId,
+                              updatedAt: nowIso(),
+                            }));
+                          }}
+                          onApiKeyChange={(val) => {
+                            setHasContinued(false);
+                            setProviderApiKey(val);
+                          }}
+                          onRememberChange={setRememberKey}
+                          onTestConnection={handleTestConnection}
+                          onCredentialsCleared={() => {
+                            setProviderApiKey('');
+                            setRememberKey(false);
+                            if (session.providerId) clearProviderKey(session.providerId);
+                            setConnection(undefined);
+                          }}
+                        />
                       </div>
                     </div>
-                  </label>
+                  ) : (
+                    <div className="space-y-8">
+                      {messages.map((msg: any) => (
+                        <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`flex flex-col gap-2 max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                            <div className={`px-5 py-4 text-[15px] leading-relaxed shadow-sm ${
+                              msg.role === 'user' 
+                                ? 'bg-accent text-white rounded-[20px] rounded-tr-none' 
+                                : 'bg-slate-100 text-slate-800 rounded-[20px] rounded-tl-none'
+                            }`}>
+                              {msg.content}
+                            </div>
+                            <div className="px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                              {msg.role === 'assistant' ? 'Stack Assistant' : 'You'}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
 
-                  {session.mode === 'import-subform' && (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-slate-700">Target Group</span>
-                        <select
-                          className="block w-full rounded-xl border border-[#dbcdb2] bg-white px-3 py-2.5 text-sm shadow-sm transition-all focus:ring-2 focus:ring-[#2F6B7E]/20"
-                          value={session.target?.groupPath ?? ''}
-                          onChange={(event) => updateSession((current) => ({
-                            ...current,
-                            target: {
-                              ...current.target,
-                              groupPath: event.target.value || undefined,
-                            },
-                            updatedAt: nowIso(),
-                          }))}
-                        >
-                          <option value="">Import at root</option>
-                          {(session.target?.availableGroups ?? []).map((groupPath) => (
-                            <option key={groupPath} value={groupPath}>
-                              {groupPath}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-slate-700">Key Prefix</span>
-                        <input
-                          type="text"
-                          className="block w-full rounded-xl border border-[#dbcdb2] bg-white px-3 py-2.5 text-sm shadow-sm transition-all focus:ring-2 focus:ring-[#2F6B7E]/20"
-                          value={session.target?.keyPrefix ?? ''}
-                          placeholder="subform_"
-                          onChange={(event) => updateSession((current) => ({
-                            ...current,
-                            target: {
-                              ...current.target,
-                              keyPrefix: event.target.value || undefined,
-                            },
-                            updatedAt: nowIso(),
-                          }))}
-                        />
-                      </label>
+                      {meaningfulInput(session) && (
+                        <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                          <div className="text-center mb-8">
+                            <h3 className="text-lg font-bold text-slate-900">Ready to build your form?</h3>
+                            <p className="mt-2 text-sm text-slate-500">I have enough information to generate a scaffold. How should we proceed?</p>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <button
+                              onClick={() => {
+                                updateSession(c => ({ ...c, workflowMode: 'draft-fast' }));
+                                void handleGenerateProposal();
+                              }}
+                              className="group flex flex-col items-center gap-4 rounded-[24px] bg-white p-6 border-2 border-transparent hover:border-accent hover:shadow-xl transition-all"
+                            >
+                              <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                </svg>
+                              </div>
+                              <div className="text-center">
+                                <div className="font-bold text-slate-900">Draft Fast</div>
+                                <div className="mt-1 text-xs text-slate-400">Optimize for speed to first scaffold</div>
+                              </div>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                updateSession(c => ({ ...c, workflowMode: 'verify-carefully' }));
+                                void handleAnalyze();
+                              }}
+                              className="group flex flex-col items-center gap-4 rounded-[24px] bg-white p-6 border-2 border-transparent hover:border-emerald-500 hover:shadow-xl transition-all"
+                            >
+                              <div className="h-12 w-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                              </div>
+                              <div className="text-center">
+                                <div className="font-bold text-slate-900">Verify Carefully</div>
+                                <div className="mt-1 text-xs text-slate-400">Deep semantic analysis & compliance</div>
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Initial Recommendations or Full Gallery */}
+                      {(showFullGallery || (session.input.messages.length === 1 && !meaningfulInput(session))) && (
+                        <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                          <div className="mb-6 flex items-center justify-between">
+                             <div className="flex items-center gap-2">
+                               <div className="h-px w-8 bg-slate-100" />
+                               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
+                                 {showFullGallery ? 'Full Blueprint Library' : 'Quick Start Blueprints'}
+                               </span>
+                               <div className="h-px w-8 bg-slate-100" />
+                             </div>
+                             {showFullGallery && (
+                               <button 
+                                 onClick={() => setShowFullGallery(false)}
+                                 className="text-[10px] font-bold text-accent hover:underline uppercase tracking-widest"
+                               >
+                                 Dismiss
+                               </button>
+                             )}
+                          </div>
+                          <TemplateGallery
+                            templates={showFullGallery ? inquestTemplates : inquestTemplates.slice(0, 3)}
+                            selectedTemplateId={session.input.templateId}
+                            mode="inquest"
+                            onSelect={(templateId) => {
+                              setShowFullGallery(false);
+                              updateSession((current) => ({
+                                ...current,
+                                title: findInquestTemplate(templateId)?.name ?? current.title,
+                                input: { ...current.input, templateId },
+                                updatedAt: nowIso(),
+                              }));
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div className="mt-8 flex items-center justify-between border-t border-[#f3ead8] pt-6">
-                  <div className={`text-xs font-medium transition-opacity duration-300 ${analyzeDisabled ? 'opacity-100' : 'opacity-0'}`}>
-                    <span className="flex items-center gap-2 text-[#7b5b21]">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="border-t border-slate-200 bg-white p-6 pb-8">
+                <div className="mx-auto max-w-3xl">
+                  <div className="relative flex items-center">
+                    <textarea
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5 text-[15px] shadow-inner outline-none transition-all focus:border-accent focus:bg-white focus:ring-4 focus:ring-accent/10"
+                      rows={2}
+                      placeholder="Ask Stack to build a form..."
+                      value={input}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (!analyzeDisabled) handleAnalyze();
+                        }
+                      }}
+                      onChange={handleInputChange}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-4 bottom-4 h-10 w-10 flex items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg transition-all hover:scale-105 hover:bg-black disabled:opacity-20 disabled:scale-100"
+                      disabled={analyzeDisabled}
+                      onClick={handleAnalyze}
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                       </svg>
-                      Setup provider and description to begin analysis.
-                    </span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="group relative flex items-center gap-2 overflow-hidden rounded-full bg-[#1C2433] px-8 py-3 text-sm font-bold text-white transition-all hover:scale-[1.02] hover:bg-black disabled:scale-100 disabled:bg-slate-300 disabled:opacity-50"
-                    disabled={analyzeDisabled}
-                    onClick={handleAnalyze}
-                  >
-                    <span>Analyze Specification</span>
-                    <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </button>
-                </div>
-              </section>
-            </div>
+                  <div className="mt-3 flex items-center justify-between px-2 text-[12px] font-medium text-slate-400">
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 transition-colors">
+                          <input type="file" className="hidden" multiple onChange={async (e) => {
+                            const files = Array.from(e.target.files ?? []);
+                            const uploads = await Promise.all(files.map(summarizeUpload));
+                            updateSession((current) => ({
+                              ...current,
+                              input: { ...current.input, uploads: [...current.input.uploads, ...uploads] },
+                              updatedAt: nowIso(),
+                            }));
+                          }} />
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          </svg>
+                          <span>Add context</span>
+                        </label>
 
-            <div className="space-y-4">
-              <InputInventory input={session.input} template={template} />
-              <RecentSessions
-                sessions={recentSessions}
-                onOpen={handleOpenSession}
-                onStartNew={handleCreateFreshSession}
-              />
-            </div>
-          </div>
-        ) : null}
+                        <button 
+                          onClick={() => setShowFullGallery(!showFullGallery)}
+                          className={`flex items-center gap-1.5 transition-colors ${showFullGallery ? 'text-accent' : 'hover:text-slate-600'}`}
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                          <span>Blueprints</span>
+                        </button>
+                      </div>
+                    <span>Press Enter to send</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Right Sidebar: Context & Templates */}
+            <aside className="w-[320px] border-l border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
+               <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                 <InputInventory input={session.input} template={template} />
+               </div>
+            </aside>
+          </main>
+        )}
 
         {session.phase === 'review' && session.analysis ? (
           <ReviewWorkspace
@@ -705,7 +816,6 @@ export function InquestApp() {
             onOpenStudio={handleOpenStudio}
           />
         ) : null}
-      </div>
     </div>
   );
 }

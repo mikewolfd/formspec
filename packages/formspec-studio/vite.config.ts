@@ -9,6 +9,9 @@ export default defineConfig({
   base: './',
   appType: 'spa',
   plugins: [react(), tailwindcss()],
+  define: {
+    'process.env': '{}',
+  },
   resolve: {
     alias: {
       'formspec-studio-core': path.resolve(repoRoot, 'packages/formspec-studio-core/src/index.ts'),
