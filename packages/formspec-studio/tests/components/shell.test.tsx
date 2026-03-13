@@ -40,9 +40,9 @@ describe('Shell', () => {
     expect(screen.getByText('The Stack')).toBeInTheDocument();
   });
 
-  it('shows 6 workspace tabs', () => {
+  it('shows 7 workspace tabs', () => {
     renderShell();
-    for (const tab of ['Editor', 'Logic', 'Data', 'Theme', 'Mapping', 'Preview']) {
+    for (const tab of ['Editor', 'Logic', 'Data', 'Pages', 'Theme', 'Mapping', 'Preview']) {
       expect(screen.getByRole('tab', { name: tab })).toBeInTheDocument();
     }
   });
@@ -145,7 +145,7 @@ describe('Shell', () => {
     expect(within(workspace).getByRole('button', { name: /sources/i })).toBeInTheDocument();
   });
 
-  it('preserves the active Theme sub-tab when navigating away and returning', async () => {
+  it('renders the Theme workspace with zone filter buttons', async () => {
     renderShell();
 
     await act(async () => {
@@ -153,20 +153,10 @@ describe('Shell', () => {
     });
 
     const themeWorkspace = screen.getByTestId('workspace-Theme');
-    await act(async () => {
-      within(themeWorkspace).getByRole('button', { name: /selectors/i }).click();
-    });
-
-    await act(async () => {
-      screen.getByRole('tab', { name: 'Logic' }).click();
-    });
-
-    await act(async () => {
-      screen.getByRole('tab', { name: 'Theme' }).click();
-    });
-
-    const selectorsBtn = within(screen.getByTestId('workspace-Theme')).getByRole('button', { name: /selectors/i });
-    expect(selectorsBtn.className).toMatch(/border-accent/);
+    expect(within(themeWorkspace).getByRole('button', { name: /all theme/i })).toBeInTheDocument();
+    expect(within(themeWorkspace).getByRole('button', { name: /brand & colors/i })).toBeInTheDocument();
+    expect(within(themeWorkspace).getByRole('button', { name: /field presentation/i })).toBeInTheDocument();
+    expect(within(themeWorkspace).getByRole('button', { name: /^layout$/i })).toBeInTheDocument();
   });
 
   it('preserves Mapping tab state when navigating away and returning', async () => {
