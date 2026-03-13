@@ -1,6 +1,6 @@
 # The Inquest — Technical Addendum
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Draft  
 **Date:** March 13, 2026  
 **Parent Document:** `0004-the-inquest-prd.md`  
@@ -12,13 +12,15 @@
 
 This document turns the Inquest PRD into an implementation contract. The PRD defines product shape, UX, and positioning. This addendum defines the technical boundaries required to build it without accidental coupling to the main Studio shell.
 
-The core constraint is:
+The core constraints are:
 
 - Inquest can live in the same package as Studio.
 - Inquest must remain independent at the app-shell level.
 - Reusable feature modules must be mountable by either Inquest or Studio.
+- Provider integrations must normalize into shared contracts.
+- Session persistence is local-only in v1.
 
-This document is the source of truth for package layout, module boundaries, handoff mechanics, provider integration, template manifests, persistence, and verification.
+This document is the source of truth for package layout, module boundaries, handoff mechanics, provider integration, normalized AI contracts, persistence, and verification rules.
 
 ---
 
@@ -26,21 +28,23 @@ This document is the source of truth for package layout, module boundaries, hand
 
 This addendum covers:
 
-- Browser entry surfaces and package organization
-- Dependency boundaries
-- Reusable module contracts
+- browser entry surfaces and package organization
+- dependency boundaries
+- reusable module contracts
+- provider adapter contracts
+- normalized AI output contracts
 - Studio handoff payload and application flow
-- Template manifest shape
-- Provider adapter contract
-- Session persistence
-- Test and acceptance criteria
+- local persistence and resume
+- verification modes and issue gating
+- tests and acceptance criteria
 
 This addendum does not define:
 
-- Final visual design details beyond architectural constraints
-- Final copywriting or prompt wording
-- Expanded template library content
-- Server-side AI proxy behavior
+- final visual design details beyond architectural constraints
+- final copywriting or prompt wording
+- expanded template library content
+- server-side AI proxy behavior
+- cloud sync or team collaboration
 
 ---
 
@@ -50,13 +54,13 @@ Inquest should ship from the existing `formspec-studio` package for v1. A new pa
 
 The implementation must still expose two independent browser entry surfaces:
 
-1. `Studio` entry surface
-2. `Inquest` entry surface
+1. `Studio`
+2. `Inquest`
 
 These can be delivered in either of two ways:
 
-1. One Vite package/build with distinct route roots, such as `/studio/*` and `/inquest/*`
-2. One Vite package with multiple HTML/app entry points
+1. one Vite build with distinct route roots such as `/studio/*` and `/inquest/*`
+2. one Vite package with multiple HTML/app entry points
 
 Either is acceptable. The non-negotiable requirement is that the Inquest app shell is not imported into the Studio app shell and Studio is not imported into the Inquest app shell.
 
@@ -90,25 +94,26 @@ src/
     theme/
     state/
   features/
+    recent-sessions/
     template-gallery/
-    input-inventory/
     upload-intake/
-    analysis-report/
-    proposal-viewer/
-    refine-workspace/
+    input-inventory/
+    review-workspace/
+    behavior-preview/
     source-trace/
-    guided-prompts/
+    issue-queue/
+    refine-workspace/
     handoff/
     provider-setup/
   shared/
     authoring/
     commands/
     diagnostics/
-    theme/
-    transport/
-    templates/
     providers/
     persistence/
+    templates/
+    transport/
+    contracts/
 ```
 
 Existing `components/`, `workspaces/`, `state/`, and `lib/` code can be extracted incrementally. This document does not require a full Studio refactor before Inquest work begins.
@@ -121,34 +126,37 @@ Existing `components/`, `workspaces/`, `state/`, and `lib/` code can be extracte
 
 `inquest-app/` owns:
 
-- Top-level routing
-- Session bootstrap and resume
+- top-level routing
+- recent-session listing
+- session bootstrap and resume
 - Inquest-specific navigation and chrome
 - Inquest visual theme tokens
-- Provider key lifecycle UI
-- Launching Studio handoff
+- provider key lifecycle UI
+- launching Studio handoff
 
 `studio-app/` owns:
 
 - Studio routing and shell
-- New project launch surfaces
-- Embedded use of reusable feature modules
-- Receiving and applying handoff bundles
+- new-project launch surfaces
+- optional embedded use of reusable Inquest feature modules
+- receiving and applying handoff bundles
+- exposing the "Reopen Inquest" affordance when possible
 
 ### 4.2 Shared Feature Modules
 
 The following modules must be reusable by both products:
 
 - `template-gallery`
-- `analysis-report`
-- `proposal-viewer`
+- `review-workspace`
+- `behavior-preview`
 - `source-trace`
-- `guided-prompts`
+- `issue-queue`
 
 The following modules are Inquest-first but still should be written for reuse where practical:
 
-- `input-inventory`
+- `recent-sessions`
 - `upload-intake`
+- `input-inventory`
 - `refine-workspace`
 - `handoff`
 - `provider-setup`
@@ -157,7 +165,7 @@ The following modules are Inquest-first but still should be written for reuse wh
 
 Reusable modules must accept serializable inputs and explicit callbacks. Avoid hidden singleton state, global shell context, or direct browser-route assumptions.
 
-Preferred shape:
+Preferred shapes:
 
 ```ts
 type TemplateGalleryProps = {
@@ -170,20 +178,30 @@ type TemplateGalleryProps = {
 ```
 
 ```ts
-type ProposalViewerProps = {
-  proposal: InquestProposal;
-  inputs: InquestInputSummary[];
-  onAccept(): void;
-  onRefine(): void;
-  onBack(): void;
+type ReviewWorkspaceProps = {
+  analysis: AnalysisV1;
+  proposal?: ProposalV1;
+  issues: InquestIssue[];
+  workflowMode: InquestWorkflowMode;
+  onChange(patch: ReviewPatch): void;
+  onGenerate(): void;
 };
 ```
 
 ```ts
-type GuidedPromptsProps = {
-  prompts: GuidedPrompt[];
-  onDismiss(promptId: string): void;
-  onApply(promptId: string, action: PromptAction): void;
+type BehaviorPreviewProps = {
+  definition: unknown;
+  scenario: PreviewScenario;
+  onScenarioChange(scenario: PreviewScenario): void;
+};
+```
+
+```ts
+type IssueQueueProps = {
+  issues: InquestIssue[];
+  onResolve(issueId: string): void;
+  onDefer(issueId: string): void;
+  onFocus(issueId: string): void;
 };
 ```
 
@@ -204,6 +222,18 @@ Inquest must not create a parallel authoring model. It should build on:
 
 When Inquest generates or edits structure, it should do so through the same command language Studio already understands. This is what makes handoff reliable and undoable.
 
+The Inquest must also respect actual Definition semantics rather than hand-waving them in the UI. Behavior preview and issue gating must reflect:
+
+- `relevant`
+- `required`
+- `readonly`
+- `constraint`
+- shape severity and timing
+- screener bind scope and route order
+- `nonRelevantBehavior`
+- `excludedValue`
+- `default`
+
 ---
 
 ## 6. Handoff Contract
@@ -215,14 +245,17 @@ The handoff mechanism must:
 - support brand new Studio projects
 - support merge/import-subform mode
 - preserve enough context to rebuild provenance
-- be serializable and versioned
+- remain serializable and versioned
 - validate before Studio applies mutations
+- distinguish clearly between replay-into-new-project and import-into-existing-project semantics
 
 ### 6.2 Payload Shape
 
 Minimum payload contract:
 
 ```ts
+type InquestWorkflowMode = 'draft-fast' | 'verify-carefully';
+
 type InquestHandoffPayloadV1 = {
   version: 1;
   mode: 'new-project' | 'import-subform';
@@ -230,6 +263,7 @@ type InquestHandoffPayloadV1 = {
   target?: {
     projectId?: string;
     groupPath?: string;
+    keyPrefix?: string;
   };
   commandBundle: StudioCommand[];
   scaffold: {
@@ -239,26 +273,48 @@ type InquestHandoffPayloadV1 = {
   inquest: {
     sessionId: string;
     templateId?: string;
+    workflowMode: InquestWorkflowMode;
+    providerId?: string;
     inputs: InquestInputSummary[];
     analysisSummary: InquestAnalysisSummary;
     proposalSummary: InquestProposalSummary;
+    issues: InquestIssueSummary[];
   };
   createdAt: string;
 };
 ```
 
-The command bundle is the primary application mechanism. The scaffold snapshot exists for validation, recovery, and debugging.
+### 6.3 Application Semantics
 
-### 6.3 Transport
+For `new-project` mode:
+
+- `commandBundle` is the primary application mechanism
+- Studio creates a fresh project and replays the bundle
+
+For `import-subform` mode:
+
+- `scaffold.definition` must be a standalone importable Definition snapshot for the generated subtree
+- Studio uses `project.importSubform` with `target.groupPath` and optional `keyPrefix`
+- `commandBundle` may contain safe follow-up commands only
+- unsupported root-level constructs must be surfaced before application, not silently ignored
+
+Examples of unsupported or conditionally supported merge behavior in v1:
+
+- whole-form screener replacement
+- root metadata rewrites
+- root page-mode rewrites
+- follow-up commands that assume a host structure that does not exist after import
+
+### 6.4 Transport
 
 Recommended v1 transport:
 
 1. Inquest writes the payload into browser storage under a generated `handoffId`
 2. Inquest navigates to Studio with that `handoffId`
 3. Studio loads and validates the payload
-4. Studio replays the command bundle
+4. Studio applies the payload according to mode
 5. Studio stores `x-inquest` provenance in project metadata
-6. Studio clears the handoff token after success
+6. Studio clears the one-time handoff token after success
 
 Recommended navigation shape:
 
@@ -268,30 +324,24 @@ Recommended navigation shape:
 
 The transport layer should live under `shared/transport/` so both shells use the same handoff code.
 
-### 6.4 Validation and Failure Rules
+### 6.5 Validation and Failure Rules
 
 Studio must validate before applying:
 
 - payload version
 - target mode
 - command schema validity
+- structural validity of `scaffold.definition`
 - duplicate-key conflicts for merge mode
 - target path existence for merge mode
+- follow-up command compatibility for merge mode
 
 Failure behavior:
 
 1. do not partially apply commands silently
 2. surface a readable error summary
 3. keep the handoff payload available for retry
-4. allow the user to return to Inquest with the same session
-
-### 6.5 Merge Mode
-
-For `import-subform` mode:
-
-- Inquest receives existing item keys and target context before generation
-- Studio revalidates collisions on receipt
-- if target path is missing, Studio refuses application and preserves the payload
+4. allow the user to return to Inquest with the same session when local state still exists
 
 ---
 
@@ -317,6 +367,7 @@ type InquestTemplate = {
     fields: SeedField[];
     rules: SeedRule[];
     repeats?: SeedRepeat[];
+    routes?: SeedRoute[];
   };
   seedScaffold?: {
     definition?: unknown;
@@ -328,7 +379,7 @@ type InquestTemplate = {
 
 ### 7.2 Authoring Rule
 
-Templates should seed analysis first, not bypass analysis entirely. Direct scaffold seeds are allowed for acceleration, but the user should still land in the same analysis/proposal pipeline.
+Templates should seed analysis first, not bypass review entirely. Direct scaffold seeds are allowed for acceleration, but the user should still land in the same review pipeline.
 
 ### 7.3 Storage
 
@@ -338,22 +389,52 @@ Recommended v1 storage:
 - local thumbnail/metadata assets
 - optional future registry loading, not required for v1
 
-### 7.4 Validation
-
-Template validation must check:
-
-- required metadata fields
-- duplicate template IDs
-- structurally valid seed analysis
-- valid scaffold shape when present
-
 ---
 
 ## 8. Provider Adapter Contract
 
 The provider layer must be replaceable without touching feature modules.
 
-### 8.1 Interface
+### 8.1 Supported Providers
+
+V1 providers:
+
+- Gemini
+- OpenAI
+- Anthropic (Claude)
+
+Gemini may be recommended in onboarding copy because key acquisition is simple, but it must not receive special-case application logic.
+
+### 8.2 Normalized Output Contracts
+
+Provider-specific responses must normalize into shared internal contracts:
+
+```ts
+type AnalysisV1 = {
+  requirements: unknown;
+  issues: InquestIssue[];
+  trace: TraceMapV1;
+};
+
+type ProposalV1 = {
+  definition: unknown;
+  component?: unknown;
+  issues: InquestIssue[];
+  trace: TraceMapV1;
+};
+
+type CommandPatchV1 = {
+  commands: StudioCommand[];
+  issues: InquestIssue[];
+  trace?: TraceMapV1;
+};
+
+type TraceMapV1 = Record<string, InquestTraceRef[]>;
+```
+
+These shapes can evolve, but the rule is fixed: feature modules consume normalized contracts, never vendor-native envelopes.
+
+### 8.3 Adapter Interface
 
 ```ts
 type InquestProviderAdapter = {
@@ -367,24 +448,24 @@ type InquestProviderAdapter = {
     streaming: boolean;
   };
   testConnection(input: ProviderConnectionInput): Promise<ConnectionResult>;
-  runAnalysis(input: InquestModelInput): Promise<InquestAnalysisResult>;
-  runProposal(input: InquestModelInput): Promise<InquestProposalResult>;
-  runEdit(input: InquestModelInput): Promise<InquestEditResult>;
+  runAnalysis(input: InquestModelInput): Promise<AnalysisV1>;
+  runProposal(input: InquestModelInput): Promise<ProposalV1>;
+  runEdit(input: InquestModelInput): Promise<CommandPatchV1>;
 };
 ```
 
-Feature modules should not know vendor-specific payload shape. Only the adapter should.
-
-### 8.2 Key Handling
+### 8.4 Key Handling
 
 Non-negotiable rules:
 
 - keys are never sent to our backend in v1
-- default storage is in-memory for the active session
-- persistent browser storage is opt-in via "remember this key on this browser"
-- stored keys must remain namespaced by provider
+- keys are never included in analytics
+- keys are never included in handoff payloads
+- keys are never included in `x-inquest` project metadata
+- remembered keys must remain namespaced by provider
+- persistent key storage is opt-in only
 
-### 8.3 Provider Setup Module
+### 8.5 Provider Setup Module
 
 `provider-setup` can remain Inquest-first in v1, but must still expose neutral events:
 
@@ -392,47 +473,124 @@ Non-negotiable rules:
 - `onConnectionTested`
 - `onCredentialsCleared`
 
-That keeps future Studio reuse possible without pulling in Inquest shell assumptions.
-
 ---
 
 ## 9. Persistence Model
 
-### 9.1 Session Artifacts
+### 9.1 Local-Only Boundary
+
+Inquest persistence is local-only in v1.
+
+- no cloud sync
+- no server-side draft history
+- no cross-device resume
+- no shared sessions
+
+The UI must explicitly say: "Saved on this browser only."
+
+### 9.2 Storage Split
 
 Recommended storage split:
 
-- `IndexedDB` for session data, uploads, analysis artifacts, proposal artifacts, and handoff payloads
-- `localStorage` only for lightweight UI preferences and optional remembered provider metadata
-- in-memory state for active editing session
+- `IndexedDB` for session data, uploads, extracted artifacts, proposal artifacts, refine state, handoff payloads, and optional remembered credentials
+- `localStorage` only for lightweight UI preferences, recent-session index, and provider selection metadata
+- in-memory state for the active editing session
 
-### 9.2 Autosave
+### 9.3 Project Metadata Boundary
+
+Project metadata may store `x-inquest` provenance summaries only.
+
+Allowed in `x-inquest`:
+
+- template id
+- provider id
+- workflow mode
+- summarized inputs
+- summarized review/proposal decisions
+- issue summaries
+- trace references
+
+Never persisted to project metadata:
+
+- raw API keys
+- raw uploads
+- raw full transcript
+- local-only draft state
+
+### 9.4 Autosave
 
 Session persistence must happen:
 
 - after each input mutation
-- after each successful analysis/proposal generation
+- after each successful analysis or proposal generation
 - after each refine mutation batch
+- after issue resolution or deferral changes
 
 The user should never lose the session because the browser tab refreshes.
 
-### 9.3 Resume Contract
+### 9.5 Resume Contract
 
-When reopening an Inquest session, the app must restore:
+When reopening an Inquest session on the same browser, the app must restore:
 
 - selected template
 - uploaded files and extracted summaries
 - conversation state
+- workflow mode
 - analysis state
 - proposal state
+- issue queue state
 - refine state
 - pending handoff payload, if one exists
 
 ---
 
-## 10. Testing Strategy
+## 10. Verification Model
 
-### 10.1 Boundary Tests
+### 10.1 Workflow Modes
+
+V1 requires two workflow modes:
+
+- `draft-fast`
+- `verify-carefully`
+
+This mode must be stored in session state and included in handoff provenance.
+
+### 10.2 Blocking Rules
+
+Always blocking:
+
+- structurally invalid Definition output
+- invalid commands
+- unrepairable FEL or schema violations
+- invalid merge target or unsupported import payload
+
+Additional `verify-carefully` blockers:
+
+- unresolved contradictions
+- unresolved low-confidence logic affecting requiredness, relevance, calculation, constraint behavior, screener routing, or response shape
+- unsupported logic with material impact on respondent flow or eligibility
+
+`draft-fast` behavior:
+
+- same issues are surfaced
+- structurally valid output may still hand off
+- unresolved issues must be acknowledged
+
+### 10.3 Behavior Preview Contract
+
+The behavior preview must execute against real Definition semantics, not synthetic prose. At minimum it must show:
+
+- relevant/hidden state
+- required/readonly state
+- validation outcomes
+- screener route outcome when applicable
+- response shape changes driven by `nonRelevantBehavior`
+
+---
+
+## 11. Testing Strategy
+
+### 11.1 Boundary Tests
 
 Add tests that fail if:
 
@@ -441,53 +599,57 @@ Add tests that fail if:
 - `studio-app/` imports from `inquest-app/`
 - `inquest-app/` imports from `studio-app/`
 
-This can be implemented with a lightweight Vitest dependency-boundary test if no lint rule exists yet.
-
-### 10.2 Module Tests
+### 11.2 Module Tests
 
 Feature modules should have focused tests around:
 
 - render from serialized props
 - emitted callbacks/events
 - no shell-specific assumptions
+- accessible issue and confidence presentation
 
-### 10.3 Integration Tests
+### 11.3 Integration Tests
 
 Add integration coverage for:
 
 - template selection to analysis input state
-- proposal acceptance to refine workspace state
+- provider normalization into `AnalysisV1`, `ProposalV1`, and `CommandPatchV1`
+- behavior preview driven by actual Definition semantics
+- issue gating for `draft-fast` vs `verify-carefully`
 - handoff payload generation
 - Studio receipt and replay of handoff payload
 
-### 10.4 E2E Flows
+### 11.4 E2E Flows
 
 Required E2E coverage:
 
-1. direct Inquest entry → template select → refine → open in Studio
-2. Studio new project → launch shared template gallery → Inquest flow → Studio handoff
-3. existing Studio project → merge mode handoff
-4. resume interrupted Inquest session
+1. direct Inquest entry -> template select -> review -> refine -> open in Studio
+2. Studio new project -> launch Inquest -> handoff to Studio
+3. existing Studio project -> import-subform handoff
+4. resume interrupted Inquest session on the same browser
+5. handoff blocked in `verify-carefully` mode until required issues are resolved
 
 ---
 
-## 11. Acceptance Criteria
+## 12. Acceptance Criteria
 
 The implementation is not done until the following are true:
 
 1. Inquest runs as a separate browser surface from Studio, even if both ship from the same package.
-2. The template gallery can mount in both Inquest and Studio without importing either app shell.
-3. Proposal viewer can mount in both Inquest and Studio without importing either app shell.
-4. Inquest feature modules communicate through serializable props/events and command/result contracts.
-5. Inquest handoff into Studio works for both `new-project` and `import-subform` modes.
-6. Studio preserves `x-inquest` provenance after successful handoff.
-7. Refreshing or reopening the browser restores the previous Inquest session.
-8. Provider key handling never requires a backend proxy in v1.
-9. Import-boundary tests prevent shell coupling regressions.
+2. Shared modules mount without importing either app shell.
+3. Gemini, OpenAI, and Anthropic (Claude) are supported through the same normalized contracts.
+4. Provider key handling never requires a backend proxy in v1.
+5. Provider keys are never written into analytics, handoff payloads, or project metadata.
+6. Inquest handoff into Studio works for both `new-project` and `import-subform` modes.
+7. Studio preserves `x-inquest` provenance after successful handoff.
+8. Refreshing or reopening the browser restores the previous Inquest session on the same browser.
+9. The UI explicitly communicates that drafts are saved on this browser only.
+10. Verification mode rules are enforced consistently.
+11. Import-boundary tests prevent shell-coupling regressions.
 
 ---
 
-## 12. Deferred Items
+## 13. Deferred Items
 
 These are explicitly deferred past this addendum:
 
@@ -496,17 +658,18 @@ These are explicitly deferred past this addendum:
 - hosted key vault behavior
 - server-side document preprocessing
 - template registry/network fetch
+- cross-device resume
 
 ---
 
-## 13. Recommended Next Step
+## 14. Recommended Next Step
 
 Before implementation begins, write one short follow-on plan that maps this addendum to concrete files in `packages/formspec-studio/src/`, including:
 
 - initial folder creation
-- first shared module to extract (`template-gallery`)
+- first shared module to extract
+- first normalized provider contract
 - first handoff transport slice
 - first dependency-boundary test
 
 That plan should be execution-oriented and small enough to implement in red-green slices.
-
