@@ -496,6 +496,18 @@ registerHandler('definition.deleteItem', (state, payload) => {
     }
   }
 
+  // Remove orphaned theme regions
+  if (state.theme.pages) {
+    const deletedKeys = new Set(
+      [...deletedPaths].map(k => k.includes('.') ? k.slice(k.lastIndexOf('.') + 1) : k),
+    );
+    for (const page of state.theme.pages as any[]) {
+      if (page.regions) {
+        page.regions = page.regions.filter((r: any) => !r.key || !deletedKeys.has(r.key));
+      }
+    }
+  }
+
   return { rebuildComponentTree: true };
 });
 
@@ -558,6 +570,17 @@ registerHandler('definition.renameItem', (state, payload) => {
   if (themeItems && themeItems[oldKey]) {
     themeItems[newKey] = themeItems[oldKey];
     delete themeItems[oldKey];
+  }
+
+  // Rename-specific: rewrite theme region keys
+  if (state.theme.pages) {
+    for (const page of state.theme.pages as any[]) {
+      if (page.regions) {
+        for (const region of page.regions) {
+          if (region.key === oldKey) region.key = newKey;
+        }
+      }
+    }
   }
 
   return { rebuildComponentTree: true, newPath };
