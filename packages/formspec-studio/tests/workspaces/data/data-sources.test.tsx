@@ -124,8 +124,8 @@ describe('DataSources', () => {
     await act(async () => {
       fireEvent.click(within(card).getByText('counties'));
     });
-    // Should show how to reference this instance in FEL
-    expect(screen.getByText(/@instance\('counties'\)/)).toBeInTheDocument();
+    // Should show how to reference this instance in FEL (appears in usage hint + data requirements)
+    expect(screen.getAllByText(/@instance\('counties'\)/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('edit source dispatches definition.setInstance with { name, property, value }', async () => {
@@ -207,6 +207,17 @@ describe('DataSources', () => {
         payload: { name: 'counties', property: 'static', value: true },
       })
     );
+  });
+
+  it('expanded card shows data format requirements', async () => {
+    renderDS();
+    const card = screen.getByTestId('instance-counties');
+    await act(async () => {
+      fireEvent.click(within(card).getByText('counties'));
+    });
+    expect(screen.getByTestId('data-format-info')).toBeInTheDocument();
+    expect(screen.getByText(/response must be json/i)).toBeInTheDocument();
+    expect(screen.getByText(/at least one of source or inline data/i)).toBeInTheDocument();
   });
 
   it('shows inline data badge when instance has data but no source', () => {
