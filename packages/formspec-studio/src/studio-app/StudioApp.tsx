@@ -29,7 +29,7 @@ function normalizeBinds(binds: unknown): Array<{ path: string; entries: Record<s
       path: bind.path,
       entries: Object.fromEntries(
         Object.entries(bind ?? {})
-          .filter(([key, value]) => key !== 'path' && typeof value === 'string')
+          .filter((entry): entry is [string, string] => entry[0] !== 'path' && typeof entry[1] === 'string')
           .map(([key, value]) => [key, normalizeBindExpression(value)]),
       ) as Record<string, string>,
     }));

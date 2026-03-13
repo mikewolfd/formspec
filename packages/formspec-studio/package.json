@@ -11,10 +11,15 @@
     "test:e2e": "playwright test --config playwright.config.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/google": "^3.0.43",
+    "@ai-sdk/openai": "^3.0.41",
+    "@ai-sdk/react": "^1.1.21",
     "@dnd-kit/dom": "^0.3.2",
     "@dnd-kit/helpers": "^0.3.2",
     "@dnd-kit/react": "^0.3.2",
     "@floating-ui/react": "^0.27.19",
+    "ai": "^6.0.116",
     "formspec-engine": "*",
     "formspec-studio-core": "*",
     "formspec-webcomponent": "*",
