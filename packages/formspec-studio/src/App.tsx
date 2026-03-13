@@ -1,24 +1,15 @@
-import { createProject } from 'formspec-studio-core';
-import { ProjectProvider } from './state/ProjectContext';
-import { SelectionProvider } from './state/useSelection';
-import { ActivePageProvider } from './state/useActivePage';
-import { Shell } from './components/Shell';
-import { exampleDefinition } from './fixtures/example-definition';
+import { InquestApp } from './inquest-app/InquestApp';
+import { StudioApp } from './studio-app/StudioApp';
 
-const project = createProject({ seed: { definition: exampleDefinition as any } });
-
-if (import.meta.env.DEV) {
-  (window as any).__testProject__ = project;
+export function selectAppSurface(pathname: string): 'studio' | 'inquest' {
+  return pathname.startsWith('/inquest') ? 'inquest' : 'studio';
 }
 
-export function App() {
-  return (
-    <ProjectProvider project={project}>
-      <SelectionProvider>
-        <ActivePageProvider>
-          <Shell />
-        </ActivePageProvider>
-      </SelectionProvider>
-    </ProjectProvider>
-  );
+interface AppProps {
+  pathname?: string;
+}
+
+export function App({ pathname }: AppProps = {}) {
+  const currentPathname = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '/studio/');
+  return selectAppSurface(currentPathname) === 'inquest' ? <InquestApp /> : <StudioApp />;
 }

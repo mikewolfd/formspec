@@ -21,6 +21,8 @@ export type {
   ChangeEvent,
   LogEntry,
   Middleware,
+  ProjectBundle,
+  ProjectStatistics,
   FormspecComponentDocument,
   FormspecThemeDocument,
   FormspecMappingDocument,
@@ -41,4 +43,5 @@ export type {
   DependencyGraph,
   FieldDependents,
   Diagnostic,
+  Diagnostics,
 } from './types.js';

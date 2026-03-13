@@ -24,7 +24,7 @@ function normalizeBinds(binds: unknown): Array<{ path: string; entries: Record<s
     return binds.map((bind: any) => {
       const entries = Object.fromEntries(
         Object.entries(bind ?? {}).filter(([key, value]) => key !== 'path' && typeof value === 'string')
-      );
+      ) as Record<string, string>;
       return { path: bind.path ?? '', entries };
     });
   }
@@ -33,7 +33,7 @@ function normalizeBinds(binds: unknown): Array<{ path: string; entries: Record<s
     path,
     entries: Object.fromEntries(
       Object.entries(value ?? {}).filter(([, entryValue]) => typeof entryValue === 'string')
-    ),
+    ) as Record<string, string>,
   }));
 }
 

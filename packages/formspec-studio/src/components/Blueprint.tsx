@@ -16,7 +16,7 @@ interface SectionDef {
 function countComponentNodes(node: unknown): number {
   if (!node || typeof node !== 'object') return 0;
   const record = node as { children?: unknown[] };
-  return 1 + (record.children?.reduce((sum, child) => sum + countComponentNodes(child), 0) ?? 0);
+  return 1 + (record.children?.reduce<number>((sum, child) => sum + countComponentNodes(child), 0) ?? 0);
 }
 
 const SECTIONS: SectionDef[] = [
