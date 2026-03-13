@@ -27,8 +27,8 @@ import { MappingsList } from './blueprint/MappingsList';
 import { SettingsSection } from './blueprint/SettingsSection';
 import { SettingsDialog } from './SettingsDialog';
 import { ThemeOverview } from './blueprint/ThemeOverview';
-import { DataTab } from '../workspaces/data/DataTab';
-import { type ThemeTabId } from '../workspaces/theme/ThemeTab';
+import { DataTab, type DataSectionFilter } from '../workspaces/data/DataTab';
+import { PagesTab } from '../workspaces/pages/PagesTab';
 import { type MappingTabId } from '../workspaces/mapping/MappingTab';
 import { type Viewport } from '../workspaces/preview/ViewportSwitcher';
 import { type PreviewMode } from '../workspaces/preview/PreviewTab';
@@ -37,6 +37,7 @@ const WORKSPACES: Record<string, React.FC> = {
   Editor: EditorCanvas,
   Logic: LogicTab,
   Data: DataTab,
+  Pages: PagesTab,
   Theme: ThemeTab,
   Mapping: MappingTab,
   Preview: PreviewTab,
@@ -71,7 +72,7 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
   const [showPalette, setShowPalette] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showAppMenu, setShowAppMenu] = useState(false);
-  const [activeThemeTab, setActiveThemeTab] = useState<ThemeTabId>('tokens');
+  const [activeDataFilter, setActiveDataFilter] = useState<DataSectionFilter>('all');
   const [activeMappingTab, setActiveMappingTab] = useState<MappingTabId>('config');
   const [mappingConfigOpen, setMappingConfigOpen] = useState(true);
   const [previewViewport, setPreviewViewport] = useState<Viewport>('desktop');
@@ -88,8 +89,13 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
 
   const workspaceContent = (() => {
     switch (activeTab) {
-      case 'Theme':
-        return <ThemeTab activeTab={activeThemeTab} onActiveTabChange={setActiveThemeTab} />;
+      case 'Data':
+        return (
+          <DataTab
+            sectionFilter={activeDataFilter}
+            onSectionFilterChange={setActiveDataFilter}
+          />
+        );
       case 'Mapping':
         return (
           <MappingTab
@@ -152,8 +158,7 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
       if (tab && WORKSPACES[tab]) {
         setActiveTab(tab);
         if (subTab) {
-          if (tab === 'Theme') setActiveThemeTab(subTab as ThemeTabId);
-          else if (tab === 'Mapping') setActiveMappingTab(subTab as MappingTabId);
+          if (tab === 'Mapping') setActiveMappingTab(subTab as MappingTabId);
         }
       }
     };
@@ -175,7 +180,7 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
     project.resetHistory();
     setActiveTab('Editor');
     setActiveSection('Structure');
-    setActiveThemeTab('tokens');
+    setActiveDataFilter('all');
     setActiveMappingTab('config');
     setMappingConfigOpen(true);
     setPreviewViewport('desktop');
