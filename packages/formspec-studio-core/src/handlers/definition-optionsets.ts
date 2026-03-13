@@ -43,6 +43,33 @@ registerHandler('definition.setOptionSet', (state, payload) => {
     state.definition.optionSets[p.name] = { options: p.options } as any;
   } else if (p.source) {
     state.definition.optionSets[p.name] = { source: p.source } as any;
+  } else {
+    // Create empty option set if neither options nor source provided
+    state.definition.optionSets[p.name] = { options: [] } as any;
+  }
+  return { rebuildComponentTree: false };
+});
+
+/**
+ * **definition.setOptionSetProperty** -- Update a single property on an existing
+ * option set without replacing the entire set.
+ *
+ * Writable properties include: `options`, `source`, `valueField`, `labelField`.
+ * Setting a value to `null` or `undefined` deletes the property.
+ *
+ * @param payload.name - The option set name.
+ * @param payload.property - The property to set or delete.
+ * @param payload.value - The new value, or `null`/`undefined` to remove.
+ */
+registerHandler('definition.setOptionSetProperty', (state, payload) => {
+  const { name, property, value } = payload as { name: string; property: string; value: unknown };
+  const optionSets = state.definition.optionSets;
+  if (!optionSets?.[name]) return { rebuildComponentTree: false };
+
+  if (value === null || value === undefined) {
+    delete (optionSets[name] as any)[property];
+  } else {
+    (optionSets[name] as any)[property] = value;
   }
   return { rebuildComponentTree: false };
 });

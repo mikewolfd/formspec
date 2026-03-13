@@ -54,9 +54,18 @@ function SchemaNode({ item, depth, path, isSelected, onSelect }: SchemaNodeProps
           <span className="text-[10px] font-bold text-error/70 uppercase tracking-tighter">*required</span>
         )}
 
-        <span className="text-muted/40 ml-auto opacity-0 group-hover:opacity-100 transition-opacity truncate max-w-[200px] text-[11px] italic">
-          // {displayLabel}
-        </span>
+        {displayLabel && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(path, item.type);
+            }}
+            className="text-muted/40 ml-auto opacity-0 group-hover:opacity-100 transition-opacity truncate max-w-[200px] text-[11px] italic hover:text-accent cursor-pointer"
+          >
+            {displayLabel}
+          </button>
+        )}
       </div>
 
       {isGroup && isExpanded && item.children && (
