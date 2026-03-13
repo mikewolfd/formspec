@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
@@ -21,7 +21,7 @@ describe('VariablesList', () => {
     expect(screen.getByText('$age >= 18')).toBeInTheDocument();
   });
 
-  it('renders each variable row as informational display, not a clickable control', () => {
+  it('clicking a variable navigates to Logic tab', () => {
     const project = createProject({ seed: { definition: {
       $formspec: '1.0', url: 'urn:test', version: '1.0.0',
       items: [],
@@ -29,8 +29,11 @@ describe('VariablesList', () => {
     } as any }});
     render(<ProjectProvider project={project}><SelectionProvider><VariablesList /></SelectionProvider></ProjectProvider>);
 
-    expect(screen.getByText('@isAdult')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /@isAdult/i })).toBeNull();
+    const handler = vi.fn();
+    window.addEventListener('formspec:navigate-workspace', handler);
+    screen.getByText('@isAdult').click();
+    expect(handler).toHaveBeenCalled();
+    window.removeEventListener('formspec:navigate-workspace', handler);
   });
 });
 

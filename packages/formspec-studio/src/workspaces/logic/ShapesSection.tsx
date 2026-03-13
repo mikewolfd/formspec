@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useDispatch } from '../../state/useDispatch';
 import { ShapeCard } from '../../components/ui/ShapeCard';
+import { InlineExpression } from '../../components/ui/InlineExpression';
 
 interface Shape {
   id?: string;
@@ -17,35 +18,45 @@ interface Shape {
 
 interface ShapesSectionProps {
   shapes: Shape[];
-  onEditShape?: (shape: Shape) => void;
 }
 
-export function ShapesSection({ shapes, onEditShape }: ShapesSectionProps) {
+export function ShapesSection({ shapes }: ShapesSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newId, setNewId] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const dispatch = useDispatch();
 
   const handleAdd = () => {
     if (!newId.trim()) return;
+    const id = newId.trim();
     dispatch({
       type: 'definition.addShape',
-      payload: { 
-        id: newId.trim(), 
-        target: '*', 
+      payload: {
+        id,
+        target: '*',
         constraint: '',
         message: 'Validation failed',
-        severity: 'error'
+        severity: 'error',
       },
     });
-    onEditShape?.({ 
-      id: newId.trim(), 
-      name: newId.trim(), 
-      severity: 'error', 
-      constraint: '',
-      message: 'Validation failed'
-    });
+    setExpandedId(id);
     setNewId('');
     setIsAdding(false);
+  };
+
+  const handleSetProperty = (id: string, property: string, value: unknown) => {
+    dispatch({
+      type: 'definition.setShapeProperty',
+      payload: { id, property, value },
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    dispatch({
+      type: 'definition.deleteShape',
+      payload: { id },
+    });
+    if (expandedId === id) setExpandedId(null);
   };
 
   return (
@@ -99,26 +110,110 @@ export function ShapesSection({ shapes, onEditShape }: ShapesSectionProps) {
       {shapes.length === 0 && !isAdding && (
         <div className="py-2 text-xs text-muted italic">No validation shapes defined.</div>
       )}
+
       {shapes.map((shape) => {
+        const id = shape.id || shape.name;
         const constraint = shape.constraint
           ?? (Array.isArray(shape.or) ? shape.or.join(' or ') : undefined)
           ?? (Array.isArray(shape.and) ? shape.and.join(' and ') : '');
+        const isExpanded = expandedId === id;
 
         return (
-          <button
-            key={shape.id || shape.name}
-            type="button"
-            className="w-full text-left bg-transparent border-none p-0 focus:outline-none focus:ring-1 focus:ring-accent rounded transition-all hover:scale-[1.01] active:scale-[0.99]"
-            onClick={() => onEditShape?.(shape)}
-          >
-            <ShapeCard
-              name={shape.name}
-              severity={shape.severity}
-              constraint={constraint}
-              message={shape.message}
-              code={shape.code}
-            />
-          </button>
+          <div key={id}>
+            <div
+              className="cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
+              onClick={() => setExpandedId(isExpanded ? null : id)}
+            >
+              <ShapeCard
+                name={shape.name}
+                severity={shape.severity}
+                constraint={constraint}
+                message={shape.message}
+                code={shape.code}
+              />
+            </div>
+
+            {isExpanded && (
+              <div className="border border-border border-t-0 rounded-b-[4px] bg-surface p-3 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div>
+                  <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1">
+                    Constraint
+                  </label>
+                  <InlineExpression
+                    value={constraint}
+                    onSave={(val) => handleSetProperty(id, 'constraint', val)}
+                    placeholder="Click to add constraint expression"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor={`severity-${id}`} className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1">
+                    Severity
+                  </label>
+                  <select
+                    id={`severity-${id}`}
+                    value={shape.severity}
+                    onChange={(e) => handleSetProperty(id, 'severity', e.target.value)}
+                    className="bg-subtle border border-border rounded px-2 py-1 text-[11px] font-mono text-ink outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option value="error">error</option>
+                    <option value="warning">warning</option>
+                    <option value="info">info</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor={`message-${id}`} className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1">
+                    Message
+                  </label>
+                  <input
+                    id={`message-${id}`}
+                    type="text"
+                    defaultValue={shape.message || ''}
+                    onBlur={(e) => handleSetProperty(id, 'message', e.target.value)}
+                    className="w-full bg-subtle border border-border rounded px-2 py-1 text-[11px] text-ink outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor={`code-${id}`} className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1">
+                    Code
+                  </label>
+                  <input
+                    id={`code-${id}`}
+                    type="text"
+                    defaultValue={shape.code || ''}
+                    onBlur={(e) => handleSetProperty(id, 'code', e.target.value)}
+                    className="w-full bg-subtle border border-border rounded px-2 py-1 text-[11px] font-mono text-ink outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor={`target-${id}`} className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1">
+                    Target
+                  </label>
+                  <input
+                    id={`target-${id}`}
+                    type="text"
+                    defaultValue={shape.target || '*'}
+                    onBlur={(e) => handleSetProperty(id, 'target', e.target.value)}
+                    className="w-full bg-subtle border border-border rounded px-2 py-1 text-[11px] font-mono text-ink outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    aria-label="Delete shape"
+                    onClick={() => handleDelete(id)}
+                    className="text-[10px] text-muted hover:text-error font-bold uppercase tracking-wider transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         );
       })}
     </div>

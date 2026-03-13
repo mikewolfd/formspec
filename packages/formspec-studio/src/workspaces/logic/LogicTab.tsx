@@ -7,22 +7,21 @@ import { VariablesSection } from './VariablesSection';
 import { BindsSection } from './BindsSection';
 import { ShapesSection } from './ShapesSection';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
-import { LogicEditorDialog } from './LogicEditorDialog';
 
 /**
  * Visual wrapper for a Logic Pillar (Variables, Binds, Shapes).
  * Adds intentional vertical separation and a subtle left-accent.
  */
-function LogicPillar({ 
-  title, 
-  subtitle, 
-  helpText, 
-  children, 
-  accentColor = "border-accent" 
-}: { 
-  title: string; 
-  subtitle: string; 
-  helpText: string; 
+function LogicPillar({
+  title,
+  subtitle,
+  helpText,
+  children,
+  accentColor = "border-accent"
+}: {
+  title: string;
+  subtitle: string;
+  helpText: string;
   children: React.ReactNode;
   accentColor?: string;
 }) {
@@ -53,7 +52,6 @@ function normalizeBinds(binds: unknown): Record<string, Record<string, string>> 
   if (typeof binds === 'object' && !Array.isArray(binds)) {
     return binds as Record<string, Record<string, string>>;
   }
-  // Array form: convert to object keyed by path
   if (Array.isArray(binds)) {
     const result: Record<string, Record<string, string>> = {};
     for (const bind of binds) {
@@ -71,12 +69,6 @@ export function LogicTab() {
   const definition = useDefinition();
   const { select } = useSelection();
   const [activeFilter, setActiveFilter] = useState<'required' | 'relevant' | 'calculate' | 'constraint' | 'readonly' | null>(null);
-  const [editingLogic, setEditingLogic] = useState<{
-    type: 'variable' | 'bind' | 'shape';
-    nameOrPath: string;
-    bindType?: string;
-    expression: string;
-  } | null>(null);
 
   const binds = normalizeBinds(definition?.binds);
   const shapes = Array.isArray(definition?.shapes) ? definition.shapes.map((s: any) => ({ name: s.id, ...s })) : [];
@@ -103,8 +95,8 @@ export function LogicTab() {
               type="button"
               onClick={() => setSectionFilter(tab.id as any)}
               className={`px-3 py-1.5 text-[12px] font-bold uppercase tracking-wider rounded-[6px] transition-all duration-200 ${
-                sectionFilter === tab.id 
-                  ? 'bg-ink text-white shadow-sm' 
+                sectionFilter === tab.id
+                  ? 'bg-ink text-white shadow-sm'
                   : 'text-muted hover:text-ink hover:bg-subtle'
               }`}
             >
@@ -115,17 +107,14 @@ export function LogicTab() {
       </WorkspacePageSection>
 
       <WorkspacePageSection className="flex-1 py-10">
-        {variables.length > 0 && showValues && (
+        {showValues && (
           <LogicPillar
             title="Calculated Values (@)"
             subtitle="Form-level constants and expressions"
             helpText="Global variables and reusable FEL expressions. Reference them anywhere using the @ prefix."
             accentColor="bg-accent"
           >
-            <VariablesSection 
-              variables={variables} 
-              onEditVariable={(v) => setEditingLogic({ type: 'variable', nameOrPath: v.name, expression: v.expression })}
-            />
+            <VariablesSection variables={variables} />
           </LogicPillar>
         )}
 
@@ -139,11 +128,10 @@ export function LogicTab() {
             <div className="mb-6">
               <FilterBar binds={binds} activeFilter={activeFilter} onFilterSelect={setActiveFilter} />
             </div>
-            <BindsSection 
-              binds={binds} 
-              activeFilter={activeFilter} 
-              onSelectPath={(path) => select(path, 'field')} 
-              onEditBind={(path, type, expr) => setEditingLogic({ type: 'bind', nameOrPath: path, bindType: type, expression: expr })}
+            <BindsSection
+              binds={binds}
+              activeFilter={activeFilter}
+              onSelectPath={(path) => select(path, 'field')}
             />
           </LogicPillar>
         )}
@@ -155,23 +143,10 @@ export function LogicTab() {
             helpText="Advanced form-wide constraints that validate relationships between multiple fields or complex data patterns."
             accentColor="bg-error"
           >
-            <ShapesSection 
-              shapes={shapes} 
-              onEditShape={(s) => setEditingLogic({ 
-                type: 'shape', 
-                nameOrPath: s.id || s.name, 
-                expression: s.constraint ?? '' 
-              })}
-            />
+            <ShapesSection shapes={shapes} />
           </LogicPillar>
         )}
       </WorkspacePageSection>
-
-      <LogicEditorDialog 
-        open={!!editingLogic} 
-        onClose={() => setEditingLogic(null)} 
-        target={editingLogic} 
-      />
     </WorkspacePage>
   );
 }

@@ -362,7 +362,7 @@ describe('ItemProperties', () => {
       type: 'component.setFieldWidget',
       payload: { fieldKey: 'status', widget: 'RadioGroup' },
     });
-    // Tier 1: definition fallback (for wizard/tabs mode where tree is stripped)
+    // Tier 1: definition hint for paged/definition-driven render paths
     expect(spy).toHaveBeenCalledWith({
       type: 'definition.setItemProperty',
       payload: { path: 'status', property: 'presentation.widgetHint', value: 'radio' },
@@ -601,11 +601,13 @@ describe('ItemProperties', () => {
 
   // --- Link-out for binds ---
 
-  it('shows "go to logic" link on bind cards', async () => {
+  it('bind card expression is inline-editable', async () => {
     renderProps();
     await act(async () => { screen.getByText('Select').click(); });
-    // The name field has a required bind
-    expect(screen.getByLabelText(/edit in logic/i)).toBeInTheDocument();
+    // The required bind type label should be present
+    expect(screen.getByText(/^required$/i)).toBeInTheDocument();
+    // The expression 'true' is hidden by BindCard when expression === 'true',
+    // so the InlineExpression shows the placeholder instead
   });
 
   it('shows "+ Add behavior rule" when no binds exist', async () => {
@@ -725,6 +727,51 @@ describe('ItemProperties', () => {
       expect(keys).not.toContain('fieldA');
       expect(keys).not.toContain('fieldB');
       expect(keys).toContain('fieldC');
+    });
+  });
+
+  describe('layout node properties', () => {
+    function renderLayoutProps() {
+      const project = createProject({ seed: { definition: testDef as any, component: testComponent as any } });
+      // Wrap 'name' in a Card
+      const result = project.dispatch({
+        type: 'component.wrapNode',
+        payload: { node: { bind: 'name' }, wrapper: { component: 'Card', props: { title: 'Personal' } } },
+      });
+      const nodeId = (result as any).nodeRef.nodeId;
+      const layoutId = `__node:${nodeId}`;
+      return {
+        ...renderProps(project, { path: layoutId, type: 'layout' }),
+        project,
+        nodeId,
+        layoutId,
+      };
+    }
+
+    it('shows layout properties when __node: key is selected', async () => {
+      renderLayoutProps();
+      await act(async () => {
+        screen.getByText('Select').click();
+      });
+      expect(screen.getByText('Layout')).toBeInTheDocument();
+      expect(screen.getByText('Card')).toBeInTheDocument();
+    });
+
+    it('shows delete button that dispatches component.deleteNode', async () => {
+      const { project, nodeId } = renderLayoutProps();
+      await act(async () => {
+        screen.getByText('Select').click();
+      });
+      const deleteBtn = screen.getByRole('button', { name: /delete/i });
+      expect(deleteBtn).toBeInTheDocument();
+    });
+
+    it('shows unwrap button that dispatches component.unwrapNode', async () => {
+      renderLayoutProps();
+      await act(async () => {
+        screen.getByText('Select').click();
+      });
+      expect(screen.getByRole('button', { name: /unwrap/i })).toBeInTheDocument();
     });
   });
 });

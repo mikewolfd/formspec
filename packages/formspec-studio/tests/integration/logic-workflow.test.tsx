@@ -23,7 +23,7 @@ describe('Logic Workflow', () => {
       items: [{ key: 'age', type: 'field', dataType: 'integer' }],
       variables: [{ name: 'isAdult', expression: '$age >= 18' }],
     });
-    expect(screen.getByText('isAdult')).toBeInTheDocument();
+    expect(screen.getByText('@isAdult')).toBeInTheDocument();
   });
 
   it('renders binds across multiple fields', () => {

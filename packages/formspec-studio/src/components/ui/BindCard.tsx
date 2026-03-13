@@ -13,14 +13,15 @@ interface BindCardProps {
   expression: string;
   humanized?: string;
   message?: string;
+  children?: React.ReactNode;
 }
 
 /**
  * Bind type card with colored left border.
  * Shows humanized description and raw FEL expression.
- * Includes a contextual FEL reference popup button for quick function lookup.
+ * When children are provided, they replace the default expression display.
  */
-export function BindCard({ bindType, expression, humanized, message }: BindCardProps) {
+export function BindCard({ bindType, expression, humanized, message, children }: BindCardProps) {
   const styles = bindColors[bindType] || 'text-muted border-l-muted';
   const colorClass = styles.split(' ')[0];
   const borderClass = styles.split(' ')[1];
@@ -40,14 +41,14 @@ export function BindCard({ bindType, expression, humanized, message }: BindCardP
         </div>
       )}
 
-      {expression && expression !== 'true' && (
+      {children ?? (expression && expression !== 'true' && (
         <div
           className="font-mono text-[10px] text-muted bg-subtle px-1.5 py-0.5 rounded-[2px] truncate"
           title={expression}
         >
           {expression}
         </div>
-      )}
+      ))}
 
       {message && (
         <div className="font-ui text-[11px] text-muted italic mt-1 leading-tight">

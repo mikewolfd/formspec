@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useDispatch } from '../../state/useDispatch';
+import { InlineExpression } from '../../components/ui/InlineExpression';
 
 interface Variable {
   name: string;
@@ -8,12 +9,12 @@ interface Variable {
 
 interface VariablesSectionProps {
   variables: Variable[];
-  onEditVariable?: (v: Variable) => void;
 }
 
-export function VariablesSection({ variables, onEditVariable }: VariablesSectionProps) {
+export function VariablesSection({ variables }: VariablesSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
+  const [editingName, setEditingName] = useState<string | null>(null);
   const dispatch = useDispatch();
 
   const handleAdd = () => {
@@ -22,9 +23,32 @@ export function VariablesSection({ variables, onEditVariable }: VariablesSection
       type: 'definition.addVariable',
       payload: { name: newName.trim(), expression: '' },
     });
-    onEditVariable?.({ name: newName.trim(), expression: '' });
     setNewName('');
     setIsAdding(false);
+  };
+
+  const handleNameSave = (oldName: string, newValue: string) => {
+    setEditingName(null);
+    const trimmed = newValue.replace(/[^a-zA-Z0-9_]/g, '');
+    if (!trimmed || trimmed === oldName) return;
+    dispatch({
+      type: 'definition.setVariable',
+      payload: { name: oldName, property: 'name', value: trimmed },
+    });
+  };
+
+  const handleExpressionSave = (name: string, newValue: string) => {
+    dispatch({
+      type: 'definition.setVariable',
+      payload: { name, property: 'expression', value: newValue },
+    });
+  };
+
+  const handleDelete = (name: string) => {
+    dispatch({
+      type: 'definition.deleteVariable',
+      payload: { name },
+    });
   };
 
   return (
@@ -77,22 +101,53 @@ export function VariablesSection({ variables, onEditVariable }: VariablesSection
       )}
 
       {variables.length === 0 && !isAdding && (
-        <div className="py-2 text-xs text-muted italic">No variables defined. Click "+ New Variable" to start.</div>
+        <div className="py-2 text-xs text-muted italic">No variables defined. Click &quot;+ New Variable&quot; to start.</div>
       )}
 
       {variables.map((v) => (
-        <button
+        <div
           key={v.name}
-          type="button"
-          onClick={() => onEditVariable?.(v)}
-          className="w-full text-left border border-border rounded-lg bg-surface p-3 transition-all hover:border-accent hover:shadow-sm focus:outline-none focus:ring-1 focus:ring-accent group"
+          className="border border-border rounded-lg bg-surface p-3 transition-all hover:border-accent/50 group"
         >
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[15px] font-bold text-accent group-hover:text-accent-hover transition-colors">@{v.name}</div>
-            <div className="text-[10px] text-muted font-mono uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">Edit</div>
+            {editingName === v.name ? (
+              <div className="flex items-center gap-1">
+                <span className="text-accent font-mono text-[15px] font-bold">@</span>
+                <input
+                  autoFocus
+                  type="text"
+                  defaultValue={v.name}
+                  onBlur={(e) => handleNameSave(v.name, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    if (e.key === 'Escape') setEditingName(null);
+                  }}
+                  className="bg-transparent border-b border-accent outline-none text-[15px] font-bold font-mono text-accent"
+                />
+              </div>
+            ) : (
+              <div
+                className="text-[15px] font-bold text-accent cursor-pointer hover:text-accent-hover transition-colors"
+                onClick={() => setEditingName(v.name)}
+              >
+                @{v.name}
+              </div>
+            )}
+            <button
+              type="button"
+              aria-label="Delete variable"
+              onClick={() => handleDelete(v.name)}
+              className="text-[10px] text-muted hover:text-error font-mono uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all"
+            >
+              Delete
+            </button>
           </div>
-          <div className="text-xs font-mono text-muted bg-subtle px-2 py-1.5 rounded truncate border border-border/50">{v.expression}</div>
-        </button>
+          <InlineExpression
+            value={v.expression}
+            onSave={(val) => handleExpressionSave(v.name, val)}
+            placeholder="Click to add expression"
+          />
+        </div>
       ))}
     </div>
   );
