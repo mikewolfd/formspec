@@ -14,6 +14,7 @@ interface BindCardProps {
   humanized?: string;
   message?: string;
   children?: React.ReactNode;
+  onRemove?: () => void;
 }
 
 /**
@@ -21,18 +22,36 @@ interface BindCardProps {
  * Shows humanized description and raw FEL expression.
  * When children are provided, they replace the default expression display.
  */
-export function BindCard({ bindType, expression, humanized, message, children }: BindCardProps) {
+export function BindCard({ bindType, expression, humanized, message, children, onRemove }: BindCardProps) {
   const styles = bindColors[bindType] || 'text-muted border-l-muted';
   const colorClass = styles.split(' ')[0];
   const borderClass = styles.split(' ')[1];
 
   return (
-    <div className={`border border-border border-l-[3px] ${borderClass} rounded-[4px] bg-surface p-2 mb-1`}>
+    <div className={`border border-border border-l-[3px] ${borderClass} rounded-[4px] bg-surface p-2 mb-1 group/card transition-colors hover:border-border/80`}>
       <div className="flex items-center justify-between mb-1">
         <span className={`font-mono text-[9px] font-bold tracking-wider uppercase ${colorClass}`}>
           {bindType}
         </span>
-        <FELReferencePopup />
+        <div className="flex items-center gap-1">
+          <FELReferencePopup />
+          {onRemove && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-error/10 hover:text-error text-muted/40 transition-colors"
+              title={`Remove ${bindType}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {humanized && (

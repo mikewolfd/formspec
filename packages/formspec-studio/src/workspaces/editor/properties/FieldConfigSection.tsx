@@ -1,35 +1,100 @@
-import { useState } from 'react';
 import { Section } from '../../../components/ui/Section';
-import { HelpTip } from '../../../components/ui/HelpTip';
 import { propertyHelp } from '../../../lib/field-helpers';
-import { AddPlaceholder, PropInput } from './shared';
+import { PropInput } from './shared';
+import { AddBehaviorMenu } from '../../../components/ui/AddBehaviorMenu';
+import { BindCard } from '../../../components/ui/BindCard';
+import { PrePopulateCard } from '../../../components/ui/PrePopulateCard';
 
 export function FieldConfigSection({
   path,
   item,
   dispatch,
+  binds,
+  existingBehaviorTypes,
   isDecimalLike,
   isMoney,
 }: {
   path: string;
   item: any;
   dispatch: (command: any) => any;
+  binds: Record<string, any>;
+  existingBehaviorTypes: string[];
   isDecimalLike: boolean;
   isMoney: boolean;
 }) {
-  const [showPrePopulate, setShowPrePopulate] = useState(!!item.prePopulate);
-  const prePopulate = item.prePopulate as { instance: string; path: string; editable?: boolean } | undefined;
-
   return (
     <Section title="Field Config">
-      <PropInput
-        path={path}
-        property="initialValue"
-        label="Initial Value"
-        value={item.initialValue != null ? String(item.initialValue) : ''}
-        dispatch={dispatch}
-        help={propertyHelp.initialValue}
-      />
+      <div className="space-y-1 mt-1 mb-4">
+        <BindCard bindType="Initial Value" expression={item.initialValue != null ? String(item.initialValue) : ''}>
+          <input
+            id={`${path}-initialValue`}
+            className="w-full px-2 py-1 text-[13px] font-mono border border-border rounded-[4px] bg-surface outline-none focus:border-accent transition-colors"
+            defaultValue={item.initialValue != null ? String(item.initialValue) : ''}
+            onBlur={(e) => {
+              dispatch({
+                type: 'definition.setItemProperty',
+                payload: { path, property: 'initialValue', value: e.currentTarget.value || null },
+              });
+            }}
+            placeholder="No default value"
+          />
+        </BindCard>
+
+        {item.prePopulate && (
+          <PrePopulateCard
+            value={item.prePopulate}
+            onChange={(val) => {
+              dispatch({
+                type: 'definition.setItemProperty',
+                payload: { path, property: 'prePopulate', value: val },
+              });
+            }}
+            onRemove={() => {
+              dispatch({
+                type: 'definition.setItemProperty',
+                payload: { path, property: 'prePopulate', value: null },
+              });
+            }}
+          />
+        )}
+
+        {binds.calculate != null && (
+          <BindCard
+            bindType="calculate"
+            expression={binds.calculate}
+            onRemove={() => {
+              dispatch({
+                type: 'definition.setBind',
+                payload: { path, properties: { calculate: null } },
+              });
+            }}
+          >
+            <div className="px-2 py-1 text-[13px] font-mono bg-subtle/50 rounded border border-border/50 text-ink/80">
+              {binds.calculate || <span className="text-muted italic">No expression</span>}
+            </div>
+          </BindCard>
+        )}
+
+        <AddBehaviorMenu
+          label="Add Calculation / Pre-population"
+          existingTypes={existingBehaviorTypes}
+          allowedTypes={['calculate', 'pre-populate']}
+          onAdd={(type: string) => {
+            if (type === 'pre-populate') {
+              dispatch({
+                type: 'definition.setItemProperty',
+                payload: { path, property: 'prePopulate', value: { instance: '', path: '' } },
+              });
+            } else if (type === 'calculate') {
+              dispatch({
+                type: 'definition.setBind',
+                payload: { path, properties: { calculate: '' } },
+              });
+            }
+          }}
+          className="mt-1"
+        />
+      </div>
 
       {isDecimalLike && typeof item.precision === 'number' && (
         <PropInput
@@ -84,84 +149,6 @@ export function FieldConfigSection({
           dispatch={dispatch}
           help={propertyHelp.semanticType}
         />
-      )}
-
-      {showPrePopulate || prePopulate ? (
-        <div className="space-y-1.5 mb-2">
-          <label className="font-mono text-[10px] text-muted uppercase tracking-wider block">
-            <HelpTip text={propertyHelp.prePopulate}>Pre-Population</HelpTip>
-          </label>
-          <div className="rounded-[4px] border border-border bg-subtle/40 px-2 py-2 space-y-2">
-            <div className="space-y-1">
-              <label className="font-mono text-[10px] text-muted uppercase tracking-wider block" htmlFor={`${path}-prepop-instance`}>
-                <HelpTip text={propertyHelp.instance}>Instance</HelpTip>
-              </label>
-              <input
-                id={`${path}-prepop-instance`}
-                type="text"
-                aria-label="Instance"
-                className="w-full px-2 py-1 text-[12px] font-mono border border-border rounded-[4px] bg-surface outline-none focus:border-accent transition-colors"
-                defaultValue={prePopulate?.instance ?? ''}
-                onBlur={(event) => {
-                  dispatch({
-                    type: 'definition.setItemProperty',
-                    payload: {
-                      path,
-                      property: 'prePopulate',
-                      value: { ...(prePopulate || {}), instance: event.currentTarget.value },
-                    },
-                  });
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="font-mono text-[10px] text-muted uppercase tracking-wider block" htmlFor={`${path}-prepop-path`}>
-                <HelpTip text={propertyHelp.path}>Path</HelpTip>
-              </label>
-              <input
-                id={`${path}-prepop-path`}
-                type="text"
-                aria-label="Path"
-                className="w-full px-2 py-1 text-[12px] font-mono border border-border rounded-[4px] bg-surface outline-none focus:border-accent transition-colors"
-                defaultValue={prePopulate?.path ?? ''}
-                onBlur={(event) => {
-                  dispatch({
-                    type: 'definition.setItemProperty',
-                    payload: {
-                      path,
-                      property: 'prePopulate',
-                      value: { ...(prePopulate || {}), path: event.currentTarget.value },
-                    },
-                  });
-                }}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                id={`${path}-prepop-editable`}
-                type="checkbox"
-                aria-label="Editable"
-                className="accent-accent"
-                defaultChecked={prePopulate?.editable !== false}
-                onChange={(event) => {
-                  dispatch({
-                    type: 'definition.setItemProperty',
-                    payload: {
-                      path,
-                      property: 'prePopulate',
-                      value: { ...(prePopulate || {}), editable: event.currentTarget.checked },
-                    },
-                  });
-                }}
-              />
-              <label htmlFor={`${path}-prepop-editable`} className="font-mono text-[10px] text-muted uppercase tracking-wider">
-                <HelpTip text={propertyHelp.editable}>Editable</HelpTip>
-              </label>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <AddPlaceholder label="pre-population" onAdd={() => setShowPrePopulate(true)} help={propertyHelp.prePopulate} />
       )}
     </Section>
   );

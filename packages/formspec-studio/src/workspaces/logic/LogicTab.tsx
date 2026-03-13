@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
+import { buildDefLookup } from '../../lib/tree-helpers';
 import { FilterBar } from './FilterBar';
 import { HelpTip } from '../../components/ui/HelpTip';
 import { VariablesSection } from './VariablesSection';
@@ -47,32 +48,56 @@ function LogicPillar({
   );
 }
 
-function normalizeBinds(binds: unknown): Record<string, Record<string, string>> {
-  if (!binds) return {};
-  if (typeof binds === 'object' && !Array.isArray(binds)) {
-    return binds as Record<string, Record<string, string>>;
+function normalizeBinds(binds: unknown, items: any[] = []): Record<string, Record<string, any>> {
+  const result: Record<string, Record<string, any>> = {};
+
+  // 1. Process items for prePopulate
+  const lookup = buildDefLookup(items);
+  for (const [path, entry] of lookup.entries()) {
+    const item = entry.item as any;
+    if (item.prePopulate) {
+      result[path] = { ...result[path], 'pre-populate': item.prePopulate };
+    }
   }
+
+  // 2. Process binds
+  if (!binds) return result;
+  
+  if (typeof binds === 'object' && !Array.isArray(binds)) {
+    const b = binds as Record<string, any>;
+    for (const path in b) {
+      result[path] = { ...result[path], ...b[path] };
+    }
+    return result;
+  }
+
   if (Array.isArray(binds)) {
-    const result: Record<string, Record<string, string>> = {};
     for (const bind of binds) {
       if (bind && typeof bind === 'object' && bind.path) {
         const { path, ...rest } = bind;
-        result[path] = rest;
+        result[path] = { ...result[path], ...rest };
       }
     }
     return result;
   }
-  return {};
+
+  return result;
 }
 
 export function LogicTab() {
   const definition = useDefinition();
   const { select } = useSelection();
-  const [activeFilter, setActiveFilter] = useState<'required' | 'relevant' | 'calculate' | 'constraint' | 'readonly' | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'required' | 'relevant' | 'calculate' | 'constraint' | 'readonly' | 'pre-populate' | null>(null);
 
-  const binds = normalizeBinds(definition?.binds);
+  const binds = normalizeBinds(definition?.binds, definition?.items as any[]);
   const shapes = Array.isArray(definition?.shapes) ? definition.shapes.map((s: any) => ({ name: s.id, ...s })) : [];
   const variables = Array.isArray(definition?.variables) ? definition.variables : [];
+
+  const memoizedFieldPaths = useMemo(() => {
+    if (!definition?.items) return [];
+    const lookup = buildDefLookup(definition.items as any);
+    return Array.from(lookup.keys());
+  }, [definition?.items]);
 
   const [sectionFilter, setSectionFilter] = useState<'all' | 'values' | 'behaviors' | 'rules'>('all');
 
@@ -131,6 +156,7 @@ export function LogicTab() {
             <BindsSection
               binds={binds}
               activeFilter={activeFilter}
+              allPaths={memoizedFieldPaths}
               onSelectPath={(path) => select(path, 'field')}
             />
           </LogicPillar>
