@@ -1,13 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   computeDropTarget,
-  computeTreeDropTarget,
   buildSequentialMoveCommands,
   isDescendantOf,
   type DropPosition,
-  type FlatEntry,
 } from './compute-drop-target';
-import { isLayoutId } from '../../../lib/tree-helpers';
+import type { FlatEntry } from '../../../lib/tree-helpers';
 import { pruneDescendants } from '../../../lib/selection-helpers';
 
 interface OverTarget {
@@ -17,9 +15,7 @@ interface OverTarget {
 
 interface UseCanvasDndOptions {
   flatList: FlatEntry[];
-  items: any[];
   selectedKeys: Set<string>;
-  primaryKey: string | null;
   select: (path: string, type: string) => void;
   dispatch: (command: any) => any;
   batch: (commands: any[]) => void;
@@ -27,9 +23,7 @@ interface UseCanvasDndOptions {
 
 export function useCanvasDnd({
   flatList,
-  items,
   selectedKeys,
-  primaryKey,
   select,
   dispatch,
   batch,
@@ -48,8 +42,8 @@ export function useCanvasDnd({
 
     // If dragged item is not in current selection, single-select it
     if (!selectedKeys.has(sourceId)) {
-      const entry = flatList.find(e => e.path === sourceId);
-      select(sourceId, entry?.type ?? 'field');
+      const entry = flatList.find(e => e.id === sourceId);
+      select(sourceId, entry?.category ?? 'field');
     }
   }, [selectedKeys, flatList, select]);
 
@@ -69,21 +63,21 @@ export function useCanvasDnd({
     const targetId = String(target.id);
 
     // Guard: can't drop into own descendant
-    if (sourceId === targetId || isDescendantOf(targetId, sourceId)) {
+    if (sourceId === targetId || isDescendantOf(targetId, sourceId, flatList)) {
       setOverTarget(null);
       return;
     }
 
     // Multi-select guard
     for (const sp of selectedKeys) {
-      if (isDescendantOf(targetId, sp)) {
+      if (isDescendantOf(targetId, sp, flatList)) {
         setOverTarget(null);
         return;
       }
     }
 
     const pointerY = (native as PointerEvent).clientY;
-    const targetEntry = flatList.find(e => e.path === targetId);
+    const targetEntry = flatList.find(e => e.id === targetId);
     const el = document.querySelector<HTMLElement>(`[data-item-path="${CSS.escape(targetId)}"]`);
 
     let position: DropPosition = 'below';
@@ -91,7 +85,7 @@ export function useCanvasDnd({
       const rect = el.getBoundingClientRect();
       const relY = (pointerY - rect.top) / rect.height;
 
-      if (targetEntry?.type === 'group' || targetEntry?.type === 'layout') {
+      if (targetEntry?.category === 'group' || targetEntry?.category === 'layout') {
         if (relY < 0.25) position = 'above';
         else if (relY > 0.75) position = 'below';
         else position = 'inside';
@@ -121,55 +115,6 @@ export function useCanvasDnd({
     const sourcePath = String(event.operation?.source?.id ?? '');
     if (!sourcePath) return;
 
-    // Check if layout nodes are involved — use tree-aware routing
-    const involvesLayout = isLayoutId(sourcePath) || isLayoutId(currentOverTarget.path)
-      || flatList.find(e => e.path === currentOverTarget.path)?.type === 'layout';
-
-    if (involvesLayout) {
-      // Tree-aware DnD: import TreeFlatEntry-compatible entries from flatList
-      const treeFlatEntries = flatList.map(e => ({
-        id: e.path,
-        node: { component: '' },
-        depth: e.depth,
-        hasChildren: e.hasChildren,
-        defPath: isLayoutId(e.path) ? null : e.path,
-        category: e.type as any,
-        nodeId: isLayoutId(e.path) ? e.path.slice('__node:'.length) : (e.type === 'display' ? e.path.split('.').pop() : undefined),
-        bind: e.type !== 'layout' && e.type !== 'display' ? e.path.split('.').pop() : undefined,
-      }));
-
-      const treeTarget = computeTreeDropTarget(
-        sourcePath,
-        currentOverTarget.path,
-        currentOverTarget.position,
-        treeFlatEntries as any,
-      );
-
-      if (!treeTarget) return;
-
-      if (treeTarget.defMove) {
-        dispatch({
-          type: 'definition.moveItem',
-          payload: {
-            sourcePath: treeTarget.defMove.sourcePath,
-            targetParentPath: treeTarget.defMove.targetParentPath ?? undefined,
-            targetIndex: treeTarget.defMove.targetIndex,
-          },
-        });
-      } else {
-        dispatch({
-          type: 'component.moveNode',
-          payload: {
-            source: treeTarget.sourceRef,
-            targetParent: treeTarget.targetParentRef,
-            targetIndex: treeTarget.targetIndex,
-          },
-        });
-      }
-      return;
-    }
-
-    // Standard definition-based DnD (no layout nodes involved)
     const target = computeDropTarget(
       sourcePath,
       currentOverTarget.path,
@@ -180,30 +125,27 @@ export function useCanvasDnd({
 
     if (!target) return;
 
-    if (selectedKeys.size > 1 && selectedKeys.has(sourcePath)) {
+    if (target.kind === 'definition' && selectedKeys.size > 1 && selectedKeys.has(sourcePath)) {
       // Multi-select drag — use simulation-based command builder
       const pruned = pruneDescendants(selectedKeys);
-      const pathOrder = new Map(flatList.map((e, i) => [e.path, i]));
-      pruned.sort((a, b) => (pathOrder.get(a) ?? 0) - (pathOrder.get(b) ?? 0));
+      const movablePaths = pruned.filter((path) => flatList.find((entry) => entry.id === path)?.defPath);
+      const pathOrder = new Map(flatList.map((entry, index) => [entry.id, index]));
+      movablePaths.sort((a, b) => (pathOrder.get(a) ?? 0) - (pathOrder.get(b) ?? 0));
 
       const commands = buildSequentialMoveCommands(
-        pruned,
+        movablePaths,
         target.parentPath,
-        currentOverTarget.path,
-        currentOverTarget.position,
+        target.rawIndex,
         flatList,
       );
-      batch(commands);
+      if (commands.length > 0) {
+        batch(commands);
+      }
     } else {
-      // Single item drag
-      dispatch({
-        type: 'definition.moveItem',
-        payload: {
-          sourcePath,
-          targetParentPath: target.parentPath ?? undefined,
-          targetIndex: target.index,
-        },
-      });
+      const [command] = target.actions;
+      if (command) {
+        dispatch(command);
+      }
     }
   }, [overTarget, flatList, selectedKeys, dispatch, batch]);
 

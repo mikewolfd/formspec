@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { ReactNode } from 'react';
+import { blockIndent, blockRef } from './block-utils';
 
 interface LayoutBlockProps {
   nodeId: string;
@@ -25,9 +26,9 @@ export function LayoutBlock({
   children,
 }: LayoutBlockProps) {
   return (
-    <div style={{ marginLeft: depth > 0 ? depth * 20 : 0 }} className="mb-1 mt-3">
+    <div style={{ marginLeft: blockIndent(depth) }} className="mb-1 mt-3">
       <div
-        ref={(element) => registerTarget(layoutId, element)}
+        ref={blockRef(layoutId, registerTarget)}
         data-testid={`layout-${nodeId}`}
         data-item-path={layoutId}
         data-item-type="layout"

@@ -1,57 +1,160 @@
-export interface FlatEntry {
-  path: string;
-  type: string;
-  depth: number;
-  hasChildren: boolean;
+import { nodeRefFor, type FlatEntry } from '../../../lib/tree-helpers';
+
+export interface DropAction {
+  type: 'component.moveNode' | 'definition.moveItem';
+  payload: Record<string, unknown>;
 }
 
 export interface DropTarget {
+  kind: 'component' | 'definition';
   parentPath: string | null;
   index: number;
+  rawIndex: number;
+  actions: DropAction[];
 }
 
 export type DropPosition = 'above' | 'below' | 'inside';
 
 /** True if childPath is a dot-separated descendant of parentPath. */
-export function isDescendantOf(childPath: string, parentPath: string): boolean {
+export function isDescendantOf(childPath: string, parentPath: string, flatList?: FlatEntry[]): boolean {
+  if (flatList) {
+    let currentParent = parentIdOf(childPath, flatList);
+    while (currentParent) {
+      if (currentParent === parentPath) return true;
+      currentParent = parentIdOf(currentParent, flatList);
+    }
+    return false;
+  }
+
   return childPath.startsWith(parentPath + '.');
 }
 
-/** Extract the parent path from a dot-separated path. Returns null for root-level items. */
-function parentOf(path: string): string | null {
+function parentOfDefPath(path: string | null): string | null {
+  if (!path) return null;
   const lastDot = path.lastIndexOf('.');
   return lastDot === -1 ? null : path.substring(0, lastDot);
 }
 
-/** Find the sibling index of a path within its parent by scanning the flat list. */
-function siblingIndex(path: string, parent: string | null, flatList: FlatEntry[]): number {
-  const targetDepth = parent === null ? 0 : parent.split('.').length;
-  let idx = 0;
-  for (const entry of flatList) {
-    if (entry.depth !== targetDepth) continue;
-    const entryParent = parentOf(entry.path);
-    if (entryParent !== parent) continue;
-    if (entry.path === path) return idx;
-    idx++;
+function entryIndex(id: string, flatList: FlatEntry[]): number {
+  return flatList.findIndex((entry) => entry.id === id);
+}
+
+function entryById(id: string, flatList: FlatEntry[]): FlatEntry | undefined {
+  return flatList.find((entry) => entry.id === id);
+}
+
+function parentIndex(childIndex: number, flatList: FlatEntry[]): number {
+  const childDepth = flatList[childIndex]?.depth;
+  if (childDepth == null || childDepth === 0) return -1;
+
+  for (let index = childIndex - 1; index >= 0; index -= 1) {
+    if (flatList[index].depth === childDepth - 1) return index;
   }
+
   return -1;
 }
 
-/** Count direct children of a parent in the flat list. */
-function childCount(parentPath: string, flatList: FlatEntry[]): number {
-  const childDepth = parentPath.split('.').length;
-  let count = 0;
-  for (const entry of flatList) {
-    if (entry.depth !== childDepth) continue;
-    if (isDescendantOf(entry.path, parentPath)) count++;
-  }
-  return count;
+function parentEntryOf(id: string, flatList: FlatEntry[]): FlatEntry | null {
+  const childIndex = entryIndex(id, flatList);
+  if (childIndex === -1) return null;
+  const index = parentIndex(childIndex, flatList);
+  return index === -1 ? null : flatList[index];
 }
 
-/**
- * Compute the drop target for a drag operation.
- * Returns a moveItem payload { parentPath, index } or null if the drop is invalid/no-op.
- */
+function parentIdOf(id: string, flatList: FlatEntry[]): string | null {
+  return parentEntryOf(id, flatList)?.id ?? null;
+}
+
+function directChildren(parentId: string | null, flatList: FlatEntry[]): FlatEntry[] {
+  if (parentId === null) {
+    return flatList.filter((entry) => entry.depth === 0);
+  }
+
+  const parentFlatIndex = entryIndex(parentId, flatList);
+  if (parentFlatIndex === -1) return [];
+
+  const parentDepth = flatList[parentFlatIndex].depth;
+  const children: FlatEntry[] = [];
+
+  for (let index = parentFlatIndex + 1; index < flatList.length; index += 1) {
+    const entry = flatList[index];
+    if (entry.depth <= parentDepth) break;
+    if (entry.depth === parentDepth + 1) {
+      children.push(entry);
+    }
+  }
+
+  return children;
+}
+
+function siblingIndex(id: string, parentId: string | null, flatList: FlatEntry[]): number {
+  return directChildren(parentId, flatList).findIndex((entry) => entry.id === id);
+}
+
+function definitionSiblings(parentPath: string | null, flatList: FlatEntry[]): FlatEntry[] {
+  return flatList.filter((entry) => entry.defPath && parentOfDefPath(entry.defPath) === parentPath);
+}
+
+function definitionSiblingIndex(defPath: string, parentPath: string | null, flatList: FlatEntry[]): number {
+  return definitionSiblings(parentPath, flatList).findIndex((entry) => entry.defPath === defPath);
+}
+
+function definitionChildCount(parentPath: string | null, flatList: FlatEntry[]): number {
+  return definitionSiblings(parentPath, flatList).length;
+}
+
+function resolveComponentTarget(
+  overEntry: FlatEntry,
+  position: DropPosition,
+  flatList: FlatEntry[],
+): { parentId: string | null; rawIndex: number } | null {
+  if (position === 'inside') {
+    if (overEntry.category !== 'group' && overEntry.category !== 'layout') return null;
+    return {
+      parentId: overEntry.id,
+      rawIndex: directChildren(overEntry.id, flatList).length,
+    };
+  }
+
+  const parentId = parentIdOf(overEntry.id, flatList);
+  const overIndex = siblingIndex(overEntry.id, parentId, flatList);
+  if (overIndex === -1) return null;
+
+  return {
+    parentId,
+    rawIndex: position === 'above' ? overIndex : overIndex + 1,
+  };
+}
+
+function resolveDefinitionTarget(
+  overEntry: FlatEntry,
+  position: DropPosition,
+  flatList: FlatEntry[],
+): { parentPath: string | null; rawIndex: number } | null {
+  if (position === 'inside') {
+    if (overEntry.category !== 'group' || !overEntry.defPath) return null;
+    return {
+      parentPath: overEntry.defPath,
+      rawIndex: definitionChildCount(overEntry.defPath, flatList),
+    };
+  }
+
+  if (!overEntry.defPath) return null;
+
+  const parentPath = parentOfDefPath(overEntry.defPath);
+  const overIndex = definitionSiblingIndex(overEntry.defPath, parentPath, flatList);
+  if (overIndex === -1) return null;
+
+  return {
+    parentPath,
+    rawIndex: position === 'above' ? overIndex : overIndex + 1,
+  };
+}
+
+function adjustedIndex(sourceIndex: number, rawIndex: number): number {
+  return sourceIndex !== -1 && sourceIndex < rawIndex ? rawIndex - 1 : rawIndex;
+}
+
 export function computeDropTarget(
   activePath: string,
   overPath: string,
@@ -63,84 +166,93 @@ export function computeDropTarget(
   if (activePath === overPath) return null;
 
   // Circular guard: can't drop into own descendant
-  if (isDescendantOf(overPath, activePath)) return null;
+  if (isDescendantOf(overPath, activePath, flatList)) return null;
 
   // Multi-select circular guard
   if (selectedPaths) {
     for (const sp of selectedPaths) {
-      if (isDescendantOf(overPath, sp)) return null;
+      if (isDescendantOf(overPath, sp, flatList)) return null;
     }
   }
 
-  const overEntry = flatList.find(e => e.path === overPath);
-  if (!overEntry) return null;
+  const sourceEntry = entryById(activePath, flatList);
+  const overEntry = entryById(overPath, flatList);
+  if (!sourceEntry || !overEntry) return null;
 
-  let targetParent: string | null;
-  let rawIndex: number;
+  const componentTarget = resolveComponentTarget(overEntry, position, flatList);
+  if (!componentTarget) return null;
 
-  if (position === 'inside') {
-    // Drop inside a group — only valid for group-type items
-    if (overEntry.type !== 'group') return null;
-    targetParent = overPath;
-    rawIndex = childCount(overPath, flatList);
-  } else {
-    // above/below: drop as sibling of the over item
-    targetParent = parentOf(overPath);
-    const overIndex = siblingIndex(overPath, targetParent, flatList);
-    if (overIndex === -1) return null;
-    rawIndex = position === 'above' ? overIndex : overIndex + 1;
-  }
+  const sourceComponentParent = parentIdOf(activePath, flatList);
+  const sourceComponentIndex = siblingIndex(activePath, sourceComponentParent, flatList);
+  const componentIndex = sourceComponentParent === componentTarget.parentId
+    ? adjustedIndex(sourceComponentIndex, componentTarget.rawIndex)
+    : componentTarget.rawIndex;
 
-  // Same-parent index adjustment
-  const sourceParent = parentOf(activePath);
-  if (sourceParent === targetParent) {
-    const sourceIndex = siblingIndex(activePath, sourceParent, flatList);
-    if (sourceIndex !== -1 && sourceIndex < rawIndex) {
-      rawIndex -= 1;
+  const componentParentEntry = componentTarget.parentId ? entryById(componentTarget.parentId, flatList) : null;
+  const requiresComponentMove = sourceEntry.category === 'layout'
+    || overEntry.category === 'layout'
+    || componentParentEntry?.category === 'layout';
+
+  if (!requiresComponentMove && sourceEntry.defPath) {
+    const definitionTarget = resolveDefinitionTarget(overEntry, position, flatList);
+    if (!definitionTarget) return null;
+
+    const sourceParentPath = parentOfDefPath(sourceEntry.defPath);
+    const sourceDefinitionIndex = definitionSiblingIndex(sourceEntry.defPath, sourceParentPath, flatList);
+    const definitionIndex = sourceParentPath === definitionTarget.parentPath
+      ? adjustedIndex(sourceDefinitionIndex, definitionTarget.rawIndex)
+      : definitionTarget.rawIndex;
+
+    if (sourceDefinitionIndex === definitionIndex && sourceParentPath === definitionTarget.parentPath) {
+      return null;
     }
-    // No-op check: would place item exactly where it already is
-    if (sourceIndex === rawIndex) return null;
+
+    return {
+      kind: 'definition',
+      parentPath: definitionTarget.parentPath,
+      index: definitionIndex,
+      rawIndex: definitionTarget.rawIndex,
+      actions: [{
+        type: 'definition.moveItem',
+        payload: {
+          sourcePath: sourceEntry.defPath,
+          ...(definitionTarget.parentPath != null ? { targetParentPath: definitionTarget.parentPath } : {}),
+          targetIndex: definitionIndex,
+        },
+      }],
+    };
   }
 
-  return { parentPath: targetParent, index: rawIndex };
+  if (sourceComponentIndex === componentIndex && sourceComponentParent === componentTarget.parentId) {
+    return null;
+  }
+
+  return {
+    kind: 'component',
+    parentPath: componentTarget.parentId,
+    index: componentIndex,
+    rawIndex: componentTarget.rawIndex,
+    actions: [{
+      type: 'component.moveNode',
+      payload: {
+        source: nodeRefFor(sourceEntry),
+        targetParent: componentParentEntry ? nodeRefFor(componentParentEntry) : { nodeId: 'root' },
+        targetIndex: componentIndex,
+      },
+    }],
+  };
 }
 
-/**
- * Build sequential moveItem commands for a multi-select drag.
- * Simulates each move to compute correct target indices, preserving relative order.
- *
- * The key challenge: sequential moveItem calls each change the list state.
- * Items BEFORE the target shift the effective index down when removed;
- * items AFTER the target don't. We simulate each removal+insertion to get
- * the right index for every command.
- *
- * @param sortedPaths - selected paths sorted by flat order
- * @param targetParentPath - target parent (from computeDropTarget), or null for root
- * @param overPath - the path of the item being hovered over
- * @param position - drop position relative to over item
- * @param flatList - the current flat entry list
- */
 export function buildSequentialMoveCommands(
   sortedPaths: string[],
   targetParentPath: string | null,
-  overPath: string,
-  position: DropPosition,
+  rawTargetIndex: number,
   flatList: FlatEntry[],
 ): { type: string; payload: Record<string, any> }[] {
-  // Compute the raw (un-adjusted) target index
-  let rawTargetIndex: number;
-  if (position === 'inside') {
-    rawTargetIndex = childCount(overPath, flatList);
-  } else {
-    const overIndex = siblingIndex(overPath, parentOf(overPath), flatList);
-    rawTargetIndex = position === 'above' ? overIndex : overIndex + 1;
-  }
-
   // Get sibling paths in the target parent for simulation
-  const targetDepth = targetParentPath === null ? 0 : targetParentPath.split('.').length;
-  const siblings = flatList
-    .filter(e => e.depth === targetDepth && parentOf(e.path) === targetParentPath)
-    .map(e => e.path);
+  const siblings = definitionSiblings(targetParentPath, flatList)
+    .map((entry) => entry.defPath!)
+    .filter(Boolean);
 
   // Simulate moves sequentially
   const sim = [...siblings];
@@ -173,127 +285,4 @@ export function buildSequentialMoveCommands(
   }
 
   return commands;
-}
-
-// ── Tree-aware drop target (dual-dispatch) ──────────────────────────
-
-import type { TreeFlatEntry } from '../../../lib/tree-helpers';
-
-export interface TreeDropTarget {
-  sourceRef: { bind?: string; nodeId?: string };
-  targetParentRef: { bind?: string; nodeId?: string };
-  targetIndex: number;
-  /** Non-null when a definition.moveItem is needed (cross-group moves). Null for component-only moves. */
-  defMove: { sourcePath: string; targetParentPath: string | null; targetIndex: number } | null;
-}
-
-/**
- * Compute a drop target using the component tree flat list.
- * Returns routing info: whether to dispatch component.moveNode only or also definition.moveItem.
- *
- * Rules:
- * - Moving a layout node → component.moveNode only (defMove = null)
- * - Moving INTO a layout container → component.moveNode only
- * - Moving between bound groups (different def parent) → definition.moveItem (triggers rebuild)
- * - Moving within same def parent → component.moveNode only
- */
-export function computeTreeDropTarget(
-  activeId: string,
-  overId: string,
-  position: DropPosition,
-  flatList: TreeFlatEntry[],
-): TreeDropTarget | null {
-  if (activeId === overId) return null;
-
-  const sourceEntry = flatList.find(e => e.id === activeId);
-  const overEntry = flatList.find(e => e.id === overId);
-  if (!sourceEntry || !overEntry) return null;
-
-  const isSourceLayout = sourceEntry.category === 'layout';
-  const isOverLayout = overEntry.category === 'layout';
-
-  // Build refs
-  const sourceRef = sourceEntry.bind
-    ? { bind: sourceEntry.bind }
-    : { nodeId: sourceEntry.nodeId! };
-
-  // Determine target parent and index
-  let targetParentRef: { bind?: string; nodeId?: string };
-  let targetIndex: number;
-
-  if (position === 'inside') {
-    // Drop inside — only valid for groups and layout containers
-    if (overEntry.category !== 'group' && overEntry.category !== 'layout') return null;
-    targetParentRef = overEntry.bind ? { bind: overEntry.bind } : { nodeId: overEntry.nodeId! };
-    // Count direct children of the target in the flat list
-    const overIdx = flatList.indexOf(overEntry);
-    let count = 0;
-    for (let i = overIdx + 1; i < flatList.length; i++) {
-      if (flatList[i].depth <= overEntry.depth) break;
-      if (flatList[i].depth === overEntry.depth + 1) count++;
-    }
-    targetIndex = count;
-  } else {
-    // above/below — sibling of the over item
-    // Find the parent of the over item by walking back in the flat list
-    const overIdx = flatList.indexOf(overEntry);
-    let parentEntry: TreeFlatEntry | undefined;
-    for (let i = overIdx - 1; i >= 0; i--) {
-      if (flatList[i].depth < overEntry.depth) {
-        parentEntry = flatList[i];
-        break;
-      }
-    }
-    targetParentRef = parentEntry
-      ? (parentEntry.bind ? { bind: parentEntry.bind } : { nodeId: parentEntry.nodeId! })
-      : { nodeId: 'root' };
-
-    // Compute sibling index
-    const parentDepth = parentEntry ? parentEntry.depth : -1;
-    const siblingDepth = parentDepth + 1;
-    let sibIdx = 0;
-    const startIdx = parentEntry ? flatList.indexOf(parentEntry) + 1 : 0;
-    for (let i = startIdx; i < flatList.length; i++) {
-      if (flatList[i].depth < siblingDepth) break;
-      if (flatList[i].depth === siblingDepth) {
-        if (flatList[i].id === overId) {
-          targetIndex = position === 'above' ? sibIdx : sibIdx + 1;
-          break;
-        }
-        sibIdx++;
-      }
-    }
-    targetIndex = targetIndex! ?? sibIdx;
-  }
-
-  // Determine if a definition move is needed
-  let defMove: TreeDropTarget['defMove'] = null;
-
-  if (!isSourceLayout) {
-    const isTargetLayout = 'nodeId' in targetParentRef && targetParentRef.nodeId !== 'root'
-      && flatList.find(e => e.nodeId === targetParentRef.nodeId)?.category === 'layout';
-
-    if (!isTargetLayout) {
-      // Target parent is a bound group or root — check if def parents differ
-      const sourceDefParent = sourceEntry.defPath ? getDefParent(sourceEntry.defPath) : null;
-      const targetDefParent = 'bind' in targetParentRef
-        ? flatList.find(e => e.bind === targetParentRef.bind)?.defPath ?? null
-        : null; // root
-
-      if (sourceDefParent !== targetDefParent) {
-        defMove = {
-          sourcePath: sourceEntry.defPath!,
-          targetParentPath: targetDefParent,
-          targetIndex,
-        };
-      }
-    }
-  }
-
-  return { sourceRef, targetParentRef, targetIndex, defMove };
-}
-
-function getDefParent(defPath: string): string | null {
-  const lastDot = defPath.lastIndexOf('.');
-  return lastDot === -1 ? null : defPath.substring(0, lastDot);
 }

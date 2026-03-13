@@ -6,37 +6,10 @@ import { SelectionProvider, useSelection } from '../../../src/state/useSelection
 import { ActivePageProvider } from '../../../src/state/useActivePage';
 import { EditorCanvas } from '../../../src/workspaces/editor/EditorCanvas';
 import { ItemProperties } from '../../../src/workspaces/editor/ItemProperties';
+import { editorFixtures, renderEditorCanvas } from './test-utils';
 
-const testDef = {
-  $formspec: '1.0', url: 'urn:test', version: '1.0.0',
-  items: [
-    { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
-    { key: 'contact', type: 'group', label: 'Contact Info', children: [
-      { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
-      { key: 'phone', type: 'field', dataType: 'string', label: 'Phone' },
-    ]},
-    { key: 'notice', type: 'display', label: 'Important Notice' },
-  ],
-  binds: {
-    name: { required: 'true' },
-    'contact.email': { calculate: '$name + "@example.com"' },
-  },
-};
-
-function renderCanvas(def?: any) {
-  const project = createProject({ seed: { definition: def || testDef } });
-  return {
-    ...render(
-      <ProjectProvider project={project}>
-        <SelectionProvider>
-          <ActivePageProvider>
-            <EditorCanvas />
-          </ActivePageProvider>
-        </SelectionProvider>
-      </ProjectProvider>
-    ),
-    project,
-  };
+function renderCanvas(definition?: any) {
+  return renderEditorCanvas(definition ?? editorFixtures.canvas);
 }
 
 describe('EditorCanvas', () => {
@@ -588,7 +561,7 @@ describe('EditorCanvas', () => {
 
   describe('component tree rendering', () => {
     it('renders a LayoutBlock when the component tree has a layout wrapper', () => {
-      const project = createProject({ seed: { definition: testDef as any } });
+      const project = createProject({ seed: { definition: editorFixtures.canvas as any } });
       // Wrap 'name' in a Card layout container
       project.dispatch({
         type: 'component.wrapNode',
@@ -612,7 +585,7 @@ describe('EditorCanvas', () => {
     });
 
     it('clicking a layout block selects it with __node: id', async () => {
-      const project = createProject({ seed: { definition: testDef as any } });
+      const project = createProject({ seed: { definition: editorFixtures.canvas as any } });
       const result = project.dispatch({
         type: 'component.wrapNode',
         payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
@@ -645,7 +618,7 @@ describe('EditorCanvas', () => {
     });
 
     it('fields inside layout wrappers maintain correct definition paths', () => {
-      const project = createProject({ seed: { definition: testDef as any } });
+      const project = createProject({ seed: { definition: editorFixtures.canvas as any } });
       project.dispatch({
         type: 'component.wrapNode',
         payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },

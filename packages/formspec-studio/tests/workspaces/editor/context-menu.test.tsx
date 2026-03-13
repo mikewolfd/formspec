@@ -5,31 +5,10 @@ import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
 import { ActivePageProvider } from '../../../src/state/useActivePage';
 import { EditorCanvas } from '../../../src/workspaces/editor/EditorCanvas';
-
-const definition = {
-  $formspec: '1.0',
-  url: 'urn:test',
-  version: '1.0.0',
-  items: [
-    { key: 'firstField', type: 'field', dataType: 'string', label: 'First Field' },
-    { key: 'secondField', type: 'field', dataType: 'string', label: 'Second Field' },
-  ],
-};
+import { editorFixtures, renderEditorCanvas } from './test-utils';
 
 function renderCanvas() {
-  const project = createProject({ seed: { definition: definition as any } });
-  return {
-    project,
-    ...render(
-      <ProjectProvider project={project}>
-        <SelectionProvider>
-          <ActivePageProvider>
-            <EditorCanvas />
-          </ActivePageProvider>
-        </SelectionProvider>
-      </ProjectProvider>
-    ),
-  };
+  return renderEditorCanvas(editorFixtures.simpleFields);
 }
 
 describe('Editor context menu behavior', () => {

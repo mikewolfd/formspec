@@ -40,7 +40,7 @@ export interface DefLookupEntry {
 }
 
 /** A flattened entry from the component tree, used by EditorCanvas and DnD. */
-export interface TreeFlatEntry {
+export interface FlatEntry {
   /** defPath for bound nodes, '__node:<nodeId>' for layout nodes */
   id: string;
   /** The original component tree node */
@@ -74,7 +74,7 @@ export function nodeIdFromLayoutId(id: string): string {
 }
 
 /** Build a NodeRef (for component tree commands) from a flat entry. */
-export function nodeRefFor(entry: Pick<TreeFlatEntry, 'bind' | 'nodeId'>): { bind: string } | { nodeId: string } {
+export function nodeRefFor(entry: Pick<FlatEntry, 'bind' | 'nodeId'>): { bind: string } | { nodeId: string } {
   if (entry.bind) return { bind: entry.bind };
   return { nodeId: entry.nodeId! };
 }
@@ -130,8 +130,8 @@ export function flattenComponentTree(
   root: CompNode,
   defLookup: Map<string, DefLookupEntry>,
   bindKeyMap?: Map<string, string>,
-): TreeFlatEntry[] {
-  const result: TreeFlatEntry[] = [];
+): FlatEntry[] {
+  const result: FlatEntry[] = [];
 
   function walk(nodes: CompNode[], depth: number, defPathPrefix: string): void {
     for (const node of nodes) {
@@ -181,9 +181,15 @@ export function flattenComponentTree(
         }
       } else if (node.nodeId) {
         // Display node (nodeId without _layout)
-        const defPath = defPathPrefix ? `${defPathPrefix}.${node.nodeId}` : node.nodeId;
+        let defPath = defPathPrefix ? `${defPathPrefix}.${node.nodeId}` : node.nodeId;
+        // Fallback: display node may have been moved into a layout container
+        // at a different tree level. Look up by nodeId (which is the item key).
+        if (!defLookup.get(defPath) && bindKeyMap) {
+          const altPath = bindKeyMap.get(node.nodeId);
+          if (altPath) defPath = altPath;
+        }
         result.push({
-          id: node.nodeId,
+          id: defPath,
           node,
           depth,
           hasChildren: false,

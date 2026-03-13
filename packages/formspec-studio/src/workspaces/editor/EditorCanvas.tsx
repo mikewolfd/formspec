@@ -8,22 +8,16 @@ import { useActivePage } from '../../state/useActivePage';
 import { useDispatch } from '../../state/useDispatch';
 import { useProject } from '../../state/useProject';
 import { useCanvasTargets } from '../../state/useCanvasTargets';
-import { bindsFor, flatItems } from '../../lib/field-helpers';
-import { flattenComponentTree, buildDefLookup, buildBindKeyMap, isLayoutId, nodeIdFromLayoutId, type TreeFlatEntry } from '../../lib/tree-helpers';
-import { pruneDescendants, sortForBatchDelete } from '../../lib/selection-helpers';
-import { FieldBlock } from './FieldBlock';
-import { GroupBlock } from './GroupBlock';
-import { DisplayBlock } from './DisplayBlock';
-import { LayoutBlock } from './LayoutBlock';
+import { flattenComponentTree, buildDefLookup, buildBindKeyMap, type FlatEntry } from '../../lib/tree-helpers';
 import { PageTabs } from './PageTabs';
 import { AddItemPalette, type FieldTypeOption } from '../../components/AddItemPalette';
 import { EditorContextMenu } from './EditorContextMenu';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
-import { SortableItemWrapper } from './dnd/SortableItemWrapper';
 import { DropIndicator } from './dnd/DropIndicator';
 import { DragOverlayContent } from './dnd/DragOverlayContent';
 import { useCanvasDnd } from './dnd/use-canvas-dnd';
-import type { FlatEntry } from './dnd/compute-drop-target';
+import { buildContextMenuItems, clampContextMenuPosition, executeContextAction, type ContextMenuState } from './canvas-operations';
+import { renderTreeNodes } from './render-tree-nodes';
 
 interface Item {
   key: string;
@@ -37,7 +31,6 @@ interface Item {
   children?: Item[];
 }
 
-/** Component tree node shape (matches studio-core TreeNode). */
 interface CompNode {
   component: string;
   bind?: string;
@@ -47,179 +40,9 @@ interface CompNode {
   [key: string]: unknown;
 }
 
-function renderTreeNodes(
-  nodes: CompNode[],
-  defLookup: Map<string, { item: Item; path: string; parentPath: string | null }>,
-  bindKeyMap: Map<string, string>,
-  allBinds: Record<string, Record<string, string>> | undefined,
-  primaryKey: string | null,
-  selectedKeys: Set<string>,
-  handleItemClick: (e: React.MouseEvent, path: string, type: string) => void,
-  registerTarget: (path: string, element: HTMLElement | null) => void,
-  flatIndexMap: Map<string, number>,
-  depth: number,
-  defPathPrefix: string,
-): React.ReactNode[] {
-  const result: React.ReactNode[] = [];
-  for (const node of nodes) {
-    if (node._layout) {
-      // Layout container node
-      const layoutId = `__node:${node.nodeId}`;
-      const isPrimary = primaryKey === layoutId;
-      const inSelection = selectedKeys.has(layoutId) && !isPrimary;
-      const flatIdx = flatIndexMap.get(layoutId) ?? 0;
-      const children = node.children
-        ? renderTreeNodes(node.children, defLookup, bindKeyMap, allBinds, primaryKey, selectedKeys, handleItemClick, registerTarget, flatIndexMap, depth + 1, defPathPrefix)
-        : null;
-      result.push(
-        <SortableItemWrapper key={layoutId} id={layoutId} index={flatIdx}>
-          <LayoutBlock
-            nodeId={node.nodeId!}
-            component={node.component}
-            layoutId={layoutId}
-            registerTarget={registerTarget}
-            depth={depth}
-            selected={isPrimary}
-            isInSelection={inSelection}
-            onSelect={(e) => handleItemClick(e, layoutId, 'layout')}
-          >
-            {children}
-          </LayoutBlock>
-        </SortableItemWrapper>
-      );
-    } else if (node.bind) {
-      // Bound node — look up definition item
-      let defPath = defPathPrefix ? `${defPathPrefix}.${node.bind}` : node.bind;
-      let defEntry = defLookup.get(defPath);
-      // Fallback: node may be inside a layout container at a different tree level
-      if (!defEntry) {
-        const altPath = bindKeyMap.get(node.bind);
-        if (altPath) {
-          defPath = altPath;
-          defEntry = defLookup.get(altPath);
-        }
-      }
-      if (!defEntry) continue;
-      const item = defEntry.item;
-      const isPrimary = primaryKey === defPath;
-      const inSelection = selectedKeys.has(defPath) && !isPrimary;
-      const flatIdx = flatIndexMap.get(defPath) ?? 0;
-
-      if (item.type === 'group') {
-        const children = node.children
-          ? renderTreeNodes(node.children, defLookup, bindKeyMap, allBinds, primaryKey, selectedKeys, handleItemClick, registerTarget, flatIndexMap, depth + 1, defPath)
-          : null;
-        result.push(
-          <SortableItemWrapper key={defPath} id={defPath} index={flatIdx}>
-            <GroupBlock
-              itemKey={item.key}
-              itemPath={defPath}
-              registerTarget={registerTarget}
-              label={item.label}
-              repeatable={item.repeatable}
-              minRepeat={item.minRepeat}
-              maxRepeat={item.maxRepeat}
-              depth={depth}
-              selected={isPrimary}
-              isInSelection={inSelection}
-              onSelect={(e) => handleItemClick(e, defPath, 'group')}
-            >
-              {children}
-            </GroupBlock>
-          </SortableItemWrapper>
-        );
-      } else {
-        result.push(
-          <SortableItemWrapper key={defPath} id={defPath} index={flatIdx}>
-            <FieldBlock
-              itemKey={item.key}
-              itemPath={defPath}
-              registerTarget={registerTarget}
-              label={item.label}
-              hint={item.hint}
-              dataType={item.dataType}
-              binds={bindsFor(allBinds, defPath)}
-              depth={depth}
-              selected={isPrimary}
-              isInSelection={inSelection}
-              onSelect={(e) => handleItemClick(e, defPath, item.type)}
-            />
-          </SortableItemWrapper>
-        );
-      }
-    } else if (node.nodeId) {
-      // Display node (nodeId without _layout)
-      const defPath = defPathPrefix ? `${defPathPrefix}.${node.nodeId}` : node.nodeId;
-      const defEntry = defLookup.get(defPath);
-      const label = defEntry?.item.label || (node as any).text || node.nodeId;
-      const isPrimary = primaryKey === defPath;
-      const inSelection = selectedKeys.has(defPath) && !isPrimary;
-      const flatIdx = flatIndexMap.get(defPath) ?? 0;
-
-      result.push(
-        <SortableItemWrapper key={defPath} id={defPath} index={flatIdx}>
-          <DisplayBlock
-            itemKey={node.nodeId}
-            itemPath={defPath}
-            registerTarget={registerTarget}
-            label={label}
-            depth={depth}
-            selected={isPrimary}
-            isInSelection={inSelection}
-            onSelect={(e) => handleItemClick(e, defPath, 'display')}
-            widgetHint={node.component !== 'Text' ? node.component : undefined}
-          />
-        </SortableItemWrapper>
-      );
-    }
-  }
-  return result;
-}
-
 let nextItemId = 1;
 function uniqueKey(prefix: string): string {
   return `${prefix}${nextItemId++}`;
-}
-
-interface ContextMenuState {
-  x: number;
-  y: number;
-  kind: 'item' | 'canvas';
-  path?: string;
-  type?: string;
-}
-
-interface ItemLocation {
-  path: string;
-  parentPath: string | null;
-  index: number;
-  item: Item;
-}
-
-function findItemLocation(items: Item[], targetPath: string, prefix = ''): ItemLocation | null {
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
-    const path = prefix ? `${prefix}.${item.key}` : item.key;
-    if (path === targetPath) {
-      return { path, parentPath: prefix || null, index, item };
-    }
-    if (item.children?.length) {
-      const nested = findItemLocation(item.children, targetPath, path);
-      if (nested) return nested;
-    }
-  }
-  return null;
-}
-
-function clampContextMenuPosition(x: number, y: number) {
-  const MENU_WIDTH = 160;
-  const MENU_HEIGHT = 190;
-  const maxX = Math.max(0, window.innerWidth - MENU_WIDTH);
-  const maxY = Math.max(0, window.innerHeight - MENU_HEIGHT);
-  return {
-    x: Math.min(Math.max(0, x), maxX),
-    y: Math.min(Math.max(0, y), maxY),
-  };
 }
 
 export function EditorCanvas() {
@@ -300,7 +123,7 @@ export function EditorCanvas() {
   }, [tree, hasPaged, topLevelGroups, activePageIndex, defLookup]);
 
   // Flat ordering from component tree for range-select and DnD
-  const treeFlatEntries: TreeFlatEntry[] = useMemo(
+  const treeFlatEntries: FlatEntry[] = useMemo(
     () => tree ? flattenComponentTree({ ...tree, children: displayTreeNodes }, defLookup, bindKeyMap) : [],
     [tree, displayTreeNodes, defLookup, bindKeyMap],
   );
@@ -309,25 +132,9 @@ export function EditorCanvas() {
     [treeFlatEntries],
   );
 
-  // Legacy flat items for DnD compatibility
-  const flatItemsList = useMemo(
-    () => flatItems(displayItems as any),
-    [displayItems],
-  );
-
-  // Build FlatEntry[] and index map for DnD
-  const flatEntries: FlatEntry[] = useMemo(
-    () => treeFlatEntries.map(e => ({
-      path: e.id,
-      type: e.category,
-      depth: e.depth,
-      hasChildren: e.hasChildren,
-    })),
-    [treeFlatEntries],
-  );
   const flatIndexMap = useMemo(
-    () => new Map(flatEntries.map((e, i) => [e.path, i])),
-    [flatEntries],
+    () => new Map(treeFlatEntries.map((entry, index) => [entry.id, index])),
+    [treeFlatEntries],
   );
 
   // DnD hook
@@ -339,10 +146,8 @@ export function EditorCanvas() {
     onDragOver,
     onDragEnd,
   } = useCanvasDnd({
-    flatList: flatEntries,
-    items,
+    flatList: treeFlatEntries,
     selectedKeys,
-    primaryKey,
     select,
     dispatch,
     batch: project.batch.bind(project),
@@ -449,173 +254,27 @@ export function EditorCanvas() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [contextMenu, deselect]);
 
-  const handleContextAction = (action: string) => {
-    if (!contextMenu) return;
-    if (contextMenu.kind === 'canvas') {
-      if (action === 'addItem') setShowPicker(true);
-      setContextMenu(null);
-      return;
-    }
-    const path = contextMenu.path;
-    if (!path) return;
+  const handleContextAction = useCallback((action: string) => {
+    executeContextAction({
+      action,
+      contextMenu,
+      items,
+      selectionCount,
+      selectedKeys,
+      dispatch,
+      batch: project.batch.bind(project),
+      deselect,
+      selectAndFocusInspector,
+      showPicker: () => setShowPicker(true),
+      closeMenu: () => setContextMenu(null),
+      createKey: uniqueKey,
+    });
+  }, [contextMenu, items, selectionCount, selectedKeys, dispatch, project, deselect, selectAndFocusInspector]);
 
-    // Batch operations when multiple items selected
-    if (selectionCount > 1) {
-      switch (action) {
-        case 'batchDelete': {
-          const pruned = pruneDescendants(selectedKeys);
-          const sorted = sortForBatchDelete(pruned);
-          project.batch(sorted.map(p => ({ type: 'definition.deleteItem', payload: { path: p } })));
-          deselect();
-          break;
-        }
-        case 'batchDuplicate': {
-          const pruned = pruneDescendants(selectedKeys);
-          const sorted = sortForBatchDelete(pruned);
-          project.batch(sorted.map(p => ({ type: 'definition.duplicateItem', payload: { path: p } })));
-          break;
-        }
-        case 'wrapInGroup': {
-          // Find common parent of all selected items
-          const pruned = pruneDescendants(selectedKeys);
-          if (pruned.length === 0) break;
-          // Use the first item's parent as the insertion point
-          const firstLocation = findItemLocation(items, pruned[0]);
-          if (!firstLocation) break;
-          const wrapperKey = uniqueKey('group');
-          const addResult = dispatch({
-            type: 'definition.addItem',
-            payload: {
-              key: wrapperKey,
-              type: 'group',
-              label: 'Group',
-              ...(firstLocation.parentPath ? { parentPath: firstLocation.parentPath } : {}),
-              insertIndex: firstLocation.index,
-            },
-          });
-          const targetParentPath = addResult.insertedPath
-            ?? (firstLocation.parentPath ? `${firstLocation.parentPath}.${wrapperKey}` : wrapperKey);
-          // Move each item into the new group — use batch for atomic undo
-          project.batch(pruned.map((p, i) => ({
-            type: 'definition.moveItem',
-            payload: { sourcePath: p, targetParentPath, targetIndex: i },
-          })));
-          deselect();
-          break;
-        }
-      }
-      setContextMenu(null);
-      return;
-    }
-
-    // Layout node operations
-    if (isLayoutId(path)) {
-      const nodeId = nodeIdFromLayoutId(path);
-      switch (action) {
-        case 'unwrap':
-          dispatch({ type: 'component.unwrapNode', payload: { node: { nodeId } } });
-          deselect();
-          break;
-        case 'deleteLayout':
-          dispatch({ type: 'component.deleteNode', payload: { node: { nodeId } } });
-          deselect();
-          break;
-      }
-      setContextMenu(null);
-      return;
-    }
-
-    // Single-item operations
-    switch (action) {
-      case 'duplicate':
-        dispatch({ type: 'definition.duplicateItem', payload: { path } });
-        break;
-      case 'delete':
-        dispatch({ type: 'definition.deleteItem', payload: { path } });
-        break;
-      case 'moveUp':
-        dispatch({ type: 'definition.reorderItem', payload: { path, direction: 'up' } });
-        break;
-      case 'moveDown':
-        dispatch({ type: 'definition.reorderItem', payload: { path, direction: 'down' } });
-        break;
-      case 'wrapInGroup': {
-        const location = findItemLocation(items, path);
-        if (!location) break;
-        const wrapperKey = uniqueKey('group');
-        const addResult = dispatch({
-          type: 'definition.addItem',
-          payload: {
-            key: wrapperKey,
-            type: 'group',
-            label: 'Group',
-            ...(location.parentPath ? { parentPath: location.parentPath } : {}),
-            insertIndex: location.index,
-          },
-        });
-        const targetParentPath = addResult.insertedPath
-          ?? (location.parentPath ? `${location.parentPath}.${wrapperKey}` : wrapperKey);
-        dispatch({
-          type: 'definition.moveItem',
-          payload: { sourcePath: path, targetParentPath, targetIndex: 0 },
-        });
-        break;
-      }
-      case 'wrapInCard':
-      case 'wrapInStack':
-      case 'wrapInCollapsible': {
-        const componentMap: Record<string, string> = {
-          wrapInCard: 'Card',
-          wrapInStack: 'Stack',
-          wrapInCollapsible: 'Collapsible',
-        };
-        const component = componentMap[action];
-        const nodeRef = { bind: path.split('.').pop()! };
-        const result = dispatch({
-          type: 'component.wrapNode',
-          payload: { node: nodeRef, wrapper: { component } },
-        });
-        const wrapperNodeId = (result as any).nodeRef?.nodeId;
-        if (wrapperNodeId) {
-          selectAndFocusInspector(`__node:${wrapperNodeId}`, 'layout');
-        }
-        break;
-      }
-    }
-    setContextMenu(null);
-  };
-
-  // Build context menu items based on selection state
-  const contextMenuItems = (() => {
-    if (!contextMenu || contextMenu.kind === 'canvas') {
-      return [{ label: 'Add Item', action: 'addItem' }];
-    }
-    if (selectionCount > 1) {
-      return [
-        { label: `Delete ${selectionCount} items`, action: 'batchDelete' },
-        { label: `Duplicate ${selectionCount} items`, action: 'batchDuplicate' },
-        { label: 'Wrap in Group', action: 'wrapInGroup' },
-      ];
-    }
-    // Layout node menu
-    if (contextMenu.type === 'layout') {
-      return [
-        { label: 'Unwrap', action: 'unwrap' },
-        { label: 'Delete', action: 'deleteLayout' },
-      ];
-    }
-    // Single non-layout item: add wrap options
-    return [
-      { label: 'Duplicate', action: 'duplicate' },
-      { label: 'Delete', action: 'delete' },
-      { label: 'Move Up', action: 'moveUp' },
-      { label: 'Move Down', action: 'moveDown' },
-      { label: 'Wrap in Group', action: 'wrapInGroup' },
-      { label: 'Wrap in Card', action: 'wrapInCard' },
-      { label: 'Wrap in Stack', action: 'wrapInStack' },
-      { label: 'Wrap in Collapsible', action: 'wrapInCollapsible' },
-    ];
-  })();
+  const contextMenuItems = useMemo(
+    () => buildContextMenuItems(contextMenu, selectionCount),
+    [contextMenu, selectionCount],
+  );
 
   const formTitle = (definition as any)?.title;
   const formUrl = (definition as any)?.url;
@@ -673,7 +332,16 @@ export function EditorCanvas() {
             KeyboardSensor,
           ]}
         >
-          {renderTreeNodes(displayTreeNodes, defLookup, bindKeyMap, allBinds, primaryKey, selectedKeys, handleItemClick, registerCanvasTarget, flatIndexMap, 0, '')}
+          {renderTreeNodes(displayTreeNodes, {
+            defLookup,
+            bindKeyMap,
+            allBinds,
+            primaryKey,
+            selectedKeys,
+            handleItemClick,
+            registerTarget: registerCanvasTarget,
+            flatIndexMap,
+          }, 0, '')}
           {overTarget && (
             <DropIndicator targetPath={overTarget.path} position={overTarget.position} />
           )}

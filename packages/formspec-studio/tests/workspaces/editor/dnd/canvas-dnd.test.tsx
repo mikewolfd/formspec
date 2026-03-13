@@ -5,33 +5,10 @@ import { ProjectProvider } from '../../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../../src/state/useSelection';
 import { ActivePageProvider } from '../../../../src/state/useActivePage';
 import { EditorCanvas } from '../../../../src/workspaces/editor/EditorCanvas';
+import { editorFixtures, renderEditorCanvas } from '../test-utils';
 
-const testDef = {
-  $formspec: '1.0', url: 'urn:dnd-test', version: '1.0.0',
-  items: [
-    { key: 'fieldA', type: 'field', dataType: 'string', label: 'Field A' },
-    { key: 'groupX', type: 'group', label: 'Group X', children: [
-      { key: 'child1', type: 'field', dataType: 'string', label: 'Child 1' },
-      { key: 'child2', type: 'field', dataType: 'string', label: 'Child 2' },
-    ]},
-    { key: 'fieldB', type: 'field', dataType: 'string', label: 'Field B' },
-  ],
-};
-
-function renderCanvas(def?: any) {
-  const project = createProject({ seed: { definition: def || testDef } });
-  return {
-    ...render(
-      <ProjectProvider project={project}>
-        <SelectionProvider>
-          <ActivePageProvider>
-            <EditorCanvas />
-          </ActivePageProvider>
-        </SelectionProvider>
-      </ProjectProvider>
-    ),
-    project,
-  };
+function renderCanvas(definition?: any) {
+  return renderEditorCanvas(definition ?? editorFixtures.dnd);
 }
 
 describe('Canvas DnD Integration', () => {
@@ -149,5 +126,110 @@ describe('Canvas DnD Integration', () => {
     // Should show selected state (accent border)
     const block = screen.getByTestId('field-fieldA');
     expect(block.className).toContain('accent');
+  });
+
+  it('moving a field into a Card via component.moveNode keeps the field renderable', () => {
+    // In wizard mode, fields must stay inside their page group in the definition.
+    // Layout containers are definition-transparent — only component.moveNode is needed.
+    const wizardDef = {
+      $formspec: '1.0', url: 'urn:wizard-card', version: '1.0.0',
+      formPresentation: { pageMode: 'wizard' },
+      items: [
+        { key: 'page1', type: 'group', label: 'Page One', children: [
+          { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+          { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+        ]},
+      ],
+    };
+    const { project } = renderCanvas(wizardDef);
+
+    // Add a Card at root
+    let cardNodeId: string;
+    act(() => {
+      const result = project.dispatch({
+        type: 'component.addNode',
+        payload: { parent: { nodeId: 'root' }, component: 'Card' },
+      });
+      cardNodeId = (result as any).nodeRef.nodeId;
+    });
+
+    // Move field into Card (component tree only — no definition change)
+    act(() => {
+      project.dispatch({
+        type: 'component.moveNode',
+        payload: {
+          source: { bind: 'name' },
+          targetParent: { nodeId: cardNodeId },
+          targetIndex: 0,
+        },
+      });
+    });
+
+    // Component tree: Card should contain the name field
+    const tree = project.component.tree as any;
+    const card = tree.children.find((n: any) => n._layout);
+    expect(card.children).toHaveLength(1);
+    expect(card.children[0].bind).toBe('name');
+
+    // Definition unchanged — name is still inside page1
+    const items = project.definition.items as any[];
+    const page1 = items.find((i: any) => i.key === 'page1');
+    expect(page1.children.find((c: any) => c.key === 'name')).toBeTruthy();
+
+    // The field must still be visible on the canvas (the real bug)
+    expect(screen.getByTestId('field-name')).toBeVisible();
+  });
+
+  it('moving a display item into a Card via component.moveNode keeps it renderable', () => {
+    const wizardDef = {
+      $formspec: '1.0', url: 'urn:wizard-display-card', version: '1.0.0',
+      formPresentation: { pageMode: 'wizard' },
+      items: [
+        { key: 'page1', type: 'group', label: 'Page One', children: [
+          { key: 'heading1', type: 'display', label: 'Section Title' },
+          { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+        ]},
+      ],
+    };
+    const { project } = renderCanvas(wizardDef);
+
+    // Display node should be visible initially
+    expect(screen.getByTestId('display-heading1')).toBeVisible();
+
+    // Add a Card at root
+    let cardNodeId: string;
+    act(() => {
+      const result = project.dispatch({
+        type: 'component.addNode',
+        payload: { parent: { nodeId: 'root' }, component: 'Card' },
+      });
+      cardNodeId = (result as any).nodeRef.nodeId;
+    });
+
+    // Move display item into Card (component tree only)
+    act(() => {
+      project.dispatch({
+        type: 'component.moveNode',
+        payload: {
+          source: { nodeId: 'heading1' },
+          targetParent: { nodeId: cardNodeId },
+          targetIndex: 0,
+        },
+      });
+    });
+
+    // Component tree: Card should contain the display node
+    const tree = project.component.tree as any;
+    const card = tree.children.find((n: any) => n._layout);
+    expect(card.children).toHaveLength(1);
+    expect(card.children[0].nodeId).toBe('heading1');
+
+    // Definition unchanged — heading1 is still inside page1
+    const items = project.definition.items as any[];
+    const page1 = items.find((i: any) => i.key === 'page1');
+    expect(page1.children.find((c: any) => c.key === 'heading1')).toBeTruthy();
+
+    // The display item must still be visible on the canvas
+    expect(screen.getByTestId('display-heading1')).toBeVisible();
   });
 });
