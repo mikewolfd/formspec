@@ -23,7 +23,7 @@ import {
   type FELEditorFunctionOption,
 } from '../../lib/fel-editor-utils';
 import { flatItems, dataTypeInfo } from '../../lib/field-helpers';
-import { useDefinition } from '../../state/useDefinition';
+import { useOptionalDefinition } from '../../state/useDefinition';
 import { getFELCatalog, type FELFunction } from '../../lib/fel-catalog';
 
 interface FELEditorProps {
@@ -41,7 +41,7 @@ type AutocompleteOption =
   | { kind: 'function'; name: string; label: string; signature?: string; description?: string; category?: string };
 
 export function FELEditor({ value, onSave, onCancel, placeholder, className, autoFocus }: FELEditorProps) {
-  const definition = useDefinition();
+  const definition = useOptionalDefinition();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState(value);
   const [activeOptionIndex, setActiveOptionIndex] = useState(0);
@@ -129,6 +129,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
 
   // Options memoization
   const fieldOptions = useMemo(() => {
+    if (!definition) return [];
     return flatItems((definition as any).items || []).map(fi => ({
       path: fi.path,
       label: (fi.item as any).label || fi.path,
@@ -155,7 +156,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
 
     if (autocompleteKind === 'path') {
       const options = autocomplete.instanceName
-        ? getInstanceFieldOptions((definition as any).instances, autocomplete.instanceName)
+        ? getInstanceFieldOptions((definition as any)?.instances, autocomplete.instanceName)
         : fieldOptions;
 
       return filterFELFieldOptions(options, autocomplete.query).map(opt => ({
@@ -167,7 +168,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
     }
 
     if (autocompleteKind === 'instanceName') {
-      return getInstanceNameOptions((definition as any).instances, autocomplete.query).map(name => ({
+      return getInstanceNameOptions((definition as any)?.instances, autocomplete.query).map(name => ({
         kind: 'instanceName' as const,
         name
       }));
