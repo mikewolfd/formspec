@@ -24,10 +24,10 @@ export function ReviewWorkspace({
 }: ReviewWorkspaceProps) {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-      <section className="rounded-2xl border border-[#cfbf9f] bg-white/80 p-5 shadow-sm">
+      <section className="rounded-2xl border border-warm-border bg-white/80 p-5 shadow-sm">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <div className="text-xs font-mono uppercase tracking-[0.24em] text-[#B7791F]">Review</div>
+            <div className="text-xs font-mono uppercase tracking-[0.24em] text-brass">Review</div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight">Analysis and proposal</h2>
             <p className="mt-2 text-sm text-slate-600">{analysis.summary}</p>
           </div>
@@ -92,7 +92,7 @@ export function ReviewWorkspace({
               </div>
               <button
                 type="button"
-                className="rounded-md bg-[#2F6B7E] px-4 py-2 text-sm font-medium text-white"
+                className="rounded-md bg-teal px-4 py-2 text-sm font-medium text-white"
                 onClick={onProceedToRefine}
               >
                 Open refine workspace
@@ -103,7 +103,7 @@ export function ReviewWorkspace({
           <div className="mt-5">
             <button
               type="button"
-              className="rounded-md bg-[#2F6B7E] px-4 py-2 text-sm font-medium text-white"
+              className="rounded-md bg-teal px-4 py-2 text-sm font-medium text-white"
               onClick={onGenerate}
             >
               Generate proposal

@@ -9,9 +9,9 @@ interface IssueQueueProps {
 
 export function IssueQueue({ issues, onResolve, onDefer, onFocus }: IssueQueueProps) {
   return (
-    <section className="rounded-2xl border border-[#cfbf9f] bg-white/80 p-5 shadow-sm">
+    <section className="rounded-2xl border border-warm-border bg-white/80 p-5 shadow-sm">
       <div className="mb-4">
-        <div className="text-xs font-mono uppercase tracking-[0.24em] text-[#B7791F]">Issue Queue</div>
+        <div className="text-xs font-mono uppercase tracking-[0.24em] text-brass">Issue Queue</div>
         <h2 className="mt-2 text-xl font-semibold tracking-tight">Open issues</h2>
       </div>
 
@@ -31,7 +31,7 @@ export function IssueQueue({ issues, onResolve, onDefer, onFocus }: IssueQueuePr
                     {issue.severity}
                   </span>
                   {issue.blocking ? (
-                    <span className="rounded-full bg-[#f5d7d2] px-2 py-0.5 text-[11px] font-mono uppercase tracking-wide text-[#a64233]">
+                    <span className="rounded-full bg-[#f5d7d2] px-2 py-0.5 text-[11px] font-mono uppercase tracking-wide text-rust">
                       Blocking
                     </span>
                   ) : null}
@@ -49,7 +49,7 @@ export function IssueQueue({ issues, onResolve, onDefer, onFocus }: IssueQueuePr
                 ) : null}
                 <button
                   type="button"
-                  className="rounded-md bg-[#2F6B7E] px-3 py-1.5 text-sm font-medium text-white"
+                  className="rounded-md bg-teal px-3 py-1.5 text-sm font-medium text-white"
                   onClick={() => onResolve(issue.id)}
                 >
                   Resolve
