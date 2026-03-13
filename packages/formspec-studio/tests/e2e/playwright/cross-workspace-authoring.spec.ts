@@ -113,8 +113,11 @@ test.describe('Cross-Workspace Authoring', () => {
 
     await switchTab(page, 'Theme');
     const themeWorkspace = page.locator('[data-testid="workspace-Theme"]');
+    // primaryColor token appears under the "other" group in AllTokens (no dot prefix).
+    // The suffix span renders the key name as text; the value is in an <input> element.
     await expect(themeWorkspace.getByText('primaryColor', { exact: true })).toBeVisible();
-    await expect(themeWorkspace.getByText('#3b82f6', { exact: true })).toBeVisible();
+    // The hex value renders as a color swatch (not as visible text — it lives inside an input).
+    await expect(themeWorkspace.locator('[data-testid="swatch-primaryColor"]')).toBeVisible();
 
     await switchTab(page, 'Mapping');
     const mappingWorkspace = page.locator('[data-testid="workspace-Mapping"]');

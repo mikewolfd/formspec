@@ -92,10 +92,10 @@ test.describe('Logic Workspace', () => {
 
   test('shows variables section', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Logic"]');
-    // Variables show name and expression
-    await expect(workspace.getByText('taxRate', { exact: true })).toBeVisible();
+    // Variables show name (rendered with @ prefix) and expression
+    await expect(workspace.getByText('@taxRate', { exact: true })).toBeVisible();
     await expect(workspace.getByText('0.25', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('netIncome', { exact: true })).toBeVisible();
+    await expect(workspace.getByText('@netIncome', { exact: true })).toBeVisible();
   });
 
   test('clicking a filter chip narrows the binds shown in the workspace', async ({ page }) => {

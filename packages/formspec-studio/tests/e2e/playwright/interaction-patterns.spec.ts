@@ -152,7 +152,8 @@ test.describe('Interaction Patterns', () => {
     });
 
     test('field cards expose a drag handle or draggable affordance for reorder', async ({ page }) => {
-      await expect(page.locator('[data-testid="field-myField"]')).toHaveAttribute('draggable', 'true');
+      const dragHandle = page.locator('[data-testid="field-myField"] [draggable="true"]');
+      await expect(dragHandle).toHaveCount(1);
     });
   });
 

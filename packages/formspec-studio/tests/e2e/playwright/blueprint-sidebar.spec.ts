@@ -209,65 +209,19 @@ test.describe('Bug #37 — Screener Disabled badge cannot be interacted with', (
 });
 
 // ─── Bug #47 — Section collapse arrow does not reflect open/closed state ─────
-
+//
+// NOTE: These tests were removed because the Settings section was redesigned
+// from nested collapsible Section components (with "Definition Metadata" headers
+// and collapse arrows) to a flat list of PropertyRow labels. No sidebar section
+// currently uses the collapsible Section component — SettingsSection, ThemeOverview,
+// VariablesList, ScreenerSection, and all other SIDEBAR_COMPONENTS render flat lists.
+// The Section component (src/components/ui/Section.tsx) still exists and is used
+// in FELReference.tsx, but that component is not mounted in the blueprint sidebar.
+// If collapsible sections are re-introduced in a blueprint sidebar panel, add
+// tests targeting that specific section.
 test.describe('Bug #47 — Section collapse arrow is frozen', () => {
-  test('▶ arrow on a Section header rotates when the section is collapsed then expanded', async ({ page }) => {
-    await waitForApp(page);
-    await importDefinition(page, SETTINGS_DEFINITION);
-    await page.waitForSelector('[data-testid="field-field1"]', { timeout: 5000 });
-
-    await openBlueprintSection(page, 'Settings');
-    await page.waitForSelector('text=Definition Metadata', { timeout: 5000 });
-
-    // The "DEFINITION METADATA" Section header is a <button> containing two spans:
-    //   1. The title label
-    //   2. The ▶ arrow, which gets class `rotate-90` when the section is open
-    const sectionBtn = page.getByRole('button', { name: /definition metadata/i });
-    await expect(sectionBtn).toBeVisible();
-
-    // The arrow indicator is the last <span> inside the header button.
-    // Section.tsx: `<span className={`... ${open ? 'rotate-90' : ''}`}>▶</span>`
-    const arrowSpan = sectionBtn.locator('span').last();
-
-    // Section starts open (defaultOpen=true), so arrow should have rotate-90.
-    // NOTE: if this first assertion FAILS, the rotate-90 class is missing even
-    // when expanded — that itself is the bug.
-    await expect(arrowSpan).toHaveClass(/rotate-90/);
-
-    // Collapse the section
-    await sectionBtn.click();
-
-    // After collapsing, rotate-90 must be absent.
-    // FAILS on the bug if arrow class is never toggled.
-    await expect(arrowSpan).not.toHaveClass(/rotate-90/);
-
-    // Re-expand
-    await sectionBtn.click();
-
-    // rotate-90 must reappear.
-    await expect(arrowSpan).toHaveClass(/rotate-90/);
-  });
-
-  test('collapsing a Section hides its child rows', async ({ page }) => {
-    await waitForApp(page);
-    await importDefinition(page, SETTINGS_DEFINITION);
-    await page.waitForSelector('[data-testid="field-field1"]', { timeout: 5000 });
-
-    await openBlueprintSection(page, 'Settings');
-    await page.waitForSelector('text=Definition Metadata', { timeout: 5000 });
-
-    // Locate the $formspec value row — it is inside "Definition Metadata" section
-    // and visible while the section is expanded.
-    // Section.tsx conditionally renders `{open && <div ...>{children}</div>}` so
-    // the children are removed from the DOM (not just hidden) when collapsed.
-    const formspecRow = page.getByText('$formspec', { exact: false }).first();
-    await expect(formspecRow).toBeVisible();
-
-    const sectionBtn = page.getByRole('button', { name: /definition metadata/i });
-    await sectionBtn.click();
-
-    // After collapsing, the $formspec row must be absent from the DOM.
-    // FAILS on the bug if the Section never toggles its open state.
-    await expect(formspecRow).not.toBeVisible({ timeout: 3000 });
-  });
+  // Tests removed: the Settings section no longer contains collapsible sub-sections.
+  // The flat SettingsSection renders Title, Version, Status, Page Mode, and
+  // Non-Relevant as plain PropertyRow labels — there is no "Definition Metadata"
+  // header or collapse arrow to interact with.
 });

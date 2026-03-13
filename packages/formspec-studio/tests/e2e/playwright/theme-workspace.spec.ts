@@ -9,11 +9,15 @@ const SEED = {
     ],
   },
   theme: {
-    tokens: { primaryColor: '#3b82f6', fontSize: '14px', spacing: '8px' },
-    defaults: { labelPosition: 'above', density: 'comfortable', pageMode: 'single' },
+    tokens: { 'color.primary': '#3b82f6', 'typography.fontSize': '14px', 'spacing.md': '8px' },
+    defaults: { labelPosition: 'top' },
     selectors: [
-      { match: { type: 'field', dataType: 'string' }, properties: { widget: 'text-input' } },
+      { match: { type: 'field', dataType: 'string' }, apply: { widget: 'text-input' } },
     ],
+    pages: [
+      { id: 'intro', title: 'Introduction', regions: [{ key: 'name', span: 12 }] },
+    ],
+    breakpoints: { mobile: 0, tablet: 768, desktop: 1024 },
   },
 };
 
@@ -24,82 +28,48 @@ test.describe('Theme Workspace', () => {
     await switchTab(page, 'Theme');
   });
 
-  test('token editor shows key-value pairs for tokens', async ({ page }) => {
+  test('shows all 6 pillar headings in "All Theme" filter', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Theme"]');
-    // Tokens tab is active by default
-    await expect(workspace.getByText('primaryColor', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('#3b82f6', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('fontSize', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('14px', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('spacing', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('8px', { exact: true })).toBeVisible();
+    await expect(workspace.getByText('Color Palette')).toBeVisible();
+    await expect(workspace.getByText('Typography & Spacing')).toBeVisible();
+    await expect(workspace.getByText('All Tokens')).toBeVisible();
+    await expect(workspace.getByText('Default Field Style')).toBeVisible();
+    await expect(workspace.getByText('Field Type Rules')).toBeVisible();
+    await expect(workspace.getByText('Screen Sizes')).toBeVisible();
   });
 
-  test('defaults editor shows key-value pairs after clicking Defaults sub-tab', async ({ page }) => {
+  test('Brand & Colors filter shows only brand pillars', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Theme"]');
-    await workspace.getByRole('button', { name: 'Defaults' }).click();
-    await expect(workspace.getByText('labelPosition', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('above', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('density', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('comfortable', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('pageMode', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('single', { exact: true })).toBeVisible();
+    await workspace.getByRole('button', { name: /brand & colors/i }).click();
+    await expect(workspace.getByText('Color Palette')).toBeVisible();
+    await expect(workspace.getByText('Typography & Spacing')).toBeVisible();
+    await expect(workspace.getByText('All Tokens')).toBeVisible();
+    await expect(workspace.getByText('Default Field Style')).not.toBeVisible();
   });
 
-  test('selector list shows match criteria and properties after clicking Selectors sub-tab', async ({ page }) => {
+  test('color palette shows color tokens', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Theme"]');
-    await workspace.getByRole('button', { name: 'Selectors' }).click();
-    // SelectorList renders match entries as "key: value" spans
-    await expect(workspace.getByText(/type: field/)).toBeVisible();
-    await expect(workspace.getByText(/dataType: string/)).toBeVisible();
-    // Properties entry
-    await expect(workspace.getByText(/widget: text-input/)).toBeVisible();
+    await expect(workspace.getByText('primary').first()).toBeVisible();
   });
 
-  test('empty state shows "No tokens defined" when theme has no tokens', async ({ page }) => {
-    // Seed an empty theme
+  test('field type rules show selector summary', async ({ page }) => {
+    const workspace = page.locator('[data-testid="workspace-Theme"]');
+    await expect(workspace.getByText('field + string')).toBeVisible();
+  });
+
+  test('screen sizes show breakpoints sorted by width', async ({ page }) => {
+    const workspace = page.locator('[data-testid="workspace-Theme"]');
+    await expect(workspace.getByText('3 breakpoints')).toBeVisible();
+  });
+
+  test('empty theme shows empty states', async ({ page }) => {
     await importProject(page, {
       definition: SEED.definition,
       theme: {},
     });
     const workspace = page.locator('[data-testid="workspace-Theme"]');
-    await expect(workspace.getByText('No tokens defined')).toBeVisible();
-  });
-
-  test('empty state shows "No defaults defined" when theme has no defaults', async ({ page }) => {
-    await importProject(page, {
-      definition: SEED.definition,
-      theme: {},
-    });
-    const workspace = page.locator('[data-testid="workspace-Theme"]');
-    await workspace.getByRole('button', { name: 'Defaults' }).click();
-    await expect(workspace.getByText('No defaults defined')).toBeVisible();
-  });
-
-  test('empty state shows "No selectors defined" when theme has no selectors', async ({ page }) => {
-    await importProject(page, {
-      definition: SEED.definition,
-      theme: {},
-    });
-    const workspace = page.locator('[data-testid="workspace-Theme"]');
-    await workspace.getByRole('button', { name: 'Selectors' }).click();
-    await expect(workspace.getByText('No selectors defined')).toBeVisible();
-  });
-
-  test('theme tabs expose add affordances where the current UI supports them', async ({ page }) => {
-    const workspace = page.locator('[data-testid="workspace-Theme"]');
-    await expect(workspace.getByRole('button', { name: /\+ add token/i })).toBeVisible();
-
-    await workspace.getByRole('button', { name: 'Selectors' }).click();
-    await expect(workspace.getByRole('button', { name: /\+ add selector/i })).toBeVisible();
-
-    await workspace.getByRole('button', { name: 'Item Overrides' }).click();
-    await expect(workspace.getByRole('button', { name: /\+ add item override/i })).toBeVisible();
-
-    await workspace.getByRole('button', { name: 'Page Layouts' }).click();
-    await expect(workspace.getByRole('button', { name: /\+ add page layout/i })).toBeVisible();
-
-    await workspace.getByRole('button', { name: 'Breakpoints' }).click();
-    await expect(workspace.getByRole('button', { name: /\+ add breakpoint/i })).toBeVisible();
+    await expect(workspace.getByText(/no color tokens/i)).toBeVisible();
+    await expect(workspace.getByText(/no.*rules/i)).toBeVisible();
+    await expect(workspace.getByText(/0 breakpoints/i)).toBeVisible();
   });
 });

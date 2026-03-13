@@ -40,16 +40,16 @@ test.describe('Wizard mode preview', () => {
 
     await expect(workspace.getByLabel('Full Name')).toBeVisible({ timeout: 3000 });
     await expect(workspace.getByLabel('Household Size')).not.toBeVisible();
-    await expect(workspace.getByRole('button', { name: /continue|next/i })).toBeVisible();
+    await expect(workspace.getByRole('button', { name: /continue|next/i }).first()).toBeVisible();
   });
 
   test('shows a Submit action on the final wizard page', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Preview"]');
 
-    await workspace.getByRole('button', { name: /continue|next/i }).click();
-    await workspace.getByRole('button', { name: /continue|next/i }).click();
+    await workspace.getByRole('button', { name: /continue|next/i }).first().click();
+    await workspace.getByRole('button', { name: /continue|next/i }).first().click();
 
-    await expect(workspace.getByRole('button', { name: /submit/i })).toBeVisible();
+    await expect(workspace.getByRole('button', { name: /submit/i }).first()).toBeVisible();
   });
 });
 
@@ -215,7 +215,7 @@ test.describe('Bug #73 — adding first item to empty paged definition does not 
     await page.waitForSelector('[data-testid="add-item"]', { timeout: 5000 });
     await page.click('[data-testid="add-item"]');
 
-    const searchInput = page.locator('input[placeholder="Search field types…"]');
+    const searchInput = page.locator('input[placeholder="Search types..."]');
     await searchInput.fill('text');
 
     // BUG: clicking "Text" dispatches definition.addItem with no parentPath
