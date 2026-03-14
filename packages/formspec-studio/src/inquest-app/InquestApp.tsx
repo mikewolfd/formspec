@@ -19,16 +19,14 @@ const PHASE_ORDER = ['inputs', 'review', 'refine'] as const;
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-[#fdfcfa] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-5">
-        <div className="relative">
-          <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
-            <FormspecIcon size={28} />
-          </div>
-          <div className="absolute -inset-2 animate-ping rounded-3xl border border-accent/20" />
+    <div className="min-h-screen bg-warm-subtle/30 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-white shadow-md">
+          <FormspecIcon size={22} color="white" />
+          <div className="absolute inset-0 animate-ping rounded-xl bg-accent opacity-20" />
         </div>
-        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-          Initializing Stack Assistant…
+        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+          Loading…
         </div>
       </div>
     </div>
@@ -141,7 +139,7 @@ export function InquestApp() {
   const openIssues = session.issues.filter((issue) => issue.status === 'open');
 
   return (
-    <div data-testid="stack-assistant" className="min-h-screen bg-[#fdfcfa] text-slate-900 font-ui flex flex-col">
+    <div data-testid="stack-assistant" className="min-h-screen bg-white text-slate-900 font-ui flex flex-col">
       <AppHeader
         phase={session.phase}
         phaseIndex={phaseIndex}
@@ -207,7 +205,7 @@ export function InquestApp() {
       {session.phase === 'refine' && draft && (
         <main className="flex-1 overflow-y-auto p-6">
           {operationError && (
-            <div className="mx-auto mb-4 max-w-3xl">
+            <div className="mx-auto mb-5 max-w-3xl">
               <OperationErrorBanner error={operationError} onDismiss={clearOperationError} />
             </div>
           )}
