@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { ReviewWorkspace } from '../features/review-workspace/ReviewWorkspace';
 import { RefineWorkspace } from '../features/refine-workspace/RefineWorkspace';
 import type { InquestIssue, InquestSessionV1 } from '../shared/contracts/inquest';
-import { findProviderAdapter, inquestProviderAdapters } from '../shared/providers';
+import { inquestProviderAdapters, createDeterministicAdapter } from '../shared/providers';
 import { inquestTemplates } from '../shared/templates/templates';
 import { useSessionLifecycle, summarizeUpload } from './hooks/useSessionLifecycle';
 import { useProviderManager } from './hooks/useProviderManager';
@@ -33,11 +33,18 @@ function LoadingScreen() {
   );
 }
 
+/* ── Test mode ────────────────────────────────── */
+
+// When ?e2e=1 is present, swap real AI providers with a deterministic adapter.
+// This lets Playwright E2E tests run without live API keys or network calls.
+const E2E_ADAPTERS = [createDeterministicAdapter('gemini', 'Gemini')];
+
 /* ── Main orchestrator ────────────────────────── */
 
 export function InquestApp() {
   const locationPathname = typeof window !== 'undefined' ? window.location.pathname : '/inquest/';
   const locationSearch = typeof window !== 'undefined' ? window.location.search : '';
+  const isE2E = new URLSearchParams(locationSearch).get('e2e') === '1';
 
   // Core lifecycle: session load/save/routing
   const {
@@ -52,6 +59,8 @@ export function InquestApp() {
     handleOpenSession,
   } = useSessionLifecycle(locationPathname, locationSearch);
 
+  const adapters = isE2E ? E2E_ADAPTERS : inquestProviderAdapters;
+
   // Provider: key management, test connection
   const {
     providerApiKey,
@@ -65,11 +74,14 @@ export function InquestApp() {
     handleTestConnection,
     handleProviderSelected,
     handleCredentialsCleared,
-  } = useProviderManager(session);
+  } = useProviderManager(session, adapters);
 
   const provider = useMemo(
-    () => session?.providerId ? findProviderAdapter(session.providerId) ?? inquestProviderAdapters[0] : inquestProviderAdapters[0],
-    [session?.providerId],
+    () => session?.providerId
+      ? (adapters.find((a) => a.id === session.providerId) ?? adapters[0])
+      : adapters[0],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session?.providerId, isE2E],
   );
 
   const template = useMemo(
