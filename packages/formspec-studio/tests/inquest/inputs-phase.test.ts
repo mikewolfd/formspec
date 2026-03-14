@@ -7,18 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { InquestSessionV1 } from '../../src/shared/contracts/inquest';
-
-// meaningfulInput is not exported from InputsPhase — copy the implementation
-// here to test it as a pure function. If this function changes, this test will
-// serve as the spec that forces the caller to update both places.
-function meaningfulInput(session: Pick<InquestSessionV1, 'input'>): boolean {
-  return Boolean(
-    session.input.templateId
-    || session.input.description.trim().length >= 10
-    || session.input.uploads.length > 0
-    || session.input.messages.some((m) => m.role === 'user'),
-  );
-}
+import { meaningfulInput } from '../../src/inquest-app/InputsPhase';
 
 function makeSession(overrides: Partial<InquestSessionV1['input']> = {}): Pick<InquestSessionV1, 'input'> {
   return {

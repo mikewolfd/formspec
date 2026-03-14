@@ -25,11 +25,11 @@ import { inquestPath } from '../../shared/transport/routes';
 
 /* ── Helpers ─────────────────────────────────── */
 
-function extractSessionId(pathname: string): string | undefined {
+export function extractSessionId(pathname: string): string | undefined {
   return pathname.match(/^\/inquest\/session\/([^/?#]+)/)?.[1];
 }
 
-function collectGroupPaths(items: any[], prefix = ''): string[] {
+export function collectGroupPaths(items: any[], prefix = ''): string[] {
   const paths: string[] = [];
   for (const item of items ?? []) {
     if (item?.type !== 'group' || typeof item.key !== 'string') continue;
@@ -40,7 +40,7 @@ function collectGroupPaths(items: any[], prefix = ''): string[] {
   return paths;
 }
 
-function inferSessionTitle(session: InquestSessionV1): string {
+export function inferSessionTitle(session: InquestSessionV1): string {
   const template = findInquestTemplate(session.input.templateId);
   if (template) return template.name;
   if (session.input.description.trim()) {

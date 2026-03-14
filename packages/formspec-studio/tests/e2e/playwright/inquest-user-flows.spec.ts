@@ -20,74 +20,17 @@
  *   8. Session sidebar: new project
  */
 
-import { test, expect, type Page } from '@playwright/test';
-
-/* ------------------------------------------------------------------ */
-/* Constants                                                           */
-/* ------------------------------------------------------------------ */
-
-const INQUEST_E2E_URL = '/inquest/?e2e=1';
-const ANALYSIS_TIMEOUT = 8000;
-const PROPOSAL_TIMEOUT = 8000;
-
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
-/** Navigate to the Inquest app in E2E mode (deterministic provider, no API calls). */
-async function gotoInquest(page: Page) {
-  await page.goto(INQUEST_E2E_URL);
-  await page.waitForSelector('[data-testid="stack-assistant"]');
-}
-
-/**
- * Complete the provider setup flow:
- * 1. Select Gemini provider
- * 2. Enter any API key (deterministic adapter accepts any non-empty key)
- * 3. Click "Verify Connection" -> succeeds immediately
- * 4. Click "Continue to Chat"
- */
-async function completeProviderSetup(page: Page) {
-  await expect(page.getByText('Intelligence Setup')).toBeVisible();
-  await page.getByRole('button', { name: 'Gemini' }).click();
-  await page.getByPlaceholder('sk-...').fill('test-e2e-key');
-  await page.getByRole('button', { name: /verify connection/i }).click();
-  await page.getByRole('button', { name: /continue to chat/i }).click({ timeout: 5000 });
-  await expect(page.getByPlaceholder(/describe the form you need/i)).toBeVisible();
-}
-
-/**
- * Select the first blueprint from the gallery.
- * This sets templateId on the session without triggering analysis.
- */
-async function selectBlueprint(page: Page) {
-  await page.getByRole('button', { name: /browse all blueprints/i }).click();
-  const useBlueprintBtns = page.getByRole('button', { name: /use blueprint/i });
-  await useBlueprintBtns.first().click();
-}
-
-/**
- * Reach the review phase with a proposal via: blueprint -> Draft Fast.
- * Draft Fast runs both analysis and proposal generation, producing a
- * "Scaffold ready" state with an "Open Refine" button.
- */
-async function reachReviewViaDraftFast(page: Page) {
-  await completeProviderSetup(page);
-  await selectBlueprint(page);
-  await page.getByText('Draft Fast').click();
-  await expect(page.getByText('Requirements review')).toBeVisible({ timeout: ANALYSIS_TIMEOUT });
-  // Draft Fast generates the proposal too, so we should see "Scaffold ready"
-  await expect(page.getByText(/scaffold ready/i)).toBeVisible({ timeout: PROPOSAL_TIMEOUT });
-}
-
-/**
- * Reach the refine workspace: blueprint -> Draft Fast -> Open Refine.
- */
-async function reachRefine(page: Page) {
-  await reachReviewViaDraftFast(page);
-  await page.getByRole('button', { name: /open refine/i }).click();
-  await expect(page.getByText(/adjust before handoff/i)).toBeVisible({ timeout: 5000 });
-}
+import { test, expect } from '@playwright/test';
+import {
+  ANALYSIS_TIMEOUT,
+  PROPOSAL_TIMEOUT,
+  gotoInquest,
+  completeProviderSetup,
+  selectBlueprint,
+  selectBlueprintByIndex,
+  reachReviewViaDraftFast,
+  reachRefine,
+} from './inquest-helpers';
 
 /* ================================================================== */
 /* Test Suites                                                         */
@@ -524,10 +467,7 @@ test.describe('Grant Application Blueprint: end-to-end', () => {
     await completeProviderSetup(page);
 
     // Open the template gallery and select "Grant Application" (second template)
-    await page.getByRole('button', { name: /browse all blueprints/i }).click();
-    const useBlueprintBtns = page.getByRole('button', { name: /use blueprint/i });
-    // Grant Application is the second template in the gallery
-    await useBlueprintBtns.nth(1).click();
+    await selectBlueprintByIndex(page, 1);
 
     // Click Verify Carefully to see the analysis without proposal
     await page.getByText('Verify Carefully').click();

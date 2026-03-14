@@ -17,52 +17,14 @@
  *   9. Recent sessions sidebar
  */
 
-import { test, expect, type Page } from '@playwright/test';
-
-/* ── Constants ──────────────────────────────────── */
-
-const INQUEST_E2E_URL = '/inquest/?e2e=1';
-const ANALYSIS_TIMEOUT = 8000; // deterministic provider is fast, but save some buffer
-
-/* ── Helpers ────────────────────────────────────── */
-
-/** Navigate to the inquest app in E2E mode (deterministic provider, no API calls). */
-async function gotoInquest(page: Page) {
-  await page.goto(INQUEST_E2E_URL);
-  await page.waitForSelector('[data-testid="stack-assistant"]');
-}
-
-/**
- * Complete the provider setup flow:
- * 1. Select Gemini provider (session gets providerId)
- * 2. Enter any API key (deterministic adapter accepts any non-empty key)
- * 3. Click "Verify Connection" → succeeds immediately
- * 4. Click "Continue to Chat"
- */
-async function completeProviderSetup(page: Page) {
-  await expect(page.getByText('Intelligence Setup')).toBeVisible();
-  await page.getByRole('button', { name: 'Gemini' }).click();
-  await page.getByPlaceholder('sk-...').fill('test-e2e-key');
-  await page.getByRole('button', { name: /verify connection/i }).click();
-  await page.getByRole('button', { name: /continue to chat/i }).click({ timeout: 5000 });
-  // Chat composer confirms we're past setup
-  await expect(page.getByPlaceholder(/describe the form you need/i)).toBeVisible();
-}
-
-/** Select a blueprint from the gallery (does NOT trigger analysis — Draft Fast stays enabled). */
-async function selectBlueprint(page: Page) {
-  await page.getByRole('button', { name: /browse all blueprints/i }).click();
-  const useBlueprintBtns = page.getByRole('button', { name: /use blueprint/i });
-  await useBlueprintBtns.first().click();
-}
-
-/** Reach the review phase via: blueprint selection → Draft Fast. */
-async function reachReviewViaDraftFast(page: Page) {
-  await completeProviderSetup(page);
-  await selectBlueprint(page);
-  await page.getByText('Draft Fast').click();
-  await expect(page.getByText('Requirements review')).toBeVisible({ timeout: ANALYSIS_TIMEOUT });
-}
+import { test, expect } from '@playwright/test';
+import {
+  ANALYSIS_TIMEOUT,
+  gotoInquest,
+  completeProviderSetup,
+  selectBlueprint,
+  reachReviewViaDraftFast,
+} from './inquest-helpers';
 
 /* ── Test Suite ─────────────────────────────────── */
 
