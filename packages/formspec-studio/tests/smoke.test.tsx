@@ -11,6 +11,6 @@ describe('Smoke', () => {
   it('mounts Inquest on /inquest routes', () => {
     render(<App pathname="/inquest/" />);
     expect(screen.getByTestId('stack-assistant')).toBeInTheDocument();
-    expect(screen.getByText('Stack Builder')).toBeInTheDocument();
+    expect(screen.getByText('Form Builder')).toBeInTheDocument();
   });
 });

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ConnectionResult, InquestSessionV1 } from '../../shared/contracts/inquest';
+import type { ConnectionResult, InquestProviderAdapter, InquestSessionV1 } from '../../shared/contracts/inquest';
 import {
   clearProviderKey,
   loadProviderPreferences,
   rememberProviderKey,
   saveSelectedProvider,
 } from '../../shared/persistence/inquest-store';
-import { findProviderAdapter, inquestProviderAdapters } from '../../shared/providers';
+import { inquestProviderAdapters } from '../../shared/providers';
 
 /* ── Hook ─────────────────────────────────────── */
 
@@ -28,7 +28,10 @@ export interface ProviderManager {
   handleCredentialsCleared: (providerId: string | undefined) => void;
 }
 
-export function useProviderManager(session: InquestSessionV1 | null): ProviderManager {
+export function useProviderManager(
+  session: InquestSessionV1 | null,
+  adapters: InquestProviderAdapter[] = inquestProviderAdapters,
+): ProviderManager {
   const [providerApiKey, setProviderApiKey] = useState('');
   const [rememberKey, setRememberKey] = useState(false);
   const [connection, setConnection] = useState<ConnectionResult | undefined>();
@@ -39,7 +42,7 @@ export function useProviderManager(session: InquestSessionV1 | null): ProviderMa
   useEffect(() => {
     if (!session?.sessionId) return;
     const prefs = loadProviderPreferences();
-    const selectedProviderId = session.providerId ?? prefs.selectedProviderId ?? inquestProviderAdapters[0]?.id;
+    const selectedProviderId = session.providerId ?? prefs.selectedProviderId ?? adapters[0]?.id;
     const storedKey = selectedProviderId ? prefs.rememberedKeys[selectedProviderId] ?? '' : '';
     setProviderApiKey(storedKey);
     setRememberKey(Boolean(storedKey));
@@ -50,7 +53,7 @@ export function useProviderManager(session: InquestSessionV1 | null): ProviderMa
 
   const handleTestConnection = useCallback(async () => {
     if (!session?.providerId) return;
-    const provider = findProviderAdapter(session.providerId);
+    const provider = adapters.find((a) => a.id === session.providerId);
     if (!provider) return;
     setIsTesting(true);
     try {
