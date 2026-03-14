@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { AnyCommand } from 'formspec-studio-core';
 import { InquestDraft } from '../../shared/authoring/inquest-draft';
+import { nowIso } from '../utils';
 import { diagnosticsToInquestIssues, mergeIssueSets } from '../../shared/authoring/diagnostics-issues';
 import type {
   InquestIssue,
@@ -14,10 +15,6 @@ import { buildHandoffPayload } from '../../shared/transport/handoff';
 import { studioPath } from '../../shared/transport/routes';
 import { issueBundle, syncIssueStatuses } from './useSessionLifecycle';
 
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
 function draftCommandBundle(draft: InquestDraft): AnyCommand[] {
   return draft.log()
     .map((entry) => entry.command)
@@ -28,6 +25,8 @@ function draftCommandBundle(draft: InquestDraft): AnyCommand[] {
 
 export interface InquestOps {
   isAnalyzing: boolean;
+  operationError: string | null;
+  clearOperationError: () => void;
   handleAnalyze: (text?: string) => Promise<void>;
   handleChatNew: (text: string) => Promise<void>;
   handleGenerateProposal: () => Promise<void>;
@@ -45,6 +44,8 @@ export function useInquestOps(
   updateSession: (updater: (current: InquestSessionV1) => InquestSessionV1) => void,
 ): InquestOps {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const clearOperationError = useCallback(() => setOperationError(null), []);
 
   const handleAnalyze = useCallback(async (text?: string) => {
     if (!provider || !session) return;
@@ -52,6 +53,7 @@ export function useInquestOps(
     if (!description.trim()) return;
 
     setIsAnalyzing(true);
+    setOperationError(null);
     try {
       const analysis = await provider.runAnalysis({
         session: { ...session, input: { ...session.input, description } },
@@ -77,6 +79,8 @@ export function useInquestOps(
           ],
         },
       }));
+    } catch (err) {
+      setOperationError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -101,6 +105,7 @@ export function useInquestOps(
   const handleGenerateProposal = useCallback(async () => {
     if (!provider || !session) return;
     setIsAnalyzing(true);
+    setOperationError(null);
     try {
       const analysis = session.analysis ?? await provider.runAnalysis({ session, template });
       const proposal = await provider.runProposal({ session, template, analysis });
@@ -117,6 +122,8 @@ export function useInquestOps(
         issues: nextIssues,
         updatedAt: nowIso(),
       }));
+    } catch (err) {
+      setOperationError(err instanceof Error ? err.message : 'Generation failed. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -134,6 +141,7 @@ export function useInquestOps(
 
   const handleApplyPrompt = useCallback(async (prompt: string) => {
     if (!provider || !draft || !session) return;
+    setOperationError(null);
     const liveBundle = draft.export();
     const liveProposal: ProposalV1 = {
       ...(session.proposal ?? {
@@ -147,22 +155,26 @@ export function useInquestOps(
       component: liveBundle.component,
     };
 
-    const patch = await provider.runEdit({ session, proposal: liveProposal, prompt });
-    if (patch.commands.length > 0) draft.applyCommands(patch.commands);
+    try {
+      const patch = await provider.runEdit({ session, proposal: liveProposal, prompt });
+      if (patch.commands.length > 0) draft.applyCommands(patch.commands);
 
-    updateSession((current) => ({
-      ...current,
-      issues: syncIssueStatuses(
-        mergeIssueSets(
-          current.issues.filter((issue) => issue.source !== 'provider'),
-          patch.issues,
-          diagnosticsToInquestIssues(draft.diagnose()),
+      updateSession((current) => ({
+        ...current,
+        issues: syncIssueStatuses(
+          mergeIssueSets(
+            current.issues.filter((issue) => issue.source !== 'provider'),
+            patch.issues,
+            diagnosticsToInquestIssues(draft.diagnose()),
+          ),
+          current.issues,
         ),
-        current.issues,
-      ),
-      draftBundle: draft.export(),
-      updatedAt: nowIso(),
-    }));
+        draftBundle: draft.export(),
+        updatedAt: nowIso(),
+      }));
+    } catch (err) {
+      setOperationError(err instanceof Error ? err.message : 'Edit failed. Please try again.');
+    }
   }, [provider, draft, session, updateSession]);
 
   const handleOpenStudio = useCallback(async () => {
@@ -180,6 +192,8 @@ export function useInquestOps(
 
   return {
     isAnalyzing,
+    operationError,
+    clearOperationError,
     handleAnalyze,
     handleChatNew,
     handleGenerateProposal,
