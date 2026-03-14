@@ -647,6 +647,11 @@
           "key": "phaseTotal",
           "label": "Phase Total",
           "dataType": "money"
+        },
+        {
+          "type": "display",
+          "key": "projectPhasesTotal",
+          "label": "Total Phases Cost"
         }
       ]
     },

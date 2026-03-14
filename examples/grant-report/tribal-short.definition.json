@@ -75,28 +75,28 @@
             ]
         },
         {
-            "key": "applicableTopics",
-            "type": "field",
-            "dataType": "multiChoice",
-            "label": "Select the expenditure categories that apply to your program",
-            "hint": "Only the selected categories will appear in the expenditure amounts section",
-            "options": [
-                { "value": "employment", "label": "Employment" },
-                { "value": "childcare", "label": "Childcare, Early Childhood, Youth Development & Adult Education" },
-                { "value": "assetBuilding", "label": "Income & Asset Building" },
-                { "value": "housing", "label": "Housing" },
-                { "value": "health", "label": "Health & Nutrition" },
-                { "value": "civic", "label": "Civic Engagement & Community Involvement" },
-                { "value": "transportation", "label": "Transportation" },
-                { "value": "partnerships", "label": "Partnerships, Linkages, and Coordination" },
-                { "value": "other", "label": "Other" }
-            ]
-        },
-        {
             "key": "expenditures",
             "type": "group",
             "label": "Expenditure Amounts",
             "children": [
+                {
+                    "key": "applicableTopics",
+                    "type": "field",
+                    "dataType": "multiChoice",
+                    "label": "Select the expenditure categories that apply to your program",
+                    "hint": "Only the selected categories will appear in the expenditure amounts section",
+                    "options": [
+                        { "value": "employment", "label": "Employment" },
+                        { "value": "childcare", "label": "Childcare, Early Childhood, Youth Development & Adult Education" },
+                        { "value": "assetBuilding", "label": "Income & Asset Building" },
+                        { "value": "housing", "label": "Housing" },
+                        { "value": "health", "label": "Health & Nutrition" },
+                        { "value": "civic", "label": "Civic Engagement & Community Involvement" },
+                        { "value": "transportation", "label": "Transportation" },
+                        { "value": "partnerships", "label": "Partnerships, Linkages, and Coordination" },
+                        { "value": "other", "label": "Other" }
+                    ]
+                },
                 {
                     "key": "employment",
                     "type": "field",
@@ -169,22 +169,22 @@
                     "label": "Total Expenditures",
                     "labels": { "review": "Total Expenditures (auto-calculated)" },
                     "extensions": { "x-formspec-currency-usd": true }
+                },
+                {
+                    "key": "hasAdministrationCosts",
+                    "type": "field",
+                    "dataType": "boolean",
+                    "label": "Did you use any funds toward Administration costs?"
+                },
+                {
+                    "key": "administrationExpenditure",
+                    "type": "field",
+                    "dataType": "money",
+                    "label": "Administration",
+                    "labels": { "review": "Total administration costs" },
+                    "extensions": { "x-formspec-currency-usd": true }
                 }
             ]
-        },
-        {
-            "key": "hasAdministrationCosts",
-            "type": "field",
-            "dataType": "boolean",
-            "label": "Did you use any funds toward Administration costs?"
-        },
-        {
-            "key": "administrationExpenditure",
-            "type": "field",
-            "dataType": "money",
-            "label": "Administration",
-            "labels": { "review": "Total administration costs" },
-            "extensions": { "x-formspec-currency-usd": true }
         },
         {
             "key": "descriptions",
@@ -269,66 +269,66 @@
             "path": "basicInfo.email",
             "required": "true"
         },
-        { "path": "applicableTopics", "required": "true" },
+        { "path": "expenditures.applicableTopics", "required": "true" },
         {
             "path": "expenditures.employment",
-            "relevant": "selected($applicableTopics, 'employment')",
+            "relevant": "selected($expenditures.applicableTopics, 'employment')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.childcare",
-            "relevant": "selected($applicableTopics, 'childcare')",
+            "relevant": "selected($expenditures.applicableTopics, 'childcare')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.assetBuilding",
-            "relevant": "selected($applicableTopics, 'assetBuilding')",
+            "relevant": "selected($expenditures.applicableTopics, 'assetBuilding')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.housing",
-            "relevant": "selected($applicableTopics, 'housing')",
+            "relevant": "selected($expenditures.applicableTopics, 'housing')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.health",
-            "relevant": "selected($applicableTopics, 'health')",
+            "relevant": "selected($expenditures.applicableTopics, 'health')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.civic",
-            "relevant": "selected($applicableTopics, 'civic')",
+            "relevant": "selected($expenditures.applicableTopics, 'civic')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.transportation",
-            "relevant": "selected($applicableTopics, 'transportation')",
+            "relevant": "selected($expenditures.applicableTopics, 'transportation')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.partnerships",
-            "relevant": "selected($applicableTopics, 'partnerships')",
+            "relevant": "selected($expenditures.applicableTopics, 'partnerships')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
         },
         {
             "path": "expenditures.other",
-            "relevant": "selected($applicableTopics, 'other')",
+            "relevant": "selected($expenditures.applicableTopics, 'other')",
             "default": { "amount": "0", "currency": "USD" },
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Expenditure amount cannot be negative"
@@ -339,62 +339,62 @@
             "readonly": "true"
         },
         {
-            "path": "administrationExpenditure",
-            "relevant": "$hasAdministrationCosts = true",
-            "required": "$hasAdministrationCosts = true",
+            "path": "expenditures.administrationExpenditure",
+            "relevant": "$expenditures.hasAdministrationCosts = true",
+            "required": "$expenditures.hasAdministrationCosts = true",
             "constraint": "moneyAmount($) >= 0",
             "constraintMessage": "Administration amount cannot be negative"
         },
         {
             "path": "descriptions.employmentDesc",
-            "relevant": "selected($applicableTopics, 'employment')",
+            "relevant": "selected($expenditures.applicableTopics, 'employment')",
             "default": "N/A"
         },
         {
             "path": "descriptions.educationDesc",
-            "relevant": "selected($applicableTopics, 'childcare')",
+            "relevant": "selected($expenditures.applicableTopics, 'childcare')",
             "default": "N/A"
         },
         {
             "path": "descriptions.incomeDesc",
-            "relevant": "selected($applicableTopics, 'assetBuilding')",
+            "relevant": "selected($expenditures.applicableTopics, 'assetBuilding')",
             "default": "N/A"
         },
         {
             "path": "descriptions.housingDesc",
-            "relevant": "selected($applicableTopics, 'housing')",
+            "relevant": "selected($expenditures.applicableTopics, 'housing')",
             "default": "N/A"
         },
         {
             "path": "descriptions.healthDesc",
-            "relevant": "selected($applicableTopics, 'health')",
+            "relevant": "selected($expenditures.applicableTopics, 'health')",
             "default": "N/A"
         },
         {
             "path": "descriptions.civicDesc",
-            "relevant": "selected($applicableTopics, 'civic')",
+            "relevant": "selected($expenditures.applicableTopics, 'civic')",
             "default": "N/A"
         },
         {
             "path": "descriptions.transportationDesc",
-            "relevant": "selected($applicableTopics, 'transportation')",
+            "relevant": "selected($expenditures.applicableTopics, 'transportation')",
             "default": "N/A"
         },
         {
             "path": "descriptions.partnershipsDesc",
-            "relevant": "selected($applicableTopics, 'partnerships')",
+            "relevant": "selected($expenditures.applicableTopics, 'partnerships')",
             "default": "N/A"
         },
         {
             "path": "descriptions.otherDesc",
-            "relevant": "selected($applicableTopics, 'other')",
+            "relevant": "selected($expenditures.applicableTopics, 'other')",
             "default": "N/A"
         }
     ],
     "shapes": [
         {
             "id": "atLeastOneTopic",
-            "target": "applicableTopics",
+            "target": "expenditures.applicableTopics",
             "constraint": "present($)",
             "message": "Please select at least one expenditure category",
             "severity": "error",
