@@ -58,7 +58,6 @@ function TypingIndicator() {
 /* ── Inline text renderer: basic markdown-lite ── */
 
 function InlineText({ text }: { text: string }) {
-  // Split on **bold**, *italic*, and `code` for lightweight rendering
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/);
   return (
     <>
@@ -71,7 +70,7 @@ function InlineText({ text }: { text: string }) {
         }
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
-            <code key={i} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[13px] text-slate-700">
+            <code key={i} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[12px] text-slate-700">
               {part.slice(1, -1)}
             </code>
           );
@@ -82,20 +81,90 @@ function InlineText({ text }: { text: string }) {
   );
 }
 
+/* ── Block-level markdown parser ───────────────── */
+
+type MdBlock =
+  | { kind: 'p'; lines: string[] }
+  | { kind: 'ul'; items: string[] }
+  | { kind: 'ol'; items: string[] }
+  | { kind: 'h'; level: 1 | 2 | 3; text: string };
+
+function parseMdBlocks(text: string): MdBlock[] {
+  const blocks: MdBlock[] = [];
+  let current: MdBlock | null = null;
+
+  function flush() {
+    if (current) { blocks.push(current); current = null; }
+  }
+
+  for (const line of text.split('\n')) {
+    if (line.trim() === '') { flush(); continue; }
+
+    const hMatch = line.match(/^(#{1,3})\s+(.*)/);
+    if (hMatch) {
+      flush();
+      blocks.push({ kind: 'h', level: hMatch[1].length as 1 | 2 | 3, text: hMatch[2] });
+      continue;
+    }
+
+    const ulMatch = line.match(/^[-*]\s+(.*)/);
+    if (ulMatch) {
+      if (!current || current.kind !== 'ul') { flush(); current = { kind: 'ul', items: [] }; }
+      current.items.push(ulMatch[1]);
+      continue;
+    }
+
+    const olMatch = line.match(/^\d+\.\s+(.*)/);
+    if (olMatch) {
+      if (!current || current.kind !== 'ol') { flush(); current = { kind: 'ol', items: [] }; }
+      current.items.push(olMatch[1]);
+      continue;
+    }
+
+    if (!current || current.kind !== 'p') { flush(); current = { kind: 'p', lines: [] }; }
+    current.lines.push(line);
+  }
+
+  flush();
+  return blocks;
+}
+
 function AssistantText({ text }: { text: string }) {
-  // Split by newlines to preserve paragraph structure
-  const paragraphs = text.split(/\n{2,}/);
+  const blocks = parseMdBlocks(text);
   return (
     <div className="space-y-2">
-      {paragraphs.map((para, i) => {
-        const lines = para.split('\n');
+      {blocks.map((block, i) => {
+        if (block.kind === 'h') {
+          const cls = block.level === 1
+            ? 'text-[14px] font-bold text-slate-900 mt-1'
+            : block.level === 2
+              ? 'text-[13px] font-bold text-slate-800 mt-0.5'
+              : 'text-[13px] font-semibold text-slate-700';
+          return <div key={i} className={cls}><InlineText text={block.text} /></div>;
+        }
+        if (block.kind === 'ul') {
+          return (
+            <ul key={i} className="ml-4 space-y-0.5 list-disc text-slate-700 marker:text-slate-400">
+              {block.items.map((item, j) => (
+                <li key={j} className="leading-relaxed"><InlineText text={item} /></li>
+              ))}
+            </ul>
+          );
+        }
+        if (block.kind === 'ol') {
+          return (
+            <ol key={i} className="ml-4 space-y-0.5 list-decimal text-slate-700 marker:text-slate-400">
+              {block.items.map((item, j) => (
+                <li key={j} className="leading-relaxed"><InlineText text={item} /></li>
+              ))}
+            </ol>
+          );
+        }
+        // paragraph
         return (
           <p key={i} className="leading-relaxed">
-            {lines.map((line, j) => (
-              <span key={j}>
-                {j > 0 && <br />}
-                <InlineText text={line} />
-              </span>
+            {block.lines.map((line, j) => (
+              <span key={j}>{j > 0 && <br />}<InlineText text={line} /></span>
             ))}
           </p>
         );
@@ -125,7 +194,7 @@ function UserMessage() {
   );
 }
 
-function AssistantTextPart({ text }: { text: string; type?: string }) {
+function AssistantTextPart({ text }: { text: string }) {
   return <AssistantText text={text} />;
 }
 
