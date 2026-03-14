@@ -521,6 +521,53 @@ test.describe('Refine Workspace: edit prompt patterns', () => {
   });
 });
 
+test.describe('Multiple Sequential Edits in Refine', () => {
+  test('applying two edit prompts sequentially both succeed without errors', async ({ page }) => {
+    await gotoInquest(page);
+    await reachRefine(page);
+
+    const promptArea = page.getByPlaceholder(/describe a change/i);
+
+    // First edit: make email required
+    await promptArea.fill('make email required');
+    await promptArea.press('Enter');
+    await expect(promptArea).toHaveValue('', { timeout: 5000 });
+    await expect(page.getByText(/something went wrong/i)).not.toBeVisible();
+
+    // Second edit: add a new field
+    await promptArea.fill('add notes field');
+    await promptArea.press('Enter');
+    await expect(promptArea).toHaveValue('', { timeout: 5000 });
+    await expect(page.getByText(/something went wrong/i)).not.toBeVisible();
+
+    // Workspace should still be functional after both edits
+    await expect(page.getByRole('button', { name: /open in studio/i })).toBeVisible();
+  });
+});
+
+test.describe('Template Switching: selecting a different blueprint updates the session', () => {
+  test('selecting different blueprints in the gallery sends different templates to analysis', async ({ page }) => {
+    await gotoInquest(page);
+    await completeProviderSetup(page);
+
+    // Open the gallery and select the Grant Application template (index 1)
+    // instead of Housing Intake (index 0) — verify it produces the right fields.
+    await selectBlueprintByIndex(page, 1);
+
+    // Click Draft Fast with the Grant Application template
+    await page.getByText('Draft Fast').click();
+    await expect(page.getByText('Requirements review')).toBeVisible({ timeout: ANALYSIS_TIMEOUT });
+
+    // Should show Grant Application fields, not Housing Intake fields
+    await expect(page.getByText('Organization Name')).toBeVisible();
+    await expect(page.getByText('Project Title')).toBeVisible();
+    await expect(page.getByText('Requested Amount')).toBeVisible();
+
+    // Housing Intake fields should NOT be present
+    await expect(page.getByText('Household Size', { exact: true })).not.toBeVisible();
+  });
+});
+
 test.describe('Full Round-Trip: Review -> Refine -> Back to Review -> Refine Again', () => {
   test('navigating back and forth between review and refine preserves state', async ({ page }) => {
     await gotoInquest(page);
