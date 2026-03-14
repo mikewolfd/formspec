@@ -132,12 +132,12 @@ test.describe('Inquest — Chat and Input Phase', () => {
     await expect(page.getByText(/patient intake/i)).toBeVisible({ timeout: 3000 });
   });
 
-  test('clicking a quick start hides the welcome quick-start section', async ({ page }) => {
+  test('clicking a quick start triggers analysis and removes the welcome section', async ({ page }) => {
     await page.getByRole('button', { name: /event registration/i }).click();
-    // Wait for state change, then verify welcome buttons are gone
-    await expect(page.getByText(/I'm Stack/i)).toBeVisible(); // thread is visible
+    // With the deterministic provider, analysis completes instantly → transitions to review.
+    // Either way, the welcome quick-start buttons must no longer be visible.
     await expect(page.getByRole('button', { name: /event registration/i })).not.toBeVisible({
-      timeout: 3000,
+      timeout: ANALYSIS_TIMEOUT,
     });
   });
 
@@ -147,11 +147,15 @@ test.describe('Inquest — Chat and Input Phase', () => {
     await expect(textarea).toHaveValue('Build a volunteer application form');
   });
 
-  test('shows Generate CTA after meaningful input from quick start', async ({ page }) => {
-    // Quick starts trigger analysis — CTA appears while analysis runs (buttons disabled)
-    await page.getByRole('button', { name: /grant application/i }).click();
+  test('shows Generate CTA (enabled) after selecting a blueprint', async ({ page }) => {
+    // Blueprint selection sets templateId → meaningfulInput=true → CTA appears.
+    // Unlike quick-start clicks, blueprint selection does NOT trigger analysis,
+    // so both buttons are enabled and ready to click.
+    await selectBlueprint(page);
     await expect(page.getByText('Draft Fast')).toBeVisible({ timeout: 3000 });
     await expect(page.getByText('Verify Carefully')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Draft Fast' })).not.toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Verify Carefully' })).not.toBeDisabled();
   });
 
   test('Blueprint gallery opens and shows templates', async ({ page }) => {
@@ -224,8 +228,10 @@ test.describe('Inquest — Verify Carefully → Review Phase', () => {
 
   test('transitions to Review phase after clicking Verify Carefully', async ({ page }) => {
     await completeProviderSetup(page);
-    await page.getByRole('button', { name: /patient intake/i }).click();
-    await page.getByText('Verify Carefully').click({ timeout: 3000 });
+    // Select a blueprint — this gives meaningful input WITHOUT triggering analysis,
+    // so the Verify Carefully button is enabled and ready to click.
+    await selectBlueprint(page);
+    await page.getByRole('button', { name: /verify carefully/i }).click({ timeout: 3000 });
     await expect(page.getByText('Requirements review')).toBeVisible({ timeout: ANALYSIS_TIMEOUT });
   });
 
