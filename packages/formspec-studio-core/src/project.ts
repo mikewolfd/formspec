@@ -35,16 +35,11 @@ import {
   itemAtPath,
   normalizeIndexedPath,
   validateExtensionUsage,
+  type DocumentType,
   type FELAnalysis,
   type FormspecDefinition,
   type FormspecItem,
 } from 'formspec-engine';
-import Ajv2020 from 'ajv/dist/2020.js';
-import type { ErrorObject, ValidateFunction } from 'ajv';
-import definitionSchema from '../../../schemas/definition.schema.json';
-import componentSchema from '../../../schemas/component.schema.json';
-import themeSchema from '../../../schemas/theme.schema.json';
-import mappingSchema from '../../../schemas/mapping.schema.json';
 import { getHandler } from './handlers.js';
 import {
   createGeneratedLayoutDocument,
@@ -123,32 +118,6 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
   };
 }
 
-const ajv = new Ajv2020({
-  allErrors: true,
-  strict: false,
-  validateFormats: false,
-});
-
-const validateDefinitionSchema = ajv.compile(definitionSchema as Record<string, unknown>);
-const validateComponentSchema = ajv.compile(componentSchema as Record<string, unknown>);
-const validateThemeSchema = ajv.compile(themeSchema as Record<string, unknown>);
-const validateMappingSchema = ajv.compile(mappingSchema as Record<string, unknown>);
-
-/** Convert an Ajv error into the JSON-pointer-ish path format used by Studio diagnostics. */
-function schemaErrorPath(error: ErrorObject): string {
-  let pointer = error.instancePath || '';
-  // Ajv reports some keywords at the parent object; append the offending key so
-  // Studio can point diagnostics at the specific missing/extra property.
-  if (error.keyword === 'required') {
-    const missingProperty = (error.params as { missingProperty?: string }).missingProperty;
-    if (missingProperty) pointer = `${pointer}/${missingProperty}`;
-  } else if (error.keyword === 'additionalProperties') {
-    const additionalProperty = (error.params as { additionalProperty?: string }).additionalProperty;
-    if (additionalProperty) pointer = `${pointer}/${additionalProperty}`;
-  }
-  return pointer || '/';
-}
-
 /** Deterministic JSON stringification used to compare item payloads independent of property order. */
 function stableStringify(value: unknown): string {
   if (value === null || value === undefined) return JSON.stringify(value);
@@ -172,9 +141,12 @@ type FlattenedItem = {
 };
 
 /** Flatten an item tree into comparable rows carrying both exact-path and rename-tolerant signatures. */
-function flattenItems(items: FormspecItem[], prefix = ''): FlattenedItem[] {
+function flattenItems(items: FormspecItem[], prefix = '', visited?: WeakSet<object>): FlattenedItem[] {
+  const seen = visited ?? new WeakSet<object>();
   const rows: FlattenedItem[] = [];
   for (const item of items) {
+    if (seen.has(item as object)) continue;
+    seen.add(item as object);
     const path = prefix ? `${prefix}.${item.key}` : item.key;
     const parentPath = prefix;
     const withoutChildren = { ...(item as Record<string, unknown>) };
@@ -192,7 +164,7 @@ function flattenItems(items: FormspecItem[], prefix = ''): FlattenedItem[] {
       signature: stableStringify(signatureSource),
     });
     if (item.children?.length) {
-      rows.push(...flattenItems(item.children, path));
+      rows.push(...flattenItems(item.children, path, seen));
     }
   }
   return rows;
@@ -237,6 +209,8 @@ export class Project {
   private _middleware: Middleware[];
   /** Maximum number of undo snapshots before oldest-first pruning. */
   private _maxHistory: number;
+  /** Optional schema validator; when set, diagnose() populates structural diagnostics. */
+  private _schemaValidator: ProjectOptions['schemaValidator'];
 
   /**
    * Create a new Project instance.
@@ -247,6 +221,7 @@ export class Project {
     this._state = createDefaultState(options);
     this._maxHistory = options?.maxHistoryDepth ?? DEFAULT_MAX_HISTORY;
     this._middleware = options?.middleware ?? [];
+    this._schemaValidator = options?.schemaValidator;
 
     // Auto-build generated layout when a definition is seeded without an
     // authored component tree.
@@ -892,9 +867,12 @@ export class Project {
       pushExpression(va.expression, 'definition', `variables[${va.name}]`);
     }
 
-    // Item-level FEL-bearing properties
+    // Item-level FEL-bearing properties (visited prevents infinite recursion on circular item trees)
+    const itemVisited = new WeakSet<object>();
     const walkItems = (items: FormspecItem[], prefix: string) => {
       for (const item of items) {
+        if (itemVisited.has(item as object)) continue;
+        itemVisited.add(item as object);
         const path = prefix ? `${prefix}.${item.key}` : item.key;
         const dynamic = item as any;
         for (const prop of ['relevant', 'required', 'readonly', 'calculate', 'constraint']) {
@@ -931,10 +909,13 @@ export class Project {
       }
     }
 
-    // Component document `when` guards
+    // Component document `when` guards (visited set prevents infinite recursion on circular trees)
+    const componentVisited = new WeakSet<object>();
     const walkComponentNode = (node: unknown, location: string) => {
       if (!node || typeof node !== 'object') return;
       const n = node as Record<string, unknown>;
+      if (componentVisited.has(n)) return;
+      componentVisited.add(n);
       if (typeof n.when === 'string') {
         pushExpression(n.when, 'component', `${location}.when`);
       }
@@ -1390,61 +1371,63 @@ export class Project {
    * Not continuously computed -- the consumer decides when to call it
    * (on save, on panel open, on a debounce timer, etc.).
    *
-   * Current passes:
-   * - **structural**: JSON Schema validation for artifacts that declare the
-   *   full Studio-managed document surface.
-   * - **expressions**: Parser-backed FEL validation for every indexed expression.
-   * - **extensions**: Registry-backed extension usage checks on definition items.
-   * - **consistency**: Cross-artifact reference checks (component binds, mapping
-   *   source paths, theme selectors, and stale theme overrides/region keys).
+   * Passes: **structural** (when {@link ProjectOptions.schemaValidator} is set — JSON Schema
+   * validation via formspec-engine, using shallow+per-node for component to avoid hangs),
+   * **expressions** (FEL parse/analysis), **extensions** (registry-backed checks on definition
+   * items), **consistency** (component binds, mapping paths, theme selectors).
    *
    * @returns A {@link Diagnostics} object with categorized diagnostic arrays and severity counts.
    */
   diagnose(): Diagnostics {
+    const log = (msg: string) => {
+      if (typeof process !== 'undefined' && process.env?.DIAGNOSE_DEBUG) process.stderr.write(`[diagnose] ${msg}\n`);
+    };
+    log('start');
     const structural: Diagnostic[] = [];
     const expressions: Diagnostic[] = [];
     const extensions: Diagnostic[] = [];
     const consistency: Diagnostic[] = [];
 
-    const applySchemaValidator = (
-      artifact: Diagnostic['artifact'],
-      validator: ValidateFunction,
-      document: unknown,
-    ) => {
-      const valid = validator(document);
-      if (valid || !validator.errors) return;
-      for (const error of validator.errors) {
-        structural.push({
-          artifact,
-          path: schemaErrorPath(error),
-          severity: 'error',
-          code: 'SCHEMA_VALIDATION_ERROR',
-          message: error.message ?? `Schema validation failed for ${artifact} document`,
-        });
+    // Structural: JSON Schema validation when a validator was provided (engine shallow+per-node for component).
+    if (this._schemaValidator) {
+      log('structural...');
+      const artifacts: Array<{ artifact: Diagnostic['artifact']; doc: unknown; type: DocumentType }> = [
+        { artifact: 'definition', doc: this._state.definition, type: 'definition' },
+        { artifact: 'component', doc: getCurrentComponentDocument(this._state), type: 'component' },
+        { artifact: 'theme', doc: this._state.theme, type: 'theme' },
+        { artifact: 'mapping', doc: this._state.mapping, type: 'mapping' },
+      ];
+      for (const { artifact, doc, type } of artifacts) {
+        if (doc == null || (typeof doc === 'object' && Object.keys(doc).length === 0)) continue;
+        const result = this._schemaValidator.validate(doc, type);
+        if (result.documentType === null && result.errors.length > 0) {
+          structural.push({
+            artifact,
+            path: '$',
+            severity: 'error',
+            code: 'E100',
+            message: result.errors[0].message,
+          });
+        } else {
+          for (const e of result.errors) {
+            structural.push({
+              artifact,
+              path: e.path.startsWith('$.') ? e.path.slice(2) : e.path === '$' ? '$' : e.path,
+              severity: 'error',
+              code: 'E101',
+              message: e.message,
+            });
+          }
+        }
       }
-    };
-
-    // Structural diagnostics (Ajv/JSON Schema). We only validate artifacts that
-    // opt into the full schema surface used by this project.
-    const definitionDoc = this._state.definition as Record<string, unknown>;
-    if (definitionDoc.status !== undefined) {
-      applySchemaValidator('definition', validateDefinitionSchema, definitionDoc);
-    }
-    const componentDoc = this._state.component as Record<string, unknown>;
-    if (typeof componentDoc.$formspecComponent === 'string') {
-      applySchemaValidator('component', validateComponentSchema, componentDoc);
-    }
-    const themeDoc = this._state.theme as Record<string, unknown>;
-    if (typeof themeDoc.$formspecTheme === 'string') {
-      applySchemaValidator('theme', validateThemeSchema, themeDoc);
-    }
-    const mappingDoc = this._state.mapping as Record<string, unknown>;
-    if (typeof mappingDoc.version === 'string' && Array.isArray(mappingDoc.rules)) {
-      applySchemaValidator('mapping', validateMappingSchema, mappingDoc);
+      log('structural done');
     }
 
     // Expression diagnostics: parser-backed FEL analysis for all indexed expressions.
-    for (const expr of this.allExpressions()) {
+    log('allExpressions...');
+    const exprs = this.allExpressions();
+    log(`allExpressions done (${exprs.length} exprs)`);
+    for (const expr of exprs) {
       const analysis = analyzeFEL(expr.expression);
       if (analysis.valid) continue;
       for (const error of analysis.errors) {
@@ -1457,8 +1440,10 @@ export class Project {
         });
       }
     }
+    log('expressions pass done');
 
     // Extension diagnostics: shared engine helper over plain definition items.
+    log('extensions...');
     const extensionLookup = new Map<string, Record<string, unknown>>();
     for (const registry of this._state.extensions.registries) {
       for (const [name, entry] of registry.catalog.entries) {
@@ -1478,27 +1463,42 @@ export class Project {
         message: issue.message,
       });
     }
+    log('extensions done');
 
+    log('flattenItems...');
     const itemRows = flattenItems(this._state.definition.items);
+    log(`flattenItems done (${itemRows.length} rows)`);
     const itemKeySet = new Set(itemRows.map((row) => row.key));
+    const itemPathSet = new Set(itemRows.map((row) => row.path));
     const fieldRows = itemRows.filter((row) => row.item.type === 'field');
     const fieldPaths = new Set(fieldRows.map((row) => row.path));
-    const normalizedFieldPaths = new Set(fieldRows.map((row) => normalizeIndexedPath(row.path)));
+    const normalizedItemPaths = new Set(itemRows.map((row) => normalizeIndexedPath(row.path)));
 
     // Consistency: orphan or mis-bound component nodes
-    const itemTypeByKey = new Map(itemRows.map((row) => [row.key, row.item.type]));
+    const itemTypeByKey = new Map(itemRows.map((row) => [row.key, row.item.type] as const));
+    const itemTypeByPath = new Map(itemRows.map((row) => [row.path, row.item.type] as const));
     // Components that legitimately bind to group/repeat items rather than fields
     const GROUP_AWARE_COMPONENTS = new Set([
       'Stack', 'Grid', 'Columns', 'Panel', 'Collapsible',
       'DataTable', 'Accordion', 'Tabs',
     ]);
+    log('component tree...');
     const tree = getCurrentComponentDocument(this._state).tree as any;
     if (tree) {
-      const queue = [tree];
+      const visited = new WeakSet<object>();
+      const queue: unknown[] = [tree];
+      let componentNodes = 0;
       while (queue.length > 0) {
-        const node = queue.shift()!;
+        componentNodes++;
+        if (componentNodes % 500 === 0) log(`component tree node ${componentNodes}`);
+        const raw = queue.shift();
+        if (!raw || typeof raw !== 'object') continue;
+        if (visited.has(raw)) continue;
+        visited.add(raw);
+        const node = raw as { bind?: string; component?: string; children?: unknown[] };
         if (node.bind) {
-          if (!itemKeySet.has(node.bind)) {
+          const bindExists = itemKeySet.has(node.bind) || itemPathSet.has(node.bind);
+          if (!bindExists) {
             consistency.push({
               artifact: 'component',
               path: node.bind,
@@ -1506,27 +1506,43 @@ export class Project {
               code: 'ORPHAN_COMPONENT_BIND',
               message: `Component node bound to "${node.bind}" but no such item exists in the definition`,
             });
-          } else if (!fieldPaths.has(node.bind) && !GROUP_AWARE_COMPONENTS.has(node.component)) {
-            const itemType = itemTypeByKey.get(node.bind) ?? 'unknown';
-            consistency.push({
-              artifact: 'component',
-              path: node.bind,
-              severity: 'warning',
-              code: 'DISPLAY_ITEM_BIND',
-              message: `Component "${node.component}" is bound to "${node.bind}" which is a ${itemType} item, not a field — no value to display`,
-            });
+          } else {
+            // Check if a non-group-aware component is bound to a group item (fields and display items are fine)
+            const itemType = itemTypeByKey.get(node.bind) ?? itemTypeByPath.get(node.bind);
+            if (itemType === 'group' && !GROUP_AWARE_COMPONENTS.has(node.component ?? '')) {
+              consistency.push({
+                artifact: 'component',
+                path: node.bind,
+                severity: 'warning',
+                code: 'DISPLAY_ITEM_BIND',
+                message: `Component "${node.component}" is bound to "${node.bind}" which is a group item, not a field — no value to display`,
+              });
+            }
           }
         }
-        if (node.children) queue.push(...node.children);
+        if (Array.isArray(node.children)) {
+          for (const child of node.children) {
+            if (child && typeof child === 'object' && !visited.has(child as object)) queue.push(child);
+          }
+        }
       }
+      log(`component tree done (${componentNodes} nodes)`);
     }
 
     // Consistency: stale mapping rule source paths
+    log('consistency mapping/theme...');
     const rules = (this._state.mapping as any).rules as any[] | undefined;
     if (rules) {
       for (let i = 0; i < rules.length; i++) {
         const sp = rules[i].sourcePath;
-        if (typeof sp === 'string' && !normalizedFieldPaths.has(normalizeIndexedPath(sp))) {
+        const isKnownPath = (p: string): boolean => {
+          const norm = normalizeIndexedPath(p);
+          if (normalizedItemPaths.has(norm)) return true;
+          // Allow sub-property paths of known items (e.g. money field → .amount/.currency)
+          const dot = norm.lastIndexOf('.');
+          return dot > 0 && normalizedItemPaths.has(norm.slice(0, dot));
+        };
+        if (typeof sp === 'string' && !isKnownPath(sp)) {
           consistency.push({
             artifact: 'mapping',
             path: `rules[${i}].sourcePath`,
@@ -1614,6 +1630,7 @@ export class Project {
       }
     }
 
+    log('consistency done');
     // Aggregate counts
     const all = [...structural, ...expressions, ...extensions, ...consistency];
     const counts = { error: 0, warning: 0, info: 0 };
@@ -1621,6 +1638,7 @@ export class Project {
       counts[d.severity]++;
     }
 
+    log('done');
     return { structural, expressions, extensions, consistency, counts };
   }
 

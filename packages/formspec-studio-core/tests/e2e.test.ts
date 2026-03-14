@@ -14,6 +14,21 @@ describe('Formspec Studio Core E2E Validation', () => {
   let project: ReturnType<typeof createProject>;
 
   const validateProject = (stepName: string) => {
+    // TS engine validator (in-memory)
+    const diag = project.diagnose();
+    const ok = diag.counts.error === 0 && diag.counts.warning === 0;
+    if (!ok) {
+      const all = [
+        ...diag.structural.map(d => ({ ...d, pass: 'structural' as const })),
+        ...diag.expressions.map(d => ({ ...d, pass: 'expressions' as const })),
+        ...diag.extensions.map(d => ({ ...d, pass: 'extensions' as const })),
+        ...diag.consistency.map(d => ({ ...d, pass: 'consistency' as const })),
+      ];
+      console.error(`[${stepName}] TS diagnose:`, diag.counts, { all });
+    }
+    expect(diag.counts.error).toBe(0);
+    expect(diag.counts.warning).toBe(0);
+
     const defPath = path.join(tmpDir, 'definition.json');
     const themePath = path.join(tmpDir, 'theme.json');
     const compPath = path.join(tmpDir, 'component.json');
@@ -165,7 +180,7 @@ describe('Formspec Studio Core E2E Validation', () => {
   it('3. Advanced Logic Builder adds variables, shapes, and instances', () => {
     project.batch([
       { type: 'definition.addVariable', payload: { name: 'testVar', expression: '1 + 1' } },
-      { type: 'definition.setVariable', payload: { name: 'testVar', expression: '2 + 2' } },
+      { type: 'definition.setVariable', payload: { name: 'testVar', property: 'expression', value: '2 + 2' } },
     ]);
     validateProject('3-logic-builder-vars');
 
