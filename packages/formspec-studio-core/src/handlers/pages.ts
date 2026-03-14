@@ -156,20 +156,34 @@ registerHandler('pages.autoGenerate', (state, payload) => {
   // Clear existing pages
   pages.length = 0;
 
-  // Walk definition items looking for groups with layout.page hints
+  // Walk definition items looking for groups with presentation.layout.page hints
+  // Schema path: definition.schema.json Presentation.layout.page
   const pageMap = new Map<string, any>();
+  const pageOrder: string[] = [];
+  let lastPageHint: string | null = null;
+
   for (const item of items) {
-    if ((item as any).type === 'group' && (item as any).layout?.page) {
-      const pageHint = (item as any).layout.page;
+    if ((item as any).type !== 'group') continue;
+
+    const pageHint = (item as any).presentation?.layout?.page;
+
+    if (pageHint) {
+      lastPageHint = pageHint;
       if (!pageMap.has(pageHint)) {
         pageMap.set(pageHint, {
           id: generatePageId(),
           title: (item as any).label ?? (item as any).key,
           regions: [],
         });
+        pageOrder.push(pageHint);
       }
-      const page = pageMap.get(pageHint)!;
-      // Add child keys as regions
+    }
+
+    // Attach to current page (if has hint) or preceding page (if no hint)
+    // Per schema: "Groups without a page attach to the preceding page"
+    const targetHint = pageHint ?? lastPageHint;
+    if (targetHint && pageMap.has(targetHint)) {
+      const page = pageMap.get(targetHint)!;
       const children = (item as any).children ?? [];
       for (const child of children) {
         page.regions.push({ key: child.key, span: 12 });
@@ -178,7 +192,9 @@ registerHandler('pages.autoGenerate', (state, payload) => {
   }
 
   if (pageMap.size > 0) {
-    pages.push(...pageMap.values());
+    for (const hint of pageOrder) {
+      pages.push(pageMap.get(hint)!);
+    }
   } else {
     // Fallback: single page with all root items
     const fallbackPage: any = {
@@ -192,6 +208,10 @@ registerHandler('pages.autoGenerate', (state, payload) => {
     pages.push(fallbackPage);
   }
 
-  fp.pageMode = 'wizard';
-  return { rebuildComponentTree: false };
+  // Only promote to wizard if currently single or unset
+  if (!fp.pageMode || fp.pageMode === 'single') {
+    fp.pageMode = 'wizard';
+  }
+
+  return { rebuildComponentTree: true };
 });
