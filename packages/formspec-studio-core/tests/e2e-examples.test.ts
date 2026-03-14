@@ -11,6 +11,11 @@ const __dirname = path.dirname(__filename);
 const EXAMPLES_DIR = path.resolve(__dirname, '../../../examples');
 const REGISTRY_PATH = path.resolve(__dirname, '../../../registries/formspec-common.registry.json');
 
+/** Unbuffered stderr progress — to see where it freezes, run: npx vitest run tests/e2e-examples.test.ts --reporter=verbose 2>&1 */
+function progress(msg: string): void {
+  process.stderr.write(`[e2e-examples] ${msg}\n`);
+}
+
 /** Reconstructs definition.json ast using dispatch functions on a greenfield project */
 function hydrateDefinition(project: any, defJson: any) {
   const actions: any[] = [];
@@ -249,16 +254,21 @@ function hydrateMapping(project: any, mapJson: any) {
 
 describe('Formspec Studio E2E Examples Rehydration', () => {
   let tmpDir: string;
+  let commonRegistry: { url: string; entries: unknown[] };
 
   beforeAll(() => {
+    process.env.DIAGNOSE_DEBUG = '1';
     tmpDir = path.resolve(__dirname, '../../../reconstructed-examples');
     if (fs.existsSync(tmpDir)) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
     fs.mkdirSync(tmpDir, { recursive: true });
+    const registryDoc = JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf-8'));
+    commonRegistry = { url: 'urn:formspec:common', entries: registryDoc.entries ?? [] };
   });
 
   afterAll(() => {
+    delete process.env.DIAGNOSE_DEBUG;
     console.log('RECONSTRUCTED_EXAMPLES saved to:', tmpDir);
   });
 
@@ -267,7 +277,11 @@ describe('Formspec Studio E2E Examples Rehydration', () => {
   });
 
   for (const ex of examples) {
-    it(`dynamically reconstructs and validates \${ex}`, () => {
+    it(
+      `dynamically reconstructs and validates ${ex}`,
+      { timeout: 120_000 },
+      () => {
+      progress(`start example: ${ex}`);
       const exPath = path.join(EXAMPLES_DIR, ex);
       const files = fs.readdirSync(exPath).filter(f => f.endsWith('.json'));
       
@@ -276,35 +290,45 @@ describe('Formspec Studio E2E Examples Rehydration', () => {
       
       for (const defFile of defFiles) {
         const prefix = defFile.split('.definition.json')[0];
-        
+        progress(`${ex} / ${prefix}: createProject + loadRegistry`);
         const project = createProject();
+        project.dispatch({ type: 'project.loadRegistry', payload: { registry: commonRegistry } });
         
         // 1. Definition
+        progress(`${ex} / ${prefix}: hydrateDefinition...`);
         const defContent = JSON.parse(fs.readFileSync(path.join(exPath, defFile), 'utf-8'));
         hydrateDefinition(project, defContent);
+        progress(`${ex} / ${prefix}: hydrateDefinition done`);
 
         // 2. Theme
         const themeFile = files.find(f => f === `${prefix}.theme.json` || f === 'theme.json');
         if (themeFile) {
+          progress(`${ex} / ${prefix}: hydrateTheme...`);
           const themeContent = JSON.parse(fs.readFileSync(path.join(exPath, themeFile), 'utf-8'));
           hydrateTheme(project, themeContent);
+          progress(`${ex} / ${prefix}: hydrateTheme done`);
         }
 
         // 3. Component
         const compFile = files.find(f => f === `${prefix}.component.json` || f === 'component.json');
         if (compFile) {
+          progress(`${ex} / ${prefix}: hydrateComponent...`);
           const compContent = JSON.parse(fs.readFileSync(path.join(exPath, compFile), 'utf-8'));
           hydrateComponent(project, compContent);
+          progress(`${ex} / ${prefix}: hydrateComponent done`);
         }
 
         // 4. Mapping
         const mapFile = files.find(f => f === `${prefix}.mapping.json` || f === 'mapping.json');
         if (mapFile) {
+          progress(`${ex} / ${prefix}: hydrateMapping...`);
           const mapContent = JSON.parse(fs.readFileSync(path.join(exPath, mapFile), 'utf-8'));
           hydrateMapping(project, mapContent);
+          progress(`${ex} / ${prefix}: hydrateMapping done`);
         }
 
         // Export to tmp
+        progress(`${ex} / ${prefix}: writing artifacts...`);
         const outDir = path.join(tmpDir, `${ex}-${prefix}`);
         fs.mkdirSync(outDir, { recursive: true });
 
@@ -313,20 +337,40 @@ describe('Formspec Studio E2E Examples Rehydration', () => {
         fs.writeFileSync(path.join(outDir, 'component.json'), JSON.stringify(project.component, null, 2));
         fs.writeFileSync(path.join(outDir, 'mapping.json'), JSON.stringify(project.mapping, null, 2));
 
-        // Validate
+        // TS engine validator (in-memory)
+        progress(`${ex} / ${prefix}: diagnose...`);
+        const diag = project.diagnose();
+        progress(`${ex} / ${prefix}: diagnose done`);
+        const ok = diag.counts.error === 0 && diag.counts.warning === 0;
+        if (!ok) {
+          const all = [
+            ...diag.structural.map(d => ({ ...d, pass: 'structural' as const })),
+            ...diag.expressions.map(d => ({ ...d, pass: 'expressions' as const })),
+            ...diag.extensions.map(d => ({ ...d, pass: 'extensions' as const })),
+            ...diag.consistency.map(d => ({ ...d, pass: 'consistency' as const })),
+          ];
+          console.error(`[${ex}-${prefix}] TS diagnose:`, diag.counts, { all });
+        }
+        expect(diag.counts.error).toBe(0);
+        expect(diag.counts.warning).toBe(0);
+
+        // Python validation (on written files) — timeout to avoid hanging
+        progress(`${ex} / ${prefix}: Python validate...`);
         const validateCmd = `python3 -m formspec.validate ${outDir} --registry ${REGISTRY_PATH}`;
         try {
           const output = execSync(validateCmd, {
             cwd: path.resolve(__dirname, '../../..'),
             env: { ...process.env, PYTHONPATH: path.resolve(__dirname, '../../../src') },
             encoding: 'utf8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            timeout: 60_000,
           });
           
           if (!output.includes('0 errors') && !output.includes('0 inconsistency')) {
             console.error(`OUTPUT FOR ${ex}-${prefix}:`, output);
           }
           expect(output).toMatch(/(0 errors|0 consistency issues)/);
+          progress(`${ex} / ${prefix}: Python validate done`);
         } catch (e: any) {
           if (e.stdout || e.stderr) {
             console.error(`STDOUT [${ex}-${prefix}]:`, e.stdout);
@@ -335,6 +379,8 @@ describe('Formspec Studio E2E Examples Rehydration', () => {
           throw e;
         }
       }
-    });
+      progress(`end example: ${ex}`);
+    },
+    );
   }
 });

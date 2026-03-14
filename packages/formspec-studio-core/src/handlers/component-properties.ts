@@ -42,6 +42,7 @@ import {
   getEditableComponentDocument,
   hasAuthoredComponentTree,
 } from '../component-documents.js';
+import { normalizeIndexedPath } from 'formspec-engine';
 
 /**
  * Internal representation of a component tree node.
@@ -607,6 +608,20 @@ registerHandler('component.setDocumentProperty', (state, payload) => {
   if (value === null) {
     delete (state.component as any)[property];
   } else {
+    // Normalize bind paths in tree to strip repeat indices
+    if (property === 'tree' && value && typeof value === 'object') {
+      const normalizeBinds = (node: Record<string, unknown>) => {
+        if (typeof node.bind === 'string') {
+          node.bind = normalizeIndexedPath(node.bind);
+        }
+        if (Array.isArray(node.children)) {
+          for (const child of node.children) {
+            if (child && typeof child === 'object') normalizeBinds(child as Record<string, unknown>);
+          }
+        }
+      };
+      normalizeBinds(value as Record<string, unknown>);
+    }
     (state.component as any)[property] = value;
   }
   return { rebuildComponentTree: false };

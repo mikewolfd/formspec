@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import * as fs from 'fs';
 import { createProject } from '../src/index.js';
+import { createSchemaValidator } from 'formspec-engine';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SCHEMAS_DIR = path.resolve(__dirname, '../../../schemas');
 
 describe('diagnose', () => {
   it('returns clean diagnostics for valid empty project', () => {
@@ -13,7 +20,7 @@ describe('diagnose', () => {
     expect(diag.counts).toEqual({ error: 0, warning: 0, info: 0 });
   });
 
-  it('reports structural schema diagnostics for invalid definitions', () => {
+  it('returns empty structural when no schemaValidator is provided', () => {
     const project = createProject({
       seed: {
         definition: {
@@ -26,10 +33,32 @@ describe('diagnose', () => {
         } as any,
       },
     });
+    const diag = project.diagnose();
+    expect(diag.structural).toEqual([]);
+  });
 
+  it('populates structural when schemaValidator is provided and definition is invalid', () => {
+    const definitionSchema = JSON.parse(
+      fs.readFileSync(path.join(SCHEMAS_DIR, 'definition.schema.json'), 'utf-8'),
+    );
+    const validator = createSchemaValidator({ definition: definitionSchema });
+    const project = createProject({
+      schemaValidator: validator,
+      seed: {
+        definition: {
+          $formspec: '1.0',
+          url: 'urn:test',
+          version: '1.0.0',
+          status: 'draft',
+          title: 'Broken',
+          items: [{ type: 'field', label: 'Missing key' }],
+        } as any,
+      },
+    });
     const diag = project.diagnose();
     expect(diag.structural.length).toBeGreaterThan(0);
-    expect(diag.structural.every((entry) => entry.code === 'SCHEMA_VALIDATION_ERROR')).toBe(true);
+    expect(diag.structural.some((d) => d.code === 'E101' && d.artifact === 'definition')).toBe(true);
+    expect(diag.counts.error).toBeGreaterThan(0);
   });
 
   it('detects unresolved extension references', () => {
@@ -99,10 +128,9 @@ describe('diagnose', () => {
     expect(orphan!.severity).toBe('warning');
   });
 
-  it('detects component node bound to a display item', () => {
+  it('allows component node bound to a display item', () => {
     const project = createProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'display', key: 'notice', label: 'Read carefully' } });
-    // Manually add a Text node bound to the display item key
     project.dispatch({
       type: 'component.addNode',
       payload: { parent: { nodeId: 'root' }, component: 'Text', bind: 'notice' },
@@ -110,9 +138,22 @@ describe('diagnose', () => {
 
     const diag = project.diagnose();
     const displayBind = diag.consistency.find(d => d.code === 'DISPLAY_ITEM_BIND');
-    expect(displayBind).toBeDefined();
-    expect(displayBind!.severity).toBe('warning');
-    expect(displayBind!.path).toBe('notice');
+    expect(displayBind).toBeUndefined();
+  });
+
+  it('detects non-group-aware component bound to a group item', () => {
+    const project = createProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'section', label: 'Section' } });
+    project.dispatch({
+      type: 'component.addNode',
+      payload: { parent: { nodeId: 'root' }, component: 'TextInput', bind: 'section' },
+    });
+
+    const diag = project.diagnose();
+    const groupBind = diag.consistency.find(d => d.code === 'DISPLAY_ITEM_BIND');
+    expect(groupBind).toBeDefined();
+    expect(groupBind!.severity).toBe('warning');
+    expect(groupBind!.path).toBe('section');
   });
 
   it('detects stale mapping rule source paths', () => {
