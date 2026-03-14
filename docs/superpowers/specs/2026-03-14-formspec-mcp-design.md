@@ -1,7 +1,7 @@
 # Formspec MCP Server — Design Spec
 
 **Date:** 2026-03-14
-**Status:** Draft (rev 3 — corrects factual errors and documents authoring-vocabulary mappings from parallel schema/spec review)
+**Status:** Draft (rev 5 — applies 10 codebase-validated gap fixes; see revision history)
 **Branch:** studiofixes
 
 ---
@@ -14,9 +14,9 @@ The goal of this project is to build a **behavior-driven interface layer** on to
 
 This layer has two deliverables:
 
-1. **`formspec-studio-core/src/authoring-helpers.ts`** — a set of pure functions exported from studio-core itself, each composing one or more commands into a single meaningful authoring operation. These helpers are the primary artifact. They are reusable by any consumer: a CLI tool, a visual builder, a test harness, an automation script, or an LLM agent.
+1. **`formspec-studio-core/src/authoring-helpers.ts`** — a set of pure functions exported from studio-core itself, each composing one or more commands into a single meaningful authoring operation. **These helpers are mutation-only: they compose commands and return `HelperResult`.** They are reusable by any consumer: a CLI tool, a visual builder, a test harness, an automation script, or an LLM agent.
 
-2. **`packages/formspec-mcp`** — a Model Context Protocol server that exposes the helpers as tools to LLM clients (Claude Desktop, Claude Code, or any MCP-compatible client). The MCP server is thin: it manages project sessions and translates tool calls into helper invocations. It owns no form semantics.
+2. **`packages/formspec-mcp`** — a Model Context Protocol server that exposes the helpers as tools to LLM clients (Claude Desktop, Claude Code, or any MCP-compatible client). The MCP server is thin: it manages project sessions, translates tool calls into helper invocations, and owns query formatting. It owns no form construction semantics.
 
 The MCP server is one consumer of the helpers — not the point of the project. The point is that building the right abstraction once means every consumer gets it.
 
@@ -50,7 +50,7 @@ The `pages.*` command namespace (ADR-0039) is already implemented and available.
 - TypeScript type export as a file artifact — CLI concern, future
 - Naming policy enforcement — future project config
 - Multi-client concurrent access — stdio transport, single client per process
-- Crash recovery / auto-save — saved projects persist; unsaved state does not survive restart
+- Crash recovery beyond SIGTERM auto-save — see Session Model
 
 ---
 
@@ -59,22 +59,24 @@ The `pages.*` command namespace (ADR-0039) is already implemented and available.
 Two deliverables with a clean boundary:
 
 ```
-packages/formspec-studio-core/src/authoring-helpers.ts   ← new public export
+packages/formspec-studio-core/src/authoring-helpers.ts   ← mutation helpers only
                                                             (distinct from
                                                             src/handlers/helpers.ts which is
                                                             an internal item-location utility)
+packages/formspec-studio-core/src/evaluation-helpers.ts  ← preview/validateResponse
+                                                            (imports FormEngine; separate module)
 packages/formspec-mcp/                           ← replaced package (full rewrite)
   src/
-    server.ts       — MCP server entry, tool registration
+    server.ts       — MCP server entry, tool registration, SIGTERM handler
     projects.ts     — in-memory project registry
     tools/
       lifecycle.ts  — create/open/save/list/publish/undo/redo
-      structure.ts  — field/content/group/page/remove_page/place/repeat/update/remove/copy
+      structure.ts  — field/content/group/page/remove_page/move_page/place/unplace/repeat/update/remove/copy/metadata/submit_button
       flow.ts       — flow/branch/move/rename
       behavior.ts   — show_when/readonly_when/require/calculate/add_rule
-      presentation.ts — layout/style
-      data.ts       — choices/variable/update_variable/remove_variable/instance/update_instance/rename_instance/remove_instance
-      screener.ts   — screener/screen_field/screen_route/remove_screen_field/remove_screen_route
+      presentation.ts — layout/style/style_all
+      data.ts       — define_choices/variable/update_variable/remove_variable/rename_variable/instance/update_instance/rename_instance/remove_instance
+      screener.ts   — screener/screen_field/screen_route/update_screen_route/reorder_screen_route/remove_screen_field/remove_screen_route
       query.ts      — preview/audit/describe/trace/validate_response/search/changelog
       fel.ts        — fel_context/fel_functions/fel_check
       dispatch.ts   — raw escape hatch
@@ -89,9 +91,13 @@ packages/formspec-mcp/                           ← replaced package (full rewr
   vitest.config.ts
 ```
 
-**Studio-core** gains `src/authoring-helpers.ts` — a new public export at the package root level. This is distinct from the existing internal `src/handlers/helpers.ts` (which resolves item locations for handlers). The new file exports pure functions that compose studio-core commands. No new state, no new classes.
+**`authoring-helpers.ts`** is pure command composition. It exports mutation helpers only — functions that compose one or more studio-core commands into a single behavior-driven operation and return `HelperResult`. It does not format output, does not instantiate `FormEngine`, and does not wrap single-method `Project` calls.
 
-**`formspec-mcp`** is a replaced package. It depends on `formspec-studio-core` and `formspec-engine` (for `preview` and `validate_response`). It owns no form semantics — all logic delegates to helpers. The server maintains a `Map<string, Project>` keyed by `project_id`.
+**`evaluation-helpers.ts`** is a separate module in studio-core that imports `FormEngine` from `formspec-engine`. It contains `previewForm` and `validateResponse`. Keeping this in a separate file makes the `formspec-engine` dependency explicit and opt-in — a CLI or UI app that only uses mutation helpers does not pull in the evaluation stack.
+
+**Query formatters** (`audit`, `describe`, `trace`, `search`, `changelog`, `preview`, `validate_response`, `fel_context`, `fel_functions`, `fel_check`) live in the MCP tool layer. These are thin wrappers that call a single `Project` method and format the result for LLM consumption. They belong in the consumer, not in the shared library.
+
+**`formspec-mcp`** depends on `formspec-studio-core` and `formspec-engine` (for `preview` and `validate_response`). The server maintains a `Map<string, Project>` keyed by `project_id`.
 
 **Dependencies (new `formspec-mcp/package.json`):**
 - `@modelcontextprotocol/sdk` — MCP server protocol
@@ -102,27 +108,36 @@ packages/formspec-mcp/                           ← replaced package (full rewr
 
 **Transport:** stdio. Works with Claude Desktop, Claude Code, and any MCP-compatible client.
 
-**Primary workflow:** Create an empty project, then use the incremental tools to build the form. The `create` tool accepts an optional `seed` (a `Partial<ProjectState>`) for cases where a valid bundle already exists — but the intended workflow is incremental construction, not LLM generation of a full definition JSON. The `schemas/definition.json` reference is not exposed as a generation constraint.
+**Primary workflow:** Create an empty project, then use the incremental tools to build the form. The `create` tool accepts an optional `seed` (a `Partial<ProjectState>`) for cases where a valid bundle already exists — but the intended workflow is incremental construction, not LLM generation of a full definition JSON.
 
 ---
 
 ## Design Decisions
 
-Four explicit tradeoffs, documented for future maintainers:
+Six explicit tradeoffs, documented for future maintainers:
 
 **1. Helpers use `batch()`, bypassing middleware.**
 Helpers call `project.batch()` rather than individual `project.dispatch()` calls. This means any middleware registered on the project (future: naming policy enforcement, audit logging, permission checks) does not apply to helper-dispatched operations. This is a permanent architectural choice: helpers exist *below* the middleware layer. Consumers that need middleware enforcement should use `project.dispatch()` directly (via the `dispatch` tool). The `batch()` call produces a single log entry with the full command list, so operations are still recorded.
 
-**Exception: `addField` uses two separate `project.dispatch()` calls, not `batch()`.** `definition.addItem` must complete and trigger a component tree rebuild before `component.setFieldWidget` can execute — the component node doesn't exist until the rebuild runs. This is the only helper with this pattern.
+**Exception: `addField` uses two separate `project.dispatch()` calls, not `batch()` — known technical debt.** `definition.addItem` must complete and trigger a component tree rebuild before `component.setFieldWidget` can execute. This produces two undo entries instead of one (the user undoes once and gets a half-state with the item but no widget), and both dispatches run through middleware while all other helpers bypass it. The correct fix is a `batchWithRebuild()` method on `Project` — a variant that triggers the component tree rebuild between command groups while producing a single undo entry. Until `batchWithRebuild()` is implemented, `addField` remains inconsistent. This is the only helper with this pattern.
 
-**2. `preview` and `validate_response` depend on `formspec-engine`.**
-These two tools require instantiating a `FormEngine` with the current definition and replaying state to read reactive signals. This is not a command composition — it crosses into the evaluation stack. The dependency is acceptable: `formspec-mcp` already depends on both packages, and `formspec-engine` is the authoritative implementation of form evaluation semantics. These helpers live in `authoring-helpers.ts` but import `FormEngine` from `formspec-engine`.
+**2. `preview` and `validate_response` live in `evaluation-helpers.ts`, not `authoring-helpers.ts`.**
+These two operations require instantiating a `FormEngine` with the current definition and replaying state to read reactive signals. This crosses into the evaluation stack and must not be in `authoring-helpers.ts` — doing so would pull the full evaluation runtime as a dependency of every consumer of the helpers module. `evaluation-helpers.ts` is a separate export that explicitly opts into the `formspec-engine` dependency.
 
-**3. Unsaved work is lost on server restart.**
-The in-memory registry does not persist across process exits. When Claude Desktop or Claude Code restarts the MCP server process, all projects not saved to disk via `save()` are gone. This is documented, not worked around. Users should `save()` before ending a session. Auto-save is a future enhancement.
+**3. Unsaved work is saved to a temp directory on server shutdown.**
+The in-memory registry does not persist across process exits. The server registers `SIGTERM` and `SIGINT` handlers that save all dirty projects to `~/.formspec/autosave/{project_id}/` before exit. On Claude Desktop restart, the user calls `open(~/.formspec/autosave/{project_id}/)` to recover work.
 
 **4. The seed parameter on `create` is not a generation target.**
-The spec does not reference `schemas/definition.json` as an `inputSchema` generation constraint. Full definition JSON generation by LLMs is unreliable at this schema's complexity. The seed parameter accepts a `Partial<ProjectState>` for import scenarios (e.g., opening a previously exported bundle). The intended path for form construction is: `create()` → incremental tool calls.
+The spec does not reference `schemas/definition.json` as an `inputSchema` generation constraint. Full definition JSON generation by LLMs is unreliable at this schema's complexity. The seed parameter accepts a `Partial<ProjectState>` for import scenarios. The intended path for form construction is: `create()` → incremental tool calls.
+
+**5. Query formatting lives in the MCP tool layer, not in `authoring-helpers.ts`.**
+`audit`, `describe`, `trace`, `search`, `changelog`, and the FEL tools are single-method `Project` wrappers that add output formatting. They do not compose commands and have no reuse value outside MCP. Query tool implementations live in `packages/formspec-mcp/src/tools/query.ts` and `fel.ts`.
+
+**6. Error protocol: helpers pre-validate, MCP layer translates.**
+Studio-core handlers throw bare `Error` objects with human-readable messages and no structured codes — this is confirmed behavior. `dispatch()` and `batch()` propagate exceptions uncaught (atomicity: the state clone is discarded if a handler throws). The helper layer is therefore responsible for:
+- **Pre-validating** inputs that have domain-specific error codes (`PATH_NOT_FOUND`, `PAGE_NOT_FOUND`, `INVALID_TYPE`, etc.) before dispatching — e.g., checking that a path exists via `project.fieldPaths()` before dispatching `definition.addItem` to its parent.
+- **Throwing** a lightweight `HelperError` with a `code` string when pre-validation fails.
+- The **MCP tool layer** wraps every helper call in try/catch: catches `HelperError` and maps `code` + detail to `ToolError` wire format; catches any other `Error` and maps to `COMMAND_FAILED` with `detail.handlerMessage`.
 
 ---
 
@@ -140,7 +155,9 @@ Formspec project bundles are multi-file directories, one JSON file per artifact.
 
 **`save(project_id, path)`** writes `project.export()` (a `ProjectBundle`) to a directory at `path`. Each artifact is written as a separate file using the `{dirname}.{artifact}.json` naming convention. If the directory doesn't exist, it is created.
 
-**`open(path)`** reads a bundle directory, constructs a `Partial<ProjectState>` from the artifact files, calls `createProject({ definition, component, theme, mapping })`, registers the project, and returns a `project_id`. Missing optional artifacts (theme, mapping) are omitted.
+**`open(path)`** reads a bundle directory, constructs a `Partial<ProjectState>` from the artifact files, calls `createProject({ definition, component, theme, mapping })`, registers the project, and returns a `project_id`. Missing optional artifacts (theme, mapping) are omitted. **`open()` is idempotent:** if a project from the same `path` is already loaded in the registry, the existing `project_id` is returned. This enables reconnection after server restart.
+
+**Error behavior for `open()`:** `LOAD_FAILED` is returned if the directory does not exist, contains no `*.definition.json` file, or any required JSON file is malformed. The error detail includes `path` and `reason`.
 
 **`save(project_id)`** with no path defaults to the path the project was opened from. New projects (created via `create()`) require a path.
 
@@ -152,22 +169,41 @@ Formspec project bundles are multi-file directories, one JSON file per artifact.
 // projects.ts
 const registry = new Map<string, Project>();
 
-function createProject(seed?: Partial<ProjectState>, registries?: object[]): string  // returns project_id (uuid v4, MCP-layer-generated)
+function createProject(seed?: Partial<ProjectState>, registries?: object[]): string  // returns project_id (uuid v4)
 function getProject(project_id: string): Project     // throws PROJECT_NOT_FOUND if missing
 function closeProject(project_id: string): void
 ```
 
-Each project is a fully independent `Project` instance. The `project_id` UUID is generated by the MCP layer (`crypto.randomUUID()`), not intrinsic to `Project`. Projects persist in memory for the lifetime of the server process; unsaved state is lost on exit.
+Each project is a fully independent `Project` instance. Projects persist in memory for the lifetime of the server process.
 
-**Note on `generatedComponent`:** `ProjectState` includes a `generatedComponent` field for internally auto-generated component state. This field is not included in `ProjectBundle` (the output of `project.export()`) and must not be provided in the `seed` parameter of `createProject`. The `open()` tool constructs a `Partial<ProjectState>` from the bundle files without this field.
+**Auto-save on shutdown:** `server.ts` registers `SIGTERM` and `SIGINT` handlers. On signal, all projects where `project.isDirty === true` are saved to `~/.formspec/autosave/{project_id}/` before the process exits.
+
+**Reconnection:** `open(path)` is idempotent — if the path is already open, returns the existing `project_id`.
+
+**Memory pressure:** The registry rejects `createProject()` when more than 20 projects are active, returning `TOO_MANY_PROJECTS`.
+
+**Note on `generatedComponent`:** This field is not included in `ProjectBundle` and must not be provided in the `seed` parameter.
 
 ---
 
 ## Type Definitions
 
-All types used by `authoring-helpers.ts` and the MCP tool layer:
-
 ```typescript
+// Return type for all helpers
+// affectedPaths convention:
+//   - Field/group/content add/move/rename: populated from CommandResult.insertedPath or newPath
+//   - addPage: post-hoc read from state.theme.pages (last entry id) after dispatch
+//   - submit_button: post-hoc read of component node ID from state after dispatch
+//   - Form-level operations (setFlow, metadata, setScreener, makeRepeatable): [] (empty)
+// warnings: populated by helpers when an operation silently omits related data.
+//   Example: copy(deep: false) warns about bind rules and shapes not copied.
+interface HelperResult {
+  summary: string;              // "Added field 'email' (text) to section 'contact'"
+  affectedPaths: string[];      // paths created, modified, or deleted
+  commandResults: CommandResult[];  // raw handler results for runtime consumers
+  warnings?: string[];          // non-blocking issues the caller should know about
+}
+
 // Field properties for addField / addScreenField
 interface FieldProps {
   placeholder?: string;
@@ -176,11 +212,15 @@ interface FieldProps {
   ariaLabel?: string;
   choices?: ChoiceOption[];          // inline options (for choice/multichoice)
   choices_from?: string;             // named option set reference
-  format?: 'email' | 'phone' | 'url' | 'date' | 'time' | 'datetime' | 'currency';
-  widget?: string;                   // override default widget (e.g. 'RadioGroup' instead of 'Select')
+  format?: string;                   // → definition.setBind { format }
+                                     // valid values: 'email' | 'phone' | 'url' | 'date' | 'time' | 'datetime' | 'currency'
+  widget?: string;                   // override default widget; accepts alias or component name (see Widget Alias Table)
   page?: string;                     // assign to page at creation time (pageId)
-  required?: boolean | string;       // true is converted to the FEL string 'true()' before dispatch; string = FEL condition
-  readonly?: boolean | string;       // same conversion applies
+  required?: boolean;                // true → dispatches definition.setBind { required: 'true()' }
+                                     // For conditional required, chain with require(project_id, path, condition)
+  readonly?: boolean;                // true → dispatches definition.setBind { readonly: 'true()' }
+                                     // For conditional readonly, chain with readonly_when(project_id, path, condition)
+  initialValue?: unknown;            // → definition.setItemProperty { property: 'initialValue', value }
 }
 
 // Choice option for inline options or defineChoices
@@ -191,8 +231,6 @@ interface ChoiceOption {
 }
 
 // Group properties
-// `display` maps to component.setGroupDisplayMode mode values.
-// Supported values match the actual handler: 'stack' and 'dataTable'.
 interface GroupProps {
   collapsible?: boolean;
   display?: 'stack' | 'dataTable';
@@ -200,36 +238,32 @@ interface GroupProps {
 
 // Repeat group configuration
 interface RepeatProps {
-  min?: number;        // → definition.setItemProperty { property: 'minRepeat', value }
-  max?: number;        // → definition.setItemProperty { property: 'maxRepeat', value }
-  add_label?: string;    // → component-tier (component.setGroupProperty or similar); exact command TBD
-  remove_label?: string; // → component-tier (component.setGroupProperty or similar); exact command TBD
+  min?: number;          // → definition.setItemProperty { property: 'minRepeat', value }
+  max?: number;          // → definition.setItemProperty { property: 'maxRepeat', value }
+  add_label?: string;    // → component.setNodeProperty { node: { bind: groupKey }, property: 'addLabel', value }
+  remove_label?: string; // → component.setNodeProperty { node: { bind: groupKey }, property: 'removeLabel', value }
+                         // Note: renderer must read addLabel/removeLabel from the component node,
+                         // falling back to default "Add/Remove {item.label}" if not set.
 }
 
 // Branch path — one arm of a conditional branch
 // `when` is a value compared against the `on` field's current value.
-// FEL literal construction:
-//   string  → `on = 'value'`   (single-quoted)
-//   number  → `on = 42`        (bare numeric)
-//   boolean → `on = true()`    (FEL boolean function)
+// `mode` controls FEL expression construction:
+//   'equals'   (default): string → `on = 'value'`, number → `on = 42`, boolean → `on = true()/false()`
+//   'contains': → `selected(on, when)` — use for multiChoice fields where value is an array.
+//               selected() handles both array membership (Array.isArray check) and scalar equality.
+//               Do NOT use contains() for multiChoice — it is a string function that works on arrays
+//               only by accident via duck-typed Array.prototype.includes.
+// The helper auto-detects mode: if the `on` field's dataType is 'multiChoice', defaults to 'contains'.
 // `show` is one or more field/group paths to make visible when `when` matches.
 interface BranchPath {
   when: string | number | boolean;
   show: string | string[];
+  mode?: 'equals' | 'contains';  // default: auto-detected from on-field dataType
 }
 
 // Layout arrangement for applyLayout
-// Authoring aliases — see the applyLayout dispatch comment for the component type mapping.
 type LayoutArrangement = 'columns-2' | 'columns-3' | 'columns-4' | 'card' | 'sidebar' | 'inline';
-
-// Style target for applyStyle
-// A field path string → theme.setItemOverride
-// { type: string } → theme.addSelector (match by item type)
-//   valid values: 'group' | 'field' | 'display'  (SelectorMatch schema constraint — not arbitrary strings)
-// { dataType: string } → theme.addSelector (match by dataType)
-//   valid values: the 13 definition dataType enum values
-// 'form' → theme.setDefaults (+ definition.setFormPresentation for density)
-type StyleTarget = string | { type: 'group' | 'field' | 'display' } | { dataType: string } | 'form';
 
 // Placement options for placeOnPage
 interface PlacementOptions {
@@ -237,18 +271,17 @@ interface PlacementOptions {
 }
 
 // Flow configuration
-// showProgress and allowSkip are defined in the Wizard component schema.
-// allowBack is NOT a valid Wizard schema property and has been removed.
 interface FlowProps {
   showProgress?: boolean;
   allowSkip?: boolean;
+  // allowBack is NOT a valid Wizard schema property and is not supported
 }
 
 // Validation options for addValidation / add_rule tool
 interface ValidationOptions {
   timing?: 'continuous' | 'submit' | 'demand';  // default: 'continuous'
   severity?: 'error' | 'warning' | 'info';       // default: 'error'
-  // severity: 'error'   → blocks submission (invalid data)
+  // severity: 'error'   → blocks submission
   // severity: 'warning' → advisory, does not block submission
   // severity: 'info'    → informational only
   code?: string;        // machine-readable error code (e.g. 'BUDGET_MISMATCH')
@@ -257,32 +290,39 @@ interface ValidationOptions {
 
 // Named external data source (secondary instance)
 interface InstanceProps {
-  source?: string;       // URI to external data file
-  data?: unknown;        // inline data (object or array); fallback if source unavailable
-  schema?: object;       // JSON Schema describing the instance's structure (advisory)
-  static?: boolean;      // caching hint: true if data is unlikely to change at runtime
-  readonly?: boolean;    // default true; false = writable scratch-pad for intermediate calculations
+  source?: string;
+  data?: unknown;
+  schema?: object;
+  static?: boolean;
+  readonly?: boolean;    // default true
   description?: string;
 }
 
 // Changes for updateItem — each key routes to a different artifact handler.
-// Unknown keys produce an INVALID_KEY error.
+// Unknown keys produce INVALID_KEY with detail.validKeys.
 interface ItemChanges {
   // → definition.setItemProperty
   label?: string;
   hint?: string;
   description?: string;
+  placeholder?: string;
+  ariaLabel?: string;
   options?: ChoiceOption[];
-  optionSet?: string;
-  // → definition.setFieldDataType
+  choices_from?: string;        // → definition.setItemProperty { property: 'optionSet' }
+  currency?: string;            // ISO 4217 code for money fields
+  precision?: number;           // decimal places for decimal/money fields
+  initialValue?: unknown;
+  // → definition.setFieldDataType (accepts both type aliases and schema dataType values)
   dataType?: string;
   // → definition.setBind
-  required?: string;       // FEL expression or 'true()'
-  constraint?: string;     // FEL expression
-  calculate?: string;      // FEL expression
-  relevant?: string;       // FEL expression
-  readonly?: string;       // FEL expression
-  // → component.setFieldWidget
+  required?: string;            // FEL expression or 'true()'
+  constraint?: string;
+  constraintMessage?: string;   // paired with constraint
+  calculate?: string;
+  relevant?: string;
+  readonly?: string;            // FEL expression
+  format?: string;              // values: 'email'|'phone'|'url'|'date'|'time'|'datetime'|'currency'
+  // → component.setFieldWidget (accepts alias or component name; see Widget Alias Table)
   widget?: string;
   // → theme.setItemOverride
   style?: Record<string, unknown>;
@@ -295,9 +335,7 @@ interface ItemChanges {
 
 ## Field Type Alias Table
 
-The `field()` and `screen_field()` tools accept a `type` parameter that maps to a `(dataType, defaultWidget)` pair. The helper dispatches `definition.addItem` with the resolved `dataType` and `component.setFieldWidget` with the resolved `defaultWidget`. The `props.widget` override replaces the default widget.
-
-Both friendly aliases and exact schema values are accepted:
+The `field()` and `screen_field()` tools accept a `type` parameter that maps to a `(dataType, defaultWidget)` pair. Both friendly aliases and exact schema values are accepted:
 
 | `type` alias | `dataType` (schema) | Default Widget |
 |---|---|---|
@@ -321,85 +359,111 @@ Both friendly aliases and exact schema values are accepted:
 | `multiChoice` | `multiChoice` | `CheckboxGroup` |
 | `currency` | `money` | `MoneyInput` |
 | `money` | `money` | `MoneyInput` |
+| `rating` | `integer` | `Rating` |
+| `slider` | `decimal` | `Slider` |
 
-Unknown `type` values produce an `INVALID_TYPE` error listing the valid aliases.
+Unknown `type` values produce `INVALID_TYPE` with `detail.validTypes`.
+
+---
+
+## Widget Alias Table
+
+The `widget` property in `FieldProps` and `ItemChanges` accepts both aliases and raw component names. Unknown values produce `INVALID_WIDGET` with `detail.validWidgets`.
+
+| Widget alias | Component name |
+|---|---|
+| `radio` | `RadioGroup` |
+| `checkbox` | `CheckboxGroup` |
+| `toggle` | `Toggle` |
+| `select` | `Select` |
+| `slider` | `Slider` |
+| `rating` | `Rating` |
+| `textarea` | `TextInput` (with `widgetHint: 'textarea'`) |
+| `file` | `FileUpload` |
+| `signature` | `Signature` |
+| `date` | `DatePicker` |
+| `money` | `MoneyInput` |
+| `number` | `NumberInput` |
+| `text` | `TextInput` |
+
+Raw component names (e.g. `"RadioGroup"`) are also accepted directly.
 
 ---
 
 ## Studio-Core Helpers (`src/authoring-helpers.ts`)
 
-A new public export. Each helper maps one behavior-driven concept to one or more studio-core commands, dispatched via `project.batch()`. Helpers bypass middleware (see Design Decisions §1).
+All helpers return `HelperResult`. Helpers are mutation-only — pure command composition. Query operations and output formatting are not in this module.
 
-**Note on FEL reference cascading:** `definition.renameItem` already rewrites all FEL expression references internally via `rewriteAllPathReferences()` — the helper only needs to dispatch that single command. For `removeItem`, `definition.deleteItem` removes binds and shapes belonging to the deleted item but does NOT clean up FEL expressions in other fields that reference it. The `removeItem` helper must:
-1. Call `project.fieldDependents(path)` to find all fields with expressions referencing `path`
-2. For **each descendant** of a group being removed, repeat step 1 (recursive)
-3. Dispatch `definition.setBind` with each affected expression property set to `null` — the handler's null-removal semantics delete the property from the bind and clean up now-empty bind entries automatically. For shape rules whose `constraint` or `activeWhen` expression references the deleted path, dispatch `definition.deleteShape` to remove the entire rule — **`definition.setShapeProperty` does NOT have null-deletion semantics** (it assigns the value directly; `null` would be stored as `null`, not deleted).
-4. Then dispatch `definition.deleteItem`
+Handlers throw bare `Error` on failure. Helpers pre-validate domain-specific invariants (path existence, type validity, etc.) and throw a `HelperError { code: string, message: string, detail?: object }` before dispatching when pre-validation fails. The MCP tool layer catches `HelperError` and translates to `ToolError` wire format.
+
+**Note on FEL reference cascading:** `definition.renameItem` rewrites all FEL expression references internally via `rewriteAllPathReferences()`. For `removeItem`, see the full algorithm below.
 
 ```typescript
 // Data collection field
 // Resolves type alias → { dataType, defaultWidget } via the Field Type Alias Table
-// Dispatch sequence (two separate dispatches — NOT a single batch):
-//   See Design Decision #1 exception: addField is the only helper that uses dispatch() not batch().
-//   1. project.dispatch('definition.addItem', ...) — triggers component tree rebuild on completion
-//   2. project.dispatch('component.setFieldWidget', ...) — executes after rebuild; node now exists
-//       + definition.setBind (if required/readonly props present)
-//       + pages.assignItem { pageId, key } (if props.page is set — key is the leaf segment of path)
-// `props.required = true` is converted to the FEL string 'true()' before dispatch.
+// widget in props resolved via the Widget Alias Table before dispatch
+// Dispatch sequence (two separate dispatches — known technical debt, see Design Decision #1):
+//   1. project.dispatch('definition.addItem', ...) — triggers component tree rebuild
+//   2. project.dispatch('component.setFieldWidget', ...) — executes after rebuild
+//       + definition.setBind (if required/readonly/format props present)
+//       + pages.assignItem { pageId, key } (if props.page is set)
+// `props.required = true` dispatches definition.setBind { required: 'true()' }
+// affectedPaths: [path]
 export function addField(
   project: Project,
   path: string,
   label: string,
   type: string,
   props?: FieldProps
-): CommandResult[]
+): HelperResult
 
 // Display content — non-data element
-// `kind` is an authoring-level abstraction. There is no `presentationType` property in the definition
-// schema — the correct mapping target is `presentation.widgetHint` on the definition item.
+// `kind` maps to `presentation.widgetHint` on the definition item.
 // The `body` string maps to the definition item's `label` property.
 //
-// Kind → widgetHint / dispatch mapping:
+// Kind → widgetHint mapping:
 //   'heading'      → presentation.widgetHint: 'heading'
 //   'instructions' → presentation.widgetHint: 'paragraph'
 //   'divider'      → presentation.widgetHint: 'divider'
 //   'alert'        → presentation.widgetHint: 'banner'
-//   'image'        → TODO: no widgetHint equivalent; may require component.addNode for Image component
+//   NOTE: 'image' is NOT supported — no Image component exists in the component schema.
+//         See Future Work for the Image component roadmap.
 //
 // Dispatches: definition.addItem (type: 'display', label: body, presentation: { widgetHint: mapped })
+// affectedPaths: [path]
 export function addContent(
   project: Project,
   path: string,
   body: string,
-  kind?: 'heading' | 'instructions' | 'alert' | 'image' | 'divider'
-): CommandResult[]
+  kind?: 'heading' | 'instructions' | 'alert' | 'divider'
+): HelperResult
 
 // Group/section container
 // Dispatches: definition.addItem (type: 'group')
 //             + component.setGroupDisplayMode { mode: props.display } if props.display is set
-//             (props.display values map directly to setGroupDisplayMode mode: 'stack' | 'dataTable')
+// affectedPaths: [path]
 export function addGroup(
   project: Project,
   path: string,
   label: string,
   props?: GroupProps
-): CommandResult[]
+): HelperResult
 
 // Conditional visibility
 // Dispatches: definition.setBind { relevant: condition }
-export function showWhen(project: Project, target: string, condition: string): CommandResult[]
+export function showWhen(project: Project, target: string, condition: string): HelperResult
 
 // Readonly condition
 // Dispatches: definition.setBind { readonly: condition }
-export function readonlyWhen(project: Project, target: string, condition: string): CommandResult[]
+export function readonlyWhen(project: Project, target: string, condition: string): HelperResult
 
 // Required rule
 // Dispatches: definition.setBind { required: condition ?? 'true()' }
-export function require(project: Project, target: string, condition?: string): CommandResult[]
+export function require(project: Project, target: string, condition?: string): HelperResult
 
 // Calculated value
 // Dispatches: definition.setBind { calculate: expression }
-export function calculate(project: Project, target: string, expression: string): CommandResult[]
+export function calculate(project: Project, target: string, expression: string): HelperResult
 
 // Cross-field validation
 // Dispatches: definition.addShape
@@ -409,175 +473,329 @@ export function addValidation(
   rule: string,
   message: string,
   options?: ValidationOptions
-): CommandResult[]
+): HelperResult
 
 // Branching — show different fields based on an answer
 // `on`: field path whose value determines which branch is active
-// `paths[].when`: a value literal; the helper constructs `on = when` as the FEL relevant expression
-// `paths[].show`: one or more paths to make relevant when `when` matches
+// `paths[].when`: a value literal; the helper constructs the relevant expression per mode:
+//   mode 'equals'   (default): `on = when`
+//   mode 'contains': `selected(on, when)` — for multiChoice fields.
+//     selected() is the correct FEL function: handles Array.isArray(val) ? val.includes(opt) : val === opt.
+//     Do NOT use contains() — it is a string function that works on arrays only by duck-typing accident.
+// Mode is auto-detected: if the `on` field's dataType is 'multiChoice', defaults to 'contains'.
+// `otherwise`: optional path(s) to show when no branch condition matches.
+//   Constructs: not(on = 'a' or on = 'b' or ...) for the otherwise arm.
+//   NOTE: when the `on` field is unset (default empty string), no equality branch matches,
+//   so `otherwise` targets ARE visible on initial form load. This is the correct "default section"
+//   behavior. If you want "show only when a non-matching value is actively chosen," use
+//   show_when() with: present(on) and not(on = 'a' or on = 'b')
 // Dispatches: multiple definition.setBind { relevant } calls, one per path in each branch
-export function branch(project: Project, on: string, paths: BranchPath[]): CommandResult[]
+// branch() is designed for discrete-value fields (choice, boolean).
+// For range or complex conditions, use showWhen() directly with hand-authored FEL.
+export function branch(
+  project: Project,
+  on: string,
+  paths: BranchPath[],
+  otherwise?: string | string[]
+): HelperResult
 
 // Spatial layout — wraps targets in a layout container
-// `arrangement` is an authoring alias that maps to actual component node types:
+// `arrangement` maps to component node types:
 //   'columns-2' → component.addNode { component: 'Grid', props: { columns: 2 } }
 //   'columns-3' → component.addNode { component: 'Grid', props: { columns: 3 } }
 //   'columns-4' → component.addNode { component: 'Grid', props: { columns: 4 } }
 //   'card'      → component.addNode { component: 'Card' }
 //   'sidebar'   → component.addNode { component: 'Panel', props: { position: 'left' } }
-//   'inline'    → TODO: horizontal Stack or Columns — component type TBD
+//   'inline'    → component.addNode { component: 'Stack', props: { direction: 'horizontal' } }
+//     (Stack has direction: 'vertical' | 'horizontal'; confirmed in component schema and renderer)
 // Dispatches: component.addNode (layout container) + component.moveNode for each target
 export function applyLayout(
   project: Project,
   targets: string | string[],
   arrangement: LayoutArrangement
-): CommandResult[]
+): HelperResult
 
-// Presentation style — routes based on target type
-// All three theme handlers accept one property at a time. The helper fans out over the properties record,
-// dispatching one command per key.
-//
-// target is a field path → theme.setItemOverride { itemKey, property, value } per property
-// target is { type } or { dataType } → theme.addSelector { match, apply } per property
-//   { type } valid values: 'group' | 'field' | 'display'  (SelectorMatch schema constraint)
-//   { dataType } valid values: the 13 definition dataType enum values
-// target is 'form' → theme.setDefaults { property, value } per property
-//
-// Property routing:
-//   labelPosition → PresentationBlock property; routed to theme handler per target type above
-//   density       → definition-level; routes to definition.setFormPresentation (not theme)
-//                   only meaningful when target is 'form'; values: 'compact' | 'comfortable' | 'spacious'
-//   style         → PresentationBlock.style sub-object (raw CSS-like token overrides)
+// Presentation style for a specific field path
+// Routes to: theme.setItemOverride { itemKey, property, value } per property
+// All theme handlers accept one property at a time; helper fans out over the properties record.
 export function applyStyle(
   project: Project,
-  target: StyleTarget,
+  path: string,
   properties: Record<string, unknown>
-): CommandResult[]
+): HelperResult
 
-// Shared choices
+// Presentation style for form-level defaults or type/dataType selectors
+// target options:
+//   'form' → theme.setDefaults { property, value } per property
+//            'density' routes to definition.setFormPresentation instead of theme
+//   { type: 'group' | 'field' | 'display' } → theme.addSelector per property
+//   { dataType: string } → theme.addSelector per property
+export function applyStyleAll(
+  project: Project,
+  target: 'form' | { type: 'group' | 'field' | 'display' } | { dataType: string },
+  properties: Record<string, unknown>
+): HelperResult
+
+// Shared choices — define a reusable named option set
 // Dispatches: definition.setOptionSet
+// Named set is referenced by fields via choices_from / FieldProps.choices_from
 export function defineChoices(
   project: Project,
   name: string,
   options: ChoiceOption[]
-): CommandResult[]
+): HelperResult
 
 // Repeat group
 // Dispatches: definition.setItemProperty (repeatable, minRepeat, maxRepeat)
 //             + component.setGroupRepeatable
-export function makeRepeatable(project: Project, target: string, props?: RepeatProps): CommandResult[]
+//             + component.setNodeProperty { node: { bind: key }, property: 'addLabel', value } if add_label
+//             + component.setNodeProperty { node: { bind: key }, property: 'removeLabel', value } if remove_label
+export function makeRepeatable(project: Project, target: string, props?: RepeatProps): HelperResult
 
 // Add page to flow
 // Dispatches: pages.addPage
-// The MCP tool layer reads the new page's ID from project.state.theme.pages after dispatch
-// (the last entry in the pages array), and returns it to the caller as { page_id }.
-// Note: pages are a theme-tier concept; they live in state.theme.pages, NOT state.definition.pages.
-export function addPage(project: Project, title: string, description?: string): CommandResult[]
+// pages.addPage returns { rebuildComponentTree: true } with no page ID in CommandResult.
+// The helper reads state.theme.pages (last entry) after dispatch to get the new page's ID.
+// affectedPaths[0] = new page ID
+export function addPage(project: Project, title: string, description?: string): HelperResult
+
+// Remove page
+// Dispatches: pages.deletePage
+export function removePage(project: Project, pageId: string): HelperResult
+
+// Reorder a page (swap with neighbor)
+// Dispatches: pages.reorderPages { id: pageId, direction }
+// direction 'up' swaps with the previous page; 'down' swaps with the next page.
+// No-op if page is already at the boundary.
+export function reorderPage(project: Project, pageId: string, direction: 'up' | 'down'): HelperResult
 
 // Assign field/group to a page
 // Dispatches: pages.assignItem { pageId, key, span? }
 // Note: pages.assignItem uses `key` (the leaf segment of the path), not the full dot-path.
-// The helper extracts the leaf key from `target` before dispatching.
 export function placeOnPage(
   project: Project,
   target: string,
   pageId: string,
   options?: PlacementOptions
-): CommandResult[]
+): HelperResult
+
+// Remove field/group from a page assignment (does not delete the item)
+// Dispatches: pages.unassignItem { pageId, key }
+export function unplaceFromPage(project: Project, target: string, pageId: string): HelperResult
 
 // Set flow mode
 // Dispatches: pages.setMode { mode }
-//             + component.setWizardProperty for each FlowProps key provided:
-//               { property: 'showProgress', value: ... }, { property: 'allowSkip', ... }, etc.
-// Valid FlowProps keys: showProgress, allowSkip (allowBack removed — not in Wizard schema).
-export function setFlow(project: Project, mode: 'single' | 'wizard' | 'tabs', props?: FlowProps): CommandResult[]
+//             + component.setWizardProperty for each FlowProps key provided
+// affectedPaths: []
+export function setFlow(project: Project, mode: 'single' | 'wizard' | 'tabs', props?: FlowProps): HelperResult
 
 // Move item in definition + component trees
 // Dispatches: definition.moveItem with payload { sourcePath: path, targetParentPath, targetIndex }
-// Note: the command payload key is `sourcePath`, not `path`.
-export function moveItem(project: Project, path: string, targetParentPath?: string, targetIndex?: number): CommandResult[]
+export function moveItem(project: Project, path: string, targetParentPath?: string, targetIndex?: number): HelperResult
 
 // Rename item — cascades FEL refs at handler layer
-// Dispatches: definition.renameItem only — FEL rewriting is handled entirely inside
-//             the handler via rewriteAllPathReferences(). No additional batch needed.
-export function renameItem(project: Project, path: string, newKey: string): CommandResult[]
+// Dispatches: definition.renameItem only — FEL rewriting handled inside the handler.
+export function renameItem(project: Project, path: string, newKey: string): HelperResult
 
-// Remove item — helper layer cleans up dangling FEL references first (recursive for groups)
-// See removeItem algorithm above.
-export function removeItem(project: Project, path: string): CommandResult[]
+// Remove item — full reference cleanup before delete
+//
+// Algorithm (collect ALL dependents BEFORE any mutations, then batch cleanups):
+//
+// Step 1: Collect the full dependent set upfront.
+//   Call project.fieldDependents(path) for the target item.
+//   If target is a group, recursively call project.fieldDependents() for every descendant.
+//   Build the complete cleanup list before dispatching anything — mutations change the state
+//   that fieldDependents reads.
+//
+// Step 2: Classify each dependent by required cleanup action:
+//   - Bind properties (calculate, relevant, required, readonly, constraint, default, format)
+//     → definition.setBind { property, value: null } (null-removal semantics delete the property)
+//   - Shape rules with broken constraint → definition.deleteShape
+//   - Shape rules with broken activeWhen → definition.deleteShape (delete whole shape, not just guard)
+//   - Shape rules with broken context entries → definition.deleteShape
+//   - Variables with broken expressions → definition.deleteVariable
+//   - Mapping rules → KNOWN GAP: not cleaned. Run audit() afterward.
+//
+// Step 3: Dispatch all cleanups as a single batch().
+//
+// Step 4: Dispatch definition.deleteItem as a separate call after the batch.
+//
+export function removeItem(project: Project, path: string): HelperResult
 
 // Update any property of an existing item — fan-out helper
-// Routing is defined by ItemChanges interface. Unknown keys produce INVALID_KEY error.
-// Multiple keys in one call are dispatched as a batch in declaration order.
-export function updateItem(project: Project, path: string, changes: ItemChanges): CommandResult[]
+// Routing defined by ItemChanges interface. Unknown keys produce INVALID_KEY.
+// dataType accepts both type aliases and schema dataType values.
+// widget accepts both aliases and raw component names.
+export function updateItem(project: Project, path: string, changes: ItemChanges): HelperResult
+
+// Copy a field or group — inserts clone immediately after original
+// Dispatches: definition.duplicateItem → { rebuildComponentTree: true, insertedPath }
+// affectedPaths[0] = new item's path
+//
+// What IS copied (lives on the definition item object):
+//   key (suffixed for uniqueness), label, type, dataType, hint, description, placeholder,
+//   options (inline choices), optionSet reference, presentation widgetHints, extensions,
+//   i18n labels, repeatable/minRepeat/maxRepeat, initialValue, currency, precision,
+//   and children for groups (recursively, with keys suffixed '_copy').
+//
+// What IS NOT copied:
+//   - definition.binds[] entries (required, calculate, relevant, readonly, constraint,
+//     constraintMessage, format) — these live in a separate array keyed by path
+//   - definition.shapes[] validation rules — separate array targeting paths
+//   - Theme overrides (theme.items[key]) — separate structure
+//   - Page assignments (theme.pages[].regions) — separate structure
+//
+// deep: false (default): shallow copy only. HelperResult.warnings lists what was omitted,
+//   e.g. "2 bind rules not copied (required, calculate) — use deep: true to include",
+//        "3 validation shapes not copied".
+// deep: true: also copies bind entries and shape rules, rewriting paths from original to
+//   new item. FEL expressions within those binds/shapes that reference the original path
+//   are also rewritten. Theme overrides are not copied.
+export function copyItem(
+  project: Project,
+  path: string,
+  deep?: boolean
+): HelperResult
+
+// Form-level metadata
+// Accepts: title, name, description, url, version, status, date, versionAlgorithm,
+//          nonRelevantBehavior, derivedFrom, density, labelPosition, pageMode, defaultCurrency
+// Routing:
+//   title       → definition.setFormTitle { title }
+//   name, description, url, version, status, date, versionAlgorithm,
+//   nonRelevantBehavior, derivedFrom
+//               → definition.setDefinitionProperty { property, value }
+//   density, labelPosition, pageMode, defaultCurrency
+//               → definition.setFormPresentation { property, value }
+// Note: 'submitMode' and 'language' are NOT valid definition schema properties
+//   (definition schema has additionalProperties: false at root level).
+// affectedPaths: []
+export function setMetadata(
+  project: Project,
+  changes: {
+    title?: string;
+    name?: string;
+    description?: string;
+    url?: string;
+    version?: string;
+    status?: string;
+    date?: string;
+    versionAlgorithm?: string;
+    nonRelevantBehavior?: string;
+    derivedFrom?: string;
+    density?: 'compact' | 'comfortable' | 'spacious';
+    labelPosition?: string;
+    pageMode?: string;
+    defaultCurrency?: string;
+  }
+): HelperResult
 
 // Named FEL variable
 // Dispatches: definition.addVariable
-export function addVariable(project: Project, name: string, expression: string, scope?: string): CommandResult[]
+export function addVariable(project: Project, name: string, expression: string, scope?: string): HelperResult
 
 // Update a named FEL variable
 // Dispatches: definition.setVariable with payload { name, property: 'expression', value: expression }
-// (The handler is a generic property setter; 'expression' is the specific property being updated.)
-export function updateVariable(project: Project, name: string, expression: string): CommandResult[]
+export function updateVariable(project: Project, name: string, expression: string): HelperResult
 
 // Remove a named FEL variable
 // Dispatches: definition.deleteVariable
-export function removeVariable(project: Project, name: string): CommandResult[]
+export function removeVariable(project: Project, name: string): HelperResult
 
-// Remove page
-// Dispatches: pages.deletePage
-export function removePage(project: Project, pageId: string): CommandResult[]
+// Rename a named FEL variable — rewrites all $name FEL references throughout the definition
+// If definition.renameVariable exists in studio-core, dispatches it directly.
+// Otherwise: reads current expression, dispatches deleteVariable + addVariable with new name,
+// then scans and rewrites all bind/shape expressions containing $name → $newName.
+export function renameVariable(project: Project, name: string, newName: string): HelperResult
 
 // Screener: enable/disable
 // Dispatches: definition.setScreener
-export function setScreener(project: Project, enabled: boolean): CommandResult[]
+// affectedPaths: []
+export function setScreener(project: Project, enabled: boolean): HelperResult
 
 // Screener: add qualifying question
 // Dispatches: definition.addScreenerItem + optional definition.setScreenerBind
-export function addScreenField(project: Project, key: string, label: string, type: string, props?: FieldProps): CommandResult[]
+export function addScreenField(project: Project, key: string, label: string, type: string, props?: FieldProps): HelperResult
 
 // Screener: remove qualifying question
 // Dispatches: definition.deleteScreenerItem
-export function removeScreenField(project: Project, key: string): CommandResult[]
+export function removeScreenField(project: Project, key: string): HelperResult
 
 // Screener: add routing rule
 // Dispatches: definition.addRoute
-export function addScreenRoute(project: Project, condition: string, target: string, label?: string): CommandResult[]
+export function addScreenRoute(project: Project, condition: string, target: string, label?: string): HelperResult
+
+// Screener: update a routing rule's condition, target, or label
+// Dispatches: definition.setRouteProperty { index, property, value } per changed key
+// Valid properties: condition (FEL expression), target (URI), label (string)
+// Note: definition.setRouteProperty does NOT have null-deletion semantics —
+//   it assigns the value directly. Setting to null stores null.
+export function updateScreenRoute(
+  project: Project,
+  routeIndex: number,
+  changes: { condition?: string; target?: string; label?: string }
+): HelperResult
+
+// Screener: reorder a routing rule (swap with neighbor)
+// Dispatches: definition.reorderRoute { index: routeIndex, direction }
+// direction 'up' swaps with the previous route; 'down' swaps with the next route.
+export function reorderScreenRoute(
+  project: Project,
+  routeIndex: number,
+  direction: 'up' | 'down'
+): HelperResult
 
 // Screener: remove routing rule by zero-based index
 // Dispatches: definition.deleteRoute with payload { index: routeIndex }
-// (Routes are addressed by index, not by ID — the handler takes { index: number }.)
-export function removeScreenRoute(project: Project, routeIndex: number): CommandResult[]
+// Cannot delete the last remaining route — returns ROUTE_MIN_COUNT.
+export function removeScreenRoute(project: Project, routeIndex: number): HelperResult
 
 // Named external data source
 // Dispatches: definition.addInstance
-export function addInstance(project: Project, name: string, props: InstanceProps): CommandResult[]
+export function addInstance(project: Project, name: string, props: InstanceProps): HelperResult
 
 // Update a single property on an existing instance
 // Dispatches: definition.setInstance with { name, property, value }
 // Writable properties: source, data, schema, static, readonly, description
-export function updateInstance(project: Project, name: string, property: string, value: unknown): CommandResult[]
+export function updateInstance(project: Project, name: string, property: string, value: unknown): HelperResult
 
-// Rename an instance — rewrites all @instance('name') FEL references throughout the definition
-// Dispatches: definition.renameInstance (updates binds, shapes, variables, screener routes, mapping rules)
-export function renameInstance(project: Project, name: string, newName: string): CommandResult[]
+// Rename an instance — rewrites all @instance('name') FEL references
+// Dispatches: definition.renameInstance
+export function renameInstance(project: Project, name: string, newName: string): HelperResult
 
 // Remove an instance
-// Note: does NOT clean up @instance() FEL references — run audit() afterward to surface broken refs
+// Note: does NOT clean up @instance() FEL references — run audit() afterward.
 // Dispatches: definition.deleteInstance
-export function removeInstance(project: Project, name: string): CommandResult[]
+export function removeInstance(project: Project, name: string): HelperResult
+```
 
+---
+
+## Evaluation Helpers (`src/evaluation-helpers.ts`)
+
+A separate module that imports `FormEngine` from `formspec-engine`. Consumers that only use mutation helpers do not incur this dependency.
+
+```typescript
 // Preview — simulate respondent experience
-// Requires FormEngine (imported from formspec-engine).
-// Creates a FormEngine from project.export().definition, replays scenario values via setValue(),
-// reads reactive signals to produce the structured result.
+// Creates a FormEngine from project.export().definition, replays scenario values via setValue().
 export function previewForm(
   project: Project,
   scenario?: Record<string, unknown>
-): { visibleFields: string[]; activePage: string; validationState: Record<string, string> }
+): {
+  visibleFields: string[];
+  hiddenFields: { path: string; hiddenBy?: string }[];
+  currentValues: Record<string, unknown>;
+  requiredFields: string[];
+  pages: { id: string; title: string; status: 'active' | 'complete' | 'incomplete' | 'unreachable' }[];
+  validationState: Record<string, { severity: 'error' | 'warning' | 'info'; message: string }>;
+}
 
 // Validate a response document against the current form definition.
-// Creates a FormEngine, replays response values, calls getValidationReport({ mode: 'submit' }).
+// Returns ValidationReport from packages/formspec-engine/src/index.ts:
+//   { valid: boolean, counts: { error, warning, info }, results: ValidationResult[] }
+//   ValidationResult: { severity, path, message, constraintKind, code?, source, shapeId?, constraint?, context? }
+//   constraintKind: 'required' | 'constraint' | 'shape'
+//   source: 'bind' | 'shape'
 export function validateResponse(
   project: Project,
   response: Record<string, unknown>
@@ -586,38 +804,42 @@ export function validateResponse(
 
 ---
 
-## Tool Catalog (52 tools)
+## Tool Catalog (60 tools)
 
 ### Project lifecycle (7)
 | Tool | Description |
 |------|-------------|
-| `create(seed?, registries?)` | Start a new form project. `seed` is a `Partial<ProjectState>` for import scenarios — not a generation target. Returns `project_id`. |
-| `open(path)` | Load a form bundle directory from disk. Returns `project_id`. |
-| `save(project_id, path?)` | Write the current bundle to disk as a multi-file directory. Defaults to the path it was opened from. |
+| `create(seed?, registries?)` | Start a new form project. Returns `project_id`. |
+| `open(path)` | Load a form bundle directory from disk. Idempotent: if path is already open, returns existing `project_id`. |
+| `save(project_id, path?)` | Write the current bundle to disk. Defaults to the path it was opened from. |
 | `list()` | List all active in-memory projects with title, field count, and dirty flag. |
-| `publish(project_id, version, summary?)` | Publish a versioned release. Calls `project.diagnose()` first; returns `PUBLISH_BLOCKED` with the full `Diagnostics` object if `counts.error > 0`. Only dispatches `project.publish` when clean. |
-| `undo(project_id)` | Undo the last authoring operation. Calls `project.undo()`. No-op if `project.canUndo` is false. |
-| `redo(project_id)` | Redo the last undone operation. Calls `project.redo()`. No-op if `project.canRedo` is false. |
+| `publish(project_id, version, summary?)` | Publish a versioned release. Calls `project.diagnose()` first; returns `PUBLISH_BLOCKED` with full `Diagnostics` if `counts.error > 0`. |
+| `undo(project_id)` | Undo the last authoring operation. No-op if `project.canUndo` is false. |
+| `redo(project_id)` | Redo the last undone operation. No-op if `project.canRedo` is false. |
 
-### Structure (10)
+### Structure (14)
 | Tool | Description |
 |------|-------------|
-| `field(project_id, path, label, type, props?)` | Add a data-collecting element. `type` accepts aliases from the Field Type Alias Table (e.g. `text`, `number`, `choice`, `signature`, `currency`). `props`: placeholder, hint, description, ariaLabel, choices, choices_from, format, widget, page, required, readonly. |
-| `content(project_id, path, body, kind?)` | Add a display element. `kind`: heading \| instructions \| alert \| image \| divider. (Parameter named `kind` to distinguish from `field`'s `type`.) |
+| `field(project_id, path, label, type, props?)` | Add a data-collecting element. `type` accepts aliases from the Field Type Alias Table. `props`: placeholder, hint, description, ariaLabel, choices, choices_from, format, widget, page, required (boolean), readonly (boolean), initialValue. For conditional required/readonly, chain with `require()` / `readonly_when()`. |
+| `content(project_id, path, body, kind?)` | Add a display element. `kind`: heading \| instructions \| alert \| divider. (`'image'` is not supported — no Image component in component schema.) |
 | `group(project_id, path, label, props?)` | Create a named container for related fields. `props`: collapsible, display (stack\|dataTable). |
-| `repeat(project_id, target, props?)` | Allow multiple instances of a group. `props`: min, max, add_label, remove_label. |
-| `page(project_id, title, description?)` | Add a step to a wizard or tabs layout. Routes to `pages.addPage`. Returns `{ page_id }` — the generated ID needed for subsequent `place()` calls, read from the updated pages array after dispatch. |
-| `remove_page(project_id, page_id)` | Remove a page. Preserves flow mode — deleting the last page does not revert to single mode. Routes to `pages.deletePage`. |
-| `place(project_id, target, page_id, options?)` | Assign a field or group to a specific page. `options.span`: column span in a grid layout. Routes to `pages.assignItem`. |
-| `update(project_id, path, changes)` | Change any property of an existing element. Routes each key per the `ItemChanges` type. Unknown keys produce `INVALID_KEY`. |
-| `remove(project_id, path)` | Delete a field, group, or content element. Helper cleans up all FEL references in descendants and across the form before dispatching delete. |
-| `copy(project_id, path)` | Deep-copy a field or group and insert the clone immediately after the original. Routes to `definition.duplicateItem`. Returns the new item's path. **Note:** copies item structure only — bind entries, shape rules, and theme overrides targeting the original are not duplicated. |
+| `repeat(project_id, target, props?)` | Allow multiple instances of a group. `props`: min, max, add_label (`component.setNodeProperty addLabel`), remove_label (`component.setNodeProperty removeLabel`). |
+| `page(project_id, title, description?)` | Add a step to a wizard or tabs layout. Returns `{ page_id }` from `affectedPaths[0]`. |
+| `remove_page(project_id, page_id)` | Remove a page. Routes to `pages.deletePage`. |
+| `move_page(project_id, page_id, direction)` | Reorder a page. `direction`: `'up' \| 'down'` (swaps with neighbor). No-op at boundary. Routes to `pages.reorderPages`. |
+| `place(project_id, target, page_id, options?)` | Assign a field or group to a specific page. `options.span`: column span. Routes to `pages.assignItem`. |
+| `unplace(project_id, target, page_id)` | Remove a field or group from a page assignment (does not delete the item). Routes to `pages.unassignItem`. |
+| `update(project_id, path, changes)` | Change any property of an existing element. Accepted keys: label, hint, description, placeholder, ariaLabel, options, choices_from, currency, precision, initialValue, dataType, required (FEL string), constraint, constraintMessage, calculate, relevant, readonly (FEL string), format, widget, style, page. Unknown keys return `INVALID_KEY`. |
+| `remove(project_id, path)` | Delete a field, group, or content element. Cleans up binds, shapes, and variables before deleting. Mapping rule references not cleaned — run `audit()` afterward. |
+| `copy(project_id, path, deep?)` | Copy a field or group, inserting the clone immediately after the original. Returns new path in `affectedPaths[0]`. `deep: false` (default): copies item structure; `warnings` lists omitted binds/shapes. `deep: true`: also copies bind entries and shape rules with path rewriting. |
+| `metadata(project_id, changes)` | Set form-level metadata. Accepted: title, name, description, url, version, status, date, versionAlgorithm, nonRelevantBehavior, derivedFrom, density, labelPosition, pageMode, defaultCurrency. Routes: `title → definition.setFormTitle`; most others → `definition.setDefinitionProperty`; presentation props → `definition.setFormPresentation`. |
+| `submit_button(project_id, label?, page_id?)` | Add a SubmitButton component. Routes to `component.addNode { component: 'SubmitButton' }`. Returns component node ID in `affectedPaths[0]`. |
 
 ### Flow and form shape (4)
 | Tool | Description |
 |------|-------------|
-| `flow(project_id, mode, props?)` | Set how the form is navigated. `mode`: single \| wizard \| tabs. `props`: showProgress, allowSkip. (`allowBack` is not a valid Wizard schema property and is not supported.) Routes to `pages.setMode` + `component.setWizardProperty` for each prop. |
-| `branch(project_id, on, paths)` | Show different fields depending on an answer. `on`: field path. `paths`: array of `{ when: value, show: path\|path[] }`. The helper constructs `on = when` as the FEL relevant expression for each branch arm. |
+| `flow(project_id, mode, props?)` | Set how the form is navigated. `mode`: single \| wizard \| tabs. `props`: showProgress, allowSkip. |
+| `branch(project_id, on, paths, otherwise?)` | Show different fields depending on an answer. `on`: field path. `paths`: `{ when, show, mode? }[]`. Mode auto-detects multiChoice fields (uses `selected(on, when)` not `contains()`). `otherwise`: path(s) visible when no branch matches — NOTE: also visible when `on` is unset/empty. |
 | `move(project_id, path, targetPath?, index?)` | Reorder or reparent a field or group. Routes to `definition.moveItem`. |
 | `rename(project_id, path, newKey)` | Rename a field key. The handler rewrites all FEL references internally. |
 
@@ -626,71 +848,71 @@ export function validateResponse(
 |------|-------------|
 | `show_when(project_id, target, condition)` | Make a field, group, or page visible only when the FEL condition is true. Routes to `definition.setBind { relevant }`. |
 | `readonly_when(project_id, target, condition)` | Lock a field when condition is true. Routes to `definition.setBind { readonly }`. |
-| `require(project_id, target, condition?)` | Mark as required always, or only when condition is true. Routes to `definition.setBind { required }`. |
+| `require(project_id, target, condition?)` | Mark as required always (no condition), or only when condition is true. Routes to `definition.setBind { required }`. |
 | `calculate(project_id, target, expression)` | Derive a field's value from a FEL expression. Routes to `definition.setBind { calculate }`. |
-| `add_rule(project_id, target, rule, message, options?)` | Enforce a data quality rule. `rule`: named format or FEL expression. `options`: timing (continuous\|submit\|demand), severity (error\|warning\|info — error blocks submission, warning/info are advisory), code, activeWhen. Target supports wildcards (`items[*].cost`). Routes to `definition.addShape`. |
+| `add_rule(project_id, target, rule, message, options?)` | Enforce a data quality rule. `options`: timing, severity (error blocks submission; warning/info are advisory), code, activeWhen. Routes to `definition.addShape`. |
 
-### Presentation (2)
+### Presentation (3)
 | Tool | Description |
 |------|-------------|
-| `layout(project_id, target, arrangement)` | Arrange fields spatially. `arrangement`: columns-2, columns-3, columns-4, card, sidebar, inline. Routes to `component.addNode` + `component.moveNode`. |
-| `style(project_id, target, properties)` | Set visual presentation. `target`: field path \| `{ type }` \| `{ dataType }` \| `'form'`. `properties`: density, labelPosition, visualWeight, size — not raw CSS. Routes based on target shape. |
+| `layout(project_id, target, arrangement)` | Arrange fields spatially. `arrangement`: columns-2, columns-3, columns-4, card, sidebar, inline (→ `Stack { direction: 'horizontal' }`). |
+| `style(project_id, path, properties)` | Set visual presentation for a specific field path. Routes to `theme.setItemOverride` per property. |
+| `style_all(project_id, properties, target_type?, target_data_type?)` | Set presentation for form-level or by type/dataType. Omit targeting params for form-level. `density` routes to `definition.setFormPresentation`. |
 
-### Data (8)
-
-Reusable definition-layer data: named option lists, FEL variables, and external data sources. All route to definition commands only — no component or theme involvement.
-
+### Data (9)
 | Tool | Description |
 |------|-------------|
-| `choices(project_id, name, options[])` | Define a reusable named option list. Referenced by fields via `choices_from`. Routes to `definition.setOptionSet`. |
-| `variable(project_id, name, expression, scope?)` | Define a named FEL variable reusable across expressions. `scope` limits visibility to a subtree. Routes to `definition.addVariable`. |
-| `update_variable(project_id, name, expression)` | Update a named variable's expression. Routes to `definition.setVariable` with `{ name, property: 'expression', value }`. |
+| `define_choices(project_id, name, options[])` | Define a reusable named option list. Referenced by fields via `choices_from`. Routes to `definition.setOptionSet`. (Renamed from `choices` to avoid overlap with `FieldProps.choices` inline options.) |
+| `variable(project_id, name, expression, scope?)` | Define a named FEL variable. Routes to `definition.addVariable`. |
+| `update_variable(project_id, name, expression)` | Update a variable's expression. Routes to `definition.setVariable { name, property: 'expression', value }`. |
 | `remove_variable(project_id, name)` | Delete a named variable. Routes to `definition.deleteVariable`. |
-| `instance(project_id, name, props)` | Declare a named external data source accessible in FEL via `@instance('name')`. `props`: source (URI), data (inline), schema, static, readonly, description. Routes to `definition.addInstance`. |
-| `update_instance(project_id, name, property, value)` | Update a single property on an existing instance. `property`: source, data, schema, static, readonly, or description. Routes to `definition.setInstance`. |
-| `rename_instance(project_id, name, newName)` | Rename an instance and rewrite all `@instance('name')` FEL references throughout the definition automatically. Routes to `definition.renameInstance`. |
-| `remove_instance(project_id, name)` | Remove an instance. FEL references are NOT automatically cleaned up — run `audit()` to surface broken refs. Routes to `definition.deleteInstance`. |
+| `rename_variable(project_id, name, newName)` | Rename a variable and rewrite all `$name` FEL references. |
+| `instance(project_id, name, props)` | Declare a named external data source. Routes to `definition.addInstance`. |
+| `update_instance(project_id, name, property, value)` | Update a single property on an instance. Routes to `definition.setInstance`. |
+| `rename_instance(project_id, name, newName)` | Rename an instance and rewrite all `@instance('name')` FEL references. Routes to `definition.renameInstance`. |
+| `remove_instance(project_id, name)` | Remove an instance. FEL references not cleaned — run `audit()`. Routes to `definition.deleteInstance`. |
 
-### Screener (5)
-
-A pre-form gate: ask qualifying questions before the main form starts, then route respondents to the right outcome.
-
+### Screener (7)
 | Tool | Description |
 |------|-------------|
 | `screener(project_id, enabled)` | Enable or disable the pre-form screener. Routes to `definition.setScreener`. |
-| `screen_field(project_id, key, label, type, props?)` | Add a qualifying question. Same `type` aliases and `props` as `field`. Routes to `definition.addScreenerItem` + optional `definition.setScreenerBind`. |
-| `remove_screen_field(project_id, key)` | Remove a qualifying question from the screener. Routes to `definition.deleteScreenerItem`. |
-| `screen_route(project_id, condition, target, label?)` | Add a routing rule: when `condition` (FEL expression) is true, send the respondent to `target`. Routes to `definition.addRoute`. |
-| `remove_screen_route(project_id, route_index)` | Remove a routing rule by zero-based index. Routes to `definition.deleteRoute` with `{ index: route_index }`. Use `describe()` to inspect current route order before removing. |
+| `screen_field(project_id, key, label, type, props?)` | Add a qualifying question. Same aliases and props as `field`. |
+| `remove_screen_field(project_id, key)` | Remove a qualifying question. Routes to `definition.deleteScreenerItem`. |
+| `screen_route(project_id, condition, target, label?)` | Add a routing rule. Routes to `definition.addRoute`. |
+| `update_screen_route(project_id, route_index, changes)` | Update a routing rule's condition, target, or label. `changes`: `{ condition?, target?, label? }`. Routes to `definition.setRouteProperty { index, property, value }` per key. |
+| `reorder_screen_route(project_id, route_index, direction)` | Swap a routing rule with its neighbor. `direction`: `'up' \| 'down'`. Routes to `definition.reorderRoute`. |
+| `remove_screen_route(project_id, route_index)` | Remove a routing rule by zero-based index. Cannot remove the last remaining route — returns `ROUTE_MIN_COUNT`. |
 
 ### Understanding (7)
 | Tool | Description |
 |------|-------------|
-| `preview(project_id, scenario?)` | Simulate a respondent's experience using FormEngine evaluation. `scenario`: `{ fieldPath: value }`. Returns `{ visibleFields: string[], activePage: string, validationState: Record<string, string> }` formatted as readable text. `value` types match the field's dataType (string for text, number for integer/decimal, boolean for boolean, string[] for multiChoice). |
-| `audit(project_id)` | Runs `project.diagnose()` (structural, expression, extension, and consistency checks) and formats the results as structured findings with severity (error \| warning \| info). **v1 scope:** wraps `project.diagnose()` only. Extended MCP-layer checks (unreachable branches, unconstrained free-text, conditional dead ends) are deferred — see Future Work. |
-| `describe(project_id, target?)` | Without `target`: returns `project.statistics()` + `project.fieldPaths()`. With `target`: returns field label, type, widget (human-readable, not raw component node), bind expressions, and page assignment. No LLM call required. |
-| `trace(project_id, expression_or_field)` | Calls `project.expressionDependencies(expr)` or `project.fieldDependents(path)`. Returns the dependency graph as readable text. |
-| `validate_response(project_id, response)` | Feed a response document in, get a `ValidationReport` back. Uses FormEngine evaluation. Returns path, severity, message, and constraint kind per field. |
-| `search(project_id, filter)` | Find fields matching criteria. `filter`: `{ type?, dataType?, label?, hasExtension? }`. Calls `project.searchItems(filter)`. |
-| `changelog(project_id, fromVersion?)` | Preview changes since the last published version. Calls `project.diffFromBaseline()` + `project.previewChangelog()`. Returns a classified change list: breaking \| compatible \| cosmetic. |
+| `preview(project_id, scenario?)` | Simulate a respondent's experience. Returns visible/hidden fields, calculated values, required state, page progression, and validation state. Uses FormEngine evaluation. |
+| `audit(project_id)` | Runs `project.diagnose()` and formats results by severity. |
+| `describe(project_id, target?)` | Without `target`: project statistics + field paths. With `target`: field label, type, widget, bind expressions, page assignment. |
+| `trace(project_id, expression_or_field)` | Dependency graph for an expression or field. Calls `project.expressionDependencies()` or `project.fieldDependents()`. |
+| `validate_response(project_id, response)` | Validate a response document. Returns `ValidationReport` (see Evaluation Helpers for type). |
+| `search(project_id, filter)` | Find fields matching criteria. `filter`: `{ type?, dataType?, label?, hasExtension? }`. |
+| `changelog(project_id, fromVersion?)` | Changes since last published version. Returns breaking \| compatible \| cosmetic classification. |
 
 ### FEL assistance (3)
 | Tool | Description |
 |------|-------------|
-| `fel_context(project_id, path?)` | What can be referenced in a FEL expression at this path? Returns `project.availableReferences(path)` — field paths in scope, variables, instances, repeat-group context refs. |
-| `fel_functions(project_id)` | List all available FEL functions. Returns `project.felFunctionCatalog()` — name, category, signature, and source. |
-| `fel_check(project_id, expression, context_path?)` | Validate a FEL expression before committing it. Calls `project.parseFEL(expression, contextPath)`. Returns `{ valid, errors, references, functions }`. Use this before passing an expression to `show_when`, `calculate`, `add_rule`, etc. |
+| `fel_context(project_id, path?)` | Available references at this path. Returns `project.availableReferences(path)`. |
+| `fel_functions(project_id)` | All available FEL functions with signatures. |
+| `fel_check(project_id, expression, context_path?)` | Validate a FEL expression. Returns `{ valid, errors, references, functions }`. Note: mutation tools that accept FEL expressions (`show_when`, `calculate`, `require`, `add_rule`, etc.) auto-validate and return `INVALID_FEL` directly — `fel_check` is a dry-run convenience, not a required pre-step. |
 
 ### Escape hatch (1)
 | Tool | Description |
 |------|-------------|
-| `dispatch(project_id, command)` | Send a raw `{ type, payload }` command directly to the Project. Full command protocol access. Subject to studio-core middleware. **Warning:** `dispatch` bypasses helper-level safety — for example, dispatching `definition.deleteItem` directly skips the FEL reference cleanup that `remove` performs. Only use when no helper covers the operation. |
+| `dispatch(project_id, command)` | Send a raw `{ type, payload }` command directly to the Project. Runs through the middleware chain (unlike helpers which bypass middleware via `batch()`). Bypasses helper-level safety (e.g., no FEL cleanup on delete). Use only when no helper covers the operation. |
 
 ---
 
 ## Error Handling
 
-All tools return structured errors — never generic strings:
+All tools return structured errors — never generic strings.
+
+**Error protocol:** Studio-core handlers throw bare `Error` objects — no structured codes exist at the handler layer. Helpers pre-validate domain-specific invariants before dispatching and throw `HelperError { code, message, detail }` on validation failure. The MCP tool layer wraps every helper call in try/catch: catches `HelperError` and maps to `ToolError` wire format; catches any other `Error` as `COMMAND_FAILED`.
 
 ```typescript
 interface ToolError {
@@ -698,11 +920,24 @@ interface ToolError {
   message: string;
   detail?: {
     path?: string;
+    similarPaths?: string[];      // PATH_NOT_FOUND: fuzzy-matched existing paths (top 3-5)
     expression?: string;
-    parseError?: { line: number; column: number; message: string };
-    diagnostics?: Diagnostics;   // for PUBLISH_BLOCKED
-    validKeys?: string[];         // for INVALID_KEY
-    validTypes?: string[];        // for INVALID_TYPE
+    parseError?: {
+      message: string;            // Chevrotain error message (may use internal token names)
+      offset?: number;            // character position (more reliable than line for single-line expressions)
+      errorType?: string;         // Chevrotain exception name: 'MismatchedTokenException' | 'NoViableAltException' | 'NotAllInputParsedException'
+      // Note: line/column are omitted — line is always 1 for single-expression strings,
+      // and column is undefined for EOF errors (unclosed parens, trailing dot).
+    };
+    diagnostics?: Diagnostics;    // for PUBLISH_BLOCKED
+    validKeys?: string[];          // for INVALID_KEY
+    validTypes?: string[];         // for INVALID_TYPE
+    validWidgets?: string[];       // for INVALID_WIDGET
+    validFormats?: string[];       // for INVALID_FORMAT
+    commandType?: string;          // for COMMAND_FAILED: which handler failed
+    handlerMessage?: string;       // for COMMAND_FAILED: raw error message from handler
+    currentRouteCount?: number;    // for ROUTE_MIN_COUNT
+    routes?: object[];             // for ROUTE_MIN_COUNT: current route list
   }
 }
 ```
@@ -712,52 +947,61 @@ interface ToolError {
 | Code | When |
 |------|------|
 | `PROJECT_NOT_FOUND` | `project_id` does not exist in the registry |
-| `PATH_NOT_FOUND` | A field/group path exists syntactically but the item doesn't exist in the definition |
+| `TOO_MANY_PROJECTS` | Registry limit (20) reached |
+| `PATH_NOT_FOUND` | Item doesn't exist at the given path. `detail.similarPaths` lists fuzzy-matched existing paths for self-correction. |
 | `INVALID_PATH` | Path syntax is malformed |
 | `PAGE_NOT_FOUND` | `page_id` does not exist |
 | `VARIABLE_NOT_FOUND` | Variable name does not exist |
-| `ROUTE_OUT_OF_BOUNDS` | `route_index` is out of bounds for the screener routes array |
-| `ROUTE_MIN_COUNT` | Attempted to delete the last remaining screener route; `definition.deleteRoute` prohibits this |
-| `INVALID_TYPE` | Unknown `type` alias passed to `field()` or `screen_field()`. `detail.validTypes` lists the alias table. |
-| `INVALID_KEY` | Key in `update()` changes is not in `ItemChanges`. `detail.validKeys` lists valid keys. |
+| `ROUTE_OUT_OF_BOUNDS` | `route_index` is out of bounds |
+| `ROUTE_MIN_COUNT` | Attempted to delete the last remaining screener route. `detail.currentRouteCount` and `detail.routes` provided. |
+| `INVALID_TYPE` | Unknown `type` alias. `detail.validTypes` lists the alias table. |
+| `INVALID_KEY` | Key in `update()` is not in `ItemChanges`. `detail.validKeys` lists all accepted keys. |
+| `INVALID_WIDGET` | Unknown widget alias or component name. `detail.validWidgets` lists the Widget Alias Table. |
+| `INVALID_FORMAT` | Unknown `format` value. `detail.validFormats` lists valid values. |
 | `DUPLICATE_KEY` | An item with that key already exists at the target path |
-| `INVALID_FEL` | FEL expression parse error. `detail.expression` and `detail.parseError` provided. |
+| `INVALID_FEL` | FEL expression parse error. `detail.expression`, `detail.parseError.message`, `detail.parseError.offset`, `detail.parseError.errorType` provided. Mutation tools auto-validate FEL and return this error directly. |
 | `PUBLISH_BLOCKED` | `project.diagnose()` returned errors. `detail.diagnostics` contains the full `Diagnostics` object. |
-| `COMMAND_FAILED` | An underlying studio-core handler threw. `detail` contains the handler error. |
-| `INVALID_INPUT` | Tool input failed schema validation (missing required parameter, wrong type). |
+| `COMMAND_FAILED` | An underlying studio-core handler threw. `detail.commandType` and `detail.handlerMessage` provided. |
+| `INVALID_INPUT` | Tool input failed schema validation. |
 | `SAVE_FAILED` | File system write error during `save()`. |
-| `LOAD_FAILED` | File system read error or invalid JSON during `open()`. |
+| `LOAD_FAILED` | Directory not found, missing definition file, or invalid JSON during `open()`. `detail.path` and `detail.reason` provided. |
 
-MCP error format: errors are returned as `{ isError: true, content: [{ type: 'text', text: JSON.stringify(toolError) }] }`.
+MCP error format: `{ isError: true, content: [{ type: 'text', text: JSON.stringify(toolError) }] }`.
 
 ---
 
 ## Future Work
 
 **`formspec-mcp-generation` (separate package)**
-Server-driven generation: an optional `GenerationProvider` interface (Anthropic, OpenAI, or any structured-output LLM) that the MCP server can call to bootstrap artifacts. Intentionally excluded from this package to keep `formspec-mcp` dependency-free of AI providers.
+Server-driven generation with an optional `GenerationProvider` interface. Excluded to keep `formspec-mcp` AI-provider-free.
 
-**Auto-save on exit**
-A `process.on('SIGTERM'/'SIGINT', ...)` handler that saves dirty projects to a temp directory on server exit. Prevents data loss on Claude Desktop restart.
+**`batchWithRebuild()` in studio-core**
+`addField` is the only helper using two sequential `dispatch()` calls instead of `batch()`, producing two undo entries and running through middleware. The fix is a `batchWithRebuild()` method on `Project` that triggers a component tree rebuild between command groups while producing a single undo entry.
 
-**Grid layout for pages**
-`pages.assignItem` supports `span` for grid placement. The `place()` tool documents this via `options.span`. Full grid layout (adding regions) is a future enhancement.
+**`kind: 'image'` in `addContent`**
+No `Image` component exists in the component schema (v1.0 defines 33 built-ins, none named Image), and no `image` widgetHint is defined for display items. To support this: add an `Image` component to the component schema (`{ component: 'Image', src: string, alt?: string, width?: string, height?: string }`) and a corresponding renderer plugin in the webcomponent. The `addContent` helper would then dispatch `component.addNode { component: 'Image', props: { src: body, alt } }` instead of `definition.addItem`. Until then, `'image'` is excluded from the `addContent` kind union.
+
+**Pages advanced layout**
+Several `pages.*` commands exist but are not exposed as tools: `pages.autoGenerate` (auto-creates pages from group structure), `pages.reorderRegion` (reorders items within a page region), `pages.setRegionProperty` (sets `span`/`start` on a region), `pages.setPageProperty` (generic page property setter). These enable full grid layout authoring. Deferred to v1.1.
 
 **Naming policy enforcement**
-Project-level field key convention config. Validated on `field()` and surfaced in `audit()`. Requires middleware-aware helpers or a dedicated validation pass.
-
-**`update_screen_route`**
-Update a screener routing rule's condition, target, or label. Routes to `definition.setRouteProperty` (this command already exists in studio-core). Not included in v1; use `remove_screen_route` + `screen_route` to replace.
+Project-level field key convention config. Validated on `field()` and surfaced in `audit()`.
 
 **`audit()` extended checks**
-Additional MCP-layer diagnostics beyond `project.diagnose()`: unreachable branches (a branch arm whose `when` value can never match the `on` field's option set), unconstrained free-text fields (text/string fields with no format constraint or validation shape), and conditional dead ends (a `show_when` condition that references a field that is itself hidden). Each requires defining a concrete matching algorithm and producing a `{ severity, code, message, path }` finding. Deferred to v1.1.
+Unreachable branches, unconstrained free-text fields, conditional dead ends. Deferred to v1.1.
+
+**Mapping rule cleanup on `removeItem`**
+`removeItem` does not clean up mapping rule references to deleted fields. Run `audit()` afterward. A `cleanup_mapping` helper is deferred.
+
+**Fragment export/import**
+Export a group (with fields, binds, shapes) as a reusable template across projects.
 
 ---
 
 ## Verification
 
 ```bash
-# Build studio-core with new authoring-helpers export
+# Build studio-core with new authoring-helpers and evaluation-helpers exports
 cd packages/formspec-studio-core && npm run build
 
 # Build MCP server
@@ -766,7 +1010,10 @@ cd packages/formspec-mcp && npm run build
 # Unit tests — authoring helpers
 cd packages/formspec-studio-core && npx vitest run tests/authoring-helpers.test.ts
 
-# Unit tests — MCP tool handlers (priority: structure, behavior, query)
+# Unit tests — evaluation helpers
+cd packages/formspec-studio-core && npx vitest run tests/evaluation-helpers.test.ts
+
+# Unit tests — MCP tool handlers
 cd packages/formspec-mcp && npx vitest run
 
 # Integration test — MCP server
@@ -775,10 +1022,29 @@ cd packages/formspec-mcp && node dist/index.js
 ```
 
 **Critical test coverage:**
-- `remove()` — recursive group FEL cleanup (verify all descendant references are deleted, not nullified)
-- `update()` — routing table exhaustiveness (every `ItemChanges` key dispatches to correct handler; unknown keys return `INVALID_KEY`)
-- `field()` — alias table coverage (all 20 aliases resolve to correct dataType + defaultWidget)
-- `branch()` — FEL expression construction (verify `on = when` expression is syntactically valid)
-- `publish()` — blocked when diagnose returns errors; passes through when clean
-- `preview()` / `validate_response()` — FormEngine instantiation with current definition state
-- `save()` / `open()` — round-trip (save then open produces identical project state)
+- `remove()` — recursive group FEL cleanup: binds nulled, shapes deleted, variables deleted; collect-then-batch ordering
+- `update()` — routing table exhaustiveness (every `ItemChanges` key to correct handler; unknown → `INVALID_KEY`)
+- `field()` — all 22 aliases resolve to correct dataType + defaultWidget
+- `update({ widget })` — widget alias resolution; unknown → `INVALID_WIDGET`
+- `branch()` — multiChoice auto-detection uses `selected(on, when)` not `contains()`; `otherwise` visible when field unset
+- `branch()` — FEL expression validity for all `when` literal types (string, number, boolean)
+- `copy(deep: false)` — `warnings` populated with bind/shape counts; `deep: true` — binds and shapes copied with rewritten paths
+- `metadata()` — each property routes to correct command; `submitMode`/`language` rejected as `INVALID_KEY`
+- `move_page()` — no-op at boundary; correct neighbor swap
+- `update_screen_route()` — each changes key dispatches to `definition.setRouteProperty`
+- `publish()` — blocked when diagnose returns errors; passes when clean
+- `preview()` / `validate_response()` — FormEngine instantiation; full return type coverage
+- `save()` / `open()` — round-trip produces identical state; `open()` idempotency
+- `PATH_NOT_FOUND` — `similarPaths` fuzzy-match returns correct candidates
+
+---
+
+## Revision History
+
+| Rev | Date | Summary |
+|-----|------|---------|
+| 1 | 2026-03-14 | Initial draft |
+| 2 | 2026-03-14 | MCP design spec rewrite incorporating pre-implementation review |
+| 3 | 2026-03-14 | Corrects factual errors; documents authoring-vocabulary mappings |
+| 4 | 2026-03-14 | HelperResult type, evaluation-helpers split, removeItem 5-step algorithm, query formatters to MCP layer, widget alias table, branch() multiChoice, ItemChanges additions, FieldProps boolean-only required/readonly, style/style_all split, PATH_NOT_FOUND similarPaths, SIGTERM auto-save v1, open() idempotency, rating/slider aliases, rename_variable, copy deep flag, metadata/submit_button, previewForm expanded return, COMMAND_FAILED detail, error code additions |
+| 5 | 2026-03-14 | Codebase-validated gap fixes: error protocol documented (Design Decision #6, HelperError); `'image'` removed from addContent kind (no Image component in schema); RepeatProps add/remove_label resolved to component.setNodeProperty; applyLayout 'inline' resolved to Stack { direction: 'horizontal' }; update_screen_route and reorder_screen_route promoted to v1 (definition.setRouteProperty and definition.reorderRoute confirmed); INVALID_FEL detail: offset+errorType replace unreliable line/column; affectedPaths contract documented (form-level ops → []); choices tool renamed define_choices; branch() multiChoice mode corrected to selected(on,when) not contains(); move_page and unplace tools added (pages.reorderPages and pages.unassignItem confirmed); metadata() routing corrected to setDefinitionProperty/setFormTitle/setFormPresentation, submitMode/language removed (not in schema); copy() inline-property copy behavior documented; HelperResult.warnings added |
