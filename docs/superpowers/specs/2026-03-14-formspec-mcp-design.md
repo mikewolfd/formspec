@@ -50,11 +50,13 @@ packages/formspec-mcp/                           ← new package
     projects.ts     — in-memory project registry
     tools/
       lifecycle.ts  — create/open/save/list/publish
-      structure.ts  — field/content/group/page/place/repeat/update/remove
+      structure.ts  — field/content/group/page/remove_page/place/repeat/update/remove/copy
       flow.ts       — flow/branch/move/rename
-      behavior.ts   — show_when/readonly_when/require/calculate/validate
+      behavior.ts   — show_when/readonly_when/require/calculate/validate/variable
       presentation.ts — layout/style/choices/after_submit
-      query.ts      — preview/audit/describe/trace
+      screener.ts   — screener/screen_field/screen_route
+      query.ts      — preview/audit/describe/trace/validate_response/search/changelog
+      fel.ts        — fel_context/fel_functions
       dispatch.ts   — raw escape hatch
     index.ts
   package.json
@@ -229,11 +231,31 @@ export function updateItem(project: Project, path: string, changes: ItemChanges)
 // After-submit behavior — confirmation, redirect, notifications
 // Dispatches: definition.setDefinitionProperty for form-level properties
 export function setAfterSubmit(project: Project, behavior: AfterSubmitBehavior): CommandResult[]
+
+// Named FEL variable — reusable across expressions
+// Dispatches: definition.addVariable
+export function addVariable(project: Project, name: string, expression: string, scope?: string): CommandResult[]
+
+// Remove page
+// Dispatches: pages.deletePage
+export function removePage(project: Project, pageId: string): CommandResult[]
+
+// Screener: enable/disable
+// Dispatches: definition.setScreener
+export function setScreener(project: Project, enabled: boolean): CommandResult[]
+
+// Screener: add qualifying question
+// Dispatches: definition.addScreenerItem + optional definition.setScreenerBind
+export function addScreenField(project: Project, key: string, label: string, type: string, props?: FieldProps): CommandResult[]
+
+// Screener: add routing rule
+// Dispatches: definition.addRoute
+export function addScreenRoute(project: Project, condition: string, target: string, label?: string): CommandResult[]
 ```
 
 ---
 
-## Tool Catalog (33 tools)
+## Tool Catalog (42 tools)
 
 ### Project lifecycle (5)
 | Tool | Description |
@@ -252,6 +274,7 @@ export function setAfterSubmit(project: Project, behavior: AfterSubmitBehavior):
 | `group(project_id, path, label, props?)` | Create a named container for related fields. `props`: collapsible, display (card\|accordion\|table\|stack). |
 | `repeat(project_id, target, props?)` | Allow multiple instances of a group. `props`: min, max, add_label, remove_label. |
 | `page(project_id, title, description?)` | Add a step to a wizard or tabs layout. Routes to `pages.addPage`. |
+| `remove_page(project_id, page_id)` | Remove a page. Preserves flow mode — deleting the last page does not revert to single mode. Routes to `pages.deletePage`. |
 | `place(project_id, target, page_id)` | Assign a field or group to a specific page. Routes to `pages.assignItem`. |
 | `update(project_id, path, changes)` | Change any property of an existing element. The `updateItem` helper fans out each key to the correct artifact (see helper routing table above). |
 | `remove(project_id, path)` | Delete a field, group, or content element. Helper layer queries `fieldDependents` and nullifies referencing expressions before deleting. |
@@ -265,7 +288,7 @@ export function setAfterSubmit(project: Project, behavior: AfterSubmitBehavior):
 | `move(project_id, path, targetPath?, index?)` | Reorder or reparent a field or group. Routes to `definition.moveItem`. |
 | `rename(project_id, path, newKey)` | Rename a field key. Routes to a single `definition.renameItem` command — the handler rewrites all FEL references internally. |
 
-### Behavior (5)
+### Behavior (6)
 | Tool | Description |
 |------|-------------|
 | `show_when(project_id, target, condition)` | Make a field, group, or page visible only when the FEL condition is true. Routes to `definition.setBind { relevant }`. |
@@ -273,6 +296,7 @@ export function setAfterSubmit(project: Project, behavior: AfterSubmitBehavior):
 | `require(project_id, target, condition?)` | Mark as required always, or only when the condition is true. Routes to `definition.setBind { required }`. |
 | `calculate(project_id, target, expression)` | Derive a field's value from a FEL expression. Routes to `definition.setBind { calculate }`. |
 | `validate(project_id, target, rule, message, options?)` | Enforce a data quality rule. `rule`: named format or FEL expression. `options`: timing (live\|submit\|both), blocking (server-side gate flag). Target supports wildcards (`items[*].cost`). Routes to `definition.addShape`. |
+| `variable(project_id, name, expression, scope?)` | Define a named FEL variable reusable across the form — e.g. `$total_budget`, `$is_eligible`. `scope` limits visibility to a subtree. Routes to `definition.addVariable`. Update via `dispatch` with `definition.setVariable`; delete via `dispatch` with `definition.deleteVariable`. |
 
 ### Presentation (4)
 | Tool | Description |
@@ -282,7 +306,17 @@ export function setAfterSubmit(project: Project, behavior: AfterSubmitBehavior):
 | `choices(project_id, name, options[])` | Define a reusable named option list. Routes to `definition.setOptionSet`. |
 | `after_submit(project_id, behavior)` | Configure completion: confirmationMessage, redirectUrl, emailRespondent, notifyTeam. Routes to `definition.setDefinitionProperty`. |
 
-### Understanding (4)
+### Screener (3)
+
+A pre-form gate: ask qualifying questions before the main form starts, then route respondents to the right outcome. Structurally parallel to the main form but separate — its own fields, binds, and routing rules.
+
+| Tool | Description |
+|------|-------------|
+| `screener(project_id, enabled)` | Enable or disable the pre-form screener. Routes to `definition.setScreener`. When enabled, respondents see the screener before the main form. |
+| `screen_field(project_id, key, label, type, props?)` | Add a qualifying question to the screener. Same `type` and `props` as `field`. Routes to `definition.addScreenerItem` + optional `definition.setScreenerBind`. |
+| `screen_route(project_id, condition, target, label?)` | Add a routing rule: when `condition` (FEL expression) is true, send the respondent to `target` (a form URL, page ID, or special value like `'ineligible'`). Routes to `definition.addRoute`. `label` is the human-readable description of this path. |
+
+### Understanding (7)
 | Tool | Description |
 |------|-------------|
 | `preview(project_id, scenario?)` | Simulate a respondent's experience. `scenario`: `{ fieldPath: value }`. Returns a structured object — `{ visibleFields: string[], activePage: string, validationState: Record<string, string> }` — which the MCP server formats as readable text before returning to the client. |
@@ -290,6 +324,17 @@ export function setAfterSubmit(project: Project, behavior: AfterSubmitBehavior):
 | `describe(project_id, target?)` | Without `target`: returns `project.statistics()` + `project.fieldPaths()` formatted as readable text. With `target`: returns `project.itemAt(target)` + `project.bindFor(target)` + `project.componentFor(target)`. No LLM call required. |
 | `trace(project_id, expression_or_field)` | Calls `project.expressionDependencies(expr)` or `project.fieldDependents(path)`. Returns the dependency graph for the target as readable text. |
 | `validate_response(project_id, response)` | Feed a response document in, get a `ValidationReport` back. Creates a `FormEngine` from the project's current definition, replays response values via `setValue()`, calls `getValidationReport({ mode: 'submit' })`. Returns structured results with path, severity, message, and constraint kind per field. |
+| `search(project_id, filter)` | Find fields matching criteria. `filter`: `{ type?, dataType?, label?, extension? }`. Calls `project.searchItems(filter)`. "Show me all currency fields" or "find all fields using x-formspec-url." |
+| `changelog(project_id, fromVersion?)` | Preview what has changed since the last published version (or a specific version). Calls `project.diffFromBaseline(fromVersion)` + `project.previewChangelog()`. Returns a classified change list: breaking \| compatible \| cosmetic. |
+
+### FEL assistance (2)
+
+Exposed separately because they serve a distinct purpose: helping the LLM (or a human) author correct FEL expressions before committing them.
+
+| Tool | Description |
+|------|-------------|
+| `fel_context(project_id, path?)` | What can be referenced in a FEL expression at this path? Returns `project.availableReferences(path)` — field paths in scope, variables, instances, repeat-group context refs (`@current`, `@index`, `@count`). |
+| `fel_functions(project_id)` | List all available FEL functions. Returns `project.felFunctionCatalog()` — name, category, signature, and source (builtin or extension-provided). |
 
 ### Escape hatch (1)
 | Tool | Description |
