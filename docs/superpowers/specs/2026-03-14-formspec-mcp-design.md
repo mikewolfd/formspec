@@ -71,8 +71,9 @@ packages/formspec-mcp/                           ← replaced package (full rewr
       lifecycle.ts  — create/open/save/list/publish/undo/redo
       structure.ts  — field/content/group/page/remove_page/place/repeat/update/remove/copy
       flow.ts       — flow/branch/move/rename
-      behavior.ts   — show_when/readonly_when/require/calculate/add_rule/variable/remove_variable/update_variable
-      presentation.ts — layout/style/choices
+      behavior.ts   — show_when/readonly_when/require/calculate/add_rule
+      presentation.ts — layout/style
+      data.ts       — choices/variable/update_variable/remove_variable/instance/update_instance/rename_instance/remove_instance
       screener.ts   — screener/screen_field/screen_route/remove_screen_field/remove_screen_route
       query.ts      — preview/audit/describe/trace/validate_response/search/changelog
       fel.ts        — fel_context/fel_functions/fel_check
@@ -246,6 +247,16 @@ interface ValidationOptions {
   // severity: 'info'    → informational only
   code?: string;        // machine-readable error code (e.g. 'BUDGET_MISMATCH')
   activeWhen?: string;  // FEL expression: shape is skipped when this evaluates to false
+}
+
+// Named external data source (secondary instance)
+interface InstanceProps {
+  source?: string;       // URI to external data file
+  data?: unknown;        // inline data (object or array); fallback if source unavailable
+  schema?: object;       // JSON Schema describing the instance's structure (advisory)
+  static?: boolean;      // caching hint: true if data is unlikely to change at runtime
+  readonly?: boolean;    // default true; false = writable scratch-pad for intermediate calculations
+  description?: string;
 }
 
 // Changes for updateItem — each key routes to a different artifact handler.
@@ -498,6 +509,24 @@ export function addScreenRoute(project: Project, condition: string, target: stri
 // (Routes are addressed by index, not by ID — the handler takes { index: number }.)
 export function removeScreenRoute(project: Project, routeIndex: number): CommandResult[]
 
+// Named external data source
+// Dispatches: definition.addInstance
+export function addInstance(project: Project, name: string, props: InstanceProps): CommandResult[]
+
+// Update a single property on an existing instance
+// Dispatches: definition.setInstance with { name, property, value }
+// Writable properties: source, data, schema, static, readonly, description
+export function updateInstance(project: Project, name: string, property: string, value: unknown): CommandResult[]
+
+// Rename an instance — rewrites all @instance('name') FEL references throughout the definition
+// Dispatches: definition.renameInstance (updates binds, shapes, variables, screener routes, mapping rules)
+export function renameInstance(project: Project, name: string, newName: string): CommandResult[]
+
+// Remove an instance
+// Note: does NOT clean up @instance() FEL references — run audit() afterward to surface broken refs
+// Dispatches: definition.deleteInstance
+export function removeInstance(project: Project, name: string): CommandResult[]
+
 // Preview — simulate respondent experience
 // Requires FormEngine (imported from formspec-engine).
 // Creates a FormEngine from project.export().definition, replays scenario values via setValue(),
@@ -517,7 +546,7 @@ export function validateResponse(
 
 ---
 
-## Tool Catalog (48 tools)
+## Tool Catalog (52 tools)
 
 ### Project lifecycle (7)
 | Tool | Description |
@@ -552,7 +581,7 @@ export function validateResponse(
 | `move(project_id, path, targetPath?, index?)` | Reorder or reparent a field or group. Routes to `definition.moveItem`. |
 | `rename(project_id, path, newKey)` | Rename a field key. The handler rewrites all FEL references internally. |
 
-### Behavior (8)
+### Behavior (5)
 | Tool | Description |
 |------|-------------|
 | `show_when(project_id, target, condition)` | Make a field, group, or page visible only when the FEL condition is true. Routes to `definition.setBind { relevant }`. |
@@ -560,16 +589,27 @@ export function validateResponse(
 | `require(project_id, target, condition?)` | Mark as required always, or only when condition is true. Routes to `definition.setBind { required }`. |
 | `calculate(project_id, target, expression)` | Derive a field's value from a FEL expression. Routes to `definition.setBind { calculate }`. |
 | `add_rule(project_id, target, rule, message, options?)` | Enforce a data quality rule. `rule`: named format or FEL expression. `options`: timing (continuous\|submit\|demand), severity (error\|warning\|info — error blocks submission, warning/info are advisory), code, activeWhen. Target supports wildcards (`items[*].cost`). Routes to `definition.addShape`. |
-| `variable(project_id, name, expression, scope?)` | Define a named FEL variable reusable across the form. `scope` limits visibility to a subtree. Routes to `definition.addVariable`. |
-| `update_variable(project_id, name, expression)` | Update a named variable's expression. Routes to `definition.setVariable`. |
-| `remove_variable(project_id, name)` | Delete a named variable. Routes to `definition.deleteVariable`. |
 
-### Presentation (3)
+### Presentation (2)
 | Tool | Description |
 |------|-------------|
 | `layout(project_id, target, arrangement)` | Arrange fields spatially. `arrangement`: columns-2, columns-3, columns-4, card, sidebar, inline. Routes to `component.addNode` + `component.moveNode`. |
 | `style(project_id, target, properties)` | Set visual presentation. `target`: field path \| `{ type }` \| `{ dataType }` \| `'form'`. `properties`: density, labelPosition, visualWeight, size — not raw CSS. Routes based on target shape. |
-| `choices(project_id, name, options[])` | Define a reusable named option list. Routes to `definition.setOptionSet`. |
+
+### Data (8)
+
+Reusable definition-layer data: named option lists, FEL variables, and external data sources. All route to definition commands only — no component or theme involvement.
+
+| Tool | Description |
+|------|-------------|
+| `choices(project_id, name, options[])` | Define a reusable named option list. Referenced by fields via `choices_from`. Routes to `definition.setOptionSet`. |
+| `variable(project_id, name, expression, scope?)` | Define a named FEL variable reusable across expressions. `scope` limits visibility to a subtree. Routes to `definition.addVariable`. |
+| `update_variable(project_id, name, expression)` | Update a named variable's expression. Routes to `definition.setVariable` with `{ name, property: 'expression', value }`. |
+| `remove_variable(project_id, name)` | Delete a named variable. Routes to `definition.deleteVariable`. |
+| `instance(project_id, name, props)` | Declare a named external data source accessible in FEL via `@instance('name')`. `props`: source (URI), data (inline), schema, static, readonly, description. Routes to `definition.addInstance`. |
+| `update_instance(project_id, name, property, value)` | Update a single property on an existing instance. `property`: source, data, schema, static, readonly, or description. Routes to `definition.setInstance`. |
+| `rename_instance(project_id, name, newName)` | Rename an instance and rewrite all `@instance('name')` FEL references throughout the definition automatically. Routes to `definition.renameInstance`. |
+| `remove_instance(project_id, name)` | Remove an instance. FEL references are NOT automatically cleaned up — run `audit()` to surface broken refs. Routes to `definition.deleteInstance`. |
 
 ### Screener (5)
 
