@@ -96,13 +96,11 @@ export interface ResolvedPageStructure {
 
 **Resolution reads from internal state.** Since Studio manages all documents, the resolution function reads `theme.pages` (the canonical page structure Studio maintains). It does NOT implement a tier cascade — there is no independent Wizard or definition hints to cascade from, because Studio keeps everything derived from the same source.
 
-### 2. Fix `pages.setMode` — Non-Destructive Mode Switching
+### 2. Fix `pages.*` Handlers — Mode Switching and Consistency
 
 **File:** `handlers/pages.ts`
 
-Current behavior clears `theme.pages` when switching to `'single'`. This is destructive — switching wizard → single → wizard loses all pages.
-
-New behavior: mode switching ONLY changes `formPresentation.pageMode`. Pages are always preserved.
+**Non-destructive mode switching:** Current `pages.setMode('single')` clears `theme.pages`. This is destructive — switching wizard → single → wizard loses all pages. New behavior: mode switching ONLY changes `formPresentation.pageMode`. Pages are always preserved.
 
 ```
 pages.setMode({ mode: 'single' })  → pageMode = 'single', pages preserved (dormant)
@@ -111,6 +109,10 @@ pages.setMode({ mode: 'tabs' })    → pageMode = 'tabs', ensures pages array ex
 ```
 
 **`pages.deletePage`**: Deleting the last page does NOT reset mode. The user explicitly chose wizard/tabs; an empty page list means "ready to add pages," not "switch to single." Use `pages.setMode('single')` to go back.
+
+**`pages.addPage` mode preservation:** Current handler unconditionally sets `pageMode = 'wizard'`, overwriting tabs mode. Fix: only set pageMode to `'wizard'` if the current mode is `'single'` or absent. If already `'wizard'` or `'tabs'`, preserve the existing mode.
+
+**`theme.*` page handlers:** The `theme.*` namespace contains a parallel set of page/region handlers (`theme.addPage`, `theme.deletePage`, `theme.addRegion`, etc.) that operate at a lower level without cross-tier sync. These remain as internal primitives but the `pages.*` handlers are the user-facing API. The UI should only dispatch `pages.*` commands; `theme.*` page handlers exist for direct theme document manipulation in advanced scenarios (e.g., programmatic import processing).
 
 ### 3. Fix `pages.autoGenerate` — Correct Property Path
 
@@ -137,9 +139,11 @@ Setting `value: undefined` removes the property (reverts to default span 12, nat
 
 **File:** `project.ts` (dispatch pipeline)
 
-Since Studio manages all documents, the component tree must reflect page structure changes. The `pages.*` handlers should return `{ rebuildComponentTree: true }` so the existing `_rebuildComponentTree()` pipeline incorporates page structure when generating the component tree.
+Since Studio manages all documents, the component tree must reflect page structure changes. All `pages.*` handlers currently return `{ rebuildComponentTree: false }` — this must change to `{ rebuildComponentTree: true }` so the existing `_rebuildComponentTree()` pipeline incorporates page structure when generating the component tree.
 
-The rebuild logic (already in `project.ts`) should be extended to:
+**Note:** The existing rebuild gate at `project.ts` skips rebuild when `hasAuthoredComponentTree()` is true. In the Studio-as-sole-author model, this guard is correct — if an authored tree exists (from a `project.import`), page operations write to theme.pages but do not overwrite the imported tree. The UI should surface a diagnostic when theme.pages and an authored component tree coexist, prompting the user to regenerate.
+
+The rebuild logic (already in `project.ts`, currently generates only a flat `Stack`) should be extended to:
 
 1. **When `theme.pages` exists and `pageMode` is `'wizard'`**: Generate a `Wizard` root with `Page` children, one per theme page. Each `Page` gets `title` and `description` from the theme page. Item-bound component nodes are placed into the `Page` corresponding to their region assignment.
 
@@ -183,8 +187,9 @@ Rewrite tests to cover:
 
 - **Widget selection UI** — How the user picks widgets for fields (Component Tree workspace concern)
 - **Theme cascade editing** — How the user sets tokens, selectors, per-item overrides (Theme workspace concern)
-- **Import of external documents** — What happens when someone loads a hand-authored component.json into Studio (future work; may need a reconciliation pass)
+- **Import reconciliation** — `project.import` can load externally-authored documents that Studio did not generate. After import, Studio assumes ownership of the imported state. If the imported theme.pages and component tree are inconsistent, the inconsistency persists until the user triggers a page operation (which rebuilds the component tree) or explicitly regenerates. A full import reconciliation pass is future work.
 - **Collaborative editing** — Multiple users editing the same form simultaneously
+- **Region key cascading on item rename/delete** — Already implemented (commit `e339982`): `definition.renameItem` and `definition.deleteItem` rewrite region keys in `theme.pages`. This ADR depends on that behavior but does not modify it.
 
 ## Verification
 

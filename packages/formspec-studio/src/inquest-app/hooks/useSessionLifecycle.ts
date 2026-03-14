@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createProject, type ProjectBundle } from 'formspec-studio-core';
 import { InquestDraft } from '../../shared/authoring/inquest-draft';
+import { nowIso } from '../utils';
 import { diagnosticsToInquestIssues, mergeIssueSets } from '../../shared/authoring/diagnostics-issues';
 import type {
   AnalysisV1,
@@ -23,10 +24,6 @@ import { findInquestTemplate } from '../../shared/templates/templates';
 import { inquestPath } from '../../shared/transport/routes';
 
 /* ── Helpers ─────────────────────────────────── */
-
-function nowIso(): string {
-  return new Date().toISOString();
-}
 
 function extractSessionId(pathname: string): string | undefined {
   return pathname.match(/^\/inquest\/session\/([^/?#]+)/)?.[1];
@@ -70,7 +67,7 @@ function createBlankSession(params: URLSearchParams, target?: InquestSessionTarg
         {
           id: crypto.randomUUID(),
           role: 'assistant' as const,
-          text: 'Hello! I am your Stack Assistant. I can help you build powerful, accessible forms for Formspec. What are we building today? You can describe a form from scratch, or I can suggest a template to get us started.',
+          text: "Hi! I'm Stack — your Formspec form builder. Describe what you need in plain English, upload any context files, or pick a template below to jump straight in.",
           createdAt: nowIso(),
         },
       ],
