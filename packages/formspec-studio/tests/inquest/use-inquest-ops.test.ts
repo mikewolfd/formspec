@@ -19,6 +19,7 @@ import type {
   InquestTemplate,
 } from '../../src/shared/contracts/inquest';
 import { buildAnalysis, buildProposal } from '../../src/shared/providers';
+import { InquestDraft } from '../../src/shared/authoring/inquest-draft';
 
 /* ── Fixtures ────────────────────────────────────── */
 
@@ -259,5 +260,344 @@ describe('useInquestOps — clearOperationError', () => {
 
     act(() => { result.current.clearOperationError(); });
     expect(result.current.operationError).toBeNull();
+  });
+});
+
+/* ── handleGenerateProposal ────────────────────── */
+
+describe('useInquestOps — handleGenerateProposal', () => {
+  it('runs analysis + proposal and transitions to review with a proposal', async () => {
+    const provider = makeProvider();
+    const session = makeSession({
+      input: { description: 'Build a patient intake form', uploads: [], messages: [], templateId: 'housing-intake' },
+    });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleGenerateProposal();
+    });
+
+    // Both analysis and proposal should have been called
+    expect(provider.runAnalysis).toHaveBeenCalledOnce();
+    expect(provider.runProposal).toHaveBeenCalledOnce();
+    // Draft should be set
+    expect(setDraft).toHaveBeenCalledOnce();
+    // Session should transition to review with both analysis and proposal
+    expect(updateSession).toHaveBeenCalledOnce();
+    const updaterFn = updateSession.mock.calls[0][0];
+    const nextSession = updaterFn(session);
+    expect(nextSession.phase).toBe('review');
+    expect(nextSession.analysis).toBeDefined();
+    expect(nextSession.proposal).toBeDefined();
+    expect(nextSession.draftBundle).toBeDefined();
+  });
+
+  it('reuses existing analysis when session already has one', async () => {
+    const existingAnalysis = buildAnalysis({
+      session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }),
+    });
+    const provider = makeProvider();
+    const session = makeSession({
+      input: { description: 'test', uploads: [], messages: [] },
+      analysis: existingAnalysis,
+    });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleGenerateProposal();
+    });
+
+    // Should NOT call runAnalysis again (already cached)
+    expect(provider.runAnalysis).not.toHaveBeenCalled();
+    // Should still call runProposal
+    expect(provider.runProposal).toHaveBeenCalledOnce();
+  });
+
+  it('sets operationError when proposal generation fails', async () => {
+    const provider = makeProvider({
+      runProposal: vi.fn().mockRejectedValue(new Error('Proposal API down')),
+    });
+    const session = makeSession({
+      input: { description: 'Build a form', uploads: [], messages: [] },
+    });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleGenerateProposal();
+    });
+
+    expect(result.current.operationError).toBe('Proposal API down');
+    expect(result.current.isAnalyzing).toBe(false);
+  });
+
+  it('does nothing when provider is undefined', async () => {
+    const session = makeSession({
+      input: { description: 'Build a form', uploads: [], messages: [] },
+    });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, undefined, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleGenerateProposal();
+    });
+
+    expect(updateSession).not.toHaveBeenCalled();
+    expect(setDraft).not.toHaveBeenCalled();
+  });
+});
+
+/* ── handleEnterRefine ─────────────────────────── */
+
+describe('useInquestOps — handleEnterRefine', () => {
+  it('transitions to refine phase', () => {
+    const provider = makeProvider();
+    const session = makeSession({ phase: 'review' });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, provider, undefined, updateSession),
+    );
+
+    act(() => {
+      result.current.handleEnterRefine();
+    });
+
+    expect(updateSession).toHaveBeenCalledOnce();
+    const updaterFn = updateSession.mock.calls[0][0];
+    const nextSession = updaterFn(session);
+    expect(nextSession.phase).toBe('refine');
+  });
+
+  it('creates a draft from proposal when no draft exists', () => {
+    const provider = makeProvider();
+    const proposal = buildProposal({
+      session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }),
+      analysis: buildAnalysis({ session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }) }),
+    });
+    const session = makeSession({ phase: 'review', proposal });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, provider, undefined, updateSession),
+    );
+
+    act(() => {
+      result.current.handleEnterRefine();
+    });
+
+    // Draft should be created from proposal
+    expect(setDraft).toHaveBeenCalledOnce();
+    const createdDraft = setDraft.mock.calls[0][0];
+    expect(createdDraft).toBeTruthy();
+    expect(createdDraft.export).toBeDefined();
+  });
+
+  it('does not recreate draft when one already exists', () => {
+    const provider = makeProvider();
+    const existingDraft = new InquestDraft();
+    const session = makeSession({ phase: 'review' });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, existingDraft, setDraft, provider, undefined, updateSession),
+    );
+
+    act(() => {
+      result.current.handleEnterRefine();
+    });
+
+    // setDraft should NOT be called (draft already exists)
+    expect(setDraft).not.toHaveBeenCalled();
+    // But phase should still change
+    expect(updateSession).toHaveBeenCalledOnce();
+  });
+
+  it('does nothing when session is null', () => {
+    const provider = makeProvider();
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(null, null, setDraft, provider, undefined, updateSession),
+    );
+
+    act(() => {
+      result.current.handleEnterRefine();
+    });
+
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+});
+
+/* ── handleApplyPrompt ─────────────────────────── */
+
+describe('useInquestOps — handleApplyPrompt', () => {
+  it('calls provider.runEdit and updates session when successful', async () => {
+    const provider = makeProvider({
+      runEdit: vi.fn().mockResolvedValue({
+        commands: [],
+        issues: [],
+        explanation: 'No changes needed',
+      }),
+    });
+    const draft = new InquestDraft();
+    const proposal = buildProposal({
+      session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }),
+      analysis: buildAnalysis({ session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }) }),
+    });
+    const session = makeSession({ phase: 'refine', proposal });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, draft, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleApplyPrompt('make email required');
+    });
+
+    expect(provider.runEdit).toHaveBeenCalledOnce();
+    expect(provider.runEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: 'make email required' }),
+    );
+    expect(updateSession).toHaveBeenCalledOnce();
+  });
+
+  it('sets operationError when runEdit throws', async () => {
+    const provider = makeProvider({
+      runEdit: vi.fn().mockRejectedValue(new Error('Edit service unavailable')),
+    });
+    const draft = new InquestDraft();
+    const session = makeSession({ phase: 'refine' });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, draft, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleApplyPrompt('add a phone field');
+    });
+
+    expect(result.current.operationError).toBe('Edit service unavailable');
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when draft is null', async () => {
+    const provider = makeProvider();
+    const session = makeSession({ phase: 'refine' });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleApplyPrompt('make name required');
+    });
+
+    expect(provider.runEdit).not.toHaveBeenCalled();
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+});
+
+/* ── handleOpenStudio ──────────────────────────── */
+
+describe('useInquestOps — handleOpenStudio', () => {
+  let assignSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    assignSpy = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  });
+
+  it('saves handoff payload and navigates to studio', async () => {
+    const provider = makeProvider();
+    const draft = new InquestDraft();
+    const proposal = buildProposal({
+      session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }),
+      analysis: buildAnalysis({ session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }) }),
+    });
+    const session = makeSession({ phase: 'refine', proposal });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, draft, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleOpenStudio();
+    });
+
+    expect(assignSpy).toHaveBeenCalledWith(expect.stringMatching(/^\/studio\/?\?h=/));
+    expect(updateSession).toHaveBeenCalled();
+    assignSpy.mockRestore();
+  });
+
+  it('does nothing when draft is null', async () => {
+    const provider = makeProvider();
+    const session = makeSession({ phase: 'refine', proposal: buildProposal({
+      session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }),
+      analysis: buildAnalysis({ session: makeSession({ input: { description: 'test', uploads: [], messages: [] } }) }),
+    }) });
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, null, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleOpenStudio();
+    });
+
+    expect(assignSpy).not.toHaveBeenCalled();
+    expect(updateSession).not.toHaveBeenCalled();
+    assignSpy.mockRestore();
+  });
+
+  it('does nothing when session has no proposal', async () => {
+    const provider = makeProvider();
+    const draft = new InquestDraft();
+    const session = makeSession({ phase: 'refine' }); // no proposal
+    const updateSession = vi.fn();
+    const setDraft = vi.fn();
+
+    const { result } = renderHook(() =>
+      useInquestOps(session, draft, setDraft, provider, undefined, updateSession),
+    );
+
+    await act(async () => {
+      await result.current.handleOpenStudio();
+    });
+
+    expect(assignSpy).not.toHaveBeenCalled();
+    expect(updateSession).not.toHaveBeenCalled();
+    assignSpy.mockRestore();
   });
 });

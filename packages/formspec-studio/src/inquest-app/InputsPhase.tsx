@@ -294,7 +294,7 @@ function ComposerToolbar({ showFullGallery, onFileUpload, onToggleGallery }: {
 
 /* ── Helpers ──────────────────────────────────── */
 
-function meaningfulInput(session: InquestSessionV1): boolean {
+export function meaningfulInput(session: Pick<InquestSessionV1, 'input'>): boolean {
   return Boolean(
     session.input.templateId
     || session.input.description.trim().length >= 10
