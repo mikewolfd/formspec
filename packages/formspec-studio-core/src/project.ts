@@ -1897,9 +1897,84 @@ export class Project {
       return node;
     };
 
-    const newRoot: TreeNode = { component: 'Stack', nodeId: 'root', children: [] };
-    for (const item of this._state.definition.items) {
-      newRoot.children!.push(buildNode(item));
+    // Build all item nodes
+    const builtNodes: TreeNode[] = this._state.definition.items.map(item => buildNode(item));
+
+    // ── Page-aware distribution ──
+    // Reads formPresentation.pageMode (definition.schema.json) and theme.pages
+    // (theme.schema.json) to generate schema-conformant component trees:
+    //   wizard → Wizard > Page[] (component.schema.json: Wizard childConstraint "Page only")
+    //   tabs   → Tabs > Page[]   (component.schema.json: Tabs reads tab labels from Page titles)
+    //   single → Stack > items[] (flat, current behavior)
+    const def = this._state.definition as any;
+    const pageMode: string = def.formPresentation?.pageMode ?? 'single';
+    const themePages = (this._state.theme.pages ?? []) as any[];
+
+    let newRoot: TreeNode;
+
+    if (themePages.length > 0 && (pageMode === 'wizard' || pageMode === 'tabs')) {
+      // Build key → node lookup (bind for fields/groups, nodeId for display items)
+      const nodeByKey = new Map<string, TreeNode>();
+      for (const node of builtNodes) {
+        const key = node.bind ?? node.nodeId;
+        if (key) nodeByKey.set(key, node);
+      }
+
+      // Create Page nodes and distribute items by region assignment
+      const pageNodes: TreeNode[] = [];
+      const assigned = new Set<string>();
+
+      for (const themePage of themePages) {
+        const pageNode: TreeNode = {
+          component: 'Page',
+          nodeId: (themePage as any).id,
+          title: (themePage as any).title,
+          description: (themePage as any).description,
+          children: [],
+        };
+
+        for (const region of ((themePage as any).regions ?? []) as any[]) {
+          if (region.key && nodeByKey.has(region.key)) {
+            pageNode.children!.push(nodeByKey.get(region.key)!);
+            assigned.add(region.key);
+          }
+        }
+
+        pageNodes.push(pageNode);
+      }
+
+      // Unassigned items: collect those not placed in any page
+      const unassigned = builtNodes.filter(n => {
+        const key = n.bind ?? n.nodeId;
+        return key && !assigned.has(key);
+      });
+
+      // Wizard childConstraint: "Page only" — wrap unassigned in auto-generated Page
+      if (pageMode === 'wizard') {
+        if (unassigned.length > 0) {
+          pageNodes.push({
+            component: 'Page',
+            nodeId: '_unassigned',
+            title: 'Other',
+            children: unassigned,
+          });
+        }
+        newRoot = { component: 'Wizard', nodeId: 'root', children: pageNodes };
+      } else {
+        // Tabs mode: component.schema.json Tabs reads tab labels from child Page titles
+        if (unassigned.length > 0) {
+          pageNodes.push({
+            component: 'Page',
+            nodeId: '_unassigned',
+            title: 'Other',
+            children: unassigned,
+          });
+        }
+        newRoot = { component: 'Tabs', nodeId: 'root', children: pageNodes };
+      }
+    } else {
+      // Flat Stack (current behavior — single mode or no pages)
+      newRoot = { component: 'Stack', nodeId: 'root', children: builtNodes };
     }
 
     // ── Phase 3: Re-insert layout wrappers ──
