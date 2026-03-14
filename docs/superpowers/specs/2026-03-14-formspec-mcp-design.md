@@ -1,7 +1,7 @@
 # Formspec MCP Server — Design Spec
 
 **Date:** 2026-03-14
-**Status:** Draft (rev 2 — incorporates pre-implementation review)
+**Status:** Draft (rev 3 — corrects factual errors and documents authoring-vocabulary mappings from parallel schema/spec review)
 **Branch:** studiofixes
 
 ---
@@ -113,6 +113,8 @@ Four explicit tradeoffs, documented for future maintainers:
 **1. Helpers use `batch()`, bypassing middleware.**
 Helpers call `project.batch()` rather than individual `project.dispatch()` calls. This means any middleware registered on the project (future: naming policy enforcement, audit logging, permission checks) does not apply to helper-dispatched operations. This is a permanent architectural choice: helpers exist *below* the middleware layer. Consumers that need middleware enforcement should use `project.dispatch()` directly (via the `dispatch` tool). The `batch()` call produces a single log entry with the full command list, so operations are still recorded.
 
+**Exception: `addField` uses two separate `project.dispatch()` calls, not `batch()`.** `definition.addItem` must complete and trigger a component tree rebuild before `component.setFieldWidget` can execute — the component node doesn't exist until the rebuild runs. This is the only helper with this pattern.
+
 **2. `preview` and `validate_response` depend on `formspec-engine`.**
 These two tools require instantiating a `FormEngine` with the current definition and replaying state to read reactive signals. This is not a command composition — it crosses into the evaluation stack. The dependency is acceptable: `formspec-mcp` already depends on both packages, and `formspec-engine` is the authoritative implementation of form evaluation semantics. These helpers live in `authoring-helpers.ts` but import `FormEngine` from `formspec-engine`.
 
@@ -182,10 +184,10 @@ interface FieldProps {
 }
 
 // Choice option for inline options or defineChoices
+// Note: the definition schema supports only value + label on option objects.
 interface ChoiceOption {
   value: string;
   label: string;
-  description?: string;
 }
 
 // Group properties
@@ -198,10 +200,10 @@ interface GroupProps {
 
 // Repeat group configuration
 interface RepeatProps {
-  min?: number;
-  max?: number;
-  add_label?: string;
-  remove_label?: string;
+  min?: number;        // → definition.setItemProperty { property: 'minRepeat', value }
+  max?: number;        // → definition.setItemProperty { property: 'maxRepeat', value }
+  add_label?: string;    // → component-tier (component.setGroupProperty or similar); exact command TBD
+  remove_label?: string; // → component-tier (component.setGroupProperty or similar); exact command TBD
 }
 
 // Branch path — one arm of a conditional branch
@@ -217,14 +219,17 @@ interface BranchPath {
 }
 
 // Layout arrangement for applyLayout
+// Authoring aliases — see the applyLayout dispatch comment for the component type mapping.
 type LayoutArrangement = 'columns-2' | 'columns-3' | 'columns-4' | 'card' | 'sidebar' | 'inline';
 
 // Style target for applyStyle
 // A field path string → theme.setItemOverride
 // { type: string } → theme.addSelector (match by item type)
+//   valid values: 'group' | 'field' | 'display'  (SelectorMatch schema constraint — not arbitrary strings)
 // { dataType: string } → theme.addSelector (match by dataType)
-// 'form' → theme.setDefaults
-type StyleTarget = string | { type: string } | { dataType: string } | 'form';
+//   valid values: the 13 definition dataType enum values
+// 'form' → theme.setDefaults (+ definition.setFormPresentation for density)
+type StyleTarget = string | { type: 'group' | 'field' | 'display' } | { dataType: string } | 'form';
 
 // Placement options for placeOnPage
 interface PlacementOptions {
@@ -232,9 +237,10 @@ interface PlacementOptions {
 }
 
 // Flow configuration
+// showProgress and allowSkip are defined in the Wizard component schema.
+// allowBack is NOT a valid Wizard schema property and has been removed.
 interface FlowProps {
   showProgress?: boolean;
-  allowBack?: boolean;
   allowSkip?: boolean;
 }
 
@@ -327,16 +333,18 @@ A new public export. Each helper maps one behavior-driven concept to one or more
 **Note on FEL reference cascading:** `definition.renameItem` already rewrites all FEL expression references internally via `rewriteAllPathReferences()` — the helper only needs to dispatch that single command. For `removeItem`, `definition.deleteItem` removes binds and shapes belonging to the deleted item but does NOT clean up FEL expressions in other fields that reference it. The `removeItem` helper must:
 1. Call `project.fieldDependents(path)` to find all fields with expressions referencing `path`
 2. For **each descendant** of a group being removed, repeat step 1 (recursive)
-3. Dispatch `definition.setBind` with each affected expression property set to `null` — the handler's null-removal semantics delete the property from the bind and clean up now-empty bind entries automatically. For shape rules, dispatch `definition.setShapeProperty` with the expression set to `null` to delete it.
+3. Dispatch `definition.setBind` with each affected expression property set to `null` — the handler's null-removal semantics delete the property from the bind and clean up now-empty bind entries automatically. For shape rules whose `constraint` or `activeWhen` expression references the deleted path, dispatch `definition.deleteShape` to remove the entire rule — **`definition.setShapeProperty` does NOT have null-deletion semantics** (it assigns the value directly; `null` would be stored as `null`, not deleted).
 4. Then dispatch `definition.deleteItem`
 
 ```typescript
 // Data collection field
 // Resolves type alias → { dataType, defaultWidget } via the Field Type Alias Table
 // Dispatch sequence (two separate dispatches — NOT a single batch):
+//   See Design Decision #1 exception: addField is the only helper that uses dispatch() not batch().
 //   1. project.dispatch('definition.addItem', ...) — triggers component tree rebuild on completion
 //   2. project.dispatch('component.setFieldWidget', ...) — executes after rebuild; node now exists
-//   Optional: definition.setBind dispatched in step 2's batch if required/readonly props are present
+//       + definition.setBind (if required/readonly props present)
+//       + pages.assignItem { pageId, key } (if props.page is set — key is the leaf segment of path)
 // `props.required = true` is converted to the FEL string 'true()' before dispatch.
 export function addField(
   project: Project,
@@ -347,8 +355,18 @@ export function addField(
 ): CommandResult[]
 
 // Display content — non-data element
-// Dispatches: definition.addItem with type: 'display' and presentationType: kind set on the definition item.
-// `kind` maps directly to the definition item's `presentationType` property (not a component node property).
+// `kind` is an authoring-level abstraction. There is no `presentationType` property in the definition
+// schema — the correct mapping target is `presentation.widgetHint` on the definition item.
+// The `body` string maps to the definition item's `label` property.
+//
+// Kind → widgetHint / dispatch mapping:
+//   'heading'      → presentation.widgetHint: 'heading'
+//   'instructions' → presentation.widgetHint: 'paragraph'
+//   'divider'      → presentation.widgetHint: 'divider'
+//   'alert'        → presentation.widgetHint: 'banner'
+//   'image'        → TODO: no widgetHint equivalent; may require component.addNode for Image component
+//
+// Dispatches: definition.addItem (type: 'display', label: body, presentation: { widgetHint: mapped })
 export function addContent(
   project: Project,
   path: string,
@@ -401,6 +419,13 @@ export function addValidation(
 export function branch(project: Project, on: string, paths: BranchPath[]): CommandResult[]
 
 // Spatial layout — wraps targets in a layout container
+// `arrangement` is an authoring alias that maps to actual component node types:
+//   'columns-2' → component.addNode { component: 'Grid', props: { columns: 2 } }
+//   'columns-3' → component.addNode { component: 'Grid', props: { columns: 3 } }
+//   'columns-4' → component.addNode { component: 'Grid', props: { columns: 4 } }
+//   'card'      → component.addNode { component: 'Card' }
+//   'sidebar'   → component.addNode { component: 'Panel', props: { position: 'left' } }
+//   'inline'    → TODO: horizontal Stack or Columns — component type TBD
 // Dispatches: component.addNode (layout container) + component.moveNode for each target
 export function applyLayout(
   project: Project,
@@ -409,9 +434,20 @@ export function applyLayout(
 ): CommandResult[]
 
 // Presentation style — routes based on target type
-// target is a field path → theme.setItemOverride
-// target is { type } or { dataType } → theme.addSelector
-// target is 'form' → theme.setDefaults
+// All three theme handlers accept one property at a time. The helper fans out over the properties record,
+// dispatching one command per key.
+//
+// target is a field path → theme.setItemOverride { itemKey, property, value } per property
+// target is { type } or { dataType } → theme.addSelector { match, apply } per property
+//   { type } valid values: 'group' | 'field' | 'display'  (SelectorMatch schema constraint)
+//   { dataType } valid values: the 13 definition dataType enum values
+// target is 'form' → theme.setDefaults { property, value } per property
+//
+// Property routing:
+//   labelPosition → PresentationBlock property; routed to theme handler per target type above
+//   density       → definition-level; routes to definition.setFormPresentation (not theme)
+//                   only meaningful when target is 'form'; values: 'compact' | 'comfortable' | 'spacious'
+//   style         → PresentationBlock.style sub-object (raw CSS-like token overrides)
 export function applyStyle(
   project: Project,
   target: StyleTarget,
@@ -433,12 +469,15 @@ export function makeRepeatable(project: Project, target: string, props?: RepeatP
 
 // Add page to flow
 // Dispatches: pages.addPage
-// The MCP tool layer reads the new page's ID from project.state.definition.pages after dispatch
+// The MCP tool layer reads the new page's ID from project.state.theme.pages after dispatch
 // (the last entry in the pages array), and returns it to the caller as { page_id }.
+// Note: pages are a theme-tier concept; they live in state.theme.pages, NOT state.definition.pages.
 export function addPage(project: Project, title: string, description?: string): CommandResult[]
 
 // Assign field/group to a page
-// Dispatches: pages.assignItem
+// Dispatches: pages.assignItem { pageId, key, span? }
+// Note: pages.assignItem uses `key` (the leaf segment of the path), not the full dot-path.
+// The helper extracts the leaf key from `target` before dispatching.
 export function placeOnPage(
   project: Project,
   target: string,
@@ -449,7 +488,8 @@ export function placeOnPage(
 // Set flow mode
 // Dispatches: pages.setMode { mode }
 //             + component.setWizardProperty for each FlowProps key provided:
-//               { property: 'showProgress', value: ... }, { property: 'allowBack', ... }, etc.
+//               { property: 'showProgress', value: ... }, { property: 'allowSkip', ... }, etc.
+// Valid FlowProps keys: showProgress, allowSkip (allowBack removed — not in Wizard schema).
 export function setFlow(project: Project, mode: 'single' | 'wizard' | 'tabs', props?: FlowProps): CommandResult[]
 
 // Move item in definition + component trees
@@ -576,7 +616,7 @@ export function validateResponse(
 ### Flow and form shape (4)
 | Tool | Description |
 |------|-------------|
-| `flow(project_id, mode, props?)` | Set how the form is navigated. `mode`: single \| wizard \| tabs. `props`: showProgress, allowBack, allowSkip. Routes to `pages.setMode` + `component.setWizardProperty` for each prop. |
+| `flow(project_id, mode, props?)` | Set how the form is navigated. `mode`: single \| wizard \| tabs. `props`: showProgress, allowSkip. (`allowBack` is not a valid Wizard schema property and is not supported.) Routes to `pages.setMode` + `component.setWizardProperty` for each prop. |
 | `branch(project_id, on, paths)` | Show different fields depending on an answer. `on`: field path. `paths`: array of `{ when: value, show: path\|path[] }`. The helper constructs `on = when` as the FEL relevant expression for each branch arm. |
 | `move(project_id, path, targetPath?, index?)` | Reorder or reparent a field or group. Routes to `definition.moveItem`. |
 | `rename(project_id, path, newKey)` | Rename a field key. The handler rewrites all FEL references internally. |
@@ -677,6 +717,7 @@ interface ToolError {
 | `PAGE_NOT_FOUND` | `page_id` does not exist |
 | `VARIABLE_NOT_FOUND` | Variable name does not exist |
 | `ROUTE_OUT_OF_BOUNDS` | `route_index` is out of bounds for the screener routes array |
+| `ROUTE_MIN_COUNT` | Attempted to delete the last remaining screener route; `definition.deleteRoute` prohibits this |
 | `INVALID_TYPE` | Unknown `type` alias passed to `field()` or `screen_field()`. `detail.validTypes` lists the alias table. |
 | `INVALID_KEY` | Key in `update()` changes is not in `ItemChanges`. `detail.validKeys` lists valid keys. |
 | `DUPLICATE_KEY` | An item with that key already exists at the target path |
@@ -706,7 +747,7 @@ A `process.on('SIGTERM'/'SIGINT', ...)` handler that saves dirty projects to a t
 Project-level field key convention config. Validated on `field()` and surfaced in `audit()`. Requires middleware-aware helpers or a dedicated validation pass.
 
 **`update_screen_route`**
-Update a screener routing rule's condition, target, or label. Routes to `definition.setRouteProperty`. Not included in v1; use `remove_screen_route` + `screen_route` to replace.
+Update a screener routing rule's condition, target, or label. Routes to `definition.setRouteProperty` (this command already exists in studio-core). Not included in v1; use `remove_screen_route` + `screen_route` to replace.
 
 **`audit()` extended checks**
 Additional MCP-layer diagnostics beyond `project.diagnose()`: unreachable branches (a branch arm whose `when` value can never match the `on` field's option set), unconstrained free-text fields (text/string fields with no format constraint or validation shape), and conditional dead ends (a `show_when` condition that references a field that is itself hidden). Each requires defining a concrete matching algorithm and producing a `{ severity, code, message, path }` finding. Deferred to v1.1.
