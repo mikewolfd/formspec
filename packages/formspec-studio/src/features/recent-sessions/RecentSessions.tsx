@@ -8,6 +8,12 @@ interface RecentSessionsProps {
   onStartNew(): void;
 }
 
+const PHASE_BADGE: Record<string, { label: string; className: string }> = {
+  inputs: { label: 'Drafting', className: 'text-slate-400 bg-slate-50 border-slate-200' },
+  review: { label: 'Review', className: 'text-amber-600 bg-amber-50 border-amber-200' },
+  refine: { label: 'Refine', className: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+};
+
 function relativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -83,11 +89,13 @@ export function RecentSessions({ sessions, onOpen, onDelete, onStartNew }: Recen
                   >
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-semibold text-slate-800">{session.title}</div>
-                      <div className="mt-0.5 text-[10px] font-medium text-slate-400">
-                        {relativeTime(session.updatedAt)}
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className={`rounded-full border px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${(PHASE_BADGE[session.phase] ?? PHASE_BADGE.inputs).className}`}>
+                          {(PHASE_BADGE[session.phase] ?? PHASE_BADGE.inputs).label}
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-400">{relativeTime(session.updatedAt)}</span>
                       </div>
                     </div>
-                    <div className="ml-2 h-1.5 w-1.5 shrink-0 rounded-full bg-warm-border transition-colors group-hover:bg-accent" />
                   </button>
 
                   <button

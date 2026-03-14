@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { TemplateGallery } from '../features/template-gallery/TemplateGallery';
 import { ProviderSetup } from '../features/provider-setup/ProviderSetup';
 import { RecentSessions } from '../features/recent-sessions/RecentSessions';
@@ -161,55 +161,56 @@ interface GenerateCTAProps {
 
 function GenerateCTA({ isAnalyzing, onDraftFast, onVerifyCarefully }: GenerateCTAProps) {
   return (
-    <div className="mt-8 rounded-3xl border border-warm-border bg-warm-subtle/40 p-7 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="mb-6 text-center">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-brass mb-2">Ready to build</div>
-        <h3 className="text-[17px] font-bold text-slate-900">Generate your form scaffold</h3>
-        <p className="mt-1.5 text-[13px] text-slate-500">Choose how to proceed:</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={onDraftFast}
-          disabled={isAnalyzing}
-          className="group flex flex-col items-center gap-3.5 rounded-2xl bg-white p-5 border-2 border-transparent hover:border-accent hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          </div>
-          <div className="text-center">
-            <div className="font-bold text-[14px] text-slate-900">Draft Fast</div>
-            <div className="mt-0.5 text-[12px] text-slate-400 leading-snug">Optimize for speed</div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={onVerifyCarefully}
-          disabled={isAnalyzing}
-          className="group flex flex-col items-center gap-3.5 rounded-2xl bg-white p-5 border-2 border-transparent hover:border-emerald-500 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <div className="h-11 w-11 rounded-xl bg-emerald-500 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-          </div>
-          <div className="text-center">
-            <div className="font-bold text-[14px] text-slate-900">Verify Carefully</div>
-            <div className="mt-0.5 text-[12px] text-slate-400 leading-snug">Deep semantic analysis</div>
-          </div>
-        </button>
-      </div>
-
-      {isAnalyzing && (
-        <div className="mt-4 flex items-center justify-center gap-2 text-[12px] font-medium text-slate-400">
-          <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-200 border-t-slate-400" />
-          Working on it…
+    <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="rounded-2xl border border-accent/20 bg-accent/[0.04] p-5">
+        <div className="mb-3.5 flex items-center gap-2">
+          <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-accent">Ready to generate</span>
         </div>
-      )}
+
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={onDraftFast}
+            disabled={isAnalyzing}
+            className="group flex flex-1 items-center gap-3 rounded-xl border-2 border-transparent bg-white p-3.5 text-left shadow-sm transition-all hover:border-slate-900 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white transition-transform group-hover:scale-105 group-disabled:scale-100">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </div>
+            <div>
+              <div className="font-bold text-[13px] text-slate-900">Draft Fast</div>
+              <div className="mt-0.5 text-[11px] text-slate-400">Skip analysis, go straight to scaffold</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={onVerifyCarefully}
+            disabled={isAnalyzing}
+            className="group flex flex-1 items-center gap-3 rounded-xl border-2 border-transparent bg-white p-3.5 text-left shadow-sm transition-all hover:border-emerald-500 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white transition-transform group-hover:scale-105 group-disabled:scale-100">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div>
+              <div className="font-bold text-[13px] text-slate-900">Verify Carefully</div>
+              <div className="mt-0.5 text-[11px] text-slate-400">Deep semantic analysis first</div>
+            </div>
+          </button>
+        </div>
+
+        {isAnalyzing && (
+          <div className="mt-3 flex items-center gap-2 text-[11px] font-medium text-slate-400">
+            <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-200 border-t-accent" />
+            Working on it…
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -258,6 +259,93 @@ function meaningfulInput(session: InquestSessionV1): boolean {
     || session.input.description.trim().length >= 10
     || session.input.uploads.length > 0
     || session.input.messages.some((m) => m.role === 'user'),
+  );
+}
+
+/* ── Inputs phase slot components ─────────────── */
+
+interface InputsAfterMessagesProps {
+  session: InquestSessionV1;
+  showFullGallery: boolean;
+  isAnalyzing: boolean;
+  onDraftFast: () => void;
+  onVerifyCarefully: () => void;
+  onToggleGallery: () => void;
+  onTemplateSelect: (templateId: string) => void;
+}
+
+function InputsAfterMessages({
+  session,
+  showFullGallery,
+  isAnalyzing,
+  onDraftFast,
+  onVerifyCarefully,
+  onToggleGallery,
+  onTemplateSelect,
+}: InputsAfterMessagesProps) {
+  return (
+    <>
+      {meaningfulInput(session) && (
+        <GenerateCTA
+          isAnalyzing={isAnalyzing}
+          onDraftFast={onDraftFast}
+          onVerifyCarefully={onVerifyCarefully}
+        />
+      )}
+      {(showFullGallery || (session.input.messages.length === 1 && !meaningfulInput(session))) && (
+        <TemplateSection
+          showFull={showFullGallery}
+          selectedTemplateId={session.input.templateId}
+          onToggleFull={onToggleGallery}
+          onSelect={onTemplateSelect}
+        />
+      )}
+    </>
+  );
+}
+
+interface ComposerToolbarProps {
+  uploadCount: number;
+  showFullGallery: boolean;
+  onFileUpload: (files: FileList | null) => void;
+  onToggleGallery: () => void;
+}
+
+function ComposerToolbar({ uploadCount, showFullGallery, onFileUpload, onToggleGallery }: ComposerToolbarProps) {
+  return (
+    <div className="mt-3 flex items-center justify-between px-1 text-[12px] font-medium text-slate-400">
+      <div className="flex gap-4">
+        <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 transition-colors">
+          <input
+            type="file"
+            className="hidden"
+            multiple
+            onChange={(e) => onFileUpload(e.target.files)}
+          />
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+          </svg>
+          <span>Add context</span>
+          {uploadCount > 0 && (
+            <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+              {uploadCount}
+            </span>
+          )}
+        </label>
+
+        <button
+          type="button"
+          onClick={onToggleGallery}
+          className={`flex items-center gap-1.5 transition-colors ${showFullGallery ? 'text-accent' : 'hover:text-slate-600'}`}
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span>Blueprints</span>
+        </button>
+      </div>
+      <span>Enter to send</span>
+    </div>
   );
 }
 
@@ -355,70 +443,7 @@ export function InquestApp() {
   const phaseIndex = PHASE_ORDER.indexOf(session.phase);
   const openIssues = session.issues.filter((issue) => issue.status === 'open');
 
-  /* ── Thread slot content ── */
-
-  const afterMessages: ReactNode = (
-    <>
-      {meaningfulInput(session) && (
-        <GenerateCTA
-          isAnalyzing={isAnalyzing}
-          onDraftFast={() => {
-            updateSession((c) => ({ ...c, workflowMode: 'draft-fast' }));
-            void handleGenerateProposal();
-          }}
-          onVerifyCarefully={() => {
-            updateSession((c) => ({ ...c, workflowMode: 'verify-carefully' }));
-            void handleAnalyze();
-          }}
-        />
-      )}
-
-      {(showFullGallery || (session.input.messages.length === 1 && !meaningfulInput(session))) && (
-        <TemplateSection
-          showFull={showFullGallery}
-          selectedTemplateId={session.input.templateId}
-          onToggleFull={() => setShowFullGallery((v) => !v)}
-          onSelect={handleTemplateSelect}
-        />
-      )}
-    </>
-  );
-
-  const belowComposer: ReactNode = (
-    <div className="mt-3 flex items-center justify-between px-1 text-[12px] font-medium text-slate-400">
-      <div className="flex gap-4">
-        <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 transition-colors">
-          <input
-            type="file"
-            className="hidden"
-            multiple
-            onChange={(e) => void handleFileUpload(e.target.files)}
-          />
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-          </svg>
-          <span>Add context</span>
-          {session.input.uploads.length > 0 && (
-            <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-              {session.input.uploads.length}
-            </span>
-          )}
-        </label>
-
-        <button
-          type="button"
-          onClick={() => setShowFullGallery(!showFullGallery)}
-          className={`flex items-center gap-1.5 transition-colors ${showFullGallery ? 'text-accent' : 'hover:text-slate-600'}`}
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-          <span>Blueprints</span>
-        </button>
-      </div>
-      <span>Enter to send</span>
-    </div>
-  );
+  const handleToggleGallery = () => setShowFullGallery((v) => !v);
 
   return (
     <div data-testid="stack-assistant" className="min-h-screen bg-[#fdfcfa] text-slate-900 font-ui flex flex-col">
@@ -468,8 +493,31 @@ export function InquestApp() {
                 messages={session.input.messages}
                 isRunning={isAnalyzing}
                 onNew={handleChatNew}
-                afterMessages={afterMessages}
-                belowComposer={belowComposer}
+                afterMessages={
+                  <InputsAfterMessages
+                    session={session}
+                    showFullGallery={showFullGallery}
+                    isAnalyzing={isAnalyzing}
+                    onDraftFast={() => {
+                      updateSession((c) => ({ ...c, workflowMode: 'draft-fast' }));
+                      void handleGenerateProposal();
+                    }}
+                    onVerifyCarefully={() => {
+                      updateSession((c) => ({ ...c, workflowMode: 'verify-carefully' }));
+                      void handleAnalyze();
+                    }}
+                    onToggleGallery={handleToggleGallery}
+                    onTemplateSelect={handleTemplateSelect}
+                  />
+                }
+                belowComposer={
+                  <ComposerToolbar
+                    uploadCount={session.input.uploads.length}
+                    showFullGallery={showFullGallery}
+                    onFileUpload={(files) => void handleFileUpload(files)}
+                    onToggleGallery={handleToggleGallery}
+                  />
+                }
               />
             )}
           </section>
