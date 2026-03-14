@@ -13,8 +13,8 @@ function renderVariables(vars = variables) {
   const project = createProject({
     seed: {
       definition: {
-        $formspec: '1.0', url: 'urn:test', version: '1.0.0',
-        items: [{ key: 'age', type: 'field', dataType: 'integer' }],
+        $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Variables Test',
+        items: [{ key: 'age', type: 'field' as const, dataType: 'integer' as const, label: 'Age' }],
         variables: vars,
       },
     },

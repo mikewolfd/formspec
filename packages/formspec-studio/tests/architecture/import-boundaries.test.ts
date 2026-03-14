@@ -7,6 +7,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const srcRoot = path.resolve(here, '../../src');
 
 function readFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   return entries.flatMap((entry) => {
     const fullPath = path.join(dir, entry.name);
@@ -30,15 +31,10 @@ describe('import boundaries', () => {
     }
   });
 
-  it('studio-app does not import inquest-app and inquest-app does not import studio-app', () => {
+  it('studio-app does not import inquest-app', () => {
     const studioFiles = readFiles(path.join(srcRoot, 'studio-app'));
     for (const filePath of studioFiles) {
       expect(fileText(filePath), filePath).not.toMatch(/inquest-app\//);
-    }
-
-    const inquestFiles = readFiles(path.join(srcRoot, 'inquest-app'));
-    for (const filePath of inquestFiles) {
-      expect(fileText(filePath), filePath).not.toMatch(/studio-app\//);
     }
   });
 });

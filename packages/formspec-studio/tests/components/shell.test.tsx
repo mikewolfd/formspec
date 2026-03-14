@@ -12,7 +12,7 @@ const seededDefinition = {
   version: '1.0.0',
   title: 'Shell Test',
   items: [
-    { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+    { key: 'name', type: 'field' as const, dataType: 'string' as const, label: 'Full Name' },
   ],
 };
 
@@ -94,7 +94,7 @@ describe('Shell', () => {
       });
 
       expect(createObjectURL).toHaveBeenCalledTimes(1);
-      const blob = createObjectURL.mock.calls[0][0] as Blob;
+      const blob = (createObjectURL.mock.calls as unknown[][])[0][0] as Blob;
       const json = JSON.parse(await blob.text());
       expect(json).toEqual(project.export().definition);
       expect(clickSpy).toHaveBeenCalledTimes(1);

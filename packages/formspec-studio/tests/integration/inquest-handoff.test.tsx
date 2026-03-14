@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { StudioApp } from '../../src/studio-app/StudioApp';
-import { saveBootstrapProject, saveHandoffPayload } from '../../src/shared/persistence/inquest-store';
-import type { InquestHandoffPayloadV1 } from '../../src/shared/contracts/inquest';
+import { saveBootstrapProject, saveHandoffPayload } from 'formspec-shared';
+import type { InquestHandoffPayloadV1 } from 'formspec-shared';
 
 describe('StudioApp handoff', () => {
   it('applies a new-project handoff into Studio', async () => {

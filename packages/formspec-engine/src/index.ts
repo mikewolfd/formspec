@@ -156,6 +156,7 @@ export interface FormspecDefinition {
     nonRelevantBehavior?: 'remove' | 'empty' | 'keep';
     formPresentation?: any;
     screener?: {
+        enabled?: boolean;
         items: FormspecItem[];
         binds?: FormspecBind[];
         routes: Array<{ condition: string; target: string; label?: string; extensions?: Record<string, any> }>;

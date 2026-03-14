@@ -62,8 +62,9 @@ export function getCurrentComponentDocument(
     return state.component;
   }
 
+  const base: FormspecComponentDocument = state.component;
   return {
-    ...state.component,
+    ...base,
     ...state.generatedComponent,
     tree: state.generatedComponent.tree,
     'x-studio-generated': true,

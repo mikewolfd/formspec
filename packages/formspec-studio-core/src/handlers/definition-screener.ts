@@ -21,9 +21,9 @@
  * @module definition-screener
  */
 import { registerHandler } from '../handler-registry.js';
-import type { FormspecItem } from 'formspec-engine';
+import type { FormspecDefinition, FormspecItem } from 'formspec-engine';
 
-function getEnabledScreener(state: { definition: { screener?: { enabled?: boolean } } }) {
+function getEnabledScreener(state: { definition: FormspecDefinition }) {
   const screener = state.definition.screener;
   if (!screener || screener.enabled === false) {
     throw new Error('Screener is not enabled');

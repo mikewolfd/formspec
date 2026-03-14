@@ -4,21 +4,22 @@ import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { BindsSection } from '../../../src/workspaces/logic/BindsSection';
 
-const binds = {
+const binds: Record<string, any> = {
   name: { required: 'true', relevant: '$age >= 18' },
   age: { required: 'true' },
 };
 
 function renderBinds(b = binds, props: Record<string, any> = {}) {
+  const bindArray = Object.entries(b).map(([path, entry]) => ({ path, ...entry }));
   const project = createProject({
     seed: {
       definition: {
-        $formspec: '1.0', url: 'urn:test', version: '1.0.0',
+        $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Binds Test',
         items: [
-          { key: 'name', type: 'field', dataType: 'string' },
-          { key: 'age', type: 'field', dataType: 'integer' },
+          { key: 'name', type: 'field' as const, dataType: 'string' as const, label: 'Name' },
+          { key: 'age', type: 'field' as const, dataType: 'integer' as const, label: 'Age' },
         ],
-        binds: b,
+        binds: bindArray,
       },
     },
   });

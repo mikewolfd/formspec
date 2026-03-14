@@ -13,9 +13,7 @@
     "noEmit": true,
     "paths": {
       "formspec-studio-core": ["../formspec-studio-core/src/index.ts"],
-      "formspec-engine": ["../formspec-engine/src/index.ts"],
-      "formspec-shared": ["../formspec-shared/src/index.ts"],
-      "formspec-chat": ["../formspec-chat/src/index.ts"]
+      "formspec-shared": ["../formspec-shared/src/index.ts"]
     }
   },
   "include": ["src", "tests"],

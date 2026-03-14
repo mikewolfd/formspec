@@ -5,17 +5,17 @@ import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { ShapesSection } from '../../../src/workspaces/logic/ShapesSection';
 
 const shapes = [
-  { id: 'ageCheck', name: 'ageCheck', severity: 'error', constraint: '$age >= 0', targets: ['age'], message: 'Age must be non-negative', code: 'AGE_001' },
-  { id: 'softLimit', name: 'softLimit', severity: 'warning', constraint: '$score < 100', message: 'Score should stay below 100', code: 'SCORE_001' },
-  { id: 'householdCap', name: 'householdCap', severity: 'info', constraint: '$householdSize <= 8', message: 'Household size should stay within the supported cap', code: 'HH_001' },
+  { id: 'ageCheck', name: 'ageCheck', severity: 'error' as const, constraint: '$age >= 0', target: 'age', targets: ['age'], message: 'Age must be non-negative', code: 'AGE_001' },
+  { id: 'softLimit', name: 'softLimit', severity: 'warning' as const, constraint: '$score < 100', target: 'score', message: 'Score should stay below 100', code: 'SCORE_001' },
+  { id: 'householdCap', name: 'householdCap', severity: 'info' as const, constraint: '$householdSize <= 8', target: 'householdSize', message: 'Household size should stay within the supported cap', code: 'HH_001' },
 ];
 
 function renderShapes(s = shapes) {
   const project = createProject({
     seed: {
       definition: {
-        $formspec: '1.0', url: 'urn:test', version: '1.0.0',
-        items: [{ key: 'age', type: 'field', dataType: 'integer' }],
+        $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Shapes Test',
+        items: [{ key: 'age', type: 'field' as const, dataType: 'integer' as const, label: 'Age' }],
         shapes: s,
       },
     },

@@ -7,18 +7,8 @@ import { CanvasTargetsProvider } from '../../state/useCanvasTargets';
 import { EditorCanvas } from '../../workspaces/editor/EditorCanvas';
 import { ItemProperties } from '../../workspaces/editor/ItemProperties';
 import { BehaviorPreview } from '../behavior-preview/BehaviorPreview';
-import { IssueQueue } from '../issue-queue/IssueQueue';
-import type { InquestIssue } from '../../shared/contracts/inquest';
-
-interface RefineWorkspaceProps {
-  project: Project;
-  issues: InquestIssue[];
-  onResolveIssue(issueId: string): void;
-  onDeferIssue(issueId: string): void;
-  onApplyPrompt(prompt: string): Promise<void> | void;
-  onBack(): void;
-  onOpenStudio(): void;
-}
+import { IssueQueue } from 'formspec-shared';
+import type { RefineSlotProps } from 'formspec-shared';
 
 export function RefineWorkspace({
   project,
@@ -28,7 +18,7 @@ export function RefineWorkspace({
   onApplyPrompt,
   onBack,
   onOpenStudio,
-}: RefineWorkspaceProps) {
+}: RefineSlotProps) {
   const [prompt, setPrompt] = useState('');
   const [isApplying, setIsApplying] = useState(false);
 

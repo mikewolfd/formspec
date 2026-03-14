@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { InquestDraft } from '../../src/shared/authoring/inquest-draft';
-import type { ProposalV1 } from '../../src/shared/contracts/inquest';
+import { InquestDraft } from 'formspec-chat';
+import type { ProposalV1 } from 'formspec-shared';
 
 const proposal: ProposalV1 = {
   definition: {

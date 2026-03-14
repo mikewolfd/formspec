@@ -82,9 +82,9 @@ describe('isDescendantOf', () => {
 describe('computeDropTarget', () => {
   // Simple flat list: [fieldA, fieldB, fieldC]
   const flatRoot: FlatEntry[] = [
-    { id: 'fieldA', node: { component: 'TextInput', bind: 'fieldA' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldA', bind: 'fieldA' },
-    { id: 'fieldB', node: { component: 'TextInput', bind: 'fieldB' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldB', bind: 'fieldB' },
-    { id: 'fieldC', node: { component: 'TextInput', bind: 'fieldC' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldC', bind: 'fieldC' },
+    { id: 'fieldA', node: { component: 'TextInput', bind: 'fieldA' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldA', bind: 'fieldA', nodeId: undefined },
+    { id: 'fieldB', node: { component: 'TextInput', bind: 'fieldB' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldB', bind: 'fieldB', nodeId: undefined },
+    { id: 'fieldC', node: { component: 'TextInput', bind: 'fieldC' }, category: 'field', depth: 0, hasChildren: false, defPath: 'fieldC', bind: 'fieldC', nodeId: undefined },
   ];
 
   it('returns null when dropping on itself', () => {
@@ -222,11 +222,11 @@ describe('computeDropTarget', () => {
 describe('buildSequentialMoveCommands', () => {
   // [a, b, c, d, e] — all root-level fields
   const flat5: FlatEntry[] = [
-    { id: 'a', node: { component: 'TextInput', bind: 'a' }, category: 'field', depth: 0, hasChildren: false, defPath: 'a', bind: 'a' },
-    { id: 'b', node: { component: 'TextInput', bind: 'b' }, category: 'field', depth: 0, hasChildren: false, defPath: 'b', bind: 'b' },
-    { id: 'c', node: { component: 'TextInput', bind: 'c' }, category: 'field', depth: 0, hasChildren: false, defPath: 'c', bind: 'c' },
-    { id: 'd', node: { component: 'TextInput', bind: 'd' }, category: 'field', depth: 0, hasChildren: false, defPath: 'd', bind: 'd' },
-    { id: 'e', node: { component: 'TextInput', bind: 'e' }, category: 'field', depth: 0, hasChildren: false, defPath: 'e', bind: 'e' },
+    { id: 'a', node: { component: 'TextInput', bind: 'a' }, category: 'field', depth: 0, hasChildren: false, defPath: 'a', bind: 'a', nodeId: undefined },
+    { id: 'b', node: { component: 'TextInput', bind: 'b' }, category: 'field', depth: 0, hasChildren: false, defPath: 'b', bind: 'b', nodeId: undefined },
+    { id: 'c', node: { component: 'TextInput', bind: 'c' }, category: 'field', depth: 0, hasChildren: false, defPath: 'c', bind: 'c', nodeId: undefined },
+    { id: 'd', node: { component: 'TextInput', bind: 'd' }, category: 'field', depth: 0, hasChildren: false, defPath: 'd', bind: 'd', nodeId: undefined },
+    { id: 'e', node: { component: 'TextInput', bind: 'e' }, category: 'field', depth: 0, hasChildren: false, defPath: 'e', bind: 'e', nodeId: undefined },
   ];
 
   it('multi-select drag DOWN: a+b below d', () => {
@@ -258,10 +258,10 @@ describe('buildSequentialMoveCommands', () => {
 
   it('multi-select into group: move root items inside groupX', () => {
     const flatWithGroup: FlatEntry[] = [
-      { id: 'a', node: { component: 'TextInput', bind: 'a' }, category: 'field', depth: 0, hasChildren: false, defPath: 'a', bind: 'a' },
-      { id: 'b', node: { component: 'TextInput', bind: 'b' }, category: 'field', depth: 0, hasChildren: false, defPath: 'b', bind: 'b' },
-      { id: 'grp', node: { component: 'Stack', bind: 'grp' }, category: 'group', depth: 0, hasChildren: true, defPath: 'grp', bind: 'grp' },
-      { id: 'grp.x', node: { component: 'TextInput', bind: 'x' }, category: 'field', depth: 1, hasChildren: false, defPath: 'grp.x', bind: 'x' },
+      { id: 'a', node: { component: 'TextInput', bind: 'a' }, category: 'field', depth: 0, hasChildren: false, defPath: 'a', bind: 'a', nodeId: undefined },
+      { id: 'b', node: { component: 'TextInput', bind: 'b' }, category: 'field', depth: 0, hasChildren: false, defPath: 'b', bind: 'b', nodeId: undefined },
+      { id: 'grp', node: { component: 'Stack', bind: 'grp' }, category: 'group', depth: 0, hasChildren: true, defPath: 'grp', bind: 'grp', nodeId: undefined },
+      { id: 'grp.x', node: { component: 'TextInput', bind: 'x' }, category: 'field', depth: 1, hasChildren: false, defPath: 'grp.x', bind: 'x', nodeId: undefined },
     ];
 
     const cmds = buildSequentialMoveCommands(['a', 'b'], 'grp', 1, flatWithGroup);

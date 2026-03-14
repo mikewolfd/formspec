@@ -29,6 +29,7 @@ interface Item {
   minRepeat?: number;
   maxRepeat?: number;
   children?: Item[];
+  [key: string]: unknown;
 }
 
 interface CompNode {

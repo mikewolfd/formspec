@@ -5,9 +5,8 @@ import { SelectionProvider } from '../state/useSelection';
 import { ActivePageProvider } from '../state/useActivePage';
 import { Shell } from '../components/Shell';
 import { exampleDefinition } from '../fixtures/example-definition';
-import type { InquestHandoffPayloadV1 } from '../shared/contracts/inquest';
-import { deleteHandoffPayload, loadBootstrapProject, loadHandoffPayload, saveBootstrapProject } from '../shared/persistence/inquest-store';
-import { inquestPath } from '../shared/transport/routes';
+import type { InquestHandoffPayloadV1 } from 'formspec-shared';
+import { deleteHandoffPayload, loadBootstrapProject, loadHandoffPayload, saveBootstrapProject, inquestPath } from 'formspec-shared';
 
 export function createStudioProject(seed?: Parameters<typeof createProject>[0]): Project {
   return createProject(seed ?? { seed: { definition: exampleDefinition as any } });
