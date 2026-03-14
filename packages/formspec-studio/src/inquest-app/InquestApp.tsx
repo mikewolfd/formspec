@@ -286,7 +286,7 @@ export function InquestApp() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#fdfcfa] flex items-center justify-center">
         <div className="flex flex-col items-center gap-5">
           <div className="relative">
             <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
@@ -511,9 +511,9 @@ export function InquestApp() {
   };
 
   return (
-    <div data-testid="stack-assistant" className="min-h-screen bg-white text-slate-900 font-ui flex flex-col">
+    <div data-testid="stack-assistant" className="min-h-screen bg-[#fdfcfa] text-slate-900 font-ui flex flex-col">
       {/* ── Header ── */}
-      <header className="relative flex h-[60px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 shadow-sm">
+      <header className="relative flex h-[60px] shrink-0 items-center justify-between border-b border-warm-border bg-white px-6 shadow-sm">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent shadow-sm">
@@ -525,9 +525,15 @@ export function InquestApp() {
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight leading-none">Stack Builder</h1>
-            <div className="mt-1 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
-              Formspec AI Assistant
-            </div>
+            {session.phase === 'inputs' ? (
+              <div className="mt-1 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+                Formspec AI Assistant
+              </div>
+            ) : (
+              <div className="mt-1 max-w-[200px] truncate text-[11px] font-medium text-slate-500">
+                {session.title}
+              </div>
+            )}
           </div>
         </div>
 
@@ -584,7 +590,7 @@ export function InquestApp() {
       {session.phase === 'inputs' && (
         <main className="flex flex-1 overflow-hidden">
           {/* Left Sidebar: Navigation & History */}
-          <aside className="w-[280px] border-r border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
+          <aside className="w-[280px] border-r border-warm-border bg-warm-subtle/30 flex flex-col shrink-0">
             <div className="flex-1 overflow-y-auto p-4">
               <RecentSessions
                 sessions={recentSessions}
@@ -660,10 +666,11 @@ export function InquestApp() {
                 afterMessages={
                   <>
                     {meaningfulInput(session) && (
-                      <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                      <div className="mt-8 rounded-3xl border border-warm-border bg-warm-subtle/40 p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <div className="text-center mb-8">
-                          <h3 className="text-lg font-bold text-slate-900">Ready to build your form?</h3>
-                          <p className="mt-2 text-sm text-slate-500">I have enough information to generate a scaffold. How should we proceed?</p>
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-brass mb-2">Ready to build</div>
+                          <h3 className="text-lg font-bold text-slate-900">Generate your form scaffold</h3>
+                          <p className="mt-2 text-sm text-slate-500">I have enough context to get started. Choose how to proceed:</p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -710,11 +717,11 @@ export function InquestApp() {
                       <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <div className="mb-6 flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="h-px w-8 bg-slate-100" />
-                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
+                            <div className="h-px w-8 bg-warm-border" />
+                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brass/70">
                               {showFullGallery ? 'Full Blueprint Library' : 'Quick Start Blueprints'}
                             </span>
-                            <div className="h-px w-8 bg-slate-100" />
+                            <div className="h-px w-8 bg-warm-border" />
                           </div>
                           {showFullGallery && (
                             <button
@@ -790,7 +797,7 @@ export function InquestApp() {
           </section>
 
           {/* Right Sidebar: Context panel */}
-          <aside className="w-[320px] border-l border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
+          <aside className="w-[320px] border-l border-warm-border bg-warm-subtle/30 flex flex-col shrink-0">
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <InputInventory input={session.input} template={template} />
             </div>
@@ -800,33 +807,38 @@ export function InquestApp() {
 
       {/* ── Review phase ── */}
       {session.phase === 'review' && session.analysis ? (
-        <ReviewWorkspace
-          analysis={session.analysis}
-          proposal={session.proposal}
-          issues={session.issues.filter((issue) => issue.status === 'open')}
-          workflowMode={session.workflowMode}
-          onGenerate={handleGenerateProposal}
-          onProceedToRefine={handleEnterRefine}
-          onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
-          onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
-        />
+        <main className="flex-1 overflow-y-auto p-6">
+          <ReviewWorkspace
+            analysis={session.analysis}
+            proposal={session.proposal}
+            issues={session.issues.filter((issue) => issue.status === 'open')}
+            workflowMode={session.workflowMode}
+            onGenerate={handleGenerateProposal}
+            onProceedToRefine={handleEnterRefine}
+            onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
+            onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
+            isGenerating={isAnalyzing}
+          />
+        </main>
       ) : null}
 
       {/* ── Refine phase ── */}
       {session.phase === 'refine' && draft ? (
-        <RefineWorkspace
-          project={draft.getProject()}
-          issues={session.issues.filter((issue) => issue.status === 'open')}
-          onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
-          onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
-          onApplyPrompt={handleApplyPrompt}
-          onBack={() => updateSession((current) => ({
-            ...current,
-            phase: 'review',
-            updatedAt: nowIso(),
-          }))}
-          onOpenStudio={handleOpenStudio}
-        />
+        <main className="flex-1 overflow-y-auto p-6">
+          <RefineWorkspace
+            project={draft.getProject()}
+            issues={session.issues.filter((issue) => issue.status === 'open')}
+            onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
+            onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
+            onApplyPrompt={handleApplyPrompt}
+            onBack={() => updateSession((current) => ({
+              ...current,
+              phase: 'review',
+              updatedAt: nowIso(),
+            }))}
+            onOpenStudio={handleOpenStudio}
+          />
+        </main>
       ) : null}
     </div>
   );
