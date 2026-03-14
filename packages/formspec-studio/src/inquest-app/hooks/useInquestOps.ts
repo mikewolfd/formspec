@@ -50,7 +50,10 @@ export function useInquestOps(
   const handleAnalyze = useCallback(async (text?: string) => {
     if (!provider || !session) return;
     const description = text ?? session.input.description;
-    if (!description.trim()) return;
+    // Allow analysis when a template is selected even if description is empty —
+    // the template's seedAnalysis provides sufficient context.
+    const hasInput = description.trim().length > 0 || !!session.input.templateId || !!template;
+    if (!hasInput) return;
 
     setIsAnalyzing(true);
     setOperationError(null);
