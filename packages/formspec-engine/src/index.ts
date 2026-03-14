@@ -28,6 +28,14 @@ export {
     normalizePathSegment,
     splitNormalizedPath
 } from './path-utils.js';
+export { createSchemaValidator } from './schema-validator.js';
+export type {
+    DocumentType,
+    SchemaValidationError,
+    SchemaValidationResult,
+    SchemaValidator,
+    SchemaValidatorSchemas,
+} from './schema-validator.js';
 
 /** Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation. */
 export function getBuiltinFELFunctionCatalog(): FELBuiltinFunctionCatalogEntry[] {
