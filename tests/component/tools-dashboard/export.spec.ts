@@ -15,6 +15,8 @@ test.describe('Download & Export Tab', () => {
       route.fulfill({ contentType: 'application/xml', body: '<GrantApplication><Applicant><OrganizationName>Community Health Partners</OrganizationName></Applicant></GrantApplication>' })
     );
     await page.goto(TOOLS_URL);
+    // Wait for all export cards to load before interacting
+    await expect(page.locator('.export-card')).toHaveCount(3);
     // Switch to Export tab
     await page.locator('.tools-tab[data-tab="export"]').click();
     // Fill in valid JSON so export handlers don't bail on parse
