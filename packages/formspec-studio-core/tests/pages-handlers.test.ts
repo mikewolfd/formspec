@@ -167,7 +167,7 @@ describe('pages.setPageProperty', () => {
 });
 
 describe('pages.autoGenerate', () => {
-  it('creates pages from definition groups with layout.page hints', () => {
+  it('creates pages from definition groups with presentation.layout.page hints', () => {
     const project = createProject({
       seed: {
         definition: {
@@ -175,12 +175,12 @@ describe('pages.autoGenerate', () => {
           items: [
             {
               key: 'personal', type: 'group', label: 'Personal',
-              layout: { page: 'page1' },
+              presentation: { layout: { page: 'page1' } },
               children: [{ key: 'name', type: 'field', dataType: 'string', label: '' }],
             },
             {
               key: 'contact', type: 'group', label: 'Contact',
-              layout: { page: 'page2' },
+              presentation: { layout: { page: 'page2' } },
               children: [{ key: 'email', type: 'field', dataType: 'string', label: '' }],
             },
           ],
@@ -191,8 +191,62 @@ describe('pages.autoGenerate', () => {
     project.dispatch({ type: 'pages.autoGenerate', payload: {} });
 
     const pages = project.theme.pages as any[];
-    expect(pages.length).toBeGreaterThanOrEqual(2);
+    expect(pages).toHaveLength(2);
+    expect(pages[0].title).toBe('Personal');
+    expect(pages[1].title).toBe('Contact');
     expect((project.definition as any).formPresentation?.pageMode).toBe('wizard');
+  });
+
+  it('attaches groups without page hint to the preceding page', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
+          items: [
+            {
+              key: 'basic', type: 'group', label: 'Basic',
+              presentation: { layout: { page: 'page1' } },
+              children: [{ key: 'name', type: 'field', dataType: 'string', label: '' }],
+            },
+            {
+              key: 'extra', type: 'group', label: 'Extra',
+              // No page hint — should attach to page1 (preceding)
+              children: [{ key: 'notes', type: 'field', dataType: 'string', label: '' }],
+            },
+            {
+              key: 'contact', type: 'group', label: 'Contact',
+              presentation: { layout: { page: 'page2' } },
+              children: [{ key: 'email', type: 'field', dataType: 'string', label: '' }],
+            },
+          ],
+        } as any,
+      },
+    });
+
+    project.dispatch({ type: 'pages.autoGenerate', payload: {} });
+
+    const pages = project.theme.pages as any[];
+    expect(pages).toHaveLength(2);
+    expect(pages[0].regions.map((r: any) => r.key)).toEqual(['name', 'notes']);
+    expect(pages[1].regions.map((r: any) => r.key)).toEqual(['email']);
+  });
+
+  it('preserves tabs mode when auto-generating pages', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
+          formPresentation: { pageMode: 'tabs' },
+          items: [
+            { key: 'f1', type: 'field', dataType: 'string', label: '' },
+          ],
+        } as any,
+      },
+    });
+
+    project.dispatch({ type: 'pages.autoGenerate', payload: {} });
+
+    expect((project.definition as any).formPresentation?.pageMode).toBe('tabs');
   });
 
   it('creates a single-page fallback when no groups have page hints', () => {
