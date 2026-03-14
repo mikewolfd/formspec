@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useChat } from '@ai-sdk/react';
 import { createProject, type AnyCommand, type ProjectBundle } from 'formspec-studio-core';
 import { TemplateGallery } from '../features/template-gallery/TemplateGallery';
 import { ProviderSetup } from '../features/provider-setup/ProviderSetup';
@@ -40,6 +39,8 @@ const DEFAULT_ASSISTANT_MESSAGE = {
   role: 'assistant' as const,
   text: 'Hello! I am your Stack Assistant. I can help you build powerful, accessible forms for Formspec. What are we building today? You can describe a form from scratch, or I can suggest a template to get us started.',
 };
+
+const PHASE_ORDER = ['inputs', 'review', 'refine'] as const;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -171,39 +172,11 @@ export function InquestApp() {
   const [showFullGallery, setShowFullGallery] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [hasContinued, setHasContinued] = useState(false);
-
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const updateSession = (updater: (current: InquestSessionV1) => InquestSessionV1) => {
     setSession((current) => current ? updater(current) : current);
   };
-
-  const chat = useChat({
-    initialMessages: useMemo(() => session?.input.messages.map(m => ({
-      id: m.id,
-      role: m.role,
-      content: m.text,
-    })) ?? [], [session?.sessionId]),
-    onFinish: (message: any) => {
-      updateSession((current: any) => ({
-        ...current,
-        input: {
-          ...current.input,
-          messages: [
-            ...current.input.messages,
-            { id: message.id, role: 'assistant', text: message.content, createdAt: nowIso() }
-          ]
-        },
-        updatedAt: nowIso()
-      }));
-    },
-    fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const body = JSON.parse(init?.body as string);
-      const { streamChat } = await import('../shared/providers/ai-sdk-provider');
-      const providerId = session?.providerId ?? 'gemini';
-      const result = await streamChat(providerId, providerApiKey, body.messages);
-      return result.toTextStreamResponse();
-    }
-  });
 
   useEffect(() => {
     let disposed = false;
@@ -313,16 +286,28 @@ export function InquestApp() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-50 px-6 py-8 text-slate-900 font-ui flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <div className="text-sm font-medium text-slate-500 tracking-wide uppercase">Initializing Stack Assistant…</div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-5">
+          <div className="relative">
+            <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
+              <svg width="28" height="28" viewBox="0 0 12 12" fill="none">
+                <rect x="2" y="1.5" width="8" height="2" rx=".4" fill="currentColor" />
+                <rect x="2" y="5" width="8" height="2" rx=".4" fill="currentColor" fillOpacity=".7" />
+                <rect x="2" y="8.5" width="8" height="2" rx=".4" fill="currentColor" fillOpacity=".4" />
+              </svg>
+            </div>
+            <div className="absolute -inset-2 animate-ping rounded-3xl border border-accent/20" />
+          </div>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+            Initializing Stack Assistant…
+          </div>
         </div>
       </div>
     );
   }
 
   const provider = findProviderAdapter(session.providerId) ?? inquestProviderAdapters[0];
+  const phaseIndex = PHASE_ORDER.indexOf(session.phase);
 
   const handleCreateFreshSession = () => {
     const params = new URLSearchParams();
@@ -331,7 +316,6 @@ export function InquestApp() {
 
   const handleDeleteSession = async (sessionId: string) => {
     await deleteInquestSession(sessionId);
-    // Force refresh the list since recentSessions memo depends on session update
     updateSession((current) => ({ ...current, updatedAt: nowIso() }));
   };
 
@@ -357,52 +341,49 @@ export function InquestApp() {
     }
   };
 
-  const isSetupRequired = !session.providerId || !providerApiKey || !connection?.ok || !hasContinued;
+  // Provider is ready if we have an ID, key, and user has explicitly continued
+  const isSetupRequired = !session.providerId || !providerApiKey || !hasContinued;
 
   const handleAnalyze = async (text?: string) => {
     if (!provider) return;
     const description = text ?? session.input.description;
     if (!description.trim()) return;
 
-    // Start chat stream if we have user text
-    if (text) {
-      await chat.append({ role: 'user', content: text });
-    }
-
-    const analysis = await provider.runAnalysis({
-      session: {
-        ...session,
+    setIsAnalyzing(true);
+    try {
+      const analysis = await provider.runAnalysis({
+        session: {
+          ...session,
+          input: { ...session.input, description },
+        },
+        template,
+      });
+      updateSession((current) => ({
+        ...current,
+        title: inferSessionTitle(current),
+        phase: 'review',
+        analysis,
+        issues: syncIssueStatuses(analysis.issues, current.issues),
+        updatedAt: nowIso(),
         input: {
-          ...session.input,
-          description,
-        }
-      },
-      template,
-    });
-    updateSession((current) => ({
-      ...current,
-      title: inferSessionTitle(current),
-      phase: 'review',
-      analysis,
-      issues: syncIssueStatuses(analysis.issues, current.issues),
-      updatedAt: nowIso(),
-      input: {
-        ...current.input,
-        messages: [
-          ...current.input.messages,
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            text: analysis.summary,
-            createdAt: nowIso(),
-          },
-        ],
-      },
-    }));
+          ...current.input,
+          messages: [
+            ...current.input.messages,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant' as const,
+              text: analysis.summary,
+              createdAt: nowIso(),
+            },
+          ],
+        },
+      }));
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleChatNew = async (text: string) => {
-    // Save user message to session for persistence
     updateSession((current) => ({
       ...current,
       input: {
@@ -416,27 +397,31 @@ export function InquestApp() {
       updatedAt: nowIso(),
     }));
 
-    // Chat + analyze in one shot
     await handleAnalyze(text);
   };
 
   const handleGenerateProposal = async () => {
     if (!provider) return;
-    const analysis = session.analysis ?? await provider.runAnalysis({ session, template });
-    const proposal = await provider.runProposal({ session, template, analysis });
-    const nextDraft = new InquestDraft();
-    nextDraft.loadProposal(proposal);
-    const nextIssues = issueBundle(session.issues, analysis, proposal, nextDraft);
-    setDraft(nextDraft);
-    updateSession((current) => ({
-      ...current,
-      phase: 'review',
-      analysis,
-      proposal,
-      draftBundle: nextDraft.export(),
-      issues: nextIssues,
-      updatedAt: nowIso(),
-    }));
+    setIsAnalyzing(true);
+    try {
+      const analysis = session.analysis ?? await provider.runAnalysis({ session, template });
+      const proposal = await provider.runProposal({ session, template, analysis });
+      const nextDraft = new InquestDraft();
+      nextDraft.loadProposal(proposal);
+      const nextIssues = issueBundle(session.issues, analysis, proposal, nextDraft);
+      setDraft(nextDraft);
+      updateSession((current) => ({
+        ...current,
+        phase: 'review',
+        analysis,
+        proposal,
+        draftBundle: nextDraft.export(),
+        issues: nextIssues,
+        updatedAt: nowIso(),
+      }));
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleEnterRefine = () => {
@@ -525,10 +510,11 @@ export function InquestApp() {
     window.location.assign(studioPath(`h=${encodeURIComponent(handoffId)}`));
   };
 
-
   return (
     <div data-testid="stack-assistant" className="min-h-screen bg-white text-slate-900 font-ui flex flex-col">
-      <header className="flex h-[60px] items-center justify-between border-b border-slate-200 bg-white px-6 shadow-sm shrink-0">
+      {/* ── Header ── */}
+      <header className="relative flex h-[60px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 shadow-sm">
+        {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent shadow-sm">
             <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
@@ -545,191 +531,227 @@ export function InquestApp() {
           </div>
         </div>
 
+        {/* Phase stepper — centered */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5">
+          {PHASE_ORDER.map((phase, i) => {
+            const isCurrent = session.phase === phase;
+            const isDone = phaseIndex > i;
+            return (
+              <div key={phase} className="flex items-center gap-0.5">
+                {i > 0 && <div className="w-5 h-px bg-slate-200" />}
+                <div
+                  className={[
+                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                    isCurrent ? 'text-accent' : isDone ? 'text-slate-400' : 'text-slate-300',
+                  ].join(' ')}
+                >
+                  <div
+                    className={[
+                      'h-1.5 w-1.5 rounded-full transition-colors',
+                      isCurrent ? 'bg-accent' : isDone ? 'bg-slate-300' : 'bg-slate-200',
+                    ].join(' ')}
+                  />
+                  <span className="capitalize tracking-wide">{phase}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right: save state + provider status */}
+        <div className="flex items-center gap-3">
+          {saveState === 'saving' && (
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-200 border-t-slate-400" />
+              Saving…
+            </span>
+          )}
+          {saveState === 'saved' && (
+            <span className="text-[11px] font-medium text-emerald-500">Saved</span>
+          )}
+          {saveState === 'error' && (
+            <span className="text-[11px] font-medium text-red-500">Save failed</span>
+          )}
+
+          <div className="flex items-center gap-2 rounded-full border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500">
+            <div className={`h-1.5 w-1.5 rounded-full transition-colors ${connection?.ok ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+            {provider?.label ?? 'No model'}
+          </div>
+        </div>
       </header>
 
-        {session.phase === 'inputs' && (
-          <main className="flex flex-1 overflow-hidden">
-            {/* Left Sidebar: Navigation & History */}
-            <aside className="w-[280px] border-r border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
-              <div className="flex-1 overflow-y-auto p-4">
-                 <RecentSessions
-                    sessions={recentSessions}
-                    onOpen={handleOpenSession}
-                    onDelete={handleDeleteSession}
-                    onStartNew={handleCreateFreshSession}
-                  />
-              </div>
-              <div className="px-4 py-6 border-t border-slate-200">
-                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Model Status</div>
-                 <div className="flex items-center gap-2 rounded-lg bg-white p-3 border border-slate-100 shadow-sm">
-                   <div className={`h-2 w-2 rounded-full ${connection?.ok ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
-                   <div className="flex-1 min-w-0">
-                     <div className="truncate text-xs font-bold text-slate-800">
-                       {session.providerId ? findProviderAdapter(session.providerId)?.label : 'No Provider'}
-                     </div>
-                     <div className="text-[10px] text-slate-400">
-                       {connection?.ok ? 'Intelligence Active' : 'Offline'}
-                     </div>
-                   </div>
-                 </div>
-              </div>
-            </aside>
+      {/* ── Inputs phase ── */}
+      {session.phase === 'inputs' && (
+        <main className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar: Navigation & History */}
+          <aside className="w-[280px] border-r border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
+            <div className="flex-1 overflow-y-auto p-4">
+              <RecentSessions
+                sessions={recentSessions}
+                onOpen={handleOpenSession}
+                onDelete={handleDeleteSession}
+                onStartNew={handleCreateFreshSession}
+              />
+            </div>
+          </aside>
 
-            {/* Center: Chat Interface */}
-            <section className="relative flex flex-1 flex-col bg-white">
-              {isSetupRequired ? (
-                <>
-                  <div className="flex-1 overflow-y-auto p-8 flex justify-center">
-                    <div className="w-full max-w-3xl">
-                      <div className="mt-12 flex flex-col items-center">
-                        <div className="mb-8 text-center">
-                          <div className="h-16 w-16 mx-auto mb-6 flex items-center justify-center rounded-2xl bg-accent/10 text-accent">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3m-3-3l-2.25-2.25"/>
-                            </svg>
-                          </div>
-                          <h2 className="text-2xl font-bold text-slate-900">Setup Intelligence</h2>
-                          <p className="mt-2 text-slate-500 max-w-md mx-auto">
-                            To start building with <strong>Stack</strong>, you need to connect an AI provider. Your keys stay on this browser and are never sent to our servers.
-                          </p>
-                        </div>
-
-                        <div className="w-full max-w-md">
-                          <ProviderSetup
-                            adapters={inquestProviderAdapters}
-                            selectedProviderId={session.providerId}
-                            apiKey={providerApiKey}
-                            rememberKey={rememberKey}
-                            connection={connection}
-                            isTesting={isTesting}
-                            onContinue={() => setHasContinued(true)}
-                            onProviderSelected={(providerId) => {
-                              setHasContinued(false);
-                              const prefs = loadProviderPreferences();
-                              setConnection(undefined);
-                              setProviderApiKey(prefs.rememberedKeys[providerId] ?? '');
-                              setRememberKey(Boolean(prefs.rememberedKeys[providerId]));
-                              saveSelectedProvider(providerId);
-                              updateSession((current) => ({
-                                ...current,
-                                providerId,
-                                updatedAt: nowIso(),
-                              }));
-                            }}
-                            onApiKeyChange={(val) => {
-                              setHasContinued(false);
-                              setProviderApiKey(val);
-                            }}
-                            onRememberChange={setRememberKey}
-                            onTestConnection={handleTestConnection}
-                            onCredentialsCleared={() => {
-                              setProviderApiKey('');
-                              setRememberKey(false);
-                              if (session.providerId) clearProviderKey(session.providerId);
-                              setConnection(undefined);
-                            }}
-                          />
-                        </div>
+          {/* Center: Chat interface or Provider setup */}
+          <section className="relative flex flex-1 flex-col bg-white">
+            {isSetupRequired ? (
+              <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+                <div className="w-full max-w-3xl">
+                  <div className="mt-12 flex flex-col items-center">
+                    <div className="mb-8 text-center">
+                      <div className="h-16 w-16 mx-auto mb-6 flex items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3m-3-3l-2.25-2.25" />
+                        </svg>
                       </div>
+                      <h2 className="text-2xl font-bold text-slate-900">Setup Intelligence</h2>
+                      <p className="mt-2 text-slate-500 max-w-md mx-auto">
+                        To start building with <strong>Stack</strong>, connect an AI provider. Your keys stay in this browser and are never sent to our servers.
+                      </p>
+                    </div>
+
+                    <div className="w-full max-w-md">
+                      <ProviderSetup
+                        adapters={inquestProviderAdapters}
+                        selectedProviderId={session.providerId}
+                        apiKey={providerApiKey}
+                        rememberKey={rememberKey}
+                        connection={connection}
+                        isTesting={isTesting}
+                        onContinue={() => setHasContinued(true)}
+                        onProviderSelected={(providerId) => {
+                          setHasContinued(false);
+                          const prefs = loadProviderPreferences();
+                          setConnection(undefined);
+                          setProviderApiKey(prefs.rememberedKeys[providerId] ?? '');
+                          setRememberKey(Boolean(prefs.rememberedKeys[providerId]));
+                          saveSelectedProvider(providerId);
+                          updateSession((current) => ({
+                            ...current,
+                            providerId,
+                            updatedAt: nowIso(),
+                          }));
+                        }}
+                        onApiKeyChange={(val) => {
+                          setHasContinued(false);
+                          setProviderApiKey(val);
+                        }}
+                        onRememberChange={setRememberKey}
+                        onTestConnection={handleTestConnection}
+                        onCredentialsCleared={() => {
+                          setProviderApiKey('');
+                          setRememberKey(false);
+                          if (session.providerId) clearProviderKey(session.providerId);
+                          setConnection(undefined);
+                        }}
+                      />
                     </div>
                   </div>
-                </>
-              ) : (
-                <InquestThread
-                  chat={chat}
-                  disabled={isSetupRequired}
-                  onNew={handleChatNew}
-                  afterMessages={
-                    <>
-                      {meaningfulInput(session) && (
-                        <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                          <div className="text-center mb-8">
-                            <h3 className="text-lg font-bold text-slate-900">Ready to build your form?</h3>
-                            <p className="mt-2 text-sm text-slate-500">I have enough information to generate a scaffold. How should we proceed?</p>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <button
-                              onClick={() => {
-                                updateSession(c => ({ ...c, workflowMode: 'draft-fast' }));
-                                void handleGenerateProposal();
-                              }}
-                              className="group flex flex-col items-center gap-4 rounded-[24px] bg-white p-6 border-2 border-transparent hover:border-accent hover:shadow-xl transition-all"
-                            >
-                              <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                </svg>
-                              </div>
-                              <div className="text-center">
-                                <div className="font-bold text-slate-900">Draft Fast</div>
-                                <div className="mt-1 text-xs text-slate-400">Optimize for speed to first scaffold</div>
-                              </div>
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                updateSession(c => ({ ...c, workflowMode: 'verify-carefully' }));
-                                void handleAnalyze();
-                              }}
-                              className="group flex flex-col items-center gap-4 rounded-[24px] bg-white p-6 border-2 border-transparent hover:border-emerald-500 hover:shadow-xl transition-all"
-                            >
-                              <div className="h-12 w-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                  <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                              </div>
-                              <div className="text-center">
-                                <div className="font-bold text-slate-900">Verify Carefully</div>
-                                <div className="mt-1 text-xs text-slate-400">Deep semantic analysis & compliance</div>
-                              </div>
-                            </button>
-                          </div>
+                </div>
+              </div>
+            ) : (
+              <InquestThread
+                messages={session.input.messages}
+                isRunning={isAnalyzing}
+                onNew={handleChatNew}
+                afterMessages={
+                  <>
+                    {meaningfulInput(session) && (
+                      <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="text-center mb-8">
+                          <h3 className="text-lg font-bold text-slate-900">Ready to build your form?</h3>
+                          <p className="mt-2 text-sm text-slate-500">I have enough information to generate a scaffold. How should we proceed?</p>
                         </div>
-                      )}
 
-                      {(showFullGallery || (session.input.messages.length === 1 && !meaningfulInput(session))) && (
-                        <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                          <div className="mb-6 flex items-center justify-between">
-                             <div className="flex items-center gap-2">
-                               <div className="h-px w-8 bg-slate-100" />
-                               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
-                                 {showFullGallery ? 'Full Blueprint Library' : 'Quick Start Blueprints'}
-                               </span>
-                               <div className="h-px w-8 bg-slate-100" />
-                             </div>
-                             {showFullGallery && (
-                               <button
-                                 onClick={() => setShowFullGallery(false)}
-                                 className="text-[10px] font-bold text-accent hover:underline uppercase tracking-widest"
-                               >
-                                 Dismiss
-                               </button>
-                             )}
-                          </div>
-                          <TemplateGallery
-                            templates={showFullGallery ? inquestTemplates : inquestTemplates.slice(0, 3)}
-                            selectedTemplateId={session.input.templateId}
-                            mode="inquest"
-                            onSelect={(templateId) => {
-                              setShowFullGallery(false);
-                              updateSession((current) => ({
-                                ...current,
-                                title: findInquestTemplate(templateId)?.name ?? current.title,
-                                input: { ...current.input, templateId },
-                                updatedAt: nowIso(),
-                              }));
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            onClick={() => {
+                              updateSession(c => ({ ...c, workflowMode: 'draft-fast' }));
+                              void handleGenerateProposal();
                             }}
-                          />
+                            className="group flex flex-col items-center gap-4 rounded-[24px] bg-white p-6 border-2 border-transparent hover:border-accent hover:shadow-xl transition-all"
+                          >
+                            <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                              </svg>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-bold text-slate-900">Draft Fast</div>
+                              <div className="mt-1 text-xs text-slate-400">Optimize for speed to first scaffold</div>
+                            </div>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              updateSession(c => ({ ...c, workflowMode: 'verify-carefully' }));
+                              void handleAnalyze();
+                            }}
+                            className="group flex flex-col items-center gap-4 rounded-[24px] bg-white p-6 border-2 border-transparent hover:border-emerald-500 hover:shadow-xl transition-all"
+                          >
+                            <div className="h-12 w-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                              </svg>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-bold text-slate-900">Verify Carefully</div>
+                              <div className="mt-1 text-xs text-slate-400">Deep semantic analysis & compliance</div>
+                            </div>
+                          </button>
                         </div>
-                      )}
-                    </>
-                  }
-                  belowComposer={
-                    <div className="mt-3 flex items-center justify-between px-2 text-[12px] font-medium text-slate-400">
-                      <div className="flex gap-4">
-                        <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 transition-colors">
-                          <input type="file" className="hidden" multiple onChange={async (e) => {
+                      </div>
+                    )}
+
+                    {(showFullGallery || (session.input.messages.length === 1 && !meaningfulInput(session))) && (
+                      <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="mb-6 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-px w-8 bg-slate-100" />
+                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
+                              {showFullGallery ? 'Full Blueprint Library' : 'Quick Start Blueprints'}
+                            </span>
+                            <div className="h-px w-8 bg-slate-100" />
+                          </div>
+                          {showFullGallery && (
+                            <button
+                              onClick={() => setShowFullGallery(false)}
+                              className="text-[10px] font-bold text-accent hover:underline uppercase tracking-widest"
+                            >
+                              Dismiss
+                            </button>
+                          )}
+                        </div>
+                        <TemplateGallery
+                          templates={showFullGallery ? inquestTemplates : inquestTemplates.slice(0, 3)}
+                          selectedTemplateId={session.input.templateId}
+                          mode="inquest"
+                          onSelect={(templateId) => {
+                            setShowFullGallery(false);
+                            updateSession((current) => ({
+                              ...current,
+                              title: findInquestTemplate(templateId)?.name ?? current.title,
+                              input: { ...current.input, templateId },
+                              updatedAt: nowIso(),
+                            }));
+                          }}
+                        />
+                      </div>
+                    )}
+                  </>
+                }
+                belowComposer={
+                  <div className="mt-3 flex items-center justify-between px-2 text-[12px] font-medium text-slate-400">
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 transition-colors">
+                        <input
+                          type="file"
+                          className="hidden"
+                          multiple
+                          onChange={async (e) => {
                             const files = Array.from(e.target.files ?? []);
                             const uploads = await Promise.all(files.map(summarizeUpload));
                             updateSession((current) => ({
@@ -737,67 +759,75 @@ export function InquestApp() {
                               input: { ...current.input, uploads: [...current.input.uploads, ...uploads] },
                               updatedAt: nowIso(),
                             }));
-                          }} />
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                          </svg>
-                          <span>Add context</span>
-                        </label>
+                          }}
+                        />
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        <span>Add context</span>
+                        {session.input.uploads.length > 0 && (
+                          <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                            {session.input.uploads.length}
+                          </span>
+                        )}
+                      </label>
 
-                        <button
-                          onClick={() => setShowFullGallery(!showFullGallery)}
-                          className={`flex items-center gap-1.5 transition-colors ${showFullGallery ? 'text-accent' : 'hover:text-slate-600'}`}
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                          </svg>
-                          <span>Blueprints</span>
-                        </button>
-                      </div>
-                      <span>Press Enter to send</span>
+                      <button
+                        onClick={() => setShowFullGallery(!showFullGallery)}
+                        className={`flex items-center gap-1.5 transition-colors ${showFullGallery ? 'text-accent' : 'hover:text-slate-600'}`}
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <span>Blueprints</span>
+                      </button>
                     </div>
-                  }
-                />
-              )}
-            </section>
+                    <span>Press Enter to send</span>
+                  </div>
+                }
+              />
+            )}
+          </section>
 
-            {/* Right Sidebar: Context & Templates */}
-            <aside className="w-[320px] border-l border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
-               <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                 <InputInventory input={session.input} template={template} />
-               </div>
-            </aside>
-          </main>
-        )}
+          {/* Right Sidebar: Context panel */}
+          <aside className="w-[320px] border-l border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              <InputInventory input={session.input} template={template} />
+            </div>
+          </aside>
+        </main>
+      )}
 
-        {session.phase === 'review' && session.analysis ? (
-          <ReviewWorkspace
-            analysis={session.analysis}
-            proposal={session.proposal}
-            issues={session.issues.filter((issue) => issue.status === 'open')}
-            workflowMode={session.workflowMode}
-            onGenerate={handleGenerateProposal}
-            onProceedToRefine={handleEnterRefine}
-            onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
-            onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
-          />
-        ) : null}
+      {/* ── Review phase ── */}
+      {session.phase === 'review' && session.analysis ? (
+        <ReviewWorkspace
+          analysis={session.analysis}
+          proposal={session.proposal}
+          issues={session.issues.filter((issue) => issue.status === 'open')}
+          workflowMode={session.workflowMode}
+          onGenerate={handleGenerateProposal}
+          onProceedToRefine={handleEnterRefine}
+          onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
+          onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
+        />
+      ) : null}
 
-        {session.phase === 'refine' && draft ? (
-          <RefineWorkspace
-            project={draft.getProject()}
-            issues={session.issues.filter((issue) => issue.status === 'open')}
-            onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
-            onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
-            onApplyPrompt={handleApplyPrompt}
-            onBack={() => updateSession((current) => ({
-              ...current,
-              phase: 'review',
-              updatedAt: nowIso(),
-            }))}
-            onOpenStudio={handleOpenStudio}
-          />
-        ) : null}
+      {/* ── Refine phase ── */}
+      {session.phase === 'refine' && draft ? (
+        <RefineWorkspace
+          project={draft.getProject()}
+          issues={session.issues.filter((issue) => issue.status === 'open')}
+          onResolveIssue={(issueId) => handleIssueStatus(issueId, 'resolved')}
+          onDeferIssue={(issueId) => handleIssueStatus(issueId, 'deferred')}
+          onApplyPrompt={handleApplyPrompt}
+          onBack={() => updateSession((current) => ({
+            ...current,
+            phase: 'review',
+            updatedAt: nowIso(),
+          }))}
+          onOpenStudio={handleOpenStudio}
+        />
+      ) : null}
     </div>
   );
 }
