@@ -6,16 +6,37 @@
 
 ## Context
 
-Studio-core manages form page structure across three tiers (Definition presentation hints, Theme pages, Component Wizard) with different storage formats and override semantics. The current implementation exposes this tier complexity to the Studio UI — the Pages workspace becomes read-only when a Wizard component exists, tier conversion requires explicit commands, and switching between single/wizard/tabs modes is lossy (clearing pages on mode switch).
+### The Problem
 
-The user should never think about tiers. They think "pages."
+Studio-core manages form structure across three Formspec tiers — Definition (Tier 1: what data to collect), Theme (Tier 2: where to lay it out), and Component (Tier 3: how to render it). Each tier is an independent JSON document with its own schema, and higher tiers override lower ones. Pages are expressed differently in each:
+
+- **Definition**: Groups declare `presentation.layout.page` hints (bottom-up: items say which page they belong to)
+- **Theme**: `pages[]` array with `regions[]` referencing item keys on a 12-column grid (top-down: pages say which items they contain)
+- **Component**: `Wizard > Page > children` with bound widget nodes (top-down: pages contain components)
+
+The current implementation leaks this three-tier complexity to the user. The Pages workspace becomes read-only when a Wizard component exists. Switching between single/wizard/tabs modes destroys pages. Property path bugs mean definition-tier page hints never resolve on spec-conformant data. The resolution function returns page metadata but not the item-to-page mapping the UI actually needs.
+
+### How We Got Here
+
+We explored several architectures before arriving at the current design:
+
+**Attempt 1 — Bidirectional sync.** `theme.pages` as "single source of truth" with reverse sync from Component Tree edits back to theme.pages. A red-team review revealed this creates a distributed consistency problem between structurally incompatible data models (theme regions vs. component tree nodes). Every system that has tried bidirectional sync between different schemas has regretted it (Angular 1.x two-way binding → one-way in Angular 2+, Backbone model-view binding → Redux unidirectional store).
+
+**Attempt 2 — One-way generative propagation with forking.** theme.pages generates a Wizard downstream. If the user hand-edits the component tree, it "forks" — auto-generation stops. A red-team review identified that the fork boundary is fuzzy (what counts as a manual edit?), post-fork divergence creates a confusing state where the Pages workspace shows pages that don't render, and the recovery path (regenerate) destroys customization work.
+
+**Attempt 3 — The eureka.** Studio is a generative authoring tool for non-technical users. They don't edit documents — they edit the *form*. The three JSON documents are output artifacts, not input surfaces. Studio-core is the sole writer. This eliminates the entire sync/fork problem: there's nothing to sync because one system manages all three documents coherently. There's nothing to fork because users never directly touch documents.
 
 ## Design Principles
 
-1. **`theme.pages` is the single source of truth** for page structure. All `pages.*` commands write there.
-2. **Mode is just rendering style.** Single, wizard, and tabs are different renderings of the same page structure. Switching modes never destroys pages.
-3. **Wizard auto-sync.** If a Wizard component exists in the component tree, it's automatically kept in sync with theme.pages via post-dispatch normalization.
-4. **Resolution normalizes all tiers into one shape.** The UI gets the same output regardless of which tier contributes pages.
+1. **The user edits the form, not documents.** Studio exposes operations like "add a page," "assign this field to page 2," "switch to tabs mode." Studio-core translates these into writes across whichever documents need updating. The user never thinks about which JSON file is being modified.
+
+2. **Documents are output artifacts.** Definition, Theme, and Component documents are produced by Studio and exported as a bundle. They conform to their respective schemas and can be consumed by any Formspec processor. But within Studio, they are internal state — not user-facing surfaces.
+
+3. **Studio-core is the sole writer.** Every mutation goes through the dispatch pipeline. Because there is only one writer, all three documents are always consistent. No sync logic is needed — just rebuild the downstream artifacts after each operation.
+
+4. **Mode is rendering style, not structure.** Single, wizard, and tabs are different renderings of the same page structure. Switching modes never destroys pages.
+
+5. **One-way data flow.** Information flows Definition → Theme → Component. Higher tiers read from lower tiers during generation. Edits at any tier never propagate back up. The dispatch pipeline may update multiple documents in a single operation, but the user's intent flows through `pages.*` commands, not document-level edits.
 
 ## Changes
 
@@ -23,7 +44,9 @@ The user should never think about tiers. They think "pages."
 
 **File:** `page-resolution.ts`
 
-Rewrite from scratch. New return type:
+Rewrite from scratch. The current implementation has three bugs (wrong property path, wrong component name, missing "attach to preceding" rule) and returns page metadata without the item-to-page mapping the UI needs.
+
+New return type:
 
 ```typescript
 export interface ResolvedRegion {
@@ -40,65 +63,69 @@ export interface ResolvedPage {
   regions: ResolvedRegion[];
 }
 
+export interface PageDiagnostic {
+  code: 'UNKNOWN_REGION_KEY' | 'PAGEMODE_MISMATCH';
+  severity: 'warning' | 'error';
+  message: string;
+}
+
 export interface ResolvedPageStructure {
   mode: 'single' | 'wizard' | 'tabs';
   pages: ResolvedPage[];
-  controllingTier: 'component' | 'theme' | 'definition' | 'none';
   diagnostics: PageDiagnostic[];
   wizardConfig: { showProgress: boolean; allowSkip: boolean };
-  wizardSynced: boolean;                // true when a Wizard exists and is auto-managed
   unassignedItems: string[];            // item keys not on any page
   itemPageMap: Record<string, string>;  // item key → page id
 }
 ```
 
-**Behavioral changes:**
+**What changed from the old type:**
 
-- **Fix property path**: Read `item.presentation?.layout?.page` (not `item.layout?.page`). Both `page-resolution.ts` (line 71: `item.layout?.page`) and `handlers/pages.ts` (line 162: `(item as any).layout?.page`) have this same bug and both must be fixed.
-- **Fix component name**: Filter Wizard children by `component === 'Page'` (not `'WizardPage'`). The component schema defines `Page` as the Wizard child component. The current code at `page-resolution.ts` line 46 incorrectly uses `'WizardPage'`.
-- **Implement "attach to preceding page"**: Definition groups without a `page` hint join the last declared page (per spec: "Groups without a page attach to the preceding page").
-- **Normalize Tier 3**: Walk `Wizard > Page > children`, extract `bind` values as regions. Component-tier pages produce the same `ResolvedPage` shape as theme-tier pages.
-- **Compute mapping**: Diff resolved region keys against root-level definition item keys to produce `unassignedItems` and `itemPageMap`.
-- **`controllingTier`**: Informational only. Tells the UI which tier is providing the page data. Does NOT affect editability — the Pages workspace is always editable. When a Wizard exists and is auto-synced from theme.pages, `controllingTier` reports `'theme'` (since theme.pages is canonical) and `wizardSynced: true` indicates the Wizard is being auto-managed.
+- **Removed `controllingTier`** — Studio is the sole writer; there is no tier conflict to report. The resolution function reads from the internal state that Studio-core manages holistically.
+- **Removed `wizardSynced`** — No sync/fork concept. Studio always keeps documents consistent.
+- **Removed `SHADOWED_THEME_PAGES` diagnostic** — Theme pages and the Wizard component are never in conflict because Studio manages both.
+- **Added `unassignedItems`** — Item keys not referenced by any page region. Lets the UI show "unassigned items" for drag-and-drop.
+- **Added `itemPageMap`** — Flat lookup from item key to page id. Lets the UI highlight which page an item belongs to.
+- **`regions` is non-optional** with `exists` flag — Tells the UI whether a region key actually exists in the definition (vs. stale reference after an item rename/delete).
 
-**Tier cascade priority for resolution read path** (unchanged): Wizard component (Tier 3) → theme.pages (Tier 2) → definition groups with `presentation.layout.page` (Tier 1) → none. This determines what the _renderer_ sees; the Pages workspace always edits theme.pages.
+**Bug fixes:**
+
+- **Property path**: Read `item.presentation?.layout?.page` (not `item.layout?.page`). Both `page-resolution.ts` line 71 and `handlers/pages.ts` line 162 have this bug.
+- **Component name**: Filter Wizard children by `component === 'Page'` (not `'WizardPage'`). The component schema (`schemas/component.schema.json`) defines `Page` as the Wizard child. Current code at `page-resolution.ts` line 46 uses the wrong name.
+- **Attach to preceding page**: Definition groups without a `presentation.layout.page` hint join the last declared page (per core spec: "Groups without a page attach to the preceding page"). Currently these groups are silently dropped.
+
+**Resolution reads from internal state.** Since Studio manages all documents, the resolution function reads `theme.pages` (the canonical page structure Studio maintains). It does NOT implement a tier cascade — there is no independent Wizard or definition hints to cascade from, because Studio keeps everything derived from the same source.
 
 ### 2. Fix `pages.setMode` — Non-Destructive Mode Switching
 
 **File:** `handlers/pages.ts`
 
-Current behavior clears `theme.pages` when switching to `'single'`. New behavior:
+Current behavior clears `theme.pages` when switching to `'single'`. This is destructive — switching wizard → single → wizard loses all pages.
+
+New behavior: mode switching ONLY changes `formPresentation.pageMode`. Pages are always preserved.
 
 ```
-pages.setMode({ mode: 'single' })  → sets formPresentation.pageMode = 'single'
-                                    → theme.pages PRESERVED (dormant but intact)
-
-pages.setMode({ mode: 'wizard' })  → sets formPresentation.pageMode = 'wizard'
-                                    → ensures theme.pages array exists (empty if new)
-
-pages.setMode({ mode: 'tabs' })    → sets formPresentation.pageMode = 'tabs'
-                                    → ensures theme.pages array exists (empty if new)
+pages.setMode({ mode: 'single' })  → pageMode = 'single', pages preserved (dormant)
+pages.setMode({ mode: 'wizard' })  → pageMode = 'wizard', ensures pages array exists
+pages.setMode({ mode: 'tabs' })    → pageMode = 'tabs', ensures pages array exists
 ```
 
-Switching single → wizard → tabs → single → wizard preserves all pages throughout.
-
-**`pages.deletePage` behavior**: When deleting the last page, `formPresentation.pageMode` is NOT reset to `'single'`. The mode is preserved. The user explicitly chose wizard/tabs mode; deleting all pages leaves them in that mode with an empty page list, ready to add new pages. To switch back to single, the user uses `pages.setMode('single')`.
+**`pages.deletePage`**: Deleting the last page does NOT reset mode. The user explicitly chose wizard/tabs; an empty page list means "ready to add pages," not "switch to single." Use `pages.setMode('single')` to go back.
 
 ### 3. Fix `pages.autoGenerate` — Correct Property Path
 
 **File:** `handlers/pages.ts`
 
-Change `(item as any).layout?.page` to `(item as any).presentation?.layout?.page` so auto-generation works on spec-conformant definition data. The same property path bug exists in `page-resolution.ts` and is fixed there too (Section 1).
+Change `(item as any).layout?.page` to `(item as any).presentation?.layout?.page`. Same bug as in `page-resolution.ts` — both read the wrong schema path.
 
 ### 4. Add Missing Convenience Commands
 
 **File:** `handlers/pages.ts`
 
-**`pages.reorderRegion`** — Move an item to a target position within a page's region list:
+**`pages.reorderRegion`** — Move an item to a target position within a page:
 ```typescript
 payload: { pageId: string, key: string, targetIndex: number }
 ```
-Moves the region to the specified index. Clamps to valid range.
 
 **`pages.setRegionProperty`** — Change span or start on an existing region:
 ```typescript
@@ -106,53 +133,58 @@ payload: { pageId: string, key: string, property: 'span' | 'start', value: numbe
 ```
 Setting `value: undefined` removes the property (reverts to default span 12, natural flow).
 
-### 5. Wizard Auto-Sync (Post-Dispatch Normalization)
+### 5. Component Tree Rebuild on Page Changes
 
-**File:** `project.ts` (dispatch pipeline) or new `normalization/pages-wizard-sync.ts`
+**File:** `project.ts` (dispatch pipeline)
 
-Page-Wizard sync runs as a direct state mutation during the existing post-dispatch normalization pass (alongside URL sync, breakpoint sync), NOT as a dispatched command. This avoids re-entrant dispatch loops. Because undo is snapshot-based (the entire state is cloned before each dispatch), both the theme.pages change and the Wizard sync are captured in a single atomic undo step.
+Since Studio manages all documents, the component tree must reflect page structure changes. The `pages.*` handlers should return `{ rebuildComponentTree: true }` so the existing `_rebuildComponentTree()` pipeline incorporates page structure when generating the component tree.
 
-After any `pages.*` command, if a Wizard component exists in `component.tree`:
+The rebuild logic (already in `project.ts`) should be extended to:
 
-1. **Match pages to Page children** by position (theme.pages order = Wizard `Page` child order).
-2. **Add missing Pages**: If theme.pages has more entries than Wizard `Page` children, append new `Page` children with `title`/`description` from theme.pages.
-3. **Remove extra Pages**: If Wizard has more `Page` children than theme.pages, remove trailing `Page` children. Orphaned component subtrees from removed Pages are moved into the last remaining `Page`'s children array.
-4. **Sync metadata**: Update each `Page` child's `title` and `description` to match its corresponding theme page.
+1. **When `theme.pages` exists and `pageMode` is `'wizard'`**: Generate a `Wizard` root with `Page` children, one per theme page. Each `Page` gets `title` and `description` from the theme page. Item-bound component nodes are placed into the `Page` corresponding to their region assignment.
 
-**Region-level sync is NOT performed.** Assigning/unassigning items through the Pages workspace modifies theme.pages regions only. The Wizard's Page children contain component nodes that are managed through the Component Tree workspace. Keeping these two concerns separate avoids the complexity of mapping between region keys and component node binds during sync. The Pages workspace controls information architecture (which items go where); the Component Tree workspace controls rendering (which widgets render those items).
+2. **When `theme.pages` exists and `pageMode` is `'tabs'`**: Generate a `Stack` root with `Page` children (the renderer interprets `Page` as a tab based on `pageMode`). Same distribution logic as wizard.
 
-**Does NOT sync:**
-- Component nodes within Page children (managed by Component Tree)
-- Widget types, styles, or props
-- Component nodes that aren't bound to any item (layout elements, spacers)
+3. **When `pageMode` is `'single'` or no pages exist**: Generate a flat `Stack` root with all component nodes (current behavior).
 
-**Reverse sync (Component Tree → theme.pages):** When `component.*` commands add or remove `Page` children from a Wizard, the post-dispatch normalization updates theme.pages to match — adding or removing theme page entries. This keeps both in sync regardless of which workspace the user edits from. Page title/description changes on `Page` components propagate to theme.pages; structural changes (adding/removing Pages) propagate as page add/delete.
+This replaces the Wizard-sync normalization step from the previous design iteration. Because Studio is the sole writer, there is no separate component tree to "sync" — there is only the generated tree, which is rebuilt from the current state on every relevant dispatch.
+
+**Undo**: Because undo is snapshot-based (the entire `ProjectState` is cloned before each dispatch), the rebuild is captured atomically. Undoing a page operation restores both `theme.pages` and the generated component tree.
 
 ### 6. Rewrite Tests
 
 **Files:** `tests/page-resolution.test.ts`, `tests/pages-handlers.test.ts`
 
-The existing tests use incorrect property paths (`layout: { page: '...' }` instead of `presentation: { layout: { page: '...' } }`) and the wrong component name (`WizardPage` instead of `Page`). These must be corrected alongside the implementation fixes.
+Existing tests use wrong property paths (`layout: { page: '...' }` instead of `presentation: { layout: { page: '...' } }`) and the wrong component name (`WizardPage` instead of `Page`). These must be corrected.
 
 Rewrite tests to cover:
 
-- **Resolution**: All three tiers with correct property paths, unassigned items computation, itemPageMap, "attach to preceding page" rule, `wizardSynced` flag
-- **Mode switching**: Non-destructive single ↔ wizard ↔ tabs round-trip, deletePage of last page preserves mode
+- **Resolution**: Correct property paths, `unassignedItems`, `itemPageMap`, "attach to preceding page" rule
+- **Mode switching**: Non-destructive single ↔ wizard ↔ tabs round-trip; deletePage of last page preserves mode
 - **Auto-generate**: Correct property path, fallback when no page hints
-- **Convenience commands**: reorderRegion (targetIndex), setRegionProperty
-- **Wizard sync**: Adding/removing pages syncs Wizard Page children, metadata propagation, reverse sync from Component Tree edits, orphan handling on Page removal
+- **Convenience commands**: `reorderRegion` (targetIndex), `setRegionProperty`
+- **Component tree rebuild**: Wizard generated when pages + wizard mode; tabs mode uses Page children; single mode flat Stack; items distributed to correct Pages based on region assignments
 
 ## Decisions
 
-- **theme.pages is canonical.** The Wizard component is a derived rendering artifact, not a separate source of truth. This eliminates the need for explicit tier conversion commands (`generateWizard`, `fromWizard`).
+- **Studio is the sole document author.** Users edit the form through Studio's workspaces. The three JSON documents (Definition, Theme, Component) are generated output. This eliminates all sync, fork, and tier-conflict complexity. The previous designs (bidirectional sync, one-way propagation with forking) were solving problems that only exist when multiple independent writers touch the same documents.
 
-- **Mode switching preserves pages.** The previous behavior of clearing pages on `setMode('single')` was lossy and forced users to recreate pages when switching back. Pages are dormant in single mode, not destroyed. Deleting the last page also does NOT reset mode.
+- **No `controllingTier` concept.** There is no tier conflict to report because Studio manages all tiers. The resolution function reads from the holistically-managed internal state. The previous `controllingTier` field encouraged the UI to treat tiers as competing authorities; in reality, Studio is the single authority.
 
-- **controllingTier reports source, wizardSynced reports sync state.** When theme.pages is canonical and a Wizard is auto-managed, `controllingTier` is `'theme'` and `wizardSynced` is `true`. This avoids the contradiction of claiming the Wizard "controls" when it's actually derived. `controllingTier: 'component'` only appears when a user has an independently-authored Wizard that is NOT being synced from theme.pages (no theme.pages exist).
+- **`theme.pages` is the internal representation for page structure.** Of the three tiers' page representations, theme.pages is the richest (id, title, description, regions with grid layout). It stores the user's intent. The component tree (Wizard with Page children) is derived from it during rebuild.
 
-- **Wizard sync is page-level only.** The sync manages Page structure (add/remove/reorder Pages, sync titles) but does NOT move component nodes between Pages based on region assignments. This separation keeps Pages workspace and Component Tree workspace independent, each managing its own concern.
+- **Component tree rebuild, not sync.** The previous design had a normalization step that "synced" theme.pages changes into an existing Wizard. The new design simply rebuilds the component tree from scratch. This is simpler (no positional matching, no orphan handling, no incremental patching) and correct by construction (the tree always reflects current state). The rebuild is already fast because it runs on every `rebuildComponentTree: true` dispatch.
 
-- **No Tabs component.** The component schema has no `Tabs` component. Tabs mode uses theme.pages with a different renderer layout, not a dedicated component. Wizard sync only applies when a Wizard component exists in the tree.
+- **Mode switching preserves pages.** Pages are dormant in single mode, not destroyed. Deleting the last page does not reset mode. These are separate user intents: "I don't want pages right now" vs. "I want this to be a single-page form."
+
+- **Export produces independent, spec-conformant documents.** Even though Studio manages all documents internally, the exported artifacts are independent JSON files that conform to their respective schemas. A Formspec processor can consume any combination of Definition, Theme, and Component documents — they don't need Studio to work. Power users who want to hand-edit exported documents can do so; that's outside Studio's scope.
+
+## What This ADR Does NOT Cover
+
+- **Widget selection UI** — How the user picks widgets for fields (Component Tree workspace concern)
+- **Theme cascade editing** — How the user sets tokens, selectors, per-item overrides (Theme workspace concern)
+- **Import of external documents** — What happens when someone loads a hand-authored component.json into Studio (future work; may need a reconciliation pass)
+- **Collaborative editing** — Multiple users editing the same form simultaneously
 
 ## Verification
 
