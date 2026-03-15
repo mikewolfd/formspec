@@ -1535,8 +1535,11 @@ describe('updateItem routing exhaustiveness', () => {
     project.addField('name', 'Name', 'text');
     const page = project.addPage('Page 1');
     project.updateItem('name', { page: page.createdId! });
-    // Verify assignment happened (no throw = success)
-    expect(true).toBe(true);
+    // Verify the page has the item assigned via regions
+    const pages = project.state.theme.pages ?? [];
+    const targetPage = pages.find((p: any) => p.id === page.createdId);
+    const regionKeys = (targetPage as any)?.regions?.map((r: any) => r.key) ?? [];
+    expect(regionKeys).toContain('name');
   });
 
   it('routes dataType to setFieldDataType', () => {
