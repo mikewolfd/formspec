@@ -30,6 +30,60 @@ export class Project extends RawProject {
   /** Backwards-compatible self-reference (composition → inheritance migration). */
   get raw(): this { return this; }
 
+  /** Simple edit distance for fuzzy path matching. */
+  private static _editDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    const la = a.length, lb = b.length;
+    if (la === 0) return lb;
+    if (lb === 0) return la;
+    const dp: number[][] = Array.from({ length: la + 1 }, () => Array(lb + 1).fill(0));
+    for (let i = 0; i <= la; i++) dp[i][0] = i;
+    for (let j = 0; j <= lb; j++) dp[0][j] = j;
+    for (let i = 1; i <= la; i++) {
+      for (let j = 1; j <= lb; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[la][lb];
+  }
+
+  /** Find field paths similar to the given (nonexistent) path. */
+  private _findSimilarPaths(path: string, maxDistance = 3): string[] {
+    const allPaths = this.fieldPaths();
+    // Also include group paths
+    const allItems = this.state.definition.items;
+    const collectPaths = (items: any[], prefix?: string): string[] => {
+      const result: string[] = [];
+      for (const item of items) {
+        const fullPath = prefix ? `${prefix}.${item.key}` : item.key;
+        result.push(fullPath);
+        if (item.children?.length) {
+          result.push(...collectPaths(item.children, fullPath));
+        }
+      }
+      return result;
+    };
+    const allKnownPaths = [...new Set([...allPaths, ...collectPaths(allItems)])];
+
+    return allKnownPaths
+      .map(p => ({ path: p, dist: Project._editDistance(path.toLowerCase(), p.toLowerCase()) }))
+      .filter(({ dist }) => dist <= maxDistance && dist > 0)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 5)
+      .map(({ path }) => path);
+  }
+
+  /** Throw PATH_NOT_FOUND with similarPaths detail. */
+  private _throwPathNotFound(path: string): never {
+    const similarPaths = this._findSimilarPaths(path);
+    throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${path}"`, {
+      path,
+      ...(similarPaths.length > 0 ? { similarPaths } : {}),
+    });
+  }
+
   // ── Authoring methods ──
 
   /**
@@ -366,7 +420,7 @@ export class Project extends RawProject {
     // Pre-validate: on field must exist
     const onItem = this.itemAt(on);
     if (!onItem) {
-      throw new HelperError('PATH_NOT_FOUND', `Field "${on}" does not exist`, { path: on });
+      this._throwPathNotFound(on);
     }
 
     // Auto-detect mode based on on-field dataType
@@ -559,7 +613,7 @@ export class Project extends RawProject {
   removeItem(path: string): HelperResult {
     const item = this.itemAt(path);
     if (!item) {
-      throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${path}"`, { path });
+      this._throwPathNotFound(path);
     }
 
     // Step 1: Collect dependent set upfront
@@ -675,7 +729,7 @@ export class Project extends RawProject {
   updateItem(path: string, changes: Record<string, unknown>): HelperResult {
     // Pre-validate: path must exist
     if (!this.itemAt(path)) {
-      throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${path}"`, { path });
+      this._throwPathNotFound(path);
     }
 
     // Check for unknown keys
@@ -923,7 +977,7 @@ export class Project extends RawProject {
     // Pre-validate: target must be a group
     const item = this.itemAt(target);
     if (!item) {
-      throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${target}"`, { path: target });
+      this._throwPathNotFound(target);
     }
     if (item.type !== 'group') {
       throw new HelperError('INVALID_TARGET_TYPE', `makeRepeatable requires a group, got "${item.type}"`, {
@@ -976,7 +1030,7 @@ export class Project extends RawProject {
   copyItem(path: string, deep?: boolean): HelperResult {
     const item = this.itemAt(path);
     if (!item) {
-      throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${path}"`, { path });
+      this._throwPathNotFound(path);
     }
 
     if (!deep) {
@@ -1167,7 +1221,7 @@ export class Project extends RawProject {
     // Pre-validation
     for (const p of paths) {
       if (!this.itemAt(p)) {
-        throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${p}"`, { path: p });
+        this._throwPathNotFound(p);
       }
     }
 
@@ -1227,7 +1281,7 @@ export class Project extends RawProject {
   /** Wrap an item node in a layout component. */
   wrapInLayoutComponent(path: string, component: 'Card' | 'Stack' | 'Collapsible'): HelperResult {
     if (!this.itemAt(path)) {
-      throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${path}"`, { path });
+      this._throwPathNotFound(path);
     }
 
     const leafKey = path.split('.').pop()!;

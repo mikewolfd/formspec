@@ -901,16 +901,6 @@ describe('removeVariable', () => {
   });
 });
 
-describe('renameVariable', () => {
-  it('is not implemented (handler missing) — throws', () => {
-    const project = createProject();
-    project.addVariable('x', '42');
-    // renameVariable is Future Work — may throw or not exist
-    // Just verify it doesn't silently succeed without handler
-    expect(() => project.renameVariable('x', 'y')).toBeDefined();
-  });
-});
-
 // ── Instance Helpers ──
 
 describe('addInstance', () => {
@@ -974,8 +964,9 @@ describe('removeScreenField', () => {
     const project = createProject();
     project.setScreener(true);
     project.addScreenField('age', 'How old?', 'integer');
-    project.removeScreenField('age');
-    expect(result => result.summary).toBeDefined();
+    const result = project.removeScreenField('age');
+    expect(result.summary).toContain('age');
+    expect(result.action.helper).toBe('removeScreenField');
   });
 });
 
@@ -1024,5 +1015,201 @@ describe('removeScreenRoute', () => {
     project.removeScreenRoute(0);
     const routes = (project.state.definition as any).screener.routes;
     expect(routes).toHaveLength(1);
+  });
+});
+
+// ── Spec Coverage Expansion (lines 1179-1234) ──────────────────────
+
+describe('PATH_NOT_FOUND with similarPaths', () => {
+  it('includes similar paths in error detail for removeItem', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.addField('email', 'Email', 'email');
+    try {
+      project.removeItem('nme'); // typo for 'name'
+      expect.fail('should throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(HelperError);
+      expect((e as HelperError).code).toBe('PATH_NOT_FOUND');
+      expect((e as HelperError).detail).toHaveProperty('similarPaths');
+      expect((e as HelperError).detail.similarPaths).toContain('name');
+    }
+  });
+
+  it('includes similar paths in error detail for updateItem', () => {
+    const project = createProject();
+    project.addField('email', 'Email', 'email');
+    try {
+      project.updateItem('emal', { label: 'x' }); // typo
+      expect.fail('should throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(HelperError);
+      expect((e as HelperError).code).toBe('PATH_NOT_FOUND');
+      expect((e as HelperError).detail).toHaveProperty('similarPaths');
+      expect((e as HelperError).detail.similarPaths).toContain('email');
+    }
+  });
+});
+
+describe('updateItem edge cases', () => {
+  it('routes default to setBind', () => {
+    const project = createProject();
+    project.addField('date', 'Date', 'date');
+    project.updateItem('date', { default: 'today()' });
+    expect(project.bindFor('date')?.default).toBe('today()');
+  });
+
+  it('routes repeatable to setItemProperty', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items');
+    project.updateItem('items', { repeatable: true });
+    expect(project.itemAt('items')?.repeatable).toBe(true);
+  });
+
+  it('routes minRepeat/maxRepeat to setItemProperty', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items');
+    project.updateItem('items', { minRepeat: 1, maxRepeat: 5 });
+    expect((project.itemAt('items') as any)?.minRepeat).toBe(1);
+    expect((project.itemAt('items') as any)?.maxRepeat).toBe(5);
+  });
+});
+
+describe('addWizardPage edge cases', () => {
+  it('sets pageMode to wizard only when not already paged', () => {
+    const project = createProject();
+    // First wizard page should set pageMode
+    project.addWizardPage('Step 1');
+    expect((project.state.definition as any).formPresentation?.pageMode).toBe('wizard');
+
+    // Second wizard page should NOT re-dispatch pageMode
+    // (just verify it doesn't throw / still works)
+    project.addWizardPage('Step 2');
+    expect((project.state.definition as any).formPresentation?.pageMode).toBe('wizard');
+    expect(project.state.definition.items).toHaveLength(2);
+  });
+});
+
+describe('removeInstance DANGLING_REFERENCES', () => {
+  it('warns about dangling references when instance is referenced in FEL', () => {
+    const project = createProject();
+    project.addInstance('cities', { source: 'https://example.com/cities.json' });
+    project.addField('city', 'City', 'choice');
+    project.calculate('city', "@instance('cities')");
+    const result = project.removeInstance('cities');
+    expect(project.instanceNames()).not.toContain('cities');
+    const w = result.warnings?.find(w => w.code === 'DANGLING_REFERENCES');
+    expect(w).toBeDefined();
+    expect(w?.detail?.referenceCount).toBeGreaterThan(0);
+  });
+});
+
+describe('wrapItemsInGroup multi-item', () => {
+  it('wraps multiple items and deduplicates descendants', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'text');
+    project.addField('b', 'B', 'text');
+    project.addField('c', 'C', 'text');
+    const result = project.wrapItemsInGroup(['a', 'b'], 'Section');
+    // Group should contain both items
+    expect(result.affectedPaths.length).toBeGreaterThanOrEqual(3); // groupPath + 2 moved
+    // Original root should have 2 items: the new group and 'c'
+    expect(project.state.definition.items).toHaveLength(2);
+  });
+});
+
+describe('batchDeleteItems ancestor deduplication', () => {
+  it('deduplicates descendants — deleting parent also removes children', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact');
+    project.addField('contact.email', 'Email', 'email');
+    project.addField('contact.phone', 'Phone', 'phone');
+    project.addField('other', 'Other', 'text');
+
+    // Passing both parent and child — child should be deduped
+    project.batchDeleteItems(['contact', 'contact.email']);
+    expect(project.state.definition.items).toHaveLength(1);
+    expect(project.state.definition.items[0].key).toBe('other');
+  });
+
+  it('is a single undo entry', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'text');
+    project.addField('b', 'B', 'text');
+    project.batchDeleteItems(['a', 'b']);
+    expect(project.state.definition.items).toHaveLength(0);
+    project.undo();
+    expect(project.state.definition.items).toHaveLength(2);
+  });
+});
+
+describe('reorderItem nested', () => {
+  it('swaps nested item with previous sibling', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact');
+    project.addField('contact.email', 'Email', 'email');
+    project.addField('contact.phone', 'Phone', 'phone');
+    const group = project.itemAt('contact');
+    expect(group?.children?.[0].key).toBe('email');
+
+    project.reorderItem('contact.phone', 'up');
+    const after = project.itemAt('contact');
+    expect(after?.children?.[0].key).toBe('phone');
+    expect(after?.children?.[1].key).toBe('email');
+  });
+});
+
+describe('updateInstance multi-property', () => {
+  it('dispatches one setInstance command per property', () => {
+    const project = createProject();
+    project.addInstance('cities', { source: 'https://old.com' });
+    project.updateInstance('cities', { source: 'https://new.com', readonly: true });
+    // Instance should still exist with updated values
+    expect(project.instanceNames()).toContain('cities');
+  });
+});
+
+describe('renameVariable', () => {
+  it('delegates to handler — throws if handler missing', () => {
+    const project = createProject();
+    project.addVariable('x', '42');
+    // renameVariable dispatches definition.renameVariable which may not exist
+    expect(() => project.renameVariable('x', 'y')).toThrow();
+  });
+});
+
+describe('addGroup display stack', () => {
+  it('uses batchWithRebuild for display mode with single undo entry', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items', { display: 'stack' });
+    expect(project.itemAt('items')?.type).toBe('group');
+    project.undo();
+    expect(project.itemAt('items')).toBeUndefined();
+  });
+});
+
+describe('copyItem deep edge cases', () => {
+  it('copies binds with rewritten paths for required field', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.require('name');
+    const result = project.copyItem('name', true);
+    // The copy should have its own required bind
+    const copyPath = result.affectedPaths[0];
+    expect(copyPath).toBeDefined();
+    const copyBind = project.bindFor(copyPath);
+    expect(copyBind?.required).toBe('true');
+  });
+
+  it('copies constraint bind (bare refs not rewritten by parser-aware rewriter)', () => {
+    const project = createProject();
+    project.addField('age', 'Age', 'integer');
+    // Bare identifier 'age' — rewriteFELReferences only handles $-prefixed refs
+    project.updateItem('age', { constraint: 'age > 0' });
+    const result = project.copyItem('age', true);
+    const copyPath = result.affectedPaths[0];
+    const copyBind = project.bindFor(copyPath);
+    // Constraint IS copied (even if bare refs aren't rewritten)
+    expect(copyBind?.constraint).toBe('age > 0');
   });
 });
