@@ -21,6 +21,8 @@ import {
   type GroupProps,
   type BranchPath,
   type ValidationOptions,
+  type RepeatProps,
+  type ChoiceOption,
 } from './helper-types.js';
 import { resolveFieldType, resolveWidget, widgetHintFor, isTextareaWidget } from './field-type-aliases.js';
 
@@ -837,6 +839,172 @@ export class Project {
       summary: `Updated item '${path}'`,
       action: { helper: 'updateItem', params: { path, changes } },
       affectedPaths: [path],
+    };
+  }
+  // ── Move / Rename / Reorder ──
+
+  /** Move item to a new parent or position. */
+  moveItem(path: string, targetParentPath?: string, targetIndex?: number): HelperResult {
+    this.raw.dispatch({
+      type: 'definition.moveItem',
+      payload: { sourcePath: path, targetParentPath, targetIndex },
+    });
+    // Compute new path
+    const leafKey = path.split('.').pop()!;
+    const newPath = targetParentPath ? `${targetParentPath}.${leafKey}` : leafKey;
+    return {
+      summary: `Moved '${path}' to '${newPath}'`,
+      action: { helper: 'moveItem', params: { path, targetParentPath, targetIndex } },
+      affectedPaths: [newPath],
+    };
+  }
+
+  /** Rename item — FEL reference rewriting handled inside the handler. */
+  renameItem(path: string, newKey: string): HelperResult {
+    this.raw.dispatch({
+      type: 'definition.renameItem',
+      payload: { path, newKey },
+    });
+    // Compute new full path
+    const segments = path.split('.');
+    segments.pop();
+    const newPath = segments.length > 0 ? `${segments.join('.')}.${newKey}` : newKey;
+    return {
+      summary: `Renamed '${path}' to '${newPath}'`,
+      action: { helper: 'renameItem', params: { path, newKey } },
+      affectedPaths: [newPath],
+    };
+  }
+
+  /** Reorder item within its parent (swap with neighbor). */
+  reorderItem(path: string, direction: 'up' | 'down'): HelperResult {
+    this.raw.dispatch({
+      type: 'definition.reorderItem',
+      payload: { path, direction },
+    });
+    return {
+      summary: `Reordered '${path}' ${direction}`,
+      action: { helper: 'reorderItem', params: { path, direction } },
+      affectedPaths: [path],
+    };
+  }
+
+  // ── Metadata ──
+
+  /** Valid keys for setMetadata. */
+  private static readonly _VALID_METADATA_KEYS = new Set([
+    'title', 'name', 'description', 'url', 'version', 'status', 'date',
+    'versionAlgorithm', 'nonRelevantBehavior', 'derivedFrom',
+    'density', 'labelPosition', 'pageMode', 'defaultCurrency',
+  ]);
+
+  /** Keys that route to definition.setFormPresentation. */
+  private static readonly _PRESENTATION_KEYS = new Set([
+    'density', 'labelPosition', 'pageMode', 'defaultCurrency',
+  ]);
+
+  /** Form-level metadata setter. */
+  setMetadata(changes: Record<string, unknown>): HelperResult {
+    // Validate keys
+    for (const key of Object.keys(changes)) {
+      if (!Project._VALID_METADATA_KEYS.has(key)) {
+        throw new HelperError('INVALID_KEY', `Unknown metadata key "${key}"`, {
+          invalidKey: key,
+          validKeys: [...Project._VALID_METADATA_KEYS],
+        });
+      }
+    }
+
+    const commands: AnyCommand[] = [];
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === undefined) continue;
+
+      if (key === 'title') {
+        commands.push({ type: 'definition.setFormTitle', payload: { title: value } });
+      } else if (Project._PRESENTATION_KEYS.has(key)) {
+        commands.push({ type: 'definition.setFormPresentation', payload: { property: key, value } });
+      } else {
+        commands.push({ type: 'definition.setDefinitionProperty', payload: { property: key, value } });
+      }
+    }
+
+    if (commands.length > 0) {
+      this.raw.dispatch(commands);
+    }
+
+    return {
+      summary: `Updated form metadata`,
+      action: { helper: 'setMetadata', params: { changes } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Choices ──
+
+  /** Define a reusable named option set. */
+  defineChoices(name: string, options: ChoiceOption[]): HelperResult {
+    this.raw.dispatch({
+      type: 'definition.setOptionSet',
+      payload: { name, options },
+    });
+    return {
+      summary: `Defined option set '${name}' with ${options.length} choices`,
+      action: { helper: 'defineChoices', params: { name, optionCount: options.length } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Repeatable ──
+
+  /** Make a group repeatable with optional cardinality constraints. */
+  makeRepeatable(target: string, props?: RepeatProps): HelperResult {
+    // Pre-validate: target must be a group
+    const item = this.itemAt(target);
+    if (!item) {
+      throw new HelperError('PATH_NOT_FOUND', `Item not found at path "${target}"`, { path: target });
+    }
+    if (item.type !== 'group') {
+      throw new HelperError('INVALID_TARGET_TYPE', `makeRepeatable requires a group, got "${item.type}"`, {
+        path: target,
+        actualType: item.type,
+      });
+    }
+
+    const leafKey = target.split('.').pop()!;
+    const commands: AnyCommand[] = [
+      { type: 'definition.setItemProperty', payload: { path: target, property: 'repeatable', value: true } },
+    ];
+
+    if (props?.min !== undefined) {
+      commands.push({ type: 'definition.setItemProperty', payload: { path: target, property: 'minRepeat', value: props.min } });
+    }
+    if (props?.max !== undefined) {
+      commands.push({ type: 'definition.setItemProperty', payload: { path: target, property: 'maxRepeat', value: props.max } });
+    }
+
+    // Component tree: toggle repeat mode
+    commands.push({ type: 'component.setGroupRepeatable', payload: { groupKey: leafKey, repeatable: true } });
+
+    // Optional labels on the component node
+    if (props?.addLabel) {
+      commands.push({
+        type: 'component.setNodeProperty',
+        payload: { node: { bind: leafKey }, property: 'addLabel', value: props.addLabel },
+      });
+    }
+    if (props?.removeLabel) {
+      commands.push({
+        type: 'component.setNodeProperty',
+        payload: { node: { bind: leafKey }, property: 'removeLabel', value: props.removeLabel },
+      });
+    }
+
+    this.raw.dispatch(commands);
+
+    return {
+      summary: `Made group '${target}' repeatable`,
+      action: { helper: 'makeRepeatable', params: { target, ...props } },
+      affectedPaths: [],
     };
   }
 }

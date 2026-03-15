@@ -545,3 +545,105 @@ describe('updateItem', () => {
     }
   });
 });
+
+describe('moveItem', () => {
+  it('moves an item to a new parent', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.addGroup('section', 'Section');
+    project.moveItem('name', 'section');
+    expect(project.fieldPaths()).toContain('section.name');
+    expect(project.fieldPaths()).not.toContain('name');
+  });
+});
+
+describe('renameItem', () => {
+  it('renames a root item and returns new path', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    const result = project.renameItem('name', 'full_name');
+    expect(result.affectedPaths[0]).toBe('full_name');
+    expect(project.fieldPaths()).toContain('full_name');
+    expect(project.fieldPaths()).not.toContain('name');
+  });
+
+  it('renames a nested item and returns correct full path', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact');
+    project.addField('contact.email', 'Email', 'email');
+    const result = project.renameItem('contact.email', 'work_email');
+    expect(result.affectedPaths[0]).toBe('contact.work_email');
+  });
+});
+
+describe('reorderItem', () => {
+  it('swaps item with previous sibling on "up"', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'text');
+    project.addField('b', 'B', 'text');
+    const items = project.state.definition.items;
+    expect(items[0].key).toBe('a');
+    expect(items[1].key).toBe('b');
+
+    project.reorderItem('b', 'up');
+    const after = project.state.definition.items;
+    expect(after[0].key).toBe('b');
+    expect(after[1].key).toBe('a');
+  });
+});
+
+describe('setMetadata', () => {
+  it('sets form title', () => {
+    const project = createProject();
+    project.setMetadata({ title: 'My Form' });
+    expect(project.definition.title).toBe('My Form');
+  });
+
+  it('throws INVALID_KEY for submitMode', () => {
+    const project = createProject();
+    expect(() => project.setMetadata({ submitMode: 'auto' } as any)).toThrow(HelperError);
+    try { project.setMetadata({ submitMode: 'auto' } as any); } catch (e) {
+      expect((e as HelperError).code).toBe('INVALID_KEY');
+    }
+  });
+
+  it('throws INVALID_KEY for language', () => {
+    const project = createProject();
+    expect(() => project.setMetadata({ language: 'en' } as any)).toThrow(HelperError);
+    try { project.setMetadata({ language: 'en' } as any); } catch (e) {
+      expect((e as HelperError).code).toBe('INVALID_KEY');
+    }
+  });
+});
+
+describe('defineChoices', () => {
+  it('creates a named option set', () => {
+    const project = createProject();
+    project.defineChoices('colors', [
+      { value: 'red', label: 'Red' },
+      { value: 'blue', label: 'Blue' },
+    ]);
+    // Option set should be accessible
+    const def = project.state.definition as any;
+    expect(def.optionSets?.colors).toBeDefined();
+  });
+});
+
+describe('makeRepeatable', () => {
+  it('makes a group repeatable', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items');
+    project.makeRepeatable('items', { min: 1, max: 5 });
+    const item = project.itemAt('items');
+    expect(item?.repeatable).toBe(true);
+  });
+
+  it('throws INVALID_TARGET_TYPE on a field', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    expect(() => project.makeRepeatable('name')).toThrow(HelperError);
+    try { project.makeRepeatable('name'); } catch (e) {
+      expect((e as HelperError).code).toBe('INVALID_TARGET_TYPE');
+    }
+  });
+});
