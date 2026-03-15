@@ -12,6 +12,19 @@
 
 ---
 
+## Principles
+
+This is a **greenfield project with zero users and zero backwards-compatibility constraints.** Nothing is precious. Apply these rules without exception:
+
+- **Boy scout:** Leave every file cleaner than you found it. If you touch a file and see dead code, unused imports, misleading comments, or naming that no longer fits — fix it. Don't leave it for later.
+- **DRY:** If you find duplication while moving files, collapse it. Don't carry duplicated logic into the new package structure.
+- **No tech debt:** Fix root causes, not symptoms. If something upstream breaks because of this split, trace back to why it breaks and fix the underlying issue. Do not add shims, workarounds, re-exports, or compatibility hacks to paper over a real problem.
+- **Break things correctly:** If consumers of `RawProject` or `Project` are calling `canUndo` as a method when it's a getter, fix the call sites — don't change the getter to a method to avoid the work. The correct fix propagates outward from the truth, not inward from the symptom.
+- **Delete freely:** If a file, type, export, or test no longer serves a clear purpose after the split, delete it. You can always get it back from git. Unused exports are worse than no exports.
+- **Refactor other things later:** This task is the split. Don't get pulled into unrelated refactors outside the scope of the split. If you notice something that needs fixing elsewhere, note it in a TODO comment or issue — don't block this task on it.
+
+---
+
 ## File Map
 
 ### New package: `packages/formspec-core/`
