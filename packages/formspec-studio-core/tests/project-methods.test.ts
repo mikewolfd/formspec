@@ -1538,6 +1538,49 @@ describe('updateItem routing exhaustiveness', () => {
     // Verify assignment happened (no throw = success)
     expect(true).toBe(true);
   });
+
+  it('routes dataType to setFieldDataType', () => {
+    const project = createProject();
+    project.addField('amount', 'Amount', 'text');
+    expect(project.itemAt('amount')?.dataType).toBe('text');
+
+    project.updateItem('amount', { dataType: 'decimal' });
+    expect(project.itemAt('amount')?.dataType).toBe('decimal');
+  });
+
+  it('routes style to theme.setItemOverride', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.updateItem('name', { style: { fontSize: '1.5rem', color: 'blue' } });
+
+    // theme.setItemOverride stores on theme.items[key]
+    const overrides = (project.state.theme as any).items?.name;
+    expect(overrides?.fontSize).toBe('1.5rem');
+    expect(overrides?.color).toBe('blue');
+  });
+
+  it('routes readonly: true to setBind "true"', () => {
+    const project = createProject();
+    project.addField('f', 'F', 'text');
+    project.updateItem('f', { readonly: true });
+    expect(project.bindFor('f')?.readonly).toBe('true');
+  });
+
+  it('routes readonly: false to null-deletion', () => {
+    const project = createProject();
+    project.addField('f', 'F', 'text');
+    project.updateItem('f', { readonly: true });
+    expect(project.bindFor('f')?.readonly).toBe('true');
+    project.updateItem('f', { readonly: false });
+    expect(project.bindFor('f')?.readonly).toBeUndefined();
+  });
+
+  it('routes default to setBind', () => {
+    const project = createProject();
+    project.addField('f', 'F', 'text');
+    project.updateItem('f', { default: 'today()' });
+    expect(project.bindFor('f')?.default).toBe('today()');
+  });
 });
 
 describe('updateValidation all changes keys', () => {
