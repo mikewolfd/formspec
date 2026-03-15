@@ -588,6 +588,15 @@ describe('updateItem', () => {
     }
   });
 
+  it('throws INVALID_WIDGET for unknown widget alias', () => {
+    const project = createProject();
+    project.addField('f', 'F', 'text');
+    expect(() => project.updateItem('f', { widget: 'banana' })).toThrow(HelperError);
+    try { project.updateItem('f', { widget: 'banana' }); } catch (e) {
+      expect((e as HelperError).code).toBe('INVALID_WIDGET');
+    }
+  });
+
   it('throws PATH_NOT_FOUND for nonexistent path', () => {
     const project = createProject();
     expect(() => project.updateItem('nonexistent', { label: 'x' })).toThrow(HelperError);
@@ -977,16 +986,20 @@ describe('updateVariable', () => {
 });
 
 describe('removeVariable', () => {
-  it('removes a variable and warns about dangling refs', () => {
+  it('removes a variable and warns about dangling refs with FEL paths listed', () => {
     const project = createProject();
     project.addVariable('x', '42');
     project.addField('f', 'F', 'integer');
     project.calculate('f', '$x + 1');
     const result = project.removeVariable('x');
     expect(project.variableNames()).not.toContain('x');
-    // Should warn about dangling reference
     const w = result.warnings?.find(w => w.code === 'DANGLING_REFERENCES');
     expect(w).toBeDefined();
+    // Detail should list the specific bind paths that reference this variable
+    expect(w?.detail?.referenceCount).toBeGreaterThan(0);
+    expect(w?.detail?.paths).toEqual(
+      expect.arrayContaining([expect.stringContaining('f')])
+    );
   });
 });
 
@@ -1180,7 +1193,7 @@ describe('addWizardPage edge cases', () => {
 });
 
 describe('removeInstance DANGLING_REFERENCES', () => {
-  it('warns about dangling references when instance is referenced in FEL', () => {
+  it('warns about dangling references with FEL paths listed', () => {
     const project = createProject();
     project.addInstance('cities', { source: 'https://example.com/cities.json' });
     project.addField('city', 'City', 'choice');
@@ -1190,6 +1203,9 @@ describe('removeInstance DANGLING_REFERENCES', () => {
     const w = result.warnings?.find(w => w.code === 'DANGLING_REFERENCES');
     expect(w).toBeDefined();
     expect(w?.detail?.referenceCount).toBeGreaterThan(0);
+    expect(w?.detail?.paths).toEqual(
+      expect.arrayContaining([expect.stringContaining('city')])
+    );
   });
 });
 
@@ -1245,6 +1261,19 @@ describe('reorderItem nested', () => {
     const after = project.itemAt('contact');
     expect(after?.children?.[0].key).toBe('phone');
     expect(after?.children?.[1].key).toBe('email');
+  });
+
+  it('is a no-op when item is already first sibling', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact');
+    project.addField('contact.email', 'Email', 'email');
+    project.addField('contact.phone', 'Phone', 'phone');
+
+    // email is already first — reorder up should be no-op
+    project.reorderItem('contact.email', 'up');
+    const group = project.itemAt('contact');
+    expect(group?.children?.[0].key).toBe('email');
+    expect(group?.children?.[1].key).toBe('phone');
   });
 });
 
@@ -1550,5 +1579,90 @@ describe('addContent defaults', () => {
     const result = project.addContent('intro', 'Welcome to the form');
     const item = project.itemAt('intro');
     expect((item as any)?.presentation?.widgetHint).toBe('paragraph');
+  });
+});
+
+describe('addField alias resolution', () => {
+  it('resolves all aliases to correct dataType and defaultWidget', () => {
+    // Every alias in FIELD_TYPE_MAP must produce the correct dataType on the definition item.
+    // Aliases that are synonyms (e.g. datetime/dateTime) map to the same dataType.
+    const expected: [alias: string, dataType: string][] = [
+      ['text', 'text'],
+      ['string', 'string'],
+      ['integer', 'integer'],
+      ['decimal', 'decimal'],
+      ['number', 'decimal'],
+      ['boolean', 'boolean'],
+      ['date', 'date'],
+      ['datetime', 'dateTime'],
+      ['dateTime', 'dateTime'],
+      ['time', 'time'],
+      ['url', 'uri'],
+      ['uri', 'uri'],
+      ['file', 'attachment'],
+      ['attachment', 'attachment'],
+      ['signature', 'attachment'],
+      ['choice', 'choice'],
+      ['multichoice', 'multiChoice'],
+      ['multiChoice', 'multiChoice'],
+      ['currency', 'money'],
+      ['money', 'money'],
+      ['rating', 'integer'],
+      ['slider', 'decimal'],
+      ['email', 'string'],
+      ['phone', 'string'],
+    ];
+
+    for (const [alias, dataType] of expected) {
+      const project = createProject();
+      project.addField(`f_${alias}`, `Field ${alias}`, alias);
+      const item = project.itemAt(`f_${alias}`);
+      expect(item?.type, `${alias}: type should be 'field'`).toBe('field');
+      expect(item?.dataType, `${alias}: dataType`).toBe(dataType);
+    }
+  });
+
+  it('email and phone aliases set constraint binds', () => {
+    const project = createProject();
+    project.addField('em', 'Email', 'email');
+    project.addField('ph', 'Phone', 'phone');
+    expect(project.bindFor('em')?.constraint).toMatch(/matches/);
+    expect(project.bindFor('ph')?.constraint).toMatch(/matches/);
+  });
+});
+
+describe('addSubmitButton component tree', () => {
+  it('component.addNode includes parent: { nodeId: "root" }', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.addSubmitButton('Go');
+
+    // The submit button should be a direct child of the root node
+    const tree = project.component.tree as any;
+    const rootChildren = tree?.children ?? [];
+    const submitNode = rootChildren.find(
+      (n: any) => n.component === 'SubmitButton'
+    );
+    expect(submitNode).toBeDefined();
+    expect(submitNode?.label).toBe('Go');
+  });
+});
+
+describe('HelperError instanceof', () => {
+  it('works in catch blocks (class, not interface)', () => {
+    const project = createProject();
+    let caught = false;
+    try {
+      project.removeItem('nonexistent.path');
+    } catch (e) {
+      caught = true;
+      expect(e).toBeInstanceOf(HelperError);
+      expect(e).toBeInstanceOf(Error);
+      if (e instanceof HelperError) {
+        expect(e.code).toBe('PATH_NOT_FOUND');
+        expect(typeof e.message).toBe('string');
+      }
+    }
+    expect(caught).toBe(true);
   });
 });
