@@ -1,3 +1,4 @@
+import type { IProjectCore } from './project-core.js';
 import type {
   ProjectState,
   ProjectOptions,
@@ -194,7 +195,7 @@ function flattenItems(items: FormspecItem[], prefix = '', visited?: WeakSet<obje
  *
  * @see {@link createProject} for the recommended factory function.
  */
-export class RawProject {
+export class RawProject implements IProjectCore {
   /** Current project state. Mutated only via dispatch (clone-and-swap). */
   private _state: ProjectState;
   /** Stack of previous states for undo. Newest at the end. Capped by `_maxHistory`. */
