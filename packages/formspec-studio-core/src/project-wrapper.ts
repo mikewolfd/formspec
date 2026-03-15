@@ -727,7 +727,7 @@ export class Project extends RawProject {
   /** Properties that route to definition.setItemProperty. */
   private static readonly _ITEM_PROPERTY_KEYS = new Set([
     'label', 'hint', 'description', 'placeholder', 'ariaLabel',
-    'options', 'initialValue', 'prePopulate',
+    'options', 'choicesFrom', 'initialValue', 'prePopulate',
     'repeatable', 'minRepeat', 'maxRepeat',
     'currency', 'precision',
   ]);

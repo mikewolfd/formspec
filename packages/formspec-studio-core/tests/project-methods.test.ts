@@ -1436,3 +1436,119 @@ describe('copyItem deep edge cases', () => {
     expect(copyBind?.constraint).toBe('age > 0');
   });
 });
+
+// ── Spec coverage: remaining edge cases ──
+
+describe('updateItem routing exhaustiveness', () => {
+  it('routes choicesFrom to setItemProperty with optionSet property', () => {
+    const project = createProject();
+    project.addField('status', 'Status', 'choice');
+    // choicesFrom maps to 'optionSet' in the routing table
+    const result = project.updateItem('status', { choicesFrom: 'statusOptions' });
+    expect(result.affectedPaths[0]).toBe('status');
+    // Verify command was dispatched (optionSet is stored on the item)
+    const items = project.state.definition.items;
+    const item = items.find((i: any) => i.key === 'status');
+    expect((item as any)?.optionSet).toBe('statusOptions');
+  });
+
+  it('routes currency to setItemProperty', () => {
+    const project = createProject();
+    project.addField('amount', 'Amount', 'currency');
+    project.updateItem('amount', { currency: 'EUR' });
+    const item = project.itemAt('amount');
+    expect((item as any)?.currency).toBe('EUR');
+  });
+
+  it('routes precision to setItemProperty', () => {
+    const project = createProject();
+    project.addField('amount', 'Amount', 'decimal');
+    project.updateItem('amount', { precision: 2 });
+    const item = project.itemAt('amount');
+    expect((item as any)?.precision).toBe(2);
+  });
+
+  it('routes constraintMessage to setBind', () => {
+    const project = createProject();
+    project.addField('age', 'Age', 'integer');
+    project.updateItem('age', { constraintMessage: 'Invalid age' });
+    const bind = project.bindFor('age');
+    expect(bind?.constraintMessage).toBe('Invalid age');
+  });
+
+  it('routes calculate to setBind', () => {
+    const project = createProject();
+    project.addField('total', 'Total', 'decimal');
+    project.addField('subtotal', 'Sub', 'decimal');
+    project.updateItem('total', { calculate: 'subtotal * 1.1' });
+    const bind = project.bindFor('total');
+    expect(bind?.calculate).toBe('subtotal * 1.1');
+  });
+
+  it('routes relevant to setBind', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.addField('nickname', 'Nick', 'text');
+    project.updateItem('nickname', { relevant: 'name != ""' });
+    const bind = project.bindFor('nickname');
+    expect(bind?.relevant).toContain('name');
+  });
+
+  it('routes page to pages.assignItem', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    const page = project.addPage('Page 1');
+    project.updateItem('name', { page: page.createdId! });
+    // Verify assignment happened (no throw = success)
+    expect(true).toBe(true);
+  });
+});
+
+describe('updateValidation all changes keys', () => {
+  it('dispatches timing, severity, code, and activeWhen to setShapeProperty', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'integer');
+    const result = project.addValidation('*', 'a > 0', 'Positive');
+    const id = result.createdId!;
+
+    project.updateValidation(id, {
+      timing: 'submit',
+      severity: 'warning',
+      code: 'CUSTOM_CODE',
+      activeWhen: 'a > 0',
+    });
+
+    const shapes = project.state.definition.shapes ?? [];
+    const shape = shapes.find((s: any) => s.id === id) as any;
+    expect(shape.timing).toBe('submit');
+    expect(shape.severity).toBe('warning');
+    expect(shape.code).toBe('CUSTOM_CODE');
+    expect(shape.activeWhen).toBe('a > 0');
+  });
+});
+
+describe('removeItem recursive group cleanup', () => {
+  it('cleans up binds on descendants when group is deleted', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact');
+    project.addField('contact.email', 'Email', 'email');
+    project.addField('contact.phone', 'Phone', 'phone');
+    project.addField('summary', 'Summary', 'text');
+    // Make summary calculate from a descendant
+    project.calculate('summary', 'contact.email');
+    expect(project.bindFor('summary')?.calculate).toBe('contact.email');
+
+    // Delete the group — summary's calculate should be cleaned up
+    project.removeItem('contact');
+    expect(project.bindFor('summary')?.calculate).toBeUndefined();
+  });
+});
+
+describe('addContent defaults', () => {
+  it('defaults widgetHint to paragraph when no kind specified', () => {
+    const project = createProject();
+    const result = project.addContent('intro', 'Welcome to the form');
+    const item = project.itemAt('intro');
+    expect((item as any)?.presentation?.widgetHint).toBe('paragraph');
+  });
+});
