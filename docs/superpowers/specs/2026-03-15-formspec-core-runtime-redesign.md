@@ -213,8 +213,10 @@ Pure function extracted from `_rebuildComponentTree` (~250 lines). Takes definit
 
 ```typescript
 // tree-reconciler.ts
+import type { FormDefinition } from 'formspec-types';
+
 export function reconcileComponentTree(
-  definition: FormspecDefinition,
+  definition: FormDefinition,
   currentTree: unknown,
   theme: ThemeState,
 ): unknown;
@@ -222,7 +224,9 @@ export function reconcileComponentTree(
 
 The `_rebuildComponentTree` method on `RawProject` today temporarily swaps `this._state` to operate on a clone. As a pure function, the reconciler operates directly on the clone's data — no swap needed.
 
-**Implementation note:** `_rebuildComponentTree` calls the private `_defaultComponent(item)` method to produce default component nodes for each item type. This logic must be inlined into the pure function or extracted as a helper within `tree-reconciler.ts`. It has no instance dependencies beyond reading the item's type and properties.
+**Implementation notes:**
+- `_rebuildComponentTree` calls the private `_defaultComponent(item)` method to produce default component nodes for each item type. This logic must be inlined into the pure function or extracted as a helper within `tree-reconciler.ts`. It has no instance dependencies beyond reading the item's type and properties.
+- `_markGeneratedComponentDoc()` sets `'x-studio-generated': true` on the generated component state after rebuild. This marker must be set by the caller (in `_execute`'s reconcile callback), not inside the pure reconciler function.
 
 #### State Normalizer
 
@@ -234,7 +238,7 @@ export function normalizeState(state: ProjectState): void;
 ```
 
 Current invariants:
-- Component and theme `targetDefinition.url` stay in sync with `definition.url`
+- Component, generated component, and theme `targetDefinition.url` stay in sync with `definition.url`
 - Theme breakpoints sorted by `minWidth` ascending
 - Component breakpoints inherit from theme when not independently set
 
@@ -307,7 +311,7 @@ private getRegistryIndex(): Map<string, Map<string, unknown>> {
 
 Invalidation: set `this._registryIndex = null` in `_execute` after state swap.
 
-**Unify registry loading paths.** The `project.loadRegistry` handler stores `entries` as a `Record`. The seed path (`ProjectOptions.seed.extensions`) accepts the same shape. Both go through the same normalization:
+**Unify registry loading paths.** After this change, the `project.loadRegistry` handler stores `entries` as a `Record` (currently it builds a `Map`). The seed path (`ProjectOptions.seed.extensions`) accepts the same shape. Both go through the same normalization:
 
 ```typescript
 function indexRegistry(registry: any): LoadedRegistry {
@@ -463,7 +467,12 @@ Move `CommandHandler` type from `handler-registry.ts` to `types.ts`. Convert eac
 
 Extract `CommandPipeline` class. Rewrite `_dispatchSingle`, `_dispatchArray`, `batch`, and `batchWithRebuild` to delegate to `_execute`. Update `Middleware` type signature (breaking change — update test middleware fixtures). Handle `clearHistory` result flag in `_execute`.
 
-**Behavioral change:** `batch()` now runs through middleware. Update any tests that assert `batch()` bypasses middleware.
+**Behavioral changes:**
+- `batch()` and `batchWithRebuild()` now run through middleware (previously bypassed entirely).
+- `dispatch(array)` middleware now runs *before* handlers execute (previously ran post-hoc with a no-op inner chain — middleware could observe but not transform or reject).
+- `clearHistory` is now honored in all dispatch paths. Previously only `_dispatchSingle` checked it; `batch()` and `batchWithRebuild()` ignored it. A `project.import` or `project.reset` dispatched via `batch()` will now correctly clear history.
+
+Update any tests that assert middleware bypass or post-hoc behavior.
 
 **Verification:** All existing tests pass (after updating middleware test fixtures). Add test proving middleware runs consistently across all dispatch paths.
 
@@ -495,6 +504,7 @@ Pull `HistoryManager` and `normalizeState` into their own modules.
 
 - **`formspec-types` lint errors in `formspec-studio-core`:** `Item.children` is typed as `{}` instead of an array type. Three errors in `project.ts` (lines 719, 729, 1374). These predate this redesign and should be addressed in a separate fix — either by correcting the schema's `children` type or by adding a cast in `formspec-studio-core`.
 - **Theme page → PageLayout rename:** `formspec-types` now exports `PageLayout` instead of a generic page type. Handler code referencing `pages` arrays may need type annotations updated during implementation.
+- **`ChangeListener` type shadow:** `formspec-core` defines `ChangeListener` as `(state, event) => void`. `formspec-studio-core` defines its own `ChangeListener` as a zero-arg callback `() => void`. Same name, different signatures, different packages. Not blocked by this redesign but worth noting for anyone reading the type surface.
 
 ## Supersedes
 
