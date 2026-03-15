@@ -396,11 +396,11 @@ describe('removeValidation', () => {
     const result = project.addValidation('*', 'a > 0', 'Must be positive');
     const shapeId = result.createdId!;
 
-    const shapes = (project.state.definition as any).shapes;
+    const shapes = project.state.definition.shapes;
     expect(shapes?.some((s: any) => s.id === shapeId)).toBe(true);
 
     project.removeValidation(shapeId);
-    const shapesAfter = (project.state.definition as any).shapes;
+    const shapesAfter = project.state.definition.shapes;
     expect(shapesAfter?.some((s: any) => s.id === shapeId)).toBe(false);
   });
 });
@@ -414,7 +414,7 @@ describe('updateValidation', () => {
 
     project.updateValidation(shapeId, { rule: 'a > 10', message: 'Must be > 10' });
 
-    const shapes = (project.state.definition as any).shapes;
+    const shapes = project.state.definition.shapes;
     const shape = shapes?.find((s: any) => s.id === shapeId);
     expect(shape?.constraint).toBe('a > 10');
     expect(shape?.message).toBe('Must be > 10');
@@ -450,7 +450,7 @@ describe('removeItem', () => {
     const shapeId = result.createdId!;
 
     project.removeItem('a');
-    const shapes = (project.state.definition as any).shapes ?? [];
+    const shapes = project.state.definition.shapes ?? [];
     expect(shapes.some((s: any) => s.id === shapeId)).toBe(false);
   });
 
@@ -946,7 +946,7 @@ describe('setScreener', () => {
   it('enables the screener', () => {
     const project = createProject();
     project.setScreener(true);
-    expect((project.state.definition as any).screener).toBeDefined();
+    expect(project.state.definition.screener).toBeDefined();
   });
 });
 
@@ -988,7 +988,7 @@ describe('updateScreenRoute', () => {
     project.addScreenRoute('age >= 18', 'https://example.com');
     project.updateScreenRoute(0, { condition: 'age >= 21' });
     // Route should still exist
-    expect((project.state.definition as any).screener.routes).toHaveLength(1);
+    expect(project.state.definition.screener.routes).toHaveLength(1);
   });
 });
 
@@ -1000,7 +1000,7 @@ describe('reorderScreenRoute', () => {
     project.addScreenRoute('age >= 18', 'https://a.com');
     project.addScreenRoute('age >= 21', 'https://b.com');
     project.reorderScreenRoute(1, 'up');
-    const routes = (project.state.definition as any).screener.routes;
+    const routes = project.state.definition.screener.routes;
     expect(routes[0].condition).toBe('age >= 21');
   });
 });
@@ -1013,7 +1013,7 @@ describe('removeScreenRoute', () => {
     project.addScreenRoute('age >= 18', 'https://a.com');
     project.addScreenRoute('age >= 21', 'https://b.com');
     project.removeScreenRoute(0);
-    const routes = (project.state.definition as any).screener.routes;
+    const routes = project.state.definition.screener.routes;
     expect(routes).toHaveLength(1);
   });
 });
@@ -1080,12 +1080,12 @@ describe('addWizardPage edge cases', () => {
     const project = createProject();
     // First wizard page should set pageMode
     project.addWizardPage('Step 1');
-    expect((project.state.definition as any).formPresentation?.pageMode).toBe('wizard');
+    expect(project.state.definition.formPresentation?.pageMode).toBe('wizard');
 
     // Second wizard page should NOT re-dispatch pageMode
     // (just verify it doesn't throw / still works)
     project.addWizardPage('Step 2');
-    expect((project.state.definition as any).formPresentation?.pageMode).toBe('wizard');
+    expect(project.state.definition.formPresentation?.pageMode).toBe('wizard');
     expect(project.state.definition.items).toHaveLength(2);
   });
 });
@@ -1265,7 +1265,7 @@ describe('removeValidation preserves adjacent shapes', () => {
 
     project.removeValidation(r1.createdId!);
 
-    const shapes = (project.state.definition as any).shapes ?? [];
+    const shapes = project.state.definition.shapes ?? [];
     expect(shapes.some((s: any) => s.id === r1.createdId)).toBe(false);
     expect(shapes.some((s: any) => s.id === r2.createdId)).toBe(true);
   });
