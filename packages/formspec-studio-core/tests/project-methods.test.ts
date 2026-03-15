@@ -1188,6 +1188,89 @@ describe('addGroup display stack', () => {
   });
 });
 
+describe('reorderPage boundary', () => {
+  it('is a no-op when moving first page up', () => {
+    const project = createProject();
+    const p1 = project.addPage('Page 1');
+    project.addPage('Page 2');
+    // Moving first page up should be a no-op (no throw)
+    project.reorderPage(p1.createdId!, 'up');
+    const pages = project.state.theme.pages ?? [];
+    expect(pages[0]?.id).toBe(p1.createdId);
+  });
+});
+
+describe('addSubmitButton with pageId', () => {
+  it('dispatches both addNode and pages.assignItem', () => {
+    const project = createProject();
+    const { createdId } = project.addPage('Page 1');
+    const result = project.addSubmitButton('Submit', createdId);
+    expect(result.summary).toContain('submit');
+    // The submit button should be assigned to the page
+    const pages = project.state.theme.pages ?? [];
+    const page = pages.find((p: any) => p.id === createdId);
+    expect(page?.regions?.some((r: any) => r.key === 'submit')).toBe(true);
+  });
+});
+
+describe('updateItem widget sets widgetHint on definition', () => {
+  it('sets presentation.widgetHint on definition when widget is changed', () => {
+    const project = createProject();
+    project.addField('status', 'Status', 'choice');
+    project.updateItem('status', { widget: 'radio' });
+    const item = project.itemAt('status');
+    expect((item as any)?.presentation?.widgetHint).toBe('radio');
+  });
+});
+
+describe('wrapInLayoutComponent dot-path', () => {
+  it('extracts leaf key from dot-path', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact');
+    project.addField('contact.email', 'Email', 'email');
+    const result = project.wrapInLayoutComponent('contact.email', 'Card');
+    expect(result.createdId).toBeDefined();
+  });
+});
+
+describe('batchDuplicateItems ancestor dedup', () => {
+  it('deduplicates descendants and returns all new paths', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'text');
+    project.addField('b', 'B', 'text');
+    const result = project.batchDuplicateItems(['a', 'b']);
+    expect(result.affectedPaths).toHaveLength(2);
+    // Original items still present
+    expect(project.state.definition.items.length).toBe(4);
+  });
+
+  it('deduplicates group with child', () => {
+    const project = createProject();
+    project.addGroup('g', 'Group');
+    project.addField('g.f', 'F', 'text');
+    // Passing both group and its child — child should be deduped
+    const result = project.batchDuplicateItems(['g', 'g.f']);
+    // Only 1 duplication (the group), not 2
+    expect(result.affectedPaths).toHaveLength(1);
+  });
+});
+
+describe('removeValidation preserves adjacent shapes', () => {
+  it('removes only the targeted shape, leaves others intact', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'integer');
+    project.addField('b', 'B', 'integer');
+    const r1 = project.addValidation('*', 'a > 0', 'A positive');
+    const r2 = project.addValidation('*', 'b > 0', 'B positive');
+
+    project.removeValidation(r1.createdId!);
+
+    const shapes = (project.state.definition as any).shapes ?? [];
+    expect(shapes.some((s: any) => s.id === r1.createdId)).toBe(false);
+    expect(shapes.some((s: any) => s.id === r2.createdId)).toBe(true);
+  });
+});
+
 describe('copyItem deep edge cases', () => {
   it('copies binds with rewritten paths for required field', () => {
     const project = createProject();
