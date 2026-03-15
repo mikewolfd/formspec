@@ -179,7 +179,7 @@ export class CommandPipeline {
   execute(
     state: ProjectState,
     phases: AnyCommand[][],
-    reconcile: (state: ProjectState) => void,
+    reconcile: (clone: ProjectState) => void,
   ): { newState: ProjectState; results: CommandResult[] } {
     // Clone, phase loop, handler dispatch, inter-phase reconciliation
   }
@@ -380,6 +380,7 @@ export class RawProject implements IProjectCore {
             clone.generatedComponent.tree,
             clone.theme,
           );
+          clone.generatedComponent['x-studio-generated'] = true;
         }
       },
     );
