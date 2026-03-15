@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('mapping.setProperty', () => {
   it('sets a top-level mapping property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.setProperty', payload: { property: 'direction', value: 'forward' } });
     expect(project.mapping.direction).toBe('forward');
   });
@@ -11,7 +11,7 @@ describe('mapping.setProperty', () => {
 
 describe('mapping.setTargetSchema', () => {
   it('sets a target schema property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.setTargetSchema', payload: { property: 'format', value: 'json' } });
     expect((project.mapping.targetSchema as any)?.format).toBe('json');
   });
@@ -19,7 +19,7 @@ describe('mapping.setTargetSchema', () => {
 
 describe('mapping.addRule', () => {
   it('appends a rule', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'mapping.addRule',
       payload: { sourcePath: 'name', targetPath: 'fullName', transform: 'preserve' },
@@ -31,7 +31,7 @@ describe('mapping.addRule', () => {
   });
 
   it('inserts at a specific index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'a' } });
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'c', targetPath: 'c' } });
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'b', targetPath: 'b', insertIndex: 1 } });
@@ -41,7 +41,7 @@ describe('mapping.addRule', () => {
 
 describe('mapping.setRule', () => {
   it('updates a rule property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'a' } });
     project.dispatch({ type: 'mapping.setRule', payload: { index: 0, property: 'transform', value: 'expression' } });
     expect((project.mapping.rules as any[])[0].transform).toBe('expression');
@@ -50,7 +50,7 @@ describe('mapping.setRule', () => {
 
 describe('mapping.deleteRule', () => {
   it('removes a rule', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'a' } });
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'b', targetPath: 'b' } });
     project.dispatch({ type: 'mapping.deleteRule', payload: { index: 0 } });
@@ -61,7 +61,7 @@ describe('mapping.deleteRule', () => {
 
 describe('mapping.reorderRule', () => {
   it('reorders rules', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'a' } });
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'b', targetPath: 'b' } });
     project.dispatch({ type: 'mapping.reorderRule', payload: { index: 0, direction: 'down' } });
@@ -71,7 +71,7 @@ describe('mapping.reorderRule', () => {
 
 describe('mapping.setAdapter', () => {
   it('sets adapter config', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'mapping.setAdapter',
       payload: { format: 'json', config: { pretty: true, sortKeys: false } },
@@ -82,7 +82,7 @@ describe('mapping.setAdapter', () => {
 
 describe('mapping.setDefaults', () => {
   it('sets default values', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'mapping.setDefaults',
       payload: { defaults: { type: 'form', version: '1' } },
@@ -93,7 +93,7 @@ describe('mapping.setDefaults', () => {
 
 describe('mapping.autoGenerateRules', () => {
   it('generates preserve rules for fields without explicit rules', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'b' } });
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'a_out', transform: 'expression' } });
@@ -111,13 +111,13 @@ describe('mapping.autoGenerateRules', () => {
 
 describe('mapping.setExtension', () => {
   it('sets a document-level extension', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.setExtension', payload: { key: 'x-vendor', value: { custom: true } } });
     expect((project.mapping as any)['x-vendor']).toEqual({ custom: true });
   });
 
   it('removes with null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.setExtension', payload: { key: 'x-test', value: 1 } });
     project.dispatch({ type: 'mapping.setExtension', payload: { key: 'x-test', value: null } });
     expect((project.mapping as any)['x-test']).toBeUndefined();
@@ -126,7 +126,7 @@ describe('mapping.setExtension', () => {
 
 describe('mapping.setRuleExtension', () => {
   it('sets an extension on a rule', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'a' } });
     project.dispatch({ type: 'mapping.setRuleExtension', payload: { index: 0, key: 'x-tag', value: 'important' } });
     expect((project.mapping.rules as any[])[0]['x-tag']).toBe('important');
@@ -135,7 +135,7 @@ describe('mapping.setRuleExtension', () => {
 
 describe('mapping.addInnerRule', () => {
   it('adds an inner rule to a parent rule', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'items', targetPath: 'items', transform: 'preserve' } });
     project.dispatch({
       type: 'mapping.addInnerRule',
@@ -149,7 +149,7 @@ describe('mapping.addInnerRule', () => {
 
 describe('mapping.setInnerRule', () => {
   it('updates an inner rule property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'items', targetPath: 'items' } });
     project.dispatch({ type: 'mapping.addInnerRule', payload: { ruleIndex: 0, sourcePath: 'x', targetPath: 'x' } });
     project.dispatch({ type: 'mapping.setInnerRule', payload: { ruleIndex: 0, innerIndex: 0, property: 'transform', value: 'drop' } });
@@ -159,7 +159,7 @@ describe('mapping.setInnerRule', () => {
 
 describe('mapping.deleteInnerRule', () => {
   it('removes an inner rule', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'items', targetPath: 'items' } });
     project.dispatch({ type: 'mapping.addInnerRule', payload: { ruleIndex: 0, sourcePath: 'a', targetPath: 'a' } });
     project.dispatch({ type: 'mapping.addInnerRule', payload: { ruleIndex: 0, sourcePath: 'b', targetPath: 'b' } });
@@ -171,7 +171,7 @@ describe('mapping.deleteInnerRule', () => {
 
 describe('mapping.reorderInnerRule', () => {
   it('reorders inner rules', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'items', targetPath: 'items' } });
     project.dispatch({ type: 'mapping.addInnerRule', payload: { ruleIndex: 0, sourcePath: 'a', targetPath: 'a' } });
     project.dispatch({ type: 'mapping.addInnerRule', payload: { ruleIndex: 0, sourcePath: 'b', targetPath: 'b' } });
@@ -182,7 +182,7 @@ describe('mapping.reorderInnerRule', () => {
 
 describe('mapping.preview', () => {
   it('returns transformed sample data', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'name', targetPath: 'fullName', transform: 'preserve' } });
 
     const result = project.dispatch({
@@ -195,7 +195,7 @@ describe('mapping.preview', () => {
   });
 
   it('uses runtime mapping semantics for nested paths and coercion', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'mapping.addRule', payload: { sourcePath: 'profile.age', targetPath: 'out.age', transform: 'coerce' } },
       { type: 'mapping.setRule', payload: { index: 0, property: 'coerce', value: 'number' } },

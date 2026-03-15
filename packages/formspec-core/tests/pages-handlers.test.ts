@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('pages.addPage', () => {
   it('creates a theme page and sets pageMode to wizard', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
 
@@ -17,7 +17,7 @@ describe('pages.addPage', () => {
 
 describe('pages.deletePage', () => {
   it('removes a page by id', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'A' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'B' } });
     const pages = project.theme.pages as any[];
@@ -32,7 +32,7 @@ describe('pages.deletePage', () => {
   });
 
   it('preserves pageMode when deleting the last page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Only' } });
     const pages = project.theme.pages as any[];
     const id = pages[0].id;
@@ -46,7 +46,7 @@ describe('pages.deletePage', () => {
 
 describe('pages.setMode', () => {
   it('initializes empty theme.pages when setting wizard mode', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'pages.setMode', payload: { mode: 'wizard' } });
 
@@ -55,7 +55,7 @@ describe('pages.setMode', () => {
   });
 
   it('preserves theme.pages when setting single mode', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'X' } });
     expect(project.theme.pages as any[]).toHaveLength(1);
 
@@ -68,7 +68,7 @@ describe('pages.setMode', () => {
 
 describe('pages.addPage — mode preservation', () => {
   it('preserves tabs mode when adding a page (does not force wizard)', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.setMode', payload: { mode: 'tabs' } });
 
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Tab 1' } });
@@ -79,7 +79,7 @@ describe('pages.addPage — mode preservation', () => {
 
 describe('pages.setMode — round-trip', () => {
   it('round-trips wizard → single → wizard preserving pages', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 2' } });
 
@@ -93,7 +93,7 @@ describe('pages.setMode — round-trip', () => {
 
 describe('pages.assignItem', () => {
   it('adds a region to the correct page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P1' } });
     const pageId = (project.theme.pages as any[])[0].id;
 
@@ -107,7 +107,7 @@ describe('pages.assignItem', () => {
   });
 
   it('moves item if already on a different page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P1' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P2' } });
     const pages = project.theme.pages as any[];
@@ -127,7 +127,7 @@ describe('pages.assignItem', () => {
 
 describe('pages.unassignItem', () => {
   it('removes a region by key from a page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
     const pageId = (project.theme.pages as any[])[0].id;
     project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'age', span: 12 } });
@@ -141,7 +141,7 @@ describe('pages.unassignItem', () => {
 
 describe('pages.reorderPages', () => {
   it('swaps adjacent pages', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'First' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Second' } });
     const firstId = (project.theme.pages as any[])[0].id;
@@ -156,7 +156,7 @@ describe('pages.reorderPages', () => {
 
 describe('pages.setPageProperty', () => {
   it('updates a page title', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Old' } });
     const pageId = (project.theme.pages as any[])[0].id;
 
@@ -168,7 +168,7 @@ describe('pages.setPageProperty', () => {
 
 describe('pages.autoGenerate', () => {
   it('creates pages from definition groups with presentation.layout.page hints', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
@@ -198,7 +198,7 @@ describe('pages.autoGenerate', () => {
   });
 
   it('attaches groups without page hint to the preceding page', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
@@ -232,7 +232,7 @@ describe('pages.autoGenerate', () => {
   });
 
   it('preserves tabs mode when auto-generating pages', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
@@ -250,7 +250,7 @@ describe('pages.autoGenerate', () => {
   });
 
   it('creates a single-page fallback when no groups have page hints', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f1' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f2' } });
 
@@ -265,7 +265,7 @@ describe('pages.autoGenerate', () => {
 
 describe('pages.reorderRegion', () => {
   it('moves a region to a target index within a page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
     const pageId = (project.theme.pages as any[])[0].id;
     project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'a' } });
@@ -282,7 +282,7 @@ describe('pages.reorderRegion', () => {
   });
 
   it('clamps targetIndex to valid range', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
     const pageId = (project.theme.pages as any[])[0].id;
     project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'a' } });
@@ -300,7 +300,7 @@ describe('pages.reorderRegion', () => {
 
 describe('pages.setRegionProperty', () => {
   it('sets span on a region', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
     const pageId = (project.theme.pages as any[])[0].id;
     project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'name' } });
@@ -315,7 +315,7 @@ describe('pages.setRegionProperty', () => {
   });
 
   it('removes property when value is undefined', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
     const pageId = (project.theme.pages as any[])[0].id;
     project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'name', span: 6 } });
@@ -330,7 +330,7 @@ describe('pages.setRegionProperty', () => {
   });
 
   it('sets start on a region', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
     const pageId = (project.theme.pages as any[])[0].id;
     project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'name' } });
@@ -347,7 +347,7 @@ describe('pages.setRegionProperty', () => {
 
 describe('pages.* handlers trigger rebuild', () => {
   it('pages.assignItem returns rebuildComponentTree: true', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
     const pageId = (project.theme.pages as any[])[0].id;
 

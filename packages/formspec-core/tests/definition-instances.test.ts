@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.addInstance', () => {
   it('adds a named instance', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.addInstance',
@@ -20,7 +20,7 @@ describe('definition.addInstance', () => {
   });
 
   it('auto-generates name if omitted', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.addInstance',
@@ -33,7 +33,7 @@ describe('definition.addInstance', () => {
   });
 
   it('sets inline data and static/readonly flags', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.addInstance',
@@ -54,7 +54,7 @@ describe('definition.addInstance', () => {
 
 describe('definition.setInstance', () => {
   it('updates an instance property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addInstance',
       payload: { name: 'data', source: 'https://old.api/data' },
@@ -69,7 +69,7 @@ describe('definition.setInstance', () => {
   });
 
   it('removes a property when set to null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addInstance',
       payload: { name: 'data', description: 'Old desc' },
@@ -86,7 +86,7 @@ describe('definition.setInstance', () => {
 
 describe('definition.renameInstance', () => {
   it('renames the instance key', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addInstance',
       payload: { name: 'old', source: 'https://api.example.com' },
@@ -103,7 +103,7 @@ describe('definition.renameInstance', () => {
   });
 
   it('rewrites only parsed @instance references, not literals', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addInstance', payload: { name: 'old', source: 'https://api.example.com' } },
       { type: 'definition.addVariable', payload: { name: 'v', expression: "@instance('old').name + \"@instance('old')\"" } },
@@ -120,7 +120,7 @@ describe('definition.renameInstance', () => {
 
 describe('definition.deleteInstance', () => {
   it('removes an instance by name', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addInstance',
       payload: { name: 'temp', data: {} },

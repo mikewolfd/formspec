@@ -1,17 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 // ── Tokens & Defaults ───────────────────────────────────────────
 
 describe('theme.setToken', () => {
   it('sets a design token', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setToken', payload: { key: 'color.primary', value: '#007bff' } });
     expect((project.theme as any).tokens?.['color.primary']).toBe('#007bff');
   });
 
   it('removes a token with null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setToken', payload: { key: 'x', value: '1' } });
     project.dispatch({ type: 'theme.setToken', payload: { key: 'x', value: null } });
     expect((project.theme as any).tokens?.x).toBeUndefined();
@@ -20,7 +20,7 @@ describe('theme.setToken', () => {
 
 describe('theme.setTokens', () => {
   it('batch-sets multiple tokens', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.setTokens',
       payload: { tokens: { 'color.bg': '#fff', 'color.fg': '#000' } },
@@ -32,7 +32,7 @@ describe('theme.setTokens', () => {
 
 describe('theme.setDefaults', () => {
   it('sets a form-wide presentation default', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setDefaults', payload: { property: 'labelPosition', value: 'left' } });
     expect((project.theme as any).defaults?.labelPosition).toBe('left');
   });
@@ -42,7 +42,7 @@ describe('theme.setDefaults', () => {
 
 describe('theme.addSelector', () => {
   it('adds a selector', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.addSelector',
       payload: { match: { type: 'field' }, apply: { widget: 'TextInput' } },
@@ -54,7 +54,7 @@ describe('theme.addSelector', () => {
 
 describe('theme.setSelector', () => {
   it('updates a selector', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.addSelector',
       payload: { match: { type: 'field' }, apply: { widget: 'TextInput' } },
@@ -69,7 +69,7 @@ describe('theme.setSelector', () => {
 
 describe('theme.deleteSelector', () => {
   it('removes a selector by index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.addSelector',
       payload: { match: { type: 'field' }, apply: { widget: 'A' } },
@@ -86,7 +86,7 @@ describe('theme.deleteSelector', () => {
 
 describe('theme.reorderSelector', () => {
   it('reorders selectors', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addSelector', payload: { match: { type: 'field' }, apply: { widget: 'A' } } });
     project.dispatch({ type: 'theme.addSelector', payload: { match: { type: 'group' }, apply: { widget: 'B' } } });
     project.dispatch({ type: 'theme.reorderSelector', payload: { index: 0, direction: 'down' } });
@@ -98,7 +98,7 @@ describe('theme.reorderSelector', () => {
 
 describe('theme.setItemOverride', () => {
   it('sets a per-item override', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.setItemOverride',
       payload: { itemKey: 'name', property: 'widget', value: 'TextArea' },
@@ -107,7 +107,7 @@ describe('theme.setItemOverride', () => {
   });
 
   it('removes property with null, cleans up empty', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setItemOverride', payload: { itemKey: 'x', property: 'widget', value: 'A' } });
     project.dispatch({ type: 'theme.setItemOverride', payload: { itemKey: 'x', property: 'widget', value: null } });
     expect((project.theme as any).items?.x).toBeUndefined();
@@ -116,7 +116,7 @@ describe('theme.setItemOverride', () => {
 
 describe('theme.deleteItemOverride', () => {
   it('removes entire item override', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setItemOverride', payload: { itemKey: 'name', property: 'widget', value: 'A' } });
     project.dispatch({ type: 'theme.deleteItemOverride', payload: { itemKey: 'name' } });
     expect((project.theme as any).items?.name).toBeUndefined();
@@ -125,7 +125,7 @@ describe('theme.deleteItemOverride', () => {
 
 describe('theme.setItemStyle', () => {
   it('sets a CSS property on a per-item style', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.setItemStyle',
       payload: { itemKey: 'f1', property: 'color', value: 'red' },
@@ -136,7 +136,7 @@ describe('theme.setItemStyle', () => {
 
 describe('theme.setItemWidgetConfig', () => {
   it('sets a widgetConfig property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.setItemWidgetConfig',
       payload: { itemKey: 'f1', property: 'maxLength', value: 100 },
@@ -147,7 +147,7 @@ describe('theme.setItemWidgetConfig', () => {
 
 describe('theme.setItemAccessibility', () => {
   it('sets an accessibility property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.setItemAccessibility',
       payload: { itemKey: 'f1', property: 'role', value: 'textbox' },
@@ -160,7 +160,7 @@ describe('theme.setItemAccessibility', () => {
 
 describe('theme.addPage', () => {
   it('adds a page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { title: 'Info' } });
     expect((project.theme as any).pages).toHaveLength(1);
     expect((project.theme as any).pages[0].title).toBe('Info');
@@ -169,7 +169,7 @@ describe('theme.addPage', () => {
 
 describe('theme.setPageProperty', () => {
   it('updates a page property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { title: 'Old' } });
     project.dispatch({ type: 'theme.setPageProperty', payload: { index: 0, property: 'title', value: 'New' } });
     expect((project.theme as any).pages[0].title).toBe('New');
@@ -178,7 +178,7 @@ describe('theme.setPageProperty', () => {
 
 describe('theme.deletePage', () => {
   it('removes a page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { title: 'A' } });
     project.dispatch({ type: 'theme.addPage', payload: { title: 'B' } });
     project.dispatch({ type: 'theme.deletePage', payload: { index: 0 } });
@@ -187,7 +187,7 @@ describe('theme.deletePage', () => {
   });
 
   it('throws when deleting the last page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { title: 'Only' } });
     expect(() => project.dispatch({ type: 'theme.deletePage', payload: { index: 0 } })).toThrow();
   });
@@ -195,7 +195,7 @@ describe('theme.deletePage', () => {
 
 describe('theme.reorderPage', () => {
   it('reorders pages', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { title: 'A' } });
     project.dispatch({ type: 'theme.addPage', payload: { title: 'B' } });
     project.dispatch({ type: 'theme.reorderPage', payload: { index: 0, direction: 'down' } });
@@ -205,7 +205,7 @@ describe('theme.reorderPage', () => {
 
 describe('theme.addRegion', () => {
   it('adds a region to a page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { id: 'p1', title: 'P1' } });
     project.dispatch({
       type: 'theme.addRegion',
@@ -218,7 +218,7 @@ describe('theme.addRegion', () => {
 
 describe('theme.setRegionProperty', () => {
   it('updates a region property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { id: 'p1', title: 'P1' } });
     project.dispatch({ type: 'theme.addRegion', payload: { pageId: 'p1', key: 'main', span: 12 } });
     project.dispatch({ type: 'theme.setRegionProperty', payload: { pageId: 'p1', regionIndex: 0, property: 'span', value: 6 } });
@@ -228,7 +228,7 @@ describe('theme.setRegionProperty', () => {
 
 describe('theme.deleteRegion', () => {
   it('removes a region', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { id: 'p1', title: 'P1' } });
     project.dispatch({ type: 'theme.addRegion', payload: { pageId: 'p1', key: 'a', span: 6 } });
     project.dispatch({ type: 'theme.addRegion', payload: { pageId: 'p1', key: 'b', span: 6 } });
@@ -240,7 +240,7 @@ describe('theme.deleteRegion', () => {
 
 describe('theme.reorderRegion', () => {
   it('reorders regions', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { id: 'p1', title: 'P1' } });
     project.dispatch({ type: 'theme.addRegion', payload: { pageId: 'p1', key: 'a', span: 6 } });
     project.dispatch({ type: 'theme.addRegion', payload: { pageId: 'p1', key: 'b', span: 6 } });
@@ -251,7 +251,7 @@ describe('theme.reorderRegion', () => {
 
 describe('theme.renamePage', () => {
   it('renames a page id', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { id: 'old', title: 'P1' } });
     project.dispatch({ type: 'theme.renamePage', payload: { pageId: 'old', newId: 'new' } });
     expect((project.theme as any).pages[0].id).toBe('new');
@@ -260,7 +260,7 @@ describe('theme.renamePage', () => {
 
 describe('theme.setRegionKey', () => {
   it('changes a region key', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { id: 'p1', title: 'P1' } });
     project.dispatch({ type: 'theme.addRegion', payload: { pageId: 'p1', key: 'old', span: 12 } });
     project.dispatch({ type: 'theme.setRegionKey', payload: { pageId: 'p1', regionIndex: 0, newKey: 'renamed' } });
@@ -270,7 +270,7 @@ describe('theme.setRegionKey', () => {
 
 describe('theme.setPages', () => {
   it('bulk replaces all pages', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.addPage', payload: { title: 'Old' } });
     project.dispatch({
       type: 'theme.setPages',
@@ -290,7 +290,7 @@ describe('theme.setPages', () => {
 
 describe('theme.setBreakpoint', () => {
   it('sets a breakpoint', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setBreakpoint', payload: { name: 'md', minWidth: 768 } });
     expect((project.theme as any).breakpoints?.md).toBe(768);
   });
@@ -298,7 +298,7 @@ describe('theme.setBreakpoint', () => {
 
 describe('theme.setStylesheets', () => {
   it('sets external stylesheets', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setStylesheets', payload: { urls: ['https://cdn/style.css'] } });
     expect((project.theme as any).stylesheets).toEqual(['https://cdn/style.css']);
   });
@@ -306,7 +306,7 @@ describe('theme.setStylesheets', () => {
 
 describe('theme.setDocumentProperty', () => {
   it('sets a document property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setDocumentProperty', payload: { property: 'title', value: 'My Theme' } });
     expect((project.theme as any).title).toBe('My Theme');
   });
@@ -314,7 +314,7 @@ describe('theme.setDocumentProperty', () => {
 
 describe('theme.setExtension', () => {
   it('sets a document-level extension', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setExtension', payload: { key: 'x-vendor', value: { flag: true } } });
     expect((project.theme as any)['x-vendor']).toEqual({ flag: true });
   });
@@ -322,7 +322,7 @@ describe('theme.setExtension', () => {
 
 describe('theme.setTargetCompatibility', () => {
   it('sets compatible versions', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setTargetCompatibility', payload: { compatibleVersions: '>=1.0.0' } });
     expect((project.theme as any).targetDefinition?.compatibleVersions).toBe('>=1.0.0');
   });

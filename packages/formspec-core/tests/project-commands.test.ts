@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('project.import', () => {
   it('replaces the entire project state', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Before' } });
 
     project.dispatch({
@@ -27,7 +27,7 @@ describe('project.import', () => {
 
 describe('project.importSubform', () => {
   it('merges a definition fragment as a nested group', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'address' } });
 
     project.dispatch({
@@ -56,7 +56,7 @@ describe('project.importSubform', () => {
 
 describe('project.loadRegistry', () => {
   it('loads a registry and indexes entries', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'project.loadRegistry',
@@ -79,7 +79,7 @@ describe('project.loadRegistry', () => {
 
 describe('project.removeRegistry', () => {
   it('removes a registry by URL', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -98,7 +98,7 @@ describe('project.removeRegistry', () => {
 
 describe('project.publish', () => {
   it('creates a versioned release', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Published Form' } });
 
     project.dispatch({

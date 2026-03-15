@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('component.addNode', () => {
   it('adds a node to the root', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const result = project.dispatch({
       type: 'component.addNode',
@@ -18,7 +18,7 @@ describe('component.addNode', () => {
   });
 
   it('marks blank component trees as studio-generated internal state', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'component.addNode',
@@ -32,7 +32,7 @@ describe('component.addNode', () => {
   });
 
   it('adds a bound input node', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
 
     project.dispatch({
@@ -46,7 +46,7 @@ describe('component.addNode', () => {
   });
 
   it('generates nodeId for unbound nodes', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const result = project.dispatch({
       type: 'component.addNode',
@@ -59,7 +59,7 @@ describe('component.addNode', () => {
   });
 
   it('respects insertIndex', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'component.addNode',
@@ -80,7 +80,7 @@ describe('component.addNode', () => {
   });
 
   it('adds nested children to a referenced node', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const result = project.dispatch({
       type: 'component.addNode',
@@ -100,7 +100,7 @@ describe('component.addNode', () => {
 
 describe('component.deleteNode', () => {
   it('removes a node by nodeRef', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const result = project.dispatch({
       type: 'component.addNode',
@@ -117,7 +117,7 @@ describe('component.deleteNode', () => {
   });
 
   it('removes a bound node by bind ref', () => {
-    const project = createProject();
+    const project = createRawProject();
     // addItem auto-creates a bound node via tree sync
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
     expect(project.componentFor('email')).toBeDefined();
@@ -133,7 +133,7 @@ describe('component.deleteNode', () => {
 
 describe('component.moveNode — circular move guard', () => {
   it('throws when moving a node into its own child', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const outer = (project.dispatch({
       type: 'component.addNode',
@@ -154,7 +154,7 @@ describe('component.moveNode — circular move guard', () => {
   });
 
   it('throws when moving a node into a deeply nested descendant', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const a = (project.dispatch({
       type: 'component.addNode',
@@ -180,7 +180,7 @@ describe('component.moveNode — circular move guard', () => {
   });
 
   it('throws when moving a node into itself', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const card = (project.dispatch({
       type: 'component.addNode',
@@ -198,7 +198,7 @@ describe('component.moveNode — circular move guard', () => {
 
 describe('component.moveNode', () => {
   it('moves a node to a new parent', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const card1 = (project.dispatch({
       type: 'component.addNode',
@@ -230,7 +230,7 @@ describe('component.moveNode', () => {
 
 describe('component.reorderNode', () => {
   it('swaps with adjacent sibling', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const first = (project.dispatch({
       type: 'component.addNode',
@@ -255,7 +255,7 @@ describe('component.reorderNode', () => {
 
 describe('component.duplicateNode', () => {
   it('deep clones a node with new nodeIds', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const original = (project.dispatch({
       type: 'component.addNode',
@@ -277,7 +277,7 @@ describe('component.duplicateNode', () => {
 
 describe('component.wrapNode', () => {
   it('wraps a node in a new container', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const node = (project.dispatch({
       type: 'component.addNode',
@@ -299,7 +299,7 @@ describe('component.wrapNode', () => {
 
 describe('component.unwrapNode', () => {
   it('promotes children to parent and removes wrapper', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const wrapper = (project.dispatch({
       type: 'component.addNode',
@@ -329,7 +329,7 @@ describe('component.unwrapNode', () => {
 
 describe('component tree rebuild — orphaned display nodes', () => {
   it('drops display nodes whose definition items no longer exist', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.addItem',

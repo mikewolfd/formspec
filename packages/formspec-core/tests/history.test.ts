@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('undo/redo', () => {
   it('undoes the last dispatch', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'First' } });
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Second' } });
 
@@ -15,7 +15,7 @@ describe('undo/redo', () => {
   });
 
   it('redoes after undo', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Changed' } });
     project.undo();
 
@@ -27,19 +27,19 @@ describe('undo/redo', () => {
   });
 
   it('returns false when nothing to undo', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.undo()).toBe(false);
     expect(project.canUndo).toBe(false);
   });
 
   it('returns false when nothing to redo', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.redo()).toBe(false);
     expect(project.canRedo).toBe(false);
   });
 
   it('clears redo stack on new dispatch', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'A' } });
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'B' } });
     project.undo(); // back to 'A'
@@ -51,7 +51,7 @@ describe('undo/redo', () => {
   });
 
   it('exposes canUndo/canRedo flags', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.canUndo).toBe(false);
     expect(project.canRedo).toBe(false);
 
@@ -65,7 +65,7 @@ describe('undo/redo', () => {
   });
 
   it('respects maxHistoryDepth', () => {
-    const project = createProject({ maxHistoryDepth: 2 });
+    const project = createRawProject({ maxHistoryDepth: 2 });
 
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'A' } });
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'B' } });
@@ -79,7 +79,7 @@ describe('undo/redo', () => {
   });
 
   it('records commands in the log', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Test' } });
 
     expect(project.log).toHaveLength(1);

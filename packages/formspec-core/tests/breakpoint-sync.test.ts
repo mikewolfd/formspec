@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('breakpoint normalization', () => {
   it('sorts theme breakpoints by minWidth ascending', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'theme.setBreakpoint', payload: { name: 'desktop', minWidth: 1024 } },
       { type: 'theme.setBreakpoint', payload: { name: 'tablet', minWidth: 768 } },
@@ -17,7 +17,7 @@ describe('breakpoint normalization', () => {
   });
 
   it('syncs component breakpoints from theme when not independently set', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'theme.setBreakpoint',
       payload: { name: 'tablet', minWidth: 768 },
@@ -28,7 +28,7 @@ describe('breakpoint normalization', () => {
   });
 
   it('preserves independently set component breakpoints', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'component.setBreakpoint',
       payload: { name: 'custom', minWidth: 500 },

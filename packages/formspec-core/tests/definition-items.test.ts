@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.addItem', () => {
   it('adds a field to root with auto-generated key', () => {
-    const project = createProject();
+    const project = createRawProject();
     const result = project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', dataType: 'string', label: 'Name' },
@@ -19,7 +19,7 @@ describe('definition.addItem', () => {
   });
 
   it('uses explicit key when provided', () => {
-    const project = createProject();
+    const project = createRawProject();
     const result = project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', key: 'email', dataType: 'string', label: 'Email' },
@@ -30,7 +30,7 @@ describe('definition.addItem', () => {
   });
 
   it('defaults field dataType to string', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', key: 'name' },
@@ -40,7 +40,7 @@ describe('definition.addItem', () => {
   });
 
   it('adds a group with empty children', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'group', key: 'address', label: 'Address' },
@@ -51,7 +51,7 @@ describe('definition.addItem', () => {
   });
 
   it('adds item inside a parent group', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'group', key: 'address' },
@@ -67,7 +67,7 @@ describe('definition.addItem', () => {
   });
 
   it('inserts at a specific index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'c' } });
     project.dispatch({
@@ -79,7 +79,7 @@ describe('definition.addItem', () => {
   });
 
   it('sets label, description, hint on the item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: {
@@ -98,7 +98,7 @@ describe('definition.addItem', () => {
 
 describe('definition.deleteItem', () => {
   it('removes an item from root', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
 
@@ -109,7 +109,7 @@ describe('definition.deleteItem', () => {
   });
 
   it('removes a nested item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f1', parentPath: 'g' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f2', parentPath: 'g' } });
@@ -121,7 +121,7 @@ describe('definition.deleteItem', () => {
   });
 
   it('removes subtree when deleting a group', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'child', parentPath: 'g' } });
 
@@ -131,7 +131,7 @@ describe('definition.deleteItem', () => {
   });
 
   it('cleans up binds targeting deleted paths', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
     project.dispatch({
       type: 'definition.setBind',
@@ -146,7 +146,7 @@ describe('definition.deleteItem', () => {
   });
 
   it('signals rebuildComponentTree', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'x' } });
 
     const result = project.dispatch({ type: 'definition.deleteItem', payload: { path: 'x' } });
@@ -156,7 +156,7 @@ describe('definition.deleteItem', () => {
 
 describe('definition.renameItem', () => {
   it('renames an item and returns the new path', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
 
     const result = project.dispatch({
@@ -169,7 +169,7 @@ describe('definition.renameItem', () => {
   });
 
   it('rewrites bind paths on rename', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
     project.dispatch({
       type: 'definition.setBind',
@@ -185,7 +185,7 @@ describe('definition.renameItem', () => {
   });
 
   it('renames nested item and updates path', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
 
@@ -199,7 +199,7 @@ describe('definition.renameItem', () => {
   });
 
   it('rewrites references by full path, not by bare key', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'g1' } },
       { type: 'definition.addItem', payload: { type: 'group', key: 'g2' } },
@@ -220,7 +220,7 @@ describe('definition.renameItem', () => {
 
 describe('definition.moveItem', () => {
   it('moves an item to root', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
 
@@ -236,7 +236,7 @@ describe('definition.moveItem', () => {
   });
 
   it('moves an item into a group', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
 
@@ -251,7 +251,7 @@ describe('definition.moveItem', () => {
   });
 
   it('moves to a specific index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'b' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'c' } });
@@ -267,7 +267,7 @@ describe('definition.moveItem', () => {
 
 describe('definition.moveItem — reference rewriting', () => {
   it('rewrites bind paths when an item moves to a new parent', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     // Build: group "a" with child "name", plus empty group "b"
     project.dispatch({
@@ -307,7 +307,7 @@ describe('definition.moveItem — reference rewriting', () => {
   });
 
   it('rewrites FEL expressions in binds referencing the moved item', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'definition.addItem', payload: { key: 'a', type: 'group' } });
     project.dispatch({ type: 'definition.addItem', payload: { key: 'age', type: 'field', dataType: 'integer', parentPath: 'a' } });
@@ -332,7 +332,7 @@ describe('definition.moveItem — reference rewriting', () => {
   });
 
   it('rewrites variable expressions referencing the moved item', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'definition.addItem', payload: { key: 'a', type: 'group' } });
     project.dispatch({ type: 'definition.addItem', payload: { key: 'age', type: 'field', dataType: 'integer', parentPath: 'a' } });
@@ -358,7 +358,7 @@ describe('definition.moveItem — reference rewriting', () => {
   });
 
   it('rewrites shape targets and expressions when item moves', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'definition.addItem', payload: { key: 'a', type: 'group' } });
     project.dispatch({ type: 'definition.addItem', payload: { key: 'score', type: 'field', dataType: 'integer', parentPath: 'a' } });
@@ -382,7 +382,7 @@ describe('definition.moveItem — reference rewriting', () => {
   });
 
   it('does not rewrite when path is unchanged (reorder within same parent)', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'definition.addItem', payload: { key: 'a', type: 'field', dataType: 'string' } });
     project.dispatch({ type: 'definition.addItem', payload: { key: 'b', type: 'field', dataType: 'string' } });
@@ -404,7 +404,7 @@ describe('definition.moveItem — reference rewriting', () => {
   });
 
   it('rewrites descendant references correctly when moving an item into a deeper parent path', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'field' } },
@@ -422,7 +422,7 @@ describe('definition.moveItem — reference rewriting', () => {
   });
 
   it('rewrites inner rule reverse references when an item moves', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'a' } },
@@ -463,7 +463,7 @@ describe('definition.moveItem — reference rewriting', () => {
 
 describe('definition.reorderItem', () => {
   it('swaps with adjacent sibling downward', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'b' } });
 
@@ -476,7 +476,7 @@ describe('definition.reorderItem', () => {
   });
 
   it('swaps with adjacent sibling upward', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'a' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'b' } });
 
@@ -491,7 +491,7 @@ describe('definition.reorderItem', () => {
 
 describe('definition.duplicateItem', () => {
   it('deep clones an item with a suffixed key', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', key: 'email', dataType: 'string', label: 'Email' },
@@ -512,7 +512,7 @@ describe('definition.duplicateItem', () => {
 
 describe('definition.addItem paged mode guard', () => {
   it('allows adding the first root field before any pages exist in a paged definition', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormPresentation', payload: { property: 'pageMode', value: 'wizard' } });
 
     expect(() =>
@@ -523,7 +523,7 @@ describe('definition.addItem paged mode guard', () => {
   });
 
   it('throws when adding a non-group item at root in a paged definition', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'page1' } });
     project.dispatch({ type: 'definition.setFormPresentation', payload: { property: 'pageMode', value: 'wizard' } });
 
@@ -533,7 +533,7 @@ describe('definition.addItem paged mode guard', () => {
   });
 
   it('allows adding a group at root in a paged definition', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'page1' } });
     project.dispatch({ type: 'definition.setFormPresentation', payload: { property: 'pageMode', value: 'wizard' } });
 
@@ -543,7 +543,7 @@ describe('definition.addItem paged mode guard', () => {
   });
 
   it('allows adding a non-group item with parentPath in a paged definition', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'page1' } });
     project.dispatch({ type: 'definition.setFormPresentation', payload: { property: 'pageMode', value: 'wizard' } });
 
@@ -555,7 +555,7 @@ describe('definition.addItem paged mode guard', () => {
 
 describe('definition.moveItem paged mode guard', () => {
   it('throws when moving a non-group item to root in a paged definition with top-level groups', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'page1' } },
@@ -575,7 +575,7 @@ describe('definition.moveItem paged mode guard', () => {
 
 describe('definition.moveItem — circular move guard', () => {
   it('throws when moving a group into its own child', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'parent' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'child', parentPath: 'parent' } });
 
@@ -588,7 +588,7 @@ describe('definition.moveItem — circular move guard', () => {
   });
 
   it('throws when moving a group into a deeply nested descendant', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'a' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'b', parentPath: 'a' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'c', parentPath: 'a.b' } });

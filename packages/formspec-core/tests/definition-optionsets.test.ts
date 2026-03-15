@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.setOptionSet', () => {
   it('creates a named option set with inline options', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setOptionSet',
@@ -22,7 +22,7 @@ describe('definition.setOptionSet', () => {
   });
 
   it('replaces an existing option set', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setOptionSet',
@@ -38,7 +38,7 @@ describe('definition.setOptionSet', () => {
   });
 
   it('initializes optionSets if missing', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.definition.optionSets).toBeUndefined();
 
     project.dispatch({
@@ -52,7 +52,7 @@ describe('definition.setOptionSet', () => {
 
 describe('definition.deleteOptionSet', () => {
   it('removes the option set and inlines into referencing fields', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     // Create an option set
     project.dispatch({
@@ -89,7 +89,7 @@ describe('definition.deleteOptionSet', () => {
   });
 
   it('works when no fields reference the option set', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setOptionSet',
@@ -107,7 +107,7 @@ describe('definition.deleteOptionSet', () => {
 
 describe('definition.promoteToOptionSet', () => {
   it('extracts inline options into a named set', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.addItem',

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
-describe('createProject', () => {
+describe('createRawProject', () => {
   it('returns a project with default state', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     // Definition has a generated URL and empty items
     expect(project.state.definition).toBeDefined();
@@ -26,7 +26,7 @@ describe('createProject', () => {
   });
 
   it('accepts a seed to override defaults', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -46,7 +46,7 @@ describe('createProject', () => {
   });
 
   it('provides convenience accessors for each artifact', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     expect(project.definition).toBe(project.state.definition);
     expect(project.artifactComponent).toBe(project.state.component);
@@ -58,7 +58,7 @@ describe('createProject', () => {
 
 describe('dispatch', () => {
   it('applies a command and updates state', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const result = project.dispatch({
       type: 'definition.setFormTitle',

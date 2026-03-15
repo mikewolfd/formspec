@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 import { createSchemaValidator } from 'formspec-engine';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,7 +10,7 @@ const SCHEMAS_DIR = path.resolve(__dirname, '../../../schemas');
 
 describe('diagnose', () => {
   it('returns clean diagnostics for valid empty project', () => {
-    const project = createProject();
+    const project = createRawProject();
     const diag = project.diagnose();
 
     expect(diag.structural).toEqual([]);
@@ -21,7 +21,7 @@ describe('diagnose', () => {
   });
 
   it('returns empty structural when no schemaValidator is provided', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -42,7 +42,7 @@ describe('diagnose', () => {
       fs.readFileSync(path.join(SCHEMAS_DIR, 'definition.schema.json'), 'utf-8'),
     );
     const validator = createSchemaValidator({ definition: definitionSchema });
-    const project = createProject({
+    const project = createRawProject({
       schemaValidator: validator,
       seed: {
         definition: {
@@ -62,7 +62,7 @@ describe('diagnose', () => {
   });
 
   it('detects unresolved extension references', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
     project.dispatch({ type: 'definition.setItemExtension', payload: { path: 'email', extension: 'x-custom', value: true } });
 
@@ -74,7 +74,7 @@ describe('diagnose', () => {
   });
 
   it('passes when extension is in loaded registry', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -92,7 +92,7 @@ describe('diagnose', () => {
   });
 
   it('reports deprecated and retired extension usage from shared validation helper', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -115,7 +115,7 @@ describe('diagnose', () => {
   });
 
   it('detects component tree referencing nonexistent items', () => {
-    const project = createProject();
+    const project = createRawProject();
     // Manually add a component node bound to a field that doesn't exist
     project.dispatch({
       type: 'component.addNode',
@@ -129,7 +129,7 @@ describe('diagnose', () => {
   });
 
   it('allows component node bound to a display item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'display', key: 'notice', label: 'Read carefully' } });
     project.dispatch({
       type: 'component.addNode',
@@ -142,7 +142,7 @@ describe('diagnose', () => {
   });
 
   it('detects non-group-aware component bound to a group item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'section', label: 'Section' } });
     project.dispatch({
       type: 'component.addNode',
@@ -157,7 +157,7 @@ describe('diagnose', () => {
   });
 
   it('detects stale mapping rule source paths', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'deleted_field', targetPath: 'output.name' } });
 
@@ -168,7 +168,7 @@ describe('diagnose', () => {
   });
 
   it('detects unmatched theme selectors', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'name', dataType: 'string' } },
       { type: 'theme.addSelector', payload: { match: { dataType: 'integer' }, apply: { widget: 'NumberInput' } } },
@@ -179,7 +179,7 @@ describe('diagnose', () => {
   });
 
   it('aggregates counts correctly', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f1' } });
     project.dispatch({ type: 'definition.setItemExtension', payload: { path: 'f1', extension: 'x-bad1', value: true } });
     project.dispatch({ type: 'definition.setItemExtension', payload: { path: 'f1', extension: 'x-bad2', value: true } });
@@ -191,7 +191,7 @@ describe('diagnose', () => {
   });
 
   it('warns about root-level non-group items in paged definitions', () => {
-    const project = createProject();
+    const project = createRawProject();
     // Add root-level items BEFORE enabling pageMode (the real scenario:
     // user has a flat form, then enables wizard mode)
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'page1', label: 'Page 1' } });
@@ -206,7 +206,7 @@ describe('diagnose', () => {
   });
 
   it('no paged warning when pageMode is not set', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'rootField' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g1' } });
 
@@ -215,7 +215,7 @@ describe('diagnose', () => {
   });
 
   it('no paged warning when all root items are groups', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'page1' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'page2' } });
     project.dispatch({ type: 'definition.setFormPresentation', payload: { property: 'pageMode', value: 'tabs' } });

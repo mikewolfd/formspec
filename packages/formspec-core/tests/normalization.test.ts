@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createProject, normalizeDefinition } from '../src/index.js';
+import { createRawProject, normalizeDefinition } from '../src/index.js';
 
 // ── normalizeDefinition ───────────────────────────────────────────────
 
@@ -144,7 +144,7 @@ describe('normalizeDefinition', () => {
 
 describe('project.import applies normalization', () => {
   it('normalizes array-form instances on import', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'project.import',
@@ -167,7 +167,7 @@ describe('project.import applies normalization', () => {
   });
 
   it('normalizes object-form binds on import', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'project.import',
@@ -190,11 +190,11 @@ describe('project.import applies normalization', () => {
   });
 });
 
-// ── createProject seed normalization ────────────────────────────────
+// ── createRawProject seed normalization ────────────────────────────────
 
-describe('createProject seed normalization', () => {
+describe('createRawProject seed normalization', () => {
   it('normalizes array-form instances in seed', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -214,7 +214,7 @@ describe('createProject seed normalization', () => {
   });
 
   it('normalizes object-form binds in seed', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -238,7 +238,7 @@ describe('createProject seed normalization', () => {
 
 describe('Project.responseSchemaRows', () => {
   it('returns flat field rows with correct path, key, label, depth, and jsonType', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name', dataType: 'string' } });
     project.dispatch({ type: 'definition.setItemProperty', payload: { path: 'name', property: 'label', value: 'Full Name' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'integer' } });
@@ -263,7 +263,7 @@ describe('Project.responseSchemaRows', () => {
   });
 
   it('returns nested group and child rows with correct depth and paths', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'contact' } });
     project.dispatch({ type: 'definition.setItemProperty', payload: { path: 'contact', property: 'label', value: 'Contact Info' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email', dataType: 'string', parentPath: 'contact' } });
@@ -282,7 +282,7 @@ describe('Project.responseSchemaRows', () => {
   });
 
   it('reports repeatable groups as array<object>', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'items' } });
     project.dispatch({ type: 'definition.setItemProperty', payload: { path: 'items', property: 'repeatable', value: true } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'amount', dataType: 'decimal', parentPath: 'items' } });
@@ -297,7 +297,7 @@ describe('Project.responseSchemaRows', () => {
   });
 
   it('shows required, calculated, and conditional flags from binds', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'score' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'notes' } });
@@ -340,7 +340,7 @@ describe('Project.responseSchemaRows', () => {
   });
 
   it('uses key as label fallback when no label is set', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'myField' } });
 
     const rows = project.responseSchemaRows();
@@ -349,13 +349,13 @@ describe('Project.responseSchemaRows', () => {
   });
 
   it('returns empty array for a definition with no items', () => {
-    const project = createProject();
+    const project = createRawProject();
     const rows = project.responseSchemaRows();
     expect(rows).toEqual([]);
   });
 
   it('handles deeply nested groups with correct depth tracking', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'level1' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'level2', parentPath: 'level1' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'deep', dataType: 'string', parentPath: 'level1.level2' } });
@@ -376,7 +376,7 @@ describe('Project.responseSchemaRows', () => {
   });
 
   it('generates component tree on seed with items but no authored tree', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -403,7 +403,7 @@ describe('Project.responseSchemaRows', () => {
 
 describe('ResponseSchemaRow type shape', () => {
   it('each row has exactly the required fields', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', dataType: 'string' } });
     project.dispatch({ type: 'definition.setItemProperty', payload: { path: 'f', property: 'label', value: 'F' } });
 

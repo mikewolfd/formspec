@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('batch', () => {
   it('applies multiple commands as one atomic operation', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     const results = project.batch([
       { type: 'definition.setFormTitle', payload: { title: 'Batch Form' } },
@@ -16,7 +16,7 @@ describe('batch', () => {
   });
 
   it('undoes an entire batch as one step', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Before' } });
 
     project.batch([
@@ -30,7 +30,7 @@ describe('batch', () => {
   });
 
   it('fires a single onChange notification', () => {
-    const project = createProject();
+    const project = createRawProject();
     const listener = vi.fn();
     project.onChange(listener);
 
@@ -46,7 +46,7 @@ describe('batch', () => {
 
 describe('onChange', () => {
   it('notifies listeners after dispatch', () => {
-    const project = createProject();
+    const project = createRawProject();
     const listener = vi.fn();
     project.onChange(listener);
 
@@ -60,7 +60,7 @@ describe('onChange', () => {
   });
 
   it('returns an unsubscribe function', () => {
-    const project = createProject();
+    const project = createRawProject();
     const listener = vi.fn();
     const unsubscribe = project.onChange(listener);
 
@@ -73,7 +73,7 @@ describe('onChange', () => {
   });
 
   it('notifies on undo/redo', () => {
-    const project = createProject();
+    const project = createRawProject();
     const listener = vi.fn();
 
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'X' } });

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('page-aware component tree rebuild', () => {
   it('generates flat Stack when no pages exist', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
 
     const tree = project.generatedComponent.tree;
@@ -13,7 +13,7 @@ describe('page-aware component tree rebuild', () => {
   });
 
   it('generates flat Stack in single mode even when pages exist (dormant)', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
     const pages = project.theme.pages as any[];
@@ -29,7 +29,7 @@ describe('page-aware component tree rebuild', () => {
 
   // component.schema.json: Wizard children MUST be Page (childConstraint: "Page only")
   it('generates Wizard root with Page children in wizard mode', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
@@ -52,7 +52,7 @@ describe('page-aware component tree rebuild', () => {
 
   // component.schema.json: Tabs component — "Tab labels from child Page titles"
   it('generates Tabs root with Page children in tabs mode', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'pages.setMode', payload: { mode: 'tabs' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Tab 1' } });
@@ -69,7 +69,7 @@ describe('page-aware component tree rebuild', () => {
 
   // Wizard childConstraint: "Page only" — unassigned items must be wrapped in a Page
   it('wraps unassigned items in an auto-generated Page (Wizard child constraint)', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'extra' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
@@ -89,7 +89,7 @@ describe('page-aware component tree rebuild', () => {
   });
 
   it('sets Page title and description from theme page', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'My Step', description: 'Do this' } });
     const pages = project.theme.pages as any[];
@@ -102,7 +102,7 @@ describe('page-aware component tree rebuild', () => {
   });
 
   it('reverts to flat Stack when switching from wizard to single', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
     const pages = project.theme.pages as any[];
@@ -119,7 +119,7 @@ describe('page-aware component tree rebuild', () => {
   });
 
   it('generates empty Page when no items are assigned to it', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Empty Page' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Full Page' } });
@@ -135,7 +135,7 @@ describe('page-aware component tree rebuild', () => {
   });
 
   it('does not rebuild component tree when an authored tree exists', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         component: {
           $formspecComponent: '1.0',
@@ -152,7 +152,7 @@ describe('page-aware component tree rebuild', () => {
   });
 
   it('does not generate unassigned Page when all items are assigned', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
     const pages = project.theme.pages as any[];

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.setItemProperty', () => {
   it('sets a simple property on a field', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
 
     project.dispatch({
@@ -15,7 +15,7 @@ describe('definition.setItemProperty', () => {
   });
 
   it('sets description and hint', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
 
     project.dispatch({
@@ -32,7 +32,7 @@ describe('definition.setItemProperty', () => {
   });
 
   it('sets group repeatable property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
 
     project.dispatch({
@@ -44,7 +44,7 @@ describe('definition.setItemProperty', () => {
   });
 
   it('sets nested property via dot-path', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
 
@@ -57,7 +57,7 @@ describe('definition.setItemProperty', () => {
   });
 
   it('sets nested property path on the target item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'amount' } });
 
     project.dispatch({
@@ -69,7 +69,7 @@ describe('definition.setItemProperty', () => {
   });
 
   it('throws when setting a field-only property on a group item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
 
     expect(() => project.dispatch({
@@ -79,7 +79,7 @@ describe('definition.setItemProperty', () => {
   });
 
   it('throws when setting a group-only property on a field item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
 
     expect(() => project.dispatch({
@@ -91,7 +91,7 @@ describe('definition.setItemProperty', () => {
 
 describe('definition.setFieldDataType', () => {
   it('changes the dataType of a field', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'string' } });
 
     project.dispatch({
@@ -105,7 +105,7 @@ describe('definition.setFieldDataType', () => {
 
 describe('definition.setFieldOptions', () => {
   it('sets inline options on a choice field', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'color', dataType: 'choice' } });
 
     const options = [
@@ -121,7 +121,7 @@ describe('definition.setFieldOptions', () => {
   });
 
   it('sets an optionSet URI string', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'status', dataType: 'choice' } });
 
     project.dispatch({
@@ -135,7 +135,7 @@ describe('definition.setFieldOptions', () => {
 
 describe('definition.setBind', () => {
   it('creates a bind with multiple properties', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
 
     project.dispatch({
@@ -158,7 +158,7 @@ describe('definition.setBind', () => {
   });
 
   it('removes a property when set to null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
     project.dispatch({
       type: 'definition.setBind',
@@ -176,7 +176,7 @@ describe('definition.setBind', () => {
   });
 
   it('removes the entire bind entry when all properties are null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f' } });
     project.dispatch({
       type: 'definition.setBind',
@@ -194,7 +194,7 @@ describe('definition.setBind', () => {
 
 describe('definition.setItemExtension', () => {
   it('sets an extension property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
 
     project.dispatch({
@@ -206,7 +206,7 @@ describe('definition.setItemExtension', () => {
   });
 
   it('removes an extension when value is null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'email' } });
     project.dispatch({
       type: 'definition.setItemExtension',

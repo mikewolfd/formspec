@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.addShape', () => {
   it('adds a shape with auto-generated id', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'total' } });
 
     project.dispatch({
@@ -23,7 +23,7 @@ describe('definition.addShape', () => {
   });
 
   it('uses explicit id when provided', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addShape',
       payload: { id: 'BUDGET_01', target: 'total', constraint: '$total > 0', message: 'Positive' },
@@ -35,7 +35,7 @@ describe('definition.addShape', () => {
 
 describe('definition.setShapeProperty', () => {
   it('updates shape properties', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addShape',
       payload: { id: 'S1', target: 'x', constraint: '$x > 0', message: 'Msg' },
@@ -52,7 +52,7 @@ describe('definition.setShapeProperty', () => {
 
 describe('definition.deleteShape', () => {
   it('removes a shape by id', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addShape',
       payload: { id: 'S1', target: 'x', constraint: '$x > 0', message: 'M' },
@@ -71,7 +71,7 @@ describe('definition.deleteShape', () => {
 
 describe('definition.setShapeComposition', () => {
   it('sets an AND composition over multiple shape IDs', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addShape', payload: { id: 'A', target: 'x', constraint: '$x > 0', message: 'MA' } },
       { type: 'definition.addShape', payload: { id: 'B', target: 'x', constraint: '$x < 100', message: 'MB' } },
@@ -89,7 +89,7 @@ describe('definition.setShapeComposition', () => {
   });
 
   it('sets a NOT composition over a single shape ID', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addShape', payload: { id: 'S1', target: 'x', constraint: '$x > 0', message: 'M1' } },
       { type: 'definition.addShape', payload: { id: 'S2', target: 'x', message: 'M2' } },
@@ -105,7 +105,7 @@ describe('definition.setShapeComposition', () => {
   });
 
   it('clears previous composition mode when setting a new one', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addShape', payload: { id: 'A', target: 'x', constraint: '$x > 0', message: 'M' } },
       { type: 'definition.addShape', payload: { id: 'B', target: 'x', constraint: '$x < 100', message: 'M' } },
@@ -130,7 +130,7 @@ describe('definition.setShapeComposition', () => {
   });
 
   it('supports xone composition', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addShape', payload: { id: 'A', target: 'x', constraint: '$x > 0', message: 'M' } },
       { type: 'definition.addShape', payload: { id: 'B', target: 'x', constraint: '$x > 10', message: 'M' } },
@@ -149,7 +149,7 @@ describe('definition.setShapeComposition', () => {
 
 describe('definition.renameShape', () => {
   it('renames a shape and updates its id', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addShape',
       payload: { id: 'OLD_ID', target: 'x', constraint: '$x > 0', message: 'M' },
@@ -165,7 +165,7 @@ describe('definition.renameShape', () => {
   });
 
   it('rewrites composition references in other shapes', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addShape', payload: { id: 'A', target: 'x', constraint: '$x > 0', message: 'M' } },
       { type: 'definition.addShape', payload: { id: 'B', target: 'x', constraint: '$x < 100', message: 'M' } },
@@ -188,7 +188,7 @@ describe('definition.renameShape', () => {
   });
 
   it('rewrites not composition references', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addShape', payload: { id: 'X', target: 'x', constraint: '$x > 0', message: 'M' } },
       { type: 'definition.addShape', payload: { id: 'Y', target: 'x', message: 'M' } },
@@ -210,7 +210,7 @@ describe('definition.renameShape', () => {
 
 describe('definition.deleteShape — composition cleanup', () => {
   it('removes deleted shape from composition refs', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addShape', payload: { id: 'A', target: 'x', constraint: '$x > 0', message: 'M' } },
       { type: 'definition.addShape', payload: { id: 'B', target: 'x', constraint: '$x < 100', message: 'M' } },
@@ -231,7 +231,7 @@ describe('definition.deleteShape — composition cleanup', () => {
 
 describe('definition.addVariable', () => {
   it('adds a named variable', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addVariable',
       payload: { name: 'subtotal', expression: '$a + $b' },
@@ -243,7 +243,7 @@ describe('definition.addVariable', () => {
   });
 
   it('auto-generates a name if omitted', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addVariable',
       payload: { expression: '42' },
@@ -255,7 +255,7 @@ describe('definition.addVariable', () => {
 
 describe('definition.setVariable', () => {
   it('updates variable expression', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addVariable',
       payload: { name: 'v1', expression: '1' },
@@ -272,7 +272,7 @@ describe('definition.setVariable', () => {
 
 describe('definition.deleteVariable', () => {
   it('removes a variable by name', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addVariable', payload: { name: 'v1', expression: '1' } });
     project.dispatch({ type: 'definition.addVariable', payload: { name: 'v2', expression: '2' } });
 
@@ -287,7 +287,7 @@ describe('middleware', () => {
   it('wraps dispatch and can transform commands', () => {
     const log: string[] = [];
 
-    const project = createProject({
+    const project = createRawProject({
       middleware: [
         (_state, command, next) => {
           log.push(`before:${command.type}`);
@@ -305,7 +305,7 @@ describe('middleware', () => {
   });
 
   it('can block a command by not calling next', () => {
-    const project = createProject({
+    const project = createRawProject({
       middleware: [
         (_state, _command, _next) => {
           return { rebuildComponentTree: false };

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.setDefinitionProperty', () => {
   it('sets a top-level definition property', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setDefinitionProperty',
@@ -14,7 +14,7 @@ describe('definition.setDefinitionProperty', () => {
   });
 
   it('sets description', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setDefinitionProperty',
@@ -25,7 +25,7 @@ describe('definition.setDefinitionProperty', () => {
   });
 
   it('sets version', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setDefinitionProperty',
@@ -36,7 +36,7 @@ describe('definition.setDefinitionProperty', () => {
   });
 
   it('sets status', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setDefinitionProperty',
@@ -47,7 +47,7 @@ describe('definition.setDefinitionProperty', () => {
   });
 
   it('sets nonRelevantBehavior', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setDefinitionProperty',
@@ -58,7 +58,7 @@ describe('definition.setDefinitionProperty', () => {
   });
 
   it('can set null to remove a property', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setDefinitionProperty',
@@ -75,7 +75,7 @@ describe('definition.setDefinitionProperty', () => {
 
 describe('definition.setFormPresentation', () => {
   it('sets a formPresentation property', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setFormPresentation',
@@ -86,7 +86,7 @@ describe('definition.setFormPresentation', () => {
   });
 
   it('sets defaultCurrency', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setFormPresentation',
@@ -97,7 +97,7 @@ describe('definition.setFormPresentation', () => {
   });
 
   it('initializes formPresentation object if missing', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     expect(project.definition.formPresentation).toBeUndefined();
 
@@ -111,7 +111,7 @@ describe('definition.setFormPresentation', () => {
   });
 
   it('sets null to remove a property', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setFormPresentation',
@@ -128,7 +128,7 @@ describe('definition.setFormPresentation', () => {
 
 describe('definition.setGroupRef', () => {
   it('sets $ref on a group item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'address' } });
 
     project.dispatch({
@@ -142,7 +142,7 @@ describe('definition.setGroupRef', () => {
   });
 
   it('clears $ref with null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
     project.dispatch({
       type: 'definition.setGroupRef',

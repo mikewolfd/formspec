@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.addMigration', () => {
   it('creates a migration descriptor', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.addMigration',
@@ -18,7 +18,7 @@ describe('definition.addMigration', () => {
 
 describe('definition.deleteMigration', () => {
   it('removes a migration by fromVersion', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.1.0' } });
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.2.0' } });
 
@@ -31,7 +31,7 @@ describe('definition.deleteMigration', () => {
 
 describe('definition.setMigrationProperty', () => {
   it('updates a migration property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.1.0' } });
 
     project.dispatch({
@@ -45,7 +45,7 @@ describe('definition.setMigrationProperty', () => {
 
 describe('definition.addFieldMapRule', () => {
   it('appends a field map rule to a migration', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.1.0' } });
 
     project.dispatch({
@@ -66,7 +66,7 @@ describe('definition.addFieldMapRule', () => {
   });
 
   it('inserts at a specific index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.1.0' } });
     project.dispatch({
       type: 'definition.addFieldMapRule',
@@ -88,7 +88,7 @@ describe('definition.addFieldMapRule', () => {
 
 describe('definition.setFieldMapRule', () => {
   it('updates a field map rule property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.1.0' } });
     project.dispatch({
       type: 'definition.addFieldMapRule',
@@ -106,7 +106,7 @@ describe('definition.setFieldMapRule', () => {
 
 describe('definition.deleteFieldMapRule', () => {
   it('removes a field map rule by index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.1.0' } });
     project.dispatch({
       type: 'definition.addFieldMapRule',
@@ -129,7 +129,7 @@ describe('definition.deleteFieldMapRule', () => {
 
 describe('definition.setMigrationDefaults', () => {
   it('sets default values for new fields', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addMigration', payload: { fromVersion: '0.1.0' } });
 
     project.dispatch({

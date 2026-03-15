@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('component tree sync', () => {
   it('auto-creates a default node for a new field', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', key: 'name', dataType: 'string' },
@@ -16,7 +16,7 @@ describe('component tree sync', () => {
   });
 
   it('preserves authored component trees when definition structure changes', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         component: {
           $formspecComponent: '1.0',
@@ -39,7 +39,7 @@ describe('component tree sync', () => {
   });
 
   it('removes component node when item is deleted', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', key: 'age' },
@@ -54,7 +54,7 @@ describe('component tree sync', () => {
   });
 
   it('preserves existing bound node properties through rebuild', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', key: 'email' },
@@ -79,7 +79,7 @@ describe('component tree sync', () => {
   });
 
   it('creates nested structure for groups with children', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'contact' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'name', parentPath: 'contact' } },
@@ -96,7 +96,7 @@ describe('component tree sync', () => {
   });
 
   it('preserves unbound layout nodes after rebuild', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'field', key: 'f1' },
@@ -119,7 +119,7 @@ describe('component tree sync', () => {
   });
 
   it('creates Text nodes for display items using text, not bind', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'display', key: 'header', label: 'Welcome' },
@@ -138,7 +138,7 @@ describe('component tree sync', () => {
   });
 
   it('preserves display node overrides through tree rebuild', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'definition.addItem',
       payload: { type: 'display', key: 'header', label: 'Welcome' },
@@ -166,7 +166,7 @@ describe('component tree sync', () => {
   });
 
   it('preserves distinct display overrides for same-key display items in different groups across rebuilds', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'groupA' } },
       { type: 'definition.addItem', payload: { type: 'group', key: 'groupB' } },
@@ -203,7 +203,7 @@ describe('component tree sync', () => {
   });
 
   it('handles batch with multiple structural changes', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },

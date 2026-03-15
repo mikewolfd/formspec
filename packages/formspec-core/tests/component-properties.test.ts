@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 function setupWithNode() {
-  const project = createProject();
+  const project = createRawProject();
   const result = project.dispatch({
     type: 'component.addNode',
     payload: { parent: { nodeId: 'root' }, component: 'Card', props: { title: 'Test' } },
@@ -104,7 +104,7 @@ describe('component.spliceArrayProp', () => {
 
 describe('component.setFieldWidget', () => {
   it('sets widget on a bound field', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({
       type: 'component.addNode',
@@ -153,7 +153,7 @@ describe('component.setResponsiveOverride', () => {
 
 describe('component.setWizardProperty', () => {
   it('sets showProgress directly on the generated Wizard node', () => {
-    const project = createProject();
+    const project = createRawProject();
     // Need a wizard-mode tree to have a Wizard node
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     project.dispatch({ type: 'pages.addPage', payload: { title: 'Step 1' } });
@@ -171,7 +171,7 @@ describe('component.setWizardProperty', () => {
   });
 
   it('sets allowSkip directly on an authored Wizard node', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         component: {
           $formspecComponent: '1.0',
@@ -190,7 +190,7 @@ describe('component.setWizardProperty', () => {
   });
 
   it('no-ops gracefully when no Wizard node exists in generated tree', () => {
-    const project = createProject();
+    const project = createRawProject();
     // Add an item so a generated tree exists, but stay in single mode (Stack, no Wizard)
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
 
@@ -207,7 +207,7 @@ describe('component.setWizardProperty', () => {
 
 describe('component.setGroupRepeatable', () => {
   it('sets repeatable flag on a group component', () => {
-    const project = createProject();
+    const project = createRawProject();
     // addItem auto-creates a Stack node via tree sync
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'items' } });
 
@@ -223,7 +223,7 @@ describe('component.setGroupRepeatable', () => {
 
 describe('component.setGroupDisplayMode', () => {
   it('sets display mode on a group', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'items' } });
     project.dispatch({
       type: 'component.addNode',
@@ -242,7 +242,7 @@ describe('component.setGroupDisplayMode', () => {
 
 describe('component.setGroupDataTable', () => {
   it('sets data table config', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'items' } });
     project.dispatch({
       type: 'component.addNode',
@@ -263,7 +263,7 @@ describe('component.setGroupDataTable', () => {
 
 describe('component.registerCustom', () => {
   it('registers a custom component', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'component.registerCustom',
@@ -280,7 +280,7 @@ describe('component.registerCustom', () => {
 
 describe('component.updateCustom', () => {
   it('updates an existing custom component', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'component.registerCustom',
       payload: { name: 'MyComp', params: {}, tree: { component: 'Stack' } },
@@ -297,7 +297,7 @@ describe('component.updateCustom', () => {
 
 describe('component.deleteCustom', () => {
   it('removes a custom component', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'component.registerCustom',
       payload: { name: 'Temp', params: {}, tree: { component: 'Stack' } },
@@ -314,7 +314,7 @@ describe('component.deleteCustom', () => {
 
 describe('component.renameCustom', () => {
   it('renames a custom component and rewrites tree references', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'component.registerCustom',
       payload: { name: 'OldName', params: {}, tree: { component: 'Stack' } },
@@ -343,7 +343,7 @@ describe('component.renameCustom', () => {
 
 describe('component.setToken', () => {
   it('sets a Tier 3 design token', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'component.setToken',
@@ -354,7 +354,7 @@ describe('component.setToken', () => {
   });
 
   it('removes a token with null', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'component.setToken',
       payload: { key: 'color.primary', value: '#007bff' },
@@ -370,7 +370,7 @@ describe('component.setToken', () => {
 
 describe('component.setBreakpoint', () => {
   it('sets a breakpoint', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'component.setBreakpoint',
@@ -383,7 +383,7 @@ describe('component.setBreakpoint', () => {
 
 describe('component.setDocumentProperty', () => {
   it('sets a document-level property', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'component.setDocumentProperty',

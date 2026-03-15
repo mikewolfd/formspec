@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('fieldPaths', () => {
   it('returns all leaf field paths', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'name' } },
       { type: 'definition.addItem', payload: { type: 'group', key: 'address' } },
@@ -15,14 +15,14 @@ describe('fieldPaths', () => {
   });
 
   it('returns empty array for empty form', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.fieldPaths()).toEqual([]);
   });
 });
 
 describe('itemAt', () => {
   it('resolves a root item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name', label: 'Name' } });
 
     const item = project.itemAt('name');
@@ -32,7 +32,7 @@ describe('itemAt', () => {
   });
 
   it('resolves a nested item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'group', key: 'g' } });
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f', parentPath: 'g' } });
 
@@ -40,14 +40,14 @@ describe('itemAt', () => {
   });
 
   it('returns undefined for nonexistent path', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.itemAt('nonexistent')).toBeUndefined();
   });
 });
 
 describe('statistics', () => {
   it('counts items and structures', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'f1' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'f2' } },
@@ -68,7 +68,7 @@ describe('statistics', () => {
   });
 
   it('reports expression, component node, and mapping rule counts', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'a', relevant: '$b > 0' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
@@ -88,7 +88,7 @@ describe('statistics', () => {
 
 describe('instanceNames', () => {
   it('returns all declared instance names', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addInstance', payload: { name: 'lookup', source: 'https://api.example.com/data' } },
       { type: 'definition.addInstance', payload: { name: 'config', data: { theme: 'dark' } } },
@@ -98,14 +98,14 @@ describe('instanceNames', () => {
   });
 
   it('returns empty array when no instances', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.instanceNames()).toEqual([]);
   });
 });
 
 describe('variableNames', () => {
   it('returns all declared variable names', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addVariable', payload: { name: 'total', expression: '$a + $b' } },
       { type: 'definition.addVariable', payload: { name: 'tax', expression: '$total * 0.1' } },
@@ -115,14 +115,14 @@ describe('variableNames', () => {
   });
 
   it('returns empty array when no variables', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.variableNames()).toEqual([]);
   });
 });
 
 describe('optionSetUsage', () => {
   it('returns field paths referencing a named option set', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.setOptionSet', payload: { name: 'colors', options: [{ value: 'red', label: 'Red' }] } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'fav', dataType: 'choice' } },
@@ -136,14 +136,14 @@ describe('optionSetUsage', () => {
   });
 
   it('returns empty when no fields reference the set', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.optionSetUsage('nonexistent')).toEqual([]);
   });
 });
 
 describe('searchItems', () => {
   it('filters by type', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'f1' } },
       { type: 'definition.addItem', payload: { type: 'group', key: 'g1' } },
@@ -156,7 +156,7 @@ describe('searchItems', () => {
   });
 
   it('filters by dataType', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'n1', dataType: 'integer' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'n2', dataType: 'integer' } },
@@ -168,7 +168,7 @@ describe('searchItems', () => {
   });
 
   it('filters by label substring', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'email', label: 'Email Address' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'name', label: 'Full Name' } },
@@ -180,7 +180,7 @@ describe('searchItems', () => {
   });
 
   it('searches nested items', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'g' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'nested', parentPath: 'g', dataType: 'decimal' } },
@@ -194,7 +194,7 @@ describe('searchItems', () => {
 
 describe('effectivePresentation', () => {
   it('returns defaults when no selectors or overrides', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'name', dataType: 'string' } },
       { type: 'theme.setDefaults', payload: { property: 'labelPosition', value: 'top' } },
@@ -205,7 +205,7 @@ describe('effectivePresentation', () => {
   });
 
   it('applies matching selectors over defaults', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'integer' } },
       { type: 'theme.setDefaults', payload: { property: 'labelPosition', value: 'top' } },
@@ -218,7 +218,7 @@ describe('effectivePresentation', () => {
   });
 
   it('applies per-item overrides over selectors', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'total', dataType: 'decimal' } },
       { type: 'theme.addSelector', payload: { match: { dataType: 'decimal' }, apply: { widget: 'NumberInput' } } },
@@ -230,7 +230,7 @@ describe('effectivePresentation', () => {
   });
 
   it('returns empty object for nonexistent field', () => {
-    const project = createProject();
+    const project = createRawProject();
     const pres = project.effectivePresentation('nonexistent');
     expect(pres).toEqual({});
   });
@@ -240,7 +240,7 @@ describe('effectivePresentation', () => {
 
 describe('bindFor', () => {
   it('returns the bind for a given path', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'age' } },
       { type: 'definition.setBind', payload: { path: 'age', properties: { required: 'true()', constraint: '$age > 0' } } },
@@ -253,7 +253,7 @@ describe('bindFor', () => {
   });
 
   it('returns undefined when no bind exists', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     expect(project.bindFor('name')).toBeUndefined();
   });
@@ -261,7 +261,7 @@ describe('bindFor', () => {
 
 describe('componentFor', () => {
   it('returns the component tree node bound to a field', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'email' } },
       { type: 'component.addNode', payload: { parent: { nodeId: 'root' }, component: 'TextInput', bind: 'email' } },
@@ -274,7 +274,7 @@ describe('componentFor', () => {
   });
 
   it('returns undefined for a nonexistent field key', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
     expect(project.componentFor('nonexistent')).toBeUndefined();
   });
@@ -282,7 +282,7 @@ describe('componentFor', () => {
 
 describe('resolveExtension', () => {
   it('resolves an extension name from loaded registries', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -302,14 +302,14 @@ describe('resolveExtension', () => {
   });
 
   it('returns undefined for unknown extension', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.resolveExtension('x-nonexistent')).toBeUndefined();
   });
 });
 
 describe('unboundItems', () => {
   it('returns field paths not bound to any component tree node', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'name' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'email' } },
@@ -324,7 +324,7 @@ describe('unboundItems', () => {
   });
 
   it('returns empty when all fields are bound', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'name' } },
       { type: 'component.addNode', payload: { parent: { nodeId: 'root' }, component: 'TextInput', bind: 'name' } },
@@ -336,7 +336,7 @@ describe('unboundItems', () => {
 
 describe('resolveToken', () => {
   it('returns Tier 3 (component) token when set', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'component.setToken', payload: { key: 'color.primary', value: '#ff0000' } });
     project.dispatch({ type: 'theme.setToken', payload: { key: 'color.primary', value: '#0000ff' } });
 
@@ -344,21 +344,21 @@ describe('resolveToken', () => {
   });
 
   it('falls back to Tier 2 (theme) token', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'theme.setToken', payload: { key: 'color.primary', value: '#0000ff' } });
 
     expect(project.resolveToken('color.primary')).toBe('#0000ff');
   });
 
   it('returns undefined when token not set anywhere', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.resolveToken('color.unknown')).toBeUndefined();
   });
 });
 
 describe('allDataTypes', () => {
   it('returns 13 core types by default', () => {
-    const project = createProject();
+    const project = createRawProject();
     const types = project.allDataTypes();
 
     expect(types.length).toBe(13);
@@ -370,7 +370,7 @@ describe('allDataTypes', () => {
   });
 
   it('includes extension dataTypes from loaded registries', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -397,7 +397,7 @@ describe('allDataTypes', () => {
 
 describe('allExpressions', () => {
   it('collects all FEL expressions with locations', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
@@ -414,7 +414,7 @@ describe('allExpressions', () => {
   });
 
   it('includes mapping expressions and conditions', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'a', targetPath: 'out.a', transform: 'expression' } });
     project.dispatch({ type: 'mapping.setRule', payload: { index: 0, property: 'expression', value: '$a + 1' } });
     project.dispatch({ type: 'mapping.setRule', payload: { index: 0, property: 'condition', value: '$a > 0' } });
@@ -425,7 +425,7 @@ describe('allExpressions', () => {
   });
 
   it('includes component when-guards from tree nodes', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'flag' } },
       { type: 'component.addNode', payload: { parent: { nodeId: 'root' }, component: 'TextInput', bind: 'flag' } },
@@ -439,7 +439,7 @@ describe('allExpressions', () => {
 
 describe('availableReferences', () => {
   it('returns fields, variables, and instances', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'name', dataType: 'string', label: 'Name' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'integer' } },
@@ -458,7 +458,7 @@ describe('availableReferences', () => {
   });
 
   it('adds repeat context refs when targetPath is inside a repeatable group', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'group', key: 'rows', repeatable: true } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'amount', parentPath: 'rows', dataType: 'decimal' } },
@@ -469,7 +469,7 @@ describe('availableReferences', () => {
   });
 
   it('adds mapping context refs when mapping context is provided', () => {
-    const project = createProject();
+    const project = createRawProject();
     const refs = project.availableReferences({
       targetPath: 'total',
       mappingContext: { ruleIndex: 0, direction: 'forward' },
@@ -480,7 +480,7 @@ describe('availableReferences', () => {
 
 describe('felFunctionCatalog', () => {
   it('returns built-in functions', () => {
-    const project = createProject();
+    const project = createRawProject();
     const catalog = project.felFunctionCatalog();
 
     expect(catalog.length).toBeGreaterThan(0);
@@ -491,7 +491,7 @@ describe('felFunctionCatalog', () => {
   });
 
   it('includes parser/runtime-backed built-ins with categories', () => {
-    const project = createProject();
+    const project = createRawProject();
     const catalog = project.felFunctionCatalog();
     const countWhere = catalog.find((entry) => entry.name === 'countWhere');
     expect(countWhere).toBeDefined();
@@ -500,7 +500,7 @@ describe('felFunctionCatalog', () => {
   });
 
   it('includes extension functions from loaded registries', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -522,7 +522,7 @@ describe('felFunctionCatalog', () => {
 
 describe('expressionDependencies', () => {
   it('extracts field path references from an expression', () => {
-    const project = createProject();
+    const project = createRawProject();
     const deps = project.expressionDependencies('$total + $items.amount * 2');
 
     expect(deps).toContain('total');
@@ -530,12 +530,12 @@ describe('expressionDependencies', () => {
   });
 
   it('returns empty for expression with no references', () => {
-    const project = createProject();
+    const project = createRawProject();
     expect(project.expressionDependencies('42 + 1')).toEqual([]);
   });
 
   it('does not include references that appear only in strings/comments', () => {
-    const project = createProject();
+    const project = createRawProject();
     const deps = project.expressionDependencies("$price + concat('$fake', 'x') /* $ignored */");
     expect(deps).toEqual(['price']);
   });
@@ -543,7 +543,7 @@ describe('expressionDependencies', () => {
 
 describe('fieldDependents', () => {
   it('finds binds, shapes, and variables referencing a field', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'price' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'total' } },
@@ -559,7 +559,7 @@ describe('fieldDependents', () => {
   });
 
   it('does not match partial field-name substrings', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'amount' } },
@@ -573,7 +573,7 @@ describe('fieldDependents', () => {
 
 describe('variableDependents', () => {
   it('finds fields that reference a variable in their bind expressions', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'total' } },
       { type: 'definition.addVariable', payload: { name: 'taxRate', expression: '0.1' } },
@@ -587,7 +587,7 @@ describe('variableDependents', () => {
 
 describe('dependencyGraph', () => {
   it('builds a graph of fields, variables, and shapes', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
@@ -602,7 +602,7 @@ describe('dependencyGraph', () => {
   });
 
   it('detects cycles across bind dependencies', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.batch([
       { type: 'definition.addItem', payload: { type: 'field', key: 'a' } },
       { type: 'definition.addItem', payload: { type: 'field', key: 'b' } },
@@ -617,7 +617,7 @@ describe('dependencyGraph', () => {
 
 describe('parseFEL', () => {
   it('validates a well-formed expression', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'age' } });
 
     const result = project.parseFEL('$age > 18');
@@ -627,7 +627,7 @@ describe('parseFEL', () => {
   });
 
   it('reports references and functions', () => {
-    const project = createProject();
+    const project = createRawProject();
     const result = project.parseFEL('sum($a, $b) + max($c, 10)');
 
     expect(result.references).toContain('a');
@@ -638,14 +638,14 @@ describe('parseFEL', () => {
   });
 
   it('returns invalid for malformed FEL', () => {
-    const project = createProject();
+    const project = createRawProject();
     const result = project.parseFEL('$a +');
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
   it('supports mapping context variables when context is provided', () => {
-    const project = createProject();
+    const project = createRawProject();
     const result = project.parseFEL('@source', {
       targetPath: 'a',
       mappingContext: { direction: 'forward', ruleIndex: 0 },
@@ -655,7 +655,7 @@ describe('parseFEL', () => {
   });
 
   it('flags unknown context variables when parse context is provided', () => {
-    const project = createProject();
+    const project = createRawProject();
     const result = project.parseFEL('@source', { targetPath: 'a' });
     expect(result.valid).toBe(false);
     expect(result.errors.some((error) => error.code === 'FEL_UNKNOWN_VARIABLE')).toBe(true);
@@ -667,7 +667,7 @@ describe('parseFEL', () => {
 
 describe('listRegistries', () => {
   it('returns loaded registries with entry counts', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -690,7 +690,7 @@ describe('listRegistries', () => {
 
 describe('browseExtensions', () => {
   it('returns all entries when no filter', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -708,7 +708,7 @@ describe('browseExtensions', () => {
   });
 
   it('filters by category', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({
       type: 'project.loadRegistry',
       payload: {
@@ -732,7 +732,7 @@ describe('browseExtensions', () => {
 
 describe('diffFromBaseline', () => {
   it('detects added items', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name', label: 'Name' } });
 
     const changes = project.diffFromBaseline();
@@ -744,7 +744,7 @@ describe('diffFromBaseline', () => {
   });
 
   it('detects removed items', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: '',
@@ -763,7 +763,7 @@ describe('diffFromBaseline', () => {
   });
 
   it('detects renamed items as renamed changes', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -781,7 +781,7 @@ describe('diffFromBaseline', () => {
   });
 
   it('detects moved items as moved changes', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -807,7 +807,7 @@ describe('diffFromBaseline', () => {
   });
 
   it('detects same-path item modifications', () => {
-    const project = createProject({
+    const project = createRawProject({
       seed: {
         definition: {
           $formspec: '1.0',
@@ -830,7 +830,7 @@ describe('diffFromBaseline', () => {
 
 describe('previewChangelog', () => {
   it('generates a changelog preview without committing', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
 
     const changelog = project.previewChangelog();
@@ -844,7 +844,7 @@ describe('previewChangelog', () => {
 
 describe('export', () => {
   it('serializes all four artifacts', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setFormTitle', payload: { title: 'Export Test' } });
 
     const bundle = project.export();
@@ -857,7 +857,7 @@ describe('export', () => {
   });
 
   it('returns independent copies (not references)', () => {
-    const project = createProject();
+    const project = createRawProject();
     const bundle = project.export();
 
     bundle.definition.title = 'Mutated';

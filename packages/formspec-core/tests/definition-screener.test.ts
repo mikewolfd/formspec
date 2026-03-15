@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/index.js';
+import { createRawProject } from '../src/index.js';
 
 describe('definition.setScreener', () => {
   it('creates an empty screener when enabled', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({
       type: 'definition.setScreener',
@@ -16,7 +16,7 @@ describe('definition.setScreener', () => {
   });
 
   it('preserves screener data when disabled', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({
@@ -36,7 +36,7 @@ describe('definition.setScreener', () => {
   });
 
   it('re-enables an existing disabled screener without losing data', () => {
-    const project = createProject();
+    const project = createRawProject();
 
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({
@@ -54,7 +54,7 @@ describe('definition.setScreener', () => {
 
 describe('definition.addScreenerItem', () => {
   it('adds a field to the screener scope', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
 
     project.dispatch({
@@ -68,7 +68,7 @@ describe('definition.addScreenerItem', () => {
   });
 
   it('rejects mutations while the screener is disabled', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: false } });
 
@@ -83,7 +83,7 @@ describe('definition.addScreenerItem', () => {
 
 describe('definition.deleteScreenerItem', () => {
   it('removes a screener item by key', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({
       type: 'definition.addScreenerItem',
@@ -104,7 +104,7 @@ describe('definition.deleteScreenerItem', () => {
   });
 
   it('cleans up screener binds referencing deleted item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({
       type: 'definition.addScreenerItem',
@@ -126,7 +126,7 @@ describe('definition.deleteScreenerItem', () => {
 
 describe('definition.setScreenerBind', () => {
   it('sets a bind on a screener item', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({
       type: 'definition.addScreenerItem',
@@ -147,7 +147,7 @@ describe('definition.setScreenerBind', () => {
 
 describe('definition.addRoute', () => {
   it('appends a route', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
 
     project.dispatch({
@@ -162,7 +162,7 @@ describe('definition.addRoute', () => {
   });
 
   it('inserts at a specific index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({
       type: 'definition.addRoute',
@@ -184,7 +184,7 @@ describe('definition.addRoute', () => {
 
 describe('definition.setRouteProperty', () => {
   it('updates a route property', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({
       type: 'definition.addRoute',
@@ -202,7 +202,7 @@ describe('definition.setRouteProperty', () => {
 
 describe('definition.deleteRoute', () => {
   it('removes a route by index', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({ type: 'definition.addRoute', payload: { condition: '$a', target: 'urn:a' } });
     project.dispatch({ type: 'definition.addRoute', payload: { condition: '$b', target: 'urn:b' } });
@@ -214,7 +214,7 @@ describe('definition.deleteRoute', () => {
   });
 
   it('throws when deleting the last route', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({ type: 'definition.addRoute', payload: { condition: '$x', target: 'urn:x' } });
 
@@ -226,7 +226,7 @@ describe('definition.deleteRoute', () => {
 
 describe('definition.reorderRoute', () => {
   it('swaps routes by direction', () => {
-    const project = createProject();
+    const project = createRawProject();
     project.dispatch({ type: 'definition.setScreener', payload: { enabled: true } });
     project.dispatch({ type: 'definition.addRoute', payload: { condition: '$a', target: 'urn:a' } });
     project.dispatch({ type: 'definition.addRoute', payload: { condition: '$b', target: 'urn:b' } });
