@@ -807,6 +807,13 @@ describe('addSubmitButton', () => {
     const result = project.addSubmitButton('Submit');
     expect(result.summary).toContain('submit');
   });
+
+  it('returns createdId with node ID', () => {
+    const project = createProject();
+    const result = project.addSubmitButton('Go');
+    expect(result.createdId).toBeDefined();
+    expect(result.affectedPaths[0]).toBe(result.createdId);
+  });
 });
 
 // ── Page Helpers ──

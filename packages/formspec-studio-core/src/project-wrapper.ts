@@ -1376,30 +1376,37 @@ export class Project extends RawProject {
 
   /** Add a submit button. */
   addSubmitButton(label?: string, pageId?: string): HelperResult {
-    const commands: AnyCommand[] = [
-      {
-        type: 'component.addNode',
-        payload: {
-          parent: { nodeId: 'root' },
-          component: 'SubmitButton',
-          props: { label: label ?? 'Submit' },
-        },
+    const addNodeCmd: AnyCommand = {
+      type: 'component.addNode',
+      payload: {
+        parent: { nodeId: 'root' },
+        component: 'SubmitButton',
+        props: { label: label ?? 'Submit' },
       },
-    ];
+    };
 
     if (pageId) {
-      commands.push({
-        type: 'pages.assignItem',
-        payload: { pageId, key: 'submit' },
-      });
+      const results = this.dispatch([
+        addNodeCmd,
+        { type: 'pages.assignItem', payload: { pageId, key: 'submit' } },
+      ]);
+      const nodeId = (results[0] as any)?.nodeRef?.nodeId;
+      return {
+        summary: `Added submit button`,
+        action: { helper: 'addSubmitButton', params: { label, pageId } },
+        affectedPaths: nodeId ? [nodeId] : [],
+        createdId: nodeId,
+      };
     }
 
-    this.dispatch(commands);
+    const result = this.dispatch(addNodeCmd);
+    const nodeId = (result as any)?.nodeRef?.nodeId;
 
     return {
       summary: `Added submit button`,
       action: { helper: 'addSubmitButton', params: { label, pageId } },
-      affectedPaths: [],
+      affectedPaths: nodeId ? [nodeId] : [],
+      createdId: nodeId,
     };
   }
 
