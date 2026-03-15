@@ -1,8 +1,34 @@
-import { RawProject } from './raw-project.js';
+import { createRawProject } from 'formspec-core';
 import type {
+  IProjectCore,
   ProjectOptions,
+  ProjectState,
   AnyCommand,
-} from './types.js';
+  CommandResult,
+  ChangeListener,
+  LogEntry,
+  ProjectStatistics,
+  ProjectBundle,
+  ItemFilter,
+  DataTypeInfo,
+  RegistrySummary,
+  ExtensionFilter,
+  Change,
+  FormspecChangelog,
+  FELParseContext,
+  FELParseResult,
+  FELReferenceSet,
+  FELFunctionEntry,
+  ExpressionLocation,
+  DependencyGraph,
+  FieldDependents,
+  Diagnostics,
+  ResponseSchemaRow,
+  FormspecComponentDocument,
+  FormspecThemeDocument,
+  FormspecMappingDocument,
+} from 'formspec-core';
+import type { FormspecDefinition, FormspecItem } from 'formspec-engine';
 import {
   HelperError,
   type HelperResult,
@@ -28,9 +54,65 @@ import { rewriteFELReferences } from 'formspec-engine';
  * Extends RawProject, adding form-author-friendly methods.
  * All authoring methods return HelperResult.
  */
-export class Project extends RawProject {
-  /** Backwards-compatible self-reference (composition → inheritance migration). */
-  get raw(): this { return this; }
+export class Project implements IProjectCore {
+  constructor(private readonly core: IProjectCore) {}
+
+  /** Exposes the underlying IProjectCore (e.g. for consumers that need raw dispatch). */
+  get raw(): IProjectCore { return this.core; }
+
+  // ── IProjectCore delegation ───────────────────────────────────
+  get state(): Readonly<ProjectState> { return this.core.state; }
+  get definition(): Readonly<FormspecDefinition> { return this.core.definition; }
+  get component(): Readonly<FormspecComponentDocument> { return this.core.component; }
+  get artifactComponent(): Readonly<FormspecComponentDocument> { return this.core.artifactComponent; }
+  get generatedComponent(): Readonly<FormspecComponentDocument> { return this.core.generatedComponent; }
+  get theme(): Readonly<FormspecThemeDocument> { return this.core.theme; }
+  get mapping(): Readonly<FormspecMappingDocument> { return this.core.mapping; }
+
+  dispatch(command: AnyCommand): CommandResult;
+  dispatch(command: AnyCommand[]): CommandResult[];
+  dispatch(command: AnyCommand | AnyCommand[]): CommandResult | CommandResult[] {
+    return (this.core.dispatch as (c: AnyCommand | AnyCommand[]) => CommandResult | CommandResult[])(command);
+  }
+  batch(commands: AnyCommand[]): CommandResult[] { return this.core.batch(commands); }
+  batchWithRebuild(p1: AnyCommand[], p2: AnyCommand[]): CommandResult[] { return this.core.batchWithRebuild(p1, p2); }
+  undo(): boolean { return this.core.undo(); }
+  redo(): boolean { return this.core.redo(); }
+  get canUndo(): boolean { return this.core.canUndo; }
+  get canRedo(): boolean { return this.core.canRedo; }
+  get log(): readonly LogEntry[] { return this.core.log; }
+  resetHistory(): void { this.core.resetHistory(); }
+  onChange(listener: ChangeListener): () => void { return this.core.onChange(listener); }
+
+  fieldPaths(): string[] { return this.core.fieldPaths(); }
+  itemAt(path: string): FormspecItem | undefined { return this.core.itemAt(path); }
+  responseSchemaRows(): ResponseSchemaRow[] { return this.core.responseSchemaRows(); }
+  statistics(): ProjectStatistics { return this.core.statistics(); }
+  instanceNames(): string[] { return this.core.instanceNames(); }
+  variableNames(): string[] { return this.core.variableNames(); }
+  optionSetUsage(name: string): string[] { return this.core.optionSetUsage(name); }
+  searchItems(filter: ItemFilter): FormspecItem[] { return this.core.searchItems(filter); }
+  effectivePresentation(k: string): Record<string, unknown> { return this.core.effectivePresentation(k); }
+  bindFor(path: string): Record<string, unknown> | undefined { return this.core.bindFor(path); }
+  componentFor(k: string): Record<string, unknown> | undefined { return this.core.componentFor(k); }
+  resolveExtension(name: string): Record<string, unknown> | undefined { return this.core.resolveExtension(name); }
+  unboundItems(): string[] { return this.core.unboundItems(); }
+  resolveToken(key: string): string | number | undefined { return this.core.resolveToken(key); }
+  allDataTypes(): DataTypeInfo[] { return this.core.allDataTypes(); }
+  parseFEL(expr: string, ctx?: FELParseContext): FELParseResult { return this.core.parseFEL(expr, ctx); }
+  felFunctionCatalog(): FELFunctionEntry[] { return this.core.felFunctionCatalog(); }
+  availableReferences(ctx?: string | FELParseContext): FELReferenceSet { return this.core.availableReferences(ctx); }
+  allExpressions(): ExpressionLocation[] { return this.core.allExpressions(); }
+  expressionDependencies(expr: string): string[] { return this.core.expressionDependencies(expr); }
+  fieldDependents(path: string): FieldDependents { return this.core.fieldDependents(path); }
+  variableDependents(name: string): string[] { return this.core.variableDependents(name); }
+  dependencyGraph(): DependencyGraph { return this.core.dependencyGraph(); }
+  listRegistries(): RegistrySummary[] { return this.core.listRegistries(); }
+  browseExtensions(f?: ExtensionFilter): Record<string, unknown>[] { return this.core.browseExtensions(f); }
+  diffFromBaseline(v?: string): Change[] { return this.core.diffFromBaseline(v); }
+  previewChangelog(): FormspecChangelog { return this.core.previewChangelog(); }
+  diagnose(): Diagnostics { return this.core.diagnose(); }
+  export(): ProjectBundle { return this.core.export(); }
 
   /** Simple edit distance for fuzzy path matching. */
   private static _editDistance(a: string, b: string): number {
@@ -1245,7 +1327,8 @@ export class Project extends RawProject {
         if (shape.context) {
           const rewrittenContext: Record<string, string> = {};
           for (const [key, expr] of Object.entries(shape.context)) {
-            rewrittenContext[key] = rewriteFEL(expr) ?? expr;
+            const s = typeof expr === 'string' ? expr : undefined;
+            rewrittenContext[key] = rewriteFEL(s) ?? s ?? '';
           }
           payload.context = rewrittenContext;
         }
@@ -2065,5 +2148,5 @@ export class Project extends RawProject {
 }
 
 export function createProject(options?: ProjectOptions): Project {
-  return new Project(options);
+  return new Project(createRawProject(options));
 }

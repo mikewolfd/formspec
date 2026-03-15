@@ -254,7 +254,7 @@ describe('RawProject', () => {
 
 // ── Project Wrapper Tests ───────────────────────────────────────────
 
-import { Project, createProject } from '../src/project-wrapper.js';
+import { Project, createProject } from '../src/project.js';
 
 describe('Project wrapper', () => {
   it('extends RawProject and exposes raw self-reference', () => {

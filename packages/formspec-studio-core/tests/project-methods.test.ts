@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createProject } from '../src/project-wrapper.js';
+import { createProject } from '../src/project.js';
 import { HelperError } from '../src/helper-types.js';
 
 describe('addField', () => {

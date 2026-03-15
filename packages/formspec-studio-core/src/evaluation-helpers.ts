@@ -1,5 +1,5 @@
 import { FormEngine, type ValidationReport } from 'formspec-engine';
-import type { Project } from './project-wrapper.js';
+import type { Project } from './project.js';
 
 /**
  * Preview — simulate respondent experience.

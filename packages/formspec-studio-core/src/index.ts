@@ -11,7 +11,7 @@
  */
 
 export { RawProject, createRawProject } from './raw-project.js';
-export { Project, createProject } from './project-wrapper.js';
+export { Project, createProject } from './project.js';
 export { HelperError } from './helper-types.js';
 export type {
   HelperResult,
