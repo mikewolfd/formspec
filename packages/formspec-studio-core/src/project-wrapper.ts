@@ -323,6 +323,12 @@ export class Project extends RawProject {
     const parentPath = segments.length > 0 ? segments.join('.') : undefined;
     const fullPath = parentPath ? `${parentPath}.${key}` : key;
 
+    if (this.itemAt(fullPath)) {
+      throw new HelperError('DUPLICATE_KEY', `An item with key "${fullPath}" already exists`, {
+        path: fullPath,
+      });
+    }
+
     const payload: Record<string, unknown> = {
       type: 'display',
       key,
