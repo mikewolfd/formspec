@@ -45,7 +45,7 @@ describe('resolveFieldType', () => {
     const result = resolveFieldType('email');
     expect(result.dataType).toBe('string');
     expect(result.defaultWidget).toBe('TextInput');
-    expect(result.constraintExpr).toMatch(/matches.*email/);
+    expect(result.constraintExpr).toMatch(/matches\(\$,/);
   });
 
   it('resolves "phone" to dataType "string" with constraint', () => {

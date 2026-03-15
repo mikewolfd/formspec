@@ -54,7 +54,6 @@ export interface FieldProps {
 
 /** Group properties */
 export interface GroupProps {
-  collapsible?: boolean;
   display?: 'stack' | 'dataTable';
 }
 
@@ -112,14 +111,14 @@ export interface MetadataChanges {
   description?: string;
   url?: string;
   version?: string;
-  status?: string;
+  status?: 'draft' | 'active' | 'retired' | 'unknown';
   date?: string;
   versionAlgorithm?: string;
-  nonRelevantBehavior?: string;
+  nonRelevantBehavior?: 'empty' | 'suppress';
   derivedFrom?: string;
   density?: 'compact' | 'comfortable' | 'spacious';
-  labelPosition?: string;
-  pageMode?: string;
+  labelPosition?: 'top' | 'left' | 'inline' | 'hidden';
+  pageMode?: 'tabs' | 'wizard' | 'accordion';
   defaultCurrency?: string;
 }
 

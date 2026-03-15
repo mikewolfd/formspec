@@ -194,16 +194,11 @@ export class Project extends RawProject {
       });
     }
 
-    // Semantic type constraint (email, phone)
+    // Semantic type constraint (email, phone) — uses $ self-reference
     if (resolved.constraintExpr) {
-      // Rewrite the expression to use the actual field path
-      const constraintExpr = resolved.constraintExpr.replace(
-        /matches\(\w+,/,
-        `matches(${fullPath},`,
-      );
       phase2.push({
         type: 'definition.setBind',
-        payload: { path: fullPath, properties: { constraint: constraintExpr } },
+        payload: { path: fullPath, properties: { constraint: resolved.constraintExpr } },
       });
     }
 
@@ -246,11 +241,19 @@ export class Project extends RawProject {
     if (props?.description) {
       addItemPayload.description = props.description;
     }
+    // H1: placeholder → theme widgetConfig
     if (props?.placeholder) {
-      addItemPayload.placeholder = props.placeholder;
+      phase2.push({
+        type: 'theme.setItemWidgetConfig',
+        payload: { itemKey: key, property: 'placeholder', value: props.placeholder },
+      });
     }
+    // H2: ariaLabel → theme accessibility
     if (props?.ariaLabel) {
-      addItemPayload.ariaLabel = props.ariaLabel;
+      phase2.push({
+        type: 'theme.setItemAccessibility',
+        payload: { itemKey: key, property: 'description', value: props.ariaLabel },
+      });
     }
 
     // Dispatch
@@ -745,7 +748,7 @@ export class Project extends RawProject {
 
   /** Properties that route to definition.setItemProperty. */
   private static readonly _ITEM_PROPERTY_KEYS = new Set([
-    'label', 'hint', 'description', 'placeholder', 'ariaLabel',
+    'label', 'hint', 'description',
     'options', 'choicesFrom', 'initialValue', 'prePopulate',
     'repeatable', 'minRepeat', 'maxRepeat',
     'currency', 'precision',
@@ -755,6 +758,12 @@ export class Project extends RawProject {
   private static readonly _BIND_KEYS = new Set([
     'required', 'constraint', 'constraintMessage', 'calculate',
     'relevant', 'readonly', 'default',
+  ]);
+
+  /** PresentationBlock top-level keys — everything else is a CSS property. */
+  private static readonly _PRESENTATION_BLOCK_KEYS = new Set([
+    'widget', 'widgetConfig', 'labelPosition', 'style',
+    'accessibility', 'fallback', 'cssClass',
   ]);
 
   /** Update any property of an existing item — fan-out helper. */
@@ -839,15 +848,33 @@ export class Project extends RawProject {
         continue;
       }
 
-      // style routing → theme.setItemOverride (uses leaf key)
+      // style routing → theme.setItemStyle (CSS in style sub-object)
       if (key === 'style') {
         const styleProps = value as Record<string, unknown>;
         for (const [prop, val] of Object.entries(styleProps)) {
           commands.push({
-            type: 'theme.setItemOverride',
+            type: 'theme.setItemStyle',
             payload: { itemKey: leafKey, property: prop, value: val },
           });
         }
+        continue;
+      }
+
+      // placeholder → theme widgetConfig
+      if (key === 'placeholder') {
+        commands.push({
+          type: 'theme.setItemWidgetConfig',
+          payload: { itemKey: leafKey, property: 'placeholder', value },
+        });
+        continue;
+      }
+
+      // ariaLabel → theme accessibility
+      if (key === 'ariaLabel') {
+        commands.push({
+          type: 'theme.setItemAccessibility',
+          payload: { itemKey: leafKey, property: 'description', value },
+        });
         continue;
       }
 
@@ -1437,19 +1464,20 @@ export class Project extends RawProject {
     // Generate a key from label
     const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `step_${Date.now()}`;
 
-    this.dispatch({
-      type: 'definition.addItem',
-      payload: { type: 'group', key, label },
-    });
+    const commands: AnyCommand[] = [
+      { type: 'definition.addItem', payload: { type: 'group', key, label } },
+    ];
 
     // Set wizard mode if not already
     const pageMode = this.state.definition.formPresentation?.pageMode;
     if (pageMode !== 'wizard') {
-      this.dispatch({
+      commands.push({
         type: 'definition.setFormPresentation',
         payload: { property: 'pageMode', value: 'wizard' },
       });
     }
+
+    this.dispatch(commands);
 
     return {
       summary: `Added wizard page '${label}'`,
@@ -1624,27 +1652,36 @@ export class Project extends RawProject {
     const commands: AnyCommand[] = [];
 
     // Check for ambiguous leaf key — multiple items share same key
-    const countLeafKey = (items: any[], key: string): number => {
-      let count = 0;
+    const collectLeafPaths = (items: any[], key: string, prefix?: string): string[] => {
+      const paths: string[] = [];
       for (const item of items) {
-        if (item.key === key) count++;
-        if (item.children?.length) count += countLeafKey(item.children, key);
+        const itemPath = prefix ? `${prefix}.${item.key}` : item.key;
+        if (item.key === key) paths.push(itemPath);
+        if (item.children?.length) paths.push(...collectLeafPaths(item.children, key, itemPath));
       }
-      return count;
+      return paths;
     };
-    const matches = countLeafKey(this.state.definition.items, leafKey);
-    if (matches > 1) {
+    const matchingPaths = collectLeafPaths(this.state.definition.items, leafKey);
+    if (matchingPaths.length > 1) {
       warnings.push({
         code: 'AMBIGUOUS_ITEM_KEY',
-        message: `Leaf key '${leafKey}' matches ${matches} items; style override applies to all`,
+        message: `Leaf key '${leafKey}' matches ${matchingPaths.length} items; style override applies to all`,
+        detail: { leafKey, conflictingPaths: matchingPaths },
       });
     }
 
     for (const [prop, val] of Object.entries(properties)) {
-      commands.push({
-        type: 'theme.setItemOverride',
-        payload: { itemKey: leafKey, property: prop, value: val },
-      });
+      if (Project._PRESENTATION_BLOCK_KEYS.has(prop)) {
+        commands.push({
+          type: 'theme.setItemOverride',
+          payload: { itemKey: leafKey, property: prop, value: val },
+        });
+      } else {
+        commands.push({
+          type: 'theme.setItemStyle',
+          payload: { itemKey: leafKey, property: prop, value: val },
+        });
+      }
     }
 
     if (commands.length > 0) {
@@ -1667,27 +1704,49 @@ export class Project extends RawProject {
     const commands: AnyCommand[] = [];
 
     if (target === 'form') {
+      const cssProps: Record<string, unknown> = {};
       for (const [prop, val] of Object.entries(properties)) {
         if (prop === 'density') {
           commands.push({
             type: 'definition.setFormPresentation',
             payload: { property: 'density', value: val },
           });
-        } else {
+        } else if (Project._PRESENTATION_BLOCK_KEYS.has(prop)) {
           commands.push({
             type: 'theme.setDefaults',
             payload: { property: prop, value: val },
           });
+        } else {
+          cssProps[prop] = val;
         }
+      }
+      // CSS properties nest inside defaults.style as a single merge
+      if (Object.keys(cssProps).length > 0) {
+        const existing = (this.state.theme as any).defaults?.style ?? {};
+        commands.push({
+          type: 'theme.setDefaults',
+          payload: { property: 'style', value: { ...existing, ...cssProps } },
+        });
       }
     } else {
       // Selector-based: { type: ... } or { dataType: ... }
+      // Build a single { match, apply } selector with proper nesting
+      const apply: Record<string, unknown> = {};
+      const cssProps: Record<string, unknown> = {};
       for (const [prop, val] of Object.entries(properties)) {
-        commands.push({
-          type: 'theme.addSelector',
-          payload: { ...target, property: prop, value: val },
-        });
+        if (Project._PRESENTATION_BLOCK_KEYS.has(prop)) {
+          apply[prop] = val;
+        } else {
+          cssProps[prop] = val;
+        }
       }
+      if (Object.keys(cssProps).length > 0) {
+        apply.style = cssProps;
+      }
+      commands.push({
+        type: 'theme.addSelector',
+        payload: { match: target, apply },
+      });
     }
 
     if (commands.length > 0) {
@@ -1779,17 +1838,11 @@ export class Project extends RawProject {
 
   /** Rename a variable — Future Work, handler not implemented. */
   renameVariable(name: string, newName: string): HelperResult {
-    // definition.renameVariable is Future Work — delegate to handler and let it throw if missing
-    this.dispatch({
-      type: 'definition.renameVariable',
-      payload: { name, newName },
-    });
-
-    return {
-      summary: `Renamed variable '${name}' to '${newName}'`,
-      action: { helper: 'renameVariable', params: { name, newName } },
-      affectedPaths: [],
-    };
+    throw new HelperError(
+      'NOT_IMPLEMENTED',
+      `renameVariable is not yet implemented (definition.renameVariable handler does not exist)`,
+      { name, newName },
+    );
   }
 
   // ── Instance Helpers ──

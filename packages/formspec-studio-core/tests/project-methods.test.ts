@@ -1551,15 +1551,15 @@ describe('updateItem routing exhaustiveness', () => {
     expect(project.itemAt('amount')?.dataType).toBe('decimal');
   });
 
-  it('routes style to theme.setItemOverride', () => {
+  it('routes style to theme.setItemStyle (CSS in style sub-object)', () => {
     const project = createProject();
     project.addField('name', 'Name', 'text');
     project.updateItem('name', { style: { fontSize: '1.5rem', color: 'blue' } });
 
-    // theme.setItemOverride stores on theme.items[key]
+    // theme.setItemStyle nests CSS inside items[key].style
     const overrides = (project.state.theme as any).items?.name;
-    expect(overrides?.fontSize).toBe('1.5rem');
-    expect(overrides?.color).toBe('blue');
+    expect(overrides?.style?.fontSize).toBe('1.5rem');
+    expect(overrides?.style?.color).toBe('blue');
   });
 
   it('routes readonly: true to setBind "true"', () => {
