@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "formspec-core": "*",
-    "formspec-engine": "*"
+    "formspec-engine": "*",
+    "formspec-types": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",
