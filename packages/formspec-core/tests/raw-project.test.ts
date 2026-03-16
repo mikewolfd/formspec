@@ -36,9 +36,9 @@ describe('RawProject', () => {
     it('runs middleware once for array dispatch', () => {
       let callCount = 0;
       const raw = createRawProject({
-        middleware: [(_state, _cmd, next) => {
+        middleware: [(_state, _cmds, next) => {
           callCount++;
-          return next(_cmd);
+          return next(_cmds);
         }],
       });
       raw.dispatch([

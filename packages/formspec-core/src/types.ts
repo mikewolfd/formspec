@@ -250,22 +250,23 @@ export interface ProjectOptions {
 }
 
 /**
- * A function that wraps the command dispatch pipeline.
+ * A function that wraps the command execution pipeline.
  *
- * Middleware sees the current (read-only) state and the command being dispatched.
- * It must call `next(command)` to continue the pipeline, or may short-circuit,
- * transform the command, or perform side effects before/after.
+ * Middleware sees the current (read-only) state and the full command plan
+ * (an array of phases, each phase being an array of commands). It must call
+ * `next(commands)` to continue the pipeline, or may short-circuit, transform
+ * the commands, or perform side effects before/after.
  *
  * @param state - Current project state (read-only snapshot).
- * @param command - The command being dispatched.
- * @param next - Passes the (possibly modified) command to the next middleware or handler.
- * @returns The command result from the downstream handler.
+ * @param commands - The full command plan: phases of commands to execute.
+ * @param next - Passes the (possibly modified) command plan to the next middleware or handler.
+ * @returns The execution result containing the new state and per-command results.
  */
 export type Middleware = (
   state: Readonly<ProjectState>,
-  command: AnyCommand,
-  next: (command: AnyCommand) => CommandResult,
-) => CommandResult;
+  commands: Readonly<AnyCommand[][]>,
+  next: (commands: AnyCommand[][]) => { newState: ProjectState; results: CommandResult[] },
+) => { newState: ProjectState; results: CommandResult[] };
 
 // ── Change notification ──────────────────────────────────────────────
 

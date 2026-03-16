@@ -1,17 +1,4 @@
-import type { CommandHandler, ProjectState, AnyCommand, CommandResult } from './types.js';
-
-/**
- * Middleware that wraps the entire phase-aware execution plan.
- *
- * Receives a read-only snapshot of the pre-mutation state and the full
- * command plan (phases of commands). Must call `next` to continue
- * execution, or return early to reject/short-circuit.
- */
-export type PipelineMiddleware = (
-  state: Readonly<ProjectState>,
-  commands: Readonly<AnyCommand[][]>,
-  next: (commands: AnyCommand[][]) => { newState: ProjectState; results: CommandResult[] },
-) => { newState: ProjectState; results: CommandResult[] };
+import type { CommandHandler, ProjectState, AnyCommand, CommandResult, Middleware } from './types.js';
 
 /**
  * Phase-aware command execution pipeline.
@@ -23,7 +10,7 @@ export type PipelineMiddleware = (
 export class CommandPipeline {
   constructor(
     private handlers: Readonly<Record<string, CommandHandler>>,
-    private middleware: PipelineMiddleware[],
+    private middleware: Middleware[],
   ) {}
 
   execute(

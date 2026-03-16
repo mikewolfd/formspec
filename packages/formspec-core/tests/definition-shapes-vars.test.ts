@@ -284,15 +284,15 @@ describe('definition.deleteVariable', () => {
 });
 
 describe('middleware', () => {
-  it('wraps dispatch and can transform commands', () => {
+  it('wraps dispatch and can observe commands', () => {
     const log: string[] = [];
 
     const project = createRawProject({
       middleware: [
-        (_state, command, next) => {
-          log.push(`before:${command.type}`);
-          const result = next(command);
-          log.push(`after:${command.type}`);
+        (_state, commands, next) => {
+          log.push(`before:${commands[0]?.[0]?.type}`);
+          const result = next(commands);
+          log.push(`after:${commands[0]?.[0]?.type}`);
           return result;
         },
       ],
@@ -307,8 +307,8 @@ describe('middleware', () => {
   it('can block a command by not calling next', () => {
     const project = createRawProject({
       middleware: [
-        (_state, _command, _next) => {
-          return { rebuildComponentTree: false };
+        (state, _commands, _next) => {
+          return { newState: structuredClone(state) as any, results: [{ rebuildComponentTree: false }] };
         },
       ],
     });
