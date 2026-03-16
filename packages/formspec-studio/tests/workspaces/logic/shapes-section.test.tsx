@@ -20,14 +20,18 @@ function renderShapes(s = shapes) {
       },
     },
   });
-  const dispatchSpy = vi.spyOn(project, 'dispatch');
+  const addValidationSpy = vi.spyOn(project, 'addValidation');
+  const updateValidationSpy = vi.spyOn(project, 'updateValidation');
+  const removeValidationSpy = vi.spyOn(project, 'removeValidation');
   return {
     ...render(
       <ProjectProvider project={project}>
         <ShapesSection shapes={s} />
       </ProjectProvider>
     ),
-    dispatchSpy,
+    addValidationSpy,
+    updateValidationSpy,
+    removeValidationSpy,
   };
 }
 
@@ -88,8 +92,8 @@ describe('ShapesSection', () => {
     expect(severitySelects).toHaveLength(1);
   });
 
-  it('editing constraint dispatches setShapeProperty', () => {
-    const { dispatchSpy } = renderShapes();
+  it('editing constraint calls project.updateValidation with rule', () => {
+    const { updateValidationSpy } = renderShapes();
     fireEvent.click(screen.getByText('ageCheck'));
     // The expanded form has a Constraint label followed by InlineExpression showing '$age >= 0'
     // There are two '$age >= 0' texts: one in ShapeCard (read-only) and one in InlineExpression (editable)
@@ -103,37 +107,22 @@ describe('ShapesSection', () => {
     const textarea = textareas.find(el => el.tagName === 'TEXTAREA')!;
     fireEvent.change(textarea, { target: { value: '$age > 0' } });
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setShapeProperty',
-        payload: { id: 'ageCheck', property: 'constraint', value: '$age > 0' },
-      })
-    );
+    expect(updateValidationSpy).toHaveBeenCalledWith('ageCheck', { rule: '$age > 0' });
   });
 
-  it('delete dispatches deleteShape', () => {
-    const { dispatchSpy } = renderShapes();
+  it('delete calls project.removeValidation', () => {
+    const { removeValidationSpy } = renderShapes();
     fireEvent.click(screen.getByText('ageCheck'));
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.deleteShape',
-        payload: { id: 'ageCheck' },
-      })
-    );
+    expect(removeValidationSpy).toHaveBeenCalledWith('ageCheck');
   });
 
-  it('+ New Shape creates and auto-expands', () => {
-    const { dispatchSpy } = renderShapes();
+  it('+ New Shape creates via project.addValidation', () => {
+    const { addValidationSpy } = renderShapes();
     fireEvent.click(screen.getByText('+ New Shape'));
     const input = screen.getByPlaceholderText(/shape_id/);
     fireEvent.change(input, { target: { value: 'newRule' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.addShape',
-        payload: expect.objectContaining({ id: 'newRule' }),
-      })
-    );
+    expect(addValidationSpy).toHaveBeenCalledWith('*', '', 'Validation failed', { severity: 'error' });
   });
 });

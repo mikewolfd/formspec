@@ -19,14 +19,20 @@ function renderVariables(vars = variables) {
       },
     },
   });
-  const dispatchSpy = vi.spyOn(project, 'dispatch');
+  const addVariableSpy = vi.spyOn(project, 'addVariable');
+  const renameVariableSpy = vi.spyOn(project, 'renameVariable');
+  const updateVariableSpy = vi.spyOn(project, 'updateVariable');
+  const removeVariableSpy = vi.spyOn(project, 'removeVariable');
   return {
     ...render(
       <ProjectProvider project={project}>
         <VariablesSection variables={vars} />
       </ProjectProvider>
     ),
-    dispatchSpy,
+    addVariableSpy,
+    renameVariableSpy,
+    updateVariableSpy,
+    removeVariableSpy,
   };
 }
 
@@ -37,18 +43,13 @@ describe('VariablesSection inline editing', () => {
     expect(screen.getByDisplayValue('isAdult')).toBeInTheDocument();
   });
 
-  it('edit name dispatches definition.setVariable with property name', () => {
-    const { dispatchSpy } = renderVariables();
+  it('edit name calls project.renameVariable with old and new name', () => {
+    const { renameVariableSpy } = renderVariables();
     fireEvent.click(screen.getByText('@isAdult'));
     const input = screen.getByDisplayValue('isAdult');
     fireEvent.change(input, { target: { value: 'isMinor' } });
     fireEvent.blur(input);
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setVariable',
-        payload: { name: 'isAdult', property: 'name', value: 'isMinor' },
-      })
-    );
+    expect(renameVariableSpy).toHaveBeenCalledWith('isAdult', 'isMinor');
   });
 
   it('click expression enters InlineExpression edit mode', () => {
@@ -57,32 +58,22 @@ describe('VariablesSection inline editing', () => {
     expect(screen.getByRole('textbox')).toHaveValue('$age >= 18');
   });
 
-  it('edit expression dispatches definition.setVariable with property expression', () => {
-    const { dispatchSpy } = renderVariables();
+  it('edit expression calls project.updateVariable with name and new expression', () => {
+    const { updateVariableSpy } = renderVariables();
     fireEvent.click(screen.getByText('$age >= 18'));
     const textarea = screen.getByRole('textbox');
     fireEvent.change(textarea, { target: { value: '$age >= 21' } });
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setVariable',
-        payload: { name: 'isAdult', property: 'expression', value: '$age >= 21' },
-      })
-    );
+    expect(updateVariableSpy).toHaveBeenCalledWith('isAdult', '$age >= 21');
   });
 
-  it('delete button dispatches definition.deleteVariable', () => {
-    const { dispatchSpy } = renderVariables();
+  it('delete button calls project.removeVariable', () => {
+    const { removeVariableSpy } = renderVariables();
     // Delete buttons should be visible (we'll test for them)
     const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
     expect(deleteButtons.length).toBeGreaterThan(0);
     fireEvent.click(deleteButtons[0]);
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.deleteVariable',
-        payload: { name: 'isAdult' },
-      })
-    );
+    expect(removeVariableSpy).toHaveBeenCalledWith('isAdult');
   });
 
   it('+ New Variable always visible even when list empty', () => {
@@ -90,17 +81,12 @@ describe('VariablesSection inline editing', () => {
     expect(screen.getByText('+ New Variable')).toBeInTheDocument();
   });
 
-  it('new variable flow: type name, Enter dispatches addVariable', () => {
-    const { dispatchSpy } = renderVariables();
+  it('new variable flow: type name, Enter calls project.addVariable', () => {
+    const { addVariableSpy } = renderVariables();
     fireEvent.click(screen.getByText('+ New Variable'));
     const input = screen.getByPlaceholderText('variable_name');
     fireEvent.change(input, { target: { value: 'newVar' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.addVariable',
-        payload: expect.objectContaining({ name: 'newVar' }),
-      })
-    );
+    expect(addVariableSpy).toHaveBeenCalledWith('newVar', '');
   });
 });

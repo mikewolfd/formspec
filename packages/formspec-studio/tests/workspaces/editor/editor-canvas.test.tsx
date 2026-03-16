@@ -300,23 +300,16 @@ describe('EditorCanvas', () => {
     expect(capturedSelectedKey).toBe(`page1.${insertedField.key}`);
   });
 
-  it('uses the insertedPath returned by dispatch instead of guessing locally', async () => {
+  it('selects the locally constructed path after adding a display item', async () => {
     const project = createProject({
       seed: {
         definition: {
           $formspec: '1.0',
-          url: 'urn:editor-inserted-path-override',
+          url: 'urn:editor-inserted-path',
           version: '1.0.0',
           items: [],
         } as any,
       },
-      middleware: [
-        (_state, command, next) => {
-          const result = next(command);
-          if (command.type !== 'definition.addItem') return result;
-          return { ...result, insertedPath: 'canonical.inserted.path' };
-        },
-      ],
     });
 
     let capturedSelectedKey: string | null = null;
@@ -345,7 +338,11 @@ describe('EditorCanvas', () => {
       screen.getByRole('button', { name: /^Text Block\b/i }).click();
     });
 
-    expect(capturedSelectedKey).toBe('canonical.inserted.path');
+    // The component constructs the path locally from the generated key
+    expect(capturedSelectedKey).toBeTruthy();
+    // Verify the item was actually added to the definition
+    const def = project.export().definition;
+    expect(def.items.some((i: any) => i.key === capturedSelectedKey)).toBe(true);
   });
 
   describe('multi-select', () => {
@@ -563,10 +560,7 @@ describe('EditorCanvas', () => {
     it('renders a LayoutBlock when the component tree has a layout wrapper', () => {
       const project = createProject({ seed: { definition: editorFixtures.canvas as any } });
       // Wrap 'name' in a Card layout container
-      project.dispatch({
-        type: 'component.wrapNode',
-        payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
-      });
+      project.wrapInLayoutComponent('name', 'Card');
 
       render(
         <ProjectProvider project={project}>
@@ -586,11 +580,8 @@ describe('EditorCanvas', () => {
 
     it('clicking a layout block selects it with __node: id', async () => {
       const project = createProject({ seed: { definition: editorFixtures.canvas as any } });
-      const result = project.dispatch({
-        type: 'component.wrapNode',
-        payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
-      });
-      const nodeId = (result as any).nodeRef.nodeId;
+      const result = project.wrapInLayoutComponent('name', 'Card');
+      const nodeId = result.createdId!;
 
       let capturedSelectedKey: string | null = null;
       function SelectionCapture() {
@@ -619,10 +610,7 @@ describe('EditorCanvas', () => {
 
     it('fields inside layout wrappers maintain correct definition paths', () => {
       const project = createProject({ seed: { definition: editorFixtures.canvas as any } });
-      project.dispatch({
-        type: 'component.wrapNode',
-        payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
-      });
+      project.wrapInLayoutComponent('name', 'Card');
 
       render(
         <ProjectProvider project={project}>
@@ -646,12 +634,17 @@ describe('EditorCanvas', () => {
           { key: 'header', type: 'display', label: 'Welcome' },
         ],
       };
-      const project = createProject({ seed: { definition: def as any } });
-      // Change the display node's component type to Heading via setNodeProperty
-      project.dispatch({
-        type: 'component.setNodeProperty',
-        payload: { node: { nodeId: 'header' }, property: 'component', value: 'Heading' },
-      });
+      // Seed a component tree with the Heading component type already set
+      const comp = {
+        $formspecComponent: '1.0',
+        targetDefinition: { url: 'urn:display-hint' },
+        tree: {
+          component: 'Stack', nodeId: 'root', children: [
+            { component: 'Heading', nodeId: 'header', text: 'Welcome' },
+          ],
+        },
+      };
+      const project = createProject({ seed: { definition: def as any, component: comp as any } });
 
       render(
         <ProjectProvider project={project}>

@@ -24,10 +24,7 @@ describe('Editor Workflow', () => {
     renderEditor(project);
 
     act(() => {
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { key: 'firstName', type: 'field', dataType: 'string' }
-      });
+      project.addField('firstName', 'First Name', 'string');
     });
 
     expect(screen.getByTestId('field-firstName')).toBeInTheDocument();
@@ -38,18 +35,9 @@ describe('Editor Workflow', () => {
     renderEditor(project);
 
     act(() => {
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { key: 'first', type: 'field', dataType: 'string' }
-      });
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { key: 'last', type: 'field', dataType: 'string' }
-      });
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { key: 'age', type: 'field', dataType: 'integer' }
-      });
+      project.addField('first', 'First', 'string');
+      project.addField('last', 'Last', 'string');
+      project.addField('age', 'Age', 'integer');
     });
 
     expect(screen.getByTestId('field-first')).toBeInTheDocument();

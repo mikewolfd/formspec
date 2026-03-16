@@ -41,7 +41,7 @@ export const pagesHandlers: Record<string, CommandHandler> = {
 
     const page: any = {
       id: generatePageId(),
-      title: title ?? `Page ${pages.length + 1}`,
+      title: title || `Page ${pages.length + 1}`,
       regions: [],
     };
     if (description !== undefined) page.description = description;

@@ -31,11 +31,11 @@ function SelectionProbe() {
 
 describe('Behavior Flow Integration', () => {
   let project: any;
-  let dispatchSpy: any;
+  let updateItemSpy: any;
 
   beforeEach(() => {
     project = createProject({ seed: { definition: testDef as any } });
-    dispatchSpy = vi.spyOn(project, 'dispatch');
+    updateItemSpy = vi.spyOn(project, 'updateItem');
   });
 
   function renderApp(component: React.ReactNode) {
@@ -85,11 +85,8 @@ describe('Behavior Flow Integration', () => {
         fireEvent.click(relevantBtn);
       });
 
-      // Side Effect Check
-      expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'definition.setBind',
-        payload: { path: 'age', properties: { relevant: 'true' } }
-      }));
+      // Side Effect Check: BindsSection calls project.updateItem(path, { type: initialValue })
+      expect(updateItemSpy).toHaveBeenCalledWith('age', { relevant: 'true' });
 
       // Selection Check
       expect(screen.getByTestId('selected-key')).toHaveTextContent('age');
@@ -116,10 +113,8 @@ describe('Behavior Flow Integration', () => {
         fireEvent.click(menu.getByRole('button', { name: /Calculate/i }));
       });
 
-      expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'definition.setBind',
-        payload: { path: 'name', properties: { calculate: '' } }
-      }));
+      // BindsSection calls project.updateItem(path, { calculate: '' }) for calculate type
+      expect(updateItemSpy).toHaveBeenCalledWith('name', { calculate: '' });
 
       // DOM Check: Ideally, we'd check if the card is there, but since we are mocking dispatch
       // and not re-rendering with a new definition, we rely on the dispatch spy.
@@ -154,10 +149,8 @@ describe('Behavior Flow Integration', () => {
         fireEvent.click(within(behaviorSection).getByRole('button', { name: /Relevant/i }));
       });
 
-      expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'definition.setBind',
-        payload: { path: 'age', properties: { relevant: 'true' } }
-      }));
+      // SelectedItemProperties calls project.updateItem(path, { relevant: 'true' })
+      expect(updateItemSpy).toHaveBeenCalledWith('age', { relevant: 'true' });
     });
 
     it('allows removing a behavior rule', async () => {
@@ -180,10 +173,8 @@ describe('Behavior Flow Integration', () => {
         fireEvent.click(removeBtn);
       });
 
-      expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'definition.setBind',
-        payload: { path: 'name', properties: { required: null } }
-      }));
+      // SelectedItemProperties calls project.updateItem(path, { required: null }) to remove
+      expect(updateItemSpy).toHaveBeenCalledWith('name', { required: null });
 
       // DOM Check: The card should be gone
       expect(screen.queryByText(/required/i)).toBeNull();
@@ -213,11 +204,8 @@ describe('Behavior Flow Integration', () => {
         fireEvent.click(prePopOption);
       });
 
-      // Side Effect Check: Should dispatch definition.setItemProperty
-      expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'definition.setItemProperty',
-        payload: { path: 'age', property: 'prePopulate', value: expect.any(Object) }
-      }));
+      // Side Effect Check: FieldConfigSection calls project.updateItem with prePopulate
+      expect(updateItemSpy).toHaveBeenCalledWith('age', { prePopulate: { instance: '', path: '' } });
     });
 
     it('shows a pre-populate card when configured', async () => {
@@ -226,7 +214,7 @@ describe('Behavior Flow Integration', () => {
         ...testDef,
         items: testDef.items.map(i => i.key === 'age' ? { ...i, prePopulate: { instance: 'db', path: 'user_age' } } : i)
       } as any } });
-      dispatchSpy = vi.spyOn(project, 'dispatch');
+      updateItemSpy = vi.spyOn(project, 'updateItem');
       
       renderApp(<ItemProperties />);
       

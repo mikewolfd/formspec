@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeDropTarget,
   isDescendantOf,
-  buildSequentialMoveCommands,
+  buildSequentialMoves,
 } from '../../../../src/workspaces/editor/dnd/compute-drop-target';
 import type { FlatEntry } from '../../../../src/lib/tree-helpers';
 
@@ -42,7 +42,7 @@ function expectDefinitionMove(
   payload: Record<string, unknown>,
 ) {
   expect(result).toMatchObject({ kind: 'definition', parentPath, index });
-  expect(result?.actions[0]).toEqual({ type: 'definition.moveItem', payload });
+  expect(result?.definitionMove).toEqual(payload);
 }
 
 function expectComponentMove(
@@ -52,7 +52,7 @@ function expectComponentMove(
   payload: Record<string, unknown>,
 ) {
   expect(result).toMatchObject({ kind: 'component', parentPath, index });
-  expect(result?.actions[0]).toEqual({ type: 'component.moveNode', payload });
+  expect(result?.componentMove).toEqual(payload);
 }
 
 describe('isDescendantOf', () => {
@@ -219,7 +219,7 @@ describe('computeDropTarget', () => {
   });
 });
 
-describe('buildSequentialMoveCommands', () => {
+describe('buildSequentialMoves', () => {
   // [a, b, c, d, e] — all root-level fields
   const flat5: FlatEntry[] = [
     { id: 'a', node: { component: 'TextInput', bind: 'a' }, category: 'field', depth: 0, hasChildren: false, defPath: 'a', bind: 'a', nodeId: undefined },
@@ -230,30 +230,30 @@ describe('buildSequentialMoveCommands', () => {
   ];
 
   it('multi-select drag DOWN: a+b below d', () => {
-    const cmds = buildSequentialMoveCommands(['a', 'b'], null, 4, flat5);
+    const cmds = buildSequentialMoves(['a', 'b'], null, 4, flat5);
 
     expect(cmds).toHaveLength(2);
     // Simulate: move a to 3 → [b,c,d,a,e]. move b to 3 → [c,d,a,b,e]. ✓
-    expect(cmds[0].payload).toEqual({ sourcePath: 'a', targetIndex: 3 });
-    expect(cmds[1].payload).toEqual({ sourcePath: 'b', targetIndex: 3 });
+    expect(cmds[0]).toEqual({ sourcePath: 'a', targetIndex: 3 });
+    expect(cmds[1]).toEqual({ sourcePath: 'b', targetIndex: 3 });
   });
 
   it('multi-select drag UP: d+e above b', () => {
-    const cmds = buildSequentialMoveCommands(['d', 'e'], null, 1, flat5);
+    const cmds = buildSequentialMoves(['d', 'e'], null, 1, flat5);
 
     expect(cmds).toHaveLength(2);
     // Simulate: move d to 1 → [a,d,b,c,e]. move e to 2 → [a,d,e,b,c]. ✓
-    expect(cmds[0].payload).toEqual({ sourcePath: 'd', targetIndex: 1 });
-    expect(cmds[1].payload).toEqual({ sourcePath: 'e', targetIndex: 2 });
+    expect(cmds[0]).toEqual({ sourcePath: 'd', targetIndex: 1 });
+    expect(cmds[1]).toEqual({ sourcePath: 'e', targetIndex: 2 });
   });
 
   it('multi-select mixed: a+d above c', () => {
-    const cmds = buildSequentialMoveCommands(['a', 'd'], null, 2, flat5);
+    const cmds = buildSequentialMoves(['a', 'd'], null, 2, flat5);
 
     expect(cmds).toHaveLength(2);
     // Simulate: move a to 1 → [b,a,c,d,e]. move d to 2 → [b,a,d,c,e]. ✓
-    expect(cmds[0].payload).toEqual({ sourcePath: 'a', targetIndex: 1 });
-    expect(cmds[1].payload).toEqual({ sourcePath: 'd', targetIndex: 2 });
+    expect(cmds[0]).toEqual({ sourcePath: 'a', targetIndex: 1 });
+    expect(cmds[1]).toEqual({ sourcePath: 'd', targetIndex: 2 });
   });
 
   it('multi-select into group: move root items inside groupX', () => {
@@ -264,23 +264,23 @@ describe('buildSequentialMoveCommands', () => {
       { id: 'grp.x', node: { component: 'TextInput', bind: 'x' }, category: 'field', depth: 1, hasChildren: false, defPath: 'grp.x', bind: 'x', nodeId: undefined },
     ];
 
-    const cmds = buildSequentialMoveCommands(['a', 'b'], 'grp', 1, flatWithGroup);
+    const cmds = buildSequentialMoves(['a', 'b'], 'grp', 1, flatWithGroup);
 
     expect(cmds).toHaveLength(2);
     // Both are from different parent (root → grp), so sequential insert at 1, 2
-    expect(cmds[0].payload).toEqual({ sourcePath: 'a', targetParentPath: 'grp', targetIndex: 1 });
-    expect(cmds[1].payload).toEqual({ sourcePath: 'b', targetParentPath: 'grp', targetIndex: 2 });
+    expect(cmds[0]).toEqual({ sourcePath: 'a', targetParentPath: 'grp', targetIndex: 1 });
+    expect(cmds[1]).toEqual({ sourcePath: 'b', targetParentPath: 'grp', targetIndex: 2 });
   });
 
   it('multi-select 3 items drag DOWN: a+b+c below d', () => {
-    const cmds = buildSequentialMoveCommands(['a', 'b', 'c'], null, 4, flat5);
+    const cmds = buildSequentialMoves(['a', 'b', 'c'], null, 4, flat5);
 
     expect(cmds).toHaveLength(3);
     // All 3 sources are before the target, so all use the same effective index
     // Simulate: move a to 3 → [b,c,d,a,e]. move b to 3 → [c,d,a,b,e]. move c to 3 → [d,a,b,c,e]. ✓
-    expect(cmds[0].payload).toEqual({ sourcePath: 'a', targetIndex: 3 });
-    expect(cmds[1].payload).toEqual({ sourcePath: 'b', targetIndex: 3 });
-    expect(cmds[2].payload).toEqual({ sourcePath: 'c', targetIndex: 3 });
+    expect(cmds[0]).toEqual({ sourcePath: 'a', targetIndex: 3 });
+    expect(cmds[1]).toEqual({ sourcePath: 'b', targetIndex: 3 });
+    expect(cmds[2]).toEqual({ sourcePath: 'c', targetIndex: 3 });
   });
 });
 
@@ -303,8 +303,8 @@ describe('computeDropTarget with layout entries', () => {
   it('returns component-only move for drag into layout container', () => {
     const result = computeDropTarget('name', '__node:card_1', 'inside', flatWithLayout);
     expectComponentMove(result, '__node:card_1', 1, {
-      source: { bind: 'name' },
-      targetParent: { nodeId: 'card_1' },
+      sourceNodeId: 'name',
+      targetParentNodeId: 'card_1',
       targetIndex: 1,
     });
   });

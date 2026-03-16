@@ -126,10 +126,9 @@ export class Project {
 
   // ── Bulk operations ────────────────────────────────────────
 
-  /** Import a project bundle and reset history. */
+  /** Import a project bundle. The import is undoable like any other edit. */
   loadBundle(bundle: Partial<ProjectBundle>): void {
     this.core.dispatch({ type: 'project.import', payload: bundle } as AnyCommand);
-    this.core.resetHistory();
   }
 
   /** Add a mapping rule from a form field to an output target. */

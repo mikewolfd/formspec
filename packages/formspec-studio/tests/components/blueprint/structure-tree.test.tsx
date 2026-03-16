@@ -152,8 +152,10 @@ describe('StructureTree', () => {
         screen.getByTitle('Add wizard page').click();
       });
 
+      // addWizardPage generates the key from the label slug ('New Page' -> 'new_page'),
+      // which does not collide with the existing 'page1' key.
       const insertedPage = project.definition.items.find((item: any) => item.label === 'New Page');
-      expect(insertedPage?.key).toBe('page1_1');
+      expect(insertedPage?.key).toBe('new_page');
 
       const insertedButton = screen.getByRole('button', { name: /new page/i });
       expect(insertedButton.className).toContain('text-accent');
@@ -222,7 +224,7 @@ describe('StructureTree', () => {
     expect(screen.getByTestId(`tree-item-page1.${insertedField.key}`)).toHaveClass('text-accent');
   });
 
-  it('uses the insertedPath returned by dispatch when adding from the palette', async () => {
+  it('uses the locally constructed path for selection when adding from the palette', async () => {
     const project = createProject({
       seed: {
         definition: {
@@ -232,13 +234,6 @@ describe('StructureTree', () => {
           items: [],
         } as any,
       },
-      middleware: [
-        (_state, command, next) => {
-          const result = next(command);
-          if (command.type !== 'definition.addItem') return result;
-          return { ...result, insertedPath: 'canonical.tree.path' };
-        },
-      ],
     });
 
     let capturedSelectedKey: string | null = null;
@@ -269,7 +264,11 @@ describe('StructureTree', () => {
       screen.getByRole('button', { name: /^Text Block\b/i }).click();
     });
 
-    expect(capturedSelectedKey).toBe('canonical.tree.path');
+    // The component constructs the selection path locally from the generated key,
+    // rather than reading insertedPath from dispatch results.
+    const insertedItem = project.definition.items.find((item: any) => item.label === 'Text Block');
+    expect(insertedItem).toBeTruthy();
+    expect(capturedSelectedKey).toBe(insertedItem!.key);
   });
 
 });

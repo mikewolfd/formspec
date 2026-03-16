@@ -81,10 +81,7 @@ describe('StatusBar', () => {
     expect(screen.getByText(/0 fields/i)).toBeInTheDocument();
 
     act(() => {
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { key: 'name', type: 'field', dataType: 'string' }
-      });
+      project.addField('name', 'Name', 'string');
     });
 
     expect(screen.getByText(/1 field/i)).toBeInTheDocument();

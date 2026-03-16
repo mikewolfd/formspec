@@ -138,66 +138,51 @@ describe('SettingsDialog', () => {
   });
 
   describe('mutations', () => {
-    it('dispatches setDefinitionProperty when title changes', () => {
+    it('calls setMetadata when title changes', () => {
       const { project } = renderDialog();
-      const spy = vi.spyOn(project, 'dispatch');
+      const spy = vi.spyOn(project, 'setMetadata');
 
       const input = screen.getByLabelText('Title');
       fireEvent.change(input, { target: { value: 'New Title' } });
       fireEvent.blur(input);
 
-      expect(spy).toHaveBeenCalledWith({
-        type: 'definition.setDefinitionProperty',
-        payload: { property: 'title', value: 'New Title' },
-      });
+      expect(spy).toHaveBeenCalledWith({ title: 'New Title' });
     });
 
-    it('dispatches setDefinitionProperty when status changes', () => {
+    it('calls setMetadata when status changes', () => {
       const { project } = renderDialog();
-      const spy = vi.spyOn(project, 'dispatch');
+      const spy = vi.spyOn(project, 'setMetadata');
 
       fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } });
 
-      expect(spy).toHaveBeenCalledWith({
-        type: 'definition.setDefinitionProperty',
-        payload: { property: 'status', value: 'active' },
-      });
+      expect(spy).toHaveBeenCalledWith({ status: 'active' });
     });
 
-    it('dispatches setFormPresentation when pageMode changes', () => {
+    it('calls setMetadata when pageMode changes', () => {
       const { project } = renderDialog();
-      const spy = vi.spyOn(project, 'dispatch');
+      const spy = vi.spyOn(project, 'setMetadata');
 
       fireEvent.change(screen.getByLabelText('Page Mode'), { target: { value: 'wizard' } });
 
-      expect(spy).toHaveBeenCalledWith({
-        type: 'definition.setFormPresentation',
-        payload: { property: 'pageMode', value: 'wizard' },
-      });
+      expect(spy).toHaveBeenCalledWith({ pageMode: 'wizard' });
     });
 
-    it('dispatches setDefinitionProperty when nonRelevantBehavior changes', () => {
+    it('calls setMetadata when nonRelevantBehavior changes', () => {
       const { project } = renderDialog();
-      const spy = vi.spyOn(project, 'dispatch');
+      const spy = vi.spyOn(project, 'setMetadata');
 
       fireEvent.change(screen.getByLabelText('Non-Relevant Behavior'), { target: { value: 'keep' } });
 
-      expect(spy).toHaveBeenCalledWith({
-        type: 'definition.setDefinitionProperty',
-        payload: { property: 'nonRelevantBehavior', value: 'keep' },
-      });
+      expect(spy).toHaveBeenCalledWith({ nonRelevantBehavior: 'keep' });
     });
 
-    it('dispatches setFormPresentation when density changes', () => {
+    it('calls setMetadata when density changes', () => {
       const { project } = renderDialog();
-      const spy = vi.spyOn(project, 'dispatch');
+      const spy = vi.spyOn(project, 'setMetadata');
 
       fireEvent.change(screen.getByLabelText('Density'), { target: { value: 'compact' } });
 
-      expect(spy).toHaveBeenCalledWith({
-        type: 'definition.setFormPresentation',
-        payload: { property: 'density', value: 'compact' },
-      });
+      expect(spy).toHaveBeenCalledWith({ density: 'compact' });
     });
   });
 

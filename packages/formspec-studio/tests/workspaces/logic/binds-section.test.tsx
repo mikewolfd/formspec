@@ -23,14 +23,14 @@ function renderBinds(b = binds, props: Record<string, any> = {}) {
       },
     },
   });
-  const dispatchSpy = vi.spyOn(project, 'dispatch');
+  const updateItemSpy = vi.spyOn(project, 'updateItem');
   return {
     ...render(
       <ProjectProvider project={project}>
         <BindsSection binds={b} {...props} />
       </ProjectProvider>
     ),
-    dispatchSpy,
+    updateItemSpy,
   };
 }
 
@@ -58,32 +58,22 @@ describe('BindsSection', () => {
     expect(screen.getByRole('textbox')).toHaveValue('$age >= 18');
   });
 
-  it('saving dispatches definition.setBind with correct path and type', () => {
-    const { dispatchSpy } = renderBinds();
+  it('saving calls project.updateItem with correct path and property', () => {
+    const { updateItemSpy } = renderBinds();
     fireEvent.click(screen.getByText('$age >= 18'));
     const textarea = screen.getByRole('textbox');
     fireEvent.change(textarea, { target: { value: '$age >= 21' } });
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setBind',
-        payload: { path: 'name', properties: { relevant: '$age >= 21' } },
-      })
-    );
+    expect(updateItemSpy).toHaveBeenCalledWith('name', { relevant: '$age >= 21' });
   });
 
-  it('saving empty dispatches with empty string', () => {
-    const { dispatchSpy } = renderBinds();
+  it('saving empty calls updateItem with empty string', () => {
+    const { updateItemSpy } = renderBinds();
     fireEvent.click(screen.getByText('$age >= 18'));
     const textarea = screen.getByRole('textbox');
     fireEvent.change(textarea, { target: { value: '' } });
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setBind',
-        payload: { path: 'name', properties: { relevant: '' } },
-      })
-    );
+    expect(updateItemSpy).toHaveBeenCalledWith('name', { relevant: '' });
   });
 
   it('BindCard still shows type label and colored border', () => {

@@ -29,9 +29,9 @@ function renderDefinitionProperties() {
 }
 
 describe('DefinitionProperties', () => {
-  it('dispatches definition.setDefinitionProperty (not definition.setProperty) when title is changed', async () => {
+  it('calls project.setMetadata when title is changed', async () => {
     const { project } = renderDefinitionProperties();
-    const spy = vi.spyOn(project, 'dispatch');
+    const spy = vi.spyOn(project, 'setMetadata');
 
     const titleInput = screen.getByLabelText(/title/i);
     expect(titleInput).toBeInTheDocument();
@@ -41,22 +41,13 @@ describe('DefinitionProperties', () => {
       fireEvent.blur(titleInput);
     });
 
-    // Must dispatch the correct command — definition.setDefinitionProperty
-    expect(spy).toHaveBeenCalledWith({
-      type: 'definition.setDefinitionProperty',
-      payload: { property: 'title', value: 'New Title' },
-    });
-
-    // Must NOT dispatch the wrong (non-existent) command definition.setProperty
-    const wrongCalls = spy.mock.calls.filter(
-      (call) => call[0]?.type === 'definition.setProperty'
-    );
-    expect(wrongCalls).toHaveLength(0);
+    // DefinitionProperties calls project.setMetadata({ title: value })
+    expect(spy).toHaveBeenCalledWith({ title: 'New Title' });
   });
 
   it('sets title to null when cleared', async () => {
     const { project } = renderDefinitionProperties();
-    const spy = vi.spyOn(project, 'dispatch');
+    const spy = vi.spyOn(project, 'setMetadata');
 
     const titleInput = screen.getByLabelText(/title/i);
 
@@ -65,10 +56,8 @@ describe('DefinitionProperties', () => {
       fireEvent.blur(titleInput);
     });
 
-    expect(spy).toHaveBeenCalledWith({
-      type: 'definition.setDefinitionProperty',
-      payload: { property: 'title', value: null },
-    });
+    // DefinitionProperties calls project.setMetadata({ title: null }) for empty string
+    expect(spy).toHaveBeenCalledWith({ title: null });
   });
 
   it('title change actually updates the project state', async () => {

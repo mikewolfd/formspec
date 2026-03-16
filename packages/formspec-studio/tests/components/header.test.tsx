@@ -54,10 +54,7 @@ describe('Header', () => {
     );
 
     act(() => {
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { item: { key: 'f1', type: 'field', dataType: 'string' } }
-      });
+      project.addField('f1', 'F1', 'string');
     });
 
     // Re-render to pick up state change

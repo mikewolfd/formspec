@@ -80,7 +80,7 @@ describe('ItemProperties', () => {
 
   it('dispatches rename on key change', async () => {
     const { project } = renderProps();
-    const spy = vi.spyOn(project, 'dispatch');
+    const spy = vi.spyOn(project, 'renameItem');
 
     await act(async () => { screen.getByText('Select').click(); });
 
@@ -96,9 +96,7 @@ describe('ItemProperties', () => {
       input.dispatchEvent(new Event('blur', { bubbles: true }));
     });
 
-    expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'definition.renameItem' })
-    );
+    expect(spy).toHaveBeenCalledWith('name', 'fullName');
   });
 
   it('shows delete button', async () => {
@@ -174,7 +172,7 @@ describe('ItemProperties', () => {
         },
       ],
     } as any } });
-    const spy = vi.spyOn(project, 'dispatch');
+    const spy = vi.spyOn(project, 'updateItem');
     renderProps(project, { path: 'members', type: 'group' });
     await act(async () => { screen.getByText('Select').click(); });
 
@@ -189,10 +187,7 @@ describe('ItemProperties', () => {
       fireEvent.blur(minRepeat);
     });
 
-    expect(spy).toHaveBeenCalledWith({
-      type: 'definition.setItemProperty',
-      payload: { path: 'members', property: 'minRepeat', value: 2 },
-    });
+    expect(spy).toHaveBeenCalledWith('members', { minRepeat: 2 });
   });
 
   it('shows editable choice options and dispatches updates on blur', async () => {
@@ -213,7 +208,7 @@ describe('ItemProperties', () => {
         },
       ],
     } as any } });
-    const spy = vi.spyOn(project, 'dispatch');
+    const spy = vi.spyOn(project, 'updateItem');
     renderProps(project, { path: 'marital', type: 'field' });
     await act(async () => { screen.getByText('Select').click(); });
     expect(screen.getByText(/options/i)).toBeInTheDocument();
@@ -226,16 +221,11 @@ describe('ItemProperties', () => {
       fireEvent.blur(firstValue);
     });
 
-    expect(spy).toHaveBeenCalledWith({
-      type: 'definition.setItemProperty',
-      payload: {
-        path: 'marital',
-        property: 'options',
-        value: [
-          { value: 'solo', label: 'Single' },
-          { value: 'married', label: 'Married' },
-        ],
-      },
+    expect(spy).toHaveBeenCalledWith('marital', {
+      options: [
+        { value: 'solo', label: 'Single' },
+        { value: 'married', label: 'Married' },
+      ],
     });
   });
 
@@ -274,7 +264,7 @@ describe('ItemProperties', () => {
   it('dispatches description change on blur', async () => {
     renderProps();
     const { project } = renderProps();
-    const spy = vi.spyOn(project, 'dispatch');
+    const spy = vi.spyOn(project, 'updateItem');
     await act(async () => { screen.getAllByText('Select')[1].click(); });
 
     // Click "+ Add description" to reveal input
@@ -286,10 +276,7 @@ describe('ItemProperties', () => {
       fireEvent.blur(input);
     });
 
-    expect(spy).toHaveBeenCalledWith({
-      type: 'definition.setItemProperty',
-      payload: { path: 'name', property: 'description', value: 'Help text' },
-    });
+    expect(spy).toHaveBeenCalledWith('name', { description: 'Help text' });
   });
 
   it('shows hint input with existing value', async () => {
@@ -352,7 +339,7 @@ describe('ItemProperties', () => {
   it('dispatches both component.setFieldWidget and definition hint on widget select', async () => {
     // Use a choice field so RadioGroup is a valid widget option
     const { project } = renderProps(undefined, { path: 'status', type: 'field' });
-    const spy = vi.spyOn(project, 'dispatch');
+    const spy = vi.spyOn(project, 'updateItem');
     await act(async () => { screen.getByText('Select').click(); });
 
     const select = screen.getByLabelText(/widget/i);
@@ -360,22 +347,14 @@ describe('ItemProperties', () => {
       fireEvent.change(select, { target: { value: 'RadioGroup' } });
     });
 
-    // Tier 3: component tree
-    expect(spy).toHaveBeenCalledWith({
-      type: 'component.setFieldWidget',
-      payload: { fieldKey: 'status', widget: 'RadioGroup' },
-    });
-    // Tier 1: definition hint for paged/definition-driven render paths
-    expect(spy).toHaveBeenCalledWith({
-      type: 'definition.setItemProperty',
-      payload: { path: 'status', property: 'presentation.widgetHint', value: 'radio' },
-    });
+    // updateItem with widget key handles both component tree and definition hint
+    expect(spy).toHaveBeenCalledWith('status', { widget: 'RadioGroup' });
   });
 
   it('widget dropdown reflects current component tree node type', async () => {
     const project = createProject({ seed: { definition: testDef as any, component: testComponent as any } });
-    // Change the widget via the component tree (choice field, so RadioGroup is valid)
-    project.dispatch({ type: 'component.setFieldWidget', payload: { fieldKey: 'status', widget: 'RadioGroup' } });
+    // Change the widget via the updateItem helper (choice field, so RadioGroup is valid)
+    project.updateItem('status', { widget: 'RadioGroup' });
     renderProps(project, { path: 'status', type: 'field' });
     await act(async () => { screen.getByText('Select').click(); });
 
@@ -736,11 +715,8 @@ describe('ItemProperties', () => {
     function renderLayoutProps() {
       const project = createProject({ seed: { definition: testDef as any, component: testComponent as any } });
       // Wrap 'name' in a Card
-      const result = project.dispatch({
-        type: 'component.wrapNode',
-        payload: { node: { bind: 'name' }, wrapper: { component: 'Card', props: { title: 'Personal' } } },
-      });
-      const nodeId = (result as any).nodeRef.nodeId;
+      const result = project.wrapInLayoutComponent('name', 'Card');
+      const nodeId = result.createdId!;
       const layoutId = `__node:${nodeId}`;
       return {
         ...renderProps(project, { path: layoutId, type: 'layout' }),

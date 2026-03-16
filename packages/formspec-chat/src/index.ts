@@ -1,0 +1,37 @@
+/**
+ * Formspec Chat — conversational form builder core.
+ *
+ * Pure TypeScript logic for the chat-based form building experience.
+ * No React/DOM dependencies — those belong in the UI layer.
+ */
+
+// Types
+export type {
+  ChatMessage,
+  Attachment,
+  SourceTrace,
+  SourceType,
+  Issue,
+  IssueSeverity,
+  IssueCategory,
+  IssueStatus,
+  ScaffoldResult,
+  AIAdapter,
+  ScaffoldRequest,
+  ProviderConfig,
+  ProviderType,
+  Template,
+  ChatSessionState,
+  StorageBackend,
+  SessionSummary,
+} from './types.js';
+
+// Modules
+export { SourceTraceManager } from './source-trace.js';
+export { IssueQueue } from './issue-queue.js';
+export { validateProviderConfig, type ProviderValidationError } from './provider-config.js';
+export { TemplateLibrary } from './template-library.js';
+export { DeterministicAdapter } from './deterministic-adapter.js';
+export { SessionStore } from './session-store.js';
+export { FormScaffolder, type AppliedScaffold, type DefinitionDiff } from './form-scaffolder.js';
+export { ChatSession } from './chat-session.js';

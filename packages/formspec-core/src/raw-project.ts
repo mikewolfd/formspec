@@ -140,6 +140,8 @@ export class RawProject implements IProjectCore {
   private _pipeline: CommandPipeline;
   private _schemaValidator: ProjectOptions['schemaValidator'];
   private _handlers: Readonly<Record<string, CommandHandler>>;
+  private _cachedComponent: ComponentDocument | null = null;
+  private _cachedComponentForState: ProjectState | null = null;
 
   constructor(options?: ProjectOptions) {
     this._state = createDefaultState(options);
@@ -176,7 +178,11 @@ export class RawProject implements IProjectCore {
   }
 
   get component(): Readonly<ComponentDocument> {
-    return getCurrentComponentDocument(this._state) as unknown as Readonly<ComponentDocument>;
+    if (this._cachedComponentForState !== this._state) {
+      this._cachedComponent = getCurrentComponentDocument(this._state) as unknown as ComponentDocument;
+      this._cachedComponentForState = this._state;
+    }
+    return this._cachedComponent as Readonly<ComponentDocument>;
   }
 
   get artifactComponent(): Readonly<ComponentDocument> {

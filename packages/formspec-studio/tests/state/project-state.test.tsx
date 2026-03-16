@@ -38,10 +38,7 @@ describe('useProjectState', () => {
     expect(screen.getByTestId('item-count')).toHaveTextContent('0');
 
     act(() => {
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { item: { key: 'name', type: 'field', dataType: 'string' } }
-      });
+      project.addField('name', 'Name', 'string');
     });
 
     expect(screen.getByTestId('item-count')).toHaveTextContent('1');

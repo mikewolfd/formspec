@@ -180,14 +180,15 @@ describe('Project', () => {
     expect(bundle.definition.items).toHaveLength(1);
   });
 
-  it('loadBundle replaces state and resets history', () => {
+  it('loadBundle replaces state and preserves undo history', () => {
     const project = createProject();
     project.addField('old', 'Old', 'text');
     expect(project.canUndo).toBe(true);
 
     const bundle = project.export();
     project.loadBundle(bundle);
-    expect(project.canUndo).toBe(false);
+    // Import is undoable — undo history is preserved (Bug #18)
+    expect(project.canUndo).toBe(true);
     expect(project.fieldPaths()).toContain('old');
   });
 

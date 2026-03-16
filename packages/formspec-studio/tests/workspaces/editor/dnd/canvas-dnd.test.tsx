@@ -38,15 +38,12 @@ describe('Canvas DnD Integration', () => {
     expect(wrapper?.tagName).toBe('DIV');
   });
 
-  it('moveItem dispatch reorders items at root level', () => {
+  it('moveItem reorders items at root level', () => {
     const { project } = renderCanvas();
 
     // Directly call moveItem to verify backend works
     act(() => {
-      project.dispatch({
-        type: 'definition.moveItem',
-        payload: { sourcePath: 'fieldB', targetIndex: 0 },
-      });
+      project.moveItem('fieldB', undefined, 0);
     });
 
     const keys = project.definition.items.map((i: any) => i.key);
@@ -54,14 +51,11 @@ describe('Canvas DnD Integration', () => {
     expect(keys[1]).toBe('fieldA');
   });
 
-  it('moveItem dispatch moves item into a group', () => {
+  it('moveItem moves item into a group', () => {
     const { project } = renderCanvas();
 
     act(() => {
-      project.dispatch({
-        type: 'definition.moveItem',
-        payload: { sourcePath: 'fieldA', targetParentPath: 'groupX', targetIndex: 0 },
-      });
+      project.moveItem('fieldA', 'groupX', 0);
     });
 
     const root = project.definition.items as any[];
@@ -70,14 +64,11 @@ describe('Canvas DnD Integration', () => {
     expect(root.find((i: any) => i.key === 'fieldA')).toBeUndefined();
   });
 
-  it('moveItem dispatch moves item out of a group to root', () => {
+  it('moveItem moves item out of a group to root', () => {
     const { project } = renderCanvas();
 
     act(() => {
-      project.dispatch({
-        type: 'definition.moveItem',
-        payload: { sourcePath: 'groupX.child1', targetIndex: 0 },
-      });
+      project.moveItem('groupX.child1', undefined, 0);
     });
 
     const root = project.definition.items as any[];
@@ -99,9 +90,9 @@ describe('Canvas DnD Integration', () => {
     });
 
     act(() => {
-      project.batch([
-        { type: 'definition.moveItem', payload: { sourcePath: 'a', targetParentPath: 'target', targetIndex: 0 } },
-        { type: 'definition.moveItem', payload: { sourcePath: 'b', targetParentPath: 'target', targetIndex: 1 } },
+      project.moveItems([
+        { sourcePath: 'a', targetParentPath: 'target', targetIndex: 0 },
+        { sourcePath: 'b', targetParentPath: 'target', targetIndex: 1 },
       ]);
     });
 
@@ -128,9 +119,9 @@ describe('Canvas DnD Integration', () => {
     expect(block.className).toContain('accent');
   });
 
-  it('moving a field into a Card via component.moveNode keeps the field renderable', () => {
+  it('moving a field into a Card via component tree keeps the field renderable', () => {
     // In wizard mode, fields must stay inside their page group in the definition.
-    // Layout containers are definition-transparent — only component.moveNode is needed.
+    // Layout containers are definition-transparent — only component tree changes needed.
     const wizardDef = {
       $formspec: '1.0', url: 'urn:wizard-card', version: '1.0.0',
       formPresentation: { pageMode: 'wizard' },
@@ -141,29 +132,31 @@ describe('Canvas DnD Integration', () => {
         ]},
       ],
     };
-    const { project } = renderCanvas(wizardDef);
-
-    // Add a Card at root
-    let cardNodeId: string;
-    act(() => {
-      const result = project.dispatch({
-        type: 'component.addNode',
-        payload: { parent: { nodeId: 'root' }, component: 'Card' },
-      });
-      cardNodeId = (result as any).nodeRef.nodeId;
-    });
-
-    // Move field into Card (component tree only — no definition change)
-    act(() => {
-      project.dispatch({
-        type: 'component.moveNode',
-        payload: {
-          source: { bind: 'name' },
-          targetParent: { nodeId: cardNodeId },
-          targetIndex: 0,
-        },
-      });
-    });
+    // Seed a component tree with name already inside a Card at root level
+    const comp = {
+      $formspecComponent: '1.0',
+      targetDefinition: { url: 'urn:wizard-card' },
+      tree: {
+        component: 'Stack', nodeId: 'root', children: [
+          { component: 'Stack', bind: 'page1', children: [
+            { component: 'TextInput', bind: 'email' },
+          ]},
+          { component: 'Card', nodeId: 'card1', _layout: true, children: [
+            { component: 'TextInput', bind: 'name' },
+          ]},
+        ],
+      },
+    };
+    const project = createProject({ seed: { definition: wizardDef as any, component: comp as any } });
+    render(
+      <ProjectProvider project={project}>
+        <SelectionProvider>
+          <ActivePageProvider>
+            <EditorCanvas />
+          </ActivePageProvider>
+        </SelectionProvider>
+      </ProjectProvider>,
+    );
 
     // Component tree: Card should contain the name field
     const tree = project.component.tree as any;
@@ -180,7 +173,7 @@ describe('Canvas DnD Integration', () => {
     expect(screen.getByTestId('field-name')).toBeVisible();
   });
 
-  it('moving a display item into a Card via component.moveNode keeps it renderable', () => {
+  it('moving a display item into a Card via component tree keeps it renderable', () => {
     const wizardDef = {
       $formspec: '1.0', url: 'urn:wizard-display-card', version: '1.0.0',
       formPresentation: { pageMode: 'wizard' },
@@ -191,32 +184,34 @@ describe('Canvas DnD Integration', () => {
         ]},
       ],
     };
-    const { project } = renderCanvas(wizardDef);
+    // Seed a component tree with heading1 already inside a Card at root level
+    const comp = {
+      $formspecComponent: '1.0',
+      targetDefinition: { url: 'urn:wizard-display-card' },
+      tree: {
+        component: 'Stack', nodeId: 'root', children: [
+          { component: 'Stack', bind: 'page1', children: [
+            { component: 'TextInput', bind: 'name' },
+          ]},
+          { component: 'Card', nodeId: 'card1', _layout: true, children: [
+            { component: 'Text', nodeId: 'heading1', text: 'Section Title' },
+          ]},
+        ],
+      },
+    };
+    const project = createProject({ seed: { definition: wizardDef as any, component: comp as any } });
+    render(
+      <ProjectProvider project={project}>
+        <SelectionProvider>
+          <ActivePageProvider>
+            <EditorCanvas />
+          </ActivePageProvider>
+        </SelectionProvider>
+      </ProjectProvider>,
+    );
 
-    // Display node should be visible initially
+    // Display node should be visible
     expect(screen.getByTestId('display-heading1')).toBeVisible();
-
-    // Add a Card at root
-    let cardNodeId: string;
-    act(() => {
-      const result = project.dispatch({
-        type: 'component.addNode',
-        payload: { parent: { nodeId: 'root' }, component: 'Card' },
-      });
-      cardNodeId = (result as any).nodeRef.nodeId;
-    });
-
-    // Move display item into Card (component tree only)
-    act(() => {
-      project.dispatch({
-        type: 'component.moveNode',
-        payload: {
-          source: { nodeId: 'heading1' },
-          targetParent: { nodeId: cardNodeId },
-          targetIndex: 0,
-        },
-      });
-    });
 
     // Component tree: Card should contain the display node
     const tree = project.component.tree as any;

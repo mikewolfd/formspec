@@ -16,7 +16,9 @@ const dataDef = {
 
 function renderDS(def?: any) {
   const project = createProject({ seed: { definition: def || dataDef } });
-  const dispatchSpy = vi.spyOn(project, 'dispatch');
+  const addInstanceSpy = vi.spyOn(project, 'addInstance');
+  const updateInstanceSpy = vi.spyOn(project, 'updateInstance');
+  const removeInstanceSpy = vi.spyOn(project, 'removeInstance');
   return {
     ...render(
       <ProjectProvider project={project}>
@@ -25,7 +27,9 @@ function renderDS(def?: any) {
         </SelectionProvider>
       </ProjectProvider>
     ),
-    dispatchSpy,
+    addInstanceSpy,
+    updateInstanceSpy,
+    removeInstanceSpy,
   };
 }
 
@@ -65,20 +69,15 @@ describe('DataSources', () => {
     expect(screen.getByText(/e\.g\./i)).toBeInTheDocument();
   });
 
-  it('pressing Enter in name input dispatches addInstance and auto-expands', async () => {
-    const { dispatchSpy } = renderDS({ $formspec: '1.0', url: 'urn:test', version: '1.0.0', items: [] });
+  it('pressing Enter in name input calls project.addInstance and auto-expands', async () => {
+    const { addInstanceSpy } = renderDS({ $formspec: '1.0', url: 'urn:test', version: '1.0.0', items: [] });
     fireEvent.click(screen.getByRole('button', { name: /add source/i }));
 
     const input = screen.getByPlaceholderText(/patient_record/);
     fireEvent.change(input, { target: { value: 'my_api' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.addInstance',
-        payload: { name: 'my_api' },
-      })
-    );
+    expect(addInstanceSpy).toHaveBeenCalledWith('my_api', {});
   });
 
   it('Escape cancels the add flow', () => {
@@ -100,7 +99,7 @@ describe('DataSources', () => {
   // --- Expanded editor ---
 
   it('expanded card shows source field with placeholder example', async () => {
-    const { dispatchSpy } = renderDS();
+    renderDS();
     const card = screen.getByTestId('instance-counties');
     await act(async () => {
       fireEvent.click(within(card).getByText('counties'));
@@ -128,8 +127,8 @@ describe('DataSources', () => {
     expect(screen.getAllByText(/@instance\('counties'\)/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('edit source dispatches definition.setInstance with { name, property, value }', async () => {
-    const { dispatchSpy } = renderDS();
+  it('edit source calls project.updateInstance with source property', async () => {
+    const { updateInstanceSpy } = renderDS();
     const card = screen.getByTestId('instance-counties');
     await act(async () => {
       fireEvent.click(within(card).getByText('counties'));
@@ -144,16 +143,11 @@ describe('DataSources', () => {
     fireEvent.change(sourceTextarea, { target: { value: 'https://new-api.com/counties' } });
     fireEvent.keyDown(sourceTextarea, { key: 'Enter', metaKey: true });
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setInstance',
-        payload: { name: 'counties', property: 'source', value: 'https://new-api.com/counties' },
-      })
-    );
+    expect(updateInstanceSpy).toHaveBeenCalledWith('counties', { source: 'https://new-api.com/counties' });
   });
 
-  it('edit description dispatches definition.setInstance', async () => {
-    const { dispatchSpy } = renderDS();
+  it('edit description calls project.updateInstance with description property', async () => {
+    const { updateInstanceSpy } = renderDS();
     const card = screen.getByTestId('instance-counties');
     await act(async () => {
       fireEvent.click(within(card).getByText('counties'));
@@ -163,16 +157,11 @@ describe('DataSources', () => {
     fireEvent.change(desc, { target: { value: 'County lookup data' } });
     fireEvent.blur(desc);
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setInstance',
-        payload: { name: 'counties', property: 'description', value: 'County lookup data' },
-      })
-    );
+    expect(updateInstanceSpy).toHaveBeenCalledWith('counties', { description: 'County lookup data' });
   });
 
-  it('delete dispatches definition.deleteInstance with { name }', async () => {
-    const { dispatchSpy } = renderDS();
+  it('delete calls project.removeInstance', async () => {
+    const { removeInstanceSpy } = renderDS();
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     const card = screen.getByTestId('instance-counties');
     await act(async () => {
@@ -183,16 +172,11 @@ describe('DataSources', () => {
       screen.getByRole('button', { name: /delete/i }).click();
     });
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.deleteInstance',
-        payload: { name: 'counties' },
-      })
-    );
+    expect(removeInstanceSpy).toHaveBeenCalledWith('counties');
   });
 
-  it('static checkbox dispatches definition.setInstance with { name, property: "static", value }', async () => {
-    const { dispatchSpy } = renderDS();
+  it('static checkbox calls project.updateInstance with static property', async () => {
+    const { updateInstanceSpy } = renderDS();
     const card = screen.getByTestId('instance-counties');
     await act(async () => {
       fireEvent.click(within(card).getByText('counties'));
@@ -201,12 +185,7 @@ describe('DataSources', () => {
     const checkbox = screen.getByRole('checkbox', { name: /static/i });
     fireEvent.click(checkbox);
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setInstance',
-        payload: { name: 'counties', property: 'static', value: true },
-      })
-    );
+    expect(updateInstanceSpy).toHaveBeenCalledWith('counties', { static: true });
   });
 
   it('expanded card shows data format requirements', async () => {
@@ -248,8 +227,8 @@ describe('DataSources', () => {
     expect(textarea).toHaveValue(JSON.stringify({ maxRetries: 3, region: 'us-east' }, null, 2));
   });
 
-  it('pasting valid JSON into data editor dispatches setInstance', async () => {
-    const { dispatchSpy } = renderDS();
+  it('pasting valid JSON into data editor calls project.updateInstance', async () => {
+    const { updateInstanceSpy } = renderDS();
     const card = screen.getByTestId('instance-counties');
     await act(async () => {
       fireEvent.click(within(card).getByText('counties'));
@@ -260,30 +239,25 @@ describe('DataSources', () => {
     fireEvent.change(textarea, { target: { value: json } });
     fireEvent.blur(textarea);
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setInstance',
-        payload: { name: 'counties', property: 'data', value: [{ code: 'US', name: 'United States' }] },
-      })
-    );
+    expect(updateInstanceSpy).toHaveBeenCalledWith('counties', { data: [{ code: 'US', name: 'United States' }] });
   });
 
-  it('invalid JSON shows error message without dispatching', async () => {
-    const { dispatchSpy } = renderDS();
+  it('invalid JSON shows error message without calling updateInstance for data', async () => {
+    const { updateInstanceSpy } = renderDS();
     const card = screen.getByTestId('instance-counties');
     await act(async () => {
       fireEvent.click(within(card).getByText('counties'));
     });
     const editor = screen.getByTestId('inline-data-editor');
     const textarea = within(editor).getByRole('textbox');
-    dispatchSpy.mockClear();
+    updateInstanceSpy.mockClear();
     fireEvent.change(textarea, { target: { value: '{ not valid json' } });
     fireEvent.blur(textarea);
 
     expect(screen.getByText(/invalid json/i)).toBeInTheDocument();
-    // Should not have dispatched a setInstance for 'data'
-    const dataCalls = dispatchSpy.mock.calls.filter(
-      ([cmd]: any) => cmd.type === 'definition.setInstance' && cmd.payload?.property === 'data'
+    // Should not have called updateInstance for 'data'
+    const dataCalls = updateInstanceSpy.mock.calls.filter(
+      ([name, changes]: any) => changes?.data !== undefined
     );
     expect(dataCalls).toHaveLength(0);
   });

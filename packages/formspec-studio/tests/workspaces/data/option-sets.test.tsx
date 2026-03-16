@@ -20,7 +20,9 @@ const dataDef = {
 
 function renderOS(def?: any) {
   const project = createProject({ seed: { definition: def || dataDef } });
-  const dispatchSpy = vi.spyOn(project, 'dispatch');
+  const defineChoicesSpy = vi.spyOn(project, 'defineChoices');
+  const updateOptionSetSpy = vi.spyOn(project, 'updateOptionSet');
+  const deleteOptionSetSpy = vi.spyOn(project, 'deleteOptionSet');
   return {
     ...render(
       <ProjectProvider project={project}>
@@ -29,7 +31,9 @@ function renderOS(def?: any) {
         </SelectionProvider>
       </ProjectProvider>
     ),
-    dispatchSpy,
+    defineChoicesSpy,
+    updateOptionSetSpy,
+    deleteOptionSetSpy,
   };
 }
 
@@ -68,19 +72,14 @@ describe('OptionSets', () => {
     expect(screen.getByText(/e\.g\./i)).toBeInTheDocument();
   });
 
-  it('pressing Enter dispatches setOptionSet and auto-expands', () => {
-    const { dispatchSpy } = renderOS();
+  it('pressing Enter calls project.defineChoices and auto-expands', () => {
+    const { defineChoicesSpy } = renderOS();
     fireEvent.click(screen.getByRole('button', { name: /new table/i }));
     const input = screen.getByPlaceholderText(/state_codes/);
     fireEvent.change(input, { target: { value: 'sizes' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setOptionSet',
-        payload: { name: 'sizes', options: [] },
-      })
-    );
+    expect(defineChoicesSpy).toHaveBeenCalledWith('sizes', []);
   });
 
   it('Escape cancels the add flow', () => {
@@ -118,8 +117,8 @@ describe('OptionSets', () => {
     expect(screen.getByText(/"optionSet": "colors"/)).toBeInTheDocument();
   });
 
-  it('edit option value dispatches definition.setOptionSetProperty', async () => {
-    const { dispatchSpy } = renderOS();
+  it('edit option value calls project.updateOptionSet', async () => {
+    const { updateOptionSetSpy } = renderOS();
     const card = screen.getByTestId('option-set-colors');
     await act(async () => {
       fireEvent.click(within(card).getByText('colors'));
@@ -129,19 +128,15 @@ describe('OptionSets', () => {
     fireEvent.change(valueInputs[0], { target: { value: 'crimson' } });
     fireEvent.blur(valueInputs[0]);
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setOptionSetProperty',
-        payload: expect.objectContaining({
-          name: 'colors',
-          property: 'options',
-        }),
-      })
+    expect(updateOptionSetSpy).toHaveBeenCalledWith(
+      'colors',
+      'options',
+      expect.any(Array),
     );
   });
 
-  it('delete dispatches definition.deleteOptionSet', async () => {
-    const { dispatchSpy } = renderOS();
+  it('delete calls project.deleteOptionSet', async () => {
+    const { deleteOptionSetSpy } = renderOS();
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     const card = screen.getByTestId('option-set-colors');
     await act(async () => {
@@ -152,15 +147,10 @@ describe('OptionSets', () => {
       screen.getByRole('button', { name: /delete/i }).click();
     });
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.deleteOptionSet',
-        payload: { name: 'colors' },
-      })
-    );
+    expect(deleteOptionSetSpy).toHaveBeenCalledWith('colors');
   });
 
-  it('remote source editing via InlineExpression', async () => {
+  it('remote source editing via InlineExpression calls project.updateOptionSet', async () => {
     const remoteDef = {
       $formspec: '1.0', url: 'urn:test', version: '1.0.0',
       items: [],
@@ -168,7 +158,7 @@ describe('OptionSets', () => {
         countries: { source: 'https://api.example.com/countries' },
       },
     };
-    const { dispatchSpy } = renderOS(remoteDef);
+    const { updateOptionSetSpy } = renderOS(remoteDef);
     const card = screen.getByTestId('option-set-countries');
     await act(async () => {
       fireEvent.click(within(card).getByText('countries'));
@@ -179,11 +169,6 @@ describe('OptionSets', () => {
     fireEvent.change(textarea, { target: { value: 'https://new-api.com/countries' } });
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
 
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'definition.setOptionSetProperty',
-        payload: { name: 'countries', property: 'source', value: 'https://new-api.com/countries' },
-      })
-    );
+    expect(updateOptionSetSpy).toHaveBeenCalledWith('countries', 'source', 'https://new-api.com/countries');
   });
 });

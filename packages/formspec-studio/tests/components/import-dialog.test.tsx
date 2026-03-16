@@ -108,10 +108,7 @@ describe('ImportDialog', () => {
     const project = createProject();
 
     // Make an edit so there is something on the undo stack.
-    project.dispatch({
-      type: 'definition.addItem',
-      payload: { key: 'beforeImport', type: 'field', dataType: 'string', label: 'Before Import' },
-    });
+    project.addField('beforeImport', 'Before Import', 'string');
     expect(project.canUndo).toBe(true);
 
     const onClose = vi.fn();

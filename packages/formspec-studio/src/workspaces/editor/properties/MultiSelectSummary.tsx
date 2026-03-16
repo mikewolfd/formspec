@@ -14,20 +14,14 @@ export function MultiSelectSummary({
   const handleBatchDelete = () => {
     const pruned = pruneDescendants(selectedKeys);
     const sorted = sortForBatchDelete(pruned);
-    project.batch(sorted.map((path: string) => ({
-      type: 'definition.deleteItem',
-      payload: { path },
-    })));
+    project.batchDeleteItems(sorted);
     deselect();
   };
 
   const handleBatchDuplicate = () => {
     const pruned = pruneDescendants(selectedKeys);
     const sorted = sortForBatchDelete(pruned);
-    project.batch(sorted.map((path: string) => ({
-      type: 'definition.duplicateItem',
-      payload: { path },
-    })));
+    project.batchDuplicateItems(sorted);
   };
 
   return (

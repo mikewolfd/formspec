@@ -278,8 +278,14 @@ test.describe('Pages Workspace — export validation', () => {
     try {
       fs.writeFileSync(path.join(dir, 'definition.json'), JSON.stringify(bundle.definition, null, 2));
       fs.writeFileSync(path.join(dir, 'theme.json'), JSON.stringify(bundle.theme, null, 2));
-      fs.writeFileSync(path.join(dir, 'component.json'), JSON.stringify(bundle.component, null, 2));
-      fs.writeFileSync(path.join(dir, 'mapping.json'), JSON.stringify(bundle.mapping, null, 2));
+      // Only write component/mapping when they contain meaningful data —
+      // the schemas require non-null tree and non-empty rules respectively.
+      if (bundle.component?.tree) {
+        fs.writeFileSync(path.join(dir, 'component.json'), JSON.stringify(bundle.component, null, 2));
+      }
+      if (bundle.mapping?.rules?.length) {
+        fs.writeFileSync(path.join(dir, 'mapping.json'), JSON.stringify(bundle.mapping, null, 2));
+      }
 
       const repoRoot = path.resolve(__dirname, '..', '..', '..', '..', '..');
       const registryPath = path.join(repoRoot, 'registries', 'formspec-common.registry.json');

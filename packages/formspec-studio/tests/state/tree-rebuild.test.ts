@@ -17,7 +17,7 @@ type TreeNode = {
 
 /** Helper: get the component tree root from a project. */
 function getTree(project: any): TreeNode {
-  return project.generatedComponent.tree as TreeNode;
+  return (project.effectiveComponent as any).tree as TreeNode;
 }
 
 /** Helper: find a node by nodeId (BFS). */
@@ -54,6 +54,14 @@ function collectLayoutNodes(root: TreeNode): TreeNode[] {
   return result;
 }
 
+/**
+ * Helper: access the internal core dispatch for operations not exposed by the
+ * public Project API (e.g. wrapping a layout node by nodeId, setting wrapper props).
+ */
+function coreDispatch(project: any, command: Record<string, unknown>) {
+  return project.core.dispatch(command);
+}
+
 const baseDef = {
   $formspec: '1.0',
   url: 'urn:test',
@@ -70,10 +78,7 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     const project = createProject({ seed: { definition: baseDef as any } });
 
     // Wrap 'name' in a Card
-    project.dispatch({
-      type: 'component.wrapNode',
-      payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
-    });
+    project.wrapInLayoutComponent('name', 'Card');
 
     const tree1 = getTree(project);
     const wrappers1 = collectLayoutNodes(tree1);
@@ -81,10 +86,7 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     expect(wrappers1[0].component).toBe('Card');
 
     // Now add a new field — triggers rebuildComponentTree
-    project.dispatch({
-      type: 'definition.addItem',
-      payload: { parentPath: null, item: { key: 'phone', type: 'field', dataType: 'string' } },
-    });
+    project.addField('phone', 'Phone', 'string');
 
     const tree2 = getTree(project);
     const wrappers2 = collectLayoutNodes(tree2);
@@ -100,20 +102,18 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     const project = createProject({ seed: { definition: baseDef as any } });
 
     // Wrap 'name' in a Card
-    const wrapResult = project.dispatch({
-      type: 'component.wrapNode',
-      payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
-    });
-    const cardNodeId = (wrapResult as any).nodeRef.nodeId;
+    const wrapResult = project.wrapInLayoutComponent('name', 'Card');
+    const cardNodeId = wrapResult.createdId!;
 
-    // Move 'age' into the Card
-    project.dispatch({
+    // Move 'age' into the Card (use core dispatch — moveLayoutNode only accepts nodeId,
+    // but generated bound nodes may not have nodeIds assigned)
+    coreDispatch(project, {
       type: 'component.moveNode',
       payload: { source: { bind: 'age' }, targetParent: { nodeId: cardNodeId }, targetIndex: 1 },
     });
 
-    // Now wrap the Card itself in a Stack
-    project.dispatch({
+    // Now wrap the Card itself in a Stack (requires core dispatch — not exposed via public API)
+    coreDispatch(project, {
       type: 'component.wrapNode',
       payload: { node: { nodeId: cardNodeId }, wrapper: { component: 'Stack' } },
     });
@@ -123,10 +123,7 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     expect(layouts1).toHaveLength(2); // Stack + Card
 
     // Trigger rebuild by adding a field
-    project.dispatch({
-      type: 'definition.addItem',
-      payload: { parentPath: null, item: { key: 'phone', type: 'field', dataType: 'string' } },
-    });
+    project.addField('phone', 'Phone', 'string');
 
     const tree2 = getTree(project);
     const layouts2 = collectLayoutNodes(tree2);
@@ -138,23 +135,18 @@ describe('_rebuildComponentTree wrapper preservation', () => {
   it('preserves wrapper when some of its children are deleted', () => {
     const project = createProject({ seed: { definition: baseDef as any } });
 
-    // Wrap 'name' and 'age' in a Card
-    const wrapResult = project.dispatch({
-      type: 'component.wrapNode',
-      payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
-    });
-    const cardNodeId = (wrapResult as any).nodeRef.nodeId;
+    // Wrap 'name' in a Card
+    const wrapResult = project.wrapInLayoutComponent('name', 'Card');
+    const cardNodeId = wrapResult.createdId!;
 
-    project.dispatch({
+    // Move 'age' into the Card (use core dispatch — bound nodes may lack nodeIds)
+    coreDispatch(project, {
       type: 'component.moveNode',
       payload: { source: { bind: 'age' }, targetParent: { nodeId: cardNodeId } },
     });
 
     // Delete 'age' from definition — triggers rebuild
-    project.dispatch({
-      type: 'definition.deleteItem',
-      payload: { path: 'age' },
-    });
+    project.removeItem('age');
 
     const tree2 = getTree(project);
     const wrappers = collectLayoutNodes(tree2);
@@ -169,16 +161,10 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     const project = createProject({ seed: { definition: baseDef as any } });
 
     // Wrap 'name' in a Card
-    project.dispatch({
-      type: 'component.wrapNode',
-      payload: { node: { bind: 'name' }, wrapper: { component: 'Card' } },
-    });
+    project.wrapInLayoutComponent('name', 'Card');
 
     // Delete 'name' from definition — triggers rebuild
-    project.dispatch({
-      type: 'definition.deleteItem',
-      payload: { path: 'name' },
-    });
+    project.removeItem('name');
 
     const tree = getTree(project);
     const wrappers = collectLayoutNodes(tree);
@@ -191,8 +177,8 @@ describe('_rebuildComponentTree wrapper preservation', () => {
   it('preserves wrapper props (title, style) across rebuild', () => {
     const project = createProject({ seed: { definition: baseDef as any } });
 
-    // Wrap 'name' in a Card with props
-    project.dispatch({
+    // Wrap 'name' in a Card with props (requires core dispatch — public API does not support props in wrap)
+    coreDispatch(project, {
       type: 'component.wrapNode',
       payload: {
         node: { bind: 'name' },
@@ -201,10 +187,7 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     });
 
     // Trigger rebuild
-    project.dispatch({
-      type: 'definition.addItem',
-      payload: { parentPath: null, item: { key: 'phone', type: 'field', dataType: 'string' } },
-    });
+    project.addField('phone', 'Phone', 'string');
 
     const tree = getTree(project);
     const wrappers = collectLayoutNodes(tree);
@@ -217,10 +200,7 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     const project = createProject({ seed: { definition: baseDef as any } });
 
     // Wrap 'age' (the second item) in a Card
-    project.dispatch({
-      type: 'component.wrapNode',
-      payload: { node: { bind: 'age' }, wrapper: { component: 'Card' } },
-    });
+    project.wrapInLayoutComponent('age', 'Card');
 
     // Root should be: [name, Card(age), email]
     const tree1 = getTree(project);
@@ -229,10 +209,7 @@ describe('_rebuildComponentTree wrapper preservation', () => {
     expect(tree1.children![2].bind).toBe('email');
 
     // Trigger rebuild
-    project.dispatch({
-      type: 'definition.addItem',
-      payload: { parentPath: null, item: { key: 'phone', type: 'field', dataType: 'string' } },
-    });
+    project.addField('phone', 'Phone', 'string');
 
     // After rebuild: Card should still be between name and email
     // (phone appended at root)

@@ -27,10 +27,7 @@ describe('Undo/Redo', () => {
     const { project } = renderWithProject();
 
     act(() => {
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { key: 'test', type: 'field', dataType: 'string' }
-      });
+      project.addField('test', 'Test', 'string');
     });
     expect(screen.getByTestId('field-test')).toBeInTheDocument();
 
@@ -42,10 +39,7 @@ describe('Undo/Redo', () => {
     const { project } = renderWithProject();
 
     act(() => {
-      project.dispatch({
-        type: 'definition.addItem',
-        payload: { key: 'test', type: 'field', dataType: 'string' }
-      });
+      project.addField('test', 'Test', 'string');
     });
     expect(screen.getByTestId('field-test')).toBeInTheDocument();
 
@@ -60,10 +54,10 @@ describe('Undo/Redo', () => {
     const { project } = renderWithProject();
 
     act(() => {
-      project.dispatch({ type: 'definition.addItem', payload: { key: 'a', type: 'field', dataType: 'string' } });
+      project.addField('a', 'A', 'string');
     });
     act(() => {
-      project.dispatch({ type: 'definition.addItem', payload: { key: 'b', type: 'field', dataType: 'string' } });
+      project.addField('b', 'B', 'string');
     });
 
     expect(screen.getByTestId('field-a')).toBeInTheDocument();
