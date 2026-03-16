@@ -12,11 +12,16 @@ import pytest
 import jsonschema
 from jsonschema import Draft202012Validator
 
-from tests.unit.support.schema_fixtures import load_schema
+from tests.unit.support.schema_fixtures import load_schema, build_schema_registry
 
 THEME_SCHEMA = load_schema("theme.schema.json")
 DEF_SCHEMA = load_schema("definition.schema.json")
-THEME_V = Draft202012Validator(THEME_SCHEMA)
+COMPONENT_SCHEMA = load_schema("component.schema.json")
+
+# Theme schema cross-references component schema ($defs/TargetDefinition, etc.),
+# so we need a registry with both schemas for $ref resolution.
+_registry = build_schema_registry(THEME_SCHEMA, COMPONENT_SCHEMA)
+THEME_V = Draft202012Validator(THEME_SCHEMA, registry=_registry)
 DEF_V = Draft202012Validator(DEF_SCHEMA)
 
 

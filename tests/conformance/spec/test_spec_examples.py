@@ -461,7 +461,7 @@ class TestThemeDocExamples:
         ids=[_make_id(f, l, h) for f, l, h, _ in THEME_DOC_BLOCKS],
     )
     def test_validates(self, filepath, line_no, heading, obj):
-        validate(obj, THEME_SCHEMA)
+        Draft202012Validator(THEME_SCHEMA, registry=_REGISTRY).validate(obj)
 
 
 # ---------------------------------------------------------------------------
