@@ -1,6 +1,6 @@
 # formspec-webcomponent
 
-`<formspec-render>` — a custom element that binds a `FormEngine` to the DOM. Ships with 37 built-in components, a plugin registry, theme cascade, reactive ARIA attributes, and responsive breakpoint support.
+`<formspec-render>` is a custom element that binds a `FormEngine` to the DOM. It ships 37 built-in components, a plugin registry, a 5-level theme cascade, reactive ARIA attributes, and responsive breakpoint support.
 
 ## Install
 
@@ -8,7 +8,7 @@
 npm install formspec-webcomponent
 ```
 
-The package is ESM-only. Runtime dependencies: `formspec-engine`, `formspec-layout`.
+The package is ESM-only. It requires `formspec-engine` and `formspec-layout` as peer dependencies.
 
 ## Quick Start
 
@@ -21,20 +21,23 @@ customElements.define('formspec-render', FormspecRender);
 const el = document.createElement('formspec-render');
 document.body.appendChild(el);
 
-el.definition = { /* Formspec definition JSON */ };
-el.componentDocument = { /* Component document JSON */ };
-el.themeDocument = { /* Theme document JSON (optional) */ };
+// Set registryDocuments BEFORE definition — the engine is created on `set definition`.
+el.registryDocuments = myRegistryDoc;
+el.definition = myDefinition;
+el.componentDocument = myComponentDoc;
+el.themeDocument = myTheme;
 ```
 
-The element is exported but **not auto-registered** — call `customElements.define()` with your preferred tag name.
+The element is exported but not auto-registered. Call `customElements.define()` with your preferred tag name.
 
 ## Properties
 
 | Property | Type | Description |
 |---|---|---|
-| `definition` | `object` | Formspec definition JSON. Creates a new `FormEngine` and triggers a render. |
-| `componentDocument` | `object` | Component document JSON (layout tree, tokens, breakpoints). |
-| `themeDocument` | `ThemeDocument \| null` | Theme document. Loads/unloads external stylesheets and triggers a render. |
+| `definition` | `object` | Formspec definition JSON. Creates a new `FormEngine` and schedules a render. |
+| `componentDocument` | `object` | Component document JSON (layout tree, tokens, breakpoints). Schedules a render. |
+| `themeDocument` | `ThemeDocument \| null` | Theme document. Loads and unloads external stylesheets and schedules a render. |
+| `registryDocuments` | `object \| object[]` | One or more extension registry documents. Builds an internal extension-name-to-entry map. **Set this before `definition`** — the engine reads registry entries at construction time. |
 
 Setting any property schedules a coalesced re-render via microtask.
 
@@ -45,7 +48,7 @@ Setting any property schedules a coalesced re-render via microtask.
 getEngine(): FormEngine | null
 
 // Diagnostics
-getDiagnosticsSnapshot(options?: { mode?: 'continuous' | 'submit' }): object
+getDiagnosticsSnapshot(options?: { mode?: 'continuous' | 'submit' }): object | null
 
 // Replay
 applyReplayEvent(event: object): { ok: boolean; event: object; error?: string }
@@ -54,7 +57,7 @@ replay(events: object[], options?: { stopOnError?: boolean }): { applied: number
 // Runtime context (inject `now`, user metadata, etc.)
 setRuntimeContext(context: object): void
 
-// Validation & submission
+// Validation and submission
 touchAllFields(): void
 submit(options?: { mode?: 'continuous' | 'submit'; emitEvent?: boolean }): { response: object; validationReport: object } | null
 resolveValidationTarget(resultOrPath: any): ValidationTargetMetadata
@@ -67,7 +70,7 @@ setSubmitPending(pending: boolean): void
 isSubmitPending(): boolean
 
 // Wizard navigation
-goToWizardStep(index: number): void
+goToWizardStep(index: number): boolean
 
 // Screener
 getScreenerState(): ScreenerStateSnapshot
@@ -75,24 +78,25 @@ getScreenerRoute(): ScreenerRoute | null
 skipScreener(): void
 restartScreener(): void
 
-// Force re-render
+// Force synchronous re-render
 render(): void
 ```
 
 ## Events
 
+All events bubble and are composed.
+
 | Event | When | `detail` |
 |---|---|---|
 | `formspec-submit` | `submit()` called with `emitEvent !== false` | `{ response, validationReport }` |
-| `formspec-submit-pending-change` | Pending state toggles | `{ pending: boolean }` |
+| `formspec-submit-pending-change` | Submit pending state toggles | `{ pending: boolean }` |
+| `formspec-screener-state-change` | Screener state changes (definition set, skip, restart, route selected) | `{ hasScreener, completed, routeType, route, reason }` |
 | `formspec-screener-route` | Screener evaluates a route | `{ route, answers, routeType, isInternal }` |
-| `formspec-screener-state-change` | Screener state changes (definition set, skip, restart, route) | `{ hasScreener, completed, routeType, route, reason }` |
-
-All events bubble and are composed.
+| `formspec-page-change` | Wizard navigates to a step | `{ index, total, title }` |
 
 ## Component Registry
 
-All 37 built-in components are registered automatically on import. To add custom components:
+All 37 built-in components register automatically on import. Add custom components by registering a plugin on the global registry singleton.
 
 ```js
 import { globalRegistry } from 'formspec-webcomponent';
@@ -107,43 +111,51 @@ globalRegistry.register({
 });
 ```
 
+Each plugin implements `ComponentPlugin`:
+
+```ts
+interface ComponentPlugin {
+  type: string;
+  render(comp: any, parent: HTMLElement, ctx: RenderContext): void;
+}
+```
+
+`RenderContext` provides engine access, path resolution, theme helpers, signal cleanup tracking, and recursive child rendering. See [`src/types.ts`](src/types.ts) for the full interface.
+
 ### Built-in Components
 
 | Category | Components |
 |---|---|
-| **Layout** | Page, Stack, Grid, Divider, Collapsible, Columns, Panel, Accordion, Modal, Popover |
-| **Input** | TextInput, NumberInput, Select, Toggle, Checkbox, DatePicker, RadioGroup, CheckboxGroup, Slider, Rating, FileUpload, Signature, MoneyInput |
-| **Display** | Heading, Text, Card, Spacer, Alert, Badge, ProgressBar, Summary, ValidationSummary |
-| **Interactive** | Wizard, Tabs, SubmitButton |
-| **Special** | ConditionalGroup, DataTable |
+| **Layout** (10) | Page, Stack, Grid, Divider, Collapsible, Columns, Panel, Accordion, Modal, Popover |
+| **Input** (13) | TextInput, NumberInput, Select, Toggle, Checkbox, DatePicker, RadioGroup, CheckboxGroup, Slider, Rating, FileUpload, Signature, MoneyInput |
+| **Display** (9) | Heading, Text, Card, Spacer, Alert, Badge, ProgressBar, Summary, ValidationSummary |
+| **Interactive** (3) | Wizard, Tabs, SubmitButton |
+| **Special** (2) | ConditionalGroup, DataTable |
 
 ## Theme Cascade
 
-Presentation is resolved through a 5-level cascade (lowest to highest priority):
+The renderer resolves presentation through a 5-level cascade (lowest to highest priority):
 
-1. Form-wide `formPresentation` hints (from the definition)
-2. Per-item `presentation` hints (from the definition item)
+1. Form-wide `formPresentation` hints in the definition
+2. Per-item `presentation` hints in the definition item
 3. Theme `defaults`
 4. Theme `selectors` (document order; later wins)
 5. Theme `items[key]` per-item overrides
 
-Tokens (`$token.spacing.lg`) are resolved from the component document and theme document, then emitted as CSS custom properties (`--formspec-spacing-lg`) on the form container.
+Tokens (`$token.spacing.lg`) resolve from the component document and theme document, then emit as CSS custom properties (`--formspec-spacing-lg`) on the form container.
 
-### External Stylesheets
-
-Theme documents can declare `stylesheets` — an array of CSS URLs. The renderer injects `<link>` elements with ref-counting so multiple `<formspec-render>` instances sharing a theme don't duplicate loads.
+Theme documents may declare a `stylesheets` array of CSS URLs. The renderer injects `<link>` elements with ref-counting so multiple `<formspec-render>` instances sharing a theme do not duplicate loads.
 
 ## Rendering Pipeline
 
-1. **Cleanup** — dispose all previous signal effects
-2. **Breakpoints** — wire `matchMedia` listeners from `componentDocument.breakpoints`
-3. **Validate** — check component document version and target definition match
-4. **Tokens** — emit CSS custom properties onto the `.formspec-container`
-5. **Screener gate** — if a screener is defined and incomplete, render it instead
-6. **Plan** — call `planComponentTree()` (from `formspec-layout`) to produce a `LayoutNode` tree
-7. **Emit** — walk the tree, creating DOM elements, wiring signal effects for reactivity (relevance, validation, repeat instances)
+1. **Cleanup** — dispose all previous signal effects and remove event listeners.
+2. **Breakpoints** — wire `matchMedia` listeners from `componentDocument.breakpoints`.
+3. **Tokens** — emit CSS custom properties onto `.formspec-container`.
+4. **Screener gate** — render the screener if one is defined and not yet completed.
+5. **Plan** — call `planComponentTree()` (from `formspec-layout`) to produce a layout node tree.
+6. **Emit** — walk the tree, create DOM elements, and wire Preact Signal effects for reactivity (relevance, validation, repeat instances).
 
-Each input component gets a fully-wired field wrapper with label, hint, error display, ARIA attributes, and touch tracking — all driven by Preact Signals from the engine.
+Each input component receives a fully wired field wrapper with label, hint, error display, ARIA attributes, and touch tracking driven by signals from the engine.
 
 ## Exports
 

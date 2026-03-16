@@ -118,8 +118,8 @@ Numbers 0024, 0026, 0027, 0028, 0032, 0034, 0038 were execution plans, not decis
 | [studio-fixes-post-review](reviews/2026-03-13-studio-fixes-post-review.md) | 2026-03-13 | Post-review cleanup |
 | [helpers-review](reviews/2026-03-14-formspec-studio-core-helpers-review.md) | 2026-03-14 | C1-C5 critical issues |
 | [helpers-review-v2](reviews/2026-03-14-formspec-studio-core-helpers-review-v2.md) | 2026-03-14 | 4 implementation blockers |
-| [feature-implementation-matrix](reviews/feature-implementation-matrix.md) | Feb 2026 | 200 FULL, 9 PARTIAL, 3 MISSING |
-| [schema-coverage-audit](reviews/schema-coverage-audit.md) | Mar 2026 | Grant app vs schemas |
+| [feature-implementation-matrix](reviews/2026-02-24-feature-implementation-matrix.md) | 2026-02-24 | 200 FULL, 9 PARTIAL, 3 MISSING |
+| [schema-coverage-audit](reviews/2026-02-28-schema-coverage-audit.md) | 2026-02-28 | Grant app vs schemas |
 
 ---
 
@@ -138,6 +138,6 @@ See [studio/README.md](studio/README.md) — 24 artifacts covering Studio v1/v2 
 ## Examples
 
 Reference example implementation plans (formerly `refrence/`):
-- [grant-report-plan](examples/grant_report_plan.md) — Tribal Grant Annual Report
-- [invoice-plan](examples/invoice_plan.md) — Invoice with Line Items
-- [clinical-intake-plan](examples/clinical_intake_plan.md) — Clinical Intake Survey
+- [grant-report-plan](examples/2026-03-04-grant-report-plan.md) — Tribal Grant Annual Report
+- [invoice-plan](examples/2026-03-04-invoice-plan.md) — Invoice with Line Items
+- [clinical-intake-plan](examples/2026-03-04-clinical-intake-plan.md) — Clinical Intake Survey

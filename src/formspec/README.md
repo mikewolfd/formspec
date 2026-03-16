@@ -1,6 +1,6 @@
 # formspec (Python)
 
-`src/formspec/` — Python reference implementation and tooling backend. Implements: FEL (Formspec Expression Language) parse/evaluate/dependency-extract pipeline, a multi-pass static linter, bidirectional format adapters (JSON/XML/CSV), a Mapping DSL engine, changelog generation, and an extension registry client.
+`src/formspec/` — Python reference implementation and tooling backend. Implements the FEL parse/evaluate/dependency-extract pipeline, multi-pass static linter, bidirectional format adapters (JSON/XML/CSV), Mapping DSL engine, changelog generation, and extension registry client.
 
 **Entry point:** `src/formspec/` (namespace package; import from subpackages directly)
 **No re-exports from `__init__.py`** — use `from formspec.fel import ...`, `from formspec.validator import ...`, etc.
@@ -9,7 +9,7 @@
 
 ## FEL — `src/formspec/fel/`
 
-Complete parse-evaluate pipeline for Formspec Expression Language.
+Parse-evaluate pipeline for FEL (Formspec Expression Language).
 
 ### Quick Start
 
@@ -74,13 +74,13 @@ Severity.ERROR, Severity.WARNING
 
 ### Type System (`fel/types.py`)
 
-All FEL values are **frozen dataclasses** for immutability and hashability. Numeric values use `decimal.Decimal` with 34-digit precision and `ROUND_HALF_EVEN` (banker's rounding).
+Every FEL value is a **frozen dataclass** — immutable and hashable. Numerics use `decimal.Decimal` with 34-digit precision and `ROUND_HALF_EVEN` (banker's rounding).
 
 `from_python` auto-detects: `None` → `FelNull`, `bool` → `FelBoolean`, `int`/`float`/`Decimal` → `FelNumber`, `str` → `FelString`, `list`/`tuple` → `FelArray`, `dict` with `{amount, currency}` keys → `FelMoney`, other `dict` → `FelObject`.
 
 ### Parser (`fel/parser.py`)
 
-Scannerless recursive-descent parser operating directly on the source string. Implements the normative PEG grammar.
+Scannerless recursive-descent parser that operates on the source string and implements the PEG grammar.
 
 ```python
 parse(source: str) -> Expr  # Raises FelSyntaxError
@@ -102,13 +102,13 @@ parse(source: str) -> Expr  # Raises FelSyntaxError
 13. Postfix `.field` / `[n]` / `[*]`
 14. Atoms (literals, field refs, context refs, function calls, parens)
 
-`if(...)` is parsed as `FunctionCall('if', ...)`. `if ... then ... else` is the keyword form. The `in` keyword is disambiguated from membership `in` using a parallel no-in grammar branch. `??` distinguished from `?` by lookahead.
+`if(...)` parses as `FunctionCall('if', ...)`. `if ... then ... else` is the keyword form. A parallel no-in grammar branch disambiguates the `in` keyword from membership `in`. Lookahead distinguishes `??` from `?`.
 
 **Reserved words:** `true false null and or not in if then else let`
 
 ### AST Nodes (`fel/ast_nodes.py`)
 
-All nodes are frozen dataclasses with a `pos: SourcePos` field.
+Every node is a frozen dataclass with a `pos: SourcePos` field.
 
 **Path segments:** `DotSegment(name)`, `IndexSegment(index: int)` (1-based), `WildcardSegment()`
 
@@ -155,7 +155,7 @@ class Evaluator:
 - **Decimal arithmetic:** 34-digit precision. Division by zero → `FelNull` + diagnostic (non-fatal).
 - **1-based array indexing** in `[n]` access.
 - **Wildcard access** (`[*]`) maps remaining path across all array elements.
-- **Non-fatal diagnostics:** Errors during evaluation recorded as `Diagnostic` objects; evaluation continues.
+- **Non-fatal diagnostics:** The evaluator records errors as `Diagnostic` objects and continues.
 - **Let-binding scoping:** Push/pop scope stack on `Environment`.
 
 ### Environment (`fel/environment.py`)
@@ -193,7 +193,7 @@ class Environment:
 
 50+ functions. `FuncDef(name, impl, min_args, max_args, propagate_null=True, special_form=False)`.
 
-Special forms receive the evaluator + AST nodes instead of pre-evaluated values (used for `if()`, `countWhere()`, MIP functions, repeat navigation).
+Special forms receive the evaluator and AST nodes rather than pre-evaluated values. Used by `if()`, `countWhere()`, MIP functions, and repeat navigation.
 
 | Category | Functions |
 |---|---|
@@ -208,7 +208,7 @@ Special forms receive the evaluator + AST nodes instead of pre-evaluated values 
 | **MIP-state** | `valid($field)`, `relevant($field)`, `readonly($field)`, `required($field)` [special forms — look up MipState] |
 | **Repeat nav** | `prev()`, `next()`, `parent()` [special forms — operate on RepeatContext] |
 
-`register_extension(registry, name, impl, min_args, max_args)` — validates name against `x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*` pattern and no collision with builtins. Extensions are always null-propagating, never special forms.
+`register_extension(registry, name, impl, min_args, max_args)` — validates the name against pattern `x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*` and rejects collisions with builtins. Extensions are always null-propagating and cannot be special forms.
 
 ### Dependency Extraction (`fel/dependencies.py`)
 
@@ -226,7 +226,7 @@ class DependencySet:
 def extract_dependencies(node) -> DependencySet
 ```
 
-Correctly skips let-bound variables (tracked in `let_vars: set[str]`). `countWhere` skips bare `$` in the predicate (element-bound).
+Skips let-bound variables (tracked in `let_vars: set[str]`). `countWhere` skips bare `$` in the predicate (element-bound).
 
 ---
 
@@ -284,7 +284,7 @@ class LintDiagnostic:
 
 ### Lint Modes
 
-- **`authoring`** — passes diagnostics through unchanged. Lenient for interactive editing.
+- **`authoring`** — passes diagnostics through unchanged; lenient for interactive editing.
 - **`strict`** — escalates specific warnings to errors for CI: `W800` (unresolved bind refs), `W802` (compatibility fallback), `W803` (duplicate editable bindings), `W804` (summary/datatable bind issues).
 
 ### Pipeline Passes
@@ -335,7 +335,7 @@ class LintDiagnostic:
 
 ### Component Compatibility Matrix (`validator/component_matrix.py`)
 
-14 input components mapped to their strict and authoring-mode allowed dataTypes:
+Maps 14 input components to their allowed dataTypes in strict and authoring modes:
 TextInput, NumberInput, DatePicker, Select, CheckboxGroup, Toggle, FileUpload, RadioGroup, MoneyInput, Slider, Rating, Signature.
 
 ```python
@@ -347,7 +347,7 @@ def requires_options_source(component_name: str) -> bool
 
 ## Adapters — `src/formspec/adapters/`
 
-Bidirectional serialization/deserialization. All adapters implement:
+Bidirectional format adapters. Each implements:
 
 ```python
 class Adapter(ABC):
@@ -368,13 +368,13 @@ Config: `pretty` (bool), `sortKeys` (bool), `nullHandling` (`"include"` | `"omit
 
 Config: `declaration` (bool, default true), `indent` (int, default 2), `cdata` (list of paths to wrap in CDATA).
 
-Conventions: keys starting with `@` → XML attributes, lists → repeated sibling elements, dicts → nested elements. Deserialization auto-detects repeated siblings as arrays. Supports namespace registration.
+`@`-prefixed keys become XML attributes; lists become repeated sibling elements; dicts become nested elements. Deserialization auto-detects repeated siblings as arrays. Supports namespace registration.
 
 ### CsvAdapter
 
 Config: `delimiter` (str, default `,`), `quote` (str, default `"`), `header` (bool, default true), `encoding` (str, default `"utf-8"`), `lineEnding` (`"crlf"` | `"lf"`, default `"crlf"`).
 
-Serialization accepts: list of flat dicts, single flat dict, or dict with one list-valued key (repeat group expansion — scalars duplicated across rows). RFC 4180 compliant.
+Accepts a list of flat dicts, a single flat dict, or a dict with one list-valued key (repeat group expansion — scalars duplicate across rows). RFC 4180 compliant.
 
 ---
 
@@ -459,6 +459,34 @@ Compares two definition documents and produces a changelog conforming to `change
 
 ---
 
+## Definition Evaluator — `src/formspec/evaluator.py`
+
+Server-side form processor. Runs four phases per submission: rebuild (init) → recalculate → revalidate → apply non-relevant behavior (NRB).
+
+```python
+from formspec.evaluator import DefinitionEvaluator, ProcessingResult
+
+ev = DefinitionEvaluator(definition)
+result = ev.process(submitted_data)   # ProcessingResult
+results = ev.validate(submitted_data) # list[dict] convenience
+```
+
+### ProcessingResult
+
+```python
+@dataclass
+class ProcessingResult:
+    valid: bool
+    results: list[dict]         # Validation results
+    data: dict                  # Processed response data
+    variables: dict[str, FelValue]
+    counts: dict[str, int]      # Repeat group instance counts
+```
+
+Instantiate `DefinitionEvaluator` once per definition; call `process()` for each submission. Accepts optional `registries: list[Registry]` for extension constraint validation. Also provides `evaluate_screener(answers)` for pre-form screening logic.
+
+---
+
 ## Extension Registry — `src/formspec/registry.py`
 
 ```python
@@ -476,7 +504,7 @@ valid = validate_lifecycle_transition("draft", "stable")  # True
 
 **Valid statuses:** `draft`, `stable`, `deprecated`, `retired`.
 
-**Lifecycle transitions:** draft/stable/deprecated → any except retired→anything. `retired` is terminal.
+**Lifecycle transitions:** draft, stable, or deprecated can transition to any other status. `retired` is terminal.
 
 **`Registry.find`** supports semver constraints (e.g., `">=1.0.0 <2.0.0"`), sorts by version descending.
 
@@ -486,13 +514,52 @@ valid = validate_lifecycle_transition("draft", "stable")  # True
 
 ---
 
+## Artifact Validator — `src/formspec/validate.py`
+
+Auto-discovers and validates all Formspec JSON artifacts in a directory. Runs 10 passes that exercise the full toolchain: linting, schema validation, runtime evaluation, mapping, changelog generation, registry checks, and FEL expression parsing.
+
+### CLI
+
+```bash
+python3 -m formspec.validate path/to/artifacts/
+python3 -m formspec.validate path/to/artifacts/ --registry common.registry.json
+python3 -m formspec.validate path/to/artifacts/ --title "My Project"
+```
+
+### Library API
+
+```python
+from formspec.validate import discover_artifacts, validate_all, print_report
+
+artifacts = discover_artifacts(Path("my-project/"))
+report = validate_all(artifacts)
+sys.exit(print_report(report))  # 0 = success, >0 = error count
+```
+
+### Validation Passes
+
+1. Definition linting
+2. Sidecar linting
+3. Theme linting
+4. Component linting
+5. Response schema validation
+6. Runtime evaluation (via `DefinitionEvaluator`)
+7. Mapping forward transform
+8. Changelog generation
+9. Registry validation
+10. FEL expression parsing
+
+Each pass returns a `PassResult` with per-item success/failure and diagnostics. `print_report()` renders colored terminal output.
+
+---
+
 ## Architectural Patterns
 
-- **Frozen dataclasses everywhere** — AST nodes, diagnostics, FEL values, type wrappers are all frozen/immutable for safe sharing and hashability.
-- **Singleton pattern** — `FelNull`, `FelTrue`, `FelFalse`, `_DROP_SENTINEL` use singletons for identity comparison.
-- **Special-form functions** — Functions needing access to unevaluated AST (e.g., `if()`, `countWhere()`, MIP functions, repeat navigation) receive evaluator + AST nodes rather than pre-evaluated arguments.
-- **`propagate_null` flag** on `FuncDef` — enables automatic null propagation before function invocation. Aggregates, type-checkers, and casts set `propagate_null=False` for custom null handling.
-- **Multi-pass linter** — Schema validation gates semantic analysis. Structural errors halt further passes. Each pass is a separate module with clean inputs/outputs.
-- **Policy-driven severity** — authoring/strict split is a post-pass transform on diagnostics; individual check modules are mode-agnostic.
-- **Adapter abstraction** — `Adapter` ABC with `serialize/deserialize` cleanly decouples the mapping engine from wire formats. Custom adapters use `x-` prefix convention.
-- **Environment scoping** — let-bindings and `countWhere` element bindings use a push/pop scope stack for lexical scoping without mutation.
+- **Frozen dataclasses everywhere** — AST nodes, diagnostics, FEL values, and type wrappers freeze for safe sharing and hashability.
+- **Singletons** — `FelNull`, `FelTrue`, `FelFalse`, `_DROP_SENTINEL` enable identity comparison.
+- **Special-form functions** — Functions that need unevaluated AST (e.g., `if()`, `countWhere()`, MIP functions, repeat navigation) receive the evaluator and AST nodes rather than pre-evaluated arguments.
+- **`propagate_null` flag** on `FuncDef` — triggers automatic null propagation before invocation. Aggregates, type-checkers, and casts set `propagate_null=False` for custom null handling.
+- **Multi-pass linter** — Schema validation gates semantic analysis; structural errors halt further passes. Each pass lives in a separate module with defined inputs and outputs.
+- **Policy-driven severity** — The authoring/strict split transforms diagnostics after each pass; check modules themselves stay mode-agnostic.
+- **Adapter abstraction** — The `Adapter` ABC (`serialize`/`deserialize`) decouples the mapping engine from wire formats. Custom adapters use the `x-` prefix.
+- **Environment scoping** — Let-bindings and `countWhere` element bindings use a push/pop scope stack for lexical scoping without mutation.

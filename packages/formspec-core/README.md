@@ -2,14 +2,14 @@
 
 Raw project state management for Formspec. Command dispatch, handler pipeline, undo/redo, cross-artifact normalization, and diagnostics.
 
-This package owns the `RawProject` class (implementing `IProjectCore`) and the full handler table -- 122 commands across definition, component, theme, mapping, and project areas. It is the foundation that `formspec-studio-core` composes over.
+This package owns the `RawProject` class (implementing `IProjectCore`) and the full handler table — 130 commands across definition, component, theme, mapping, pages, and project areas. It is the foundation that `formspec-studio-core` composes over.
 
 It manages four editable artifacts:
 
-- `definition` -- form structure and behavior (items, binds, shapes, variables)
-- `component` -- UI tree and widget configuration
-- `theme` -- presentation tokens and cascade rules
-- `mapping` -- bidirectional data transforms
+- `definition` — form structure and behavior (items, binds, shapes, variables)
+- `component` — UI tree and widget configuration
+- `theme` — presentation tokens and cascade rules
+- `mapping` — bidirectional data transforms
 
 ## Install
 
@@ -42,7 +42,7 @@ project.batch([
   },
 ]);
 
-console.log(project.fieldPaths());   // ['fullName']
+console.log(project.fieldPaths());    // ['fullName']
 console.log(project.bindFor('fullName'));
 
 const bundle = project.export();
@@ -56,7 +56,7 @@ const bundle = project.export();
 RawProject (facade)
  ├── CommandPipeline     — phase-aware dispatch with middleware
  ├── HistoryManager      — undo/redo stacks and command log
- ├── handlers/           — 16 handler modules aggregated into builtinHandlers
+ ├── handlers/           — 17 handler modules aggregated into builtinHandlers
  ├── queries/            — 7 pure-function query modules
  ├── tree-reconciler     — definition → component tree reconciliation
  └── state-normalizer    — cross-artifact invariant enforcement
@@ -66,23 +66,27 @@ RawProject (facade)
 
 | Module | Responsibility |
 |--------|---------------|
-| `pipeline.ts` | `CommandPipeline` class: clones state, runs commands across phases, calls reconcile between phases when signaled, wraps execution with middleware |
+| `pipeline.ts` | `CommandPipeline`: clones state, runs commands across phases, calls reconcile between phases when signaled, wraps execution with middleware |
 | `history.ts` | `HistoryManager<T>`: generic undo/redo stacks with depth cap, command log, push/pop/clear operations |
-| `tree-reconciler.ts` | `reconcileComponentTree()`: pure function that takes definition + existing tree + theme and returns a new component tree, preserving bound node properties |
+| `tree-reconciler.ts` | `reconcileComponentTree()`: pure function — takes definition + existing tree + theme, returns a new component tree preserving bound node properties |
 | `state-normalizer.ts` | `normalizeState()`: pure function enforcing cross-artifact invariants (URL sync, breakpoint sort, breakpoint inheritance) |
-| `handlers/index.ts` | Aggregates 16 handler modules into a frozen `builtinHandlers` table. Each handler module exports a `Record<string, CommandHandler>` |
+| `normalization.ts` | `normalizeDefinition()`: converts legacy serialization shapes to canonical forms (instances array → object, binds object → array); idempotent |
+| `theme-cascade.ts` | `resolveThemeCascade()`: resolves effective presentation properties for an item across defaults → selectors → item-overrides |
+| `page-resolution.ts` | `resolvePageStructure()`: resolves `theme.pages` into enriched `ResolvedPageStructure` with region existence checks and diagnostics |
+| `component-documents.ts` | Helpers for splitting authored vs. generated component state, creating artifact envelopes |
+| `handlers/index.ts` | Aggregates 17 handler modules into a frozen `builtinHandlers` table. Each module exports a `Record<string, CommandHandler>` |
 | `queries/*.ts` | 7 modules of pure query functions: `(ProjectState, ...) => result`. Field queries, expression index, dependency graph, statistics, diagnostics, versioning, registry queries |
 
 ### Design Principles
 
 - **No global mutable state.** Each `RawProject` instance receives its own frozen handler table at construction. Custom handlers can be injected via `options.handlers`.
-- **JSON-native state.** `ProjectState` is fully JSON-serializable -- no Maps or class instances. `JSON.stringify(project.state)` works.
-- **Pure functions over methods.** Subsystems are pure functions that take state as an argument, not instance methods that read `this._state`. This makes them independently testable.
+- **JSON-native state.** `ProjectState` is fully JSON-serializable — no Maps or class instances. `JSON.stringify(project.state)` works.
+- **Pure functions over methods.** Subsystems are pure functions that take state as an argument. This makes them independently testable without instantiating `RawProject`.
 - **Single dispatch pipeline.** `dispatch()`, `batch()`, and `batchWithRebuild()` all delegate to a single `_execute(phases)` method backed by `CommandPipeline`. Middleware wraps all paths uniformly.
 
 ## IProjectCore
 
-The `IProjectCore` interface is the seam between this package and `formspec-studio-core`. It defines the full public API surface:
+`IProjectCore` is the seam between this package and `formspec-studio-core`. It defines the full public API surface.
 
 **Command dispatch:**
 `dispatch(command)`, `batch(commands)`, `batchWithRebuild(phase1, phase2)`
@@ -108,12 +112,12 @@ Every `dispatch()` follows the same pipeline via `_execute(phases)`:
 
 1. Clone state snapshot for undo
 2. `CommandPipeline.execute()`:
-   a. Clone state
-   b. Run middleware chain (may transform or reject)
-   c. Execute commands per phase on the clone
-   d. Reconcile component tree between phases (when signaled)
-3. `normalizeState()` -- cross-artifact invariants
-4. `HistoryManager.push()` -- snapshot for undo
+   - Clone state
+   - Run middleware chain (may transform or reject)
+   - Execute commands per phase on the clone
+   - Reconcile component tree between phases when signaled
+3. `normalizeState()` — cross-artifact invariants
+4. `HistoryManager.push()` — snapshot for undo
 5. Swap to new state
 6. Notify subscribers
 
@@ -121,14 +125,15 @@ Every `dispatch()` follows the same pipeline via `_execute(phases)`:
 
 ## Command Catalog
 
-122 commands across 16 handler modules:
+130 commands across 17 handler modules:
 
 | Area | Commands | Description |
 |------|----------|-------------|
-| `definition.*` | 48 | Items, binds, shapes, variables, option sets, instances, pages, screener, migrations, metadata |
+| `definition.*` | 46 | Items, binds, shapes, variables, option sets, instances, pages, screener, migrations, metadata |
 | `component.*` | 25 | Component tree structure, node properties, custom components, responsive overrides |
 | `theme.*` | 28 | Tokens, defaults, selectors, item overrides, pages, grid regions, breakpoints, stylesheets |
 | `mapping.*` | 16 | Rules, inner rules, adapter config, preview, extensions |
+| `pages.*` | 10 | Page add/delete/reorder, mode, item assignment, region management |
 | `project.*` | 5 | Import, subform import, registry loading, publishing |
 
 ## Extensibility
@@ -148,9 +153,41 @@ const project = createRawProject({
 
 Custom handlers merge with builtins. Keys override builtins.
 
-## Command Catalog Schema
+Middleware wraps the full dispatch pipeline:
 
-The full command catalog -- every type string, payload shape, and side effect -- is machine-readable at [`schemas/core-commands.schema.json`](../../schemas/core-commands.schema.json). LLM agents and CLI tools can consume this catalog to discover and construct valid commands.
+```ts
+const project = createRawProject({
+  middleware: [
+    (state, commands, next) => {
+      console.log('before:', commands);
+      const result = next(commands);
+      console.log('after');
+      return result;
+    },
+  ],
+});
+```
+
+## ProjectOptions
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `seed` | `Partial<ProjectState>` | Initial state. Omitted fields get defaults (empty definition, blank artifacts). |
+| `maxHistoryDepth` | `number` | Maximum undo snapshots (default: 50). |
+| `middleware` | `Middleware[]` | Pipeline wrappers applied to every dispatch. |
+| `handlers` | `Record<string, CommandHandler>` | Custom handlers merged over builtins. |
+| `schemaValidator` | `SchemaValidator` | When set, `diagnose()` runs structural validation. Omit in environments without bundled schemas. |
+
+## Standalone Utilities
+
+These functions are exported for use outside `RawProject`:
+
+| Export | Description |
+|--------|-------------|
+| `normalizeDefinition(def)` | Converts legacy `instances[]` → object and `binds{}` → array. Idempotent. |
+| `resolveThemeCascade(theme, key, type, dataType?)` | Resolves effective presentation properties for one item via the three-level cascade. |
+| `resolvePageStructure(state, itemKeys)` | Resolves page structure from `theme.pages` with region existence checks. |
+| `resolveItemLocation(state, path)` | Resolves a dot-path to the item and its parent in the definition tree. |
 
 ## Development
 

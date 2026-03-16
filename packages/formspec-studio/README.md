@@ -1,170 +1,189 @@
 # formspec-studio
 
-Desktop-first visual authoring environment for Formspec v1.0. Greenfield replacement of `form-builder/` (Preact), built with React 19, Tailwind CSS 4, and TypeScript. All mutations flow through `formspec-studio-core`'s `Project.dispatch()` — the UI is a visual surface for the 122-command catalog.
+**The Stack** is the visual authoring environment for Formspec. It is a React 19 single-page application that gives authors a full editing surface for every document tier: definition, component, theme, and mapping.
+
+All mutations flow through `formspec-studio-core`'s command dispatch. The UI is a visual surface over the command catalog — nothing more. Undo, redo, and import/export come for free from the core layer.
+
+---
+
+## Install and dev setup
+
+The package lives in the monorepo. Install from the repo root:
+
+```bash
+npm install          # installs all workspace deps
+```
+
+Then, from this package directory:
+
+```bash
+npm run dev          # Vite dev server at http://localhost:5173
+npm run build        # production build → dist/
+npm test             # Vitest (unit + component, ~90 test files)
+npm run test:watch   # Vitest in watch mode
+npm run test:e2e     # Playwright end-to-end tests
+```
+
+Vite aliases `formspec-studio-core`, `formspec-engine`, and `formspec-layout` to their TypeScript source so hot-reload works across packages without a build step.
+
+---
 
 ## Architecture
 
+### Component tree
+
 ```
-App
- └─ ProjectProvider (formspec-studio-core Project instance)
-    └─ SelectionProvider (pure React state, persists across tab switches)
-       └─ Shell
-          ├─ Header (tabs, undo/redo)
-          ├─ Blueprint sidebar (11 sections)
-          ├─ Workspace (Editor | Logic | Data | Theme | Mapping | Preview)
-          ├─ PropertiesPanel (selection-driven)
-          └─ StatusBar (counts, version, status)
+StudioApp
+ └─ ProjectProvider          formspec-studio-core Project instance
+    └─ SelectionProvider      pure React state, persists across tab switches
+       └─ ActivePageProvider  active page in multi-page forms
+          └─ Shell
+             ├─ Header        workspace tabs, undo/redo, import/export
+             ├─ Blueprint      sidebar — 9 navigable sections with count badges
+             ├─ Workspace      active tab content (see Workspaces below)
+             ├─ ItemProperties selection-driven right panel
+             └─ StatusBar      item count, version, status
 ```
 
-### State Management
+### State management
 
-No Redux, no Zustand. The state layer is three hooks:
+Three hooks carry all state. There is no Redux, Zustand, or global store.
 
-- **`useProjectState()`** — `useSyncExternalStore` subscribed to `Project.onChange()`. Returns `Readonly<ProjectState>`. Components re-render when any dispatch/undo/redo mutates state.
-- **`useDispatch()`** — Stable dispatch function via context. Components call `dispatch({ type: 'definition.addItem', payload: { ... } })`.
-- **`useSelection()`** — Pure React context for UI selection state (selected key + type). Not stored in Project — lives outside the command model per PRD section 20.1.
+| Hook | What it does |
+|------|-------------|
+| `useProjectState()` | `useSyncExternalStore` subscribed to `Project.onChange()`. Returns `Readonly<ProjectState>`. Re-renders on any dispatch, undo, or redo. |
+| `useProject()` | Returns the stable `Project` instance from context. Use for imperative calls (`project.undo()`, `project.export()`). |
+| `useSelection()` | Pure React context for the selected item key and type. Not part of the command model — cannot be undone. |
 
 Derived hooks (`useDefinition`, `useComponent`, `useTheme`, `useMapping`) select slices from `useProjectState()`.
 
-### Design Tokens
+### Workspaces
 
-Tailwind CSS v4 — no `tailwind.config.ts`. All tokens defined in `src/index.css` via `@theme {}`:
+| Tab | Component | Purpose |
+|-----|-----------|---------|
+| Editor | `EditorCanvas` | Block-based item canvas with bind pills and DnD reordering |
+| Logic | `LogicTab` | Variables, binds by type, validation shapes |
+| Data | `DataTab` | Response schema, data source instances, option sets, test response |
+| Pages | `PagesTab` | Multi-page form structure — wizard, tabs, page assignments |
+| Theme | `ThemeTab` | Token editor, defaults, selector cascade, item overrides |
+| Mapping | `MappingTab` | Transform rules, adapter config, mapping preview |
+| Preview | `PreviewTab` | Live form preview with viewport switcher and JSON view |
+
+### Blueprint sidebar
+
+Nine sections with entity count badges:
+
+1. **Structure** — item tree with type icons and selection
+2. **Component Tree** — color-coded component document visualization
+3. **Theme** — token/selector/defaults summary
+4. **Screener** — screening fields and routing rules
+5. **Variables** — named FEL variables with expressions
+6. **Data Sources** — external data instances
+7. **Option Sets** — named option lists with usage tracking
+8. **Mappings** — rule count and direction
+9. **Settings** — definition metadata, presentation defaults, extensions
+
+### Chat shell
+
+`src/chat/` contains the conversational form builder. It is a self-contained feature with its own state (`ChatProvider`, `useChatSession`) and four panels:
+
+- `ChatShell` — layout wrapper
+- `ChatPanel` — conversation thread
+- `FormPreview` — live preview alongside the chat
+- `IssuePanel` — validation issues surfaced from the session
+
+The chat shell is exported from `formspec-chat` and consumed by the studio as a workspace mode.
+
+---
+
+## Design tokens
+
+Tailwind CSS v4 — no `tailwind.config.ts`. Tokens live in `src/index.css` under `@theme {}`.
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `ink` | `#1e293b` | Primary text |
+| `ink` | `#0f172a` | Primary text |
 | `bg-default` | `#f8fafc` | Page background |
 | `surface` | `#ffffff` | Cards, panels |
 | `border` | `#e2e8f0` | Dividers |
-| `accent` | `#3b82f6` | Active states, required binds |
-| `logic` | `#8b5cf6` | Relevant binds, logic indicators |
-| `error` | `#ef4444` | Validation errors, constraint binds |
-| `green` | `#22c55e` | Calculate binds, success |
-| `amber` | `#f59e0b` | Warnings, readonly binds |
-| `muted` | `#94a3b8` | Secondary text |
+| `accent` | `#2563eb` | Active states, required binds |
+| `logic` | `#7c3aed` | Relevant binds, logic indicators |
+| `error` | `#dc2626` | Validation errors, constraint binds |
+| `green` | `#059669` | Calculate binds, success |
+| `amber` | `#d97706` | Warnings, readonly binds |
+| `muted` | `#64748b` | Secondary text |
 | `subtle` | `#f1f5f9` | Hover backgrounds |
 
 Fonts: `font-ui` (Space Grotesk), `font-mono` (JetBrains Mono).
 
-## Workspaces
+---
 
-| Tab | Component | Purpose |
-|-----|-----------|---------|
-| Editor | `EditorCanvas` | Block-based item authoring — fields, groups, display items with bind pills |
-| Logic | `LogicTab` | Behavioral editing — variables, binds by type, validation shapes |
-| Data | `DataTab` | Response schema, data source instances, option sets, test response |
-| Theme | `ThemeTab` | Token editor, defaults, selector cascade, item overrides, page layouts |
-| Mapping | `MappingTab` | Transform rules, adapter config, mapping preview |
-| Preview | `PreviewTab` | Respondent-facing form preview with viewport switcher |
-
-## Blueprint Sidebar
-
-11 navigable sections with entity count badges:
-
-1. **Structure** — Item tree with type icons and selection
-2. **Component Tree** — Color-coded component document visualization
-3. **Theme** — Token/selector/defaults summary
-4. **Screener** — Screening fields and routing rules
-5. **Variables** — Named FEL variables with expressions
-6. **Data Sources** — External data instances
-7. **Option Sets** — Named option lists with usage tracking
-8. **Mappings** — Rule count and direction
-9. **Migrations** — Version migration descriptors
-10. **FEL Reference** — 9-category function catalog
-11. **Settings** — Definition metadata, presentation defaults, extensions
-
-## Shared Primitives
-
-| Component | Purpose |
-|-----------|---------|
-| `Pill` | Colored metadata badge (10% bg, 20% border) |
-| `BindCard` | Bind type card with colored left border |
-| `ShapeCard` | Severity-colored validation shape card |
-| `Section` | Collapsible section with title and toggle |
-| `PropertyRow` | Label/value row for property panels |
-| `FieldIcon` | Data-type icon (Aa, #, $, etc.) |
-
-## Commands
-
-```bash
-# Development
-npm run dev          # Vite dev server
-
-# Build
-npm run build        # Production build
-
-# Tests
-npm test             # Run all 195 tests
-npm run test:watch   # Watch mode
-```
-
-## Project Structure
+## Project structure
 
 ```
 src/
-├── main.tsx                    # React root
-├── App.tsx                     # Providers + Shell
-├── index.css                   # Tailwind v4 @theme tokens
-├── state/                      # React hooks wrapping studio-core
-│   ├── ProjectContext.tsx
-│   ├── useProject.ts
-│   ├── useProjectState.ts
-│   ├── useDispatch.ts
-│   ├── useSelection.tsx
-│   ├── useDefinition.ts
-│   ├── useComponent.ts
-│   ├── useTheme.ts
-│   └── useMapping.ts
-├── components/                 # Shell chrome + shared UI
-│   ├── Shell.tsx
-│   ├── Header.tsx
-│   ├── StatusBar.tsx
-│   ├── Blueprint.tsx
-│   ├── PropertiesPanel.tsx
-│   ├── CommandPalette.tsx
-│   ├── ImportDialog.tsx
-│   ├── ui/                     # Shared primitives
-│   └── blueprint/              # Sidebar section components
+├── main.tsx                  React root — registers formspec-render custom element
+├── App.tsx                   Thin wrapper over StudioApp
+├── index.css                 Tailwind v4 @theme tokens and font imports
+├── studio-app/
+│   └── StudioApp.tsx         Provider tree, creates the Project instance
+├── state/                    React hooks bridging studio-core to React
+│   ├── ProjectContext.tsx    Project instance context
+│   ├── useProject.ts         Stable Project ref
+│   ├── useProjectState.ts    useSyncExternalStore subscription
+│   ├── useSelection.tsx      UI selection state (key + type)
+│   ├── useActivePage.tsx     Active page context for multi-page forms
+│   ├── useDefinition.ts      Definition slice
+│   ├── useComponent.ts       Component slice
+│   ├── useTheme.ts           Theme slice
+│   └── useMapping.ts         Mapping slice
+├── components/               Shell chrome and shared UI
+│   ├── Shell.tsx             Main layout — sidebar, workspace, properties panel
+│   ├── Header.tsx            Tab bar, undo/redo, import/export
+│   ├── StatusBar.tsx         Item count, version, status
+│   ├── Blueprint.tsx         Sidebar section switcher
+│   ├── PropertiesPanel.tsx   Selection-driven right panel
+│   ├── CommandPalette.tsx    ⌘K search overlay
+│   ├── ImportDialog.tsx      JSON import dialog
+│   ├── SettingsDialog.tsx    Definition metadata and settings
+│   ├── blueprint/            Sidebar section components
+│   └── ui/                   Shared primitives (Pill, BindCard, Section, etc.)
 ├── workspaces/
-│   ├── editor/                 # Block rendering, properties, context menu
-│   ├── logic/                  # Variables, binds, shapes
-│   ├── data/                   # Schema, instances, option sets
-│   ├── theme/                  # Tokens, defaults, selectors, layouts
-│   ├── mapping/                # Rules, adapter, preview
-│   └── preview/                # Component renderer, viewport, wizard nav
-└── lib/                        # Utilities
-    ├── humanize.ts             # FEL → human-readable
-    ├── field-helpers.ts        # Item flattening, bind/shape lookups
-    └── keyboard.ts             # Shortcut registry
+│   ├── editor/               Block rendering, DnD, context menu, properties
+│   ├── logic/                Variables, binds, shapes
+│   ├── data/                 Schema viewer, instances, option sets
+│   ├── pages/                Multi-page structure editor
+│   ├── theme/                Tokens, defaults, selectors, layouts
+│   ├── mapping/              Rules, adapter config, preview
+│   └── preview/              Component renderer, viewport switcher, wizard nav
+├── chat/                     Conversational form builder (ChatShell + panels)
+├── features/
+│   └── behavior-preview/     BehaviorPreview — live bind/logic preview panel
+├── fixtures/                 Example definition for dev startup
+└── lib/
+    ├── humanize.ts           FEL expression → human-readable text
+    ├── field-helpers.ts      Item flattening, bind/shape lookups
+    └── keyboard.ts           Keyboard shortcut registry
 
 tests/
 ├── smoke.test.tsx
-├── state/                      # Hook tests
-├── components/                 # Shell + UI + blueprint tests
-├── workspaces/                 # Workspace component tests
-├── lib/                        # Utility tests
-└── e2e/                        # Integration workflow tests
+├── state/                    Hook tests
+├── components/               Shell, UI, and blueprint tests
+├── workspaces/               Workspace component tests
+├── integration/              Cross-component workflow tests
+├── features/                 BehaviorPreview tests
+├── chat/                     Chat shell component tests
+└── lib/                      Utility tests
 ```
 
-## Dependencies
+---
 
-| Package | Role |
-|---------|------|
-| `react` / `react-dom` 19 | UI framework |
-| `formspec-studio-core` | Command dispatch, undo/redo, project state |
-| `formspec-engine` | FEL parser, form engine (transitive via studio-core) |
-| `tailwindcss` 4 | Utility-first CSS |
-| `vite` 5 | Build tooling |
-| `vitest` 3 | Test runner |
-| `@testing-library/react` | Component testing |
-| `happy-dom` | DOM environment for tests |
+## Key design decisions
 
-## Key Design Decisions
+**All mutations are commands.** Every user action dispatches a typed command (`definition.addItem`, `theme.setToken`, `component.addNode`, etc.). This gives undo/redo and audit logging without extra infrastructure.
 
-**No state management library.** `useSyncExternalStore` bridges `Project.onChange()` into React's rendering cycle. The Project class is the single source of truth — React hooks are thin subscriptions.
+**No state management library.** `useSyncExternalStore` bridges `Project.onChange()` into React's rendering cycle. The `Project` class is the single source of truth. React hooks are thin subscriptions.
 
-**Selection is UI state, not project state.** Selection persists across workspace tab switches but is not part of the command model. It cannot be undone/redone.
+**Selection is UI state, not project state.** Selection persists across tab switches but sits outside the command model. It cannot be undone or redone.
 
-**All mutations are commands.** Every user action dispatches a typed command (`definition.addItem`, `theme.setToken`, `component.addNode`, etc.). This gives us undo/redo, audit logging, and potential collaboration for free.
-
-**TDD throughout.** Every component and utility was built test-first. 195 tests across 53 files provide confidence for aggressive iteration.
+**Tests first.** All components and utilities were built test-first. The test suite spans unit, integration, and E2E layers. Run `npm test` to execute the full suite.

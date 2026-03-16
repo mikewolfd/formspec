@@ -1,8 +1,8 @@
 # formspec-mcp
 
-MCP server that exposes Formspec form authoring as 65 tools. Thin wrapper around `formspec-studio-core` — all business logic lives there; this package adapts it to the [Model Context Protocol](https://modelcontextprotocol.io/) over stdio.
+MCP server that exposes Formspec form authoring as 27 tools. Thin wrapper around `formspec-studio-core` — all business logic lives there; this package adapts it to the [Model Context Protocol](https://modelcontextprotocol.io/) over stdio.
 
-## Quick Start
+## Install & Run
 
 ```bash
 # Build
@@ -14,9 +14,9 @@ npm start
 npx formspec-mcp
 ```
 
-The server locates `schemas/` at startup (tries cwd, then `../../schemas` for monorepo layout). Fatal exit if not found.
+The server locates `schemas/` at startup. It tries `cwd/schemas`, then `../../schemas` for the monorepo layout. Fatal exit if not found.
 
-### Claude Desktop / Claude Code
+## Connect to Claude Desktop / Claude Code
 
 Add to your MCP config:
 
@@ -37,7 +37,7 @@ Add to your MCP config:
 MCP Client (Claude)
     |
     v
-server.ts          65 tool registrations + 3 schema resources
+server.ts          27 tool registrations + 3 schema resources
     |
     v
 ProjectRegistry    Session manager (max 20 projects, two-phase lifecycle)
@@ -52,90 +52,102 @@ formspec-studio-core   51 authoring methods (Project class)
 formspec-engine    FEL evaluation, validation, schema checking
 ```
 
-### Two-Phase Projects
+## Two-Phase Lifecycle
 
-1. **Bootstrap** — submit raw JSON artifacts (`draft_definition`, `draft_component`, `draft_theme`), validate against JSON Schema, then `load_draft` to transition.
-2. **Authoring** — structured tools (`field`, `page`, `group`, `show_when`, `add_rule`, etc.) that mutate the project through studio-core helpers.
+Projects start in **bootstrap** and transition to **authoring**.
 
-Once loaded, a project cannot return to bootstrap. The registry enforces phase isolation — calling an authoring tool on a bootstrap project (or vice versa) returns a `WRONG_PHASE` error.
+**Bootstrap** — submit raw JSON artifacts via `formspec_draft`, then call `formspec_load` to validate and transition. Call `formspec_load` immediately (without drafting) to start with an empty authoring project.
 
-## Tools (65)
+**Authoring** — use structured tools (`formspec_field`, `formspec_page`, `formspec_behavior`, etc.) to mutate the project through studio-core helpers.
 
-### Bootstrap (5)
+The registry enforces phase isolation. Calling an authoring tool on a bootstrap project (or vice versa) returns a `WRONG_PHASE` error. Once loaded, a project cannot return to bootstrap.
 
-| Tool | Purpose |
-|------|---------|
-| `formspec_draft_definition` | Submit definition JSON for schema validation |
-| `formspec_draft_component` | Submit component JSON for schema validation |
-| `formspec_draft_theme` | Submit theme JSON for schema validation |
-| `formspec_validate_draft` | Check all drafts for unresolved errors |
-| `formspec_load_draft` | Transition bootstrap -> authoring |
+## Tools (27)
 
-### Lifecycle (8)
+### Guide (1)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_create` | New project in bootstrap phase |
-| `formspec_open` | Load from disk (`{name}.definition.json` + siblings) |
+| `formspec_guide` | Start a conversational intake questionnaire before authoring. Call this first for new forms or targeted modifications. |
+
+### Bootstrap (2)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_draft` | Submit a raw JSON artifact (definition, component, or theme) for schema validation |
+| `formspec_load` | Validate all drafts and transition bootstrap → authoring |
+
+### Lifecycle (7)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_create` | Create a new project in bootstrap phase |
+| `formspec_open` | Load from disk (`*.definition.json` + siblings) |
 | `formspec_save` | Write all artifacts to disk |
-| `formspec_list` | List open projects |
-| `formspec_list_autosaved` | List autosaved snapshots (`~/.formspec/autosave/`) |
-| `formspec_publish` | Export versioned bundle (blocked if errors exist) |
-| `formspec_undo` / `formspec_redo` | History navigation |
+| `formspec_list` | List open projects (optionally include autosaved snapshots) |
+| `formspec_publish` | Export versioned bundle — blocked if errors exist |
+| `formspec_undo` | Undo the last authoring operation |
+| `formspec_redo` | Redo the last undone operation |
 
-### Structure (14)
-
-| Tool | Purpose |
-|------|---------|
-| `formspec_field` | Add data field (string, number, choice, date, etc.) |
-| `formspec_content` | Add display element (heading, paragraph, divider, alert, banner) |
-| `formspec_group` | Add logical group container |
-| `formspec_repeat` | Make group repeatable with min/max cardinality |
-| `formspec_page` / `remove_page` / `move_page` | Page management (theme-tier) |
-| `formspec_place` / `unplace` | Assign/remove items on pages |
-| `formspec_update` | Update item properties |
-| `formspec_remove` | Delete item and descendants |
-| `formspec_copy` | Duplicate (shallow or deep) |
-| `formspec_metadata` | Update form title, description, version |
-| `formspec_submit_button` | Add submit button |
-
-### Flow (4)
-
-`formspec_flow` (single/wizard/tabs), `formspec_branch` (conditional routing), `formspec_move` (reorder items), `formspec_rename` (change key, updates refs).
-
-### Behavior (5)
-
-`formspec_show_when`, `formspec_readonly_when`, `formspec_require`, `formspec_calculate`, `formspec_add_rule` — all accept FEL expressions for reactive logic.
-
-### Presentation (3)
-
-`formspec_layout` (columns-2/3/4, card, sidebar, inline), `formspec_style` (per-item), `formspec_style_all` (bulk by type/dataType filter).
-
-### Data (9)
-
-`formspec_define_choices` (reusable option sets), `formspec_variable` / `update_variable` / `remove_variable` / `rename_variable` (computed variables with FEL), `formspec_instance` / `update_instance` / `rename_instance` / `remove_instance` (external data sources).
-
-### Screener (7)
-
-`formspec_screener` (enable/disable), `formspec_screen_field` / `remove_screen_field`, `formspec_screen_route` / `update_screen_route` / `reorder_screen_route` / `remove_screen_route` — pre-form qualification and routing.
-
-### Query (7)
+### Structure (8)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_preview` | Render form state with optional scenario data |
-| `formspec_audit` | Run diagnostics (structural, expressions, consistency) |
-| `formspec_describe` | Introspect structure or a specific item |
-| `formspec_trace` | Trace FEL dependencies for a field or expression |
-| `formspec_validate_response` | Validate submission against form rules |
+| `formspec_field` | Add data-collecting fields (string, number, choice, date, etc.). Supports batch via `items[]`. |
+| `formspec_content` | Add display elements (heading, paragraph, divider, banner). Supports batch via `items[]`. |
+| `formspec_group` | Add a logical group container. Include `props.repeat` to make it repeatable. Supports batch via `items[]`. |
+| `formspec_submit_button` | Add a submit button to the form or a specific page |
+| `formspec_update` | Modify properties on existing items (`target="item"`) or form metadata (`target="metadata"`) |
+| `formspec_edit` | Structural mutations: remove, move, rename, or copy items |
+| `formspec_page` | Add, remove, or reorder pages (theme-tier) |
+| `formspec_place` | Assign (`place`) or unassign (`unplace`) items to pages |
+
+### Behavior (1)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_behavior` | Set field logic: `show_when`, `readonly_when`, `require`, `calculate`, `add_rule`. All accept FEL expressions. Supports batch via `items[]`. |
+
+### Flow (1)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_flow` | Set navigation mode (`set_mode`: single/wizard/tabs) or add conditional branching (`branch`) |
+
+### Presentation (1)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_style` | Apply layout arrangements (`layout`), per-item style properties (`style`), or bulk style by type/dataType (`style_all`) |
+
+### Data (1)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_data` | Manage reusable choice lists (`choices`), computed variables (`variable`), and external data instances (`instance`) |
+
+### Screener (1)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_screener` | Enable/disable the pre-form screener; add/remove screening fields; manage routing rules |
+
+### Query (3)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_describe` | Introspect form structure (`mode="structure"`) or run diagnostics (`mode="audit"`) |
 | `formspec_search` | Find items by type, dataType, label, or extension |
-| `formspec_changelog` | Generate changelog from operation history |
+| `formspec_trace` | Trace FEL dependencies for an expression or field (`mode="trace"`), or generate a changelog (`mode="changelog"`) |
+| `formspec_preview` | Render form state with optional scenario data (`mode="preview"`), or validate a response object (`mode="validate"`) |
 
-### FEL (3)
+### FEL (1)
 
-`formspec_fel_context` (available refs at a path), `formspec_fel_functions` (list ~40 stdlib functions), `formspec_fel_check` (parse/validate expression, return errors + deps).
+| Tool | Purpose |
+|------|---------|
+| `formspec_fel` | FEL utilities: list available references at a path (`context`), list ~40 stdlib functions (`functions`), or validate an expression (`check`) |
 
-## Resources
+## Schema Resources
 
 Three MCP resources expose the Formspec JSON Schemas:
 
@@ -144,6 +156,8 @@ Three MCP resources expose the Formspec JSON Schemas:
 | `formspec://schema/definition` | Definition schema |
 | `formspec://schema/component` | Component schema |
 | `formspec://schema/theme` | Theme schema |
+
+Read these before submitting JSON via `formspec_draft`.
 
 ## Error Handling
 
@@ -162,6 +176,7 @@ Error codes by category:
 - **Bootstrap**: `DRAFT_SCHEMA_ERROR`, `DRAFT_INVALID`, `DRAFT_INCOMPLETE`
 - **Lifecycle**: `PROJECT_NOT_FOUND`, `WRONG_PHASE`, `TOO_MANY_PROJECTS`, `LOAD_FAILED`, `SAVE_FAILED`, `PUBLISH_BLOCKED`
 - **Authoring**: `ITEM_NOT_FOUND`, `FIELD_NOT_FOUND`, `GROUP_NOT_FOUND`, `VARIABLE_NOT_FOUND`, `INSTANCE_NOT_FOUND`, `DUPLICATE_KEY`, `INVALID_PATH`, `PARENT_NOT_GROUP`, `ROUTE_OUT_OF_BOUNDS`, `ROUTE_MIN_COUNT`, `INVALID_WIDGET`
+- **Batch**: `BATCH_ALL_FAILED` (partial failures return a normal response with per-item results)
 - **General**: `COMMAND_FAILED`
 
 ## Testing
@@ -177,25 +192,27 @@ npm run test:watch    # vitest (watch mode)
 
 ```
 src/
-  index.ts              Shebang entry point
-  server.ts             Tool registrations + stdio transport (1,018 lines)
-  registry.ts           ProjectRegistry — session management
-  schemas.ts            Schema loading singleton
-  errors.ts             Error formatting + wrapHelperCall
-  annotations.ts        Tool hint constants (READ_ONLY, DESTRUCTIVE, etc.)
+  index.ts          Shebang entry point
+  server.ts         Tool registrations + stdio transport (27 tools)
+  registry.ts       ProjectRegistry — session management
+  schemas.ts        Schema loading singleton
+  errors.ts         Error formatting + wrapHelperCall + wrapBatchCall
+  annotations.ts    Tool hint constants (READ_ONLY, DESTRUCTIVE, etc.)
+  batch.ts          Batch execution helper
   tools/
-    bootstrap.ts        Draft submission + validation (5 tools)
-    lifecycle.ts        Create, open, save, publish (8 tools)
-    structure.ts        Fields, groups, pages, placement (14 tools)
-    flow.ts             Navigation mode, branching (4 tools)
-    behavior.ts         Visibility, required, calculate, rules (5 tools)
-    presentation.ts     Layout, styling (3 tools)
-    data.ts             Choices, variables, instances (9 tools)
-    screener.ts         Pre-form qualification (7 tools)
-    query.ts            Preview, audit, describe, trace (7 tools)
-    fel.ts              Expression language support (3 tools)
+    guide.ts        Conversational intake questionnaire (1 tool)
+    bootstrap.ts    Draft submission + validation (2 tools)
+    lifecycle.ts    Create, open, save, publish (7 tools)
+    structure.ts    Fields, groups, pages, placement (8 tools)
+    behavior.ts     Visibility, required, calculate, rules (1 tool)
+    flow.ts         Navigation mode, branching (1 tool)
+    style.ts        Layout, styling (1 tool)
+    data.ts         Choices, variables, instances (1 tool)
+    screener.ts     Pre-form qualification (1 tool)
+    query.ts        Describe, search, trace, preview (4 tools)
+    fel.ts          Expression language utilities (1 tool)
 tests/
-  helpers.ts            Test utilities + fixtures
+  helpers.ts        Test utilities + fixtures
   bootstrap.test.ts
   lifecycle.test.ts
   structure.test.ts
@@ -206,4 +223,4 @@ tests/
 
 ## Graceful Shutdown
 
-SIGTERM/SIGINT triggers best-effort autosave of all authoring projects to `~/.formspec/autosave/`, then exits cleanly.
+SIGTERM/SIGINT triggers best-effort autosave of all authoring projects to their source paths, then exits cleanly.
