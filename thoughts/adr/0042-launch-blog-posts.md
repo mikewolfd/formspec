@@ -1,7 +1,8 @@
-# Launch Blog Post Proposals
+# ADR 0042: Launch Blog Post Proposals
 
 **Date**: 2026-03-15
-**Context**: Content moved off the marketing landing page during the site rebuild (`0001-marketing-site-rebuild.md`). These are the stories that matter but don't belong on the billboard — they belong where someone goes to learn more after the demo convinced them.
+**Status:** Proposed
+**Context**: Content moved off the marketing landing page during the site rebuild (`0041-marketing-site-rebuild.md`). These are the stories that matter but don't belong on the billboard — they belong where someone goes to learn more after the demo convinced them.
 
 ---
 

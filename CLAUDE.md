@@ -47,9 +47,14 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
   - `src/formspec/API.llm.md` — Python package API reference (all subpackages: fel, validator, adapters, mapping, changelog, registry).
   - `packages/formspec-engine/API.llm.md` — TypeScript engine API reference (FormEngine, interfaces, assembler, runtime mapping).
   - `packages/formspec-webcomponent/API.llm.md` — TypeScript webcomponent API reference (FormspecRender, ComponentRegistry, theme resolver, RenderContext).
-- **`thoughts/`** — All plans, ADRs, research, and design artifacts. **Never put plans in `docs/`.**
-  - `thoughts/adr/` — Architecture decision records and implementation plans (`NNNN-short-name.md`).
+- **`thoughts/`** — All plans, ADRs, research, and design artifacts. **Never put plans in `docs/`.** See `thoughts/README.md` for full index.
+  - `thoughts/adr/` — Architecture decision records (decisions with Status). `NNNN-short-name.md`. Next: **0045**.
+  - `thoughts/plans/` — Implementation and execution plans. `YYYY-MM-DD-short-name.md`.
+  - `thoughts/specs/` — Design specifications and PRDs. `YYYY-MM-DD-short-name.md`.
+  - `thoughts/reviews/` — Code reviews, audits, post-mortems. `YYYY-MM-DD-short-name.md`.
   - `thoughts/research/` — Exploratory research, comparative analysis, external doc captures.
+  - `thoughts/studio/` — Formspec Studio subdomain (plans, bugs, designs).
+  - `thoughts/examples/` — Reference example implementation plans.
 - **`tests/`** — Python conformance test suite (pytest + jsonschema + hypothesis).
 - **`tests/e2e/`** — Playwright E2E tests and JSON fixtures.
 

@@ -1,4 +1,4 @@
-# ADR 0034: Inspector Panel UX Redesign
+# ADR 0044: Inspector Panel UX Redesign
 
 **Status:** Implemented (Phase 1-5 core; Phase 6 partial)
 **Date:** 2026-03-05

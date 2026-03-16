@@ -1,6 +1,7 @@
-# Marketing Site Rebuild — Implementation Plan
+# ADR 0041: Marketing Site Rebuild — Implementation Plan
 
 **Date**: 2026-03-15
+**Status:** Proposed
 **Branch**: `marketing`
 **File**: `site/index.html` (single-file rebuild, inline CSS/JS)
 **Working directory**: `/Users/mikewolfd/Work/formspec/.claude/worktrees/marketing/`
