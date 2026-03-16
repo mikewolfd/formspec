@@ -4,12 +4,13 @@ import { SessionStore } from 'formspec-chat';
 import { ChatShell } from './chat/index.js';
 import './index.css';
 
-// Pre-seed Gemini dev key if no provider is configured
+// Pre-seed Gemini dev key from env if no provider is configured
 const PROVIDER_KEY = 'formspec-chat:provider';
-if (!localStorage.getItem(PROVIDER_KEY)) {
+const devKey = import.meta.env.VITE_GEMINI_DEV_KEY;
+if (devKey && !localStorage.getItem(PROVIDER_KEY)) {
   localStorage.setItem(PROVIDER_KEY, JSON.stringify({
     provider: 'google',
-    apiKey: 'AIzaSyCYAy6PIZw664oLQg4CM8DOf86x15TYD1s',
+    apiKey: devKey,
   }));
 }
 

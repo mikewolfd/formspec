@@ -45,27 +45,40 @@ export function FormPreview() {
 
   if (!def) {
     return (
-      <div data-testid="form-preview" className="flex items-center justify-center h-full text-sm text-muted px-4">
-        No form yet — start a conversation or pick a template.
+      <div
+        data-testid="form-preview"
+        className="flex flex-col items-center justify-center h-full gap-3 px-6"
+      >
+        <div className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted" aria-hidden="true">
+            <rect x="3" y="2" width="12" height="14" rx="1.5" />
+            <line x1="6" y1="6" x2="12" y2="6" />
+            <line x1="6" y1="9" x2="12" y2="9" />
+            <line x1="6" y1="12" x2="9" y2="12" />
+          </svg>
+        </div>
+        <p className="text-sm text-muted text-center max-w-[200px] leading-relaxed">
+          No form yet. Start a conversation or pick a template.
+        </p>
       </div>
     );
   }
 
   return (
-    <div data-testid="form-preview" className="flex-1 overflow-y-auto px-6 py-8 bg-bg-default">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div data-testid="form-preview" className="h-full overflow-y-auto bg-bg-default">
+      <div className="max-w-[640px] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {/* Form header */}
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-ink">{def.title}</h2>
+        <div className="space-y-2 pb-4 border-b border-border">
+          <h2 className="text-base font-semibold text-ink">{def.title}</h2>
           {def.description && (
-            <p className="text-sm text-muted">{def.description}</p>
+            <p className="text-sm text-muted leading-relaxed">{def.description}</p>
           )}
-          <div className="flex items-center gap-4 text-xs text-muted">
+          <div className="flex items-center gap-3 pt-1">
             {traces.length > 0 && (
-              <span>{traces.length} source {traces.length === 1 ? 'trace' : 'traces'}</span>
+              <MetaChip>{traces.length} {traces.length === 1 ? 'trace' : 'traces'}</MetaChip>
             )}
             {state.openIssueCount > 0 && (
-              <span className="text-amber">{state.openIssueCount} {state.openIssueCount === 1 ? 'issue' : 'issues'}</span>
+              <MetaChip className="text-amber">{state.openIssueCount} {state.openIssueCount === 1 ? 'issue' : 'issues'}</MetaChip>
             )}
           </div>
         </div>
@@ -74,9 +87,15 @@ export function FormPreview() {
         {diff && <DiffSummary diff={diff} />}
 
         {/* Items */}
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {def.items.map((item: ItemLike) => (
-            <ItemPreview key={item.key} item={item} tracesByPath={tracesByPath} diffKeys={diffKeys} depth={0} />
+            <ItemPreview
+              key={item.key}
+              item={item}
+              tracesByPath={tracesByPath}
+              diffKeys={diffKeys}
+              depth={0}
+            />
           ))}
         </div>
       </div>
@@ -84,17 +103,31 @@ export function FormPreview() {
   );
 }
 
+function MetaChip({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`text-[11px] text-muted ${className}`}>{children}</span>
+  );
+}
+
 function DiffSummary({ diff }: { diff: DefinitionDiff }) {
-  const parts: string[] = [];
-  if (diff.added.length > 0) parts.push(`${diff.added.length} added`);
-  if (diff.modified.length > 0) parts.push(`${diff.modified.length} modified`);
-  if (diff.removed.length > 0) parts.push(`${diff.removed.length} removed`);
+  const parts: { label: string; color: string }[] = [];
+  if (diff.added.length > 0) parts.push({ label: `+${diff.added.length} added`, color: 'text-green' });
+  if (diff.modified.length > 0) parts.push({ label: `~${diff.modified.length} modified`, color: 'text-amber' });
+  if (diff.removed.length > 0) parts.push({ label: `-${diff.removed.length} removed`, color: 'text-error' });
 
   return (
-    <div data-testid="diff-summary" className="flex items-center gap-3 px-3 py-2 rounded-md bg-accent/5 border border-accent/20 text-xs">
-      <span className="font-medium text-accent">Changes:</span>
+    <div
+      data-testid="diff-summary"
+      className="flex items-center gap-2 px-3 py-2 rounded-md bg-accent/[0.04] border border-accent/15 text-xs"
+    >
+      <span className="font-medium text-accent/80 mr-0.5">Changes</span>
       {parts.length > 0 ? (
-        <span className="text-muted">{parts.join(', ')}</span>
+        parts.map((p, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <span className="text-muted/40">·</span>}
+            <span className={p.color}>{p.label}</span>
+          </React.Fragment>
+        ))
       ) : (
         <span className="text-muted">No structural changes</span>
       )}
@@ -116,8 +149,8 @@ function getDiffStatus(key: string, diffKeys: DiffKeySet | null): 'added' | 'mod
 }
 
 function diffBorderClass(status: 'added' | 'modified' | null): string {
-  if (status === 'added') return 'border-green/50 bg-green/5';
-  if (status === 'modified') return 'border-amber/50 bg-amber/5';
+  if (status === 'added') return 'border-green/40 bg-green/[0.03]';
+  if (status === 'modified') return 'border-amber/40 bg-amber/[0.03]';
   return 'border-border bg-surface';
 }
 
@@ -138,22 +171,21 @@ function ItemPreview({
   if (item.type === 'group') {
     return (
       <div
-        className={`space-y-2 ${depth > 0 ? 'ml-4' : ''}`}
+        className={`${depth > 0 ? 'ml-4' : ''}`}
         data-diff={diffStatus ?? undefined}
       >
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-ink">{item.label}</h3>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-subtle text-muted border border-border">group</span>
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted/70">{item.label}</h3>
           {diffStatus && <DiffBadge status={diffStatus} />}
         </div>
         {item.description && (
-          <p className="text-xs text-muted">{item.description}</p>
+          <p className="text-xs text-muted mb-2">{item.description}</p>
         )}
         {itemTraces.map((t, i) => (
           <TraceTag key={i} trace={t} />
         ))}
         {item.children && (
-          <div className="space-y-2 border-l border-border pl-3">
+          <div className="space-y-2 border-l-2 border-border/60 pl-3 mt-2">
             {item.children.map(child => (
               <ItemPreview key={child.key} item={child} tracesByPath={tracesByPath} diffKeys={diffKeys} depth={depth + 1} />
             ))}
@@ -166,10 +198,10 @@ function ItemPreview({
   if (item.type === 'display') {
     return (
       <div
-        className={`${depth > 0 ? 'ml-4' : ''}`}
+        className={`py-1 ${depth > 0 ? 'ml-4' : ''}`}
         data-diff={diffStatus ?? undefined}
       >
-        <div className="text-xs italic text-muted">{item.label}</div>
+        <div className="text-xs italic text-muted/70">{item.label}</div>
         {itemTraces.map((t, i) => (
           <TraceTag key={i} trace={t} />
         ))}
@@ -180,21 +212,19 @@ function ItemPreview({
   // field
   return (
     <div
-      className={`rounded-lg border p-3 space-y-1.5 ${depth > 0 ? 'ml-4' : ''} ${diffBorderClass(diffStatus)}`}
+      className={`rounded-md border px-3.5 py-3 space-y-2 ${depth > 0 ? 'ml-4' : ''} ${diffBorderClass(diffStatus)}`}
       data-diff={diffStatus ?? undefined}
       data-field-type={item.dataType ?? undefined}
     >
       <div className="flex items-center gap-2">
-        <span className="text-sm text-ink">{item.label}</span>
+        <span className="text-sm font-medium text-ink leading-snug">{item.label}</span>
         {item.dataType && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">
-            {item.dataType}
-          </span>
+          <TypeBadge>{item.dataType}</TypeBadge>
         )}
         {diffStatus && <DiffBadge status={diffStatus} />}
       </div>
       {item.description && (
-        <p className="text-xs text-muted">{item.description}</p>
+        <p className="text-xs text-muted leading-relaxed">{item.description}</p>
       )}
       <FieldMockup item={item} />
       {itemTraces.map((t, i) => (
@@ -204,14 +234,22 @@ function ItemPreview({
   );
 }
 
-const mockInputClass = 'w-full rounded-[3px] border border-border bg-bg-default px-2 py-1.5 text-sm text-muted pointer-events-none';
+function TypeBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/8 text-accent/80 border border-accent/15 font-mono">
+      {children}
+    </span>
+  );
+}
+
+const mockInputBase = 'w-full rounded border border-border bg-bg-default px-2.5 py-1.5 text-xs text-muted/70 pointer-events-none';
 
 function FieldMockup({ item }: { item: ItemLike }) {
   const dt = item.dataType;
 
   if (dt === 'boolean') {
     return (
-      <label className="flex items-center gap-2 text-sm text-muted pointer-events-none">
+      <label className="flex items-center gap-2 text-xs text-muted/70 pointer-events-none">
         <input type="checkbox" disabled className="rounded border-border" />
         <span>{item.hint ?? item.label}</span>
       </label>
@@ -220,7 +258,7 @@ function FieldMockup({ item }: { item: ItemLike }) {
 
   if (dt === 'choice' && item.options) {
     return (
-      <select disabled className={mockInputClass}>
+      <select disabled className={mockInputBase}>
         <option value="">Select...</option>
         {item.options.map(o => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -233,7 +271,7 @@ function FieldMockup({ item }: { item: ItemLike }) {
     return (
       <div className="space-y-1">
         {item.options.map(o => (
-          <label key={o.value} className="flex items-center gap-2 text-sm text-muted pointer-events-none">
+          <label key={o.value} className="flex items-center gap-2 text-xs text-muted/70 pointer-events-none">
             <input type="checkbox" disabled className="rounded border-border" />
             <span>{o.label}</span>
           </label>
@@ -248,50 +286,38 @@ function FieldMockup({ item }: { item: ItemLike }) {
         disabled
         rows={2}
         placeholder={item.hint ?? `Enter ${item.label.toLowerCase()}...`}
-        className={mockInputClass + ' resize-none'}
+        className={`${mockInputBase} resize-none`}
       />
     );
   }
 
   if (dt === 'date') {
-    return (
-      <input
-        type="date"
-        disabled
-        className={mockInputClass}
-      />
-    );
+    return <input type="date" disabled className={mockInputBase} />;
   }
 
   if (dt === 'integer' || dt === 'decimal') {
     return (
-      <input
-        type="number"
-        disabled
-        placeholder={item.hint ?? '0'}
-        className={mockInputClass}
-      />
+      <input type="number" disabled placeholder={item.hint ?? '0'} className={mockInputBase} />
     );
   }
 
-  // Default: string or unknown — text input
   return (
     <input
       type="text"
       disabled
       placeholder={item.hint ?? `Enter ${item.label.toLowerCase()}...`}
-      className={mockInputClass}
+      className={mockInputBase}
     />
   );
 }
 
 function DiffBadge({ status }: { status: 'added' | 'modified' }) {
   const styles = {
-    added: 'bg-green/10 text-green border-green/20',
-    modified: 'bg-amber/10 text-amber border-amber/20',
+    added: 'bg-green/8 text-green border-green/20',
+    modified: 'bg-amber/8 text-amber border-amber/20',
   };
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${styles[status]}`}>
+    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${styles[status]}`}>
       {status}
     </span>
   );
@@ -299,8 +325,8 @@ function DiffBadge({ status }: { status: 'added' | 'modified' }) {
 
 function TraceTag({ trace }: { trace: SourceTrace }) {
   return (
-    <div className="text-[11px] text-muted/70 flex items-center gap-1">
-      <span className="text-accent/60">→</span>
+    <div className="flex items-center gap-1 text-[11px] text-muted/50 mt-0.5">
+      <span className="text-accent/40">↳</span>
       <span>{trace.description}</span>
     </div>
   );

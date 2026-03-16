@@ -71,4 +71,47 @@ describe('ProviderSetup', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  describe('initialConfig', () => {
+    it('pre-populates provider and API key from initialConfig', () => {
+      render(
+        <ProviderSetup
+          {...defaultProps}
+          initialConfig={{ provider: 'google', apiKey: 'goog-key-123' }}
+        />,
+      );
+      expect((screen.getByLabelText('Provider') as HTMLSelectElement).value).toBe('google');
+      expect((screen.getByLabelText('API Key') as HTMLInputElement).value).toBe('goog-key-123');
+    });
+
+    it('shows Disconnect button when initialConfig is provided', () => {
+      const onClear = vi.fn();
+      render(
+        <ProviderSetup
+          {...defaultProps}
+          initialConfig={{ provider: 'anthropic', apiKey: 'sk-test' }}
+          onClear={onClear}
+        />,
+      );
+      expect(screen.getByRole('button', { name: /disconnect/i })).toBeInTheDocument();
+    });
+
+    it('calls onClear when Disconnect is clicked', () => {
+      const onClear = vi.fn();
+      render(
+        <ProviderSetup
+          {...defaultProps}
+          initialConfig={{ provider: 'anthropic', apiKey: 'sk-test' }}
+          onClear={onClear}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+      expect(onClear).toHaveBeenCalledOnce();
+    });
+
+    it('does not show Disconnect button when no initialConfig', () => {
+      render(<ProviderSetup {...defaultProps} />);
+      expect(screen.queryByRole('button', { name: /disconnect/i })).not.toBeInTheDocument();
+    });
+  });
 });

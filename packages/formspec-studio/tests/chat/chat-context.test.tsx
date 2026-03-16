@@ -21,6 +21,8 @@ function ChatStateDisplay() {
       <span data-testid="open-issues">{state.openIssueCount}</span>
       <span data-testid="definition">{state.definition ? state.definition.title : 'null'}</span>
       <span data-testid="has-diff">{String(state.lastDiff !== null)}</span>
+      <span data-testid="has-bundle">{String(state.bundle !== null)}</span>
+      <span data-testid="has-component-tree">{String(state.bundle?.component?.tree != null)}</span>
     </div>
   );
 }
@@ -120,6 +122,24 @@ describe('ChatContext', () => {
       await session.sendMessage('Add a field for pets');
     });
     expect(screen.getByTestId('has-diff').textContent).toBe('true');
+  });
+
+  it('exposes bundle when definition exists', async () => {
+    const session = makeSession();
+    render(
+      <ChatProvider session={session}>
+        <ChatStateDisplay />
+      </ChatProvider>,
+    );
+
+    expect(screen.getByTestId('has-bundle').textContent).toBe('false');
+
+    await act(async () => {
+      await session.startFromTemplate('housing-intake');
+    });
+
+    expect(screen.getByTestId('has-bundle').textContent).toBe('true');
+    expect(screen.getByTestId('has-component-tree').textContent).toBe('true');
   });
 
   it('throws when useChatSession is used outside provider', () => {

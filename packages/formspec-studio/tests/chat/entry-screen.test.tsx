@@ -77,4 +77,64 @@ describe('EntryScreen', () => {
     render(<EntryScreen {...defaultProps} recentSessions={[]} />);
     expect(screen.queryByText(/resume/i)).not.toBeInTheDocument();
   });
+
+  describe('provider indicator', () => {
+    it('shows "Offline" pill when no provider config', () => {
+      render(<EntryScreen {...defaultProps} />);
+      expect(screen.getByText('Offline')).toBeInTheDocument();
+    });
+
+    it('shows provider name pill when provider configured', () => {
+      render(
+        <EntryScreen
+          {...defaultProps}
+          providerConfig={{ provider: 'anthropic', apiKey: 'sk-test' }}
+        />,
+      );
+      expect(screen.getByText('Anthropic')).toBeInTheDocument();
+    });
+  });
+
+  describe('settings button', () => {
+    it('renders gear/settings button when onOpenSettings provided', () => {
+      render(<EntryScreen {...defaultProps} onOpenSettings={vi.fn()} />);
+      expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument();
+    });
+
+    it('calls onOpenSettings when settings button clicked', () => {
+      const onOpenSettings = vi.fn();
+      render(<EntryScreen {...defaultProps} onOpenSettings={onOpenSettings} />);
+      fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+      expect(onOpenSettings).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('session delete', () => {
+    it('shows delete button on each recent session row', () => {
+      const sessions = [
+        { id: 'sess-1', preview: 'My form', updatedAt: Date.now(), createdAt: Date.now(), messageCount: 3 },
+      ];
+      render(<EntryScreen {...defaultProps} recentSessions={sessions} onDeleteSession={vi.fn()} />);
+      expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
+    });
+
+    it('calls onDeleteSession with session ID and does not resume', () => {
+      const onDelete = vi.fn();
+      const onResume = vi.fn();
+      const sessions = [
+        { id: 'sess-1', preview: 'My form', updatedAt: Date.now(), createdAt: Date.now(), messageCount: 3 },
+      ];
+      render(
+        <EntryScreen
+          {...defaultProps}
+          recentSessions={sessions}
+          onDeleteSession={onDelete}
+          onResumeSession={onResume}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+      expect(onDelete).toHaveBeenCalledWith('sess-1');
+      expect(onResume).not.toHaveBeenCalled();
+    });
+  });
 });
