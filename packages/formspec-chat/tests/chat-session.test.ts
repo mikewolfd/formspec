@@ -3,7 +3,6 @@ import { ChatSession } from '../src/chat-session.js';
 import { MockAdapter } from '../src/mock-adapter.js';
 import type { AIAdapter, ScaffoldResult, ChatMessage, Attachment, ChatSessionState } from '../src/types.js';
 import type { FormDefinition } from 'formspec-types';
-
 // ── Test helpers ─────────────────────────────────────────────────────
 
 /** Spy adapter that records calls and delegates to mock. */
@@ -379,6 +378,134 @@ describe('ChatSession', () => {
       const reply = await session.sendMessage('Hello');
       expect(reply.role).toBe('assistant');
       expect(reply.content).toBeTruthy();
+    });
+  });
+
+  describe('bundle generation', () => {
+    it('getBundle returns null before any scaffold', () => {
+      expect(session.getBundle()).toBeNull();
+    });
+
+    it('getBundle returns a full ProjectBundle after scaffold', async () => {
+      await session.startFromTemplate('housing-intake');
+
+      const bundle = session.getBundle();
+      expect(bundle).not.toBeNull();
+      expect(bundle!.definition).toBeDefined();
+      expect(bundle!.component).toBeDefined();
+      expect(bundle!.theme).toBeDefined();
+      expect(bundle!.mapping).toBeDefined();
+    });
+
+    it('bundle has a non-null component tree with nodes', async () => {
+      await session.startFromTemplate('housing-intake');
+
+      const bundle = session.getBundle()!;
+      expect(bundle.component.tree).not.toBeNull();
+    });
+
+    it('bundle definition matches getDefinition()', async () => {
+      await session.startFromTemplate('housing-intake');
+
+      const bundle = session.getBundle()!;
+      expect(bundle.definition.title).toBe(session.getDefinition()!.title);
+      expect(bundle.definition.items.length).toBe(session.getDefinition()!.items.length);
+    });
+
+    it('bundle updates after refinement', async () => {
+      await session.startFromTemplate('housing-intake');
+      const firstBundle = session.getBundle()!;
+
+      await session.sendMessage('Add a field for emergency contact');
+      const secondBundle = session.getBundle()!;
+
+      // Bundle should be a new object (rebuilt)
+      expect(secondBundle).not.toBe(firstBundle);
+      expect(secondBundle.definition).toBeDefined();
+      expect(secondBundle.component.tree).not.toBeNull();
+    });
+
+    it('bundle is generated after conversation scaffold', async () => {
+      await session.sendMessage('I need a patient intake form');
+
+      const bundle = session.getBundle();
+      expect(bundle).not.toBeNull();
+      expect(bundle!.component.tree).not.toBeNull();
+    });
+
+    it('bundle is generated after upload scaffold', async () => {
+      const attachment = {
+        id: 'att-1',
+        type: 'spreadsheet' as const,
+        name: 'fields.csv',
+        data: 'Name, Email, Phone',
+      };
+      await session.startFromUpload(attachment);
+
+      const bundle = session.getBundle();
+      expect(bundle).not.toBeNull();
+      expect(bundle!.component.tree).not.toBeNull();
+    });
+
+    it('exportBundle returns the full bundle', async () => {
+      await session.startFromTemplate('grant-application');
+
+      const bundle = session.exportBundle();
+      expect(bundle.definition.$formspec).toBe('1.0');
+      expect(bundle.component).toBeDefined();
+      expect(bundle.theme).toBeDefined();
+      expect(bundle.mapping).toBeDefined();
+    });
+
+    it('exportBundle throws when no definition exists', () => {
+      expect(() => session.exportBundle()).toThrow(/no form/i);
+    });
+
+    it('toState does not serialize the bundle (reconstructed on restore)', async () => {
+      await session.startFromTemplate('housing-intake');
+      const state = session.toState();
+
+      expect(state.projectSnapshot).not.toHaveProperty('bundle');
+    });
+
+    it('bundle is reconstructed from definition in fromState()', async () => {
+      await session.startFromTemplate('patient-intake');
+      const state = session.toState();
+
+      const restored = ChatSession.fromState(state, adapter);
+      const bundle = restored.getBundle();
+      expect(bundle).not.toBeNull();
+      expect(bundle!.definition.title).toBe(session.getDefinition()!.title);
+      expect(bundle!.component.tree).not.toBeNull();
+    });
+
+    it('fromState handles legacy state without bundle field', () => {
+      const legacyState = {
+        id: 'old-session',
+        messages: [],
+        projectSnapshot: { definition: null },
+        traces: [],
+        issues: [],
+        createdAt: 1000,
+        updatedAt: 1000,
+      } as any;
+      const restored = ChatSession.fromState(legacyState, adapter);
+      expect(restored.getBundle()).toBeNull();
+    });
+
+    it('bundle.definition deep-equals getDefinition after restore', async () => {
+      await session.startFromTemplate('housing-intake');
+      const state = session.toState();
+      const restored = ChatSession.fromState(state, adapter);
+      expect(restored.getBundle()!.definition).toEqual(restored.getDefinition());
+    });
+
+    it('component tree has children nodes', async () => {
+      await session.startFromTemplate('housing-intake');
+      const bundle = session.getBundle()!;
+      const tree = bundle.component.tree as any;
+      expect(tree).not.toBeNull();
+      expect(tree.children?.length).toBeGreaterThan(0);
     });
   });
 

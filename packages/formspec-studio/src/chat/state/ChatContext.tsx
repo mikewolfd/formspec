@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback, useRef, useSyncExternalStore } from 'react';
 import type { ChatSession, ChatMessage, SourceTrace, Issue, DefinitionDiff } from 'formspec-chat';
+import type { ProjectBundle } from 'formspec-studio-core';
 import type { FormDefinition } from 'formspec-types';
 
 // ── State snapshot ───────────────────────────────────────────────────
@@ -8,6 +9,7 @@ export interface ChatState {
   messages: ChatMessage[];
   hasDefinition: boolean;
   definition: FormDefinition | null;
+  bundle: ProjectBundle | null;
   lastDiff: DefinitionDiff | null;
   openIssueCount: number;
   traces: SourceTrace[];
@@ -19,6 +21,7 @@ function snapshotFrom(session: ChatSession): ChatState {
     messages: session.getMessages(),
     hasDefinition: session.hasDefinition(),
     definition: session.getDefinition(),
+    bundle: session.getBundle(),
     lastDiff: session.getLastDiff(),
     openIssueCount: session.getOpenIssueCount(),
     traces: session.getTraces(),

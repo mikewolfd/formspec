@@ -1,8 +1,4 @@
-import type { ScaffoldResult } from './types.js';
 import type { FormDefinition } from 'formspec-types';
-
-/** Type alias — ScaffoldResult already has the right shape. */
-export type AppliedScaffold = ScaffoldResult;
 
 export interface DefinitionDiff {
   added: string[];

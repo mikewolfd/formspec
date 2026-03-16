@@ -3,9 +3,11 @@ import type {
   SourceTrace, Issue,
 } from './types.js';
 import type { FormDefinition } from 'formspec-types';
+import type { ProjectBundle } from 'formspec-core';
 import { SourceTraceManager } from './source-trace.js';
 import { IssueQueue } from './issue-queue.js';
 import { diff, type DefinitionDiff } from './form-scaffolder.js';
+import { buildBundleFromDefinition } from './bundle-builder.js';
 
 let sessionCounter = 0;
 
@@ -27,6 +29,7 @@ export class ChatSession {
   private traces: SourceTraceManager = new SourceTraceManager();
   private issues: IssueQueue = new IssueQueue();
   private definition: FormDefinition | null = null;
+  private bundle: ProjectBundle | null = null;
   private createdAt: number;
   private updatedAt: number;
   private templateId?: string;
@@ -87,6 +90,10 @@ export class ChatSession {
     return this.definition !== null;
   }
 
+  getBundle(): ProjectBundle | null {
+    return this.bundle;
+  }
+
   /**
    * Returns the diff from the last refinement, or null if no refinement
    * has occurred yet (initial scaffold or template start).
@@ -119,6 +126,7 @@ export class ChatSession {
           messages: this.messages,
         });
         this.definition = result.definition;
+        this.bundle = buildBundleFromDefinition(result.definition);
         this.lastDiff = null; // No diff on initial scaffold
         this.traces.addTraces(result.traces);
         this.addIssuesFromResult(result.issues);
@@ -133,6 +141,7 @@ export class ChatSession {
         );
         this.lastDiff = diff(previousDef, result.definition);
         this.definition = result.definition;
+        this.bundle = buildBundleFromDefinition(result.definition);
         this.traces.addTraces(result.traces);
         this.addIssuesFromResult(result.issues);
         assistantContent = this.lastDiff.added.length === 0 && this.lastDiff.modified.length === 0 && this.lastDiff.removed.length === 0
@@ -174,6 +183,7 @@ export class ChatSession {
       templateId,
     });
     this.definition = result.definition;
+    this.bundle = buildBundleFromDefinition(result.definition);
     this.templateId = templateId;
     this.traces.addTraces(result.traces);
     this.addIssuesFromResult(result.issues);
@@ -201,6 +211,7 @@ export class ChatSession {
       extractedContent,
     });
     this.definition = result.definition;
+    this.bundle = buildBundleFromDefinition(result.definition);
     this.traces.addTraces(result.traces);
     this.addIssuesFromResult(result.issues);
 
@@ -223,6 +234,16 @@ export class ChatSession {
       throw new Error('No form has been generated yet. Send a message or select a template first.');
     }
     return this.definition;
+  }
+
+  /**
+   * Export the full project bundle (definition + component + theme + mapping).
+   */
+  exportBundle(): ProjectBundle {
+    if (!this.bundle) {
+      throw new Error('No form has been generated yet. Send a message or select a template first.');
+    }
+    return this.bundle;
   }
 
   /**
@@ -250,6 +271,7 @@ export class ChatSession {
     const session = new ChatSession({ adapter, id: state.id });
     session.messages = [...state.messages];
     session.definition = state.projectSnapshot.definition;
+    session.bundle = session.definition ? buildBundleFromDefinition(session.definition) : null;
     session.traces = SourceTraceManager.fromJSON(state.traces);
     session.issues = IssueQueue.fromJSON(state.issues);
     session.createdAt = state.createdAt;

@@ -138,6 +138,57 @@ describe('Integration: issue lifecycle', () => {
   });
 });
 
+describe('Integration: bundle generation flow', () => {
+  it('template → refine produces updated bundle with component tree', async () => {
+    const adapter = new MockAdapter();
+    const session = new ChatSession({ adapter });
+
+    await session.startFromTemplate('grant-application');
+    const bundle1 = session.getBundle()!;
+    expect(bundle1.component.tree).not.toBeNull();
+    expect(bundle1.theme).toBeDefined();
+    expect(bundle1.mapping).toBeDefined();
+
+    await session.sendMessage('Add a budget section');
+    const bundle2 = session.getBundle()!;
+    expect(bundle2.component.tree).not.toBeNull();
+  });
+
+  it('bundle persists through save/restore cycle', async () => {
+    const adapter = new MockAdapter();
+    const storage = new MemoryStorage();
+    const store = new SessionStore(storage);
+
+    const session = new ChatSession({ adapter });
+    await session.startFromTemplate('housing-intake');
+
+    store.save(session.toState());
+    const loaded = store.load(session.id)!;
+    const restored = ChatSession.fromState(loaded, adapter);
+
+    const bundle = restored.getBundle()!;
+    expect(bundle.definition.title).toBe(session.getDefinition()!.title);
+    expect(bundle.component).toBeDefined();
+    expect(bundle.component.tree).not.toBeNull();
+  });
+
+  it('exportBundle returns complete bundle for all templates', async () => {
+    const adapter = new MockAdapter();
+    const library = new TemplateLibrary();
+
+    for (const template of library.getAll()) {
+      const session = new ChatSession({ adapter });
+      await session.startFromTemplate(template.id);
+
+      const bundle = session.exportBundle();
+      expect(bundle.definition.$formspec).toBe('1.0');
+      expect(bundle.component).toBeDefined();
+      expect(bundle.theme).toBeDefined();
+      expect(bundle.mapping).toBeDefined();
+    }
+  });
+});
+
 describe('Integration: mock adapter keyword matching', () => {
   it('matches housing keywords to housing template', async () => {
     const adapter = new MockAdapter();

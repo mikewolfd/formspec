@@ -35,5 +35,6 @@ export { TemplateLibrary } from './template-library.js';
 export { GeminiAdapter } from './gemini-adapter.js';
 export { MockAdapter } from './mock-adapter.js';
 export { SessionStore } from './session-store.js';
-export { diff, type AppliedScaffold, type DefinitionDiff } from './form-scaffolder.js';
+export { diff, type DefinitionDiff } from './form-scaffolder.js';
+export { buildBundleFromDefinition } from './bundle-builder.js';
 export { ChatSession } from './chat-session.js';
