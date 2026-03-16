@@ -196,6 +196,9 @@ export function createSchemaValidator(schemas: SchemaValidatorSchemas): SchemaVa
   const compSchema = schemas.component;
   if (compSchema && typeof compSchema === "object") {
     const comp = compSchema as Record<string, unknown>;
+    // Add original component schema so other schemas (e.g. theme) can
+    // resolve $ref cross-references to component $defs.
+    if ("$id" in comp) ajv.addSchema(compSchema as object);
     componentTypeMap = buildComponentTypeMap(comp);
     const shallow = makeShallowComponentSchema(comp) as object;
     shallowSchemaId = (shallow as Record<string, unknown>).$id as string;
