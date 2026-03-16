@@ -73,7 +73,7 @@ describe('project.loadRegistry', () => {
 
     expect(project.state.extensions.registries).toHaveLength(1);
     expect(project.state.extensions.registries[0].url).toBe('https://registry.example.com/common');
-    expect(project.state.extensions.registries[0].catalog.entries.size).toBe(2);
+    expect(Object.keys(project.state.extensions.registries[0].entries)).toHaveLength(2);
   });
 });
 

@@ -84,23 +84,15 @@ export interface ExtensionsState {
 
 /**
  * A single extension registry that has been fetched and indexed.
+ * All fields are JSON-serializable — no Maps or class instances.
  */
 export interface LoadedRegistry {
   /** Canonical URL of the registry document. */
   url: string;
   /** The raw registry document as loaded. */
   document: unknown;
-  /** Pre-indexed catalog for fast extension lookup by name. */
-  catalog: ResolvedCatalog;
-}
-
-/**
- * Pre-indexed catalog derived from a registry document.
- * Entries are keyed by extension name for O(1) lookup during validation and authoring.
- */
-export interface ResolvedCatalog {
-  /** Map from extension name to its registry entry. */
-  entries: Map<string, unknown>;
+  /** Extension entries keyed by name. Plain object for JSON serializability. */
+  entries: Record<string, unknown>;
 }
 
 // ── Versioning state ─────────────────────────────────────────────────

@@ -586,7 +586,7 @@ export class RawProject implements IProjectCore {
    */
   resolveExtension(name: string): Record<string, unknown> | undefined {
     for (const reg of this._state.extensions.registries) {
-      const entry = reg.catalog.entries.get(name);
+      const entry = reg.entries[name];
       if (entry) return entry as Record<string, unknown>;
     }
     return undefined;
@@ -645,7 +645,7 @@ export class RawProject implements IProjectCore {
 
     // Extension dataTypes from loaded registries
     for (const reg of this._state.extensions.registries) {
-      for (const [_, entry] of reg.catalog.entries) {
+      for (const entry of Object.values(reg.entries)) {
         const e = entry as any;
         if (e.category === 'dataType') {
           core.push({
@@ -753,7 +753,7 @@ export class RawProject implements IProjectCore {
 
     // Extension functions from loaded registries
     for (const reg of this._state.extensions.registries) {
-      for (const [_, entry] of reg.catalog.entries) {
+      for (const entry of Object.values(reg.entries)) {
         const e = entry as any;
         if (e.category === 'function' && typeof e.name === 'string' && !seen.has(e.name)) {
           catalog.push({
@@ -1221,7 +1221,7 @@ export class RawProject implements IProjectCore {
   listRegistries(): RegistrySummary[] {
     return this._state.extensions.registries.map(r => ({
       url: r.url,
-      entryCount: r.catalog.entries.size,
+      entryCount: Object.keys(r.entries).length,
     }));
   }
 
@@ -1234,7 +1234,7 @@ export class RawProject implements IProjectCore {
   browseExtensions(filter?: ExtensionFilter): Record<string, unknown>[] {
     const results: Record<string, unknown>[] = [];
     for (const reg of this._state.extensions.registries) {
-      for (const [_, entry] of reg.catalog.entries) {
+      for (const entry of Object.values(reg.entries)) {
         const e = entry as any;
         if (filter?.category && e.category !== filter.category) continue;
         if (filter?.status && e.status !== filter.status) continue;
@@ -1469,7 +1469,7 @@ export class RawProject implements IProjectCore {
     log('extensions...');
     const extensionLookup = new Map<string, Record<string, unknown>>();
     for (const registry of this._state.extensions.registries) {
-      for (const [name, entry] of registry.catalog.entries) {
+      for (const [name, entry] of Object.entries(registry.entries)) {
         if (!extensionLookup.has(name)) {
           extensionLookup.set(name, entry as Record<string, unknown>);
         }

@@ -138,4 +138,56 @@ describe('RawProject', () => {
       expect(raw.canRedo).toBe(false);
     });
   });
+
+  describe('JSON-native state', () => {
+    it('state round-trips through JSON.stringify', () => {
+      const raw = createRawProject();
+      raw.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f1' } });
+      const json = JSON.stringify(raw.state);
+      const parsed = JSON.parse(json);
+      expect(parsed.definition.items).toHaveLength(1);
+      expect(parsed.definition.items[0].key).toBe('f1');
+      expect(() => JSON.stringify(parsed.extensions)).not.toThrow();
+    });
+
+    it('state with loaded registry round-trips through JSON', () => {
+      const raw = createRawProject();
+      raw.dispatch({
+        type: 'project.loadRegistry',
+        payload: {
+          registry: {
+            url: 'https://example.org/registry',
+            entries: [{ name: 'x-test', category: 'dataType' }],
+          },
+        },
+      });
+      const json = JSON.stringify(raw.state);
+      const parsed = JSON.parse(json);
+      expect(parsed.extensions.registries).toHaveLength(1);
+      expect(parsed.extensions.registries[0].entries['x-test']).toBeDefined();
+    });
+
+    it('registry queries work after JSON round-trip and re-seeding', () => {
+      const raw = createRawProject();
+      raw.dispatch({
+        type: 'project.loadRegistry',
+        payload: {
+          registry: {
+            url: 'https://example.org/reg',
+            entries: [
+              { name: 'x-url', category: 'dataType', baseType: 'string' },
+              { name: 'x-sum', category: 'function' },
+            ],
+          },
+        },
+      });
+      // Round-trip through JSON
+      const json = JSON.stringify(raw.state);
+      const parsed = JSON.parse(json);
+      // Re-seed a new project from the parsed state
+      const raw2 = createRawProject({ seed: parsed });
+      expect(raw2.resolveExtension('x-url')).toBeDefined();
+      expect(raw2.listRegistries()).toEqual([{ url: 'https://example.org/reg', entryCount: 2 }]);
+    });
+  });
 });

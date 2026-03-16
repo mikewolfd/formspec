@@ -43,7 +43,6 @@ export type {
   ProjectStatistics,
   ExtensionsState,
   LoadedRegistry,
-  ResolvedCatalog,
   VersioningState,
   VersionRelease,
   ItemFilter,

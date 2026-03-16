@@ -69,15 +69,15 @@ export const projectHandlers: Record<string, CommandHandler> = {
   'project.loadRegistry': (state, payload) => {
     const { registry } = payload as { registry: any };
 
-    const catalog = new Map<string, unknown>();
-    for (const entry of registry.entries ?? []) {
-      catalog.set(entry.name, entry);
+    const entries: Record<string, unknown> = {};
+    for (const entry of (registry.entries ?? []) as any[]) {
+      if (entry.name) entries[entry.name] = entry;
     }
 
     state.extensions.registries.push({
       url: registry.url,
       document: registry,
-      catalog: { entries: catalog },
+      entries,
     });
 
     return { rebuildComponentTree: false };
