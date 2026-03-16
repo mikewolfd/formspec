@@ -1,0 +1,610 @@
+---
+import Page from "../layouts/Page.astro";
+import CallToAction from "../components/CallToAction.astro";
+
+const gh = "https://github.com/formspec/formspec";
+---
+
+<Page
+  title="Architecture — Formspec"
+  description="How Formspec separates structure, behavior, and presentation into composable JSON documents — and the packages that implement it."
+>
+  <article class="arch">
+
+    <header class="arch-header">
+      <div class="section-eyebrow">Technical Overview</div>
+      <h1>Architecture</h1>
+      <p class="arch-lead">
+        Formspec is a JSON-native form specification where structure, behavior, and presentation are independent, composable documents.
+        A single definition drives validation, computed fields, conditional logic, and repeatable sections across any runtime — browser, server, mobile, offline.
+      </p>
+    </header>
+
+    <!-- ─── Document Layers ─── -->
+    <section class="arch-section">
+      <div class="section-eyebrow">Document Model</div>
+      <h2>Document layers</h2>
+      <p>
+        Every Formspec project is a set of composable document layers. Each layer adds a concern without modifying the layers below.
+        Presentation layers (Theme, Components) never affect data collection, validation, or behavioral semantics — they are swappable overlays on an unchanging behavioral core.
+      </p>
+
+      <div class="code-window">
+        <div class="code-window-bar">
+          <span class="code-window-dot" style="background: #ff5f57;"></span>
+          <span class="code-window-dot" style="background: #febc2e;"></span>
+          <span class="code-window-dot" style="background: #28c840;"></span>
+          <span class="code-filename">three-tier model</span>
+        </div>
+        <div class="code-window-body">
+<pre>╔══════════════════════════════════════════════════════════════════╗
+║  DEFINITION (Core)                                               ║
+║  Structure: items (fields, groups, displays)                     ║
+║  Behavior:  binds (calculate, relevant, required, readonly)      ║
+║             shapes (composable cross-field validation rules)     ║
+║  Language:  FEL expressions throughout                           ║
+╠══════════════════════════════════════════════════════════════════╣
+║  THEME SIDECAR (Presentation)                                    ║
+║  Design tokens, widget catalog, selector cascade, grid layout    ║
+║  Multiple themes per definition (web, mobile, print, kiosk)      ║
+╠══════════════════════════════════════════════════════════════════╣
+║  COMPONENT SIDECAR (Interaction)                                 ║
+║  Explicit component tree, slot binding, responsive breakpoints   ║
+║  33 built-in components + custom templates                       ║
+╠══════════════════════════════════════════════════════════════════╣
+║  COMPANION SPECS                                                 ║
+║  Mapping DSL · Extension Registry · Changelog Format · FEL Grammar║
+╚══════════════════════════════════════════════════════════════════╝</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── The Spec as Abstraction Boundary ─── -->
+    <section class="arch-section">
+      <div class="section-eyebrow">Dependency Model</div>
+      <h2>The specification as abstraction boundary</h2>
+      <p>
+        Formspec inverts the usual dependency between frontend and backend.
+        The specification — <a href={`${gh}/tree/main/schemas`} target="_blank" rel="noopener noreferrer">JSON Schemas</a>,
+        <a href={`${gh}/tree/main/specs`} target="_blank" rel="noopener noreferrer">normative prose</a>, and the
+        <a href={`${gh}/blob/main/specs/fel/fel-grammar.md`} target="_blank" rel="noopener noreferrer">FEL grammar</a> — is the stable
+        center that both runtimes implement against. The TypeScript engine and Python evaluator
+        share no code, yet produce identical results for the same definition and data because both
+        conform to the same contracts. Submit a form in the browser; re-validate it on the server
+        with full confidence in semantic equivalence.
+      </p>
+
+      <div class="code-window">
+        <div class="code-window-bar">
+          <span class="code-window-dot" style="background: #ff5f57;"></span>
+          <span class="code-window-dot" style="background: #febc2e;"></span>
+          <span class="code-window-dot" style="background: #28c840;"></span>
+          <span class="code-filename">dependency graph</span>
+        </div>
+        <div class="code-window-body">
+<pre>                  ┌─────────────────────────────┐
+                  │     Formspec Specification    │
+                  │                               │
+                  │  schemas/    (structural truth)│
+                  │  specs/      (behavioral truth)│
+                  │  FEL grammar (expression truth)│
+                  └──────────┬──────────┬─────────┘
+                             │          │
+              ┌──────────────┘          └──────────────┐
+              ▼                                        ▼
+   ┌─────────────────────┐              ┌─────────────────────────┐
+   │  TypeScript Engine   │              │  Python Implementation   │
+   │                      │              │                          │
+   │  Reactive signals    │              │  CLI &amp; server tooling     │
+   │  FEL compiler        │              │  FEL compiler            │
+   │  Live validation     │              │  Static linting          │
+   │                      │              │  Mapping engine           │
+   └──────┬───────┬───────┘              └──────────────────────────┘
+          │       │
+          │       └──────────────────┐
+          │  (presentation)          │  (authoring)
+          ▼                          ▼
+   ┌──────────────────┐    ┌─────────────────────┐
+   │  Web Component    │    │  Studio Core         │
+   │                   │    │                      │
+   │  &lt;formspec-render&gt;│    │  Command model       │
+   │  33 plugin types  │    │  Queries &amp; diagnostics│
+   │  Theme resolver   │    │  Undo/redo, replay   │
+   └──────────────────┘    └──────────┬────────────┘
+                                      │
+                        ┌─────┬───────┼───────┬──────┐
+                        ▼     ▼       ▼       ▼      ▼
+                      MCP   Chat   CLI tool  Studio  LLM</pre>
+        </div>
+      </div>
+
+      <p>
+        This inversion runs deeper than client/server. The TypeScript side itself has two boundaries below the engine.
+        The <strong>web component</strong> is a presentation adapter — it reads engine signals and dispatches to a plugin registry.
+        The engine can drive any rendering surface: React, native mobile, PDF, server-rendered HTML.
+        <strong>Studio Core</strong> is an authoring adapter — every edit is a serializable command with undo/redo, replay, and cross-artifact diagnostics.
+        CLI tools, LLM agents, and visual editors all drive Studio Core through the same command API.
+      </p>
+    </section>
+
+    <!-- ─── FEL ─── -->
+    <section class="arch-section">
+      <div class="section-eyebrow">Expression Engine</div>
+      <h2>FEL (Formspec Expression Language)</h2>
+      <p>
+        A small, deterministic expression language embedded in bind and shape declarations.
+        FEL handles calculated fields, conditional visibility, cross-field constraints, and aggregation — no custom code required.
+        Defined once as a <a href={`${gh}/blob/main/specs/fel/fel-grammar.md`} target="_blank" rel="noopener noreferrer">formal grammar</a>
+        with 40+ stdlib functions, implemented identically in both runtimes.
+      </p>
+
+      <div class="code-window">
+        <div class="code-window-bar">
+          <span class="code-window-dot" style="background: #ff5f57;"></span>
+          <span class="code-window-dot" style="background: #febc2e;"></span>
+          <span class="code-window-dot" style="background: #28c840;"></span>
+          <span class="code-filename">FEL examples</span>
+        </div>
+        <div class="code-window-body">
+<pre><span class="tok-comment">// Conditional visibility — show EIN field only for nonprofits</span>
+<span class="tok-prop">"relevant"</span>: <span class="tok-str">"$org_type = 'nonprofit'"</span>
+
+<span class="tok-comment">// Calculated field — monthly budget from total and duration</span>
+<span class="tok-prop">"calculate"</span>: <span class="tok-str">"$amount / $duration"</span>
+
+<span class="tok-comment">// Cross-field validation — budget must balance</span>
+<span class="tok-prop">"constraint"</span>: <span class="tok-str">"sum($line_items) &lt;= $award_amount"</span>
+
+<span class="tok-comment">// Aggregation with filtering</span>
+<span class="tok-prop">"calculate"</span>: <span class="tok-str">"count-if($items, $status = 'approved')"</span></pre>
+        </div>
+      </div>
+
+      <p>
+        FEL was designed from the start to be JSON-native, deterministic, side-effect-free, and dual-implemented in TypeScript and Python.
+        Field references use <code>$field_id</code> syntax. Variables use <code>@name</code>.
+        The language is small enough to fit in a single grammar file, yet expressive enough to handle
+        multi-level budget calculations, conditional visibility chains, and cross-field constraint composition.
+      </p>
+    </section>
+
+    <!-- ─── Specifications & Schemas ─── -->
+    <section class="arch-section">
+      <div class="section-eyebrow">Specifications</div>
+      <h2>Specifications &amp; schemas</h2>
+      <p>
+        Structural truth lives in <a href={`${gh}/tree/main/schemas`} target="_blank" rel="noopener noreferrer">JSON Schemas</a>.
+        Behavioral semantics that schemas cannot encode
+        live in the <a href={`${gh}/tree/main/specs`} target="_blank" rel="noopener noreferrer">normative spec prose</a>.
+        Clean separation: schemas handle structure, specs handle behavior.
+      </p>
+
+      <div class="table-wrap">
+        <table aria-label="Specification tiers, their specs, and associated schemas">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Spec</th>
+              <th>Schema</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Core</td>
+              <td>
+                <a href={`${gh}/blob/main/specs/core/spec.md`} target="_blank" rel="noopener noreferrer">Core Spec</a>,
+                <a href={`${gh}/blob/main/specs/fel/fel-grammar.md`} target="_blank" rel="noopener noreferrer">FEL Grammar</a>
+              </td>
+              <td><code>definition</code>, <code>response</code>, <code>validationReport</code>, <code>validationResult</code></td>
+            </tr>
+            <tr>
+              <td>Theme</td>
+              <td><a href={`${gh}/blob/main/specs/theme/theme-spec.md`} target="_blank" rel="noopener noreferrer">Theme Spec</a></td>
+              <td><code>theme</code></td>
+            </tr>
+            <tr>
+              <td>Components</td>
+              <td><a href={`${gh}/blob/main/specs/component/component-spec.md`} target="_blank" rel="noopener noreferrer">Component Spec</a></td>
+              <td><code>component</code></td>
+            </tr>
+            <tr>
+              <td>Mapping</td>
+              <td><a href={`${gh}/blob/main/specs/mapping/mapping-spec.md`} target="_blank" rel="noopener noreferrer">Mapping DSL</a></td>
+              <td><code>mapping</code></td>
+            </tr>
+            <tr>
+              <td>Extensions</td>
+              <td>
+                <a href={`${gh}/blob/main/specs/registry/extension-registry.md`} target="_blank" rel="noopener noreferrer">Extension Registry</a>,
+                <a href={`${gh}/blob/main/specs/registry/changelog-spec.md`} target="_blank" rel="noopener noreferrer">Changelog</a>
+              </td>
+              <td><code>registry</code>, <code>changelog</code></td>
+            </tr>
+            <tr>
+              <td>Catalogs</td>
+              <td>—</td>
+              <td><code>fel-functions</code>, <code>core-commands</code>, <code>conformance-suite</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── TypeScript Packages ─── -->
+    <section class="arch-section">
+      <div class="section-eyebrow">TypeScript</div>
+      <h2>TypeScript packages</h2>
+
+      <div class="table-wrap">
+        <table aria-label="TypeScript packages and their descriptions">
+          <thead>
+            <tr>
+              <th>Package</th>
+              <th>Role</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-types`} target="_blank" rel="noopener noreferrer"><code>formspec-types</code></a></td>
+              <td class="role-label">Core</td>
+              <td>Types auto-generated from JSON Schemas — zero-runtime, shared across all packages</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-engine`} target="_blank" rel="noopener noreferrer"><code>formspec-engine</code></a></td>
+              <td class="role-label">Core</td>
+              <td>FormEngine, FEL pipeline, assembler, reactive signals</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-webcomponent`} target="_blank" rel="noopener noreferrer"><code>formspec-webcomponent</code></a></td>
+              <td class="role-label">Rendering</td>
+              <td><code>&lt;formspec-render&gt;</code> — component registry, theme resolver, 33 plugins</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-layout`} target="_blank" rel="noopener noreferrer"><code>formspec-layout</code></a></td>
+              <td class="role-label">Rendering</td>
+              <td>Theme cascade resolution, responsive design, grid layout</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-core`} target="_blank" rel="noopener noreferrer"><code>formspec-core</code></a></td>
+              <td class="role-label">Authoring</td>
+              <td>Project core — 17 handlers, normalization, page resolution, theme cascade</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-studio-core`} target="_blank" rel="noopener noreferrer"><code>formspec-studio-core</code></a></td>
+              <td class="role-label">Authoring</td>
+              <td>Authoring core — command model, undo/redo, queries, diagnostics</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-studio`} target="_blank" rel="noopener noreferrer"><code>formspec-studio</code></a></td>
+              <td class="role-label">Authoring</td>
+              <td>Visual form editor (React 19) — desktop-first authoring, inspector, logic builders</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-mcp`} target="_blank" rel="noopener noreferrer"><code>formspec-mcp</code></a></td>
+              <td class="role-label">Integration</td>
+              <td>MCP server — 28 consolidated tools for LLM-driven form authoring (stdio transport)</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-chat`} target="_blank" rel="noopener noreferrer"><code>formspec-chat</code></a></td>
+              <td class="role-label">Integration</td>
+              <td>Chat core — conversational form builder logic, AI adapter interface, issue queue</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── Python Modules ─── -->
+    <section class="arch-section">
+      <div class="section-eyebrow">Python</div>
+      <h2>Python modules</h2>
+      <p>
+        The <a href={`${gh}/tree/main/src/formspec`} target="_blank" rel="noopener noreferrer">Python package</a> is a plain library — import it into any backend framework.
+        It handles server-side re-validation, static linting, mapping transforms, and CLI tooling.
+      </p>
+
+      <div class="table-wrap">
+        <table aria-label="Python modules and their descriptions">
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href={`${gh}/tree/main/src/formspec/fel`} target="_blank" rel="noopener noreferrer"><code>fel/</code></a></td>
+              <td>FEL parser, AST, evaluator, dependency extractor</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/src/formspec/validator`} target="_blank" rel="noopener noreferrer"><code>validator/</code></a></td>
+              <td>Multi-pass static linter (~40 diagnostic codes across 9 validation passes)</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/src/formspec/mapping`} target="_blank" rel="noopener noreferrer"><code>mapping/</code></a></td>
+              <td>Bidirectional rule engine</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/src/formspec/adapters`} target="_blank" rel="noopener noreferrer"><code>adapters/</code></a></td>
+              <td>JSON, XML, CSV serializers</td>
+            </tr>
+            <tr>
+              <td><code>evaluator.py</code></td>
+              <td>4-phase form processor (rebuild &#8594; recalculate &#8594; revalidate &#8594; apply NRB)</td>
+            </tr>
+            <tr>
+              <td><code>validate.py</code></td>
+              <td>Directory-level artifact validator (10-pass, auto-discovery)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── Examples ─── -->
+    <section class="arch-section">
+      <div class="section-eyebrow">Examples</div>
+      <h2>Worked examples</h2>
+      <p>
+        The <a href={`${gh}/tree/main/examples`} target="_blank" rel="noopener noreferrer">examples directory</a>
+        includes complete worked examples that exercise different tiers and capabilities of the spec.
+      </p>
+
+      <div class="table-wrap">
+        <table aria-label="Worked examples and their descriptions">
+          <thead>
+            <tr>
+              <th>Example</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href={`${gh}/tree/main/examples/invoice`} target="_blank" rel="noopener noreferrer"><code>invoice</code></a></td>
+              <td>Line-item invoice with repeat groups and calculated totals</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/examples/clinical-intake`} target="_blank" rel="noopener noreferrer"><code>clinical-intake</code></a></td>
+              <td>Healthcare intake form with screener routing and nested repeats</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/examples/grant-application`} target="_blank" rel="noopener noreferrer"><code>grant-application</code></a></td>
+              <td>6-page federal grant form — all tiers exercised</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/examples/grant-report`} target="_blank" rel="noopener noreferrer"><code>grant-report</code></a></td>
+              <td>Grant reporting variants (tribal-long, tribal-short)</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/examples/refrences`} target="_blank" rel="noopener noreferrer"><code>refrences</code></a></td>
+              <td>Cross-reference dashboard — fields, binds, FEL, shapes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── Status ─── -->
+    <section class="arch-section arch-section--last">
+      <div class="section-eyebrow">Status</div>
+      <h2>Project status</h2>
+      <p>
+        <strong>Version 1.0.0-draft.1</strong> — Draft specification under active development.
+        Design rationale lives in
+        <a href={`${gh}/tree/main/thoughts/adr`} target="_blank" rel="noopener noreferrer">Architecture Decision Records</a>.
+        See the <a href="/blog/how-we-built-formspec/">project build story</a> for how
+        the specification, schemas, and both implementations were built in three weeks.
+      </p>
+    </section>
+
+  </article>
+
+  <CallToAction />
+</Page>
+
+<style>
+  .arch {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 5rem clamp(1.25rem, 4vw, 2.5rem) 0;
+  }
+
+  .arch-header {
+    margin-bottom: 3rem;
+  }
+
+  .arch-header h1 {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    color: var(--color-ink);
+    margin: 0 0 1rem;
+  }
+
+  .arch-lead {
+    font-size: 1.125rem;
+    color: var(--color-ink-secondary);
+    line-height: 1.7;
+    max-width: 48rem;
+    margin: 0;
+  }
+
+  .section-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    margin-bottom: 0.75rem;
+  }
+
+  .arch-section {
+    margin-bottom: 0;
+    padding: 3rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .arch-section--last {
+    border-bottom: none;
+  }
+
+  .arch-section h2 {
+    font-size: clamp(1.5rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--color-ink);
+    margin: 0 0 1.25rem;
+  }
+
+  .arch-section p {
+    font-size: 1rem;
+    color: var(--color-ink-secondary);
+    line-height: 1.75;
+    max-width: 52rem;
+    margin: 0 0 1.25rem;
+  }
+
+  .arch-section p:last-child {
+    margin-bottom: 0;
+  }
+
+  .arch-section a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .arch-section a:hover {
+    color: var(--color-accent-dim);
+  }
+
+  .arch-section strong {
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  .arch-section code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.125rem 0.375rem;
+  }
+
+  .arch-section a code {
+    color: var(--color-accent);
+  }
+
+  .arch-section .code-window {
+    margin: 1.5rem 0 2rem;
+  }
+
+  .arch-section .code-window pre {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    overflow-x: auto;
+  }
+
+  .code-filename {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: rgb(255 255 255 / 0.4);
+    margin-left: 0.5rem;
+  }
+
+  /* Tables */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 1.25rem 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+
+  thead {
+    border-bottom: 2px solid var(--color-border-strong);
+  }
+
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-ink-tertiary);
+    padding: 0.625rem 1rem 0.625rem 0.75rem;
+  }
+
+  td {
+    padding: 0.625rem 1rem 0.625rem 0.75rem;
+    color: var(--color-ink-secondary);
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  tbody tr:nth-child(even) td {
+    background: var(--color-surface-raised);
+  }
+
+  tbody tr:hover td {
+    background: var(--color-accent-light);
+  }
+
+  td:first-child code {
+    font-weight: 500;
+    color: var(--color-ink);
+  }
+
+  td code {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.1rem 0.3rem;
+    white-space: nowrap;
+  }
+
+  .role-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-ink-tertiary);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    .arch-header {
+      margin-bottom: 2rem;
+    }
+
+    .arch-section {
+      padding: 2.5rem 0;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .arch {
+      padding-top: 3rem;
+    }
+
+    .arch-section .code-window pre {
+      font-size: 0.6875rem;
+    }
+
+    table {
+      min-width: 28rem;
+    }
+
+    th, td {
+      font-size: 0.8125rem;
+      padding-right: 0.625rem;
+    }
+  }
+</style>
