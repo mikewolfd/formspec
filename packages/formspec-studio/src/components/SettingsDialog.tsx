@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useDefinition } from '../state/useDefinition';
-import { useDispatch } from '../state/useDispatch';
+import { useProject } from '../state/useProject';
 import { HelpTip } from './ui/HelpTip';
 
 interface SettingsDialogProps {
@@ -147,7 +147,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const definition = useDefinition();
-  const dispatch = useDispatch();
+  const project = useProject();
   const def = definition as any;
   const presentation = def.formPresentation ?? {};
 
@@ -166,17 +166,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   if (!open) return null;
 
   const setProperty = (property: string, value: string) => {
-    dispatch({
-      type: 'definition.setDefinitionProperty',
-      payload: { property, value: value || undefined },
-    });
+    project.setMetadata({ [property]: value || undefined } as any);
   };
 
   const setPresentation = (property: string, value: string) => {
-    dispatch({
-      type: 'definition.setFormPresentation',
-      payload: { property, value: value || undefined },
-    });
+    project.setMetadata({ [property]: value || undefined } as any);
   };
 
   return (

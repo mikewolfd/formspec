@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../../state/useTheme';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 
 interface Region {
   key?: string;
@@ -17,47 +17,47 @@ interface Page {
 
 export function PageDefinitions() {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const project = useProject();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const pages = (theme?.pages ?? []) as Page[];
 
   const addPage = () => {
-    dispatch({ type: 'theme.addPage', payload: {} });
+    project.addThemePage();
   };
 
   const setPageProperty = (index: number, property: string, value: unknown) => {
-    dispatch({ type: 'theme.setPageProperty', payload: { index, property, value } });
+    project.updateThemePage(index, property, value);
   };
 
   const deletePage = (index: number) => {
-    dispatch({ type: 'theme.deletePage', payload: { index } });
+    project.deleteThemePage(index);
     if (expandedIndex === index) setExpandedIndex(null);
   };
 
   const reorderPage = (index: number, direction: 'up' | 'down') => {
-    dispatch({ type: 'theme.reorderPage', payload: { index, direction } });
+    project.reorderThemePage(index, direction);
     setExpandedIndex(direction === 'up' ? index - 1 : index + 1);
   };
 
   const addRegion = (pageId: string) => {
-    dispatch({ type: 'theme.addRegion', payload: { pageId, span: 12 } });
+    project.addRegion(pageId, 12);
   };
 
   const setRegionProperty = (pageId: string, regionIndex: number, property: string, value: unknown) => {
-    dispatch({ type: 'theme.setRegionProperty', payload: { pageId, regionIndex, property, value } });
+    project.updateRegion(pageId, regionIndex, property, value);
   };
 
   const deleteRegion = (pageId: string, regionIndex: number) => {
-    dispatch({ type: 'theme.deleteRegion', payload: { pageId, regionIndex } });
+    project.deleteRegion(pageId, regionIndex);
   };
 
   const reorderRegion = (pageId: string, regionIndex: number, direction: 'up' | 'down') => {
-    dispatch({ type: 'theme.reorderRegion', payload: { pageId, regionIndex, direction } });
+    project.reorderRegion(pageId, regionIndex, direction);
   };
 
   const setRegionKey = (pageId: string, regionIndex: number, newKey: string) => {
-    dispatch({ type: 'theme.setRegionKey', payload: { pageId, regionIndex, newKey } });
+    project.setRegionKey(pageId, regionIndex, newKey);
   };
 
   return (
@@ -128,7 +128,7 @@ export function PageDefinitions() {
                     onBlur={(e) => {
                       const v = e.target.value.trim();
                       if (v && v !== page.id) {
-                        dispatch({ type: 'theme.renamePage', payload: { pageId: page.id, newId: v } });
+                        project.renameThemePage(page.id, v);
                       }
                     }}
                     className="w-full px-2 py-1 text-[13px] font-mono border border-border rounded-[4px] bg-surface outline-none focus:border-accent"

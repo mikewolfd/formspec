@@ -1,5 +1,5 @@
 import { useTheme } from '../../state/useTheme';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 
 const TYPOGRAPHY_FIELDS = [
   { key: 'typography.fontFamily', label: 'Font Family', placeholder: 'e.g. Inter, system-ui' },
@@ -59,11 +59,11 @@ function TokenInput({
 
 export function TypographySpacing() {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const project = useProject();
   const tokens = (theme?.tokens ?? {}) as Record<string, string>;
 
   const setToken = (key: string, value: string) => {
-    dispatch({ type: 'theme.setToken', payload: { key, value: value || null } });
+    project.setToken(key, value || null);
   };
 
   return (

@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { useTheme } from '../../state/useTheme';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 
 export function ColorPalette() {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const project = useProject();
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
 
@@ -14,7 +14,7 @@ export function ColorPalette() {
     .map(([key, value]) => ({ key, name: key.slice(6), value: String(value) }));
 
   const setToken = (key: string, value: string | null) => {
-    dispatch({ type: 'theme.setToken', payload: { key, value } });
+    project.setToken(key, value);
   };
 
   const handleAdd = () => {

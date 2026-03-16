@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
 import { useActivePage } from '../../state/useActivePage';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { useCanvasTargets } from '../../state/useCanvasTargets';
 import { FieldIcon } from '../ui/FieldIcon';
 import { AddItemPalette, type FieldTypeOption } from '../AddItemPalette';
@@ -118,7 +118,7 @@ function AddButton({ onClick, title }: { onClick: () => void; title: string }) {
  */
 export function StructureTree() {
   const definition = useDefinition();
-  const dispatch = useDispatch();
+  const project = useProject();
   const { select } = useSelection();
   const { scrollToTarget } = useCanvasTargets();
   const { activePageKey, setActivePageKey } = useActivePage();
@@ -171,47 +171,47 @@ export function StructureTree() {
 
   // Adding a wizard page
   const handleAddPage = useCallback(() => {
-    const key = uniqueKey('page');
-    const result = dispatch({
-      type: 'definition.addItem',
-      payload: { key, type: 'group', label: 'New Page' },
-    });
-    const insertedPageKey = result.insertedPath?.split('.').pop() ?? key;
-    // If not already in paged mode, enable it
-    if (!isPaged) {
-      dispatch({
-        type: 'definition.setFormPresentation',
-        payload: { property: 'pageMode', value: 'wizard' },
-      });
-    }
+    const result = project.addWizardPage('New Page');
+    const insertedPageKey = result.createdId ?? 'new_page';
     // Switch to the new page once it exists
     requestAnimationFrame(() => {
       setActivePageKey(insertedPageKey);
       select(insertedPageKey, 'group');
     });
-  }, [dispatch, isPaged, select, setActivePageKey]);
+  }, [project, select, setActivePageKey]);
 
   // Adding an item from the palette
   const handleAddFromPalette = useCallback(
     (opt: FieldTypeOption) => {
       const key = uniqueKey(opt.dataType ?? opt.itemType);
-      const result = dispatch({
-        type: 'definition.addItem',
-        payload: {
-          key,
-          type: opt.itemType,
-          dataType: opt.dataType,
-          label: opt.label,
-          // If paged, add as a child of the active page
-          ...(hasPages && activePageKey ? { parentPath: activePageKey } : {}),
-          ...opt.extra,
-        },
-      });
-      const insertedPath = result.insertedPath
-        ?? (hasPages && activePageKey ? `${activePageKey}.${key}` : key);
+      const parentPath = hasPages && activePageKey ? activePageKey : undefined;
+      const fullPath = parentPath ? `${parentPath}.${key}` : key;
+      let insertedPath = fullPath;
+
+      if (opt.itemType === 'field') {
+        project.addField(key, opt.label, opt.dataType ?? 'string', {
+          ...(parentPath ? { parentPath } : {}),
+          ...(opt.extra as object | undefined),
+        });
+      } else if (opt.itemType === 'group') {
+        project.addGroup(fullPath, opt.label);
+      } else if (opt.itemType === 'display') {
+        const widgetHint = (opt.extra?.presentation as any)?.widgetHint as string | undefined;
+        const kindMap: Record<string, 'heading' | 'paragraph' | 'banner' | 'divider'> = {
+          Heading: 'heading',
+          Divider: 'divider',
+          Banner: 'banner',
+        };
+        const kind = widgetHint ? kindMap[widgetHint] ?? 'paragraph' : 'paragraph';
+        project.addContent(fullPath, opt.label, kind);
+      } else {
+        // layout items (Card, Columns, etc.) — add as component tree node
+        project.addLayoutNode('root', opt.itemType);
+      }
+
       select(insertedPath, opt.itemType);
     },
-    [dispatch, hasPages, activePageKey, select],
+    [project, hasPages, activePageKey, select],
   );
 
   // Items section label

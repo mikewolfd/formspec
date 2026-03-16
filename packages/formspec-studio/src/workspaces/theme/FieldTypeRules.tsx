@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../../state/useTheme';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 
 interface SelectorRule {
   match?: { type?: string; dataType?: string };
@@ -17,29 +17,29 @@ function ruleSummary(rule: SelectorRule): string {
 
 export function FieldTypeRules() {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const project = useProject();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const selectors = (theme?.selectors ?? []) as SelectorRule[];
 
   const addRule = () => {
-    dispatch({ type: 'theme.addSelector', payload: { match: {}, apply: {} } });
+    project.addThemeSelector({}, {});
   };
 
   const setSelector = (index: number, match?: Record<string, unknown>, apply?: Record<string, unknown>) => {
-    const payload: any = { index };
-    if (match !== undefined) payload.match = match;
-    if (apply !== undefined) payload.apply = apply;
-    dispatch({ type: 'theme.setSelector', payload });
+    const update: { match?: Record<string, unknown>; apply?: Record<string, unknown> } = {};
+    if (match !== undefined) update.match = match;
+    if (apply !== undefined) update.apply = apply;
+    project.updateThemeSelector(index, update);
   };
 
   const deleteSelector = (index: number) => {
-    dispatch({ type: 'theme.deleteSelector', payload: { index } });
+    project.deleteThemeSelector(index);
     if (expandedIndex === index) setExpandedIndex(null);
   };
 
   const reorder = (index: number, direction: 'up' | 'down') => {
-    dispatch({ type: 'theme.reorderSelector', payload: { index, direction } });
+    project.reorderThemeSelector(index, direction);
     setExpandedIndex(direction === 'up' ? index - 1 : index + 1);
   };
 

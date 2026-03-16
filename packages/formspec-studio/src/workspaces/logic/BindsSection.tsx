@@ -1,6 +1,6 @@
 import { BindCard } from '../../components/ui/BindCard';
 import { InlineExpression } from '../../components/ui/InlineExpression';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { AddBehaviorMenu } from '../../components/ui/AddBehaviorMenu';
 import { PrePopulateCard } from '../../components/ui/PrePopulateCard';
 import { useState, useMemo } from 'react';
@@ -25,7 +25,7 @@ interface BindsSectionProps {
 const bindTypes = ['required', 'relevant', 'calculate', 'constraint', 'readonly', 'pre-populate'] as const;
 
 export function BindsSection({ binds, activeFilter = null, allPaths = [], onSelectPath }: BindsSectionProps) {
-  const dispatch = useDispatch();
+  const project = useProject();
 
   const [isAddingPath, setIsAddingPath] = useState(false);
 
@@ -45,15 +45,9 @@ export function BindsSection({ binds, activeFilter = null, allPaths = [], onSele
 
   const handleSave = (path: string, type: string, newValue: any) => {
     if (type === 'pre-populate') {
-      dispatch({
-        type: 'definition.setItemProperty',
-        payload: { path, property: 'prePopulate', value: newValue ?? null },
-      });
+      project.updateItem(path, { prePopulate: newValue ?? null });
     } else {
-      dispatch({
-        type: 'definition.setBind',
-        payload: { path, properties: { [type]: newValue ?? null } },
-      });
+      project.updateItem(path, { [type]: newValue ?? null });
     }
   };
 

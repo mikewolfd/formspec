@@ -1,12 +1,12 @@
 import { useEffect, useId, useState } from 'react';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { useMapping } from '../../state/useMapping';
 
 const directions = ['unset', 'inbound', 'outbound', 'bidirectional'] as const;
 
 export function MappingPreview() {
   const mapping = useMapping();
-  const dispatch = useDispatch();
+  const project = useProject();
   const [pickerOpen, setPickerOpen] = useState(false);
   const listboxId = useId();
   const direction = mapping?.direction ?? 'unset';
@@ -23,13 +23,7 @@ export function MappingPreview() {
   }, [pickerOpen]);
 
   const setDirection = (value: (typeof directions)[number]) => {
-    dispatch({
-      type: 'mapping.setProperty',
-      payload: {
-        property: 'direction',
-        value: value === 'unset' ? null : value,
-      },
-    });
+    project.setMappingProperty('direction', value === 'unset' ? null : value);
     setPickerOpen(false);
   };
 

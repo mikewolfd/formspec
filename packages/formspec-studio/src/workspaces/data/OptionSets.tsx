@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDefinition } from '../../state/useDefinition';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { flatItems } from '../../lib/field-helpers';
 import { InlineExpression } from '../../components/ui/InlineExpression';
 
@@ -18,7 +18,7 @@ interface OptionSetDef {
 
 export function OptionSets() {
   const definition = useDefinition();
-  const dispatch = useDispatch();
+  const project = useProject();
   const optionSets = (definition?.optionSets as unknown as Record<string, OptionSetDef>) || {};
   const items = (definition?.items as any[]) || [];
   const [expandedName, setExpandedName] = useState<string | null>(null);
@@ -28,28 +28,19 @@ export function OptionSets() {
   const handleAdd = () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    dispatch({
-      type: 'definition.setOptionSet',
-      payload: { name: trimmed, options: [] },
-    });
+    project.defineChoices(trimmed, []);
     setExpandedName(trimmed);
     setNewName('');
     setIsAdding(false);
   };
 
   const handleSetProperty = (name: string, property: string, value: unknown) => {
-    dispatch({
-      type: 'definition.setOptionSetProperty',
-      payload: { name, property, value },
-    });
+    project.updateOptionSet(name, property, value);
   };
 
   const handleDelete = (name: string) => {
     if (window.confirm(`Delete "${name}"? Its options will be inlined into referencing fields.`)) {
-      dispatch({
-        type: 'definition.deleteOptionSet',
-        payload: { name },
-      });
+      project.deleteOptionSet(name);
       if (expandedName === name) setExpandedName(null);
     }
   };

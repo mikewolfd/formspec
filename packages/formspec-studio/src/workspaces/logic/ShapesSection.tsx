@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { ShapeCard } from '../../components/ui/ShapeCard';
 import { InlineExpression } from '../../components/ui/InlineExpression';
 
@@ -24,38 +24,27 @@ export function ShapesSection({ shapes }: ShapesSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newId, setNewId] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const dispatch = useDispatch();
+  const project = useProject();
 
   const handleAdd = () => {
     if (!newId.trim()) return;
     const id = newId.trim();
-    dispatch({
-      type: 'definition.addShape',
-      payload: {
-        id,
-        target: '*',
-        constraint: '',
-        message: 'Validation failed',
-        severity: 'error',
-      },
-    });
+    project.addValidation('*', '', 'Validation failed', { severity: 'error' });
     setExpandedId(id);
     setNewId('');
     setIsAdding(false);
   };
 
   const handleSetProperty = (id: string, property: string, value: unknown) => {
-    dispatch({
-      type: 'definition.setShapeProperty',
-      payload: { id, property, value },
-    });
+    if (property === 'constraint') {
+      project.updateValidation(id, { rule: value as string });
+    } else {
+      project.updateValidation(id, { [property]: value } as Parameters<typeof project.updateValidation>[1]);
+    }
   };
 
   const handleDelete = (id: string) => {
-    dispatch({
-      type: 'definition.deleteShape',
-      payload: { id },
-    });
+    project.removeValidation(id);
     if (expandedId === id) setExpandedId(null);
   };
 

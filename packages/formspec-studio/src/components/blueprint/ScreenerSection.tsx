@@ -1,5 +1,5 @@
 import { useDefinition } from '../../state/useDefinition';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { Pill } from '../ui/Pill';
 import { FieldIcon } from '../ui/FieldIcon';
 
@@ -23,7 +23,7 @@ interface Screener {
 
 export function ScreenerSection() {
   const definition = useDefinition();
-  const dispatch = useDispatch();
+  const project = useProject();
   const screener = (definition as Record<string, unknown>).screener as Screener | undefined;
   const isEnabled = Boolean(screener) && screener?.enabled !== false;
 
@@ -33,7 +33,7 @@ export function ScreenerSection() {
         <button
           type="button"
           className="cursor-pointer"
-          onClick={() => dispatch({ type: 'definition.setScreener', payload: { enabled: !isEnabled } })}
+          onClick={() => project.setScreener(!isEnabled)}
         >
           <Pill
             text={isEnabled ? 'Enabled' : 'Disabled'}

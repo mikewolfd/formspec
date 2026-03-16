@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { useDefinition } from '../../state/useDefinition';
 import { InlineExpression } from '../../components/ui/InlineExpression';
 
@@ -73,7 +73,7 @@ interface Instance {
 
 export function DataSources() {
   const definition = useDefinition();
-  const dispatch = useDispatch();
+  const project = useProject();
   const rawInstances = definition?.instances;
   const [expandedName, setExpandedName] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -87,28 +87,19 @@ export function DataSources() {
   const handleAdd = () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    dispatch({
-      type: 'definition.addInstance',
-      payload: { name: trimmed },
-    });
+    project.addInstance(trimmed, {});
     setExpandedName(trimmed);
     setNewName('');
     setIsAdding(false);
   };
 
   const handleSetProperty = (name: string, property: string, value: unknown) => {
-    dispatch({
-      type: 'definition.setInstance',
-      payload: { name, property, value },
-    });
+    project.updateInstance(name, { [property]: value } as Parameters<typeof project.updateInstance>[1]);
   };
 
   const handleDelete = (name: string) => {
     if (window.confirm(`Delete data source "${name}"? FEL expressions using @instance('${name}') will break.`)) {
-      dispatch({
-        type: 'definition.deleteInstance',
-        payload: { name },
-      });
+      project.removeInstance(name);
       if (expandedName === name) setExpandedName(null);
     }
   };

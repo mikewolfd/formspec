@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useTheme } from '../../state/useTheme';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 
 export function ScreenSizes() {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const project = useProject();
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newWidth, setNewWidth] = useState('');
@@ -14,7 +14,7 @@ export function ScreenSizes() {
     .sort(([, a], [, b]) => a - b);
 
   const setBreakpoint = (name: string, minWidth: number | null) => {
-    dispatch({ type: 'theme.setBreakpoint', payload: { name, minWidth } });
+    project.setBreakpoint(name, minWidth);
   };
 
   const handleAdd = () => {

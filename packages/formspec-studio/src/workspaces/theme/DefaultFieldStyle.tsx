@@ -1,5 +1,5 @@
 import { useTheme } from '../../state/useTheme';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 
 type LabelPosition = 'top' | 'start' | 'hidden';
 
@@ -11,12 +11,12 @@ const POSITIONS: { id: LabelPosition; label: string; description: string }[] = [
 
 export function DefaultFieldStyle() {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const project = useProject();
   const defaults = (theme?.defaults ?? {}) as Record<string, unknown>;
   const currentPosition = (defaults.labelPosition as string) ?? '';
 
   const setDefault = (property: string, value: unknown) => {
-    dispatch({ type: 'theme.setDefaults', payload: { property, value: value || null } });
+    project.setThemeDefault(property, value || null);
   };
 
   return (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { InlineExpression } from '../../components/ui/InlineExpression';
 
 interface Variable {
@@ -15,14 +15,11 @@ export function VariablesSection({ variables }: VariablesSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [editingName, setEditingName] = useState<string | null>(null);
-  const dispatch = useDispatch();
+  const project = useProject();
 
   const handleAdd = () => {
     if (!newName.trim()) return;
-    dispatch({
-      type: 'definition.addVariable',
-      payload: { name: newName.trim(), expression: '' },
-    });
+    project.addVariable(newName.trim(), '');
     setNewName('');
     setIsAdding(false);
   };
@@ -31,24 +28,15 @@ export function VariablesSection({ variables }: VariablesSectionProps) {
     setEditingName(null);
     const trimmed = newValue.replace(/[^a-zA-Z0-9_]/g, '');
     if (!trimmed || trimmed === oldName) return;
-    dispatch({
-      type: 'definition.setVariable',
-      payload: { name: oldName, property: 'name', value: trimmed },
-    });
+    project.renameVariable(oldName, trimmed);
   };
 
   const handleExpressionSave = (name: string, newValue: string) => {
-    dispatch({
-      type: 'definition.setVariable',
-      payload: { name, property: 'expression', value: newValue },
-    });
+    project.updateVariable(name, newValue);
   };
 
   const handleDelete = (name: string) => {
-    dispatch({
-      type: 'definition.deleteVariable',
-      payload: { name },
-    });
+    project.removeVariable(name);
   };
 
   return (

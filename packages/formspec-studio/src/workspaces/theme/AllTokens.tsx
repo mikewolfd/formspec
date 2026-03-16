@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../../state/useTheme';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 
 function isHexColor(v: string): boolean {
   return /^#([0-9a-fA-F]{3}){1,2}$/.test(v);
@@ -8,7 +8,7 @@ function isHexColor(v: string): boolean {
 
 export function AllTokens() {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const project = useProject();
   const [isAdding, setIsAdding] = useState(false);
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -27,7 +27,7 @@ export function AllTokens() {
   }
 
   const setToken = (key: string, value: string | null) => {
-    dispatch({ type: 'theme.setToken', payload: { key, value } });
+    project.setToken(key, value);
   };
 
   const handleAdd = () => {

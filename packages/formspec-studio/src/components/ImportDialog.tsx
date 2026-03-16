@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { useDispatch } from '../state/useDispatch';
+import { useProject } from '../state/useProject';
 
 interface ImportDialogProps {
   open: boolean;
@@ -9,7 +9,7 @@ interface ImportDialogProps {
 const ARTIFACT_TYPES = ['Definition', 'Component', 'Theme', 'Mapping'] as const;
 
 export function ImportDialog({ open, onClose }: ImportDialogProps) {
-  const dispatch = useDispatch();
+  const project = useProject();
   const titleId = useId();
   const descriptionId = useId();
   const textareaId = useId();
@@ -134,10 +134,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
               try {
                 const parsed = JSON.parse(jsonText);
                 const artifactKey = selectedType.toLowerCase();
-                dispatch({
-                  type: 'project.import',
-                  payload: { [artifactKey]: parsed },
-                });
+                project.loadBundle({ [artifactKey]: parsed });
                 onClose();
               } catch (e) {
                 setParseError((e as SyntaxError).message);

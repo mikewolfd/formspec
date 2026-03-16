@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
 import { usePageStructure } from './usePageStructure';
-import { useDispatch } from '../../state/useDispatch';
+import { useProject } from '../../state/useProject';
 import { useProjectState } from '../../state/useProjectState';
 import type { ResolvedPage, PageDiagnostic } from 'formspec-studio-core';
 
@@ -208,28 +208,28 @@ function DiagnosticsPanel({ diagnostics }: { diagnostics: PageDiagnostic[] }) {
 
 export function PagesTab() {
   const structure = usePageStructure();
-  const dispatch = useDispatch();
+  const project = useProject();
   const state = useProjectState();
   const hasWizardComponent = (state.component as any)?.tree?.component === 'Wizard';
 
   const setMode = (mode: 'single' | 'wizard' | 'tabs') => {
-    dispatch({ type: 'pages.setMode', payload: { mode } });
+    project.setFlow(mode);
   };
 
   const addPage = () => {
-    dispatch({ type: 'pages.addPage', payload: {} });
+    project.addPage('');
   };
 
   const deletePage = (id: string) => {
-    dispatch({ type: 'pages.deletePage', payload: { id } });
+    project.removePage(id);
   };
 
   const reorderPage = (id: string, direction: 'up' | 'down') => {
-    dispatch({ type: 'pages.reorderPages', payload: { id, direction } });
+    project.reorderPage(id, direction);
   };
 
   const autoGenerate = () => {
-    dispatch({ type: 'pages.autoGenerate', payload: {} });
+    project.autoGeneratePages();
   };
 
   const isMultiPage = structure.mode !== 'single';
