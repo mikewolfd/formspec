@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import { createProject, type Project } from 'formspec-studio-core';
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
@@ -55,23 +55,11 @@ const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
   'Theme': ThemeOverview,
 };
 
-interface ShellMenuItem {
-  label: string;
-  onClick: () => void;
-  testId?: string;
-}
-
-interface ShellProps {
-  appMenuItems?: ShellMenuItem[];
-  banner?: ReactNode;
-}
-
-export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
+export function Shell() {
   const [activeTab, setActiveTab] = useState<string>('Editor');
   const [activeSection, setActiveSection] = useState<string>('Structure');
   const [showPalette, setShowPalette] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [showAppMenu, setShowAppMenu] = useState(false);
   const [activeDataFilter, setActiveDataFilter] = useState<DataSectionFilter>('all');
   const [activeMappingTab, setActiveMappingTab] = useState<MappingTabId>('config');
   const [mappingConfigOpen, setMappingConfigOpen] = useState(true);
@@ -139,7 +127,7 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
         redo: () => project.redo(),
         delete: () => {
           if (selectedKey) {
-            project.dispatch({ type: 'definition.deleteItem', payload: { path: selectedKey } });
+            project.removeItem(selectedKey);
             deselect();
           }
         },
@@ -184,11 +172,7 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
   }, []);
 
   const handleNewForm = () => {
-    project.dispatch({
-      type: 'project.import',
-      payload: createProject().export(),
-    });
-    project.resetHistory();
+    project.loadBundle(createProject().export());
     setActiveTab('Editor');
     setActiveSection('Structure');
     setActiveDataFilter('all');
@@ -198,7 +182,6 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
     setPreviewMode('form');
     setShowPalette(false);
     setShowImport(false);
-    setShowAppMenu(false);
     deselect();
   };
 
@@ -227,48 +210,11 @@ export function Shell({ appMenuItems = [], banner }: ShellProps = {}) {
         onExport={handleExport}
         onImport={() => setShowImport(true)}
         onSearch={() => setShowPalette(true)}
-        onHome={() => setShowAppMenu((current) => !current)}
+        onHome={() => setShowSettings(true)}
         onOpenMetadata={() => setShowSettings(true)}
-        onToggleAccountMenu={() => setShowAppMenu((current) => !current)}
+        onToggleAccountMenu={() => setShowSettings(true)}
         isCompact={compactLayout}
       />
-      {showAppMenu ? (
-        <div
-          role="menu"
-          data-testid="app-menu"
-          className="absolute right-4 top-[56px] z-50 min-w-[180px] rounded-[6px] border border-border bg-surface p-2 shadow-lg"
-        >
-          <button
-            type="button"
-            className="w-full rounded-[4px] px-3 py-2 text-left text-sm hover:bg-subtle"
-            onClick={() => {
-              setShowSettings(true);
-              setShowAppMenu(false);
-            }}
-          >
-            Project settings
-          </button>
-          {appMenuItems.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              data-testid={item.testId}
-              className="mt-1 w-full rounded-[4px] px-3 py-2 text-left text-sm hover:bg-subtle"
-              onClick={() => {
-                item.onClick();
-                setShowAppMenu(false);
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {banner ? (
-        <div className="border-b border-border bg-[#edf6f8] px-4 py-3 text-sm text-[#184b58]">
-          {banner}
-        </div>
-      ) : null}
       <CanvasTargetsProvider>
         <div className="flex flex-1 overflow-hidden">
           <aside className="w-[230px] border-r border-border bg-surface overflow-y-auto flex flex-col shrink-0">

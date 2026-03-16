@@ -10,6 +10,6 @@ if (!customElements.get('formspec-render')) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App pathname={window.location.pathname} />
+    <App />
   </StrictMode>
 );

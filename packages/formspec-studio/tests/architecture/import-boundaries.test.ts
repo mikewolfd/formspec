@@ -26,15 +26,9 @@ describe('import boundaries', () => {
     const featureFiles = readFiles(path.join(srcRoot, 'features'));
     for (const filePath of featureFiles) {
       const text = fileText(filePath);
-      expect(text, filePath).not.toMatch(/inquest-app\//);
       expect(text, filePath).not.toMatch(/studio-app\//);
     }
   });
 
-  it('studio-app does not import inquest-app', () => {
-    const studioFiles = readFiles(path.join(srcRoot, 'studio-app'));
-    for (const filePath of studioFiles) {
-      expect(fileText(filePath), filePath).not.toMatch(/inquest-app\//);
-    }
-  });
+
 });

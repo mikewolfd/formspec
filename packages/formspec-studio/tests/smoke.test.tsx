@@ -4,13 +4,8 @@ import { App } from '../src/App';
 
 describe('Smoke', () => {
   it('mounts Studio by default', () => {
-    render(<App pathname="/studio/" />);
+    render(<App />);
     expect(screen.getByText('The Stack')).toBeInTheDocument();
   });
-
-  it('mounts Inquest on /inquest routes', () => {
-    render(<App pathname="/inquest/" />);
-    expect(screen.getByTestId('stack-assistant')).toBeInTheDocument();
-    expect(screen.getByText('Form Builder')).toBeInTheDocument();
-  });
 });
+
