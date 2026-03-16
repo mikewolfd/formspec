@@ -111,6 +111,23 @@ describe('RawProject', () => {
     });
   });
 
+  describe('batch middleware', () => {
+    it('runs middleware for batch operations', () => {
+      let middlewareRan = false;
+      const project = createRawProject({
+        middleware: [(_state, commands, next) => {
+          middlewareRan = true;
+          return next(commands);
+        }],
+      });
+      project.batch([
+        { type: 'definition.setFormTitle', payload: { title: 'Batched' } },
+      ]);
+      expect(middlewareRan).toBe(true);
+      expect(project.definition.title).toBe('Batched');
+    });
+  });
+
   describe('clearRedo', () => {
     it('clears the redo stack', () => {
       const raw = createRawProject();

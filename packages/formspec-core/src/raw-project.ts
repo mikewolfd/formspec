@@ -12,7 +12,6 @@ import type {
   CommandResult,
   ChangeListener,
   LogEntry,
-  Middleware,
   ProjectStatistics,
   ProjectBundle,
   ItemFilter,
@@ -44,6 +43,7 @@ import {
 } from 'formspec-engine';
 import { builtinHandlers } from './handlers/index.js';
 import type { CommandHandler } from './types.js';
+import { CommandPipeline } from './pipeline.js';
 import {
   createGeneratedLayoutDocument,
   getCurrentComponentDocument,
@@ -206,8 +206,8 @@ export class RawProject implements IProjectCore {
   private _log: LogEntry[] = [];
   /** Active change listeners, notified after every state transition. */
   private _listeners: Set<ChangeListener> = new Set();
-  /** Middleware pipeline wrapping the core dispatch. Outermost middleware runs first. */
-  private _middleware: Middleware[];
+  /** Phase-aware execution pipeline (handlers + middleware). */
+  private _pipeline: CommandPipeline;
   /** Maximum number of undo snapshots before oldest-first pruning. */
   private _maxHistory: number;
   /** Optional schema validator; when set, diagnose() populates structural diagnostics. */
@@ -223,11 +223,14 @@ export class RawProject implements IProjectCore {
   constructor(options?: ProjectOptions) {
     this._state = createDefaultState(options);
     this._maxHistory = options?.maxHistoryDepth ?? DEFAULT_MAX_HISTORY;
-    this._middleware = options?.middleware ?? [];
     this._schemaValidator = options?.schemaValidator;
     this._handlers = options?.handlers
       ? Object.freeze({ ...builtinHandlers, ...options.handlers })
       : builtinHandlers;
+    this._pipeline = new CommandPipeline(
+      this._handlers,
+      options?.middleware ?? [],
+    );
 
     // Auto-build generated layout when a definition is seeded without an
     // authored component tree.
@@ -2119,27 +2122,20 @@ export class RawProject implements IProjectCore {
     }
   }
 
-  /** Look up a handler by command type, throwing if unknown. */
-  private _getHandler(type: string): CommandHandler {
-    const handler = this._handlers[type];
-    if (!handler) throw new Error(`Unknown command type: ${type}`);
-    return handler;
-  }
-
   // ── Dispatching commands ─────────────────────────────────────────
 
   /**
-   * Apply a single command through the full dispatch lifecycle.
+   * Apply one or more commands through the full dispatch lifecycle.
    *
-   * Lifecycle:
-   *   1. Build middleware chain wrapping the core handler.
-   *   2. Clone state, execute handler on clone, push history snapshot.
-   *   3. If `result.clearHistory`, wipe undo/redo stacks and log.
-   *   4. If `result.rebuildComponentTree`, sync component tree to definition.
-   *   5. Run cross-artifact normalization.
-   *   6. Notify all change listeners.
+   * Lifecycle (via {@link _execute}):
+   *   1. Middleware wraps the full execution plan.
+   *   2. Clone state, execute handlers on clone across phases.
+   *   3. Inter-phase reconciliation (component tree rebuild) when signaled.
+   *   4. Cross-artifact normalization on the result state.
+   *   5. History snapshot push (or clear if `clearHistory` signaled).
+   *   6. Change listener notification.
    *
-   * If the handler throws, state is unchanged (the clone is discarded).
+   * If any handler throws, state is unchanged (the clone is discarded).
    *
    * @param command - A single command or an array of commands to execute atomically.
    *   Array form: single undo entry, middleware runs once, rolls back entirely if any throws.
@@ -2148,142 +2144,19 @@ export class RawProject implements IProjectCore {
   dispatch(command: AnyCommand): CommandResult;
   dispatch(command: AnyCommand[]): CommandResult[];
   dispatch(command: AnyCommand | AnyCommand[]): CommandResult | CommandResult[] {
-    if (Array.isArray(command)) {
-      return this._dispatchArray(command);
-    }
-    return this._dispatchSingle(command);
-  }
-
-  private _dispatchSingle(command: AnyCommand): CommandResult {
-    // Build the middleware chain, innermost is the actual handler
-    const coreDispatch = (cmd: AnyCommand): CommandResult => {
-      const handler = this._getHandler(cmd.type);
-      const clone = structuredClone(this._state);
-      const result = handler(clone, cmd.payload);
-
-      this._pushHistory(this._state);
-      this._log.push({ command: cmd, timestamp: Date.now() });
-      this._state = clone;
-      return result;
-    };
-
-    // Compose middleware: outermost wraps innermost
-    let chain = coreDispatch;
-    for (let i = this._middleware.length - 1; i >= 0; i--) {
-      const mw = this._middleware[i];
-      const next = chain;
-      chain = (cmd) => mw(this._state, cmd, next);
-    }
-
-    const result = chain(command);
-    if (result.clearHistory) {
-      this._undoStack.length = 0;
-      this._redoStack.length = 0;
-      this._log.length = 0;
-    }
-    if (result.rebuildComponentTree && !hasAuthoredComponentTree(this._state.component)) {
-      this._rebuildComponentTree();
-    }
-    this._normalize();
-    this._notify(command, result, 'dispatch');
-    return result;
-  }
-
-  /**
-   * Dispatch an array of commands atomically.
-   * All commands execute on a single state clone. If any command throws,
-   * the clone is discarded and state is unchanged (full rollback).
-   * Middleware runs once on the compound operation. Single undo entry.
-   */
-  private _dispatchArray(commands: AnyCommand[]): CommandResult[] {
-    const snapshot = this._state;
-    const clone = structuredClone(this._state);
-    const results: CommandResult[] = [];
-
-    // Execute all on the clone — if any throws, clone is discarded
-    for (const cmd of commands) {
-      const handler = this._getHandler(cmd.type);
-      results.push(handler(clone, cmd.payload));
-    }
-
-    // Build middleware chain for compound command
-    const compoundCmd: AnyCommand = { type: 'batch', payload: { commands } };
-    if (this._middleware.length > 0) {
-      // Run middleware once with the compound command
-      let chain = (_cmd: AnyCommand): CommandResult => {
-        // Already executed above — return compound result
-        return { rebuildComponentTree: results.some(r => r.rebuildComponentTree) };
-      };
-      for (let i = this._middleware.length - 1; i >= 0; i--) {
-        const mw = this._middleware[i];
-        const next = chain;
-        chain = (cmd) => mw(snapshot, cmd, next);
-      }
-      chain(compoundCmd);
-    }
-
-    this._pushHistory(snapshot);
-    this._log.push({ command: compoundCmd, timestamp: Date.now() });
-    this._state = clone;
-
-    if (results.some(r => r.rebuildComponentTree) && !hasAuthoredComponentTree(this._state.component)) {
-      this._rebuildComponentTree();
-    }
-    this._normalize();
-    this._notify(
-      compoundCmd,
-      { rebuildComponentTree: results.some(r => r.rebuildComponentTree) },
-      'batch',
-    );
-    return results;
+    const commands = Array.isArray(command) ? command : [command];
+    const results = this._execute([commands]);
+    return Array.isArray(command) ? results : results[0];
   }
 
   /**
    * Execute a two-phase command sequence with a component tree rebuild between phases.
-   * Phase1 commands execute on a clone. The component tree is rebuilt (unconditionally)
-   * on the clone. Phase2 commands then execute on the rebuilt clone.
-   * Produces a single undo entry. Middleware is not run.
+   * Phase1 commands execute on a clone. If any phase1 command signals rebuild,
+   * the component tree is rebuilt on the clone. Phase2 commands then execute
+   * on the rebuilt clone. Produces a single undo entry.
    */
   batchWithRebuild(phase1: AnyCommand[], phase2: AnyCommand[]): CommandResult[] {
-    const snapshot = this._state;
-    const clone = structuredClone(this._state);
-    const results: CommandResult[] = [];
-
-    // Phase 1
-    for (const cmd of phase1) {
-      const handler = this._getHandler(cmd.type);
-      results.push(handler(clone, cmd.payload));
-    }
-
-    // Unconditional mid-batch component tree rebuild on the clone.
-    // We temporarily swap this._state to the clone so _rebuildComponentTree operates on it.
-    const saved = this._state;
-    this._state = clone;
-    this._rebuildComponentTree();
-    this._state = saved;
-
-    // Phase 2 (operates on rebuilt tree)
-    for (const cmd of phase2) {
-      const handler = this._getHandler(cmd.type);
-      results.push(handler(clone, cmd.payload));
-    }
-
-    this._pushHistory(snapshot);
-    const compoundCmd: AnyCommand = { type: 'batchWithRebuild', payload: { phase1, phase2 } };
-    this._log.push({ command: compoundCmd, timestamp: Date.now() });
-    this._state = clone;
-
-    // Final post-batch rebuild + normalize
-    if (results.some(r => r.rebuildComponentTree) && !hasAuthoredComponentTree(this._state.component)) {
-      this._rebuildComponentTree();
-    }
-    this._normalize();
-    this._notify(
-      compoundCmd,
-      { rebuildComponentTree: true },
-      'batch',
-    );
-    return results;
+    return this._execute([phase1, phase2]);
   }
 
   /** Clear the redo stack. */
@@ -2295,8 +2168,7 @@ export class RawProject implements IProjectCore {
    * Apply multiple commands as one atomic operation.
    * All commands execute sequentially on a single state clone, producing one
    * undo entry and one change notification. The component tree is rebuilt if
-   * any command's result signals it. Middleware is bypassed -- commands go
-   * directly to their handlers.
+   * any command's result signals it.
    *
    * Commands in a batch are independent: if a command needs results from an
    * earlier command in the same batch, use sequential {@link dispatch} calls instead.
@@ -2305,30 +2177,74 @@ export class RawProject implements IProjectCore {
    * @returns Per-command results aligned by index.
    */
   batch(commands: AnyCommand[]): CommandResult[] {
-    const snapshot = this._state;
-    const clone = structuredClone(this._state);
-    const results: CommandResult[] = [];
+    return this._execute([commands]);
+  }
 
-    for (const cmd of commands) {
-      const handler = this._getHandler(cmd.type);
-      results.push(handler(clone, cmd.payload));
+  /**
+   * Unified command execution pipeline.
+   *
+   * Delegates to {@link CommandPipeline} for cloning, handler execution, and
+   * middleware wrapping. Handles history, normalization, and notification
+   * around the pipeline's result.
+   */
+  private _execute(phases: AnyCommand[][]): CommandResult[] {
+    const snapshot = this._state;
+
+    const { newState, results } = this._pipeline.execute(
+      this._state,
+      phases,
+      (clone) => {
+        if (!hasAuthoredComponentTree(clone.component)) {
+          // Temporary state swap so _rebuildComponentTree operates on the clone.
+          // This hack is eliminated when the tree reconciler is extracted (Task 8).
+          const saved = this._state;
+          this._state = clone;
+          this._rebuildComponentTree();
+          this._state = saved;
+        }
+      },
+    );
+
+    // Normalize on the new state
+    const savedForNormalize = this._state;
+    this._state = newState;
+    this._normalize();
+    this._state = savedForNormalize;
+
+    // History
+    if (results.some(r => r.clearHistory)) {
+      this._undoStack.length = 0;
+      this._redoStack.length = 0;
+      this._log.length = 0;
+    } else {
+      this._pushHistory(snapshot);
     }
 
-    this._pushHistory(snapshot);
-    this._log.push({
-      command: { type: 'batch', payload: { commands } },
-      timestamp: Date.now(),
-    });
-    this._state = clone;
+    // Swap to new state
+    this._state = newState;
+
+    // Post-execute rebuild for commands that signal it (after state swap)
     if (results.some(r => r.rebuildComponentTree) && !hasAuthoredComponentTree(this._state.component)) {
       this._rebuildComponentTree();
     }
-    this._normalize();
+
+    // Log
+    const allCommands = phases.flat();
+    const logCommand: AnyCommand = allCommands.length === 1
+      ? allCommands[0]
+      : phases.length > 1
+        ? { type: 'batchWithRebuild', payload: { phases } }
+        : { type: 'batch', payload: { commands: allCommands } };
+    this._log.push({ command: logCommand, timestamp: Date.now() });
+
+    // Notify
+    const source = allCommands.length === 1 ? 'dispatch' : 'batch';
     this._notify(
-      { type: 'batch', payload: { commands } },
+      logCommand,
       { rebuildComponentTree: results.some(r => r.rebuildComponentTree) },
-      'batch',
+      source,
     );
+
     return results;
   }
 
