@@ -20,9 +20,9 @@
     </h1>
 
     <p class="hero-sub">
-      Describe what you need in plain English. AI builds a working form — with conditional logic,
-      validation rules, calculated fields, multi-page wizards. Every form works offline, on any
-      device, with no vendor lock-in.
+      Describe what you need in plain English. AI builds a working form — complete with
+      business rules, smart defaults, and multi-page workflows. Every form works offline,
+      on any device, with no vendor lock-in.
     </p>
 
     <div class="hero-actions">
@@ -43,7 +43,7 @@
         </svg>
         GitHub
       </a>
-      <a href="/#developers" class="btn-ghost">
+      <a href="/docs/" class="btn-ghost">
         Read the spec
       </a>
     </div>
@@ -70,38 +70,87 @@
 
   </div>
 
-  <!-- Structured data visual — JSON definition preview -->
+  <!-- Structured data visual — definition JSON and rendered form preview side by side -->
   <div class="hero-code" aria-hidden="true">
-    <div class="code-window">
+    <div class="code-window split-window">
       <div class="code-window-bar">
         <span class="code-window-dot" style="background: #ff5f57;"></span>
         <span class="code-window-dot" style="background: #febc2e;"></span>
         <span class="code-window-dot" style="background: #28c840;"></span>
         <span class="code-filename">grant-application.definition.json</span>
+        <span class="split-window-label">Preview</span>
       </div>
-      <div class="code-window-body">
+      <div class="split-window-body">
+
+        <!-- Left: JSON definition -->
+        <div class="split-pane split-pane--code">
+          <div class="code-window-body">
 <pre><span class="tok-punct">{</span>
   <span class="tok-prop">"title"</span><span class="tok-punct">:</span> <span class="tok-str">"Grant Application"</span><span class="tok-punct">,</span>
   <span class="tok-prop">"items"</span><span class="tok-punct">:</span> <span class="tok-punct">[</span>
     <span class="tok-punct">{</span>
       <span class="tok-prop">"id"</span><span class="tok-punct">:</span> <span class="tok-str">"org_type"</span><span class="tok-punct">,</span>
-      <span class="tok-prop">"type"</span><span class="tok-punct">:</span> <span class="tok-str">"choice"</span>
+      <span class="tok-prop">"type"</span><span class="tok-punct">:</span> <span class="tok-str">"choice"</span><span class="tok-punct">,</span>
+      <span class="tok-prop">"label"</span><span class="tok-punct">:</span> <span class="tok-str">"Organization Type"</span>
     <span class="tok-punct">}</span><span class="tok-punct">,</span>
     <span class="tok-punct">{</span>
       <span class="tok-prop">"id"</span><span class="tok-punct">:</span> <span class="tok-str">"ein"</span><span class="tok-punct">,</span>
+      <span class="tok-prop">"label"</span><span class="tok-punct">:</span> <span class="tok-str">"EIN"</span><span class="tok-punct">,</span>
       <span class="tok-prop">"bind"</span><span class="tok-punct">:</span> <span class="tok-punct">{</span>
-        <span class="tok-prop">"relevant"</span><span class="tok-punct">:</span> <span class="tok-str">"$org_type = 'nonprofit'"</span><span class="tok-punct">,</span>
+        <span class="tok-prop">"relevant"</span><span class="tok-punct">:</span>
+          <span class="tok-str">"$org_type = 'nonprofit'"</span><span class="tok-punct">,</span>
         <span class="tok-prop">"required"</span><span class="tok-punct">:</span> <span class="tok-str">"true"</span>
       <span class="tok-punct">}</span>
     <span class="tok-punct">}</span><span class="tok-punct">,</span>
     <span class="tok-punct">{</span>
       <span class="tok-prop">"id"</span><span class="tok-punct">:</span> <span class="tok-str">"monthly_budget"</span><span class="tok-punct">,</span>
+      <span class="tok-prop">"label"</span><span class="tok-punct">:</span> <span class="tok-str">"Monthly Budget"</span><span class="tok-punct">,</span>
       <span class="tok-prop">"bind"</span><span class="tok-punct">:</span> <span class="tok-punct">{</span>
-        <span class="tok-prop">"calculate"</span><span class="tok-punct">:</span> <span class="tok-str">"$amount / $duration"</span>
+        <span class="tok-prop">"calculate"</span><span class="tok-punct">:</span>
+          <span class="tok-str">"$amount / $duration"</span>
       <span class="tok-punct">}</span>
     <span class="tok-punct">}</span>
   <span class="tok-punct">]</span>
 <span class="tok-punct">}</span></pre>
+          </div>
+        </div>
+
+        <!-- Right: rendered form mockup -->
+        <div class="split-pane split-pane--preview">
+          <div class="form-preview">
+            <div class="form-preview-title">Grant Application</div>
+
+            <div class="form-field">
+              <label class="form-label">Organization Type</label>
+              <div class="form-select">
+                <span>Nonprofit (501c3)</span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">
+                EIN
+                <span class="form-required">Required</span>
+              </label>
+              <input class="form-input" type="text" value="47-1234567" tabindex="-1" readonly />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">
+                Monthly Budget
+                <span class="form-badge">Calculated</span>
+              </label>
+              <div class="form-calculated">
+                <span class="form-calculated-value">$8,333</span>
+                <span class="form-calculated-expr">$amount / $duration</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -287,6 +336,7 @@
 
   .hero-code {
     /* right column */
+    min-width: 0; /* prevent grid blowout */
   }
 
   .code-filename {
@@ -294,6 +344,164 @@
     font-size: 0.75rem;
     color: rgb(255 255 255 / 0.4);
     margin-left: 0.5rem;
+  }
+
+  /* ── Split window layout ── */
+
+  .split-window {
+    overflow: hidden;
+  }
+
+  /* "Preview" tab label — floats to the right in the window bar */
+  .split-window-label {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgb(255 255 255 / 0.25);
+    padding: 0.2rem 0.5rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 3px;
+  }
+
+  .split-window-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+  }
+
+  .split-pane {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .split-pane--code {
+    border-right: 1px solid rgb(255 255 255 / 0.07);
+  }
+
+  .split-pane--code .code-window-body {
+    /* inherit the global .code-window-body padding/font */
+    font-size: 0.75rem;
+    line-height: 1.65;
+  }
+
+  /* ── Form preview panel ── */
+
+  .split-pane--preview {
+    background: #f8f8f7;
+    padding: 1.25rem;
+  }
+
+  .form-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-preview-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    letter-spacing: -0.02em;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e4e4e0;
+    margin-bottom: 0.25rem;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .form-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #4a4a6a;
+    letter-spacing: 0.005em;
+  }
+
+  .form-required {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #c84b31;
+    padding: 0.1rem 0.3rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 2px;
+  }
+
+  .form-badge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #3d52d5;
+    padding: 0.1rem 0.3rem;
+    background: #eef0fb;
+    border: 1px solid #c7cef7;
+    border-radius: 2px;
+  }
+
+  .form-select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.625rem;
+    background: #ffffff;
+    border: 1px solid #ccccca;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    color: #1a1a2e;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+
+  .form-select svg {
+    flex-shrink: 0;
+    color: #8888aa;
+  }
+
+  .form-input {
+    padding: 0.4rem 0.625rem;
+    background: #ffffff;
+    border: 1px solid #ccccca;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    color: #1a1a2e;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    font-family: inherit;
+    width: 100%;
+    outline: none;
+  }
+
+  .form-calculated {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.625rem;
+    background: #eef0fb;
+    border: 1px solid #c7cef7;
+    border-radius: 5px;
+  }
+
+  .form-calculated-value {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #3d52d5;
+  }
+
+  .form-calculated-expr {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: #6b7fe8;
+    opacity: 0.8;
   }
 
   @media (max-width: 900px) {
@@ -308,9 +516,19 @@
     }
   }
 
+  /* On narrow screens, stack the split panels */
   @media (max-width: 600px) {
     .hero-headline {
       font-size: clamp(2rem, 8vw, 2.5rem);
+    }
+
+    .split-window-body {
+      grid-template-columns: 1fr;
+    }
+
+    .split-pane--code {
+      border-right: none;
+      border-bottom: 1px solid rgb(255 255 255 / 0.07);
     }
   }
 </style>
