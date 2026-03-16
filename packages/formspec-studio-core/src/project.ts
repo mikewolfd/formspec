@@ -1,6 +1,6 @@
 import { createRawProject } from 'formspec-core';
 // Internal-only core types — never appear in public method signatures
-import type { IProjectCore, AnyCommand } from 'formspec-core';
+import type { IProjectCore, AnyCommand, FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry, FieldDependents, ItemFilter } from 'formspec-core';
 // Studio-core's own type vocabulary for the public API
 import type {
   FormItem, FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
@@ -45,6 +45,15 @@ export class Project {
   get theme(): Readonly<ThemeDocument> { return this.core.theme; }
   get mapping(): Readonly<MappingDocument> { return this.core.mapping; }
 
+  /** Returns the effective component document — authored if it has a tree, otherwise merged with generated. */
+  get effectiveComponent(): Readonly<ComponentDocument> {
+    const authored = this.core.component;
+    const isAuthored = !!authored && typeof (authored as any).$formspecComponent === 'string' && !!(authored as any).tree;
+    if (isAuthored) return authored;
+    const generated = this.core.generatedComponent;
+    return { ...authored, ...generated, tree: (generated as any).tree, 'x-studio-generated': true } as Readonly<ComponentDocument>;
+  }
+
   // ── Queries ────────────────────────────────────────────────
 
   fieldPaths(): string[] { return this.core.fieldPaths(); }
@@ -56,6 +65,56 @@ export class Project {
   commandHistory(): readonly LogEntry[] { return this.core.log; }
   export(): ProjectBundle { return this.core.export() as unknown as ProjectBundle; }
   diagnose(): Diagnostics { return this.core.diagnose(); }
+  componentFor(fieldKey: string): Record<string, unknown> | undefined { return this.core.componentFor(fieldKey); }
+  searchItems(filter: ItemFilter): FormItem[] { return this.core.searchItems(filter); }
+  parseFEL(expression: string, context?: FELParseContext): FELParseResult { return this.core.parseFEL(expression, context); }
+  felFunctionCatalog(): FELFunctionEntry[] { return this.core.felFunctionCatalog(); }
+  availableReferences(context?: string | FELParseContext): FELReferenceSet { return this.core.availableReferences(context); }
+  expressionDependencies(expression: string): string[] { return this.core.expressionDependencies(expression); }
+  fieldDependents(fieldPath: string): FieldDependents { return this.core.fieldDependents(fieldPath); }
+
+  // ── Layout node movement ────────────────────────────────────
+
+  /** Move a component tree node to a new parent/position. */
+  moveLayoutNode(
+    sourceNodeId: string,
+    targetParentNodeId: string,
+    targetIndex: number,
+  ): HelperResult {
+    this.core.dispatch({
+      type: 'component.moveNode',
+      payload: {
+        source: { nodeId: sourceNodeId },
+        targetParent: { nodeId: targetParentNodeId },
+        targetIndex,
+      },
+    } as AnyCommand);
+    return {
+      summary: `Moved layout node ${sourceNodeId}`,
+      action: { helper: 'moveLayoutNode', params: { sourceNodeId, targetParentNodeId, targetIndex } },
+      affectedPaths: [sourceNodeId],
+    };
+  }
+
+  /** Batch-move multiple definition items atomically (e.g. multi-select DnD). */
+  moveItems(
+    moves: Array<{ sourcePath: string; targetParentPath?: string; targetIndex: number }>,
+  ): HelperResult {
+    const commands = moves.map(m => ({
+      type: 'definition.moveItem',
+      payload: {
+        sourcePath: m.sourcePath,
+        ...(m.targetParentPath != null ? { targetParentPath: m.targetParentPath } : {}),
+        targetIndex: m.targetIndex,
+      },
+    }));
+    this.core.batch(commands as AnyCommand[]);
+    return {
+      summary: `Moved ${moves.length} items`,
+      action: { helper: 'moveItems', params: { moves } },
+      affectedPaths: moves.map(m => m.sourcePath),
+    };
+  }
 
   // ── History ────────────────────────────────────────────────
 
@@ -815,6 +874,7 @@ export class Project {
     'dataType', 'required', 'constraint', 'constraintMessage', 'calculate',
     'relevant', 'readonly', 'default', 'repeatable', 'minRepeat', 'maxRepeat',
     'widget', 'style', 'page',
+    'prefix', 'suffix', 'semanticType',
   ]);
 
   /** Properties that route to definition.setItemProperty. */
@@ -823,6 +883,7 @@ export class Project {
     'options', 'choicesFrom', 'initialValue', 'prePopulate',
     'repeatable', 'minRepeat', 'maxRepeat',
     'currency', 'precision',
+    'prefix', 'suffix', 'semanticType',
   ]);
 
   /** Properties that route to definition.setBind. */
@@ -1828,6 +1889,312 @@ export class Project {
     return {
       summary: `Applied style to ${typeof target === 'string' ? target : JSON.stringify(target)}`,
       action: { helper: 'applyStyleAll', params: { target, properties } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Theme Token / Default / Breakpoint Helpers ──
+
+  /** Set or delete a single theme token (null = delete). */
+  setToken(key: string, value: string | null): HelperResult {
+    this.core.dispatch({ type: 'theme.setToken', payload: { key, value } } as AnyCommand);
+    return {
+      summary: value === null ? `Deleted theme token '${key}'` : `Set theme token '${key}'`,
+      action: { helper: 'setToken', params: { key, value } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Set a default theme property (e.g. labelPosition, widget, cssClass). */
+  setThemeDefault(property: string, value: unknown): HelperResult {
+    this.core.dispatch({ type: 'theme.setDefaults', payload: { property, value } } as AnyCommand);
+    return {
+      summary: `Set theme default '${property}'`,
+      action: { helper: 'setThemeDefault', params: { property, value } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Set or delete a responsive breakpoint (null minWidth = delete). */
+  setBreakpoint(name: string, minWidth: number | null): HelperResult {
+    this.core.dispatch({ type: 'theme.setBreakpoint', payload: { name, minWidth } } as AnyCommand);
+    return {
+      summary: minWidth === null ? `Deleted breakpoint '${name}'` : `Set breakpoint '${name}' at ${minWidth}px`,
+      action: { helper: 'setBreakpoint', params: { name, minWidth } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Theme Selector CRUD ──
+
+  /** Add a theme selector rule. */
+  addThemeSelector(match: Record<string, unknown>, apply: Record<string, unknown>): HelperResult {
+    this.core.dispatch({ type: 'theme.addSelector', payload: { match, apply } } as AnyCommand);
+    // Read newly created selector index
+    const selectors = (this.core.state.theme as any).selectors ?? [];
+    const newIndex = selectors.length - 1;
+    return {
+      summary: `Added theme selector`,
+      action: { helper: 'addThemeSelector', params: { match, apply } },
+      affectedPaths: [],
+      createdId: String(newIndex),
+    };
+  }
+
+  /** Update a theme selector rule by index. */
+  updateThemeSelector(index: number, changes: { match?: Record<string, unknown>; apply?: Record<string, unknown> }): HelperResult {
+    this.core.dispatch({ type: 'theme.setSelector', payload: { index, ...changes } } as AnyCommand);
+    return {
+      summary: `Updated theme selector ${index}`,
+      action: { helper: 'updateThemeSelector', params: { index, changes } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Delete a theme selector rule by index. */
+  deleteThemeSelector(index: number): HelperResult {
+    this.core.dispatch({ type: 'theme.deleteSelector', payload: { index } } as AnyCommand);
+    return {
+      summary: `Deleted theme selector ${index}`,
+      action: { helper: 'deleteThemeSelector', params: { index } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Reorder a theme selector rule. */
+  reorderThemeSelector(index: number, direction: 'up' | 'down'): HelperResult {
+    this.core.dispatch({ type: 'theme.reorderSelector', payload: { index, direction } } as AnyCommand);
+    return {
+      summary: `Reordered theme selector ${index} ${direction}`,
+      action: { helper: 'reorderThemeSelector', params: { index, direction } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Theme Per-Item Override Helpers ──
+
+  /** Set a per-item theme override (e.g. labelPosition for a specific field). */
+  setItemOverride(itemKey: string, property: string, value: unknown): HelperResult {
+    this.core.dispatch({ type: 'theme.setItemOverride', payload: { itemKey, property, value } } as AnyCommand);
+    return {
+      summary: `Set theme override '${property}' on item '${itemKey}'`,
+      action: { helper: 'setItemOverride', params: { itemKey, property, value } },
+      affectedPaths: [itemKey],
+    };
+  }
+
+  /** Clear all per-item theme overrides for an item. */
+  clearItemOverrides(itemKey: string): HelperResult {
+    this.core.dispatch({ type: 'theme.deleteItemOverride', payload: { itemKey } } as AnyCommand);
+    return {
+      summary: `Cleared all theme overrides for item '${itemKey}'`,
+      action: { helper: 'clearItemOverrides', params: { itemKey } },
+      affectedPaths: [itemKey],
+    };
+  }
+
+  // ── Theme Page & Region Helpers ──
+
+  /** Add a theme layout page. */
+  addThemePage(): HelperResult {
+    this.core.dispatch({ type: 'theme.addPage', payload: {} } as AnyCommand);
+    const pages = (this.core.state.theme as any).pages ?? [];
+    const newPage = pages[pages.length - 1];
+    const pageId = (newPage as any)?.id as string | undefined;
+    return {
+      summary: `Added theme page`,
+      action: { helper: 'addThemePage', params: {} },
+      affectedPaths: pageId ? [pageId] : [],
+      createdId: pageId,
+    };
+  }
+
+  /** Update a theme page property. */
+  updateThemePage(index: number, property: string, value: unknown): HelperResult {
+    this.core.dispatch({ type: 'theme.setPageProperty', payload: { index, property, value } } as AnyCommand);
+    return {
+      summary: `Updated theme page ${index} property '${property}'`,
+      action: { helper: 'updateThemePage', params: { index, property, value } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Delete a theme page by index. */
+  deleteThemePage(index: number): HelperResult {
+    this.core.dispatch({ type: 'theme.deletePage', payload: { index } } as AnyCommand);
+    return {
+      summary: `Deleted theme page ${index}`,
+      action: { helper: 'deleteThemePage', params: { index } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Reorder a theme page. */
+  reorderThemePage(index: number, direction: 'up' | 'down'): HelperResult {
+    this.core.dispatch({ type: 'theme.reorderPage', payload: { index, direction } } as AnyCommand);
+    return {
+      summary: `Reordered theme page ${index} ${direction}`,
+      action: { helper: 'reorderThemePage', params: { index, direction } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Rename a theme page's id. */
+  renameThemePage(pageId: string, newId: string): HelperResult {
+    this.core.dispatch({ type: 'theme.renamePage', payload: { pageId, newId } } as AnyCommand);
+    return {
+      summary: `Renamed theme page '${pageId}' to '${newId}'`,
+      action: { helper: 'renameThemePage', params: { pageId, newId } },
+      affectedPaths: [newId],
+    };
+  }
+
+  /** Add a region to a theme page. */
+  addRegion(pageId: string, span?: number): HelperResult {
+    const payload: Record<string, unknown> = { pageId };
+    if (span !== undefined) payload.span = span;
+    this.core.dispatch({ type: 'theme.addRegion', payload } as AnyCommand);
+    return {
+      summary: `Added region to theme page '${pageId}'`,
+      action: { helper: 'addRegion', params: { pageId, span } },
+      affectedPaths: [pageId],
+    };
+  }
+
+  /** Update a region property. */
+  updateRegion(pageId: string, regionIndex: number, property: string, value: unknown): HelperResult {
+    this.core.dispatch({ type: 'theme.setRegionProperty', payload: { pageId, regionIndex, property, value } } as AnyCommand);
+    return {
+      summary: `Updated region ${regionIndex} on page '${pageId}' property '${property}'`,
+      action: { helper: 'updateRegion', params: { pageId, regionIndex, property, value } },
+      affectedPaths: [pageId],
+    };
+  }
+
+  /** Delete a region from a theme page. */
+  deleteRegion(pageId: string, regionIndex: number): HelperResult {
+    this.core.dispatch({ type: 'theme.deleteRegion', payload: { pageId, regionIndex } } as AnyCommand);
+    return {
+      summary: `Deleted region ${regionIndex} from theme page '${pageId}'`,
+      action: { helper: 'deleteRegion', params: { pageId, regionIndex } },
+      affectedPaths: [pageId],
+    };
+  }
+
+  /** Reorder a region within a theme page. */
+  reorderRegion(pageId: string, regionIndex: number, direction: 'up' | 'down'): HelperResult {
+    this.core.dispatch({ type: 'theme.reorderRegion', payload: { pageId, regionIndex, direction } } as AnyCommand);
+    return {
+      summary: `Reordered region ${regionIndex} on page '${pageId}' ${direction}`,
+      action: { helper: 'reorderRegion', params: { pageId, regionIndex, direction } },
+      affectedPaths: [pageId],
+    };
+  }
+
+  /** Set the field-key assignment for a region. */
+  setRegionKey(pageId: string, regionIndex: number, key: string): HelperResult {
+    this.core.dispatch({ type: 'theme.setRegionKey', payload: { pageId, regionIndex, key } } as AnyCommand);
+    return {
+      summary: `Set region ${regionIndex} on page '${pageId}' to key '${key}'`,
+      action: { helper: 'setRegionKey', params: { pageId, regionIndex, key } },
+      affectedPaths: [pageId],
+    };
+  }
+
+  // ── Component Tree Helpers ──
+
+  /** Add a layout-only node to the component tree. */
+  addLayoutNode(parentNodeId: string, component: string): HelperResult {
+    const result = this.core.dispatch({
+      type: 'component.addNode',
+      payload: { parent: { nodeId: parentNodeId }, component },
+    } as AnyCommand);
+    const nodeId = (result as any)?.nodeRef?.nodeId;
+    return {
+      summary: `Added layout node '${component}' under '${parentNodeId}'`,
+      action: { helper: 'addLayoutNode', params: { parentNodeId, component } },
+      affectedPaths: nodeId ? [nodeId] : [],
+      createdId: nodeId,
+    };
+  }
+
+  /** Unwrap a layout container, promoting its children. */
+  unwrapLayoutNode(nodeId: string): HelperResult {
+    this.core.dispatch({
+      type: 'component.unwrapNode',
+      payload: { node: { nodeId } },
+    } as AnyCommand);
+    return {
+      summary: `Unwrapped layout node '${nodeId}'`,
+      action: { helper: 'unwrapLayoutNode', params: { nodeId } },
+      affectedPaths: [nodeId],
+    };
+  }
+
+  /** Delete a layout node from the component tree. */
+  deleteLayoutNode(nodeId: string): HelperResult {
+    this.core.dispatch({
+      type: 'component.deleteNode',
+      payload: { node: { nodeId } },
+    } as AnyCommand);
+    return {
+      summary: `Deleted layout node '${nodeId}'`,
+      action: { helper: 'deleteLayoutNode', params: { nodeId } },
+      affectedPaths: [nodeId],
+    };
+  }
+
+  // ── Option Set Helpers ──
+
+  /** Update a property on an option set. */
+  updateOptionSet(name: string, property: string, value: unknown): HelperResult {
+    this.core.dispatch({
+      type: 'definition.setOptionSetProperty',
+      payload: { name, property, value },
+    } as AnyCommand);
+    return {
+      summary: `Updated option set '${name}' property '${property}'`,
+      action: { helper: 'updateOptionSet', params: { name, property, value } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Delete an option set by name. */
+  deleteOptionSet(name: string): HelperResult {
+    this.core.dispatch({
+      type: 'definition.deleteOptionSet',
+      payload: { name },
+    } as AnyCommand);
+    return {
+      summary: `Deleted option set '${name}'`,
+      action: { helper: 'deleteOptionSet', params: { name } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Mapping Helper ──
+
+  /** Set a mapping document property (e.g. direction). */
+  setMappingProperty(property: string, value: unknown): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.setProperty',
+      payload: { property, value },
+    } as AnyCommand);
+    return {
+      summary: `Set mapping property '${property}'`,
+      action: { helper: 'setMappingProperty', params: { property, value } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Page Auto-generate Helper ──
+
+  /** Auto-generate pages from definition groups. */
+  autoGeneratePages(): HelperResult {
+    this.core.dispatch({ type: 'pages.autoGenerate', payload: {} } as AnyCommand);
+    return {
+      summary: `Auto-generated pages from definition groups`,
+      action: { helper: 'autoGeneratePages', params: {} },
       affectedPaths: [],
     };
   }

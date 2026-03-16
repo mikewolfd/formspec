@@ -58,5 +58,19 @@ export type {
 export { resolveFieldType, resolveWidget, widgetHintFor, isTextareaWidget } from './field-type-aliases.js';
 export type { ResolvedFieldType } from './field-type-aliases.js';
 
+// ── FEL & dependency query types (re-exported from formspec-core) ────
+export type {
+  FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry,
+  FieldDependents, ItemFilter,
+} from 'formspec-core';
+
+// ── Theme utilities (re-exported from formspec-core for consumers) ───
+export { resolveThemeCascade } from 'formspec-core';
+export type { ResolvedProperty } from 'formspec-core';
+
+// ── Page resolution utilities (re-exported from formspec-core) ───────
+export { resolvePageStructure } from 'formspec-core';
+export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic } from 'formspec-core';
+
 // ── Evaluation helpers ──────────────────────────────────────────────
 export { previewForm, validateResponse } from './evaluation-helpers.js';
