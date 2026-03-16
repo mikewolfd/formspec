@@ -274,7 +274,7 @@ describe('component.registerCustom', () => {
       },
     });
 
-    expect((project.component as any).customComponents?.AddressBlock).toBeDefined();
+    expect((project.component as any).components?.AddressBlock).toBeDefined();
   });
 });
 
@@ -291,7 +291,7 @@ describe('component.updateCustom', () => {
       payload: { name: 'MyComp', params: { color: { type: 'string' } } },
     });
 
-    expect((project.component as any).customComponents?.MyComp.params).toHaveProperty('color');
+    expect((project.component as any).components?.MyComp.params).toHaveProperty('color');
   });
 });
 
@@ -308,7 +308,7 @@ describe('component.deleteCustom', () => {
       payload: { name: 'Temp' },
     });
 
-    expect((project.component as any).customComponents?.Temp).toBeUndefined();
+    expect((project.component as any).components?.Temp).toBeUndefined();
   });
 });
 
@@ -331,8 +331,8 @@ describe('component.renameCustom', () => {
       payload: { name: 'OldName', newName: 'NewName' },
     });
 
-    expect((project.component as any).customComponents?.OldName).toBeUndefined();
-    expect((project.component as any).customComponents?.NewName).toBeDefined();
+    expect((project.component as any).components?.OldName).toBeUndefined();
+    expect((project.component as any).components?.NewName).toBeDefined();
 
     const tree = project.component.tree as any;
     expect(tree.children[0].component).toBe('NewName');
