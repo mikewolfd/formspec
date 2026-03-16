@@ -1,0 +1,132 @@
+---
+// Proof strip — concrete statements that cut through the pitch.
+// The first item leads with the time-saving stat. The rest are specific capabilities.
+
+const statements = [
+  {
+    headline: "A 200-field form in 20 minutes, not 3 months",
+    body: "Traditional form development takes weeks to months — requirements, design, build, test, iterate. Describe what you need to the AI and get a working form with validation, conditional logic, and calculations in a single session.",
+    stat: "~100x",
+    statLabel: "faster",
+  },
+  {
+    headline: "Your applicants can't submit invalid budgets",
+    body: "Even on a plane. Same validation rules, everywhere — browser, server, mobile, offline.",
+  },
+  {
+    headline: "Flag a $50,000 travel budget without blocking the submission",
+    body: "Your reviewer sees the warning. Your applicant keeps moving. Errors and warnings are distinct.",
+  },
+  {
+    headline: "Submit once. Get the data in every format your systems need.",
+    body: "No re-entry. No export macros. The mapping engine handles transformation.",
+  },
+  {
+    headline: "AI can't produce a form that breaks your rules",
+    body: "Every AI-generated form passes through the same automatic validation as human-built forms. Three layers of checks catch errors before anything reaches your users. No trust required — just verification.",
+  },
+];
+---
+
+<div class="proof-strip" aria-label="Key differentiators">
+  <div class="proof-inner">
+    {statements.map((s) => (
+      <div class:list={["proof-item", { "proof-item--has-stat": s.stat }]}>
+        {s.stat && (
+          <div class="proof-stat" aria-label={`${s.stat} ${s.statLabel}`}>
+            <span class="proof-stat-number">{s.stat}</span>
+            <span class="proof-stat-label">{s.statLabel}</span>
+          </div>
+        )}
+        <div>
+          <p class="proof-headline">{s.headline}</p>
+          <p class="proof-body">{s.body}</p>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+<style>
+  .proof-strip {
+    background: var(--color-surface-raised);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    padding: 2.5rem 0;
+  }
+
+  .proof-inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 2.5rem);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2rem;
+  }
+
+  .proof-item--has-stat {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .proof-stat {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+  }
+
+  .proof-stat-number {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--color-accent);
+  }
+
+  .proof-stat-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-ink-tertiary);
+    margin-top: 0.125rem;
+  }
+
+  .proof-headline {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin: 0 0 0.5rem;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  .proof-body {
+    font-size: 0.875rem;
+    color: var(--color-ink-secondary);
+    line-height: 1.65;
+    margin: 0;
+  }
+
+  @media (max-width: 1100px) {
+    .proof-inner {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .proof-inner {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.75rem;
+    }
+  }
+
+  @media (max-width: 500px) {
+    .proof-inner {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+  }
+</style>

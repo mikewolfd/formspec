@@ -19,9 +19,10 @@ echo "==> Cleaning public/"
 rm -rf "$PUBLIC"
 mkdir -p "$PUBLIC"
 
-# ── 1. Marketing site (static HTML) ──
-echo "==> Copying marketing site"
-cp "$ROOT/site/index.html" "$PUBLIC/index.html"
+# ── 1. Marketing site (Astro SSG) ──
+echo "==> Building marketing site"
+(cd "$ROOT/site" && npm run build)
+cp -r "$ROOT/site/dist/"* "$PUBLIC/"
 
 # ── 2. Studio (React SPA) ──
 echo "==> Building studio"
