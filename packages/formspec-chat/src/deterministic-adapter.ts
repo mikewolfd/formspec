@@ -20,13 +20,11 @@ export class DeterministicAdapter implements AIAdapter {
   async generateScaffold(request: ScaffoldRequest): Promise<ScaffoldResult> {
     switch (request.type) {
       case 'template':
-        return this.scaffoldFromTemplate(request.templateId!);
+        return this.scaffoldFromTemplate(request.templateId);
       case 'conversation':
-        return this.scaffoldFromConversation(request.messages ?? []);
+        return this.scaffoldFromConversation(request.messages);
       case 'upload':
-        return this.scaffoldFromUpload(request.extractedContent ?? '');
-      default:
-        throw new Error(`Unknown scaffold request type: ${request.type}`);
+        return this.scaffoldFromUpload(request.extractedContent);
     }
   }
 

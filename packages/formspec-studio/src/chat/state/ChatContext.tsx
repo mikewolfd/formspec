@@ -54,13 +54,11 @@ export function useChatSession(): ChatSession {
  */
 export function useChatState(): ChatState {
   const session = useChatSession();
-  const versionRef = useRef(0);
   const cachedRef = useRef<ChatState>(snapshotFrom(session));
 
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
       return session.onChange(() => {
-        versionRef.current++;
         cachedRef.current = snapshotFrom(session);
         onStoreChange();
       });

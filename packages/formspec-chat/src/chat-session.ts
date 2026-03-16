@@ -5,23 +5,18 @@ import type {
 import type { FormDefinition } from 'formspec-types';
 import { SourceTraceManager } from './source-trace.js';
 import { IssueQueue } from './issue-queue.js';
-import { FormScaffolder, type DefinitionDiff } from './form-scaffolder.js';
+import { diff, type DefinitionDiff } from './form-scaffolder.js';
 
 let sessionCounter = 0;
-let messageCounter = 0;
 
 function nextSessionId(): string {
   return `chat-${++sessionCounter}-${Date.now()}`;
 }
 
-function nextMessageId(): string {
-  return `msg-${++messageCounter}`;
-}
-
 /**
  * Orchestrates a conversational form-building session.
  *
- * Composes SourceTraceManager, IssueQueue, FormScaffolder, and an AIAdapter
+ * Composes SourceTraceManager, IssueQueue, and an AIAdapter
  * into a coherent conversation flow. Manages message history, form state,
  * and session serialization.
  */
@@ -31,13 +26,13 @@ export class ChatSession {
   private messages: ChatMessage[] = [];
   private traces: SourceTraceManager = new SourceTraceManager();
   private issues: IssueQueue = new IssueQueue();
-  private scaffolder: FormScaffolder = new FormScaffolder();
   private definition: FormDefinition | null = null;
   private createdAt: number;
   private updatedAt: number;
   private templateId?: string;
   private lastDiff: DefinitionDiff | null = null;
   private listeners: Set<() => void> = new Set();
+  private messageCounter = 0;
 
   constructor(options: { adapter: AIAdapter; id?: string }) {
     this.adapter = options.adapter;
@@ -107,7 +102,7 @@ export class ChatSession {
    */
   async sendMessage(content: string): Promise<ChatMessage> {
     const userMsg: ChatMessage = {
-      id: nextMessageId(),
+      id: this.nextMessageId(),
       role: 'user',
       content,
       timestamp: Date.now(),
@@ -116,36 +111,49 @@ export class ChatSession {
 
     let assistantContent: string;
 
-    if (!this.definition) {
-      // First meaningful input — generate scaffold
-      const result = await this.adapter.generateScaffold({
-        type: 'conversation',
-        messages: this.messages,
-      });
-      const applied = this.scaffolder.apply(result);
-      this.definition = applied.definition;
-      this.lastDiff = null; // No diff on initial scaffold
-      this.traces.addTraces(applied.traces);
-      this.addIssuesFromResult(applied.issues);
-      assistantContent = `I've created a draft form: "${applied.definition.title}" with ${applied.definition.items.length} fields. You can continue describing what you need, and I'll refine it.`;
-    } else {
-      // Refine existing form
-      const previousDef = this.definition;
-      const result = await this.adapter.refineForm(
-        this.messages,
-        this.definition,
-        content,
-      );
-      const applied = this.scaffolder.apply(result);
-      this.lastDiff = this.scaffolder.diff(previousDef, applied.definition);
-      this.definition = applied.definition;
-      this.traces.addTraces(applied.traces);
-      this.addIssuesFromResult(applied.issues);
-      assistantContent = `I've updated the form based on your request.`;
+    try {
+      if (!this.definition) {
+        // First meaningful input — generate scaffold
+        const result = await this.adapter.generateScaffold({
+          type: 'conversation',
+          messages: this.messages,
+        });
+        this.definition = result.definition;
+        this.lastDiff = null; // No diff on initial scaffold
+        this.traces.addTraces(result.traces);
+        this.addIssuesFromResult(result.issues);
+        assistantContent = `I've created a draft form: "${result.definition.title}" with ${result.definition.items.length} fields. You can continue describing what you need, and I'll refine it.`;
+      } else {
+        // Refine existing form
+        const previousDef = this.definition;
+        const result = await this.adapter.refineForm(
+          this.messages,
+          this.definition,
+          content,
+        );
+        this.lastDiff = diff(previousDef, result.definition);
+        this.definition = result.definition;
+        this.traces.addTraces(result.traces);
+        this.addIssuesFromResult(result.issues);
+        assistantContent = this.lastDiff.added.length === 0 && this.lastDiff.modified.length === 0 && this.lastDiff.removed.length === 0
+          ? `I wasn't able to make changes to the form. Try being more specific, or configure an AI provider for full conversational refinement.`
+          : `I've updated the form based on your request.`;
+      }
+    } catch (err) {
+      const errorMsg: ChatMessage = {
+        id: this.nextMessageId(),
+        role: 'system',
+        content: `Something went wrong: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`,
+        timestamp: Date.now(),
+      };
+      this.messages.push(errorMsg);
+      this.updatedAt = Date.now();
+      this.notify();
+      return errorMsg;
     }
 
     const assistantMsg: ChatMessage = {
-      id: nextMessageId(),
+      id: this.nextMessageId(),
       role: 'assistant',
       content: assistantContent,
       timestamp: Date.now(),
@@ -165,16 +173,15 @@ export class ChatSession {
       type: 'template',
       templateId,
     });
-    const applied = this.scaffolder.apply(result);
-    this.definition = applied.definition;
+    this.definition = result.definition;
     this.templateId = templateId;
-    this.traces.addTraces(applied.traces);
-    this.addIssuesFromResult(applied.issues);
+    this.traces.addTraces(result.traces);
+    this.addIssuesFromResult(result.issues);
 
     const systemMsg: ChatMessage = {
-      id: nextMessageId(),
+      id: this.nextMessageId(),
       role: 'system',
-      content: `Started from template: ${applied.definition.title}. You can now refine this form through conversation.`,
+      content: `Started from template: ${result.definition.title}. You can now refine this form through conversation.`,
       timestamp: Date.now(),
     };
     this.messages.push(systemMsg);
@@ -193,15 +200,14 @@ export class ChatSession {
       type: 'upload',
       extractedContent,
     });
-    const applied = this.scaffolder.apply(result);
-    this.definition = applied.definition;
-    this.traces.addTraces(applied.traces);
-    this.addIssuesFromResult(applied.issues);
+    this.definition = result.definition;
+    this.traces.addTraces(result.traces);
+    this.addIssuesFromResult(result.issues);
 
     const systemMsg: ChatMessage = {
-      id: nextMessageId(),
+      id: this.nextMessageId(),
       role: 'system',
-      content: `Processed upload: ${attachment.name}. Generated a form with ${applied.definition.items.length} fields.`,
+      content: `Processed upload: ${attachment.name}. Generated a form with ${result.definition.items.length} fields.`,
       timestamp: Date.now(),
     };
     this.messages.push(systemMsg);
@@ -227,10 +233,7 @@ export class ChatSession {
       id: this.id,
       messages: [...this.messages],
       projectSnapshot: {
-        definition: this.definition ?? ({} as FormDefinition),
-        component: {} as any,
-        theme: {} as any,
-        mapping: {} as any,
+        definition: this.definition,
       },
       traces: this.traces.toJSON(),
       issues: this.issues.toJSON(),
@@ -252,6 +255,7 @@ export class ChatSession {
     session.createdAt = state.createdAt;
     session.updatedAt = state.updatedAt;
     session.templateId = state.templateId;
+    session.messageCounter = state.messages.length;
     return session;
   }
 
@@ -259,6 +263,10 @@ export class ChatSession {
     for (const issue of issues) {
       this.issues.addIssue(issue);
     }
+  }
+
+  private nextMessageId(): string {
+    return `msg-${++this.messageCounter}`;
   }
 
   private notify(): void {

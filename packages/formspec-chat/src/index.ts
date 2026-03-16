@@ -21,6 +21,7 @@ export type {
   ProviderConfig,
   ProviderType,
   Template,
+  ChatProjectSnapshot,
   ChatSessionState,
   StorageBackend,
   SessionSummary,
@@ -33,5 +34,5 @@ export { validateProviderConfig, type ProviderValidationError } from './provider
 export { TemplateLibrary } from './template-library.js';
 export { DeterministicAdapter } from './deterministic-adapter.js';
 export { SessionStore } from './session-store.js';
-export { FormScaffolder, type AppliedScaffold, type DefinitionDiff } from './form-scaffolder.js';
+export { diff, type AppliedScaffold, type DefinitionDiff } from './form-scaffolder.js';
 export { ChatSession } from './chat-session.js';

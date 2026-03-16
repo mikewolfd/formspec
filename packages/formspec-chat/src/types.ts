@@ -6,7 +6,6 @@
  */
 
 import type { FormDefinition } from 'formspec-types';
-import type { ProjectSnapshot } from 'formspec-studio-core';
 
 // ── Chat Messages ────────────────────────────────────────────────────
 
@@ -99,12 +98,10 @@ export interface AIAdapter {
   isAvailable(): Promise<boolean>;
 }
 
-export interface ScaffoldRequest {
-  type: 'template' | 'conversation' | 'upload';
-  templateId?: string;
-  messages?: ChatMessage[];
-  extractedContent?: string;
-}
+export type ScaffoldRequest =
+  | { type: 'template'; templateId: string }
+  | { type: 'conversation'; messages: ChatMessage[] }
+  | { type: 'upload'; extractedContent: string };
 
 // ── Provider Config ─────────────────────────────────────────────────
 
@@ -129,10 +126,14 @@ export interface Template {
 
 // ── Session Persistence ─────────────────────────────────────────────
 
+export interface ChatProjectSnapshot {
+  definition: FormDefinition | null;
+}
+
 export interface ChatSessionState {
   id: string;
   messages: ChatMessage[];
-  projectSnapshot: ProjectSnapshot;
+  projectSnapshot: ChatProjectSnapshot;
   traces: SourceTrace[];
   issues: Issue[];
   createdAt: number;

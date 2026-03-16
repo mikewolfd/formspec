@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { FormScaffolder } from '../src/form-scaffolder.js';
-import type { ScaffoldResult } from '../src/types.js';
+import { diff } from '../src/form-scaffolder.js';
 import type { FormDefinition } from 'formspec-types';
 
-describe('FormScaffolder', () => {
-  const scaffolder = new FormScaffolder();
-
+describe('diff', () => {
   const baseDef: FormDefinition = {
     $formspec: '1.0',
     url: 'urn:test:form',
@@ -21,36 +18,6 @@ describe('FormScaffolder', () => {
     ],
   } as FormDefinition;
 
-  describe('apply', () => {
-    it('applies a scaffold result as the full definition', () => {
-      const result: ScaffoldResult = {
-        definition: baseDef,
-        traces: [],
-        issues: [],
-      };
-
-      const applied = scaffolder.apply(result);
-      expect(applied.definition).toEqual(baseDef);
-    });
-
-    it('passes through traces and issues unchanged', () => {
-      const result: ScaffoldResult = {
-        definition: baseDef,
-        traces: [
-          { elementPath: 'name', sourceType: 'message', sourceId: 'msg-1', description: 'test', timestamp: 1 },
-        ],
-        issues: [
-          { severity: 'warning', category: 'low-confidence', title: 'Test', description: 'Test', sourceIds: [] },
-        ],
-      };
-
-      const applied = scaffolder.apply(result);
-      expect(applied.traces).toEqual(result.traces);
-      expect(applied.issues).toEqual(result.issues);
-    });
-  });
-
-  describe('diff', () => {
     it('detects added items', () => {
       const newDef: FormDefinition = {
         ...baseDef,
@@ -60,7 +27,7 @@ describe('FormScaffolder', () => {
         ],
       };
 
-      const changes = scaffolder.diff(baseDef, newDef);
+      const changes = diff(baseDef, newDef);
       expect(changes.added).toContain('phone');
       expect(changes.removed).toEqual([]);
     });
@@ -71,7 +38,7 @@ describe('FormScaffolder', () => {
         items: [baseDef.items[0]],
       };
 
-      const changes = scaffolder.diff(baseDef, newDef);
+      const changes = diff(baseDef, newDef);
       expect(changes.removed).toContain('email');
       expect(changes.added).toEqual([]);
     });
@@ -85,12 +52,12 @@ describe('FormScaffolder', () => {
         ],
       };
 
-      const changes = scaffolder.diff(baseDef, newDef);
+      const changes = diff(baseDef, newDef);
       expect(changes.modified).toContain('name');
     });
 
     it('returns empty diff for identical definitions', () => {
-      const changes = scaffolder.diff(baseDef, baseDef);
+      const changes = diff(baseDef, baseDef);
       expect(changes.added).toEqual([]);
       expect(changes.removed).toEqual([]);
       expect(changes.modified).toEqual([]);
@@ -121,13 +88,13 @@ describe('FormScaffolder', () => {
         ],
       };
 
-      const changes = scaffolder.diff(oldDef, newDef);
+      const changes = diff(oldDef, newDef);
       expect(changes.added).toContain('city');
     });
 
     it('handles empty items arrays', () => {
       const emptyDef: FormDefinition = { ...baseDef, items: [] };
-      const changes = scaffolder.diff(emptyDef, baseDef);
+      const changes = diff(emptyDef, baseDef);
       expect(changes.added).toContain('name');
       expect(changes.added).toContain('email');
     });
@@ -140,8 +107,7 @@ describe('FormScaffolder', () => {
           baseDef.items[1],
         ],
       };
-      const changes = scaffolder.diff(baseDef, newDef);
+      const changes = diff(baseDef, newDef);
       expect(changes.modified).toContain('name');
     });
-  });
 });

@@ -123,8 +123,6 @@ describe('ChatContext', () => {
   });
 
   it('throws when useChatSession is used outside provider', () => {
-    // Suppress console.error from React error boundary
-    const spy = import.meta.vitest ? undefined : undefined;
     expect(() => {
       render(<ChatStateDisplay />);
     }).toThrow();

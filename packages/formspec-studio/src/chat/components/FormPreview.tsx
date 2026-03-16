@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useChatState } from '../state/ChatContext.js';
 import type { SourceTrace, DefinitionDiff } from 'formspec-chat';
 
@@ -25,30 +25,31 @@ interface ItemLike {
  */
 export function FormPreview() {
   const state = useChatState();
+  const { definition: def, lastDiff: diff, traces } = state;
 
-  if (!state.definition) {
+  const tracesByPath = useMemo(() => {
+    const map = new Map<string, SourceTrace[]>();
+    for (const t of traces) {
+      const list = map.get(t.elementPath) ?? [];
+      list.push(t);
+      map.set(t.elementPath, list);
+    }
+    return map;
+  }, [traces]);
+
+  const diffKeys = useMemo(() => diff ? {
+    added: new Set(diff.added),
+    removed: new Set(diff.removed),
+    modified: new Set(diff.modified),
+  } : null, [diff]);
+
+  if (!def) {
     return (
       <div data-testid="form-preview" className="flex items-center justify-center h-full text-sm text-muted px-4">
         No form yet — start a conversation or pick a template.
       </div>
     );
   }
-
-  const def = state.definition;
-  const diff = state.lastDiff;
-  const traces = state.traces;
-  const tracesByPath = new Map<string, SourceTrace[]>();
-  for (const t of traces) {
-    const list = tracesByPath.get(t.elementPath) ?? [];
-    list.push(t);
-    tracesByPath.set(t.elementPath, list);
-  }
-
-  const diffKeys = diff ? {
-    added: new Set(diff.added),
-    removed: new Set(diff.removed),
-    modified: new Set(diff.modified),
-  } : null;
 
   return (
     <div data-testid="form-preview" className="flex-1 overflow-y-auto px-6 py-8 bg-bg-default">
@@ -115,7 +116,7 @@ function getDiffStatus(key: string, diffKeys: DiffKeySet | null): 'added' | 'mod
 }
 
 function diffBorderClass(status: 'added' | 'modified' | null): string {
-  if (status === 'added') return 'border-green-500/50 bg-green-500/5';
+  if (status === 'added') return 'border-green/50 bg-green/5';
   if (status === 'modified') return 'border-amber/50 bg-amber/5';
   return 'border-border bg-surface';
 }
@@ -286,7 +287,7 @@ function FieldMockup({ item }: { item: ItemLike }) {
 
 function DiffBadge({ status }: { status: 'added' | 'modified' }) {
   const styles = {
-    added: 'bg-green-500/10 text-green-600 border-green-500/20',
+    added: 'bg-green/10 text-green border-green/20',
     modified: 'bg-amber/10 text-amber border-amber/20',
   };
   return (

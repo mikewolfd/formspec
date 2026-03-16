@@ -1,11 +1,8 @@
 import type { ScaffoldResult } from './types.js';
 import type { FormDefinition } from 'formspec-types';
 
-export interface AppliedScaffold {
-  definition: FormDefinition;
-  traces: ScaffoldResult['traces'];
-  issues: ScaffoldResult['issues'];
-}
+/** Type alias — ScaffoldResult already has the right shape. */
+export type AppliedScaffold = ScaffoldResult;
 
 export interface DefinitionDiff {
   added: string[];
@@ -14,43 +11,33 @@ export interface DefinitionDiff {
 }
 
 /**
- * Bridges AI adapter output into form definitions and computes diffs
- * between versions for highlighting changes in the preview.
+ * Compute a structural diff between two form definitions.
+ * Returns lists of added, removed, and modified item keys.
  */
-export class FormScaffolder {
-  apply(result: ScaffoldResult): AppliedScaffold {
-    return {
-      definition: result.definition,
-      traces: result.traces,
-      issues: result.issues,
-    };
-  }
+export function diff(oldDef: FormDefinition, newDef: FormDefinition): DefinitionDiff {
+  const oldItems = flattenItems(oldDef.items ?? []);
+  const newItems = flattenItems(newDef.items ?? []);
 
-  diff(oldDef: FormDefinition, newDef: FormDefinition): DefinitionDiff {
-    const oldItems = flattenItems(oldDef.items ?? []);
-    const newItems = flattenItems(newDef.items ?? []);
+  const oldKeys = new Set(oldItems.map(i => i.key));
+  const newKeys = new Set(newItems.map(i => i.key));
 
-    const oldKeys = new Set(oldItems.map(i => i.key));
-    const newKeys = new Set(newItems.map(i => i.key));
+  const added = [...newKeys].filter(k => !oldKeys.has(k));
+  const removed = [...oldKeys].filter(k => !newKeys.has(k));
 
-    const added = [...newKeys].filter(k => !oldKeys.has(k));
-    const removed = [...oldKeys].filter(k => !newKeys.has(k));
+  const modified: string[] = [];
+  const oldMap = new Map(oldItems.map(i => [i.key, i]));
+  const newMap = new Map(newItems.map(i => [i.key, i]));
 
-    const modified: string[] = [];
-    const oldMap = new Map(oldItems.map(i => [i.key, i]));
-    const newMap = new Map(newItems.map(i => [i.key, i]));
-
-    for (const key of oldKeys) {
-      if (!newKeys.has(key)) continue;
-      const oldItem = oldMap.get(key)!;
-      const newItem = newMap.get(key)!;
-      if (!shallowEqual(oldItem, newItem)) {
-        modified.push(key);
-      }
+  for (const key of oldKeys) {
+    if (!newKeys.has(key)) continue;
+    const oldItem = oldMap.get(key)!;
+    const newItem = newMap.get(key)!;
+    if (!shallowEqual(oldItem, newItem)) {
+      modified.push(key);
     }
-
-    return { added, removed, modified };
   }
+
+  return { added, removed, modified };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

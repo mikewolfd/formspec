@@ -1,6 +1,4 @@
-import type { Issue, IssueStatus } from './types.js';
-
-let nextId = 1;
+import type { Issue } from './types.js';
 
 /**
  * Persistent issue queue — tracks problems, contradictions, and
@@ -8,9 +6,10 @@ let nextId = 1;
  */
 export class IssueQueue {
   private issues: Issue[] = [];
+  private nextId = 1;
 
   addIssue(input: Omit<Issue, 'id' | 'status'>): Issue {
-    const issue: Issue = { ...input, id: `issue-${nextId++}`, status: 'open' };
+    const issue: Issue = { ...input, id: `issue-${this.nextId++}`, status: 'open' };
     this.issues.push(issue);
     return issue;
   }
@@ -67,6 +66,11 @@ export class IssueQueue {
   static fromJSON(data: Issue[]): IssueQueue {
     const queue = new IssueQueue();
     queue.issues = data.map(i => ({ ...i }));
+    const maxId = data.reduce((max, issue) => {
+      const n = parseInt(issue.id.replace('issue-', ''), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    queue.nextId = maxId + 1;
     return queue;
   }
 

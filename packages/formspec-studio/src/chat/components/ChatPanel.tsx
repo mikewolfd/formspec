@@ -49,7 +49,6 @@ export function ChatPanel() {
         <input
           ref={inputRef}
           type="text"
-          role="textbox"
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -60,7 +59,6 @@ export function ChatPanel() {
         <button
           onClick={handleSend}
           disabled={sending || !inputValue.trim()}
-          aria-label="Send"
           className="px-4 py-2 rounded-md bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
         >
           Send

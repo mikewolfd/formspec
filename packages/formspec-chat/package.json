@@ -10,9 +10,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "formspec-core": "*",
-    "formspec-studio-core": "*",
-    "formspec-engine": "*",
     "formspec-types": "*"
   },
   "devDependencies": {

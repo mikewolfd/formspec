@@ -12,7 +12,7 @@ interface ChatShellProps {
 
 const UPLOAD_ACCEPT = '.pdf,.png,.jpg,.jpeg,.csv,.tsv,.xlsx,.json';
 
-function fileTypeFromMime(name: string): Attachment['type'] {
+function attachmentTypeFromFilename(name: string): Attachment['type'] {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'pdf') return 'pdf';
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return 'image';
@@ -60,7 +60,7 @@ export function ChatShell({ store }: ChatShellProps = {}) {
     const text = await file.text();
     const attachment: Attachment = {
       id: `att-${Date.now()}`,
-      type: fileTypeFromMime(file.name),
+      type: attachmentTypeFromFilename(file.name),
       name: file.name,
       data: text,
     };
@@ -117,6 +117,17 @@ function ActiveSessionView() {
   const state = useChatState();
   const [view, setView] = useState<'chat' | 'preview'>('chat');
 
+  const handleExport = useCallback(() => {
+    const json = session.exportJSON();
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${json.title || 'form'}.formspec.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [session]);
+
   return (
     <div className="flex flex-col h-screen bg-bg-default text-ink font-ui">
       {/* Header bar */}
@@ -137,7 +148,7 @@ function ActiveSessionView() {
             <>
               <button
                 onClick={() => setView('chat')}
-                aria-label="Chat"
+                aria-pressed={view === 'chat'}
                 className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
                   view === 'chat'
                     ? 'bg-accent text-white'
@@ -148,7 +159,7 @@ function ActiveSessionView() {
               </button>
               <button
                 onClick={() => setView('preview')}
-                aria-label="Preview"
+                aria-pressed={view === 'preview'}
                 className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
                   view === 'preview'
                     ? 'bg-accent text-white'
@@ -158,17 +169,7 @@ function ActiveSessionView() {
                 Preview
               </button>
               <button
-                aria-label="Export"
-                onClick={() => {
-                  const json = session.exportJSON();
-                  const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${json.title || 'form'}.formspec.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
+                onClick={handleExport}
                 className="px-3 py-1.5 text-xs rounded-md font-medium text-muted hover:text-ink border border-border hover:border-accent transition-colors"
               >
                 Export

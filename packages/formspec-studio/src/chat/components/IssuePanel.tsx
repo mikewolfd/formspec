@@ -71,14 +71,12 @@ function IssueItem({
       <div className="flex gap-2">
         <button
           onClick={onResolve}
-          aria-label="Resolve"
           className="px-2 py-1 text-[11px] rounded border border-border text-muted hover:text-ink hover:border-accent transition-colors"
         >
           Resolve
         </button>
         <button
           onClick={onDefer}
-          aria-label="Defer"
           className="px-2 py-1 text-[11px] rounded border border-border text-muted hover:text-ink hover:border-accent transition-colors"
         >
           Defer
