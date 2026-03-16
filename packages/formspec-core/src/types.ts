@@ -203,6 +203,16 @@ export interface CommandResult {
   [key: string]: unknown;
 }
 
+/**
+ * A function that applies a command's payload to a cloned project state.
+ * Handlers receive a mutable clone of ProjectState and mutate it in-place.
+ * They return a CommandResult indicating what side effects are needed.
+ */
+export type CommandHandler = (
+  state: ProjectState,
+  payload: unknown,
+) => CommandResult & Record<string, unknown>;
+
 // ── History ──────────────────────────────────────────────────────────
 
 /**

@@ -9,20 +9,9 @@
  * Handler modules are imported (and thus self-register) via `./handlers.ts`.
  */
 
-import type { ProjectState, CommandResult } from './types.js';
+import type { CommandHandler } from './types.js';
 
-/**
- * A function that applies a command's payload to a cloned project state.
- *
- * Handlers receive a mutable clone of {@link ProjectState} and mutate it in-place.
- * They return a {@link CommandResult} (plus any command-specific extra fields)
- * indicating what side effects are needed (e.g. component tree rebuild).
- *
- * @param state - Mutable clone of the project state to modify.
- * @param payload - The command-specific payload data.
- * @returns Result flags plus any command-specific return values.
- */
-export type CommandHandler = (state: ProjectState, payload: unknown) => CommandResult & Record<string, unknown>;
+export type { CommandHandler };
 
 /** Internal map from command type string to its handler function. */
 const handlers = new Map<string, CommandHandler>();

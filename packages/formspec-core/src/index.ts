@@ -34,6 +34,7 @@ export type {
   Command,
   AnyCommand,
   CommandResult,
+  CommandHandler,
   ChangeListener,
   ChangeEvent,
   LogEntry,
