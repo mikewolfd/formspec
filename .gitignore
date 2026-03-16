@@ -27,3 +27,7 @@ form-builder/dist-types/
 tests/e2e/smoke/screenshots/
 .worktrees/
 reconstructed-examples/
+
+# Firebase Hosting build output
+public/
+firebase-debug.log
