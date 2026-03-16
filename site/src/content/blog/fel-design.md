@@ -1,80 +1,134 @@
 ---
 title: "Designing FEL: Why Formspec has its own expression language"
-description: "FEL (Formspec Expression Language) is a small, deterministic, side-effect-free language built specifically for form logic. We evaluated CEL, JSONLogic, and JEXL before building it. Here's the honest tradeoff."
-date: 2026-02-10
+description: "We evaluated CEL, JSONLogic, JSONata, Power Fx, and JEXL before building FEL. Here's every alternative side by side — same expressions, six languages — and the Rust-based future that makes owning a language sustainable."
+date: 2026-02-25
 tags: ["specification", "fel", "deep-dive"]
 author: "Formspec Team"
 ---
 
-One of the more unusual decisions in Formspec's design is that it ships its own expression language — FEL, the Formspec Expression Language. When we describe this to people, the first question is usually: *why not just use an existing one?*
+Formspec ships its own expression language. That sounds like NIH syndrome. Look at the same expressions written in every alternative we evaluated, then decide.
 
-It's a fair question. The honest answer involves tradeoffs we chose to make, not requirements that forced our hand.
+## The basics: where every language looks similar
 
-## What we needed
-
-Form definitions in Formspec need to do three things with expressions:
-
-1. **Calculate values** — monthly budget = total amount / duration
-2. **Express conditions** — show the EIN field only when org_type is 'nonprofit'
-3. **Validate** — flag if duration exceeds 36 months
-
-These expressions need to run in two places: the **browser** (TypeScript engine, live as the user fills the form) and the **server** (Python evaluator, re-validating before storage). The same expression must produce the same result in both environments.
-
-We also needed expressions to be:
-- **Deterministic** — same inputs always produce the same output
-- **Side-effect-free** — no I/O, no mutation, no network calls
-- **Statically analyzable** — a linter should be able to extract field dependencies from an expression without running it
-- **Safe to store in JSON** — no eval, no code execution concerns
-
-Raw JavaScript is out — no sandbox, no determinism guarantees, and you'd need a JS evaluator in Python. But JavaScript was never the real alternative. The real question was whether an existing expression language could do the job.
-
-## The alternatives we considered
-
-### CEL (Common Expression Language)
-
-[CEL](https://cel.dev/) is Google's expression language, designed for exactly this class of problem — safe, deterministic, multi-language evaluation for declarative configurations. It powers Firebase Security Rules, Kubernetes policies, and Istio authorization. It has official implementations in Go, Java, and C++, plus community implementations in JavaScript and Python.
-
-CEL satisfies all four of our requirements. It's deterministic, side-effect-free, statically analyzable (its type-checking phase produces dependency metadata), and stores as strings in JSON. It supports list comprehensions, custom function declarations, and variable binding.
-
-CEL was the strongest alternative. We seriously considered it.
-
-### JSONLogic
-
-[JSONLogic](https://jsonlogic.com/) is JSON-native by design — expressions are JSON objects, not strings. It has implementations in 17+ languages and is trivially walkable for dependency extraction.
-
-But JSONLogic's verbosity is a dealbreaker for form authors. Compare:
+Simple comparisons, arithmetic, and conditionals work in every language we evaluated. The differences are cosmetic:
 
 ```
-// FEL
-sum(items[*].amount)
+Task: Show a field when org_type is "nonprofit"
+FEL:        $org_type = 'nonprofit'
+CEL:        org_type == "nonprofit"
+JSONLogic:  {"==": [{"var": "org_type"}, "nonprofit"]}
 
-// JSONLogic
-{"reduce": [{"map": [{"var": "items"}, {"var": "amount"}]}, {"+": [{"var": "current"}, {"var": "accumulator"}]}, 0]}
+Task: Calculate monthly budget from award amount and duration
+FEL:        $award_amount / $duration_months
+CEL:        award_amount / duration_months
+JSONLogic:  {"/": [{"var": "award_amount"}, {"var": "duration_months"}]}
+
+Task: Conditional — use EIN for nonprofits, DUNS otherwise
+FEL:        if($org_type = 'nonprofit', $ein, $duns)
+CEL:        org_type == "nonprofit" ? ein : duns
+Power Fx:   If(OrgType = "nonprofit", EIN, DUNS)
 ```
 
-Form definitions are authored by program directors and compliance officers, not just developers. JSONLogic's syntax is hostile to that audience.
+FEL and Power Fx use `=` and `if()` — spreadsheet conventions. CEL, JEXL, and JSONata use `==` and `? :` — programmer conventions. JSONLogic wraps everything in JSON. These are style differences, not capability differences.
 
-### JEXL
+## Where the languages diverge
 
-[JEXL](https://github.com/TomFrost/Jexl) is a JavaScript expression language with a clean syntax and Python ports. It supports custom transforms and context-based variable resolution. It's lightweight and well-maintained.
+Two tasks separate real form expression languages from general-purpose ones: **aggregation over repeating sections** and **date arithmetic**.
 
-JEXL comes closest to what we wanted syntactically, but it lacks a formal specification, its static analysis story is limited, and the Python implementations lag behind the JavaScript version.
+```
+Task: Sum amounts from all line items in a budget table
+FEL:        sum(items[*].amount)
+CEL:        items.map(item, item.amount).reduce(0, (acc, val) -> acc + val)
+Power Fx:   Sum(Items, Amount)
+JSONata:    $sum(items.amount)
+JEXL:       ❌ No aggregation over collections
+JSONLogic:  {"reduce": [{"map": [{"var": "items"}, {"var": "amount"}]},
+              {"+": [{"var": "current"}, {"var": "accumulator"}]}, 0]}
 
-## What we chose and why
+Task: End date must be at least 30 days after start date
+FEL:        datediff($end_date, $start_date, 'days') >= 30
+CEL:        end_date - start_date >= duration("720h")
+Power Fx:   DateDiff(StartDate, EndDate, TimeUnit.Days) >= 30
+JSONata:    ($toMillis(end_date) - $toMillis(start_date)) / 86400000 >= 30
+JEXL:       ❌ No date arithmetic
+JSONLogic:  ❌ No date arithmetic
+```
 
-We built FEL. Here's the honest accounting of why.
+FEL's `[*]` wildcard reads like a spreadsheet formula: "for every item, grab the amount, sum them." CEL requires map/reduce thinking. JEXL and JSONLogic lack date support entirely. JSONata requires manual millisecond math. Power Fx handles both cleanly — but runs only in C#.
 
-**The real reason is syntax.** FEL was designed for people who build forms, not people who write code. The `$field_id` prefix makes field references visually distinct from function names. The `[*]` wildcard makes repeatable group iteration read like a spreadsheet formula, not a list comprehension. `sum(items[*].amount)` is more accessible than CEL's `items.map(item, item.amount).reduce(0, (a, b) -> a + b)`.
+## Form-domain expressions: where general-purpose languages break down
 
-This matters because form definitions are configuration artifacts, not source code. The people writing `relevant` expressions and `calculate` bindings are often the same people who wrote the policy requirements — they shouldn't need to learn a programming language's iteration model to express "sum up all the line item amounts."
+Three capabilities separate a form expression language from a general-purpose one.
 
-**The second reason is control.** FEL's spec is under our control. When we needed `[*]` wildcards, `@current`/`@index` context references inside repeat groups, or MIP query functions like `valid($field)` and `relevant($field)`, we added them as first-class language features — not as custom extensions bolted onto someone else's grammar. With CEL, every domain-specific feature would be a custom function declaration that lives outside the language spec.
+```
+Task: Calculate subtotal inside a repeating line item
+FEL:        $quantity * $unit_price       (auto-scoped to current row)
+Power Fx:   ThisRecord.Quantity * ThisRecord.UnitPrice
+CEL:        ❌ No repeat-instance scoping — manage index yourself
+JEXL:       ❌ No scoping model
+JSONLogic:  ❌ No scoping model
 
-**The third reason is coupling.** FEL's `DependencyVisitor` walks the parse tree to extract field references and wire them directly into the FormEngine's reactive signal graph. This is tightly integrated — the same CST that the interpreter evaluates is the one the dependency extractor analyzes. With an external language, we'd be walking someone else's AST representation, which is possible but fragile across library versions.
+Task: Show a warning only when the email field has a validation error
+FEL:        not(valid($email))
+All others: ❌ No concept of field metadata queries
 
-## What it cost
+Task: Look up last year's revenue from a secondary data source
+FEL:        @instance('priorYear').revenue
+All others: ❌ Require variable injection — intent less visible
+```
 
-Let's be honest about the price:
+FEL scopes `$field` references to the current repeat instance automatically. Inside the third line item, `$quantity` means "the quantity in row 3." It also provides `@current`, `@index`, and `@count` as context references inside repeats.
+
+FEL's MIP query functions — `valid()`, `relevant()`, `readonly()`, `required()` — inspect the state of other fields at runtime. No general-purpose expression language offers this; it is a form-domain concept.
+
+`@instance()` references secondary data sources — lookup tables, prior-period data, reference lists — with syntax that distinguishes external data from form fields.
+
+## The full comparison
+
+| Requirement | FEL | CEL | Power Fx | JSONata | JEXL | JSONLogic |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| JS + Python runtimes | Yes | Yes | **No** (C# only) | Yes | Yes | Yes |
+| Spreadsheet-like syntax | Yes | No (`&&` `==` `? :`) | **Yes** | No | No | No (JSON) |
+| Date arithmetic | Yes | Partial | Yes | Manual | No | No |
+| Collection aggregation | `[*]` wildcard | map/reduce | `Sum(T, F)` | Implicit | No | Verbose |
+| Repeat-instance scoping | Yes | No | Yes | Implicit | No | No |
+| Field metadata queries | Yes | No | No | No | No | No |
+| Guaranteed termination | Yes | Yes | Yes | **No** | Yes | Yes |
+| Non-programmer friendly | Yes | No | **Yes** | No | No | No |
+
+Two languages satisfy every requirement: **FEL** and **Power Fx**. Power Fx is the closest match — Microsoft built "Excel formulas as a programming language." But Power Fx is C#-only, deeply coupled to the Microsoft Power Platform. Architecturally perfect, practically inaccessible.
+
+The ecosystem splits into two non-overlapping groups. **Spreadsheet-syntax languages** (Power Fx, HyperFormula) are locked to C# or a grid model. **Cross-platform languages** (CEL, JSONata, JEXL) use programmer syntax. No existing language combines spreadsheet-familiar syntax, cross-platform runtimes, and form-domain semantics. FEL exists because the intersection is empty.
+
+## FEL's lineage
+
+FEL is a deliberate synthesis of three predecessors.
+
+**Power Fx gave us the function vocabulary.** `if()`, `sum()`, `concat()`, `datediff()` — Excel formula conventions that Power Fx formalized into a language. FEL's stdlib reads like Power Fx because both descend from the same source: the Excel formula bar. We adopted the philosophy wholesale: functions look like spreadsheet formulas, not method chains.
+
+**JSONata gave us the data model.** The `$` prefix, path-based JSON navigation, and functional aggregation are JSONata concepts. JSONata's path expressions shaped how FEL navigates form field hierarchies. The key difference: JSONata iterates implicitly — write `items.amount` and it maps over arrays automatically. FEL requires explicit `[*]` wildcards. Form authors should see when an expression iterates; implicit iteration surprises.
+
+**XForms gave us the bind model.** Five declarative expressions — `calculate`, `relevant`, `required`, `readonly`, `constraint` — attached to data nodes and evaluated over a reactive dependency graph. Twenty years old, still the most complete model for form logic. FEL runs inside this model; MIP query functions exist to support it.
+
+The synthesis: **Power Fx's function style + JSONata's JSON path semantics + XForms' reactive bind model**, constrained to be non-Turing-complete and extended with form-domain features (repeat scoping, metadata queries, money arithmetic).
+
+If FEL looks familiar, good. We designed it so Excel users and JSONata users both feel at home.
+
+## Why not just use one of them?
+
+Zero users, zero backwards compatibility — if adopting an existing language worked, we would have.
+
+**Could we use CEL?** Technically, yes. CEL satisfies every requirement except syntax familiarity. The entire delta: `==` vs `=`, `&&` vs `and`, `? :` vs `if()`, bare identifiers vs `$field` references. We would register ~14 custom functions and be done. AI studio users would not notice. Power users editing expressions directly would: `sum(items[*].amount)` versus `items.map(item, item.amount).reduce(0, (acc, val) -> acc + val)`.
+
+**Could we use JSONata?** The `$` collision kills it. JSONata uses `$` for both variables and built-in functions (`$sum`, `$map`). FEL uses `$` only for field references. The conventions conflict. Beyond that, JSONata is Turing-complete — lambdas, recursion, no termination guarantee. Restricting it means forking it, and a "JSONata-minus-the-dangerous-parts" fork is worse than maintaining FEL.
+
+**Could we use Power Fx?** The syntax is ideal. The runtime exists only in C#. Microsoft has acknowledged requests for a JavaScript implementation and provided no timeline. We cannot wait for a maybe.
+
+**Could we jerry-rig it — FEL syntax compiling to a CEL or JSONata backend?** The parser is the easy part (~256 lines of lexer). The evaluator is the hard part (null propagation, array broadcasting, scope resolution, special forms). A transpiler has the same complexity as an evaluator, plus you inherit the target's semantic quirks. Three layers instead of one.
+
+## What it cost — and why that cost is temporary
+
+The price of owning FEL today:
 
 - ~2,300 lines of TypeScript (Chevrotain lexer, parser, interpreter, dependency visitor)
 - ~3,000 lines of Python (hand-written recursive descent parser, AST, evaluator, stdlib)
@@ -82,81 +136,74 @@ Let's be honest about the price:
 - ~2,500 lines of conformance tests
 - Two implementations to maintain, debug, and keep in sync
 
-With CEL plus ~14 custom domain functions, we estimate this would have been ~1,500 lines total. We chose to write 3-5x more code in exchange for syntax we control and ergonomics we believe matter for our audience.
+Three-quarters of FEL's ~50 stdlib functions are generic — arithmetic, strings, dates, type checking — what CEL or JSONata already provides. The remaining quarter is domain-specific: MIP queries, repeat navigation, money operations. The domain-specific functions justify owning the language. The generic ones are the tax.
 
-That's a real cost. Whether it was the right call depends on whether form-author ergonomics justify custom infrastructure. We think they do, but reasonable people can disagree.
+CEL plus custom functions: ~1,500 lines. FEL: ~5,300 lines across two languages. That is the upfront cost. The ongoing cost matters more: every bug fixed twice, every function implemented twice, every edge case tested in two languages.
 
-## What FEL looks like
+The Rust rewrite eliminates that ongoing cost.
 
-FEL is a small, infix expression language. Here are some examples from real form definitions:
+## The Rust rewrite: one implementation, every platform
+
+Two hand-written parsers and evaluators are the biggest cost of owning a custom language. Sustainable for proving a specification; not sustainable as infrastructure.
+
+The plan: rewrite FEL in Rust and compile to every platform from one codebase.
+
+- **WebAssembly** for the browser (replacing the Chevrotain-based TypeScript implementation)
+- **Python extension** via PyO3 (replacing the hand-written recursive descent parser)
+- **Native library** via C FFI for mobile apps (iOS, Android), desktop applications, and server runtimes with C interop
+
+One parser. One evaluator. One set of stdlib functions. One place to fix bugs.
+
+### Why Rust, and why pest
+
+FEL has a [normative PEG grammar](/docs/specs/fel-grammar) defining exactly what the parser accepts. [pest](https://pest.rs/) is a Rust PEG parser generator. The translation from spec grammar to `.pest` file is nearly mechanical:
 
 ```
-# Conditional relevance
-$org_type = 'nonprofit'
+# FEL spec (normative PEG)
+Equality ← Comparison ((_ '!=' / _ '=') _ Comparison)*
+FieldRef ← '$' Identifier PathTail* / '$' / ContextRef
 
-# Calculated value
-$amount / $duration
-
-# Validation constraint
-$duration <= 36
-
-# String operations
-concat($first_name, ' ', $last_name)
-
-# Aggregate over a repeatable group
-sum(items[*].amount)
-
-# Date arithmetic
-datediff($end_date, $start_date, 'days') >= 30
+// pest equivalent
+Equality = { Comparison ~ (("!=" | "=") ~ Comparison)* }
+FieldRef = { "$" ~ Identifier ~ PathTail* | "$" | ContextRef }
 ```
 
-Field references use `$field_id` syntax. The `[*]` wildcard syntax iterates over repeatable groups. Functions are prefix-called with standard argument lists.
+The grammar has ~90 productions. pest compiles them to a typed parse tree at build time. The `.pest` file *is* the specification — no drift between spec and parser. It targets no-std Rust, so WASM works out of the box. The `Pairs` API supports both evaluation and dependency extraction from the same parse tree.
 
-## The grammar
+The estimated implementation:
 
-FEL has a formal grammar defined in the specification. The grammar is intentionally small:
+| Component | Lines | Notes |
+|---|---|---|
+| pest grammar + parser | ~400 | FEL's PEG translates near 1:1 |
+| AST types | ~200 | Rust enums for each node type |
+| Evaluator | ~800 | Null propagation, broadcasting, scope resolution |
+| Stdlib (~50 functions) | ~600 | chrono for dates, rust_decimal for money |
+| Dependency extractor | ~200 | AST walker for reactive wiring |
+| WASM bindings | ~150 | wasm-bindgen, serde for JSON |
+| PyO3 bindings | ~150 | maturin for Python packaging |
+| **Total** | **~2,500** | Single codebase, every platform |
 
-- Arithmetic: `+`, `-`, `*`, `/`
-- Comparison: `=`, `!=`, `<`, `<=`, `>`, `>=`
-- Logical: `and`, `or`, `not`
-- String concatenation via `concat()`
-- Conditionals via `if(condition, then, else)`
-- Path expressions for field references and group iteration
-- ~40 standard library functions (math, strings, dates, aggregates, type checking)
+~2,500 lines of Rust replaces ~5,300 lines across TypeScript and Python. The conformance suite validates one implementation against the spec, not two against each other.
 
-No assignment. No mutation. No loops (iteration is handled by aggregate functions like `sum`, `count`, `all`, `any`). No I/O.
+This changes the cost comparison with CEL. Today FEL costs 3-5x more. After the rewrite, FEL is one codebase compiled to every platform — the same architecture as adopting an existing language, with syntax and semantics we control.
 
-About three-quarters of those stdlib functions are generic (arithmetic, strings, dates, type checking) — the kind of thing CEL or JEXL already provides. The remaining quarter is domain-specific: MIP queries (`valid`, `relevant`, `readonly`, `required`), repeat navigation (`prev`, `next`, `parent`), and money operations. Those are the functions that justify owning the language. The generic ones are the tax.
+### What Rust unlocks
 
-## Two independent implementations
+A Rust core opens platforms that TypeScript and Python cannot reach:
 
-The TypeScript implementation uses [Chevrotain](https://github.com/Chevrotain/chevrotain) for lexing and parsing, producing a CST that a CstVisitor evaluates. Reactive dependencies are extracted from the same CST by a DependencyVisitor — this is how field values wire up to computed signals automatically.
+- A Swift iOS app embeds the C FFI library and evaluates FEL natively
+- A Kotlin Android app does the same
+- A Go backend calls the shared library without spawning a Python process
+- A C++ desktop application links against it directly
 
-The Python implementation is a hand-written recursive descent parser with a separate AST and evaluator. It was written from the specification, not from the TypeScript source — this matters because it proves the specification is precise enough to independently implement.
+"Same expression, same result, every environment" becomes a property of the compiled artifact, not of two synchronized codebases.
 
-Both implementations pass the same conformance suite. When they diverge, the debugging process is straightforward: read the spec, determine which implementation is wrong, fix it. The spec already settled what the behavior should be.
+## The honest tradeoff
 
-## Static analysis
+FEL is a deliberate bet: form-author ergonomics and language control justify custom infrastructure over ecosystem leverage. The closest alternative was CEL — mature ecosystem, programmer syntax. The second was Power Fx — ideal syntax, C#-only. The third influence was JSONata — right data model, Turing-complete and `$`-conflicted.
 
-Because FEL expressions are data (strings inside JSON), they can be linted before the form runs. The static linter checks:
+The TypeScript and Python implementations proved the specification precise enough to implement independently — both pass the same conformance suite. Because FEL expressions are strings in JSON, a linter catches undefined references, type mismatches, and circular dependencies at authoring time. CEL offers similar static analysis; this capability is not unique to FEL.
 
-- Undefined field references (referencing a field not in the definition)
-- Type mismatches (where detectable statically)
-- Circular dependencies (a calculated field that depends on itself, directly or transitively)
-- Aggregate functions called on non-group paths
+The biggest risk of a custom language is maintaining multiple implementations. The Rust rewrite eliminates it. One codebase, every platform — the same cost profile as adopting an existing language, with the syntax and semantics we need.
 
-This means form authors get errors at definition authoring time, not at user submission time. CEL offers similar static analysis through its type-checking phase — this is not unique to FEL, but it is a property we needed regardless of which language we chose.
-
-## What FEL is not
-
-FEL is not a general-purpose scripting language. You cannot write arbitrary logic. You cannot call external services. You cannot define new functions.
-
-This is a feature, not a limitation. The constraint is what makes FEL safe to store in JSON, safe to evaluate on a server, and safe to analyze statically. A form definition that contains a FEL expression is auditable — a reviewer can read the expression and know exactly what it does.
-
-CEL shares most of these properties. The difference is in the syntax, not the safety model.
-
----
-
-FEL is one of the more carefully considered decisions in Formspec — and one of the most debatable. If you're evaluating Formspec and wondering whether the custom language is a red flag or a feature, the answer is: it's a deliberate tradeoff. We chose author ergonomics and language control over ecosystem leverage. The conformance suite and dual implementations are how we manage the cost.
-
-If you have questions about a specific function or edge case, the specification is the canonical reference: `specs/fel/fel-grammar.md`.
+The specification is the canonical reference: `specs/fel/fel-grammar.md`.

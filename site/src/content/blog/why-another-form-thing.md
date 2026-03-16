@@ -1,7 +1,7 @@
 ---
 title: "Why another form thing?"
 description: "Forms have been solved a hundred times — unless your data actually matters. A look at the gap between form builders and form infrastructure, and how six prior-art standards shaped Formspec."
-date: 2026-03-16
+date: 2026-02-18
 tags: ["specification", "deep-dive", "research"]
 author: "Formspec Team"
 ---
@@ -10,21 +10,11 @@ If you're building a contact form or a customer survey, stop reading. You're wel
 
 This post is for the other teams. The ones building grant applications for federal agencies, regulatory compliance reports, field inspection checklists, clinical intake workflows. Teams building forms where the data actually matters — where what gets submitted feeds into compliance databases, audit trails, analytics pipelines, and PDF generation systems that can't tolerate ambiguity.
 
-Those teams keep falling through the cracks. Here's why.
+Those teams keep falling through the cracks.
 
-## The pain
+The conditional logic is genuinely complex — not "show field B when field A is yes" but *"the total of all line items must not exceed the award amount, but only when the reporting period overlaps with the performance period, and only flag it at submission time."* Validation must run identically on client and server. Definitions must be version-controlled and linted like configuration. Data flows downstream into compliance databases, audit systems, and PDF generation.
 
-The conditional logic is genuinely complex. Not "show field B when field A is yes" — more like:
-
-*The total of all line items in the expenditure table must not exceed the award amount, but only when the reporting period overlaps with the grant's performance period, and only flag it as an error at submission time — not while the user is still typing.*
-
-Validation needs to run identically on client and server. The same rule that shows a red border in the browser must produce the same structured result when the Python backend re-validates before storage.
-
-The definitions themselves are artifacts, not code. They need to be version-controlled, linted, diffed, and deployed like configuration — not embedded in a JavaScript bundle.
-
-And the data flows downstream. Into analytics pipelines, compliance databases, PDF generation, audit systems. So the output needs to be structured, typed, and self-describing.
-
-No existing tool handles all of these well. We looked — across six prior-art standards, extracting 517 distinct features. The gap is real.
+No existing tool handles all of these. We looked — across six prior-art standards, extracting 517 distinct features. The gap is real.
 
 ## What's actually new
 
@@ -76,14 +66,14 @@ FHIR's SDC expressions also validated our computed value model — the distincti
 
 Through those deep-dives, we decomposed each specification into independently testable behavioral requirements — 517 distinct features total — and classified each against our synthesis:
 
-| Source | Total | Adopted | Adapted | Missing |
-|--------|-------|---------|---------|---------|
-| XForms 1.1 | 110 | 44 | 29 | 37 |
-| XForms Conceptual Model | 88 | 48 | 23 | 17 |
-| XForms 2.0 | 74 | 16 | 17 | 41 |
-| SHACL | 70 | 42 | 16 | 12 |
-| FHIR R5/SDC | 80 | 40 | 17 | 23 |
-| Secondary Influences | 95 | 51 | 21 | 23 |
+| Source                  | Total | Adopted | Adapted | Missing |
+|-------------------------|------:|--------:|--------:|--------:|
+| XForms 1.1              |   110 |      44 |      29 |      37 |
+| XForms Conceptual Model |    88 |      48 |      23 |      17 |
+| XForms 2.0              |    74 |      16 |      17 |      41 |
+| SHACL                   |    70 |      42 |      16 |      12 |
+| FHIR R5/SDC             |    80 |      40 |      17 |      23 |
+| Secondary Influences    |    95 |      51 |      21 |      23 |
 
 All 97 Critical-priority features are Adopted or Adapted — zero critical features missing. SHACL and the XForms Conceptual Model are the most thoroughly absorbed, at 83% and 81% adoption rates respectively. Those two form Formspec's backbone.
 
@@ -95,4 +85,4 @@ Formspec is not a greenfield invention. Its layered architecture comes from XFor
 
 The alternative was picking one existing system and working around its limitations. XForms is brilliant but trapped in XML. SHACL is the right validation model but isn't a form system. FHIR is comprehensive but tied to healthcare semantics.
 
-The gap was real. Formspec closes it.
+The gap was real. Formspec closes it. [Introducing Formspec](/blog/introducing-formspec) covers what we built. [Three weeks from research to runtime](/blog/how-we-built-formspec) covers how.

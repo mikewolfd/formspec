@@ -32,9 +32,7 @@ Each layer constrains the next. This matters especially for AI-assisted developm
 
 ## Starting from existing standards
 
-Before writing any spec, we wrote a research prompt. Read XForms, SHACL, and FHIR R5. Understand what's essential versus incidental. Synthesize a JSON-native form standard that handles 35 requirements drawn from a real federal grant reporting system — financial fields with decimal precision, conditional visibility with non-relevant data exclusion, multi-level validation, saving incomplete work without being blocked by validation, prior-year comparison rules.
-
-We gave the same prompt to three LLM providers:
+Before writing any spec, we wrote a research prompt: read XForms, SHACL, and FHIR R5, understand what's essential versus incidental, synthesize a JSON-native form standard that handles 35 requirements drawn from a real federal grant reporting system. We gave the same prompt to three LLM providers:
 
 | Provider | Proposed Name | Character |
 |----------|---------------|-----------|
@@ -42,11 +40,9 @@ We gave the same prompt to three LLM providers:
 | Gemini | Universal Declarative Form Architecture (UDFA) | Academic, thorough, execution-narrative style |
 | GPT | JSON Declarative Form Model (JDFM) | Pragmatic, opinionated, strong on edge cases |
 
-All three converged on the same core architecture: instance/bind/shape separation, reactive dependency graphs, structured validation with severity levels, canonical versioning with response pinning. The convergence probably reflects real structure in the training data more than independent confirmation — but it gave us confidence in the direction.
+All three converged on the same core architecture: instance/bind/shape separation, reactive dependency graphs, structured validation with severity levels, canonical versioning with response pinning. The divergences were equally useful — GPT introduced `whenExcluded`, Claude had the cleanest spec structure, Gemini's execution narratives influenced our worked examples. We cherry-picked from each.
 
-The divergences were equally useful. GPT's proposal introduced the `whenExcluded` policy. Claude's had the cleanest spec structure. Gemini's execution narratives influenced our worked examples. We cherry-picked from each.
-
-Then we went back to the actual W3C and HL7 specifications. Summarized approximations aren't good enough for normative semantics. Using targeted deep-dives, we decomposed each specification into independently testable behavioral requirements — 517 distinct features across six standards — and classified every one against our synthesis. ([Why another form thing?](/blog/why-another-form-thing) has the full scorecard and prior-art breakdown.)
+Then we went back to the actual W3C and HL7 specifications. Summarized approximations aren't good enough for normative semantics. ([Why another form thing?](/blog/why-another-form-thing) has the full prior-art breakdown and scorecard.)
 
 ## Writing the spec before writing the code
 
@@ -66,15 +62,9 @@ We also built a generation pipeline. BLUF summaries get injected into canonical 
 
 ## Two independent implementations
 
-This is where the formal model chain pays off.
+The **TypeScript engine** (client-side: Preact Signals, Chevrotain-based [FEL](/blog/fel-design) parser) and the **Python evaluator** (server-side: static linter with ~40 diagnostic codes, mapping adapters for JSON/XML/CSV) were written from the specification, not from each other.
 
-The **TypeScript engine** is the client-side runtime — reactive state management with Preact Signals, Chevrotain-based FEL parser and interpreter, dependency graph construction and topological evaluation.
-
-The **Python evaluator** is the server-side runtime — complete FEL parser and evaluator, static linter with ~40 diagnostic codes across 9 validation passes, mapping adapters for JSON, XML, and CSV.
-
-The Python implementation was written from the specification, not from the TypeScript source. Two independent implementations of the same formal model. When we find a discrepancy between them, the debugging process is straightforward: read the spec section, determine which implementation is wrong, fix it. Not "argue about what the intended behavior was." The spec already settled that.
-
-This is the property that matters most for the target use cases. When a federal agency needs to know that client-side validation and server-side validation produce identical results, "we tested it" is less convincing than "they were independently implemented from the same normative specification and verified against a shared conformance suite."
+When we find a discrepancy: read the spec, determine which is wrong, fix it. The spec settles behavior. When a federal agency needs to know that client-side and server-side validation produce identical results, "independently implemented from the same normative specification" is more convincing than "we tested it."
 
 ## Tooling layers
 
@@ -100,4 +90,4 @@ Reference implementations are libraries. To make them useful, we built three lay
 
 **Start at the top of the chain.** The spec-first approach felt like it was slowing us down during week one. By week three, every implementation decision was faster because the hard questions were already answered. The code is the last mile.
 
-Three weeks from first research prompt to a working visual studio. Start with the models. The code follows.
+Three weeks from first research prompt to a working visual studio. Start with the models. The code follows. [Zero-hallucination form building](/blog/zero-hallucination-forms) covers how the MCP layer makes AI-driven authoring trustworthy.

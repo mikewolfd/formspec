@@ -6,13 +6,9 @@ tags: ["ai", "mcp", "deep-dive"]
 author: "Formspec Team"
 ---
 
-Consider how long it takes your organization to ship a complex form. Not a contact form — a real one. A 200-field grant application with conditional sections that appear based on organization type, calculated budget fields that must reconcile across line items, validation rules that enforce your compliance requirements, a multi-page wizard that guides applicants through the process. The kind of form where every change request from legal or program staff means weeks of back-and-forth with a development team. The kind where a logic error discovered mid-cycle means re-opening submissions and manually contacting everyone who already filed. The kind where "can we add a field?" becomes a project.
+A 200-field grant application with conditional sections, calculated budget fields, cross-field validation rules, and a multi-page wizard. Every change request means weeks of back-and-forth with developers. A logic error mid-cycle means re-opening submissions and contacting everyone who already filed. "Can we add a field?" becomes a project.
 
-This is the norm, not the exception. Complex forms take months to build and are fragile when maintained. The people who understand the rules — program directors, compliance officers, operations managers — are separated from the people who implement them by a translation layer that introduces errors in both directions.
-
-Formspec was built to collapse that gap. But collapsing it with AI introduces its own problem: if you ask a language model to generate a form definition, you get text. And text can be wrong in ways that are hard to catch until it's too late.
-
-Here's how Formspec handles that.
+Formspec [collapses that gap](/blog/introducing-formspec). But collapsing it with AI introduces its own problem: if you ask a language model to generate a form definition, you get text — and text can be wrong in ways that are hard to catch until it's too late.
 
 ## The trust problem with AI-generated code
 
@@ -46,13 +42,9 @@ Three layers, each catching a different class of problem. Together they cover th
 
 ## FEL: why a deterministic expression language matters for AI
 
-One of the quieter design decisions in Formspec is the choice to use a custom expression language rather than allowing arbitrary JavaScript in form definitions. FEL — the Formspec Expression Language — is deterministic, side-effect-free, and statically analyzable.
+Formspec uses a custom expression language — [FEL](/blog/fel-design) — rather than allowing arbitrary JavaScript in form definitions. FEL is deterministic, side-effect-free, and statically analyzable. These properties make AI-generated expressions verifiable in a way that JavaScript expressions are not.
 
-These properties matter enormously for AI-generated content. Because FEL has no side effects, an evaluator can safely execute any expression without worrying about what state it might corrupt. Because FEL is deterministic, the same input always produces the same output — there's no hidden state to simulate. Because FEL's grammar is fixed and its functions are enumerated, a static analyzer can completely understand what an expression does without executing it.
-
-This makes AI-generated expressions verifiable in a way that JavaScript expressions are not. When the linter checks `$budget > 0 and $duration >= 1`, it knows exactly what fields that expression reads, what type it returns, and whether those fields exist. When the same linter checks arbitrary JavaScript, it can only approximate.
-
-FEL also prevents a class of AI errors that would otherwise be silent: using a function that doesn't exist in the stdlib (`$budget.toFixed(2)` is not valid FEL), using an operator that doesn't apply to the type (`$org_name + 1`), or referencing a field through the wrong path (`$line_items.amount` instead of `$line_items[0].amount`). These fail loudly, at parse time, before the definition is saved.
+When the linter checks `$budget > 0 and $duration >= 1`, it knows exactly what fields that expression reads, what type it returns, and whether those fields exist. FEL also catches AI errors that would otherwise be silent: nonexistent stdlib functions (`$budget.toFixed(2)`), type mismatches (`$org_name + 1`), wrong paths (`$line_items.amount` instead of `$line_items[0].amount`). These fail at parse time, before the definition is saved.
 
 ## The result: you're not trusting the AI, you're trusting the validation pipeline
 
