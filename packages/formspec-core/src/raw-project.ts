@@ -42,7 +42,8 @@ import {
   type DocumentType,
   type FELAnalysis,
 } from 'formspec-engine';
-import { getHandler } from './handlers.js';
+import { builtinHandlers } from './handlers/index.js';
+import type { CommandHandler } from './types.js';
 import {
   createGeneratedLayoutDocument,
   getCurrentComponentDocument,
@@ -211,6 +212,8 @@ export class RawProject implements IProjectCore {
   private _maxHistory: number;
   /** Optional schema validator; when set, diagnose() populates structural diagnostics. */
   private _schemaValidator: ProjectOptions['schemaValidator'];
+  /** Command handler lookup table. Builtins + optional custom overrides. */
+  private _handlers: Readonly<Record<string, CommandHandler>>;
 
   /**
    * Create a new Project instance.
@@ -222,6 +225,9 @@ export class RawProject implements IProjectCore {
     this._maxHistory = options?.maxHistoryDepth ?? DEFAULT_MAX_HISTORY;
     this._middleware = options?.middleware ?? [];
     this._schemaValidator = options?.schemaValidator;
+    this._handlers = options?.handlers
+      ? Object.freeze({ ...builtinHandlers, ...options.handlers })
+      : builtinHandlers;
 
     // Auto-build generated layout when a definition is seeded without an
     // authored component tree.
@@ -935,7 +941,7 @@ export class RawProject implements IProjectCore {
       walkComponentNode(componentDoc.tree, 'tree');
     }
 
-    const templateRegistry = componentDoc.components ?? componentDoc.customComponents;
+    const templateRegistry = componentDoc.components;
     if (templateRegistry && typeof templateRegistry === 'object') {
       for (const [name, template] of Object.entries(templateRegistry as Record<string, unknown>)) {
         const templateTree = (template as any)?.tree;
@@ -2113,6 +2119,13 @@ export class RawProject implements IProjectCore {
     }
   }
 
+  /** Look up a handler by command type, throwing if unknown. */
+  private _getHandler(type: string): CommandHandler {
+    const handler = this._handlers[type];
+    if (!handler) throw new Error(`Unknown command type: ${type}`);
+    return handler;
+  }
+
   // ── Dispatching commands ─────────────────────────────────────────
 
   /**
@@ -2144,7 +2157,7 @@ export class RawProject implements IProjectCore {
   private _dispatchSingle(command: AnyCommand): CommandResult {
     // Build the middleware chain, innermost is the actual handler
     const coreDispatch = (cmd: AnyCommand): CommandResult => {
-      const handler = getHandler(cmd.type);
+      const handler = this._getHandler(cmd.type);
       const clone = structuredClone(this._state);
       const result = handler(clone, cmd.payload);
 
@@ -2189,7 +2202,7 @@ export class RawProject implements IProjectCore {
 
     // Execute all on the clone — if any throws, clone is discarded
     for (const cmd of commands) {
-      const handler = getHandler(cmd.type);
+      const handler = this._getHandler(cmd.type);
       results.push(handler(clone, cmd.payload));
     }
 
@@ -2238,7 +2251,7 @@ export class RawProject implements IProjectCore {
 
     // Phase 1
     for (const cmd of phase1) {
-      const handler = getHandler(cmd.type);
+      const handler = this._getHandler(cmd.type);
       results.push(handler(clone, cmd.payload));
     }
 
@@ -2251,7 +2264,7 @@ export class RawProject implements IProjectCore {
 
     // Phase 2 (operates on rebuilt tree)
     for (const cmd of phase2) {
-      const handler = getHandler(cmd.type);
+      const handler = this._getHandler(cmd.type);
       results.push(handler(clone, cmd.payload));
     }
 
@@ -2297,7 +2310,7 @@ export class RawProject implements IProjectCore {
     const results: CommandResult[] = [];
 
     for (const cmd of commands) {
-      const handler = getHandler(cmd.type);
+      const handler = this._getHandler(cmd.type);
       results.push(handler(clone, cmd.payload));
     }
 

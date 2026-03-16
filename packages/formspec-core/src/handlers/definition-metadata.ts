@@ -15,7 +15,7 @@
  * @module definition-metadata
  */
 
-import { registerHandler } from '../handler-registry.js';
+import type { CommandHandler } from '../types.js';
 
 /**
  * **Command: `definition.setFormTitle`**
@@ -40,8 +40,10 @@ import { registerHandler } from '../handler-registry.js';
  * @returns `{ rebuildComponentTree: false }` -- Title changes are purely
  * metadata and do not affect the component tree structure.
  */
-registerHandler('definition.setFormTitle', (state, payload) => {
-  const { title } = payload as { title: string };
-  state.definition.title = title;
-  return { rebuildComponentTree: false };
-});
+export const definitionMetadataHandlers: Record<string, CommandHandler> = {
+  'definition.setFormTitle': (state, payload) => {
+    const { title } = payload as { title: string };
+    state.definition.title = title;
+    return { rebuildComponentTree: false };
+  },
+};

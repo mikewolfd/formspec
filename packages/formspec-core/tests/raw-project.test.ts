@@ -93,6 +93,24 @@ describe('RawProject', () => {
     });
   });
 
+  describe('handler table', () => {
+    it('two instances have independent handler tables when custom handlers provided', () => {
+      const customHandler = (_state: any, _payload: any) => ({
+        rebuildComponentTree: false,
+        custom: true,
+      });
+      const p1 = createRawProject({
+        handlers: { 'custom.test': customHandler },
+      });
+      const p2 = createRawProject();
+
+      const result = p1.dispatch({ type: 'custom.test', payload: {} });
+      expect((result as any).custom).toBe(true);
+
+      expect(() => p2.dispatch({ type: 'custom.test', payload: {} })).toThrow('Unknown command type');
+    });
+  });
+
   describe('clearRedo', () => {
     it('clears the redo stack', () => {
       const raw = createRawProject();
