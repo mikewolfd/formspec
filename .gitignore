@@ -29,6 +29,9 @@ tests/e2e/smoke/screenshots/
 .worktrees/
 reconstructed-examples/
 
+# Astro build cache
+.astro/
+
 # Firebase Hosting build output
 public/
 firebase-debug.log
