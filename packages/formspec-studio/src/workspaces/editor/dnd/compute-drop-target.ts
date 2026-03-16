@@ -1,8 +1,15 @@
 import { nodeRefFor, type FlatEntry } from '../../../lib/tree-helpers';
 
-export interface DropAction {
-  type: 'component.moveNode' | 'definition.moveItem';
-  payload: Record<string, unknown>;
+export interface DefinitionMove {
+  sourcePath: string;
+  targetParentPath?: string;
+  targetIndex: number;
+}
+
+export interface ComponentMove {
+  sourceNodeId: string;
+  targetParentNodeId: string;
+  targetIndex: number;
 }
 
 export interface DropTarget {
@@ -10,7 +17,8 @@ export interface DropTarget {
   parentPath: string | null;
   index: number;
   rawIndex: number;
-  actions: DropAction[];
+  definitionMove?: DefinitionMove;
+  componentMove?: ComponentMove;
 }
 
 export type DropPosition = 'above' | 'below' | 'inside';
@@ -212,14 +220,11 @@ export function computeDropTarget(
       parentPath: definitionTarget.parentPath,
       index: definitionIndex,
       rawIndex: definitionTarget.rawIndex,
-      actions: [{
-        type: 'definition.moveItem',
-        payload: {
-          sourcePath: sourceEntry.defPath,
-          ...(definitionTarget.parentPath != null ? { targetParentPath: definitionTarget.parentPath } : {}),
-          targetIndex: definitionIndex,
-        },
-      }],
+      definitionMove: {
+        sourcePath: sourceEntry.defPath!,
+        ...(definitionTarget.parentPath != null ? { targetParentPath: definitionTarget.parentPath } : {}),
+        targetIndex: definitionIndex,
+      },
     };
   }
 
@@ -227,28 +232,28 @@ export function computeDropTarget(
     return null;
   }
 
+  const sourceRef = nodeRefFor(sourceEntry);
+  const targetParentRef = componentParentEntry ? nodeRefFor(componentParentEntry) : { nodeId: 'root' };
+
   return {
     kind: 'component',
     parentPath: componentTarget.parentId,
     index: componentIndex,
     rawIndex: componentTarget.rawIndex,
-    actions: [{
-      type: 'component.moveNode',
-      payload: {
-        source: nodeRefFor(sourceEntry),
-        targetParent: componentParentEntry ? nodeRefFor(componentParentEntry) : { nodeId: 'root' },
-        targetIndex: componentIndex,
-      },
-    }],
+    componentMove: {
+      sourceNodeId: sourceRef.nodeId ?? sourceRef.bind ?? sourceEntry.id,
+      targetParentNodeId: targetParentRef.nodeId ?? 'root',
+      targetIndex: componentIndex,
+    },
   };
 }
 
-export function buildSequentialMoveCommands(
+export function buildSequentialMoves(
   sortedPaths: string[],
   targetParentPath: string | null,
   rawTargetIndex: number,
   flatList: FlatEntry[],
-): { type: string; payload: Record<string, any> }[] {
+): DefinitionMove[] {
   // Get sibling paths in the target parent for simulation
   const siblings = definitionSiblings(targetParentPath, flatList)
     .map((entry) => entry.defPath!)
@@ -257,7 +262,7 @@ export function buildSequentialMoveCommands(
   // Simulate moves sequentially
   const sim = [...siblings];
   let currentTarget = rawTargetIndex;
-  const commands: { type: string; payload: Record<string, any> }[] = [];
+  const moves: DefinitionMove[] = [];
 
   for (const sourcePath of sortedPaths) {
     const sourceIdx = sim.indexOf(sourcePath);
@@ -268,11 +273,11 @@ export function buildSequentialMoveCommands(
       effectiveTarget = currentTarget - 1;
     }
 
-    const payload: Record<string, any> = { sourcePath, targetIndex: effectiveTarget };
-    if (targetParentPath != null) {
-      payload.targetParentPath = targetParentPath;
-    }
-    commands.push({ type: 'definition.moveItem', payload });
+    moves.push({
+      sourcePath,
+      ...(targetParentPath != null ? { targetParentPath } : {}),
+      targetIndex: effectiveTarget,
+    });
 
     // Simulate: remove from old position (if same parent), insert at effective target
     if (sameParent) {
@@ -284,5 +289,5 @@ export function buildSequentialMoveCommands(
     currentTarget = effectiveTarget + 1;
   }
 
-  return commands;
+  return moves;
 }

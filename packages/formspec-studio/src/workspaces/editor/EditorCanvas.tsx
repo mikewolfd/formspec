@@ -5,7 +5,6 @@ import { useDefinition } from '../../state/useDefinition';
 import { useComponent } from '../../state/useComponent';
 import { useSelection } from '../../state/useSelection';
 import { useActivePage } from '../../state/useActivePage';
-import { useDispatch } from '../../state/useDispatch';
 import { useProject } from '../../state/useProject';
 import { useCanvasTargets } from '../../state/useCanvasTargets';
 import { flattenComponentTree, buildDefLookup, buildBindKeyMap, type FlatEntry } from '../../lib/tree-helpers';
@@ -46,6 +45,16 @@ function uniqueKey(prefix: string): string {
   return `${prefix}${nextItemId++}`;
 }
 
+/** Map widgetHint value to addContent kind parameter */
+const WIDGET_HINT_TO_KIND: Record<string, 'heading' | 'paragraph' | 'divider'> = {
+  Heading: 'heading',
+  heading: 'heading',
+  Paragraph: 'paragraph',
+  paragraph: 'paragraph',
+  Divider: 'divider',
+  divider: 'divider',
+};
+
 export function EditorCanvas() {
   const definition = useDefinition();
   const {
@@ -54,7 +63,6 @@ export function EditorCanvas() {
     selectAndFocusInspector, deselect,
   } = useSelection();
   const { activePageKey, setActivePageKey } = useActivePage();
-  const dispatch = useDispatch();
   const project = useProject();
   const { registerTarget } = useCanvasTargets();
   const [showPicker, setShowPicker] = useState(false);
@@ -138,7 +146,6 @@ export function EditorCanvas() {
     [treeFlatEntries],
   );
 
-  // DnD hook
   const {
     activeId,
     overTarget,
@@ -150,8 +157,7 @@ export function EditorCanvas() {
     flatList: treeFlatEntries,
     selectedKeys,
     select,
-    dispatch,
-    batch: project.batch.bind(project),
+    project,
   });
 
   // Look up the active item for the drag overlay
@@ -170,13 +176,10 @@ export function EditorCanvas() {
   const handleAddItem = (opt: FieldTypeOption) => {
     if (opt.itemType === 'layout') {
       // Layout items are component-tree-only (no definition entry)
-      const result = dispatch({
-        type: 'component.addNode',
-        payload: { parent: { nodeId: 'root' }, component: opt.component },
-      });
-      const nodeRef = (result as any).nodeRef;
-      if (nodeRef?.nodeId) {
-        selectAndFocusInspector(`__node:${nodeRef.nodeId}`, 'layout');
+      const result = project.addLayoutNode('root', opt.component!);
+      const nodeId = result.createdId;
+      if (nodeId) {
+        selectAndFocusInspector(`__node:${nodeId}`, 'layout');
       }
       setShowPicker(false);
       return;
@@ -184,19 +187,23 @@ export function EditorCanvas() {
 
     const key = uniqueKey(opt.dataType ?? opt.itemType);
     const activeGroup = hasPaged ? topLevelGroups[activePageIndex] : null;
-    const result = dispatch({
-      type: 'definition.addItem',
-      payload: {
-        key,
-        type: opt.itemType,
-        dataType: opt.dataType,
-        label: opt.label,
-        ...(activeGroup ? { parentPath: activeGroup.key } : {}),
-        ...opt.extra,
-      },
-    });
-    const insertedPath = result.insertedPath ?? (activeGroup ? `${activeGroup.key}.${key}` : key);
-    selectAndFocusInspector(insertedPath, opt.itemType);
+    const parentPath = activeGroup ? activeGroup.key : undefined;
+    const fullPath = parentPath ? `${parentPath}.${key}` : key;
+
+    if (opt.itemType === 'group') {
+      project.addGroup(fullPath, opt.label);
+      selectAndFocusInspector(fullPath, 'group');
+    } else if (opt.itemType === 'display') {
+      const widgetHint = (opt.extra?.presentation as any)?.widgetHint as string | undefined;
+      const kind = widgetHint ? WIDGET_HINT_TO_KIND[widgetHint] : undefined;
+      project.addContent(fullPath, opt.label, kind);
+      selectAndFocusInspector(fullPath, 'display');
+    } else {
+      // field
+      project.addField(fullPath, opt.label, opt.dataType ?? 'string');
+      selectAndFocusInspector(fullPath, 'field');
+    }
+
     setShowPicker(false);
   };
 
@@ -262,15 +269,13 @@ export function EditorCanvas() {
       items,
       selectionCount,
       selectedKeys,
-      dispatch,
-      batch: project.batch.bind(project),
+      project,
       deselect,
       selectAndFocusInspector,
       showPicker: () => setShowPicker(true),
       closeMenu: () => setContextMenu(null),
-      createKey: uniqueKey,
     });
-  }, [contextMenu, items, selectionCount, selectedKeys, dispatch, project, deselect, selectAndFocusInspector]);
+  }, [contextMenu, items, selectionCount, selectedKeys, project, deselect, selectAndFocusInspector]);
 
   const contextMenuItems = useMemo(
     () => buildContextMenuItems(contextMenu, selectionCount),

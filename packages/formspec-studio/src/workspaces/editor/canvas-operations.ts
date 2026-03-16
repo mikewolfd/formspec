@@ -1,5 +1,6 @@
 import { isLayoutId, nodeIdFromLayoutId } from '../../lib/tree-helpers';
-import { pruneDescendants, sortForBatchDelete } from '../../lib/selection-helpers';
+import { pruneDescendants } from '../../lib/selection-helpers';
+import type { Project } from 'formspec-studio-core';
 
 interface Item {
   key: string;
@@ -21,42 +22,17 @@ export interface ContextMenuItem {
   action: string;
 }
 
-interface ItemLocation {
-  path: string;
-  parentPath: string | null;
-  index: number;
-  item: Item;
-}
-
 interface ExecuteContextActionOptions {
   action: string;
   contextMenu: ContextMenuState | null;
   items: Item[];
   selectionCount: number;
   selectedKeys: Set<string>;
-  dispatch: (command: any) => any;
-  batch: (commands: any[]) => void;
+  project: Project;
   deselect: () => void;
   selectAndFocusInspector: (path: string, type: string) => void;
   showPicker: () => void;
   closeMenu: () => void;
-  createKey: (prefix: string) => string;
-}
-
-function findItemLocation(items: Item[], targetPath: string, prefix = ''): ItemLocation | null {
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
-    const path = prefix ? `${prefix}.${item.key}` : item.key;
-    if (path === targetPath) {
-      return { path, parentPath: prefix || null, index, item };
-    }
-    if (item.children?.length) {
-      const nested = findItemLocation(item.children, targetPath, path);
-      if (nested) return nested;
-    }
-  }
-
-  return null;
 }
 
 export function clampContextMenuPosition(x: number, y: number) {
@@ -110,16 +86,13 @@ export function buildContextMenuItems(
 export function executeContextAction({
   action,
   contextMenu,
-  items,
   selectionCount,
   selectedKeys,
-  dispatch,
-  batch,
+  project,
   deselect,
   selectAndFocusInspector,
   showPicker,
   closeMenu,
-  createKey,
 }: ExecuteContextActionOptions): void {
   if (!contextMenu) return;
 
@@ -138,49 +111,25 @@ export function executeContextAction({
     switch (action) {
       case 'batchDelete': {
         const pruned = pruneDescendants(selectedKeys);
-        const sorted = sortForBatchDelete(pruned);
-        batch(sorted.map((selectedPath) => ({
-          type: 'definition.deleteItem',
-          payload: { path: selectedPath },
-        })));
+        project.batchDeleteItems(pruned);
         deselect();
         break;
       }
       case 'batchDuplicate': {
         const pruned = pruneDescendants(selectedKeys);
-        const sorted = sortForBatchDelete(pruned);
-        batch(sorted.map((selectedPath) => ({
-          type: 'definition.duplicateItem',
-          payload: { path: selectedPath },
-        })));
+        project.batchDuplicateItems(pruned);
         break;
       }
       case 'wrapInGroup': {
         const pruned = pruneDescendants(selectedKeys);
         if (pruned.length === 0) break;
-
-        const firstLocation = findItemLocation(items, pruned[0]);
-        if (!firstLocation) break;
-
-        const wrapperKey = createKey('group');
-        const addResult = dispatch({
-          type: 'definition.addItem',
-          payload: {
-            key: wrapperKey,
-            type: 'group',
-            label: 'Group',
-            ...(firstLocation.parentPath ? { parentPath: firstLocation.parentPath } : {}),
-            insertIndex: firstLocation.index,
-          },
-        });
-        const targetParentPath = addResult.insertedPath
-          ?? (firstLocation.parentPath ? `${firstLocation.parentPath}.${wrapperKey}` : wrapperKey);
-
-        batch(pruned.map((selectedPath, index) => ({
-          type: 'definition.moveItem',
-          payload: { sourcePath: selectedPath, targetParentPath, targetIndex: index },
-        })));
+        const result = project.wrapItemsInGroup(pruned, 'Group');
         deselect();
+        // affectedPaths[0] is the new group path
+        const groupPath = result.affectedPaths?.[0];
+        if (groupPath) {
+          selectAndFocusInspector(groupPath, 'group');
+        }
         break;
       }
     }
@@ -192,11 +141,11 @@ export function executeContextAction({
   if (isLayoutId(path)) {
     const nodeId = nodeIdFromLayoutId(path);
     if (action === 'unwrap') {
-      dispatch({ type: 'component.unwrapNode', payload: { node: { nodeId } } });
+      project.unwrapLayoutNode(nodeId);
       deselect();
     }
     if (action === 'deleteLayout') {
-      dispatch({ type: 'component.deleteNode', payload: { node: { nodeId } } });
+      project.deleteLayoutNode(nodeId);
       deselect();
     }
     closeMenu();
@@ -205,57 +154,36 @@ export function executeContextAction({
 
   switch (action) {
     case 'duplicate':
-      dispatch({ type: 'definition.duplicateItem', payload: { path } });
+      project.copyItem(path);
       break;
     case 'delete':
-      dispatch({ type: 'definition.deleteItem', payload: { path } });
+      project.removeItem(path);
       break;
     case 'moveUp':
-      dispatch({ type: 'definition.reorderItem', payload: { path, direction: 'up' } });
+      project.reorderItem(path, 'up');
       break;
     case 'moveDown':
-      dispatch({ type: 'definition.reorderItem', payload: { path, direction: 'down' } });
+      project.reorderItem(path, 'down');
       break;
     case 'wrapInGroup': {
-      const location = findItemLocation(items, path);
-      if (!location) break;
-
-      const wrapperKey = createKey('group');
-      const addResult = dispatch({
-        type: 'definition.addItem',
-        payload: {
-          key: wrapperKey,
-          type: 'group',
-          label: 'Group',
-          ...(location.parentPath ? { parentPath: location.parentPath } : {}),
-          insertIndex: location.index,
-        },
-      });
-      const targetParentPath = addResult.insertedPath
-        ?? (location.parentPath ? `${location.parentPath}.${wrapperKey}` : wrapperKey);
-
-      dispatch({
-        type: 'definition.moveItem',
-        payload: { sourcePath: path, targetParentPath, targetIndex: 0 },
-      });
+      const result = project.wrapItemsInGroup([path], 'Group');
+      // affectedPaths[0] is the new group path
+      const groupPath = result.affectedPaths?.[0];
+      if (groupPath) {
+        selectAndFocusInspector(groupPath, 'group');
+      }
       break;
     }
     case 'wrapInCard':
     case 'wrapInStack':
     case 'wrapInCollapsible': {
-      const componentMap: Record<string, string> = {
+      const componentMap: Record<string, 'Card' | 'Stack' | 'Collapsible'> = {
         wrapInCard: 'Card',
         wrapInStack: 'Stack',
         wrapInCollapsible: 'Collapsible',
       };
-      const result = dispatch({
-        type: 'component.wrapNode',
-        payload: {
-          node: { bind: path.split('.').pop()! },
-          wrapper: { component: componentMap[action] },
-        },
-      });
-      const wrapperNodeId = (result as any).nodeRef?.nodeId;
+      const result = project.wrapInLayoutComponent(path, componentMap[action]);
+      const wrapperNodeId = result.createdId;
       if (wrapperNodeId) {
         selectAndFocusInspector(`__node:${wrapperNodeId}`, 'layout');
       }

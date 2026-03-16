@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
+import type { Project } from 'formspec-studio-core';
 import {
   computeDropTarget,
-  buildSequentialMoveCommands,
+  buildSequentialMoves,
   isDescendantOf,
   type DropPosition,
 } from './compute-drop-target';
@@ -17,16 +18,14 @@ interface UseCanvasDndOptions {
   flatList: FlatEntry[];
   selectedKeys: Set<string>;
   select: (path: string, type: string) => void;
-  dispatch: (command: any) => any;
-  batch: (commands: any[]) => void;
+  project: Project;
 }
 
 export function useCanvasDnd({
   flatList,
   selectedKeys,
   select,
-  dispatch,
-  batch,
+  project,
 }: UseCanvasDndOptions) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overTarget, setOverTarget] = useState<OverTarget | null>(null);
@@ -126,28 +125,29 @@ export function useCanvasDnd({
     if (!target) return;
 
     if (target.kind === 'definition' && selectedKeys.size > 1 && selectedKeys.has(sourcePath)) {
-      // Multi-select drag — use simulation-based command builder
+      // Multi-select drag — batch-move via Project helper
       const pruned = pruneDescendants(selectedKeys);
       const movablePaths = pruned.filter((path) => flatList.find((entry) => entry.id === path)?.defPath);
       const pathOrder = new Map(flatList.map((entry, index) => [entry.id, index]));
       movablePaths.sort((a, b) => (pathOrder.get(a) ?? 0) - (pathOrder.get(b) ?? 0));
 
-      const commands = buildSequentialMoveCommands(
+      const moves = buildSequentialMoves(
         movablePaths,
         target.parentPath,
         target.rawIndex,
         flatList,
       );
-      if (commands.length > 0) {
-        batch(commands);
+      if (moves.length > 0) {
+        project.moveItems(moves);
       }
-    } else {
-      const [command] = target.actions;
-      if (command) {
-        dispatch(command);
-      }
+    } else if (target.definitionMove) {
+      const m = target.definitionMove;
+      project.moveItem(m.sourcePath, m.targetParentPath, m.targetIndex);
+    } else if (target.componentMove) {
+      const m = target.componentMove;
+      project.moveLayoutNode(m.sourceNodeId, m.targetParentNodeId, m.targetIndex);
     }
-  }, [overTarget, flatList, selectedKeys, dispatch, batch]);
+  }, [overTarget, flatList, selectedKeys, project]);
 
   return {
     activeId,
