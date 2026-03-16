@@ -398,9 +398,16 @@ export class Project {
 
   /** Add a group/section container. */
   addGroup(path: string, label: string, props?: GroupProps): HelperResult {
-    const segments = path.split('.');
-    const key = segments.pop()!;
-    const parentPath = segments.length > 0 ? segments.join('.') : undefined;
+    // Parse path: parentPath prop takes precedence over dot-path parsing
+    let parentPath = props?.parentPath;
+    let key: string;
+    if (parentPath) {
+      key = path;
+    } else {
+      const segments = path.split('.');
+      key = segments.pop()!;
+      parentPath = segments.length > 0 ? segments.join('.') : undefined;
+    }
     const fullPath = parentPath ? `${parentPath}.${key}` : key;
 
     if (this.core.itemAt(fullPath)) {
@@ -452,9 +459,16 @@ export class Project {
     };
     const widgetHint = kindToHint[kind ?? 'paragraph'] ?? 'paragraph';
 
-    const segments = path.split('.');
-    const key = segments.pop()!;
-    const parentPath = segments.length > 0 ? segments.join('.') : undefined;
+    // Parse path: parentPath prop takes precedence over dot-path parsing
+    let parentPath = props?.parentPath;
+    let key: string;
+    if (parentPath) {
+      key = path;
+    } else {
+      const segments = path.split('.');
+      key = segments.pop()!;
+      parentPath = segments.length > 0 ? segments.join('.') : undefined;
+    }
     const fullPath = parentPath ? `${parentPath}.${key}` : key;
 
     if (props?.page) {
@@ -517,6 +531,45 @@ export class Project {
         } : undefined,
       });
     }
+  }
+
+  /**
+   * Normalize a shape target path by inserting `[*]` after any repeatable group
+   * segments. Template paths like `expenses.receipt` become `expenses[*].receipt`
+   * when `expenses` is a repeatable group.
+   *
+   * Skips special targets (`*`, `#`) and paths that already contain wildcards
+   * at the correct positions.
+   */
+  private _normalizeShapeTarget(target: string): string {
+    // Special targets — pass through
+    if (target === '*' || target === '#') return target;
+
+    // Split on dots but preserve existing [*] suffixes
+    const segments = target.split('.');
+    const normalized: string[] = [];
+    let lookupPath = '';
+
+    for (const segment of segments) {
+      // If segment already has [*], keep it as-is
+      if (segment.endsWith('[*]')) {
+        normalized.push(segment);
+        lookupPath += (lookupPath ? '.' : '') + segment.replace('[*]', '');
+        continue;
+      }
+
+      normalized.push(segment);
+      lookupPath += (lookupPath ? '.' : '') + segment;
+
+      // Check if this segment is a repeatable group
+      const item = this.core.itemAt(lookupPath);
+      if (item?.type === 'group' && (item as any).repeatable) {
+        // Append [*] to the last segment we just pushed
+        normalized[normalized.length - 1] = segment + '[*]';
+      }
+    }
+
+    return normalized.join('.');
   }
 
   /** Conditional visibility — dispatches definition.setBind { relevant: condition } */
@@ -682,8 +735,10 @@ export class Project {
       this._validateFEL(options.activeWhen);
     }
 
+    const normalizedTarget = this._normalizeShapeTarget(target);
+
     const payload: Record<string, unknown> = {
-      target,
+      target: normalizedTarget,
       constraint: rule,
       message,
     };
@@ -1570,11 +1625,13 @@ export class Project {
     };
 
     if (pageId) {
-      const results = this.core.dispatch([
-        addNodeCmd,
-        { type: 'pages.assignItem', payload: { pageId, key: 'submit' } },
-      ]);
-      const nodeId = (results[0] as any)?.nodeRef?.nodeId;
+      const addResult = this.core.dispatch(addNodeCmd);
+      const nodeId = (addResult as any)?.nodeRef?.nodeId;
+      const regionKey = nodeId ?? 'submit';
+      this.core.dispatch({
+        type: 'pages.assignItem',
+        payload: { pageId, key: regionKey },
+      });
       return {
         summary: `Added submit button`,
         action: { helper: 'addSubmitButton', params: { label, pageId } },
@@ -1601,7 +1658,19 @@ export class Project {
    * theme page (rendering slot), wired together via regions.
    * Promotes to wizard mode if not already paged.
    */
-  addPage(title: string, description?: string): HelperResult {
+  addPage(title: string, description?: string, id?: string): HelperResult {
+    // Validate custom ID format
+    if (id !== undefined) {
+      if (!/^[a-zA-Z][a-zA-Z0-9_\-]*$/.test(id)) {
+        throw new HelperError('INVALID_PAGE_ID', `Page ID "${id}" is invalid. Must start with a letter and contain only letters, digits, underscores, or hyphens.`, { id });
+      }
+      // Check for duplicate page ID
+      const existing = (this.core.state.theme.pages ?? []).find((p: any) => p.id === id);
+      if (existing) {
+        throw new HelperError('DUPLICATE_KEY', `A page with ID "${id}" already exists`, { id });
+      }
+    }
+
     // Generate a group key from the title
     const key = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `page_${Date.now()}`;
 
@@ -1613,7 +1682,7 @@ export class Project {
     }
 
     // Pre-generate page ID so all three commands can be batched atomically
-    const pageId = `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const pageId = id ?? `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const pagePayload: Record<string, unknown> = { id: pageId, title };
     if (description) pagePayload.description = description;
@@ -1675,6 +1744,16 @@ export class Project {
       action: { helper: 'reorderPage', params: { pageId, direction } },
       affectedPaths: [pageId],
     };
+  }
+
+  /** List all pages with their id, title, and description. */
+  listPages(): Array<{ id: string; title: string; description?: string }> {
+    const pages = (this.core.state.theme.pages ?? []) as Array<{ id: string; title?: string; description?: string }>;
+    return pages.map(p => ({
+      id: p.id,
+      title: p.title ?? 'Untitled',
+      ...(p.description ? { description: p.description } : {}),
+    }));
   }
 
   /** Update a page's title or description. */

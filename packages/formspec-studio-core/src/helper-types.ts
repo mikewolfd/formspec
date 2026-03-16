@@ -55,11 +55,13 @@ export interface FieldProps {
 /** Content properties for addContent */
 export interface ContentProps {
   page?: string;
+  parentPath?: string;
 }
 
 /** Group properties */
 export interface GroupProps {
   display?: 'stack' | 'dataTable';
+  parentPath?: string;
 }
 
 /** Repeat group configuration */

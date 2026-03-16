@@ -43,7 +43,32 @@ export function handleDescribe(
       const bind = project.bindFor(target);
       return { item: item ?? null, bind: bind ?? null };
     }
-    return { statistics: project.statistics(), fieldPaths: project.fieldPaths() };
+    // Include pages and component-tier nodes (submit buttons, etc.)
+    const pages = project.listPages();
+    const componentTree = (project.effectiveComponent as any)?.tree;
+    const componentNodes: Array<{ component: string; id?: string; props?: Record<string, unknown> }> = [];
+    if (componentTree?.children) {
+      const walk = (node: any) => {
+        if (!node) return;
+        if (node.component && node.component !== 'Stack' && node.component !== 'Wizard' && node.component !== 'Page') {
+          componentNodes.push({
+            component: node.component,
+            ...(node.id ? { id: node.id } : {}),
+            ...(node.props ? { props: node.props } : {}),
+          });
+        }
+        if (node.children) {
+          for (const child of node.children) walk(child);
+        }
+      };
+      walk(componentTree);
+    }
+    return {
+      statistics: project.statistics(),
+      fieldPaths: project.fieldPaths(),
+      pages: pages.length > 0 ? pages : undefined,
+      componentNodes: componentNodes.length > 0 ? componentNodes : undefined,
+    };
   });
 }
 

@@ -158,6 +158,19 @@ describe('handleContent', () => {
     expect(result.isError).toBe(true);
     expect(parseResult(result).code).toBe('PAGE_NOT_FOUND');
   });
+
+  it('adds content inside a group via parentPath prop', () => {
+    const { registry, projectId } = registryWithProject();
+    handleGroup(registry, projectId, { path: 'section', label: 'Section' });
+    const result = handleContent(registry, projectId, {
+      path: 'heading',
+      body: 'Section Title',
+      kind: 'heading',
+      props: { parentPath: 'section' },
+    });
+    expect(result.isError).toBeUndefined();
+    expect(parseResult(result).affectedPaths).toContain('section.heading');
+  });
 });
 
 // ── handleGroup ──────────────────────────────────────────────────
@@ -190,6 +203,18 @@ describe('handleGroup', () => {
     });
     const data = parseResult(result);
     expect(data.succeeded).toBe(2);
+  });
+
+  it('adds nested group via parentPath prop', () => {
+    const { registry, projectId } = registryWithProject();
+    handleGroup(registry, projectId, { path: 'outer', label: 'Outer' });
+    const result = handleGroup(registry, projectId, {
+      path: 'inner',
+      label: 'Inner',
+      props: { parentPath: 'outer' },
+    });
+    expect(result.isError).toBeUndefined();
+    expect(parseResult(result).affectedPaths).toContain('outer.inner');
   });
 });
 
@@ -347,6 +372,38 @@ describe('handlePage', () => {
 
     const result = handlePage(registry, projectId, 'remove', { page_id: pageId });
     expect(result.isError).toBeUndefined();
+  });
+
+  it('adds a page with a custom ID', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handlePage(registry, projectId, 'add', { title: 'Page 1', page_id: 'basics' });
+    const data = parseResult(result);
+    expect(data.createdId).toBe('basics');
+  });
+
+  it('rejects invalid custom page ID', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handlePage(registry, projectId, 'add', { title: 'Bad', page_id: '1invalid' });
+    expect(result.isError).toBe(true);
+  });
+
+  it('lists pages', () => {
+    const { registry, projectId } = registryWithProject();
+    handlePage(registry, projectId, 'add', { title: 'Step 1', page_id: 's1' });
+    handlePage(registry, projectId, 'add', { title: 'Step 2', page_id: 's2', description: 'Second' });
+
+    const result = handlePage(registry, projectId, 'list', {});
+    const data = parseResult(result);
+    expect(data.pages).toHaveLength(2);
+    expect(data.pages[0].id).toBe('s1');
+    expect(data.pages[1].description).toBe('Second');
+  });
+
+  it('lists pages returns empty array for fresh project', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handlePage(registry, projectId, 'list', {});
+    const data = parseResult(result);
+    expect(data.pages).toEqual([]);
   });
 });
 

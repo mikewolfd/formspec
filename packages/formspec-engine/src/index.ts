@@ -1408,7 +1408,9 @@ export class FormEngine {
                 }
 
                 // 3. Bind Constraint
-                if (compiledConstraint) {
+                // Null-propagating: skip when value is empty — the `required` Bind is
+                // responsible for ensuring a value exists (spec §3.8.1).
+                if (compiledConstraint && !(value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0))) {
                     const raw = compiledConstraint();
                     const isValid = raw === null || raw === undefined ? true : !!raw;
                     if (!isValid) {

@@ -121,6 +121,7 @@ export function diagnose(state: ProjectState, schemaValidator?: SchemaValidator)
     'DataTable', 'Accordion', 'Tabs',
   ]);
   log('component tree...');
+  const componentNodeKeySet = new Set<string>();
   const tree = getCurrentComponentDocument(state).tree as any;
   if (tree) {
     const visited = new WeakSet<object>();
@@ -133,8 +134,11 @@ export function diagnose(state: ProjectState, schemaValidator?: SchemaValidator)
       if (!raw || typeof raw !== 'object') continue;
       if (visited.has(raw)) continue;
       visited.add(raw);
-      const node = raw as { bind?: string; component?: string; children?: unknown[] };
+      const node = raw as { bind?: string; nodeId?: string; component?: string; children?: unknown[] };
+      // Collect all node identifiers for region-key validity checks
+      if (node.nodeId) componentNodeKeySet.add(node.nodeId);
       if (node.bind) {
+        componentNodeKeySet.add(node.bind);
         const bindExists = itemKeySet.has(node.bind) || itemPathSet.has(node.bind);
         if (!bindExists) {
           consistency.push({
@@ -238,7 +242,7 @@ export function diagnose(state: ProjectState, schemaValidator?: SchemaValidator)
       for (let j = 0; j < regions.length; j++) {
         const key = regions[j]?.key;
         if (typeof key !== 'string') continue;
-        if (itemKeySet.has(key) || fieldPathSet.has(key)) continue;
+        if (itemKeySet.has(key) || fieldPathSet.has(key) || componentNodeKeySet.has(key)) continue;
         consistency.push({
           artifact: 'theme',
           path: `pages[${i}].regions[${j}].key`,

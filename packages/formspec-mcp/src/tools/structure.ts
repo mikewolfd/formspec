@@ -169,14 +169,27 @@ export function handleSubmitButton(
 export function handlePage(
   registry: ProjectRegistry,
   projectId: string,
-  action: 'add' | 'remove' | 'move',
+  action: 'add' | 'remove' | 'move' | 'list',
   params: { title?: string; description?: string; page_id?: string; direction?: 'up' | 'down' },
 ) {
+  if (action === 'list') {
+    try {
+      const project = registry.getProject(projectId);
+      const pages = project.listPages();
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ pages }, null, 2) }] };
+    } catch (err) {
+      if (err instanceof HelperError) {
+        return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      return errorResponse(formatToolError('COMMAND_FAILED', message));
+    }
+  }
   return wrapHelperCall(() => {
     const project = registry.getProject(projectId);
     switch (action) {
       case 'add':
-        return project.addPage(params.title!, params.description);
+        return project.addPage(params.title!, params.description, params.page_id);
       case 'remove':
         return project.removePage(params.page_id!);
       case 'move':

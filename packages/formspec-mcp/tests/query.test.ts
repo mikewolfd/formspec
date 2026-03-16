@@ -70,6 +70,55 @@ describe('handleDescribe — structure', () => {
 
     expect(data.item).toBeNull();
   });
+
+  it('includes pages in structure output when pages exist', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addPage('Step 1', 'First step', 'step1');
+    project.addPage('Step 2', undefined, 'step2');
+
+    const result = handleDescribe(registry, projectId, 'structure');
+    const data = parseResult(result);
+
+    expect(data).toHaveProperty('pages');
+    expect(data.pages).toHaveLength(2);
+    expect(data.pages[0]).toEqual({ id: 'step1', title: 'Step 1', description: 'First step' });
+    expect(data.pages[1]).toEqual({ id: 'step2', title: 'Step 2' });
+  });
+
+  it('omits pages when none exist', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('q1', 'Q1', 'text');
+
+    const result = handleDescribe(registry, projectId, 'structure');
+    const data = parseResult(result);
+
+    expect(data.pages).toBeUndefined();
+  });
+
+  it('includes submit button in componentNodes', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addSubmitButton('Send');
+
+    const result = handleDescribe(registry, projectId, 'structure');
+    const data = parseResult(result);
+
+    expect(data).toHaveProperty('componentNodes');
+    expect(data.componentNodes.some((n: any) => n.component === 'SubmitButton')).toBe(true);
+  });
+
+  it('omits componentNodes when there are no non-layout components', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('q1', 'Q1', 'text');
+
+    const result = handleDescribe(registry, projectId, 'structure');
+    const data = parseResult(result);
+
+    // componentNodes should be undefined or not contain anything
+    // (there may be auto-generated layout nodes, but not user-added ones like SubmitButton)
+    if (data.componentNodes) {
+      expect(data.componentNodes.some((n: any) => n.component === 'SubmitButton')).toBe(false);
+    }
+  });
 });
 
 // ── handlePreview — preview mode ────────────────────────────────
@@ -328,5 +377,16 @@ describe('handleFel — check', () => {
     const data = parseResult(result);
 
     expect(data).toHaveProperty('valid');
+  });
+
+  it('provides helpful hint when true() is used as a function call', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('active', 'Active', 'boolean');
+
+    const result = handleFel(registry, projectId, { action: 'check', expression: '$active = true()' });
+    const data = parseResult(result);
+
+    expect(data.valid).toBe(false);
+    expect(data.errors[0].message).toContain('literal');
   });
 });

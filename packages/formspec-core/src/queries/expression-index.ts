@@ -31,6 +31,14 @@ function resolveParseContext(context?: string | FELParseContext): FELParseContex
   return context;
 }
 
+/** Detect common FEL mistakes and prepend a helpful hint to the error message. */
+function addFELHint(expression: string, message: string): string {
+  if (/\btrue\s*\(/.test(expression) || /\bfalse\s*\(/.test(expression)) {
+    return `Hint: "true" and "false" are literal values in FEL, not functions. Use them without parentheses (e.g., "$field = true"). Original error: ${message}`;
+  }
+  return message;
+}
+
 /**
  * Parse and validate a FEL expression without saving it to project state.
  */
@@ -41,7 +49,7 @@ export function parseFEL(state: ProjectState, expression: string, context?: FELP
     path: 'expression',
     severity: 'error',
     code: 'FEL_PARSE_ERROR',
-    message: error.message,
+    message: addFELHint(expression, error.message),
   }));
 
   const semanticErrors: Diagnostic[] = [];

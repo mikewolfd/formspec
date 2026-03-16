@@ -660,6 +660,28 @@ describe('parseFEL', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.some((error) => error.code === 'FEL_UNKNOWN_VARIABLE')).toBe(true);
   });
+
+  it('includes hint when expression uses true() as a function call', () => {
+    const project = createRawProject();
+    const result = project.parseFEL('$field = true()');
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toContain('true');
+    expect(result.errors[0].message).toContain('literal');
+  });
+
+  it('includes hint when expression uses false() as a function call', () => {
+    const project = createRawProject();
+    const result = project.parseFEL('$field = false()');
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toContain('literal');
+  });
+
+  it('does not add hint for unrelated parse errors', () => {
+    const project = createRawProject();
+    const result = project.parseFEL('$a +');
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).not.toContain('literal');
+  });
 });
 
 // ── Extension queries ──────────────────────────────────────────

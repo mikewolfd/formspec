@@ -58,6 +58,7 @@ const contentItemSchema = z.object({
   kind: z.enum(['heading', 'paragraph', 'divider', 'banner']).optional().describe('Display kind. Default: paragraph'),
   props: z.object({
     page: z.string().optional().describe('Page ID to place this item on after creation'),
+    parentPath: z.string().optional().describe('Parent group path to nest this item under'),
   }).partial().optional(),
 });
 
@@ -72,6 +73,7 @@ const groupItemSchema = z.object({
       addLabel: z.string(),
       removeLabel: z.string(),
     }).partial(),
+    parentPath: z.string().describe('Parent group path to nest this group under'),
   }).partial().optional(),
 });
 
@@ -186,7 +188,7 @@ export async function main() {
 
   server.registerTool('formspec_create', {
     title: 'Create Project',
-    description: 'Create a new project in bootstrap phase. To start authoring:\n- If you have pre-built JSON: submit via formspec_draft, then call formspec_load\n- If starting from scratch: call formspec_load immediately to enter authoring phase\n- Use formspec_guide first to gather requirements through a conversational questionnaire',
+    description: 'Create a new project in bootstrap phase. IMPORTANT: After creating, you MUST call formspec_load with the returned project_id to enter authoring phase before you can add fields, content, or pages.\n\nWorkflow:\n1. formspec_create -> returns project_id\n2. (Optional) formspec_draft to submit pre-built JSON artifacts\n3. formspec_load -> transitions to authoring phase\n\nAlternatively, use formspec_guide first to gather requirements through a conversational questionnaire.',
     inputSchema: {},
     annotations: NON_DESTRUCTIVE,
   }, async () => {
@@ -268,7 +270,7 @@ export async function main() {
 
   server.registerTool('formspec_field', {
     title: 'Add Field',
-    description: 'Add NEW data-collecting fields to the form. Supports single item or batch via items[] array. To modify an existing field\'s properties, use formspec_update instead.',
+    description: 'Add NEW data-collecting fields to the form. Supports single item or batch via items[] array. To modify an existing field\'s properties, use formspec_update instead.\n\nPath conventions:\n- Authoring paths use dot notation: "contact.email" (nests under group "contact")\n- FEL expressions use $-prefix: "$contact.email"\n- Runtime/preview uses indexed paths for repeating groups: "items[0].amount"',
     inputSchema: {
       project_id: z.string(),
       // Single item
@@ -399,15 +401,15 @@ export async function main() {
 
   server.registerTool('formspec_page', {
     title: 'Page',
-    description: 'Manage form pages: add, remove, or reorder. Pages organize form content into navigable sections (wizard steps or tabs).',
+    description: 'Manage form pages: add, remove, reorder, or list. Pages organize form content into navigable sections (wizard steps or tabs).',
     inputSchema: {
       project_id: z.string(),
-      action: z.enum(['add', 'remove', 'move']).describe('add: create page (definition group + theme page + wizard mode); remove: delete page; move: reorder'),
+      action: z.enum(['add', 'remove', 'move', 'list']).describe('add: create page (definition group + theme page + wizard mode); remove: delete page; move: reorder; list: return all pages'),
       // add params
       title: z.string().optional().describe('Page title (for action="add")'),
       description: z.string().optional().describe('Page description (for action="add")'),
       // remove/move params
-      page_id: z.string().optional().describe('Page ID (for action="remove" or "move")'),
+      page_id: z.string().optional().describe('Page ID (for action="add" to set a custom ID, or for "remove"/"move" to identify the target page). Custom IDs must start with a letter and contain only letters, digits, underscores, or hyphens.'),
       direction: z.enum(['up', 'down']).optional().describe('Move direction (for action="move")'),
     },
     annotations: DESTRUCTIVE,
@@ -417,7 +419,7 @@ export async function main() {
 
   server.registerTool('formspec_place', {
     title: 'Place on Page',
-    description: 'Assign or unassign items to/from pages. action="place" puts an item on a page; action="unplace" removes it from the page (but does NOT delete the item). Supports batch via items[] array.',
+    description: 'Control layout options (column span) or reassign existing items between pages. Most items are auto-placed when created using dot-path hierarchy or parentPath. Use action="place" to explicitly assign an item to a page or change its span; action="unplace" to remove it from a page (does NOT delete the item). Supports batch via items[] array.',
     inputSchema: {
       project_id: z.string(),
       // Single item
@@ -447,7 +449,7 @@ export async function main() {
 
   server.registerTool('formspec_behavior', {
     title: 'Behavior',
-    description: 'Set field logic: visibility conditions, readonly conditions, required state, calculated values, and validation rules. Supports batch via items[] array.\n\nActions:\n- show_when: Show item when FEL condition is true\n- readonly_when: Make field readonly when condition is true\n- require: Mark field as required (optionally conditional)\n- calculate: Bind a computed FEL value directly to a field. For reusable named values across multiple fields, use formspec_data(variable) instead.\n- add_rule: Add validation constraint with message',
+    description: 'Set field logic: visibility conditions, readonly conditions, required state, calculated values, and validation rules. Supports batch via items[] array.\n\nActions:\n- show_when: Show item when FEL condition is true\n- readonly_when: Make field readonly when condition is true\n- require: Mark field as required (optionally conditional)\n- calculate: Bind a computed FEL value directly to a field. For reusable named values across multiple fields, use formspec_data(variable) instead.\n- add_rule: Add validation constraint with message\n\nPath conventions: target uses authoring dot notation ("contact.email"). FEL expressions use $-prefix ("$contact.email"). "true" and "false" are literals, not functions — use "$field = true", not "$field = true()".',
     inputSchema: {
       project_id: z.string(),
       // Single item
@@ -480,7 +482,7 @@ export async function main() {
 
   server.registerTool('formspec_flow', {
     title: 'Flow',
-    description: 'Set form navigation mode or add conditional branching.\n\nActions:\n- set_mode: Choose single page, wizard (multi-step), or tabs\n- branch: Show/hide items based on a field\'s value (conditional logic)',
+    description: 'Set form navigation mode or add conditional branching.\n\nActions:\n- set_mode: Choose single page, wizard (multi-step), or tabs\n- branch: Show/hide items based on a field\'s value (conditional logic)\n\nNote: "branch" replaces any existing show_when conditions on the target items (emits RELEVANT_OVERWRITTEN warnings). To layer additional visibility conditions, use formspec_behavior(show_when) after branching.',
     inputSchema: {
       project_id: z.string(),
       action: z.enum(['set_mode', 'branch']).describe('set_mode: change navigation; branch: add conditional paths'),
@@ -679,7 +681,7 @@ export async function main() {
 
   server.registerTool('formspec_fel', {
     title: 'FEL',
-    description: 'FEL (Formspec Expression Language) utilities for writing expressions.\n\nActions:\n- context: List available references (fields, variables, instances) scoped to a path\n- functions: List all available FEL functions with signatures\n- check: Parse and validate a FEL expression, returning errors, dependencies, and functions used',
+    description: 'FEL (Formspec Expression Language) utilities for writing expressions.\n\nActions:\n- context: List available references (fields, variables, instances) scoped to a path\n- functions: List all available FEL functions with signatures\n- check: Parse and validate a FEL expression, returning errors, dependencies, and functions used\n\nPath conventions: FEL references use $-prefix ("$contact.email"), variables use @-prefix ("@total"). "true" and "false" are literals, not functions — use "$field = true", not "$field = true()".',
     inputSchema: {
       project_id: z.string(),
       action: z.enum(['context', 'functions', 'check']).describe('context: available refs; functions: function catalog; check: validate expression'),

@@ -269,4 +269,109 @@ describe('diagnose', () => {
     expect(warning!.message).not.toContain('will be hidden');
     expect(warning!.message).toContain('Other');
   });
+
+  it('does not report STALE_THEME_REGION_KEY for component-only nodes like submit buttons', () => {
+    const project = createRawProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'group', key: 'page1', label: 'Page 1' },
+    });
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'Page 1' } });
+    const pages = (project.state.theme.pages ?? []) as any[];
+    const pageId = pages[0].id;
+    project.dispatch({
+      type: 'pages.assignItem',
+      payload: { pageId, key: 'page1' },
+    });
+
+    // Add a submit button component node and assign its nodeId to the page
+    const result = project.dispatch({
+      type: 'component.addNode',
+      payload: {
+        parent: { nodeId: 'root' },
+        component: 'SubmitButton',
+        props: { label: 'Submit' },
+      },
+    });
+    const nodeId = (result as any)?.nodeRef?.nodeId;
+    expect(nodeId).toBeDefined();
+    project.dispatch({
+      type: 'pages.assignItem',
+      payload: { pageId, key: nodeId },
+    });
+
+    const diag = project.diagnose();
+    const stale = diag.consistency.filter(
+      (d) => d.code === 'STALE_THEME_REGION_KEY',
+    );
+    expect(stale).toEqual([]);
+  });
+
+  it('still reports STALE_THEME_REGION_KEY for genuinely stale keys', () => {
+    const project = createRawProject();
+    project.dispatch({
+      type: 'definition.addItem',
+      payload: { type: 'group', key: 'page1', label: 'Page 1' },
+    });
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'Page 1' } });
+    const pages = (project.state.theme.pages ?? []) as any[];
+    const pageId = pages[0].id;
+    // Assign a key that doesn't exist in definition or component tree
+    project.dispatch({
+      type: 'pages.assignItem',
+      payload: { pageId, key: 'deleted_item' },
+    });
+
+    const diag = project.diagnose();
+    const stale = diag.consistency.filter(
+      (d) => d.code === 'STALE_THEME_REGION_KEY',
+    );
+    expect(stale).toHaveLength(1);
+    expect(stale[0].message).toContain('deleted_item');
+  });
+
+  it('recognizes component node IDs as valid region keys', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'Page 1' } });
+    const pages = (project.state.theme.pages ?? []) as any[];
+    const pageId = pages[0].id;
+
+    // Add two component-only nodes
+    project.dispatch({
+      type: 'component.addNode',
+      payload: {
+        parent: { nodeId: 'root' },
+        component: 'SubmitButton',
+        props: { label: 'Submit' },
+      },
+    });
+    project.dispatch({
+      type: 'component.addNode',
+      payload: {
+        parent: { nodeId: 'root' },
+        component: 'ProgressBar',
+      },
+    });
+
+    // Get the nodeIds from the generated component tree
+    const genTree = (project.state as any).generatedComponent?.tree;
+    const nodeIds = (genTree?.children ?? [])
+      .filter((c: any) => c.nodeId && c.nodeId !== 'root')
+      .map((c: any) => c.nodeId);
+    expect(nodeIds.length).toBeGreaterThan(0); // sanity: we actually found nodes
+
+    // Assign them to the page
+    for (const nid of nodeIds) {
+      project.dispatch({
+        type: 'pages.assignItem',
+        payload: { pageId, key: nid },
+      });
+    }
+
+    const diag = project.diagnose();
+    const stale = diag.consistency.filter(
+      (d) => d.code === 'STALE_THEME_REGION_KEY',
+    );
+    expect(stale).toEqual([]);
+  });
 });

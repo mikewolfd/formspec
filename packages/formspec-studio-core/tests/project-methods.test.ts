@@ -151,6 +151,36 @@ describe('addGroup', () => {
     expect(outer?.children).toHaveLength(1);
     expect(outer?.children?.[0].key).toBe('inner');
   });
+
+  it('adds nested group via parentPath prop', () => {
+    const project = createProject();
+    project.addGroup('outer', 'Outer');
+    project.addGroup('inner', 'Inner', { parentPath: 'outer' });
+    const outer = project.itemAt('outer');
+    expect(outer?.children).toHaveLength(1);
+    expect(outer?.children?.[0].key).toBe('inner');
+  });
+
+  it('parentPath takes precedence over dot-path parsing', () => {
+    const project = createProject();
+    project.addGroup('container', 'Container');
+    // path is "child" but parentPath says "container"
+    project.addGroup('child', 'Child', { parentPath: 'container' });
+    expect(project.itemAt('container')?.children?.[0].key).toBe('child');
+    // "child" should not exist at root
+    expect(
+      project.core.state.definition.items.some(
+        (i: any) => i.key === 'child',
+      ),
+    ).toBe(false);
+  });
+
+  it('throws on parentPath pointing to non-existent group', () => {
+    const project = createProject();
+    expect(() =>
+      project.addGroup('child', 'Child', { parentPath: 'nonexistent' }),
+    ).toThrow();
+  });
 });
 
 describe('addContent', () => {
@@ -192,7 +222,58 @@ describe('addContent', () => {
   it('adds divider content', () => {
     const project = createProject();
     project.addContent('div', '', 'divider');
-    expect((project.itemAt('div') as any)?.presentation?.widgetHint).toBe('divider');
+    expect((project.itemAt('div') as any)?.presentation?.widgetHint).toBe(
+      'divider',
+    );
+  });
+
+  it('adds content inside a group via parentPath prop', () => {
+    const project = createProject();
+    project.addGroup('section', 'Section');
+    project.addContent('heading', 'Section Title', 'heading', {
+      parentPath: 'section',
+    });
+    const section = project.itemAt('section');
+    expect(section?.children).toHaveLength(1);
+    expect(section?.children?.[0].key).toBe('heading');
+    expect(section?.children?.[0].type).toBe('display');
+  });
+
+  it('adds content without parentPath at root (existing behavior)', () => {
+    const project = createProject();
+    project.addContent('intro', 'Welcome');
+    expect(
+      project.core.state.definition.items.some(
+        (i: any) => i.key === 'intro',
+      ),
+    ).toBe(true);
+  });
+
+  it('dot-path still works for content (regression)', () => {
+    const project = createProject();
+    project.addGroup('section', 'Section');
+    project.addContent('section.note', 'A note');
+    const section = project.itemAt('section');
+    expect(section?.children).toHaveLength(1);
+    expect(section?.children?.[0].key).toBe('note');
+  });
+
+  it('parentPath takes precedence over dot-path for content', () => {
+    const project = createProject();
+    project.addGroup('container', 'Container');
+    project.addContent('myheading', 'Title', 'heading', {
+      parentPath: 'container',
+    });
+    expect(project.itemAt('container')?.children?.[0].key).toBe('myheading');
+  });
+
+  it('throws when parentPath points to non-existent group', () => {
+    const project = createProject();
+    expect(() =>
+      project.addContent('heading', 'Title', 'heading', {
+        parentPath: 'nonexistent',
+      }),
+    ).toThrow();
   });
 });
 
@@ -1308,6 +1389,66 @@ describe('addPage edge cases', () => {
   });
 });
 
+describe('addPage with custom ID', () => {
+  it('uses the provided custom ID', () => {
+    const project = createProject();
+    const result = project.addPage('Step 1', undefined, 'my-page');
+    expect(result.createdId).toBe('my-page');
+    const pages = project.theme.pages ?? [];
+    expect(pages.find((p: any) => p.id === 'my-page')).toBeDefined();
+  });
+
+  it('rejects invalid custom ID (starts with number)', () => {
+    const project = createProject();
+    expect(() => project.addPage('Step 1', undefined, '1bad-id')).toThrow(/invalid/i);
+  });
+
+  it('rejects invalid custom ID (contains spaces)', () => {
+    const project = createProject();
+    expect(() => project.addPage('Step 1', undefined, 'bad id')).toThrow(/invalid/i);
+  });
+
+  it('rejects duplicate custom ID', () => {
+    const project = createProject();
+    project.addPage('Step 1', undefined, 'step1');
+    expect(() => project.addPage('Step 2', undefined, 'step1')).toThrow(/already exists/);
+  });
+
+  it('accepts valid ID patterns', () => {
+    const project = createProject();
+    const r1 = project.addPage('Step 1', undefined, 'stepOne');
+    expect(r1.createdId).toBe('stepOne');
+    const r2 = project.addPage('Step 2', undefined, 'step_2');
+    expect(r2.createdId).toBe('step_2');
+    const r3 = project.addPage('Step 3', undefined, 'step-3');
+    expect(r3.createdId).toBe('step-3');
+  });
+});
+
+describe('listPages', () => {
+  it('returns empty array for a fresh project', () => {
+    const project = createProject();
+    expect(project.listPages()).toEqual([]);
+  });
+
+  it('returns pages with id and title', () => {
+    const project = createProject();
+    project.addPage('Step 1', undefined, 'step1');
+    project.addPage('Step 2', 'Second step', 'step2');
+    const pages = project.listPages();
+    expect(pages).toHaveLength(2);
+    expect(pages[0]).toEqual({ id: 'step1', title: 'Step 1' });
+    expect(pages[1]).toEqual({ id: 'step2', title: 'Step 2', description: 'Second step' });
+  });
+
+  it('excludes description when not set', () => {
+    const project = createProject();
+    project.addPage('Step 1', undefined, 'step1');
+    const pages = project.listPages();
+    expect(pages[0]).not.toHaveProperty('description');
+  });
+});
+
 describe('removeInstance DANGLING_REFERENCES', () => {
   it('warns about dangling references with FEL paths listed', () => {
     const project = createProject();
@@ -1435,15 +1576,16 @@ describe('reorderPage boundary', () => {
 });
 
 describe('addSubmitButton with pageId', () => {
-  it('dispatches both addNode and pages.assignItem', () => {
+  it('dispatches both addNode and pages.assignItem using actual nodeId', () => {
     const project = createProject();
-    const { createdId } = project.addPage('Page 1');
-    const result = project.addSubmitButton('Submit', createdId);
+    const { createdId: pageId } = project.addPage('Page 1');
+    const result = project.addSubmitButton('Submit', pageId);
     expect(result.summary).toContain('submit');
-    // The submit button should be assigned to the page
+    expect(result.createdId).toBeDefined();
+    // The submit button's region key should be its generated nodeId
     const pages = project.theme.pages ?? [];
-    const page = pages.find((p: any) => p.id === createdId);
-    expect(page?.regions?.some((r: any) => r.key === 'submit')).toBe(true);
+    const page = pages.find((p: any) => p.id === pageId);
+    expect(page?.regions?.some((r: any) => r.key === result.createdId)).toBe(true);
   });
 });
 

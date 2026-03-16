@@ -79,6 +79,175 @@ describe('previewForm', () => {
     expect(preview.validationState['email']).toBeDefined();
     expect(preview.validationState['email'].message).toBe('Please enter a valid email');
   });
+
+  it('required email with empty value shows "Required", not "Invalid"', () => {
+    // P2-1: required + email constraint on empty value. The engine should skip the
+    // bind constraint on empty values (spec §3.8.1). Only "Required" should appear.
+    const project = createProject();
+    project.addField('email', 'Email', 'email');
+    project.require('email');
+
+    const preview = previewForm(project);
+    expect(preview.validationState['email']).toBeDefined();
+    expect(preview.validationState['email'].message).toBe('Required');
+    expect(preview.validationState['email'].severity).toBe('error');
+  });
+
+  it('"required" error takes priority over "constraint" error for same field', () => {
+    // Bug B: when multiple errors exist for the same path, the priority logic
+    // must prefer constraintKind:"required" over constraintKind:"constraint",
+    // not just last-write-wins among same-severity errors.
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.require('name');
+    // Shape that also fails on empty value — produces a second error
+    project.addValidation('name', '$name != ""', 'Name is invalid');
+
+    const preview = previewForm(project);
+    expect(preview.validationState['name']).toBeDefined();
+    expect(preview.validationState['name'].message).toBe('Required');
+  });
+
+  it('error severity wins over warning regardless of order', () => {
+    const project = createProject();
+    project.addField('code', 'Code', 'text');
+    // Error-level shape
+    project.addValidation('code', '$code != ""', 'Code is required');
+    // Warning-level shape (added second — would be last-write in buggy version)
+    project.addValidation('code', "matches($code, '^[A-Z]+$')", 'Prefer uppercase', { severity: 'warning' });
+
+    const preview = previewForm(project);
+    expect(preview.validationState['code']).toBeDefined();
+    expect(preview.validationState['code'].severity).toBe('error');
+    expect(preview.validationState['code'].message).toBe('Code is required');
+  });
+
+  it('non-required email with empty value has no validation errors', () => {
+    const project = createProject();
+    project.addField('email', 'Email', 'email');
+
+    const preview = previewForm(project);
+    // No required, and constraint should be skipped on empty value
+    expect(preview.validationState['email']).toBeUndefined();
+  });
+});
+
+describe('previewForm — repeat groups', () => {
+  function buildExpenseForm() {
+    const project = createProject();
+    project.addGroup('expenses', 'Expenses');
+    project.makeRepeatable('expenses', { min: 1 });
+    project.addField('expenses.amount', 'Amount', 'decimal');
+    project.addField('expenses.description', 'Description', 'text');
+    return project;
+  }
+
+  it('populates multi-instance scenario data', () => {
+    const project = buildExpenseForm();
+
+    const preview = previewForm(project, {
+      'expenses[0].amount': 100,
+      'expenses[0].description': 'Travel',
+      'expenses[1].amount': 200,
+      'expenses[1].description': 'Food',
+    });
+
+    expect(preview.currentValues['expenses[0].amount']).toBe(100);
+    expect(preview.currentValues['expenses[0].description']).toBe('Travel');
+    expect(preview.currentValues['expenses[1].amount']).toBe(200);
+    expect(preview.currentValues['expenses[1].description']).toBe('Food');
+  });
+
+  it('supports calculated aggregates over repeat instances', () => {
+    const project = buildExpenseForm();
+    project.addField('total', 'Total', 'decimal');
+    project.calculate('total', 'sum($expenses[*].amount)');
+
+    const preview = previewForm(project, {
+      'expenses[0].amount': 100,
+      'expenses[1].amount': 200,
+    });
+
+    expect(preview.currentValues['total']).toBe(300);
+  });
+
+  it('accepts nested object format in scenario', () => {
+    const project = buildExpenseForm();
+
+    const preview = previewForm(project, {
+      expenses: [
+        { amount: 50, description: 'Lunch' },
+        { amount: 75, description: 'Dinner' },
+      ],
+    });
+
+    expect(preview.currentValues['expenses[0].amount']).toBe(50);
+    expect(preview.currentValues['expenses[0].description']).toBe('Lunch');
+    expect(preview.currentValues['expenses[1].amount']).toBe(75);
+  });
+
+  it('handles repeat group with minRepeat: 0 and scenario providing [0]', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items');
+    project.makeRepeatable('items', { min: 0 });
+    project.addField('items.name', 'Item Name', 'text');
+
+    const preview = previewForm(project, {
+      'items[0].name': 'Widget',
+    });
+
+    expect(preview.currentValues['items[0].name']).toBe('Widget');
+  });
+
+  it('accepts nested non-repeat object format in scenario', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact Info');
+    project.addField('contact.email', 'Email', 'email');
+    project.addField('contact.phone', 'Phone', 'text');
+
+    const preview = previewForm(project, {
+      contact: { email: 'a@b.com', phone: '555-1234' },
+    });
+
+    expect(preview.currentValues['contact.email']).toBe('a@b.com');
+    expect(preview.currentValues['contact.phone']).toBe('555-1234');
+  });
+
+  it('handles mixed flat + nested keys in same scenario', () => {
+    const project = buildExpenseForm();
+    project.addField('notes', 'Notes', 'text');
+
+    const preview = previewForm(project, {
+      notes: 'Some notes',
+      expenses: [{ amount: 42, description: 'Taxi' }],
+    });
+
+    expect(preview.currentValues['notes']).toBe('Some notes');
+    expect(preview.currentValues['expenses[0].amount']).toBe(42);
+  });
+
+  it('handles sparse indices (only [2] provided, no [0] or [1])', () => {
+    const project = createProject();
+    project.addGroup('rows', 'Rows');
+    project.makeRepeatable('rows', { min: 0 });
+    project.addField('rows.value', 'Value', 'text');
+
+    const preview = previewForm(project, {
+      'rows[2].value': 'third',
+    });
+
+    expect(preview.currentValues['rows[2].value']).toBe('third');
+    expect(preview.currentValues).toHaveProperty('rows[0].value');
+    expect(preview.currentValues).toHaveProperty('rows[1].value');
+  });
+
+  it('no scenario does not break repeat groups', () => {
+    const project = buildExpenseForm();
+    const preview = previewForm(project);
+
+    // Should have one instance from minRepeat: 1
+    expect(preview.currentValues).toHaveProperty('expenses[0].amount');
+  });
 });
 
 describe('validateResponse', () => {
@@ -98,5 +267,83 @@ describe('validateResponse', () => {
     const report = validateResponse(project, {});
     expect(report.valid).toBe(false);
     expect(report.counts.error).toBeGreaterThan(0);
+  });
+
+  it('accepts nested response objects', () => {
+    const project = createProject();
+    project.addGroup('patient', 'Patient');
+    project.addField('patient.first_name', 'First Name', 'text');
+    project.addField('patient.last_name', 'Last Name', 'text');
+    project.require('patient.first_name');
+
+    const report = validateResponse(project, {
+      patient: { first_name: 'John', last_name: 'Doe' },
+    });
+    expect(report.valid).toBe(true);
+  });
+
+  it('still works with flat dot-path keys (regression)', () => {
+    const project = createProject();
+    project.addGroup('patient', 'Patient');
+    project.addField('patient.first_name', 'First Name', 'text');
+    project.require('patient.first_name');
+
+    const report = validateResponse(project, {
+      'patient.first_name': 'Jane',
+    });
+    expect(report.valid).toBe(true);
+  });
+
+  it('validates repeat group data from nested response', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items');
+    project.makeRepeatable('items', { min: 1 });
+    project.addField('items.name', 'Name', 'text');
+    project.require('items.name');
+
+    const report = validateResponse(project, {
+      items: [{ name: 'Widget' }],
+    });
+    expect(report.valid).toBe(true);
+  });
+
+  it('catches validation errors in repeat instance data', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items');
+    project.makeRepeatable('items', { min: 1 });
+    project.addField('items.name', 'Name', 'text');
+    project.require('items.name');
+
+    const report = validateResponse(project, {
+      items: [{ name: 'Widget' }, { name: '' }],
+    });
+    expect(report.valid).toBe(false);
+  });
+
+  it('accepts getResponse() output as input (round-trip)', () => {
+    const project = createProject();
+    project.addGroup('contact', 'Contact');
+    project.addField('contact.name', 'Name', 'text');
+    project.addField('contact.email', 'Email', 'email');
+    project.require('contact.name');
+
+    const nestedResponse = { contact: { name: 'Alice', email: 'a@b.com' } };
+    const report = validateResponse(project, nestedResponse);
+    expect(report.valid).toBe(true);
+  });
+
+  it('validates mixed flat and nested keys', () => {
+    const project = createProject();
+    project.addField('top_level', 'Top', 'text');
+    project.addGroup('nested', 'Nested');
+    project.addField('nested.child', 'Child', 'text');
+    project.require('top_level');
+    project.require('nested.child');
+
+    const report = validateResponse(project, {
+      top_level: 'present',
+      nested: { child: 'also present' },
+    });
+    expect(report.valid).toBe(true);
   });
 });
