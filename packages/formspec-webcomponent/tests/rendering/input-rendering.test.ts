@@ -305,3 +305,40 @@ describe('input rendering — compatibility warning', () => {
         warn.mockRestore();
     });
 });
+
+describe('input rendering — money display rounding', () => {
+    afterEach(() => {
+        document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('rounds displayed money amount to 2 decimal places', () => {
+        const tree = { component: 'MoneyInput', bind: 'name' };
+        const el = renderField({ dataType: 'money' }, tree);
+        const engine = el.getEngine();
+        engine.setValue('name', { amount: 8333.333333333334, currency: 'USD' });
+        el.render();
+        const amountInput = el.querySelector('.formspec-money input[type="number"]') as HTMLInputElement;
+        expect(amountInput).not.toBeNull();
+        expect(amountInput.value).toBe('8333.33');
+    });
+
+    it('displays exact value when it has 2 or fewer decimals', () => {
+        const tree = { component: 'MoneyInput', bind: 'name' };
+        const el = renderField({ dataType: 'money' }, tree);
+        const engine = el.getEngine();
+        engine.setValue('name', { amount: 100.50, currency: 'USD' });
+        el.render();
+        const amountInput = el.querySelector('.formspec-money input[type="number"]') as HTMLInputElement;
+        expect(amountInput.value).toBe('100.5');
+    });
+
+    it('displays whole numbers without decimals', () => {
+        const tree = { component: 'MoneyInput', bind: 'name' };
+        const el = renderField({ dataType: 'money' }, tree);
+        const engine = el.getEngine();
+        engine.setValue('name', { amount: 5000, currency: 'USD' });
+        el.render();
+        const amountInput = el.querySelector('.formspec-money input[type="number"]') as HTMLInputElement;
+        expect(amountInput.value).toBe('5000');
+    });
+});

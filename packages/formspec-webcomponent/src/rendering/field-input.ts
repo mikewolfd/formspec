@@ -249,9 +249,12 @@ export function renderInputComponent(host: FieldInputHost, comp: any, item: any,
             const v = sig.value;
             if (document.activeElement !== amountInput) {
                 if (v !== null && v !== undefined && typeof v === 'object' && 'amount' in v) {
-                    amountInput.value = v.amount !== null && v.amount !== undefined ? String(v.amount) : '';
+                    const a = v.amount;
+                    amountInput.value = a !== null && a !== undefined
+                        ? String(Math.round(a * 100) / 100)
+                        : '';
                 } else if (typeof v === 'number') {
-                    amountInput.value = String(v);
+                    amountInput.value = String(Math.round(v * 100) / 100);
                 }
             }
         }));
