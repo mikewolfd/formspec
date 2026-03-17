@@ -700,6 +700,90 @@ el.addEventListener('formspec-submit', async (e) => {
 
 ---
 
+## Prerequisites & Code Changes Required Before Implementation
+
+These must be resolved before or during implementation. They are not new phases — they're blockers within existing phases.
+
+### 1. CORS headers on the Worker (blocks Phase 6)
+
+Studio at `localhost:5173` (Vite dev) or a different domain calling the Worker at `*.workers.dev` will fail without CORS headers. The FastAPI app needs a CORS middleware:
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # tighten in production
+    allow_methods=["POST", "GET"],
+    allow_headers=["Content-Type"],
+)
+```
+
+For production, restrict `allow_origins` to the Studio deployment URL. For `wrangler dev` (localhost:8787), CORS is still needed since Studio runs on a different port.
+
+### 2. Fix absolute imports in validator (blocks Phase 3)
+
+Two files use absolute imports that won't resolve when the package is copied into the Worker:
+
+- `src/formspec/validator/dependencies.py` line 11:
+  `from formspec.fel.dependencies import ...` → `from ..fel.dependencies import ...`
+- `src/formspec/validator/expressions.py` lines 14-15:
+  `from formspec.fel.errors import ...` → `from ..fel.errors import ...`
+  `from formspec.fel.parser import ...` → `from ..fel.parser import ...`
+
+### 3. Worker `requirements.txt` must list all deps (Phase 3)
+
+The Python package has no `setup.py`/`pyproject.toml` declaring dependencies. The Worker's `requirements.txt` must explicitly include:
+
+```
+fastapi
+pydantic
+jsonschema
+referencing
+jsonschema-specifications
+```
+
+All are pure Python, all available in Pyodide.
+
+### 4. Authentication (Phase 3 — defer or implement)
+
+All endpoints (`/api/submit`, `/api/lint`, `/api/export/*`) are completely open. Options:
+- **Defer:** Acceptable for personal/internal use. Forms are public anyway.
+- **Simple API key:** `X-API-Key` header checked against a Cloudflare secret. Studio stores the key in settings.
+- **Origin check:** Only allow requests from known origins (deployed form URL + Studio URL).
+
+Recommend: defer for MVP, add API key as a follow-up.
+
+### 5. Local dev workflow (Phase 3 + 6)
+
+No story for running the full stack locally. Need:
+
+```bash
+# Terminal 1: Studio dev server
+cd packages/formspec-studio && npm run dev     # localhost:5173
+
+# Terminal 2: Python Worker dev server
+cd deploy-templates/cloudflare && wrangler dev  # localhost:8787
+```
+
+Or a `Procfile` / `npm run dev:full-stack` that runs both. The deploy script also needs a `--dev` mode that bundles the Python package into the template dir and runs `wrangler dev` instead of `wrangler deploy`.
+
+### 6. `_bundled_schemas.py` generation (Phase 4)
+
+The deploy script needs to read `schemas/*.json` and emit a Python module:
+
+```javascript
+// In deploy-cloudflare.mjs
+const schemas = {};
+for (const [docType, filename] of Object.entries(SCHEMA_FILES)) {
+  schemas[docType] = JSON.parse(fs.readFileSync(`schemas/${filename}`, 'utf8'));
+}
+fs.writeFileSync('temp/src/_bundled_schemas.py',
+  `SCHEMAS = ${JSON.stringify(schemas, null, 2)}\n`);
+```
+
+---
+
 ## Cloudflare-Specific Constraints & Risks
 
 | Constraint | Impact | Mitigation |
