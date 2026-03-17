@@ -138,3 +138,71 @@ describe('PageCard region editing', () => {
     expect(((project.theme as any).pages[0].regions as any[]).length).toBe(1);
   });
 });
+
+describe('PageCard title editing', () => {
+  function renderWithPageCard() {
+    return renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Original Title', regions: [] }],
+      },
+    });
+  }
+
+  it('clicking title enters edit mode', () => {
+    renderWithPageCard();
+    const titleButton = screen.getByText('Original Title');
+    fireEvent.click(titleButton);
+    const input = screen.getByDisplayValue('Original Title');
+    expect(input).toBeInTheDocument();
+    expect(input.tagName).toBe('INPUT');
+  });
+
+  it('blur commits the new title', async () => {
+    const { project } = renderWithPageCard();
+    const titleButton = screen.getByText('Original Title');
+    fireEvent.click(titleButton);
+    const input = screen.getByDisplayValue('Original Title');
+    fireEvent.change(input, { target: { value: 'Updated Title' } });
+    await act(async () => {
+      fireEvent.blur(input);
+    });
+    expect((project.theme as any).pages[0].title).toBe('Updated Title');
+  });
+
+  it('Enter commits the new title', async () => {
+    const { project } = renderWithPageCard();
+    const titleButton = screen.getByText('Original Title');
+    fireEvent.click(titleButton);
+    const input = screen.getByDisplayValue('Original Title');
+    fireEvent.change(input, { target: { value: 'Enter Title' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect((project.theme as any).pages[0].title).toBe('Enter Title');
+  });
+
+  it('Escape cancels without saving', async () => {
+    const { project } = renderWithPageCard();
+    const titleButton = screen.getByText('Original Title');
+    fireEvent.click(titleButton);
+    const input = screen.getByDisplayValue('Original Title');
+    fireEvent.change(input, { target: { value: 'Should Not Save' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Escape' });
+    });
+    expect((project.theme as any).pages[0].title).toBe('Original Title');
+  });
+
+  it('empty title is rejected', async () => {
+    const { project } = renderWithPageCard();
+    const titleButton = screen.getByText('Original Title');
+    fireEvent.click(titleButton);
+    const input = screen.getByDisplayValue('Original Title');
+    fireEvent.change(input, { target: { value: '   ' } });
+    await act(async () => {
+      fireEvent.blur(input);
+    });
+    expect((project.theme as any).pages[0].title).toBe('Original Title');
+  });
+});

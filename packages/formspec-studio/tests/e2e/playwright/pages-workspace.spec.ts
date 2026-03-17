@@ -85,9 +85,9 @@ test.describe('Pages Workspace', () => {
     await switchTab(page, 'Pages');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
-    await expect(workspace.getByText('Single')).toBeVisible();
-    await expect(workspace.getByText('Wizard')).toBeVisible();
-    await expect(workspace.getByText('Tabs')).toBeVisible();
+    await expect(workspace.getByRole('button', { name: 'Single' })).toBeVisible();
+    await expect(workspace.getByRole('button', { name: 'Wizard' })).toBeVisible();
+    await expect(workspace.getByRole('button', { name: 'Tabs' })).toBeVisible();
     await expect(workspace.getByRole('button', { name: /add page/i })).toBeVisible();
   });
 
@@ -99,7 +99,7 @@ test.describe('Pages Workspace', () => {
     await expect(workspace.getByText(/switch to wizard or tabs/i)).toBeVisible();
     await expect(workspace.getByRole('button', { name: /add page/i })).not.toBeVisible();
 
-    await workspace.getByText('Wizard').click();
+    await workspace.getByRole('button', { name: 'Wizard' }).click();
 
     await expect(workspace.getByRole('button', { name: /add page/i })).toBeVisible({ timeout: 2000 });
   });

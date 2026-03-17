@@ -2,20 +2,23 @@ import { useMemo } from 'react';
 import { resolvePageStructure, type ResolvedPageStructure } from 'formspec-studio-core';
 import { useProjectState } from '../../state/useProjectState';
 
-export function buildLabelMap(items: any[]): Map<string, string> {
-  const map = new Map<string, string>();
+export function buildLabelMap(items: any[], map?: Map<string, string>): Map<string, string> {
+  const result = map ?? new Map<string, string>();
   for (const item of items) {
-    map.set(item.key, item.label ?? item.key);
+    result.set(item.key, item.label ?? item.key);
     if (item.children) {
-      for (const [k, v] of buildLabelMap(item.children)) {
-        map.set(k, v);
-      }
+      buildLabelMap(item.children, result);
     }
   }
-  return map;
+  return result;
 }
 
-export function usePageStructure(allItemKeys?: string[]): ResolvedPageStructure {
+export interface PageStructureResult {
+  structure: ResolvedPageStructure;
+  labelMap: Map<string, string>;
+}
+
+export function usePageStructure(): PageStructureResult {
   const state = useProjectState();
 
   const labelMap = useMemo(
@@ -24,14 +27,16 @@ export function usePageStructure(allItemKeys?: string[]): ResolvedPageStructure 
   );
 
   const keys = useMemo(
-    () => allItemKeys ?? Array.from(labelMap.keys()),
-    [allItemKeys, labelMap],
+    () => Array.from(labelMap.keys()),
+    [labelMap],
   );
 
-  return useMemo(
+  const structure = useMemo(
     () => resolvePageStructure(state, keys),
     [state.theme, state.definition, keys],
   );
+
+  return { structure, labelMap };
 }
 
 export { type ResolvedPageStructure };

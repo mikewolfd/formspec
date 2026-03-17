@@ -1,8 +1,7 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
-import { usePageStructure, buildLabelMap } from './usePageStructure';
+import { usePageStructure } from './usePageStructure';
 import { useProject } from '../../state/useProject';
-import { useProjectState } from '../../state/useProjectState';
 import type { ResolvedPage } from 'formspec-studio-core';
 
 // ── ModeSelector ──────────────────────────────────────────────────────
@@ -294,16 +293,10 @@ function PageCard({
 // ── Main PagesTab ────────────────────────────────────────────────────
 
 export function PagesTab() {
-  const state = useProjectState();
   const project = useProject();
   const [expandedPageId, setExpandedPageId] = useState<string | null>(null);
 
-  const labelMap = useMemo(
-    () => buildLabelMap(state.definition.items ?? []),
-    [state.definition.items],
-  );
-  const allItemKeys = useMemo(() => Array.from(labelMap.keys()), [labelMap]);
-  const structure = usePageStructure(allItemKeys);
+  const { structure, labelMap } = usePageStructure();
 
   const isSingle = structure.mode === 'single';
   const hasPages = structure.pages.length > 0;
