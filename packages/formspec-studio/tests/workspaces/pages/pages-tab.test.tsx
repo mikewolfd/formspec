@@ -329,6 +329,64 @@ describe('PageCard description editing', () => {
   });
 });
 
+describe('Region start property', () => {
+  function renderWithExpandedRegion(regionOverrides?: Record<string, unknown>) {
+    const project = createProject({
+      seed: {
+        definition: {
+          ...BASE_DEF,
+          formPresentation: { pageMode: 'wizard' },
+        } as any,
+        theme: {
+          pages: [{
+            id: 'p1', title: 'Step 1',
+            regions: [{ key: 'name', span: 6, ...regionOverrides }],
+          }],
+        } as any,
+      },
+    });
+    render(
+      <ProjectProvider project={project}>
+        <PagesTab />
+      </ProjectProvider>,
+    );
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    return { project };
+  }
+
+  it('shows start input when region has an explicit start value', () => {
+    renderWithExpandedRegion({ start: 3 });
+    const startInput = screen.getByLabelText(/start/i);
+    expect(startInput).toBeInTheDocument();
+    expect((startInput as HTMLInputElement).value).toBe('3');
+  });
+
+  it('shows add-start button when region has no start value', () => {
+    renderWithExpandedRegion();
+    expect(screen.getByRole('button', { name: /add start/i })).toBeInTheDocument();
+    // The number input for start should not be present yet
+    const startInput = screen.queryByRole('spinbutton', { name: /start/i });
+    expect(startInput).not.toBeInTheDocument();
+  });
+
+  it('clicking add-start button reveals the start input', async () => {
+    renderWithExpandedRegion();
+    await act(async () => {
+      screen.getByRole('button', { name: /add start/i }).click();
+    });
+    expect(screen.getByLabelText(/start/i)).toBeInTheDocument();
+  });
+
+  it('blur on start input commits value via updateRegion', async () => {
+    const { project } = renderWithExpandedRegion({ start: 2 });
+    const startInput = screen.getByLabelText(/start/i) as HTMLInputElement;
+    fireEvent.change(startInput, { target: { value: '5' } });
+    await act(async () => { fireEvent.blur(startInput); });
+    expect((project.theme.pages as any[])[0].regions[0].start).toBe(5);
+  });
+});
+
 describe('Unassigned items section', () => {
   it('shows unassigned section with item labels when items exist but are not on any page', () => {
     renderPagesTab({

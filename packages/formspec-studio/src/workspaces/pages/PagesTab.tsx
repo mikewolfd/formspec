@@ -57,6 +57,7 @@ function PageCard({
   onAddRegion,
   onRemoveRegion,
   onUpdateRegionSpan,
+  onUpdateRegionStart,
   onReorderRegion,
 }: {
   page: ResolvedPage;
@@ -73,13 +74,19 @@ function PageCard({
   onAddRegion: () => void;
   onRemoveRegion: (regionIndex: number) => void;
   onUpdateRegionSpan: (regionIndex: number, span: number) => void;
+  onUpdateRegionStart: (regionIndex: number, start: number | undefined) => void;
   onReorderRegion: (regionIndex: number, direction: 'up' | 'down') => void;
 }) {
   const regions = page.regions ?? [];
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [startVisibleFor, setStartVisibleFor] = useState<Set<number>>(new Set());
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descInputRef = useRef<HTMLInputElement>(null);
+
+  const showStartFor = useCallback((ri: number) => {
+    setStartVisibleFor((prev) => new Set([...prev, ri]));
+  }, []);
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -256,6 +263,35 @@ function PageCard({
                   <span className="font-mono text-ink flex-1 truncate">
                     {labelMap.get(r.key) ?? r.key}
                   </span>
+                  {/* Start column — show if explicit value or user clicked to add */}
+                  {(r.start !== undefined || startVisibleFor.has(ri)) ? (
+                    <>
+                      <span className="text-muted text-[10px]">start</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        aria-label="start"
+                        key={`st-${ri}-${r.key}-${r.start}`}
+                        defaultValue={r.start ?? 1}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          onUpdateRegionStart(ri, !isNaN(val) && val >= 1 && val <= 12 ? val : undefined);
+                        }}
+                        className="font-mono text-ink w-10 text-center bg-transparent border border-border/50 rounded text-[11px] py-0.5"
+                      />
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label="Add start"
+                      onClick={() => showStartFor(ri)}
+                      className="text-[9px] text-muted hover:text-ink"
+                      title="Set start column"
+                    >
+                      +col
+                    </button>
+                  )}
                   <span className="text-muted text-[10px]">span</span>
                   <input
                     type="number"
@@ -407,6 +443,7 @@ export function PagesTab() {
                   onAddRegion={() => project.addRegion(page.id, 12)}
                   onRemoveRegion={(ri) => project.deleteRegion(page.id, ri)}
                   onUpdateRegionSpan={(ri, span) => project.updateRegion(page.id, ri, 'span', span)}
+                  onUpdateRegionStart={(ri, start) => project.updateRegion(page.id, ri, 'start', start)}
                   onReorderRegion={(ri, dir) => project.reorderRegion(page.id, ri, dir)}
                 />
               ))}
