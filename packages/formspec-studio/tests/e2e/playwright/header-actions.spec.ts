@@ -9,12 +9,17 @@ test.describe('Header Actions', () => {
   test('shows real header actions including restored form controls', async ({ page }) => {
     const header = page.locator('[data-testid="header"]');
 
-    await expect(header.getByRole('button', { name: /import/i })).toBeVisible();
-    await expect(header.getByRole('button', { name: /new form/i })).toBeVisible();
-    await expect(header.getByRole('button', { name: /^export$/i })).toBeVisible();
+    // Undo, Redo, and Metadata are always visible in the header
     await expect(header.getByRole('button', { name: /undo/i })).toBeVisible();
     await expect(header.getByRole('button', { name: /redo/i })).toBeVisible();
     await expect(header.getByRole('button', { name: /metadata/i })).toBeVisible();
+
+    // Import, New Form, Export are inside the account dropdown menu
+    await header.click({ position: { x: 0, y: 0 } }); // dismiss any open menus
+    await page.click('button[aria-label="Account menu"]');
+    await expect(header.getByRole('button', { name: /import/i })).toBeVisible();
+    await expect(header.getByRole('button', { name: /new form/i })).toBeVisible();
+    await expect(header.getByRole('button', { name: /^export$/i })).toBeVisible();
   });
 
   test('exposes form metadata and avatar affordances as interactive controls', async ({ page }) => {

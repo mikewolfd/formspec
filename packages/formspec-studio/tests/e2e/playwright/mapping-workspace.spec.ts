@@ -1,19 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { waitForApp, switchTab, importProject } from './helpers';
+import { waitForApp, waitForAppWithExport, switchTab, importProject } from './helpers';
 
 const SEED = {
   definition: {
     $formspec: '1.0',
-    items: [{ key: 'name', type: 'field', dataType: 'string' }],
+    items: [
+      { key: 'name', type: 'field', dataType: 'string', label: 'FullName' },
+      { key: 'age', type: 'field', dataType: 'integer', label: 'Age' }
+    ],
   },
   mapping: {
-    direction: 'outbound',
+    direction: 'forward',
+    version: '1.2.3',
     definitionRef: 'urn:formspec:test',
     rules: [
-      { source: 'name', target: 'fullName', transform: 'preserve' },
-      { source: 'age', target: 'years', transform: 'coerce' },
+      { sourcePath: 'name', targetPath: 'fullName', transform: 'preserve' },
+      { sourcePath: 'age', targetPath: 'years', transform: 'coerce' },
     ],
-    adapter: { format: 'JSON', options: { pretty: true } },
+    targetSchema: { format: 'json' },
   },
 };
 
@@ -24,76 +28,108 @@ test.describe('Mapping Workspace', () => {
     await switchTab(page, 'Mapping');
   });
 
-  test('config tab shows direction pill and definition ref', async ({ page }) => {
+  test('blueprint section shows direction, version and target format', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Mapping"]');
-    // Config tab is active by default
-    // MappingConfig renders a "Configuration" section with direction pill and definition ref
-    await expect(workspace.getByText('outbound')).toBeVisible();
+
+    // Check direction
+    await expect(workspace.locator('[data-testid="direction-picker"]')).toHaveText('forward');
+
+    // Check version
+    await expect(workspace.locator('input[value="1.2.3"]')).toBeVisible();
+
+    // Check definition ref
     await expect(workspace.getByText('urn:formspec:test')).toBeVisible();
+
+    // Check target schema summary
+    await expect(workspace.getByText('Format: JSON')).toBeVisible();
   });
 
-  test('rules sub-tab shows rule cards with source → target and transform', async ({ page }) => {
+  test('rules section shows interactive rule cards', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Mapping"]');
-    await workspace.getByRole('button', { name: 'Rules' }).click();
-    // RuleCard renders: source text, arrow (→), target text, transform pill
-    await expect(workspace.getByText('name', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('fullName', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('preserve')).toBeVisible();
-    await expect(workspace.getByText('age', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('years', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('coerce')).toBeVisible();
+
+    // Verify first rule card content
+    const firstRule = workspace.locator('[data-testid="rule-source-0"]');
+    await expect(firstRule).toHaveValue('name');
+
+    const firstTarget = workspace.locator('[data-testid="rule-target-0"]');
+    await expect(firstTarget).toHaveValue('fullName');
+
+    // Verify transform pill
+    await expect(workspace.getByRole('button', { name: 'preserve' })).toBeVisible();
   });
 
-  test('adapter sub-tab shows format pill and options', async ({ page }) => {
+  test('filter bar navigates to sections', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Mapping"]');
-    await workspace.getByRole('button', { name: 'Adapter' }).click();
-    // AdapterConfig renders Section "Adapter" with format pill and options key-value
-    await expect(workspace.getByText('JSON')).toBeVisible();
-    await expect(workspace.getByText('pretty')).toBeVisible();
-    await expect(workspace.getByText('true', { exact: true })).toBeVisible();
+
+    // Click "Preview" in the sticky filter bar
+    await workspace.locator('[data-testid="filter-tab-preview"]').click();
+
+    // Blueprint should be hidden (since sectionFilter !== 'all')
+    await expect(workspace.getByText('Mapping Blueprint')).toBeHidden();
+
+    // Preview should be visible
+    await expect(workspace.getByText('Output Preview')).toBeVisible();
+
+    // Logic: checking for Source and Output headers in the preview section
+    await expect(workspace.locator('[data-testid="preview-source-header"]')).toBeVisible();
+    await expect(workspace.locator('[data-testid="preview-output-header"]')).toBeVisible();
   });
 
-  test('preview sub-tab shows direction pill and Input/Output split pane', async ({ page }) => {
+  test('editing a rule updates the project state', async ({ page }) => {
+    // Need export access for this
+    await waitForAppWithExport(page);
+    await importProject(page, SEED);
+    await switchTab(page, 'Mapping');
+
     const workspace = page.locator('[data-testid="workspace-Mapping"]');
-    await workspace.getByRole('button', { name: 'Preview' }).click();
-    // MappingPreview renders direction pill, then split pane with Input and Output headers
-    await expect(workspace.getByText('outbound')).toBeVisible();
-    await expect(workspace.getByText('Input', { exact: true })).toBeVisible();
-    await expect(workspace.getByText('Output', { exact: true })).toBeVisible();
+
+    // Find the target input for the first rule and change it
+    const targetInput = workspace.locator('[data-testid="rule-target-0"]');
+    await targetInput.fill('newFullName');
+    await targetInput.blur(); // Triggers final update if needed
+
+    // Validate the change in the exported bundle
+    const exportData = await page.evaluate(() => (window as any).__FORMSPEC_TEST_EXPORT());
+    expect(exportData.mapping.rules[0].targetPath).toBe('newFullName');
   });
 
-  test('clicking the config direction badge opens a direction picker', async ({ page }) => {
+  test('preview transforms real-time with sample data', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Mapping"]');
 
-    await workspace.getByText('outbound', { exact: true }).click();
+    // Go to preview section
+    await workspace.locator('[data-testid="filter-tab-preview"]').click();
 
-    await expect(workspace.getByRole('option', { name: 'inbound' })).toBeVisible();
-    await expect(workspace.getByRole('option', { name: 'outbound' })).toBeVisible();
-    await expect(workspace.getByRole('option', { name: 'bidirectional' })).toBeVisible();
+    // Type sample data into the "Input" JSON editor (textarea)
+    const inputArea = workspace.locator('textarea').first();
+    await inputArea.clear();
+    await inputArea.fill(JSON.stringify({ name: 'Bob', age: 40 }));
+
+    // The output should update to show the mapped data
+    // { "fullName": "Bob", "years": 40 }
+    // We look for parts of the JSON in the output area
+    const outputArea = workspace.locator('pre');
+    await expect(outputArea).toContainText('"fullName": "Bob"');
+    await expect(outputArea).toContainText('"years": 40');
   });
 
-  test('Escape closes the direction picker after it opens', async ({ page }) => {
+  test('direction picker updates mapping direction', async ({ page }) => {
+    await waitForAppWithExport(page);
+    await importProject(page, SEED);
+    await switchTab(page, 'Mapping');
+
     const workspace = page.locator('[data-testid="workspace-Mapping"]');
 
-    await workspace.getByText('outbound', { exact: true }).click();
-    await expect(workspace.getByRole('option', { name: 'inbound' })).toBeVisible();
+    // Open picker
+    await workspace.locator('[data-testid="direction-picker"]').click();
 
-    await page.keyboard.press('Escape');
+    // Select "reverse"
+    await workspace.getByRole('button', { name: 'reverse', exact: true }).click();
 
-    await expect(workspace.getByRole('option', { name: 'inbound' })).toBeHidden();
-  });
+    // Verify UI reflects change
+    await expect(workspace.getByRole('button', { name: 'reverse', exact: true })).toBeVisible();
 
-  test('Configuration stays collapsed after leaving Config and returning', async ({ page }) => {
-    const workspace = page.locator('[data-testid="workspace-Mapping"]');
-
-    await expect(workspace.getByText('Direction', { exact: true })).toBeVisible();
-
-    await workspace.getByRole('button', { name: /configuration/i }).click();
-    await expect(workspace.getByText('Direction', { exact: true })).toBeHidden();
-
-    await workspace.getByRole('button', { name: 'Rules' }).click();
-    await workspace.getByRole('button', { name: 'Config' }).click();
-
-    await expect(workspace.getByText('Direction', { exact: true })).toBeHidden();
+    // Verify state reflects change
+    const exportData = await page.evaluate(() => (window as any).__FORMSPEC_TEST_EXPORT());
+    expect(exportData.mapping.direction).toBe('reverse');
   });
 });
