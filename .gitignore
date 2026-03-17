@@ -37,3 +37,6 @@ reconstructed-examples/
 public/
 firebase-debug.log
 .firebase/
+
+# Rust build artifacts
+target/
