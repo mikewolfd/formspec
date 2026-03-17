@@ -149,7 +149,7 @@ describe('StructureTree', () => {
       );
 
       await act(async () => {
-        screen.getByTitle('Add wizard page').click();
+        screen.getByTitle('Add page').click();
       });
 
       // addPage generates the group key from the label slug ('New Page' -> 'new_page'),
@@ -222,6 +222,40 @@ describe('StructureTree', () => {
     expect(insertedField.key).not.toBe('string1');
     expect(capturedSelectedKey).toBe(`page1.${insertedField.key}`);
     expect(screen.getByTestId(`tree-item-page1.${insertedField.key}`)).toHaveClass('text-accent');
+  });
+
+  it('labels the pages section as "Pages" not "Wizard Pages"', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0',
+          url: 'urn:test-pages-label',
+          version: '1.0.0',
+          formPresentation: { pageMode: 'wizard' },
+          items: [{ key: 'page1', type: 'group', label: 'Page 1', children: [] }],
+        } as any,
+      },
+    });
+
+    render(
+      <ProjectProvider project={project}>
+        <SelectionProvider>
+          <ActivePageProvider>
+            <CanvasTargetsProvider>
+              <StructureTree />
+            </CanvasTargetsProvider>
+          </ActivePageProvider>
+        </SelectionProvider>
+      </ProjectProvider>
+    );
+
+    // Should say "Pages", not "Wizard Pages"
+    expect(screen.getByText('Pages')).toBeInTheDocument();
+    expect(screen.queryByText('Wizard Pages')).not.toBeInTheDocument();
+
+    // Add button title should be "Add page", not "Add wizard page"
+    expect(screen.getByTitle('Add page')).toBeInTheDocument();
+    expect(screen.queryByTitle('Add wizard page')).not.toBeInTheDocument();
   });
 
   it('uses the locally constructed path for selection when adding from the palette', async () => {

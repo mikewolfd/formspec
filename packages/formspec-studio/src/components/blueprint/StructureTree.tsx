@@ -228,13 +228,13 @@ export function StructureTree() {
       />
 
       <div className="flex flex-col flex-1 overflow-y-auto space-y-4">
-        {/* ── Wizard Pages ── */}
+        {/* ── Pages ── */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-mono text-[10px] font-bold tracking-[0.15em] uppercase text-muted">
-              Wizard Pages
+              Pages
             </h3>
-            <AddButton onClick={handleAddPage} title="Add wizard page" />
+            <AddButton onClick={handleAddPage} title="Add page" />
           </div>
 
           <div className="space-y-0.5">
