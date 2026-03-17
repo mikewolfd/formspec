@@ -1,5 +1,6 @@
 {
   "name": "formspec-references",
+  "description": "Reference example app with live form rendering and Python API server",
   "version": "1.0.0",
   "private": true,
   "type": "module",

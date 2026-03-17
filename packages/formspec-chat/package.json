@@ -1,5 +1,6 @@
 {
   "name": "formspec-chat",
+  "description": "Conversational form-filling interface that drives Formspec forms via chat",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",

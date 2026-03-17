@@ -1,5 +1,6 @@
 {
   "name": "formspec-studio-core",
+  "description": "High-level authoring helpers and evaluation layer built on formspec-core",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",

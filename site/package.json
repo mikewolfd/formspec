@@ -1,5 +1,6 @@
 {
   "name": "formspec-site",
+  "description": "Formspec documentation website built with Astro",
   "type": "module",
   "version": "0.1.0",
   "private": true,

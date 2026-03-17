@@ -1,5 +1,6 @@
 {
   "name": "formspec-webcomponent",
+  "description": "Web component renderer (<formspec-render>) with pluggable component registry",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",

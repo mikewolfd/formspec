@@ -1,5 +1,6 @@
 {
   "name": "formspec-layout",
+  "description": "Layout algorithm for resolving Formspec theme pages, grids, and component arrangements",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",

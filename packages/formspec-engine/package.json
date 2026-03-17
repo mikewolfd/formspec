@@ -1,5 +1,6 @@
 {
   "name": "formspec-engine",
+  "description": "Client-side form state engine with FEL expression language, reactive signals, and validation",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",

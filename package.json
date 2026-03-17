@@ -1,5 +1,6 @@
 {
   "name": "formspec-workspace",
+  "description": "Formspec monorepo — a JSON-native declarative form specification with dual TypeScript/Python reference implementations",
   "private": true,
   "workspaces": [
     "packages/*",

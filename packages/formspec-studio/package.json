@@ -1,5 +1,6 @@
 {
   "name": "formspec-studio",
+  "description": "Visual form designer UI for building and previewing Formspec documents",
   "version": "0.1.0",
   "private": true,
   "type": "module",

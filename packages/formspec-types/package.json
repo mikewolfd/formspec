@@ -1,5 +1,6 @@
 {
   "name": "formspec-types",
+  "description": "TypeScript type definitions generated from Formspec JSON schemas",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",

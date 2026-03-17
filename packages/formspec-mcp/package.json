@@ -1,5 +1,6 @@
 {
   "name": "formspec-mcp",
+  "description": "Model Context Protocol server for AI-driven Formspec form authoring",
   "version": "0.2.0",
   "type": "module",
   "main": "dist/index.js",

@@ -1,5 +1,6 @@
 {
   "name": "form-builder",
+  "description": "Archived drag-and-drop form builder (superseded by formspec-studio)",
   "version": "0.0.1",
   "private": true,
   "type": "module",
