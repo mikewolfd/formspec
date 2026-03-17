@@ -135,7 +135,7 @@ describe('statistics', () => {
     const stats = project.statistics();
     expect(stats.expressionCount).toBeGreaterThanOrEqual(3);
     expect(stats.componentNodeCount).toBeGreaterThanOrEqual(2);
-    expect(stats.mappingRuleCount).toBe(1);
+    expect(stats.totalMappingRuleCount).toBe(1);
   });
 });
 
@@ -1055,7 +1055,7 @@ describe('export', () => {
     expect(bundle.definition.title).toBe('Export Test');
     expect(bundle.component).toBeDefined();
     expect(bundle.theme).toBeDefined();
-    expect(bundle.mapping).toBeDefined();
+    expect(bundle.mappings).toBeDefined();
   });
 
   it('returns independent copies (not references)', () => {

@@ -18,7 +18,7 @@ describe('createRawProject', () => {
     expect(project.state.theme).toBeDefined();
     expect(project.state.theme.targetDefinition?.url).toBe(project.state.definition.url);
 
-    expect(project.state.mapping).toBeDefined();
+    expect(project.state.mappings).toBeDefined();
 
     // No extensions or releases
     expect(project.state.extensions.registries).toEqual([]);
@@ -52,7 +52,8 @@ describe('createRawProject', () => {
     expect(project.artifactComponent).toBe(project.state.component);
     expect(project.generatedComponent).toBe(project.state.generatedComponent);
     expect(project.theme).toBe(project.state.theme);
-    expect(project.mapping).toBe(project.state.mapping);
+    expect(project.mapping).toBeDefined();
+    expect(project.mappings).toBe(project.state.mappings);
   });
 });
 

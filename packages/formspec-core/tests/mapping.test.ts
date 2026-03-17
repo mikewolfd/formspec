@@ -185,10 +185,7 @@ describe('mapping.preview', () => {
     const project = createRawProject();
     project.dispatch({ type: 'mapping.addRule', payload: { sourcePath: 'name', targetPath: 'fullName', transform: 'preserve' } });
 
-    const result = project.dispatch({
-      type: 'mapping.preview',
-      payload: { sampleData: { name: 'Alice' } },
-    }) as any;
+    const result = project.previewMapping({ sampleData: { name: 'Alice' } });
 
     expect(result.output).toBeDefined();
     expect(result.output.fullName).toBe('Alice');
@@ -202,10 +199,7 @@ describe('mapping.preview', () => {
       { type: 'mapping.addRule', payload: { sourcePath: 'profile.name', targetPath: 'out.name', transform: 'preserve' } },
     ]);
 
-    const result = project.dispatch({
-      type: 'mapping.preview',
-      payload: { sampleData: { profile: { age: '42', name: 'Alice' } }, direction: 'forward' },
-    }) as any;
+    const result = project.previewMapping({ sampleData: { profile: { age: '42', name: 'Alice' } }, direction: 'forward' });
 
     expect(result.output).toEqual({ out: { age: 42, name: 'Alice' } });
   });
