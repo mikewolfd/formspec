@@ -137,10 +137,10 @@ export const definitionInstancesHandlers: Record<string, CommandHandler> = {
       }
     }
 
-    // Mapping expressions.
-    const rules = (state.mapping as any).rules as any[] | undefined;
-    if (rules) {
-      for (const rule of rules) {
+    // Mapping expressions — rewrite across all mapping documents.
+    const allMappingRules: any[] = Object.values(state.mappings).flatMap((m: any) => m.rules ?? []);
+    if (allMappingRules.length) {
+      for (const rule of allMappingRules) {
         for (const prop of ['expression', 'condition']) {
           if (typeof rule[prop] === 'string') {
             rule[prop] = rewrite(rule[prop]);

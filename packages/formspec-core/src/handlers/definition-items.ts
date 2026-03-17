@@ -329,10 +329,10 @@ function rewriteAllPathReferences(
     }
   }
 
-  // 6. Rewrite mapping rules (sourcePath + FEL props + reverse + innerRules)
-  const rules = (state.mapping as any).rules as any[] | undefined;
-  if (rules) {
-    for (const rule of rules) {
+  // 6. Rewrite mapping rules (sourcePath + FEL props + reverse + innerRules) across all mappings
+  const allMappingRules: any[] = Object.values(state.mappings).flatMap((m: any) => m.rules ?? []);
+  if (allMappingRules.length) {
+    for (const rule of allMappingRules) {
       if (typeof rule.sourcePath === 'string') {
         rule.sourcePath = rewritePathPrefix(rule.sourcePath, oldPath, newPath);
       }
