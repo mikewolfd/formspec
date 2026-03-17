@@ -1,85 +1,132 @@
-/** @filedesc Mapping tab panel showing a live preview of the mapping direction picker and URL. */
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProject } from '../../state/useProject';
 import { useMapping } from '../../state/useMapping';
-
-const directions = ['unset', 'inbound', 'outbound', 'bidirectional'] as const;
+import { serializeMappedData } from './adapters';
 
 export function MappingPreview() {
   const mapping = useMapping();
   const project = useProject();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const listboxId = useId();
-  const direction = mapping?.direction ?? 'unset';
+
+  const [sampleInput, setSampleInput] = useState('{\n  "firstName": "Jane",\n  "lastName": "Doe",\n  "age": 28\n}');
+  const [previewDirection, setPreviewDirection] = useState<'forward' | 'reverse'>('forward');
+  const [previewOutput, setPreviewOutput] = useState<string>('{}');
+  const [showRaw, setShowRaw] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pickerOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPickerOpen(false);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pickerOpen]);
-
-  const setDirection = (value: (typeof directions)[number]) => {
-    project.setMappingProperty('direction', value === 'unset' ? null : value);
-    setPickerOpen(false);
-  };
+    try {
+      const data = JSON.parse(sampleInput);
+      const result = project.previewMapping({
+        sampleData: data,
+        direction: previewDirection
+      });
+      
+      if (showRaw) {
+        setPreviewOutput(JSON.stringify(result.output, null, 2));
+      } else {
+        const targetSchema = mapping?.targetSchema ?? {};
+        const serialized = serializeMappedData(result.output, {
+          format: (targetSchema as any).format,
+          rootElement: (targetSchema as any).rootElement as string,
+          namespaces: (targetSchema as any).namespaces as Record<string, string>,
+        });
+        setPreviewOutput(serialized);
+      }
+      setError(null);
+    } catch (err: any) {
+      setError(err.message ?? 'Mapping error');
+      setPreviewOutput('');
+    }
+  }, [sampleInput, previewDirection, mapping, project, showRaw]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-        <span className="text-sm text-muted">Direction:</span>
-        <div className="relative">
-          <button
-            type="button"
-            className="inline-flex items-center rounded-sm border font-ui bg-accent/10 text-accent border-accent/20 text-sm px-2 py-0.5"
-            aria-haspopup="listbox"
-            aria-expanded={pickerOpen}
-            aria-controls={pickerOpen ? listboxId : undefined}
-            aria-label={`Direction ${direction}`}
-            onClick={() => setPickerOpen((open) => !open)}
-          >
-            {direction}
-          </button>
-          {pickerOpen && (
-            <div
-              id={listboxId}
-              role="listbox"
-              aria-label="Direction"
-              className="absolute left-0 top-full z-10 mt-1 min-w-32 rounded-md border border-border bg-panel p-1 shadow-lg"
-            >
-              {directions.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="option"
-                  aria-selected={value === direction}
-                  className={`flex w-full rounded px-2 py-1 text-left text-sm ${
-                    value === direction ? 'bg-accent/10 text-accent' : 'text-ink hover:bg-subtle'
-                  }`}
-                  onClick={() => setDirection(value)}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="flex items-center gap-2 mb-6 p-1 bg-subtle/40 border border-border/40 rounded-lg w-fit">
+        <button
+          onClick={() => setPreviewDirection('forward')}
+          className={`px-3 py-1.5 min-w-[120px] rounded-md text-[11px] font-bold uppercase tracking-wider transition-all ${previewDirection === 'forward' ? 'bg-accent text-white shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+        >
+          Forward Preview
+        </button>
+        <button
+          onClick={() => setPreviewDirection('reverse')}
+          className={`px-3 py-1.5 min-w-[120px] rounded-md text-[11px] font-bold uppercase tracking-wider transition-all ${previewDirection === 'reverse' ? 'bg-accent text-white shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+        >
+          Reverse Preview
+        </button>
+
+        <div className="w-[1px] h-4 bg-border/40 mx-2" />
+
+        <button
+          onClick={() => setShowRaw(!showRaw)}
+          className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all border border-border/40 ${showRaw ? 'bg-panel text-ink shadow-sm' : 'bg-transparent text-muted hover:text-ink'
+            }`}
+        >
+          {showRaw ? 'Raw Object' : 'Formatted Output'}
+        </button>
       </div>
-      <div className="flex flex-1 min-h-0">
-        <div className="flex-1 border-r border-border p-3">
-          <div className="text-xs font-medium text-muted uppercase tracking-wide mb-2">Input</div>
-          <div className="font-mono text-xs text-muted bg-subtle rounded p-2 min-h-[4rem]">
-            {'{}'}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Input Column */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 mb-1">
+            <div className={`w-2 h-2 rounded-full ${previewDirection === 'forward' ? 'bg-muted/40' : 'bg-accent/40'}`} />
+            <span
+              data-testid="preview-source-header"
+              className="text-[11px] font-bold text-muted uppercase tracking-[0.1em]"
+            >
+              {previewDirection === 'forward' ? 'Source (Form Response)' : 'Source (External Data)'}
+            </span>
+          </div>
+          <div className="relative group min-h-[160px]">
+            <textarea
+              value={sampleInput}
+              onChange={(e) => setSampleInput(e.target.value)}
+              spellCheck={false}
+              className="w-full h-full min-h-[160px] font-mono text-[12px] leading-relaxed text-ink bg-subtle/30 rounded-xl p-4 border border-border/40 transition-all focus:border-accent/40 focus:ring-1 focus:ring-accent/10 resize-none"
+            />
           </div>
         </div>
-        <div className="flex-1 p-3">
-          <div className="text-xs font-medium text-muted uppercase tracking-wide mb-2">Output</div>
-          <div className="font-mono text-xs text-muted bg-subtle rounded p-2 min-h-[4rem]">
-            {'{}'}
+
+        {/* Output Column */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 mb-1">
+            <div className={`w-2 h-2 rounded-full ${previewDirection === 'forward' ? 'bg-accent/40' : 'bg-muted/40'}`} />
+            <span
+              data-testid="preview-output-header"
+              className="text-[11px] font-bold text-accent uppercase tracking-[0.1em]"
+            >
+              {previewDirection === 'forward' ? 'Output (Mapped Result)' : 'Output (Inflated Response)'}
+            </span>
+          </div>
+          <div className="relative group min-h-[160px]">
+            <div className={`font-mono text-[12px] leading-relaxed rounded-xl p-4 border min-h-[160px] shadow-sm transition-all ${error ? 'bg-red-50/50 border-red-200 text-red-600' : 'bg-accent/5 border-accent/20 text-ink'
+              }`}>
+              {error ? (
+                <div className="flex items-start gap-2">
+                  <span className="text-red-500 font-bold">Error:</span>
+                  <span className="whitespace-pre-wrap">{error}</span>
+                </div>
+              ) : (
+                <pre className="whitespace-pre-wrap">{previewOutput}</pre>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 p-4 rounded-xl bg-panel/40 border border-border/30 border-dashed">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-subtle flex items-center justify-center text-[18px]">
+            ✨
+          </div>
+          <div>
+            <h4 className="text-[12px] font-bold text-ink mb-0.5">Live Model-Driven Engine</h4>
+            <p className="text-[11px] text-muted leading-tight">
+              Executing the <code className="text-accent bg-accent/5 px-1 rounded">RuntimeMappingEngine</code> from <code className="text-ink">formspec-engine</code> on every update.
+            </p>
           </div>
         </div>
       </div>

@@ -1,28 +1,179 @@
-/** @filedesc Read-only display card for a single mapping rule showing source, target, and transform. */
+/** @filedesc Interactive editor card for a single mapping rule with source/target paths and transform selection. */
+import { useEffect, useId, useState } from 'react';
 import { Pill } from '../../components/ui/Pill';
+import { useProject } from '../../state/useProject';
+
+const TRANSFORMS = [
+  'preserve', 'drop', 'expression', 'coerce', 'valueMap',
+  'flatten', 'nest', 'constant', 'concat', 'split'
+] as const;
+
+const TRANSFORM_DESCRIPTIONS: Record<string, string> = {
+  preserve: 'Copies the source value exactly as it is without any changes.',
+  drop: 'Removes this path from the output entirely. Useful for filtering sensitive data.',
+  expression: 'Evaluates a FEL expression to compute the target value dynamically.',
+  coerce: 'Casts the source value to a specific type (string, number, boolean).',
+  valueMap: 'Maps specific source values to specific target values using a lookup table.',
+  flatten: 'Unwraps complex source objects into a flat structure.',
+  nest: 'Wraps the source value into a nested object structure.',
+  constant: 'Always returns a fixed value regardless of the source data.',
+  concat: 'Joins multiple string values together into a single string.',
+  split: 'Breaks a string into an array based on a character delimiter.'
+};
 
 interface RuleCardProps {
+  index: number;
   source: string;
   target: string;
   transform?: string;
+  rule: any;
 }
 
-export function RuleCard({ source, target, transform }: RuleCardProps) {
-  const samePath = source === target;
+export function RuleCard({ index, source, target, transform = 'preserve', rule }: RuleCardProps) {
+  const project = useProject();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [hoveredTransform, setHoveredTransform] = useState<string | null>(null);
+  const [showDescription, setShowDescription] = useState(false);
+  const listboxId = useId();
+
+  const updateRule = (property: string, value: any) => {
+    project.updateMappingRule(index, property, value);
+  };
+
+  const deleteRule = () => {
+    project.removeMappingRule(index);
+  };
+
+  const setTransform = (value: string) => {
+    updateRule('transform', value);
+    setPickerOpen(false);
+    setShowDescription(false);
+  };
+
+  // Delayed hover description logic
+  useEffect(() => {
+    if (!hoveredTransform) {
+      setShowDescription(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowDescription(true);
+    }, 800); // Wait 0.8s before showing description
+
+    return () => clearTimeout(timer);
+  }, [hoveredTransform]);
 
   return (
-    <div className="border border-border rounded bg-surface p-2 flex items-center gap-2">
-      <span className="font-mono text-sm text-ink">{source}</span>
-      {samePath ? (
-        <span className="text-muted text-xs italic">(identity)</span>
-      ) : (
-        <>
-          <span className="text-muted text-xs">{'\u2192'}</span>
-          <span className="font-mono text-sm text-ink">{target}</span>
-        </>
-      )}
-      {transform && (
-        <Pill text={transform} color="accent" size="sm" />
+    <div className="group border border-border/60 rounded-xl bg-surface p-3 shadow-sm hover:border-accent/40 transition-all">
+      <div className="flex items-center gap-3">
+        {/* Source Path */}
+        <div className="flex-1 min-w-0">
+          <input
+            type="text"
+            value={source}
+            data-testid={`rule-source-${index}`}
+            onChange={(e) => updateRule('sourcePath', e.target.value)}
+            placeholder="source.path"
+            className="w-full font-mono text-[12px] bg-subtle/40 border-none p-1.5 rounded-md text-ink placeholder:text-muted/40 focus:ring-1 focus:ring-accent/30"
+          />
+        </div>
+
+        <div className="text-muted/30">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2.5 6H9.5M9.5 6L6.5 3M9.5 6L6.5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        {/* Target Path */}
+        <div className="flex-1 min-w-0">
+          <input
+            type="text"
+            value={target}
+            data-testid={`rule-target-${index}`}
+            onChange={(e) => updateRule('targetPath', e.target.value)}
+            placeholder="target.path"
+            className="w-full font-mono text-[12px] bg-subtle/40 border-none p-1.5 rounded-md text-ink placeholder:text-muted/40 focus:ring-1 focus:ring-accent/30"
+          />
+        </div>
+
+        {/* Transform Picker */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setPickerOpen(!pickerOpen)}
+            className="px-2 py-1 rounded bg-accent/5 text-accent border border-accent/10 text-[10px] font-bold uppercase tracking-wider hover:bg-accent/10 transition-colors"
+          >
+            {transform}
+          </button>
+
+          {pickerOpen && (
+            <>
+              <div
+                id={listboxId}
+                className="absolute right-0 top-full z-30 mt-1 min-w-[120px] rounded-lg border border-border bg-panel p-1 shadow-xl animate-in fade-in zoom-in-95 duration-150"
+              >
+                <div className="p-1.5 mb-1 pb-1 border-b border-border/40 text-[9px] font-bold text-muted uppercase tracking-widest">
+                  Transform
+                </div>
+                {TRANSFORMS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onMouseEnter={() => setHoveredTransform(t)}
+                    onMouseLeave={() => setHoveredTransform(null)}
+                    className={`flex w-full rounded-md px-2 py-1.5 text-left text-[11px] font-medium transition-colors ${t === transform ? 'bg-accent/10 text-accent font-bold' : 'text-ink hover:bg-subtle'
+                      }`}
+                    onClick={() => setTransform(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {/* Hover Peek Description */}
+              {showDescription && hoveredTransform && (
+                <div className="absolute right-[calc(100%+8px)] top-full z-30 mt-1 w-48 p-3 rounded-lg border border-accent/20 bg-panel shadow-2xl animate-in fade-in slide-in-from-right-2 duration-200">
+                  <div className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">
+                    {hoveredTransform}
+                  </div>
+                  <div className="text-[11px] text-ink leading-relaxed">
+                    {TRANSFORM_DESCRIPTIONS[hoveredTransform]}
+                  </div>
+                  <div className="mt-2 text-[9px] text-muted italic">
+                    {['expression', 'constant', 'concat', 'split', 'flatten', 'nest'].includes(hoveredTransform) ? 'Requires additional configuration below.' : 'Applied immediately.'}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Delete button */}
+        <button
+          type="button"
+          onClick={deleteRule}
+          className="p-1.5 text-muted/40 hover:text-red-500 hover:bg-red-50 transition-all rounded-md opacity-0 group-hover:opacity-100"
+          title="Delete Rule"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Sub-config for complex transforms (expression, coerce, etc.) would go here */}
+      {['expression', 'constant', 'concat', 'split', 'flatten', 'nest'].includes(transform) && (
+        <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-2">
+          <span className="text-[10px] font-bold text-muted uppercase tracking-wider w-16">Formula</span>
+          <input
+            type="text"
+            value={rule.expression ?? ''}
+            onChange={(e) => updateRule('expression', e.target.value)}
+            placeholder="FEL expression..."
+            className="flex-1 font-mono text-[11px] bg-subtle/20 border-none p-1 rounded text-ink focus:ring-0"
+          />
+        </div>
       )}
     </div>
   );
