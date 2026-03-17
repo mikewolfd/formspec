@@ -17,6 +17,8 @@ export default defineConfig({
       'react': path.resolve(repoRoot, 'node_modules/react'),
       'react-dom': path.resolve(repoRoot, 'node_modules/react-dom'),
       'formspec-studio-core': path.resolve(repoRoot, 'packages/formspec-studio-core/src/index.ts'),
+      'formspec-core': path.resolve(repoRoot, 'packages/formspec-core/src/index.ts'),
+      'formspec-types': path.resolve(repoRoot, 'packages/formspec-types/src/index.ts'),
       'formspec-engine': path.resolve(repoRoot, 'packages/formspec-engine/src/index.ts'),
       'formspec-layout': path.resolve(repoRoot, 'packages/formspec-layout/src/index.ts'),
       'formspec-chat': path.resolve(repoRoot, 'packages/formspec-chat/src/index.ts'),

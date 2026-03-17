@@ -274,6 +274,11 @@ export function planComponentTree(
         node.isRepeatTemplate = true;
     }
 
+    // Mark scope change for group nodes so the emitter extends the prefix
+    if (fullBindPath && item?.type === 'group') {
+        node.scopeChange = true;
+    }
+
     // Plan children
     const childPrefix = isRepeatGroup && fullBindPath
         ? `${fullBindPath}[0]` // Template uses index 0 as placeholder

@@ -517,6 +517,53 @@ describe('planComponentTree', () => {
         expect(node.children[1].children[0].children[0].children[0].component).toBe('RadioGroup');
         expect(node.children[1].children[0].children[0].children[0].bindPath).toBe('pageOne.priority');
     });
+
+    it('sets scopeChange on group nodes from the component tree', () => {
+        const items = [
+            {
+                key: 'app', type: 'group', label: 'Applicant',
+                children: [
+                    {
+                        key: 'marital', type: 'field', dataType: 'choice', label: 'Marital Status',
+                        options: [
+                            { value: 'single', label: 'Single' },
+                            { value: 'married', label: 'Married' },
+                        ],
+                        presentation: { widgetHint: 'radio' },
+                    },
+                ],
+            },
+        ];
+        const tree = {
+            component: 'Stack',
+            nodeId: 'root',
+            children: [
+                {
+                    component: 'Stack',
+                    bind: 'app',
+                    children: [
+                        { component: 'RadioGroup', bind: 'marital' },
+                    ],
+                },
+            ],
+        };
+        const ctx = makeCtx({
+            items,
+            findItem: (k) => findItemByPath(items, k),
+        });
+        const node = planComponentTree(tree, ctx);
+
+        // The group node (Stack with bind='app') must have scopeChange: true
+        const appNode = node.children[0];
+        expect(appNode.component).toBe('Stack');
+        expect(appNode.props.bind).toBe('app');
+        expect(appNode.scopeChange).toBe(true);
+
+        // The child field should have the full bind path
+        const maritalNode = appNode.children[0];
+        expect(maritalNode.component).toBe('RadioGroup');
+        expect(maritalNode.bindPath).toBe('app.marital');
+    });
 });
 
 // ── planDefinitionFallback ───────────────────────────────────────────
