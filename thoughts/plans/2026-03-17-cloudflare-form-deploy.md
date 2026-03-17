@@ -16,10 +16,11 @@ Cloudflare (single project)
 │  │ index.html          │   /api/*   │ FastAPI (ASGI)       │    │
 │  │ formspec.bundle.js  │ ─────────► │   POST /api/submit   │    │
 │  │ formspec-base.css   │            │   POST /api/export/* │    │
-│  │ definition.json     │ ◄───────── │                      │    │
-│  │ component.json      │   JSON     │ formspec.evaluator   │    │
-│  │ theme.json          │            │ formspec.mapping     │    │
-│  └────────────────────┘             │ formspec.adapters    │    │
+│  │ definition.json     │ ◄───────── │   POST /api/lint     │    │
+│  │ component.json      │   JSON     │                      │    │
+│  │ theme.json          │            │ formspec (full pkg)  │    │
+│  └────────────────────┘             │  .evaluator .mapping │    │
+│                                      │  .adapters .validator│    │
 │                                      └──────┬───────────────┘    │
 │                                             │                    │
 │                                      ┌──────▼───────────────┐    │
@@ -456,6 +457,201 @@ async def get_submission(id: int, req: Request):
 
 ---
 
+### Phase 6: Studio Diagnostics Panel (Python Linter Integration)
+
+**What:** A "Diagnostics" panel in Studio that calls the Python linter (via Worker or local server) and shows the full 9-pass lint pipeline results inline — schema errors, reference integrity, FEL compilation, dependency cycles, extension checks, theme/component validation. This gives authors real-time access to validation the TypeScript engine can't do.
+
+**What the Python linter catches that the TS engine doesn't:**
+- **E100-E101:** JSON Schema violations (structural correctness)
+- **E200-E201:** Tree indexing errors (duplicate keys, invalid nesting)
+- **E300-E302, W300:** Reference integrity (dangling binds, orphan references)
+- **E400:** FEL expression compilation errors (static analysis, not just runtime)
+- **E500:** Dependency cycle detection across FEL expressions
+- **E600:** Unresolved extensions (missing registry entries)
+- **W700-W704:** Theme token/reference errors
+- **E800-E807, W800-W804:** Component structural + bind checks
+
+**Architecture:**
+
+```
+Studio (browser)
+┌──────────────────────────────────┐
+│  Project state changes           │
+│         │                        │
+│         ▼                        │
+│  useDiagnostics() hook           │
+│    - debounce (500ms)            │
+│    - POST bundle to lint endpoint│
+│    - cache results               │
+│         │                        │
+│         ▼                        │
+│  DiagnosticsPanel component      │
+│    - grouped by severity/file    │
+│    - click → navigate to item    │
+│    - badge count on tab          │
+└──────────┬───────────────────────┘
+           │ HTTP
+           ▼
+   Lint endpoint (one of):
+   ├── Deployed Worker:  POST https://my-form.workers.dev/api/lint
+   ├── Local dev server: POST http://localhost:8000/api/lint
+   └── Wrangler dev:     POST http://localhost:8787/api/lint
+```
+
+**New Worker endpoint (`/api/lint`):**
+```python
+class LintRequest(BaseModel):
+    definition: dict
+    component: dict | None = None
+    theme: dict | None = None
+    mapping: dict | None = None
+    registry: dict | None = None
+    mode: str = "authoring"         # "authoring" | "submission"
+
+@app.post("/api/lint")
+async def lint_documents(request: LintRequest):
+    linter = FormspecLinter(
+        schema_validator=_schema_validator,  # pre-loaded, no filesystem
+    )
+
+    all_diagnostics: list[dict] = []
+
+    # Lint each document the author has open
+    for doc_name, doc in [
+        ("definition", request.definition),
+        ("component", request.component),
+        ("theme", request.theme),
+        ("mapping", request.mapping),
+        ("registry", request.registry),
+    ]:
+        if doc is None:
+            continue
+        diags = linter.lint(
+            doc,
+            component_definition=request.component,
+            registry_documents=[request.registry] if request.registry else None,
+        )
+        for d in diags:
+            all_diagnostics.append({
+                "document": doc_name,
+                "severity": d.severity,
+                "code": d.code,
+                "message": d.message,
+                "path": d.path,
+                "category": d.category,
+                "detail": d.detail,
+            })
+
+    return {
+        "diagnostics": all_diagnostics,
+        "counts": {
+            "error": sum(1 for d in all_diagnostics if d["severity"] == "error"),
+            "warning": sum(1 for d in all_diagnostics if d["severity"] == "warning"),
+            "info": sum(1 for d in all_diagnostics if d["severity"] == "info"),
+        },
+    }
+```
+
+**Studio-side implementation:**
+
+Files to create:
+```
+packages/formspec-studio/src/
+├── state/useDiagnostics.ts        # Hook: debounced POST to lint endpoint
+├── workspaces/diagnostics/
+│   └── DiagnosticsPanel.tsx       # Problems panel (like VS Code)
+```
+
+**`useDiagnostics.ts` hook:**
+```typescript
+// Watches project state, debounces, POSTs bundle to lint endpoint
+// Returns { diagnostics, counts, isLoading, error }
+// Configurable endpoint URL via Studio settings (default: none / disabled)
+
+import { useState, useEffect, useRef } from 'react';
+import { useProject } from './useProject';
+import { useProjectState } from './useProjectState';
+
+interface LintDiagnostic {
+  document: string;
+  severity: 'error' | 'warning' | 'info';
+  code: string;
+  message: string;
+  path: string;
+  category: string;
+  detail?: string;
+}
+
+interface DiagnosticsState {
+  diagnostics: LintDiagnostic[];
+  counts: { error: number; warning: number; info: number };
+  isLoading: boolean;
+  error: string | null;
+}
+
+export function useDiagnostics(endpointUrl: string | null) {
+  const project = useProject();
+  const state = useProjectState();  // triggers on every change
+  const [result, setResult] = useState<DiagnosticsState>({
+    diagnostics: [], counts: { error: 0, warning: 0, info: 0 },
+    isLoading: false, error: null,
+  });
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!endpointUrl) return;
+
+    const timer = setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setResult(prev => ({ ...prev, isLoading: true }));
+      try {
+        const bundle = project.export();
+        const res = await fetch(endpointUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            definition: bundle.definition,
+            component: bundle.component,
+            theme: bundle.theme,
+            mapping: bundle.mapping,
+          }),
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        setResult({ diagnostics: data.diagnostics, counts: data.counts, isLoading: false, error: null });
+      } catch (e: any) {
+        if (e.name !== 'AbortError') {
+          setResult(prev => ({ ...prev, isLoading: false, error: e.message }));
+        }
+      }
+    }, 500);  // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [state, endpointUrl]);
+
+  return result;
+}
+```
+
+**`DiagnosticsPanel.tsx`:**
+- Table view grouped by document, sorted by severity
+- Click diagnostic → navigate to the item (via `formspec:navigate-workspace` event)
+- Severity icons + color coding
+- Badge in the tab bar showing error/warning counts
+- "No diagnostics endpoint configured" empty state when no URL set
+
+**Integration into Shell.tsx:**
+- Add "Diagnostics" to `WORKSPACES` map
+- Add lint endpoint URL to Studio settings (persisted in localStorage)
+- Show badge count on the Diagnostics tab
+
+**Estimated effort:** Medium. The Worker endpoint is simple (just wires up `FormspecLinter`). The Studio UI is a new panel but follows existing patterns. The `useDiagnostics` hook is the only tricky part (debouncing, abort, error handling).
+
+---
+
 ## Build Order & Dependencies
 
 ```
@@ -467,15 +663,16 @@ Phase 2: Export CLI
    ▼
 Phase 3: Python Worker  ◄── can start in parallel with Phase 2
    │  (needs formspec Python package, independent of JS bundle)
-   ▼
-Phase 4: Deploy CLI
-   │  (depends on Phase 2 + Phase 3)
+   ├──────────────────────────────────┐
+   ▼                                  ▼
+Phase 4: Deploy CLI              Phase 6: Studio Diagnostics
+   │  (Phase 2 + Phase 3)           (needs Phase 3's /api/lint endpoint)
    ▼
 Phase 5: D1 Storage
-   (depends on Phase 3 Worker being functional)
+   (depends on Phase 3)
 ```
 
-**Phases 1 and 3 can be developed in parallel** — the JS bundle and Python Worker are independent until Phase 4 combines them.
+**Phases 1 and 3 can be developed in parallel.** Phase 6 (Studio) only needs the Worker's `/api/lint` endpoint, so it can start as soon as Phase 3 is functional — independent of the deploy CLI.
 
 ---
 
@@ -519,7 +716,7 @@ el.addEventListener('formspec-submit', async (e) => {
 
 ## What This Enables
 
-After all 5 phases, a user can:
+After all 6 phases, a user can:
 
 ```bash
 # 1. Author a form (definition + component + theme JSON)
@@ -533,6 +730,11 @@ node scripts/deploy-cloudflare.mjs ./my-form/
 # - Submissions stored in D1 SQLite
 # - Global edge deployment (330 locations)
 # - Free tier covers most use cases
+
+# And in Studio:
+# - Diagnostics panel shows real-time Python lint results as you author
+# - Schema errors, reference integrity, FEL cycle detection, extension checks
+# - Click any diagnostic → jumps to the offending item
 ```
 
 ---
