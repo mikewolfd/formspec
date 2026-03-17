@@ -53,6 +53,7 @@ function PageCard({
   onMoveUp,
   onMoveDown,
   onUpdateTitle,
+  onUpdateDescription,
   onAddRegion,
   onRemoveRegion,
   onUpdateRegionSpan,
@@ -68,6 +69,7 @@ function PageCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onUpdateTitle: (title: string) => void;
+  onUpdateDescription: (description: string | undefined) => void;
   onAddRegion: () => void;
   onRemoveRegion: (regionIndex: number) => void;
   onUpdateRegionSpan: (regionIndex: number, span: number) => void;
@@ -75,7 +77,9 @@ function PageCard({
 }) {
   const regions = page.regions ?? [];
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const descInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -83,6 +87,13 @@ function PageCard({
       titleInputRef.current.select();
     }
   }, [isEditingTitle]);
+
+  useEffect(() => {
+    if (isEditingDescription && descInputRef.current) {
+      descInputRef.current.focus();
+      descInputRef.current.select();
+    }
+  }, [isEditingDescription]);
 
   const commitTitle = useCallback(() => {
     if (!titleInputRef.current) return;
@@ -100,6 +111,22 @@ function PageCard({
       setIsEditingTitle(false);
     }
   }, [commitTitle]);
+
+  const commitDescription = useCallback(() => {
+    if (!descInputRef.current) return;
+    const newDesc = descInputRef.current.value.trim();
+    // Empty input clears the description
+    onUpdateDescription(newDesc || undefined);
+    setIsEditingDescription(false);
+  }, [onUpdateDescription]);
+
+  const handleDescKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      commitDescription();
+    } else if (e.key === 'Escape') {
+      setIsEditingDescription(false);
+    }
+  }, [commitDescription]);
 
   const itemCount = regions.length;
   const itemLabel = itemCount === 0 ? 'Empty' : `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
@@ -189,6 +216,36 @@ function PageCard({
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Description — show if exists or editing; "Add description" button otherwise */}
+          {page.description && !isEditingDescription ? (
+            <button
+              type="button"
+              className="text-[12px] text-muted text-left w-full hover:text-ink transition-colors"
+              onClick={() => setIsEditingDescription(true)}
+            >
+              {page.description}
+            </button>
+          ) : isEditingDescription ? (
+            <input
+              ref={descInputRef}
+              type="text"
+              defaultValue={page.description ?? ''}
+              placeholder="Description…"
+              onBlur={commitDescription}
+              onKeyDown={handleDescKeyDown}
+              className="text-[12px] text-muted bg-transparent border-b border-accent outline-none w-full"
+            />
+          ) : (
+            <button
+              type="button"
+              aria-label="Add description"
+              onClick={() => setIsEditingDescription(true)}
+              className="text-[10px] text-muted hover:text-ink font-bold uppercase tracking-wider"
+            >
+              + Add description
+            </button>
           )}
 
           {/* Region list with editing controls */}
@@ -346,6 +403,7 @@ export function PagesTab() {
                   onMoveUp={() => project.reorderPage(page.id, 'up')}
                   onMoveDown={() => project.reorderPage(page.id, 'down')}
                   onUpdateTitle={(title) => project.updatePage(page.id, { title })}
+                  onUpdateDescription={(description) => project.updatePage(page.id, { description })}
                   onAddRegion={() => project.addRegion(page.id, 12)}
                   onRemoveRegion={(ri) => project.deleteRegion(page.id, ri)}
                   onUpdateRegionSpan={(ri, span) => project.updateRegion(page.id, ri, 'span', span)}

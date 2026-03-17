@@ -219,6 +219,116 @@ describe('PageCard title editing', () => {
   });
 });
 
+describe('PageCard description editing', () => {
+  it('shows description when page has one and card is expanded', () => {
+    const project = createProject({
+      seed: {
+        definition: { ...BASE_DEF, formPresentation: { pageMode: 'wizard' } } as any,
+        theme: {
+          pages: [{ id: 'p1', title: 'Step 1', description: 'Fill in your details', regions: [] }],
+        } as any,
+      },
+    });
+    render(
+      <ProjectProvider project={project}>
+        <PagesTab />
+      </ProjectProvider>,
+    );
+    // Expand the card
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    expect(screen.getByText('Fill in your details')).toBeInTheDocument();
+  });
+
+  it('does not show description area when page has no description and not editing', () => {
+    const project = createProject({
+      seed: {
+        definition: { ...BASE_DEF, formPresentation: { pageMode: 'wizard' } } as any,
+        theme: {
+          pages: [{ id: 'p1', title: 'Step 1', regions: [] }],
+        } as any,
+      },
+    });
+    render(
+      <ProjectProvider project={project}>
+        <PagesTab />
+      </ProjectProvider>,
+    );
+    // Expand the card
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    expect(screen.queryByPlaceholderText(/description/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add description/i })).toBeInTheDocument();
+  });
+
+  it('clicking add description reveals an input', async () => {
+    const project = createProject({
+      seed: {
+        definition: { ...BASE_DEF, formPresentation: { pageMode: 'wizard' } } as any,
+        theme: {
+          pages: [{ id: 'p1', title: 'Step 1', regions: [] }],
+        } as any,
+      },
+    });
+    render(
+      <ProjectProvider project={project}>
+        <PagesTab />
+      </ProjectProvider>,
+    );
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    await act(async () => {
+      screen.getByRole('button', { name: /add description/i }).click();
+    });
+    expect(screen.getByPlaceholderText(/description/i)).toBeInTheDocument();
+  });
+
+  it('clicking description text enters edit mode', async () => {
+    const project = createProject({
+      seed: {
+        definition: { ...BASE_DEF, formPresentation: { pageMode: 'wizard' } } as any,
+        theme: {
+          pages: [{ id: 'p1', title: 'Step 1', description: 'Old desc', regions: [] }],
+        } as any,
+      },
+    });
+    render(
+      <ProjectProvider project={project}>
+        <PagesTab />
+      </ProjectProvider>,
+    );
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    await act(async () => {
+      screen.getByText('Old desc').click();
+    });
+    expect(screen.getByDisplayValue('Old desc')).toBeInTheDocument();
+  });
+
+  it('blur commits description via updatePage', async () => {
+    const project = createProject({
+      seed: {
+        definition: { ...BASE_DEF, formPresentation: { pageMode: 'wizard' } } as any,
+        theme: {
+          pages: [{ id: 'p1', title: 'Step 1', description: 'Old desc', regions: [] }],
+        } as any,
+      },
+    });
+    render(
+      <ProjectProvider project={project}>
+        <PagesTab />
+      </ProjectProvider>,
+    );
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    await act(async () => { screen.getByText('Old desc').click(); });
+    const input = screen.getByDisplayValue('Old desc');
+    fireEvent.change(input, { target: { value: 'New desc' } });
+    await act(async () => { fireEvent.blur(input); });
+    expect((project.theme.pages as any[])[0].description).toBe('New desc');
+  });
+});
+
 describe('Unassigned items section', () => {
   it('shows unassigned section with item labels when items exist but are not on any page', () => {
     renderPagesTab({
