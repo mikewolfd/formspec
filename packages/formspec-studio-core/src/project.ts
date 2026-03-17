@@ -1846,6 +1846,16 @@ export class Project {
     };
   }
 
+  /** Move a page to an arbitrary zero-based index in one atomic undo step. */
+  movePageToIndex(pageId: string, targetIndex: number): HelperResult {
+    this.core.dispatch({ type: 'pages.movePageToIndex', payload: { id: pageId, targetIndex } });
+    return {
+      summary: `Moved page '${pageId}' to index ${targetIndex}`,
+      action: { helper: 'movePageToIndex', params: { pageId, targetIndex } },
+      affectedPaths: [pageId],
+    };
+  }
+
   /** List all pages with their id, title, description, and primary group path. */
   listPages(): Array<{ id: string; title: string; description?: string; groupPath?: string }> {
     const pages = (this.core.state.theme.pages ?? []) as Array<{ id: string; title?: string; description?: string; regions?: Array<{ key?: string }> }>;
@@ -2384,9 +2394,9 @@ export class Project {
     };
   }
 
-  // ── Mapping Helper ──
+  // ── Mapping Helpers ──
 
-  /** Set a mapping document property (e.g. direction). */
+  /** Set a mapping document root property (e.g. version, direction, autoMap). */
   setMappingProperty(property: string, value: unknown): HelperResult {
     this.core.dispatch({
       type: 'mapping.setProperty',
@@ -2397,6 +2407,124 @@ export class Project {
       action: { helper: 'setMappingProperty', params: { property, value } },
       affectedPaths: [],
     };
+  }
+
+  /** Set a property on the mapping's target structure descriptor. */
+  setMappingTargetSchema(property: string, value: unknown): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.setTargetSchema',
+      payload: { property, value },
+    } as AnyCommand);
+    return {
+      summary: `Set mapping target schema '${property}'`,
+      action: { helper: 'setMappingTargetSchema', params: { property, value } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Add a mapping rule with optional transform parameters. */
+  addMappingRule(params: {
+    sourcePath?: string;
+    targetPath?: string;
+    transform?: string;
+    insertIndex?: number;
+  }): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.addRule',
+      payload: params,
+    } as AnyCommand);
+    return {
+      summary: `Added mapping rule ${params.sourcePath ?? ''} → ${params.targetPath ?? ''}`,
+      action: { helper: 'addMappingRule', params },
+      affectedPaths: params.sourcePath ? [params.sourcePath] : [],
+    };
+  }
+
+  /** Update a property of an existing mapping rule. */
+  updateMappingRule(index: number, property: string, value: unknown): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.setRule',
+      payload: { index, property, value },
+    } as AnyCommand);
+    return {
+      summary: `Updated mapping rule ${index} property '${property}'`,
+      action: { helper: 'updateMappingRule', params: { index, property, value } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Remove a mapping rule by index. */
+  removeMappingRule(index: number): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.deleteRule',
+      payload: { index },
+    } as AnyCommand);
+    return {
+      summary: `Removed mapping rule ${index}`,
+      action: { helper: 'removeMappingRule', params: { index } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Reorder a mapping rule. */
+  reorderMappingRule(index: number, direction: 'up' | 'down'): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.reorderRule',
+      payload: { index, direction },
+    } as AnyCommand);
+    return {
+      summary: `Reordered mapping rule ${index} ${direction}`,
+      action: { helper: 'reorderMappingRule', params: { index, direction } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Set configuration for a specific wire-format adapter (JSON, XML, CSV). */
+  setMappingAdapter(format: string, config: unknown): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.setAdapter',
+      payload: { format, config },
+    } as AnyCommand);
+    return {
+      summary: `Configured '${format}' adapter`,
+      action: { helper: 'setMappingAdapter', params: { format, config } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Update the top-level mapping defaults. */
+  updateMappingDefaults(defaults: Record<string, unknown>): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.setDefaults',
+      payload: { defaults },
+    } as AnyCommand);
+    return {
+      summary: 'Updated mapping defaults',
+      action: { helper: 'updateMappingDefaults', params: { defaults } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Auto-generate mapping rules for every field in the form. */
+  autoGenerateMappingRules(params: {
+    scopePath?: string;
+    priority?: number;
+    replace?: boolean;
+  } = {}): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.autoGenerateRules',
+      payload: params,
+    } as AnyCommand);
+    return {
+      summary: 'Auto-generated mapping rules',
+      action: { helper: 'autoGenerateMappingRules', params },
+      affectedPaths: [],
+    };
+  }
+
+  /** Run a mapping preview and return the projected output. */
+  previewMapping(params: import('./types.js').MappingPreviewParams): import('./types.js').MappingPreviewResult {
+    return this.core.previewMapping(params);
   }
 
   // ── Page Auto-generate Helper ──

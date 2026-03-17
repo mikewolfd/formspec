@@ -1228,6 +1228,40 @@ describe('reorderPage', () => {
   });
 });
 
+describe('movePageToIndex', () => {
+  it('moves a page to an arbitrary target index', () => {
+    const project = createProject();
+    const p1 = project.addPage('Page 1');
+    const p2 = project.addPage('Page 2');
+    const p3 = project.addPage('Page 3');
+    // Move p1 (index 0) to index 2
+    project.movePageToIndex(p1.createdId!, 2);
+    const pages = project.theme.pages ?? [];
+    expect(pages[0]?.id).toBe(p2.createdId);
+    expect(pages[1]?.id).toBe(p3.createdId);
+    expect(pages[2]?.id).toBe(p1.createdId);
+  });
+
+  it('clamps target index to valid range', () => {
+    const project = createProject();
+    const p1 = project.addPage('Page 1');
+    const p2 = project.addPage('Page 2');
+    // Move p1 to index 99 — should clamp to last position
+    project.movePageToIndex(p1.createdId!, 99);
+    const pages = project.theme.pages ?? [];
+    expect(pages[pages.length - 1]?.id).toBe(p1.createdId);
+  });
+
+  it('no-op when already at target index', () => {
+    const project = createProject();
+    const p1 = project.addPage('Page 1');
+    project.addPage('Page 2');
+    project.movePageToIndex(p1.createdId!, 0);
+    const pages = project.theme.pages ?? [];
+    expect(pages[0]?.id).toBe(p1.createdId);
+  });
+});
+
 describe('updatePage', () => {
   it('updates title of a page', () => {
     const project = createProject();

@@ -96,6 +96,20 @@ export const pagesHandlers: Record<string, CommandHandler> = {
     return { rebuildComponentTree: true };
   },
 
+  'pages.movePageToIndex': (state, payload) => {
+    const { id, targetIndex } = payload as { id: string; targetIndex: number };
+    const pages = ensurePages(state);
+    const fromIndex = pages.findIndex((p: any) => p.id === id);
+    if (fromIndex === -1) throw new Error(`Page not found: ${id}`);
+
+    const clamped = Math.max(0, Math.min(targetIndex, pages.length - 1));
+    if (fromIndex === clamped) return { rebuildComponentTree: true };
+
+    const [page] = pages.splice(fromIndex, 1);
+    pages.splice(clamped, 0, page);
+    return { rebuildComponentTree: true };
+  },
+
   'pages.setPageProperty': (state, payload) => {
     const { id, property, value } = payload as { id: string; property: string; value: unknown };
     const pages = ensurePages(state);

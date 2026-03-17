@@ -1,10 +1,14 @@
 /** @filedesc Pages workspace tab for managing wizard pages, regions, and page-level diagnostics. */
 import { useState, useCallback, useRef, useEffect, useContext } from 'react';
+import { DragDropProvider } from '@dnd-kit/react';
+import { useSortable } from '@dnd-kit/react/sortable';
+import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from '@dnd-kit/dom';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
 import { usePageStructure } from './usePageStructure';
 import { useProject } from '../../state/useProject';
 import { ActivePageContext } from '../../state/useActivePage';
 import { useDefinition } from '../../state/useDefinition';
+import { DragHandle } from '../editor/DragHandle';
 import type { ResolvedPage } from 'formspec-studio-core';
 
 /** Returns the definition group key that backs a theme page, by finding a region key that is a root group. */
@@ -69,6 +73,9 @@ function PageCard({
   onUpdateRegionSpan,
   onUpdateRegionStart,
   onReorderRegion,
+  sortableRef,
+  dragHandleRef,
+  isDragging,
 }: {
   page: ResolvedPage;
   index: number;
@@ -86,6 +93,9 @@ function PageCard({
   onUpdateRegionSpan: (regionIndex: number, span: number) => void;
   onUpdateRegionStart: (regionIndex: number, start: number | undefined) => void;
   onReorderRegion: (regionIndex: number, direction: 'up' | 'down') => void;
+  sortableRef?: (el: Element | null) => void;
+  dragHandleRef?: (el: Element | null) => void;
+  isDragging?: boolean;
 }) {
   const regions = page.regions ?? [];
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -149,9 +159,14 @@ function PageCard({
   const itemLabel = itemCount === 0 ? 'Empty' : `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
 
   return (
-    <div className="border border-border rounded-lg bg-surface overflow-hidden">
+    <div
+      ref={sortableRef}
+      className={`group border border-border rounded-lg bg-surface overflow-hidden${isDragging ? ' opacity-40' : ''}`}
+    >
       {/* Collapsed header */}
       <div className="flex items-center gap-3 px-3 py-2">
+        {/* Drag handle — hover-visible, acts as drag activator */}
+        <DragHandle className="-ml-1" ref={dragHandleRef as React.Ref<HTMLDivElement>} />
         {/* Number badge */}
         <span className="font-mono text-[11px] text-muted w-5 text-center shrink-0">
           {index + 1}
@@ -394,6 +409,35 @@ function PageCard({
   );
 }
 
+// ── SortablePageCard ─────────────────────────────────────────────────
+
+/** Wraps PageCard with useSortable, providing drag-to-reorder for the page list. */
+function SortablePageCard({
+  page,
+  index,
+  ...cardProps
+}: {
+  page: ResolvedPage;
+  index: number;
+} & Omit<React.ComponentProps<typeof PageCard>, 'page' | 'index' | 'sortableRef' | 'dragHandleRef' | 'isDragging'>) {
+  const { ref, handleRef, isDragSource } = useSortable({
+    id: page.id,
+    index,
+    transition: null, // we handle positioning via project.movePageToIndex
+  });
+
+  return (
+    <PageCard
+      {...cardProps}
+      page={page}
+      index={index}
+      sortableRef={ref}
+      dragHandleRef={handleRef}
+      isDragging={isDragSource}
+    />
+  );
+}
+
 // ── Main PagesTab ────────────────────────────────────────────────────
 
 export function PagesTab() {
@@ -471,29 +515,50 @@ export function PagesTab() {
         {/* Page list */}
         {hasPages && (
           <div className={isSingle ? 'opacity-50 pointer-events-none' : ''}>
-            <div className="space-y-3">
-              {structure.pages.map((page, i) => (
-                <PageCard
-                  key={page.id}
-                  page={page}
-                  index={i}
-                  total={structure.pages.length}
-                  labelMap={labelMap}
-                  isExpanded={expandedPageId === page.id}
-                  onToggle={() => handleTogglePage(page.id)}
-                  onDelete={() => project.removePage(page.id)}
-                  onMoveUp={() => project.reorderPage(page.id, 'up')}
-                  onMoveDown={() => project.reorderPage(page.id, 'down')}
-                  onUpdateTitle={(title) => project.updatePage(page.id, { title })}
-                  onUpdateDescription={(description) => project.updatePage(page.id, { description })}
-                  onAddRegion={() => project.addRegion(page.id, 12)}
-                  onRemoveRegion={(ri) => project.deleteRegion(page.id, ri)}
-                  onUpdateRegionSpan={(ri, span) => project.updateRegion(page.id, ri, 'span', span)}
-                  onUpdateRegionStart={(ri, start) => project.updateRegion(page.id, ri, 'start', start)}
-                  onReorderRegion={(ri, dir) => project.reorderRegion(page.id, ri, dir)}
-                />
-              ))}
-            </div>
+            <DragDropProvider
+              onDragEnd={(event: any) => {
+                if (event.canceled) return;
+                const sourceId = String(event.operation?.source?.id ?? '');
+                const targetId = String(event.operation?.target?.id ?? '');
+                if (!sourceId || !targetId || sourceId === targetId) return;
+                const pages = structure.pages;
+                const targetIndex = pages.findIndex((p) => p.id === targetId);
+                if (targetIndex === -1) return;
+                project.movePageToIndex(sourceId, targetIndex);
+              }}
+              sensors={() => [
+                PointerSensor.configure({
+                  activationConstraints: [
+                    new PointerActivationConstraints.Distance({ value: 5 }),
+                  ],
+                }),
+                KeyboardSensor,
+              ]}
+            >
+              <div className="space-y-3">
+                {structure.pages.map((page, i) => (
+                  <SortablePageCard
+                    key={page.id}
+                    page={page}
+                    index={i}
+                    total={structure.pages.length}
+                    labelMap={labelMap}
+                    isExpanded={expandedPageId === page.id}
+                    onToggle={() => handleTogglePage(page.id)}
+                    onDelete={() => project.removePage(page.id)}
+                    onMoveUp={() => project.reorderPage(page.id, 'up')}
+                    onMoveDown={() => project.reorderPage(page.id, 'down')}
+                    onUpdateTitle={(title) => project.updatePage(page.id, { title })}
+                    onUpdateDescription={(description) => project.updatePage(page.id, { description })}
+                    onAddRegion={() => project.addRegion(page.id, 12)}
+                    onRemoveRegion={(ri) => project.deleteRegion(page.id, ri)}
+                    onUpdateRegionSpan={(ri, span) => project.updateRegion(page.id, ri, 'span', span)}
+                    onUpdateRegionStart={(ri, start) => project.updateRegion(page.id, ri, 'start', start)}
+                    onReorderRegion={(ri, dir) => project.reorderRegion(page.id, ri, dir)}
+                  />
+                ))}
+              </div>
+            </DragDropProvider>
           </div>
         )}
 

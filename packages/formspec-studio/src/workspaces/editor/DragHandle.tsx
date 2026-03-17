@@ -1,10 +1,16 @@
+import { forwardRef } from 'react';
+
 interface DragHandleProps {
   className?: string;
 }
 
-export function DragHandle({ className = '' }: DragHandleProps) {
+export const DragHandle = forwardRef<Element, DragHandleProps>(function DragHandle(
+  { className = '' },
+  ref,
+) {
   return (
     <div
+      ref={ref as React.Ref<HTMLDivElement>}
       data-testid="drag-handle"
       className={`self-stretch flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-grab shrink-0 px-1 ${className}`}
     >
@@ -18,4 +24,4 @@ export function DragHandle({ className = '' }: DragHandleProps) {
       </svg>
     </div>
   );
-}
+});

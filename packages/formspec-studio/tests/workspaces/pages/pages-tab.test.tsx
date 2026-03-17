@@ -543,3 +543,38 @@ describe('FF10 — Sidebar ↔ Pages tab sync', () => {
     expect(spy.dataset.key).toBe('page_a');
   });
 });
+
+// ── FF1: Drag handle visible in collapsed cards ───────────────────────
+
+describe('FF1 — DragHandle on page cards', () => {
+  function renderWizardWithPages() {
+    return renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [
+          { id: 'p1', title: 'First', regions: [] },
+          { id: 'p2', title: 'Second', regions: [] },
+          { id: 'p3', title: 'Third', regions: [] },
+        ],
+      },
+    });
+  }
+
+  it('renders a drag handle on each collapsed page card', () => {
+    renderWizardWithPages();
+    const handles = screen.getAllByTestId('drag-handle');
+    // One per collapsed card (3 pages)
+    expect(handles.length).toBe(3);
+  });
+
+  it('Move Up and Move Down buttons still exist in expanded card (accessibility fallback)', async () => {
+    renderWizardWithPages();
+    // Expand the second card
+    const expandBtns = screen.getAllByRole('button', { expanded: false });
+    await act(async () => {
+      expandBtns[1].click();
+    });
+    expect(screen.getByRole('button', { name: /move up/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /move down/i })).toBeInTheDocument();
+  });
+});
