@@ -137,3 +137,27 @@ test('setValue with calculated field and precision should not crash', () => {
   assert.doesNotThrow(() => engine.setValue('total', 100));
   assert.equal(engine.signals.total.value, 51.66);
 });
+
+test('setValue on a readonly (non-calculated) field should succeed', () => {
+  const engine = new FormEngine({
+    $formspec: '1.0',
+    url: 'http://example.org/test',
+    version: '1.0.0',
+    title: 'Readonly Guard Test',
+    items: [
+      { key: 'status', type: 'field', dataType: 'string', label: 'Status' },
+      { key: 'notes', type: 'field', dataType: 'string', label: 'Notes' },
+    ],
+    binds: [
+      { path: 'status', readonly: 'true' },
+    ],
+  });
+
+  // A readonly bind does NOT make a signal computed — it's still writable.
+  // The isWritableSignal guard only blocks calculated (computed) signals.
+  engine.setValue('status', 'approved');
+  assert.equal(engine.signals.status.value, 'approved');
+
+  engine.setValue('status', 'rejected');
+  assert.equal(engine.signals.status.value, 'rejected');
+});

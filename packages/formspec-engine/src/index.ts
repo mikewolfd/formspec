@@ -2053,6 +2053,8 @@ export class FormEngine {
         return this.evaluateShapeForPaths(shape);
     }
 
+    // TODO: Consider getResolvedState(path) returning {relevant, required, readonly}
+    // with parent-chain resolution, so we don't repeat this walk for each property.
     public isPathRelevant(path: string): boolean {
         if (!path) return true;
         const parts = path.split(/[\[\]\.]/).filter(Boolean);

@@ -41,6 +41,10 @@ const FIELD_TYPE_MAP: Record<string, { dataType: string; defaultWidget: string; 
  *
  * Also includes short aliases (e.g. "radio", "select") for authoring convenience.
  * All keys are lowercase or camelCase spec vocabulary -- never PascalCase.
+ *
+ * Note: insertion order matters — widgetHintFor reverse-maps to the FIRST alias
+ * for each component via Object.entries().find(). For example, "radio", "segmented",
+ * and "likert" all map to RadioGroup; widgetHintFor("RadioGroup") returns "radio".
  */
 const WIDGET_ALIAS_MAP: Record<string, string> = {
   // string dataType

@@ -123,6 +123,12 @@ function toInternalPath(path: string): string {
  * Preview — simulate respondent experience.
  * Creates a FormEngine from the project's exported definition,
  * optionally replays scenario values, and returns a snapshot.
+ *
+ * All paths in the returned object (visibleFields, hiddenFields, currentValues,
+ * requiredFields, validationState keys) use 0-based indexing for repeat group
+ * instances (e.g. `items[0].field`). Note that the engine's ValidationReport
+ * uses 1-based indexing externally; this function normalizes those back to 0-based
+ * for consistency.
  */
 export function previewForm(
   project: Project,
