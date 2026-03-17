@@ -54,7 +54,7 @@ def _ctx():
 # =========================================================================
 
 def _fn_sum(arr: FelValue) -> FelValue:
-    """Sum non-null numeric elements. Skips nulls; returns FelNull on non-array or type mismatch."""
+    """Sum non-null numeric elements. Extracts .amount from money objects. Skips nulls."""
     if not isinstance(arr, FelArray):
         return FelNull
     total = Decimal(0)
@@ -62,9 +62,12 @@ def _fn_sum(arr: FelValue) -> FelValue:
     for e in arr.elements:
         if is_null(e):
             continue
-        if not isinstance(e, FelNumber):
+        if isinstance(e, FelNumber):
+            total = ctx.add(total, e.value)
+        elif isinstance(e, FelMoney):
+            total = ctx.add(total, e.amount)
+        else:
             return FelNull
-        total = ctx.add(total, e.value)
     return FelNumber(total)
 
 
