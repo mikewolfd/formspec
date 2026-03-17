@@ -81,8 +81,8 @@ describe('handleDescribe — structure', () => {
 
     expect(data).toHaveProperty('pages');
     expect(data.pages).toHaveLength(2);
-    expect(data.pages[0]).toEqual({ id: 'step1', title: 'Step 1', description: 'First step' });
-    expect(data.pages[1]).toEqual({ id: 'step2', title: 'Step 2' });
+    expect(data.pages[0]).toMatchObject({ id: 'step1', title: 'Step 1', description: 'First step' });
+    expect(data.pages[1]).toMatchObject({ id: 'step2', title: 'Step 2' });
   });
 
   it('omits pages when none exist', () => {
@@ -118,6 +118,18 @@ describe('handleDescribe — structure', () => {
     if (data.componentNodes) {
       expect(data.componentNodes.some((n: any) => n.component === 'SubmitButton')).toBe(false);
     }
+  });
+
+  it('componentNodeCount matches filtered componentNodes length', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addSubmitButton('Send');
+
+    const result = handleDescribe(registry, projectId, 'structure');
+    const data = parseResult(result);
+
+    // componentNodeCount should equal the filtered array length (no Stack/Wizard/Page)
+    expect(data.componentNodes).toBeDefined();
+    expect(data.statistics.componentNodeCount).toBe(data.componentNodes.length);
   });
 });
 

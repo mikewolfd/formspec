@@ -10,6 +10,7 @@ import type {
   ProjectStatistics,
   ProjectBundle,
   ItemFilter,
+  ItemSearchResult,
   DataTypeInfo,
   RegistrySummary,
   ExtensionFilter,
@@ -66,7 +67,7 @@ export interface IProjectCore {
   instanceNames(): string[];
   variableNames(): string[];
   optionSetUsage(name: string): string[];
-  searchItems(filter: ItemFilter): FormItem[];
+  searchItems(filter: ItemFilter): ItemSearchResult[];
   effectivePresentation(fieldKey: string): Record<string, unknown>;
   bindFor(path: string): Record<string, unknown> | undefined;
   componentFor(fieldKey: string): Record<string, unknown> | undefined;

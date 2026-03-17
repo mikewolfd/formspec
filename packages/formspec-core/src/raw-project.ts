@@ -14,6 +14,7 @@ import type {
   ProjectStatistics,
   ProjectBundle,
   ItemFilter,
+  ItemSearchResult,
   DataTypeInfo,
   RegistrySummary,
   ExtensionFilter,
@@ -210,7 +211,7 @@ export class RawProject implements IProjectCore {
   instanceNames(): string[] { return _instanceNames(this._state); }
   variableNames(): string[] { return _variableNames(this._state); }
   optionSetUsage(name: string): string[] { return _optionSetUsage(this._state, name); }
-  searchItems(filter: ItemFilter): FormItem[] { return _searchItems(this._state, filter); }
+  searchItems(filter: ItemFilter): ItemSearchResult[] { return _searchItems(this._state, filter); }
   effectivePresentation(fieldKey: string): Record<string, unknown> { return _effectivePresentation(this._state, fieldKey); }
   bindFor(path: string): Record<string, unknown> | undefined { return _bindFor(this._state, path); }
   componentFor(fieldKey: string): Record<string, unknown> | undefined { return _componentFor(this._state, fieldKey); }

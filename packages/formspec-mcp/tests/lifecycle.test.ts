@@ -41,13 +41,24 @@ afterEach(() => {
 // ── handleCreate ──────────────────────────────────────────────────
 
 describe('handleCreate', () => {
-  it('returns project_id in UUID format and phase bootstrap', () => {
+  it('returns project_id in UUID format and phase authoring', () => {
     const registry = new ProjectRegistry();
     const result = handleCreate(registry);
     const data = parseResult(result);
 
     expect(data.project_id).toMatch(UUID_RE);
-    expect(data.phase).toBe('bootstrap');
+    expect(data.phase).toBe('authoring');
+  });
+
+  it('creates a project that is immediately usable for authoring', () => {
+    const registry = new ProjectRegistry();
+    const result = handleCreate(registry);
+    const data = parseResult(result);
+
+    // Should be able to get the project directly without formspec_load
+    const project = registry.getProject(data.project_id);
+    expect(project).toBeTruthy();
+    expect(project.fieldPaths()).toEqual([]);
   });
 });
 

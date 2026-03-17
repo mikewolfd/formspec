@@ -62,7 +62,7 @@ export type { ResolvedFieldType } from './field-type-aliases.js';
 // ── FEL & dependency query types (re-exported from formspec-core) ────
 export type {
   FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry,
-  FieldDependents, ItemFilter,
+  FieldDependents, ItemFilter, ItemSearchResult,
 } from 'formspec-core';
 
 // ── Theme utilities (re-exported from formspec-core for consumers) ───

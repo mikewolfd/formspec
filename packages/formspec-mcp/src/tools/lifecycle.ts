@@ -19,10 +19,12 @@ export function handleCreate(
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
   try {
     const projectId = registry.newProject();
+    // Auto-transition to authoring with a blank project
+    const project = createProject();
+    registry.transitionToAuthoring(projectId, project);
     return successResponse({
       project_id: projectId,
-      phase: 'bootstrap',
-      next_step: 'Call formspec_load with this project_id to enter authoring phase. You can optionally call formspec_draft first to submit pre-built JSON artifacts.',
+      phase: 'authoring',
     });
   } catch (err) {
     if (err instanceof HelperError) {

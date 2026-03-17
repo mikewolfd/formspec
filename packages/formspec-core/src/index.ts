@@ -46,6 +46,7 @@ export type {
   VersioningState,
   VersionRelease,
   ItemFilter,
+  ItemSearchResult,
   DataTypeInfo,
   RegistrySummary,
   ExtensionFilter,

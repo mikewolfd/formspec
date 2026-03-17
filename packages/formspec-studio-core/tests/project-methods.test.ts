@@ -275,6 +275,30 @@ describe('addContent', () => {
       }),
     ).toThrow();
   });
+
+  it('supports insertIndex to control position', () => {
+    const project = createProject();
+    project.addContent('first', 'First');
+    project.addContent('second', 'Second');
+    project.addContent('zeroth', 'Zeroth', 'paragraph', { insertIndex: 0 });
+
+    const items = project.definition.items;
+    expect(items[0].key).toBe('zeroth');
+    expect(items[1].key).toBe('first');
+  });
+});
+
+describe('addGroup insertIndex', () => {
+  it('supports insertIndex to control position', () => {
+    const project = createProject();
+    project.addGroup('first', 'First');
+    project.addGroup('second', 'Second');
+    project.addGroup('zeroth', 'Zeroth', { insertIndex: 0 });
+
+    const items = project.definition.items;
+    expect(items[0].key).toBe('zeroth');
+    expect(items[1].key).toBe('first');
+  });
 });
 
 describe('showWhen', () => {
@@ -446,6 +470,72 @@ describe('branch', () => {
     ]);
 
     expect(result.warnings?.some(w => w.code === 'RELEVANT_OVERWRITTEN')).toBe(true);
+  });
+
+  it('OR-combines expressions when multiple arms target the same show field', () => {
+    const project = createProject();
+    project.addField('color', 'Color', 'choice', {
+      choices: [{ value: 'red', label: 'Red' }, { value: 'blue', label: 'Blue' }, { value: 'green', label: 'Green' }],
+    });
+    project.addField('warm_info', 'Warm Info', 'text');
+
+    project.branch('color', [
+      { when: 'red', show: 'warm_info' },
+      { when: 'blue', show: 'warm_info' },
+    ]);
+
+    const bind = project.bindFor('warm_info');
+    expect(bind?.relevant).toBe("color = 'red' or color = 'blue'");
+  });
+
+  it('OR-combines 3+ arms targeting the same show field', () => {
+    const project = createProject();
+    project.addField('size', 'Size', 'choice');
+    project.addField('detail', 'Detail', 'text');
+
+    project.branch('size', [
+      { when: 'small', show: 'detail' },
+      { when: 'medium', show: 'detail' },
+      { when: 'large', show: 'detail' },
+    ]);
+
+    const bind = project.bindFor('detail');
+    expect(bind?.relevant).toBe("size = 'small' or size = 'medium' or size = 'large'");
+  });
+
+  it('handles mixed shared and unique targets in branch arms', () => {
+    const project = createProject();
+    project.addField('type', 'Type', 'choice');
+    project.addField('shared', 'Shared', 'text');
+    project.addField('only_a', 'Only A', 'text');
+    project.addField('only_b', 'Only B', 'text');
+
+    project.branch('type', [
+      { when: 'a', show: ['shared', 'only_a'] },
+      { when: 'b', show: ['shared', 'only_b'] },
+    ]);
+
+    // shared should be OR'd
+    expect(project.bindFor('shared')?.relevant).toBe("type = 'a' or type = 'b'");
+    // unique targets get single expression
+    expect(project.bindFor('only_a')?.relevant).toBe("type = 'a'");
+    expect(project.bindFor('only_b')?.relevant).toBe("type = 'b'");
+  });
+
+  it('emits RELEVANT_OVERWRITTEN for pre-existing bind when arms share target', () => {
+    const project = createProject();
+    project.addField('type', 'Type', 'choice');
+    project.addField('f', 'F', 'text');
+    project.showWhen('f', 'type = true');
+
+    const result = project.branch('type', [
+      { when: 'a', show: 'f' },
+      { when: 'b', show: 'f' },
+    ]);
+
+    expect(result.warnings?.some(w => w.code === 'RELEVANT_OVERWRITTEN')).toBe(true);
+    // Still OR-combines the new expressions
+    expect(project.bindFor('f')?.relevant).toBe("type = 'a' or type = 'b'");
   });
 });
 
@@ -695,6 +785,16 @@ describe('moveItem', () => {
     project.moveItem('name', 'section');
     expect(project.fieldPaths()).toContain('section.name');
     expect(project.fieldPaths()).not.toContain('name');
+  });
+
+  it('summary includes parent and index when reordering within same parent', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'text');
+    project.addField('b', 'B', 'text');
+    const result = project.moveItem('b', undefined, 0);
+    // Summary should NOT say "Moved 'b' to 'b'" — it should mention the index
+    expect(result.summary).toContain('index 0');
+    expect(result.summary).not.toBe("Moved 'b' to 'b'");
   });
 });
 
@@ -1398,6 +1498,22 @@ describe('addPage with custom ID', () => {
     expect(pages.find((p: any) => p.id === 'my-page')).toBeDefined();
   });
 
+  it('derives group key from page_id when provided, not title', () => {
+    const project = createProject();
+    const result = project.addPage('My Fancy Title', undefined, 'basics');
+    // Group key should be derived from "basics" (the id), not "my_fancy_title" (the title)
+    expect(result.affectedPaths[0]).toBe('basics');
+    expect(project.itemAt('basics')).toBeDefined();
+    expect(project.itemAt('basics')?.type).toBe('group');
+  });
+
+  it('falls back to title-derived key when no custom ID', () => {
+    const project = createProject();
+    const result = project.addPage('Contact Info');
+    // Should derive from title since no custom ID
+    expect(result.affectedPaths[0]).toBe('contact_info');
+  });
+
   it('rejects invalid custom ID (starts with number)', () => {
     const project = createProject();
     expect(() => project.addPage('Step 1', undefined, '1bad-id')).toThrow(/invalid/i);
@@ -1437,8 +1553,8 @@ describe('listPages', () => {
     project.addPage('Step 2', 'Second step', 'step2');
     const pages = project.listPages();
     expect(pages).toHaveLength(2);
-    expect(pages[0]).toEqual({ id: 'step1', title: 'Step 1' });
-    expect(pages[1]).toEqual({ id: 'step2', title: 'Step 2', description: 'Second step' });
+    expect(pages[0]).toEqual({ id: 'step1', title: 'Step 1', groupPath: 'step1' });
+    expect(pages[1]).toEqual({ id: 'step2', title: 'Step 2', description: 'Second step', groupPath: 'step2' });
   });
 
   it('excludes description when not set', () => {
@@ -1446,6 +1562,14 @@ describe('listPages', () => {
     project.addPage('Step 1', undefined, 'step1');
     const pages = project.listPages();
     expect(pages[0]).not.toHaveProperty('description');
+  });
+
+  it('includes groupPath from page regions', () => {
+    const project = createProject();
+    project.addPage('Step 1', undefined, 'step1');
+    const pages = project.listPages();
+    expect(pages[0]).toHaveProperty('groupPath');
+    expect(pages[0].groupPath).toBe('step1');
   });
 });
 
@@ -1596,6 +1720,20 @@ describe('updateItem widget sets widgetHint on definition', () => {
     project.updateItem('status', { widget: 'radio' });
     const item = project.itemAt('status');
     expect((item as any)?.presentation?.widgetHint).toBe('radio');
+  });
+
+  it('widget change is undone in a single undo step', () => {
+    const project = createProject();
+    project.addField('status', 'Status', 'choice');
+    const itemBefore = project.itemAt('status') as any;
+    const hintBefore = itemBefore?.presentation?.widgetHint;
+
+    project.updateItem('status', { widget: 'radio' });
+    expect((project.itemAt('status') as any)?.presentation?.widgetHint).toBe('radio');
+
+    // Single undo should revert both definition widgetHint and component widget
+    project.undo();
+    expect((project.itemAt('status') as any)?.presentation?.widgetHint).toBe(hintBefore ?? undefined);
   });
 });
 
@@ -1921,6 +2059,50 @@ describe('addContent page placement', () => {
     const item = project.itemAt(`${groupKey}.intro`);
     expect(item?.type).toBe('display');
     expect((item as any)?.presentation?.widgetHint).toBe('heading');
+  });
+});
+
+describe('page prop auto-resolves to parentPath', () => {
+  it('addField with props.page nests field under the page group', () => {
+    const project = createProject();
+    const pageResult = project.addPage('Basics', undefined, 'basics');
+    const pageId = pageResult.createdId!;
+
+    // Use only props.page — no dot-path, no parentPath
+    project.addField('name', 'Full Name', 'text', { page: pageId });
+
+    // Field should be nested under the page's group
+    const item = project.itemAt('basics.name');
+    expect(item).toBeDefined();
+    expect(item?.label).toBe('Full Name');
+  });
+
+  it('explicit parentPath takes precedence over page prop', () => {
+    const project = createProject();
+    const pageResult = project.addPage('Basics', undefined, 'basics');
+    const pageId = pageResult.createdId!;
+
+    // Create another group under the page group
+    project.addGroup('basics.contact', 'Contact');
+
+    // parentPath takes precedence
+    project.addField('phone', 'Phone', 'phone', { page: pageId, parentPath: 'basics.contact' });
+
+    expect(project.itemAt('basics.contact.phone')).toBeDefined();
+    // Should NOT be at basics.phone
+    expect(project.itemAt('basics.phone')).toBeUndefined();
+  });
+
+  it('addContent with props.page nests content under the page group', () => {
+    const project = createProject();
+    const pageResult = project.addPage('Info', undefined, 'info');
+    const pageId = pageResult.createdId!;
+
+    project.addContent('intro', 'Welcome', 'heading', { page: pageId });
+
+    const item = project.itemAt('info.intro');
+    expect(item).toBeDefined();
+    expect(item?.type).toBe('display');
   });
 });
 

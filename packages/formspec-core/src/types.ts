@@ -1,6 +1,6 @@
 import type { SchemaValidator } from 'formspec-engine';
 import type {
-  FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
+  FormItem, FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
 } from 'formspec-types';
 
 // ── Schema-derived types (re-exported from formspec-types) ──────────
@@ -344,6 +344,15 @@ export interface ItemFilter {
   label?: string;
   /** Filter to items that declare this extension name. */
   hasExtension?: string;
+}
+
+/**
+ * A search result item augmented with its full dot-notation path.
+ * The `path` disambiguates same-named items in different groups.
+ */
+export interface ItemSearchResult extends FormItem {
+  /** Full dot-notation path (e.g. `"contact.email"`). */
+  path: string;
 }
 
 /**

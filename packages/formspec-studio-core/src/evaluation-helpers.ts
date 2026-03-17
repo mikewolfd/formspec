@@ -168,7 +168,7 @@ export function previewForm(
   }
 
   for (const [path, reqSignal] of Object.entries(engine.requiredSignals)) {
-    if (reqSignal.value) {
+    if (reqSignal.value && engine.isPathRelevant(path)) {
       requiredFields.push(path);
     }
   }
@@ -245,5 +245,9 @@ export function validateResponse(
 
   loadDataIntoEngine(engine, response);
 
-  return engine.getValidationReport({ mode: 'submit' });
+  const report = engine.getValidationReport({ mode: 'submit' });
+  return {
+    ...report,
+    results: report.results.map(r => ({ ...r, path: toInternalPath(r.path) })),
+  };
 }

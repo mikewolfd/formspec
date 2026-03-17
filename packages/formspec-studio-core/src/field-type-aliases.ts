@@ -31,7 +31,7 @@ const FIELD_TYPE_MAP: Record<string, { dataType: string; defaultWidget: string; 
   money:       { dataType: 'money',       defaultWidget: 'MoneyInput' },
   rating:      { dataType: 'integer',     defaultWidget: 'Rating' },
   slider:      { dataType: 'decimal',     defaultWidget: 'Slider' },
-  email:       { dataType: 'string',      defaultWidget: 'TextInput', constraintExpr: "matches($, '.*@.*')" },
+  email:       { dataType: 'string',      defaultWidget: 'TextInput', constraintExpr: "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')" },
   phone:       { dataType: 'string',      defaultWidget: 'TextInput', constraintExpr: "matches($, '^[+]?[0-9\\s\\-().]+$')" },
 };
 

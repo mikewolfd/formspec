@@ -41,6 +41,19 @@ describe('previewForm', () => {
     expect(preview.requiredFields).toContain('name');
   });
 
+  it('excludes hidden required fields from requiredFields', () => {
+    const project = createProject();
+    project.addField('toggle', 'Toggle', 'boolean');
+    project.addGroup('details', 'Details');
+    project.addField('details.name', 'Name', 'text');
+    project.require('details.name');
+    project.showWhen('details', '$toggle = true');
+
+    // toggle defaults to falsy, so 'details' group is hidden
+    const preview = previewForm(project);
+    expect(preview.requiredFields).not.toContain('details.name');
+  });
+
   it('includes shape validation messages in validationState', () => {
     const project = createProject();
     project.addField('email', 'Email', 'email');
@@ -128,6 +141,20 @@ describe('previewForm', () => {
 
     const preview = previewForm(project);
     // No required, and constraint should be skipped on empty value
+    expect(preview.validationState['email']).toBeUndefined();
+  });
+
+  it('email constraint rejects "a@b" (no TLD)', () => {
+    const project = createProject();
+    project.addField('email', 'Email', 'email');
+    const preview = previewForm(project, { email: 'a@b' });
+    expect(preview.validationState['email']).toBeDefined();
+  });
+
+  it('email constraint accepts "user@example.com"', () => {
+    const project = createProject();
+    project.addField('email', 'Email', 'email');
+    const preview = previewForm(project, { email: 'user@example.com' });
     expect(preview.validationState['email']).toBeUndefined();
   });
 });
@@ -537,5 +564,22 @@ describe('validateResponse', () => {
       nested: { child: 'also present' },
     });
     expect(report.valid).toBe(true);
+  });
+
+  it('returns 0-based paths for repeat group validation errors', () => {
+    const project = createProject();
+    project.addGroup('items', 'Items');
+    project.makeRepeatable('items', { min: 1 });
+    project.addField('items.name', 'Name', 'text');
+    project.require('items.name');
+
+    const report = validateResponse(project, {
+      items: [{ name: '' }],
+    });
+    expect(report.valid).toBe(false);
+    // Paths should be 0-based (items[0].name), not 1-based (items[1].name)
+    const paths = report.results.map(r => r.path);
+    expect(paths.some(p => p.includes('[0]'))).toBe(true);
+    expect(paths.some(p => p.includes('[1]'))).toBe(false);
   });
 });

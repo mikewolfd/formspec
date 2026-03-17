@@ -56,12 +56,14 @@ export interface FieldProps {
 export interface ContentProps {
   page?: string;
   parentPath?: string;
+  insertIndex?: number;
 }
 
 /** Group properties */
 export interface GroupProps {
   display?: 'stack' | 'dataTable';
   parentPath?: string;
+  insertIndex?: number;
 }
 
 /** Repeat group configuration */

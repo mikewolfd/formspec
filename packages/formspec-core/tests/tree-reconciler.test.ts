@@ -212,4 +212,141 @@ describe('reconcileComponentTree', () => {
     expect(tree.children[1].title).toBe('Other');
     expect(tree.children[1].children[0].bind).toBe('extra');
   });
+
+  it('preserves layout wrappers at their original position', () => {
+    const definition = {
+      items: [
+        { key: 'name', type: 'field', dataType: 'string' },
+        { key: 'age', type: 'field', dataType: 'integer' },
+      ],
+    } as any;
+    const existing = {
+      component: 'Stack',
+      nodeId: 'root',
+      children: [
+        { component: 'TextInput', bind: 'name' },
+        { component: 'NumberInput', bind: 'age' },
+        { component: 'SubmitButton', _layout: true, nodeId: 'submit' },
+      ],
+    };
+
+    const tree = reconcileComponentTree(definition, existing, {});
+    expect(tree.children).toHaveLength(3);
+    expect(tree.children[2].component).toBe('SubmitButton');
+  });
+
+  it('keeps end-positioned layout wrapper at end after new fields are added', () => {
+    const existing = {
+      component: 'Stack',
+      nodeId: 'root',
+      children: [
+        { component: 'TextInput', bind: 'name' },
+        { component: 'SubmitButton', _layout: true, nodeId: 'submit' },
+      ],
+    };
+
+    // Definition now has an additional field
+    const definition = {
+      items: [
+        { key: 'name', type: 'field', dataType: 'string' },
+        { key: 'email', type: 'field', dataType: 'string' },
+        { key: 'age', type: 'field', dataType: 'integer' },
+      ],
+    } as any;
+
+    const tree = reconcileComponentTree(definition, existing, {});
+    expect(tree.children).toHaveLength(4); // 3 fields + submit
+    // Submit button should remain at the end, not at index 1
+    expect(tree.children[3].component).toBe('SubmitButton');
+    expect(tree.children[3]._layout).toBe(true);
+  });
+
+  it('keeps mid-positioned layout wrapper at its clamped position', () => {
+    const existing = {
+      component: 'Stack',
+      nodeId: 'root',
+      children: [
+        { component: 'TextInput', bind: 'name' },
+        { component: 'Divider', _layout: true, nodeId: 'divider' },
+        { component: 'NumberInput', bind: 'age' },
+        { component: 'SubmitButton', _layout: true, nodeId: 'submit' },
+      ],
+    };
+
+    // Add a new field
+    const definition = {
+      items: [
+        { key: 'name', type: 'field', dataType: 'string' },
+        { key: 'age', type: 'field', dataType: 'integer' },
+        { key: 'email', type: 'field', dataType: 'string' },
+      ],
+    } as any;
+
+    const tree = reconcileComponentTree(definition, existing, {});
+    // divider was at index 1 (not last) → stays at index 1
+    expect(tree.children[1].component).toBe('Divider');
+    // submit was last → stays last
+    expect(tree.children[tree.children.length - 1].component).toBe('SubmitButton');
+  });
+
+  it('handles multiple layout wrappers, only the last one tracks wasLast', () => {
+    const existing = {
+      component: 'Stack',
+      nodeId: 'root',
+      children: [
+        { component: 'Banner', _layout: true, nodeId: 'banner' },
+        { component: 'TextInput', bind: 'name' },
+        { component: 'Divider', _layout: true, nodeId: 'divider' },
+        { component: 'NumberInput', bind: 'age' },
+        { component: 'SubmitButton', _layout: true, nodeId: 'submit' },
+      ],
+    };
+
+    // Add two new fields
+    const definition = {
+      items: [
+        { key: 'name', type: 'field', dataType: 'string' },
+        { key: 'age', type: 'field', dataType: 'integer' },
+        { key: 'email', type: 'field', dataType: 'string' },
+        { key: 'phone', type: 'field', dataType: 'string' },
+      ],
+    } as any;
+
+    const tree = reconcileComponentTree(definition, existing, {});
+    // Banner at 0 (was at 0, not last → stays at 0)
+    expect(tree.children[0].component).toBe('Banner');
+    // Divider was at 2 (not last) → clamped to min(2, ...)
+    expect(tree.children[2].component).toBe('Divider');
+    // Submit was last → must be at end
+    expect(tree.children[tree.children.length - 1].component).toBe('SubmitButton');
+  });
+
+  it('preserves wasLast wrapper inside a nested group', () => {
+    const definition = {
+      items: [{
+        key: 'section', type: 'group', children: [
+          { key: 'a', type: 'field', dataType: 'string' },
+          { key: 'b', type: 'field', dataType: 'string' },
+          { key: 'c', type: 'field', dataType: 'string' },
+        ],
+      }],
+    } as any;
+    const existing = {
+      component: 'Stack',
+      nodeId: 'root',
+      children: [{
+        component: 'Stack',
+        bind: 'section',
+        children: [
+          { component: 'TextInput', bind: 'a' },
+          { component: 'Footer', _layout: true, nodeId: 'footer' },
+        ],
+      }],
+    };
+
+    const tree = reconcileComponentTree(definition, existing, {});
+    const section = tree.children[0];
+    // Footer was last in section → stays last even after b and c are added
+    expect(section.children[section.children.length - 1].component).toBe('Footer');
+  });
 });

@@ -63,8 +63,13 @@ export function handleDescribe(
       };
       walk(componentTree);
     }
+    const statistics = project.statistics();
+    // Override componentNodeCount to match the filtered array (excludes layout wrappers)
+    if (componentNodes.length > 0) {
+      statistics.componentNodeCount = componentNodes.length;
+    }
     return {
-      statistics: project.statistics(),
+      statistics,
       fieldPaths: project.fieldPaths(),
       pages: pages.length > 0 ? pages : undefined,
       componentNodes: componentNodes.length > 0 ? componentNodes : undefined,

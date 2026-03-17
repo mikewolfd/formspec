@@ -190,6 +190,63 @@ describe('searchItems', () => {
     expect(results).toHaveLength(1);
     expect(results[0].key).toBe('nested');
   });
+
+  it('includes full dot-path in results', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'contact' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'email', parentPath: 'contact' } },
+    ]);
+
+    const results = project.searchItems({ type: 'field' });
+    expect(results).toHaveLength(2);
+    expect(results[0].path).toBe('name');
+    expect(results[1].path).toBe('contact.email');
+  });
+
+  it('distinguishes same-named fields in different groups', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'group', key: 'billing' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name', parentPath: 'billing', label: 'Name' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'shipping' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name', parentPath: 'shipping', label: 'Name' } },
+    ]);
+
+    const results = project.searchItems({ label: 'Name' });
+    expect(results).toHaveLength(2);
+    expect(results.map(r => r.path)).toEqual(['billing.name', 'shipping.name']);
+  });
+
+  it('includes path for root-level items', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'solo' } });
+
+    const results = project.searchItems({ type: 'field' });
+    expect(results[0].path).toBe('solo');
+  });
+
+  it('includes path for groups themselves', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'group', key: 'outer' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'inner', parentPath: 'outer' } },
+    ]);
+
+    const results = project.searchItems({ type: 'group' });
+    expect(results).toHaveLength(2);
+    expect(results[0].path).toBe('outer');
+    expect(results[1].path).toBe('outer.inner');
+  });
+
+  it('returns empty array with path when no matches', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'name' } });
+
+    const results = project.searchItems({ dataType: 'boolean' });
+    expect(results).toEqual([]);
+  });
 });
 
 describe('effectivePresentation', () => {

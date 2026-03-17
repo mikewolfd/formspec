@@ -142,7 +142,9 @@ export const componentPropertiesHandlers: Record<string, CommandHandler> = {
     const { fieldKey, widget } = payload as { fieldKey: string; widget: string };
     const root = ensureTree(state);
     const node = findNode(root, { bind: fieldKey });
-    if (!node) throw new Error(`No component node bound to field: ${fieldKey}`);
+    if (!node) {
+      return { rebuildComponentTree: false, nodeNotFound: true };
+    }
 
     node.component = widget;
     return { rebuildComponentTree: false };

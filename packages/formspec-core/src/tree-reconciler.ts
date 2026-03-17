@@ -15,6 +15,7 @@ interface WrapperSnapshot {
   wrapper: TreeNode;
   parentRef: { bind?: string; nodeId?: string };
   position: number;
+  wasLast: boolean;
 }
 
 /**
@@ -77,6 +78,7 @@ export function reconcileComponentTree(
           wrapper: structuredClone(child),
           parentRef: parent.bind ? { bind: parent.bind } : { nodeId: parent.nodeId! },
           position: i,
+          wasLast: i === children.length - 1,
         });
       } else if (child.children) {
         snapshotWrappers(child);
@@ -269,7 +271,7 @@ export function reconcileComponentTree(
     const parentNode = parentResult ? parentResult.node : newRoot;
     if (!parentNode.children) parentNode.children = [];
 
-    const idx = Math.min(snap.position, parentNode.children.length);
+    const idx = snap.wasLast ? parentNode.children.length : Math.min(snap.position, parentNode.children.length);
     parentNode.children.splice(idx, 0, wrapperNode);
   }
 

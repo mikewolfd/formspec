@@ -274,6 +274,14 @@ export function handleUpdate(
 
 // ── formspec_edit: structural mutations ──────────────────────────────
 
+/** Error response when action is missing in non-batch edit mode */
+export function editMissingAction() {
+  return errorResponse(formatToolError(
+    'MISSING_ACTION',
+    'action is required for single-item mode. Provide action or use items[] for batch mode with per-item action overrides.',
+  ));
+}
+
 type EditAction = 'remove' | 'move' | 'rename' | 'copy';
 
 interface EditParams {
@@ -317,6 +325,8 @@ export function handleEdit(
           return project!.renameItem(path, item.new_key as string);
         case 'copy':
           return project!.copyItem(path, item.deep as boolean | undefined);
+        default:
+          throw new HelperError('INVALID_ACTION', `Unknown edit action: ${itemAction}`);
       }
     });
   }
@@ -331,6 +341,8 @@ export function handleEdit(
         return project.renameItem(params.path!, params.new_key!);
       case 'copy':
         return project.copyItem(params.path!, params.deep);
+      default:
+        throw new HelperError('INVALID_ACTION', `Unknown edit action: ${action}`);
     }
   });
 }

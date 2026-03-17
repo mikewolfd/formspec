@@ -41,39 +41,35 @@ describe('end-to-end: grant application form', () => {
     expect(data.questionnaire.sections.length).toBeGreaterThan(0);
   });
 
-  it('step 2: create project', () => {
+  it('step 2: create project (auto-transitions to authoring)', () => {
     const result = handleCreate(registry);
     const data = parseResult(result);
 
     expect(data.project_id).toBeTruthy();
-    expect(data.phase).toBe('bootstrap');
+    expect(data.phase).toBe('authoring');
     projectId = data.project_id;
   });
 
-  it('step 3: draft definition', () => {
-    const result = handleDraft(registry, projectId, 'definition', {
-      $formspec: '1.0',
-      url: 'urn:test:grant-app',
-      version: '1.0.0',
-      status: 'draft',
-      title: 'Grant Application',
-      items: [
-        { key: 'applicant_name', type: 'field', label: 'Applicant Name', dataType: 'string' },
-        { key: 'project_title', type: 'field', label: 'Project Title', dataType: 'string' },
-        { key: 'amount', type: 'field', label: 'Requested Amount', dataType: 'decimal' },
-      ],
+  it('step 3: load bundle with pre-built definition', () => {
+    const project = registry.getProject(projectId);
+    project.loadBundle({
+      definition: {
+        $formspec: '1.0',
+        url: 'urn:test:grant-app',
+        version: '1.0.0',
+        status: 'draft',
+        title: 'Grant Application',
+        items: [
+          { key: 'applicant_name', type: 'field', label: 'Applicant Name', dataType: 'string' },
+          { key: 'project_title', type: 'field', label: 'Project Title', dataType: 'string' },
+          { key: 'amount', type: 'field', label: 'Requested Amount', dataType: 'decimal' },
+        ],
+      },
     });
-    const data = parseResult(result);
-    expect(result.isError).toBeUndefined();
-    expect(data.valid).toBe(true);
-  });
-
-  it('step 4: load transitions to authoring', () => {
-    const result = handleLoad(registry, projectId);
-    const data = parseResult(result);
-
-    expect(result.isError).toBeUndefined();
-    expect(data.phase).toBe('authoring');
+    const paths = project.fieldPaths();
+    expect(paths).toContain('applicant_name');
+    expect(paths).toContain('project_title');
+    expect(paths).toContain('amount');
   });
 
   it('step 5: batch add more fields', () => {

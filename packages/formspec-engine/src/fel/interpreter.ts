@@ -236,16 +236,53 @@ export class FelInterpreter extends BaseVisitor {
     return path.replace(/\[(\d+)\]/g, (_match, rawIndex) => `[${Number(rawIndex) - 1}]`);
   }
 
+  /**
+   * Parses an indexed item path into a chain of repeat group scopes.
+   * E.g. `"outer[0].inner[1].field"` → `[{ groupKey: "outer", prefix: "outer[0]" }, { groupKey: "inner", prefix: "outer[0].inner[1]" }]`
+   */
+  static parseRepeatScopes(itemPath: string): Array<{ groupKey: string; prefix: string }> {
+    const scopes: Array<{ groupKey: string; prefix: string }> = [];
+    const re = /([^.[]+)\[(\d+)\]/g;
+    let match;
+    while ((match = re.exec(itemPath)) !== null) {
+      const groupKey = match[1];
+      const prefix = itemPath.substring(0, match.index + match[0].length);
+      scopes.push({ groupKey, prefix });
+    }
+    return scopes;
+  }
+
   private candidateLookupPaths(path: string): string[] {
     if (path === '') return [this.context.currentItemPath];
 
     const parentPath = this.getParentPath(this.context.currentItemPath);
     const normalizedPath = this.normalizeSpecPathToSignalPath(path);
-    const candidates = [
-      parentPath ? `${parentPath}.${normalizedPath}` : null,
-      normalizedPath,
-    ]
-      .filter((candidate): candidate is string => Boolean(candidate))
+    const candidates: string[] = [];
+
+    // Strategy 1: Sibling resolution — prepend parent prefix.
+    if (parentPath) {
+      candidates.push(`${parentPath}.${normalizedPath}`);
+    }
+
+    // Strategy 2: Repeat scope rebase — if the reference's leading segment
+    // matches an enclosing repeat group, rebase it onto that group's indexed prefix.
+    const scopes = FelInterpreter.parseRepeatScopes(this.context.currentItemPath);
+    const firstDot = normalizedPath.indexOf('.');
+    const refLeadSegment = firstDot === -1 ? normalizedPath : normalizedPath.substring(0, firstDot);
+    const refTail = firstDot === -1 ? '' : normalizedPath.substring(firstDot + 1);
+
+    // Walk scopes from innermost to outermost — first match wins (lexical scoping)
+    for (let i = scopes.length - 1; i >= 0; i--) {
+      const scope = scopes[i];
+      if (scope.groupKey === refLeadSegment) {
+        const rebased = refTail ? `${scope.prefix}.${refTail}` : scope.prefix;
+        candidates.push(rebased);
+        break;
+      }
+    }
+
+    // Strategy 3: Root-relative — use the path as-is.
+    candidates.push(normalizedPath);
 
     return [...new Set(candidates)];
   }
@@ -613,8 +650,19 @@ export class FelInterpreter extends BaseVisitor {
     isDate: (v: any) => !isNaN(Date.parse(v)),
     /** Returns the FEL type name: `'array'`, `'null'`, `'string'`, `'number'`, `'boolean'`, or `'object'`. */
     typeOf: (v: any) => Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v,
-    /** Coerces a value to a number. Returns null if coercion fails. */
-    number: (v: any) => { const n = Number(v); return isNaN(n) ? null : n; },
+    /** Coerces a value to a number. Returns null for null, undefined, empty/whitespace strings, and unparseable values. */
+    number: (v: any) => {
+        if (v === null || v === undefined) return null;
+        if (typeof v === 'boolean') return v ? 1 : 0;
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string') {
+            const trimmed = v.trim();
+            if (trimmed === '') return null;
+            const n = Number(trimmed);
+            return isNaN(n) ? null : n;
+        }
+        return null;
+    },
     /** Coerces a value to a boolean. Accepts booleans, numbers (0 = false), and `'true'`/`'false'` strings. Throws on unconvertible values. */
     boolean: (v: any) => {
         if (v === null || v === undefined) return false;

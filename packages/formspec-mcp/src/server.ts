@@ -48,7 +48,7 @@ const fieldPropsSchema = z.object({
 const fieldItemSchema = z.object({
   path: z.string().describe('Item path (e.g., "name", "contact.email", "items[0].amount")'),
   label: z.string(),
-  type: z.string().describe('Data type: "string", "text", "integer", "decimal", "boolean", "date", "choice". Also accepts aliases: "number" (-> decimal), "email"/"phone" (-> string + validation), "url" (-> uri), "money"/"currency", "file" (-> attachment), "multichoice", "rating" (-> integer + Rating widget), "slider" (-> decimal + Slider widget)'),
+  type: z.string().describe('Data type: "string" (single-line text), "text" (multi-line textarea), "integer", "decimal", "boolean", "date", "choice". Also accepts aliases: "number" (-> decimal), "email"/"phone" (-> string + validation), "url" (-> uri), "money"/"currency", "file" (-> attachment), "multichoice", "rating" (-> integer + Rating widget), "slider" (-> decimal + Slider widget)'),
   props: fieldPropsSchema.optional(),
 });
 
@@ -188,7 +188,7 @@ export async function main() {
 
   server.registerTool('formspec_create', {
     title: 'Create Project',
-    description: 'Create a new project in bootstrap phase. IMPORTANT: After creating, you MUST call formspec_load with the returned project_id to enter authoring phase before you can add fields, content, or pages.\n\nWorkflow:\n1. formspec_create -> returns project_id\n2. (Optional) formspec_draft to submit pre-built JSON artifacts\n3. formspec_load -> transitions to authoring phase\n\nAlternatively, use formspec_guide first to gather requirements through a conversational questionnaire.',
+    description: 'Create a new project ready for authoring. Returns a project_id that can be used immediately with all authoring tools (formspec_field, formspec_content, etc.).\n\nTo import pre-built JSON artifacts instead, use formspec_draft + formspec_load.\n\nAlternatively, use formspec_guide first to gather requirements through a conversational questionnaire.',
     inputSchema: {},
     annotations: NON_DESTRUCTIVE,
   }, async () => {
@@ -276,7 +276,7 @@ export async function main() {
       // Single item
       path: z.string().optional().describe('Item path (e.g., "name", "contact.email", "items[0].amount")'),
       label: z.string().optional(),
-      type: z.string().optional().describe('Data type: "string", "text", "integer", "decimal", "boolean", "date", "choice". Also accepts aliases: "number" (-> decimal), "email"/"phone" (-> string + validation), "url" (-> uri), "money"/"currency", "file" (-> attachment), "multichoice", "rating" (-> integer + Rating widget), "slider" (-> decimal + Slider widget)'),
+      type: z.string().optional().describe('Data type: "string" (single-line text), "text" (multi-line textarea), "integer", "decimal", "boolean", "date", "choice". Also accepts aliases: "number" (-> decimal), "email"/"phone" (-> string + validation), "url" (-> uri), "money"/"currency", "file" (-> attachment), "multichoice", "rating" (-> integer + Rating widget), "slider" (-> decimal + Slider widget)'),
       props: fieldPropsSchema.optional(),
       // Batch
       items: z.array(fieldItemSchema).optional().describe('Batch: array of field definitions to add'),
@@ -298,9 +298,7 @@ export async function main() {
       path: z.string().optional().describe('Item path (e.g., "intro_heading", "section1.instructions")'),
       body: z.string().optional().describe('Display text'),
       kind: z.enum(['heading', 'paragraph', 'divider', 'banner']).optional().describe('Display kind. Default: paragraph'),
-      props: z.object({
-        page: z.string().optional().describe('Page ID to place this item on after creation'),
-      }).partial().optional(),
+      props: contentItemSchema.shape.props,
       // Batch
       items: z.array(contentItemSchema).optional().describe('Batch: array of content items to add'),
     },
@@ -368,7 +366,7 @@ export async function main() {
     description: 'Structural tree mutations: remove, move, rename, or copy items. Action "remove" is DESTRUCTIVE — use formspec_undo to reverse. Supports batch via items[] array for bulk operations (processed sequentially).',
     inputSchema: {
       project_id: z.string(),
-      action: z.enum(['remove', 'move', 'rename', 'copy']).describe('remove: delete item and descendants; move: relocate in tree; rename: change key; copy: duplicate'),
+      action: z.enum(['remove', 'move', 'rename', 'copy']).optional().describe('remove: delete item and descendants; move: relocate in tree; rename: change key; copy: duplicate'),
       path: z.string().optional().describe('Item path to act on (e.g., "old_field", "contact.phone")'),
       // move params
       target_path: z.string().optional().describe('New parent path (for action="move")'),
@@ -390,7 +388,10 @@ export async function main() {
     annotations: DESTRUCTIVE,
   }, async ({ project_id, action, path, target_path, index, new_key, deep, items }) => {
     if (items) {
-      return structure.handleEdit(registry, project_id, action, { items });
+      return structure.handleEdit(registry, project_id, action ?? 'remove', { items });
+    }
+    if (!action) {
+      return structure.editMissingAction();
     }
     return structure.handleEdit(registry, project_id, action, { path: path!, target_path, index, new_key, deep });
   });
@@ -449,7 +450,7 @@ export async function main() {
 
   server.registerTool('formspec_behavior', {
     title: 'Behavior',
-    description: 'Set field logic: visibility conditions, readonly conditions, required state, calculated values, and validation rules. Supports batch via items[] array.\n\nActions:\n- show_when: Show item when FEL condition is true\n- readonly_when: Make field readonly when condition is true\n- require: Mark field as required (optionally conditional). Note: formspec_field props.required=true is shorthand for unconditional require — do not use both\n- calculate: Bind a computed FEL value directly to a field. For reusable named values across multiple fields, use formspec_data(variable) instead.\n- add_rule: Add validation constraint with message\n\nPath conventions: target uses authoring dot notation ("contact.email"). FEL expressions use $-prefix ("$contact.email"). "true" and "false" are literals, not functions — use "$field = true", not "$field = true()".',
+    description: 'Set field logic: visibility conditions, readonly conditions, required state, calculated values, and validation rules. Supports batch via items[] array.\n\nActions:\n- show_when: Show item when FEL condition is true\n- readonly_when: Make field readonly when condition is true\n- require: Mark field as required (optionally conditional). Note: formspec_field props.required=true is shorthand for unconditional require — do not use both\n- calculate: Bind a computed FEL value directly to a field. For reusable named values across multiple fields, use formspec_data(variable) instead.\n- add_rule: Add validation constraint with message\n\nPath conventions: target uses authoring dot notation ("contact.email"). FEL expressions use $-prefix ("$contact.email"), variables use @-prefix ("@total"). "true" and "false" are literals, not functions — use "$field = true", not "$field = true()".',
     inputSchema: {
       project_id: z.string(),
       // Single item
@@ -482,7 +483,7 @@ export async function main() {
 
   server.registerTool('formspec_flow', {
     title: 'Flow',
-    description: 'Set form navigation mode or add conditional branching.\n\nActions:\n- set_mode: Choose single page, wizard (multi-step), or tabs\n- branch: Show/hide items based on a field\'s value (conditional logic)\n\nNote: "branch" replaces any existing show_when conditions on the target items (emits RELEVANT_OVERWRITTEN warnings). To layer additional visibility conditions, use formspec_behavior(show_when) after branching.',
+    description: 'Set form navigation mode or add conditional branching.\n\nActions:\n- set_mode: Choose single page, wizard (multi-step), or tabs\n- branch: Show/hide items based on a field\'s value (conditional logic)\n\nNote: Both "branch" and formspec_behavior(show_when) write to the same "relevant" bind property. Last writer wins — they do not compose. Calling "branch" replaces any existing show_when on the target items (emits RELEVANT_OVERWRITTEN warnings), and a subsequent show_when will replace the branch condition.',
     inputSchema: {
       project_id: z.string(),
       action: z.enum(['set_mode', 'branch']).describe('set_mode: change navigation; branch: add conditional paths'),
@@ -537,7 +538,7 @@ export async function main() {
 
   server.registerTool('formspec_data', {
     title: 'Data',
-    description: 'Manage reusable choice lists, computed variables, and external data instances.\n\nResources:\n- choices: Reusable option lists referenced by fields via choicesFrom\n- variable: Named computed values (FEL expressions) referenced across multiple fields. For binding a computed value to a single field, use formspec_behavior(calculate) instead.\n- instance: External data sources (e.g., API endpoint, static JSON lookup table) that fields reference for dynamic choices via choicesFrom',
+    description: 'Manage reusable choice lists, computed variables, and external data instances.\n\nResources:\n- choices: Reusable option lists referenced by fields via choicesFrom\n- variable: Named computed values (FEL expressions) referenced across multiple fields via @-prefix (e.g., @total). For binding a computed value to a single field, use formspec_behavior(calculate) instead.\n- instance: External data sources (e.g., API endpoint, static JSON lookup table) that fields reference for dynamic choices via choicesFrom',
     inputSchema: {
       project_id: z.string(),
       resource: z.enum(['choices', 'variable', 'instance']).describe('What kind of data to manage'),

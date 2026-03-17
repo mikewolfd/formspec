@@ -6,6 +6,7 @@ import {
   handleGroup,
   handleUpdate,
   handleEdit,
+  editMissingAction,
   handlePage,
   handlePlace,
   handleSubmitButton,
@@ -352,6 +353,32 @@ describe('handleEdit', () => {
       items: [{ path: 'a', target_path: 'b' }],
     });
     expect(result.isError).toBe(true);
+  });
+
+  it('batch uses per-item action when top-level action is a fallback', () => {
+    const { registry, projectId } = registryWithProject();
+    handleField(registry, projectId, { path: 'a', label: 'A', type: 'text' });
+    handleField(registry, projectId, { path: 'b', label: 'B', type: 'text' });
+
+    // Top-level action is 'remove' but items override with their own actions
+    const result = handleEdit(registry, projectId, 'remove', {
+      items: [
+        { path: 'a', action: 'copy' },
+        { path: 'b', action: 'remove' },
+      ],
+    });
+    const data = parseResult(result);
+    expect(data.succeeded).toBe(2);
+  });
+
+  it('returns MISSING_ACTION when no action and no items', () => {
+    const { registry, projectId } = registryWithProject();
+    handleField(registry, projectId, { path: 'a', label: 'A', type: 'text' });
+
+    const result = editMissingAction();
+    expect(result.isError).toBe(true);
+    const data = parseResult(result);
+    expect(data.code).toBe('MISSING_ACTION');
   });
 });
 

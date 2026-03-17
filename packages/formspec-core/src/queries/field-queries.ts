@@ -11,6 +11,7 @@ import { getCurrentComponentDocument, getEditableComponentDocument } from '../co
 import type {
   ProjectState,
   ItemFilter,
+  ItemSearchResult,
   DataTypeInfo,
   ResponseSchemaRow,
 } from '../types.js';
@@ -125,22 +126,23 @@ export function optionSetUsage(state: ProjectState, name: string): string[] {
 
 /**
  * Search definition items by type, dataType, label substring, or extension usage.
- * All filter criteria are AND-ed.
+ * All filter criteria are AND-ed. Results include the full dot-notation path.
  */
-export function searchItems(state: ProjectState, filter: ItemFilter): FormItem[] {
-  const results: FormItem[] = [];
-  const walk = (items: FormItem[]) => {
+export function searchItems(state: ProjectState, filter: ItemFilter): ItemSearchResult[] {
+  const results: ItemSearchResult[] = [];
+  const walk = (items: FormItem[], prefix: string) => {
     for (const item of items) {
+      const path = prefix ? `${prefix}.${item.key}` : item.key;
       let match = true;
       if (filter.type && item.type !== filter.type) match = false;
       if (filter.dataType && (item as any).dataType !== filter.dataType) match = false;
       if (filter.label && !(item.label ?? '').toLowerCase().includes(filter.label.toLowerCase())) match = false;
       if (filter.hasExtension && !(item as any).extensions?.[filter.hasExtension]) match = false;
-      if (match) results.push(item);
-      if (item.children) walk(item.children);
+      if (match) results.push(Object.assign({ path }, item));
+      if (item.children) walk(item.children, path);
     }
   };
-  walk(state.definition.items);
+  walk(state.definition.items, '');
   return results;
 }
 

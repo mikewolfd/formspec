@@ -1,6 +1,6 @@
 import { createRawProject } from 'formspec-core';
 // Internal-only core types — never appear in public method signatures
-import type { IProjectCore, AnyCommand, CommandResult, FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry, FieldDependents, ItemFilter } from 'formspec-core';
+import type { IProjectCore, AnyCommand, CommandResult, FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry, FieldDependents, ItemFilter, ItemSearchResult } from 'formspec-core';
 // Studio-core's own type vocabulary for the public API
 import type {
   FormItem, FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
@@ -67,7 +67,7 @@ export class Project {
   export(): ProjectBundle { return this.core.export() as unknown as ProjectBundle; }
   diagnose(): Diagnostics { return this.core.diagnose(); }
   componentFor(fieldKey: string): Record<string, unknown> | undefined { return this.core.componentFor(fieldKey); }
-  searchItems(filter: ItemFilter): FormItem[] { return this.core.searchItems(filter); }
+  searchItems(filter: ItemFilter): ItemSearchResult[] { return this.core.searchItems(filter); }
   parseFEL(expression: string, context?: FELParseContext): FELParseResult { return this.core.parseFEL(expression, context); }
   felFunctionCatalog(): FELFunctionEntry[] { return this.core.felFunctionCatalog(); }
   availableReferences(context?: string | FELParseContext): FELReferenceSet { return this.core.availableReferences(context); }
@@ -216,6 +216,17 @@ export class Project {
     });
   }
 
+  /** Resolve a page ID to its primary definition group path (from theme regions). */
+  private _resolvePageGroup(pageId: string): string | undefined {
+    const pages = (this.core.state.theme.pages ?? []) as Array<{ id: string; regions?: Array<{ key?: string }> }>;
+    const page = pages.find(p => p.id === pageId);
+    if (!page?.regions?.length) return undefined;
+    const groupKey = page.regions[0].key;
+    if (!groupKey) return undefined;
+    const item = this.core.itemAt(groupKey);
+    return item?.type === 'group' ? groupKey : undefined;
+  }
+
   // ── Authoring methods ──
 
   /**
@@ -251,8 +262,13 @@ export class Project {
       }
     }
 
-    // Parse path: last segment = key, preceding = parentPath
+    // Auto-resolve page to parentPath when not already nested
     let parentPath = props?.parentPath;
+    if (!parentPath && props?.page && !path.includes('.')) {
+      parentPath = this._resolvePageGroup(props.page);
+    }
+
+    // Parse path: last segment = key, preceding = parentPath
     let key: string;
     if (parentPath) {
       key = path;
@@ -424,6 +440,7 @@ export class Project {
       label,
     };
     if (parentPath) addItemPayload.parentPath = parentPath;
+    if (props?.insertIndex !== undefined) addItemPayload.insertIndex = props.insertIndex;
 
     if (props?.display) {
       // Two-phase: addItem triggers rebuild, then setGroupDisplayMode on rebuilt tree
@@ -461,8 +478,13 @@ export class Project {
     };
     const widgetHint = kindToHint[kind ?? 'paragraph'] ?? 'paragraph';
 
-    // Parse path: parentPath prop takes precedence over dot-path parsing
+    // Auto-resolve page to parentPath when not already nested
     let parentPath = props?.parentPath;
+    if (!parentPath && props?.page && !path.includes('.')) {
+      parentPath = this._resolvePageGroup(props.page);
+    }
+
+    // Parse path: last segment = key, preceding = parentPath
     let key: string;
     if (parentPath) {
       key = path;
@@ -496,6 +518,7 @@ export class Project {
       presentation: { widgetHint },
     };
     if (parentPath) payload.parentPath = parentPath;
+    if (props?.insertIndex !== undefined) payload.insertIndex = props.insertIndex;
 
     const commands: AnyCommand[] = [{ type: 'definition.addItem', payload }];
 
@@ -661,8 +684,10 @@ export class Project {
 
     const warnings: HelperWarning[] = [];
     const allExprs: string[] = [];
-    const commands: AnyCommand[] = [];
     const affectedPaths: string[] = [];
+
+    // Accumulate expressions per target — multiple arms can target the same field
+    const targetExprs = new Map<string, string[]>();
 
     for (const arm of paths) {
       const mode = arm.mode ?? defaultMode;
@@ -671,21 +696,10 @@ export class Project {
 
       const targets = Array.isArray(arm.show) ? arm.show : [arm.show];
       for (const target of targets) {
-        // Check for existing relevant bind → warning
-        const existingBind = this.core.bindFor(target);
-        if (existingBind?.relevant) {
-          warnings.push({
-            code: 'RELEVANT_OVERWRITTEN',
-            message: `Existing relevant expression on "${target}" was replaced`,
-            detail: { path: target, previousExpression: existingBind.relevant },
-          });
+        if (!targetExprs.has(target)) {
+          targetExprs.set(target, []);
         }
-
-        commands.push({
-          type: 'definition.setBind',
-          payload: { path: target, properties: { relevant: expr } },
-        });
-        affectedPaths.push(target);
+        targetExprs.get(target)!.push(expr);
       }
     }
 
@@ -697,20 +711,31 @@ export class Project {
         : `not(${allExprs.join(' or ')})`;
 
       for (const target of otherwiseTargets) {
-        const existingBind = this.core.bindFor(target);
-        if (existingBind?.relevant) {
-          warnings.push({
-            code: 'RELEVANT_OVERWRITTEN',
-            message: `Existing relevant expression on "${target}" was replaced`,
-            detail: { path: target, previousExpression: existingBind.relevant },
-          });
+        if (!targetExprs.has(target)) {
+          targetExprs.set(target, []);
         }
-        commands.push({
-          type: 'definition.setBind',
-          payload: { path: target, properties: { relevant: negatedExpr } },
-        });
-        affectedPaths.push(target);
+        targetExprs.get(target)!.push(negatedExpr);
       }
+    }
+
+    // Emit one setBind per target with OR'd expression
+    const commands: AnyCommand[] = [];
+    for (const [target, exprs] of targetExprs) {
+      const existingBind = this.core.bindFor(target);
+      if (existingBind?.relevant) {
+        warnings.push({
+          code: 'RELEVANT_OVERWRITTEN',
+          message: `Existing relevant expression on "${target}" was replaced`,
+          detail: { path: target, previousExpression: existingBind.relevant },
+        });
+      }
+
+      const combined = exprs.length === 1 ? exprs[0] : exprs.join(' or ');
+      commands.push({
+        type: 'definition.setBind',
+        payload: { path: target, properties: { relevant: combined } },
+      });
+      affectedPaths.push(target);
     }
 
     // Dispatch all setBind commands atomically
@@ -1000,9 +1025,6 @@ export class Project {
     const leafKey = path.split('.').pop()!;
     const warnings: HelperWarning[] = [];
 
-    // Widget command dispatched separately so component failure doesn't block definition update
-    let widgetCommand: AnyCommand | undefined;
-
     for (const [key, value] of Object.entries(changes)) {
       if (value === undefined) continue;
 
@@ -1042,21 +1064,21 @@ export class Project {
         continue;
       }
 
-      // widget routing — definition widgetHint always set; component dispatch may fail
+      // widget routing — definition widgetHint + component widget in same batch
       if (key === 'widget') {
         const resolvedWidget = resolveWidget(value as string);
         const hint = widgetHintFor(value as string);
-
-        // Component command dispatched separately after main batch
-        widgetCommand = {
-          type: 'component.setFieldWidget',
-          payload: { fieldKey: leafKey, widget: resolvedWidget },
-        };
 
         // definition.setItemProperty for widgetHint (REQUIRED for round-trip)
         commands.push({
           type: 'definition.setItemProperty',
           payload: { path, property: 'presentation.widgetHint', value: hint ?? null },
+        });
+
+        // component.setFieldWidget now returns nodeNotFound instead of throwing
+        commands.push({
+          type: 'component.setFieldWidget',
+          payload: { fieldKey: leafKey, widget: resolvedWidget },
         });
         continue;
       }
@@ -1102,18 +1124,15 @@ export class Project {
     }
 
     if (commands.length > 0) {
-      this.core.dispatch(commands);
-    }
-
-    // Dispatch component widget separately — failure emits warning, not error
-    if (widgetCommand) {
-      try {
-        this.core.dispatch(widgetCommand);
-      } catch {
-        warnings.push({
-          code: 'COMPONENT_NODE_NOT_FOUND',
-          message: `No component node bound to field '${leafKey}'; widgetHint set on definition only`,
-        });
+      const results = this.core.dispatch(commands);
+      // Check for nodeNotFound from component.setFieldWidget (non-throwing)
+      for (const result of results) {
+        if ((result as any).nodeNotFound) {
+          warnings.push({
+            code: 'COMPONENT_NODE_NOT_FOUND',
+            message: `No component node bound to field '${leafKey}'; widgetHint set on definition only`,
+          });
+        }
       }
     }
 
@@ -1135,8 +1154,14 @@ export class Project {
     // Compute new path
     const leafKey = path.split('.').pop()!;
     const newPath = targetParentPath ? `${targetParentPath}.${leafKey}` : leafKey;
+    // Build descriptive summary — when path == newPath it's a reorder, not a cross-parent move
+    const parentLabel = targetParentPath ? `'${targetParentPath}'` : 'root';
+    const indexLabel = targetIndex !== undefined ? ` at index ${targetIndex}` : '';
+    const summary = path === newPath
+      ? `Moved '${path}' to ${parentLabel}${indexLabel}`
+      : `Moved '${path}' to '${newPath}'${indexLabel}`;
     return {
-      summary: `Moved '${path}' to '${newPath}'`,
+      summary,
       action: { helper: 'moveItem', params: { path, targetParentPath, targetIndex } },
       affectedPaths: [newPath],
     };
@@ -1673,8 +1698,9 @@ export class Project {
       }
     }
 
-    // Generate a group key from the title
-    const key = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `page_${Date.now()}`;
+    // Derive group key from page_id (when provided) or title
+    const rawKey = id ?? title;
+    const key = rawKey.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `page_${Date.now()}`;
 
     // Deduplicate: if key already exists, append a counter
     let finalKey = key;
@@ -1748,14 +1774,18 @@ export class Project {
     };
   }
 
-  /** List all pages with their id, title, and description. */
-  listPages(): Array<{ id: string; title: string; description?: string }> {
-    const pages = (this.core.state.theme.pages ?? []) as Array<{ id: string; title?: string; description?: string }>;
-    return pages.map(p => ({
-      id: p.id,
-      title: p.title ?? 'Untitled',
-      ...(p.description ? { description: p.description } : {}),
-    }));
+  /** List all pages with their id, title, description, and primary group path. */
+  listPages(): Array<{ id: string; title: string; description?: string; groupPath?: string }> {
+    const pages = (this.core.state.theme.pages ?? []) as Array<{ id: string; title?: string; description?: string; regions?: Array<{ key?: string }> }>;
+    return pages.map(p => {
+      const groupPath = p.regions?.[0]?.key;
+      return {
+        id: p.id,
+        title: p.title ?? 'Untitled',
+        ...(p.description ? { description: p.description } : {}),
+        ...(groupPath ? { groupPath } : {}),
+      };
+    });
   }
 
   /** Update a page's title or description. */
