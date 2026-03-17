@@ -153,6 +153,7 @@ export class RuntimeMappingEngine {
             return bp - ap;
         });
 
+        const coveredPaths = new Set<string>();
         for (const rule of sortedRules) {
             if (rule.condition && !evaluateCondition(rule.condition, source)) {
                 continue;
@@ -170,6 +171,8 @@ export class RuntimeMappingEngine {
                 : (effective.sourcePath ?? rule.sourcePath);
 
             const transform = effective.transform || 'preserve';
+            if (sourcePath) coveredPaths.add(sourcePath);
+
             if (!targetPath) {
                 if (transform !== 'drop') {
                     diagnostics.push(`Rule skipped because targetPath is missing (${transform})`);
@@ -208,6 +211,16 @@ export class RuntimeMappingEngine {
             if (value === undefined) continue;
             setByPath(output, targetPath, clone(value));
             appliedRules += 1;
+        }
+
+        // autoMap: include identity mappings for any top-level keys NOT covered by rules
+        if (this.doc.autoMap === true && direction === 'forward') {
+            for (const key of Object.keys(source)) {
+                if (!coveredPaths.has(key) && source[key] !== undefined) {
+                    setByPath(output, key, clone(source[key]));
+                    appliedRules += 1;
+                }
+            }
         }
 
         return {
