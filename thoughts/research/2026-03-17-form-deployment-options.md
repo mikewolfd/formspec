@@ -203,21 +203,177 @@ This is the absolute minimum friction — a single HTML file with no build step.
 
 ---
 
-## Recommendation
+## The Backend Problem: Server-Side Validation
 
-**Start with Tier 1 (export command) + CDN bundle.**
+Client-side rendering is static, but **form submission requires Python server-side logic**:
 
-1. Add a Vite library-mode build to `formspec-webcomponent` that outputs a single self-contained ESM bundle (all dependencies inlined). Publish this to npm so `esm.sh` / `unpkg` / `jsdelivr` can serve it.
+1. **`DefinitionEvaluator.process(data)`** — 4-phase validation pipeline (rebuild → recalculate → revalidate → apply NRB)
+2. **`MappingEngine.forward(data)`** — transforms response data to target schema (CSV/XML/JSON)
+3. **`lint(definition)`** — authoring diagnostics
+4. **Adapters** — serialize to CSV/XML wire formats
 
-2. Build a simple `scripts/export-form.mjs` that generates a deployable folder from form artifacts.
+The existing reference server (`examples/refrences/server/main.py`) is a FastAPI app with these endpoints:
 
-3. Document the "deploy in 60 seconds" flow for each platform:
-   - **Cloudflare Pages:** `npx wrangler pages deploy ./my-form-deploy`
-   - **Vercel:** `npx vercel ./my-form-deploy`
-   - **Netlify:** drag folder to netlify.com/drop
-   - **GitHub Pages:** push to `gh-pages` branch
+| Endpoint | Purpose |
+|---|---|
+| `POST /submit` | Run full validation pipeline, return `ValidationReport` + mapped data |
+| `POST /export/{format}` | Transform + serialize to CSV/XML/JSON |
+| `POST /evaluate` | Evaluate FEL expressions server-side |
+| `GET /dependencies` | Extract FEL dependency graph |
 
-Cloudflare Pages is the best default recommendation — unlimited free bandwidth, zero config, fast global edge.
+**Python dependencies:** `fastapi`, `uvicorn`, `jsonschema`, `pydantic` + the `formspec` package itself (pure Python, no native extensions).
+
+---
+
+## Backend Deployment Options
+
+### Option A: Cloudflare Workers with Python (Recommended)
+
+Cloudflare Workers now run Python via Pyodide (CPython compiled to WebAssembly). This is the **same platform** as Pages — one account, one deploy, both frontend and backend.
+
+**How it works:**
+- Workers runtime provides an ASGI server directly to Python Workers
+- FastAPI works out of the box on Cloudflare Workers
+- Packages like Pydantic, jsonschema are available
+- Cold starts: ~1s with snapshots (10s without)
+- Free tier: 100K requests/day, 10ms CPU time per invocation
+
+**Architecture:**
+```
+Cloudflare Pages (static)          Cloudflare Worker (Python)
+┌──────────────────────┐           ┌──────────────────────────┐
+│ index.html           │           │ FastAPI app              │
+│ formspec-bundle.js   │  POST     │   /submit                │
+│ formspec-base.css    │ ────────► │   /export/{format}       │
+│ definition.json      │           │   /evaluate              │
+│ component.json       │ ◄──────── │                          │
+│ theme.json           │  JSON     │ formspec.evaluator       │
+└──────────────────────┘           │ formspec.mapping         │
+                                   │ formspec.adapters        │
+                                   └──────────────────────────┘
+```
+
+**What we'd need:**
+1. A `wrangler.toml` configuring a Python Worker
+2. The `formspec` Python package bundled into the Worker
+3. A stripped-down FastAPI app (just `/submit` + `/export`) — no file-system access needed, definition JSON passed in the request body
+4. Pages → Worker routing (Cloudflare Service Bindings or just a `/api/*` route)
+
+**Key question: Can the full formspec package run in Pyodide?**
+- The formspec package is pure Python (no C extensions) ✅
+- Uses `jsonschema` (available in Pyodide) ✅
+- Uses `pydantic` (available in Pyodide) ✅
+- No filesystem I/O in the core evaluator ✅
+- **Likely yes** — but needs testing. The 10ms CPU limit on free tier may be tight for complex forms.
+
+### Option B: Vercel Serverless Functions (Python)
+
+Vercel supports Python serverless functions. Drop a `.py` file in `api/` and it becomes an endpoint.
+
+**Setup:**
+```
+deploy/
+├── index.html              (static frontend)
+├── formspec-bundle.js
+├── definition.json
+├── api/
+│   ├── submit.py           (POST /api/submit)
+│   └── export.py           (POST /api/export/{format})
+├── requirements.txt        (fastapi, pydantic, jsonschema)
+└── vercel.json
+```
+
+```json
+// vercel.json
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
+  ]
+}
+```
+
+**Pros:** Very simple file-based routing, good Python support
+**Cons:** 250 MB unzipped size limit, 10s execution timeout (free), 100 GB bandwidth/mo
+
+### Option C: Firebase Cloud Functions + Hosting (Already partially configured)
+
+Firebase Hosting for static + Cloud Functions (Python) for the API. We already have `firebase.json`.
+
+**Setup:**
+- Add `functions/` directory with Python Cloud Function
+- Configure `firebase.json` to rewrite `/api/*` to the function
+- `firebase deploy` deploys both
+
+**Pros:** Already in use, single deploy command, good integration
+**Cons:** Cloud Functions (2nd gen) requires Google Cloud billing account, Python cold starts can be slow (~2-5s), smallest free tier
+
+### Option D: Self-contained — Pyodide in the Browser (No backend at all)
+
+Run the Python validation **entirely in the browser** via Pyodide/WebAssembly. No server needed.
+
+```javascript
+// Load Pyodide + formspec package in a Web Worker
+const pyodide = await loadPyodide();
+await pyodide.loadPackage(['jsonschema', 'pydantic']);
+// Load formspec as a pure Python package
+await pyodide.runPythonAsync(`
+    from formspec.evaluator import DefinitionEvaluator
+    ev = DefinitionEvaluator(definition_json)
+    result = ev.process(submitted_data)
+`);
+```
+
+**Pros:** Truly zero backend — the entire form + validation is a static site. No server costs, no cold starts, works offline.
+**Cons:** ~10-20 MB initial download (Pyodide runtime), ~2-5s load time, browser CPU only. Complex forms with many FEL expressions might be slow. Not suitable if you need to *store* submissions server-side.
+
+### Option E: Hybrid — Client-side Pyodide + Webhook for Storage
+
+Best of both worlds: run validation in-browser with Pyodide, then POST validated data to a simple webhook/storage endpoint (Cloudflare Workers KV, Firebase Firestore, a Google Sheet, etc.).
+
+```
+Browser                           Storage (any)
+┌─────────────────────┐           ┌──────────────────┐
+│ formspec-render     │           │ CF Workers KV    │
+│ Pyodide (WASM)      │  POST     │ OR Firebase      │
+│   formspec.evaluator│ ────────► │ OR Google Sheets │
+│   validation ✓      │  validated│ OR S3 bucket     │
+│   mapping ✓         │  JSON     │ OR webhook URL   │
+└─────────────────────┘           └──────────────────┘
+```
+
+**The storage endpoint is dead simple** — it just receives validated JSON and stores it. No Python needed server-side. A Cloudflare Worker for this is ~10 lines of code.
+
+---
+
+## Recommendation: Cloudflare Pages + Workers
+
+**Primary target: Cloudflare.** One platform, one account, one deploy for both static frontend and Python validation backend.
+
+### Phase 1: Static export + Cloudflare Pages (frontend only)
+
+1. Pre-built ESM bundle of `formspec-webcomponent`
+2. `formspec export` CLI generates deployable folder
+3. `wrangler pages deploy ./deploy` → live form in seconds
+4. Client-side validation only (no server submit)
+
+### Phase 2: Add Cloudflare Worker for server validation
+
+1. Python Worker running stripped-down FastAPI (`/submit`, `/export`)
+2. `formspec` package bundled into the Worker
+3. Pages → Worker routing via Service Bindings
+4. Full server-side validation + mapping + export
+
+### Phase 3 (stretch): Pyodide-in-browser option
+
+For users who want truly zero-backend forms (e.g., surveys, intake forms where client validation is sufficient), offer a Pyodide build that runs the Python evaluator entirely in the browser. This eliminates the Worker and makes the form a pure static site that still gets server-grade validation.
+
+### What to build first
+
+1. **Pre-built ESM bundle** of `formspec-webcomponent` (prerequisite for everything)
+2. **`formspec export` CLI** — generates a deployable folder with static frontend
+3. **Cloudflare Worker template** — minimal Python Worker with `/submit` endpoint
+4. **`formspec deploy cloudflare` CLI** — deploys Pages + Worker together
+5. **Submission storage** — Cloudflare Workers KV or D1 (SQLite) for persisting responses
 
 ---
 
@@ -225,6 +381,13 @@ Cloudflare Pages is the best default recommendation — unlimited free bandwidth
 
 - [Cloudflare Pages — free hosting with unlimited bandwidth](https://pages.cloudflare.com/)
 - [Cloudflare SPA routing docs](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/)
+- [Cloudflare Python Workers — fast cold starts and packages](https://blog.cloudflare.com/python-workers-advancements/)
+- [FastAPI on Cloudflare Workers](https://developers.cloudflare.com/workers/languages/python/packages/fastapi/)
+- [Write Cloudflare Workers in Python](https://developers.cloudflare.com/workers/languages/python/)
+- [Deploy FastAPI on Vercel Serverless](https://dev.to/abdadeel/deploying-fastapi-app-on-vercel-serverless-18b1)
+- [FastAPI on Vercel (GitHub example)](https://github.com/hebertcisco/deploy-python-fastapi-in-vercel)
+- [FastAPI Cloud Deployment docs](https://fastapi.tiangolo.com/deployment/cloud/)
+- [Pyodide — Python in the browser via WebAssembly](https://pyodide.org/)
+- [Cloudflare bringing Python to Workers via Pyodide](https://blog.cloudflare.com/python-workers/)
 - [Deploy React/SPA to Cloudflare, Vercel, Netlify](https://www.freecodecamp.org/news/deploy-react-app/)
 - [Cloudflare Pages + Firebase MVP stack](https://medium.com/@able_wong/building-your-startup-mvp-a-simple-guide-to-cloudflare-pages-firebase-f30d2beac4d8)
-- [Vercel migration guide](https://vercel.com/kb/guide/migrate-to-vercel-from-cloudflare)
