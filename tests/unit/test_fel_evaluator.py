@@ -1,5 +1,6 @@
 """Tests for the FEL evaluator — operators, types, null handling."""
 
+import decimal
 import pytest
 from decimal import Decimal
 from datetime import date
@@ -7,7 +8,7 @@ from datetime import date
 import formspec.fel as fel
 from formspec.fel import (
     evaluate, FelNull, FelNumber, FelString, FelBoolean, FelDate,
-    FelArray, FelTrue, FelFalse, is_null,
+    FelArray, FelMoney, FelTrue, FelFalse, is_null,
 )
 
 
@@ -535,5 +536,162 @@ class TestEvaluatorErrors:
 
     def test_moneySum_currency_mismatch_no_diagnostic(self):
         r = evaluate("moneySum([money(10, 'USD'), money(20, 'EUR')])")
+        assert is_null(r.value)
+        assert len(r.diagnostics) == 0
+
+
+class TestMoneyArithmetic:
+    """Money-aware arithmetic operators — must match TypeScript semantics exactly."""
+
+    # --- money + money (same currency) ---
+    def test_money_add_money_same_currency(self):
+        r = val("money(10, 'USD') + money(20, 'USD')")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('30')
+        assert r.currency == 'USD'
+
+    # --- money - money (same currency) ---
+    def test_money_sub_money_same_currency(self):
+        r = val("money(50, 'EUR') - money(20, 'EUR')")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('30')
+        assert r.currency == 'EUR'
+
+    # --- money / money → number (unit cancellation) ---
+    def test_money_div_money_unit_cancellation(self):
+        r = val("money(100, 'USD') / money(25, 'USD')")
+        assert isinstance(r, FelNumber)
+        assert r.value == Decimal('4')
+
+    # --- currency mismatch → null ---
+    def test_money_add_money_currency_mismatch(self):
+        assert is_null(val("money(10, 'USD') + money(20, 'EUR')"))
+
+    def test_money_sub_money_currency_mismatch(self):
+        assert is_null(val("money(10, 'USD') - money(20, 'EUR')"))
+
+    def test_money_div_money_currency_mismatch(self):
+        assert is_null(val("money(10, 'USD') / money(20, 'EUR')"))
+
+    # --- money * money → null (not meaningful) ---
+    def test_money_mul_money_is_null(self):
+        assert is_null(val("money(10, 'USD') * money(20, 'USD')"))
+
+    # --- money % money → null (not meaningful) ---
+    def test_money_mod_money_is_null(self):
+        assert is_null(val("money(10, 'USD') % money(20, 'USD')"))
+
+    # --- money * number ---
+    def test_money_mul_number(self):
+        r = val("money(10, 'USD') * 3")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('30')
+        assert r.currency == 'USD'
+
+    # --- number * money ---
+    def test_number_mul_money(self):
+        r = val("3 * money(10, 'USD')")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('30')
+        assert r.currency == 'USD'
+
+    # --- money / number ---
+    def test_money_div_number(self):
+        r = val("money(100, 'USD') / 4")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('25')
+        assert r.currency == 'USD'
+
+    # --- money + number ---
+    def test_money_add_number(self):
+        r = val("money(10, 'USD') + 5")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('15')
+        assert r.currency == 'USD'
+
+    # --- money - number ---
+    def test_money_sub_number(self):
+        r = val("money(10, 'USD') - 3")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('7')
+        assert r.currency == 'USD'
+
+    # --- money % number ---
+    def test_money_mod_number(self):
+        r = val("money(10, 'USD') % 3")
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('1')
+        assert r.currency == 'USD'
+
+    # --- number +/- money → null (only money on left for non-commutative ops) ---
+    def test_number_add_money_is_null(self):
+        assert is_null(val("5 + money(10, 'USD')"))
+
+    def test_number_sub_money_is_null(self):
+        assert is_null(val("5 - money(10, 'USD')"))
+
+    def test_number_div_money_is_null(self):
+        assert is_null(val("5 / money(10, 'USD')"))
+
+    def test_number_mod_money_is_null(self):
+        assert is_null(val("5 % money(10, 'USD')"))
+
+    # --- division / modulo by zero ---
+    def test_money_div_zero(self):
+        r = evaluate("money(10, 'USD') / 0")
+        assert is_null(r.value)
+        assert len(r.diagnostics) >= 1
+
+    def test_money_mod_zero(self):
+        r = evaluate("money(10, 'USD') % 0")
+        assert is_null(r.value)
+        assert len(r.diagnostics) >= 1
+
+    def test_money_div_money_zero(self):
+        r = evaluate("money(10, 'USD') / money(0, 'USD')")
+        assert is_null(r.value)
+        assert len(r.diagnostics) >= 1
+
+    # --- null propagation (handled before arithmetic, should still work) ---
+    def test_money_add_null(self):
+        assert is_null(val("money(10, 'USD') + null"))
+
+    def test_null_add_money(self):
+        assert is_null(val("null + money(10, 'USD')"))
+
+    # --- decimal precision ---
+    def test_money_div_precise(self):
+        r = val("money(10, 'USD') / 3")
+        assert isinstance(r, FelMoney)
+        # 10/3 under 34-digit ROUND_HALF_EVEN context
+        ctx = decimal.Context(prec=34, rounding=decimal.ROUND_HALF_EVEN)
+        expected = ctx.divide(Decimal('10'), Decimal('3'))
+        assert r.amount == expected
+
+    # --- field references with money ---
+    def test_money_field_mul(self):
+        r = val("$price * $qty", {'price': {'amount': '25', 'currency': 'USD'}, 'qty': 4})
+        assert isinstance(r, FelMoney)
+        assert r.amount == Decimal('100')
+        assert r.currency == 'USD'
+
+    # --- array broadcasting with money ---
+    def test_money_array_broadcast_mul(self):
+        """[money, money] * scalar → [money, money]"""
+        r = val("[money(10, 'USD'), money(20, 'USD')] * 2")
+        assert isinstance(r, FelArray)
+        assert len(r.elements) == 2
+        assert isinstance(r.elements[0], FelMoney)
+        assert r.elements[0].amount == Decimal('20')
+        assert r.elements[1].amount == Decimal('40')
+
+    # --- no diagnostic on currency mismatch (silent null, not error) ---
+    def test_money_add_currency_mismatch_no_diagnostic(self):
+        r = evaluate("money(10, 'USD') + money(20, 'EUR')")
+        assert is_null(r.value)
+        assert len(r.diagnostics) == 0
+
+    def test_money_mul_money_no_diagnostic(self):
+        r = evaluate("money(10, 'USD') * money(20, 'USD')")
         assert is_null(r.value)
         assert len(r.diagnostics) == 0

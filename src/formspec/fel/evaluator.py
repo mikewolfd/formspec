@@ -260,7 +260,17 @@ class Evaluator:
         return FelFalse
 
     def _eval_arithmetic(self, op: str, left: FelValue, right: FelValue, pos) -> FelValue:
-        """Decimal arithmetic (+, -, *, /, %) at 34-digit precision (ROUND_HALF_EVEN). Both operands must be FelNumber; div/mod by zero -> diagnostic + null."""
+        """Decimal arithmetic (+, -, *, /, %) at 34-digit precision (ROUND_HALF_EVEN).
+
+        Supports number-number, money-money, and money-number combinations.
+        Division/modulo by zero -> diagnostic + null. Currency mismatch -> silent null.
+        """
+        left_is_money = isinstance(left, FelMoney)
+        right_is_money = isinstance(right, FelMoney)
+
+        if left_is_money or right_is_money:
+            return self._eval_money_arithmetic(op, left, right, left_is_money, right_is_money, pos)
+
         if not isinstance(left, FelNumber) or not isinstance(right, FelNumber):
             self._diag(f"Arithmetic requires numbers, got {typeof(left)} {op} {typeof(right)}", pos)
             return FelNull
@@ -286,6 +296,68 @@ class Evaluator:
         except (decimal.InvalidOperation, decimal.Overflow) as e:
             self._diag(f"Arithmetic error: {e}", pos)
             return FelNull
+        return FelNull
+
+    def _eval_money_arithmetic(self, op: str, left: FelValue, right: FelValue,
+                               left_is_money: bool, right_is_money: bool, pos) -> FelValue:
+        """Money-aware arithmetic. At least one operand is FelMoney.
+
+        Rules:
+        - money +/- money → money (same currency required, else null)
+        - money / money → number (unit cancellation, same currency required)
+        - money * number | number * money → money
+        - money / number → money
+        - money +/- number → money
+        - money % number → money
+        - money * money, money % money → null (not meaningful)
+        - Currency mismatch → silent null (no diagnostic)
+        - Division/modulo by zero → diagnostic + null
+        """
+        ctx = decimal.Context(prec=34, rounding=decimal.ROUND_HALF_EVEN)
+
+        if left_is_money and right_is_money:
+            if left.currency != right.currency:
+                return FelNull
+            la, ra = left.amount, right.amount
+            if op == '+':
+                return FelMoney(ctx.add(la, ra), left.currency)
+            if op == '-':
+                return FelMoney(ctx.subtract(la, ra), left.currency)
+            if op == '/':
+                if ra == 0:
+                    self._diag("Division by zero", pos)
+                    return FelNull
+                return FelNumber(ctx.divide(la, ra))
+            # money * money and money % money are not meaningful
+            return FelNull
+
+        # One money, one scalar
+        m = left if left_is_money else right
+        s = right if left_is_money else left
+        if not isinstance(s, FelNumber):
+            self._diag(f"Arithmetic requires numbers, got {typeof(left)} {op} {typeof(right)}", pos)
+            return FelNull
+
+        # Multiplication is commutative
+        if op == '*':
+            return FelMoney(ctx.multiply(m.amount, s.value), m.currency)
+
+        # Remaining ops require money on the left
+        if not left_is_money:
+            return FelNull
+
+        if (op == '/' or op == '%') and s.value == 0:
+            self._diag("Division by zero" if op == '/' else "Modulo by zero", pos)
+            return FelNull
+        if op == '/':
+            return FelMoney(ctx.divide(m.amount, s.value), m.currency)
+        if op == '%':
+            return FelMoney(ctx.remainder(m.amount, s.value), m.currency)
+        if op == '+':
+            return FelMoney(ctx.add(m.amount, s.value), m.currency)
+        if op == '-':
+            return FelMoney(ctx.subtract(m.amount, s.value), m.currency)
+
         return FelNull
 
     def _eval_concat(self, left: FelValue, right: FelValue, pos) -> FelValue:
