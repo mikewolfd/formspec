@@ -7,7 +7,19 @@ import { Shell } from '../components/Shell';
 import { exampleDefinition } from '../fixtures/example-definition';
 
 export function createStudioProject(seed?: Parameters<typeof createProject>[0]): Project {
-  return createProject(seed ?? { seed: { definition: exampleDefinition as any } });
+  const project = createProject(seed ?? { seed: { definition: exampleDefinition as any } });
+
+  // Auto-generate theme.pages from definition groups if the seed didn't provide pages
+  const themePages = (project.theme as any).pages;
+  if (!themePages || themePages.length === 0) {
+    const items = (project.definition as any).items ?? [];
+    const hasGroups = items.some((item: any) => item.type === 'group');
+    if (hasGroups) {
+      project.autoGeneratePages();
+    }
+  }
+
+  return project;
 }
 
 interface StudioAppProps {
