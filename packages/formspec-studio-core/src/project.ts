@@ -291,8 +291,8 @@ export class Project {
       { type: 'component.setFieldWidget', payload: { fieldKey: key, widget: resolvedWidget } },
     ];
 
-    // textarea needs extra widgetHint
-    if (widgetAlias && isTextareaWidget(widgetAlias)) {
+    // textarea needs extra widgetHint on the component node
+    if ((widgetAlias && isTextareaWidget(widgetAlias)) || (!widgetAlias && resolved.defaultWidgetHint === 'textarea')) {
       phase2.push({
         type: 'component.setNodeProperty',
         payload: { node: { bind: key }, property: 'widgetHint', value: 'textarea' },
@@ -300,7 +300,9 @@ export class Project {
     }
 
     // Widget hint on definition for round-trip
-    const hint = widgetAlias ? widgetHintFor(widgetAlias) : widgetHintFor(resolvedWidget);
+    const hint = widgetAlias
+      ? widgetHintFor(widgetAlias)
+      : (resolved.defaultWidgetHint ?? widgetHintFor(resolvedWidget));
     if (hint) {
       phase2.push({
         type: 'definition.setItemProperty',
