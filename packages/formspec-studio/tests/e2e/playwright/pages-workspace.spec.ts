@@ -37,8 +37,8 @@ const WIZARD_THEME_SEED = {
   },
   theme: {
     pages: [
-      { id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] },
-      { id: 'p2', title: 'Step 2', regions: [{ key: 'email', span: 6 }] },
+      { id: 'p1', title: 'Step 1', regions: [{ key: 'step1', span: 12 }] },
+      { id: 'p2', title: 'Step 2', regions: [{ key: 'step2', span: 6 }] },
     ],
   },
 };

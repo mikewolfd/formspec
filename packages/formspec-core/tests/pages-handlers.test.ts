@@ -227,8 +227,8 @@ describe('pages.autoGenerate', () => {
 
     const pages = project.theme.pages as any[];
     expect(pages).toHaveLength(2);
-    expect(pages[0].regions.map((r: any) => r.key)).toEqual(['name', 'notes']);
-    expect(pages[1].regions.map((r: any) => r.key)).toEqual(['email']);
+    expect(pages[0].regions.map((r: any) => r.key)).toEqual(['basic', 'extra']);
+    expect(pages[1].regions.map((r: any) => r.key)).toEqual(['contact']);
   });
 
   it('preserves tabs mode when auto-generating pages', () => {

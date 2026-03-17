@@ -165,14 +165,13 @@ export const pagesHandlers: Record<string, CommandHandler> = {
         }
       }
 
-      // Attach to current page (if has hint) or preceding page (if no hint)
+      // Attach the group itself to the page (not its children).
+      // The reconciler distributes top-level nodes by key, so regions
+      // must reference group keys, not child keys.
       const targetHint = pageHint ?? lastPageHint;
       if (targetHint && pageMap.has(targetHint)) {
         const page = pageMap.get(targetHint)!;
-        const children = (item as any).children ?? [];
-        for (const child of children) {
-          page.regions.push({ key: child.key, span: 12 });
-        }
+        page.regions.push({ key: (item as any).key, span: 12 });
       }
     }
 
