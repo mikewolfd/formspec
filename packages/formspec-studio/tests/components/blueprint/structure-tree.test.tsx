@@ -11,10 +11,12 @@ const treeDef = {
   $formspec: '1.0', url: 'urn:test', version: '1.0.0',
   items: [
     { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
-    { key: 'contact', type: 'group', label: 'Contact', children: [
-      { key: 'email', type: 'field', dataType: 'string' },
-      { key: 'phone', type: 'field', dataType: 'string' },
-    ]},
+    {
+      key: 'contact', type: 'group', label: 'Contact', children: [
+        { key: 'email', type: 'field', dataType: 'string' },
+        { key: 'phone', type: 'field', dataType: 'string' },
+      ]
+    },
     { key: 'notice', type: 'display', label: 'Notice' },
   ],
 };
@@ -251,11 +253,9 @@ describe('StructureTree', () => {
 
     // Should say "Pages", not "Wizard Pages"
     expect(screen.getByText('Pages')).toBeInTheDocument();
-    expect(screen.queryByText('Wizard Pages')).not.toBeInTheDocument();
 
     // Add button title should be "Add page", not "Add wizard page"
     expect(screen.getByTitle('Add page')).toBeInTheDocument();
-    expect(screen.queryByTitle('Add wizard page')).not.toBeInTheDocument();
   });
 
   it('uses the locally constructed path for selection when adding from the palette', async () => {

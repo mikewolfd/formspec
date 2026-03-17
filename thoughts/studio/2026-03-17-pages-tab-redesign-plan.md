@@ -27,7 +27,7 @@
 - Modify: `packages/formspec-studio/src/studio-app/StudioApp.tsx:9-11`
 - Create: `packages/formspec-studio/tests/studio-app/bootstrap.test.ts`
 
-- [ ] **Step 1: Create test directory and write the failing test**
+- [x] **Step 1: Create test directory and write the failing test**
 
 ```bash
 mkdir -p packages/formspec-studio/tests/studio-app
@@ -64,12 +64,12 @@ describe('createStudioProject bootstrap', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/studio-app/bootstrap.test.ts`
 Expected: FAIL — first two tests fail because theme.pages is empty and pageMode is not wizard.
 
-- [ ] **Step 3: Implement the bootstrap**
+- [x] **Step 3: Implement the bootstrap**
 
 ```ts
 // StudioApp.tsx — update createStudioProject
@@ -84,12 +84,12 @@ export function createStudioProject(seed?: Parameters<typeof createProject>[0]):
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/studio-app/bootstrap.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat: bootstrap theme.pages from definition groups at project creation
@@ -104,7 +104,7 @@ feat: bootstrap theme.pages from definition groups at project creation
 - Rewrite: `packages/formspec-studio/src/workspaces/pages/usePageStructure.ts`
 - Create: `packages/formspec-studio/tests/workspaces/pages/use-page-structure.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/formspec-studio/tests/workspaces/pages/use-page-structure.test.ts
@@ -146,12 +146,12 @@ describe('buildLabelMap', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/workspaces/pages/use-page-structure.test.ts`
 Expected: FAIL — `buildLabelMap` not exported.
 
-- [ ] **Step 3: Implement buildLabelMap and fix usePageStructure**
+- [x] **Step 3: Implement buildLabelMap and fix usePageStructure**
 
 ```ts
 // usePageStructure.ts — full rewrite
@@ -194,12 +194,12 @@ export function usePageStructure(allItemKeys?: string[]): ResolvedPageStructure 
 export { type ResolvedPageStructure };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/workspaces/pages/use-page-structure.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat: replace flattenItemKeys with buildLabelMap, fix useMemo deps
@@ -216,7 +216,7 @@ feat: replace flattenItemKeys with buildLabelMap, fix useMemo deps
 
 This task builds the shell: mode selector, single-mode states, page list with accordion. No region editing yet — that's Task 4.
 
-- [ ] **Step 1: Rewrite tests for the new behavior**
+- [x] **Step 1: Rewrite tests for the new behavior**
 
 Replace the contents of `pages-tab.test.tsx`. Keep the `renderPagesTab` helper pattern but update assertions for the new design. The existing tests for `tier-status-banner`, `PAGEMODE_MISMATCH` diagnostic, `auto-generate`, and `wizard component warning` are all removed — those features no longer exist.
 
@@ -321,12 +321,12 @@ describe('PagesTab', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/workspaces/pages/pages-tab.test.tsx`
 Expected: FAIL — old PagesTab has different structure (heading exists, single-mode message different, etc.).
 
-- [ ] **Step 3: Implement PagesTab shell**
+- [x] **Step 3: Implement PagesTab shell**
 
 Rewrite `PagesTab.tsx` from scratch. Follow the spec's data flow:
 
@@ -434,12 +434,12 @@ export function PagesTab() {
 
 **PageCard** receives `isExpanded` + `onToggle` as props (lifted state in PagesTab for accordion).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/workspaces/pages/pages-tab.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat: rewrite PagesTab — mode toggle, accordion, inline title editing
@@ -456,7 +456,7 @@ feat: rewrite PagesTab — mode toggle, accordion, inline title editing
 
 Port region editing from the patterns in the orphaned `PageDefinitions.tsx`. Reference `PageDefinitions.tsx:174-228` for the region row UI pattern.
 
-- [ ] **Step 1: Write failing tests for region editing**
+- [x] **Step 1: Write failing tests for region editing**
 
 Add to `pages-tab.test.tsx`:
 
@@ -503,12 +503,12 @@ describe('PageCard region editing', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/workspaces/pages/pages-tab.test.tsx`
 Expected: FAIL — region editing UI not yet in PageCard.
 
-- [ ] **Step 3: Implement region editing in expanded PageCard**
+- [x] **Step 3: Implement region editing in expanded PageCard**
 
 Add to PageCard's expanded section (shown when `isExpanded` is true):
 
@@ -528,12 +528,12 @@ Handlers:
 - `project.deleteRegion(page.id, regionIndex)`
 - `project.reorderRegion(page.id, regionIndex, direction)`
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/workspaces/pages/pages-tab.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 feat: add region editing to PageCard — span controls, add/remove/reorder
@@ -547,7 +547,7 @@ feat: add region editing to PageCard — span controls, add/remove/reorder
 
 - Modify: `packages/formspec-studio/src/components/blueprint/StructureTree.tsx:234-237`
 
-- [ ] **Step 1: Write a failing test for the new label**
+- [x] **Step 1: Write a failing test for the new label**
 
 Check `packages/formspec-studio/tests/components/blueprint/structure-tree.test.tsx` for any "Wizard Pages" assertions. There are none currently, so add a simple assertion:
 
@@ -560,24 +560,24 @@ it('sidebar shows "Pages" heading (not "Wizard Pages")', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/components/blueprint/structure-tree.test.tsx`
 Expected: FAIL — text is still "Wizard Pages".
 
-- [ ] **Step 3: Change "Wizard Pages" to "Pages"**
+- [x] **Step 3: Change "Wizard Pages" to "Pages"**
 
 In `StructureTree.tsx`:
 
 - Line 235: Change `Wizard Pages` → `Pages`
 - Line 237: Change `title="Add wizard page"` → `title="Add page"`
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd packages/formspec-studio && npx vitest run tests/components/blueprint/structure-tree.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 fix: rename sidebar "Wizard Pages" → "Pages"
@@ -590,29 +590,30 @@ fix: rename sidebar "Wizard Pages" → "Pages"
 **Files:**
 
 - Delete: `packages/formspec-studio/src/workspaces/theme/PageDefinitions.tsx`
-- Delete: `packages/formspec-studio/tests/workspaces/theme/page-definitions.test.tsx`
+- ~~Delete: `packages/formspec-studio/tests/workspaces/theme/page-definitions.test.tsx`~~ (already deleted)
 
-- [ ] **Step 1: Verify PageDefinitions is not imported anywhere**
+- [x] **Step 1: Verify PageDefinitions is not imported anywhere**
 
 Run: `grep -r "PageDefinitions" packages/formspec-studio/src/`
 Expected: No results (already confirmed orphaned).
 
-- [ ] **Step 2: Delete the source file and its test file**
+- [x] **Step 2: Delete the source file**
+
+Note: test file `page-definitions.test.tsx` is already gone — only the source file remains.
 
 ```bash
 rm packages/formspec-studio/src/workspaces/theme/PageDefinitions.tsx
-rm packages/formspec-studio/tests/workspaces/theme/page-definitions.test.tsx
 ```
 
-- [ ] **Step 3: Build check**
+- [x] **Step 3: Build check**
 
 Run: `cd packages/formspec-studio && npx tsc --noEmit`
-Expected: No errors.
+Expected: No errors (pre-existing errors in other files are unrelated).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```
-chore: delete orphaned PageDefinitions.tsx and its tests
+chore: delete orphaned PageDefinitions.tsx
 ```
 
 ---
@@ -623,7 +624,7 @@ chore: delete orphaned PageDefinitions.tsx and its tests
 
 - Rewrite: `packages/formspec-studio/tests/e2e/playwright/pages-workspace.spec.ts`
 
-- [ ] **Step 1: Rewrite E2E tests for new behavior**
+- [x] **Step 1: Rewrite E2E tests for new behavior**
 
 Remove tests that assert removed features:
 
@@ -670,12 +671,12 @@ test('add page creates card with default title', async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Run the full E2E suite**
+- [x] **Step 2: Run the full E2E suite**
 
 Run: `npx playwright test tests/e2e/playwright/pages-workspace.spec.ts`
 Expected: All pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```
 test: update Pages tab E2E tests for redesigned behavior

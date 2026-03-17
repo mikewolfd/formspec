@@ -1352,6 +1352,72 @@ describe('setRegionKey', () => {
   });
 });
 
+describe('updateRegion — responsive overrides', () => {
+  it('sets responsive breakpoint overrides on a region', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          items: [{ key: 'sidebar', type: 'group', label: 'Sidebar', children: [] }],
+          formPresentation: { pageMode: 'wizard' },
+        } as any,
+        theme: {
+          pages: [{ id: 'p1', title: 'Page 1', regions: [{ key: 'sidebar', span: 3 }] }],
+        } as any,
+      },
+    });
+
+    project.updateRegion('p1', 0, 'responsive', { sm: { hidden: true }, md: { span: 4 } });
+
+    const page = (project.theme.pages ?? []).find((p: any) => p.id === 'p1');
+    const region = page?.regions?.[0];
+    expect(region?.responsive?.sm?.hidden).toBe(true);
+    expect(region?.responsive?.md?.span).toBe(4);
+  });
+
+  it('removes responsive overrides when set to undefined', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          items: [{ key: 'main', type: 'group', label: 'Main', children: [] }],
+          formPresentation: { pageMode: 'wizard' },
+        } as any,
+        theme: {
+          pages: [{
+            id: 'p1',
+            title: 'Page 1',
+            regions: [{ key: 'main', span: 12, responsive: { sm: { span: 12 } } }],
+          }],
+        } as any,
+      },
+    });
+
+    project.updateRegion('p1', 0, 'responsive', undefined);
+
+    const page = (project.theme.pages ?? []).find((p: any) => p.id === 'p1');
+    const region = page?.regions?.[0];
+    expect('responsive' in region).toBe(false);
+  });
+
+  it('updateRegion still sets span correctly', () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          items: [{ key: 'field1', type: 'group', label: 'Field1', children: [] }],
+          formPresentation: { pageMode: 'wizard' },
+        } as any,
+        theme: {
+          pages: [{ id: 'p1', title: 'Page 1', regions: [{ key: 'field1', span: 12 }] }],
+        } as any,
+      },
+    });
+
+    project.updateRegion('p1', 0, 'span', 6);
+
+    const page = (project.theme.pages ?? []).find((p: any) => p.id === 'p1');
+    expect(page?.regions?.[0]?.span).toBe(6);
+  });
+});
+
 describe('setFlow', () => {
   it('sets flow mode to wizard', () => {
     const project = createProject();

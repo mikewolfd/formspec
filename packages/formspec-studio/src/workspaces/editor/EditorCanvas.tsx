@@ -115,10 +115,30 @@ export function EditorCanvas() {
   // Determine which tree nodes to render (filter for paged mode)
   const displayTreeNodes: CompNode[] = useMemo(() => {
     if (!tree?.children) return [];
-    if (!hasPaged) return tree.children;
+
+    // The reconciler may build a Wizard/Tabs wrapper when theme pages exist.
+    // In that case tree.children are Page structural nodes (nodeId, no bind, no _layout)
+    // that are not in defLookup. Flatten through them to get the actual content nodes.
+    const flattenStructural = (nodes: CompNode[]): CompNode[] => {
+      const result: CompNode[] = [];
+      for (const node of nodes) {
+        if (node._layout || node.bind) {
+          result.push(node);
+        } else if (node.nodeId && !defLookup.has(node.nodeId)) {
+          // Structural wrapper (Wizard Page node) — unwrap to children
+          result.push(...flattenStructural(node.children ?? []));
+        } else {
+          result.push(node);
+        }
+      }
+      return result;
+    };
+    const flatChildren = flattenStructural(tree.children);
+
+    if (!hasPaged) return flatChildren;
     // In paged mode, show root items (non-groups) + the active page group
     const activeGroup = topLevelGroups[activePageIndex];
-    return tree.children.filter((node: CompNode) => {
+    return flatChildren.filter((node: CompNode) => {
       if (node._layout) return true; // always show layout wrappers
       if (node.bind) {
         const defEntry = defLookup.get(node.bind);

@@ -257,7 +257,7 @@ test.describe('Bug #74 — new page tab is selected after key collision rename',
 
     // Click the "Add wizard page" button in the Structure Tree sidebar
     const sidebar = page.locator('aside').first();
-    await sidebar.getByTitle('Add wizard page').click();
+    await sidebar.getByTitle('Add page').click();
 
     // After insertion, the newly added page should be the active one.
     // BUG: setActivePageKey is called with "page1" (the pre-rename key), but

@@ -343,6 +343,66 @@ describe('pages.setRegionProperty', () => {
     const region = (project.theme.pages as any[])[0].regions[0];
     expect(region.start).toBe(4);
   });
+
+  it('sets responsive overrides on a region', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
+    const pageId = (project.theme.pages as any[])[0].id;
+    project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'name', span: 12 } });
+
+    project.dispatch({
+      type: 'pages.setRegionProperty',
+      payload: {
+        pageId,
+        key: 'name',
+        property: 'responsive',
+        value: { sm: { span: 12 }, lg: { span: 6 } },
+      },
+    });
+
+    const region = (project.theme.pages as any[])[0].regions[0];
+    expect(region.responsive).toEqual({ sm: { span: 12 }, lg: { span: 6 } });
+  });
+
+  it('removes responsive overrides when value is undefined', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
+    const pageId = (project.theme.pages as any[])[0].id;
+    project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'name' } });
+    project.dispatch({
+      type: 'pages.setRegionProperty',
+      payload: { pageId, key: 'name', property: 'responsive', value: { sm: { hidden: true } } },
+    });
+
+    project.dispatch({
+      type: 'pages.setRegionProperty',
+      payload: { pageId, key: 'name', property: 'responsive', value: undefined },
+    });
+
+    const region = (project.theme.pages as any[])[0].regions[0];
+    expect('responsive' in region).toBe(false);
+  });
+
+  it('supports hidden breakpoint override on a region', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'pages.addPage', payload: { title: 'P' } });
+    const pageId = (project.theme.pages as any[])[0].id;
+    project.dispatch({ type: 'pages.assignItem', payload: { pageId, key: 'sidebar', span: 3 } });
+
+    project.dispatch({
+      type: 'pages.setRegionProperty',
+      payload: {
+        pageId,
+        key: 'sidebar',
+        property: 'responsive',
+        value: { sm: { hidden: true }, md: { span: 4 } },
+      },
+    });
+
+    const region = (project.theme.pages as any[])[0].regions[0];
+    expect(region.responsive?.sm?.hidden).toBe(true);
+    expect(region.responsive?.md?.span).toBe(4);
+  });
 });
 
 describe('pages.* handlers trigger rebuild', () => {

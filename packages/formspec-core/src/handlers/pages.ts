@@ -251,7 +251,10 @@ export const pagesHandlers: Record<string, CommandHandler> = {
 
   'pages.setRegionProperty': (state, payload) => {
     const { pageId, key, property, value } = payload as {
-      pageId: string; key: string; property: 'span' | 'start'; value: number | undefined;
+      pageId: string;
+      key: string;
+      property: 'span' | 'start' | 'responsive';
+      value: number | Record<string, unknown> | undefined;
     };
     const pages = ensurePages(state);
     const page = findPageById(pages, pageId);
