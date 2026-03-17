@@ -756,17 +756,14 @@ Recommend: defer for MVP, add API key as a follow-up.
 
 ### 5. Local dev workflow (Phase 3 + 6)
 
-No story for running the full stack locally. Need:
+`wrangler dev` runs the Python Worker locally at `localhost:8787`. Studio's lint endpoint setting just points there. Two terminals:
 
 ```bash
-# Terminal 1: Studio dev server
-cd packages/formspec-studio && npm run dev     # localhost:5173
-
-# Terminal 2: Python Worker dev server
-cd deploy-templates/cloudflare && wrangler dev  # localhost:8787
+wrangler dev                                    # localhost:8787 — Worker
+cd packages/formspec-studio && npm run dev      # localhost:5173 — Studio
 ```
 
-Or a `Procfile` / `npm run dev:full-stack` that runs both. The deploy script also needs a `--dev` mode that bundles the Python package into the template dir and runs `wrangler dev` instead of `wrangler deploy`.
+No special tooling needed. CORS (prerequisite #1) still applies since the ports differ.
 
 ### 6. `_bundled_schemas.py` generation (Phase 4)
 
