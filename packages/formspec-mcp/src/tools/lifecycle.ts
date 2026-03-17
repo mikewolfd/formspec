@@ -140,12 +140,15 @@ export function handleSave(
       );
     }
 
-    if (bundle.mapping) {
-      writeFileSync(
-        join(targetPath, `${dirName}.mapping.json`),
-        JSON.stringify(bundle.mapping, null, 2),
-        'utf-8',
-      );
+    if (bundle.mappings && Object.keys(bundle.mappings).length > 0) {
+      for (const [id, mapping] of Object.entries(bundle.mappings)) {
+        const suffix = id === 'default' ? '' : `.${id}`;
+        writeFileSync(
+          join(targetPath, `${dirName}${suffix}.mapping.json`),
+          JSON.stringify(mapping, null, 2),
+          'utf-8',
+        );
+      }
     }
 
     return successResponse({ saved: true, path: targetPath });
