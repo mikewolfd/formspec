@@ -1,3 +1,4 @@
+/** @filedesc Maps spec widget tokens to concrete component type names. */
 const KNOWN_COMPONENT_TYPES = new Set([
     'TextInput', 'NumberInput', 'Select', 'Toggle', 'Checkbox',
     'DatePicker', 'RadioGroup', 'CheckboxGroup', 'Slider', 'Rating',
