@@ -18,11 +18,9 @@ export function WidgetHintSection({
 }) {
   const widgets = compatibleWidgets(item.type, item.dataType);
   const defaultWidget = widgets[0] ?? '';
-  const treeWidget = project.componentFor(item.key)?.component as string | undefined;
   const hintWidget = componentForWidgetHint((item.presentation as any)?.widgetHint);
-  const currentWidget = treeWidget && treeWidget !== defaultWidget
-    ? treeWidget
-    : hintWidget || treeWidget || defaultWidget;
+  const treeWidget = project.componentFor(item.key)?.component as string | undefined;
+  const currentWidget = hintWidget || treeWidget || defaultWidget;
 
   if (widgets.length < 2) return null;
 

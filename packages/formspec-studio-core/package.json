@@ -12,7 +12,6 @@
   "dependencies": {
     "formspec-core": "*",
     "formspec-engine": "*",
-    "formspec-layout": "*",
     "formspec-types": "*"
   },
   "devDependencies": {

@@ -12,6 +12,15 @@
 // Re-export everything from generated schemas
 export * from './generated/index.js';
 
+// Widget vocabulary — canonical widget ↔ component mappings
+export {
+  KNOWN_COMPONENT_TYPES,
+  SPEC_WIDGET_TO_COMPONENT,
+  COMPONENT_TO_HINT,
+  COMPATIBILITY_MATRIX,
+  widgetTokenToComponent,
+} from './widget-vocabulary.js';
+
 // Backwards-compatible aliases (consumers use Form-prefixed names)
 export type { Shape as FormShape } from './generated/definition.js';
 export type { Variable as FormVariable } from './generated/definition.js';

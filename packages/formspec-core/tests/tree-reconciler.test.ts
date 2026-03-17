@@ -104,6 +104,91 @@ describe('reconcileComponentTree', () => {
     expect(tree.children[0].placeholder).toBe('Enter email');
   });
 
+  it('honors widgetHint when building new nodes', () => {
+    const definition = {
+      items: [
+        {
+          key: 'marital',
+          type: 'field',
+          dataType: 'choice',
+          options: [{ value: 'single', label: 'Single' }, { value: 'married', label: 'Married' }],
+          presentation: { widgetHint: 'radio' },
+        },
+        {
+          key: 'agreed',
+          type: 'field',
+          dataType: 'boolean',
+          presentation: { widgetHint: 'checkbox' },
+        },
+      ],
+    } as any;
+
+    const tree = reconcileComponentTree(definition, undefined, {});
+    // widgetHint: 'radio' → RadioGroup, not the default Select
+    expect(tree.children[0].component).toBe('RadioGroup');
+    // widgetHint: 'checkbox' → Checkbox, not the default Toggle
+    expect(tree.children[1].component).toBe('Checkbox');
+  });
+
+  it('falls back to defaultComponentType when no widgetHint', () => {
+    const definition = {
+      items: [
+        { key: 'color', type: 'field', dataType: 'choice' },
+      ],
+    } as any;
+
+    const tree = reconcileComponentTree(definition, undefined, {});
+    expect(tree.children[0].component).toBe('Select');
+  });
+
+  it('updates existing node component when widgetHint changes', () => {
+    const definition = {
+      items: [
+        {
+          key: 'marital',
+          type: 'field',
+          dataType: 'choice',
+          presentation: { widgetHint: 'radio' },
+        },
+      ],
+    } as any;
+
+    // Existing tree has Select (stale — before widgetHint was set)
+    const existing = {
+      component: 'Stack',
+      nodeId: 'root',
+      children: [{ component: 'Select', bind: 'marital' }],
+    };
+
+    const tree = reconcileComponentTree(definition, existing, {});
+    // Should update to RadioGroup based on widgetHint, not keep stale Select
+    expect(tree.children[0].component).toBe('RadioGroup');
+  });
+
+  it('preserves existing node component when widgetHint matches', () => {
+    const definition = {
+      items: [
+        {
+          key: 'color',
+          type: 'field',
+          dataType: 'choice',
+          presentation: { widgetHint: 'dropdown' },
+        },
+      ],
+    } as any;
+
+    const existing = {
+      component: 'Stack',
+      nodeId: 'root',
+      children: [{ component: 'Select', bind: 'color', customProp: true }],
+    };
+
+    const tree = reconcileComponentTree(definition, existing, {});
+    // Should keep Select (matches widgetHint 'dropdown' → Select) and preserve customProp
+    expect(tree.children[0].component).toBe('Select');
+    expect(tree.children[0].customProp).toBe(true);
+  });
+
   it('removes nodes for deleted items', () => {
     const definition = { items: [] } as any;
     const existing = {

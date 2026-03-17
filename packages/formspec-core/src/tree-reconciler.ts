@@ -1,4 +1,5 @@
 import type { FormDefinition, FormItem } from 'formspec-types';
+import { widgetTokenToComponent } from 'formspec-types';
 import type { ThemeState } from './types.js';
 
 /** Component tree node shape used in generated layout documents. */
@@ -136,10 +137,15 @@ export function reconcileComponentTree(
       }
     } else {
       const existing = existingBound.get(itemPath);
+      const hintComponent = widgetTokenToComponent((item as any).presentation?.widgetHint);
       if (existing) {
         node = { ...existing };
+        // Update component if widgetHint resolves to a different component
+        if (hintComponent && existing.component !== hintComponent) {
+          node.component = hintComponent;
+        }
       } else {
-        node = { component: defaultComponentType(item), bind: item.key };
+        node = { component: hintComponent ?? defaultComponentType(item), bind: item.key };
       }
     }
 
