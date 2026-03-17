@@ -37,6 +37,7 @@ const INCLUDE_EXTENSIONS = new Set([
 const EXCLUDE_DIRS = new Set([
   'node_modules', '.git', 'dist', '__pycache__', 'build', '.venv',
   '.mypy_cache', '.pytest_cache', '.tox', 'coverage', '.firebase',
+  'archived',           // Dead code (superseded by formspec-studio)
 ]);
 
 const EXCLUDE_PATTERNS = [
@@ -54,6 +55,19 @@ const EXCLUDE_PATTERNS = [
   /vite\.config/,       // Build config
   /playwright\.config/, // Test config
   /filemap\.json$/,     // Our own output
+  /\.bluf\.md$/,        // BLUF summaries (injected into specs, not standalone)
+  /\.semantic\.md$/,    // Semantic capsules (generated artifacts)
+  /\.response\.json$/,  // Test fixture response files
+  /\.instance\.json$/,  // Test fixture instance files
+  /fixtures\/.*\.json$/, // Test fixture JSON data
+  /firebase\.json$/,    // Firebase config
+  /__init__\.py$/,      // Python package markers (trivial)
+  /tests\/conformance\/suite\/.*\.json$/, // Conformance test cases
+  /examples\/.*\.(mapping|changelog|instance|component)\.json$/, // Example data artifacts
+  /examples\/.*\/instances\/.*\.json$/, // Example instance data
+  /examples\/.*\/mapping.*\.json$/,     // Example mapping configs
+  /examples\/.*\/changelog\.json$/,     // Example changelogs
+  /thoughts\/research\/prompt\.md$/,    // Scratch prompt files
 ];
 
 // ---------------------------------------------------------------------------
@@ -118,11 +132,12 @@ function extractTS(content) {
 
 /** Extract the first line of a Python module docstring. */
 function extractPython(content) {
-  // Match triple-quoted docstring at the start of the file
-  const match = content.match(/^(?:#!.*\n)?(?:#.*\n)*\s*(?:"""(.+?)(?:"""|\.?\n)|'''(.+?)(?:'''|\.?\n))/s);
+  // Strip shebang and leading comments, then find the first triple-quoted string
+  const stripped = content.replace(/^#!.*\n/, '').replace(/^#.*\n/gm, '').trimStart();
+  const match = stripped.match(/^(?:"""|''')([\s\S]*?)(?:"""|''')/);
   if (match) {
-    const raw = (match[1] || match[2] || '').split('\n')[0];
-    return cleanDesc(raw);
+    const firstLine = match[1].trim().split('\n')[0].replace(/\.\s*$/, '');
+    if (firstLine) return cleanDesc(firstLine);
   }
   return null;
 }
@@ -161,8 +176,15 @@ function extractCSS(content) {
   return null;
 }
 
-/** Extract first heading from Markdown. */
+/** Extract first heading or YAML frontmatter title from Markdown. */
 function extractMarkdown(content) {
+  // Check for YAML frontmatter title first
+  const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (fmMatch) {
+    const titleMatch = fmMatch[1].match(/^title:\s*["']?(.+?)["']?\s*$/m);
+    if (titleMatch) return cleanDesc(titleMatch[1]);
+  }
+  // Fall back to first heading
   const match = content.match(/^#\s+(.+)/m);
   if (match) return cleanDesc(match[1]);
   return null;
