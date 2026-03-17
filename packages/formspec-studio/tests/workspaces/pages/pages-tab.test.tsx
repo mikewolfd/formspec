@@ -2,6 +2,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
+import { ActivePageProvider, useActivePage } from '../../../src/state/useActivePage';
 import { PagesTab } from '../../../src/workspaces/pages/PagesTab';
 
 const BASE_DEF = {
@@ -23,7 +24,9 @@ function renderPagesTab(overrides?: {
   });
   const result = render(
     <ProjectProvider project={project}>
-      <PagesTab />
+      <ActivePageProvider>
+        <PagesTab />
+      </ActivePageProvider>
     </ProjectProvider>,
   );
   return { ...result, project };
@@ -421,5 +424,122 @@ describe('Unassigned items section', () => {
   it('hides unassigned section in single mode with no pages', () => {
     renderPagesTab(); // single mode, no pages
     expect(screen.queryByText('Unassigned')).not.toBeInTheDocument();
+  });
+});
+
+// ── FF10: Sidebar ↔ Pages tab sync ────────────────────────────────────
+
+/** Renders PagesTab inside a shared ActivePageProvider and exposes activePageKey via a spy element. */
+function ActivePageSpy() {
+  const { activePageKey } = useActivePage();
+  return <div data-testid="active-page-spy" data-key={activePageKey ?? ''} />;
+}
+
+function renderPagesTabWithSync(overrides?: {
+  definition?: Record<string, unknown>;
+  theme?: Record<string, unknown>;
+}) {
+  const project = createProject({
+    seed: {
+      definition: { ...BASE_DEF, ...overrides?.definition } as any,
+      theme: overrides?.theme as any,
+    },
+  });
+  let setActivePageKey: ((key: string | null) => void) | null = null;
+
+  function ActivePageSetter({ children }: { children: React.ReactNode }) {
+    const ctx = useActivePage();
+    setActivePageKey = ctx.setActivePageKey;
+    return <>{children}</>;
+  }
+
+  const result = render(
+    <ProjectProvider project={project}>
+      <ActivePageProvider>
+        <ActivePageSetter>
+          <ActivePageSpy />
+          <PagesTab />
+        </ActivePageSetter>
+      </ActivePageProvider>
+    </ProjectProvider>,
+  );
+  return { ...result, project, getSetActivePageKey: () => setActivePageKey! };
+}
+
+describe('FF10 — Sidebar ↔ Pages tab sync', () => {
+  const WIZARD_DEF = { formPresentation: { pageMode: 'wizard' } };
+
+  // Fixture: two pages where the group key matches the page ID (addPage convention)
+  // To keep tests deterministic, seed the pages directly with known group keys as region keys
+  function makeWizardSeed() {
+    // page_a and page_b are both definition groups AND used as region keys on their pages
+    return {
+      definition: {
+        ...WIZARD_DEF,
+        items: [
+          { key: 'page_a', type: 'group', label: 'Page A', children: [] },
+          { key: 'page_b', type: 'group', label: 'Page B', children: [] },
+        ],
+      } as any,
+      theme: {
+        pages: [
+          { id: 'page_a', title: 'Page A', regions: [{ key: 'page_a', span: 12 }] },
+          { id: 'page_b', title: 'Page B', regions: [{ key: 'page_b', span: 12 }] },
+        ],
+      } as any,
+    };
+  }
+
+  it('expanding a card sets activePageKey to the group key for that page', async () => {
+    const seed = makeWizardSeed();
+    const { getSetActivePageKey } = renderPagesTabWithSync(seed);
+
+    // spy starts empty
+    expect(screen.getByTestId('active-page-spy').dataset.key).toBe('');
+
+    // Expand the second page card (Page B)
+    const expandBtns = screen.getAllByRole('button', { expanded: false });
+    await act(async () => {
+      // Both are collapsed; expand the second one (index 1)
+      expandBtns[1].click();
+    });
+
+    // activePageKey should now be page_b (the group key for Page B)
+    const spy = screen.getByTestId('active-page-spy');
+    expect(spy.dataset.key).toBe('page_b');
+  });
+
+  it('changing activePageKey externally auto-expands the matching card', async () => {
+    const seed = makeWizardSeed();
+    const { getSetActivePageKey } = renderPagesTabWithSync(seed);
+
+    // Simulate sidebar click: set active page to page_b
+    await act(async () => {
+      getSetActivePageKey()('page_b');
+    });
+
+    // Page B card should now be expanded (aria-expanded=true on the toggle button)
+    const expanded = screen.queryByRole('button', { expanded: true });
+    expect(expanded).toBeInTheDocument();
+  });
+
+  it('collapsing a card does not clear activePageKey', async () => {
+    const seed = makeWizardSeed();
+    const { getSetActivePageKey } = renderPagesTabWithSync(seed);
+
+    // Set active page externally
+    await act(async () => {
+      getSetActivePageKey()('page_a');
+    });
+
+    // Now collapse the card by clicking expand toggle again
+    const expanded = screen.getByRole('button', { expanded: true });
+    await act(async () => {
+      expanded.click();
+    });
+
+    // activePageKey should remain page_a (don't clear on collapse)
+    const spy = screen.getByTestId('active-page-spy');
+    expect(spy.dataset.key).toBe('page_a');
   });
 });

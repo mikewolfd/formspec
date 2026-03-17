@@ -6,7 +6,7 @@ interface ActivePageState {
   setActivePageKey: (key: string | null) => void;
 }
 
-const ActivePageContext = createContext<ActivePageState | null>(null);
+export const ActivePageContext = createContext<ActivePageState | null>(null);
 
 export function ActivePageProvider({ children }: { children: ReactNode }) {
   const [activePageKey, setActivePageKeyRaw] = useState<string | null>(null);

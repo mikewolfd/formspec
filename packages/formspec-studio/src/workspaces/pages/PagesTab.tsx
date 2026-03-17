@@ -1,9 +1,19 @@
 /** @filedesc Pages workspace tab for managing wizard pages, regions, and page-level diagnostics. */
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useContext } from 'react';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
 import { usePageStructure } from './usePageStructure';
 import { useProject } from '../../state/useProject';
+import { ActivePageContext } from '../../state/useActivePage';
+import { useDefinition } from '../../state/useDefinition';
 import type { ResolvedPage } from 'formspec-studio-core';
+
+/** Returns the definition group key that backs a theme page, by finding a region key that is a root group. */
+function groupKeyForPage(page: ResolvedPage, rootGroupKeys: Set<string>): string | null {
+  for (const region of page.regions ?? []) {
+    if (rootGroupKeys.has(region.key)) return region.key;
+  }
+  return null;
+}
 
 // ── ModeSelector ──────────────────────────────────────────────────────
 
@@ -391,6 +401,44 @@ export function PagesTab() {
   const [expandedPageId, setExpandedPageId] = useState<string | null>(null);
 
   const { structure, labelMap } = usePageStructure();
+  const definition = useDefinition();
+
+  // FF10: Sidebar ↔ PagesTab sync. Context is null when no provider is mounted
+  // (e.g. isolated unit tests). All operations guard with `if (!activePageCtx)`.
+  const activePageCtx = useContext(ActivePageContext);
+
+  // Build a set of root-level group keys for the groupKeyForPage lookup
+  const rootGroupKeys = useCallback(() => {
+    const items = (definition.items ?? []) as Array<{ key: string; type: string }>;
+    return new Set(items.filter((i) => i.type === 'group').map((i) => i.key));
+  }, [definition.items]);
+
+  // When activePageKey changes externally (sidebar click), find the matching page and expand it
+  useEffect(() => {
+    if (!activePageCtx) return;
+    const { activePageKey } = activePageCtx;
+    if (!activePageKey) return;
+    const keys = rootGroupKeys();
+    const matchingPage = structure.pages.find((p) => groupKeyForPage(p, keys) === activePageKey);
+    if (matchingPage && matchingPage.id !== expandedPageId) {
+      setExpandedPageId(matchingPage.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePageCtx?.activePageKey]);
+
+  const handleTogglePage = useCallback((pageId: string) => {
+    const nextId = expandedPageId === pageId ? null : pageId;
+    setExpandedPageId(nextId);
+    // Sync sidebar: set activePageKey to the group key for the expanded page
+    if (nextId && activePageCtx) {
+      const keys = rootGroupKeys();
+      const page = structure.pages.find((p) => p.id === nextId);
+      if (page) {
+        const groupKey = groupKeyForPage(page, keys);
+        if (groupKey) activePageCtx.setActivePageKey(groupKey);
+      }
+    }
+  }, [expandedPageId, activePageCtx, structure.pages, rootGroupKeys]);
 
   const isSingle = structure.mode === 'single';
   const hasPages = structure.pages.length > 0;
@@ -432,9 +480,7 @@ export function PagesTab() {
                   total={structure.pages.length}
                   labelMap={labelMap}
                   isExpanded={expandedPageId === page.id}
-                  onToggle={() =>
-                    setExpandedPageId(expandedPageId === page.id ? null : page.id)
-                  }
+                  onToggle={() => handleTogglePage(page.id)}
                   onDelete={() => project.removePage(page.id)}
                   onMoveUp={() => project.reorderPage(page.id, 'up')}
                   onMoveDown={() => project.reorderPage(page.id, 'down')}
@@ -458,7 +504,12 @@ export function PagesTab() {
             aria-label="Add page"
             onClick={() => {
               const result = project.addPage('New Page');
-              if (result.createdId) setExpandedPageId(result.createdId);
+              if (result.createdId) {
+                setExpandedPageId(result.createdId);
+                // Sync sidebar to the new page's group key
+                const groupKey = result.affectedPaths[0];
+                if (groupKey && activePageCtx) activePageCtx.setActivePageKey(groupKey);
+              }
             }}
             className="text-[11px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
           >
