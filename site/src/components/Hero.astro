@@ -495,6 +495,7 @@
 
 <script>
   import { FormspecRender } from 'formspec-webcomponent';
+  import registry from '../../../registries/formspec-common.registry.json';
 
   if (!customElements.get('formspec-render')) {
     customElements.define('formspec-render', FormspecRender);
@@ -516,7 +517,10 @@
           { "value": "tribal", "label": "Tribal Organization" }
         ]
       },
-      { "type": "field", "key": "ein", "dataType": "string", "label": "EIN" },
+      {
+        "type": "field", "key": "ein", "dataType": "string",
+        "label": "EIN", "extensions": { "x-formspec-ein": true }
+      },
       { "type": "field", "key": "amount", "dataType": "money", "label": "Request Amount" },
       { "type": "field", "key": "duration", "dataType": "number", "label": "Duration (months)" },
       { "type": "field", "key": "budget", "dataType": "money", "label": "Monthly Budget" }
@@ -561,6 +565,7 @@
     if (!form) return;
     def.$formspec = def.$formspec || '1.0';
     def.url = def.url || 'https://formspec.dev/demo/grant-application';
+    form.registryDocuments = registry;
     form.componentDocument = buildComponentDoc(def);
     form.definition = def;
   }
@@ -573,7 +578,7 @@
       const engine = form?.getEngine?.();
       if (engine) {
         engine.setValue('org_type', 'nonprofit');
-        engine.setValue('ein', '47-1234567');
+        engine.setValue('ein', '47-0123456');
         engine.setValue('amount', { amount: 100000, currency: 'USD' });
         engine.setValue('duration', 12);
       }
