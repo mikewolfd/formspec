@@ -70,73 +70,64 @@ import {
   diagnose as _diagnose,
   diffFromBaseline as _diffFromBaseline,
   previewChangelog as _previewChangelog,
+  previewMapping as _previewMapping,
   listRegistries as _listRegistries,
   browseExtensions as _browseExtensions,
   resolveExtension as _resolveExtension,
 } from './queries/index.js';
+import { itemAtPath } from 'formspec-engine';
 
 /** Components that manage their own group path binding and MUST keep their bind on export. */
 const SELF_MANAGED_GROUP_BINDS = new Set(['Accordion', 'DataTable']);
 
 /**
- * Walk a definition item tree to find an item by dotted path.
- * Supports nested groups: 'group1.group2.field'.
- */
-function findItemByPath(items: any[], path: string): any | null {
-  const segments = path.split('.');
-  let current: any[] = items;
-  let found: any = null;
-  for (const seg of segments) {
-    found = current.find((x: any) => x.key === seg);
-    if (!found) return null;
-    current = found.children ?? [];
-  }
-  return found;
-}
-
-/**
  * Strip internal Studio properties from a component tree node and normalize
  * bind values to absolute dot-paths for export.
  *
- * - `nodeId` and `_layout` are always removed (internal authoring props).
- * - For layout/container nodes bound to a group item: bind is removed and the
- *   group path is used as the prefix for all descendant bind values.
- * - For input/display nodes: bind is converted to the full absolute path.
+ * - `nodeId` and `_layout` are always removed (they fail `unevaluatedProperties: false`
+ *   schema validation — they are authoring-time identifiers, never part of the wire format).
+ * - For non-self-managed layout/container nodes bound to a group item: bind is removed and
+ *   the group path becomes the prefix for all descendant bind values.
+ * - For input/display/self-managed nodes: bind is converted to the full absolute path.
+ * - If bind references a path not found in the definition, it is kept as-is at the
+ *   absolute path (orphaned binds are preserved rather than silently dropped).
  */
 function cleanTreeForExport(
   node: Record<string, unknown>,
-  definition: { items: any[] },
+  definition: { items: FormItem[] },
   prefix: string,
 ): Record<string, unknown> {
-  // Strip internal-only properties
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { nodeId: _nodeId, _layout: _lay, ...rest } = node;
+  // Strip schema-undefined internal properties (nodeId, _layout fail unevaluatedProperties: false)
+  const { nodeId: _nodeId, _layout: _lay, bind: bindKey, children, ...base } = node;
 
-  const bindKey = rest.bind as string | undefined;
-  const component = rest.component as string;
+  const component = base.component as string | undefined;
+  let output: Record<string, unknown>;
   let childPrefix = prefix;
 
   if (bindKey) {
-    const fullPath = prefix ? `${prefix}.${bindKey}` : bindKey;
-    const item = findItemByPath(definition.items, fullPath);
+    const fullPath = prefix ? `${prefix}.${String(bindKey)}` : String(bindKey);
+    const item = itemAtPath(definition.items, fullPath);
 
-    if (item?.type === 'group' && !SELF_MANAGED_GROUP_BINDS.has(component)) {
-      // Non-self-managed group container: strip bind, propagate full path to children
-      delete rest.bind;
+    if (item?.type === 'group' && !SELF_MANAGED_GROUP_BINDS.has(component ?? '')) {
+      // Non-self-managed group container: omit bind entirely, propagate full path to children
+      output = { ...base };
       childPrefix = fullPath;
     } else {
-      // Input, display, or self-managed group component: use absolute path
-      rest.bind = fullPath;
+      // Input, display, or self-managed group component: use absolute path.
+      // Unresolved binds (item not found) are also kept at their absolute path.
+      output = { ...base, bind: fullPath };
     }
+  } else {
+    output = { ...base };
   }
 
-  if (Array.isArray(rest.children)) {
-    rest.children = rest.children.map((child: unknown) =>
+  if (Array.isArray(children)) {
+    output.children = children.map((child: unknown) =>
       cleanTreeForExport(child as Record<string, unknown>, definition, childPrefix)
     );
   }
 
-  return rest;
+  return output;
 }
 
 /**
@@ -296,6 +287,9 @@ export class RawProject implements IProjectCore {
   browseExtensions(filter?: ExtensionFilter): Record<string, unknown>[] { return _browseExtensions(this._state, filter); }
   diffFromBaseline(fromVersion?: string): Change[] { return _diffFromBaseline(this._state, fromVersion); }
   previewChangelog(): FormspecChangelog { return _previewChangelog(this._state); }
+  previewMapping(params: import('./types.js').MappingPreviewParams): import('./types.js').MappingPreviewResult {
+    return _previewMapping(this._state, params);
+  }
   diagnose(): Diagnostics { return _diagnose(this._state, this._schemaValidator); }
 
   // ── Export ──────────────────────────────────────────────────────
@@ -304,7 +298,7 @@ export class RawProject implements IProjectCore {
     const url = this._state.definition.url;
     const effectiveComponent = getCurrentComponentDocument(this._state);
     const { tree, 'x-studio-generated': _, ...restComponent } = effectiveComponent as Record<string, unknown>;
-    const cleanedTree = tree ? cleanTreeForExport(tree as Record<string, unknown>, this._state.definition as any, '') : null;
+    const cleanedTree = tree ? cleanTreeForExport(tree as Record<string, unknown>, this._state.definition, '') : null;
     const { targetDefinition: themeTarget, ...restTheme } = this._state.theme;
     const { rules, targetSchema, definitionRef, definitionVersion, ...restMapping } = this._state.mapping;
     return structuredClone({
