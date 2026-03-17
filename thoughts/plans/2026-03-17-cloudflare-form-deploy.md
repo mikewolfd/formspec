@@ -36,7 +36,7 @@ Cloudflare (single project)
 - `run_worker_first = ["/api/*"]` routes API calls to the Python Worker
 - Worker runs `DefinitionEvaluator.process()` for server-side validation
 - Worker optionally stores validated submissions in D1 (Cloudflare's SQLite)
-- Everything deploys with `pywrangler deploy`
+- Everything deploys with `wrangler deploy`
 
 ---
 
@@ -341,7 +341,7 @@ async def health():
 - The **entire** `formspec` package can run in the Worker — it's pure Python with no C extensions
 - External deps (`jsonschema`, `referencing`, `pydantic`) are all pure Python and available in Pyodide
 - Only change needed: `SchemaValidator` in `validator/schema.py` reads schemas from disk via `_schemas_dir()` / `_load_schema()`. Fix: add an alternate constructor that accepts pre-loaded schema dicts, or bundle the JSON schemas as Python dicts in a `_bundled_schemas.py` module
-- Use `pywrangler` which bundles packages into the Worker automatically
+- Use `wrangler` which bundles packages into the Worker automatically
 - Add `formspec` as a local dependency in `requirements.txt`, or copy the source files into the Worker's `src/` directory
 - This means the Worker gets the **full pipeline**: evaluator, FEL, mapping, adapters, linter, schema validation, registry — everything the reference server does
 
@@ -387,7 +387,7 @@ class SchemaValidator:
 3. Copy formspec Python package into temp/src/formspec/
 4. Generate temp/src/_bundled_schemas.py from schemas/*.json (Python dicts)
 5. Move static output to temp/public/
-6. Run `pywrangler deploy` (or `wrangler deploy`) in temp/
+6. Run `wrangler deploy` (or `wrangler deploy`) in temp/
 7. Print live URL
 ```
 
@@ -407,7 +407,7 @@ node scripts/deploy-cloudflare.mjs ./examples/grant-application
 2. `wrangler` CLI authenticated (`wrangler login`)
 3. Optionally: `wrangler d1 create formspec-submissions` for persistence
 
-**Estimated effort:** Medium. Mostly glue code, but needs testing of the `pywrangler` deploy flow.
+**Estimated effort:** Medium. Mostly glue code, but needs testing of the `wrangler` deploy flow.
 
 ---
 
@@ -697,6 +697,41 @@ el.addEventListener('formspec-submit', async (e) => {
   });
 });
 ```
+
+---
+
+## Plan Review Findings (2026-03-17)
+
+Critical issues identified during Opus review of the plan:
+
+### BLOCKER: Pydantic v2 incompatible with Pyodide
+
+Pydantic v2 uses `pydantic-core` (Rust extension) which will NOT run on Pyodide/Python Workers. Options:
+- **Option A (recommended):** Drop Pydantic. Use plain dataclasses or TypedDict for request/response models. FastAPI supports these natively.
+- **Option B:** Pin `pydantic<2` (v1 is pure Python but deprecated).
+
+### BLOCKER: CPU time limits
+
+10ms free tier CPU limit is unrealistic for evaluator + FEL + linting. Default `wrangler.jsonc` to **Unbound** usage model (30s CPU, 400ms billing granularity). Don't treat Unbound as a fallback — it's the baseline.
+
+### Other findings
+
+- **`wrangler` doesn't exist** — references should all say `wrangler`. Python Workers use standard wrangler + `compatibility_flags: ["python_workers"]`.
+- **No D1 migration step** — Phase 5 defines SQL schema but no phase runs `wrangler d1 execute` to apply it.
+- **Lint endpoint over-designed** — don't loop over each document type separately. Just `lint(definition, component_definition=component, registry_documents=[registry])` once.
+- **No success UI** — generated index.html has `// TODO: success UI`. Needs at minimum a confirmation message.
+- **Rate limiting** — open endpoints + non-trivial compute = abuse risk. Free tier has no rate limiting. Known risk.
+- **CSS extraction** — Vite library mode may not extract CSS to a separate file. May need `vite-plugin-css-injected-by-js` or explicit config.
+- **Snapshot risk** — if any formspec module does filesystem access at import time, Python Worker snapshots will fail and cold starts will be very slow.
+
+### Recommended execution order
+
+**Spike Phase 3 first** (2-hour proof of concept):
+1. Minimal Python Worker with FastAPI + `formspec.evaluator` + `jsonschema`
+2. Prove it loads, prove evaluation completes within CPU limits
+3. This de-risks the entire plan before investing in Phases 1-2
+
+Then: Phase 1 → Phase 2 → Phase 4 → Phase 5 and 6 in parallel.
 
 ---
 
