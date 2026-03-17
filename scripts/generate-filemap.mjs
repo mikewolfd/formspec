@@ -132,8 +132,9 @@ function extractTS(content) {
 
 /** Extract the first line of a Python module docstring. */
 function extractPython(content) {
-  // Strip shebang and leading comments, then find the first triple-quoted string
-  const stripped = content.replace(/^#!.*\n/, '').replace(/^#.*\n/gm, '').trimStart();
+  // Strip shebang, then skip leading comment lines and blank lines to find module docstring
+  let stripped = content.replace(/^#!.*\n/, '');
+  stripped = stripped.replace(/^(?:#[^\n]*\n|\s*\n)*/m, '').trimStart();
   const match = stripped.match(/^(?:"""|''')([\s\S]*?)(?:"""|''')/);
   if (match) {
     const firstLine = match[1].trim().split('\n')[0].replace(/\.\s*$/, '');
