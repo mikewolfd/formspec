@@ -1,3 +1,4 @@
+/** @filedesc Top navigation header with workspace tab bar and actions (new, import, export, search). */
 import { useProject } from '../state/useProject';
 import { useProjectState } from '../state/useProjectState';
 
