@@ -704,6 +704,22 @@ el.addEventListener('formspec-submit', async (e) => {
 
 Critical issues identified during Opus review of the plan:
 
+### BLOCKER: `rpds-py` is a Rust extension — `jsonschema` won't import
+
+The claim that "jsonschema and referencing are both pure Python" is **wrong**. The dependency chain is:
+```
+jsonschema → referencing → rpds-py (Rust extension, built with maturin)
+```
+`rpds-py` is NOT in Pyodide's built-in packages and has no pre-built Emscripten/WASM wheel. This means `from jsonschema import Draft202012Validator` will fail on a Python Worker.
+
+**Options:**
+- **Option A:** Run schema validation only on the evaluator/FEL/mapping pipeline (which has ZERO external deps). Skip `SchemaValidator` in the Worker entirely — it's an authoring-time lint, not a runtime need.
+- **Option B:** Build an Emscripten wheel for `rpds-py` via maturin + pyodide-build. Feasible but non-trivial.
+- **Option C:** Use an older `jsonschema<4.18` which depended on `pyrsistent` instead of `rpds-py` — but `pyrsistent` is also a C extension with the same problem.
+- **Option D:** Vendor a pure-Python fallback for the `rpds` data structures used by `referencing`.
+
+**Recommendation:** Option A for MVP. The evaluator, FEL, mapping, and adapters are all pure Python with zero external deps. Schema validation is a nice-to-have in the Worker — the real value is server-side FEL evaluation and response processing.
+
 ### BLOCKER: Pydantic v2 incompatible with Pyodide
 
 Pydantic v2 uses `pydantic-core` (Rust extension) which will NOT run on Pyodide/Python Workers. Options:
@@ -723,6 +739,10 @@ Pydantic v2 uses `pydantic-core` (Rust extension) which will NOT run on Pyodide/
 - **Rate limiting** — open endpoints + non-trivial compute = abuse risk. Free tier has no rate limiting. Known risk.
 - **CSS extraction** — Vite library mode may not extract CSS to a separate file. May need `vite-plugin-css-injected-by-js` or explicit config.
 - **Snapshot risk** — if any formspec module does filesystem access at import time, Python Worker snapshots will fail and cold starts will be very slow.
+- **`SchemaValidator` proposed fix is incomplete** — the `preloaded_schemas` branch only sets `self.schemas` but skips building `self.validators`, the `referencing.Registry`, and all component-specific infrastructure (lines 183-247 in `schema.py`). It would crash at runtime. The fix must replicate the full init path.
+- **Lint endpoint context mismatch** — for theme linting, `lint_theme_semantics(document, definition_doc=...)` expects the definition document, but the plan passes `request.component` as `component_definition`. Wrong parameter for the wrong document type.
+- **Missing Phase 1 deps** — `formspec-layout` and `formspec-types` packages are not mentioned but are dependencies of the webcomponent/engine. The Vite bundle must inline them.
+- **No D1 migration step** — Phase 5 defines SQL DDL but no phase applies it. Need `wrangler d1 execute` or `wrangler d1 migrations apply`.
 
 ### Recommended execution order
 
