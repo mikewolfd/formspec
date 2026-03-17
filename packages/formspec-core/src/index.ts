@@ -63,4 +63,6 @@ export type {
   Diagnostic,
   Diagnostics,
   ResponseSchemaRow,
+  MappingPreviewParams,
+  MappingPreviewResult,
 } from './types.js';

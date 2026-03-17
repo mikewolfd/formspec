@@ -146,8 +146,10 @@ export interface ProjectState {
   generatedComponent: GeneratedLayoutState;
   /** Visual presentation content: tokens, defaults, selectors, page layout. */
   theme: ThemeState;
-  /** Mapping content: rules, targetSchema, adapters, etc. */
-  mapping: MappingState;
+  /** Named mapping collection: rules, targetSchema, adapters, etc. keyed by unique ID. */
+  mappings: Record<string, MappingState>;
+  /** ID of the mapping currently being edited in the UI. */
+  selectedMappingId?: string;
   /** Loaded extension registries providing custom types, functions, and constraints. */
   extensions: ExtensionsState;
   /** Baseline snapshot and release history for changelog generation. */
@@ -311,8 +313,10 @@ export interface ProjectStatistics {
   expressionCount: number;
   /** Number of nodes in the component tree. */
   componentNodeCount: number;
-  /** Number of mapping rules. */
-  mappingRuleCount: number;
+  /** Total number of mapping rules across all integrations. */
+  totalMappingRuleCount: number;
+  /** Number of distinct mapping documents. */
+  mappingCount: number;
   /** Number of fields in the screener (0 if no screener or disabled). */
   screenerFieldCount: number;
   /** Number of routing rules in the screener (0 if no screener or disabled). */
@@ -330,8 +334,8 @@ export interface ProjectBundle {
   component: ComponentDocument;
   /** The theme (presentation) artifact. */
   theme: ThemeDocument;
-  /** The mapping (data transform) artifact. */
-  mapping: MappingDocument;
+  /** Named collection of mapping (data transform) artifacts. */
+  mappings: Record<string, MappingDocument>;
 }
 
 // ── Search & filter types ───────────────────────────────────────────
@@ -411,6 +415,34 @@ export interface FELMappingContext {
   sourcePath?: string;
   /** Target path context for the current rule/expression. */
   targetPath?: string;
+}
+
+/**
+ * Configuration for running a mapping preview.
+ */
+export interface MappingPreviewParams {
+  /** ID of the mapping to simulate. If omitted, uses the currently selected mapping. */
+  mappingId?: string;
+  /** The source data to transform (form response if forward, external data if reverse). */
+  sampleData: Record<string, unknown>;
+  /** Transform direction: 'forward' (form->target) or 'reverse' (target->form). */
+  direction?: 'forward' | 'reverse';
+  /** Optional subset of rule indices to execute. If omitted, all rules are run. */
+  ruleIndices?: number[];
+}
+
+/**
+ * Results of a mapping preview simulation.
+ */
+export interface MappingPreviewResult {
+  /** The transformed output data. */
+  output: unknown;
+  /** Issues encountered during the transformation. */
+  diagnostics: unknown[];
+  /** Keys or indices of rules that were successfully applied. */
+  appliedRules: number;
+  /** Direction that was executed. */
+  direction: string;
 }
 
 /**
@@ -516,10 +548,10 @@ export interface FieldDependents {
   binds: { path: string; property: string }[];
   /** Shape rules whose expressions reference this field. */
   shapes: { id: string; property: string }[];
-  /** Variable names whose expressions reference this field. */
+  /** Names of variables whose expressions reference this field. */
   variables: string[];
-  /** Indices of mapping rules that reference this field. */
-  mappingRules: number[];
+  /** Identifiers of mapping rules that reference this field (format: `mappingId:index`). */
+  mappingRules: string[];
   /** Indices of screener routes whose conditions reference this field. */
   screenerRoutes: number[];
 }

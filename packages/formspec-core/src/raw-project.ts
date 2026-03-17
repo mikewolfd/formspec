@@ -165,7 +165,11 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
     theme.targetDefinition = { url };
   }
 
-  const mapping: MappingState = options?.seed?.mapping ?? {};
+  const mappings: Record<string, MappingState> = options?.seed?.mappings ?? {};
+  const selectedMappingId = options?.seed?.selectedMappingId ?? (Object.keys(mappings)[0] || 'default');
+  if (!mappings[selectedMappingId]) {
+    mappings[selectedMappingId] = { rules: [] };
+  }
 
   return {
     definition,
@@ -174,7 +178,8 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
       ? createGeneratedLayoutDocument(url, options.seed.generatedComponent)
       : componentState.generatedComponent,
     theme,
-    mapping,
+    mappings,
+    selectedMappingId,
     extensions: options?.seed?.extensions ?? { registries: [] },
     versioning: options?.seed?.versioning ?? {
       baseline: structuredClone(definition),
@@ -254,8 +259,14 @@ export class RawProject implements IProjectCore {
     return this._state.theme as unknown as Readonly<ThemeDocument>;
   }
 
+  get mappings(): Readonly<Record<string, MappingDocument>> {
+    return this._state.mappings as unknown as Readonly<Record<string, MappingDocument>>;
+  }
+
+  /** Returns the mapping document for the currently selected integration. */
   get mapping(): Readonly<MappingDocument> {
-    return this._state.mapping as unknown as Readonly<MappingDocument>;
+    const id = this._state.selectedMappingId || 'default';
+    return (this._state.mappings[id] || {}) as unknown as Readonly<MappingDocument>;
   }
 
   // ── Query wrappers ──────────────────────────────────────────────
@@ -263,7 +274,18 @@ export class RawProject implements IProjectCore {
   fieldPaths(): string[] { return _fieldPaths(this._state); }
   itemAt(path: string): FormItem | undefined { return _itemAt(this._state, path); }
   responseSchemaRows(): ResponseSchemaRow[] { return _responseSchemaRows(this._state); }
-  statistics(): ProjectStatistics { return _statistics(this._state); }
+  statistics(): ProjectStatistics {
+    const stats = _statistics(this._state);
+    let totalMappingRuleCount = 0;
+    for (const m of Object.values(this._state.mappings)) {
+      totalMappingRuleCount += (m.rules?.length ?? 0);
+    }
+    return {
+      ...stats,
+      totalMappingRuleCount,
+      mappingCount: Object.keys(this._state.mappings).length,
+    } as ProjectStatistics;
+  }
   instanceNames(): string[] { return _instanceNames(this._state); }
   variableNames(): string[] { return _variableNames(this._state); }
   optionSetUsage(name: string): string[] { return _optionSetUsage(this._state, name); }
@@ -300,7 +322,20 @@ export class RawProject implements IProjectCore {
     const { tree, 'x-studio-generated': _, ...restComponent } = effectiveComponent as Record<string, unknown>;
     const cleanedTree = tree ? cleanTreeForExport(tree as Record<string, unknown>, this._state.definition, '') : null;
     const { targetDefinition: themeTarget, ...restTheme } = this._state.theme;
-    const { rules, targetSchema, definitionRef, definitionVersion, ...restMapping } = this._state.mapping;
+
+    const exportMappings: Record<string, MappingDocument> = {};
+    for (const [id, m] of Object.entries(this._state.mappings)) {
+      const { rules, targetSchema, definitionRef, definitionVersion, ...restMapping } = m;
+      exportMappings[id] = {
+        version: '0.1.0',
+        definitionRef: definitionRef ?? url,
+        definitionVersion: definitionVersion ?? '>=0.0.0',
+        targetSchema: targetSchema ?? { format: 'json' },
+        rules: rules ?? [],
+        ...restMapping,
+      } as MappingDocument;
+    }
+
     return structuredClone({
       definition: this._state.definition as unknown as FormDefinition,
       component: {
@@ -316,14 +351,7 @@ export class RawProject implements IProjectCore {
         ...restTheme,
         targetDefinition: themeTarget ?? { url },
       } as ThemeDocument,
-      mapping: {
-        version: '0.1.0',
-        definitionRef: definitionRef ?? url,
-        definitionVersion: definitionVersion ?? '>=0.0.0',
-        targetSchema: targetSchema ?? { format: 'json' },
-        rules: rules ?? [],
-        ...restMapping,
-      } as MappingDocument,
+      mappings: exportMappings,
     });
   }
 

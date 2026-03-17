@@ -42,6 +42,7 @@ export interface IProjectCore {
   readonly generatedComponent: Readonly<ComponentDocument>;
   readonly theme: Readonly<ThemeDocument>;
   readonly mapping: Readonly<MappingDocument>;
+  readonly mappings: Readonly<Record<string, MappingDocument>>;
 
   // ── Command dispatch ─────────────────────────────────────────
   dispatch(command: AnyCommand): CommandResult;
@@ -89,5 +90,6 @@ export interface IProjectCore {
   diffFromBaseline(fromVersion?: string): Change[];
   previewChangelog(): FormspecChangelog;
   diagnose(): Diagnostics;
+  previewMapping(params: import('./types.js').MappingPreviewParams): import('./types.js').MappingPreviewResult;
   export(): ProjectBundle;
 }
