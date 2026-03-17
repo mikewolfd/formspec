@@ -110,6 +110,16 @@ function findHidingAncestor(engine: FormEngine, path: string): string | undefine
 }
 
 /**
+ * Convert engine's 1-based external paths back to 0-based internal paths.
+ * The engine's `toExternalPath` adds 1 to bracket indices for user-facing
+ * validation reports, but previewForm uses 0-based paths everywhere else
+ * (signals, relevance, required), so validation paths must match.
+ */
+function toInternalPath(path: string): string {
+  return path.replace(/\[(\d+)\]/g, (_, p1) => `[${parseInt(p1) - 1}]`);
+}
+
+/**
  * Preview — simulate respondent experience.
  * Creates a FormEngine from the project's exported definition,
  * optionally replays scenario values, and returns a snapshot.
@@ -171,22 +181,23 @@ export function previewForm(
 
   for (const result of report.results) {
     const severity = result.severity ?? 'error';
-    const existing = validationState[result.path];
+    const path = toInternalPath(result.path);
+    const existing = validationState[path];
     if (!existing) {
-      validationState[result.path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
+      validationState[path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
       continue;
     }
     const newRank = severityRank[severity];
     const existingRank = severityRank[existing.severity];
     if (newRank > existingRank) {
       // Higher severity always wins
-      validationState[result.path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
+      validationState[path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
     } else if (newRank === existingRank) {
       // Among same severity: required > shape > first-wins
       if (result.constraintKind === 'required' && existing.constraintKind !== 'required') {
-        validationState[result.path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
+        validationState[path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
       } else if (result.source === 'shape' && existing.source !== 'shape' && existing.constraintKind !== 'required') {
-        validationState[result.path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
+        validationState[path] = { severity, message: result.message, constraintKind: result.constraintKind, source: result.source };
       }
     }
   }

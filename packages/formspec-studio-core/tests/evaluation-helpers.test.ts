@@ -358,6 +358,88 @@ describe('previewForm — repeat groups', () => {
     // Should have one instance from minRepeat: 1
     expect(preview.currentValues).toHaveProperty('expenses[0].amount');
   });
+
+  it('uses consistent 0-based paths across all output sections', () => {
+    const project = buildExpenseForm();
+    project.require('expenses.amount');
+
+    // No scenario — default instance has empty amount → required error
+    const preview = previewForm(project);
+
+    // visibleFields uses 0-based paths from engine signals
+    const visibleRepeatPaths = preview.visibleFields.filter(p => p.includes('['));
+    expect(visibleRepeatPaths.length).toBeGreaterThan(0);
+    for (const p of visibleRepeatPaths) {
+      expect(p).toMatch(/\[0\]/);
+      expect(p).not.toMatch(/\[1\]/);
+    }
+
+    // requiredFields should also be 0-based
+    const requiredRepeatPaths = preview.requiredFields.filter(p => p.includes('['));
+    expect(requiredRepeatPaths.length).toBeGreaterThan(0);
+    for (const p of requiredRepeatPaths) {
+      expect(p).toMatch(/\[0\]/);
+      expect(p).not.toMatch(/\[1\]/);
+    }
+
+    // currentValues should be 0-based
+    const valueRepeatKeys = Object.keys(preview.currentValues).filter(p => p.includes('['));
+    expect(valueRepeatKeys.length).toBeGreaterThan(0);
+    for (const p of valueRepeatKeys) {
+      expect(p).toMatch(/\[0\]/);
+      expect(p).not.toMatch(/\[1\]/);
+    }
+
+    // validationState must also be 0-based — this was the bug
+    const validationRepeatKeys = Object.keys(preview.validationState).filter(p => p.includes('['));
+    expect(validationRepeatKeys.length).toBeGreaterThan(0);
+    for (const p of validationRepeatKeys) {
+      expect(p).toMatch(/\[0\]/);
+      expect(p).not.toMatch(/\[1\]/);
+    }
+  });
+
+  it('multiple instances all use 0-based paths in validationState', () => {
+    const project = buildExpenseForm();
+    project.require('expenses.amount');
+
+    // Two instances, both with empty required field
+    const preview = previewForm(project, {
+      'expenses[0].description': 'Travel',
+      'expenses[1].description': 'Food',
+    });
+
+    // Both instances should have required errors at 0-based paths
+    expect(preview.validationState['expenses[0].amount']).toBeDefined();
+    expect(preview.validationState['expenses[0].amount'].message).toBe('Required');
+    expect(preview.validationState['expenses[1].amount']).toBeDefined();
+    expect(preview.validationState['expenses[1].amount'].message).toBe('Required');
+
+    // No 1-based or 2-based phantom paths
+    expect(preview.validationState['expenses[2].amount']).toBeUndefined();
+  });
+
+  it('validation paths match currentValues paths for the same instance', () => {
+    const project = buildExpenseForm();
+    project.require('expenses.amount');
+    project.require('expenses.description');
+
+    const preview = previewForm(project);
+
+    // Every validation path should have a corresponding currentValues entry
+    for (const valPath of Object.keys(preview.validationState)) {
+      if (valPath.includes('[')) {
+        expect(preview.currentValues).toHaveProperty(valPath);
+      }
+    }
+
+    // Every currentValues repeat path should appear in visibleFields
+    for (const cvPath of Object.keys(preview.currentValues)) {
+      if (cvPath.includes('[')) {
+        expect(preview.visibleFields).toContain(cvPath);
+      }
+    }
+  });
 });
 
 describe('validateResponse', () => {
