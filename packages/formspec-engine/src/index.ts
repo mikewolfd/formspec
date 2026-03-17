@@ -1990,8 +1990,9 @@ export class FormEngine {
             value = Math.round(value * factor) / factor;
         }
 
-        if (this.signals[name]) {
-            this.signals[name].value = value;
+        const sig = this.signals[name];
+        if (sig && this.isWritableSignal(sig)) {
+            sig.value = value;
         }
     }
 
