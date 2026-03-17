@@ -1,3 +1,4 @@
+/** @filedesc Canvas block component for display-only items (Heading, Divider, Spacer, Text). */
 import { blockIndent, blockRef, type BlockBaseProps } from './block-utils';
 
 const DISPLAY_META: Record<string, { icon: string; label: string }> = {

@@ -1,3 +1,4 @@
+/** @filedesc Helpers for flattening item trees, resolving binds/shapes, and widget compatibility queries. */
 interface AnyItem {
   key: string;
   type: string;

@@ -1,3 +1,4 @@
+/** @filedesc Theme tab section for defining wizard pages with titles, descriptions, and layout regions. */
 import { useState } from 'react';
 import { useTheme } from '../../state/useTheme';
 import { useProject } from '../../state/useProject';
