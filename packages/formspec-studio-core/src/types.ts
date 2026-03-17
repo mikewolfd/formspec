@@ -22,6 +22,8 @@ export type {
   Diagnostics,
   LogEntry,
   ProjectBundle,
+  MappingPreviewParams,
+  MappingPreviewResult,
 } from 'formspec-core';
 import type { ProjectBundle } from 'formspec-core';
 
@@ -34,7 +36,8 @@ export interface ProjectSnapshot {
   definition: FormDefinition;
   component: ComponentDocument;
   theme: ThemeDocument;
-  mapping: MappingDocument;
+  mappings: Record<string, MappingDocument>;
+  selectedMappingId?: string;
 }
 
 // ── Callback Types ──────────────────────────────────────────────────

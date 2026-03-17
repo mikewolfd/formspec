@@ -41,11 +41,30 @@ export class Project {
 
   // ── Read-only state getters (for rendering) ────────────────
 
-  get state(): Readonly<ProjectSnapshot> { return this.core.state as unknown as Readonly<ProjectSnapshot>; }
+  private _snapshotSource: unknown = null;
+  private _snapshot: Readonly<ProjectSnapshot> | null = null;
+
+  get state(): Readonly<ProjectSnapshot> {
+    const s = this.core.state;
+    // useSyncExternalStore requires stable references between mutations.
+    // Only rebuild when the underlying state object is replaced.
+    if (s !== this._snapshotSource) {
+      this._snapshotSource = s;
+      this._snapshot = {
+        definition: s.definition as unknown as FormDefinition,
+        component: s.component as unknown as ComponentDocument,
+        theme: s.theme as unknown as ThemeDocument,
+        mappings: s.mappings as unknown as Record<string, MappingDocument>,
+        selectedMappingId: s.selectedMappingId,
+      };
+    }
+    return this._snapshot!;
+  }
   get definition(): Readonly<FormDefinition> { return this.core.definition; }
   get component(): Readonly<ComponentDocument> { return this.core.component; }
   get theme(): Readonly<ThemeDocument> { return this.core.theme; }
   get mapping(): Readonly<MappingDocument> { return this.core.mapping; }
+  get mappings(): Readonly<Record<string, MappingDocument>> { return this.core.mappings; }
 
   /** Returns the effective component document — authored if it has a tree, otherwise merged with generated. */
   get effectiveComponent(): Readonly<ComponentDocument> {
@@ -991,15 +1010,29 @@ export class Project {
         });
       }
 
-      // Clean up mapping rules (delete in descending index order)
-      // FieldDependents.mappingRules: number[]
+      // Clean up mapping rules (delete in descending index order per mapping)
+      // FieldDependents.mappingRules: string[] format "mappingId:index"
       if (depSet.mappingRules?.length) {
-        const sortedIndices = [...depSet.mappingRules].sort((a, b) => b - a);
-        for (const idx of sortedIndices) {
-          commands.push({
-            type: 'mapping.deleteRule',
-            payload: { index: idx },
-          });
+        // Group by mappingId, then delete in descending index order within each
+        const byMapping = new Map<string, number[]>();
+        for (const ref of depSet.mappingRules) {
+          const colonAt = ref.lastIndexOf(':');
+          const mappingId = colonAt >= 0 ? ref.slice(0, colonAt) : 'default';
+          const index = colonAt >= 0 ? parseInt(ref.slice(colonAt + 1), 10) : parseInt(ref, 10);
+          if (!isNaN(index)) {
+            const arr = byMapping.get(mappingId) ?? [];
+            arr.push(index);
+            byMapping.set(mappingId, arr);
+          }
+        }
+        for (const [mappingId, indices] of byMapping) {
+          const sortedIndices = indices.sort((a, b) => b - a);
+          for (const idx of sortedIndices) {
+            commands.push({
+              type: 'mapping.deleteRule',
+              payload: { mappingId, index: idx },
+            });
+          }
         }
       }
 
@@ -2484,6 +2517,19 @@ export class Project {
     return {
       summary: `Removed mapping rule ${index}`,
       action: { helper: 'removeMappingRule', params: { index } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Clear all mapping rules. */
+  clearMappingRules(): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.setProperty',
+      payload: { property: 'rules', value: [] },
+    } as AnyCommand);
+    return {
+      summary: 'Cleared all mapping rules',
+      action: { helper: 'clearMappingRules', params: {} },
       affectedPaths: [],
     };
   }
