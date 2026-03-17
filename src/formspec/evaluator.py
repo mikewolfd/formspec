@@ -791,7 +791,7 @@ class DefinitionEvaluator:
         passed = True
 
         if 'constraint' in shape:
-            passed = self._eval_constraint(shape['constraint'], data, variables, self_value=target_val, row=scope, path=target_path)
+            passed = self._eval_constraint(shape['constraint'], data, variables, self_value=target_val, row=scope, path=target_path, null_passes=True)
 
         if passed and 'and' in shape:
             passed = all(self._eval_expr(e, data, variables, self_value=target_val, row=scope, path=target_path) for e in shape['and'])
