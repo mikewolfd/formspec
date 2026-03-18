@@ -43,13 +43,23 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   );
 }
 
+const formats: AdapterFormat[] = ['json', 'xml', 'csv'];
+
 export function AdapterConfig() {
   const mapping = useMapping();
   const project = useProject();
 
-  const format = mapping?.targetSchema?.format as AdapterFormat | string | undefined;
+  const format = (mapping?.targetSchema?.format as AdapterFormat | undefined) ?? undefined;
   const adapters = mapping?.adapters;
   const config = format && adapters ? ((adapters as Record<string, Record<string, unknown>>)[format] ?? {}) : {};
+
+  const setFormat = (value: AdapterFormat | '') => {
+    if (value === '') {
+      project.setMappingTargetSchema('format', null);
+    } else {
+      project.setMappingTargetSchema('format', value);
+    }
+  };
 
   const setAdapterProp = (prop: string, value: unknown) => {
     if (!format) return;
@@ -61,21 +71,26 @@ export function AdapterConfig() {
     });
   };
 
-  if (!format) {
-    return (
-      <Section title="Adapter">
-        <div className="text-sm text-muted">
-          Set a target schema format (json, xml, csv) to configure adapter options.
-        </div>
-      </Section>
-    );
-  }
-
   return (
     <Section title="Adapter">
       <div className="flex flex-col gap-2 text-sm">
-        <Row label="Format">
-          <Pill text={format} color="accent" />
+        <Row label="Output format">
+          <div className="flex items-center gap-1.5">
+            {formats.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFormat(format === f ? '' : f)}
+                className={`px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-[3px] border transition-all cursor-pointer ${
+                  format === f
+                    ? 'bg-accent text-white border-accent shadow-sm'
+                    : 'bg-subtle text-muted border-border hover:border-accent/40 hover:text-ink'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
         </Row>
 
         {format === 'json' && <JsonOptions config={config} onChange={setAdapterProp} />}
@@ -95,11 +110,15 @@ function JsonOptions({
   config: Record<string, unknown>;
   onChange: (prop: string, value: unknown) => void;
 }) {
+  const pretty = (config.pretty as boolean) ?? true;
   const nullHandling = (config.nullHandling as string) ?? 'include';
   const sortKeys = (config.sortKeys as boolean) ?? false;
 
   return (
     <>
+      <Row label="Pretty print">
+        <Toggle checked={pretty} onChange={(v) => onChange('pretty', v)} label="Pretty print" />
+      </Row>
       <Row label="Null handling">
         <select
           className={selectClass}

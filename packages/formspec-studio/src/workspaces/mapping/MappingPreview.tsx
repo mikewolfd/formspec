@@ -96,10 +96,15 @@ export function MappingPreview() {
         setPreviewOutput(JSON.stringify(result.output, null, 2));
       } else {
         const targetSchema = mapping?.targetSchema ?? {};
+        const format = targetSchema.format as 'json' | 'xml' | 'csv' | undefined;
+        const adapterConfig = format && mapping?.adapters
+          ? (mapping.adapters as Record<string, Record<string, unknown>>)[format] ?? {}
+          : {};
         const serialized = serializeMappedData(result.output, {
-          format: targetSchema.format as 'json' | 'xml' | 'csv',
+          format,
           rootElement: targetSchema.rootElement as string,
           namespaces: targetSchema.namespaces as Record<string, string>,
+          ...adapterConfig,
         });
         setPreviewOutput(serialized);
       }
