@@ -1,6 +1,6 @@
-/// WASM bindings for Formspec — thin layer exposing fel-core and formspec-core to TypeScript.
+/// WASM bindings for Formspec — thin layer exposing all Rust crates to TypeScript.
 ///
-/// All functions accept/return JSON strings or JsValue for complex types.
+/// All functions accept/return JSON strings for complex types.
 /// The binding layer handles type conversion only — no business logic here.
 use wasm_bindgen::prelude::*;
 
@@ -10,13 +10,14 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use fel_core::{
-    evaluate, parse, Dependencies, FelValue, MapEnvironment,
-    extract_dependencies,
+    evaluate, extract_dependencies, parse, print_expr, Dependencies, FelValue, MapEnvironment,
 };
 use formspec_core::{
-    analyze_fel, detect_document_type, execute_mapping, get_fel_dependencies,
-    normalize_indexed_path,
+    analyze_fel, assemble_definition, detect_document_type, execute_mapping,
+    get_fel_dependencies, normalize_indexed_path, MapResolver,
 };
+use formspec_eval::evaluate_definition;
+use formspec_lint::{lint, lint_with_options, LintOptions};
 
 // ── FEL Evaluation ──────────────────────────────────────────────
 
@@ -43,11 +44,16 @@ pub fn eval_fel(expression: &str, fields_json: &str) -> Result<String, JsError> 
 
 /// Parse a FEL expression and return whether it's valid.
 #[wasm_bindgen(js_name = "parseFEL")]
-pub fn parse_fel(expression: &str) -> Result<bool, JsError> {
-    match parse(expression) {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
-    }
+pub fn parse_fel(expression: &str) -> bool {
+    parse(expression).is_ok()
+}
+
+/// Print a FEL expression AST back to normalized source string.
+/// Useful for round-tripping after AST transformations.
+#[wasm_bindgen(js_name = "printFEL")]
+pub fn print_fel(expression: &str) -> Result<String, JsError> {
+    let expr = parse(expression).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(print_expr(&expr))
 }
 
 /// Extract field dependencies from a FEL expression.
@@ -59,7 +65,7 @@ pub fn get_fel_deps(expression: &str) -> Result<String, JsError> {
     serde_json::to_string(&arr).map_err(|e| JsError::new(&e.to_string()))
 }
 
-/// Extract full dependency info from a FEL expression (fields, context refs, wildcards, etc.).
+/// Extract full dependency info from a FEL expression.
 /// Returns a JSON object with dependency details.
 #[wasm_bindgen(js_name = "extractDependencies")]
 pub fn extract_deps(expression: &str) -> Result<String, JsError> {
@@ -71,8 +77,8 @@ pub fn extract_deps(expression: &str) -> Result<String, JsError> {
 
 // ── FEL Analysis ────────────────────────────────────────────────
 
-/// Analyze a FEL expression and return structural info (references, variables, functions).
-/// Returns a JSON object with the analysis result.
+/// Analyze a FEL expression and return structural info.
+/// Returns JSON: { valid, errors, references, variables, functions }
 #[wasm_bindgen(js_name = "analyzeFEL")]
 pub fn analyze_fel_wasm(expression: &str) -> Result<String, JsError> {
     let result = analyze_fel(expression);
@@ -108,11 +114,100 @@ pub fn detect_doc_type(doc_json: &str) -> Result<JsValue, JsError> {
     }
 }
 
+// ── Linting ─────────────────────────────────────────────────────
+
+/// Lint a Formspec document (7-pass static analysis).
+/// Returns JSON: { documentType, valid, diagnostics: [...] }
+#[wasm_bindgen(js_name = "lintDocument")]
+pub fn lint_document(doc_json: &str) -> Result<String, JsError> {
+    let doc: Value = serde_json::from_str(doc_json)
+        .map_err(|e| JsError::new(&format!("invalid JSON: {e}")))?;
+    let result = lint(&doc);
+    let json = lint_result_to_json(&result);
+    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Lint with registry documents for extension resolution.
+/// registries_json is a JSON array of registry documents.
+#[wasm_bindgen(js_name = "lintDocumentWithRegistries")]
+pub fn lint_document_with_registries(doc_json: &str, registries_json: &str) -> Result<String, JsError> {
+    let doc: Value = serde_json::from_str(doc_json)
+        .map_err(|e| JsError::new(&format!("invalid doc JSON: {e}")))?;
+    let registries: Vec<Value> = serde_json::from_str(registries_json)
+        .map_err(|e| JsError::new(&format!("invalid registries JSON: {e}")))?;
+
+    let result = lint_with_options(&doc, &LintOptions {
+        registry_documents: registries,
+        ..Default::default()
+    });
+    let json = lint_result_to_json(&result);
+    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+}
+
+// ── Definition Evaluation ───────────────────────────────────────
+
+/// Evaluate a Formspec definition against provided data (4-phase batch processor).
+/// Returns JSON: { values, validations, nonRelevant, variables }
+#[wasm_bindgen(js_name = "evaluateDefinition")]
+pub fn evaluate_definition_wasm(definition_json: &str, data_json: &str) -> Result<String, JsError> {
+    let definition: Value = serde_json::from_str(definition_json)
+        .map_err(|e| JsError::new(&format!("invalid definition JSON: {e}")))?;
+    let data_val: Value = serde_json::from_str(data_json)
+        .map_err(|e| JsError::new(&format!("invalid data JSON: {e}")))?;
+
+    let data: HashMap<String, Value> = data_val
+        .as_object()
+        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        .unwrap_or_default();
+
+    let result = evaluate_definition(&definition, &data);
+
+    let json = serde_json::json!({
+        "values": result.values,
+        "validations": result.validations.iter().map(|v| serde_json::json!({
+            "path": v.path,
+            "severity": v.severity,
+            "kind": v.kind,
+            "message": v.message,
+        })).collect::<Vec<_>>(),
+        "nonRelevant": result.non_relevant,
+        "variables": result.variables,
+    });
+    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+}
+
+// ── Assembly ────────────────────────────────────────────────────
+
+/// Assemble a definition by resolving $ref inclusions.
+/// fragments_json is a JSON object mapping URI → fragment definition.
+/// Returns JSON: { definition, warnings, errors }
+#[wasm_bindgen(js_name = "assembleDefinition")]
+pub fn assemble_definition_wasm(definition_json: &str, fragments_json: &str) -> Result<String, JsError> {
+    let definition: Value = serde_json::from_str(definition_json)
+        .map_err(|e| JsError::new(&format!("invalid definition JSON: {e}")))?;
+    let fragments: Value = serde_json::from_str(fragments_json)
+        .map_err(|e| JsError::new(&format!("invalid fragments JSON: {e}")))?;
+
+    let mut resolver = MapResolver::new();
+    if let Some(obj) = fragments.as_object() {
+        for (uri, fragment) in obj {
+            resolver.add(uri, fragment.clone());
+        }
+    }
+
+    let result = assemble_definition(&definition, &resolver);
+    let json = serde_json::json!({
+        "definition": result.definition,
+        "warnings": result.warnings,
+        "errors": result.errors.iter().map(|e| e.to_string()).collect::<Vec<_>>(),
+    });
+    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+}
+
 // ── Runtime Mapping ─────────────────────────────────────────────
 
 /// Execute a mapping transform (forward or reverse).
-/// Takes rules JSON, source JSON, and direction string.
-/// Returns the mapping result as JSON.
+/// Returns JSON: { direction, output, rulesApplied, diagnostics }
 #[wasm_bindgen(js_name = "executeMapping")]
 pub fn execute_mapping_wasm(
     rules_json: &str,
@@ -129,7 +224,6 @@ pub fn execute_mapping_wasm(
         _ => return Err(JsError::new(&format!("invalid direction: {direction}"))),
     };
 
-    // Parse rules from JSON array
     let rules = parse_mapping_rules(&rules_val)?;
     let result = execute_mapping(&rules, &source, dir);
 
@@ -220,6 +314,24 @@ fn deps_to_json(deps: &Dependencies) -> Value {
         "hasSelfRef": deps.has_self_ref,
         "hasWildcard": deps.has_wildcard,
         "usesPrevNext": deps.uses_prev_next,
+    })
+}
+
+fn lint_result_to_json(result: &formspec_lint::LintResult) -> Value {
+    serde_json::json!({
+        "documentType": result.document_type.map(|dt| dt.schema_key().to_string()),
+        "valid": result.valid,
+        "diagnostics": result.diagnostics.iter().map(|d| serde_json::json!({
+            "code": d.code,
+            "pass": d.pass,
+            "severity": match d.severity {
+                formspec_lint::LintSeverity::Error => "error",
+                formspec_lint::LintSeverity::Warning => "warning",
+                formspec_lint::LintSeverity::Info => "info",
+            },
+            "path": d.path,
+            "message": d.message,
+        })).collect::<Vec<_>>(),
     })
 }
 
