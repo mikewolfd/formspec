@@ -2,6 +2,7 @@
 members = [
     "crates/fel-core",
     "crates/formspec-core",
+    "crates/formspec-wasm",
 ]
 resolver = "2"
 
