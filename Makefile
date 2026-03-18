@@ -25,7 +25,10 @@ test-studio-e2e:
 test-python:
 	pytest
 
-test: test-unit test-python test-e2e test-studio-e2e
+test-rust:
+	cargo test --workspace
+
+test: test-unit test-python test-rust test-e2e test-studio-e2e
 
 check: docs-check test
 
@@ -98,4 +101,4 @@ clean:
 	      form-builder/API.llm.md
 	rm -rf form-builder/dist-types
 
-.PHONY: all spec-artifacts docs-check check docs api-docs test test-unit test-python test-e2e test-studio-e2e setup serve clean
+.PHONY: all spec-artifacts docs-check check docs api-docs test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
