@@ -50,3 +50,4 @@ site/public/chat/
 
 # Rust build artifacts
 target/
+thoughts/private/
