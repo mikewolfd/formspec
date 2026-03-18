@@ -2,7 +2,7 @@
 
 **Goal:** Bring the valuable logic from `rust_merged` into `main` by reading the diff and writing new code against `main`'s current architecture. No git merge — `rust_merged` is read-only reference material.
 
-**Spec review (2026-03-18):** All error codes verified against Python reference linter and normative specs. Two review rounds complete — see "Known Gaps" and "Hazards" sections.
+**Spec review (2026-03-18):** All error codes verified against Python reference linter and normative specs. Three review rounds complete — see "Known Gaps" and "Hazards" sections.
 
 ## Current State
 
@@ -53,9 +53,10 @@ Read for logic and test cases. Don't copy verbatim — they use old types (`diag
 
 Things the diff will be misleading about — don't blindly follow the old code for these:
 
-- **Binds structure divergence.** `rust_merged` treats `binds` as an **array** of objects with a `path` property. `main` (and the actual definition schema) treats `binds` as an **object** keyed by bind path. All bind-walking code must be rewritten for `main`'s object shape.
+- **Binds structure divergence.** The definition schema defines `binds` as an **array** of objects with a `path` property — `rust_merged` follows this. `main`'s `passes.rs` treats `binds` as an **object** keyed by bind path (a deviation from the schema). The new typed modules must decide which shape to support. Since the linter accepts raw `serde_json::Value`, either works, but be aware that the diff's bind-walking code is schema-correct while `main`'s is not.
 - **E200/E201 split will break existing tests.** `main`'s `test_lint_duplicate_keys` currently asserts E201 for what should be E200 (global key duplicates). Update these tests when introducing the split.
-- **`suppressed_in` needs extending.** Currently only W300 is suppressed in authoring mode. E802/W802 component matrix rules also differ between strict and authoring modes — update `suppressed_in` in `types.rs`.
+- **`suppressed_in` needs extending for W802.** Currently only W300 is suppressed in authoring mode. W802 (compatible-with-warning fallback) also varies by mode — update `suppressed_in` in `types.rs`. Note: E802 is always an error regardless of mode; only W802 needs mode-sensitive handling.
+- **W700 semantics will change.** `main`'s current W700 checks for unresolved `$token.X` references in selectors — this is what the Python reference calls **W704**. Python's W700 is color token value validation. When `pass_theme.rs` is written, the existing W700 behavior will be **replaced** with proper color validation semantics, and the token-ref checking will move to W704.
 
 ## Steps
 
@@ -92,12 +93,14 @@ Each module follows red-green-refactor: read test scenarios from the diff → wr
    - Must emit E200 for global key duplicates and E201 for path duplicates (matching Python reference — current `main` conflates these).
    - `ambiguous_keys` is used downstream by pass 3 (references) for better "ambiguous reference" error messages.
 2. **`expressions.rs`** — `CompiledExpression` struct with bind target tracking. Built by pass 4. Must handle all FEL slots:
-   - `binds.{key}.{calculate|relevant|required|readonly|constraint}` (existing on main)
+   - `binds[].{calculate|relevant|required|readonly|constraint}` (existing on main)
+   - `binds[].default` (new — parse when value looks like FEL via heuristic, matching Python `_looks_like_fel`)
    - `shapes[].{constraint|activeWhen}` (existing on main)
+   - `shapes[].context[key]` (new — context values are FEL expression strings per schema)
    - `screener.routes[].condition` (existing on main)
-   - `screener.binds.{key}.{calculate|relevant|required|readonly|constraint}` (new)
+   - `screener.binds[].{calculate|relevant|required|readonly|constraint}` (new)
    - `variables[].expression` (new — variables can reference fields/other variables, creating cycles detectable by pass 5)
-   - Composed shapes: `shapes[].{and|or}[].constraint`, `shapes[].not.constraint` (new — inline FEL in composed shapes)
+   - Composed shapes: `shapes[].and[]`, `shapes[].or[]`, `shapes[].not`, `shapes[].xone[]` (new — these are plain FEL strings, not objects with a `.constraint` property)
 3. **`dependencies.rs`** — Consumes `Vec<CompiledExpression>`, produces cycle diagnostics (E500). Canonical cycle dedup. Must include variable expressions in the dependency graph.
 4. **`references.rs`** — Consumes `ItemTreeIndex`, produces E300/E301 with canonical path normalization, wildcard group validation.
 5. **`extensions.rs`** — Consumes `ItemTreeIndex`, produces E600/E601/E602 via `formspec-core::extension_analysis` (already on `main`). Wire the existing `ExtensionErrorCode::ExtensionRetired` (E601) and `ExtensionErrorCode::ExtensionDeprecated` (E602) — don't reimplement inline.
@@ -108,7 +111,7 @@ Wire each into the orchestrator. For each module: implement → test → swap in
 
 The high-value logic. Read the diff for each pass, understand the rules, write fresh implementations using `main`'s types. Each follows red-green-refactor.
 
-1. **`component_matrix.rs`** — 12 input component compatibility rules. Strict mode (runtime) vs authoring mode (studio). optionSet requirement flags. Use `decimal` (schema term) not `number` (spec prose term). Update `suppressed_in` in `types.rs` for E802/W802 authoring suppression.
+1. **`component_matrix.rs`** — 12 input component compatibility rules. Strict mode (runtime) vs authoring mode (studio). optionSet requirement flags. Use `decimal` (schema term) not `number` (spec prose term). Update `suppressed_in` in `types.rs` for W802 authoring suppression (E802 is always an error regardless of mode).
 2. **`pass_theme.rs`** — W700-W711, E710.
    - Token value validation (color → CSS color, spacing → CSS length, fontWeight → valid weights, lineHeight → unitless number)
    - Cross-artifact checks (W705-W707) — conditional on `definition_document.is_some()`
@@ -143,7 +146,7 @@ Steps 2-3 each include per-module red-green-refactor tests. This step is for add
 
 ## Error Code Inventory (target: 35)
 
-**Already on `main` (12):** E100, E201, E300, E301, E302, E400, E500, E600, E800, W300, W700, W804
+**Already on `main` (12):** E100, E201, E300, E301, E302, E400, E500, E600, E800, W300, W700 (semantics will change — see Hazards), W804
 
 **Added by this plan (23):**
 - Step 2.1 — tree: **E200** (split from E201)
@@ -164,7 +167,7 @@ Steps 2-3 each include per-module red-green-refactor tests. This step is for add
 
 - Don't `git merge` or `git cherry-pick` from `rust_merged` — the branches have diverged too much
 - Don't copy files verbatim — they use old types (`diagnostic::LintDiagnostic`, `policy::LintMode`) that don't exist on `main`
-- Don't copy bind-walking code from the diff without translating — `rust_merged` uses binds-as-array, `main` uses binds-as-object
+- Don't copy bind-walking code from either branch without understanding the shape — `rust_merged` uses binds-as-array (schema-correct), `main` uses binds-as-object (deviation). Decide which shape to target.
 - Don't try to make the old test files compile as-is — they reference old module names and APIs
 - Don't replace the new orchestrator with the old one — `main`'s `lib.rs` has pass gating and LintMode
 - Don't touch `fel-core`, `formspec-core`, `formspec-wasm`, `formspec-py` — those are clean
