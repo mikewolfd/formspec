@@ -1,6 +1,7 @@
 /** @filedesc Live form preview panel that runs the FormEngine with scenario data and renders at a given viewport. */
 import { useMemo, useState } from 'react';
 import { FormEngine, type FormspecItem } from 'formspec-engine';
+import type { FormDefinition } from 'formspec-types';
 import { useProjectState } from '../../state/useProjectState';
 import { normalizeDefinitionDoc } from '../../workspaces/preview/preview-documents';
 import { FormspecPreviewHost } from '../../workspaces/preview/FormspecPreviewHost';
@@ -49,7 +50,7 @@ interface SimulationResult {
 
 function buildSimulation(definition: unknown, scenarioText: string): SimulationResult {
   try {
-    const normalizedDefinition = normalizeDefinitionDoc(definition) as any;
+    const normalizedDefinition = normalizeDefinitionDoc(definition) as FormDefinition;
     const engine = new FormEngine(normalizedDefinition);
     seedInitialValues(engine, (normalizedDefinition?.items ?? []) as FormspecItem[]);
 

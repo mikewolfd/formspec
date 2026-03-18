@@ -57,20 +57,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
   }, [open]);
 
-  const items = definition.items ? flatItems(definition.items as any[]) : [];
-  const variables = (definition as any).variables ?? [];
-  const binds = normalizeBinds((definition as any).binds);
-  const shapes = ((definition as any).shapes ?? []) as Array<Record<string, any>>;
+  const items = definition.items ? flatItems(definition.items) : [];
+  const variables = definition.variables ?? [];
+  const binds = normalizeBinds(definition.binds);
+  const shapes = (definition.shapes ?? []) as Array<Record<string, any>>;
 
   const results = useMemo<PaletteResult[]>(() => {
     const itemResults = items.map((fi) => ({
       id: `item:${fi.path}`,
       section: 'Items' as const,
       title: fi.path,
-      subtitle: (fi.item as any).label || undefined,
-      keywords: [fi.path, (fi.item as any).label ?? ''],
+      subtitle: fi.item.label || undefined,
+      keywords: [fi.path, fi.item.label ?? ''],
       onSelect: () => {
-        select(fi.path, (fi.item as any).type);
+        select(fi.path, fi.item.type);
         onClose();
       },
       actionable: true,

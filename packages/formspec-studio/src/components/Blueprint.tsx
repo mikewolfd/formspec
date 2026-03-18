@@ -24,7 +24,7 @@ const SECTIONS: SectionDef[] = [
   { name: 'Structure', countFn: (s) => s.definition.items?.length ?? 0, help: 'Item tree defining fields, groups, and display elements' },
   {
     name: 'Component Tree',
-    countFn: (s) => countComponentNodes(s.component?.tree ?? s.generatedComponent?.tree),
+    countFn: (s) => countComponentNodes(s.component?.tree),
     help: 'UI component hierarchy generated from the item tree',
   },
   { name: 'Theme', countFn: (s) => Object.keys(s.theme.tokens ?? {}).length, help: 'Visual tokens, selectors, and presentation defaults', link: { tab: 'Theme', subTab: 'tokens' } },
@@ -32,7 +32,7 @@ const SECTIONS: SectionDef[] = [
   { name: 'Variables', countFn: (s) => s.definition.variables?.length ?? 0, help: 'Named computed values reusable across expressions', link: { tab: 'Logic' } },
   { name: 'Data Sources', countFn: (s) => Object.keys(s.definition.instances ?? {}).length, help: 'Secondary data instances for lookups and reference data', link: { tab: 'Data', subTab: 'Data Sources' } },
   { name: 'Option Sets', countFn: (s) => Object.keys(s.definition.optionSets ?? {}).length, help: 'Reusable option lists for choice and multiChoice fields', link: { tab: 'Data', subTab: 'Option Sets' } },
-  { name: 'Mappings', countFn: (s) => Object.values(s.mappings ?? {}).reduce((sum, m) => sum + ((m.rules as unknown[] | undefined)?.length ?? 0), 0), help: 'Bidirectional data transforms for import/export', link: { tab: 'Mapping', subTab: 'rules' } },
+  { name: 'Mappings', countFn: (s) => Object.values(s.mappings ?? {}).reduce((sum, m) => sum + (m.rules?.length ?? 0), 0), help: 'Bidirectional data transforms for import/export', link: { tab: 'Mapping', subTab: 'rules' } },
   { name: 'Settings', countFn: null, help: 'Form identity, presentation, and behavioral defaults' },
 ];
 

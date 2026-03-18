@@ -18,7 +18,7 @@ interface Migration {
 
 export function MigrationsSection() {
   const definition = useDefinition();
-  const migrations: Migration[] = (definition as any).migrations ?? [];
+  const migrations: Migration[] = (definition.migrations ?? []) as Migration[];
 
   if (migrations.length === 0) {
     return <p className="text-xs text-muted py-2">No migrations defined</p>;

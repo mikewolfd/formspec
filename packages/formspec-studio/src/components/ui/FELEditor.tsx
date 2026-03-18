@@ -131,10 +131,10 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
   // Options memoization
   const fieldOptions = useMemo(() => {
     if (!definition) return [];
-    return flatItems((definition as any).items || []).map(fi => ({
+    return flatItems(definition.items || []).map(fi => ({
       path: fi.path,
-      label: (fi.item as any).label || fi.path,
-      dataType: (fi.item as any).dataType
+      label: fi.item.label || fi.path,
+      dataType: fi.item.dataType
     }));
   }, [definition]);
 
@@ -157,7 +157,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
 
     if (autocompleteKind === 'path') {
       const options = autocomplete.instanceName
-        ? getInstanceFieldOptions((definition as any)?.instances, autocomplete.instanceName)
+        ? getInstanceFieldOptions(definition?.instances, autocomplete.instanceName)
         : fieldOptions;
 
       return filterFELFieldOptions(options, autocomplete.query).map(opt => ({
@@ -169,7 +169,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
     }
 
     if (autocompleteKind === 'instanceName') {
-      return getInstanceNameOptions((definition as any)?.instances, autocomplete.query).map(name => ({
+      return getInstanceNameOptions(definition?.instances, autocomplete.query).map(name => ({
         kind: 'instanceName' as const,
         name
       }));

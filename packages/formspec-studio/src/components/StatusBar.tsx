@@ -1,9 +1,8 @@
 /** @filedesc Bottom status bar showing formspec version, form status, field count, and bind/shape counts. */
+import type { FormItem } from 'formspec-types';
 import { useDefinition } from '../state/useDefinition';
 
-type AnyItem = { type?: string; children?: AnyItem[]; [key: string]: unknown };
-
-function countFields(items: AnyItem[]): number {
+function countFields(items: FormItem[]): number {
   let count = 0;
   for (const item of items) {
     if (item.type === 'field') count++;
@@ -22,17 +21,16 @@ function plural(n: number, singular: string): string {
  */
 export function StatusBar() {
   const definition = useDefinition();
-  const def = definition as Record<string, any>;
 
-  const formspecVersion = def.$formspec ?? '1.0';
-  const status = def.status ?? 'draft';
-  const items: AnyItem[] = def.items ?? [];
+  const formspecVersion = definition.$formspec ?? '1.0';
+  const status = definition.status ?? 'draft';
+  const items = definition.items ?? [];
   const fieldCount = countFields(items);
-  const bindCount = Array.isArray(def.binds) ? def.binds.length : Object.keys(def.binds || {}).length;
-  const shapeCount = (def.shapes || []).length;
-  const varCount = (def.variables || []).length;
-  
-  const presentation = def.presentation || def.formPresentation || {};
+  const bindCount = definition.binds?.length ?? 0;
+  const shapeCount = definition.shapes?.length ?? 0;
+  const varCount = definition.variables?.length ?? 0;
+
+  const presentation = definition.formPresentation ?? {};
   const pageMode = presentation.pageMode;
   const defaultCurrency = presentation.defaultCurrency;
   const density = presentation.density;
@@ -59,9 +57,9 @@ export function StatusBar() {
         <div className="flex items-center gap-1.5" title="Page mode, default currency, and density">
           <span>{pageMode || 'standard'}</span>
           <span className="opacity-40">·</span>
-          <span>{defaultCurrency || 'USD'}</span>
+          <span>{(defaultCurrency as string) || 'USD'}</span>
           <span className="opacity-40">·</span>
-          <span>{density || 'comfortable'}</span>
+          <span>{(density as string) || 'comfortable'}</span>
         </div>
 
         <div className="w-px h-3 bg-border" />
@@ -79,9 +77,9 @@ export function StatusBar() {
       </div>
 
       <div className="truncate ml-4 max-w-[300px]">
-        {def.url ? (
-          <a href={def.url} className="hover:text-ink underline-offset-2 hover:underline">
-            {def.url}
+        {definition.url ? (
+          <a href={definition.url} className="hover:text-ink underline-offset-2 hover:underline">
+            {definition.url}
           </a>
         ) : null}
       </div>

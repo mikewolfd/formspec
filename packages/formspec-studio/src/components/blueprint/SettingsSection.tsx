@@ -5,23 +5,22 @@ import { Pill } from '../ui/Pill';
 
 export function SettingsSection() {
   const definition = useDefinition();
-  const def = definition as any;
-  const presentation = def.formPresentation ?? {};
+  const presentation = definition.formPresentation ?? {};
 
   return (
     <div className="space-y-0.5">
-      <PropertyRow label="Title">{def.title ?? '—'}</PropertyRow>
-      <PropertyRow label="Version">{def.version}</PropertyRow>
-      {def.status && (
+      <PropertyRow label="Title">{definition.title ?? '—'}</PropertyRow>
+      <PropertyRow label="Version">{definition.version}</PropertyRow>
+      {definition.status && (
         <PropertyRow label="Status">
-          <Pill text={def.status} color="accent" size="sm" />
+          <Pill text={definition.status} color="accent" size="sm" />
         </PropertyRow>
       )}
       {presentation.pageMode && (
         <PropertyRow label="Page Mode">{presentation.pageMode}</PropertyRow>
       )}
-      {def.nonRelevantBehavior && (
-        <PropertyRow label="Non-Relevant">{def.nonRelevantBehavior}</PropertyRow>
+      {definition.nonRelevantBehavior && (
+        <PropertyRow label="Non-Relevant">{definition.nonRelevantBehavior}</PropertyRow>
       )}
     </div>
   );

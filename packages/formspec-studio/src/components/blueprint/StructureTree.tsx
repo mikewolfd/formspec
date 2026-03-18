@@ -197,7 +197,7 @@ export function StructureTree() {
       } else if (opt.itemType === 'group') {
         project.addGroup(fullPath, opt.label);
       } else if (opt.itemType === 'display') {
-        const widgetHint = (opt.extra?.presentation as any)?.widgetHint as string | undefined;
+        const widgetHint = (opt.extra?.presentation as Record<string, unknown> | undefined)?.widgetHint as string | undefined;
         const kindMap: Record<string, 'heading' | 'paragraph' | 'banner' | 'divider'> = {
           Heading: 'heading',
           Divider: 'divider',

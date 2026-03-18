@@ -1,6 +1,6 @@
 /** @filedesc Bootstraps a Studio project and wires context providers around the Shell. */
 import { useState, type ReactElement } from 'react';
-import { createProject, type Project } from 'formspec-studio-core';
+import { createProject, type Project, type FormDefinition } from 'formspec-studio-core';
 import { ProjectProvider } from '../state/ProjectContext';
 import { SelectionProvider } from '../state/useSelection';
 import { ActivePageProvider } from '../state/useActivePage';
@@ -8,12 +8,12 @@ import { Shell } from '../components/Shell';
 import { exampleDefinition } from '../fixtures/example-definition';
 
 export function createStudioProject(seed?: Parameters<typeof createProject>[0]): Project {
-  const project = createProject(seed ?? { seed: { definition: exampleDefinition as any } });
+  const project = createProject(seed ?? { seed: { definition: exampleDefinition as FormDefinition } });
 
   // Auto-generate theme.pages from definition groups if the seed didn't provide pages
-  const themePages = (project.theme as any).pages;
+  const themePages = project.theme.pages;
   if (!themePages || themePages.length === 0) {
-    const items = (project.definition as any).items ?? [];
+    const items = project.definition.items ?? [];
     const hasGroups = items.some((item: any) => item.type === 'group');
     if (hasGroups) {
       project.autoGeneratePages();

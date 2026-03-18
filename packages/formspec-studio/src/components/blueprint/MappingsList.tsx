@@ -6,7 +6,7 @@ export function MappingsList() {
   const state = useProjectState();
   const id = state.selectedMappingId ?? Object.keys(state.mappings)[0] ?? 'default';
   const mapping = state.mappings[id] ?? {};
-  const rules = (mapping.rules as unknown[] | undefined) ?? [];
+  const rules = mapping.rules ?? [];
   const direction = mapping.direction ?? 'bidirectional';
 
   if (rules.length === 0) {

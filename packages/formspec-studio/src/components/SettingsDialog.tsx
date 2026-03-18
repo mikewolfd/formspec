@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useDefinition } from '../state/useDefinition';
 import { useProject } from '../state/useProject';
+import type { MetadataChanges } from 'formspec-studio-core';
 import { HelpTip } from './ui/HelpTip';
 
 interface SettingsDialogProps {
@@ -149,8 +150,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const definition = useDefinition();
   const project = useProject();
-  const def = definition as any;
-  const presentation = def.formPresentation ?? {};
+  const presentation = definition.formPresentation ?? {};
 
   useEffect(() => {
     if (!open) return;
@@ -167,11 +167,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   if (!open) return null;
 
   const setProperty = (property: string, value: string) => {
-    project.setMetadata({ [property]: value || undefined } as any);
+    project.setMetadata({ [property]: value || undefined } as MetadataChanges);
   };
 
   const setPresentation = (property: string, value: string) => {
-    project.setMetadata({ [property]: value || undefined } as any);
+    project.setMetadata({ [property]: value || undefined } as MetadataChanges);
   };
 
   return (
@@ -203,8 +203,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Read-only identity */}
           <div className="space-y-2.5">
-            <ReadOnlyRow label="$formspec" value={def.$formspec} help="Specification version. Always 1.0." />
-            <ReadOnlyRow label="URL" value={def.url} help="Canonical URI identifier. Stable across versions — all versions of the same form share this URL." />
+            <ReadOnlyRow label="$formspec" value={definition.$formspec} help="Specification version. Always 1.0." />
+            <ReadOnlyRow label="URL" value={definition.url} help="Canonical URI identifier. Stable across versions — all versions of the same form share this URL." />
           </div>
 
           <div className="border-t border-border" />
@@ -212,12 +212,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           {/* Editable identity */}
           <div className="space-y-4">
             <SectionHeading>Identity</SectionHeading>
-            <TextInputField id="settings-title" label="Title" value={def.title ?? ''} onCommit={(v) => setProperty('title', v)} help="Human-readable display name shown by authoring tools and form renderers." />
-            <TextInputField id="settings-name" label="Name" value={def.name ?? ''} onCommit={(v) => setProperty('name', v)} help="Machine-readable short name. Letters, digits, and hyphens only." />
-            <TextAreaField id="settings-description" label="Description" value={def.description ?? ''} onCommit={(v) => setProperty('description', v)} help="Human-readable description of the form's purpose and scope." />
-            <TextInputField id="settings-version" label="Version" value={def.version ?? ''} onCommit={(v) => setProperty('version', v)} help="Version identifier. Format governed by versionAlgorithm (default: semver)." />
-            <SelectField id="settings-status" label="Status" value={def.status ?? 'draft'} options={STATUS_OPTIONS} onChange={(v) => setProperty('status', v)} help="Lifecycle state. draft → active → retired. Active definitions are immutable." />
-            <TextInputField id="settings-date" label="Date" type="date" value={def.date ?? ''} onCommit={(v) => setProperty('date', v)} help="Publication or last-modified date (ISO 8601)." />
+            <TextInputField id="settings-title" label="Title" value={definition.title ?? ''} onCommit={(v) => setProperty('title', v)} help="Human-readable display name shown by authoring tools and form renderers." />
+            <TextInputField id="settings-name" label="Name" value={definition.name ?? ''} onCommit={(v) => setProperty('name', v)} help="Machine-readable short name. Letters, digits, and hyphens only." />
+            <TextAreaField id="settings-description" label="Description" value={definition.description ?? ''} onCommit={(v) => setProperty('description', v)} help="Human-readable description of the form's purpose and scope." />
+            <TextInputField id="settings-version" label="Version" value={definition.version ?? ''} onCommit={(v) => setProperty('version', v)} help="Version identifier. Format governed by versionAlgorithm (default: semver)." />
+            <SelectField id="settings-status" label="Status" value={definition.status ?? 'draft'} options={STATUS_OPTIONS} onChange={(v) => setProperty('status', v)} help="Lifecycle state. draft → active → retired. Active definitions are immutable." />
+            <TextInputField id="settings-date" label="Date" type="date" value={definition.date ?? ''} onCommit={(v) => setProperty('date', v)} help="Publication or last-modified date (ISO 8601)." />
           </div>
 
           <div className="border-t border-border" />
@@ -236,7 +236,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           {/* Behavior */}
           <div className="space-y-4">
             <SectionHeading>Behavior</SectionHeading>
-            <SelectField id="settings-nonRelevant" label="Non-Relevant Behavior" value={def.nonRelevantBehavior ?? 'remove'} options={NON_RELEVANT_OPTIONS} onChange={(v) => setProperty('nonRelevantBehavior', v)} help="How non-relevant fields appear in submitted data. remove: excluded. empty: null. keep: retain values." />
+            <SelectField id="settings-nonRelevant" label="Non-Relevant Behavior" value={definition.nonRelevantBehavior ?? 'remove'} options={NON_RELEVANT_OPTIONS} onChange={(v) => setProperty('nonRelevantBehavior', v)} help="How non-relevant fields appear in submitted data. remove: excluded. empty: null. keep: retain values." />
           </div>
         </div>
 

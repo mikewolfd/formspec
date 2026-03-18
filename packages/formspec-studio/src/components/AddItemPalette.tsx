@@ -413,15 +413,15 @@ export function AddItemPalette({ open, onClose, onAdd }: AddItemPaletteProps) {
 
           {/* Tabs */}
           <div className="flex gap-1 p-1 bg-subtle border border-border/50 rounded-lg">
-            {[
+            {([
               { id: 'all', label: 'All' },
               { id: 'field', label: 'Inputs' },
               { id: 'layout', label: 'Layout' },
               { id: 'display', label: 'Display' },
-            ].map((tab) => (
+            ] as const).map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id as any); setActiveIdx(0); }}
+                onClick={() => { setActiveTab(tab.id); setActiveIdx(0); }}
                 className={`flex-1 px-2 py-1.5 text-[11px] font-semibold rounded-md transition-all ${
                   activeTab === tab.id
                     ? 'bg-surface text-ink shadow-sm'

@@ -9,7 +9,7 @@ interface InstanceEntry {
 
 export function DataSourcesList() {
   const definition = useDefinition();
-  const raw = (definition as any).instances;
+  const raw = definition.instances;
 
   const entries: InstanceEntry[] = raw && typeof raw === 'object' && !Array.isArray(raw)
     ? Object.entries(raw).map(([name, val]) => ({

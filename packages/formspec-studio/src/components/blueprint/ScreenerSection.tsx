@@ -25,7 +25,7 @@ interface Screener {
 export function ScreenerSection() {
   const definition = useDefinition();
   const project = useProject();
-  const screener = (definition as Record<string, unknown>).screener as Screener | undefined;
+  const screener = definition.screener as Screener | undefined;
   const isEnabled = Boolean(screener) && screener?.enabled !== false;
 
   return (

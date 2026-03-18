@@ -4,7 +4,7 @@ import { Pill } from '../ui/Pill';
 
 export function OptionSetsList() {
   const definition = useDefinition();
-  const optionSets = (definition as any).optionSets;
+  const optionSets = definition.optionSets;
 
   if (!optionSets || typeof optionSets !== 'object') {
     return <p className="text-xs text-muted py-2">No option sets defined</p>;
