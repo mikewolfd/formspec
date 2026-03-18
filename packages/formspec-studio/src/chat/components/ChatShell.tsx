@@ -60,6 +60,15 @@ export function ChatShell({ store, storage }: ChatShellProps = {}) {
   });
   const [showProviderSetup, setShowProviderSetup] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasShownInitialSetup = useRef(false);
+
+  // Auto-show BYOK modal on first load when no provider is configured
+  useEffect(() => {
+    if (!providerConfig && !hasShownInitialSetup.current) {
+      hasShownInitialSetup.current = true;
+      setShowProviderSetup(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshSessions = useCallback(() => {
     setRecentSessions(store?.list() ?? []);
@@ -181,6 +190,7 @@ export function ChatShell({ store, storage }: ChatShellProps = {}) {
         onSave={handleSaveProvider}
         initialConfig={providerConfig ?? undefined}
         onClear={handleClearProvider}
+        isInitialSetup={!providerConfig && !session}
       />
     </>
   );
@@ -215,11 +225,11 @@ function IconBack() {
   );
 }
 
-function IconGear() {
+function IconKey() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="7" cy="7" r="1.75" />
-      <path d="M11.8 7a4.8 4.8 0 01-.26 1.22l1.05.6-.7 1.22-1.05-.6a4.8 4.8 0 01-1.05 1.05l.6 1.05-1.22.7-.6-1.05A4.8 4.8 0 017 11.45v1.22H5.78v-1.22a4.8 4.8 0 01-1.22-.26l-.6 1.05-1.22-.7.6-1.05a4.8 4.8 0 01-1.05-1.05l-1.05.6-.7-1.22 1.05-.6A4.8 4.8 0 012.33 7H1.1V5.78h1.22a4.8 4.8 0 01.26-1.22l-1.05-.6.7-1.22 1.05.6a4.8 4.8 0 011.05-1.05l-.6-1.05 1.22-.7.6 1.05A4.8 4.8 0 017 2.33V1.1h1.22v1.22a4.8 4.8 0 011.22.26l.6-1.05 1.22.7-.6 1.05a4.8 4.8 0 011.05 1.05l1.05-.6.7 1.22-1.05.6A4.8 4.8 0 0111.8 7z" />
+      <circle cx="4.5" cy="5.5" r="2.5" />
+      <path d="M6.5 7l4.5 4.5M9.5 10l1.5 1.5M8.5 9l1.5 1.5" />
     </svg>
   );
 }
@@ -379,9 +389,9 @@ function ActiveSessionView({ onBack, onUpload, onOpenSettings }: { onBack: () =>
           <button
             onClick={onOpenSettings}
             className="p-1.5 text-muted hover:text-ink rounded hover:bg-subtle transition-colors"
-            aria-label="Settings"
+            aria-label="AI provider settings"
           >
-            <IconGear />
+            <IconKey />
           </button>
         </div>
       </header>

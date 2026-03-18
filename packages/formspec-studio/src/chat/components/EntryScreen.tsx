@@ -70,11 +70,11 @@ function IconArrowLeft() {
   );
 }
 
-function IconGear() {
+function IconKey() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="8" cy="8" r="2" />
-      <path d="M13.5 8a5.5 5.5 0 01-.3 1.4l1.2.7-.8 1.4-1.2-.7a5.5 5.5 0 01-1.2 1.2l.7 1.2-1.4.8-.7-1.2a5.5 5.5 0 01-1.4.3v1.4H7V13.1a5.5 5.5 0 01-1.4-.3l-.7 1.2-1.4-.8.7-1.2a5.5 5.5 0 01-1.2-1.2l-1.2.7-.8-1.4 1.2-.7A5.5 5.5 0 012.5 8H1.1V6.6h1.4a5.5 5.5 0 01.3-1.4l-1.2-.7.8-1.4 1.2.7a5.5 5.5 0 011.2-1.2L4.1 1.4l1.4-.8.7 1.2A5.5 5.5 0 017.6 1.5V.1h1.4v1.4a5.5 5.5 0 011.4.3l.7-1.2 1.4.8-.7 1.2a5.5 5.5 0 011.2 1.2l1.2-.7.8 1.4-1.2.7a5.5 5.5 0 01.3 1.4h1.4V8z" />
+      <circle cx="5" cy="6.5" r="3" />
+      <path d="M7.5 8l5.5 5.5M11 12l1.5 1.5M10 11l1.5 1.5" />
     </svg>
   );
 }
@@ -127,9 +127,9 @@ export function EntryScreen({
             <button
               onClick={onOpenSettings}
               className="p-1.5 text-muted hover:text-ink rounded hover:bg-subtle transition-colors"
-              aria-label="Settings"
+              aria-label="AI provider settings"
             >
-              <IconGear />
+              <IconKey />
             </button>
           )}
         </div>

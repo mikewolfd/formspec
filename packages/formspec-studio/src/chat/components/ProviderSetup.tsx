@@ -9,9 +9,11 @@ interface ProviderSetupProps {
   onSave: (config: ProviderConfig) => void;
   initialConfig?: ProviderConfig;
   onClear?: () => void;
+  /** When true, shows a welcome message for first-time users. */
+  isInitialSetup?: boolean;
 }
 
-export function ProviderSetup({ open, onClose, onSave, initialConfig, onClear }: ProviderSetupProps) {
+export function ProviderSetup({ open, onClose, onSave, initialConfig, onClear, isInitialSetup }: ProviderSetupProps) {
   const titleId = useId();
   const [provider, setProvider] = useState<ProviderType>(initialConfig?.provider ?? 'anthropic');
   const [apiKey, setApiKey] = useState(initialConfig?.apiKey ?? '');
@@ -64,10 +66,12 @@ export function ProviderSetup({ open, onClose, onSave, initialConfig, onClear }:
         {/* Header */}
         <div className="px-5 py-4 border-b border-border">
           <h2 id={titleId} className="text-sm font-semibold text-ink">
-            AI Provider Setup
+            {isInitialSetup ? 'Bring Your Own Key' : 'AI Provider Setup'}
           </h2>
           <p className="text-xs text-muted mt-0.5">
-            Configure an AI provider for conversational form building.
+            {isInitialSetup
+              ? 'Add an API key to start building forms with AI. Your key is stored locally and never sent to our servers.'
+              : 'Configure an AI provider for conversational form building.'}
           </p>
         </div>
 
@@ -129,7 +133,7 @@ export function ProviderSetup({ open, onClose, onSave, initialConfig, onClear }:
               onClick={onClose}
               className="px-3.5 py-1.5 text-sm rounded border border-border text-muted hover:text-ink hover:border-accent/50 transition-colors"
             >
-              Cancel
+              {isInitialSetup ? 'Skip for now' : 'Cancel'}
             </button>
             <button
               onClick={handleSave}
