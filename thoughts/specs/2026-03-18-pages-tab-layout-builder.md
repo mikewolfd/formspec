@@ -283,7 +283,7 @@ method is required.
 | Set offset | `project.setItemOffset(pageId, itemKey, offset)` | Existing |
 | Reorder item (up/down) | `project.reorderItemOnPage(pageId, itemKey, direction)` | Existing |
 | **Move item to position** | **`project.moveItemOnPageToIndex(pageId, itemKey, targetIndex)`** | **New** |
-| Place item | `project.placeOnPage(itemKey, pageId, { span })` | Existing |
+| Place item | `project.placeOnPage(target, pageId, { span })` | Existing |
 | Remove item | `project.removeItemFromPage(pageId, itemKey)` | Existing |
 | Set responsive | `project.setItemResponsive(pageId, itemKey, breakpoint, overrides)` | Existing |
 | Add page | `project.addPage(title)` | Existing |
@@ -407,7 +407,8 @@ This prevents accidental exits during editing.
 
 - Drag starts on an unplaced item in the palette
 - Grid canvas shows drop indicators between existing items
-- On drop: `project.placeOnPage(itemKey, pageId, { span: 12 })` is called,
+- On drop: `project.placeOnPage(target, pageId, { span: 12 })` is called
+  (where `target` is the item key; dotted paths accepted for nested items),
   then `project.moveItemOnPageToIndex()` to position it at the drop index
 - These are two operations; undo reverses both (place + position)
 
@@ -419,7 +420,19 @@ and a "dormant" badge. In Focus Mode, dormant pages are fully editable
 — the user can pre-arrange layouts before switching to wizard/tabs.
 This is useful for preparing page layouts without activating navigation.
 
-### 8.8 Empty Theme Pages
+### 8.8 Focus Mode Defensive Guards
+
+**Focused page deleted:** If the focused page disappears (via undo,
+`removePage`, or external mutation), Focus Mode falls back to Overview
+Mode automatically. The component checks that `focusedPageId` still
+exists in the resolved pages on each render.
+
+**Adding a page while in Focus Mode:** The "Add Page" action is
+available only in Overview Mode. The user must exit Focus Mode first.
+Page navigation (prev/next/dropdown) in Focus Mode cycles only through
+existing pages.
+
+### 8.9 Empty Theme Pages
 
 When `formPresentation.pageMode` is `wizard` or `tabs` but `theme.pages`
 is empty (no pages exist), the Pages tab shows a prompt: "Create pages
@@ -443,6 +456,7 @@ gap rather than seeing an empty tab.
 - Page description as first-class field
 - One new behavioral method: `moveItemOnPageToIndex`
 - Minor type additions to `PageItemView` (itemType, childCount, repeatable)
+- `breakpointValues` addition to `PageStructureView`
 - `removePage` confirmation dialog
 - Empty theme pages prompt with auto-generate button
 - Dormant page editing in Focus Mode
@@ -453,8 +467,9 @@ gap rather than seeing an empty tab.
   When it ships, the palette expands to show nested fields, and
   residual group behavior activates. Phase 4 must also address:
   whether extracted fields render inside their parent group (duplicate),
-  re-absorption of extracted fields back into groups, and cross-page
-  extraction semantics.
+  re-absorption of extracted fields back into groups, cross-page
+  extraction semantics, and FEL expressions using relative sibling
+  references that would break when a field is lifted out of its group.
 - **Cross-page item move** — Dragging an item directly from one page
   to another. Currently requires remove + navigate + place (3 steps).
   Natural extension of the drag infrastructure.
