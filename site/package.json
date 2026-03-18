@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build:studio": "npm run build -w formspec-studio",
+    "copy:studio": "rm -rf public/studio public/chat && mkdir -p public/studio public/chat && cp -r ../packages/formspec-studio/dist/* public/studio/ && mv public/studio/chat.html public/chat/index.html && cp -r public/studio/assets public/chat/assets",
+    "predev": "npm run build:studio && npm run copy:studio",
+    "prebuild": "npm run build:studio && npm run copy:studio",
     "dev": "astro dev",
     "build": "astro build && cp -rL ../docs dist/docs",
     "preview": "astro preview",

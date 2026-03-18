@@ -37,9 +37,13 @@ reconstructed-examples/
 .astro/
 
 # Firebase Hosting build output
-public/
+/public/
 firebase-debug.log
 .firebase/
+
+# Site generated artifacts
+site/public/studio/
+site/public/chat/
 
 # Rust build artifacts
 target/

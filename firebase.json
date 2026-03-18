@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "site/dist",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -30,6 +30,10 @@
       {
         "source": "/studio/**",
         "destination": "/studio/index.html"
+      },
+      {
+        "source": "/chat/**",
+        "destination": "/chat/index.html"
       },
       {
         "source": "/references/**",
