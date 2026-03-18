@@ -2,57 +2,34 @@
 ///
 /// Pass 1 (E100): Schema validation — JSON Schema conformance, document type detection
 /// Pass 2 (E200): Tree — Item tree flattening, duplicate key detection
-/// Pass 3 (E300): References — Bind/shape path validation, wildcard resolution
+/// Pass 3 (E300/E301/E302/W300/E600): References — Bind/shape path validation,
+///         optionSet resolution, extension resolution, wildcard path checks
 /// Pass 4 (E400): Expressions — Parse all FEL slots in binds/shapes/screener
 /// Pass 5 (E500): Dependencies — Dependency graph + DFS cycle detection
 /// Pass 6 (W700): Theme — Token validation, reference integrity, page layout
 /// Pass 7 (E800): Components — Component tree, type compatibility, bind uniqueness
-use std::collections::{HashMap, HashSet};
+
+mod passes;
+mod types;
 
 use serde_json::Value;
 
-use fel_core::parse;
-use formspec_core::{detect_document_type, DocumentType, get_fel_dependencies};
+use formspec_core::{detect_document_type, DocumentType};
 
-// ── Types ───────────────────────────────────────────────────────
-
-/// A lint diagnostic.
-#[derive(Debug, Clone)]
-pub struct LintDiagnostic {
-    /// Error/warning code (e.g., "E100", "E200", "W300").
-    pub code: String,
-    /// Pass number (1-7).
-    pub pass: u8,
-    /// Severity: error, warning, info.
-    pub severity: LintSeverity,
-    /// JSONPath to the problematic element.
-    pub path: String,
-    /// Human-readable message.
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LintSeverity {
-    Error,
-    Warning,
-    Info,
-}
-
-/// Result of linting.
-#[derive(Debug, Clone)]
-pub struct LintResult {
-    /// Document type (if detected).
-    pub document_type: Option<DocumentType>,
-    /// All diagnostics from all passes.
-    pub diagnostics: Vec<LintDiagnostic>,
-    /// Whether the document is valid (no errors).
-    pub valid: bool,
-}
+// Re-export public types
+pub use types::{
+    sort_diagnostics, LintDiagnostic, LintMode, LintOptions, LintResult, LintSeverity,
+};
 
 // ── Lint pipeline ───────────────────────────────────────────────
 
-/// Run the full 7-pass lint pipeline on a Formspec document.
+/// Run the full lint pipeline on a Formspec document with default options.
 pub fn lint(doc: &Value) -> LintResult {
+    lint_with_options(doc, &LintOptions::default())
+}
+
+/// Run the full lint pipeline with explicit options.
+pub fn lint_with_options(doc: &Value, options: &LintOptions) -> LintResult {
     let mut diagnostics = Vec::new();
 
     // Detect document type
@@ -78,19 +55,46 @@ pub fn lint(doc: &Value) -> LintResult {
 
     // Only run definition-specific passes on definitions
     if doc_type == DocumentType::Definition {
-        pass_2_tree(doc, &mut diagnostics);
-        pass_3_references(doc, &mut diagnostics);
-        pass_4_expressions(doc, &mut diagnostics);
-        pass_5_dependencies(doc, &mut diagnostics);
+        // Pass 2: Tree
+        passes::pass_2_tree(doc, &mut diagnostics);
+
+        // Pass gating: stop if structural errors exist from pass 2
+        let has_structural_errors = diagnostics.iter().any(|d| d.severity == LintSeverity::Error);
+        if has_structural_errors {
+            // Sort and filter before returning
+            sort_diagnostics(&mut diagnostics);
+            diagnostics.retain(|d| !d.suppressed_in(options.mode));
+            return LintResult {
+                document_type: Some(doc_type),
+                diagnostics,
+                valid: false,
+            };
+        }
+
+        // Pass 3: References (includes E300, E301, E302, W300, E600)
+        passes::pass_3_references(doc, &mut diagnostics);
+        passes::pass_3b_extensions(doc, &options.registry_documents, &mut diagnostics);
+
+        // Pass 4: Expressions
+        passes::pass_4_expressions(doc, &mut diagnostics);
+
+        // Pass 5: Dependencies
+        passes::pass_5_dependencies(doc, &mut diagnostics);
     }
 
     if doc_type == DocumentType::Theme {
-        pass_6_theme(doc, &mut diagnostics);
+        passes::pass_6_theme(doc, &mut diagnostics);
     }
 
     if doc_type == DocumentType::Component {
-        pass_7_components(doc, &mut diagnostics);
+        passes::pass_7_components(doc, &mut diagnostics);
     }
+
+    // Sort diagnostics: pass ASC, severity (error > warning > info), path ASC
+    sort_diagnostics(&mut diagnostics);
+
+    // Apply lint mode filtering
+    diagnostics.retain(|d| !d.suppressed_in(options.mode));
 
     let valid = diagnostics.iter().all(|d| d.severity != LintSeverity::Error);
 
@@ -101,297 +105,12 @@ pub fn lint(doc: &Value) -> LintResult {
     }
 }
 
-// ── Pass 2: Tree ────────────────────────────────────────────────
-
-fn pass_2_tree(doc: &Value, diagnostics: &mut Vec<LintDiagnostic>) {
-    let items = doc.get("items").and_then(|v| v.as_array());
-    if let Some(items) = items {
-        let mut seen_keys = HashSet::new();
-        check_duplicate_keys(items, &mut seen_keys, "$", diagnostics);
-    }
-}
-
-fn check_duplicate_keys(
-    items: &[Value],
-    seen: &mut HashSet<String>,
-    prefix: &str,
-    diagnostics: &mut Vec<LintDiagnostic>,
-) {
-    for item in items {
-        if let Some(key) = item.get("key").and_then(|v| v.as_str()) {
-            let path = format!("{prefix}.items[key={key}]");
-            if !seen.insert(key.to_string()) {
-                diagnostics.push(LintDiagnostic {
-                    code: "E201".to_string(),
-                    pass: 2,
-                    severity: LintSeverity::Error,
-                    path,
-                    message: format!("Duplicate item key: {key}"),
-                });
-            }
-            if let Some(children) = item.get("children").and_then(|v| v.as_array()) {
-                check_duplicate_keys(children, seen, &format!("{prefix}.{key}"), diagnostics);
-            }
-        }
-    }
-}
-
-// ── Pass 3: References ──────────────────────────────────────────
-
-fn pass_3_references(doc: &Value, diagnostics: &mut Vec<LintDiagnostic>) {
-    let items = doc.get("items").and_then(|v| v.as_array());
-    let binds = doc.get("binds").and_then(|v| v.as_object());
-    let shapes = doc.get("shapes").and_then(|v| v.as_array());
-
-    // Collect all valid item keys
-    let mut valid_keys = HashSet::new();
-    if let Some(items) = items {
-        collect_keys(items, &mut valid_keys);
-    }
-
-    // Check bind paths reference valid items
-    if let Some(binds) = binds {
-        for (bind_key, _) in binds {
-            let base_key = bind_key.split('.').next().unwrap_or(bind_key);
-            if !valid_keys.contains(base_key) && !bind_key.contains('[') {
-                diagnostics.push(LintDiagnostic {
-                    code: "E300".to_string(),
-                    pass: 3,
-                    severity: LintSeverity::Error,
-                    path: format!("$.binds.{bind_key}"),
-                    message: format!("Bind references unknown item: {bind_key}"),
-                });
-            }
-        }
-    }
-
-    // Check shape targets reference valid items
-    if let Some(shapes) = shapes {
-        for (i, shape) in shapes.iter().enumerate() {
-            if let Some(target) = shape.get("target").and_then(|v| v.as_str()) {
-                let base_key = target.split('.').next().unwrap_or(target);
-                let is_wildcard = target.contains("[*]");
-                if !valid_keys.contains(base_key) && !is_wildcard {
-                    diagnostics.push(LintDiagnostic {
-                        code: "E302".to_string(),
-                        pass: 3,
-                        severity: LintSeverity::Error,
-                        path: format!("$.shapes[{i}]"),
-                        message: format!("Shape target references unknown item: {target}"),
-                    });
-                }
-            }
-        }
-    }
-}
-
-fn collect_keys(items: &[Value], keys: &mut HashSet<String>) {
-    for item in items {
-        if let Some(key) = item.get("key").and_then(|v| v.as_str()) {
-            keys.insert(key.to_string());
-        }
-        if let Some(children) = item.get("children").and_then(|v| v.as_array()) {
-            collect_keys(children, keys);
-        }
-    }
-}
-
-// ── Pass 4: Expressions ─────────────────────────────────────────
-
-fn pass_4_expressions(doc: &Value, diagnostics: &mut Vec<LintDiagnostic>) {
-    let binds = doc.get("binds").and_then(|v| v.as_object());
-
-    if let Some(binds) = binds {
-        for (bind_key, bind_val) in binds {
-            if let Some(obj) = bind_val.as_object() {
-                for &slot in &["calculate", "relevant", "required", "readonly", "constraint"] {
-                    if let Some(expr) = obj.get(slot).and_then(|v| v.as_str()) {
-                        if let Err(e) = parse(expr) {
-                            diagnostics.push(LintDiagnostic {
-                                code: "E400".to_string(),
-                                pass: 4,
-                                severity: LintSeverity::Error,
-                                path: format!("$.binds.{bind_key}.{slot}"),
-                                message: format!("FEL parse error: {e}"),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Check shape expressions
-    if let Some(shapes) = doc.get("shapes").and_then(|v| v.as_array()) {
-        for (i, shape) in shapes.iter().enumerate() {
-            for &slot in &["constraint", "activeWhen"] {
-                if let Some(expr) = shape.get(slot).and_then(|v| v.as_str()) {
-                    if let Err(e) = parse(expr) {
-                        diagnostics.push(LintDiagnostic {
-                            code: "E400".to_string(),
-                            pass: 4,
-                            severity: LintSeverity::Error,
-                            path: format!("$.shapes[{i}].{slot}"),
-                            message: format!("FEL parse error: {e}"),
-                        });
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── Pass 5: Dependencies ────────────────────────────────────────
-
-fn pass_5_dependencies(doc: &Value, diagnostics: &mut Vec<LintDiagnostic>) {
-    let binds = doc.get("binds").and_then(|v| v.as_object());
-    if binds.is_none() {
-        return;
-    }
-    let binds = binds.unwrap();
-
-    // Build dependency graph: key → set of keys it depends on
-    let mut graph: HashMap<String, HashSet<String>> = HashMap::new();
-
-    for (bind_key, bind_val) in binds {
-        let mut deps = HashSet::new();
-        if let Some(obj) = bind_val.as_object() {
-            for &slot in &["calculate", "relevant", "required", "readonly", "constraint"] {
-                if let Some(expr) = obj.get(slot).and_then(|v| v.as_str()) {
-                    for dep in get_fel_dependencies(expr) {
-                        // Only track dependencies on other bind keys
-                        let base_key = dep.split('.').next().unwrap_or(&dep);
-                        deps.insert(base_key.to_string());
-                    }
-                }
-            }
-        }
-        graph.insert(bind_key.clone(), deps);
-    }
-
-    // DFS cycle detection
-    let mut visited = HashSet::new();
-    let mut in_stack = HashSet::new();
-
-    for key in graph.keys() {
-        if !visited.contains(key) {
-            detect_cycle(key, &graph, &mut visited, &mut in_stack, diagnostics);
-        }
-    }
-}
-
-fn detect_cycle(
-    node: &str,
-    graph: &HashMap<String, HashSet<String>>,
-    visited: &mut HashSet<String>,
-    in_stack: &mut HashSet<String>,
-    diagnostics: &mut Vec<LintDiagnostic>,
-) {
-    visited.insert(node.to_string());
-    in_stack.insert(node.to_string());
-
-    if let Some(deps) = graph.get(node) {
-        for dep in deps {
-            if !visited.contains(dep.as_str()) {
-                if graph.contains_key(dep.as_str()) {
-                    detect_cycle(dep, graph, visited, in_stack, diagnostics);
-                }
-            } else if in_stack.contains(dep.as_str()) {
-                diagnostics.push(LintDiagnostic {
-                    code: "E500".to_string(),
-                    pass: 5,
-                    severity: LintSeverity::Error,
-                    path: format!("$.binds.{node}"),
-                    message: format!("Dependency cycle detected: {node} → {dep}"),
-                });
-            }
-        }
-    }
-
-    in_stack.remove(node);
-}
-
-// ── Pass 6: Theme ───────────────────────────────────────────────
-
-fn pass_6_theme(doc: &Value, diagnostics: &mut Vec<LintDiagnostic>) {
-    // Validate tokens exist if referenced
-    if let Some(selectors) = doc.get("selectors").and_then(|v| v.as_array()) {
-        let tokens = doc.get("tokens").and_then(|v| v.as_object());
-        for (i, selector) in selectors.iter().enumerate() {
-            if let Some(props) = selector.get("properties").and_then(|v| v.as_object()) {
-                for (prop, value) in props {
-                    if let Some(token_ref) = value.as_str() {
-                        if token_ref.starts_with("$token.") {
-                            let token_name = &token_ref[7..];
-                            let has_token = tokens.map_or(false, |t| t.contains_key(token_name));
-                            if !has_token {
-                                diagnostics.push(LintDiagnostic {
-                                    code: "W700".to_string(),
-                                    pass: 6,
-                                    severity: LintSeverity::Warning,
-                                    path: format!("$.selectors[{i}].properties.{prop}"),
-                                    message: format!("Token reference not found: {token_ref}"),
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── Pass 7: Components ──────────────────────────────────────────
-
-fn pass_7_components(doc: &Value, diagnostics: &mut Vec<LintDiagnostic>) {
-    // Validate component tree has required fields
-    if let Some(tree) = doc.get("tree").and_then(|v| v.as_object()) {
-        if !tree.contains_key("componentType") {
-            diagnostics.push(LintDiagnostic {
-                code: "E800".to_string(),
-                pass: 7,
-                severity: LintSeverity::Error,
-                path: "$.tree".to_string(),
-                message: "Component tree root missing componentType".to_string(),
-            });
-        }
-        // Check for bind uniqueness in children
-        if let Some(children) = tree.get("children").and_then(|v| v.as_array()) {
-            let mut seen_binds = HashSet::new();
-            check_bind_uniqueness(children, &mut seen_binds, "$.tree", diagnostics);
-        }
-    }
-}
-
-fn check_bind_uniqueness(
-    nodes: &[Value],
-    seen: &mut HashSet<String>,
-    prefix: &str,
-    diagnostics: &mut Vec<LintDiagnostic>,
-) {
-    for (i, node) in nodes.iter().enumerate() {
-        let path = format!("{prefix}.children[{i}]");
-        if let Some(bind) = node.get("bind").and_then(|v| v.as_str()) {
-            if !seen.insert(bind.to_string()) {
-                diagnostics.push(LintDiagnostic {
-                    code: "W804".to_string(),
-                    pass: 7,
-                    severity: LintSeverity::Warning,
-                    path,
-                    message: format!("Duplicate bind in component tree: {bind}"),
-                });
-            }
-        }
-        if let Some(children) = node.get("children").and_then(|v| v.as_array()) {
-            check_bind_uniqueness(children, seen, &format!("{prefix}.children[{i}]"), diagnostics);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // ── Existing tests (preserved) ──────────────────────────────
 
     #[test]
     fn test_lint_valid_definition() {
@@ -521,5 +240,422 @@ mod tests {
         });
         let result = lint(&comp);
         assert!(result.diagnostics.iter().any(|d| d.code == "W804"));
+    }
+
+    // ── New tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_e302_option_set_not_found() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "color", "dataType": "choice", "optionSet": "colors" }
+            ],
+            "optionSets": {
+                "sizes": { "options": [{ "value": "S" }, { "value": "M" }] }
+            }
+        });
+        let result = lint(&def);
+        let e302 = result.diagnostics.iter().filter(|d| d.code == "E302").collect::<Vec<_>>();
+        assert_eq!(e302.len(), 1, "Expected exactly one E302 diagnostic");
+        assert!(e302[0].message.contains("colors"), "Message should mention 'colors'");
+        assert!(!result.valid, "Should be invalid due to E302 error");
+    }
+
+    #[test]
+    fn test_e302_option_set_found_passes() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "color", "dataType": "choice", "optionSet": "colors" }
+            ],
+            "optionSets": {
+                "colors": { "options": [{ "value": "red" }, { "value": "blue" }] }
+            }
+        });
+        let result = lint(&def);
+        let e302 = result.diagnostics.iter().filter(|d| d.code == "E302").count();
+        assert_eq!(e302, 0, "No E302 when optionSet exists");
+    }
+
+    #[test]
+    fn test_w300_incompatible_data_type_for_option_set() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "field1", "dataType": "boolean", "optionSet": "yesno" }
+            ],
+            "optionSets": {
+                "yesno": { "options": [{ "value": "yes" }, { "value": "no" }] }
+            }
+        });
+        let result = lint(&def);
+        let w300 = result.diagnostics.iter().filter(|d| d.code == "W300").collect::<Vec<_>>();
+        assert_eq!(w300.len(), 1, "Expected one W300 warning");
+        assert!(w300[0].message.contains("boolean"), "Should mention the incompatible type");
+    }
+
+    #[test]
+    fn test_w300_compatible_types_no_warning() {
+        for data_type in &["string", "integer", "decimal", "choice", "multiChoice"] {
+            let def = json!({
+                "$formspec": "1.0",
+                "items": [
+                    { "key": "field1", "dataType": data_type, "optionSet": "opts" }
+                ],
+                "optionSets": {
+                    "opts": { "options": [{ "value": "a" }] }
+                }
+            });
+            let result = lint(&def);
+            let w300 = result.diagnostics.iter().filter(|d| d.code == "W300").count();
+            assert_eq!(w300, 0, "dataType '{data_type}' should not trigger W300");
+        }
+    }
+
+    #[test]
+    fn test_e301_shape_target_validation() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "name", "dataType": "string" }
+            ],
+            "shapes": [
+                {
+                    "target": "missing_field",
+                    "constraint": "$name != ''"
+                }
+            ]
+        });
+        let result = lint(&def);
+        let e301 = result.diagnostics.iter().filter(|d| d.code == "E301").collect::<Vec<_>>();
+        assert_eq!(e301.len(), 1, "Expected one E301 diagnostic");
+        assert!(e301[0].message.contains("missing_field"));
+    }
+
+    #[test]
+    fn test_e301_valid_shape_target_passes() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "name", "dataType": "string" }
+            ],
+            "shapes": [
+                {
+                    "target": "name",
+                    "constraint": "$name != ''"
+                }
+            ]
+        });
+        let result = lint(&def);
+        let e301 = result.diagnostics.iter().filter(|d| d.code == "E301").count();
+        assert_eq!(e301, 0, "Valid shape target should not emit E301");
+    }
+
+    #[test]
+    fn test_wildcard_path_in_binds() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "lines",
+                    "repeat": { "min": 1, "max": 10 },
+                    "children": [
+                        { "key": "amount", "dataType": "decimal" }
+                    ]
+                }
+            ],
+            "binds": {
+                "lines[*].amount": { "required": "true" }
+            }
+        });
+        let result = lint(&def);
+        // Wildcard path on repeatable group with valid child — should pass
+        let e300 = result.diagnostics.iter().filter(|d| d.code == "E300").count();
+        assert_eq!(e300, 0, "Valid wildcard path should not produce E300");
+    }
+
+    #[test]
+    fn test_wildcard_path_non_repeatable_group() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "personal",
+                    "children": [
+                        { "key": "name", "dataType": "string" }
+                    ]
+                }
+            ],
+            "binds": {
+                "personal[*].name": { "required": "true" }
+            }
+        });
+        let result = lint(&def);
+        let e300 = result.diagnostics.iter().filter(|d| d.code == "E300").collect::<Vec<_>>();
+        assert_eq!(e300.len(), 1, "Wildcard on non-repeatable group should produce E300");
+        assert!(e300[0].message.contains("non-repeatable"));
+    }
+
+    #[test]
+    fn test_wildcard_path_unknown_child() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "lines",
+                    "repeat": { "min": 1 },
+                    "children": [
+                        { "key": "amount", "dataType": "decimal" }
+                    ]
+                }
+            ],
+            "binds": {
+                "lines[*].nonexistent": { "required": "true" }
+            }
+        });
+        let result = lint(&def);
+        let e300 = result.diagnostics.iter().filter(|d| d.code == "E300").collect::<Vec<_>>();
+        assert_eq!(e300.len(), 1, "Wildcard with unknown child should produce E300");
+        assert!(e300[0].message.contains("nonexistent"));
+    }
+
+    #[test]
+    fn test_screener_expression_validation() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "age", "dataType": "integer" }
+            ],
+            "screener": {
+                "routes": [
+                    { "condition": "$age >= 18", "target": "adult" },
+                    { "condition": "invalid ++ expr", "target": "error" }
+                ]
+            }
+        });
+        let result = lint(&def);
+        let e400 = result.diagnostics.iter()
+            .filter(|d| d.code == "E400" && d.path.contains("screener"))
+            .collect::<Vec<_>>();
+        assert_eq!(e400.len(), 1, "Expected one E400 for invalid screener expression");
+        assert!(e400[0].path.contains("routes[1]"));
+    }
+
+    #[test]
+    fn test_screener_valid_expression_passes() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "age", "dataType": "integer" }
+            ],
+            "screener": {
+                "routes": [
+                    { "condition": "$age >= 18", "target": "adult" }
+                ]
+            }
+        });
+        let result = lint(&def);
+        let screener_errors = result.diagnostics.iter()
+            .filter(|d| d.path.contains("screener"))
+            .count();
+        assert_eq!(screener_errors, 0, "Valid screener expressions should not produce errors");
+    }
+
+    #[test]
+    fn test_diagnostic_sorting() {
+        // Create a document that produces diagnostics from multiple passes
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "name", "dataType": "string" },
+                { "key": "color", "dataType": "boolean", "optionSet": "missing_set" }
+            ],
+            "binds": {
+                "name": { "calculate": "invalid ++" }
+            }
+        });
+        let result = lint(&def);
+        assert!(result.diagnostics.len() >= 2, "Should have multiple diagnostics");
+
+        // Verify sorting: pass numbers are non-decreasing
+        for window in result.diagnostics.windows(2) {
+            let a = &window[0];
+            let b = &window[1];
+            assert!(
+                a.pass < b.pass
+                    || (a.pass == b.pass && a.severity <= b.severity)
+                    || (a.pass == b.pass && a.severity == b.severity && a.path <= b.path),
+                "Diagnostics not sorted: ({}, {:?}, {}) should come before ({}, {:?}, {})",
+                a.pass, a.severity, a.path,
+                b.pass, b.severity, b.path,
+            );
+        }
+    }
+
+    #[test]
+    fn test_pass_gating_on_structural_errors() {
+        // Duplicate keys = E201 (pass 2 structural error)
+        // Should NOT run pass 3+ checks
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "name" },
+                { "key": "name" }
+            ],
+            "binds": {
+                "nonexistent": { "required": "true" },
+                "name": { "calculate": "invalid ++" }
+            }
+        });
+        let result = lint(&def);
+
+        // Pass 2 error should be present
+        assert!(result.diagnostics.iter().any(|d| d.code == "E201"),
+            "E201 should be present");
+
+        // Pass 3 (E300) and pass 4 (E400) should NOT be present because of pass gating
+        let pass3_plus = result.diagnostics.iter()
+            .filter(|d| d.pass >= 3)
+            .count();
+        assert_eq!(pass3_plus, 0,
+            "No diagnostics from pass 3+ should exist when pass 2 has structural errors");
+    }
+
+    #[test]
+    fn test_lint_mode_authoring_suppresses_w300() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "field1", "dataType": "boolean", "optionSet": "opts" }
+            ],
+            "optionSets": {
+                "opts": { "options": [{ "value": "yes" }] }
+            }
+        });
+
+        // Runtime mode: W300 present
+        let runtime_result = lint_with_options(&def, &LintOptions {
+            mode: LintMode::Runtime,
+            ..Default::default()
+        });
+        let w300_runtime = runtime_result.diagnostics.iter().filter(|d| d.code == "W300").count();
+        assert_eq!(w300_runtime, 1, "Runtime mode should emit W300");
+
+        // Authoring mode: W300 suppressed
+        let authoring_result = lint_with_options(&def, &LintOptions {
+            mode: LintMode::Authoring,
+            ..Default::default()
+        });
+        let w300_authoring = authoring_result.diagnostics.iter().filter(|d| d.code == "W300").count();
+        assert_eq!(w300_authoring, 0, "Authoring mode should suppress W300");
+    }
+
+    #[test]
+    fn test_e600_extension_resolution() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "email",
+                    "dataType": "string",
+                    "extensions": {
+                        "x-formspec-url": true,
+                        "x-unknown-ext": true
+                    }
+                }
+            ]
+        });
+        let registry = json!({
+            "entries": [
+                { "name": "x-formspec-url", "status": "active" }
+            ]
+        });
+        let result = lint_with_options(&def, &LintOptions {
+            registry_documents: vec![registry],
+            ..Default::default()
+        });
+
+        let e600 = result.diagnostics.iter().filter(|d| d.code == "E600").collect::<Vec<_>>();
+        assert_eq!(e600.len(), 1, "Expected one E600 for unresolved extension");
+        assert!(e600[0].message.contains("x-unknown-ext"));
+    }
+
+    #[test]
+    fn test_e600_no_registry_no_check() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "email",
+                    "dataType": "string",
+                    "extensions": {
+                        "x-formspec-url": true
+                    }
+                }
+            ]
+        });
+        // Without registry documents, E600 checks are skipped
+        let result = lint(&def);
+        let e600 = result.diagnostics.iter().filter(|d| d.code == "E600").count();
+        assert_eq!(e600, 0, "No E600 when no registry documents provided");
+    }
+
+    #[test]
+    fn test_e600_disabled_extension_not_checked() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "field",
+                    "dataType": "string",
+                    "extensions": {
+                        "x-unknown": false
+                    }
+                }
+            ]
+        });
+        let registry = json!({
+            "entries": []
+        });
+        let result = lint_with_options(&def, &LintOptions {
+            registry_documents: vec![registry],
+            ..Default::default()
+        });
+
+        let e600 = result.diagnostics.iter().filter(|d| d.code == "E600").count();
+        assert_eq!(e600, 0, "Disabled extensions (false) should not be checked");
+    }
+
+    #[test]
+    fn test_e600_multiple_registries() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "field",
+                    "dataType": "string",
+                    "extensions": {
+                        "x-ext-a": true,
+                        "x-ext-b": true,
+                        "x-ext-c": true
+                    }
+                }
+            ]
+        });
+        let registry1 = json!({
+            "entries": [{ "name": "x-ext-a", "status": "active" }]
+        });
+        let registry2 = json!({
+            "entries": [{ "name": "x-ext-b", "status": "active" }]
+        });
+        let result = lint_with_options(&def, &LintOptions {
+            registry_documents: vec![registry1, registry2],
+            ..Default::default()
+        });
+
+        let e600 = result.diagnostics.iter().filter(|d| d.code == "E600").collect::<Vec<_>>();
+        assert_eq!(e600.len(), 1, "Only x-ext-c should be unresolved");
+        assert!(e600[0].message.contains("x-ext-c"));
     }
 }
