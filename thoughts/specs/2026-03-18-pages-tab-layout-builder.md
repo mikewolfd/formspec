@@ -5,6 +5,20 @@
 **Scope:** formspec-studio PagesTab, formspec-studio-core (one new method), formspec-core (minor type additions)
 **Prerequisite:** Pages Behavioral API (Phases 0–3 complete)
 
+## Implementation Phases
+
+This spec is broken into three sequential phases, each with its own file:
+
+| Phase | File | Scope | Depends On |
+|-------|------|-------|------------|
+| 1 | [`pages-layout-phase1-core.md`](2026-03-18-pages-layout-phase1-core.md) | `PageItemView` extensions, `breakpointValues`, `moveItemOnPageToIndex` | Behavioral API complete |
+| 2 | [`pages-layout-phase2-overview.md`](2026-03-18-pages-layout-phase2-overview.md) | Overview Mode refinements, empty state, removePage confirmation, Focus Mode scaffold | Phase 1 |
+| 3 | [`pages-layout-phase3-focus.md`](2026-03-18-pages-layout-phase3-focus.md) | GridCanvas, FieldPalette, BreakpointBar, SelectionToolbar | Phase 1, Phase 2 |
+
+The remainder of this document is the consolidated design reference.
+Phase files contain implementation details, TDD plans, and success
+criteria for each phase.
+
 ---
 
 ## 1. Problem
