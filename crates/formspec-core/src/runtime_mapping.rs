@@ -346,9 +346,15 @@ pub fn execute_mapping(
             TransformType::Expression(fel_expr) => {
                 match parse(fel_expr) {
                     Ok(expr) => {
+                        // Build environment: source value fields are available directly,
+                        // and the full source document fields are also available.
                         let mut fields = std::collections::HashMap::new();
-                        fields.insert("__value__".to_string(), json_to_fel(&source_value));
-                        fields.insert("__source__".to_string(), json_to_fel(source));
+                        // Make source document fields available as $fieldName
+                        if let Some(obj) = source.as_object() {
+                            for (k, v) in obj {
+                                fields.insert(k.clone(), json_to_fel(v));
+                            }
+                        }
                         let env = MapEnvironment::with_fields(fields);
                         let result = evaluate(&expr, &env);
                         fel_to_json(&result.value)
@@ -659,6 +665,66 @@ mod tests {
         let source = json!({ "val": "unknown" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
         assert_eq!(result.output["out"], "unknown");
+    }
+
+    #[test]
+    fn test_expression_transform() {
+        let rules = vec![MappingRule {
+            source_path: None,
+            target_path: "fullName".to_string(),
+            transform: TransformType::Expression("$first & ' ' & $last".to_string()),
+            condition: None,
+            priority: 0,
+            reverse_priority: None,
+        }];
+        let source = json!({ "first": "Alice", "last": "Smith" });
+        let result = execute_mapping(&rules, &source, MappingDirection::Forward);
+        assert_eq!(result.output["fullName"], "Alice Smith");
+    }
+
+    #[test]
+    fn test_expression_with_calculation() {
+        let rules = vec![MappingRule {
+            source_path: None,
+            target_path: "total".to_string(),
+            transform: TransformType::Expression("$qty * $price".to_string()),
+            condition: None,
+            priority: 0,
+            reverse_priority: None,
+        }];
+        let source = json!({ "qty": 5, "price": 10 });
+        let result = execute_mapping(&rules, &source, MappingDirection::Forward);
+        assert_eq!(result.output["total"], 50);
+    }
+
+    #[test]
+    fn test_coerce_boolean() {
+        let rules = vec![MappingRule {
+            source_path: Some("active".to_string()),
+            target_path: "isActive".to_string(),
+            transform: TransformType::Coerce(CoerceType::Boolean),
+            condition: None,
+            priority: 0,
+            reverse_priority: None,
+        }];
+        let source = json!({ "active": "true" });
+        let result = execute_mapping(&rules, &source, MappingDirection::Forward);
+        assert_eq!(result.output["isActive"], true);
+    }
+
+    #[test]
+    fn test_coerce_integer() {
+        let rules = vec![MappingRule {
+            source_path: Some("amount".to_string()),
+            target_path: "count".to_string(),
+            transform: TransformType::Coerce(CoerceType::Integer),
+            condition: None,
+            priority: 0,
+            reverse_priority: None,
+        }];
+        let source = json!({ "amount": 3.7 });
+        let result = execute_mapping(&rules, &source, MappingDirection::Forward);
+        assert_eq!(result.output["count"], 3);
     }
 
     #[test]
