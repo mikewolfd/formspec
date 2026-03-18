@@ -4,13 +4,53 @@
  * These manage project creation, persistence, and history operations.
  */
 
-import { createProject, HelperError } from 'formspec-studio-core';
+import { createProject, HelperError, type ProjectBundle } from 'formspec-studio-core';
 import { ProjectRegistry } from '../registry.js';
 import { errorResponse, successResponse, formatToolError } from '../errors.js';
 import {
   readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync,
 } from 'node:fs';
 import { resolve, basename, join } from 'node:path';
+
+// ── writeBundle (shared by save + publish) ───────────────────────
+
+function writeBundle(
+  bundle: ProjectBundle,
+  targetPath: string,
+): void {
+  mkdirSync(targetPath, { recursive: true });
+  const dirName = basename(targetPath);
+
+  writeFileSync(
+    join(targetPath, `${dirName}.definition.json`),
+    JSON.stringify(bundle.definition, null, 2),
+    'utf-8',
+  );
+  writeFileSync(
+    join(targetPath, `${dirName}.component.json`),
+    JSON.stringify(bundle.component, null, 2),
+    'utf-8',
+  );
+
+  if (bundle.theme) {
+    writeFileSync(
+      join(targetPath, `${dirName}.theme.json`),
+      JSON.stringify(bundle.theme, null, 2),
+      'utf-8',
+    );
+  }
+
+  if (Object.keys(bundle.mappings).length > 0) {
+    for (const [id, mapping] of Object.entries(bundle.mappings)) {
+      const suffix = id === 'default' ? '' : `.${id}`;
+      writeFileSync(
+        join(targetPath, `${dirName}${suffix}.mapping.json`),
+        JSON.stringify(mapping, null, 2),
+        'utf-8',
+      );
+    }
+  }
+}
 
 // ── handleCreate ──────────────────────────────────────────────────
 
@@ -114,42 +154,8 @@ export function handleSave(
       return errorResponse(formatToolError('SAVE_FAILED', 'No save path specified and project has no source path'));
     }
 
-    // Ensure directory exists
-    mkdirSync(targetPath, { recursive: true });
-
-    const dirName = basename(targetPath);
     const bundle = project.export();
-
-    // Write each artifact
-    writeFileSync(
-      join(targetPath, `${dirName}.definition.json`),
-      JSON.stringify(bundle.definition, null, 2),
-      'utf-8',
-    );
-    writeFileSync(
-      join(targetPath, `${dirName}.component.json`),
-      JSON.stringify(bundle.component, null, 2),
-      'utf-8',
-    );
-
-    if (bundle.theme) {
-      writeFileSync(
-        join(targetPath, `${dirName}.theme.json`),
-        JSON.stringify(bundle.theme, null, 2),
-        'utf-8',
-      );
-    }
-
-    if (bundle.mappings && Object.keys(bundle.mappings).length > 0) {
-      for (const [id, mapping] of Object.entries(bundle.mappings)) {
-        const suffix = id === 'default' ? '' : `.${id}`;
-        writeFileSync(
-          join(targetPath, `${dirName}${suffix}.mapping.json`),
-          JSON.stringify(mapping, null, 2),
-          'utf-8',
-        );
-      }
-    }
+    writeBundle(bundle, targetPath);
 
     return successResponse({ saved: true, path: targetPath });
   } catch (err) {
@@ -213,6 +219,7 @@ export function handlePublish(
   projectId: string,
   version: string,
   summary?: string,
+  path?: string,
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
   try {
     const project = registry.getProject(projectId);
@@ -224,10 +231,23 @@ export function handlePublish(
       }));
     }
 
+    const bundle = project.export();
+
+    if (path) {
+      const targetPath = resolve(path);
+      writeBundle(bundle, targetPath);
+      return successResponse({
+        version,
+        summary: summary ?? null,
+        path: targetPath,
+        bundle,
+      });
+    }
+
     return successResponse({
       version,
       summary: summary ?? null,
-      bundle: project.export(),
+      bundle,
     });
   } catch (err) {
     if (err instanceof HelperError) {

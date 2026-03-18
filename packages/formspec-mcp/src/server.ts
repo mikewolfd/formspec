@@ -141,15 +141,16 @@ export async function main() {
 
   server.registerTool('formspec_publish', {
     title: 'Publish',
-    description: 'Export a finalized project bundle.',
+    description: 'Validate and export a finalized project bundle. When path is provided, writes individual artifact files (definition, component, theme, mappings) to the directory.',
     inputSchema: {
       project_id: z.string(),
       version: z.string(),
       summary: z.string().optional(),
+      path: z.string().optional().describe('Directory to write artifact files to. If omitted, bundle is returned inline only.'),
     },
-    annotations: NON_DESTRUCTIVE,
-  }, async ({ project_id, version, summary }) => {
-    return lifecycle.handlePublish(registry, project_id, version, summary);
+    annotations: FILESYSTEM_IO,
+  }, async ({ project_id, version, summary, path }) => {
+    return lifecycle.handlePublish(registry, project_id, version, summary, path);
   });
 
   // ══════════════════════════════════════════════════════════════════
