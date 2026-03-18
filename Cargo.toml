@@ -4,6 +4,7 @@ members = [
     "crates/formspec-core",
     "crates/formspec-eval",
     "crates/formspec-lint",
+    "crates/formspec-py",
     "crates/formspec-wasm",
 ]
 resolver = "2"
