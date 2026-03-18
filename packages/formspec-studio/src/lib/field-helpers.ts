@@ -1,5 +1,6 @@
 /** @filedesc Helpers for flattening item trees, resolving binds/shapes, and widget compatibility queries. */
 
+import type { FormItem, FormBind } from 'formspec-types';
 import {
   COMPATIBILITY_MATRIX,
   COMPONENT_TO_HINT,
@@ -7,22 +8,14 @@ import {
   KNOWN_COMPONENT_TYPES,
 } from 'formspec-layout';
 
-interface AnyItem {
-  key: string;
-  type: string;
-  dataType?: string;
-  children?: AnyItem[];
-  [k: string]: unknown;
-}
-
-interface FlatItem {
+export interface FlatItem {
   path: string;
-  item: AnyItem;
+  item: FormItem;
   depth: number;
 }
 
 /** Flatten a nested item tree into a flat list with dot-paths. */
-export function flatItems(items: AnyItem[], prefix = '', depth = 0): FlatItem[] {
+export function flatItems(items: FormItem[], prefix = '', depth = 0): FlatItem[] {
   const result: FlatItem[] = [];
   for (const item of items) {
     const path = prefix ? `${prefix}.${item.key}` : item.key;
@@ -34,14 +27,9 @@ export function flatItems(items: AnyItem[], prefix = '', depth = 0): FlatItem[] 
   return result;
 }
 
-interface AnyBind {
-  path: string;
-  [k: string]: unknown;
-}
-
 /** Get bind properties for a field path from array-format binds. */
 export function bindsFor(
-  binds: AnyBind[] | undefined | null,
+  binds: FormBind[] | undefined | null,
   path: string
 ): Record<string, string> {
   if (!binds) return {};
@@ -57,17 +45,18 @@ export function bindsFor(
 }
 
 interface Shape {
-  name: string;
-  severity: string;
-  constraint: string;
-  targets?: string[];
   [k: string]: unknown;
 }
 
 /** Get shapes that target a specific field path. */
 export function shapesFor(shapes: Shape[] | undefined | null, path: string): Shape[] {
   if (!shapes) return [];
-  return shapes.filter(s => s.targets?.includes(path));
+  return shapes.filter(s => {
+    // Schema shapes use `target` (singular); legacy/UI shapes may use `targets` (array)
+    const targets = s.targets;
+    if (Array.isArray(targets)) return targets.includes(path);
+    return s.target === path;
+  });
 }
 
 interface DataTypeDisplay {

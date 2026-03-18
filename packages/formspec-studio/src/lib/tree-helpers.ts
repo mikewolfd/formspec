@@ -23,18 +23,11 @@ interface CompNode {
   [key: string]: unknown;
 }
 
-/** A definition item (minimal shape needed here). */
-interface DefItem {
-  key: string;
-  type: string;
-  dataType?: string;
-  children?: DefItem[];
-  [key: string]: unknown;
-}
+import type { FormItem } from 'formspec-types';
 
 /** Result of buildDefLookup — maps item paths to their definition item + context. */
 export interface DefLookupEntry {
-  item: DefItem;
+  item: FormItem;
   path: string;
   parentPath: string | null;
 }
@@ -85,7 +78,7 @@ export function nodeRefFor(entry: Pick<FlatEntry, 'bind' | 'nodeId'>): { bind: s
  * Build a flat lookup map from definition item paths to their items.
  * Recursively walks nested children, building dot-separated paths.
  */
-export function buildDefLookup(items: DefItem[], prefix = '', parentPath: string | null = null): Map<string, DefLookupEntry> {
+export function buildDefLookup(items: FormItem[], prefix = '', parentPath: string | null = null): Map<string, DefLookupEntry> {
   const map = new Map<string, DefLookupEntry>();
   for (const item of items) {
     const path = prefix ? `${prefix}.${item.key}` : item.key;
