@@ -1,5 +1,6 @@
-import { render, screen, act, fireEvent, within } from '@testing-library/react';
+import { render, screen, act, fireEvent, within, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import JSZip from 'jszip';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
@@ -82,7 +83,7 @@ describe('Shell', () => {
     expect(project.definition.items).toHaveLength(0);
   });
 
-  it('exports the current definition as a downloadable JSON blob', async () => {
+  it('exports the current project as a downloadable ZIP bundle', async () => {
     const { project } = renderShell(seededDefinition);
     const createObjectURL = vi.fn(() => 'blob:formspec-test');
     const revokeObjectURL = vi.fn();
@@ -101,10 +102,20 @@ describe('Shell', () => {
         screen.getByRole('button', { name: /^export$/i }).click();
       });
 
-      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      // Wait for async zip generation and URL creation
+      await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1), { timeout: 2000 });
+
       const blob = (createObjectURL.mock.calls as unknown[][])[0][0] as Blob;
-      const json = JSON.parse(await blob.text());
-      expect(json).toEqual(project.export().definition);
+      const zip = await JSZip.loadAsync(blob);
+      
+      const defFile = await zip.file('definition.json')?.async('string');
+      const compFile = await zip.file('component.json')?.async('string');
+      const themeFile = await zip.file('theme.json')?.async('string');
+
+      expect(JSON.parse(defFile!)).toEqual(project.export().definition);
+      expect(JSON.parse(compFile!)).toEqual(project.export().component);
+      expect(JSON.parse(themeFile!)).toEqual(project.export().theme);
+
       expect(clickSpy).toHaveBeenCalledTimes(1);
       expect(revokeObjectURL).toHaveBeenCalledWith('blob:formspec-test');
     } finally {

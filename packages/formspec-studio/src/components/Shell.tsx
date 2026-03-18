@@ -1,5 +1,6 @@
 /** @filedesc Main studio shell; composes the header, blueprint sidebar, workspace tabs, and status bar. */
 import { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 import { createProject, type Project } from 'formspec-studio-core';
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
@@ -198,16 +199,32 @@ export function Shell() {
     deselect();
   };
 
-  const handleExport = () => {
-    const definition = project.export().definition;
+  const handleExport = async () => {
+    const bundle = project.export();
+    const { definition } = bundle;
     const baseName = definition.title?.trim()
       ? definition.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      : 'formspec-definition';
-    const blob = new Blob([JSON.stringify(definition, null, 2)], { type: 'application/json' });
-    const href = URL.createObjectURL(blob);
+      : 'formspec-project';
+
+    const zip = new JSZip();
+    zip.file('definition.json', JSON.stringify(bundle.definition, null, 2));
+    zip.file('component.json', JSON.stringify(bundle.component, null, 2));
+    zip.file('theme.json', JSON.stringify(bundle.theme, null, 2));
+
+    if (bundle.mappings && Object.keys(bundle.mappings).length > 0) {
+      const mappingsFolder = zip.folder('mappings');
+      if (mappingsFolder) {
+        for (const [key, mapping] of Object.entries(bundle.mappings)) {
+          mappingsFolder.file(`${key}.json`, JSON.stringify(mapping, null, 2));
+        }
+      }
+    }
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const href = URL.createObjectURL(content);
     const anchor = document.createElement('a');
     anchor.href = href;
-    anchor.download = `${baseName || 'formspec-definition'}.json`;
+    anchor.download = `${baseName}.zip`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

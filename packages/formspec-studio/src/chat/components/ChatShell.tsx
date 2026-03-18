@@ -1,5 +1,6 @@
 /** @filedesc Top-level chat UI shell; manages AI adapter wiring, file uploads, and panel layout. */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import JSZip from 'jszip';
 import { ChatSession, GeminiAdapter, MockAdapter, SessionStore, validateProviderConfig } from 'formspec-chat';
 import type { AIAdapter, Attachment, ProviderConfig, StorageBackend } from 'formspec-chat';
 import { ChatProvider, useChatState, useChatSession } from '../state/ChatContext.js';
@@ -230,13 +231,32 @@ function ActiveSessionView({ onBack, onUpload, onOpenSettings }: { onBack: () =>
   const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat');
   const [showIssues, setShowIssues] = useState(false);
 
-  const handleExport = useCallback(() => {
-    const json = session.exportJSON();
-    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+  const handleExport = useCallback(async () => {
+    const bundle = session.exportBundle();
+    const { definition } = bundle;
+    const baseName = definition.title?.trim()
+      ? definition.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      : 'formspec-project';
+
+    const zip = new JSZip();
+    zip.file('definition.json', JSON.stringify(bundle.definition, null, 2));
+    zip.file('component.json', JSON.stringify(bundle.component, null, 2));
+    zip.file('theme.json', JSON.stringify(bundle.theme, null, 2));
+
+    if (bundle.mappings && Object.keys(bundle.mappings).length > 0) {
+      const mappingsFolder = zip.folder('mappings');
+      if (mappingsFolder) {
+        for (const [key, mapping] of Object.entries(bundle.mappings)) {
+          mappingsFolder.file(`${key}.json`, JSON.stringify(mapping, null, 2));
+        }
+      }
+    }
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${json.title || 'form'}.formspec.json`;
+    a.download = `${baseName}.zip`;
     a.click();
     URL.revokeObjectURL(url);
   }, [session]);

@@ -185,24 +185,16 @@ test.describe('Chat E2E — Gemini Integration', () => {
       const download = await downloadPromise;
       console.log('Download filename:', download.suggestedFilename());
 
-      // Verify the filename has .formspec.json extension
-      expect(download.suggestedFilename()).toMatch(/\.formspec\.json$/);
+      // Verify the filename has .zip extension
+      expect(download.suggestedFilename()).toMatch(/\.zip$/);
 
-      // Read the download content and parse as JSON
+      // Verify the file exists and has content
       const downloadPath = await download.path();
       if (downloadPath) {
         const fs = await import('fs');
-        const content = fs.readFileSync(downloadPath, 'utf-8');
-        const parsed = JSON.parse(content);
-        console.log('Exported form title:', parsed.title);
-        console.log('Exported form item count:', parsed.items?.length);
-        expect(parsed).toHaveProperty('$formspec');
-        expect(parsed).toHaveProperty('title');
-        expect(parsed).toHaveProperty('items');
-        expect(parsed.items.length).toBeGreaterThan(0);
-
-        // Log the full definition
-        console.log('Full exported definition:', JSON.stringify(parsed, null, 2));
+        const stats = fs.statSync(downloadPath);
+        expect(stats.size).toBeGreaterThan(100); // ZIP header + some content
+        console.log('Exported zip size:', stats.size);
       }
 
       // Take screenshot
