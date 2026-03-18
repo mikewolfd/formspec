@@ -51,3 +51,13 @@ export {
 export {
   previewMapping,
 } from './mapping-queries.js';
+
+export {
+  resolvePageView,
+} from './page-view-resolution.js';
+export type {
+  PageView,
+  PageItemView,
+  PlaceableItem,
+  PageStructureView,
+} from './page-view-resolution.js';
