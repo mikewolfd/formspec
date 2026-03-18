@@ -162,6 +162,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "formspec-eval"
+version = "0.1.0"
+dependencies = [
+ "fel-core",
+ "formspec-core",
+ "rust_decimal",
+ "serde_json",
+]
+
+[[package]]
+name = "formspec-lint"
+version = "0.1.0"
+dependencies = [
+ "fel-core",
+ "formspec-core",
+ "rust_decimal",
+ "serde_json",
+]
+
+[[package]]
 name = "formspec-wasm"
 version = "0.1.0"
 dependencies = [
