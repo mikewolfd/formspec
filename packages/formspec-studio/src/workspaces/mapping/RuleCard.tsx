@@ -1,4 +1,4 @@
-/** @filedesc Interactive editor card for a single mapping rule with source/target paths and transform selection. */
+/** @filedesc Interactive editor card for a single mapping rule with source/target paths, transform selection, and collapsible Advanced section. */
 import { useEffect, useId, useState } from 'react';
 import { Pill } from '../../components/ui/Pill';
 import { useProject } from '../../state/useProject';
@@ -34,6 +34,7 @@ export function RuleCard({ index, source, target, transform = 'preserve', rule }
   const [pickerOpen, setPickerOpen] = useState(false);
   const [hoveredTransform, setHoveredTransform] = useState<string | null>(null);
   const [showDescription, setShowDescription] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const listboxId = useId();
 
   const updateRule = (property: string, value: any) => {
@@ -160,9 +161,21 @@ export function RuleCard({ index, source, target, transform = 'preserve', rule }
             <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
           </svg>
         </button>
+
+        {/* Advanced toggle */}
+        <button
+          type="button"
+          className={`text-[10px] text-muted hover:text-ink cursor-pointer select-none ${
+            advancedOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          } transition-opacity`}
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          data-testid={`rule-advanced-toggle-${index}`}
+        >
+          {advancedOpen ? '\u25BE' : '\u25B8'} Advanced
+        </button>
       </div>
 
-      {/* Sub-config for complex transforms (expression, coerce, etc.) would go here */}
+      {/* Sub-config for complex transforms (expression, coerce, etc.) */}
       {['expression', 'constant', 'concat', 'split', 'flatten', 'nest'].includes(transform) && (
         <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-2">
           <span className="text-[10px] font-bold text-muted uppercase tracking-wider w-16">Formula</span>
@@ -174,6 +187,131 @@ export function RuleCard({ index, source, target, transform = 'preserve', rule }
             className="flex-1 font-mono text-[11px] bg-subtle/20 border-none p-1 rounded text-ink focus:ring-0"
           />
         </div>
+      )}
+
+      {/* Advanced section */}
+      {advancedOpen && (
+        <AdvancedSection index={index} rule={rule ?? {}} transform={transform} updateRule={updateRule} />
+      )}
+    </div>
+  );
+}
+
+// ── Advanced Section ──────────────────────────────────────────────────────────
+
+interface AdvancedSectionProps {
+  index: number;
+  rule: Record<string, unknown>;
+  transform: string;
+  updateRule: (property: string, value: unknown) => void;
+}
+
+function AdvancedSection({ index, rule, transform, updateRule }: AdvancedSectionProps) {
+  const [defaultError, setDefaultError] = useState(false);
+
+  const commitText = (property: string, raw: string) => {
+    updateRule(property, raw.trim() === '' ? null : raw.trim());
+  };
+
+  const commitNumber = (property: string, raw: string) => {
+    const n = Number(raw);
+    updateRule(property, isNaN(n) ? 0 : n);
+  };
+
+  const commitDefault = (raw: string) => {
+    if (raw.trim() === '') {
+      setDefaultError(false);
+      updateRule('default', undefined);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      setDefaultError(false);
+      updateRule('default', parsed);
+    } catch {
+      setDefaultError(true);
+    }
+  };
+
+  const commitReverseExpression = (raw: string) => {
+    const existing = (rule.reverse ?? {}) as Record<string, unknown>;
+    if (raw.trim() === '') {
+      const { expression: _, ...rest } = existing;
+      updateRule('reverse', Object.keys(rest).length > 0 ? rest : null);
+    } else {
+      updateRule('reverse', { ...existing, expression: raw.trim() });
+    }
+  };
+
+  const inputClass = 'w-full rounded border border-border bg-bg-default px-2 py-1 text-xs text-ink placeholder:text-muted focus:outline-none focus:border-accent';
+
+  return (
+    <div
+      className="border-t border-border/30 mt-2 pt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs"
+      data-testid={`rule-advanced-${index}`}
+    >
+      <label className="text-muted leading-6">Description</label>
+      <input
+        type="text"
+        className={inputClass}
+        defaultValue={(rule.description as string) ?? ''}
+        placeholder="Optional description"
+        onBlur={(e) => commitText('description', e.target.value)}
+        data-testid={`rule-description-${index}`}
+      />
+
+      <label className="text-muted leading-6">Priority</label>
+      <input
+        type="number"
+        className={inputClass}
+        defaultValue={(rule.priority as number) ?? 0}
+        onBlur={(e) => commitNumber('priority', e.target.value)}
+        data-testid={`rule-priority-${index}`}
+      />
+
+      <label className="text-muted leading-6">Bidirectional</label>
+      <div className="flex items-center h-6">
+        <input
+          type="checkbox"
+          checked={(rule.bidirectional as boolean) ?? true}
+          onChange={(e) => updateRule('bidirectional', e.target.checked)}
+          className="accent-accent"
+          data-testid={`rule-bidirectional-${index}`}
+        />
+      </div>
+
+      <label className="text-muted leading-6">Condition</label>
+      <input
+        type="text"
+        className={inputClass}
+        defaultValue={(rule.condition as string) ?? ''}
+        placeholder="FEL condition (e.g. @source.flag = true)"
+        onBlur={(e) => commitText('condition', e.target.value)}
+        data-testid={`rule-condition-${index}`}
+      />
+
+      <label className="text-muted leading-6">Default</label>
+      <input
+        type="text"
+        className={`${inputClass} ${defaultError ? 'border-red-400' : ''}`}
+        defaultValue={rule.default !== undefined ? JSON.stringify(rule.default) : ''}
+        placeholder="JSON value"
+        onBlur={(e) => commitDefault(e.target.value)}
+        data-testid={`rule-default-${index}`}
+      />
+
+      {transform !== 'drop' && (
+        <>
+          <label className="text-muted leading-6">Reverse expr</label>
+          <input
+            type="text"
+            className={inputClass}
+            defaultValue={((rule.reverse as Record<string, unknown>)?.expression as string) ?? ''}
+            placeholder="Reverse expression"
+            onBlur={(e) => commitReverseExpression(e.target.value)}
+            data-testid={`rule-reverse-expression-${index}`}
+          />
+        </>
       )}
     </div>
   );

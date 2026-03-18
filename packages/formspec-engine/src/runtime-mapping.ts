@@ -825,13 +825,37 @@ export class RuntimeMappingEngine {
         }
 
         // --- JSON adapter post-processing ---
-        // TODO: Phase 4.2 CSV adapter — serialization lives in the studio's adapters.ts
-        // TODO: Phase 4.3 XML adapter — serialization lives in the studio's adapters.ts
         const jsonAdapter = this.doc.adapters?.json;
         if (jsonAdapter) {
             if (jsonAdapter.nullHandling === 'omit') omitNulls(output);
             if (jsonAdapter.sortKeys) sortKeysDeep(output);
             // `pretty` is a no-op at engine level — handled by the consumer when serializing
+        }
+
+        // --- CSV adapter serialization (Phase 4.2) ---
+        const csvAdapter = (this.doc.adapters as any)?.csv;
+        const isCsvFormat = csvAdapter || (this.doc.targetSchema as any)?.format === 'csv';
+        if (isCsvFormat) {
+            for (const rule of sortedRules) {
+                const tp = direction === 'forward' ? rule.targetPath : (rule.sourcePath ?? rule.targetPath);
+                if (tp && /[.\[\]]/.test(tp)) {
+                    diagnostics.push({
+                        ruleIndex: sortedRules.indexOf(rule),
+                        sourcePath: rule.sourcePath,
+                        targetPath: rule.targetPath,
+                        errorCode: 'ADAPTER_FAILURE',
+                        message: `targetPath "${tp}" is not a simple identifier (CSV requires flat keys)`,
+                    } as any);
+                }
+            }
+            return { direction, output: serializeCSV(output, csvAdapter ?? {}) as any, appliedRules, diagnostics };
+        }
+
+        // --- XML adapter serialization (Phase 4.3) ---
+        const xmlAdapter = (this.doc.adapters as any)?.xml;
+        const isXmlFormat = xmlAdapter || (this.doc.targetSchema as any)?.format === 'xml';
+        if (isXmlFormat) {
+            return { direction, output: serializeXML(output, xmlAdapter ?? {}) as any, appliedRules, diagnostics };
         }
 
         return {
@@ -875,4 +899,148 @@ function parseSimpleLiteral(expression: string): any {
     const asNum = Number(trimmed);
     if (Number.isFinite(asNum)) return asNum;
     return trimmed;
+}
+
+// ---------------------------------------------------------------------------
+// CSV adapter (Phase 4.2)
+// ---------------------------------------------------------------------------
+
+interface CSVConfig {
+    delimiter?: string;
+    quote?: string;
+    header?: boolean;
+    lineEnding?: 'crlf' | 'lf';
+}
+
+/** Serializes a flat output object to a CSV string. */
+function serializeCSV(output: Record<string, unknown>, config: CSVConfig): string {
+    const delimiter = config.delimiter ?? ',';
+    const quote = config.quote ?? '"';
+    const includeHeader = config.header !== false;
+    const lineEnding = config.lineEnding === 'lf' ? '\n' : '\r\n';
+
+    // Only include top-level keys whose values are primitives
+    const keys = Object.keys(output).filter(k => {
+        const v = output[k];
+        return v === null || v === undefined || typeof v !== 'object';
+    });
+
+    if (keys.length === 0) return '';
+
+    const csvQuote = (val: unknown): string => {
+        const str = val == null ? '' : String(val);
+        if (str.includes(delimiter) || str.includes(quote) || str.includes('\n') || str.includes('\r')) {
+            return quote + str.replace(new RegExp(escapeRegex(quote), 'g'), quote + quote) + quote;
+        }
+        return str;
+    };
+
+    const rows: string[] = [];
+    if (includeHeader) {
+        rows.push(keys.map(k => csvQuote(k)).join(delimiter));
+    }
+    rows.push(keys.map(k => csvQuote(output[k])).join(delimiter));
+
+    return rows.join(lineEnding);
+}
+
+/** Escapes special regex characters in a string. */
+function escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ---------------------------------------------------------------------------
+// XML adapter (Phase 4.3)
+// ---------------------------------------------------------------------------
+
+interface XMLConfig {
+    rootElement?: string;
+    declaration?: boolean;
+    indent?: number;
+    cdata?: string[];
+}
+
+/** Serializes an output object to an XML string. Dot-paths in keys produce nested elements; keys starting with `@` become attributes. */
+function serializeXML(output: Record<string, unknown>, config: XMLConfig): string {
+    const rootElement = config.rootElement ?? 'root';
+    const includeDeclaration = config.declaration !== false;
+    const indentSize = config.indent ?? 2;
+    const cdataPaths = new Set(config.cdata ?? []);
+
+    const tree = buildXMLTree(output);
+    const lines: string[] = [];
+    if (includeDeclaration) {
+        lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+    }
+    renderElement(rootElement, tree, 0, indentSize, cdataPaths, '', lines);
+    return lines.join(indentSize > 0 ? '\n' : '');
+}
+
+type XMLTree = { attributes: Record<string, string>; children: Map<string, XMLTree>; text?: string };
+
+function buildXMLTree(obj: Record<string, unknown>): XMLTree {
+    const node: XMLTree = { attributes: {}, children: new Map() };
+    for (const [key, value] of Object.entries(obj)) {
+        if (key.startsWith('@')) {
+            node.attributes[key.slice(1)] = value == null ? '' : String(value);
+        } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+            node.children.set(key, buildXMLTree(value as Record<string, unknown>));
+        } else {
+            const child: XMLTree = { attributes: {}, children: new Map() };
+            child.text = value == null ? '' : String(value);
+            node.children.set(key, child);
+        }
+    }
+    return node;
+}
+
+function renderElement(
+    name: string,
+    node: XMLTree,
+    depth: number,
+    indentSize: number,
+    cdataPaths: Set<string>,
+    elementPath: string,
+    lines: string[],
+): void {
+    const indent = indentSize > 0 ? ' '.repeat(depth * indentSize) : '';
+    const childIndent = indentSize > 0 ? ' '.repeat((depth + 1) * indentSize) : '';
+
+    let attrStr = '';
+    for (const [attrName, attrValue] of Object.entries(node.attributes)) {
+        attrStr += ` ${attrName}="${escapeXML(attrValue)}"`;
+    }
+
+    const hasChildren = node.children.size > 0;
+    const hasText = node.text !== undefined;
+
+    if (!hasChildren && !hasText) {
+        lines.push(`${indent}<${name}${attrStr}/>`);
+        return;
+    }
+    if (hasText && !hasChildren) {
+        const textContent = cdataPaths.has(elementPath) ? `<![CDATA[${node.text}]]>` : escapeXML(node.text!);
+        lines.push(`${indent}<${name}${attrStr}>${textContent}</${name}>`);
+        return;
+    }
+    lines.push(`${indent}<${name}${attrStr}>`);
+    if (hasText) {
+        const textContent = cdataPaths.has(elementPath) ? `<![CDATA[${node.text}]]>` : escapeXML(node.text!);
+        lines.push(`${childIndent}${textContent}`);
+    }
+    for (const [childName, childNode] of node.children) {
+        const childPath = elementPath ? `${elementPath}.${childName}` : childName;
+        renderElement(childName, childNode, depth + 1, indentSize, cdataPaths, childPath, lines);
+    }
+    lines.push(`${indent}</${name}>`);
+}
+
+/** Escapes special XML characters in text content and attribute values. */
+function escapeXML(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
 }
