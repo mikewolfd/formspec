@@ -60,4 +60,5 @@ export type {
   PageItemView,
   PlaceableItem,
   PageStructureView,
+  PageViewInput,
 } from './page-view-resolution.js';

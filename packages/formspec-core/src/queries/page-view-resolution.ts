@@ -1,6 +1,5 @@
 /** @filedesc Behavioral page-view query — translates schema-native page structure to UI vocabulary. */
-import type { ProjectState } from '../types.js';
-import type { FormItem } from 'formspec-types';
+import type { FormItem, FormDefinition, ThemeDocument } from 'formspec-types';
 import { resolvePageStructure } from '../page-resolution.js';
 
 // ── Behavioral types ────────────────────────────────────────────────
@@ -87,14 +86,19 @@ const DEFAULT_BREAKPOINT_NAMES = ['sm', 'md', 'lg'];
 
 // ── Query function ──────────────────────────────────────────────────
 
+/** Minimal input: only the document slices resolvePageView actually reads. */
+export type PageViewInput = {
+  definition: Pick<FormDefinition, 'formPresentation' | 'items'>;
+  theme: Pick<ThemeDocument, 'pages'> & { breakpoints?: Record<string, number> };
+};
+
 /**
  * Resolves the page structure into behavioral types for the Pages UI.
  *
- * Pure function: `(state: ProjectState) => PageStructureView`.
- * Wraps `resolvePageStructure` and translates schema vocabulary (span, start, exists)
- * to UI vocabulary (width, offset, status).
+ * Pure function that wraps `resolvePageStructure` and translates schema vocabulary
+ * (span, start, exists) to UI vocabulary (width, offset, status).
  */
-export function resolvePageView(state: ProjectState): PageStructureView {
+export function resolvePageView(state: PageViewInput): PageStructureView {
   const defItems: FormItem[] = (state.definition.items ?? []) as FormItem[];
   const allKeys = collectAllKeys(defItems);
   const labelMap = buildLabelMap(defItems);

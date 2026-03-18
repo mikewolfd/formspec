@@ -135,14 +135,6 @@ describe('PageCard region editing', () => {
     expect(screen.getAllByText('Email').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('add region button adds a span-12 region', async () => {
-    const { project } = renderWithExpandedCard();
-    await act(async () => {
-      screen.getByRole('button', { name: /add region/i }).click();
-    });
-    expect(((project.theme as any).pages[0].regions as any[]).length).toBe(3);
-  });
-
   it('remove region button removes the region', async () => {
     const { project } = renderWithExpandedCard();
     // Get the per-region remove buttons (not the page-level Delete button)

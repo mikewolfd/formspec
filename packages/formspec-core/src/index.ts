@@ -18,7 +18,7 @@ export { resolvePageStructure } from './page-resolution.js';
 export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic, PageStructureInput } from './page-resolution.js';
 
 export { resolvePageView } from './queries/page-view-resolution.js';
-export type { PageView, PageItemView, PlaceableItem, PageStructureView } from './queries/page-view-resolution.js';
+export type { PageView, PageItemView, PlaceableItem, PageStructureView, PageViewInput } from './queries/page-view-resolution.js';
 
 // Schema-derived types (from formspec-types, re-exported via types.ts)
 export type {
