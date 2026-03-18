@@ -22,9 +22,9 @@ export function buildBundleFromDefinition(definition: FormDefinition): ProjectBu
   } catch {
     return {
       definition,
-      component: { tree: null, customComponents: [] },
-      theme: null,
-      mapping: null,
+      component: { tree: null as any, customComponents: [] } as unknown as import('formspec-types').ComponentDocument,
+      theme: null as unknown as import('formspec-types').ThemeDocument,
+      mappings: {},
     };
   }
 }
