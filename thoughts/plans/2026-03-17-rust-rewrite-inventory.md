@@ -1,6 +1,6 @@
 # Rust Rewrite Inventory
 
-Status: **Phases 1–5 complete** — All 6 crates built, 175 tests passing. Wiring and decommission next.
+Status: **Phases 1–5 complete, deepened** — All 6 crates built, 239 tests passing. Wiring and decommission next.
 
 ## Overview
 
