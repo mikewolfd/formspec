@@ -5,14 +5,15 @@
  * Each tab talks to the Python backend at SERVER.
  */
 
-const SERVER = '/api';
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+const SERVER = `${BASE}/api`;
 
 // ── Example registry (mirrors main.js) ──
 const EXAMPLES = [
   {
     id: 'grant-application',
     name: 'Federal Grant Application',
-    dir: '/examples/grant-application',
+    dir: `${BASE}/examples/grant-application`,
     definition: 'definition.json',
     mappings: {
       json: { file: 'mapping.json', label: 'JSON', desc: 'Native format for web APIs.' },
@@ -30,7 +31,7 @@ const EXAMPLES = [
   {
     id: 'tribal-short',
     name: 'Tribal Annual Report (Short)',
-    dir: '/examples/grant-report',
+    dir: `${BASE}/examples/grant-report`,
     definition: 'tribal-short.definition.json',
     mappings: {
       json: { file: 'tribal-grant.mapping.json', label: 'JSON', desc: 'Native JSON mapping.' },
@@ -45,7 +46,7 @@ const EXAMPLES = [
   {
     id: 'tribal-long',
     name: 'Tribal Annual Report (Long)',
-    dir: '/examples/grant-report',
+    dir: `${BASE}/examples/grant-report`,
     definition: 'tribal-long.definition.json',
     mappings: {
       json: { file: 'tribal-grant.mapping.json', label: 'JSON', desc: 'Native JSON mapping.' },
@@ -59,7 +60,7 @@ const EXAMPLES = [
   {
     id: 'invoice',
     name: 'Invoice (Line Items)',
-    dir: '/examples/invoice',
+    dir: `${BASE}/examples/invoice`,
     definition: 'invoice.definition.json',
     mappings: {
       json: { file: 'invoice.mapping.json', label: 'JSON', desc: 'Mapping output as JSON (for debugging).' },
@@ -76,7 +77,7 @@ const EXAMPLES = [
   {
     id: 'clinical-intake',
     name: 'Clinical Intake Survey',
-    dir: '/examples/clinical-intake',
+    dir: `${BASE}/examples/clinical-intake`,
     definition: 'intake.definition.json',
     mappings: {},
     registry: 'formspec-common.registry.json',

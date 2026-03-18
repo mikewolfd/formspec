@@ -5,8 +5,18 @@ import fs from 'fs';
 const repoRoot = path.resolve(__dirname, '../..');
 
 const backendPort = process.env.FORMSPEC_BACKEND_PORT || '8000';
+const basePath = process.env.FORMSPEC_BASE_PATH || '/';
 
 export default defineConfig({
+  base: basePath,
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        tools: path.resolve(__dirname, 'tools.html'),
+      },
+    },
+  },
   server: {
     allowedHosts: true,
     proxy: {

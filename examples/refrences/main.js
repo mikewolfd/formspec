@@ -3,7 +3,8 @@ import 'formspec-webcomponent/formspec-base.css';
 import { FormspecRender } from 'formspec-webcomponent';
 customElements.define('formspec-render', FormspecRender);
 
-const SERVER = '/api';
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+const SERVER = `${BASE}/api`;
 
 // ── Example registry ──
 // Each entry points to a sibling directory under examples/.
@@ -14,12 +15,12 @@ const EXAMPLES = [
     id: 'grant-application',
     name: 'Federal Grant Application',
     description: 'Multi-page wizard with budget, validation, repeats',
-    dir: '/examples/grant-application',
+    dir: `${BASE}/examples/grant-application`,
     artifacts: { definition: 'definition.json', component: 'component.json', theme: 'theme.json' },
     css: 'grant-bridge.css',
     server: true,
     mappings: ['mapping.json', 'mapping-csv.json', 'mapping-xml.json'],
-    registry: '/registries/formspec-common.registry.json',
+    registry: `${BASE}/registries/formspec-common.registry.json`,
     fixtures: [
       { id: 'sample-submission', label: 'Complete Submission', file: 'fixtures/sample-submission.json' },
       { id: 'submission-amended', label: 'Amended', file: 'fixtures/submission-amended.json' },
@@ -31,10 +32,10 @@ const EXAMPLES = [
     id: 'tribal-short',
     name: 'Tribal Annual Report (Short)',
     description: 'Short-form grant report with expenditure tracking',
-    dir: '/examples/grant-report',
+    dir: `${BASE}/examples/grant-report`,
     artifacts: { definition: 'tribal-short.definition.json', component: 'tribal-short.component.json', theme: 'tribal.theme.json' },
     server: true,
-    registry: '/registries/formspec-common.registry.json',
+    registry: `${BASE}/registries/formspec-common.registry.json`,
     fixtures: [
       { id: 'short-empty', label: 'Empty', file: 'fixtures/short-empty.response.json' },
       { id: 'short-partial', label: 'Partial', file: 'fixtures/short-partial.response.json' },
@@ -45,10 +46,10 @@ const EXAMPLES = [
     id: 'tribal-long',
     name: 'Tribal Annual Report (Long)',
     description: 'Detailed report with narratives and service data',
-    dir: '/examples/grant-report',
+    dir: `${BASE}/examples/grant-report`,
     artifacts: { definition: 'tribal-long.definition.json', component: 'tribal-long.component.json', theme: 'tribal.theme.json' },
     server: true,
-    registry: '/registries/formspec-common.registry.json',
+    registry: `${BASE}/registries/formspec-common.registry.json`,
     fixtures: [
       { id: 'long-complete', label: 'Complete', file: 'fixtures/long-complete.response.json' },
       { id: 'short-to-long-migrated', label: 'Migrated from Short', file: 'fixtures/short-to-long-migrated.response.json' },
@@ -58,10 +59,10 @@ const EXAMPLES = [
     id: 'invoice',
     name: 'Invoice (Line Items)',
     description: 'Repeat groups + calculated totals + CSV export mapping',
-    dir: '/examples/invoice',
+    dir: `${BASE}/examples/invoice`,
     artifacts: { definition: 'invoice.definition.json', component: 'invoice.component.json', theme: 'invoice.theme.json' },
     server: true,
-    registry: '/registries/formspec-common.registry.json',
+    registry: `${BASE}/registries/formspec-common.registry.json`,
     fixtures: [
       { id: 'invoice-empty', label: 'Empty', file: 'fixtures/invoice-empty.response.json' },
       { id: 'invoice-single', label: 'Single Item', file: 'fixtures/invoice-single.response.json' },
@@ -73,10 +74,10 @@ const EXAMPLES = [
     id: 'clinical-intake',
     name: 'Clinical Intake Survey',
     description: 'Screener routing, instances/pre-population, nested repeats',
-    dir: '/examples/clinical-intake',
+    dir: `${BASE}/examples/clinical-intake`,
     artifacts: { definition: 'intake.definition.json', component: 'intake.component.json', theme: 'intake.theme.json' },
     server: true,
-    registry: '/registries/formspec-common.registry.json',
+    registry: `${BASE}/registries/formspec-common.registry.json`,
     fixtures: [
       { id: 'intake-empty', label: 'Empty', file: 'fixtures/intake-empty.response.json' },
       { id: 'intake-partial', label: 'Partial', file: 'fixtures/intake-partial.response.json' },
