@@ -1,11 +1,14 @@
 /** @filedesc Resolves theme properties via the defaults/selectors/item-override cascade. */
-import type { ThemeState } from './types.js';
+import type { ThemeDocument } from './types.js';
 
 export interface ResolvedProperty {
   value: unknown;
   source: 'default' | 'selector' | 'item-override';
   sourceDetail?: string;
 }
+
+/** The three cascade-relevant slices of a ThemeDocument. */
+export type ThemeCascadeInput = Pick<ThemeDocument, 'defaults' | 'selectors' | 'items'>;
 
 interface SelectorEntry {
   match?: { type?: string; dataType?: string };
@@ -27,7 +30,7 @@ function selectorLabel(match: SelectorEntry['match'], index: number): string {
 }
 
 export function resolveThemeCascade(
-  theme: ThemeState,
+  theme: ThemeCascadeInput,
   itemKey: string,
   itemType: string,
   itemDataType?: string,

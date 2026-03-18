@@ -1,5 +1,5 @@
 /** @filedesc Resolves theme pages into enriched page structures with diagnostics. */
-import type { ProjectState } from './types.js';
+import type { ThemeDocument, FormDefinition } from './types.js';
 
 // ── Public types ─────────────────────────────────────────────────────
 
@@ -11,6 +11,7 @@ export interface ResolvedRegion {
   key: string;
   span: number;       // default 12 per schema
   start?: number;
+  responsive?: Record<string, { span?: number; start?: number; hidden?: boolean }>;
   exists: boolean;     // key exists in definition items?
 }
 
@@ -39,6 +40,12 @@ export interface ResolvedPageStructure {
   itemPageMap: Record<string, string>;
 }
 
+/** The two document slices resolvePageStructure reads. */
+export type PageStructureInput = {
+  theme: Pick<ThemeDocument, 'pages'>;
+  definition: Pick<FormDefinition, 'formPresentation'>;
+};
+
 /**
  * Resolves the current page structure from studio-managed internal state.
  *
@@ -46,13 +53,12 @@ export interface ResolvedPageStructure {
  * Studio is the sole writer and keeps all documents consistent.
  */
 export function resolvePageStructure(
-  state: ProjectState,
+  state: PageStructureInput,
   definitionItemKeys: string[],
 ): ResolvedPageStructure {
   const diagnostics: PageDiagnostic[] = [];
-  const def = state.definition as any;
   const themePages = (state.theme.pages ?? []) as any[];
-  const pageMode: string = def.formPresentation?.pageMode ?? 'single';
+  const pageMode: string = state.definition.formPresentation?.pageMode ?? 'single';
   const knownKeys = new Set(definitionItemKeys);
 
   // Build resolved pages from theme.pages (canonical source)
@@ -68,6 +74,7 @@ export function resolvePageStructure(
         exists: knownKeys.has(r.key ?? ''),
       };
       if (r.start !== undefined) region.start = r.start;
+      if (r.responsive !== undefined) region.responsive = r.responsive;
       return region;
     }),
   }));

@@ -16,7 +16,7 @@ import { itemAtPath } from './path-utils.js';
 export { assembleDefinition, assembleDefinitionSync, rewriteFEL, rewriteMessageTemplate } from './assembler.js';
 export type { AssemblyProvenance, AssemblyResult, DefinitionResolver, RewriteMap } from './assembler.js';
 export { RuntimeMappingEngine } from './runtime-mapping.js';
-export type { MappingDirection, RuntimeMappingResult } from './runtime-mapping.js';
+export type { MappingDirection, RuntimeMappingResult, MappingDiagnostic } from './runtime-mapping.js';
 export { analyzeFEL, getFELDependencies, rewriteFELReferences } from './fel/analysis.js';
 export type { FELAnalysis, FELAnalysisError, FELRewriteOptions } from './fel/analysis.js';
 export type { FELBuiltinFunctionCatalogEntry } from './fel/interpreter.js';
