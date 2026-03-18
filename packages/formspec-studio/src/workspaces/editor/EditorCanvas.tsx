@@ -19,19 +19,6 @@ import { useCanvasDnd } from './dnd/use-canvas-dnd';
 import { buildContextMenuItems, clampContextMenuPosition, executeContextAction, type ContextMenuState } from './canvas-operations';
 import { renderTreeNodes } from './render-tree-nodes';
 
-interface Item {
-  key: string;
-  type: string;
-  dataType?: string;
-  label?: string;
-  hint?: string;
-  repeatable?: boolean;
-  minRepeat?: number;
-  maxRepeat?: number;
-  children?: Item[];
-  [key: string]: unknown;
-}
-
 interface CompNode {
   component: string;
   bind?: string;
@@ -70,12 +57,12 @@ export function EditorCanvas() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const items: Item[] = (definition?.items as Item[]) || [];
+  const items = definition?.items ?? [];
   const allBinds = definition?.binds as Array<{ path: string; [k: string]: unknown }> | undefined;
   const component = useComponent();
   const tree = component?.tree as CompNode | undefined;
 
-  const pageMode = (definition as any)?.formPresentation?.pageMode;
+  const pageMode = definition?.formPresentation?.pageMode;
   const isPaged = pageMode === 'wizard' || pageMode === 'tabs';
   const topLevelGroups = items.filter((i) => i.type === 'group');
   const rootItems = items.filter((i) => i.type !== 'group');
@@ -96,13 +83,13 @@ export function EditorCanvas() {
   const activePageIndex = hasPaged
     ? Math.max(0, topLevelGroups.findIndex((g) => g.key === activePageKey))
     : 0;
-  const displayItems: Item[] = hasPaged
+  const displayItems = hasPaged
     ? [...rootItems, topLevelGroups[activePageIndex]].filter(Boolean)
     : items;
 
   // Build definition lookup for the component tree renderer
   const defLookup = useMemo(
-    () => buildDefLookup(displayItems as any),
+    () => buildDefLookup(displayItems),
     [displayItems],
   );
 
@@ -215,7 +202,7 @@ export function EditorCanvas() {
       project.addGroup(fullPath, opt.label);
       selectAndFocusInspector(fullPath, 'group');
     } else if (opt.itemType === 'display') {
-      const widgetHint = (opt.extra?.presentation as any)?.widgetHint as string | undefined;
+      const widgetHint = (opt.extra?.presentation as Record<string, unknown> | undefined)?.widgetHint as string | undefined;
       const kind = widgetHint ? WIDGET_HINT_TO_KIND[widgetHint] : undefined;
       project.addContent(fullPath, opt.label, kind);
       selectAndFocusInspector(fullPath, 'display');
@@ -303,10 +290,10 @@ export function EditorCanvas() {
     [contextMenu, selectionCount],
   );
 
-  const formTitle = (definition as any)?.title;
-  const formUrl = (definition as any)?.url;
-  const formVersion = (definition as any)?.version;
-  const formPresentation = (definition as any)?.formPresentation || {};
+  const formTitle = definition?.title;
+  const formUrl = definition?.url;
+  const formVersion = definition?.version;
+  const formPresentation = definition?.formPresentation || {};
   const defaultCurrency = formPresentation.defaultCurrency;
 
   return (
@@ -376,7 +363,7 @@ export function EditorCanvas() {
           <DragOverlay>
             {activeItem ? (
               <DragOverlayContent
-                label={(activeItem.node as any).text || (activeItem.defPath && defLookup.get(activeItem.defPath)?.item.label) || activeItem.id}
+                label={(activeItem.node.text as string) || (activeItem.defPath && defLookup.get(activeItem.defPath)?.item.label) || activeItem.id}
                 itemType={activeItem.category}
                 extraCount={selectionCount > 1 ? selectionCount - 1 : undefined}
               />

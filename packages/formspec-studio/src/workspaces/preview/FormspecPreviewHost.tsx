@@ -1,9 +1,10 @@
 /** @filedesc Hosts the <formspec-render> web component and syncs project documents to it via props. */
 import { useRef, useEffect } from 'react';
 import { useProjectState } from '../../state/useProjectState';
+import { useProject } from '../../state/useProject';
 import { formspecBaseCssHref } from './formspec-base-css-url';
 import {
-  materializePreviewComponentDoc,
+  normalizeComponentDoc,
   normalizeDefinitionDoc,
   normalizeThemeDoc,
 } from './preview-documents';
@@ -31,31 +32,33 @@ function plain<T>(x: T): T {
   }
 }
 
-function syncToElement(
-  el: FormspecRenderElement | null,
-  state: ReturnType<typeof useProjectState>
-) {
-  if (!el) return;
-  try {
-    const registries = state.extensions?.registries ?? [];
-    const registryDocs = registries.map((r: { document: unknown }) => r.document).filter(Boolean);
-    el.registryDocuments = registryDocs.length > 0 ? plain(registryDocs) : (undefined as unknown);
-    const normalizedDef = normalizeDefinitionDoc(state.definition);
-    el.definition = plain(normalizedDef);
-    el.componentDocument = plain(materializePreviewComponentDoc(state));
-    el.themeDocument = plain(normalizeThemeDoc(state.theme, state.definition));
-  } catch (err) {
-    console.error('[FormspecPreviewHost] Sync failed', err);
-  }
-}
-
 export function FormspecPreviewHost({ width }: FormspecPreviewHostProps) {
   const state = useProjectState();
+  const project = useProject();
   const stateRef = useRef(state);
+  const projectRef = useRef(project);
   stateRef.current = state;
+  projectRef.current = project;
 
   const hostRef = useRef<HTMLDivElement>(null);
   const renderRef = useRef<FormspecRenderElement | null>(null);
+
+  function syncToElement(el: FormspecRenderElement | null) {
+    if (!el) return;
+    try {
+      const s = stateRef.current;
+      const p = projectRef.current;
+
+      const registryDocs = p.registryDocuments();
+      el.registryDocuments = registryDocs.length > 0 ? plain(registryDocs) : (undefined as unknown);
+
+      el.definition = plain(normalizeDefinitionDoc(s.definition));
+      el.componentDocument = plain(normalizeComponentDoc(p.effectiveComponent, s.definition));
+      el.themeDocument = plain(normalizeThemeDoc(s.theme, s.definition));
+    } catch (err) {
+      console.error('[FormspecPreviewHost] Sync failed', err);
+    }
+  }
 
   // Inject base CSS into document.head — form content lives in the element's light DOM,
   // so document-level CSS reaches it (no shadow isolation needed on our side).
@@ -80,7 +83,7 @@ export function FormspecPreviewHost({ width }: FormspecPreviewHostProps) {
 
     // Sync after the element is connected so it's ready to render.
     const rafId = requestAnimationFrame(() => {
-      syncToElement(el, stateRef.current);
+      syncToElement(el);
     });
 
     return () => {
@@ -94,10 +97,10 @@ export function FormspecPreviewHost({ width }: FormspecPreviewHostProps) {
   useEffect(() => {
     const el = renderRef.current;
     const timer = setTimeout(() => {
-      syncToElement(el, state);
+      syncToElement(el);
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [state.definition, state.component, state.generatedComponent, state.theme, state.extensions]);
+  }, [state.definition, state.component, state.theme]);
 
   // Event listeners for composed events bubbling up from the form.
   useEffect(() => {

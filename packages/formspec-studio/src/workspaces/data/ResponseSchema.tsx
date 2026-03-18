@@ -91,7 +91,7 @@ export function ResponseSchema() {
   const definition = useDefinition();
   const selection = useOptionalSelection();
   const [localSelected, setLocalSelected] = useState<string | null>(null);
-  const items = (definition?.items as any[]) || [];
+  const items = definition?.items ?? [];
 
   const selectPath = (path: string, type: string) => {
     setLocalSelected(path);

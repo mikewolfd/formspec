@@ -14,7 +14,7 @@ export function AllTokens() {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
 
-  const tokens = (theme?.tokens ?? {}) as Record<string, unknown>;
+  const tokens = theme?.tokens ?? {};
   const entries = Object.entries(tokens);
 
   // Group by dot-prefix

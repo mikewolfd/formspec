@@ -16,6 +16,7 @@ import { OptionsSection } from './OptionsSection';
 import { AddBehaviorMenu } from '../../../components/ui/AddBehaviorMenu';
 import { PrePopulateCard } from '../../../components/ui/PrePopulateCard';
 import type { Project } from 'formspec-studio-core';
+import type { FormItem } from 'formspec-types';
 
 export function SelectedItemProperties({
   item,
@@ -29,7 +30,7 @@ export function SelectedItemProperties({
   onDuplicate,
   onDelete,
 }: {
-  item: any;
+  item: FormItem;
   path: string;
   selectedType: string | null;
   binds: Record<string, string>;

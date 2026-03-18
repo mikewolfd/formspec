@@ -6,6 +6,7 @@ import { AddBehaviorMenu } from '../../../components/ui/AddBehaviorMenu';
 import { BindCard } from '../../../components/ui/BindCard';
 import { PrePopulateCard } from '../../../components/ui/PrePopulateCard';
 import type { Project } from 'formspec-studio-core';
+import type { FormItem } from 'formspec-types';
 
 export function FieldConfigSection({
   path,
@@ -17,7 +18,7 @@ export function FieldConfigSection({
   isMoney,
 }: {
   path: string;
-  item: any;
+  item: FormItem;
   project: Project;
   binds: Record<string, any>;
   existingBehaviorTypes: string[];

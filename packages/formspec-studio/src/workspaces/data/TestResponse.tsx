@@ -20,7 +20,7 @@ export function TestResponse() {
   const [output, setOutput] = useState<string>('');
 
   const handleRun = () => {
-    const engine = new FormEngine(definition as any);
+    const engine = new FormEngine({...definition});
     seedInitialValues(engine, (definition?.items ?? []) as FormspecItem[]);
     setOutput(JSON.stringify({
       response: engine.getResponse(),

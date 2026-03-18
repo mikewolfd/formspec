@@ -20,8 +20,8 @@ interface OptionSetDef {
 export function OptionSets() {
   const definition = useDefinition();
   const project = useProject();
-  const optionSets = (definition?.optionSets as unknown as Record<string, OptionSetDef>) || {};
-  const items = (definition?.items as any[]) || [];
+  const optionSets = definition?.optionSets ?? {};
+  const items = definition?.items ?? [];
   const [expandedName, setExpandedName] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');

@@ -55,7 +55,7 @@ function normalizeBinds(binds: unknown, items: any[] = []): Record<string, Recor
   // 1. Process items for prePopulate
   const lookup = buildDefLookup(items);
   for (const [path, entry] of lookup.entries()) {
-    const item = entry.item as any;
+    const item = entry.item;
     if (item.prePopulate) {
       result[path] = { ...result[path], 'pre-populate': item.prePopulate };
     }
@@ -78,13 +78,13 @@ export function LogicTab() {
   const { select } = useSelection();
   const [activeFilter, setActiveFilter] = useState<'required' | 'relevant' | 'calculate' | 'constraint' | 'readonly' | 'pre-populate' | null>(null);
 
-  const binds = normalizeBinds(definition?.binds, definition?.items as any[]);
+  const binds = normalizeBinds(definition?.binds, definition?.items);
   const shapes = Array.isArray(definition?.shapes) ? definition.shapes.map((s: any) => ({ name: s.id, ...s })) : [];
   const variables = Array.isArray(definition?.variables) ? definition.variables : [];
 
   const memoizedFieldPaths = useMemo(() => {
     if (!definition?.items) return [];
-    const lookup = buildDefLookup(definition.items as any);
+    const lookup = buildDefLookup(definition.items);
     return Array.from(lookup.keys());
   }, [definition?.items]);
 
@@ -98,16 +98,16 @@ export function LogicTab() {
     <WorkspacePage className="overflow-y-auto">
       <WorkspacePageSection padding="px-7" className="sticky top-0 bg-bg-default/80 backdrop-blur-md z-20 pt-6 pb-2 border-b border-border/40">
         <div className="flex items-center gap-1.5 p-1 bg-subtle/50 rounded-[8px] border border-border/50 w-fit">
-          {[
+          {([
             { id: 'all', label: 'All Logic' },
             { id: 'values', label: 'Values' },
             { id: 'behaviors', label: 'Behaviors' },
             { id: 'rules', label: 'Rules' },
-          ].map((tab) => (
+          ] as const).map((tab) => (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setSectionFilter(tab.id as any)}
+              onClick={() => setSectionFilter(tab.id)}
               className={`px-3 py-1.5 text-[12px] font-bold uppercase tracking-wider rounded-[6px] transition-all duration-200 ${
                 sectionFilter === tab.id
                   ? 'bg-ink text-white shadow-sm'

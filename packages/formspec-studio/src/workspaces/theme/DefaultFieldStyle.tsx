@@ -13,7 +13,7 @@ const POSITIONS: { id: LabelPosition; label: string; description: string }[] = [
 export function DefaultFieldStyle() {
   const theme = useTheme();
   const project = useProject();
-  const defaults = (theme?.defaults ?? {}) as Record<string, unknown>;
+  const defaults = theme?.defaults ?? {};
   const currentPosition = (defaults.labelPosition as string) ?? '';
 
   const setDefault = (property: string, value: unknown) => {

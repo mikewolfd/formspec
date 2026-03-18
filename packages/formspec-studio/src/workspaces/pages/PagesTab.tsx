@@ -394,7 +394,7 @@ function PageCard({
           {regions.length > 0 && (
             <div className="space-y-1">
               {regions.map((r, ri) => {
-                const responsive = (r as any).responsive as ResponsiveOverrides | undefined;
+                const responsive = r.responsive as ResponsiveOverrides | undefined;
                 const responsiveOpen = responsiveExpandedFor.has(ri);
                 const hasResponsive = responsive && Object.keys(responsive).length > 0;
 

@@ -7,6 +7,7 @@ import {
   propertyHelp,
 } from '../../../lib/field-helpers';
 import type { Project } from 'formspec-studio-core';
+import type { FormItem } from 'formspec-types';
 
 export function WidgetHintSection({
   path,
@@ -14,12 +15,12 @@ export function WidgetHintSection({
   project,
 }: {
   path: string;
-  item: any;
+  item: FormItem;
   project: Project;
 }) {
   const widgets = compatibleWidgets(item.type, item.dataType);
   const defaultWidget = widgets[0] ?? '';
-  const hintWidget = componentForWidgetHint((item.presentation as any)?.widgetHint);
+  const hintWidget = componentForWidgetHint(item.presentation?.widgetHint);
   const treeWidget = project.componentFor(item.key)?.component as string | undefined;
   const currentWidget = hintWidget || treeWidget || defaultWidget;
 

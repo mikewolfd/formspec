@@ -47,14 +47,9 @@ export function AdapterConfig() {
   const mapping = useMapping();
   const project = useProject();
 
-  const format = (mapping?.targetSchema as Record<string, unknown> | undefined)?.format as
-    | AdapterFormat
-    | string
-    | undefined;
-  const adapters = (mapping as Record<string, unknown> | undefined)?.adapters as
-    | Record<string, Record<string, unknown>>
-    | undefined;
-  const config = format ? (adapters?.[format] ?? {}) : {};
+  const format = mapping?.targetSchema?.format as AdapterFormat | string | undefined;
+  const adapters = mapping?.adapters;
+  const config = format && adapters ? ((adapters as Record<string, Record<string, unknown>>)[format] ?? {}) : {};
 
   const setAdapterProp = (prop: string, value: unknown) => {
     if (!format) return;

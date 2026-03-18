@@ -242,8 +242,8 @@ export function computeDropTarget(
     index: componentIndex,
     rawIndex: componentTarget.rawIndex,
     componentMove: {
-      sourceNodeId: sourceRef.nodeId ?? sourceRef.bind ?? sourceEntry.id,
-      targetParentNodeId: targetParentRef.nodeId ?? 'root',
+      sourceNodeId: ('nodeId' in sourceRef ? sourceRef.nodeId : sourceRef.bind) ?? sourceEntry.id,
+      targetParentNodeId: ('nodeId' in targetParentRef ? targetParentRef.nodeId : undefined) ?? 'root',
       targetIndex: componentIndex,
     },
   };

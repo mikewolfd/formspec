@@ -61,7 +61,9 @@ function TokenInput({
 export function TypographySpacing() {
   const theme = useTheme();
   const project = useProject();
-  const tokens = (theme?.tokens ?? {}) as Record<string, string>;
+  const tokens: Record<string, string> = Object.fromEntries(
+    Object.entries(theme?.tokens ?? {}).map(([k, v]) => [k, String(v)]),
+  );
 
   const setToken = (key: string, value: string) => {
     project.setToken(key, value || null);

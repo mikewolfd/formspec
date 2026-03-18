@@ -26,7 +26,7 @@ export function ItemProperties({ showActions = true }: { showActions?: boolean }
   const keyInputRef = useRef<HTMLInputElement>(null);
 
   const items = definition.items || [];
-  const lookup = useMemo(() => buildDefLookup(items as any), [items]);
+  const lookup = useMemo(() => buildDefLookup(items), [items]);
   const found = selectedKey ? lookup.get(selectedKey) : null;
   const itemPath = found?.path ?? '';
 
@@ -93,8 +93,8 @@ export function ItemProperties({ showActions = true }: { showActions?: boolean }
     );
   }
 
-  const binds = bindsFor(definition.binds as any, found.path);
-  const shapes = shapesFor((definition as any).shapes, found.path);
+  const binds = bindsFor(definition.binds, found.path);
+  const shapes = shapesFor(definition.shapes, found.path);
 
   return (
     <SelectedItemProperties

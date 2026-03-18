@@ -9,7 +9,7 @@ export function ColorPalette() {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
 
-  const tokens = (theme?.tokens ?? {}) as Record<string, unknown>;
+  const tokens = theme?.tokens ?? {};
   const colorTokens = Object.entries(tokens)
     .filter(([key]) => key.startsWith('color.'))
     .map(([key, value]) => ({ key, name: key.slice(6), value: String(value) }));

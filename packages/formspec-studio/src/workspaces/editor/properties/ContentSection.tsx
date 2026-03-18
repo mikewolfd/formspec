@@ -4,6 +4,7 @@ import { Section } from '../../../components/ui/Section';
 import { propertyHelp } from '../../../lib/field-helpers';
 import { AddPlaceholder, PropInput } from './shared';
 import type { Project } from 'formspec-studio-core';
+import type { FormItem } from 'formspec-types';
 
 export function ContentSection({
   path,
@@ -11,7 +12,7 @@ export function ContentSection({
   project,
 }: {
   path: string;
-  item: any;
+  item: FormItem;
   project: Project;
 }) {
   const [showDescription, setShowDescription] = useState(!!item.description);

@@ -1,6 +1,7 @@
 /** @filedesc Properties panel section for editing inline choice options (value/label pairs) on a field. */
 import { Section } from '../../../components/ui/Section';
 import type { Project } from 'formspec-studio-core';
+import type { FormItem } from 'formspec-types';
 
 export function OptionsSection({
   path,
@@ -8,12 +9,12 @@ export function OptionsSection({
   project,
 }: {
   path: string;
-  item: any;
+  item: FormItem;
   project: Project;
 }) {
   const rawChoiceOptions = item.options ?? item.choices;
   const choiceOptions = Array.isArray(rawChoiceOptions)
-    ? (rawChoiceOptions as Array<{ value: string; label?: string }>)
+    ? (rawChoiceOptions as Array<{ value: string; label: string }>)
     : [];
 
   const updateOption = (index: number, property: 'value' | 'label', value: string) => {

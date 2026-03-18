@@ -10,7 +10,7 @@ export function ScreenSizes() {
   const [newName, setNewName] = useState('');
   const [newWidth, setNewWidth] = useState('');
 
-  const breakpoints = (theme?.breakpoints ?? {}) as Record<string, number>;
+  const breakpoints = theme?.breakpoints ?? {};
   const sorted = Object.entries(breakpoints)
     .sort(([, a], [, b]) => a - b);
 
