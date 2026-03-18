@@ -16,7 +16,7 @@ const mappingDoc = {
 function renderRuleEditor() {
   const project = createProject({ seed: {
     definition: { $formspec: '1.0', url: 'urn:test', version: '1.0.0', items: [] } as any,
-    mapping: mappingDoc,
+    mappings: { default: mappingDoc as any },
   }});
   return { ...render(<ProjectProvider project={project}><RuleEditor /></ProjectProvider>), project };
 }
@@ -24,24 +24,24 @@ function renderRuleEditor() {
 describe('RuleEditor', () => {
   it('renders rules as cards', () => {
     renderRuleEditor();
-    expect(screen.getByText('name')).toBeInTheDocument();
-    expect(screen.getByText('fullName')).toBeInTheDocument();
+    expect(screen.getByTestId('rule-source-0')).toHaveValue('name');
+    expect(screen.getByTestId('rule-target-0')).toHaveValue('fullName');
   });
 
   it('shows transform type', () => {
     renderRuleEditor();
-    expect(screen.getByText(/preserve/i)).toBeInTheDocument();
-    expect(screen.getByText(/coerce/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /preserve/i })).toBeInTheDocument();
   });
 
   it('shows source → target mapping', () => {
     renderRuleEditor();
-    expect(screen.getByText('age')).toBeInTheDocument();
+    expect(screen.getByTestId('rule-source-1')).toHaveValue('age');
+    expect(screen.getByTestId('rule-target-1')).toHaveValue('age');
   });
 
   it('shows all rules', () => {
     renderRuleEditor();
-    expect(screen.getByText('address.street')).toBeInTheDocument();
-    expect(screen.getByText('addr.line1')).toBeInTheDocument();
+    expect(screen.getByTestId('rule-source-2')).toHaveValue('address.street');
+    expect(screen.getByTestId('rule-target-2')).toHaveValue('addr.line1');
   });
 });

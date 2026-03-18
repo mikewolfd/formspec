@@ -12,7 +12,7 @@ import type { ProjectState, MappingPreviewParams, MappingPreviewResult } from '.
  */
 export function previewMapping(
   state: ProjectState,
-  params: MappingPreviewParams
+  params: MappingPreviewParams,
 ): MappingPreviewResult {
   const {
     mappingId,
@@ -31,7 +31,7 @@ export function previewMapping(
   // Optional: filter rules if requested
   if (Array.isArray(ruleIndices) && Array.isArray(mappingDoc.rules)) {
     mappingDoc.rules = ruleIndices
-      .map(index => mappingDoc.rules[index])
+      .map((index: number) => mappingDoc.rules[index])
       .filter((rule: unknown) => rule !== undefined);
   }
 

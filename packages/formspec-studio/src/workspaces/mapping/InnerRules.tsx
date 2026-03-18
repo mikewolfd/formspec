@@ -13,9 +13,11 @@ export function InnerRules({ innerRules }: InnerRulesProps) {
       {innerRules.map((rule, i) => (
         <RuleCard
           key={i}
+          index={i}
           source={rule.source ?? rule.sourcePath ?? ''}
           target={rule.target ?? rule.targetPath ?? ''}
           transform={rule.transform}
+          rule={rule}
         />
       ))}
     </div>

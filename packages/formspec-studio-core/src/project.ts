@@ -96,6 +96,13 @@ export class Project {
   diffFromBaseline(fromVersion?: string): Change[] { return this.core.diffFromBaseline(fromVersion); }
   previewChangelog(): FormspecChangelog { return this.core.previewChangelog(); }
 
+  /** Returns raw registry documents for passing to rendering consumers (e.g. <formspec-render>). */
+  registryDocuments(): unknown[] {
+    return this.core.state.extensions.registries
+      .map(r => r.document)
+      .filter(Boolean);
+  }
+
   // ── Layout node movement ────────────────────────────────────
 
   /** Move a component tree node to a new parent/position. */
@@ -155,31 +162,37 @@ export class Project {
   }
 
   /** Add a mapping rule from a form field to an output target. */
-  mapField(sourcePath: string, targetPath: string): HelperResult {
+  mapField(sourcePath: string, targetPath: string, mappingId?: string): HelperResult {
     if (!this.core.itemAt(sourcePath)) {
       this._throwPathNotFound(sourcePath);
     }
-    this.core.dispatch({ type: 'mapping.addRule', payload: { sourcePath, targetPath } } as AnyCommand);
+    this.core.dispatch({
+      type: 'mapping.addRule',
+      payload: { sourcePath, targetPath, ...(mappingId !== undefined ? { mappingId } : {}) },
+    } as AnyCommand);
     return {
       summary: `Mapped "${sourcePath}" → "${targetPath}"`,
-      action: { helper: 'mapField', params: { sourcePath, targetPath } },
+      action: { helper: 'mapField', params: { sourcePath, targetPath, mappingId } },
       affectedPaths: [sourcePath],
     };
   }
 
   /** Remove all mapping rules for a given source path. */
-  unmapField(sourcePath: string): HelperResult {
+  unmapField(sourcePath: string, mappingId?: string): HelperResult {
     const rules = (this.core.mapping as any)?.rules ?? [];
     const indices = rules
       .map((r: any, i: number) => r.sourcePath === sourcePath ? i : -1)
       .filter((i: number) => i >= 0)
       .reverse(); // descending to avoid index shift
     for (const idx of indices) {
-      this.core.dispatch({ type: 'mapping.deleteRule', payload: { index: idx } } as AnyCommand);
+      this.core.dispatch({
+        type: 'mapping.deleteRule',
+        payload: { index: idx, ...(mappingId !== undefined ? { mappingId } : {}) },
+      } as AnyCommand);
     }
     return {
       summary: `Unmapped "${sourcePath}" (${indices.length} rule(s))`,
-      action: { helper: 'unmapField', params: { sourcePath } },
+      action: { helper: 'unmapField', params: { sourcePath, mappingId } },
       affectedPaths: [sourcePath],
     };
   }
@@ -2452,27 +2465,27 @@ export class Project {
   // ── Mapping Helpers ──
 
   /** Set a mapping document root property (e.g. version, direction, autoMap). */
-  setMappingProperty(property: string, value: unknown): HelperResult {
+  setMappingProperty(property: string, value: unknown, mappingId?: string): HelperResult {
     this.core.dispatch({
       type: 'mapping.setProperty',
-      payload: { property, value },
+      payload: { property, value, ...(mappingId !== undefined ? { mappingId } : {}) },
     } as AnyCommand);
     return {
       summary: `Set mapping property '${property}'`,
-      action: { helper: 'setMappingProperty', params: { property, value } },
+      action: { helper: 'setMappingProperty', params: { property, value, mappingId } },
       affectedPaths: [],
     };
   }
 
   /** Set a property on the mapping's target structure descriptor. */
-  setMappingTargetSchema(property: string, value: unknown): HelperResult {
+  setMappingTargetSchema(property: string, value: unknown, mappingId?: string): HelperResult {
     this.core.dispatch({
       type: 'mapping.setTargetSchema',
-      payload: { property, value },
+      payload: { property, value, ...(mappingId !== undefined ? { mappingId } : {}) },
     } as AnyCommand);
     return {
       summary: `Set mapping target schema '${property}'`,
-      action: { helper: 'setMappingTargetSchema', params: { property, value } },
+      action: { helper: 'setMappingTargetSchema', params: { property, value, mappingId } },
       affectedPaths: [],
     };
   }
@@ -2483,6 +2496,7 @@ export class Project {
     targetPath?: string;
     transform?: string;
     insertIndex?: number;
+    mappingId?: string;
   }): HelperResult {
     this.core.dispatch({
       type: 'mapping.addRule',
@@ -2496,53 +2510,53 @@ export class Project {
   }
 
   /** Update a property of an existing mapping rule. */
-  updateMappingRule(index: number, property: string, value: unknown): HelperResult {
+  updateMappingRule(index: number, property: string, value: unknown, mappingId?: string): HelperResult {
     this.core.dispatch({
       type: 'mapping.setRule',
-      payload: { index, property, value },
+      payload: { index, property, value, ...(mappingId !== undefined ? { mappingId } : {}) },
     } as AnyCommand);
     return {
       summary: `Updated mapping rule ${index} property '${property}'`,
-      action: { helper: 'updateMappingRule', params: { index, property, value } },
+      action: { helper: 'updateMappingRule', params: { index, property, value, mappingId } },
       affectedPaths: [],
     };
   }
 
   /** Remove a mapping rule by index. */
-  removeMappingRule(index: number): HelperResult {
+  removeMappingRule(index: number, mappingId?: string): HelperResult {
     this.core.dispatch({
       type: 'mapping.deleteRule',
-      payload: { index },
+      payload: { index, ...(mappingId !== undefined ? { mappingId } : {}) },
     } as AnyCommand);
     return {
       summary: `Removed mapping rule ${index}`,
-      action: { helper: 'removeMappingRule', params: { index } },
+      action: { helper: 'removeMappingRule', params: { index, mappingId } },
       affectedPaths: [],
     };
   }
 
   /** Clear all mapping rules. */
-  clearMappingRules(): HelperResult {
+  clearMappingRules(mappingId?: string): HelperResult {
     this.core.dispatch({
-      type: 'mapping.setProperty',
-      payload: { property: 'rules', value: [] },
+      type: 'mapping.clearRules',
+      payload: { ...(mappingId !== undefined ? { mappingId } : {}) },
     } as AnyCommand);
     return {
       summary: 'Cleared all mapping rules',
-      action: { helper: 'clearMappingRules', params: {} },
+      action: { helper: 'clearMappingRules', params: { mappingId } },
       affectedPaths: [],
     };
   }
 
   /** Reorder a mapping rule. */
-  reorderMappingRule(index: number, direction: 'up' | 'down'): HelperResult {
+  reorderMappingRule(index: number, direction: 'up' | 'down', mappingId?: string): HelperResult {
     this.core.dispatch({
       type: 'mapping.reorderRule',
-      payload: { index, direction },
+      payload: { index, direction, ...(mappingId !== undefined ? { mappingId } : {}) },
     } as AnyCommand);
     return {
       summary: `Reordered mapping rule ${index} ${direction}`,
-      action: { helper: 'reorderMappingRule', params: { index, direction } },
+      action: { helper: 'reorderMappingRule', params: { index, direction, mappingId } },
       affectedPaths: [],
     };
   }
@@ -2593,6 +2607,72 @@ export class Project {
   /** Run a mapping preview and return the projected output. */
   previewMapping(params: import('./types.js').MappingPreviewParams): import('./types.js').MappingPreviewResult {
     return this.core.previewMapping(params);
+  }
+
+  /** Create a new named mapping document and select it. */
+  createMapping(id: string, options: { targetSchema?: Record<string, unknown> } = {}): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.create',
+      payload: { id, ...options },
+    } as AnyCommand);
+    return {
+      summary: `Created mapping '${id}'`,
+      action: { helper: 'createMapping', params: { id, options } },
+      affectedPaths: [],
+      createdId: id,
+    };
+  }
+
+  /** Delete a named mapping document. Throws if it is the last mapping. */
+  deleteMapping(id: string): HelperResult {
+    const ids = Object.keys(this.core.mappings);
+    if (ids.length <= 1) {
+      throw new HelperError('MAPPING_MIN_COUNT', 'Cannot delete the last mapping document', { id });
+    }
+    if (!this.core.mappings[id]) {
+      throw new HelperError('MAPPING_NOT_FOUND', `Mapping '${id}' does not exist`, { id });
+    }
+    this.core.dispatch({
+      type: 'mapping.delete',
+      payload: { id },
+    } as AnyCommand);
+    return {
+      summary: `Deleted mapping '${id}'`,
+      action: { helper: 'deleteMapping', params: { id } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Rename a mapping document. Throws if the new ID already exists. */
+  renameMapping(oldId: string, newId: string): HelperResult {
+    if (!this.core.mappings[oldId]) {
+      throw new HelperError('MAPPING_NOT_FOUND', `Mapping '${oldId}' does not exist`, { oldId });
+    }
+    if (this.core.mappings[newId]) {
+      throw new HelperError('MAPPING_DUPLICATE_ID', `Mapping '${newId}' already exists`, { newId });
+    }
+    this.core.dispatch({
+      type: 'mapping.rename',
+      payload: { oldId, newId },
+    } as AnyCommand);
+    return {
+      summary: `Renamed mapping '${oldId}' to '${newId}'`,
+      action: { helper: 'renameMapping', params: { oldId, newId } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Select the active mapping document by ID. */
+  selectMapping(id: string): HelperResult {
+    this.core.dispatch({
+      type: 'mapping.select',
+      payload: { id },
+    } as AnyCommand);
+    return {
+      summary: `Selected mapping '${id}'`,
+      action: { helper: 'selectMapping', params: { id } },
+      affectedPaths: [],
+    };
   }
 
   // ── Page Auto-generate Helper ──

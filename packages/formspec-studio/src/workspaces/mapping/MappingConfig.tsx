@@ -138,22 +138,32 @@ export function MappingConfig({ open: controlledOpen, onOpenChange }: MappingCon
 
           {/* Target Schema & Format Section */}
           <div className="mt-4 pt-3 border-t border-border/40">
-            <div className="flex items-center justify-between px-2 mb-1">
-              <div className="flex items-center gap-2">
+            <div className="px-2 mb-2">
+              <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-[12px] font-medium text-muted">Target Schema</span>
-                <HelpTip text="External schema structure and format requirements.">
+                <HelpTip text="The external JSON Schema URL used to validate the output and provide structural hints.">
                   <span className="text-[10px] text-muted/50 cursor-help hover:text-accent transition-colors">ⓘ</span>
                 </HelpTip>
               </div>
-              <span className="text-[11px] font-bold text-ink">
-                {Object.keys(mapping?.targetSchema ?? {}).length} properties
-              </span>
+              <input
+                type="text"
+                placeholder="https://example.com/schema.json"
+                defaultValue={mapping?.targetSchema?.url ?? ''}
+                onBlur={(e) => project.setMappingTargetSchema('url', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    project.setMappingTargetSchema('url', (e.target as HTMLInputElement).value);
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full font-mono text-[10px] bg-subtle/40 border border-border/40 rounded px-2 py-1.5 text-ink placeholder:text-muted/30 focus:outline-none focus:border-accent/30 focus:ring-1 focus:ring-accent/10 transition-all"
+              />
             </div>
-            {(mapping?.targetSchema as any)?.format && (
-              <div className="flex items-center justify-between px-2">
-                <span className="text-muted/60 italic text-[10px]">Active Format</span>
+            {mapping?.targetSchema?.format && (
+              <div className="flex items-center justify-between px-2 mt-2">
+                <span className="text-muted/60 italic text-[10px]">Output Format</span>
                 <span className="font-bold text-[10px] text-green uppercase tracking-widest bg-green/10 px-1.5 py-0.5 rounded-sm border border-green/20">
-                  {(mapping?.targetSchema as any).format}
+                  {mapping?.targetSchema?.format}
                 </span>
               </div>
             )}

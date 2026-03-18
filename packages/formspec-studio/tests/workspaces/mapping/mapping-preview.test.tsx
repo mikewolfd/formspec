@@ -8,7 +8,7 @@ import { MappingConfig } from '../../../src/workspaces/mapping/MappingConfig';
 function renderPreview() {
   const project = createProject({ seed: {
     definition: { $formspec: '1.0', url: 'urn:test', version: '1.0.0', items: [] } as any,
-    mapping: { rules: [] },
+    mappings: { default: { rules: [] } as any },
   }});
   return render(<ProjectProvider project={project}><MappingPreview /></ProjectProvider>);
 }
@@ -16,60 +16,49 @@ function renderPreview() {
 function renderConfig(direction?: string) {
   const project = createProject({ seed: {
     definition: { $formspec: '1.0', url: 'urn:mapping-config', version: '1.0.0', items: [] } as any,
-    mapping: { direction: direction ?? 'unset', rules: [] },
+    mappings: { default: { direction: direction ?? 'unset', rules: [] } as any },
   }});
   return render(<ProjectProvider project={project}><MappingConfig /></ProjectProvider>);
 }
 
 describe('MappingPreview', () => {
-  it('shows direction toggle', () => {
+  it('shows preview mode toggle', () => {
     renderPreview();
-    expect(screen.getByText(/unset/i)).toBeInTheDocument();
-  });
-
-  it('renders direction as an interactive control', () => {
-    renderPreview();
-    expect(screen.getByRole('button', { name: /direction.*unset|unset.*direction/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /forward preview/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reverse preview/i })).toBeInTheDocument();
   });
 
   it('shows input and output panels', () => {
     renderPreview();
-    expect(screen.getByText(/input/i)).toBeInTheDocument();
-    expect(screen.getByText(/output/i)).toBeInTheDocument();
+    expect(screen.getByTestId('preview-source-header')).toBeInTheDocument();
+    expect(screen.getByTestId('preview-output-header')).toBeInTheDocument();
   });
 });
 
 // Bug #31: Pressing Escape does not close the direction picker in the mapping config
 describe('MappingConfig direction picker', () => {
   it('opens a picker when the direction value is clicked', async () => {
-    renderConfig('unset');
+    renderConfig('outbound');
 
-    // The direction pill/value should be clickable and open a picker
-    const directionValue = screen.getByText(/unset/i);
+    const picker = screen.getByTestId('direction-picker');
     await act(async () => {
-      fireEvent.click(directionValue);
+      fireEvent.click(picker);
     });
 
     // A picker / dropdown with direction options should now be visible
-    expect(
-      screen.getByRole('listbox') ||
-      screen.getByRole('menu') ||
-      screen.getByRole('dialog') ||
-      screen.queryByTestId('direction-picker')
-    ).toBeTruthy();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
   });
 
   it('closes the direction picker when Escape is pressed', async () => {
-    renderConfig('unset');
+    renderConfig('outbound');
 
-    // Click the direction value to open the picker
-    const directionValue = screen.getByText(/unset/i);
+    const picker = screen.getByTestId('direction-picker');
     await act(async () => {
-      fireEvent.click(directionValue);
+      fireEvent.click(picker);
     });
 
-    // Verify picker is open by checking for an option like "inbound"
-    expect(screen.getByText(/inbound/i)).toBeInTheDocument();
+    // Verify picker is open by checking for an option like "forward"
+    expect(screen.getByText(/^forward$/i)).toBeInTheDocument();
 
     // Press Escape — the picker should close
     await act(async () => {
@@ -77,6 +66,6 @@ describe('MappingConfig direction picker', () => {
     });
 
     // After Escape, the picker options should no longer be visible
-    expect(screen.queryByText(/inbound/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^forward$/i)).not.toBeInTheDocument();
   });
 });

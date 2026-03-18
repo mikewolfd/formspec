@@ -224,11 +224,11 @@ export function Shell() {
               {SidebarComponent && <SidebarComponent />}
             </div>
           </aside>
-          <main className="flex-1 overflow-y-auto bg-bg-default">
+          <main className="flex-1 overflow-y-auto bg-bg-default min-w-0">
             <div
               data-testid={`workspace-${activeTab}`}
               data-workspace={activeTab}
-              className="h-full"
+              className="h-full flex flex-col"
               onClick={(e) => {
                 if (e.target === e.currentTarget) deselect();
               }}

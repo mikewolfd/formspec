@@ -11,7 +11,7 @@ export function RuleEditor() {
     source?: string; sourcePath?: string;
     target?: string; targetPath?: string;
     transform?: string;
-    innerRules?: unknown[];
+    innerRules?: Array<{ source?: string; sourcePath?: string; target?: string; targetPath?: string; transform?: string }>;
   }>;
   const project = useProject();
 
@@ -88,7 +88,7 @@ export function RuleEditor() {
                   rule={rule}
                 />
                 {rule.innerRules && (
-                  <InnerRules innerRules={rule.innerRules as any[]} />
+                  <InnerRules innerRules={rule.innerRules} />
                 )}
               </div>
             );

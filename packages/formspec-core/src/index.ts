@@ -13,9 +13,9 @@ export { RawProject, createRawProject } from './raw-project.js';
 export { resolveItemLocation } from './handlers/helpers.js';
 export { normalizeDefinition } from './normalization.js';
 export { resolveThemeCascade } from './theme-cascade.js';
-export type { ResolvedProperty } from './theme-cascade.js';
+export type { ResolvedProperty, ThemeCascadeInput } from './theme-cascade.js';
 export { resolvePageStructure } from './page-resolution.js';
-export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic } from './page-resolution.js';
+export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic, PageStructureInput } from './page-resolution.js';
 
 // Schema-derived types (from formspec-types, re-exported via types.ts)
 export type {

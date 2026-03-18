@@ -1,0 +1,773 @@
+/** @filedesc Phase 1-3 tests for RuntimeMappingEngine: valueMap shape, coerce descriptor, array paths, FEL integration, array modes, flatten/nest/concat/split transforms */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { RuntimeMappingEngine } from '../dist/index.js';
+
+// ---------------------------------------------------------------------------
+// Phase 1.1 — valueMap shape: { forward, reverse, unmapped, default }
+// ---------------------------------------------------------------------------
+
+test('Phase 1.1 — valueMap forward sub-key', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { advanced: 'ADV', basic: 'BSC' },
+        reverse: { ADV: 'advanced', BSC: 'basic' }
+      }
+    }]
+  });
+  const result = engine.forward({ mode: 'advanced' });
+  assert.equal(result.output.out.mode, 'ADV');
+  assert.equal(result.diagnostics.length, 0);
+});
+
+test('Phase 1.1 — valueMap reverse sub-key', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { advanced: 'ADV', basic: 'BSC' },
+        reverse: { ADV: 'advanced', BSC: 'basic' }
+      }
+    }]
+  });
+  const result = engine.reverse({ out: { mode: 'ADV' } });
+  assert.equal(result.output.mode, 'advanced');
+});
+
+test('Phase 1.1 — valueMap unmapped: "passthrough"', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { advanced: 'ADV' },
+        unmapped: 'passthrough'
+      }
+    }]
+  });
+  const result = engine.forward({ mode: 'unknown-value' });
+  assert.equal(result.output.out.mode, 'unknown-value');
+  assert.equal(result.diagnostics.length, 0);
+});
+
+test('Phase 1.1 — valueMap unmapped: "drop"', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { advanced: 'ADV' },
+        unmapped: 'drop'
+      }
+    }]
+  });
+  const result = engine.forward({ mode: 'unknown-value' });
+  assert.equal(result.output.out, undefined);
+});
+
+test('Phase 1.1 — valueMap unmapped: "default" uses valueMap.default', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { advanced: 'ADV' },
+        unmapped: 'default',
+        default: 'UNKNOWN'
+      }
+    }]
+  });
+  const result = engine.forward({ mode: 'other' });
+  assert.equal(result.output.out.mode, 'UNKNOWN');
+});
+
+test('Phase 1.1 — valueMap unmapped: "error" emits UNMAPPED_VALUE diagnostic', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { advanced: 'ADV' },
+        unmapped: 'error'
+      }
+    }]
+  });
+  const result = engine.forward({ mode: 'unknown-value' });
+  assert.equal(result.diagnostics.length, 1);
+  assert.equal(result.diagnostics[0].errorCode, 'UNMAPPED_VALUE');
+  assert.equal(result.output.out, undefined);
+});
+
+test('Phase 1.1 — valueMap auto-invert bijective forward (no explicit reverse)', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { advanced: 'ADV', basic: 'BSC' }
+        // no reverse — bijective, so auto-invert
+      }
+    }]
+  });
+  const result = engine.reverse({ out: { mode: 'BSC' } });
+  assert.equal(result.output.mode, 'basic');
+});
+
+test('Phase 1.1 — valueMap non-bijective forward with no explicit reverse emits diagnostic on reverse', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: {
+        forward: { a: 'SAME', b: 'SAME' }
+        // non-bijective (a and b both map to SAME) — cannot auto-invert
+      }
+    }]
+  });
+  const result = engine.reverse({ out: { mode: 'SAME' } });
+  // Should emit a diagnostic about the non-bijective map
+  assert.ok(result.diagnostics.length > 0);
+  assert.ok(result.diagnostics[0].errorCode === 'UNMAPPED_VALUE' || result.diagnostics.some(d => d.message.includes('bijective') || d.message.includes('reverse')));
+});
+
+// Legacy flat valueMap still works (backward compat)
+test('Phase 1.1 — legacy flat valueMap still works', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'mode',
+      targetPath: 'out.mode',
+      transform: 'valueMap',
+      valueMap: { advanced: 'ADV', basic: 'BSC' }
+    }]
+  });
+  const result = engine.forward({ mode: 'advanced' });
+  assert.equal(result.output.out.mode, 'ADV');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.2 — coerce descriptor { from, to, format }
+// ---------------------------------------------------------------------------
+
+test('Phase 1.2 — coerce integer from string', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'count',
+      targetPath: 'out.count',
+      transform: 'coerce',
+      coerce: { from: 'string', to: 'integer' }
+    }]
+  });
+  const result = engine.forward({ count: '42' });
+  assert.equal(result.output.out.count, 42);
+  assert.ok(Number.isInteger(result.output.out.count));
+});
+
+test('Phase 1.2 — coerce integer to string (reverse)', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'count',
+      targetPath: 'out.count',
+      transform: 'coerce',
+      coerce: { from: 'string', to: 'integer' }
+    }]
+  });
+  // reverse: integer → string (lossless, auto-reversible)
+  const result = engine.reverse({ out: { count: 42 } });
+  assert.equal(result.output.count, '42');
+});
+
+test('Phase 1.2 — coerce boolean true/false/yes/no/1/0 from string', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [
+      { sourcePath: 'a', targetPath: 'out.a', transform: 'coerce', coerce: { from: 'string', to: 'boolean' } },
+      { sourcePath: 'b', targetPath: 'out.b', transform: 'coerce', coerce: { from: 'string', to: 'boolean' } },
+      { sourcePath: 'c', targetPath: 'out.c', transform: 'coerce', coerce: { from: 'string', to: 'boolean' } },
+      { sourcePath: 'd', targetPath: 'out.d', transform: 'coerce', coerce: { from: 'string', to: 'boolean' } },
+      { sourcePath: 'e', targetPath: 'out.e', transform: 'coerce', coerce: { from: 'string', to: 'boolean' } },
+      { sourcePath: 'f', targetPath: 'out.f', transform: 'coerce', coerce: { from: 'string', to: 'boolean' } },
+    ]
+  });
+  const result = engine.forward({ a: 'true', b: 'yes', c: '1', d: 'false', e: 'no', f: '0' });
+  assert.equal(result.output.out.a, true);
+  assert.equal(result.output.out.b, true);
+  assert.equal(result.output.out.c, true);
+  assert.equal(result.output.out.d, false);
+  assert.equal(result.output.out.e, false);
+  assert.equal(result.output.out.f, false);
+});
+
+test('Phase 1.2 — coerce boolean from integer (true→1, false→0)', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [
+      { sourcePath: 'a', targetPath: 'out.a', transform: 'coerce', coerce: { from: 'boolean', to: 'integer' } },
+      { sourcePath: 'b', targetPath: 'out.b', transform: 'coerce', coerce: { from: 'boolean', to: 'integer' } },
+    ]
+  });
+  const result = engine.forward({ a: true, b: false });
+  assert.equal(result.output.out.a, 1);
+  assert.equal(result.output.out.b, 0);
+});
+
+test('Phase 1.2 — coerce money to number extracts .amount', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'price',
+      targetPath: 'out.price',
+      transform: 'coerce',
+      coerce: { from: 'money', to: 'number' }
+    }]
+  });
+  const result = engine.forward({ price: { amount: 19.99, currency: 'USD' } });
+  assert.equal(result.output.out.price, 19.99);
+});
+
+test('Phase 1.2 — lossy coerce does not auto-reverse (money→number)', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'price',
+      targetPath: 'out.price',
+      transform: 'coerce',
+      coerce: { from: 'money', to: 'number' }
+    }]
+  });
+  // Reverse of a lossy coerce is skipped — output should not contain price
+  const result = engine.reverse({ out: { price: 19.99 } });
+  assert.equal(result.output.price, undefined);
+});
+
+test('Phase 1.2 — coerce date string with ISO format', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'dob',
+      targetPath: 'out.dob',
+      transform: 'coerce',
+      coerce: { from: 'string', to: 'date', format: 'ISO' }
+    }]
+  });
+  const result = engine.forward({ dob: '1990-06-15' });
+  assert.equal(result.output.out.dob, '1990-06-15');
+});
+
+// Legacy string coerce still works
+test('Phase 1.2 — legacy string coerce descriptor still works', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [
+      { sourcePath: 'x', targetPath: 'out.x', transform: 'coerce', coerce: 'number' },
+      { sourcePath: 'y', targetPath: 'out.y', transform: 'coerce', coerce: 'string' },
+    ]
+  });
+  const result = engine.forward({ x: '3.14', y: 42 });
+  assert.equal(result.output.out.x, 3.14);
+  assert.equal(result.output.out.y, '42');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.3 — bracket path notation in splitPath/getByPath/setByPath
+// ---------------------------------------------------------------------------
+
+test('Phase 1.3 — bracket path getByPath: name[0].given[0]', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'names[0].given[0]',
+      targetPath: 'out.firstName',
+      transform: 'preserve'
+    }]
+  });
+  const result = engine.forward({ names: [{ given: ['Alice', 'Mary'] }] });
+  assert.equal(result.output.out.firstName, 'Alice');
+});
+
+test('Phase 1.3 — bracket path setByPath creates arrays', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'firstName',
+      targetPath: 'names[0].given[0]',
+      transform: 'preserve'
+    }]
+  });
+  const result = engine.forward({ firstName: 'Bob' });
+  assert.ok(Array.isArray(result.output.names));
+  assert.ok(Array.isArray(result.output.names[0].given));
+  assert.equal(result.output.names[0].given[0], 'Bob');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.4 — per-rule default fallback
+// ---------------------------------------------------------------------------
+
+test('Phase 1.4 — per-rule default when sourcePath is undefined', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'missing.field',
+      targetPath: 'out.value',
+      transform: 'preserve',
+      default: 'fallback-value'
+    }]
+  });
+  const result = engine.forward({ other: 'x' });
+  assert.equal(result.output.out.value, 'fallback-value');
+});
+
+test('Phase 1.4 — per-rule default not used when value exists', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'field',
+      targetPath: 'out.value',
+      transform: 'preserve',
+      default: 'fallback-value'
+    }]
+  });
+  const result = engine.forward({ field: 'actual' });
+  assert.equal(result.output.out.value, 'actual');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.5 — bidirectional: false skipped in reverse
+// ---------------------------------------------------------------------------
+
+test('Phase 1.5 — bidirectional: false skipped in reverse', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'forwardOnly',
+      targetPath: 'out.forwardOnly',
+      transform: 'preserve',
+      bidirectional: false
+    }]
+  });
+  const fwdResult = engine.forward({ forwardOnly: 'value' });
+  assert.equal(fwdResult.output.out.forwardOnly, 'value');
+
+  const revResult = engine.reverse({ out: { forwardOnly: 'value' } });
+  assert.equal(revResult.output.forwardOnly, undefined);
+});
+
+test('Phase 1.5 — transform: "drop" skipped in reverse', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'dropMe',
+      targetPath: null,
+      transform: 'drop'
+    }]
+  });
+  // Forward: drop is applied (no output)
+  const fwdResult = engine.forward({ dropMe: 'value' });
+  assert.equal(fwdResult.output.dropMe, undefined);
+  // Reverse: drop rule is skipped entirely
+  const revResult = engine.reverse({ dropMe: 'value' });
+  assert.equal(revResult.output.dropMe, undefined); // still nothing because targetPath is null
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.6 — document-level direction enforcement
+// ---------------------------------------------------------------------------
+
+test('Phase 1.6 — direction: "forward" blocks reverse', () => {
+  const engine = new RuntimeMappingEngine({
+    direction: 'forward',
+    rules: [{ sourcePath: 'a', targetPath: 'out.a', transform: 'preserve' }]
+  });
+  const result = engine.reverse({ out: { a: 'x' } });
+  assert.equal(Object.keys(result.output).length, 0);
+  assert.ok(result.diagnostics.some(d => d.errorCode === 'INVALID_DOCUMENT'));
+});
+
+test('Phase 1.6 — direction: "reverse" blocks forward', () => {
+  const engine = new RuntimeMappingEngine({
+    direction: 'reverse',
+    rules: [{ sourcePath: 'a', targetPath: 'out.a', transform: 'preserve' }]
+  });
+  const result = engine.forward({ a: 'x' });
+  assert.equal(Object.keys(result.output).length, 0);
+  assert.ok(result.diagnostics.some(d => d.errorCode === 'INVALID_DOCUMENT'));
+});
+
+test('Phase 1.6 — no direction restriction allows both', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{ sourcePath: 'a', targetPath: 'out.a', transform: 'preserve' }]
+  });
+  assert.doesNotThrow(() => engine.forward({ a: 'x' }));
+  assert.doesNotThrow(() => engine.reverse({ out: { a: 'x' } }));
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.7 — structured diagnostics
+// ---------------------------------------------------------------------------
+
+test('Phase 1.7 — diagnostics are structured objects with errorCode', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [
+      { sourcePath: 'x', targetPath: 'y', transform: 'unknown-transform' },
+    ]
+  });
+  const result = engine.forward({ x: 'value' });
+  assert.ok(result.diagnostics.length > 0);
+  const d = result.diagnostics[0];
+  assert.ok(typeof d === 'object');
+  assert.ok('errorCode' in d);
+  assert.ok('message' in d);
+  assert.ok('ruleIndex' in d);
+});
+
+test('Phase 1.7 — COERCE_FAILURE diagnostic for unknown coerce type', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{ sourcePath: 'x', targetPath: 'z', transform: 'coerce', coerce: 'uuid' }]
+  });
+  const result = engine.forward({ x: 'value' });
+  assert.ok(result.diagnostics.some(d => d.errorCode === 'COERCE_FAILURE'));
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2.1 — FEL expression transform
+// ---------------------------------------------------------------------------
+
+test('Phase 2.1 — expression transform with FEL: $ binds to source value', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'price',
+      targetPath: 'out.priceWithTax',
+      transform: 'expression',
+      expression: '$ * 1.1'
+    }]
+  });
+  const result = engine.forward({ price: 100 });
+  assert.ok(Math.abs(result.output.out.priceWithTax - 110) < 0.001);
+});
+
+test('Phase 2.1 — expression transform with @source bindings', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: null,
+      targetPath: 'out.fullName',
+      transform: 'expression',
+      expression: '@source.firstName & " " & @source.lastName'
+    }]
+  });
+  const result = engine.forward({ firstName: 'Alice', lastName: 'Smith' });
+  assert.equal(result.output.out.fullName, 'Alice Smith');
+});
+
+test('Phase 2.1 — FEL runtime error emits FEL_RUNTIME diagnostic and skips rule', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [
+      // rule that causes runtime error: $ would be null, then we reference a non-existent built-in
+      { sourcePath: 'x', targetPath: 'out.x', transform: 'expression', expression: 'undefined_builtin_xyz()' },
+      // this rule should still apply
+      { sourcePath: 'y', targetPath: 'out.y', transform: 'preserve' }
+    ]
+  });
+  const result = engine.forward({ x: 5, y: 'ok' });
+  assert.equal(result.output.out.y, 'ok');
+  assert.ok(result.diagnostics.some(d => d.errorCode === 'FEL_RUNTIME'));
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2.2 — FEL condition evaluation
+// ---------------------------------------------------------------------------
+
+test('Phase 2.2 — FEL condition: truthy condition applies rule', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'vipCode',
+      targetPath: 'out.vip',
+      transform: 'preserve',
+      condition: '@source.vipEnabled = true'
+    }]
+  });
+  const result = engine.forward({ vipEnabled: true, vipCode: 'VIP-1' });
+  assert.equal(result.output.out.vip, 'VIP-1');
+});
+
+test('Phase 2.2 — FEL condition: falsy condition skips rule', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'vipCode',
+      targetPath: 'out.vip',
+      transform: 'preserve',
+      condition: '@source.vipEnabled = true'
+    }]
+  });
+  const result = engine.forward({ vipEnabled: false, vipCode: 'VIP-1' });
+  assert.equal(result.output.out, undefined);
+});
+
+test('Phase 2.2 — FEL condition: null result treated as false', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'x',
+      targetPath: 'out.x',
+      transform: 'preserve',
+      condition: 'null'
+    }]
+  });
+  const result = engine.forward({ x: 'value' });
+  assert.equal(result.output.out, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3.1 — array.mode: "each" with innerRules
+// ---------------------------------------------------------------------------
+
+test('Phase 3.1 — array.mode: "each" maps each element', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'items',
+      targetPath: 'out.items',
+      array: {
+        mode: 'each',
+        innerRules: [
+          { sourcePath: 'name', targetPath: 'label', transform: 'preserve' },
+          { sourcePath: 'qty', targetPath: 'quantity', transform: 'preserve' }
+        ]
+      }
+    }]
+  });
+  const result = engine.forward({
+    items: [
+      { name: 'Widget', qty: 3 },
+      { name: 'Gadget', qty: 7 }
+    ]
+  });
+  assert.ok(Array.isArray(result.output.out.items));
+  assert.equal(result.output.out.items.length, 2);
+  assert.equal(result.output.out.items[0].label, 'Widget');
+  assert.equal(result.output.out.items[0].quantity, 3);
+  assert.equal(result.output.out.items[1].label, 'Gadget');
+  assert.equal(result.output.out.items[1].quantity, 7);
+});
+
+test('Phase 3.1 — array.mode: "each" $index binds correctly in expression innerRule', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'items',
+      targetPath: 'out.items',
+      array: {
+        mode: 'each',
+        innerRules: [
+          { sourcePath: 'name', targetPath: 'label', transform: 'preserve' },
+          { sourcePath: null, targetPath: 'idx', transform: 'expression', expression: '$index' }
+        ]
+      }
+    }]
+  });
+  const result = engine.forward({ items: [{ name: 'A' }, { name: 'B' }] });
+  assert.equal(result.output.out.items[0].idx, 0);
+  assert.equal(result.output.out.items[1].idx, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3.2 — array.mode: "whole"
+// ---------------------------------------------------------------------------
+
+test('Phase 3.2 — array.mode: "whole" passes entire array to transform', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'tags',
+      targetPath: 'out.tags',
+      array: { mode: 'whole' },
+      transform: 'preserve'
+    }]
+  });
+  const result = engine.forward({ tags: ['a', 'b', 'c'] });
+  assert.deepEqual(result.output.out.tags, ['a', 'b', 'c']);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3.3 — array.mode: "indexed"
+// ---------------------------------------------------------------------------
+
+test('Phase 3.3 — array.mode: "indexed" maps specific indices', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'cols',
+      targetPath: 'out',
+      array: {
+        mode: 'indexed',
+        innerRules: [
+          { index: 0, targetPath: 'firstName', transform: 'preserve' },
+          { index: 1, targetPath: 'lastName', transform: 'preserve' },
+          { index: 2, targetPath: 'email', transform: 'preserve' }
+        ]
+      }
+    }]
+  });
+  const result = engine.forward({ cols: ['Alice', 'Smith', 'alice@example.com'] });
+  assert.equal(result.output.out.firstName, 'Alice');
+  assert.equal(result.output.out.lastName, 'Smith');
+  assert.equal(result.output.out.email, 'alice@example.com');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3.4 — flatten transform
+// ---------------------------------------------------------------------------
+
+test('Phase 3.4 — flatten with separator: join array to delimited string', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'tags',
+      targetPath: 'out.tags',
+      transform: 'flatten',
+      separator: ', '
+    }]
+  });
+  const result = engine.forward({ tags: ['a', 'b', 'c'] });
+  assert.equal(result.output.out.tags, 'a, b, c');
+});
+
+test('Phase 3.4 — flatten positional: write to targetPath_0, targetPath_1, ...', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'names',
+      targetPath: 'out.names',
+      transform: 'flatten'
+      // no separator → positional
+    }]
+  });
+  const result = engine.forward({ names: ['Alice', 'Bob', 'Carol'] });
+  assert.equal(result.output.out.names_0, 'Alice');
+  assert.equal(result.output.out.names_1, 'Bob');
+  assert.equal(result.output.out.names_2, 'Carol');
+});
+
+test('Phase 3.4 — flatten object: dot-prefix flat keys', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'address',
+      targetPath: 'out.addr',
+      transform: 'flatten'
+    }]
+  });
+  const result = engine.forward({ address: { street: '123 Main', city: 'Springfield' } });
+  assert.equal(result.output.out['addr.street'], '123 Main');
+  assert.equal(result.output.out['addr.city'], 'Springfield');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3.5 — nest transform
+// ---------------------------------------------------------------------------
+
+test('Phase 3.5 — nest with separator: split string to array', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'tags',
+      targetPath: 'out.tags',
+      transform: 'nest',
+      separator: ', '
+    }]
+  });
+  const result = engine.forward({ tags: 'a, b, c' });
+  assert.deepEqual(result.output.out.tags, ['a', 'b', 'c']);
+});
+
+test('Phase 3.5 — nest positional: collect _0, _1, _2 keys into array', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'out.names',
+      targetPath: 'names',
+      transform: 'nest'
+    }]
+  });
+  const result = engine.forward({ out: { names_0: 'Alice', names_1: 'Bob' } });
+  assert.deepEqual(result.output.names, ['Alice', 'Bob']);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3.6 — concat transform
+// ---------------------------------------------------------------------------
+
+test('Phase 3.6 — concat with FEL expression referencing @source', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: null,
+      targetPath: 'out.fullName',
+      transform: 'concat',
+      expression: '@source.first & " " & @source.last'
+    }]
+  });
+  const result = engine.forward({ first: 'John', last: 'Doe' });
+  assert.equal(result.output.out.fullName, 'John Doe');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3.7 — split transform
+// ---------------------------------------------------------------------------
+
+test('Phase 3.7 — split returning array writes to targetPath[0], targetPath[1], ...', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'fullName',
+      targetPath: 'out',
+      transform: 'split',
+      // FEL array literal — returns array of two values from source
+      expression: '[@source.first, @source.last]'
+    }]
+  });
+  const result = engine.forward({ fullName: 'Alice Smith', first: 'Alice', last: 'Smith' });
+  assert.equal(result.output.out[0], 'Alice');
+  assert.equal(result.output.out[1], 'Smith');
+});
+
+test('Phase 3.7 — split returning object writes to targetPath.key', () => {
+  const engine = new RuntimeMappingEngine({
+    rules: [{
+      sourcePath: 'fullName',
+      targetPath: 'out',
+      transform: 'split',
+      // FEL object literal — returns object with named keys
+      expression: '{ "first": @source.first, "last": @source.last }'
+    }]
+  });
+  const result = engine.forward({ fullName: 'Alice Smith', first: 'Alice', last: 'Smith' });
+  assert.equal(result.output.out.first, 'Alice');
+  assert.equal(result.output.out.last, 'Smith');
+});
+
+// ---------------------------------------------------------------------------
+// Backward compat: original tests still pass with structured diagnostics
+// ---------------------------------------------------------------------------
+
+test('Backward compat — original mapping document with new structured diagnostics', () => {
+  const mappingDocument = {
+    defaults: { 'meta.source': 'formspec' },
+    rules: [
+      { sourcePath: 'fullName', targetPath: 'subject.name', transform: 'preserve', priority: 20 },
+      {
+        sourcePath: 'profileMode', targetPath: 'subject.mode', transform: 'valueMap',
+        valueMap: { advanced: 'ADV', basic: 'BSC' },
+        reverse: { transform: 'valueMap', valueMap: { ADV: 'advanced', BSC: 'basic' } },
+        priority: 15, reversePriority: 15
+      },
+      { sourcePath: 'budget', targetPath: 'finance.budget', transform: 'coerce', coerce: 'number', priority: 10 },
+      { targetPath: 'meta.version', transform: 'constant', expression: '"1"', priority: 10 },
+      {
+        sourcePath: 'vipCode', targetPath: 'subject.vip', transform: 'preserve',
+        condition: '@source.vipEnabled = true', priority: 5
+      },
+      { sourcePath: 'hiddenMirror', targetPath: null, transform: 'drop', priority: 1 }
+    ]
+  };
+  const mapper = new RuntimeMappingEngine(mappingDocument);
+  const result = mapper.forward({
+    fullName: 'Alice', profileMode: 'advanced', budget: '99.5',
+    vipEnabled: true, vipCode: 'VIP-1', hiddenMirror: 'drop-me'
+  });
+  assert.equal(result.direction, 'forward');
+  assert.equal(result.output.subject.name, 'Alice');
+  assert.equal(result.output.subject.mode, 'ADV');
+  assert.equal(result.output.subject.vip, 'VIP-1');
+  assert.equal(result.output.finance.budget, 99.5);
+  assert.equal(result.output.meta.source, 'formspec');
+  assert.equal(result.output.meta.version, '1');
+  assert.equal(result.diagnostics.length, 0);
+});

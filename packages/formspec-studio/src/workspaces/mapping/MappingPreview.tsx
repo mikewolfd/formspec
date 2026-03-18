@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { FormEngine } from 'formspec-engine';
 import { useProject } from '../../state/useProject';
 import { useMapping } from '../../state/useMapping';
 import { serializeMappedData } from './adapters';
+import { SplitPane } from '../../components/ui/SplitPane';
 
 export function MappingPreview() {
   const mapping = useMapping();
@@ -12,6 +14,80 @@ export function MappingPreview() {
   const [previewOutput, setPreviewOutput] = useState<string>('{}');
   const [showRaw, setShowRaw] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const generateSchemaSample = () => {
+    const definition = project.definition;
+    
+    // Create a temporary engine instance to handle value generation and serialization
+    const engine = new FormEngine({...definition});
+    
+    const firstNames = ['Jane', 'John', 'Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona'];
+    const lastNames = ['Doe', 'Smith', 'Johnson', 'Brown', 'Taylor', 'Miller', 'Wilson', 'Moore'];
+    const streets = ['Maple Ave', 'Oak St', 'Pine Rd', 'Cedar Ln', 'Elm Dr', 'Washington Blvd'];
+    const cities = ['Springfield', 'Riverside', 'Georgetown', 'Franklin', 'Clinton'];
+
+    const pick = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)];
+    const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+    // Helper to walk items and set values in the engine
+    const walk = (items: any[], prefix = '') => {
+      for (const item of items) {
+        const path = prefix ? `${prefix}.${item.key}` : item.key;
+        
+        if (item.type === 'field') {
+          const dataType = item.dataType;
+          const keyLower = item.key.toLowerCase();
+          let val: any = "sample";
+
+          if (dataType === 'integer' || dataType === 'decimal' || dataType === 'number') {
+            val = randomInt(1, 100);
+            if (keyLower.includes('year')) val = randomInt(2020, 2026);
+            if (keyLower.includes('price') || keyLower.includes('amount')) val = randomInt(10, 5000) / 100;
+            if (keyLower.includes('age')) val = randomInt(18, 75);
+          } else if (dataType === 'boolean') {
+            val = Math.random() > 0.5;
+          } else if (dataType === 'date') {
+            const d = new Date();
+            d.setDate(d.getDate() - randomInt(0, 365));
+            val = d.toISOString().split('T')[0];
+          } else if (dataType === 'money') {
+            val = { amount: randomInt(100, 10000) / 100, currency: 'USD' };
+          } else {
+            // String / other
+            val = "sample_text";
+            if (keyLower.includes('first')) val = pick(firstNames);
+            else if (keyLower.includes('last')) val = pick(lastNames);
+            else if (keyLower.includes('full') && keyLower.includes('name')) val = `${pick(firstNames)} ${pick(lastNames)}`;
+            else if (keyLower.includes('name')) val = pick(firstNames);
+            
+            if (keyLower.includes('email')) val = `${val.toLowerCase()}@example.com`;
+            if (keyLower.includes('phone')) val = `555-${randomInt(100, 999)}-${randomInt(1000, 9999)}`;
+            if (keyLower.includes('street')) val = `${randomInt(100, 9999)} ${pick(streets)}`;
+            if (keyLower.includes('city')) val = pick(cities);
+            if (keyLower.includes('zip') || keyLower.includes('postal')) val = String(randomInt(10000, 99999));
+          }
+          
+          engine.setValue(path, val);
+        }
+
+        if (item.type === 'group') {
+          if (item.repeatable) {
+            // Add 1 instance for repeatable groups
+            engine.addRepeatInstance(path);
+            if (item.children) walk(item.children, `${path}[0]`);
+          } else if (item.children) {
+            walk(item.children, path);
+          }
+        }
+      }
+    };
+
+    walk(definition.items);
+    
+    // Get the serialized response data from the engine
+    const response = engine.getResponse();
+    setSampleInput(JSON.stringify(response.data, null, 2));
+  };
 
   useEffect(() => {
     try {
@@ -26,9 +102,9 @@ export function MappingPreview() {
       } else {
         const targetSchema = mapping?.targetSchema ?? {};
         const serialized = serializeMappedData(result.output, {
-          format: (targetSchema as any).format,
-          rootElement: (targetSchema as any).rootElement as string,
-          namespaces: (targetSchema as any).namespaces as Record<string, string>,
+          format: targetSchema.format as 'json' | 'xml' | 'csv',
+          rootElement: targetSchema.rootElement as string,
+          namespaces: targetSchema.namespaces as Record<string, string>,
         });
         setPreviewOutput(serialized);
       }
@@ -68,53 +144,72 @@ export function MappingPreview() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Input Column */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 mb-1">
-            <div className={`w-2 h-2 rounded-full ${previewDirection === 'forward' ? 'bg-muted/40' : 'bg-accent/40'}`} />
-            <span
-              data-testid="preview-source-header"
-              className="text-[11px] font-bold text-muted uppercase tracking-[0.1em]"
-            >
-              {previewDirection === 'forward' ? 'Source (Form Response)' : 'Source (External Data)'}
-            </span>
-          </div>
-          <div className="relative group min-h-[160px]">
-            <textarea
-              value={sampleInput}
-              onChange={(e) => setSampleInput(e.target.value)}
-              spellCheck={false}
-              className="w-full h-full min-h-[160px] font-mono text-[12px] leading-relaxed text-ink bg-subtle/30 rounded-xl p-4 border border-border/40 transition-all focus:border-accent/40 focus:ring-1 focus:ring-accent/10 resize-none"
-            />
-          </div>
-        </div>
-
-        {/* Output Column */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 mb-1">
-            <div className={`w-2 h-2 rounded-full ${previewDirection === 'forward' ? 'bg-accent/40' : 'bg-muted/40'}`} />
-            <span
-              data-testid="preview-output-header"
-              className="text-[11px] font-bold text-accent uppercase tracking-[0.1em]"
-            >
-              {previewDirection === 'forward' ? 'Output (Mapped Result)' : 'Output (Inflated Response)'}
-            </span>
-          </div>
-          <div className="relative group min-h-[160px]">
-            <div className={`font-mono text-[12px] leading-relaxed rounded-xl p-4 border min-h-[160px] shadow-sm transition-all ${error ? 'bg-red-50/50 border-red-200 text-red-600' : 'bg-accent/5 border-accent/20 text-ink'
-              }`}>
-              {error ? (
-                <div className="flex items-start gap-2">
-                  <span className="text-red-500 font-bold">Error:</span>
-                  <span className="whitespace-pre-wrap">{error}</span>
+      <div className="h-[500px] flex flex-col">
+        <SplitPane
+          className="flex-1"
+          left={
+            <div className="flex flex-col h-full p-4 gap-2 min-h-0">
+              <div className="flex items-center justify-between mb-1 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${previewDirection === 'forward' ? 'bg-muted/40' : 'bg-accent/40'}`} />
+                  <span
+                    data-testid="preview-source-header"
+                    className="text-[11px] font-bold text-muted uppercase tracking-[0.1em]"
+                  >
+                    {previewDirection === 'forward' ? 'Source (Form Response)' : 'Source (External Data)'}
+                  </span>
                 </div>
-              ) : (
-                <pre className="whitespace-pre-wrap">{previewOutput}</pre>
-              )}
+                {previewDirection === 'forward' && (
+                  <button
+                    type="button"
+                    onClick={generateSchemaSample}
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-border/60 hover:border-accent/40 hover:bg-accent/5 transition-all text-[9px] font-bold uppercase tracking-wider text-muted hover:text-accent group/sync"
+                    title="Populate with sample data derived from form fields"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover/sync:rotate-180 transition-transform duration-500">
+                      <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
+                    </svg>
+                    Sync with Form
+                  </button>
+                )}
+              </div>
+              <div className="flex-1 relative min-h-0">
+                <textarea
+                  value={sampleInput}
+                  onChange={(e) => setSampleInput(e.target.value)}
+                  spellCheck={false}
+                  className="absolute inset-0 w-full h-full font-mono text-[12px] leading-relaxed text-ink bg-surface/50 rounded-lg p-3 border border-border/20 transition-all focus:border-accent/40 focus:ring-1 focus:ring-accent/10 resize-none outline-none shadow-inner"
+                />
+              </div>
             </div>
-          </div>
-        </div>
+          }
+          right={
+            <div className="flex flex-col h-full p-4 gap-2 min-h-0">
+              <div className="flex items-center gap-2 mb-1 flex-shrink-0">
+                <div className={`w-2 h-2 rounded-full ${previewDirection === 'forward' ? 'bg-accent/40' : 'bg-muted/40'}`} />
+                <span
+                  data-testid="preview-output-header"
+                  className="text-[11px] font-bold text-accent uppercase tracking-[0.1em]"
+                >
+                  {previewDirection === 'forward' ? 'Output (Mapped Result)' : 'Output (Inflated Response)'}
+                </span>
+              </div>
+              <div className="flex-1 relative min-h-0">
+                <div className={`absolute inset-0 overflow-auto font-mono text-[12px] leading-relaxed rounded-lg p-3 border shadow-sm transition-all ${error ? 'bg-red-50/50 border-red-200 text-red-600' : 'bg-surface/50 border-border/20 text-ink'
+                  }`}>
+                  {error ? (
+                    <div className="flex items-start gap-2">
+                      <span className="text-red-500 font-bold">Error:</span>
+                      <span className="whitespace-pre-wrap">{error}</span>
+                    </div>
+                  ) : (
+                    <pre className="whitespace-pre-wrap">{previewOutput}</pre>
+                  )}
+                </div>
+              </div>
+            </div>
+          }
+        />
       </div>
 
       <div className="mt-8 p-4 rounded-xl bg-panel/40 border border-border/30 border-dashed">
