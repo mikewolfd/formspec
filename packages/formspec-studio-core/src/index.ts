@@ -73,5 +73,9 @@ export type { ResolvedProperty } from 'formspec-core';
 export { resolvePageStructure } from 'formspec-core';
 export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic } from 'formspec-core';
 
+// ── Behavioral page view (re-exported from formspec-core) ────────────
+export { resolvePageView } from 'formspec-core';
+export type { PageView, PageItemView, PlaceableItem, PageStructureView } from 'formspec-core';
+
 // ── Evaluation helpers ──────────────────────────────────────────────
 export { previewForm, validateResponse } from './evaluation-helpers.js';

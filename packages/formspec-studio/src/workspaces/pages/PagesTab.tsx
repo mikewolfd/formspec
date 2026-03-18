@@ -6,31 +6,9 @@ import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from '@dn
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
 import { usePageStructure } from './usePageStructure';
 import { useProject } from '../../state/useProject';
-import { useTheme } from '../../state/useTheme';
 import { ActivePageContext } from '../../state/useActivePage';
-import { useDefinition } from '../../state/useDefinition';
 import { DragHandle } from '../editor/DragHandle';
-import type { ResolvedPage } from 'formspec-studio-core';
-
-// Per-breakpoint responsive override shape (matches schema Region.responsive)
-interface BreakpointOverride {
-  span?: number;
-  start?: number;
-  hidden?: boolean;
-}
-
-type ResponsiveOverrides = Record<string, BreakpointOverride>;
-
-// Default breakpoints shown in the UI when theme doesn't define custom breakpoints
-const DEFAULT_BREAKPOINTS = ['sm', 'md', 'lg'];
-
-/** Returns the definition group key that backs a theme page, by finding a region key that is a root group. */
-function groupKeyForPage(page: ResolvedPage, rootGroupKeys: Set<string>): string | null {
-  for (const region of page.regions ?? []) {
-    if (rootGroupKeys.has(region.key)) return region.key;
-  }
-  return null;
-}
+import type { PageView, PageItemView } from 'formspec-studio-core';
 
 // ── ModeSelector ──────────────────────────────────────────────────────
 
@@ -73,7 +51,6 @@ function PageCard({
   page,
   index,
   total,
-  labelMap,
   breakpointNames,
   isExpanded,
   onToggle,
@@ -83,19 +60,18 @@ function PageCard({
   onUpdateTitle,
   onUpdateDescription,
   onAddRegion,
-  onRemoveRegion,
-  onUpdateRegionSpan,
-  onUpdateRegionStart,
-  onUpdateRegionResponsive,
-  onReorderRegion,
+  onRemoveItem,
+  onUpdateItemWidth,
+  onUpdateItemOffset,
+  onUpdateItemResponsive,
+  onReorderItem,
   sortableRef,
   dragHandleRef,
   isDragging,
 }: {
-  page: ResolvedPage;
+  page: PageView;
   index: number;
   total: number;
-  labelMap: Map<string, string>;
   /** Ordered list of breakpoint names to show in responsive override UI */
   breakpointNames: string[];
   isExpanded: boolean;
@@ -106,37 +82,37 @@ function PageCard({
   onUpdateTitle: (title: string) => void;
   onUpdateDescription: (description: string | undefined) => void;
   onAddRegion: () => void;
-  onRemoveRegion: (regionIndex: number) => void;
-  onUpdateRegionSpan: (regionIndex: number, span: number) => void;
-  onUpdateRegionStart: (regionIndex: number, start: number | undefined) => void;
-  onUpdateRegionResponsive: (regionIndex: number, responsive: ResponsiveOverrides | undefined) => void;
-  onReorderRegion: (regionIndex: number, direction: 'up' | 'down') => void;
+  onRemoveItem: (itemKey: string) => void;
+  onUpdateItemWidth: (itemKey: string, width: number) => void;
+  onUpdateItemOffset: (itemKey: string, offset: number | undefined) => void;
+  onUpdateItemResponsive: (itemKey: string, breakpoint: string, overrides: { width?: number; offset?: number; hidden?: boolean } | undefined) => void;
+  onReorderItem: (itemKey: string, direction: 'up' | 'down') => void;
   sortableRef?: (el: Element | null) => void;
   dragHandleRef?: (el: Element | null) => void;
   isDragging?: boolean;
 }) {
-  const regions = page.regions ?? [];
+  const items = page.items ?? [];
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [startVisibleFor, setStartVisibleFor] = useState<Set<number>>(new Set());
-  /** Per-region index: whether the responsive overrides section is expanded */
+  /** Per-item index: whether the responsive overrides section is expanded */
   const [responsiveExpandedFor, setResponsiveExpandedFor] = useState<Set<number>>(new Set());
-  const [selectedRegionIndex, setSelectedRegionIndex] = useState<number | null>(null);
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descInputRef = useRef<HTMLInputElement>(null);
   const gridBarRef = useRef<HTMLDivElement>(null);
 
-  const showStartFor = useCallback((ri: number) => {
-    setStartVisibleFor((prev) => new Set([...prev, ri]));
+  const showStartFor = useCallback((idx: number) => {
+    setStartVisibleFor((prev) => new Set([...prev, idx]));
   }, []);
 
-  const toggleResponsiveFor = useCallback((ri: number) => {
+  const toggleResponsiveFor = useCallback((idx: number) => {
     setResponsiveExpandedFor((prev) => {
       const next = new Set(prev);
-      if (next.has(ri)) {
-        next.delete(ri);
+      if (next.has(idx)) {
+        next.delete(idx);
       } else {
-        next.add(ri);
+        next.add(idx);
       }
       return next;
     });
@@ -158,15 +134,15 @@ function PageCard({
 
   // Deselect grid segment on click-outside
   useEffect(() => {
-    if (selectedRegionIndex === null) return;
+    if (selectedItemIndex === null) return;
     function handleMouseDown(e: MouseEvent) {
       if (gridBarRef.current && !gridBarRef.current.contains(e.target as Node)) {
-        setSelectedRegionIndex(null);
+        setSelectedItemIndex(null);
       }
     }
     document.addEventListener('mousedown', handleMouseDown);
     return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [selectedRegionIndex]);
+  }, [selectedItemIndex]);
 
   const commitTitle = useCallback(() => {
     if (!titleInputRef.current) return;
@@ -201,7 +177,7 @@ function PageCard({
     }
   }, [commitDescription]);
 
-  const itemCount = regions.length;
+  const itemCount = items.length;
   const itemLabel = itemCount === 0 ? 'Empty' : `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
 
   return (
@@ -261,14 +237,14 @@ function PageCard({
       </div>
 
       {/* Mini grid preview (collapsed only) */}
-      {!isExpanded && regions.length > 0 && (
+      {!isExpanded && items.length > 0 && (
         <div className="px-3 pb-2">
           <div className="grid grid-cols-12 gap-0.5 h-4">
-            {regions.map((r, i) => (
+            {items.map((item, i) => (
               <div
                 key={i}
-                className={`rounded-sm ${r.exists === false ? 'bg-amber-300/30' : 'bg-accent/20'}`}
-                style={{ gridColumn: `span ${Math.min(r.span ?? 12, 12)}` }}
+                className={`rounded-sm ${item.status === 'broken' ? 'bg-amber-300/30' : 'bg-accent/20'}`}
+                style={{ gridColumn: `span ${Math.min(item.width, 12)}` }}
               />
             ))}
           </div>
@@ -279,11 +255,11 @@ function PageCard({
       {isExpanded && (
         <div className="border-t border-border p-3 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
           {/* Larger grid preview — interactive (FF3) */}
-          {regions.length > 0 && (
+          {items.length > 0 && (
             <div ref={gridBarRef} className="grid grid-cols-12 gap-1 h-8">
-              {regions.map((r, i) => {
-                const isBroken = r.exists === false;
-                const isSelected = selectedRegionIndex === i;
+              {items.map((item, i) => {
+                const isBroken = item.status === 'broken';
+                const isSelected = selectedItemIndex === i;
                 const segmentClass = `border rounded text-[9px] text-center flex items-center justify-center text-muted truncate cursor-pointer transition-all ${
                   isBroken
                     ? `bg-amber-100/50 border-amber-300/50 hover:bg-amber-200/50${isSelected ? ' ring-1 ring-amber-400' : ''}`
@@ -291,7 +267,7 @@ function PageCard({
                       ? 'bg-accent/30 border-accent/70 ring-1 ring-accent'
                       : 'bg-accent/15 border-accent/30 hover:bg-accent/25'
                 }`;
-                const segmentStyle = { gridColumn: `span ${Math.min(r.span ?? 12, 12)}` };
+                const segmentStyle = { gridColumn: `span ${Math.min(item.width, 12)}` };
 
                 // Single <button> element for both selected/unselected states — avoids stale refs.
                 // The "remove" control uses span[role="button"] so it's not nested inside <button>.
@@ -301,9 +277,9 @@ function PageCard({
                     type="button"
                     aria-label="grid segment"
                     aria-pressed={isSelected}
-                    onClick={() => setSelectedRegionIndex(isSelected ? null : i)}
+                    onClick={() => setSelectedItemIndex(isSelected ? null : i)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Escape') setSelectedRegionIndex(null);
+                      if (e.key === 'Escape') setSelectedItemIndex(null);
                     }}
                     className={segmentClass}
                     style={segmentStyle}
@@ -315,17 +291,17 @@ function PageCard({
                           min={1}
                           max={12}
                           aria-label="grid segment span"
-                          key={`gs-sp-${i}-${r.key}-${r.span}`}
-                          defaultValue={r.span ?? 12}
+                          key={`gs-sp-${i}-${item.key}-${item.width}`}
+                          defaultValue={item.width}
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => {
                             e.stopPropagation();
-                            if (e.key === 'Escape') setSelectedRegionIndex(null);
+                            if (e.key === 'Escape') setSelectedItemIndex(null);
                           }}
                           onBlur={(e) => {
                             const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val) && val >= 1 && val <= 12 && val !== r.span) {
-                              onUpdateRegionSpan(i, val);
+                            if (!isNaN(val) && val >= 1 && val <= 12 && val !== item.width) {
+                              onUpdateItemWidth(item.key, val);
                             }
                           }}
                           className="font-mono text-ink w-8 text-center bg-surface border border-border/50 rounded text-[10px] py-0"
@@ -337,14 +313,14 @@ function PageCard({
                           aria-label="remove segment"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onRemoveRegion(i);
-                            setSelectedRegionIndex(null);
+                            onRemoveItem(item.key);
+                            setSelectedItemIndex(null);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.stopPropagation();
-                              onRemoveRegion(i);
-                              setSelectedRegionIndex(null);
+                              onRemoveItem(item.key);
+                              setSelectedItemIndex(null);
                             }
                           }}
                           className="text-[9px] text-muted hover:text-error transition-colors shrink-0 cursor-pointer"
@@ -353,7 +329,7 @@ function PageCard({
                         </span>
                       </span>
                     ) : (
-                      <span className="truncate px-0.5">{labelMap.get(r.key) ?? r.key}</span>
+                      <span className="truncate px-0.5">{item.label}</span>
                     )}
                   </button>
                 );
@@ -391,23 +367,23 @@ function PageCard({
             </button>
           )}
 
-          {/* Region list with editing controls */}
-          {regions.length > 0 && (
+          {/* Item list with editing controls */}
+          {items.length > 0 && (
             <div className="space-y-1">
-              {regions.map((r, ri) => {
-                const responsive = r.responsive as ResponsiveOverrides | undefined;
-                const responsiveOpen = responsiveExpandedFor.has(ri);
+              {items.map((item, idx) => {
+                const responsive = item.responsive;
+                const responsiveOpen = responsiveExpandedFor.has(idx);
                 const hasResponsive = responsive && Object.keys(responsive).length > 0;
 
                 return (
-                  <div key={`rk-${ri}-${r.key}`} className="rounded bg-subtle/30">
-                    {/* Main region row */}
+                  <div key={`rk-${idx}-${item.key}`} className="rounded bg-subtle/30">
+                    {/* Main item row */}
                     <div className="flex items-center gap-2 text-[12px] px-2 py-1">
                       <span className="font-mono text-ink flex-1 truncate">
-                        {labelMap.get(r.key) ?? r.key}
+                        {item.label}
                       </span>
                       {/* Start column — show if explicit value or user clicked to add */}
-                      {(r.start !== undefined || startVisibleFor.has(ri)) ? (
+                      {(item.offset !== undefined || startVisibleFor.has(idx)) ? (
                         <>
                           <span className="text-muted text-[10px]">start</span>
                           <input
@@ -415,11 +391,11 @@ function PageCard({
                             min={1}
                             max={12}
                             aria-label="start"
-                            key={`st-${ri}-${r.key}-${r.start}`}
-                            defaultValue={r.start ?? 1}
+                            key={`st-${idx}-${item.key}-${item.offset}`}
+                            defaultValue={item.offset ?? 1}
                             onBlur={(e) => {
                               const val = parseInt(e.target.value, 10);
-                              onUpdateRegionStart(ri, !isNaN(val) && val >= 1 && val <= 12 ? val : undefined);
+                              onUpdateItemOffset(item.key, !isNaN(val) && val >= 1 && val <= 12 ? val : undefined);
                             }}
                             className="font-mono text-ink w-10 text-center bg-transparent border border-border/50 rounded text-[11px] py-0.5"
                           />
@@ -428,7 +404,7 @@ function PageCard({
                         <button
                           type="button"
                           aria-label="Add start"
-                          onClick={() => showStartFor(ri)}
+                          onClick={() => showStartFor(idx)}
                           className="text-[9px] text-muted hover:text-ink"
                           title="Set start column"
                         >
@@ -440,12 +416,12 @@ function PageCard({
                         type="number"
                         min={1}
                         max={12}
-                        key={`sp-${ri}-${r.key}-${r.span}`}
-                        defaultValue={r.span}
+                        key={`sp-${idx}-${item.key}-${item.width}`}
+                        defaultValue={item.width}
                         onBlur={(e) => {
                           const val = parseInt(e.target.value, 10);
-                          if (!isNaN(val) && val >= 1 && val <= 12 && val !== r.span) {
-                            onUpdateRegionSpan(ri, val);
+                          if (!isNaN(val) && val >= 1 && val <= 12 && val !== item.width) {
+                            onUpdateItemWidth(item.key, val);
                           }
                         }}
                         className="font-mono text-ink w-10 text-center bg-transparent border border-border/50 rounded text-[11px] py-0.5"
@@ -454,7 +430,7 @@ function PageCard({
                       <button
                         type="button"
                         aria-label={responsiveOpen ? 'Hide responsive overrides' : 'Show responsive overrides'}
-                        onClick={() => toggleResponsiveFor(ri)}
+                        onClick={() => toggleResponsiveFor(idx)}
                         title="Responsive breakpoint overrides"
                         className={`text-[9px] px-1 rounded transition-colors ${
                           hasResponsive
@@ -469,8 +445,8 @@ function PageCard({
                       <div className="flex gap-0.5">
                         <button
                           type="button"
-                          disabled={ri === 0}
-                          onClick={() => onReorderRegion(ri, 'up')}
+                          disabled={idx === 0}
+                          onClick={() => onReorderItem(item.key, 'up')}
                           className="text-[9px] text-muted hover:text-ink disabled:opacity-30 px-0.5"
                           title="Move region up"
                         >
@@ -478,8 +454,8 @@ function PageCard({
                         </button>
                         <button
                           type="button"
-                          disabled={ri === regions.length - 1}
-                          onClick={() => onReorderRegion(ri, 'down')}
+                          disabled={idx === items.length - 1}
+                          onClick={() => onReorderItem(item.key, 'down')}
                           className="text-[9px] text-muted hover:text-ink disabled:opacity-30 px-0.5"
                           title="Move region down"
                         >
@@ -489,14 +465,14 @@ function PageCard({
                       <button
                         type="button"
                         aria-label="Remove region"
-                        onClick={() => onRemoveRegion(ri)}
+                        onClick={() => onRemoveItem(item.key)}
                         className="text-[10px] text-muted hover:text-error transition-colors px-1"
                       >
                         &times;
                       </button>
                     </div>
 
-                    {/* Responsive overrides section — expanded per region */}
+                    {/* Responsive overrides section — expanded per item */}
                     {responsiveOpen && (
                       <div className="px-2 pb-2 space-y-1 border-t border-border/30 mt-0.5 pt-1.5">
                         <div className="flex items-center justify-between mb-1">
@@ -506,7 +482,14 @@ function PageCard({
                           {hasResponsive && (
                             <button
                               type="button"
-                              onClick={() => onUpdateRegionResponsive(ri, undefined)}
+                              onClick={() => {
+                                // Clear all breakpoints one by one
+                                for (const bp of breakpointNames) {
+                                  if (responsive[bp]) {
+                                    onUpdateItemResponsive(item.key, bp, undefined);
+                                  }
+                                }
+                              }}
                               className="text-[9px] text-muted hover:text-error transition-colors"
                               title="Clear all responsive overrides"
                             >
@@ -525,18 +508,22 @@ function PageCard({
                                   type="checkbox"
                                   checked={bpOverride.hidden === true}
                                   onChange={(e) => {
-                                    const next = { ...(responsive ?? {}), [bp]: { ...bpOverride, hidden: e.target.checked || undefined } };
+                                    const hidden = e.target.checked || undefined;
+                                    const newOverride = { ...bpOverride, hidden };
                                     // Clean up undefined hidden
-                                    if (!next[bp].hidden) delete next[bp].hidden;
-                                    // Remove empty breakpoint entry
-                                    if (Object.keys(next[bp]).length === 0) delete next[bp];
-                                    onUpdateRegionResponsive(ri, Object.keys(next).length > 0 ? next : undefined);
+                                    if (!newOverride.hidden) delete newOverride.hidden;
+                                    // If empty, remove the breakpoint
+                                    onUpdateItemResponsive(
+                                      item.key,
+                                      bp,
+                                      Object.keys(newOverride).length > 0 ? newOverride : undefined,
+                                    );
                                   }}
                                   className="w-3 h-3"
                                 />
                                 <span className="text-[10px] text-muted">hide</span>
                               </label>
-                              {/* Span override — only when not hidden */}
+                              {/* Width override — only when not hidden */}
                               {bpOverride.hidden !== true && (
                                 <>
                                   <span className="text-[10px] text-muted">span</span>
@@ -545,21 +532,23 @@ function PageCard({
                                     min={1}
                                     max={12}
                                     aria-label={`${bp} span`}
-                                    key={`resp-sp-${ri}-${bp}-${bpOverride.span}`}
-                                    defaultValue={bpOverride.span ?? ''}
+                                    key={`resp-sp-${idx}-${bp}-${bpOverride.width}`}
+                                    defaultValue={bpOverride.width ?? ''}
                                     placeholder="—"
                                     onBlur={(e) => {
                                       const val = e.target.value.trim() === '' ? undefined : parseInt(e.target.value, 10);
-                                      const newSpan = val !== undefined && !isNaN(val) && val >= 1 && val <= 12 ? val : undefined;
+                                      const newWidth = val !== undefined && !isNaN(val) && val >= 1 && val <= 12 ? val : undefined;
                                       const updated = { ...bpOverride };
-                                      if (newSpan !== undefined) {
-                                        updated.span = newSpan;
+                                      if (newWidth !== undefined) {
+                                        updated.width = newWidth;
                                       } else {
-                                        delete updated.span;
+                                        delete updated.width;
                                       }
-                                      const next = { ...(responsive ?? {}), [bp]: updated };
-                                      if (Object.keys(next[bp]).length === 0) delete next[bp];
-                                      onUpdateRegionResponsive(ri, Object.keys(next).length > 0 ? next : undefined);
+                                      onUpdateItemResponsive(
+                                        item.key,
+                                        bp,
+                                        Object.keys(updated).length > 0 ? updated : undefined,
+                                      );
                                     }}
                                     className="font-mono text-ink w-10 text-center bg-transparent border border-border/50 rounded text-[10px] py-0.5"
                                   />
@@ -660,7 +649,7 @@ function SortablePageCard({
   index,
   ...cardProps
 }: {
-  page: ResolvedPage;
+  page: PageView;
   index: number;
 } & Omit<React.ComponentProps<typeof PageCard>, 'page' | 'index' | 'sortableRef' | 'dragHandleRef' | 'isDragging'>) {
   const { ref, handleRef, isDragSource } = useSortable({
@@ -733,33 +722,20 @@ export function PagesTab() {
   const project = useProject();
   const [expandedPageId, setExpandedPageId] = useState<string | null>(null);
 
-  const { structure, labelMap } = usePageStructure();
-  const definition = useDefinition();
-  const theme = useTheme();
+  const structure = usePageStructure();
 
-  // Derive breakpoint names from theme.breakpoints, falling back to defaults
-  const breakpointNames = useMemo(() => {
-    const bp = theme.breakpoints;
-    return bp && Object.keys(bp).length > 0 ? Object.keys(bp) : DEFAULT_BREAKPOINTS;
-  }, [theme.breakpoints]);
-
-  // FF10: Sidebar ↔ PagesTab sync. Context is null when no provider is mounted
+  // FF10: Sidebar <-> PagesTab sync. Context is null when no provider is mounted
   // (e.g. isolated unit tests). All operations guard with `if (!activePageCtx)`.
   const activePageCtx = useContext(ActivePageContext);
-
-  // Build a set of root-level group keys for the groupKeyForPage lookup
-  const rootGroupKeys = useCallback(() => {
-    const items = (definition.items ?? []) as Array<{ key: string; type: string }>;
-    return new Set(items.filter((i) => i.type === 'group').map((i) => i.key));
-  }, [definition.items]);
 
   // When activePageKey changes externally (sidebar click), find the matching page and expand it
   useEffect(() => {
     if (!activePageCtx) return;
     const { activePageKey } = activePageCtx;
     if (!activePageKey) return;
-    const keys = rootGroupKeys();
-    const matchingPage = structure.pages.find((p) => groupKeyForPage(p, keys) === activePageKey);
+    const matchingPage = structure.pages.find((p) =>
+      p.items.some((item) => item.key === activePageKey),
+    );
     if (matchingPage && matchingPage.id !== expandedPageId) {
       setExpandedPageId(matchingPage.id);
     }
@@ -769,19 +745,34 @@ export function PagesTab() {
   const handleTogglePage = useCallback((pageId: string) => {
     const nextId = expandedPageId === pageId ? null : pageId;
     setExpandedPageId(nextId);
-    // Sync sidebar: set activePageKey to the group key for the expanded page
+    // Sync sidebar: set activePageKey to the first item key on the expanded page
     if (nextId && activePageCtx) {
-      const keys = rootGroupKeys();
       const page = structure.pages.find((p) => p.id === nextId);
-      if (page) {
-        const groupKey = groupKeyForPage(page, keys);
-        if (groupKey) activePageCtx.setActivePageKey(groupKey);
+      if (page && page.items.length > 0) {
+        activePageCtx.setActivePageKey(page.items[0].key);
       }
     }
-  }, [expandedPageId, activePageCtx, structure.pages, rootGroupKeys]);
+  }, [expandedPageId, activePageCtx, structure.pages]);
 
   const isSingle = structure.mode === 'single';
   const hasPages = structure.pages.length > 0;
+
+  /** Shared callback props for PageCard / SortablePageCard */
+  const pageCardProps = useCallback((page: PageView) => ({
+    breakpointNames: structure.breakpointNames,
+    onDelete: () => project.removePage(page.id),
+    onMoveUp: () => project.reorderPage(page.id, 'up'),
+    onMoveDown: () => project.reorderPage(page.id, 'down'),
+    onUpdateTitle: (title: string) => project.updatePage(page.id, { title }),
+    onUpdateDescription: (description: string | undefined) => project.updatePage(page.id, { description }),
+    onAddRegion: () => project.addRegion(page.id, 12),
+    onRemoveItem: (key: string) => project.removeItemFromPage(page.id, key),
+    onUpdateItemWidth: (key: string, width: number) => project.setItemWidth(page.id, key, width),
+    onUpdateItemOffset: (key: string, offset: number | undefined) => project.setItemOffset(page.id, key, offset),
+    onUpdateItemResponsive: (key: string, bp: string, overrides: { width?: number; offset?: number; hidden?: boolean } | undefined) =>
+      project.setItemResponsive(page.id, key, bp, overrides),
+    onReorderItem: (key: string, dir: 'up' | 'down') => project.reorderItemOnPage(page.id, key, dir),
+  }), [project, structure.breakpointNames]);
 
   return (
     <WorkspacePage className="overflow-y-auto">
@@ -850,21 +841,9 @@ export function PagesTab() {
                     page={page}
                     index={i}
                     total={structure.pages.length}
-                    labelMap={labelMap}
-                    breakpointNames={breakpointNames}
                     isExpanded={expandedPageId === page.id}
                     onToggle={() => handleTogglePage(page.id)}
-                    onDelete={() => project.removePage(page.id)}
-                    onMoveUp={() => project.reorderPage(page.id, 'up')}
-                    onMoveDown={() => project.reorderPage(page.id, 'down')}
-                    onUpdateTitle={(title) => project.updatePage(page.id, { title })}
-                    onUpdateDescription={(description) => project.updatePage(page.id, { description })}
-                    onAddRegion={() => project.addRegion(page.id, 12)}
-                    onRemoveRegion={(ri) => project.deleteRegion(page.id, ri)}
-                    onUpdateRegionSpan={(ri, span) => project.updateRegion(page.id, ri, 'span', span)}
-                    onUpdateRegionStart={(ri, start) => project.updateRegion(page.id, ri, 'start', start)}
-                    onUpdateRegionResponsive={(ri, responsive) => project.updateRegion(page.id, ri, 'responsive', responsive)}
-                    onReorderRegion={(ri, dir) => project.reorderRegion(page.id, ri, dir)}
+                    {...pageCardProps(page)}
                   />
                 ))}
               </div>
@@ -889,17 +868,17 @@ export function PagesTab() {
             </button>
 
             {/* Unassigned items — draggable onto page cards (FF4) */}
-            {structure.unassignedItems.length > 0 && (
+            {structure.unassigned.length > 0 && (
               <div className="pt-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-2">
                   Unassigned
                 </p>
                 <div className="space-y-1">
-                  {structure.unassignedItems.map((key) => (
+                  {structure.unassigned.map((item) => (
                     <DraggableUnassignedItem
-                      key={key}
-                      itemKey={key}
-                      label={labelMap.get(key) ?? key}
+                      key={item.key}
+                      itemKey={item.key}
+                      label={item.label}
                     />
                   ))}
                 </div>
@@ -917,21 +896,9 @@ export function PagesTab() {
                 page={page}
                 index={i}
                 total={structure.pages.length}
-                labelMap={labelMap}
-                breakpointNames={breakpointNames}
                 isExpanded={expandedPageId === page.id}
                 onToggle={() => handleTogglePage(page.id)}
-                onDelete={() => project.removePage(page.id)}
-                onMoveUp={() => project.reorderPage(page.id, 'up')}
-                onMoveDown={() => project.reorderPage(page.id, 'down')}
-                onUpdateTitle={(title) => project.updatePage(page.id, { title })}
-                onUpdateDescription={(description) => project.updatePage(page.id, { description })}
-                onAddRegion={() => project.addRegion(page.id, 12)}
-                onRemoveRegion={(ri) => project.deleteRegion(page.id, ri)}
-                onUpdateRegionSpan={(ri, span) => project.updateRegion(page.id, ri, 'span', span)}
-                onUpdateRegionStart={(ri, start) => project.updateRegion(page.id, ri, 'start', start)}
-                onUpdateRegionResponsive={(ri, responsive) => project.updateRegion(page.id, ri, 'responsive', responsive)}
-                onReorderRegion={(ri, dir) => project.reorderRegion(page.id, ri, dir)}
+                {...pageCardProps(page)}
               />
             ))}
           </div>
