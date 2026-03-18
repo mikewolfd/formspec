@@ -59,7 +59,6 @@ function PageCard({
   onMoveDown,
   onUpdateTitle,
   onUpdateDescription,
-  onAddRegion,
   onRemoveItem,
   onUpdateItemWidth,
   onUpdateItemOffset,
@@ -81,7 +80,6 @@ function PageCard({
   onMoveDown: () => void;
   onUpdateTitle: (title: string) => void;
   onUpdateDescription: (description: string | undefined) => void;
-  onAddRegion: () => void;
   onRemoveItem: (itemKey: string) => void;
   onUpdateItemWidth: (itemKey: string, width: number) => void;
   onUpdateItemOffset: (itemKey: string, offset: number | undefined) => void;
@@ -565,16 +563,6 @@ function PageCard({
             </div>
           )}
 
-          {/* Add region */}
-          <button
-            type="button"
-            aria-label="Add region"
-            onClick={onAddRegion}
-            className="text-[10px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider"
-          >
-            + Add Region
-          </button>
-
           {/* Actions */}
           <div className="flex justify-between items-center pt-2 border-t border-border">
             <div className="flex gap-2">
@@ -765,7 +753,6 @@ export function PagesTab() {
     onMoveDown: () => project.reorderPage(page.id, 'down'),
     onUpdateTitle: (title: string) => project.updatePage(page.id, { title }),
     onUpdateDescription: (description: string | undefined) => project.updatePage(page.id, { description }),
-    onAddRegion: () => project.addRegion(page.id, 12),
     onRemoveItem: (key: string) => project.removeItemFromPage(page.id, key),
     onUpdateItemWidth: (key: string, width: number) => project.setItemWidth(page.id, key, width),
     onUpdateItemOffset: (key: string, offset: number | undefined) => project.setItemOffset(page.id, key, offset),
