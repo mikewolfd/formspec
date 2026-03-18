@@ -3013,20 +3013,22 @@ describe('behavioral page methods', () => {
 
     it('throws PAGE_NOT_FOUND for unknown pageId', () => {
       const project = createProject();
-      expect(() => project.moveItemOnPageToIndex('nonexistent', 'name', 0)).toThrow(HelperError);
       try {
         project.moveItemOnPageToIndex('nonexistent', 'name', 0);
+        expect.unreachable('should have thrown');
       } catch (e) {
+        expect(e).toBeInstanceOf(HelperError);
         expect((e as HelperError).code).toBe('PAGE_NOT_FOUND');
       }
     });
 
     it('throws ITEM_NOT_ON_PAGE for unknown itemKey', () => {
       const { project, pageId } = projectWithPageAndItems();
-      expect(() => project.moveItemOnPageToIndex(pageId, 'ghost', 0)).toThrow(HelperError);
       try {
         project.moveItemOnPageToIndex(pageId, 'ghost', 0);
+        expect.unreachable('should have thrown');
       } catch (e) {
+        expect(e).toBeInstanceOf(HelperError);
         expect((e as HelperError).code).toBe('ITEM_NOT_ON_PAGE');
       }
     });
@@ -3045,9 +3047,15 @@ describe('behavioral page methods', () => {
       expect(keysAfter[keysAfter.length - 1]).toBe(firstKey);
     });
 
-    it('throws for negative targetIndex', () => {
+    it('throws ROUTE_OUT_OF_BOUNDS for negative targetIndex', () => {
       const { project, pageId } = projectWithPageAndItems();
-      expect(() => project.moveItemOnPageToIndex(pageId, 'name', -1)).toThrow(HelperError);
+      try {
+        project.moveItemOnPageToIndex(pageId, 'name', -1);
+        expect.unreachable('should have thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(HelperError);
+        expect((e as HelperError).code).toBe('ROUTE_OUT_OF_BOUNDS');
+      }
     });
   });
 });

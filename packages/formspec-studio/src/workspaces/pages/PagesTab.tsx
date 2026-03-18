@@ -64,6 +64,7 @@ function PageCard({
   onUpdateItemOffset,
   onUpdateItemResponsive,
   onReorderItem,
+  onEditLayout,
   sortableRef,
   dragHandleRef,
   isDragging,
@@ -85,6 +86,7 @@ function PageCard({
   onUpdateItemOffset: (itemKey: string, offset: number | undefined) => void;
   onUpdateItemResponsive: (itemKey: string, breakpoint: string, overrides: { width?: number; offset?: number; hidden?: boolean } | undefined) => void;
   onReorderItem: (itemKey: string, direction: 'up' | 'down') => void;
+  onEditLayout?: () => void;
   sortableRef?: (el: Element | null) => void;
   dragHandleRef?: (el: Element | null) => void;
   isDragging?: boolean;
@@ -221,6 +223,18 @@ function PageCard({
         {/* Item count */}
         <span className="text-[11px] text-muted shrink-0">{itemLabel}</span>
 
+        {/* Edit Layout — hover-visible in collapsed state */}
+        {!isExpanded && onEditLayout && (
+          <button
+            type="button"
+            aria-label="Edit Layout"
+            onClick={(e) => { e.stopPropagation(); onEditLayout(); }}
+            className="text-[10px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          >
+            Edit Layout
+          </button>
+        )}
+
         {/* Expand/collapse */}
         <button
           type="button"
@@ -234,17 +248,41 @@ function PageCard({
         </button>
       </div>
 
+      {/* Description in collapsed state */}
+      {!isExpanded && page.description && (
+        <div className="px-3 pb-1">
+          <p className="text-[11px] text-muted truncate">{page.description}</p>
+        </div>
+      )}
+
       {/* Mini grid preview (collapsed only) */}
       {!isExpanded && items.length > 0 && (
         <div className="px-3 pb-2">
-          <div className="grid grid-cols-12 gap-0.5 h-4">
-            {items.map((item, i) => (
-              <div
-                key={i}
-                className={`rounded-sm ${item.status === 'broken' ? 'bg-amber-300/30' : 'bg-accent/20'}`}
-                style={{ gridColumn: `span ${Math.min(item.width, 12)}` }}
-              />
-            ))}
+          <div
+            data-testid="mini-grid-preview"
+            role="button"
+            tabIndex={0}
+            onClick={() => onEditLayout?.()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onEditLayout?.(); }}
+            className="grid grid-cols-12 gap-0.5 h-6 cursor-pointer"
+          >
+            {items.map((item, i) => {
+              const isGroup = item.itemType === 'group';
+              const bgClass = item.status === 'broken'
+                ? 'bg-amber-300/30'
+                : isGroup
+                  ? 'bg-accent/30'
+                  : 'bg-accent/20';
+              return (
+                <div
+                  key={i}
+                  className={`rounded-sm ${bgClass} flex items-center justify-center overflow-hidden`}
+                  style={{ gridColumn: `span ${Math.min(item.width, 12)}` }}
+                >
+                  <span className="text-[8px] text-muted truncate px-0.5">{item.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -379,6 +417,13 @@ function PageCard({
                     <div className="flex items-center gap-2 text-[12px] px-2 py-1">
                       <span className="font-mono text-ink flex-1 truncate">
                         {item.label}
+                        {item.itemType !== 'field' && (
+                          <span className="text-[10px] text-muted ml-1.5">
+                            {item.itemType}
+                            {item.childCount !== undefined && ` \u00B7 ${item.childCount} field${item.childCount !== 1 ? 's' : ''}`}
+                            {item.repeatable && ' \u00B7 repeatable'}
+                          </span>
+                        )}
                       </span>
                       {/* Start column — show if explicit value or user clicked to add */}
                       {(item.offset !== undefined || startVisibleFor.has(idx)) ? (
@@ -582,6 +627,16 @@ function PageCard({
               >
                 Move Down
               </button>
+              {onEditLayout && (
+                <button
+                  type="button"
+                  aria-label="Edit Layout"
+                  onClick={(e) => { e.stopPropagation(); onEditLayout(); }}
+                  className="text-[10px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
+                >
+                  Edit Layout
+                </button>
+              )}
             </div>
             <button
               type="button"
@@ -706,11 +761,39 @@ function DraggableUnassignedItem({
 
 // ── Main PagesTab ────────────────────────────────────────────────────
 
+// ── PagesFocusView (stub — Phase 3 will replace) ────────────────────
+
+function PagesFocusView({ pageId, onBack }: { pageId: string; onBack: () => void }) {
+  return (
+    <WorkspacePage className="overflow-y-auto">
+      <WorkspacePageSection className="py-6 space-y-4">
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={onBack}
+          className="text-[11px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
+        >
+          &larr; Back
+        </button>
+        <p className="text-[13px] text-muted">Focus Mode — coming soon</p>
+      </WorkspacePageSection>
+    </WorkspacePage>
+  );
+}
+
 export function PagesTab() {
   const project = useProject();
   const [expandedPageId, setExpandedPageId] = useState<string | null>(null);
+  const [focusedPageId, setFocusedPageId] = useState<string | null>(null);
 
   const structure = usePageStructure();
+
+  // Defensive guard: if the focused page was deleted, return to overview
+  useEffect(() => {
+    if (focusedPageId && !structure.pages.some(p => p.id === focusedPageId)) {
+      setFocusedPageId(null);
+    }
+  }, [focusedPageId, structure.pages]);
 
   // FF10: Sidebar <-> PagesTab sync. Context is null when no provider is mounted
   // (e.g. isolated unit tests). All operations guard with `if (!activePageCtx)`.
@@ -748,7 +831,17 @@ export function PagesTab() {
   /** Shared callback props for PageCard / SortablePageCard */
   const pageCardProps = useCallback((page: PageView) => ({
     breakpointNames: structure.breakpointNames,
-    onDelete: () => project.removePage(page.id),
+    onDelete: () => {
+      const hasItems = (page.items ?? []).length > 0;
+      if (hasItems) {
+        const count = page.items.length;
+        const confirmed = window.confirm(
+          `Deleting this page will also remove its associated group and ${count} field${count !== 1 ? 's' : ''} from the form definition. Continue?`,
+        );
+        if (!confirmed) return;
+      }
+      project.removePage(page.id);
+    },
     onMoveUp: () => project.reorderPage(page.id, 'up'),
     onMoveDown: () => project.reorderPage(page.id, 'down'),
     onUpdateTitle: (title: string) => project.updatePage(page.id, { title }),
@@ -759,7 +852,13 @@ export function PagesTab() {
     onUpdateItemResponsive: (key: string, bp: string, overrides: { width?: number; offset?: number; hidden?: boolean } | undefined) =>
       project.setItemResponsive(page.id, key, bp, overrides),
     onReorderItem: (key: string, dir: 'up' | 'down') => project.reorderItemOnPage(page.id, key, dir),
+    onEditLayout: () => setFocusedPageId(page.id),
   }), [project, structure.breakpointNames]);
+
+  // Focus mode: delegate rendering to PagesFocusView
+  if (focusedPageId) {
+    return <PagesFocusView pageId={focusedPageId} onBack={() => setFocusedPageId(null)} />;
+  }
 
   return (
     <WorkspacePage className="overflow-y-auto">
@@ -784,6 +883,39 @@ export function PagesTab() {
           <p className="text-[12px] text-muted">
             Pages are preserved but not active in single mode.
           </p>
+        )}
+
+        {/* Empty state prompt: wizard/tabs with no pages */}
+        {!isSingle && !hasPages && (
+          <div className="text-center py-12 space-y-3">
+            <p className="text-[14px] font-bold text-ink">No pages yet</p>
+            <p className="text-[12px] text-muted">
+              Create pages to organize your form into steps.
+            </p>
+            <div className="flex gap-3 justify-center pt-2">
+              <button
+                type="button"
+                aria-label="Auto-generate from groups"
+                onClick={() => project.autoGeneratePages()}
+                className="text-[11px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
+              >
+                Auto-generate from groups
+              </button>
+              <button
+                type="button"
+                aria-label="Add page"
+                onClick={() => {
+                  const result = project.addPage('Page 1');
+                  if (result.createdId) {
+                    setExpandedPageId(result.createdId);
+                  }
+                }}
+                className="text-[11px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
+              >
+                + Add Page
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Active mode (wizard/tabs): unified DragDropProvider for both page reorder

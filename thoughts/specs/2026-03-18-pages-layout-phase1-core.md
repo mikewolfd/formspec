@@ -173,7 +173,7 @@ moveItemOnPageToIndex(
   pageId: string,
   itemKey: string,
   targetIndex: number
-): void
+): HelperResult
 ```
 
 ### 4.3 Implementation

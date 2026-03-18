@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { ActivePageProvider, useActivePage } from '../../../src/state/useActivePage';
@@ -730,5 +730,420 @@ describe('FF4 — Drag unassigned items onto page cards', () => {
     // 'email' should not appear in the unassigned draggable list
     const emailItem = document.querySelector('[data-draggable-item="email"]');
     expect(emailItem).toBeNull();
+  });
+});
+
+// ── Phase 2: PageCard description in collapsed state ──────────────────
+
+describe('Phase 2 — PageCard description prominence', () => {
+  it('shows description below title in collapsed state when set', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', description: 'Enter your info', regions: [] }],
+      },
+    });
+    // Card is collapsed — description should still be visible
+    expect(screen.getByText('Enter your info')).toBeInTheDocument();
+  });
+
+  it('does not show description in collapsed state when not set', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [] }],
+      },
+    });
+    // No description element in collapsed state
+    expect(screen.queryByText(/add description/i)).not.toBeInTheDocument();
+  });
+});
+
+// ── Phase 2: "Edit Layout" entry point ────────────────────────────────
+
+describe('Phase 2 — Edit Layout button', () => {
+  it('calls onEditLayout callback when Edit Layout button is clicked in expanded state', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] }],
+      },
+    });
+    // Expand the card
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    // Click "Edit Layout" button
+    const editLayoutBtn = screen.getByRole('button', { name: /edit layout/i });
+    expect(editLayoutBtn).toBeInTheDocument();
+    fireEvent.click(editLayoutBtn);
+    // Should enter focus mode — shows focus mode placeholder
+    expect(screen.getByText(/focus mode/i)).toBeInTheDocument();
+  });
+
+  it('shows Edit Layout button on hover in collapsed state', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] }],
+      },
+    });
+    // The button exists but may be hidden via CSS (opacity-0 group-hover:opacity-100)
+    // We just verify it's in the DOM
+    const editLayoutBtns = screen.getAllByRole('button', { name: /edit layout/i });
+    expect(editLayoutBtns.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('mini grid preview click enters focus mode', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] }],
+      },
+    });
+    // Click the mini grid preview
+    const miniGrid = screen.getByTestId('page-card-p1').querySelector('[data-testid="mini-grid-preview"]');
+    expect(miniGrid).not.toBeNull();
+    fireEvent.click(miniGrid!);
+    expect(screen.getByText(/focus mode/i)).toBeInTheDocument();
+  });
+});
+
+// ── Phase 2: Type indicators in expanded items ───────────────────────
+
+describe('Phase 2 — Type indicators in expanded items', () => {
+  function renderWithGroups() {
+    return renderPagesTab({
+      definition: {
+        formPresentation: { pageMode: 'wizard' },
+        items: [
+          {
+            key: 'contact', type: 'group', label: 'Contact Info',
+            children: [
+              { key: 'fname', type: 'field', dataType: 'string', label: 'First Name' },
+              { key: 'lname', type: 'field', dataType: 'string', label: 'Last Name' },
+              { key: 'phone', type: 'field', dataType: 'string', label: 'Phone' },
+            ],
+          },
+          { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+        ],
+      },
+      theme: {
+        pages: [{
+          id: 'p1', title: 'Step 1',
+          regions: [{ key: 'contact', span: 12 }, { key: 'email', span: 6 }],
+        }],
+      },
+    });
+  }
+
+  it('shows type indicator text for items in expanded view', () => {
+    renderWithGroups();
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    // Group items should show "group" text — in a nested span, so use a function matcher
+    const groupIndicator = screen.getByText((content, element) =>
+      element?.tagName === 'SPAN' && /\bgroup\b/.test(content),
+    );
+    expect(groupIndicator).toBeInTheDocument();
+  });
+
+  it('shows child count for groups in expanded view', () => {
+    renderWithGroups();
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    // Contact group has 3 children — text is in the type indicator span
+    const childCountIndicator = screen.getByText((content, element) =>
+      element?.tagName === 'SPAN' && /3 fields/.test(content),
+    );
+    expect(childCountIndicator).toBeInTheDocument();
+  });
+
+  it('shows repeat indicator for repeatable groups', () => {
+    renderPagesTab({
+      definition: {
+        formPresentation: { pageMode: 'wizard' },
+        items: [
+          {
+            key: 'entries', type: 'group', label: 'Entries', repeatable: true,
+            children: [{ key: 'val', type: 'field', dataType: 'string', label: 'Value' }],
+          },
+        ],
+      },
+      theme: {
+        pages: [{
+          id: 'p1', title: 'Step 1',
+          regions: [{ key: 'entries', span: 12 }],
+        }],
+      },
+    });
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    // Should show a repeatable indicator
+    const repeatIndicator = screen.getByText((content, element) =>
+      element?.tagName === 'SPAN' && /repeatable/.test(content),
+    );
+    expect(repeatIndicator).toBeInTheDocument();
+  });
+});
+
+// ── Phase 2: Mini grid type indicators ──────────────────────────────
+
+describe('Phase 2 — Mini grid preview enhancements', () => {
+  it('mini grid blocks show truncated labels', () => {
+    renderPagesTab({
+      definition: {
+        formPresentation: { pageMode: 'wizard' },
+        items: [
+          { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+        ],
+      },
+      theme: {
+        pages: [{
+          id: 'p1', title: 'Step 1',
+          regions: [{ key: 'name', span: 12 }],
+        }],
+      },
+    });
+    // In collapsed state, mini grid should show labels
+    const miniGrid = screen.getByTestId('page-card-p1').querySelector('[data-testid="mini-grid-preview"]');
+    expect(miniGrid).not.toBeNull();
+    expect(miniGrid!.textContent).toContain('Name');
+  });
+
+  it('group blocks in mini grid have distinct styling', () => {
+    renderPagesTab({
+      definition: {
+        formPresentation: { pageMode: 'wizard' },
+        items: [
+          { key: 'grp', type: 'group', label: 'My Group', children: [] },
+          { key: 'fld', type: 'field', dataType: 'string', label: 'Field' },
+        ],
+      },
+      theme: {
+        pages: [{
+          id: 'p1', title: 'Step 1',
+          regions: [{ key: 'grp', span: 6 }, { key: 'fld', span: 6 }],
+        }],
+      },
+    });
+    const miniGrid = screen.getByTestId('page-card-p1').querySelector('[data-testid="mini-grid-preview"]');
+    expect(miniGrid).not.toBeNull();
+    const blocks = miniGrid!.children;
+    // Group block should have a different class than field block
+    expect(blocks[0].className).not.toBe(blocks[1].className);
+  });
+});
+
+// ── Phase 2: Empty state prompts ──────────────────────────────────────
+
+describe('Phase 2 — Empty state prompts', () => {
+  it('wizard mode with empty pages shows "No pages yet" prompt', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: { pages: [] },
+    });
+    expect(screen.getByText(/no pages yet/i)).toBeInTheDocument();
+  });
+
+  it('tabs mode with empty pages shows "No pages yet" prompt', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'tabs' } },
+      theme: { pages: [] },
+    });
+    expect(screen.getByText(/no pages yet/i)).toBeInTheDocument();
+  });
+
+  it('"Auto-generate from groups" button calls autoGeneratePages', async () => {
+    const { project } = renderPagesTab({
+      definition: {
+        formPresentation: { pageMode: 'wizard' },
+        items: [
+          { key: 'grp1', type: 'group', label: 'Section 1', children: [
+            { key: 'f1', type: 'field', dataType: 'string', label: 'F1' },
+          ]},
+        ],
+      },
+      theme: { pages: [] },
+    });
+    const spy = vi.spyOn(project, 'autoGeneratePages');
+    await act(async () => {
+      screen.getByRole('button', { name: /auto-generate/i }).click();
+    });
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('single mode shows dormant pages with reduced opacity', () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'single' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Dormant Page', regions: [] }],
+      },
+    });
+    expect(screen.getByText(/preserved but not active/i)).toBeInTheDocument();
+    // Dormant pages should be visible
+    expect(screen.getByText('Dormant Page')).toBeInTheDocument();
+  });
+});
+
+// ── Phase 2: removePage confirmation ──────────────────────────────────
+
+describe('Phase 2 — removePage confirmation', () => {
+  it('deleting a page with items shows confirmation dialog', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] }],
+      },
+    });
+    // Expand and click Delete
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    await act(async () => {
+      screen.getByRole('button', { name: /delete/i }).click();
+    });
+    expect(confirmSpy).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('deleting an empty page skips confirmation', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { project } = renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [
+          { id: 'p1', title: 'Empty Page', regions: [] },
+          { id: 'p2', title: 'Other', regions: [] },
+        ],
+      },
+    });
+    // Expand first card and click Delete
+    const expandBtns = screen.getAllByRole('button', { expanded: false });
+    fireEvent.click(expandBtns[0]);
+    const removeSpy = vi.spyOn(project, 'removePage');
+    await act(async () => {
+      screen.getByRole('button', { name: /delete/i }).click();
+    });
+    // Should not show confirm dialog — deletes directly
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(removeSpy).toHaveBeenCalledWith('p1');
+    confirmSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  it('confirming deletion calls removePage', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { project } = renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [
+          { id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] },
+          { id: 'p2', title: 'Step 2', regions: [] },
+        ],
+      },
+    });
+    const removeSpy = vi.spyOn(project, 'removePage');
+    // Expand first card
+    const expandBtns = screen.getAllByRole('button', { expanded: false });
+    fireEvent.click(expandBtns[0]);
+    await act(async () => {
+      screen.getByRole('button', { name: /delete/i }).click();
+    });
+    expect(removeSpy).toHaveBeenCalledWith('p1');
+    confirmSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  it('canceling confirmation does not call removePage', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { project } = renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] }],
+      },
+    });
+    const removeSpy = vi.spyOn(project, 'removePage');
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    await act(async () => {
+      screen.getByRole('button', { name: /delete/i }).click();
+    });
+    expect(removeSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+});
+
+// ── Phase 2: Focus mode scaffold ──────────────────────────────────────
+
+describe('Phase 2 — Focus mode scaffold', () => {
+  it('clicking Edit Layout enters focus mode with placeholder', async () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] }],
+      },
+    });
+    // Expand the card
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    // Click Edit Layout
+    await act(async () => {
+      screen.getByRole('button', { name: /edit layout/i }).click();
+    });
+    // Should show focus mode placeholder
+    expect(screen.getByText(/focus mode/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
+  });
+
+  it('back button exits focus mode', async () => {
+    renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [{ id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] }],
+      },
+    });
+    // Enter focus mode
+    const expandBtn = screen.getByRole('button', { expanded: false });
+    fireEvent.click(expandBtn);
+    await act(async () => {
+      screen.getByRole('button', { name: /edit layout/i }).click();
+    });
+    // Exit focus mode
+    await act(async () => {
+      screen.getByRole('button', { name: /back/i }).click();
+    });
+    // Should be back in overview mode — page cards visible
+    expect(screen.getByText('Step 1')).toBeInTheDocument();
+    expect(screen.queryByText(/focus mode/i)).not.toBeInTheDocument();
+  });
+
+  it('focused page disappearing resets to overview', async () => {
+    const { project } = renderPagesTab({
+      definition: { formPresentation: { pageMode: 'wizard' } },
+      theme: {
+        pages: [
+          { id: 'p1', title: 'Step 1', regions: [{ key: 'name', span: 12 }] },
+          { id: 'p2', title: 'Step 2', regions: [] },
+        ],
+      },
+    });
+    // Enter focus mode for p1 — use the Edit Layout button inside the expanded card
+    const expandBtns = screen.getAllByRole('button', { expanded: false });
+    fireEvent.click(expandBtns[0]);
+    const p1Card = screen.getByTestId('page-card-p1');
+    const editLayoutBtn = p1Card.querySelector('button[aria-label="Edit Layout"]')!;
+    await act(async () => {
+      fireEvent.click(editLayoutBtn);
+    });
+    expect(screen.getByText(/focus mode/i)).toBeInTheDocument();
+    // Delete the focused page externally
+    await act(async () => {
+      project.removePage('p1');
+    });
+    // Should return to overview — no focus mode placeholder
+    expect(screen.queryByText(/focus mode/i)).not.toBeInTheDocument();
+    // Should still show the remaining page
+    expect(screen.getByText('Step 2')).toBeInTheDocument();
   });
 });

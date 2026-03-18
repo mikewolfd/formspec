@@ -1,8 +1,9 @@
 /** @filedesc Top-level chat UI shell; manages AI adapter wiring, file uploads, and panel layout. */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
-import { ChatSession, GeminiAdapter, MockAdapter, SessionStore, validateProviderConfig } from 'formspec-chat';
+import { ChatSession, GeminiAdapter, MockAdapter, SessionStore, validateProviderConfig, extractRegistryHints } from 'formspec-chat';
 import type { AIAdapter, Attachment, ProviderConfig, StorageBackend } from 'formspec-chat';
+import commonRegistry from '../../../../../registries/formspec-common.registry.json';
 import { ChatProvider, useChatState, useChatSession } from '../state/ChatContext.js';
 import { EntryScreen } from './EntryScreen.js';
 import { ChatPanel } from './ChatPanel.js';
@@ -41,9 +42,11 @@ function fileToAttachment(file: File, text: string): Attachment {
  * Manages the lifecycle: entry → active session (chat + preview).
  * Optionally accepts a SessionStore for persistence and resume.
  */
+const registryHints = extractRegistryHints(commonRegistry);
+
 function getAdapter(config: ProviderConfig | null): AIAdapter {
   if (!config) return new MockAdapter();
-  return new GeminiAdapter(config.apiKey, config.model);
+  return new GeminiAdapter(config.apiKey, config.model, registryHints);
 }
 
 export function ChatShell({ store, storage }: ChatShellProps = {}) {

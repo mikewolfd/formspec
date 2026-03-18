@@ -54,7 +54,7 @@ function buildItemMaps(items: FormItem[]) {
   function walk(nodes: FormItem[]) {
     for (const item of nodes) {
       labelMap.set(item.key, item.label ?? item.key);
-      typeMap.set(item.key, item.type as 'field' | 'group' | 'display');
+      typeMap.set(item.key, item.type);
       if (item.children) {
         childCountMap.set(item.key, item.children.length);
         walk(item.children);
@@ -68,7 +68,7 @@ function buildItemMaps(items: FormItem[]) {
   return { labelMap, typeMap, childCountMap, repeatableMap };
 }
 
-/** Collect all top-level item keys (non-recursive — same set resolvePageStructure uses). */
+/** Collect all item keys from the tree (recursive — same set resolvePageStructure uses). */
 function collectAllKeys(items: FormItem[]): string[] {
   const keys: string[] = [];
   function walk(nodes: FormItem[]) {
@@ -119,7 +119,7 @@ export function resolvePageView(state: PageViewInput): PageStructureView {
   const { labelMap, typeMap, childCountMap, repeatableMap } = buildItemMaps(defItems);
 
   const resolved = resolvePageStructure(
-    { theme: state.theme as any, definition: state.definition },
+    { theme: state.theme, definition: state.definition },
     allKeys,
   );
 
@@ -159,7 +159,7 @@ export function resolvePageView(state: PageViewInput): PageStructureView {
     pages,
     unassigned,
     breakpointNames,
-    breakpointValues: state.theme.breakpoints ?? undefined,
+    breakpointValues: state.theme.breakpoints,
     diagnostics,
   };
 }
