@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/fel-core",
+    "crates/formspec-core",
 ]
 resolver = "2"
 
