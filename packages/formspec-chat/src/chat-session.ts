@@ -196,16 +196,17 @@ export class ChatSession {
       type: 'conversation',
       messages: this.messages,
     });
+
+    // Create bridge BEFORE setting definition — if it fails, session stays in interview phase
+    const bridge = await this.replaceBridge(result.definition);
+
     this.definition = result.definition;
     this.bundle = buildBundleFromDefinition(result.definition);
     this.lastDiff = null;
     this.traces.addTraces(result.traces);
     this.addIssuesFromResult(result.issues);
+    this.addIssuesFromResult(bridge.consumeLoadDiagnostics());
     this.readyToScaffold = false;
-
-    // Create MCP bridge for refinement and surface any load diagnostics
-    this.bridge = await McpBridge.create(result.definition);
-    this.addIssuesFromResult(this.bridge.consumeLoadDiagnostics());
 
     const systemMsg: ChatMessage = {
       id: this.nextMessageId(),
@@ -226,15 +227,14 @@ export class ChatSession {
       type: 'template',
       templateId,
     });
+    const bridge = await this.replaceBridge(result.definition);
+
     this.definition = result.definition;
     this.bundle = buildBundleFromDefinition(result.definition);
     this.templateId = templateId;
     this.traces.addTraces(result.traces);
     this.addIssuesFromResult(result.issues);
-
-    // Create MCP bridge for refinement and surface any load diagnostics
-    this.bridge = await McpBridge.create(result.definition);
-    this.addIssuesFromResult(this.bridge.consumeLoadDiagnostics());
+    this.addIssuesFromResult(bridge.consumeLoadDiagnostics());
 
     const systemMsg: ChatMessage = {
       id: this.nextMessageId(),
@@ -258,14 +258,13 @@ export class ChatSession {
       type: 'upload',
       extractedContent,
     });
+    const bridge = await this.replaceBridge(result.definition);
+
     this.definition = result.definition;
     this.bundle = buildBundleFromDefinition(result.definition);
     this.traces.addTraces(result.traces);
     this.addIssuesFromResult(result.issues);
-
-    // Create MCP bridge for refinement and surface any load diagnostics
-    this.bridge = await McpBridge.create(result.definition);
-    this.addIssuesFromResult(this.bridge.consumeLoadDiagnostics());
+    this.addIssuesFromResult(bridge.consumeLoadDiagnostics());
 
     const systemMsg: ChatMessage = {
       id: this.nextMessageId(),
@@ -341,10 +340,35 @@ export class ChatSession {
     return session;
   }
 
+  /**
+   * Close any existing bridge and create a new one.
+   * Returns the new bridge so callers can consume diagnostics before assigning state.
+   */
+  private async replaceBridge(definition: FormDefinition): Promise<McpBridge> {
+    if (this.bridge) {
+      await this.bridge.close();
+    }
+    const bridge = await McpBridge.create(definition);
+    this.bridge = bridge;
+    return bridge;
+  }
+
   private addIssuesFromResult(issues: Omit<Issue, 'id' | 'status'>[]): void {
     for (const issue of issues) {
       this.issues.addIssue(issue);
     }
+  }
+
+  /**
+   * Remove all messages following the message with the given ID.
+   * If includeSelf is true, also removes the message with the given ID.
+   */
+  truncate(messageId: string, includeSelf = false): void {
+    const index = this.messages.findIndex(m => m.id === messageId);
+    if (index === -1) return;
+    this.messages = this.messages.slice(0, includeSelf ? index : index + 1);
+    this.updatedAt = Date.now();
+    this.notify();
   }
 
   private nextMessageId(): string {

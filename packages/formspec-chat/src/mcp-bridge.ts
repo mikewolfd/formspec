@@ -149,6 +149,10 @@ export class McpBridge {
    * Execute a tool call, injecting project_id automatically.
    */
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
+    if (EXCLUDED_TOOLS.has(name)) {
+      return { content: `Tool "${name}" is not available in this context.`, isError: true };
+    }
+
     const result = await this.client.callTool({
       name,
       arguments: { ...args, project_id: this.projectId },
