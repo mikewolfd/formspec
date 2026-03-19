@@ -363,22 +363,11 @@ in Formspec v1.0 §1) that additionally implements the following behaviors:
       },
       "examples": [
         {
-          "extensions": {
-            "dataTypes": {
-              "x-currency-usd": {
-                "baseType": "decimal",
-                "precision": 2,
-                "constraints": { "minimum": 0 },
-                "metadata": { "prefix": "$", "thousandsSeparator": true }
-              }
-            }
-          }
-        },
-        {
           "key": "total_budget",
           "type": "field",
-          "dataType": "x-currency-usd",
-          "label": "Total Project Budget"
+          "dataType": "decimal",
+          "label": "Total Project Budget",
+          "extensions": { "x-currency-usd": true }
         }
       ]
     }

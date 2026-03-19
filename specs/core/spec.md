@@ -322,7 +322,7 @@ Field items MUST declare a `dataType` from the following set:
 | `"multiChoice"` | JSON array of strings | `array` | |
 | `"money"` | JSON object `{ "amount": "...", "currency": "..." }` | `money` | Amount is a string to preserve decimal precision. |
 
-Additional `dataType` values MAY be defined via extensions (§7).
+Additional data type semantics MAY be layered onto core `dataType` values via the item-level `extensions` object (§7, §8.1).
 
 > **Example.** A group with mixed item types:
 >
@@ -4205,9 +4205,13 @@ general requirements apply:
 
 1. All custom identifiers MUST be prefixed with `x-`.
 
-2. Processors that encounter a custom data type they do not support
-   MUST fall back to the declared `baseType` and SHOULD log an
-   informational notice.
+2. Custom data types are declared via the item-level `extensions`
+   object (e.g. `"extensions": { "x-formspec-email": true }`). The
+   field's `dataType` MUST remain a core type from the table in §2;
+   the registry entry's `baseType` declares which core type it
+   extends. Processors that encounter an enabled extension they do
+   not support MUST validate against the field's core `dataType` and
+   SHOULD log an informational notice.
 
 3. Processors that encounter a custom function or constraint they do
    not support MUST raise a clear, actionable error. Processors MUST

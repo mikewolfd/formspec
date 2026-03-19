@@ -40,7 +40,7 @@ api-docs:
 	PYTHONPATH=src python3 scripts/generate-api-markdown.py src/formspec/API.llm.md
 	node scripts/generate-ts-api-markdown.mjs
 
-docs: spec-artifacts \
+html-docs: \
       $(DOCS_DIR)/spec.html \
       $(DOCS_DIR)/mapping.html \
       $(DOCS_DIR)/fel-grammar.html \
@@ -48,8 +48,9 @@ docs: spec-artifacts \
       $(DOCS_DIR)/extension-registry.html \
       $(DOCS_DIR)/theme-spec.html \
       $(DOCS_DIR)/component-spec.html \
-      $(DOCS_DIR)/grant-application.html \
-      api-docs
+      $(DOCS_DIR)/grant-application.html
+
+docs: html-docs api-docs
 
 $(DOCS_DIR)/spec.html: $(SPECS_DIR)/core/spec.md $(TEMPLATE)
 	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Formspec Core Specification" -o $@ $<
@@ -97,4 +98,4 @@ clean:
 	      packages/formspec-engine/API.llm.md \
 	      packages/formspec-webcomponent/API.llm.md
 
-.PHONY: all spec-artifacts docs-check check docs api-docs test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
+.PHONY: all spec-artifacts docs-check check docs html-docs api-docs test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean

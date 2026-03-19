@@ -51,6 +51,12 @@ const OPTION_SCHEMA = {
   required: ['value', 'label'] as const,
 };
 
+const EXTENSIONS_SCHEMA = {
+  type: 'object' as const,
+  description: 'Registry extension declarations, e.g. { "x-formspec-email": true }',
+  additionalProperties: { type: 'boolean' as const },
+};
+
 const LEAF_ITEM_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -59,6 +65,7 @@ const LEAF_ITEM_SCHEMA = {
     label: { type: 'string' as const },
     dataType: { type: 'string' as const },
     options: { type: 'array' as const, items: OPTION_SCHEMA },
+    extensions: EXTENSIONS_SCHEMA,
   },
   required: ['key', 'type', 'label'] as const,
 };
@@ -71,6 +78,7 @@ const ITEM_SCHEMA = {
     label: { type: 'string' as const },
     dataType: { type: 'string' as const },
     options: { type: 'array' as const, items: OPTION_SCHEMA },
+    extensions: EXTENSIONS_SCHEMA,
     children: { type: 'array' as const, items: LEAF_ITEM_SCHEMA },
   },
   required: ['key', 'type', 'label'] as const,
@@ -161,10 +169,18 @@ const INTERVIEW_RESPONSE_SCHEMA = {
 export class GeminiAdapter implements AIAdapter {
   private client: GoogleGenAI;
   private model: string;
+  private registryHints: string;
 
-  constructor(apiKey: string, model = 'gemini-3-flash-preview') {
+  constructor(apiKey: string, model = 'gemini-3-flash-preview', registryHints = '') {
     this.client = new GoogleGenAI({ apiKey });
     this.model = model;
+    this.registryHints = registryHints;
+  }
+
+  private get scaffoldPrompt(): string {
+    return this.registryHints
+      ? `${SYSTEM_PROMPT}\n\n${this.registryHints}`
+      : SYSTEM_PROMPT;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -346,7 +362,7 @@ When done with all changes, respond with a brief summary of what you did.`;
       model: this.model,
       contents: `Design a form based on this description:\n\n${userContent}`,
       config: {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: this.scaffoldPrompt,
         responseMimeType: 'application/json' as const,
         responseSchema: RESPONSE_SCHEMA,
         maxOutputTokens: 65536,
@@ -407,7 +423,7 @@ When done with all changes, respond with a brief summary of what you did.`;
       model: this.model,
       contents: `Create a form definition from this extracted document content. Identify fields, their types, and group related fields logically:\n\n${extractedContent}`,
       config: {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: this.scaffoldPrompt,
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
         maxOutputTokens: 65536,

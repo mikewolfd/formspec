@@ -47,3 +47,4 @@ export { diff, type DefinitionDiff } from './form-scaffolder.js';
 export { buildBundleFromDefinition } from './bundle-builder.js';
 export { ChatSession } from './chat-session.js';
 export { McpBridge } from './mcp-bridge.js';
+export { extractRegistryHints } from './registry-hints.js';
