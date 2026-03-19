@@ -1,6 +1,8 @@
 # Rust Rewrite — Master Plan
 
-Status: **Phases 1–5 + Steps 0–8 complete** — 6 crates, 17,470 lines of Rust, 494 tests. All Rust code written. WASM + PyO3 bindings updated. Only TS/Python wiring (Steps 9b–10) and branch cleanup (Step 11) remain.
+Status: **Phases 1–5 + Steps 0–8 complete** — 6 crates, 17,470 lines of Rust, **518 tests** (verified 2026-03-19). All Rust code written. WASM + PyO3 bindings updated. Dependency inversion interfaces extracted on `main` (9811f3f + 20b1f04). Factory functions not yet created. Remaining: interface gap fixes (Step 8.5), factory functions (Step 8.6), TS/Python wiring (Steps 9b–10), branch cleanup (Step 11).
+
+**Last verified:** 2026-03-19 — `cargo test --workspace --exclude formspec-py` passes 518 tests (73 fel-core + 59 formspec-core + 111 formspec-core integration + 36 changelog + 28 formspec-eval + 211 formspec-lint). PyO3 crate skipped (needs Python dev linkage on build machine).
 
 ## Overview
 
@@ -13,7 +15,7 @@ Build a **Rust shared kernel** that eliminates the TS↔Python logic duplication
 - WASM bindings expose the Rust crates to TypeScript (`index.ts` calls WASM internally; public API stays identical). PyO3 bindings expose them to Python.
 - Once WASM is wired: delete the TS source files. Once PyO3 is wired: delete the Python FEL source files.
 
-**What stays TypeScript:** `index.ts` only — FormEngine class, Preact Signals reactive state.
+**What stays TypeScript:** `index.ts` only — FormEngine class, Preact Signals reactive state. Plus new interface files (`interfaces.ts`, `fel/runtime.ts`, `fel/chevrotain-runtime.ts`).
 **What stays Python:** Adapters (JSON, XML, CSV serialization) and artifact orchestrator (`validate.py`). Everything else moves to Rust.
 **What moves to Rust:** Every non-reactive TS file + all batch processors + mapping engine + registry client + changelog.
 
@@ -23,57 +25,95 @@ Build a **Rust shared kernel** that eliminates the TS↔Python logic duplication
 
 ```
 Steps 0–5 (lint)  ──────┐
-                         ├──→ Step 9a (WASM bindings) ✅ ──→ Step 9b-c (TS wiring)  ──→ Step 11 (cleanup)
-Steps 6–8 (scope exp.) ─┘     Step 10 bindings ✅          Step 10 wiring ────────────┘
+                         ├──→ Step 9a (WASM bindings) ✅ ──→ Step 8.5 (interface gaps) ──→ Step 8.6 (factories) ──→ Step 9b-c (TS wiring) ──→ Step 11 (cleanup)
+Steps 6–8 (scope exp.) ─┘     Step 10 bindings ✅                                          Step 10 wiring ──────────────────────────────────┘
          ✅
 ```
 
-Steps 0–8 and 9a/10-bindings are complete. Remaining: Step 9b-c (wire WASM into TS engine + delete TS files), Step 10 wiring (replace Python imports + delete Python files), Step 11 (branch cleanup).
+Steps 0–8 and 9a/10-bindings are complete. Dependency inversion landed on `main` (9811f3f, 20b1f04). Remaining: interface gap fixes (Step 8.5), factory functions (Step 8.6), Step 9b-c (wire WASM into TS engine + delete TS files), Step 10 wiring (replace Python imports + delete Python files), Step 11 (branch cleanup).
 
 ---
 
 ## Current State
 
-### Crate Status
+### Crate Status (verified 2026-03-19)
 
 | Crate | Lines | Contents | Tests |
 |-------|-------|----------|-------|
-| `crates/fel-core` | 4,199 | FEL lexer, parser, evaluator (rust_decimal), environment, extensions, dependencies, printer | 64 |
-| `crates/formspec-core` | 5,034 | FEL analysis, path utils, schema validator, extension analysis, runtime mapping (10 transforms), assembler, registry client, changelog | 108 + 36 |
+| `crates/fel-core` | 4,199 | FEL lexer, parser, evaluator (rust_decimal), environment, extensions, dependencies, printer | 73 |
+| `crates/formspec-core` | 5,034 | FEL analysis, path utils, schema validator, extension analysis, runtime mapping (10 transforms), assembler, registry client, changelog | 59 + 111 + 36 |
 | `crates/formspec-eval` | 1,578 | Definition Evaluator — 4-phase batch processor with topo sort, inheritance, NRB, wildcards | 28 |
-| `crates/formspec-lint` | 5,341 | 8-module linter: tree, references, extensions, expressions, dependencies, component_matrix, pass_theme, pass_component — 35 error codes | 199 |
+| `crates/formspec-lint` | 5,341 | 8-module linter: tree, references, extensions, expressions, dependencies, component_matrix, pass_theme, pass_component — 35 error codes | 211 |
 | `crates/formspec-wasm` | 619 | WASM bindings via wasm-bindgen → TypeScript (all capabilities + registry, changelog, mapping doc) | — |
-| `crates/formspec-py` | 699 | PyO3 bindings → Python (all capabilities + registry, changelog, mapping doc) | — |
-| **Total** | **17,470** | | **494** |
+| `crates/formspec-py` | 699 | PyO3 bindings → Python (all capabilities + registry, changelog, mapping doc) | — (linker-only, needs Python dev headers) |
+| **Total** | **17,470** | | **518** |
 
 ### TypeScript File Disposition
 
 | File | Lines | Destination | Status |
 |------|-------|-------------|--------|
 | `src/index.ts` | 2,454 | **Stays TS** — only Preact Signals consumer | — |
+| `src/interfaces.ts` | ~240 | **Stays TS** — `IFormEngine`, `IRuntimeMappingEngine`, `MappingDiagnostic` | NEW (9811f3f) |
+| `src/fel/runtime.ts` | ~100 | **Stays TS** — `IFelRuntime`, `ICompiledExpression`, `IFelEngineContext`, `FelContext` | NEW (9811f3f + 20b1f04) |
+| `src/fel/chevrotain-runtime.ts` | ~83 | **Stays TS** — adapter wrapping Chevrotain pipeline, implements `IFelRuntime` | NEW (9811f3f) |
 | `src/fel/lexer.ts` | 255 | `crates/fel-core` | ✅ Rust done, delete when WASM wired |
 | `src/fel/parser.ts` | 368 | `crates/fel-core` | ✅ Rust done, delete when WASM wired |
 | `src/fel/interpreter.ts` | 1,314 | `crates/fel-core` | ✅ Rust done, delete when WASM wired |
 | `src/fel/dependency-visitor.ts` | 97 | `crates/fel-core` | ✅ Rust done, delete when WASM wired |
-| `src/fel/analysis.ts` | 435 | `crates/formspec-core` | ✅ Rust done, delete when WASM wired |
+| `src/fel/analysis.ts` | 435 | `crates/formspec-core` | ✅ Rust done, delete when WASM wired (but see `IFelAnalyzer` gap — Studio needs this) |
 | `src/path-utils.ts` | 71 | `crates/formspec-core` | ✅ Rust done, delete when WASM wired |
 | `src/schema-validator.ts` | 347 | `crates/formspec-core` | ✅ Rust done, delete when WASM wired |
 | `src/extension-analysis.ts` | 97 | `crates/formspec-core` | ✅ Rust done, delete when WASM wired |
 | `src/runtime-mapping.ts` | 220 | `crates/formspec-core` | ✅ Rust done, delete when WASM wired |
 | `src/assembler.ts` | 695 | `crates/formspec-core` | ✅ Rust done, delete when WASM wired |
 
-### `main` Branch (compiles, 494 tests pass)
+### `main` Branch (compiles, 518 tests pass — verified 2026-03-19)
 
 - `fel-core`: 11 source files including printer — **no touch**
 - `formspec-core`: 9 source files (added `registry_client.rs`, `changelog.rs`; expanded `runtime_mapping.rs` with 4 new transforms + MappingDocument) — **Steps 6–8 complete**
 - `formspec-eval`: 1 file (`lib.rs` with 28 tests) — **no touch**
-- `formspec-lint`: 10 source files (8 typed modules replaced `passes.rs`, 35 error codes, 199 tests) — **Steps 0–5 complete**
+- `formspec-lint`: 10 source files (8 typed modules replaced `passes.rs`, 35 error codes, 211 tests) — **Steps 0–5 complete**
 - `formspec-wasm`: 1 file (7 new exports: registry, changelog, mapping doc) — **Step 9a complete**
 - `formspec-py`: 1 file (6 new exports: registry, changelog, mapping doc) — **Step 10 bindings complete**
 
-### What `rust_merged` had (now obsolete)
+### Dependency Inversion (landed on `main` — 2026-03-19)
 
-`rust_merged` was reference material for the lint reconciliation. All its valuable logic has been rewritten from scratch against `main`'s architecture in Steps 0–5. The branch can be deleted as part of Step 11 cleanup.
+Commits `9811f3f` and `20b1f04` extracted pluggable interfaces so the engine depends on abstractions, not concrete implementations:
+
+**TypeScript (formspec-engine):**
+- `IFelRuntime` + `ICompiledExpression` + `FelContext` — FEL compilation/evaluation contract (`fel/runtime.ts`)
+- `IFelEngineContext` — minimal engine surface for FEL stdlib: signals, getInstanceData, getVariableValue (`fel/runtime.ts`)
+- `ChevrotainFelRuntime` — adapter wrapping existing Chevrotain pipeline (`fel/chevrotain-runtime.ts`)
+- `IFormEngine` + `IRuntimeMappingEngine` — full engine/mapping interfaces (`interfaces.ts`)
+- `MappingDiagnostic`, `RuntimeMappingResult` — moved to interface layer
+- `FormEngine` accepts `felRuntime` via `FormEngineRuntimeContext`, defaults to Chevrotain
+- `RuntimeMappingEngine` accepts `IFelRuntime` via constructor injection
+- `BehaviorContext.engine` typed as `IFormEngine` (not concrete `FormEngine`)
+
+**Python (formspec):**
+- `FelRuntime` protocol + `DefaultFelRuntime` class (`fel/runtime.py`)
+- `FormProcessor`, `FormValidator`, `MappingProcessor`, `DataAdapter` protocols (`protocols.py`)
+- `DefinitionEvaluator`, `Linter`, `MappingEngine` accept `fel_runtime` kwarg
+
+**Fix-up (20b1f04):**
+- `IFelEngineContext` was too narrow — added `signals`, `relevantSignals`, `requiredSignals`, `readonlySignals`, `validationResults` (MIP lookup needs these)
+- `RuntimeMappingResult.diagnostics` typed as `string[]` in interface but `MappingDiagnostic[]` in impl — fixed
+- `FELBuiltinFunctionCatalogEntry` missing `signature` + `description` fields — added
+
+### Branch Status (as of 2026-03-19)
+
+| Branch | Status | Action |
+|--------|--------|--------|
+| `main` | Active — 518 Rust tests, all TS/Python tests pass, interfaces extracted | Continue here |
+| `feature/rust-rewrite` | **Obsolete** — 80 commits behind main, 0 ahead. All crate work already on main. | Delete (Step 11) |
+| `rust_merged` | **Obsolete** — reference material consumed during Steps 0–5. | Delete (Step 11) |
+| `claude/rust-formspec-rewrite-JysP8` | **Obsolete** — superseded by main. | Delete (Step 11) |
+| `feature/headless-component-adapters` | Active worktree at `.worktrees/headless-adapters` | Unrelated to Rust transition |
+
+**Worktrees:**
+- `/Users/mikewolfd/.codex/worktrees/0cc3/formspec` — detached HEAD `cc27165`, stale
+- `/Users/mikewolfd/.codex/worktrees/50af/formspec` — detached HEAD `cc27165`, stale
+- `.worktrees/headless-adapters` — active, unrelated
 
 ---
 
@@ -208,6 +248,105 @@ New `changelog.rs` (602 lines) + `tests/changelog_test.rs` (568 lines, 36 tests)
 
 ---
 
+## Step 8.5: Interface Gap Fixes (spec-mandated)
+
+**Status: NOT STARTED.** Spec expert review (2026-03-19) identified gaps between the extracted interfaces and normative spec requirements. These must be fixed before WASM wiring — the interfaces are the permanent API contract.
+
+### P0 — Architectural Blocker
+
+| # | Gap | Spec | Interface | Issue |
+|---|-----|------|-----------|-------|
+| 1 | **Preact Signal coupling in `IFormEngine`** | S2.4 Phase 4 (impl-defined notify) | `interfaces.ts` | `IFormEngine` exposes `Signal<T>` types from `@preact/signals-core` throughout (e.g. `relevantSignals: Record<string, Signal<boolean>>`). A Rust/WASM backend cannot provide Preact signals. Either abstract over reactivity (`Subscribable<T>` wrapper) or require WASM backend to produce signal-compatible wrappers. |
+
+**Decision needed:** The transition plan says `index.ts` stays TypeScript and owns all signal wiring. `IFormEngine` is consumed by the webcomponent layer which needs signals. Two options:
+1. **Keep signals on IFormEngine** — accept that `IFormEngine` is a TS-side contract only. Rust provides pure computation via WASM; `index.ts` (the sole `IFormEngine` impl) wraps WASM calls in signals. No other `IFormEngine` impl is needed.
+2. **Abstract signals out** — create `Subscribable<T>` or equivalent. More work, but enables a hypothetical pure-WASM engine.
+
+Option 1 aligns with the existing strategy ("index.ts stays TS, owns reactivity"). The interface is for consumers (webcomponent, studio), not for swapping engine implementations.
+
+### P1 — Spec-Normative Gaps
+
+| # | Gap | Spec | Interface | Fix |
+|---|-----|------|-----------|-----|
+| 2 | **External validation injection missing** | S5.7 (MUST) | `IFormEngine` | Add `injectExternalValidation()` and `clearExternalValidation()` to `IFormEngine`. Concrete `FormEngine` may also need impl. |
+| 3 | **Extension function registration missing** | S3.12 (SHOULD), S8.1 | `IFelRuntime` | Add `registerFunction(name, entry, impl)` or equivalent. Currently extension functions reach through to Chevrotain internals. |
+| 4 | **Registry entry loading missing** | S8.1 | `IFormEngine` | `FormEngine` takes registries via constructor but `IFormEngine` has no `setRegistryEntries()`. Add it or document that registry injection is constructor-time only. |
+| 5 | **Standalone dependency extraction missing from TS** | S3.6.1 (MUST) | `IFelRuntime` | Python `FelRuntime` protocol has `extract_dependencies()` but TS `IFelRuntime` lacks it. Currently only available on `ICompiledExpression.dependencies`. Add `extractDependencies(expression: string): string[]` to `IFelRuntime`. |
+| 6 | **2 mapping error codes missing** | Mapping S7.2 | `MappingDiagnostic` | `errorCode` union is missing `VERSION_MISMATCH` and `INVALID_FEL`. Add to the union type. |
+
+### P2 — Tooling Gaps (not spec-mandated, but needed for Studio)
+
+| # | Gap | Spec | Interface | Fix |
+|---|-----|------|-----------|-----|
+| 7 | **`IFelAnalyzer` needed for Studio** | Not spec-mandated | New interface | `analyzeFEL()`, `rewriteFELReferences()`, `tokenize()` (syntax highlighting) all depend on Chevrotain internals. Create `IFelAnalyzer` interface with `analyze()`, `rewrite()`, `tokenize()`. Priority 2 in transition plan. |
+| 8 | **Host function data sources not abstracted** | S2.1.7 | `IFormEngine` | `formspec-fn:` URI host callbacks have no interface contract. Currently internal to `index.ts`. Acceptable for now since `index.ts` stays TS. |
+
+### P3 — Nice-to-have
+
+| # | Gap | Spec | Interface | Decision |
+|---|-----|------|-----------|----------|
+| 9 | Mapping direction not queryable | Mapping S3.1.2 | `IRuntimeMappingEngine` | **Defer.** Implementation validates internally. |
+| 10 | Conformance level not queryable | Mapping S1.5 | `IRuntimeMappingEngine` | **Defer.** Not needed for wiring. |
+
+---
+
+## Step 8.6: Factory Functions (from transition plan Phase 1)
+
+**Status: NOT STARTED.** The original transition plan (`2026-03-17-rust-backend-transition.md`) calls for factory functions as the last refactoring step before Rust wiring. Neither `factories.ts` nor `factories.py` exists yet.
+
+### TypeScript
+
+Create `packages/formspec-engine/src/factories.ts`:
+
+```typescript
+export function createFormEngine(
+    definition: FormspecDefinition,
+    runtimeContext?: FormEngineRuntimeContext,
+    registryEntries?: RegistryEntry[],
+): IFormEngine {
+    return new FormEngine(definition, runtimeContext, registryEntries);
+}
+
+export function createMappingEngine(doc: any): IRuntimeMappingEngine {
+    return new RuntimeMappingEngine(doc);
+}
+```
+
+Update call sites (from transition plan Priority 1):
+
+| File | Current | Fix |
+|------|---------|-----|
+| `formspec-webcomponent/src/element.ts` | `new FormEngine(def)` | `createFormEngine(def, ctx)` |
+| `formspec-studio/.../BehaviorPreview.tsx` | `new FormEngine(def)` | `createFormEngine(def)` |
+| `formspec-studio/.../TestResponse.tsx` | `new FormEngine(def)` | `createFormEngine(def)` |
+| `formspec-studio-core/src/evaluation-helpers.ts` | `new FormEngine(def)` | `createFormEngine(def)` |
+| `formspec-core/src/handlers/mapping.ts` | `new RuntimeMappingEngine(doc)` | `createMappingEngine(doc)` |
+
+### Python
+
+Create `src/formspec/factories.py`:
+
+```python
+def create_form_processor(definition, registries=None, fel_runtime=None):
+    from .evaluator import DefinitionEvaluator
+    return DefinitionEvaluator(definition, registries, fel_runtime)
+
+def create_mapping_engine(doc, fel_runtime=None):
+    from .mapping.engine import MappingEngine
+    return MappingEngine(doc, fel_runtime)
+```
+
+Update call sites:
+
+| File | Current | Fix |
+|------|---------|-----|
+| `src/formspec/validate.py` | `DefinitionEvaluator(...)` | `create_form_processor(...)` |
+| `examples/references/server/main.py` | Direct construction | `create_form_processor(...)` |
+| Tests (8 files) | `DefinitionEvaluator(...)` | Factory or parametrize |
+| Tests (3 files) | `MappingEngine(...)` | Factory or parametrize |
+
+---
+
 ## Step 9: Wire WASM into TypeScript
 
 **9a. Update WASM bindings** ✅ (2026-03-18):
@@ -258,11 +397,12 @@ New `changelog.rs` (602 lines) + `tests/changelog_test.rs` (568 lines, 36 tests)
 
 ## Step 11: Cleanup
 
-- [ ] Delete superseded branch `claude/rust-formspec-rewrite-JysP8`
-- [ ] Delete `rust_merged` branch (all logic now on `main`)
-- [ ] Prune empty codex worktree `50af`
-- [ ] Merge `feature/rust-rewrite` into main (or create PR)
-- [ ] Remove `.worktrees/rust-rewrite` worktree after merge
+- [ ] Delete branch `claude/rust-formspec-rewrite-JysP8` (obsolete — superseded by main)
+- [ ] Delete branch `rust_merged` (obsolete — all logic rewritten on main during Steps 0–5)
+- [ ] Delete branch `feature/rust-rewrite` (obsolete — 80 commits behind main, 0 ahead, all crate work on main)
+- [ ] Prune codex worktree `0cc3` (detached HEAD cc27165, stale)
+- [ ] Prune codex worktree `50af` (detached HEAD cc27165, stale)
+- [ ] Clean up remote tracking: `remotes/origin/claude/rust-formspec-rewrite-JysP8`, `remotes/origin/claude/formspec-user-features-0bFje`
 
 ---
 
@@ -347,7 +487,9 @@ After Steps 6–10, only format adapters and the artifact orchestrator stay Pyth
 
 **Warnings (15):** W300, W700, W701, W702, W703, W704, W705, W706, W707, W711, W800, W801, W802, W803, W804
 
-### Known Gaps (from spec review)
+### Known Gaps (from spec review + spec-expert analysis 2026-03-19)
+
+#### Rust/Lint Gaps (from Steps 0–5)
 
 | # | Gap | Risk | Decision |
 |---|-----|------|----------|
@@ -355,6 +497,20 @@ After Steps 6–10, only format adapters and the artifact orchestrator stay Pyth
 | 2 | **`when` expression FEL validation** — Component spec says `when` is a FEL boolean expression, but neither Python nor Rust validates `when` in component trees. Malformed `when` silently passes lint. | Low | **Defer.** Presentation-only, no data semantics impact. Add as future enhancement. |
 | 3 | **`decimal` vs `number` vocabulary** — Spec prose says "number" in compatibility matrix, schema uses `decimal`. | Low | **Follow schema.** Python reference already uses `decimal`. Rust must match. (Addressed in Step 3.1.) |
 | 4 | **WASM/PyO3 binding gap** — Adding `definition_document` to `LintOptions` compiles cleanly (defaults to `None`), but cross-artifact checks (W705-W707, W800-W804) are unreachable from WASM/Python until bindings are updated to pass `definition_document`. | Low | **Defer.** Follow-up adds `lintDocumentWithContext(doc, registries, definition)` to WASM and equivalent to PyO3. |
+
+#### Interface Gaps (from spec-expert review 2026-03-19) — see Step 8.5
+
+| # | Gap | Spec | Severity | Decision |
+|---|-----|------|----------|----------|
+| 5 | **Preact Signal coupling in `IFormEngine`** | S2.4 Phase 4 | P0 Architectural | **Accept for now.** `index.ts` stays TS and owns reactivity; `IFormEngine` is a TS-consumer contract, not a backend-swap contract. Rust provides pure computation via WASM. |
+| 6 | **External validation injection missing** | S5.7 (MUST) | P1 Normative | **Fix in Step 8.5.** Add `injectExternalValidation()` / `clearExternalValidation()` to `IFormEngine`. |
+| 7 | **Extension function registration missing from `IFelRuntime`** | S3.12 (SHOULD) | P1 Normative | **Fix in Step 8.5.** Add `registerFunction()` to `IFelRuntime`. |
+| 8 | **Registry entry loading missing from `IFormEngine`** | S8.1 | P1 | **Fix in Step 8.5** or document as constructor-time only. |
+| 9 | **Standalone dependency extraction missing from TS `IFelRuntime`** | S3.6.1 (MUST) | P1 Normative | **Fix in Step 8.5.** Python protocol already has it; add `extractDependencies()` to TS `IFelRuntime`. |
+| 10 | **2 mapping error codes missing** (`VERSION_MISMATCH`, `INVALID_FEL`) | Mapping S7.2 | P1 | **Fix in Step 8.5.** Add to `MappingDiagnostic.errorCode` union. |
+| 11 | **`IFelAnalyzer` needed for Studio tooling** | Not spec-mandated | P2 Tooling | **Defer to Step 8.5 P2.** `analyzeFEL`, `rewriteFELReferences`, `tokenize` need their own interface. |
+| 12 | **Host function data sources not abstracted** | S2.1.7 | P2 | **Accept.** Internal to `index.ts` which stays TS. |
+| 13 | **Mapping direction/conformance not queryable** | Mapping S3.1.2, S1.5 | P3 | **Defer.** Not needed for wiring. |
 
 ### What NOT to do
 
@@ -461,6 +617,13 @@ Scope expansion (Steps 6–8) + binding updates. 494 tests (maintained test coun
 - `formspec-core`: added `registry_client.rs` (35 tests), `changelog.rs` (36 integration tests). Expanded `runtime_mapping.rs` with 4 new transforms + MappingDocument + autoMap + defaults.
 - `formspec-wasm`: 7 new WASM exports (registry, changelog, mapping doc). Fixed transform parser for all 10 types.
 - `formspec-py`: 6 new PyO3 exports (registry, changelog, mapping doc).
+
+#### Iteration 6 (2026-03-19)
+Dependency inversion + interface extraction. 518 tests (↑24 from test count correction).
+- `formspec-engine`: extracted `IFelRuntime`, `ICompiledExpression`, `IFelEngineContext`, `FelContext` (`fel/runtime.ts`), `ChevrotainFelRuntime` adapter (`fel/chevrotain-runtime.ts`), `IFormEngine`, `IRuntimeMappingEngine`, `MappingDiagnostic` (`interfaces.ts`)
+- `formspec` (Python): `FelRuntime` protocol + `DefaultFelRuntime` (`fel/runtime.py`), `FormProcessor`/`FormValidator`/`MappingProcessor`/`DataAdapter` protocols (`protocols.py`)
+- Fix-up: `IFelEngineContext` signal properties, `MappingDiagnostic` type alignment, `BehaviorContext.engine` → `IFormEngine`
+- Spec-expert review: identified 11 interface gaps (6 normative, 5 tooling/nice-to-have)
 
 ### Dependency Graph
 

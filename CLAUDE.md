@@ -182,6 +182,39 @@ Two mechanisms: **bind constraints** (field-level: required, constraint, readonl
 ### Repeatable Groups
 Tracked via separate `repeats` signals mapping group names to instance counts. Uses indexed paths like `group[0].field`. Supports nesting and min/max cardinality validation.
 
+## Git Worktrees
+
+All worktrees live in `.claude/worktrees/`. This directory is already gitignored (via `.claude/*`).
+
+**When to use a worktree:** Any feature branch, spike, or multi-step implementation plan that benefits from isolation — especially when you need to keep `main` clean for other work or run parallel implementations. Claude Code's `isolation: "worktree"` (Agent tool) also creates worktrees here automatically.
+
+**Creating a worktree:**
+
+```bash
+# Create worktree with a new branch
+git worktree add .claude/worktrees/<name> -b <branch-name>
+cd .claude/worktrees/<name>
+npm install          # node_modules is NOT shared between worktrees
+npm run build        # rebuild TS packages in the new worktree
+```
+
+**Running tests in a worktree:** Same commands as the main tree — `npm test`, `python3 -m pytest tests/ -v`, etc. Always verify a clean baseline before starting work.
+
+**Cleaning up when done:**
+
+```bash
+# From the main worktree
+git worktree remove .claude/worktrees/<name>
+# If the branch was merged, delete it too
+git branch -d <branch-name>
+```
+
+**Rules:**
+- Always use `.claude/worktrees/` — no other location. Already gitignored.
+- Run `npm install` after creating a worktree. Dependencies are per-worktree.
+- Verify tests pass in the worktree before starting work. Report failures before proceeding.
+- Do not leave stale worktrees around. Clean up after merging or abandoning a branch.
+
 ## Development Workflow — Red-Green-Refactor
 
 Every feature or bugfix follows this loop. Do NOT write implementation before a failing test exists.
