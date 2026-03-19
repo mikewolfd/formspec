@@ -8,6 +8,13 @@ export const renderToggle: AdapterRenderFn<ToggleBehavior> = (
 ) => {
     const fieldDOM = createFieldDOM(behavior, actx);
 
+    // Toggle/Checkbox special case: when labelPosition is 'top' (default),
+    // the original field-input.ts adds formspec-field--inline (lines 82-84).
+    const effectiveLP = behavior.presentation.labelPosition || 'top';
+    if (effectiveLP === 'top') {
+        fieldDOM.root.classList.add('formspec-field--inline');
+    }
+
     const toggleContainer = document.createElement('div');
     toggleContainer.className = 'formspec-toggle';
 

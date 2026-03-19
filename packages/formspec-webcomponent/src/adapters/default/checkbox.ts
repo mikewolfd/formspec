@@ -8,6 +8,13 @@ export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
 ) => {
     const fieldDOM = createFieldDOM(behavior, actx);
 
+    // Checkbox special case: when labelPosition is 'top' (default),
+    // the original field-input.ts adds formspec-field--inline (lines 82-84).
+    const effectiveLP = behavior.presentation.labelPosition || 'top';
+    if (effectiveLP === 'top') {
+        fieldDOM.root.classList.add('formspec-field--inline');
+    }
+
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'formspec-input';
