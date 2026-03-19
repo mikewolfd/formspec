@@ -5,7 +5,53 @@ date: 2026-03-19
 status: draft
 ---
 
-# Formspec References Specification
+# Formspec References Specification v1.0
+
+**Version:** 1.0.0-draft.1  
+**Date:** 2026-03-19  
+**Editors:** Formspec Working Group  
+**Companion to:** Formspec v1.0 — A JSON-Native Declarative Form Standard  
+
+---
+
+## Abstract
+
+The Formspec References Specification is a companion to Formspec v1.0 that
+defines a declarative mechanism for attaching external documentation, knowledge
+sources, and AI agent data stores to any level of a Formspec definition — the
+form itself, a group or section, or an individual field. A Reference is a JSON
+object that points to contextual information (regulatory guidance, help
+articles, vector store collections, tool schemas) and declares its intended
+audience (human, agent, or both). References are pure metadata: they MUST NOT
+affect data capture, validation, or the processing model.
+
+## Status of This Document
+
+This document is a **draft specification**. It is a companion to the Formspec
+v1.0 core specification and does not modify or extend the core processing model.
+Implementors are encouraged to experiment with this specification and provide
+feedback, but MUST NOT treat it as stable for production use until a 1.0.0
+release is published.
+
+## Conventions and Terminology
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in [BCP 14][rfc2119] [RFC 2119]
+[RFC 8174] when, and only when, they appear in ALL CAPITALS, as shown here.
+
+JSON syntax and data types are as defined in [RFC 8259]. URI syntax is as
+defined in [RFC 3986].
+
+Terms defined in the Formspec v1.0 core specification — including *Definition*,
+*Item*, *Bind*, *FEL*, and *conformant processor* — retain their
+core-specification meanings throughout this document unless explicitly redefined.
+
+[rfc2119]: https://www.rfc-editor.org/rfc/rfc2119
+
+---
+
+## Bottom Line Up Front
 
 <!-- bluf:start references-spec -->
 <!-- bluf:end -->
