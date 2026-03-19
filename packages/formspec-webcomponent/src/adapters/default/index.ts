@@ -13,6 +13,8 @@ import { renderSlider } from './slider';
 import { renderRating } from './rating';
 import { renderFileUpload } from './file-upload';
 import { renderSignature } from './signature';
+import { renderWizard } from './wizard';
+import { renderTabs } from './tabs';
 
 export const defaultAdapter: RenderAdapter = {
     name: 'default',
@@ -30,5 +32,7 @@ export const defaultAdapter: RenderAdapter = {
         Rating: renderRating,
         FileUpload: renderFileUpload,
         Signature: renderSignature,
+        Wizard: renderWizard,
+        Tabs: renderTabs,
     },
 };

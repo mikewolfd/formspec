@@ -21,3 +21,5 @@ export { useSlider } from './slider';
 export { useRating } from './rating';
 export { useFileUpload } from './file-upload';
 export { useSignature } from './signature';
+export { useWizard } from './wizard';
+export { useTabs } from './tabs';

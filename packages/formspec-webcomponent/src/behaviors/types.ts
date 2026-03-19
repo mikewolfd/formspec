@@ -163,6 +163,7 @@ export interface TabsRefs {
 
 export interface TabsBehavior {
     tabLabels: string[];
+    tabCount: number;
     position: 'top' | 'bottom';
     defaultTab: number;
     activeTab(): number;
