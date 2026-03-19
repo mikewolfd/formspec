@@ -305,6 +305,8 @@ mod tests {
     #[test]
     fn parent_path_deep() {
         assert_eq!(parent_path("a.b.c.d.e"), "a.b.c.d");
+
+    }    
     /// Spec: core/spec.md §5.3 (uses RFC 6901) — JSON Pointer treats segments as
     /// opaque strings. `01` is a valid key, not array index 1. Since
     /// `json_pointer_to_jsonpath` lives in schema_validator, we test normalization

@@ -580,6 +580,9 @@ mod tests {
         assert!(result.valid);
         assert!(result.references.contains("primary"));
         assert!(result.references.contains("fallback"));
+        
+    }
+
     /// Spec: fel/fel-grammar.md §4-5 — PostfixAccess on a function call result.
     /// `someFunc($x).name` parses as PostfixAccess { expr: FunctionCall, path: [Dot("name")] }.
     /// The analysis should collect `$x` as a reference but NOT collect `.name`

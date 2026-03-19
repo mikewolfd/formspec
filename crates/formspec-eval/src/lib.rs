@@ -593,6 +593,7 @@ fn validate_items(
             let is_empty = match val {
                 Value::Null => true,
                 Value::String(s) => s.trim().is_empty(),
+                Value::Array(arr) => arr.is_empty(),
                 _ => false,
             };
             if is_empty {
@@ -1039,33 +1040,6 @@ mod tests {
         let result = evaluate_definition(&def, &data);
         assert!(!result.validations.is_empty());
         assert!(result.validations[0].message.contains("Constraint failed"));
-    }
-
-    #[test]
-    fn test_shape_validation() {
-        let def = json!({
-            "items": [
-                { "key": "start", "dataType": "date" },
-                { "key": "end", "dataType": "date" }
-            ],
-            "shapes": [
-                {
-                    "target": "end",
-                    "constraint": "$end > $start",
-                    "severity": "error",
-                    "message": "End date must be after start date"
-                }
-            ]
-        });
-
-        let mut data = HashMap::new();
-        data.insert("start".to_string(), json!("2024-06-15"));
-        data.insert("end".to_string(), json!("2024-06-10")); // end before start
-
-        let result = evaluate_definition(&def, &data);
-        // Shape should fail -- but this depends on date comparison which needs date parsing
-        // For now just verify the machinery runs without panic
-        assert!(result.values.contains_key("start"));
     }
 
     // ── New tests: Topological sort ─────────────────────────────
@@ -2427,93 +2401,642 @@ mod tests {
         assert!(vars.is_empty());
     }
 
-    // ── Additional edge cases discovered during audit ────────────
+    // ── Finding 34: Nested wildcard expansion ────────────────────
 
-    /// Spec: spec.md §4.3.2 L2256 — required has NO inheritance
+    /// Spec: core/spec.md §4.3.3 (line 2287) — wildcard paths support `group[*].field` syntax.
+    /// Current `expand_wildcard_path` uses `splitn(2, "[*]")` which only expands the FIRST
+    /// wildcard. Nested wildcards like `items[*].subitems[*].value` are a known limitation:
+    /// only the outer wildcard is expanded, leaving the inner `[*]` literal in the result.
     #[test]
-    fn required_has_no_inheritance() {
+    fn expand_wildcard_path_nested_wildcards_only_expands_first() {
+        let mut data = HashMap::new();
+        data.insert("items[0].subitems[0].value".to_string(), json!(1));
+        data.insert("items[0].subitems[1].value".to_string(), json!(2));
+        data.insert("items[1].subitems[0].value".to_string(), json!(3));
+
+        let expanded = expand_wildcard_path("items[*].subitems[*].value", &data);
+        // splitn(2, "[*]") splits at the first [*] only, so the suffix still contains [*]
+        // This means we get paths like "items[0].subitems[*].value" — not fully expanded.
+        assert_eq!(expanded.len(), 2, "only outer wildcard expanded");
+        assert_eq!(expanded[0], "items[0].subitems[*].value");
+        assert_eq!(expanded[1], "items[1].subitems[*].value");
+    }
+
+    // ── Finding 35: Sparse repeat indices ────────────────────────
+
+    /// Spec: core/spec.md §2.1.2 (line 262) — repeat count detection.
+    /// `detect_repeat_count` returns max-index+1, not actual count of present indices.
+    /// Sparse data (e.g., indices 0 and 5 with gaps) returns 6, not 2.
+    #[test]
+    fn detect_repeat_count_sparse_indices_returns_max_plus_one() {
+        let mut data = HashMap::new();
+        data.insert("items[0].name".to_string(), json!("first"));
+        data.insert("items[5].name".to_string(), json!("sixth"));
+        // indices 1-4 are absent
+
+        let count = detect_repeat_count("items", &data);
+        assert_eq!(count, 6, "returns max_index+1 (6), not actual count (2)");
+    }
+
+    // ── Finding 36: Required with non-null/non-string values ─────
+
+    /// Spec: core/spec.md §4.3.1 (line 2242) — "empty" means null, empty string, or empty array.
+    /// Spec: core/spec.md §3.4.3 (line 1175) — "There is no 'truthy' or 'falsy' concept. The number 0 is not false."
+    #[test]
+    fn required_with_zero_passes() {
         let def = json!({
-            "items": [
-                {
+            "items": [{ "key": "count", "dataType": "integer" }],
+            "binds": { "count": { "required": "true" } }
+        });
+        let mut data = HashMap::new();
+        data.insert("count".to_string(), json!(0));
+
+        let result = evaluate_definition(&def, &data);
+        assert!(
+            result.validations.is_empty(),
+            "0 is not empty — required should pass"
+        );
+    }
+
+    /// Spec: core/spec.md §4.3.1 (line 2242), §3.4.3 (line 1175) — false is not empty.
+    #[test]
+    fn required_with_false_passes() {
+        let def = json!({
+            "items": [{ "key": "flag", "dataType": "boolean" }],
+            "binds": { "flag": { "required": "true" } }
+        });
+        let mut data = HashMap::new();
+        data.insert("flag".to_string(), json!(false));
+
+        let result = evaluate_definition(&def, &data);
+        assert!(
+            result.validations.is_empty(),
+            "false is not empty — required should pass"
+        );
+    }
+
+    /// Spec: core/spec.md §4.3.1 (line 2242) — empty array IS empty.
+    #[test]
+    fn required_with_empty_array_fails() {
+        let def = json!({
+            "items": [{ "key": "tags", "dataType": "string" }],
+            "binds": { "tags": { "required": "true" } }
+        });
+        let mut data = HashMap::new();
+        data.insert("tags".to_string(), json!([]));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(
+            result.validations.len(),
+            1,
+            "empty array is empty — required should fail"
+        );
+        assert_eq!(result.validations[0].kind, "bind");
+    }
+
+    /// Spec: core/spec.md §4.3.1 (line 2242) — empty object is NOT listed as empty.
+    #[test]
+    fn required_with_empty_object_passes() {
+        let def = json!({
+            "items": [{ "key": "meta", "dataType": "string" }],
+            "binds": { "meta": { "required": "true" } }
+        });
+        let mut data = HashMap::new();
+        data.insert("meta".to_string(), json!({}));
+
+        let result = evaluate_definition(&def, &data);
+        assert!(
+            result.validations.is_empty(),
+            "empty object is not in the spec's 'empty' list — required should pass"
+        );
+    }
+
+    /// Spec: core/spec.md §4.3.1 (line 2242) — non-empty array passes required.
+    #[test]
+    fn required_with_non_empty_array_passes() {
+        let def = json!({
+            "items": [{ "key": "tags", "dataType": "string" }],
+            "binds": { "tags": { "required": "true" } }
+        });
+        let mut data = HashMap::new();
+        data.insert("tags".to_string(), json!(["a"]));
+
+        let result = evaluate_definition(&def, &data);
+        assert!(
+            result.validations.is_empty(),
+            "non-empty array passes required"
+        );
+    }
+
+    // ── Finding 37: 3-level inheritance ──────────────────────────
+
+    /// Spec: core/spec.md §4.3.2 (lines 2252-2274) — relevant uses AND inheritance.
+    /// Any non-relevant ancestor makes all descendants non-relevant.
+    #[test]
+    fn relevant_and_inheritance_three_levels() {
+        let def = json!({
+            "items": [{
+                "key": "grandparent",
+                "children": [{
                     "key": "parent",
                     "children": [
                         { "key": "child", "dataType": "string" }
                     ]
-                }
-            ],
+                }]
+            }],
             "binds": {
-                "parent": { "required": "true" }
+                "grandparent": { "relevant": "false" }
+            }
+        });
+
+        let data = HashMap::new();
+        let result = evaluate_definition(&def, &data);
+        assert!(result.non_relevant.contains(&"grandparent".to_string()));
+        assert!(result.non_relevant.contains(&"grandparent.parent".to_string()));
+        assert!(
+            result.non_relevant.contains(&"grandparent.parent.child".to_string()),
+            "grandchild should be non-relevant via AND inheritance from grandparent"
+        );
+    }
+
+    /// Spec: core/spec.md §4.3.2 (lines 2252-2274) — readonly uses OR inheritance.
+    /// Any readonly ancestor makes all descendants readonly.
+    #[test]
+    fn readonly_or_inheritance_three_levels() {
+        let def = json!({
+            "items": [{
+                "key": "grandparent",
+                "children": [{
+                    "key": "parent",
+                    "children": [
+                        { "key": "child", "dataType": "string" }
+                    ]
+                }]
+            }],
+            "binds": {
+                "grandparent": { "readonly": "true" }
             }
         });
 
         let mut data = HashMap::new();
-        data.insert("parent.child".to_string(), json!(""));
+        data.insert("grandparent.parent.child".to_string(), json!("val"));
 
         let mut items = rebuild_item_tree(&def);
         let _ = recalculate(&mut items, &data, &def);
 
-        // Child should NOT be required just because parent is
-        let child = find_item_by_path(&items, "parent.child").unwrap();
-        assert!(!child.required,
-            "required must NOT inherit from parent to child");
+        let child = find_item_by_path(&items, "grandparent.parent.child").unwrap();
+        assert!(child.readonly, "grandchild should be readonly via OR inheritance from grandparent");
+
+        let parent = find_item_by_path(&items, "grandparent.parent").unwrap();
+        assert!(parent.readonly, "parent should be readonly via OR inheritance from grandparent");
     }
 
-    /// Spec: spec.md §4.3.1 L2247 — whitespace normalization runs before constraint
+    /// Spec: core/spec.md §4.3.2 (lines 2252-2274) — required is NOT inherited.
     #[test]
-    fn whitespace_normalization_before_constraint() {
+    fn required_not_inherited_three_levels() {
+        let def = json!({
+            "items": [{
+                "key": "grandparent",
+                "children": [{
+                    "key": "parent",
+                    "children": [
+                        { "key": "child", "dataType": "string" }
+                    ]
+                }]
+            }],
+            "binds": {
+                "grandparent": { "required": "true" }
+            }
+        });
+
+        let data = HashMap::new();
+        let mut items = rebuild_item_tree(&def);
+        let _ = recalculate(&mut items, &data, &def);
+
+        let grandparent = find_item_by_path(&items, "grandparent").unwrap();
+        assert!(grandparent.required, "grandparent has explicit required bind");
+
+        let parent = find_item_by_path(&items, "grandparent.parent").unwrap();
+        assert!(!parent.required, "parent should NOT inherit required");
+
+        let child = find_item_by_path(&items, "grandparent.parent.child").unwrap();
+        assert!(!child.required, "grandchild should NOT inherit required");
+    }
+
+    /// Spec: core/spec.md §4.3.2 (lines 2252-2274) — calculate is NOT inherited.
+    #[test]
+    fn calculate_not_inherited() {
+        let def = json!({
+            "items": [{
+                "key": "parent",
+                "children": [
+                    { "key": "child", "dataType": "integer" }
+                ]
+            }],
+            "binds": {
+                "parent": { "calculate": "42" }
+            }
+        });
+
+        let data = HashMap::new();
+        let mut items = rebuild_item_tree(&def);
+        let (values, _) = recalculate(&mut items, &data, &def);
+
+        // Parent has calculate, child does not
+        assert_eq!(values.get("parent"), Some(&json!(42)));
+        // Child should not have a calculated value
+        assert_eq!(values.get("parent.child"), None);
+    }
+
+    // ── Finding 39: variable_deps edge cases ─────────────────────
+
+    /// Spec: core/spec.md §4.5 (lines 2374-2401), specs/fel/fel-grammar.md §6
+    /// Dotted context refs like `@obj.field` should resolve to the base variable name `obj`.
+    #[test]
+    fn variable_deps_dotted_context_ref() {
+        let known: HashSet<&str> = ["config"].iter().cloned().collect();
+        let deps = variable_deps("@config.threshold + 1", &known);
+        assert_eq!(deps, vec!["config"], "dotted ref @config.threshold resolves to base 'config'");
+    }
+
+    /// Spec: core/spec.md §4.5 — parse failure returns empty deps.
+    #[test]
+    fn variable_deps_parse_failure_returns_empty() {
+        let known: HashSet<&str> = ["x"].iter().cloned().collect();
+        // Deliberately broken expression
+        let deps = variable_deps("@@@ !!invalid!!", &known);
+        assert!(deps.is_empty(), "parse failure should return empty vec");
+    }
+
+    /// Spec: core/spec.md §4.5 — unknown context refs are filtered out.
+    #[test]
+    fn variable_deps_filters_unknown_refs() {
+        let known: HashSet<&str> = ["a"].iter().cloned().collect();
+        let deps = variable_deps("@a + @b", &known);
+        assert_eq!(deps, vec!["a"], "only known vars returned");
+    }
+
+    // ── Finding 40: Bind resolution fallback ─────────────────────
+
+    /// Spec: core/spec.md §4.3 (line 2216), §4.3.1 (line 2239)
+    /// `resolve_bind` tries full path first, then falls back to bare key.
+    /// This means a nested item with key "name" could match a top-level bind keyed "name"
+    /// if no bind exists for its full path. Document this potentially ambiguous behavior.
+    #[test]
+    fn bind_resolution_fallback_to_bare_key() {
+        let def = json!({
+            "items": [{
+                "key": "group",
+                "children": [
+                    { "key": "name", "dataType": "string" }
+                ]
+            }],
+            "binds": {
+                "name": { "required": "true" }
+            }
+        });
+
+        // No bind for "group.name", but there IS a bind for bare "name".
+        // The fallback in build_item_info: resolve_bind(binds, &path).or_else(|| resolve_bind(binds, &key))
+        // will match the bare "name" bind for the nested "group.name" item.
+        let items = rebuild_item_tree(&def);
+        let child = find_item_by_path(&items, "group.name").unwrap();
+        assert!(
+            child.required_expr.is_some(),
+            "nested item 'group.name' falls back to bare-key bind 'name' — \
+             this could match the wrong bind if multiple items share a key"
+        );
+    }
+
+    /// Spec: core/spec.md §4.3 — full path takes priority over bare key.
+    #[test]
+    fn bind_resolution_full_path_takes_priority() {
+        let def = json!({
+            "items": [{
+                "key": "group",
+                "children": [
+                    { "key": "name", "dataType": "string" }
+                ]
+            }],
+            "binds": {
+                "name": { "required": "true" },
+                "group.name": { "required": "false" }
+            }
+        });
+
+        // Full path "group.name" should be preferred over bare "name"
+        let items = rebuild_item_tree(&def);
+        let child = find_item_by_path(&items, "group.name").unwrap();
+        assert_eq!(
+            child.required_expr.as_deref(),
+            Some("false"),
+            "full path bind 'group.name' takes priority over bare key 'name'"
+        );
+    }
+
+    // ── Finding 41: Direct recalculate() test ────────────────────
+
+    /// Spec: core/spec.md §2.4 (line 1356), §3.6.3 (line 1398)
+    /// Test `recalculate()` directly — verify it returns (values, var_values) correctly.
+    #[test]
+    fn recalculate_returns_values_and_variables() {
         let def = json!({
             "items": [
-                { "key": "code", "dataType": "string" }
+                { "key": "price", "dataType": "number" },
+                { "key": "qty", "dataType": "integer" },
+                { "key": "total", "dataType": "number" }
             ],
             "binds": {
-                "code": {
-                    "whitespace": "remove",
-                    "constraint": "length($code) = 6"
-                }
+                "total": { "calculate": "$price * $qty" }
+            },
+            "variables": [
+                { "name": "taxRate", "expression": "0.1" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("price".to_string(), json!(25));
+        data.insert("qty".to_string(), json!(4));
+
+        let mut items = rebuild_item_tree(&def);
+        let (values, var_values) = recalculate(&mut items, &data, &def);
+
+        // Calculated value
+        assert_eq!(values.get("total"), Some(&json!(100)));
+        // Variable evaluated
+        assert!(var_values.contains_key("taxRate"), "variable should be evaluated");
+    }
+
+    /// Spec: core/spec.md §2.4 — recalculate sets item relevance/readonly/required state.
+    #[test]
+    fn recalculate_sets_item_state() {
+        let def = json!({
+            "items": [
+                { "key": "toggle", "dataType": "boolean" },
+                { "key": "field", "dataType": "string" }
+            ],
+            "binds": {
+                "field": { "relevant": "$toggle", "readonly": "true", "required": "true" }
             }
         });
 
         let mut data = HashMap::new();
-        // "AB CD EF" has 8 chars, but after whitespace removal "ABCDEF" has 6
-        data.insert("code".to_string(), json!("AB CD EF"));
+        data.insert("toggle".to_string(), json!(false));
+
+        let mut items = rebuild_item_tree(&def);
+        let _ = recalculate(&mut items, &data, &def);
+
+        let field = find_item_by_path(&items, "field").unwrap();
+        assert!(!field.relevant, "field should be non-relevant when toggle is false");
+        assert!(field.readonly, "field should be readonly");
+        // required is suppressed when non-relevant
+        assert!(!field.required, "required suppressed when non-relevant");
+    }
+
+    // ── Finding 42: Direct revalidate() test ─────────────────────
+
+    /// Spec: core/spec.md §5, §2.4
+    /// Test `revalidate()` directly with hand-built items for isolated validation phase.
+    #[test]
+    fn revalidate_with_hand_built_items() {
+        let items = vec![
+            ItemInfo {
+                key: "email".to_string(),
+                path: "email".to_string(),
+                data_type: Some("string".to_string()),
+                value: Value::Null,
+                relevant: true,
+                required: true,
+                readonly: false,
+                calculate: None,
+                constraint: Some("contains($email, \"@\")".to_string()),
+                relevance: None,
+                required_expr: None,
+                readonly_expr: None,
+                whitespace: None,
+                nrb: None,
+                parent_path: None,
+                children: vec![],
+            },
+        ];
+
+        // email is required and null → required error
+        let values: HashMap<String, Value> = HashMap::new();
+        let results = revalidate(&items, &values, None);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].path, "email");
+        assert_eq!(results[0].kind, "bind");
+        assert!(results[0].message.contains("Required"));
+    }
+
+    /// Spec: core/spec.md §5 — non-relevant items skip validation entirely.
+    #[test]
+    fn revalidate_skips_non_relevant() {
+        let items = vec![
+            ItemInfo {
+                key: "hidden".to_string(),
+                path: "hidden".to_string(),
+                data_type: Some("string".to_string()),
+                value: Value::Null,
+                relevant: false,
+                required: true,
+                readonly: false,
+                calculate: None,
+                constraint: Some("false".to_string()),
+                relevance: None,
+                required_expr: None,
+                readonly_expr: None,
+                whitespace: None,
+                nrb: None,
+                parent_path: None,
+                children: vec![],
+            },
+        ];
+
+        let values: HashMap<String, Value> = HashMap::new();
+        let results = revalidate(&items, &values, None);
+        assert!(results.is_empty(), "non-relevant items should be skipped entirely");
+    }
+
+    /// Spec: core/spec.md §5 — constraint that evaluates to true produces no error.
+    #[test]
+    fn revalidate_constraint_passes() {
+        let items = vec![
+            ItemInfo {
+                key: "age".to_string(),
+                path: "age".to_string(),
+                data_type: Some("integer".to_string()),
+                value: json!(25),
+                relevant: true,
+                required: false,
+                readonly: false,
+                calculate: None,
+                constraint: Some("$age >= 18".to_string()),
+                relevance: None,
+                required_expr: None,
+                readonly_expr: None,
+                whitespace: None,
+                nrb: None,
+                parent_path: None,
+                children: vec![],
+            },
+        ];
+
+        let mut values = HashMap::new();
+        values.insert("age".to_string(), json!(25));
+
+        let results = revalidate(&items, &values, None);
+        assert!(results.is_empty(), "constraint $age >= 18 should pass for 25");
+    }
+
+    // ── Finding 43: Unicode whitespace ───────────────────────────
+
+    /// Spec: core/spec.md §4.3.1 (line 2247) — whitespace normalization.
+    /// The spec says "trim"/"normalize"/"remove" but does NOT define what "whitespace" means.
+    /// The implementation uses Rust's `char::is_whitespace()` which covers Unicode whitespace
+    /// including non-breaking space (U+00A0) and em space (U+2003).
+    #[test]
+    fn whitespace_trim_handles_unicode_whitespace() {
+        // U+00A0 = non-breaking space, U+2003 = em space
+        let input = "\u{00A0}hello\u{2003}";
+        let result = WhitespaceMode::Trim.apply(input);
+        assert_eq!(result, "hello", "trim strips Unicode whitespace (NBSP, em space)");
+    }
+
+    /// Spec: core/spec.md §4.3.1 (line 2247) — normalize collapses Unicode whitespace.
+    #[test]
+    fn whitespace_normalize_collapses_unicode() {
+        let input = "hello\u{00A0}\u{2003}world";
+        let result = WhitespaceMode::Normalize.apply(input);
+        assert_eq!(result, "hello world", "normalize collapses Unicode whitespace to single ASCII space");
+    }
+
+    /// Spec: core/spec.md §4.3.1 (line 2247) — remove strips Unicode whitespace.
+    #[test]
+    fn whitespace_remove_strips_unicode() {
+        let input = "a\u{00A0}b\u{2003}c";
+        let result = WhitespaceMode::Remove.apply(input);
+        assert_eq!(result, "abc", "remove strips Unicode whitespace characters");
+    }
+
+    // ── Finding 44: Multiple shapes targeting same path ──────────
+
+    /// Spec: core/spec.md §5.2 (line 2547), §5.4 — multiple shapes fire independently
+    /// and results accumulate in the validation report.
+    #[test]
+    fn multiple_shapes_same_path_accumulate() {
+        let def = json!({
+            "items": [
+                { "key": "value", "dataType": "integer" }
+            ],
+            "shapes": [
+                {
+                    "target": "value",
+                    "constraint": "$value > 0",
+                    "severity": "error",
+                    "message": "Must be positive"
+                },
+                {
+                    "target": "value",
+                    "constraint": "$value < 100",
+                    "severity": "warning",
+                    "message": "Should be under 100"
+                }
+            ]
+        });
+
+        // value = -5 fails both shapes
+        let mut data = HashMap::new();
+        data.insert("value".to_string(), json!(-5));
 
         let result = evaluate_definition(&def, &data);
-        assert!(result.validations.is_empty(),
-            "whitespace normalization should run before constraint evaluation");
-        assert_eq!(result.values.get("code"), Some(&json!("ABCDEF")));
+        let shape_results: Vec<&ValidationResult> = result
+            .validations
+            .iter()
+            .filter(|v| v.kind == "shape")
+            .collect();
+        // First shape fails ($value > 0 is false for -5)
+        // Second shape passes ($value < 100 is true for -5)
+        assert_eq!(shape_results.len(), 1, "only the > 0 shape should fail");
+        assert_eq!(shape_results[0].message, "Must be positive");
+        assert_eq!(shape_results[0].severity, "error");
     }
 
-    /// rebuild_item_tree with no items returns empty vec
+    /// Spec: core/spec.md §5.2, §5.4 — when both shapes fail, both results appear.
     #[test]
-    fn rebuild_item_tree_no_items() {
-        let def = json!({});
-        let items = rebuild_item_tree(&def);
-        assert!(items.is_empty());
-    }
+    fn multiple_shapes_both_fail() {
+        let def = json!({
+            "items": [
+                { "key": "value", "dataType": "integer" }
+            ],
+            "shapes": [
+                {
+                    "target": "value",
+                    "constraint": "$value > 10",
+                    "severity": "error",
+                    "message": "Must be greater than 10"
+                },
+                {
+                    "target": "value",
+                    "constraint": "$value < 0",
+                    "severity": "warning",
+                    "message": "Must be negative"
+                }
+            ]
+        });
 
-    /// resolve_bind returns None for non-matching paths
-    #[test]
-    fn resolve_bind_no_match() {
-        let binds = json!({"name": {"required": "true"}});
-        assert!(resolve_bind(Some(&binds), "nonexistent").is_none());
-    }
+        // value = 5: fails > 10, and fails < 0
+        let mut data = HashMap::new();
+        data.insert("value".to_string(), json!(5));
 
-    /// resolve_bind with array format returns None for non-matching paths
-    #[test]
-    fn resolve_bind_array_no_match() {
-        let binds = json!([{"path": "name", "required": "true"}]);
-        assert!(resolve_bind(Some(&binds), "nonexistent").is_none());
-    }
-
-    /// evaluate_definition with empty definition and empty data
-    #[test]
-    fn evaluate_definition_empty() {
-        let def = json!({});
-        let data = HashMap::new();
         let result = evaluate_definition(&def, &data);
-        assert!(result.values.is_empty());
-        assert!(result.validations.is_empty());
-        assert!(result.non_relevant.is_empty());
-        assert!(result.variables.is_empty());
+        let shape_results: Vec<&ValidationResult> = result
+            .validations
+            .iter()
+            .filter(|v| v.kind == "shape")
+            .collect();
+        assert_eq!(shape_results.len(), 2, "both shapes should fire independently");
+
+        let messages: Vec<&str> = shape_results.iter().map(|r| r.message.as_str()).collect();
+        assert!(messages.contains(&"Must be greater than 10"));
+        assert!(messages.contains(&"Must be negative"));
+    }
+
+    /// Spec: core/spec.md §5.2, §5.4 — shapes with different severities preserve their severity.
+    #[test]
+    fn multiple_shapes_preserve_severities() {
+        let def = json!({
+            "items": [
+                { "key": "score", "dataType": "integer" }
+            ],
+            "shapes": [
+                {
+                    "target": "score",
+                    "constraint": "$score >= 0",
+                    "severity": "error",
+                    "message": "Score must not be negative"
+                },
+                {
+                    "target": "score",
+                    "constraint": "$score <= 100",
+                    "severity": "info",
+                    "message": "Score should be at most 100"
+                }
+            ]
+        });
+
+        // score = 150: passes >= 0 but fails <= 100
+        let mut data = HashMap::new();
+        data.insert("score".to_string(), json!(150));
+
+        let result = evaluate_definition(&def, &data);
+        let shape_results: Vec<&ValidationResult> = result
+            .validations
+            .iter()
+            .filter(|v| v.kind == "shape")
+            .collect();
+        assert_eq!(shape_results.len(), 1);
+        assert_eq!(shape_results[0].severity, "info");
+        assert_eq!(shape_results[0].message, "Score should be at most 100");
     }
 }

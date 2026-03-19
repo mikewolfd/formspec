@@ -139,7 +139,8 @@ pub fn validate_document(
             document_type: None,
             errors: vec![SchemaValidationError {
                 path: "$".to_string(),
-                message: "Cannot determine document type: no recognized marker field found".to_string(),
+                message: "Cannot determine document type: no recognized marker field found"
+                    .to_string(),
             }],
         },
         Some(dt) => {
@@ -221,7 +222,10 @@ mod tests {
             "counts": { "error": 0, "warning": 0, "info": 0 },
             "timestamp": "2025-01-01T00:00:00Z"
         });
-        assert_eq!(detect_document_type(&doc), Some(DocumentType::ValidationReport));
+        assert_eq!(
+            detect_document_type(&doc),
+            Some(DocumentType::ValidationReport)
+        );
     }
 
     #[test]
@@ -253,7 +257,10 @@ mod tests {
     fn test_json_pointer_to_jsonpath() {
         assert_eq!(json_pointer_to_jsonpath(""), "$");
         assert_eq!(json_pointer_to_jsonpath("/items/0/key"), "$.items[0].key");
-        assert_eq!(json_pointer_to_jsonpath("/items/0/children/1"), "$.items[0].children[1]");
+        assert_eq!(
+            json_pointer_to_jsonpath("/items/0/children/1"),
+            "$.items[0].children[1]"
+        );
         assert_eq!(json_pointer_to_jsonpath("/title"), "$.title");
     }
 
@@ -270,7 +277,9 @@ mod tests {
         let result = validate_document(&doc, &NoopValidator);
         assert!(result.document_type.is_none());
         assert_eq!(result.errors.len(), 1);
-        assert!(result.errors[0].message.contains("Cannot determine document type"));
+        assert!(result.errors[0]
+            .message
+            .contains("Cannot determine document type"));
     }
 
     #[test]
@@ -366,7 +375,10 @@ mod tests {
         // Only tree — not enough
         assert_eq!(detect_document_type(&json!({ "tree": {} })), None);
         // Only componentType — not enough
-        assert_eq!(detect_document_type(&json!({ "componentType": "Stack" })), None);
+        assert_eq!(
+            detect_document_type(&json!({ "componentType": "Stack" })),
+            None
+        );
         // Both — detected
         assert_eq!(
             detect_document_type(&json!({ "tree": {}, "componentType": "Stack" })),
@@ -384,9 +396,13 @@ mod tests {
         assert_eq!(DocumentType::Mapping.schema_key(), "mapping");
         assert_eq!(DocumentType::Component.schema_key(), "component");
         assert_eq!(DocumentType::Response.schema_key(), "response");
-        assert_eq!(DocumentType::ValidationReport.schema_key(), "validationReport");
+        assert_eq!(
+            DocumentType::ValidationReport.schema_key(),
+            "validationReport"
+        );
         assert_eq!(DocumentType::Registry.schema_key(), "registry");
         assert_eq!(DocumentType::Changelog.schema_key(), "changelog");
+    }
     /// Spec: schemas/definition.schema.json — validate_document with a mock
     /// validator that returns actual SchemaValidationError instances, verifying
     /// that detected type is passed through and errors are propagated.

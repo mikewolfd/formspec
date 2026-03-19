@@ -39,10 +39,16 @@ fn item_added_is_compatible() {
     }));
 
     let cl = generate_changelog(&old, &new, URL);
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Added)
         .collect();
-    assert_eq!(item_changes.len(), 1, "expected exactly one item-added change");
+    assert_eq!(
+        item_changes.len(),
+        1,
+        "expected exactly one item-added change"
+    );
     assert_eq!(item_changes[0].impact, ChangeImpact::Compatible);
     assert_eq!(item_changes[0].key.as_deref(), Some("phone"));
     assert_eq!(item_changes[0].path, "items.phone");
@@ -57,7 +63,9 @@ fn item_removed_is_breaking() {
     items.retain(|i| i["key"] != "email");
 
     let cl = generate_changelog(&old, &new, URL);
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Removed)
         .collect();
     assert_eq!(item_changes.len(), 1);
@@ -73,7 +81,9 @@ fn item_datatype_change_is_breaking() {
     new["items"][0]["dataType"] = json!("integer");
 
     let cl = generate_changelog(&old, &new, URL);
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(item_changes.len(), 1);
@@ -89,7 +99,9 @@ fn item_label_change_is_cosmetic() {
     new["items"][0]["label"] = json!("Full Name");
 
     let cl = generate_changelog(&old, &new, URL);
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(item_changes.len(), 1);
@@ -104,7 +116,9 @@ fn bind_added_with_required_is_breaking() {
     new["binds"]["email"] = json!({ "required": "true" });
 
     let cl = generate_changelog(&old, &new, URL);
-    let bind_changes: Vec<_> = cl.changes.iter()
+    let bind_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(bind_changes.len(), 1);
@@ -120,7 +134,9 @@ fn bind_removed_is_breaking() {
     new["binds"].as_object_mut().unwrap().remove("name");
 
     let cl = generate_changelog(&old, &new, URL);
-    let bind_changes: Vec<_> = cl.changes.iter()
+    let bind_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Removed)
         .collect();
     assert_eq!(bind_changes.len(), 1);
@@ -136,7 +152,9 @@ fn bind_gaining_required_is_breaking() {
     new["binds"]["name"] = json!({ "constraint": "string-length(.) > 0", "required": "true" });
 
     let cl = generate_changelog(&old, &new, URL);
-    let bind_changes: Vec<_> = cl.changes.iter()
+    let bind_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(bind_changes.len(), 1);
@@ -151,7 +169,9 @@ fn bind_losing_required_is_compatible() {
     new["binds"]["name"] = json!({ "constraint": "string-length(.) > 0" });
 
     let cl = generate_changelog(&old, &new, URL);
-    let bind_changes: Vec<_> = cl.changes.iter()
+    let bind_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(bind_changes.len(), 1);
@@ -168,7 +188,9 @@ fn shape_added_is_compatible() {
     }));
 
     let cl = generate_changelog(&old, &new, URL);
-    let shape_changes: Vec<_> = cl.changes.iter()
+    let shape_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Shape && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(shape_changes.len(), 1);
@@ -183,7 +205,9 @@ fn shape_removed_is_compatible() {
     new["shapes"] = json!([]);
 
     let cl = generate_changelog(&old, &new, URL);
-    let shape_changes: Vec<_> = cl.changes.iter()
+    let shape_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Shape && c.change_type == ChangeType::Removed)
         .collect();
     assert_eq!(shape_changes.len(), 1);
@@ -198,7 +222,9 @@ fn metadata_change_is_cosmetic() {
     new["title"] = json!("Updated Form Title");
 
     let cl = generate_changelog(&old, &new, URL);
-    let meta_changes: Vec<_> = cl.changes.iter()
+    let meta_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Metadata)
         .collect();
     assert_eq!(meta_changes.len(), 1);
@@ -270,12 +296,16 @@ fn change_path_format() {
 
     let cl = generate_changelog(&old, &new, URL);
 
-    let item_change = cl.changes.iter()
+    let item_change = cl
+        .changes
+        .iter()
         .find(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Added)
         .expect("should have item added");
     assert_eq!(item_change.path, "items.phone");
 
-    let bind_change = cl.changes.iter()
+    let bind_change = cl
+        .changes
+        .iter()
         .find(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .expect("should have bind added");
     assert_eq!(bind_change.path, "email");
@@ -289,7 +319,9 @@ fn option_set_removed_is_breaking() {
     new["optionSets"].as_object_mut().unwrap().remove("colors");
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::OptionSet && c.change_type == ChangeType::Removed)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -303,7 +335,9 @@ fn data_source_added_is_compatible() {
     new["dataSources"]["api2"] = json!({ "url": "https://example.org/api2" });
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::DataSource && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -317,7 +351,9 @@ fn screener_add_is_compatible() {
     new["screener"] = json!({ "routes": [{ "condition": "true" }] });
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Screener)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -332,7 +368,9 @@ fn screener_remove_is_breaking() {
     let new = base_def();
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Screener)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -361,7 +399,9 @@ fn bind_added_without_required_is_compatible() {
     new["binds"]["email"] = json!({ "calculate": "$name" });
 
     let cl = generate_changelog(&old, &new, URL);
-    let bind_changes: Vec<_> = cl.changes.iter()
+    let bind_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(bind_changes.len(), 1);
@@ -375,7 +415,9 @@ fn item_type_change_is_breaking() {
     new["items"][0]["type"] = json!("group");
 
     let cl = generate_changelog(&old, &new, URL);
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(item_changes.len(), 1);
@@ -391,7 +433,9 @@ fn option_set_modified_is_compatible() {
     });
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::OptionSet && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -405,7 +449,9 @@ fn data_source_removed_is_breaking() {
     new["dataSources"].as_object_mut().unwrap().remove("api");
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::DataSource && c.change_type == ChangeType::Removed)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -419,7 +465,9 @@ fn shape_modified_is_cosmetic() {
     new["shapes"][0]["message"] = json!("Please enter a valid email");
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Shape && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -433,7 +481,9 @@ fn migration_added_is_compatible() {
     new["migrations"] = json!([{ "from": "1.0.0", "to": "2.0.0" }]);
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Migration)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -449,7 +499,9 @@ fn migration_modified_is_cosmetic() {
     new["migrations"] = json!([{ "from": "1.0.0", "to": "2.0.0", "note": "updated" }]);
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Migration)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -485,7 +537,9 @@ fn item_removed_has_before_snapshot() {
     items.retain(|i| i["key"] != "email");
 
     let cl = generate_changelog(&old, &new, URL);
-    let removed = cl.changes.iter()
+    let removed = cl
+        .changes
+        .iter()
         .find(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Removed)
         .expect("should have removal");
     assert!(removed.before.is_some());
@@ -502,7 +556,9 @@ fn item_added_has_after_snapshot() {
     }));
 
     let cl = generate_changelog(&old, &new, URL);
-    let added = cl.changes.iter()
+    let added = cl
+        .changes
+        .iter()
         .find(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Added)
         .expect("should have addition");
     assert!(added.before.is_none());
@@ -517,7 +573,9 @@ fn screener_modified_is_compatible() {
     new["screener"] = json!({ "routes": [{ "condition": "false" }] });
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Screener)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -532,7 +590,9 @@ fn bind_constraint_change_is_compatible() {
     new["binds"]["name"] = json!({ "required": "true", "constraint": "string-length(.) > 3" });
 
     let cl = generate_changelog(&old, &new, URL);
-    let bind_changes: Vec<_> = cl.changes.iter()
+    let bind_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(bind_changes.len(), 1);
@@ -548,7 +608,9 @@ fn shape_path_format() {
     }));
 
     let cl = generate_changelog(&old, &new, URL);
-    let added = cl.changes.iter()
+    let added = cl
+        .changes
+        .iter()
         .find(|c| c.target == ChangeTarget::Shape && c.change_type == ChangeType::Added)
         .expect("should have shape added");
     assert_eq!(added.path, "shapes.budgetCheck");
@@ -561,7 +623,9 @@ fn option_set_path_format() {
     new["optionSets"]["states"] = json!({ "options": [{ "value": "CA" }] });
 
     let cl = generate_changelog(&old, &new, URL);
-    let added = cl.changes.iter()
+    let added = cl
+        .changes
+        .iter()
         .find(|c| c.target == ChangeTarget::OptionSet && c.change_type == ChangeType::Added)
         .expect("should have optionSet added");
     assert_eq!(added.path, "optionSets.states");
@@ -589,10 +653,16 @@ fn items_without_keys_are_silently_skipped() {
     // Should not panic — keyless items are silently skipped
     let cl = generate_changelog(&old, &new, URL);
     // Only keyed items are diffed — the keyless item change is invisible
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item)
         .collect();
-    assert!(item_changes.is_empty(), "keyless items should be skipped, got: {}", item_changes.len());
+    assert!(
+        item_changes.is_empty(),
+        "keyless items should be skipped, got: {}",
+        item_changes.len()
+    );
 }
 
 /// Spec: changelog-spec.md §4 — "classify_item_modification with non-object returns Compatible"
@@ -610,7 +680,9 @@ fn classify_non_object_item_modification() {
     // Modify a non-breaking key
     new["items"][0]["hint"] = json!("enter value");
     let cl = generate_changelog(&old, &new, URL);
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(item_changes.len(), 1);
@@ -632,7 +704,9 @@ fn bind_has_required_boolean_false() {
         }
     });
     let cl = generate_changelog(&old, &new, URL);
-    let bind_adds: Vec<_> = cl.changes.iter()
+    let bind_adds: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(bind_adds.len(), 1);
@@ -649,12 +723,17 @@ fn bind_has_required_string_false() {
         "binds": { "field": { "required": "false" } }
     });
     let cl = generate_changelog(&old, &new, URL);
-    let bind_adds: Vec<_> = cl.changes.iter()
+    let bind_adds: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(bind_adds.len(), 1);
-    assert_eq!(bind_adds[0].impact, ChangeImpact::Compatible,
-        "required='false' should be treated as non-required");
+    assert_eq!(
+        bind_adds[0].impact,
+        ChangeImpact::Compatible,
+        "required='false' should be treated as non-required"
+    );
 }
 
 /// "false()" is NOT valid FEL (false is the keyword, not false()).
@@ -667,12 +746,17 @@ fn bind_has_required_string_false_fn_is_breaking() {
         "binds": { "field": { "required": "false()" } }
     });
     let cl = generate_changelog(&old, &new, URL);
-    let bind_adds: Vec<_> = cl.changes.iter()
+    let bind_adds: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(bind_adds.len(), 1);
-    assert_eq!(bind_adds[0].impact, ChangeImpact::Breaking,
-        "required='false()' is not valid FEL — treated as truthy required expression");
+    assert_eq!(
+        bind_adds[0].impact,
+        ChangeImpact::Breaking,
+        "required='false()' is not valid FEL — treated as truthy required expression"
+    );
 }
 
 /// Spec: changelog-spec.md §5 — "bind_has_required: empty string returns false"
@@ -684,12 +768,17 @@ fn bind_has_required_empty_string() {
         "binds": { "field": { "required": "" } }
     });
     let cl = generate_changelog(&old, &new, URL);
-    let bind_adds: Vec<_> = cl.changes.iter()
+    let bind_adds: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(bind_adds.len(), 1);
-    assert_eq!(bind_adds[0].impact, ChangeImpact::Compatible,
-        "required='' should be treated as non-required");
+    assert_eq!(
+        bind_adds[0].impact,
+        ChangeImpact::Compatible,
+        "required='' should be treated as non-required"
+    );
 }
 
 /// Spec: changelog-spec.md §5 — "bind_has_required: boolean true returns true (Breaking)"
@@ -701,12 +790,17 @@ fn bind_has_required_boolean_true() {
         "binds": { "field": { "required": true } }
     });
     let cl = generate_changelog(&old, &new, URL);
-    let bind_adds: Vec<_> = cl.changes.iter()
+    let bind_adds: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
         .collect();
     assert_eq!(bind_adds.len(), 1);
-    assert_eq!(bind_adds[0].impact, ChangeImpact::Breaking,
-        "required=true should be Breaking");
+    assert_eq!(
+        bind_adds[0].impact,
+        ChangeImpact::Breaking,
+        "required=true should be Breaking"
+    );
 }
 
 /// Spec: changelog-spec.md §3 — "Migration removed is Compatible"
@@ -717,7 +811,9 @@ fn migration_removed_is_compatible() {
     let new = base_def();
 
     let cl = generate_changelog(&old, &new, URL);
-    let changes: Vec<_> = cl.changes.iter()
+    let changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Migration && c.change_type == ChangeType::Removed)
         .collect();
     assert_eq!(changes.len(), 1);
@@ -732,12 +828,16 @@ fn description_metadata_change() {
     new["description"] = json!("A test form for demonstration");
 
     let cl = generate_changelog(&old, &new, URL);
-    let meta: Vec<_> = cl.changes.iter()
+    let meta: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Metadata && c.path == "description")
         .collect();
     assert_eq!(meta.len(), 1);
     assert_eq!(meta[0].change_type, ChangeType::Added);
     assert_eq!(meta[0].impact, ChangeImpact::Cosmetic);
+}
+
 /// Spec: registry/changelog-spec.md §5 (Generation Algorithm, steps 3-7) —
 /// Diff behavior with nested/child item modifications inside a group.
 /// The changelog diff indexes items by their top-level `key` field.
@@ -771,7 +871,9 @@ fn nested_child_modification_detected_as_parent_change() {
 
     // The diff should detect a modification on the parent "address" item,
     // because items are indexed by top-level key and compared by value equality.
-    let item_changes: Vec<_> = cl.changes.iter()
+    let item_changes: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(item_changes.len(), 1, "should detect one modified item");
@@ -804,20 +906,30 @@ fn nested_child_added_shows_as_parent_modification() {
     });
 
     let mut new = old.clone();
-    new["items"][0]["children"].as_array_mut().unwrap().push(json!({
-        "key": "city", "type": "field", "dataType": "string"
-    }));
+    new["items"][0]["children"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "key": "city", "type": "field", "dataType": "string"
+        }));
 
     let cl = generate_changelog(&old, &new, URL);
 
     // No independent item-added for "city" — it's inside the parent
-    let added: Vec<_> = cl.changes.iter()
+    let added: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Added)
         .collect();
-    assert!(added.is_empty(), "child add should not produce independent item-added");
+    assert!(
+        added.is_empty(),
+        "child add should not produce independent item-added"
+    );
 
     // Instead, "address" shows as modified
-    let modified: Vec<_> = cl.changes.iter()
+    let modified: Vec<_> = cl
+        .changes
+        .iter()
         .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Modified)
         .collect();
     assert_eq!(modified.len(), 1);
