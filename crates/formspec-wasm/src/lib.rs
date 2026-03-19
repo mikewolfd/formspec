@@ -509,30 +509,40 @@ fn lint_result_to_json(result: &formspec_lint::LintResult) -> Value {
 }
 
 fn parse_mapping_rules(val: &Value) -> Result<Vec<formspec_core::MappingRule>, JsError> {
-    let arr = val.as_array().ok_or_else(|| JsError::new("rules must be an array"))?;
+    parse_mapping_rules_inner(val).map_err(|e| JsError::new(&e))
+}
+
+/// Core mapping-rule parser returning `Result<_, String>` for testability without FFI.
+fn parse_mapping_rules_inner(val: &Value) -> Result<Vec<formspec_core::MappingRule>, String> {
+    let arr = val.as_array().ok_or_else(|| "rules must be an array".to_string())?;
     let mut rules = Vec::new();
-    for rule_val in arr {
-        let obj = rule_val.as_object().ok_or_else(|| JsError::new("rule must be an object"))?;
-        let transform = match obj.get("transform").and_then(|v| v.as_str()).unwrap_or("preserve") {
+    for (i, rule_val) in arr.iter().enumerate() {
+        let obj = rule_val.as_object().ok_or_else(|| format!("rule[{i}]: must be an object"))?;
+
+        // transform is REQUIRED (mapping.schema.json FieldRule.required)
+        let transform_str = obj.get("transform").and_then(|v| v.as_str())
+            .ok_or_else(|| format!("rule[{i}]: missing required field 'transform'"))?;
+
+        let transform = match transform_str {
             "preserve" => formspec_core::TransformType::Preserve,
             "drop" => formspec_core::TransformType::Drop,
-            "constant" => formspec_core::TransformType::Constant(
-                obj.get("value").cloned().unwrap_or(Value::Null),
-            ),
-            "coerce" => {
-                let target = obj.get("coerce").and_then(|v| v.as_str()).unwrap_or("string");
-                formspec_core::TransformType::Coerce(match target {
-                    "number" => formspec_core::CoerceType::Number,
-                    "integer" => formspec_core::CoerceType::Integer,
-                    "boolean" => formspec_core::CoerceType::Boolean,
-                    "date" => formspec_core::CoerceType::Date,
-                    "datetime" => formspec_core::CoerceType::DateTime,
-                    _ => formspec_core::CoerceType::String,
-                })
+            "constant" => {
+                let expr = obj.get("expression").and_then(|v| v.as_str())
+                    .ok_or_else(|| format!("rule[{i}]: transform 'constant' requires 'expression'"))?;
+                formspec_core::TransformType::Constant(Value::String(expr.to_string()))
             }
-            "expression" => formspec_core::TransformType::Expression(
-                obj.get("expression").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            ),
+            "coerce" => {
+                let coerce_val = obj.get("coerce")
+                    .ok_or_else(|| format!("rule[{i}]: transform 'coerce' requires 'coerce' property"))?;
+                let coerce_type = parse_coerce_type(coerce_val)
+                    .ok_or_else(|| format!("rule[{i}]: invalid coerce value"))?;
+                formspec_core::TransformType::Coerce(coerce_type)
+            }
+            "expression" => {
+                let expr = obj.get("expression").and_then(|v| v.as_str())
+                    .ok_or_else(|| format!("rule[{i}]: transform 'expression' requires 'expression'"))?;
+                formspec_core::TransformType::Expression(expr.to_string())
+            }
             "valueMap" => {
                 let entries = obj.get("valueMap").and_then(|v| v.as_object());
                 let forward: Vec<(Value, Value)> = entries.map(|m| {
@@ -552,18 +562,29 @@ fn parse_mapping_rules(val: &Value) -> Result<Vec<formspec_core::MappingRule>, J
             "nest" => formspec_core::TransformType::Nest {
                 separator: obj.get("separator").and_then(|v| v.as_str()).unwrap_or(".").to_string(),
             },
-            "concat" => formspec_core::TransformType::Concat(
-                obj.get("expression").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            ),
-            "split" => formspec_core::TransformType::Split(
-                obj.get("expression").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            ),
-            other => return Err(JsError::new(&format!("unknown transform type: {other}"))),
+            "concat" => {
+                let expr = obj.get("expression").and_then(|v| v.as_str())
+                    .ok_or_else(|| format!("rule[{i}]: transform 'concat' requires 'expression'"))?;
+                formspec_core::TransformType::Concat(expr.to_string())
+            }
+            "split" => {
+                let expr = obj.get("expression").and_then(|v| v.as_str())
+                    .ok_or_else(|| format!("rule[{i}]: transform 'split' requires 'expression'"))?;
+                formspec_core::TransformType::Split(expr.to_string())
+            }
+            other => return Err(format!("rule[{i}]: unknown transform type: {other}")),
         };
 
+        // At least one of sourcePath or targetPath MUST be present (mapping.schema.json FieldRule.anyOf)
+        let source_path = obj.get("sourcePath").and_then(|v| v.as_str()).map(String::from);
+        let target_path = obj.get("targetPath").and_then(|v| v.as_str()).map(String::from);
+        if source_path.is_none() && target_path.is_none() {
+            return Err(format!("rule[{i}]: at least one of 'sourcePath' or 'targetPath' must be present"));
+        }
+
         rules.push(formspec_core::MappingRule {
-            source_path: obj.get("sourcePath").and_then(|v| v.as_str()).map(String::from),
-            target_path: obj.get("targetPath").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            source_path,
+            target_path: target_path.unwrap_or_default(),
             transform,
             condition: obj.get("condition").and_then(|v| v.as_str()).map(String::from),
             priority: obj.get("priority").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
@@ -573,6 +594,34 @@ fn parse_mapping_rules(val: &Value) -> Result<Vec<formspec_core::MappingRule>, J
         });
     }
     Ok(rules)
+}
+
+/// Parse a coerce value — either a shorthand string or an object with from/to.
+fn parse_coerce_type(val: &Value) -> Option<formspec_core::CoerceType> {
+    if let Some(s) = val.as_str() {
+        return match s {
+            "string" => Some(formspec_core::CoerceType::String),
+            "number" => Some(formspec_core::CoerceType::Number),
+            "integer" => Some(formspec_core::CoerceType::Integer),
+            "boolean" => Some(formspec_core::CoerceType::Boolean),
+            "date" => Some(formspec_core::CoerceType::Date),
+            "datetime" => Some(formspec_core::CoerceType::DateTime),
+            _ => None,
+        };
+    }
+    if let Some(obj) = val.as_object() {
+        let to = obj.get("to").and_then(|v| v.as_str())?;
+        return match to {
+            "string" => Some(formspec_core::CoerceType::String),
+            "number" => Some(formspec_core::CoerceType::Number),
+            "integer" => Some(formspec_core::CoerceType::Integer),
+            "boolean" => Some(formspec_core::CoerceType::Boolean),
+            "date" => Some(formspec_core::CoerceType::Date),
+            "datetime" => Some(formspec_core::CoerceType::DateTime),
+            _ => None,
+        };
+    }
+    None
 }
 
 fn parse_mapping_document(val: &Value) -> Result<MappingDocument, JsError> {
@@ -922,7 +971,7 @@ mod tests {
             "default": "unknown",
             "bidirectional": false
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         assert_eq!(rules.len(), 1);
         let r = &rules[0];
         assert_eq!(r.source_path.as_deref(), Some("firstName"));
@@ -935,34 +984,23 @@ mod tests {
         assert_eq!(r.bidirectional, false);
     }
 
-    /// Correctness: parse_mapping_rules handles minimal rule — verify defaults match spec
-    /// Spec: missing transform defaults to "preserve", missing sourcePath → None, missing targetPath → ""
+    /// Spec: mapping.schema.json — transform is required, missing it is an error
     #[test]
-    fn parse_mapping_rules_minimal_defaults() {
+    fn parse_mapping_rules_minimal_rejects_missing_transform() {
         let rules_json = json!([{}]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
-        assert_eq!(rules.len(), 1);
-        let r = &rules[0];
-        assert_eq!(r.source_path, None, "missing sourcePath should be None");
-        assert_eq!(r.target_path, "", "missing targetPath should default to empty string");
-        assert!(matches!(r.transform, formspec_core::TransformType::Preserve),
-            "missing transform should default to Preserve");
-        assert_eq!(r.condition, None);
-        assert_eq!(r.priority, 0, "missing priority defaults to 0");
-        assert_eq!(r.reverse_priority, None);
-        assert_eq!(r.default, None);
-        assert_eq!(r.bidirectional, true, "missing bidirectional defaults to true");
+        let err = parse_mapping_rules_inner(&rules_json).unwrap_err();
+        assert!(err.contains("missing required field 'transform'"));
     }
 
-    /// Correctness: parse_mapping_rules parses "constant" transform with value
+    /// Correctness: parse_mapping_rules parses "constant" transform with expression
     #[test]
     fn parse_mapping_rules_constant_transform() {
         let rules_json = json!([{
             "targetPath": "status",
             "transform": "constant",
-            "value": "active"
+            "expression": "active"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::Constant(v) = &rules[0].transform {
             assert_eq!(*v, json!("active"));
         } else {
@@ -970,19 +1008,15 @@ mod tests {
         }
     }
 
-    /// Correctness: parse_mapping_rules parses "constant" transform with null when value missing
+    /// Spec: mapping.schema.json — constant transform requires expression field
     #[test]
-    fn parse_mapping_rules_constant_missing_value() {
+    fn parse_mapping_rules_constant_missing_expression_errors() {
         let rules_json = json!([{
             "targetPath": "x",
             "transform": "constant"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
-        if let formspec_core::TransformType::Constant(v) = &rules[0].transform {
-            assert_eq!(*v, Value::Null);
-        } else {
-            panic!("expected Constant transform");
-        }
+        let err = parse_mapping_rules_inner(&rules_json).unwrap_err();
+        assert!(err.contains("requires 'expression'"));
     }
 
     /// Correctness: parse_mapping_rules parses "expression" transform
@@ -994,7 +1028,7 @@ mod tests {
             "transform": "expression",
             "expression": "$a + $b"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::Expression(expr) = &rules[0].transform {
             assert_eq!(expr, "$a + $b");
         } else {
@@ -1012,7 +1046,6 @@ mod tests {
             ("date", formspec_core::CoerceType::Date),
             ("datetime", formspec_core::CoerceType::DateTime),
             ("string", formspec_core::CoerceType::String),
-            ("unknown_defaults_to_string", formspec_core::CoerceType::String),
         ];
         for (coerce_str, expected_type) in types_and_expected {
             let rules_json = json!([{
@@ -1021,7 +1054,7 @@ mod tests {
                 "transform": "coerce",
                 "coerce": coerce_str
             }]);
-            let rules = parse_mapping_rules(&rules_json).unwrap();
+            let rules = parse_mapping_rules_inner(&rules_json).unwrap();
             if let formspec_core::TransformType::Coerce(ct) = &rules[0].transform {
                 assert_eq!(*ct, expected_type, "coerce type mismatch for '{coerce_str}'");
             } else {
@@ -1040,7 +1073,7 @@ mod tests {
             "valueMap": {"active": 1, "inactive": 0},
             "unmapped": "error"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::ValueMap { forward, unmapped } = &rules[0].transform {
             assert_eq!(forward.len(), 2);
             assert!(matches!(unmapped, formspec_core::UnmappedStrategy::Error));
@@ -1058,7 +1091,7 @@ mod tests {
             "transform": "valueMap",
             "valueMap": {"a": "b"}
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::ValueMap { unmapped, .. } = &rules[0].transform {
             assert!(matches!(unmapped, formspec_core::UnmappedStrategy::PassThrough));
         } else {
@@ -1075,7 +1108,7 @@ mod tests {
             "transform": "flatten",
             "separator": "_"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::Flatten { separator } = &rules[0].transform {
             assert_eq!(separator, "_");
         } else {
@@ -1091,7 +1124,7 @@ mod tests {
             "targetPath": "y",
             "transform": "flatten"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::Flatten { separator } = &rules[0].transform {
             assert_eq!(separator, ".");
         } else {
@@ -1108,7 +1141,7 @@ mod tests {
             "transform": "nest",
             "separator": "/"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::Nest { separator } = &rules[0].transform {
             assert_eq!(separator, "/");
         } else {
@@ -1125,7 +1158,7 @@ mod tests {
             "transform": "concat",
             "expression": " "
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::Concat(sep) = &rules[0].transform {
             assert_eq!(sep, " ");
         } else {
@@ -1142,7 +1175,7 @@ mod tests {
             "transform": "split",
             "expression": ","
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         if let formspec_core::TransformType::Split(sep) = &rules[0].transform {
             assert_eq!(sep, ",");
         } else {
@@ -1158,47 +1191,40 @@ mod tests {
             "targetPath": "",
             "transform": "drop"
         }]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         assert!(matches!(rules[0].transform, formspec_core::TransformType::Drop));
     }
 
-    /// Error: parse_mapping_rules rejects unknown transform type (returns Err)
-    /// Note: JsError::new() panics outside WASM, so we verify the error path fires
-    /// by checking that the result is Err (not Ok).
+    /// Error: parse_mapping_rules rejects unknown transform type
     #[test]
-    #[should_panic(expected = "cannot call wasm-bindgen imported functions on non-wasm targets")]
     fn parse_mapping_rules_unknown_transform_errors() {
         let rules_json = json!([{
             "sourcePath": "x",
             "targetPath": "y",
             "transform": "teleport"
         }]);
-        // This panics because JsError::new() can't run outside WASM.
-        // The panic proves the error path is reached (not silently accepted).
-        let _ = parse_mapping_rules(&rules_json);
+        assert!(parse_mapping_rules_inner(&rules_json).is_err());
     }
 
     /// Error: parse_mapping_rules rejects non-array input
     #[test]
-    #[should_panic(expected = "cannot call wasm-bindgen imported functions on non-wasm targets")]
     fn parse_mapping_rules_rejects_non_array() {
         let rules_json = json!({"not": "an array"});
-        let _ = parse_mapping_rules(&rules_json);
+        assert!(parse_mapping_rules_inner(&rules_json).is_err());
     }
 
     /// Error: parse_mapping_rules rejects non-object element
     #[test]
-    #[should_panic(expected = "cannot call wasm-bindgen imported functions on non-wasm targets")]
     fn parse_mapping_rules_rejects_non_object_element() {
         let rules_json = json!([42]);
-        let _ = parse_mapping_rules(&rules_json);
+        assert!(parse_mapping_rules_inner(&rules_json).is_err());
     }
 
     /// Correctness: parse_mapping_rules handles empty array
     #[test]
     fn parse_mapping_rules_empty_array() {
         let rules_json = json!([]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         assert!(rules.is_empty());
     }
 
@@ -1208,9 +1234,9 @@ mod tests {
         let rules_json = json!([
             {"sourcePath": "a", "targetPath": "x", "transform": "preserve"},
             {"sourcePath": "b", "targetPath": "y", "transform": "drop"},
-            {"targetPath": "z", "transform": "constant", "value": 99}
+            {"targetPath": "z", "transform": "constant", "expression": "99"}
         ]);
-        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         assert_eq!(rules.len(), 3);
         assert!(matches!(rules[0].transform, formspec_core::TransformType::Preserve));
         assert!(matches!(rules[1].transform, formspec_core::TransformType::Drop));
@@ -1443,5 +1469,122 @@ mod tests {
         assert_eq!(diags[1]["path"], json!(""), "empty path serializes as empty string");
 
         assert_eq!(diags[2]["severity"], json!("info"));
+    }
+
+    // ── Validation: required fields (spec: mapping.schema.json) ──
+
+    #[test]
+    fn rejects_rule_missing_transform() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("missing required field 'transform'"));
+    }
+
+    #[test]
+    fn accepts_valid_preserve_rule() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "preserve"}]);
+        let result = parse_mapping_rules_inner(&rules).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn rejects_expression_transform_missing_expression() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "expression"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("requires 'expression'"));
+    }
+
+    #[test]
+    fn rejects_constant_transform_missing_expression() {
+        let rules = json!([{"targetPath": "b", "transform": "constant"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("requires 'expression'"));
+    }
+
+    #[test]
+    fn rejects_concat_transform_missing_expression() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "concat"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("requires 'expression'"));
+    }
+
+    #[test]
+    fn rejects_split_transform_missing_expression() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "split"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("requires 'expression'"));
+    }
+
+    #[test]
+    fn accepts_expression_transform_with_expression() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "expression", "expression": "$ + 1"}]);
+        let result = parse_mapping_rules_inner(&rules).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn accepts_constant_transform_with_expression() {
+        let rules = json!([{"targetPath": "b", "transform": "constant", "expression": "'hello'"}]);
+        let result = parse_mapping_rules_inner(&rules).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn rejects_coerce_transform_missing_coerce() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "coerce"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("requires 'coerce'"));
+    }
+
+    #[test]
+    fn accepts_coerce_transform_with_string_shorthand() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "coerce", "coerce": "number"}]);
+        let result = parse_mapping_rules_inner(&rules).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn accepts_coerce_transform_with_object_form() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "coerce", "coerce": {"from": "date", "to": "string"}}]);
+        let result = parse_mapping_rules_inner(&rules).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn rejects_rule_missing_both_paths() {
+        let rules = json!([{"transform": "preserve"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("at least one of 'sourcePath' or 'targetPath'"));
+    }
+
+    #[test]
+    fn accepts_rule_with_only_source_path() {
+        let rules = json!([{"sourcePath": "a", "transform": "drop"}]);
+        let result = parse_mapping_rules_inner(&rules).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn accepts_rule_with_only_target_path() {
+        let rules = json!([{"targetPath": "b", "transform": "constant", "expression": "'v1'"}]);
+        let result = parse_mapping_rules_inner(&rules).unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn error_message_includes_rule_index() {
+        let rules = json!([
+            {"sourcePath": "a", "targetPath": "b", "transform": "preserve"},
+            {"sourcePath": "c"}
+        ]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("rule[1]"));
+    }
+
+    #[test]
+    fn rejects_unknown_transform_type() {
+        let rules = json!([{"sourcePath": "a", "targetPath": "b", "transform": "magic"}]);
+        let err = parse_mapping_rules_inner(&rules).unwrap_err();
+        assert!(err.contains("unknown transform type: magic"));
     }
 }
