@@ -4,6 +4,12 @@
  * CSS overrides that resolve conflicts between formspec layout primitives
  * and USWDS component expectations. Injected into the document head when
  * the USWDS adapter is activated.
+ *
+ * TODO: Replace this string export + CDN stylesheet with a trimmed Sass
+ * build using USWDS component-level partials (@use 'uswds-core' + only
+ * the components the adapter uses). This would eliminate the 400KB CDN
+ * dependency, remove most integration overrides, and let us share
+ * design tokens between the adapter and its styles.
  */
 export const integrationCSS = `\
 /* USWDS integration overrides for formspec layout primitives */
