@@ -903,6 +903,98 @@ mod tests {
         assert!(with_code(&diags, "W803").is_empty());
     }
 
+    // ── Finding 62: W801 for ALL no-bind components ────────────
+
+    /// Spec: component-spec.md §4.2 — all layout and container components
+    /// (except DataTable) should not declare a bind, emitting W801.
+    #[test]
+    fn w801_all_layout_no_bind_components() {
+        for comp_type in LAYOUT_NO_BIND {
+            let comp = json!({
+                "tree": {
+                    "component": "Stack",
+                    "children": [
+                        { "component": comp_type, "bind": "oops", "children": [] }
+                    ]
+                }
+            });
+            let diags = lint_component(&comp, None);
+            let w801 = with_code(&diags, "W801");
+            assert!(
+                !w801.is_empty(),
+                "Layout component '{comp_type}' with bind should emit W801"
+            );
+            assert!(
+                w801[0].message.contains(comp_type),
+                "W801 message should mention '{comp_type}'"
+            );
+        }
+    }
+
+    /// Spec: component-spec.md §4.2 — all container no-bind components emit W801.
+    #[test]
+    fn w801_all_container_no_bind_components() {
+        for comp_type in CONTAINER_NO_BIND {
+            let comp = json!({
+                "tree": {
+                    "component": "Stack",
+                    "children": [
+                        { "component": comp_type, "bind": "oops", "children": [] }
+                    ]
+                }
+            });
+            let diags = lint_component(&comp, None);
+            let w801 = with_code(&diags, "W801");
+            assert!(
+                !w801.is_empty(),
+                "Container component '{comp_type}' with bind should emit W801"
+            );
+        }
+    }
+
+    // ── Finding 63: Wizard with no children ──────────────────────
+
+    /// Spec: component-spec.md §5.4, §3.4 — "Children MUST all be Page."
+    /// When a Wizard has no `children` array, no E805 is emitted (vacuously true).
+    #[test]
+    fn wizard_no_children_no_e805() {
+        let comp = json!({
+            "tree": {
+                "component": "Wizard"
+            }
+        });
+        let diags = lint_component(&comp, None);
+        assert!(
+            with_code(&diags, "E805").is_empty(),
+            "Wizard with no children array should not emit E805"
+        );
+    }
+
+    // ── Finding 64: richtext TextInput with "text" dataType ──────
+
+    /// Spec: core/spec.md §4.2.3 — "text" is an alias for "string" in richtext context.
+    /// The code at line 247 already accepts both "string" and "text" — this test
+    /// verifies the acceptance path.
+    #[test]
+    fn richtext_text_datatype_no_e804() {
+        let comp = json!({
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "TextInput", "bind": "notes", "inputMode": "richtext" }
+                ]
+            }
+        });
+        let def = json!({
+            "items": [{ "key": "notes", "dataType": "text" }]
+        });
+        let diags = lint_component(&comp, Some(&def));
+        assert!(
+            with_code(&diags, "E804").is_empty(),
+            "richtext TextInput with 'text' dataType should NOT emit E804"
+        );
+    }
+
     // All diagnostics use pass 7
     #[test]
     fn all_diagnostics_are_pass_7() {

@@ -217,10 +217,133 @@ mod tests {
     fn extension_resolution_cross_pass_integration() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{
-                "key": "email", "dataType": "string",
-                "extensions": { "x-formspec-url": true, "x-unknown-ext": true }
-            }]
+            "items": [
+                { "key": "age", "dataType": "integer" }
+            ],
+            "screener": {
+                "routes": [
+                    { "condition": "$age >= 18", "target": "adult" }
+                ]
+            }
+        });
+        let result = lint(&def);
+        let screener_errors = result.diagnostics.iter()
+            .filter(|d| d.path.contains("screener"))
+            .count();
+        assert_eq!(screener_errors, 0, "Valid screener expressions should not produce errors");
+    }
+
+    #[test]
+    fn test_diagnostic_sorting() {
+        // Create a document that produces diagnostics from multiple passes
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "name", "dataType": "string" },
+                { "key": "color", "dataType": "boolean", "optionSet": "missing_set" }
+            ],
+            "binds": {
+                "name": { "calculate": "invalid ++" }
+            }
+        });
+        let result = lint(&def);
+        assert!(result.diagnostics.len() >= 2, "Should have multiple diagnostics");
+
+        // Verify sorting: pass numbers are non-decreasing
+        for window in result.diagnostics.windows(2) {
+            let a = &window[0];
+            let b = &window[1];
+            assert!(
+                a.pass < b.pass
+                    || (a.pass == b.pass && a.severity <= b.severity)
+                    || (a.pass == b.pass && a.severity == b.severity && a.path <= b.path),
+                "Diagnostics not sorted: ({}, {:?}, {}) should come before ({}, {:?}, {})",
+                a.pass, a.severity, a.path,
+                b.pass, b.severity, b.path,
+            );
+        }
+    }
+
+    #[test]
+    fn test_pass_gating_on_structural_errors() {
+        // Duplicate keys = E201 (pass 2 structural error)
+        // Should NOT run pass 3+ checks
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "name" },
+                { "key": "name" }
+            ],
+            "binds": {
+                "nonexistent": { "required": "true" },
+                "name": { "calculate": "invalid ++" }
+            }
+        });
+        let result = lint(&def);
+
+        // Pass 2 error should be present
+        assert!(result.diagnostics.iter().any(|d| d.code == "E201"),
+            "E201 should be present");
+
+        // Finding 49: verify .valid is false on early-return path
+        assert!(!result.valid, "Document with structural errors should be invalid");
+
+        // Pass 3 (E300) and pass 4 (E400) should NOT be present because of pass gating
+        let pass3_plus = result.diagnostics.iter()
+            .filter(|d| d.pass >= 3)
+            .count();
+        assert_eq!(pass3_plus, 0,
+            "No diagnostics from pass 3+ should exist when pass 2 has structural errors");
+    }
+
+    #[test]
+    fn test_lint_mode_authoring_suppresses_w300() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "field1", "dataType": "boolean", "optionSet": "opts" }
+            ],
+            "optionSets": {
+                "opts": { "options": [{ "value": "yes" }] }
+            }
+        });
+
+        // Runtime mode: W300 present
+        let runtime_result = lint_with_options(&def, &LintOptions {
+            mode: LintMode::Runtime,
+            ..Default::default()
+        });
+        let w300_runtime = runtime_result.diagnostics.iter().filter(|d| d.code == "W300").count();
+        assert_eq!(w300_runtime, 1, "Runtime mode should emit W300");
+
+        // Authoring mode: W300 suppressed
+        let authoring_result = lint_with_options(&def, &LintOptions {
+            mode: LintMode::Authoring,
+            ..Default::default()
+        });
+        let w300_authoring = authoring_result.diagnostics.iter().filter(|d| d.code == "W300").count();
+        assert_eq!(w300_authoring, 0, "Authoring mode should suppress W300");
+    }
+
+    #[test]
+    fn test_e600_extension_resolution() {
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [
+                {
+                    "key": "email",
+                    "dataType": "string",
+                    "extensions": {
+                        "x-formspec-url": true,
+                        "x-unknown-ext": true
+                    }
+                }
+            ]
+        });
+        let registry = json!({
+            "entries": [
+                { "name": "x-formspec-url", "status": "active" }
+            ]
         });
         let registry = json!({ "entries": [{ "name": "x-formspec-url", "status": "active" }] });
         let result = lint_with_options(&def, &LintOptions {
@@ -259,7 +382,44 @@ mod tests {
         assert_eq!(result.diagnostics.len(), 1);
     }
 
-    /// Spec: component-spec.md §1 — "$formspecComponent" routes to pass 7
+    /// Spec: component-spec.md §4.6 — W802 (compatible-with-warning) is suppressed
+    /// in Authoring mode but present in Runtime mode.
+    #[test]
+    fn test_w802_authoring_mode_suppression() {
+        // TextInput + integer = CompatibleWithWarning → W802
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "TextInput", "bind": "age" }
+                ]
+            }
+        });
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [{ "key": "age", "dataType": "integer" }]
+        });
+
+        // Runtime mode: W802 present
+        let runtime_result = lint_with_options(&comp, &LintOptions {
+            mode: LintMode::Runtime,
+            definition_document: Some(def.clone()),
+            ..Default::default()
+        });
+        let w802_runtime = runtime_result.diagnostics.iter().filter(|d| d.code == "W802").count();
+        assert_eq!(w802_runtime, 1, "Runtime mode should emit W802");
+
+        // Authoring mode: W802 suppressed
+        let authoring_result = lint_with_options(&comp, &LintOptions {
+            mode: LintMode::Authoring,
+            definition_document: Some(def),
+            ..Default::default()
+        });
+        let w802_authoring = authoring_result.diagnostics.iter().filter(|d| d.code == "W802").count();
+        assert_eq!(w802_authoring, 0, "Authoring mode should suppress W802");
+    }
+
     #[test]
     fn component_document_routes_to_pass_7() {
         let comp = json!({ "$formspecComponent": "1.0", "tree": { "children": [] } });

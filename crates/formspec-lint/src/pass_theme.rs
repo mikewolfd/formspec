@@ -49,14 +49,14 @@ fn classify_token(name: &str) -> TokenCategory {
 
 // ── Value validators ────────────────────────────────────────────
 
-/// Check if a string is a valid CSS color: hex (#RGB, #RRGGBB, #RRGGBBAA),
-/// rgb(), rgba(), hsl(), hsla().
+/// Check if a string is a valid CSS color: hex (#RGB, #RGBA, #RRGGBB, #RRGGBBAA),
+/// rgb(), rgba(), hsl(), hsla(), or CSS named colors.
 fn is_css_color(s: &str) -> bool {
     let s = s.trim();
     if s.starts_with('#') {
         let hex = &s[1..];
         let len = hex.len();
-        return (len == 3 || len == 6 || len == 8)
+        return (len == 3 || len == 4 || len == 6 || len == 8)
             && hex.chars().all(|c| c.is_ascii_hexdigit());
     }
     // Functional notation: rgb(), rgba(), hsl(), hsla()
@@ -65,7 +65,45 @@ fn is_css_color(s: &str) -> bool {
             return true;
         }
     }
-    false
+    // CSS named colors (Level 4)
+    is_css_named_color(s)
+}
+
+/// CSS named colors from CSS Color Level 4.
+/// Only checks the wrapper format, not exhaustive enumeration — we accept any
+/// lowercase-matching name from the CSS specification.
+fn is_css_named_color(s: &str) -> bool {
+    const NAMED_COLORS: &[&str] = &[
+        "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure",
+        "beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown",
+        "burlywood", "cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue",
+        "cornsilk", "crimson", "cyan", "darkblue", "darkcyan", "darkgoldenrod",
+        "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta",
+        "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon",
+        "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey",
+        "darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray",
+        "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen",
+        "fuchsia", "gainsboro", "ghostwhite", "gold", "goldenrod", "gray", "green",
+        "greenyellow", "grey", "honeydew", "hotpink", "indianred", "indigo", "ivory",
+        "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon",
+        "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray",
+        "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen",
+        "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue",
+        "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon",
+        "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple",
+        "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise",
+        "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin",
+        "navajowhite", "navy", "oldlace", "olive", "olivedrab", "orange", "orangered",
+        "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred",
+        "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple",
+        "rebeccapurple", "red", "rosybrown", "royalblue", "saddlebrown", "salmon",
+        "sandybrown", "seagreen", "seashell", "sienna", "silver", "skyblue",
+        "slateblue", "slategray", "slategrey", "snow", "springgreen", "steelblue",
+        "tan", "teal", "thistle", "tomato", "turquoise", "violet", "wheat", "white",
+        "whitesmoke", "yellow", "yellowgreen",
+        "transparent",
+    ];
+    NAMED_COLORS.contains(&s.to_ascii_lowercase().as_str())
 }
 
 /// Valid CSS length units.
@@ -1031,6 +1069,116 @@ mod tests {
         });
         let diags = lint_theme(&theme, Some(&def));
         assert!(with_code(&diags, "W705").is_empty(), "amount is a nested child, should match");
+    }
+
+    // ── Finding 56: rgb() content not validated ────────────────
+
+    /// Spec: theme-spec.md §3.2 (line 251) — is_css_color intentionally only
+    /// checks the wrapper format (rgb(...), hsl(...), etc), not the validity
+    /// of the content inside the parentheses.
+    #[test]
+    fn functional_color_content_not_validated() {
+        assert!(
+            is_css_color("rgb(not, valid, at all)"),
+            "is_css_color only checks the wrapper, not content validity"
+        );
+    }
+
+    // ── Finding 57: Named CSS colors ─────────────────────────────
+
+    /// Spec: theme-spec.md §3.2 (line 251) — "Colors (hex, rgb, hsl, named)".
+    /// Named colors like "red", "navy", "transparent" must be accepted.
+    #[test]
+    fn named_css_colors_accepted() {
+        for name in &["red", "blue", "green", "navy", "transparent", "rebeccapurple", "coral"] {
+            assert!(is_css_color(name), "Named color '{name}' should be accepted");
+        }
+    }
+
+    /// Spec: theme-spec.md §3.2 — named colors are case-insensitive.
+    #[test]
+    fn named_css_colors_case_insensitive() {
+        assert!(is_css_color("Red"));
+        assert!(is_css_color("BLUE"));
+        assert!(is_css_color("Navy"));
+    }
+
+    /// Spec: theme-spec.md §3.2 — named color tokens should not emit W700.
+    #[test]
+    fn named_color_token_no_w700() {
+        let theme = json!({
+            "tokens": {
+                "color.primary": "red",
+                "color.secondary": "navy",
+                "color.bg": "transparent"
+            }
+        });
+        let diags = lint_theme(&theme, None);
+        assert!(with_code(&diags, "W700").is_empty(), "Named colors should not emit W700");
+    }
+
+    // ── Finding 58: 4-char hex (#RGBA) ───────────────────────────
+
+    /// Spec: theme-spec.md §3.2 — "hex" includes CSS Color Level 4's #RGBA format.
+    #[test]
+    fn four_char_hex_rgba_accepted() {
+        assert!(is_css_color("#F00A"), "#RGBA (4-char hex) should be valid");
+        assert!(is_css_color("#abcd"), "lowercase #RGBA should be valid");
+    }
+
+    /// Spec: theme-spec.md §3.2 — #RGBA token should not emit W700.
+    #[test]
+    fn four_char_hex_token_no_w700() {
+        let theme = json!({
+            "tokens": { "color.overlay": "#0008" }
+        });
+        let diags = lint_theme(&theme, None);
+        assert!(with_code(&diags, "W700").is_empty(), "#RGBA hex should not emit W700");
+    }
+
+    // ── Finding 59: Negative CSS lengths ─────────────────────────
+
+    /// Spec: theme-spec.md §3.2 — CSS allows negative lengths (e.g. margins).
+    #[test]
+    fn negative_css_length_accepted() {
+        assert!(is_css_length("-8px"), "Negative px length should be valid");
+        assert!(is_css_length("-1.5rem"), "Negative rem length should be valid");
+        assert!(is_css_length("-50%"), "Negative percentage should be valid");
+    }
+
+    // ── Finding 60: Whitespace between number and unit ───────────
+
+    /// Spec: theme-spec.md §3.2 — CSS forbids whitespace between the number and unit.
+    #[test]
+    fn whitespace_between_number_and_unit_rejected() {
+        assert!(!is_css_length("8 px"), "Whitespace before unit should be rejected");
+        assert!(!is_css_length("1 rem"), "Whitespace before rem should be rejected");
+    }
+
+    // ── Finding 61: Region without key in W706 check ─────────────
+
+    /// Spec: theme-spec.md §6.2, schemas/theme.schema.json — a region without
+    /// a `key` field is skipped in the W706 check (no panic, no diagnostic).
+    #[test]
+    fn region_without_key_skipped_in_w706() {
+        let theme = json!({
+            "pages": [{
+                "id": "p1",
+                "regions": [
+                    { "span": 12 },
+                    { "key": "missing_field", "span": 6 }
+                ]
+            }]
+        });
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [{ "key": "name" }]
+        });
+        let diags = lint_theme(&theme, Some(&def));
+        // Only the region WITH a key should be checked — "missing_field" not in definition → W706
+        let w706 = with_code(&diags, "W706");
+        assert_eq!(w706.len(), 1, "Only the region with key should produce W706");
+        assert!(w706[0].message.contains("missing_field"));
     }
 
     // ── Number-typed token values ───────────────────────────────

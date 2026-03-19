@@ -4,6 +4,15 @@
 //! documents. Builds a [`MapRegistry`] from raw JSON registry documents, then
 //! walks the item tree emitting diagnostics for unresolved, retired, or
 //! deprecated extensions.
+//!
+//! ## Code naming convention
+//!
+//! The E-prefix on E600/E601/E602 stands for "Extensions pass" following the
+//! pass-numbering convention (E100=pass1, E200=pass2, E600=pass3b), NOT the
+//! severity. Actual severities:
+//! - **E600**: Error — extension not found in any registry
+//! - **E601**: Warning — extension found but retired
+//! - **E602**: Info — extension found but deprecated
 
 use serde_json::Value;
 

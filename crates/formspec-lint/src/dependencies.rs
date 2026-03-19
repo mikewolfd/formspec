@@ -335,6 +335,54 @@ mod tests {
         assert_eq!(canonical, vec!["a", "b", "c"]);
     }
 
+    // ── Finding 65: base_key with bracket-only and plain paths ─
+
+    /// Spec: core/spec.md §4.3.3 (lines 2280-2287) — base_key extracts the
+    /// first path segment before any `.` or `[`.
+    #[test]
+    fn base_key_bracket_only_path() {
+        assert_eq!(base_key("items[0]"), "items", "Bracket-only path should extract base");
+        assert_eq!(base_key("plain"), "plain", "Plain key returns itself");
+        assert_eq!(base_key("a.b.c"), "a", "Dotted path extracts first segment");
+        assert_eq!(base_key("group[0].field"), "group", "Mixed path extracts first segment");
+    }
+
+    // ── Finding 66: Cycle path attribution with shared bind target ─
+
+    /// Spec: core/spec.md §3.6.2 (lines 1386-1391) — when multiple expressions
+    /// share a bind target, path_map uses `or_insert_with` (first-processed wins).
+    /// The diagnostic points to whichever expression was processed first.
+    #[test]
+    fn cycle_diagnostic_points_to_first_expression_for_bind() {
+        let compiled = vec![
+            CompiledExpression {
+                expression: "$b".to_string(),
+                expression_path: "$.binds.a.calculate".to_string(),
+                bind_target: Some("a".to_string()),
+            },
+            CompiledExpression {
+                expression: "$b".to_string(),
+                expression_path: "$.binds.a.relevant".to_string(),
+                bind_target: Some("a".to_string()),
+            },
+            CompiledExpression {
+                expression: "$a".to_string(),
+                expression_path: "$.binds.b.calculate".to_string(),
+                bind_target: Some("b".to_string()),
+            },
+        ];
+        let diags = analyze_dependencies(&compiled);
+        assert_eq!(diags.len(), 1);
+
+        // The cycle is a ↔ b. The canonical cycle starts at 'a'.
+        // The path should come from the FIRST expression processed for 'a',
+        // which is "$.binds.a.calculate" (or_insert_with semantics).
+        assert_eq!(
+            diags[0].path, "$.binds.a.calculate",
+            "Diagnostic should point to the first-processed expression for the bind target"
+        );
+    }
+
     #[test]
     fn two_independent_cycles() {
         let compiled = vec![

@@ -622,6 +622,45 @@ mod tests {
         assert!(result.diagnostics.is_empty());
     }
 
+    // ── Finding 54: Non-object bind value skipped gracefully ────
+
+    /// Spec: core/spec.md §4.3.1 (line 2236), schemas/definition.schema.json —
+    /// bind values that are strings, numbers, or null (not objects) are skipped
+    /// gracefully by walk_binds_object.
+    #[test]
+    fn bind_value_string_skipped_gracefully() {
+        let doc = json!({
+            "binds": {
+                "name": "just a string, not an object",
+                "age": 42,
+                "empty": null
+            }
+        });
+        let result = compile_expressions(&doc);
+        assert!(result.compiled.is_empty(), "Non-object bind values should be skipped");
+        assert!(result.diagnostics.is_empty(), "Non-object bind values should not produce diagnostics");
+    }
+
+    // ── Finding 55: Array bind entry without path skipped ────────
+
+    /// Spec: core/spec.md §4.3.1 (line 2239) — array-format bind entries without
+    /// a `path` field are skipped. Spec says `path` is REQUIRED, but the linter
+    /// is lenient here (schema validation catches missing path).
+    #[test]
+    fn array_format_bind_without_path_skipped() {
+        let doc = json!({
+            "binds": [
+                { "calculate": "$x + 1" },
+                { "path": "valid", "calculate": "$y + 1" }
+            ]
+        });
+        let result = compile_expressions(&doc);
+        // Only the entry WITH a path should be compiled
+        assert_eq!(result.compiled.len(), 1, "Only bind with path should be compiled");
+        assert_eq!(result.compiled[0].bind_target, Some("valid".to_string()));
+        assert!(result.diagnostics.is_empty());
+    }
+
     #[test]
     fn mixed_valid_and_invalid_expressions() {
         let doc = json!({
