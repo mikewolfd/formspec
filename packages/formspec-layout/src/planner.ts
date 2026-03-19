@@ -460,6 +460,18 @@ function planThemePagesFromDefinitionItems(items: any[], ctx: PlanContext): Layo
         .filter((item) => !assignedTopLevelKeys.has(item.key))
         .map((item) => planDefinitionItem(item, ctx, ''));
 
+    // Apply pageMode wrapping — theme pages + pageMode: "wizard" or "tabs"
+    // should produce a Wizard/Tabs node wrapping the Page nodes.
+    const pageMode = ctx.formPresentation?.pageMode;
+    if ((pageMode === 'wizard' || pageMode === 'tabs') && pageNodes.length > 0) {
+        const pages = pageNodes.map((pn) => ({
+            title: String(pn.props?.title || ''),
+            children: pn.children,
+        }));
+        // wrapPageModePages creates Page→Wizard/Tabs wrapping
+        return wrapPageModePages(unassigned, pages, pageMode);
+    }
+
     return [...pageNodes, ...unassigned];
 }
 

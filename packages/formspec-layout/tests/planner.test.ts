@@ -717,13 +717,19 @@ describe('planDefinitionFallback', () => {
 
         const nodes = planDefinitionFallback(items, ctx);
 
-        expect(nodes).toHaveLength(3);
-        expect(nodes[0].component).toBe('Page');
-        expect(nodes[0].props.title).toBe('Applicant');
-        expect(nodes[0].children[0].component).toBe('Grid');
-        expect(nodes[1].component).toBe('Page');
-        expect(nodes[1].props.title).toBe('Review');
-        expect(nodes[2].bindPath).toBe('intro');
+        // When theme pages + pageMode: "wizard", pages are wrapped in a Wizard node.
+        // Unassigned items (intro) come before the Wizard.
+        expect(nodes).toHaveLength(2);
+        const introNode = nodes.find(n => n.bindPath === 'intro');
+        expect(introNode).toBeDefined();
+        const wizardNode = nodes.find(n => n.component === 'Wizard');
+        expect(wizardNode).toBeDefined();
+        expect(wizardNode!.children).toHaveLength(2);
+        expect(wizardNode!.children[0].component).toBe('Page');
+        expect(wizardNode!.children[0].props.title).toBe('Applicant');
+        expect(wizardNode!.children[0].children[0].component).toBe('Grid');
+        expect(wizardNode!.children[1].component).toBe('Page');
+        expect(wizardNode!.children[1].props.title).toBe('Review');
     });
 
     it('groups top-level definition pages without wrapping nested groups again', () => {
