@@ -85,13 +85,7 @@ function setNestedValue(target: any, path: string, value: any): void {
   }
 }
 
-/** Built-in FEL function metadata exposed for tooling/autocomplete surfaces. */
-export interface FELBuiltinFunctionCatalogEntry {
-  name: string;
-  category: string;
-  signature?: string;
-  description?: string;
-}
+import type { FELBuiltinFunctionCatalogEntry } from './runtime.js';
 
 const FEL_BUILTIN_FUNCTION_CATEGORY: Record<string, string> = {
   // Aggregate
@@ -261,32 +255,7 @@ export class FelUnsupportedFunctionError extends Error {
   }
 }
 
-/**
- * Runtime context provided to the interpreter for each FEL evaluation.
- *
- * Bridges the interpreter to the FormEngine's reactive signal graph. Each
- * callback reads from a Preact signal so that evaluations are automatically
- * tracked as signal dependencies, enabling reactive re-computation when
- * upstream values change.
- */
-export interface FelContext {
-  /** Read the current value of a field signal at the given dotted path. */
-  getSignalValue: (path: string) => any;
-  /** Read the current repeat instance count for a repeatable group. */
-  getRepeatsValue: (path: string) => number;
-  /** Read whether the field at the given path is currently relevant (visible). */
-  getRelevantValue: (path: string) => boolean;
-  /** Read whether the field at the given path is currently required. */
-  getRequiredValue: (path: string) => boolean;
-  /** Read whether the field at the given path is currently readonly. */
-  getReadonlyValue: (path: string) => boolean;
-  /** Read the count of validation errors for the field at the given path. */
-  getValidationErrors: (path: string) => number;
-  /** The fully-qualified dotted path of the item whose bind expression is being evaluated. Used for relative `$` field references. */
-  currentItemPath: string;
-  /** Reference to the FormEngine instance. Used by stdlib functions that need engine-level APIs (e.g. `instance()`, variable lookup). */
-  engine: any;
-}
+import type { FelContext } from './runtime.js';
 
 /**
  * Chevrotain CstVisitor that evaluates a FEL CST against a live {@link FelContext}.

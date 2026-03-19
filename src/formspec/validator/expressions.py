@@ -11,8 +11,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from typing import Callable
+
 from formspec.fel.errors import FelSyntaxError
-from formspec.fel.parser import parse
+from formspec.fel.parser import parse as _default_parse
 
 from .diagnostic import LintDiagnostic
 from .references import canonical_item_path
@@ -44,9 +46,26 @@ class ExpressionCompilationResult:
     diagnostics: list[LintDiagnostic] = field(default_factory=list)
 
 
-def compile_expressions(document: dict) -> ExpressionCompilationResult:
+def compile_expressions(
+    document: dict,
+    parse: Callable[[str], Any] | None = None,
+) -> ExpressionCompilationResult:
     """Entry point: compile all FEL expressions in binds, shapes, screener binds, and screener routes. Emits E400 on syntax errors."""
+    if parse is None:
+        parse = _default_parse
+    _parse_fn = parse  # captured by _parse_one calls below
     result = ExpressionCompilationResult()
+
+    # Bind parse into a local helper so all _parse_one calls use the injected parser
+    def _do_parse(
+        result: ExpressionCompilationResult,
+        expression: str,
+        path: str,
+        owner_kind: str,
+        bind_target: str | None = None,
+        bind_path_pointer: str | None = None,
+    ) -> None:
+        _parse_one(result, expression, path, owner_kind, bind_target, bind_path_pointer, parse=_parse_fn)
 
     binds = document.get("binds", [])
     if isinstance(binds, list):
@@ -60,7 +79,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
             for field_name in _BIND_DATAFLOW_FIELDS:
                 expression = bind.get(field_name)
                 if isinstance(expression, str):
-                    _parse_one(
+                    _do_parse(
                         result,
                         expression,
                         f"$.binds[{bind_index}].{field_name}",
@@ -74,7 +93,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
             for field_name in _BIND_VALIDATION_FIELDS:
                 expression = bind.get(field_name)
                 if isinstance(expression, str):
-                    _parse_one(
+                    _do_parse(
                         result,
                         expression,
                         f"$.binds[{bind_index}].{field_name}",
@@ -86,7 +105,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
             if isinstance(bind.get("default"), str):
                 default_value = bind["default"]
                 if _looks_like_fel(default_value):
-                    _parse_one(
+                    _do_parse(
                         result,
                         default_value,
                         f"$.binds[{bind_index}].default",
@@ -102,7 +121,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
                 continue
             constraint = shape.get("constraint")
             if isinstance(constraint, str):
-                _parse_one(
+                _do_parse(
                     result,
                     constraint,
                     f"$.shapes[{shape_index}].constraint",
@@ -111,7 +130,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
 
             active_when = shape.get("activeWhen")
             if isinstance(active_when, str):
-                _parse_one(
+                _do_parse(
                     result,
                     active_when,
                     f"$.shapes[{shape_index}].activeWhen",
@@ -122,7 +141,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
             if isinstance(context, dict):
                 for key, expr in context.items():
                     if isinstance(expr, str):
-                        _parse_one(
+                        _do_parse(
                             result,
                             expr,
                             f"$.shapes[{shape_index}].context[{key!r}]",
@@ -143,7 +162,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
                 for field_name in _BIND_DATAFLOW_FIELDS:
                     expression = bind.get(field_name)
                     if isinstance(expression, str):
-                        _parse_one(
+                        _do_parse(
                             result,
                             expression,
                             f"$.screener.binds[{bind_index}].{field_name}",
@@ -155,7 +174,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
                 for field_name in _BIND_VALIDATION_FIELDS:
                     expression = bind.get(field_name)
                     if isinstance(expression, str):
-                        _parse_one(
+                        _do_parse(
                             result,
                             expression,
                             f"$.screener.binds[{bind_index}].{field_name}",
@@ -171,7 +190,7 @@ def compile_expressions(document: dict) -> ExpressionCompilationResult:
                     continue
                 condition = route.get("condition")
                 if isinstance(condition, str):
-                    _parse_one(
+                    _do_parse(
                         result,
                         condition,
                         f"$.screener.routes[{route_index}].condition",
@@ -188,6 +207,7 @@ def _parse_one(
     owner_kind: str,
     bind_target: str | None = None,
     bind_path_pointer: str | None = None,
+    parse: Callable[[str], Any] = _default_parse,
 ) -> None:
     """Parse a single FEL string; append CompiledExpression on success or E400 diagnostic on failure."""
     try:

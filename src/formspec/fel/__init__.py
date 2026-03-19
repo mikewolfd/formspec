@@ -29,6 +29,7 @@ from .errors import (
     FelError, FelSyntaxError, FelDefinitionError, FelEvaluationError,
     Diagnostic, SourcePos, Severity,
 )
+from .runtime import FelRuntime, DefaultFelRuntime, default_fel_runtime
 
 
 def evaluate(

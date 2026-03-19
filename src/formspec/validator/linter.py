@@ -18,6 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from formspec.fel.runtime import FelRuntime, default_fel_runtime
+
 from .component import lint_component_semantics
 from .dependencies import analyze_dependencies
 from .diagnostic import LintDiagnostic, sort_key
@@ -35,14 +37,17 @@ class FormspecLinter:
 
     schema_validator: SchemaValidator
     policy: LintPolicy
+    fel_runtime: FelRuntime
 
     def __init__(
         self,
         schema_validator: SchemaValidator | None = None,
         policy: LintPolicy | None = None,
+        fel_runtime: FelRuntime | None = None,
     ):
         self.schema_validator = schema_validator or SchemaValidator()
         self.policy = policy or LintPolicy()
+        self.fel_runtime = fel_runtime or default_fel_runtime()
 
     def lint(
         self,
@@ -79,7 +84,7 @@ class FormspecLinter:
             )
 
             if not no_fel:
-                compilation = compile_expressions(document)
+                compilation = compile_expressions(document, parse=self.fel_runtime.parse)
                 diagnostics.extend(compilation.diagnostics)
                 dependencies = analyze_dependencies(compilation.compiled)
                 diagnostics.extend(dependencies.diagnostics)

@@ -1,5 +1,5 @@
 /** @filedesc Shared type definitions: RenderContext, ComponentPlugin, and screener types. */
-import { FormEngine } from 'formspec-engine';
+import type { IFormEngine } from 'formspec-engine';
 import type { Signal } from '@preact/signals-core';
 import { ThemeDocument, PresentationBlock, ItemDescriptor } from 'formspec-layout';
 import type { BehaviorContext } from './behaviors/types';
@@ -41,8 +41,8 @@ export interface ScreenerStateSnapshot {
  * depending on the `FormspecRender` element directly.
  */
 export interface RenderContext {
-    /** The active FormEngine instance managing reactive form state. */
-    engine: FormEngine;
+    /** The active form engine instance managing reactive form state. */
+    engine: IFormEngine;
 
     /** The loaded component document (component tree, custom components, tokens, breakpoints). */
     componentDocument: any;

@@ -1,6 +1,7 @@
 /** @filedesc The <formspec-render> custom element that orchestrates form rendering. */
 import { signal } from '@preact/signals-core';
 import { FormEngine } from 'formspec-engine';
+import type { IFormEngine } from 'formspec-engine';
 import { globalRegistry } from './registry';
 import {
     ValidationTargetMetadata,
@@ -79,7 +80,7 @@ export class FormspecRender extends HTMLElement {
     /** @internal */ _componentDocument: any;
     /** @internal */ _themeDocument: ThemeDocument | null = null;
     /** @internal */ _registryEntries: Map<string, any> = new Map();
-    /** @internal */ engine: FormEngine | null = null;
+    /** @internal */ engine: IFormEngine | null = null;
     /** @internal */ cleanupFns: Array<() => void> = [];
     private _breakpoints: BreakpointState = createBreakpointState();
     private get activeBreakpoint(): string | null { return this._breakpoints.activeBreakpointSignal.value ?? null; }

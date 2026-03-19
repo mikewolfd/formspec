@@ -19,9 +19,10 @@ from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_EVEN
 
 from .fel import (
-    evaluate, extract_dependencies, parse,
+    evaluate as _fel_evaluate, extract_dependencies as _fel_extract_deps, parse as _fel_parse,
     FelTrue, FelValue, Environment, Evaluator as FelEvaluator, FelNull,
 )
+from .fel.runtime import FelRuntime, default_fel_runtime
 from .fel.types import from_python, to_python
 from .fel.functions import build_default_registry
 from .registry import Registry, RegistryEntry, _version_satisfies
@@ -78,11 +79,17 @@ class DefinitionEvaluator:
     Instantiate once per definition; call process() for each submission.
     """
 
-    def __init__(self, definition: dict, registries: list[Registry] | None = None) -> None:
+    def __init__(
+        self,
+        definition: dict,
+        registries: list[Registry] | None = None,
+        fel_runtime: FelRuntime | None = None,
+    ) -> None:
         self._definition = definition
         self._default_nrb = definition.get('nonRelevantBehavior', 'remove')
         self._last_relevance: dict[str, bool] = {}
         self._registries = registries or []
+        self._fel = fel_runtime or default_fel_runtime()
 
         # Index registry entries by name for fast lookup during validation
         self._registry_entries: dict[str, RegistryEntry] = {}
@@ -161,7 +168,7 @@ class DefinitionEvaluator:
             progress = False
             for name in list(remaining):
                 expr = self._variables[name]['expression']
-                raw_context_refs = extract_dependencies(expr).context_refs
+                raw_context_refs = self._fel.extract_dependencies(expr).context_refs
                 deps = {ref.lstrip('@') for ref in raw_context_refs} & var_names
                 if all(d in resolved for d in deps):
                     resolved.append(name)
@@ -243,7 +250,7 @@ class DefinitionEvaluator:
 
     def _parse_cached(self, expr: str):
         if expr not in self._ast_cache:
-            self._ast_cache[expr] = parse(expr)
+            self._ast_cache[expr] = self._fel.parse(expr)
         return self._ast_cache[expr]
 
     def _eval_fel(
@@ -267,7 +274,7 @@ class DefinitionEvaluator:
             env.pop_scope()
             return result
         else:
-            return evaluate(expr, data, variables=variables, instances=self._instances).value
+            return self._fel.evaluate(expr, data, variables=variables, instances=self._instances).value
 
     def _apply_whitespace(self, data: dict) -> None:
         """Apply whitespace transforms to string fields in-place."""
@@ -1023,7 +1030,7 @@ class DefinitionEvaluator:
                 continue
 
             try:
-                result = evaluate(condition, answers, instances=self._instances).value
+                result = self._fel.evaluate(condition, answers, instances=self._instances).value
             except Exception:
                 continue
 

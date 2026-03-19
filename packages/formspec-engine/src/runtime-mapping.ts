@@ -1,10 +1,8 @@
 /**
  * @filedesc Bidirectional data-transform engine for Formspec mapping documents: rules, valueMap, coerce, FEL expressions, array modes, flatten/nest/concat/split.
  */
-import { FelLexer } from './fel/lexer.js';
-import { parser } from './fel/parser.js';
-import { interpreter } from './fel/interpreter.js';
-import type { FelContext } from './fel/interpreter.js';
+import type { IFelRuntime, FelContext } from './fel/runtime.js';
+import { chevrotainFelRuntime } from './fel/chevrotain-runtime.js';
 
 /** The direction of a mapping operation: `"forward"` maps Formspec data to an external format, `"reverse"` maps back. */
 export type MappingDirection = 'forward' | 'reverse';
@@ -139,15 +137,10 @@ function clone<T>(value: T): T {
  * Evaluate a FEL expression string in the context of a mapping operation.
  * Bindings: `$` = currentValue (the source field value), `@source` = full source document, `$index` = optional array index.
  */
-function evalFEL(expression: string, currentValue: any, sourceDocument: any, arrayIndex?: number): any {
-    const lexResult = FelLexer.tokenize(expression);
-    if (lexResult.errors.length > 0) {
-        throw new Error(`FEL lex error: ${lexResult.errors[0].message}`);
-    }
-    parser.input = lexResult.tokens;
-    const cst = parser.expression();
-    if (parser.errors.length > 0) {
-        throw new Error(`FEL parse error: ${parser.errors[0].message}`);
+function evalFEL(runtime: IFelRuntime, expression: string, currentValue: any, sourceDocument: any, arrayIndex?: number): any {
+    const compiled = runtime.compile(expression);
+    if (compiled.errors.length > 0) {
+        throw new Error(`FEL compile error: ${compiled.errors[0].message}`);
     }
 
     const context: FelContext = {
@@ -172,10 +165,11 @@ function evalFEL(expression: string, currentValue: any, sourceDocument: any, arr
                 if (name === 'source') return sourceDocument;
                 if (name === 'index') return arrayIndex ?? null;
                 return undefined;
-            }
+            },
+            getInstanceData: () => undefined
         }
     };
-    return interpreter.evaluate(cst, context);
+    return compiled.expression!.evaluate(context);
 }
 
 // ---------------------------------------------------------------------------
@@ -494,6 +488,7 @@ function executeEach(
     direction: MappingDirection,
     diagnostics: MappingDiagnostic[],
     parentRuleIndex: number,
+    runtime: IFelRuntime,
 ): any[] {
     return sourceArray.map((element: any, index: number) => {
         const itemOutput: any = {};
@@ -508,7 +503,7 @@ function executeEach(
             if (transform === 'drop') continue;
             if (transform === 'expression') {
                 try {
-                    value = evalFEL(innerRule.expression, value, sourceDocument, index);
+                    value = evalFEL(runtime, innerRule.expression, value, sourceDocument, index);
                 } catch (e) {
                     diagnostics.push({
                         ruleIndex: parentRuleIndex,
@@ -565,17 +560,22 @@ function executeIndexed(
  * overrides. Forward mapping transforms Formspec response data into an external format; reverse
  * mapping transforms external data back into Formspec shape.
  */
-export class RuntimeMappingEngine {
+import type { IRuntimeMappingEngine } from './interfaces.js';
+
+export class RuntimeMappingEngine implements IRuntimeMappingEngine {
     private readonly doc: any;
     private readonly rules: MappingRule[];
+    private readonly felRuntime: IFelRuntime;
 
     /**
      * Creates a RuntimeMappingEngine from a mapping document.
      * @param mappingDocument - The mapping document containing rules, defaults, and metadata.
+     * @param felRuntime - The FEL runtime to use for expression evaluation. Defaults to the Chevrotain runtime.
      */
-    constructor(mappingDocument: any) {
+    constructor(mappingDocument: any, felRuntime: IFelRuntime = chevrotainFelRuntime) {
         this.doc = mappingDocument || {};
         this.rules = Array.isArray(this.doc.rules) ? this.doc.rules : [];
+        this.felRuntime = felRuntime;
     }
 
     /**
@@ -643,7 +643,7 @@ export class RuntimeMappingEngine {
             // Phase 2.2 — FEL condition evaluation
             if (rule.condition) {
                 try {
-                    const condResult = evalFEL(rule.condition, undefined, source);
+                    const condResult = evalFEL(this.felRuntime, rule.condition, undefined, source);
                     if (!condResult) continue;
                 } catch (_e) {
                     // condition evaluation error → skip rule
@@ -681,7 +681,7 @@ export class RuntimeMappingEngine {
                     let value = sourceArray;
                     if (transform === 'expression') {
                         try {
-                            value = evalFEL(effective.expression!, value, source);
+                            value = evalFEL(this.felRuntime, effective.expression!, value, source);
                         } catch (e) {
                             diagnostics.push({ ruleIndex, sourcePath: sourcePath ?? undefined, targetPath: targetPath ?? undefined, errorCode: 'FEL_RUNTIME', message: String(e) });
                             continue;
@@ -694,7 +694,7 @@ export class RuntimeMappingEngine {
                 } else if (arr.mode === 'each') {
                     if (!Array.isArray(sourceArray)) continue;
                     const innerRules = arr.innerRules ?? [];
-                    const items = executeEach(sourceArray, innerRules, source, direction, diagnostics, ruleIndex);
+                    const items = executeEach(sourceArray, innerRules, source, direction, diagnostics, ruleIndex, this.felRuntime);
                     setByPath(output, targetPath!, items);
                     appliedRules++;
                 } else if (arr.mode === 'indexed') {
@@ -752,7 +752,7 @@ export class RuntimeMappingEngine {
                 }
             } else if (transform === 'expression') {
                 try {
-                    value = evalFEL(effective.expression!, value, source);
+                    value = evalFEL(this.felRuntime, effective.expression!, value, source);
                 } catch (e) {
                     diagnostics.push({
                         ruleIndex,
@@ -774,7 +774,7 @@ export class RuntimeMappingEngine {
                 continue;
             } else if (transform === 'concat') {
                 try {
-                    value = evalFEL(effective.expression!, value, source);
+                    value = evalFEL(this.felRuntime, effective.expression!, value, source);
                 } catch (e) {
                     diagnostics.push({
                         ruleIndex,
@@ -787,7 +787,7 @@ export class RuntimeMappingEngine {
                 }
             } else if (transform === 'split') {
                 try {
-                    const splitResult = evalFEL(effective.expression!, value, source);
+                    const splitResult = evalFEL(this.felRuntime, effective.expression!, value, source);
                     if (Array.isArray(splitResult)) {
                         for (let i = 0; i < splitResult.length; i++) {
                             setByPath(output, `${targetPath}[${i}]`, clone(splitResult[i]));

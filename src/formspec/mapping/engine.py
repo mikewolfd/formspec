@@ -11,7 +11,8 @@ import copy
 import re
 from typing import Any
 
-from ..fel import parse, Evaluator, Environment, build_default_registry
+from ..fel import parse as _default_parse, Evaluator, Environment, build_default_registry
+from ..fel.runtime import FelRuntime, default_fel_runtime
 from ..fel.types import to_python, FelBoolean, FelTrue
 from .transforms import TRANSFORMS, TransformContext, _DROP_SENTINEL
 
@@ -23,7 +24,8 @@ class MappingEngine:
     forward() (Response -> target) and reverse() (target -> Response) methods.
     """
 
-    def __init__(self, mapping_doc: dict):
+    def __init__(self, mapping_doc: dict, fel_runtime: FelRuntime | None = None):
+        self._fel = fel_runtime or default_fel_runtime()
         self.doc = mapping_doc
         self.rules: list[dict] = mapping_doc.get('rules', [])
         self.defaults: dict = mapping_doc.get('defaults', {})
@@ -231,11 +233,7 @@ class MappingEngine:
         data['source'] = ctx.source_data
         if ctx.target_data:
             data['target'] = ctx.target_data
-        env = Environment(data=data)
-        functions = build_default_registry()
-        ev = Evaluator(env, functions)
-        ast_node = parse(condition)
-        result = ev.evaluate(ast_node)
+        result = self._fel.evaluate(condition, data).value
 
         if isinstance(result, FelBoolean):
             return result is FelTrue

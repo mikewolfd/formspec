@@ -1,12 +1,12 @@
 /** @filedesc Submit flow: payload building, touch-all, pending state, and validation targeting. */
 import type { Signal } from '@preact/signals-core';
-import type { FormEngine } from 'formspec-engine';
+import type { IFormEngine } from 'formspec-engine';
 import { normalizeFieldPath, externalPathToInternal, findFieldElement } from '../navigation/index.js';
 import type { NavigationHost } from '../navigation/index.js';
 import type { ValidationTargetMetadata } from '../types.js';
 
 export interface SubmitHost extends NavigationHost {
-    engine: FormEngine | null;
+    engine: IFormEngine | null;
     _definition: any;
     touchedFields: Set<string>;
     touchedVersion: Signal<number>;

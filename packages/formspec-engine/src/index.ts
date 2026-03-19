@@ -1,17 +1,19 @@
 /** @filedesc Core FormEngine class, public API surface, and re-exported types. */
 import { signal, computed, effect, batch, Signal } from '@preact/signals-core';
-import { FelLexer } from './fel/lexer.js';
 export { FelLexer } from './fel/lexer.js';
-import { parser } from './fel/parser.js';
 export { parser } from './fel/parser.js';
-import {
-    interpreter,
-    FelContext,
-    FelUnsupportedFunctionError,
-    type FELBuiltinFunctionCatalogEntry,
-} from './fel/interpreter.js';
-import { dependencyVisitor } from './fel/dependency-visitor.js';
+import { FelUnsupportedFunctionError } from './fel/chevrotain-runtime.js';
 import { itemAtPath } from './path-utils.js';
+import type { IFelRuntime, ICompiledExpression, FelContext, FELBuiltinFunctionCatalogEntry } from './fel/runtime.js';
+import { chevrotainFelRuntime } from './fel/chevrotain-runtime.js';
+
+export type { IFelRuntime, ICompiledExpression, FelContext, FELBuiltinFunctionCatalogEntry } from './fel/runtime.js';
+export { ChevrotainFelRuntime, chevrotainFelRuntime } from './fel/chevrotain-runtime.js';
+export type { IFormEngine, IRuntimeMappingEngine } from './interfaces.js';
+export type {
+    FelCompilationError,
+    FelCompilationResult,
+} from './fel/runtime.js';
 
 export { assembleDefinition, assembleDefinitionSync, rewriteFEL, rewriteMessageTemplate } from './assembler.js';
 export type { AssemblyProvenance, AssemblyResult, DefinitionResolver, RewriteMap } from './assembler.js';
@@ -19,7 +21,7 @@ export { RuntimeMappingEngine } from './runtime-mapping.js';
 export type { MappingDirection, RuntimeMappingResult, MappingDiagnostic } from './runtime-mapping.js';
 export { analyzeFEL, getFELDependencies, rewriteFELReferences } from './fel/analysis.js';
 export type { FELAnalysis, FELAnalysisError, FELRewriteOptions } from './fel/analysis.js';
-export type { FELBuiltinFunctionCatalogEntry } from './fel/interpreter.js';
+// FELBuiltinFunctionCatalogEntry re-exported from './fel/runtime.js' above
 export { validateExtensionUsage } from './extension-analysis.js';
 export type { ExtensionUsageIssue, ValidateExtensionUsageOptions } from './extension-analysis.js';
 export {
@@ -39,8 +41,8 @@ export type {
 } from './schema-validator.js';
 
 /** Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation. */
-export function getBuiltinFELFunctionCatalog(): FELBuiltinFunctionCatalogEntry[] {
-    return interpreter.listBuiltInFunctions();
+export function getBuiltinFELFunctionCatalog(runtime?: IFelRuntime): FELBuiltinFunctionCatalogEntry[] {
+    return (runtime ?? chevrotainFelRuntime).listBuiltInFunctions();
 }
 
 // ── Canonical types from formspec-types ──────────────────────────────
@@ -119,6 +121,8 @@ export interface FormEngineRuntimeContext {
     locale?: string;
     timeZone?: string;
     seed?: string | number;
+    /** Pluggable FEL runtime. Defaults to the built-in Chevrotain pipeline when omitted. */
+    felRuntime?: IFelRuntime;
 }
 
 /** A registry extension entry providing constraints and metadata for custom data types. */
@@ -254,7 +258,9 @@ function versionSatisfies(version: string, constraint: string): boolean {
     return true;
 }
 
-export class FormEngine {
+import type { IFormEngine } from './interfaces.js';
+
+export class FormEngine implements IFormEngine {
     readonly definition: FormspecDefinition;
 
     /** Reactive signals holding current field values, keyed by full dotted path (e.g. `"group[0].field"`). */
@@ -302,6 +308,8 @@ export class FormEngine {
     private displaySignalPaths: Set<string> = new Set();
     private bindConfigs: Record<string, EngineBindConfig> = {};
     private compiledExpressions: Record<string, () => any> = {};
+    /** The pluggable FEL runtime used for expression compilation and evaluation. */
+    public readonly felRuntime: IFelRuntime;
     private registryEntries: Map<string, RegistryEntry> = new Map();
     private remoteOptionsTasks: Array<Promise<void>> = [];
     private instanceSourceTasks: Array<Promise<void>> = [];
@@ -329,6 +337,7 @@ export class FormEngine {
      */
     constructor(definition: FormspecDefinition, runtimeContext?: FormEngineRuntimeContext, registryEntries?: RegistryEntry[]) {
         this.definition = definition;
+        this.felRuntime = runtimeContext?.felRuntime ?? chevrotainFelRuntime;
         if (runtimeContext) {
             this.setRuntimeContext(runtimeContext);
         }
@@ -1736,19 +1745,18 @@ export class FormEngine {
         const cacheKey = `${expression}|${currentItemName}|${includeSelf}`;
         if (this.compiledExpressions[cacheKey]) return this.compiledExpressions[cacheKey];
 
-        const lexResult = FelLexer.tokenize(expression);
-        parser.input = lexResult.tokens;
-        const cst = parser.expression();
+        const result = this.felRuntime.compile(expression);
 
-        if (parser.errors.length > 0) {
-            console.error(`FEL Parse Errors for "${expression}":`, parser.errors);
+        if (!result.expression) {
+            console.error(`FEL Parse Errors for "${expression}":`, result.errors);
             const errorFn = () => null;
             this.compiledExpressions[cacheKey] = errorFn;
             return errorFn;
         }
 
+        const compiledExpr = result.expression;
         const baseCurrentItemName = currentItemName.replace(/\[\d+\]/g, '');
-        const astDeps = dependencyVisitor.getDependencies(cst);
+        const astDeps = compiledExpr.dependencies;
 
         if (!this.dependencies[baseCurrentItemName]) {
             this.dependencies[baseCurrentItemName] = [];
@@ -1764,7 +1772,7 @@ export class FormEngine {
             } else if (!dep.includes('.') && parentPath) {
                 fullDepPath = `${parentPath}.${dep}`;
             }
-            
+
             const cleanDepPath = fullDepPath.replace(/\[\d+\]/g, '');
             if (!this.dependencies[baseCurrentItemName].includes(cleanDepPath)) {
                 this.dependencies[baseCurrentItemName].push(cleanDepPath);
@@ -1854,7 +1862,7 @@ export class FormEngine {
             };
 
             try {
-                return interpreter.evaluate(cst, context);
+                return compiledExpr.evaluate(context);
             } catch (e) {
                 if (e instanceof FelUnsupportedFunctionError) {
                     throw e;
@@ -1933,10 +1941,8 @@ export class FormEngine {
     }
 
     private evaluateMigrationExpression(expression: string, data: Record<string, any>): any {
-        const lexResult = FelLexer.tokenize(expression);
-        parser.input = lexResult.tokens;
-        const cst = parser.expression();
-        if (parser.errors.length > 0) return null;
+        const result = this.felRuntime.compile(expression);
+        if (!result.expression) return null;
 
         const context: FelContext = {
             getSignalValue: (path: string) => this.getValueFromDataPath(data, path),
@@ -1953,7 +1959,7 @@ export class FormEngine {
         };
 
         try {
-            return interpreter.evaluate(cst, context);
+            return result.expression.evaluate(context);
         } catch {
             return null;
         }
@@ -2356,13 +2362,11 @@ export class FormEngine {
         };
 
         for (const route of screener.routes) {
-            const lexResult = FelLexer.tokenize(route.condition);
-            parser.input = lexResult.tokens;
-            const cst = parser.expression();
-            if (parser.errors.length > 0) continue;
+            const compilationResult = this.felRuntime.compile(route.condition);
+            if (!compilationResult.expression) continue;
 
             try {
-                const result = interpreter.evaluate(cst, screenerContext);
+                const result = compilationResult.expression.evaluate(screenerContext);
                 if (result) {
                     const out: { target: string; label?: string; extensions?: Record<string, any> } = { target: route.target };
                     if (route.label !== undefined) out.label = route.label;

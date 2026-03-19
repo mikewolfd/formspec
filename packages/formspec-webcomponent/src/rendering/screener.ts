@@ -1,10 +1,10 @@
 /** @filedesc Screener UI: renders eligibility questions and routes to internal/external forms. */
-import { FormEngine } from 'formspec-engine';
+import type { IFormEngine } from 'formspec-engine';
 import { ScreenerRoute } from '../types.js';
 
 export interface ScreenerHost {
     _definition: any;
-    engine: FormEngine;
+    engine: IFormEngine;
     _screenerCompleted: boolean;
     _screenerRoute: ScreenerRoute | null;
     classifyScreenerRoute(route: ScreenerRoute | null | undefined): 'none' | 'internal' | 'external';
