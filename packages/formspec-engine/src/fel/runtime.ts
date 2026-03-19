@@ -11,6 +11,16 @@ export interface IFelEngineContext {
     getInstanceData(name: string, path?: string): any;
     /** Read the current value of a named variable, resolved within the given scope path. */
     getVariableValue(name: string, scopePath: string): any;
+    /** Field value signals by path (used by MIP lookup and row-building in stdlib). */
+    readonly signals?: Record<string, any>;
+    /** Visibility state signals by path (used by MIP lookup). */
+    readonly relevantSignals?: Record<string, any>;
+    /** Required state signals by path (used by MIP lookup). */
+    readonly requiredSignals?: Record<string, any>;
+    /** Readonly state signals by path (used by MIP lookup). */
+    readonly readonlySignals?: Record<string, any>;
+    /** Bind-level validation results by path (used by MIP lookup). */
+    readonly validationResults?: Record<string, any>;
 }
 
 /**
@@ -43,6 +53,8 @@ export interface FelContext {
 export interface FELBuiltinFunctionCatalogEntry {
     name: string;
     category: string;
+    signature?: string;
+    description?: string;
 }
 
 /**

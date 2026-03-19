@@ -211,12 +211,21 @@ export interface IFormEngine {
 /** Direction of a mapping operation. */
 export type MappingDirection = 'forward' | 'reverse';
 
+/** A diagnostic emitted during mapping rule execution. */
+export interface MappingDiagnostic {
+    ruleIndex: number;
+    sourcePath?: string;
+    targetPath?: string;
+    errorCode: 'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE';
+    message: string;
+}
+
 /** Result of a mapping operation. */
 export interface RuntimeMappingResult {
     direction: MappingDirection;
     output: any;
     appliedRules: number;
-    diagnostics: string[];
+    diagnostics: MappingDiagnostic[];
 }
 
 /**

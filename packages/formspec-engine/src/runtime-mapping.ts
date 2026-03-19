@@ -3,29 +3,14 @@
  */
 import type { IFelRuntime, FelContext } from './fel/runtime.js';
 import { chevrotainFelRuntime } from './fel/chevrotain-runtime.js';
+import type { MappingDirection, MappingDiagnostic, RuntimeMappingResult, IRuntimeMappingEngine } from './interfaces.js';
 
-/** The direction of a mapping operation: `"forward"` maps Formspec data to an external format, `"reverse"` maps back. */
-export type MappingDirection = 'forward' | 'reverse';
-
-/**
- * A structured diagnostic emitted during a mapping operation.
- * `ruleIndex` is -1 for document-level diagnostics; otherwise it is the 0-based index of the rule in the sorted rule list.
- */
-export interface MappingDiagnostic {
-    ruleIndex: number;
-    sourcePath?: string;
-    targetPath?: string;
-    errorCode: 'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE';
-    message: string;
-}
+// Re-export the types that were previously defined here for backwards compat
+export type { MappingDirection, MappingDiagnostic };
 
 /** The result of executing a mapping operation, including the transformed output, rule count, and any diagnostics. */
-export interface RuntimeMappingResult {
-    direction: MappingDirection;
-    output: any;
-    appliedRules: number;
-    diagnostics: MappingDiagnostic[];
-}
+export type { RuntimeMappingResult };
+
 
 /** Internal representation of a single mapping rule with source/target paths, transform type, and optional reverse override. */
 type MappingRule = {
@@ -560,7 +545,7 @@ function executeIndexed(
  * overrides. Forward mapping transforms Formspec response data into an external format; reverse
  * mapping transforms external data back into Formspec shape.
  */
-import type { IRuntimeMappingEngine } from './interfaces.js';
+
 
 export class RuntimeMappingEngine implements IRuntimeMappingEngine {
     private readonly doc: any;

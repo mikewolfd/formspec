@@ -1,6 +1,6 @@
 /** @filedesc Core behavior contract types for the headless component architecture. */
 import type { Signal } from '@preact/signals-core';
-import type { FormEngine } from 'formspec-engine';
+import type { IFormEngine } from 'formspec-engine';
 import type { PresentationBlock, ItemDescriptor } from 'formspec-layout';
 
 /**
@@ -223,7 +223,7 @@ export interface TabsBehavior {
  * focused on what behaviors actually need.
  */
 export interface BehaviorContext {
-    engine: FormEngine;
+    engine: IFormEngine;
     definition: any;
     prefix: string;
     cleanupFns: Array<() => void>;
