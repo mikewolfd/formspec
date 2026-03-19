@@ -60,6 +60,14 @@ class FormProcessor(Protocol):
         """Evaluate definition-wide variables in dependency order."""
         ...
 
+    def inject_external_validation(self, results: list[dict]) -> None:
+        """Inject external validation results (e.g. from server-side). Spec S5.7.1 (MUST)."""
+        ...
+
+    def clear_external_validation(self, path: str | None = None) -> None:
+        """Clear external validation results, optionally for a specific path. Spec S5.7.2."""
+        ...
+
 
 # ── FormValidator ───────────────────────────────────────────────────
 

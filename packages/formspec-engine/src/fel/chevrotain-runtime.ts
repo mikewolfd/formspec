@@ -77,6 +77,25 @@ export class ChevrotainFelRuntime implements IFelRuntime {
     listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[] {
         return interpreter.listBuiltInFunctions();
     }
+
+    extractDependencies(expression: string): string[] {
+        const lexResult = FelLexer.tokenize(expression);
+        if (lexResult.errors.length > 0) return [];
+
+        parser.input = lexResult.tokens;
+        const cst = parser.expression();
+        if (parser.errors.length > 0) return [];
+
+        return dependencyVisitor.getDependencies(cst);
+    }
+
+    registerFunction(
+        name: string,
+        impl: (...args: any[]) => any,
+        meta?: { signature?: string; description?: string; category?: string },
+    ): void {
+        interpreter.registerFunction(name, impl, meta);
+    }
 }
 
 /** Shared default instance. */

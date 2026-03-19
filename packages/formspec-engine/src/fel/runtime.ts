@@ -109,4 +109,20 @@ export interface IFelRuntime {
 
     /** Return the catalog of built-in FEL functions for tooling surfaces. */
     listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[];
+
+    /**
+     * Extract field path dependencies from a FEL expression without full compilation.
+     * Spec S3.6.1 (MUST): dependency analysis for reactive wiring.
+     */
+    extractDependencies(expression: string): string[];
+
+    /**
+     * Register an extension function from the registry.
+     * Spec S3.12, S8.1: runtime-extensible function catalog.
+     */
+    registerFunction(
+        name: string,
+        impl: (...args: any[]) => any,
+        meta?: { signature?: string; description?: string; category?: string },
+    ): void;
 }

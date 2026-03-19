@@ -386,6 +386,27 @@ export class FelInterpreter extends BaseVisitor {
     return this.visit(cst);
   }
 
+  /**
+   * Register an extension function into the runtime stdlib.
+   * Used by registry-loaded extensions (Spec S3.12, S8.1).
+   */
+  public registerFunction(
+    name: string,
+    impl: (...args: any[]) => any,
+    meta?: { signature?: string; description?: string; category?: string },
+  ): void {
+    this.felStdLib[name] = impl;
+    if (meta?.category) {
+      FEL_BUILTIN_FUNCTION_CATEGORY[name] = meta.category;
+    }
+    if (meta?.signature || meta?.description) {
+      FEL_BUILTIN_FUNCTION_INFO[name] = {
+        signature: meta?.signature ?? `${name}(...) -> any`,
+        description: meta?.description ?? '',
+      };
+    }
+  }
+
   /** Return the built-in FEL function catalog sourced from the runtime stdlib. */
   public listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[] {
     return Object.keys(this.felStdLib)

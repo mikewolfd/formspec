@@ -18,7 +18,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 from .evaluator import EvalResult
 from .dependencies import DependencySet
@@ -67,9 +67,33 @@ class FelRuntime(Protocol):
         """
         ...
 
+    def register_function(
+        self,
+        name: str,
+        impl: Callable,
+        meta: dict | None = None,
+    ) -> None:
+        """Register an extension function into the runtime.
+
+        Spec S3.12, S8.1: runtime-extensible function catalog.
+        """
+        ...
+
 
 class DefaultFelRuntime:
     """FEL runtime backed by the built-in Python parser and evaluator."""
+
+    def __init__(self) -> None:
+        self._extension_functions: dict[str, Callable] = {}
+
+    def register_function(
+        self,
+        name: str,
+        impl: Callable,
+        meta: dict | None = None,
+    ) -> None:
+        """Register an extension function into the runtime."""
+        self._extension_functions[name] = impl
 
     def parse(self, source: str) -> Any:
         from .parser import parse as _parse
@@ -98,6 +122,8 @@ class DefaultFelRuntime:
             variables=variables,
         )
         functions = build_default_registry()
+        if self._extension_functions:
+            functions.update(self._extension_functions)
         if extensions:
             functions.update(extensions)
         ev = Evaluator(env, functions)

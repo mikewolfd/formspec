@@ -200,6 +200,19 @@ export interface IFormEngine {
     setLabelContext(context: string | null): void;
     getLabel(item: FormItem): string;
 
+    // ── External validation injection ─────────────────────────────
+
+    /** Inject external validation results (e.g. from server-side). Spec S5.7.1 (MUST). */
+    injectExternalValidation?(results: Array<{ path: string; severity: string; code: string; message: string; source?: string }>): void;
+
+    /** Clear external validation results, optionally for a specific path. Spec S5.7.2. */
+    clearExternalValidation?(path?: string): void;
+
+    // ── Registry ────────────────────────────────────────────────────
+
+    /** Load registry entries for extension resolution. Spec S8.1. */
+    setRegistryEntries?(entries: any[]): void;
+
     // ── Screener & migration ────────────────────────────────────────
 
     evaluateScreener(answers: Record<string, any>): { target: string; label?: string; extensions?: Record<string, any> } | null;
@@ -216,7 +229,7 @@ export interface MappingDiagnostic {
     ruleIndex: number;
     sourcePath?: string;
     targetPath?: string;
-    errorCode: 'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE';
+    errorCode: 'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE' | 'VERSION_MISMATCH' | 'INVALID_FEL';
     message: string;
 }
 
