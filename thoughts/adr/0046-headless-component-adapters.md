@@ -12,7 +12,7 @@ The webcomponent package (`packages/formspec-webcomponent/`) renders Formspec fo
 2. **Behavior** — wiring reactive signal subscriptions, event handlers, value coercion, ARIA attributes, touched tracking, validation display
 3. **Styling** — applying theme-resolved classes, tokens, and inline styles
 
-This coupling creates a concrete problem: design systems like USWDS Tailwind require different DOM structures than the webcomponent emits. USWDS Tailwind radio buttons use `<input class="sr-only peer">` with styled sibling `<div>` elements and `peer-checked:` variants. The webcomponent emits native `<input type="radio">` with adjacent `<label>` text. No amount of CSS class injection (`x-classes`, `cssClass`) can bridge this gap — the DOM shape is wrong.
+This coupling creates a concrete problem: design systems like USWDS (U.S. Web Design System) require different DOM structures than the webcomponent emits. USWDS radio buttons use `<div class="usa-radio"><input class="usa-radio__input"><label class="usa-radio__label">` — a wrapper-per-option structure with BEM class names. The webcomponent emits native `<input type="radio">` with adjacent `<label>` text. No amount of CSS class injection (`x-classes`, `cssClass`) can bridge this gap — the DOM shape is wrong.
 
 Today this is patched with "bridge CSS" — a supplementary stylesheet that uses CSS tricks to approximate the target design system's appearance despite structural mismatches. This works but is fragile, incomplete, and must be maintained per design system.
 
@@ -49,7 +49,7 @@ Concretely, split each component plugin into two layers:
 
 1. **Behavior hooks** — functions that accept a `RenderContext` and component descriptor, and return a typed **behavior contract**: static props, reactive accessors, and a `bind(refs)` function that wires all reactive effects given DOM element references.
 
-2. **Render adapters** — functions that receive a behavior contract and build DOM. The default adapter reproduces today's DOM structure. Design-system adapters (USWDS Tailwind, Bootstrap, etc.) emit their own markup. Adapters never import `@preact/signals-core` — they are pure DOM construction.
+2. **Render adapters** — functions that receive a behavior contract and build DOM. The default adapter reproduces today's DOM structure. Design-system adapters (USWDS, Bootstrap, etc.) emit their own markup. Adapters never import `@preact/signals-core` — they are pure DOM construction.
 
 The existing `ComponentPlugin.render()` becomes an orchestrator (composition root): call behavior hook → look up adapter → call adapter. The adapter calls `bind()` after building DOM.
 
@@ -333,7 +333,7 @@ function resolveAndStripTokens(
  * Missing entries fall back to the default adapter.
  */
 interface RenderAdapter {
-  /** Human-readable adapter name (e.g., 'uswds-tailwind', 'bootstrap'). */
+  /** Human-readable adapter name (e.g., 'uswds', 'bootstrap'). */
   name: string;
 
   /**
@@ -385,30 +385,26 @@ Adapters MUST honor the following properties from `behavior.presentation` (the c
 | `widgetConfig` | **SHOULD** read for semantic configuration (e.g., `{ searchable: true }` for dropdowns, `{ direction: 'horizontal' }` for radio groups, `{ rows: 5 }` for textareas) | These influence DOM structure and control behavior, not just styling. |
 | `x-classes` in `widgetConfig` | **MAY** read `widgetConfig['x-classes']` for fine-grained slot overrides | Design-system adapters that own their markup typically ignore x-classes. The default adapter SHOULD support them for backwards compatibility. |
 
-Example — USWDS Tailwind adapter honoring cascade cssClass:
+Example — USWDS adapter honoring cascade cssClass:
 
 ```typescript
 const renderTextInput: AdapterRenderFn<FieldBehavior> = (behavior, parent, actx) => {
   const p = behavior.presentation;
-  // Design-system classes + cascade-resolved classes (union)
-  const rootClasses = ['max-w-md'];
+
+  const root = el('div', { class: 'usa-form-group', 'data-name': behavior.fieldPath });
+  // MUST: apply cascade-resolved classes alongside design-system classes
   if (p.cssClass) {
     const cascadeClasses = Array.isArray(p.cssClass) ? p.cssClass : [p.cssClass];
-    rootClasses.push(...cascadeClasses);
+    cascadeClasses.forEach(c => root.classList.add(...c.split(/\s+/).filter(Boolean)));
   }
-  const root = el('div', { class: rootClasses.join(' '), 'data-name': behavior.fieldPath });
 
   // Respect labelPosition from cascade
   const labelPosition = p.labelPosition ?? 'top';
   const label = el('label', {
-    class: labelPosition === 'hidden' ? 'sr-only' : 'block text-ink',
+    class: labelPosition === 'hidden' ? 'usa-sr-only' : 'usa-label',
     for: behavior.id,
   });
   label.textContent = behavior.label;
-
-  if (labelPosition === 'start') {
-    root.classList.add('flex', 'items-center', 'gap-3');
-  }
   root.appendChild(label);
 
   // Apply cascade accessibility
@@ -416,20 +412,23 @@ const renderTextInput: AdapterRenderFn<FieldBehavior> = (behavior, parent, actx)
   if (p.accessibility?.description) root.setAttribute('aria-description', p.accessibility.description);
   if (p.accessibility?.liveRegion) root.setAttribute('aria-live', p.accessibility.liveRegion);
 
-  const wrapper = el('div', { class: 'mt-2 relative' });
+  // Hint
+  if (behavior.hint) {
+    const hint = el('span', { class: 'usa-hint', id: `${behavior.id}-hint` });
+    hint.textContent = behavior.hint;
+    root.appendChild(hint);
+  }
+
   const input = el('input', {
-    class: 'p-2 w-full max-w-lg h-10 border border-gray-60 ' +
-           'focus:outline-offset-0 focus:outline-4 focus:outline-blue-40v',
+    class: 'usa-input',
     id: behavior.id,
     name: behavior.fieldPath,
     type: 'text',
-    'aria-describedby': `${behavior.id}-hint ${behavior.id}-error`,
   });
-  wrapper.appendChild(input);
-  root.appendChild(wrapper);
+  root.appendChild(input);
 
-  const error = el('div', {
-    class: 'mt-1 text-red-60v text-sm font-bold',
+  const error = el('span', {
+    class: 'usa-error-message',
     id: `${behavior.id}-error`,
     role: 'alert',
     'aria-live': 'polite',
@@ -444,68 +443,63 @@ const renderTextInput: AdapterRenderFn<FieldBehavior> = (behavior, parent, actx)
 };
 ```
 
-### USWDS Tailwind RadioGroup (the structural mismatch case)
+### USWDS RadioGroup (the structural mismatch case)
 
 ```typescript
-// formspec-adapter-uswds-tailwind/src/radio-group.ts
+// packages/formspec-adapters/src/uswds/radio-group.ts
 const renderRadioGroup: AdapterRenderFn<RadioGroupBehavior> = (behavior, parent, actx) => {
   const p = behavior.presentation;
-  const fieldset = el('fieldset', { class: 'space-y-2', role: behavior.groupRole });
+  const fieldset = el('fieldset', { class: 'usa-fieldset', role: behavior.groupRole });
 
   // Apply cascade cssClass
   if (p.cssClass) {
     const classes = Array.isArray(p.cssClass) ? p.cssClass : [p.cssClass];
-    classes.forEach(c => fieldset.classList.add(...c.split(/\s+/)));
+    classes.forEach(c => fieldset.classList.add(...c.split(/\s+/).filter(Boolean)));
   }
 
-  const legend = el('legend', { class: 'text-sm font-bold mb-2' });
+  const legend = el('legend', { class: 'usa-legend' });
   legend.textContent = behavior.label;
   fieldset.appendChild(legend);
 
   const optionControls = new Map<string, HTMLInputElement>();
-  const optionContainer = el('div', { class: 'space-y-2' });
 
   function buildOptions(options: ReadonlyArray<{ value: string; label: string }>) {
-    optionContainer.innerHTML = '';
+    // Clear existing options (for rebuildOptions callback)
+    fieldset.querySelectorAll('.usa-radio').forEach(el => el.remove());
     const controls = new Map<string, HTMLInputElement>();
-    for (const opt of options) {
-      const optLabel = el('label', {
-        class: 'flex items-center gap-3 cursor-pointer relative',
-      });
-      // sr-only peer pattern
+
+    for (let i = 0; i < options.length; i++) {
+      const opt = options[i];
+      const optId = `${behavior.id}-${i}`;
+
+      // USWDS radio pattern: wrapper div > input + label
+      const wrapper = el('div', { class: 'usa-radio' });
       const radio = el('input', {
+        class: 'usa-radio__input',
         type: 'radio',
-        class: 'sr-only peer',
+        id: optId,
         name: behavior.inputName,
         value: opt.value,
       }) as HTMLInputElement;
       controls.set(opt.value, radio);
-      // NOTE: no change listener here — bind() owns all event wiring
+      // NOTE: no change listener — bind() owns all event wiring
 
-      const indicator = el('div', {
-        class: 'flex items-center justify-center size-5 rounded-full ' +
-               'ring-2 ring-offset-0 ring-gray-90 ' +
-               'peer-checked:ring-blue-60v ' +
-               'peer-checked:before:block peer-checked:before:size-2.5 ' +
-               'peer-checked:before:rounded-full peer-checked:before:bg-blue-60v ' +
-               'peer-focus:outline-4 peer-focus:outline-blue-40v ' +
-               'peer-disabled:ring-gray-50 peer-disabled:cursor-not-allowed',
+      const optLabel = el('label', {
+        class: 'usa-radio__label',
+        for: optId,
       });
-      const text = el('div', {
-        class: 'peer-disabled:text-gray-60 peer-disabled:cursor-not-allowed',
-      });
-      text.textContent = opt.label;
-      optLabel.append(radio, indicator, text);
-      optionContainer.appendChild(optLabel);
+      optLabel.textContent = opt.label;
+
+      wrapper.append(radio, optLabel);
+      fieldset.appendChild(wrapper);
     }
     return controls;
   }
 
   const initialControls = buildOptions(behavior.options());
-  fieldset.appendChild(optionContainer);
 
-  const error = el('div', {
-    class: 'mt-1 text-red-60v text-sm font-bold',
+  const error = el('span', {
+    class: 'usa-error-message',
     id: `${behavior.id}-error`,
     role: 'alert',
     'aria-live': 'polite',
@@ -520,8 +514,7 @@ const renderRadioGroup: AdapterRenderFn<RadioGroupBehavior> = (behavior, parent,
     control: fieldset,
     error,
     optionControls: initialControls,
-    // Handle async option changes (remote options)
-    rebuildOptions: (container, newOptions) => buildOptions(newOptions),
+    rebuildOptions: (_container, newOptions) => buildOptions(newOptions),
   });
   actx.onDispose(dispose);
 };
@@ -618,17 +611,17 @@ External adapter packages:
 
 ```
 packages/
-  formspec-adapter-uswds-tailwind/    ← NEW: separate package
+  formspec-adapters/                  ← NEW: adapter library package
     src/
-      index.ts                        ← exports uswdsTailwindAdapter
-      text-input.ts
-      radio-group.ts
-      checkbox-group.ts
-      select.ts
-      toggle.ts
-      money-input.ts
-      wizard.ts
-      ...
+      index.ts                        ← barrel export for all adapters
+      helpers.ts                      ← shared utilities (el, applyCascadeClasses, applyCascadeAccessibility)
+      uswds/                          ← USWDS v3 adapter
+        index.ts                      ← exports uswdsAdapter
+        text-input.ts
+        radio-group.ts
+        checkbox-group.ts
+        select.ts
+        ...
     package.json                      ← peer-depends on formspec-webcomponent
 ```
 
@@ -685,10 +678,10 @@ For each:
 
 These have self-contained DOM + signal wiring that does NOT go through `renderInputComponent`. Same extraction process, but the source code is in `inputs.ts` plugin render functions, not `field-input.ts`.
 
-### Phase 3: Build USWDS Tailwind adapter
+### Phase 3: Build USWDS adapter
 
-1. Create `packages/formspec-adapter-uswds-tailwind/`
-2. Implement adapter render functions using USWDS Tailwind v2 markup patterns
+1. Create USWDS adapter in `packages/formspec-adapters/src/uswds/`
+2. Implement adapter render functions using USWDS v3 markup patterns (`usa-form-group`, `usa-input`, `usa-radio`, etc.)
 3. Build the reference form example app using this adapter
 
 ### Phase 4: Extract interactive components
@@ -813,7 +806,7 @@ Adapters need a behavior contract to render. Create test helpers that build a mo
 The existing E2E test suite is the primary regression gate. After extracting each component:
 - All existing tests MUST pass with zero changes
 - This verifies the default adapter reproduces the current DOM exactly
-- New E2E tests for the USWDS Tailwind adapter verify the alternative DOM
+- New E2E tests for the USWDS adapter verify the alternative DOM
 
 ### Per-component migration validation
 
@@ -831,26 +824,45 @@ Each component extraction follows: extract → test default adapter → verify E
 
 ## Success Criteria
 
-- [ ] Behavior hooks exist for all 15 field component types (Group A + Group B)
-- [ ] Default adapter reproduces the current DOM output — all existing E2E tests pass with zero changes
-- [ ] At least one external adapter (USWDS Tailwind) demonstrates a structurally different DOM
-- [ ] No adapter imports `@preact/signals-core`
-- [ ] Adapters honor cascade-resolved `cssClass` (verified by tests)
+- [x] Behavior hooks exist for all 15 field component types (Group A + Group B)
+- [x] Default adapter reproduces the current DOM output — all existing E2E tests pass with zero changes
+- [x] At least one external adapter (USWDS) demonstrates a structurally different DOM
+- [x] No adapter imports `@preact/signals-core`
+- [x] Adapters honor cascade-resolved `cssClass` (verified by tests)
 - [ ] Remote options work via `rebuildOptions` callback
-- [ ] `x-classes` still works with the default adapter (backwards compatible)
-- [ ] `field-input.ts` is deleted and replaced by focused, per-component files
-- [ ] A reference form app renders correctly with the USWDS Tailwind adapter
+- [x] `x-classes` still works with the default adapter (backwards compatible)
+- [x] `field-input.ts` is deleted and replaced by focused, per-component files
+- [x] USWDS adapter covers all 15 component types:
+  - [x] TextInput (including textarea variant) — `usa-form-group` / `usa-input` / `usa-textarea`
+  - [x] NumberInput — `usa-input` type=number
+  - [x] RadioGroup — `usa-fieldset` / `usa-radio` / `usa-radio__input`
+  - [x] CheckboxGroup (with selectAll) — `usa-fieldset` / `usa-checkbox`
+  - [x] Select — `usa-select`
+  - [x] DatePicker — `usa-input` type=date
+  - [x] Checkbox — `usa-checkbox`
+  - [x] Toggle — `usa-checkbox` (fallback — USWDS has no native toggle)
+  - [x] MoneyInput — `usa-input-group` with `usa-input-prefix` for currency
+  - [x] Slider — `usa-range`
+  - [x] Rating — custom with `usa-form-group` + USWDS design tokens
+  - [x] FileUpload — `usa-file-input` / `usa-file-input__target` with drag-drop
+  - [x] Signature — canvas + `usa-button--outline` clear button
+  - [x] Wizard — `usa-step-indicator` segments + `usa-button` nav
+  - [x] Tabs — `usa-button-group--segmented` tab bar
+- [ ] USWDS adapter remaining polish:
+  - [ ] Error-class toggling (`usa-form-group--error`, `usa-input--error`) via MutationObserver or bind callback
+  - [ ] Signature touch event support for mobile
+  - [ ] Tests for all USWDS adapter components
+- [ ] A reference form app renders correctly with the USWDS adapter
 
 ---
 
 ## References
 
 - ADR 0045 — Rust Shared Kernel (Hybrid Strategy): establishes FormEngine stays in TypeScript, pure logic moves to Rust. Behavior hooks align with this boundary.
-- USWDS Tailwind v2 (`https://v2.uswds-tailwind.com/`): component markup patterns that motivated this ADR
-- Zag.js (`https://zagjs.com/`): headless state machine library used by USWDS Tailwind v2. Conceptual model for the behavior/adapter split.
+- USWDS v3 (`https://designsystem.digital.gov/`): U.S. Web Design System component markup patterns — the first external adapter target
+- Zag.js (`https://zagjs.com/`): headless state machine library. Conceptual model for the behavior/adapter split.
 - Formspec Theme Spec (§4, §5, §7): widget catalog, selector cascade, processing model — unchanged by this ADR
-- `packages/formspec-webcomponent/src/rendering/field-input.ts`: the 540-line function this ADR replaces
-- `packages/formspec-webcomponent/src/components/inputs.ts`: 5 inline field plugins (Slider, Rating, FileUpload, Signature, MoneyInput)
-- `packages/formspec-webcomponent/examples/uswds-theme.json`: current x-classes approach
-- `packages/formspec-webcomponent/examples/formspec-uswds-bridge.css`: bridge CSS this ADR eliminates
+- `packages/formspec-webcomponent/src/behaviors/`: extracted behavior hooks (17 components)
+- `packages/formspec-webcomponent/src/adapters/default/`: default adapter (reproduces original DOM)
+- `packages/formspec-adapters/src/uswds/`: USWDS v3 adapter implementation
 - `formspec-layout/src/planner.ts:resolveWidget()`: where widget fallback resolution actually happens
