@@ -10,7 +10,10 @@
  *   - packages/formspec-engine/API.llm.md
  *   - packages/formspec-layout/API.llm.md
  *   - packages/formspec-webcomponent/API.llm.md
- *   - form-builder/API.llm.md
+ *   - packages/formspec-core/API.llm.md
+ *   - packages/formspec-chat/API.llm.md
+ *   - packages/formspec-mcp/API.llm.md
+ *   - packages/formspec-studio-core/API.llm.md
  */
 
 import ts from 'typescript';
@@ -356,11 +359,22 @@ const packages = [
     dir: 'packages/formspec-webcomponent',
   },
   {
-    name: 'form-builder',
-    title: 'form-builder — API Reference',
-    description: 'Formspec Studio v2 editor APIs. Includes project state model, atomic mutation helpers, diagnostics derivations, import/export flows, versioning utilities, extension registry cataloging, and command palette search helpers.',
-    dir: 'form-builder',
-    distDir: 'form-builder/dist-types',
+    name: 'formspec-core',
+    title: 'formspec-core — API Reference',
+    description: 'Raw form project state management: command dispatch, handler pipeline, undo/redo, and the IProjectCore abstraction. Framework-independent foundation for Formspec authoring tools.',
+    dir: 'packages/formspec-core',
+  },
+  {
+    name: 'formspec-chat',
+    title: 'formspec-chat — API Reference',
+    description: 'Conversational form builder core. AI adapter interfaces, session management, template library, source tracing, issue queue, and scaffold/refinement workflows. No React/DOM dependencies.',
+    dir: 'packages/formspec-chat',
+  },
+  {
+    name: 'formspec-mcp',
+    title: 'formspec-mcp — API Reference',
+    description: 'Model Context Protocol server for AI-driven Formspec form authoring. Exposes form creation, editing, preview, and validation as MCP tools.',
+    dir: 'packages/formspec-mcp',
   },
   {
     name: 'formspec-studio-core',
