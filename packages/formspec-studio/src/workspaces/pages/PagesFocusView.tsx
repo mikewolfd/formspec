@@ -140,6 +140,7 @@ export function PagesFocusView({ pageId, onBack, onNavigate }: PagesFocusViewPro
         <input
           ref={titleInputRef}
           type="text"
+          aria-label="Page title"
           defaultValue={page.title || page.id}
           key={`title-${pageId}-${page.title}`}
           onBlur={commitTitle}

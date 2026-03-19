@@ -902,9 +902,9 @@ export function PagesTab() {
           </DragDropProvider>
         )}
 
-        {/* Single mode: dormant page list (read-only, pointer-events-none) */}
+        {/* Single mode: dormant page list (reduced opacity, still interactive for Focus Mode) */}
         {isSingle && hasPages && (
-          <div className="opacity-50 pointer-events-none space-y-3">
+          <div className="opacity-50 space-y-3">
             {structure.pages.map((page, i) => (
               <PageCard
                 key={page.id}

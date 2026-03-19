@@ -67,7 +67,7 @@ export function SelectionToolbar({
   }
 
   return (
-    <div className="flex items-center gap-1.5 p-1.5 bg-surface border border-border rounded-md shadow-sm text-[11px]">
+    <div data-testid="selection-toolbar" className="flex items-center gap-1.5 p-1.5 bg-surface border border-border rounded-md shadow-sm text-[11px]">
       {/* Width presets */}
       {PRESETS.map((p) => (
         <button

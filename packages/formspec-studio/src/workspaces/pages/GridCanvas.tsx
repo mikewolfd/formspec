@@ -43,6 +43,7 @@ export function GridCanvas({
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && selectedItemKey) {
+          e.stopPropagation();
           onSelectItem(null);
         }
       }}
