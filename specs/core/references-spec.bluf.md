@@ -1,0 +1,6 @@
+- References attach external documentation, knowledge sources, and agent data stores to any level of a definition (form, group, field).
+- Each reference declares a `type` (documentation, regulation, vector-store, retrieval, tool, context, etc.) and an `audience` (human, agent, both).
+- Content is provided via `uri` (external pointer) and/or inline `content`.
+- URI schemes support vector stores (`vectorstore:`), knowledge bases (`kb:`), and host-provided sources (`formspec-fn:`).
+- References are pure metadata — they MUST NOT affect data capture, validation, or the processing model.
+- References do NOT inherit from parent to child; consumers walk the tree to collect context.
