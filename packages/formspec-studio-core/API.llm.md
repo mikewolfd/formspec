@@ -6,13 +6,85 @@ Pure TypeScript library for creating and editing Formspec artifact bundles. Ever
 
 formspec-studio-core
 
-Pure TypeScript library for creating and editing Formspec artifact bundles.
-Every edit is a serializable {@link Command} dispatched against a {@link Project}.
+Document-agnostic semantic authoring API for Formspec.
+Project composes IProjectCore (from formspec-core) and exposes
+51 behavior-driven helper methods for form authoring.
 
-Entry point: call {@link createProject} to get a new {@link Project} instance,
-then use `project.dispatch(command)` to apply mutations.
+Consumers import types from THIS package — never from formspec-core.
 
-No framework dependencies, no singletons, no side effects.
+## `isAuthoredComponentDocument(doc: unknown): doc is FormspecComponentDocument`
+
+## `hasAuthoredComponentTree(doc: unknown): doc is FormspecComponentDocument`
+
+## `createComponentArtifact(url?: string): FormspecComponentDocument`
+
+## `createGeneratedLayoutDocument(url?: string, seed?: Partial<FormspecComponentDocument> | null): FormspecGeneratedLayoutDocument`
+
+## `splitComponentState(component: FormspecComponentDocument | undefined, url?: string): {
+    component: FormspecComponentDocument;
+    generatedComponent: FormspecGeneratedLayoutDocument;
+}`
+
+## `getEditableComponentDocument(state: Pick<ProjectState, 'component' | 'generatedComponent'>): FormspecComponentDocument | FormspecGeneratedLayoutDocument`
+
+## `getCurrentComponentDocument(state: Pick<ProjectState, 'component' | 'generatedComponent'>): FormspecComponentDocument | FormspecGeneratedLayoutDocument`
+
+## `previewForm(project: Project, scenario?: Record<string, unknown>): {
+    visibleFields: string[];
+    hiddenFields: {
+        path: string;
+        hiddenBy?: string;
+    }[];
+    currentValues: Record<string, unknown>;
+    requiredFields: string[];
+    pages: {
+        id: string;
+        title: string;
+        validationErrors: number;
+        validationWarnings: number;
+        status: 'active' | 'complete' | 'incomplete' | 'unreachable';
+    }[];
+    validationState: Record<string, {
+        severity: 'error' | 'warning' | 'info';
+        message: string;
+    }>;
+}`
+
+Preview — simulate respondent experience.
+Creates a FormEngine from the project's exported definition,
+optionally replays scenario values, and returns a snapshot.
+
+All paths in the returned object (visibleFields, hiddenFields, currentValues,
+requiredFields, validationState keys) use 0-based indexing for repeat group
+instances (e.g. `items[0].field`). Note that the engine's ValidationReport
+uses 1-based indexing externally; this function normalizes those back to 0-based
+for consistency.
+
+## `validateResponse(project: Project, response: Record<string, unknown>): ValidationReport`
+
+Validate a response document against the current form definition.
+Returns a ValidationReport from formspec-engine.
+
+## `resolveFieldType(type: string): ResolvedFieldType`
+
+## `resolveWidget(widget: string): string`
+
+## `widgetHintFor(aliasOrComponent: string): string | undefined`
+
+## `isTextareaWidget(widget: string): boolean`
+
+## `FIELD_TYPE_MAP: Record<string, {
+    dataType: string;
+    defaultWidget: string;
+    defaultWidgetHint?: string;
+    constraintExpr?: string;
+}>`
+
+## `WIDGET_ALIAS_MAP: Record<string, string>`
+
+#### interface `ResolvedFieldType`
+
+- **defaultWidgetHint** (`string`): Spec-normative default widgetHint for this dataType (e.g. "textarea" for text).
 
 ## `registerHandler(type: string, handler: CommandHandler): void`
 
@@ -82,6 +154,210 @@ the target item, the item's index within that array, and the item itself.
 Used by virtually every definition-item handler (`deleteItem`, `renameItem`,
 `moveItem`, `reorderItem`, `duplicateItem`) to locate an item before mutating it.
 
+#### interface `HelperWarning`
+
+Structured warning — prefer over prose strings for programmatic consumers
+
+- **code**: `string`
+- **message**: `string`
+- **detail?**: `object`
+
+#### interface `HelperResult`
+
+Return type for all helper methods
+
+- **summary**: `string`
+- **action**: `{
+        helper: string;
+        params: Record<string, unknown>;
+    }`
+- **affectedPaths**: `string[]`
+- **createdId?**: `string`
+- **groupKey?**: `string`
+- **warnings?**: `HelperWarning[]`
+
+#### interface `ChoiceOption`
+
+Choice option for inline options or defineChoices
+
+- **value**: `string`
+- **label**: `string`
+
+#### interface `FieldProps`
+
+Field properties for addField / addScreenField
+
+- **placeholder?**: `string`
+- **hint?**: `string`
+- **description?**: `string`
+- **ariaLabel?**: `string`
+- **choices?**: `ChoiceOption[]`
+- **choicesFrom?**: `string`
+- **widget?**: `string`
+- **page?**: `string`
+- **required?**: `boolean`
+- **readonly?**: `boolean`
+- **initialValue?**: `unknown`
+- **insertIndex?**: `number`
+- **parentPath?**: `string`
+
+#### interface `ContentProps`
+
+Content properties for addContent
+
+- **page?**: `string`
+- **parentPath?**: `string`
+- **insertIndex?**: `number`
+
+#### interface `GroupProps`
+
+Group properties
+
+- **display?**: `'stack' | 'dataTable'`
+- **page?**: `string`
+- **parentPath?**: `string`
+- **insertIndex?**: `number`
+
+#### interface `RepeatProps`
+
+Repeat group configuration
+
+- **min?**: `number`
+- **max?**: `number`
+- **addLabel?**: `string`
+- **removeLabel?**: `string`
+
+#### interface `BranchPath`
+
+Branch path — one arm of a conditional branch
+
+- **when**: `string | number | boolean`
+- **show**: `string | string[]`
+- **mode?**: `'equals' | 'contains'`
+
+#### interface `PlacementOptions`
+
+Placement options for placeOnPage
+
+- **span?**: `number`
+
+#### interface `FlowProps`
+
+Flow configuration
+
+- **showProgress?**: `boolean`
+- **allowSkip?**: `boolean`
+
+#### interface `ValidationOptions`
+
+Validation options for addValidation
+
+- **timing?**: `'continuous' | 'submit' | 'demand'`
+- **severity?**: `'error' | 'warning' | 'info'`
+- **code?**: `string`
+- **activeWhen?**: `string`
+
+#### interface `InstanceProps`
+
+Named external data source (secondary instance)
+
+- **source?**: `string`
+- **data?**: `unknown`
+- **schema?**: `object`
+- **static?**: `boolean`
+- **readonly?**: `boolean`
+- **description?**: `string`
+
+#### interface `MetadataChanges`
+
+Metadata changes for setMetadata — split between title, presentation, and definition handlers
+
+- **title?**: `string | null`
+- **name?**: `string | null`
+- **description?**: `string | null`
+- **url?**: `string | null`
+- **version?**: `string | null`
+- **status?**: `'draft' | 'active' | 'retired' | 'unknown' | null`
+- **date?**: `string | null`
+- **versionAlgorithm?**: `string | null`
+- **nonRelevantBehavior?**: `'empty' | 'suppress' | null`
+- **derivedFrom?**: `string | null`
+- **density?**: `'compact' | 'comfortable' | 'spacious' | null`
+- **labelPosition?**: `'top' | 'left' | 'inline' | 'hidden' | null`
+- **pageMode?**: `'tabs' | 'wizard' | 'accordion' | null`
+- **defaultCurrency?**: `string | null`
+
+#### interface `ItemChanges`
+
+Changes for updateItem — each key routes to a different handler
+
+- **label?**: `string | null`
+- **hint?**: `string | null`
+- **description?**: `string | null`
+- **placeholder?**: `string`
+- **ariaLabel?**: `string`
+- **options?**: `ChoiceOption[] | null`
+- **choicesFrom?**: `string`
+- **currency?**: `string | null`
+- **precision?**: `number | null`
+- **initialValue?**: `unknown`
+- **prePopulate?**: `unknown`
+- **dataType?**: `string`
+- **required?**: `boolean | string | null`
+- **constraint?**: `string | null`
+- **constraintMessage?**: `string | null`
+- **calculate?**: `string | null`
+- **relevant?**: `string | null`
+- **readonly?**: `boolean | string | null`
+- **default?**: `string | null`
+- **repeatable?**: `boolean`
+- **minRepeat?**: `number | null`
+- **maxRepeat?**: `number | null`
+- **widget?**: `string | null`
+- **style?**: `Record<string, unknown>`
+- **page?**: `string`
+- **prefix?**: `string | null`
+- **suffix?**: `string | null`
+- **semanticType?**: `string | null`
+
+#### type `LayoutArrangement`
+
+Layout arrangement for applyLayout
+
+```ts
+type LayoutArrangement = 'columns-2' | 'columns-3' | 'columns-4' | 'card' | 'sidebar' | 'inline';
+```
+
+#### class `HelperError`
+
+Thrown by helpers when pre-validation fails
+
+##### `constructor(code: string, message: string, detail?: object | undefined)`
+
+Definition normalization utilities.
+
+Converts legacy/alternative serialization shapes into the canonical forms
+expected by the studio engine:
+
+- `instances[]` (array with `name` property) → `instances{}` (object keyed by name)
+- `binds{}` (object keyed by path) → `binds[]` (array with `path` property)
+
+Safe to call on already-normalized definitions (idempotent).
+
+normalization
+
+## `normalizeDefinition(definition: FormspecDefinition): FormspecDefinition`
+
+Normalize a definition by converting legacy shape forms to canonical forms.
+
+Conversions applied:
+- If `definition.instances` is an array, converts to object keyed by each
+  item's `name` property. The `name` property is stripped from each value.
+- If `definition.binds` is a non-array object, converts to array of
+  `{ path, ...config }` entries where each key becomes the `path`.
+
+Both conversions are idempotent: calling on already-normalized data is safe.
+
 Handlers for definition bind management and field configuration commands.
 
 **Binds** in Formspec are declarative rules that connect a field (identified by
@@ -122,6 +398,52 @@ then use `project.dispatch(command)` to apply mutations.
 
 No framework dependencies, no singletons, no side effects.
 
+Definition normalization utilities.
+
+Converts legacy/alternative serialization shapes into the canonical forms
+expected by the studio engine:
+
+- `instances[]` (array with `name` property) → `instances{}` (object keyed by name)
+- `binds{}` (object keyed by path) → `binds[]` (array with `path` property)
+
+Safe to call on already-normalized definitions (idempotent).
+
+normalization
+
+## `resolvePageStructure(state: ProjectState, definitionItemKeys: string[]): ResolvedPageStructure`
+
+Resolves the current page structure by reading all three tiers.
+
+Priority: Tier 3 Wizard component → Tier 2 theme.pages → Tier 1 definition groups → none.
+
+#### interface `ResolvedPage`
+
+- **id**: `string`
+- **title?**: `string`
+- **description?**: `string`
+- **regions?**: `{
+        key?: string;
+        span?: number;
+        start?: number;
+    }[]`
+
+#### interface `PageDiagnostic`
+
+- **code**: `'SHADOWED_THEME_PAGES' | 'UNKNOWN_REGION_KEY' | 'PAGEMODE_MISMATCH'`
+- **severity**: `'warning' | 'error'`
+- **message**: `string`
+
+#### interface `ResolvedPageStructure`
+
+- **mode**: `'single' | 'wizard' | 'tabs'`
+- **pages**: `ResolvedPage[]`
+- **controllingTier**: `'component' | 'theme' | 'definition' | 'none'`
+- **diagnostics**: `PageDiagnostic[]`
+- **wizardConfig**: `{
+        showProgress: boolean;
+        allowSkip: boolean;
+    }`
+
 ## `createProject(options?: ProjectOptions): Project`
 
 Factory function for creating a new {@link Project} instance.
@@ -157,7 +479,9 @@ Create a new Project instance.
 - **(get) state** (`Readonly<ProjectState>`): Current project state. Treat as immutable -- all mutations go through
 {@link dispatch} or {@link batch}.
 - **(get) definition** (`Readonly<FormspecDefinition>`): The form's structure and behavior: items, binds, shapes, variables, etc.
-- **(get) component** (`Readonly<FormspecComponentDocument>`): The parallel UI tree: widget assignments, layout containers, responsive overrides.
+- **(get) component** (`Readonly<FormspecComponentDocument>`): The current editable component view: authored tree when present, otherwise generated layout.
+- **(get) artifactComponent** (`Readonly<FormspecComponentDocument>`): The authored Tier 3 artifact document exactly as stored in project state.
+- **(get) generatedComponent** (`Readonly<FormspecComponentDocument>`): Studio-generated layout used when no authored component tree is available.
 - **(get) theme** (`Readonly<FormspecThemeDocument>`): Visual presentation: design tokens, defaults, selector overrides, breakpoints.
 - **(get) mapping** (`Readonly<FormspecMappingDocument>`): Bidirectional transforms between form responses and external schemas.
 - **(get) canUndo** (`boolean`): Whether there is at least one state snapshot on the undo stack.
@@ -176,6 +500,24 @@ but not included -- only items with `type === 'field'` appear.
 Resolve an item by its dot-path within the definition tree.
 Walks the item hierarchy segment by segment; returns `undefined` if any
 segment is not found or if a non-group item is encountered mid-path.
+
+##### `responseSchemaRows(): ResponseSchemaRow[]`
+
+Build a flat list of rows describing the response schema for the current definition.
+
+Each row describes one item (field or group) in terms of how it appears in a
+submitted form response. Rows are emitted in depth-first document order, matching
+the item tree traversal order.
+
+JSON type mapping:
+- Non-repeatable groups → `"object"`
+- Repeatable groups → `"array<object>"`
+- Fields with dataType `integer` or `decimal` → `"number"`
+- Fields with dataType `boolean` → `"boolean"`
+- Everything else → `"string"`
+
+Bind flags (`required`, `calculated`, `conditional`) are derived from the
+definition's `binds` array by matching each row's path against bind entries.
 
 ##### `statistics(): ProjectStatistics`
 
@@ -337,6 +679,13 @@ Serialize the four core artifacts as standalone JSON-serializable documents.
 Returns a deep clone so the caller can freely mutate the result without
 affecting project state. Extensions and versioning state are excluded.
 
+##### `resetHistory(): void`
+
+Clear both the undo and redo stacks without modifying the current state.
+Useful after programmatic seeding/setup operations where the resulting
+history entries should not be part of the authoring history.
+Does not trigger change listeners.
+
 ##### `undo(): boolean`
 
 Restore the most recent pre-command state snapshot.
@@ -380,6 +729,14 @@ directly to their handlers.
 Commands in a batch are independent: if a command needs results from an
 earlier command in the same batch, use sequential {@link dispatch} calls instead.
 
+## `resolveThemeCascade(theme: FormspecThemeDocument, itemKey: string, itemType: string, itemDataType?: string): Record<string, ResolvedProperty>`
+
+#### interface `ResolvedProperty`
+
+- **value**: `unknown`
+- **source**: `'default' | 'selector' | 'item-override'`
+- **sourceDetail?**: `string`
+
 #### interface `FormspecComponentDocument`
 
 Minimal component document shape for studio-core.
@@ -396,6 +753,16 @@ component templates. Open-ended (`[key: string]: unknown`) to allow spec evoluti
 - **tokens** (`Record<string, unknown>`): Design token overrides scoped to the component tier.
 - **breakpoints** (`Record<string, number>`): Named viewport breakpoints (e.g. `{ sm: 640, md: 1024 }`).
 - **customComponents** (`Record<string, unknown>`): Custom component template definitions.
+
+#### interface `FormspecGeneratedLayoutDocument`
+
+Studio-internal generated layout document.
+
+This is not an authored Tier 3 artifact. It holds the editor's current
+generated layout tree and related lineage metadata when no explicit
+component document tree is being authored.
+
+- **'x-studio-generated'** (`true`): Marker used to distinguish generated editor state from authored artifacts.
 
 #### interface `FormspecThemeDocument`
 
@@ -487,7 +854,8 @@ panel visibility, viewport) lives here -- that belongs to the consumer.
 Mutations happen exclusively through dispatched commands; never mutate directly.
 
 - **definition** (`FormspecDefinition`): The form's structure and behavior: items, binds, shapes, variables, etc.
-- **component** (`FormspecComponentDocument`): The parallel UI tree: widget bindings, layout containers, responsive overrides.
+- **component** (`FormspecComponentDocument`): The authored Tier 3 artifact document.
+- **generatedComponent** (`FormspecGeneratedLayoutDocument`): Studio-generated layout state used for editor interactions and preview synthesis.
 - **theme** (`FormspecThemeDocument`): Visual presentation: tokens, defaults, selectors, page layout.
 - **mapping** (`FormspecMappingDocument`): Bidirectional transforms between responses and external schemas.
 - **extensions** (`ExtensionsState`): Loaded extension registries providing custom types, functions, and constraints.
@@ -513,6 +881,8 @@ Tells the Project (and consumers) what side effects are needed.
 
 - **rebuildComponentTree** (`boolean`): Whether the component tree needs rebuilding (e.g. after structural item changes).
 - **clearHistory** (`boolean`): If true, discard all undo/redo history (e.g. after a full project replacement).
+- **insertedPath** (`string`): Canonical path of a newly inserted item, returned by add-item style handlers.
+- **newPath** (`string`): Canonical path after a move or rename operation.
 
 #### interface `LogEntry`
 
@@ -734,6 +1104,28 @@ for quick status display.
         info: number;
     }`): Aggregate counts by severity across all categories.
 
+#### interface `ResponseSchemaRow`
+
+A single row in the response schema view.
+
+Describes one item (field or group) from the definition in terms of its
+JSON representation in a submitted form response. Rows are returned in
+document order (depth-first) by `Project.responseSchemaRows()`.
+
+- **path** (`string`): Full dotted path to this item (e.g. `"contact.email"`).
+- **key** (`string`): The item's key (leaf segment of path).
+- **label** (`string`): The item's label, or the key if no label is set.
+- **depth** (`number`): Nesting depth: 0 for root items, 1 for children of root groups, etc.
+- **jsonType** (`'string' | 'number' | 'boolean' | 'object' | 'array<object>'`): JSON type of the item's value in a form response:
+- `"object"` for non-repeatable groups
+- `"array<object>"` for repeatable groups
+- `"number"` for fields with dataType `integer` or `decimal`
+- `"boolean"` for fields with dataType `boolean`
+- `"string"` for all other fields
+- **required** (`boolean`): Whether any bind for this path has a `required` property.
+- **calculated** (`boolean`): Whether any bind for this path has a `calculate` property.
+- **conditional** (`boolean`): Whether any bind for this path has a `relevant` or `readonly` property.
+
 #### interface `Change`
 
 A single change detected between two definition versions.
@@ -788,4 +1180,35 @@ Callback invoked after every state change (dispatch, undo, redo, batch).
 ```ts
 type ChangeListener = (state: Readonly<ProjectState>, event: ChangeEvent) => void;
 ```
+
+#### interface `ResolvedRegion`
+
+Enriched region from theme.schema.json Region with existence check.
+Schema source: theme.schema.json#/$defs/Region
+
+- **key**: `string`
+- **span**: `number`
+- **start?**: `number`
+- **exists**: `boolean`
+
+#### interface `ProjectSnapshot`
+
+Read-only snapshot of the project's authored artifacts.
+This is what `project.state` returns — the four editable artifacts
+without internal bookkeeping (extensions, versioning, generated layout).
+
+- **definition**: `FormDefinition`
+- **component**: `ComponentDocument`
+- **theme**: `ThemeDocument`
+- **mappings**: `Record<string, MappingDocument>`
+- **selectedMappingId?**: `string`
+
+#### interface `CreateProjectOptions`
+
+Options for creating a new Project via `createProject()`.
+Simpler than core's ProjectOptions — no middleware, no raw ProjectState.
+
+- **seed** (`Partial<ProjectBundle>`): Partial bundle to seed the project with.
+- **registries** (`unknown[]`): Extension registry documents to load.
+- **maxHistoryDepth** (`number`): Maximum undo snapshots (default: 50).
 

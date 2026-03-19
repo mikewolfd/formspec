@@ -58,7 +58,7 @@ The specification — schemas, normative prose, and FEL grammar — is the stabl
 
 This inversion runs deeper than just client/server. The TypeScript side itself has two dependency boundaries below the engine:
 
-The **web component** is a presentation adapter — it reads engine signals and dispatches to a plugin registry. The engine drives any rendering surface: a React component tree, a native mobile form, a PDF generator, or a server-rendered page. Build a new presentation layer by subscribing to engine signals; the behavioral core stays constant.
+The **web component** is a presentation adapter — it reads engine signals and dispatches to a plugin registry. Each input component uses a headless behavior/adapter split: behavior hooks own reactive state and ARIA management, render adapters own DOM structure. The default adapter reproduces standard Formspec markup; design-system adapters in `formspec-adapters` provide alternative DOM without touching behavior. The engine drives any rendering surface: a React component tree, a native mobile form, a PDF generator, or a server-rendered page. Build a new presentation layer by subscribing to engine signals; the behavioral core stays constant.
 
 **Studio Core** is an authoring adapter — it uses the engine's FEL compiler, dependency analysis, and schema validation to power a command-based editing model for creating Formspec artifacts. Every edit is a serializable command with undo/redo, replay, and cross-artifact diagnostics. Studio Core produces the definition, theme, component, and mapping documents that the engine and web component consume at runtime. It has no UI of its own — CLI tools, LLM agents, and visual editors like the Form Builder all drive it through the same command API.
 
@@ -160,7 +160,8 @@ Neither runtime imports or wraps the other. They deploy and test independently, 
 |---|---|
 | [`formspec-types`](packages/formspec-types/README.md) | Types auto-generated from JSON Schemas — zero-runtime, shared across all packages |
 | [`formspec-engine`](packages/formspec-engine/README.md) | FormEngine, FEL pipeline, assembler, reactive signals |
-| [`formspec-webcomponent`](packages/formspec-webcomponent/README.md) | `<formspec-render>` — component registry, theme resolver, 33 plugins |
+| [`formspec-webcomponent`](packages/formspec-webcomponent/README.md) | `<formspec-render>` — component registry, theme resolver, 33 plugins, headless adapter architecture |
+| [`formspec-adapters`](packages/formspec-adapters/README.md) | Render adapter library — design-system-specific DOM for `<formspec-render>` components |
 | [`formspec-layout`](packages/formspec-layout/README.md) | Theme cascade resolution, responsive design, grid layout |
 | [`formspec-core`](packages/formspec-core/README.md) | Project core — 17 handlers, normalization, page resolution, theme cascade |
 | [`formspec-studio-core`](packages/formspec-studio-core/README.md) | Authoring core — command model, undo/redo, queries, diagnostics |

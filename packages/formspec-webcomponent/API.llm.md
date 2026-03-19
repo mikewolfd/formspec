@@ -4,9 +4,387 @@
 
 `<formspec-render>` custom element that binds a FormEngine to the DOM. Provides a component registry, styling pipeline, navigation (wizard/field focus), and accessibility attributes.
 
+## `renderCheckboxGroup: AdapterRenderFn<CheckboxGroupBehavior>`
+
+## `renderCheckbox: AdapterRenderFn<FieldBehavior>`
+
+## `renderDatePicker: AdapterRenderFn<DatePickerBehavior>`
+
+## `renderFileUpload: AdapterRenderFn<FileUploadBehavior>`
+
+## `defaultAdapter: RenderAdapter`
+
+## `renderMoneyInput: AdapterRenderFn<MoneyInputBehavior>`
+
+## `renderNumberInput: AdapterRenderFn<NumberInputBehavior>`
+
+## `renderRadioGroup: AdapterRenderFn<RadioGroupBehavior>`
+
+## `renderRating: AdapterRenderFn<RatingBehavior>`
+
+## `renderSelect: AdapterRenderFn<SelectBehavior>`
+
+## `createFieldDOM(behavior: FieldBehavior, actx: AdapterContext): FieldDOM`
+
+Create the common field wrapper structure: root div, label, description, hint, error.
+Uses behavior.widgetClassSlots for x-classes support (from theme widgetConfig).
+Returns element references for adapter-specific control insertion.
+
+## `finalizeFieldDOM(fieldDOM: FieldDOM, behavior: FieldBehavior, actx: AdapterContext): void`
+
+Finalize field DOM: append remote options status, error display, and apply theme styles.
+Call this AFTER inserting the control element.
+
+## `applyControlSlotClass(control: HTMLElement, behavior: FieldBehavior, actx: AdapterContext, isGroup?: boolean): void`
+
+Apply widgetClassSlots.control to the actual input element(s).
+For radio/checkbox groups, applies to each input. For others, applies to the control.
+
+#### interface `FieldDOM`
+
+- **root**: `HTMLElement`
+- **label**: `HTMLElement`
+- **hint**: `HTMLElement | undefined`
+- **error**: `HTMLElement`
+- **describedBy**: `string[]`
+
+## `renderSignature: AdapterRenderFn<SignatureBehavior>`
+
+## `renderSlider: AdapterRenderFn<SliderBehavior>`
+
+## `renderTabs: AdapterRenderFn<TabsBehavior>`
+
+## `renderTextInput: AdapterRenderFn<TextInputBehavior>`
+
+## `renderToggle: AdapterRenderFn<ToggleBehavior>`
+
+## `renderWizard: AdapterRenderFn<WizardBehavior>`
+
+#### interface `AdapterContext`
+
+Context passed to adapter render functions.
+
+Extended beyond ADR 0046's minimal definition (onDispose only) with
+styling helpers that the default adapter needs to reproduce current DOM.
+External design-system adapters can ignore all but onDispose.
+
+##### `onDispose(fn: () => void): void`
+
+Register a cleanup function called when the component is torn down.
+
+##### `applyCssClass(el: HTMLElement, comp: any): void`
+
+Apply cssClass from a PresentationBlock or comp descriptor to an element.
+
+##### `applyStyle(el: HTMLElement, style: any): void`
+
+Apply inline styles with token resolution to an element.
+
+##### `applyAccessibility(el: HTMLElement, comp: any): void`
+
+Apply accessibility attributes (role, aria-description, aria-live).
+
+##### `applyClassValue(el: HTMLElement, classValue: unknown): void`
+
+Apply a single class value (string or array) to an element's classList.
+
+#### interface `RenderAdapter`
+
+A render adapter provides DOM construction functions for component types.
+Missing entries fall back to the default adapter.
+
+- **name**: `string`
+- **components**: `Partial<Record<string, AdapterRenderFn>>`
+
+#### type `AdapterRenderFn`
+
+An adapter render function receives a behavior contract and a parent element.
+It creates DOM, appends to parent, calls behavior.bind(refs), and registers dispose.
+
+```ts
+type AdapterRenderFn = (behavior: B, parent: HTMLElement, actx: AdapterContext) => void;
+```
+
+## `useCheckboxGroup(ctx: BehaviorContext, comp: any): CheckboxGroupBehavior`
+
+## `useCheckbox(ctx: BehaviorContext, comp: any): FieldBehavior`
+
+## `useDatePicker(ctx: BehaviorContext, comp: any): DatePickerBehavior`
+
+## `useFileUpload(ctx: BehaviorContext, comp: any): FileUploadBehavior`
+
+## `useMoneyInput(ctx: BehaviorContext, comp: any): MoneyInputBehavior`
+
+## `useNumberInput(ctx: BehaviorContext, comp: any): NumberInputBehavior`
+
+## `useRadioGroup(ctx: BehaviorContext, comp: any): RadioGroupBehavior`
+
+## `useRating(ctx: BehaviorContext, comp: any): RatingBehavior`
+
+## `useSelect(ctx: BehaviorContext, comp: any): SelectBehavior`
+
+## `resolveFieldPath(bind: string, prefix: string): string`
+
+Build full field path from bind key and prefix.
+
+## `toFieldId(fieldPath: string): string`
+
+Convert a dotted field path to a DOM-safe element ID.
+
+## `resolveAndStripTokens(block: PresentationBlock, resolveToken: (v: any) => any, comp?: any): ResolvedPresentationBlock`
+
+Pre-resolve all $token. references in a PresentationBlock.
+Adapters receive concrete values only — no token resolution needed.
+
+## `warnIfIncompatible(componentType: string, dataType: string): void`
+
+Warn if the component type is incompatible with the item's dataType.
+
+## `bindSharedFieldEffects(ctx: BehaviorContext, fieldPath: string, labelText: string, refs: FieldRefs): Array<() => void>`
+
+Wire the shared reactive effects that all field behaviors need:
+required indicator, validation display, readonly, relevance, touched tracking.
+
+Returns an array of dispose functions.
+
+## `useSignature(ctx: BehaviorContext, comp: any): SignatureBehavior`
+
+## `useSlider(ctx: BehaviorContext, comp: any): SliderBehavior`
+
+## `useTabs(ctx: BehaviorContext, comp: any): TabsBehavior`
+
+## `useTextInput(ctx: BehaviorContext, comp: any): TextInputBehavior`
+
+## `useToggle(ctx: BehaviorContext, comp: any): ToggleBehavior`
+
+#### interface `ResolvedPresentationBlock`
+
+Pre-resolved PresentationBlock — all $token. references already
+substituted with concrete values. Adapters never need token resolution.
+
+- **widget?**: `string`
+- **widgetConfig?**: `Record<string, any>`
+- **labelPosition?**: `'top' | 'start' | 'hidden'`
+- **style?**: `Record<string, string>`
+- **accessibility?**: `{
+        role?: string;
+        description?: string;
+        liveRegion?: string;
+    }`
+- **cssClass?**: `string | string[]`
+- **fallback?**: `string[]`
+
+#### interface `FieldRefs`
+
+- **root**: `HTMLElement`
+- **label**: `HTMLElement`
+- **control**: `HTMLElement`
+- **hint?**: `HTMLElement`
+- **error?**: `HTMLElement`
+- **optionControls?**: `Map<string, HTMLInputElement>`
+- **rebuildOptions?**: `(container: HTMLElement, options: ReadonlyArray<{
+        value: string;
+        label: string;
+    }>) => Map<string, HTMLInputElement>`
+
+#### interface `SubmitDetail`
+
+Returned by every field behavior hook.
+
+- **response**: `any`
+- **validationReport**: `{
+        valid: boolean;
+        results: any[];
+        counts: {
+            error: number;
+            warning: number;
+            info: number;
+        };
+        timestamp: string;
+    }`
+
+#### interface `FieldBehavior`
+
+- **widgetClassSlots** (`{
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    }`): Widget class slots from theme widgetConfig x-classes.
+Used by the default adapter for slot-level class injection.
+Custom adapters can ignore this.
+- **compOverrides** (`{
+        cssClass?: any;
+        style?: any;
+        accessibility?: any;
+    }`): Component-level style/class/accessibility overrides from the component descriptor.
+Used by the default adapter to apply comp-level overrides.
+Custom adapters can ignore this — they own their own styling.
+
+##### `options(): ReadonlyArray<{
+        value: string;
+        label: string;
+    }>`
+
+##### `bind(refs: FieldRefs): () => void`
+
+#### interface `RadioGroupBehavior`
+
+- **groupRole**: `'radiogroup'`
+- **inputName**: `string`
+- **orientation?**: `string`
+
+#### interface `CheckboxGroupBehavior`
+
+##### `setValue(val: string[]): void`
+
+#### interface `SelectBehavior`
+
+- **placeholder?**: `string`
+- **clearable?**: `boolean`
+- **dataType**: `string`
+
+#### interface `ToggleBehavior`
+
+- **onLabel?**: `string`
+- **offLabel?**: `string`
+
+#### interface `TextInputBehavior`
+
+- **placeholder?**: `string`
+- **inputMode?**: `string`
+- **maxLines?**: `number`
+- **prefix?**: `string`
+- **suffix?**: `string`
+- **resolvedInputType?**: `string`
+- **extensionAttrs**: `Record<string, string>`
+
+#### interface `NumberInputBehavior`
+
+- **min?**: `number`
+- **max?**: `number`
+- **step?**: `number`
+- **dataType**: `string`
+
+#### interface `DatePickerBehavior`
+
+- **inputType**: `string`
+- **minDate?**: `string`
+- **maxDate?**: `string`
+
+#### interface `MoneyInputBehavior`
+
+- **min?**: `number`
+- **max?**: `number`
+- **step?**: `number`
+- **placeholder?**: `string`
+- **resolvedCurrency**: `string | null`
+
+#### interface `SliderBehavior`
+
+- **min?**: `number`
+- **max?**: `number`
+- **step?**: `number`
+- **showTicks**: `boolean`
+- **showValue**: `boolean`
+
+#### interface `RatingBehavior`
+
+##### `setValue(value: number): void`
+
+#### interface `FileUploadBehavior`
+
+- **accept?**: `string`
+- **multiple**: `boolean`
+- **dragDrop**: `boolean`
+
+#### interface `SignatureBehavior`
+
+- **height**: `number`
+- **strokeColor**: `string`
+
+#### interface `WizardRefs`
+
+- **root**: `HTMLElement`
+- **stepIndicators?**: `HTMLElement[]`
+- **stepContent**: `HTMLElement`
+- **prevButton?**: `HTMLButtonElement`
+- **nextButton?**: `HTMLButtonElement`
+
+#### interface `WizardBehavior`
+
+##### `activeStep(): number`
+
+##### `totalSteps(): number`
+
+##### `canGoNext(): boolean`
+
+##### `canGoPrev(): boolean`
+
+##### `goNext(): void`
+
+##### `goPrev(): void`
+
+##### `goToStep(index: number): void`
+
+##### `renderStep(index: number, parent: HTMLElement): void`
+
+##### `bind(refs: WizardRefs): () => void`
+
+#### interface `TabsRefs`
+
+- **root**: `HTMLElement`
+- **tabBar**: `HTMLElement`
+- **panels**: `HTMLElement[]`
+- **buttons**: `HTMLButtonElement[]`
+
+#### interface `TabsBehavior`
+
+##### `activeTab(): number`
+
+##### `setActiveTab(index: number): void`
+
+##### `renderTab(index: number, parent: HTMLElement): void`
+
+##### `bind(refs: TabsRefs): () => void`
+
+#### interface `BehaviorContext`
+
+Context passed to behavior hooks. Subset of RenderContext
+focused on what behaviors actually need.
+
+- **engine**: `FormEngine`
+- **definition**: `any`
+- **prefix**: `string`
+- **cleanupFns**: `Array<() => void>`
+- **touchedFields**: `Set<string>`
+- **touchedVersion**: `Signal<number>`
+- **latestSubmitDetailSignal**: `Signal<SubmitDetail | null>`
+- **resolveToken**: `(val: any) => any`
+- **resolveItemPresentation**: `(item: ItemDescriptor) => PresentationBlock`
+- **resolveWidgetClassSlots**: `(presentation: PresentationBlock) => {
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    }`
+- **findItemByKey**: `(key: string) => any | null`
+- **renderComponent**: `(comp: any, parent: HTMLElement, prefix?: string) => void`
+- **submit**: `(options?: {
+        mode?: 'continuous' | 'submit';
+        emitEvent?: boolean;
+    }) => SubmitDetail | null`
+- **registryEntries**: `Map<string, any>`
+- **rerender**: `() => void`
+
+## `useWizard(ctx: BehaviorContext, comp: any): WizardBehavior`
+
 ## `HeadingPlugin: ComponentPlugin`
 
 Renders an `<h1>`-`<h6>` heading element based on the `level` prop (defaults to h1).
+When `bind` is set, subscribes to the field signal and reactively updates the text.
 
 ## `TextPlugin: ComponentPlugin`
 
@@ -58,63 +436,55 @@ Includes layout (10), input (13), display (9), interactive (3), and special (2) 
 
 ## `TextInputPlugin: ComponentPlugin`
 
-Renders a text input field by delegating to `ctx.renderInputComponent()`.
+Renders a text input field via the behavior→adapter pipeline.
 
 ## `NumberInputPlugin: ComponentPlugin`
 
-Renders a number input field by delegating to `ctx.renderInputComponent()`.
+Renders a number input field via the behavior→adapter pipeline.
 
 ## `SelectPlugin: ComponentPlugin`
 
-Renders a select dropdown by delegating to `ctx.renderInputComponent()`.
+Renders a select dropdown via the behavior→adapter pipeline.
 
 ## `TogglePlugin: ComponentPlugin`
 
-Renders a toggle switch by delegating to `ctx.renderInputComponent()`.
+Renders a toggle switch via the behavior→adapter pipeline.
 
 ## `CheckboxPlugin: ComponentPlugin`
 
-Renders a checkbox input by delegating to `ctx.renderInputComponent()`.
+Renders a checkbox input via the behavior→adapter pipeline.
 
 ## `DatePickerPlugin: ComponentPlugin`
 
-Renders a date picker input by delegating to `ctx.renderInputComponent()`.
+Renders a date picker input via the behavior→adapter pipeline.
 
 ## `RadioGroupPlugin: ComponentPlugin`
 
-Renders a radio button group by delegating to `ctx.renderInputComponent()`.
+Renders a radio button group via the behavior→adapter pipeline.
 
 ## `CheckboxGroupPlugin: ComponentPlugin`
 
-Renders a checkbox group by delegating to `ctx.renderInputComponent()`.
+Renders a checkbox group via the behavior→adapter pipeline.
 
 ## `SliderPlugin: ComponentPlugin`
 
-Renders a range `<input>` slider with configurable min/max/step.
-Subscribes to the field signal to sync the slider position and an optional value display `<span>`.
-Avoids overwriting the input while the user is actively dragging.
+Renders a range slider via the behavior→adapter pipeline.
 
 ## `RatingPlugin: ComponentPlugin`
 
-Renders an icon-rating control using clickable `<span>` elements.
-Supports configurable max count, icon mapping, and optional half-step selection.
-Subscribes to the field signal to toggle selected/half-selected CSS classes.
+Renders an icon-rating control via the behavior→adapter pipeline.
 
 ## `FileUploadPlugin: ComponentPlugin`
 
-Renders a file `<input>` with optional drag-and-drop zone.
-When `dragDrop` is enabled, creates a drop zone `<div>` that handles dragover/drop events
-and hides the native file input. Stores file metadata (name, size, type) in the engine.
+Renders a file upload input via the behavior→adapter pipeline.
 
 ## `SignaturePlugin: ComponentPlugin`
 
-Renders a `<canvas>` for freehand signature capture with mouse event drawing.
-Stores the signature as a data URL on mouseup. Includes a clear button that resets
-the canvas and sets the field value to null.
+Renders a signature canvas via the behavior→adapter pipeline.
 
 ## `MoneyInputPlugin: ComponentPlugin`
 
-Renders a money input by delegating to `ctx.renderInputComponent()` as a NumberInput with `dataType: 'money'`.
+Renders a money input via the behavior→adapter pipeline.
 
 ## `InputPlugins: ComponentPlugin[]`
 
@@ -122,16 +492,11 @@ All 13 built-in input component plugins, exported as a single array for bulk reg
 
 ## `WizardPlugin: ComponentPlugin`
 
-Renders a multi-step wizard with signal-driven panel visibility.
-By default renders a collapsible side navigation listing all steps; set `sidenav: false`
-to fall back to the classic horizontal progress bar at the top.
-The last step shows "Finish" instead of "Next". Panel switching uses a Preact signal for the current step index.
+Renders a multi-step wizard via the behavior-adapter pipeline.
 
 ## `TabsPlugin: ComponentPlugin`
 
-Renders a tabbed interface with click-based tab switching.
-Supports configurable tab bar position (top or bottom) and default active tab.
-Each tab button toggles visibility of its corresponding panel.
+Renders a tabbed interface via the behavior-adapter pipeline.
 
 ## `SubmitButtonPlugin: ComponentPlugin`
 
@@ -388,11 +753,15 @@ Returns `''` when the amount is missing or not a finite number.
 
 #### interface `NavigationHost`
 
+@filedesc Navigation barrel: exports NavigationHost, path utils, focus, and wizard helpers.
+
 ##### `querySelector(selectors: string): Element | null`
 
 ##### `querySelectorAll(selectors: string): NodeListOf<Element>`
 
 ## `normalizeFieldPath(path: unknown): string`
+
+@filedesc Path normalization and external-to-internal index conversion utilities.
 
 ## `externalPathToInternal(path: string): string`
 
@@ -408,7 +777,8 @@ External code can register additional plugins via `globalRegistry.register(plugi
 #### class `ComponentRegistry`
 
 Map-based registry that dispatches component type strings to their
-{@link ComponentPlugin} implementations.
+{@link ComponentPlugin} implementations, and resolves render adapter
+functions for the headless component architecture.
 
 At render time the `FormspecRender` element looks up each component
 descriptor's `component` field in the registry to find the plugin
@@ -419,6 +789,7 @@ Built-in components are registered at module load via
 time by calling {@link register} on the {@link globalRegistry} singleton.
 
 - **(get) size** (`number`): The number of currently registered component plugins.
+- **(get) activeAdapterName** (`string`): Get the name of the currently active adapter.
 
 ##### `register(plugin: ComponentPlugin): void`
 
@@ -428,6 +799,18 @@ If a plugin with the same type already exists it is silently replaced.
 ##### `get(type: string): ComponentPlugin | undefined`
 
 Look up a registered plugin by component type.
+
+##### `registerAdapter(adapter: RenderAdapter): void`
+
+Register a render adapter. The 'default' adapter is always the fallback.
+
+##### `setAdapter(name: string): void`
+
+Set the active adapter by name. Warns and keeps current if name is unknown.
+
+##### `resolveAdapterFn(componentType: string): AdapterRenderFn | undefined`
+
+Resolve the render function for a component type. Falls back to default adapter.
 
 ## `createBreakpointState(): BreakpointState`
 
@@ -479,6 +862,8 @@ Interface for what emitNode/renderActualComponent need from FormspecRender.
     }`
 
 ##### `applyAccessibility(el: HTMLElement, comp: any): void`
+
+##### `applyClassValue(el: HTMLElement, classValue: unknown): void`
 
 ##### `findItemByKey(key: string, items?: any[]): any | null`
 
@@ -713,9 +1098,9 @@ to force inline error display (e.g. wizard soft-validation on Next click).
 Error-display effects subscribe to this so they re-run when fields are
 touched programmatically (e.g. wizard Next click).
 - **findItemByKey** (`(key: string, items?: any[]) => any | null`): Look up a definition item by key (supports dotted paths like `"group.field"`). Returns `null` if not found.
-- **renderInputComponent** (`(comp: any, item: any, fullName: string) => HTMLElement`): Build and return a fully-wired field input element (label, input control,
-hint, error display, signal bindings, ARIA attributes) for a bound field.
 - **activeBreakpoint** (`string | null`): The currently active responsive breakpoint name, or `null` when no breakpoint matches.
+- **behaviorContext** (`BehaviorContext`): Behavior context for the headless behavior→adapter pipeline.
+- **adapterContext** (`AdapterContext`): Adapter context for the headless behavior→adapter pipeline.
 
 #### interface `ComponentPlugin`
 

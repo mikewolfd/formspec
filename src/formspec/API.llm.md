@@ -171,7 +171,10 @@ Metadata for a single item in the definition tree.
     max_repeat: int | None,
     parent: str | None,
     children: list[str],
-    precision: int | None
+    precision: int | None,
+    extensions: dict | None = None,
+    initial_value: object = None,
+    pre_populate: dict | None = None
 )`
 
 
@@ -195,14 +198,18 @@ Output of DefinitionEvaluator.process().
 
 Instantiate once per definition; call process() for each submission.
 
-##### `__init__(self, definition: dict)`
+##### `__init__(
+    self,
+    definition: dict,
+    registries: list[Registry] | None = None
+)`
 
 ##### `evaluate_variables(
     self,
     data: dict
 ) -> dict[str, typing.Union[_FelNullType, FelNumber, FelString, FelBoolean, FelDate, FelArray, FelMoney, FelObject]]`
 
-Evaluate all definition variables in dependency order.
+Evaluate definition-wide variables in dependency order.
 
 ##### `process(
     self,
@@ -216,6 +223,10 @@ Run all 4 phases and return a ProcessingResult.
 ##### `validate(self, data: dict, *, mode: str = 'submit') -> list[dict]`
 
 Convenience: return just the validation results.
+
+##### `evaluate_screener(self, answers: dict) -> dict[str, object] | None`
+
+Evaluate screener routes in declaration order against screener-only answers.
 
 
 ## `formspec.fel`
@@ -930,6 +941,8 @@ A single extension entry with metadata, versioning, and category-specific fields
     parameters: list[dict] | None = None,
     returns: str | None = None,
     members: list[str] | None = None,
+    constraints: dict | None = None,
+    metadata: dict | None = None,
     raw: dict | None = None
 )`
 
@@ -983,6 +996,141 @@ List all entries with a given status.
 Check internal consistency: x- naming, deprecation notices, category-specific required fields.
 
 
+## `formspec.validate`
+
+Auto-discover and validate all Formspec JSON artifacts in a directory.
+
+CLI usage::
+
+    python3 -m formspec.validate path/to/artifacts/
+    python3 -m formspec.validate path/to/artifacts/ --registry common.registry.json
+    python3 -m formspec.validate path/to/artifacts/ --title "My Project"
+
+Library usage::
+
+    from formspec.validate import discover_artifacts, validate_all, print_report
+    artifacts = discover_artifacts(Path("my-project/"))
+    sys.exit(print_report(validate_all(artifacts)))
+
+### `discover_artifacts(
+    directory: pathlib.Path,
+    *,
+    fixture_subdirs: tuple[str, ...] = ('fixtures',),
+    registry_paths: tuple[pathlib.Path, ...] = ()
+) -> DiscoveredArtifacts`
+
+Glob *.json files, classify via schema detection, and pair by URL references.
+
+### `validate_all(
+    artifacts: DiscoveredArtifacts
+) -> ValidationReport`
+
+Run all 9 validation passes and return a structured report.
+
+### `print_report(
+    report: ValidationReport,
+    *,
+    title: str | None = None
+) -> int`
+
+Print colored terminal output. Returns total error count (0 = success).
+
+### `main(argv: list[str] | None = None) -> int`
+
+#### class `ArtifactFile`
+
+##### `__init__(self, path: pathlib.Path, doc: dict)`
+
+
+#### class `DefinitionArtifact`
+
+##### `__init__(
+    self,
+    path: pathlib.Path,
+    doc: dict,
+    url: str = '',
+    version: str = '',
+    derived_from_url: str = ''
+)`
+
+
+#### class `ThemeArtifact`
+
+##### `__init__(self, path: pathlib.Path, doc: dict, target_def_url: str = '')`
+
+
+#### class `ComponentArtifact`
+
+##### `__init__(self, path: pathlib.Path, doc: dict, target_def_url: str = '')`
+
+
+#### class `MappingArtifact`
+
+##### `__init__(self, path: pathlib.Path, doc: dict, definition_ref: str = '')`
+
+
+#### class `ResponseArtifact`
+
+##### `__init__(
+    self,
+    path: pathlib.Path,
+    doc: dict,
+    definition_url: str = '',
+    definition_version: str = '',
+    status: str = ''
+)`
+
+
+#### class `ChangelogArtifact`
+
+##### `__init__(self, path: pathlib.Path, doc: dict, definition_url: str = '')`
+
+
+#### class `DiscoveredArtifacts`
+
+##### `__init__(
+    self,
+    definitions: dict[str, DefinitionArtifact] = <factory>,
+    definition_versions: dict[tuple[str, str], DefinitionArtifact] = <factory>,
+    fragments: dict[str, DefinitionArtifact] = <factory>,
+    components: list[ComponentArtifact] = <factory>,
+    themes: list[ThemeArtifact] = <factory>,
+    mappings: list[MappingArtifact] = <factory>,
+    responses: list[ResponseArtifact] = <factory>,
+    changelogs: list[ChangelogArtifact] = <factory>,
+    registries: list[ArtifactFile] = <factory>,
+    changelog_pairs: list[tuple[DefinitionArtifact, DefinitionArtifact]] = <factory>,
+    unknown: list[pathlib.Path] = <factory>
+)`
+
+
+#### class `PassItemResult`
+
+##### `__init__(
+    self,
+    label: str,
+    error_count: int = 0,
+    warning_count: int = 0,
+    diagnostics: list[LintDiagnostic] = <factory>,
+    runtime_results: list[dict] = <factory>
+)`
+
+
+#### class `PassResult`
+
+##### `__init__(
+    self,
+    title: str,
+    items: list[PassItemResult] = <factory>,
+    empty: bool = False
+)`
+
+
+#### class `ValidationReport`
+
+##### `__init__(self, passes: list[PassResult] = <factory>)`
+
+
 ## `formspec.validator`
 
 Formspec static linter: multi-pass pipeline (schema, tree, references, FEL, dependencies, theme, component) with policy-driven severity.
@@ -999,7 +1147,8 @@ Factory: create a LintPolicy from a mode string.
     schema_only: bool = False,
     no_fel: bool = False,
     mode: Literal['authoring', 'strict'] = 'authoring',
-    component_definition: dict[str, typing.Any] | None = None
+    component_definition: dict[str, typing.Any] | None = None,
+    registry_documents: list[dict[str, typing.Any]] | None = None
 ) -> list[LintDiagnostic]`
 
 Convenience API for one-shot linting.
@@ -1020,7 +1169,8 @@ Stateful pipeline orchestrator: holds a schema validator and policy, runs gated 
     *,
     schema_only: bool = False,
     no_fel: bool = False,
-    component_definition: dict[str, typing.Any] | None = None
+    component_definition: dict[str, typing.Any] | None = None,
+    registry_documents: list[dict[str, typing.Any]] | None = None
 ) -> list[LintDiagnostic]`
 
 Run the full gated pass pipeline. Returns sorted, policy-transformed diagnostics.
@@ -1036,7 +1186,7 @@ Frozen diagnostic emitted by any linter pass: severity + coded rule + JSON-path 
     code: str,
     message: str,
     path: str,
-    category: Literal['schema', 'reference', 'expression', 'dependency', 'tree', 'theme', 'component'],
+    category: Literal['schema', 'reference', 'expression', 'dependency', 'tree', 'theme', 'component', 'extension'],
     detail: str | None = None
 )`
 

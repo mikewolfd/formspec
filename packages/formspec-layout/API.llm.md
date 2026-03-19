@@ -263,6 +263,11 @@ All values are plain data — no functions, class instances, or signals.
         label: string;
         hint?: string;
         dataType?: string;
+        options?: Array<{
+            value: string;
+            label: string;
+        }>;
+        optionSet?: string;
     }`): Snapshot of the definition item this field maps to.
 - **presentation** (`PresentationBlock`): Resolved presentation block from 5-level theme cascade.
 - **labelPosition** (`'top' | 'start' | 'hidden'`): Effective label position.

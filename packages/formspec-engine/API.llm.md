@@ -8,168 +8,12 @@ Core form state management engine. Parses a FormspecDefinition and builds a reac
 
 Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation.
 
-#### interface `FormspecItem`
-
-A single item in a Formspec definition tree: a field (data-bearing), group (container), or display (read-only content).
-
-- **key**: `string`
-- **type**: `"field" | "group" | "display"`
-- **label**: `string`
-- **dataType?**: `"string" | "text" | "integer" | "decimal" | "number" | "boolean" | "date" | "dateTime" | "time" | "uri" | "attachment" | "choice" | "multiChoice" | "money"`
-- **currency?**: `string`
-- **description?**: `string`
-- **hint?**: `string`
-- **repeatable?**: `boolean`
-- **minRepeat?**: `number`
-- **maxRepeat?**: `number`
-- **children?**: `FormspecItem[]`
-- **options?**: `{
-        value: string;
-        label: string;
-    }[]`
-- **optionSet?**: `string`
-- **initialValue?**: `any`
-- **presentation?**: `any`
-- **prePopulate?**: `{
-        instance: string;
-        path: string;
-        editable?: boolean;
-    }`
-- **labels?**: `Record<string, string>`
-- **relevant?**: `string`
-- **required?**: `string | boolean`
-- **calculate?**: `string`
-- **readonly?**: `string | boolean`
-- **constraint?**: `string`
-- **message?**: `string`
-
-#### interface `FormspecBind`
-
-A bind configuration that attaches FEL-driven logic (relevance, required, calculate, readonly, constraint) to a field path.
-
-- **path**: `string`
-- **relevant?**: `string`
-- **required?**: `string | boolean`
-- **calculate?**: `string`
-- **readonly?**: `string | boolean`
-- **constraint?**: `string`
-- **constraintMessage?**: `string`
-- **default?**: `any`
-- **whitespace?**: `'preserve' | 'trim' | 'normalize' | 'remove'`
-- **excludedValue?**: `'preserve' | 'null'`
-- **nonRelevantBehavior?**: `'remove' | 'empty' | 'keep'`
-- **disabledDisplay?**: `'hidden' | 'protected'`
-- **precision?**: `number`
-- **remoteOptions?**: `string`
-
-#### interface `FormspecOption`
-
-A selectable option for choice/multiChoice fields, consisting of a machine-readable value and a display label.
-
-- **value**: `string`
-- **label**: `string`
-
 #### interface `RemoteOptionsState`
 
 Loading/error state for a field whose options are fetched from a remote URL via the `remoteOptions` bind.
 
 - **loading**: `boolean`
 - **error**: `string | null`
-
-#### interface `FormspecShape`
-
-A cross-field validation rule evaluated against one or more target paths.
-Shapes support composition operators (and/or/not/xone) and timing modes (continuous, submit, demand).
-
-- **id**: `string`
-- **target**: `string`
-- **severity?**: `"error" | "warning" | "info"`
-- **constraint?**: `string`
-- **message**: `string`
-- **code?**: `string`
-- **activeWhen?**: `string`
-- **timing?**: `"continuous" | "submit" | "demand"`
-- **and?**: `string[]`
-- **or?**: `string[]`
-- **not?**: `string`
-- **xone?**: `string[]`
-- **context?**: `Record<string, string>`
-
-#### interface `FormspecVariable`
-
-A named computed variable defined by a FEL expression, scoped to a specific item or the entire definition ('#').
-
-- **name**: `string`
-- **expression**: `string`
-- **scope?**: `string`
-
-#### interface `FormspecInstance`
-
-A named data instance that provides external data for pre-population and FEL `instance()` lookups.
-
-- **description?**: `string`
-- **source?**: `string`
-- **static?**: `boolean`
-- **data?**: `any`
-- **schema?**: `Record<string, string>`
-- **readonly?**: `boolean`
-
-#### interface `FormspecDefinition`
-
-The top-level Formspec definition document describing a complete form.
-Contains the item tree, bind constraints, shape rules, variables, instances, option sets,
-and optional screener/migration/presentation configuration.
-
-- **$formspec**: `string`
-- **url**: `string`
-- **version**: `string`
-- **title**: `string`
-- **items**: `FormspecItem[]`
-- **binds?**: `FormspecBind[]`
-- **shapes?**: `FormspecShape[]`
-- **variables?**: `FormspecVariable[]`
-- **instances?**: `Record<string, FormspecInstance>`
-- **optionSets?**: `Record<string, FormspecOption[]>`
-- **nonRelevantBehavior?**: `'remove' | 'empty' | 'keep'`
-- **formPresentation?**: `any`
-- **screener?**: `{
-        items: FormspecItem[];
-        binds?: FormspecBind[];
-        routes: Array<{
-            condition: string;
-            target: string;
-            label?: string;
-            extensions?: Record<string, any>;
-        }>;
-        extensions?: Record<string, any>;
-    }`
-- **migrations?**: `Array<{
-        fromVersion: string;
-        changes: Array<{
-            type: string;
-            [key: string]: any;
-        }>;
-    }>`
-
-#### interface `ValidationResult`
-
-A single validation finding (error, warning, or info) targeting a specific field path.
-
-- **kind** (`"required" | "type" | "cardinality" | "constraint" | "shape" | "external"`): Alias for constraintKind, used by some test suites and older clients.
-
-#### interface `ValidationReport`
-
-Aggregated validation output for the entire form, including all bind-level and shape-level results.
-A report is `valid` when it contains zero errors; warnings and infos do not affect validity.
-
-- **valid**: `boolean`
-- **results**: `ValidationResult[]`
-- **counts**: `{
-        error: number;
-        warning: number;
-        info: number;
-    }`
-- **timestamp**: `string`
 
 #### interface `PinnedResponseReference`
 
@@ -285,6 +129,83 @@ and custom component specifications for rendering a specific definition.
 - **tokens?**: `Record<string, any>`
 - **components?**: `Record<string, any>`
 - **tree**: `ComponentObject`
+
+#### type `FormspecItem`
+
+A single item in a Formspec definition tree. Alias for the schema-generated FormItem.
+
+```ts
+type FormspecItem = FormItem;
+```
+
+#### type `FormspecBind`
+
+Bind with engine-only `remoteOptions` shorthand (not in schema).
+The spec-defined mechanism is optionSets.source — this is a per-bind
+convenience that predates formal spec alignment.
+
+```ts
+type FormspecBind = FormBind & {
+    /** URL for fetching remote option lists. Engine-only; not in schema. */
+    remoteOptions?: string;
+};
+```
+
+#### type `FormspecOption`
+
+A selectable option for choice/multiChoice fields.
+
+```ts
+type FormspecOption = OptionEntry;
+```
+
+#### type `FormspecShape`
+
+Cross-field validation rule. Alias for the schema-generated Shape.
+
+```ts
+type FormspecShape = FormShape;
+```
+
+#### type `FormspecVariable`
+
+Named computed variable. Alias for the schema-generated Variable.
+
+```ts
+type FormspecVariable = FormVariable;
+```
+
+#### type `FormspecInstance`
+
+Named data instance. Alias for the schema-generated Instance.
+
+```ts
+type FormspecInstance = FormInstance;
+```
+
+#### type `FormspecDefinition`
+
+Top-level form definition. Alias for the schema-generated FormDefinition.
+
+```ts
+type FormspecDefinition = FormDefinition;
+```
+
+#### type `ValidationResult`
+
+A single validation finding targeting a specific field path.
+
+```ts
+type ValidationResult = FormspecValidationResult;
+```
+
+#### type `ValidationReport`
+
+Aggregated validation output for the entire form.
+
+```ts
+type ValidationReport = FormspecValidationReport;
+```
 
 #### type `EngineNowInput`
 
@@ -408,6 +329,8 @@ Non-relevant fields are excluded from the report.
 
 Evaluates a specific shape by ID on demand, returning any resulting validation findings.
 Typically used for demand-timing shapes that are not automatically evaluated.
+
+##### `isPathRelevant(path: string): boolean`
 
 ##### `getResponse(meta?: {
         id?: string;
@@ -653,6 +576,8 @@ Built-in FEL function metadata exposed for tooling/autocomplete surfaces.
 
 - **name**: `string`
 - **category**: `string`
+- **signature?**: `string`
+- **description?**: `string`
 
 #### interface `FelContext`
 
@@ -689,6 +614,14 @@ Instantiate once and reuse via {@link interpreter}. Not thread-safe — the
 `context` field is mutated on each call to {@link evaluate}.
 
 ##### `constructor()`
+
+##### `parseRepeatScopes(itemPath: string): Array<{
+        groupKey: string;
+        prefix: string;
+    }>`
+
+Parses an indexed item path into a chain of repeat group scopes.
+E.g. `"outer[0].inner[1].field"` → `[{ groupKey: "outer", prefix: "outer[0]" }, { groupKey: "inner", prefix: "outer[0].inner[1]" }]`
 
 ##### `evaluate(cst: any, context: FelContext): any`
 
@@ -765,18 +698,6 @@ It defines 35 token types covering whitespace/comments (skipped), keywords,
 literals, operators, and punctuation. Token ordering in {@link allTokens}
 controls Chevrotain's longest-match disambiguation — longer patterns (e.g.
 DateTimeLiteral) must precede shorter ones (e.g. DateLiteral, NumberLiteral).
-
-## `WhiteSpace: import("chevrotain").TokenType`
-
-Matches one or more whitespace characters. Skipped during tokenization.
-
-## `Comment: import("chevrotain").TokenType`
-
-Matches single-line comments starting with `//`. Skipped during tokenization.
-
-## `BlockComment: import("chevrotain").TokenType`
-
-Matches block comments delimited by `/* ... *\/`. Skipped during tokenization.
 
 ## `True: import("chevrotain").TokenType`
 
@@ -1041,6 +962,17 @@ Resolved mutable location of an item in a tree.
 - **index**: `number`
 - **item**: `T`
 
+#### interface `MappingDiagnostic`
+
+A structured diagnostic emitted during a mapping operation.
+`ruleIndex` is -1 for document-level diagnostics; otherwise it is the 0-based index of the rule in the sorted rule list.
+
+- **ruleIndex**: `number`
+- **sourcePath?**: `string`
+- **targetPath?**: `string`
+- **errorCode**: `'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE'`
+- **message**: `string`
+
 #### interface `RuntimeMappingResult`
 
 The result of executing a mapping operation, including the transformed output, rule count, and any diagnostics.
@@ -1048,7 +980,7 @@ The result of executing a mapping operation, including the transformed output, r
 - **direction**: `MappingDirection`
 - **output**: `any`
 - **appliedRules**: `number`
-- **diagnostics**: `string[]`
+- **diagnostics**: `MappingDiagnostic[]`
 
 #### type `MappingDirection`
 
@@ -1062,9 +994,10 @@ type MappingDirection = 'forward' | 'reverse';
 
 Bidirectional data transform engine driven by a Formspec mapping document.
 
-Rules are priority-ordered and support conditions, transform types (drop, constant, valueMap,
-coerce, preserve), and per-rule reverse overrides. Forward mapping transforms Formspec response
-data into an external format; reverse mapping transforms external data back into Formspec shape.
+Rules are priority-ordered and support conditions (FEL), transform types (drop, constant,
+valueMap, coerce, preserve, expression, flatten, nest, concat, split), and per-rule reverse
+overrides. Forward mapping transforms Formspec response data into an external format; reverse
+mapping transforms external data back into Formspec shape.
 
 ##### `constructor(mappingDocument: any)`
 
@@ -1079,4 +1012,42 @@ Applies document defaults before processing rules.
 
 Executes a reverse mapping: transforms external-format data back into Formspec response shape.
 Uses each rule's `reverse` override when available, otherwise swaps source/target paths.
+
+## `createSchemaValidator(schemas: SchemaValidatorSchemas): SchemaValidator`
+
+Create a schema validator that uses the same strategy as the Python validator:
+- definition, theme, mapping, etc.: full schema validation.
+- component: shallow document validation + per-node validation (O(n), no backtracking).
+
+#### interface `SchemaValidationError`
+
+- **raw** (`ErrorObject`): Raw Ajv error for consumers that need it
+
+#### interface `SchemaValidationResult`
+
+- **documentType**: `DocumentType | null`
+- **errors**: `SchemaValidationError[]`
+
+#### interface `SchemaValidatorSchemas`
+
+- **definition?**: `object`
+- **theme?**: `object`
+- **component?**: `object`
+- **mapping?**: `object`
+- **response?**: `object`
+- **validation_report?**: `object`
+- **validation_result?**: `object`
+- **registry?**: `object`
+- **changelog?**: `object`
+- **fel_functions?**: `object`
+
+#### interface `SchemaValidator`
+
+##### `validate(document: unknown, documentType?: DocumentType | null): SchemaValidationResult`
+
+#### type `DocumentType`
+
+```ts
+type DocumentType = "definition" | "theme" | "component" | "mapping" | "response" | "validation_report" | "validation_result" | "registry" | "changelog" | "fel_functions";
+```
 
