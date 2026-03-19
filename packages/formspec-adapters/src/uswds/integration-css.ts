@@ -18,4 +18,11 @@ export const integrationCSS = `\
 .formspec-container .usa-fieldset { border: 0; padding: 0; margin: 0; }
 .formspec-container .usa-label { margin-top: 0; }
 .formspec-container .usa-hint { margin-top: 0; }
+
+.formspec-wizard .usa-step-indicator__heading { font-size: 1rem; }
+.formspec-wizard .usa-step-indicator__current-step {
+  width: 2rem; height: 2rem; padding: 0;
+  font-size: 0.875rem; line-height: 2rem;
+}
+.formspec-wizard .usa-step-indicator__heading-text { font-weight: 600; }
 `;
