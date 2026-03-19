@@ -1,0 +1,61 @@
+/** @filedesc USWDS v3 adapter for Select — renders usa-select dropdown markup. */
+import type { SelectBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import { createUSWDSFieldDOM } from './shared';
+
+export const renderSelect: AdapterRenderFn<SelectBehavior> = (
+    behavior, parent, actx
+) => {
+    const p = behavior.presentation;
+
+    const { root, label, hint, error, describedBy } = createUSWDSFieldDOM(behavior);
+
+    if (p.labelPosition === 'start') root.style.display = 'flex';
+
+    const select = document.createElement('select') as HTMLSelectElement;
+    select.className = 'usa-select';
+    select.id = behavior.id;
+    select.name = behavior.fieldPath;
+
+    // Placeholder / empty option
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = behavior.placeholder || '- Select -';
+    if (!behavior.clearable) placeholderOpt.disabled = true;
+    placeholderOpt.selected = true;
+    select.appendChild(placeholderOpt);
+
+    for (const opt of behavior.options()) {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+    }
+
+    select.setAttribute('aria-describedby', describedBy);
+    root.appendChild(select);
+
+    root.appendChild(error);
+
+    parent.appendChild(root);
+
+    const dispose = behavior.bind({
+        root, label, control: select, hint, error,
+        onValidationChange: (hasError) => {
+            root.classList.toggle('usa-form-group--error', hasError);
+            select.classList.toggle('usa-select--error', hasError);
+        },
+        rebuildOptions: (_container, newOptions) => {
+            // Remove all options except the placeholder (first child)
+            while (select.options.length > 1) select.remove(select.options.length - 1);
+            const controls = new Map<string, HTMLInputElement>();
+            for (const opt of newOptions) {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                select.appendChild(option);
+            }
+            return controls;
+        },
+    });
+    actx.onDispose(dispose);
+};

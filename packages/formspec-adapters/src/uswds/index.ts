@@ -1,0 +1,45 @@
+/** @filedesc USWDS v3 render adapter — CSS-only, no USWDS JavaScript required. */
+import type { RenderAdapter } from 'formspec-webcomponent';
+import { renderTextInput } from './text-input';
+import { renderNumberInput } from './number-input';
+import { renderRadioGroup } from './radio-group';
+import { renderCheckboxGroup } from './checkbox-group';
+import { renderSelect } from './select';
+import { renderDatePicker } from './date-picker';
+import { renderCheckbox } from './checkbox';
+import { renderToggle } from './toggle';
+import { renderMoneyInput } from './money-input';
+import { renderSlider } from './slider';
+import { renderRating } from './rating';
+import { renderFileUpload } from './file-upload';
+import { renderSignature } from './signature';
+import { renderWizard } from './wizard';
+import { renderTabs } from './tabs';
+
+/**
+ * USWDS v3 adapter for formspec-webcomponent.
+ *
+ * Emits USWDS markup patterns using `usa-*` CSS classes.
+ * Requires `@uswds/uswds` v3 CSS (or equivalent) to be loaded.
+ * Does NOT require USWDS JavaScript — `bind()` replaces it.
+ */
+export const uswdsAdapter: RenderAdapter = {
+    name: 'uswds',
+    components: {
+        TextInput: renderTextInput,
+        NumberInput: renderNumberInput,
+        RadioGroup: renderRadioGroup,
+        CheckboxGroup: renderCheckboxGroup,
+        Select: renderSelect,
+        DatePicker: renderDatePicker,
+        Checkbox: renderCheckbox,
+        Toggle: renderToggle,
+        MoneyInput: renderMoneyInput,
+        Slider: renderSlider,
+        Rating: renderRating,
+        FileUpload: renderFileUpload,
+        Signature: renderSignature,
+        Wizard: renderWizard,
+        Tabs: renderTabs,
+    },
+};

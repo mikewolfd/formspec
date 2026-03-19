@@ -1,0 +1,85 @@
+/** @filedesc USWDS v3 adapter for Tabs — usa-button-group segmented tab bar. */
+import type { TabsBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+
+export const renderTabs: AdapterRenderFn<TabsBehavior> = (
+    behavior, parent, actx
+) => {
+    const root = document.createElement('div');
+    if (behavior.id) root.id = behavior.id;
+    root.className = 'formspec-tabs';
+    if (behavior.position !== 'top') root.dataset.position = behavior.position;
+    if (behavior.compOverrides.cssClass) actx.applyCssClass(root, behavior.compOverrides);
+    if (behavior.compOverrides.accessibility) actx.applyAccessibility(root, behavior.compOverrides);
+    if (behavior.compOverrides.style) actx.applyStyle(root, behavior.compOverrides.style);
+    parent.appendChild(root);
+
+    const count = behavior.tabCount;
+
+    // Tab bar — USWDS segmented button group
+    const tabBar = document.createElement('ul');
+    tabBar.className = 'usa-button-group usa-button-group--segmented';
+    tabBar.setAttribute('role', 'tablist');
+
+    // Tab panels
+    const panelContainer = document.createElement('div');
+    panelContainer.className = 'formspec-tab-panels';
+
+    const panels: HTMLElement[] = [];
+    for (let i = 0; i < count; i++) {
+        const panel = document.createElement('div');
+        panel.className = 'formspec-tab-panel';
+        panel.setAttribute('role', 'tabpanel');
+        if (i !== behavior.defaultTab) panel.style.display = 'none';
+        behavior.renderTab(i, panel);
+        panelContainer.appendChild(panel);
+        panels.push(panel);
+    }
+
+    // Tab buttons inside button-group items
+    const buttons: HTMLButtonElement[] = [];
+    for (let i = 0; i < count; i++) {
+        const li = document.createElement('li');
+        li.className = 'usa-button-group__item';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('role', 'tab');
+        btn.textContent = behavior.tabLabels[i] || `Tab ${i + 1}`;
+        // Active tab: filled button; inactive: outline
+        btn.className = i === behavior.defaultTab
+            ? 'usa-button'
+            : 'usa-button usa-button--outline';
+
+        li.appendChild(btn);
+        tabBar.appendChild(li);
+        buttons.push(btn);
+    }
+
+    // Position: bottom puts panels before bar
+    if (behavior.position === 'bottom') {
+        root.appendChild(panelContainer);
+        root.appendChild(tabBar);
+    } else {
+        root.appendChild(tabBar);
+        root.appendChild(panelContainer);
+    }
+
+    // Bind behavior — bind() manages panel visibility and active tab state
+    const dispose = behavior.bind({ root, tabBar, panels, buttons });
+    actx.onDispose(dispose);
+
+    // Sync USWDS button styling with active tab — observe button aria-selected changes
+    const updateButtonStyles = () => {
+        for (let i = 0; i < buttons.length; i++) {
+            const isActive = buttons[i].getAttribute('aria-selected') === 'true';
+            buttons[i].className = isActive
+                ? 'usa-button'
+                : 'usa-button usa-button--outline';
+        }
+    };
+    const observer = new MutationObserver(updateButtonStyles);
+    for (const btn of buttons) {
+        observer.observe(btn, { attributes: true, attributeFilter: ['aria-selected'] });
+    }
+    actx.onDispose(() => observer.disconnect());
+};
