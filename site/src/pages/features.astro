@@ -127,6 +127,14 @@ import CallToAction from "../components/CallToAction.astro";
               <td>Add a short screening questionnaire before the main form. Answers automatically route the user to the right form version or intake path.</td>
             </tr>
             <tr>
+              <td>Accessibility (WCAG 2.1 AA, Section 508)</td>
+              <td>The reference web components library targets WCAG 2.1 AA and Section 508 compliance. ARIA attributes, keyboard navigation, focus management, and validation announcements are built into every component — not bolted on after the fact.</td>
+            </tr>
+            <tr>
+              <td>Design system adapters (USWDS, others)</td>
+              <td>A USWDS adapter ships out of the box for federal agency branding. The headless adapter architecture lets anyone plug in Bootstrap, Tailwind, Material, or a custom design system — same behavior, different DOM.</td>
+            </tr>
+            <tr>
               <td>Design control (tokens, widgets, layout)</td>
               <td>Full design control: color tokens, typography, spacing, and layout. 37 built-in components. Apply a theme without changing the form itself.</td>
             </tr>
@@ -179,12 +187,19 @@ import CallToAction from "../components/CallToAction.astro";
           <h3>Compliance posture</h3>
           <p>Formspec runs client-side by default. No form data passes through Formspec servers. Your hosting environment, not Formspec, determines your compliance boundary.</p>
           {/* TODO(product): HIPAA posture — see revision plan section 6, item 2. Provide a clear statement: BAA available? HIPAA deployment guide? */}
-          {/* TODO(product): WCAG accessibility level — see revision plan section 6, item 3. What level of WCAG conformance do built-in components target? */}
+        </div>
+        <div class="feature-card">
+          <h3>WCAG 2.1 AA &amp; Section 508</h3>
+          <p>The reference web components library targets WCAG 2.1 AA conformance and Section 508 compliance. Every built-in component ships with semantic ARIA attributes, keyboard navigation, focus management, and live validation announcements. Accessibility behavior is handled by the engine — not the adapter — so every design system integration inherits it automatically.</p>
         </div>
         <div class="feature-card">
           <h3>Mobile support</h3>
           <p>Forms are responsive by default. Built-in components adapt to phone, tablet, and desktop viewports.</p>
           {/* TODO(product): Mobile support details — see revision plan section 6, item 4. Native mobile SDKs, mobile-specific renderer, or offline-capable PWA support? */}
+        </div>
+        <div class="feature-card">
+          <h3>Design system adapters</h3>
+          <p>A USWDS adapter ships out of the box for federal agencies that need to match government design standards. The headless adapter architecture separates behavior from DOM — swap in Bootstrap, Tailwind, Material, or your own design system. Every adapter inherits the same ARIA, validation, and keyboard behavior automatically.</p>
         </div>
       </div>
     </section>

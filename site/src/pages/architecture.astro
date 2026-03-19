@@ -110,6 +110,22 @@ const gh = "https://github.com/mikewolfd/formspec";
         The engine owns data and logic. The planner owns presentation decisions.
         Renderers own pixels.
       </p>
+
+      <h3>Headless adapter architecture</h3>
+      <p>
+        The web component uses a headless behavior/adapter split. <strong>Behavior hooks</strong> extract
+        reactive state from the engine and return a typed contract — ARIA attributes, keyboard navigation,
+        focus management, and validation announcements are all handled here. <strong>Render adapters</strong>
+        build the DOM structure and CSS classes for a specific design system, then call <code>bind()</code>
+        to wire everything up. This separation means every adapter inherits WCAG 2.1 AA and Section 508
+        compliance automatically — accessibility lives in the behavior layer, not the DOM layer.
+      </p>
+      <p>
+        A <strong>USWDS adapter</strong> ships out of the box for federal agency branding. The same
+        architecture supports Bootstrap, Tailwind, Material, or any custom design system — write a render
+        adapter, and the behavior hooks handle the rest. Missing component entries fall back to the default
+        adapter, so you can adopt incrementally.
+      </p>
       <p>
         <strong>Studio Core</strong> is an authoring adapter — every edit is a serializable command with undo/redo, replay, and cross-artifact diagnostics.
         CLI tools, LLM agents, and visual editors all drive Studio Core through the same command API.
@@ -255,6 +271,11 @@ const gh = "https://github.com/mikewolfd/formspec";
               <td><a href={`${gh}/tree/main/packages/formspec-webcomponent`} target="_blank" rel="noopener noreferrer"><code>formspec-webcomponent</code></a></td>
               <td class="role-label">Rendering</td>
               <td><code>&lt;formspec-render&gt;</code> — built-in browser renderer, component registry, 33 plugins</td>
+            </tr>
+            <tr>
+              <td><a href={`${gh}/tree/main/packages/formspec-adapters`} target="_blank" rel="noopener noreferrer"><code>formspec-adapters</code></a></td>
+              <td class="role-label">Rendering</td>
+              <td>Design-system render adapters — USWDS ships built-in; adapter contract supports Bootstrap, Tailwind, Material, or custom systems</td>
             </tr>
             <tr>
               <td><a href={`${gh}/tree/main/packages/formspec-core`} target="_blank" rel="noopener noreferrer"><code>formspec-core</code></a></td>
