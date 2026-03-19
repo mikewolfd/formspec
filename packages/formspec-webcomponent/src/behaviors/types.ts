@@ -28,6 +28,8 @@ export interface FieldRefs {
         container: HTMLElement,
         options: ReadonlyArray<{ value: string; label: string }>
     ) => Map<string, HTMLInputElement>;
+    /** Called by bind() when validation state changes. Adapters use this to toggle error classes. */
+    onValidationChange?: (hasError: boolean, message: string) => void;
 }
 
 /** Returned by every field behavior hook. */
@@ -151,12 +153,31 @@ export interface SignatureBehavior extends FieldBehavior {
     strokeColor: string;
 }
 
+/** Sidenav item refs for reactive class/text updates without DOM rebuilds. */
+export interface WizardSidenavItemRefs {
+    item: HTMLElement;
+    button: HTMLButtonElement;
+    circle: HTMLElement;
+}
+
+/** Progress indicator refs for reactive class updates without DOM rebuilds. */
+export interface WizardProgressItemRefs {
+    indicator: HTMLElement;
+    label?: HTMLElement;
+}
+
 export interface WizardRefs {
     root: HTMLElement;
+    panels: HTMLElement[];
     stepIndicators?: HTMLElement[];
     stepContent: HTMLElement;
     prevButton?: HTMLButtonElement;
     nextButton?: HTMLButtonElement;
+    skipButton?: HTMLButtonElement;
+    /** Sidenav items built once by the adapter; bind() toggles classes/text. */
+    sidenavItems?: WizardSidenavItemRefs[];
+    /** Progress indicators built once by the adapter; bind() toggles classes. */
+    progressItems?: WizardProgressItemRefs[];
 }
 
 export interface WizardBehavior {

@@ -84,21 +84,18 @@ export function useWizard(ctx: BehaviorContext, comp: any): WizardBehavior {
         bind(refs: WizardRefs): () => void {
             const disposers: Array<() => void> = [];
 
-            // Panel show/hide based on current step
-            // The adapter creates panels and passes stepContent; we track all panels
-            // via renderStep above. The adapter is responsible for show/hide toggling
-            // using the activeStep() signal.
-
-            // Step indicator updates
-            if (refs.stepIndicators) {
-                // Managed by adapter via activeStep() reactive reads
-            }
-
-            // Nav button reactivity
+            // Single effect for all step-driven reactivity: panels, nav buttons,
+            // sidenav items, progress indicators, skip button, page-change event.
             disposers.push(effect(() => {
                 const step = currentStep.value;
                 const total = children.length;
 
+                // Panel show/hide
+                refs.panels.forEach((p, idx) => {
+                    p.classList.toggle('formspec-hidden', idx !== step);
+                });
+
+                // Nav button state
                 if (refs.prevButton) {
                     refs.prevButton.disabled = step === 0;
                     refs.prevButton.classList.toggle('formspec-hidden', step === 0);
@@ -106,6 +103,34 @@ export function useWizard(ctx: BehaviorContext, comp: any): WizardBehavior {
                 if (refs.nextButton) {
                     refs.nextButton.disabled = total === 0;
                     refs.nextButton.textContent = step === total - 1 ? 'Submit' : 'Next';
+                }
+
+                // Skip button: hidden on last step
+                if (refs.skipButton) {
+                    refs.skipButton.classList.toggle('formspec-hidden', step === total - 1);
+                }
+
+                // Sidenav items: active/completed classes, aria-current, step circles
+                if (refs.sidenavItems) {
+                    for (let i = 0; i < refs.sidenavItems.length; i++) {
+                        const si = refs.sidenavItems[i];
+                        si.item.classList.toggle('formspec-wizard-sidenav-item--active', i === step);
+                        si.item.classList.toggle('formspec-wizard-sidenav-item--completed', i < step);
+                        si.button.setAttribute('aria-current', i === step ? 'step' : 'false');
+                        si.circle.textContent = i < step ? '\u2713' : String(i + 1);
+                    }
+                }
+
+                // Progress indicators: active/completed classes
+                if (refs.progressItems) {
+                    for (let i = 0; i < refs.progressItems.length; i++) {
+                        const pi = refs.progressItems[i];
+                        pi.indicator.classList.toggle('formspec-wizard-step--active', i === step);
+                        pi.indicator.classList.toggle('formspec-wizard-step--completed', i < step);
+                        if (pi.label) {
+                            pi.label.classList.toggle('formspec-wizard-step-label--active', i === step);
+                        }
+                    }
                 }
 
                 // Dispatch page-change event

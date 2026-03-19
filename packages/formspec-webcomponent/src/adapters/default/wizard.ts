@@ -1,7 +1,5 @@
-/** @filedesc Default adapter for Wizard — reproduces current DOM structure. */
-import { signal } from '@preact/signals-core';
-import { effect } from '@preact/signals-core';
-import type { WizardBehavior } from '../../behaviors/types';
+/** @filedesc Default adapter for Wizard — pure DOM, no signal imports per ADR 0046. */
+import type { WizardBehavior, WizardSidenavItemRefs, WizardProgressItemRefs } from '../../behaviors/types';
 import type { AdapterRenderFn } from '../types';
 
 export const renderWizard: AdapterRenderFn<WizardBehavior> = (
@@ -19,10 +17,10 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
 
     const showSideNav = behavior.showSideNav;
     let container: HTMLElement = el;
+    let sidenavItems: WizardSidenavItemRefs[] | undefined;
 
     if (showSideNav) {
         el.classList.add('formspec-wizard--with-sidenav');
-        const collapsed = signal(false);
 
         // Side nav
         const sidenav = document.createElement('nav');
@@ -30,59 +28,59 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
         sidenav.setAttribute('aria-label', 'Form steps');
         el.appendChild(sidenav);
 
+        // Collapse/expand toggle — pure local UI state, no signals needed
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = 'formspec-wizard-sidenav-toggle';
+        toggleBtn.setAttribute('aria-label', 'Collapse navigation');
+        toggleBtn.title = 'Collapse';
+        toggleBtn.innerHTML = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
         sidenav.appendChild(toggleBtn);
 
+        let collapsed = false;
+        toggleBtn.addEventListener('click', () => {
+            collapsed = !collapsed;
+            sidenav.classList.toggle('formspec-wizard-sidenav--collapsed', collapsed);
+            toggleBtn.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
+            toggleBtn.title = collapsed ? 'Expand' : 'Collapse';
+            toggleBtn.innerHTML = collapsed
+                ? '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+                : '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
+        });
+
+        // Step list — built once, bind() toggles classes/text
         const stepList = document.createElement('ol');
         stepList.className = 'formspec-wizard-sidenav-list';
         sidenav.appendChild(stepList);
 
-        // Collapse/expand toggle
-        actx.onDispose(effect(() => {
-            const isCollapsed = collapsed.value;
-            sidenav.classList.toggle('formspec-wizard-sidenav--collapsed', isCollapsed);
-            toggleBtn.setAttribute('aria-label', isCollapsed ? 'Expand navigation' : 'Collapse navigation');
-            toggleBtn.title = isCollapsed ? 'Expand' : 'Collapse';
-            toggleBtn.innerHTML = isCollapsed
-                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
-                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
-        }));
-        toggleBtn.addEventListener('click', () => { collapsed.value = !collapsed.value; });
+        sidenavItems = [];
+        for (let i = 0; i < behavior.totalSteps(); i++) {
+            const item = document.createElement('li');
+            item.className = 'formspec-wizard-sidenav-item';
+            if (i === 0) item.classList.add('formspec-wizard-sidenav-item--active');
 
-        // Step list items — rebuilt on step change
-        actx.onDispose(effect(() => {
-            const step = behavior.activeStep();
-            stepList.innerHTML = '';
-            for (let i = 0; i < behavior.totalSteps(); i++) {
-                const item = document.createElement('li');
-                item.className = 'formspec-wizard-sidenav-item';
-                if (i === step) item.classList.add('formspec-wizard-sidenav-item--active');
-                if (i < step) item.classList.add('formspec-wizard-sidenav-item--completed');
-                item.setAttribute('role', 'button');
-                item.tabIndex = 0;
-                item.setAttribute('aria-current', i === step ? 'step' : 'false');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'formspec-wizard-sidenav-btn';
+            btn.setAttribute('aria-current', i === 0 ? 'step' : 'false');
 
-                const circle = document.createElement('span');
-                circle.className = 'formspec-wizard-sidenav-step';
-                circle.textContent = i < step ? '\u2713' : String(i + 1);
-                item.appendChild(circle);
+            const circle = document.createElement('span');
+            circle.className = 'formspec-wizard-sidenav-step';
+            circle.textContent = String(i + 1);
+            btn.appendChild(circle);
 
-                const label = document.createElement('span');
-                label.className = 'formspec-wizard-sidenav-label';
-                label.textContent = behavior.steps[i]?.title || `Step ${i + 1}`;
-                item.appendChild(label);
+            const label = document.createElement('span');
+            label.className = 'formspec-wizard-sidenav-label';
+            label.textContent = behavior.steps[i]?.title || `Step ${i + 1}`;
+            btn.appendChild(label);
 
-                const idx = i;
-                item.addEventListener('click', () => behavior.goToStep(idx));
-                item.addEventListener('keydown', (e: KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); behavior.goToStep(idx); }
-                });
+            const idx = i;
+            btn.addEventListener('click', () => behavior.goToStep(idx));
 
-                stepList.appendChild(item);
-            }
-        }));
+            item.appendChild(btn);
+            stepList.appendChild(item);
+            sidenavItems.push({ item, button: btn, circle });
+        }
 
         // Content area
         const content = document.createElement('div');
@@ -91,39 +89,38 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
         container = content;
     }
 
-    // Progress bar (always in DOM when showProgress, hidden when sidenav shown)
+    // Progress bar — built once, bind() toggles classes
+    let progressItems: WizardProgressItemRefs[] | undefined;
     if (behavior.showProgress) {
         const progress = document.createElement('div');
         progress.className = 'formspec-wizard-steps';
         progress.classList.toggle('formspec-hidden', showSideNav);
         container.appendChild(progress);
 
-        actx.onDispose(effect(() => {
-            const step = behavior.activeStep();
-            progress.innerHTML = '';
-            for (let i = 0; i < behavior.totalSteps(); i++) {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'formspec-wizard-step-wrapper';
+        progressItems = [];
+        for (let i = 0; i < behavior.totalSteps(); i++) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'formspec-wizard-step-wrapper';
 
-                const indicator = document.createElement('span');
-                indicator.className = 'formspec-wizard-step';
-                if (i === step) indicator.classList.add('formspec-wizard-step--active');
-                if (i < step) indicator.classList.add('formspec-wizard-step--completed');
-                indicator.textContent = `${i + 1}`;
-                wrapper.appendChild(indicator);
+            const indicator = document.createElement('span');
+            indicator.className = 'formspec-wizard-step';
+            if (i === 0) indicator.classList.add('formspec-wizard-step--active');
+            indicator.textContent = `${i + 1}`;
+            wrapper.appendChild(indicator);
 
-                const stepTitle = behavior.steps[i]?.title;
-                if (stepTitle) {
-                    const label = document.createElement('span');
-                    label.className = 'formspec-wizard-step-label';
-                    if (i === step) label.classList.add('formspec-wizard-step-label--active');
-                    label.textContent = stepTitle;
-                    wrapper.appendChild(label);
-                }
-
-                progress.appendChild(wrapper);
+            const stepTitle = behavior.steps[i]?.title;
+            let labelEl: HTMLElement | undefined;
+            if (stepTitle) {
+                labelEl = document.createElement('span');
+                labelEl.className = 'formspec-wizard-step-label';
+                if (i === 0) labelEl.classList.add('formspec-wizard-step-label--active');
+                labelEl.textContent = stepTitle;
+                wrapper.appendChild(labelEl);
             }
-        }));
+
+            progress.appendChild(wrapper);
+            progressItems.push({ indicator, label: labelEl });
+        }
     }
 
     // Step panels
@@ -131,19 +128,13 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
     for (let i = 0; i < behavior.totalSteps(); i++) {
         const panel = document.createElement('div');
         panel.className = 'formspec-wizard-panel';
+        panel.setAttribute('role', 'region');
+        panel.setAttribute('aria-label', behavior.steps[i]?.title || `Step ${i + 1}`);
         if (i !== 0) panel.classList.add('formspec-hidden');
         behavior.renderStep(i, panel);
         container.appendChild(panel);
         panels.push(panel);
     }
-
-    // Reactively show/hide panels
-    actx.onDispose(effect(() => {
-        const step = behavior.activeStep();
-        panels.forEach((p, idx) => {
-            p.classList.toggle('formspec-hidden', idx !== step);
-        });
-    }));
 
     // Navigation buttons
     const nav = document.createElement('div');
@@ -155,8 +146,9 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
     prevBtn.textContent = 'Previous';
     nav.appendChild(prevBtn);
 
+    let skipBtn: HTMLButtonElement | undefined;
     if (behavior.allowSkip) {
-        const skipBtn = document.createElement('button');
+        skipBtn = document.createElement('button');
         skipBtn.type = 'button';
         skipBtn.className = 'formspec-wizard-skip';
         skipBtn.textContent = 'Skip';
@@ -164,12 +156,6 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
             if (behavior.canGoNext()) behavior.goToStep(behavior.activeStep() + 1);
         });
         nav.appendChild(skipBtn);
-
-        // Hide skip on last step
-        actx.onDispose(effect(() => {
-            const step = behavior.activeStep();
-            skipBtn.classList.toggle('formspec-hidden', step === behavior.totalSteps() - 1);
-        }));
     }
 
     const nextBtn = document.createElement('button');
@@ -179,12 +165,16 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
     nav.appendChild(nextBtn);
     container.appendChild(nav);
 
-    // Bind behavior to refs
+    // Bind behavior to refs — bind() manages all reactive DOM updates
     const dispose = behavior.bind({
         root: el,
+        panels,
         prevButton: prevBtn,
         nextButton: nextBtn,
         stepContent: container,
+        skipButton: skipBtn,
+        sidenavItems,
+        progressItems,
     });
     actx.onDispose(dispose);
 };
