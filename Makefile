@@ -25,6 +25,9 @@ test-studio-e2e:
 test-python:
 	pytest
 
+build-wasm:
+	wasm-pack build crates/formspec-wasm --target web --out-dir ../../packages/formspec-engine/wasm-pkg
+
 test-rust:
 	cargo test --workspace --exclude formspec-py
 
@@ -105,4 +108,4 @@ clean:
 	      packages/formspec-mcp/API.llm.md \
 	      packages/formspec-studio-core/API.llm.md
 
-.PHONY: all spec-artifacts docs-check check docs html-docs api-docs test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
+.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build-wasm test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
