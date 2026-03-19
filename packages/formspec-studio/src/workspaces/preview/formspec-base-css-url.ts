@@ -1,6 +1,12 @@
 /**
- * URL for formspec-base.css so it can be injected into document.head for preview.
- * Vite resolves this via alias; in tests the module may be mocked.
+ * URLs for formspec CSS files so they can be injected into document.head for preview.
+ * Vite resolves these via alias; in tests the module may be mocked.
  */
-import url from 'formspec-webcomponent/formspec-base.css?url';
-export const formspecBaseCssHref: string = url ?? '';
+import layoutUrl from 'formspec-webcomponent/formspec-layout.css?url';
+import defaultUrl from 'formspec-webcomponent/formspec-default.css?url';
+
+export const formspecLayoutCssHref: string = layoutUrl ?? '';
+export const formspecDefaultCssHref: string = defaultUrl ?? '';
+
+/** @deprecated Use formspecLayoutCssHref and formspecDefaultCssHref instead. */
+export const formspecBaseCssHref: string = formspecLayoutCssHref;

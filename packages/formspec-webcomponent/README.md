@@ -14,7 +14,8 @@ The package is ESM-only. It requires `formspec-engine` and `formspec-layout` as 
 
 ```js
 import { FormspecRender } from 'formspec-webcomponent';
-import 'formspec-webcomponent/formspec-base.css';
+import 'formspec-webcomponent/formspec-layout.css';
+import 'formspec-webcomponent/formspec-default.css';
 
 customElements.define('formspec-render', FormspecRender);
 

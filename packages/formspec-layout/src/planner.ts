@@ -526,6 +526,15 @@ function buildThemePageNodes(
             const plannedNode = planRegionNode(regionPath);
             if (!plannedNode) continue;
 
+            // Theme page regions render at prefix="" (outside their parent group
+            // scope), so ensure bind is the full path for signal lookups.
+            if (regionPath.includes('.') && plannedNode.props?.bind) {
+                plannedNode.props.bind = regionPath;
+                if (plannedNode.bindPath && plannedNode.bindPath !== regionPath) {
+                    plannedNode.bindPath = regionPath;
+                }
+            }
+
             const wrapped = wrapRegionNode(plannedNode, region, ctx.activeBreakpoint ?? null);
             if (wrapped) {
                 regionNodes.push(wrapped);

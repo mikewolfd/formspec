@@ -55,67 +55,37 @@
   },
   "selectors": [
     {
-      "match": { "type": "field" },
-      "apply": {
-        "cssClass": ["usa-form-group"]
-      }
-    },
-    {
       "match": { "dataType": "string" },
-      "apply": {
-        "widget": "textInput",
-        "cssClass": ["usa-input"]
-      }
+      "apply": { "widget": "textInput" }
     },
     {
       "match": { "dataType": "text" },
-      "apply": {
-        "widget": "textarea",
-        "cssClass": ["usa-textarea"],
-        "widgetConfig": { "rows": 5 }
-      }
+      "apply": { "widget": "textarea", "widgetConfig": { "rows": 5 } }
     },
     {
       "match": { "dataType": "choice" },
-      "apply": {
-        "widget": "dropdown",
-        "cssClass": ["usa-select"]
-      }
+      "apply": { "widget": "dropdown" }
     },
     {
       "match": { "dataType": "multiChoice" },
-      "apply": {
-        "widget": "checkboxGroup",
-        "cssClass": ["usa-checkbox"],
-        "widgetConfig": { "columns": 2 }
-      }
+      "apply": { "widget": "checkboxGroup", "widgetConfig": { "columns": 2 } }
     },
     {
       "match": { "dataType": "boolean" },
-      "apply": {
-        "widget": "checkbox",
-        "cssClass": ["usa-checkbox"]
-      }
+      "apply": { "widget": "checkbox" }
     },
     {
       "match": { "dataType": "date" },
-      "apply": {
-        "widget": "datePicker",
-        "cssClass": ["usa-date-picker"]
-      }
+      "apply": { "widget": "datePicker" }
     },
     {
       "match": { "dataType": "decimal" },
-      "apply": {
-        "widget": "numberInput",
-        "cssClass": ["usa-input"]
-      }
+      "apply": { "widget": "numberInput" }
     },
     {
       "match": { "dataType": "attachment" },
       "apply": {
         "widget": "fileUpload",
-        "cssClass": ["usa-file-input"],
         "widgetConfig": {
           "accept": ".pdf,.doc,.docx,.xls,.xlsx",
           "maxSizeMb": 10
@@ -124,21 +94,11 @@
     },
     {
       "match": { "type": "display" },
-      "apply": {
-        "widget": "paragraph",
-        "cssClass": ["usa-prose"]
-      }
-    },
-    {
-      "match": { "type": "group" },
-      "apply": {
-        "cssClass": ["usa-form"]
-      }
+      "apply": { "widget": "paragraph" }
     }
   ],
   "items": {
     "budget_section.total_direct": {
-      "cssClass": ["usa-input", "usa-input--success"],
       "style": {
         "fontWeight": "$token.typography.weight.bold",
         "fontSize": "$token.typography.size.lg"
@@ -149,12 +109,9 @@
       }
     },
     "budget_section.total_requested": {
-      "cssClass": ["usa-input", "usa-input--success"],
       "style": {
         "fontWeight": "$token.typography.weight.bold",
-        "fontSize": "$token.typography.size.lg",
-        "borderWidth": "2px",
-        "borderColor": "$token.color.primary"
+        "fontSize": "$token.typography.size.lg"
       },
       "accessibility": {
         "liveRegion": "polite",
@@ -183,7 +140,10 @@
         { "key": "applicant_section.org_name", "span": 8, "responsive": { "sm": { "span": 12 } } },
         { "key": "applicant_section.ein", "span": 4, "responsive": { "sm": { "span": 12 } } },
         { "key": "applicant_section.org_type", "span": 6, "responsive": { "sm": { "span": 12 } } },
-        { "key": "applicant_section.address", "span": 12 },
+        { "key": "applicant_section.address.street", "span": 12 },
+        { "key": "applicant_section.address.city", "span": 5, "responsive": { "sm": { "span": 12 } } },
+        { "key": "applicant_section.address.state", "span": 4, "responsive": { "sm": { "span": 6 } } },
+        { "key": "applicant_section.address.zip", "span": 3, "responsive": { "sm": { "span": 6 } } },
         { "key": "applicant_section.contact_name", "span": 4, "responsive": { "sm": { "span": 12 } } },
         { "key": "applicant_section.contact_email", "span": 4, "responsive": { "sm": { "span": 12 } } },
         { "key": "applicant_section.contact_phone", "span": 4, "responsive": { "sm": { "span": 12 } } }

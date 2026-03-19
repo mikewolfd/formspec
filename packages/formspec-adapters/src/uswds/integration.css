@@ -1,0 +1,21 @@
+/* @filedesc USWDS integration overrides for formspec layout primitives. */
+
+/* Inside grid/stack, USWDS form-groups don't need margins —
+   the layout container's gap handles inter-field spacing */
+.formspec-grid .usa-form-group,
+.formspec-stack .usa-form-group { margin-top: 0; }
+
+/* Inside grid cells, inputs must fill their cell —
+   USWDS max-width doesn't apply at layout level */
+.formspec-grid .usa-input,
+.formspec-grid .usa-textarea,
+.formspec-grid .usa-select { max-width: 100%; }
+
+/* USWDS fieldsets and legends within formspec containers */
+.formspec-container .usa-fieldset { border: 0; padding: 0; margin: 0; }
+
+/* USWDS labels inside formspec fields don't need the default margin reset */
+.formspec-container .usa-label { margin-top: 0; }
+
+/* USWDS hint text spacing defers to formspec field gap */
+.formspec-container .usa-hint { margin-top: 0; }

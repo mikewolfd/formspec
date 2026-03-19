@@ -129,8 +129,6 @@ export function diagnose(state: ProjectState, schemaValidator?: SchemaValidator)
   log(`flattenItems done (${itemRows.length} rows)`);
   const itemKeySet = new Set(itemRows.map((row) => row.key));
   const itemPathSet = new Set(itemRows.map((row) => row.path));
-  const fieldRows = itemRows.filter((row) => row.item.type === 'field');
-  const fieldPathSet = new Set(fieldRows.map((row) => row.path));
   const normalizedItemPaths = new Set(itemRows.map((row) => normalizeIndexedPath(row.path)));
 
   // Consistency: orphan or mis-bound component nodes
@@ -244,7 +242,7 @@ export function diagnose(state: ProjectState, schemaValidator?: SchemaValidator)
   const themeItems = (state.theme as any).items as Record<string, unknown> | undefined;
   if (themeItems) {
     for (const key of Object.keys(themeItems)) {
-      if (!itemKeySet.has(key) && !fieldPathSet.has(key)) {
+      if (!itemKeySet.has(key) && !itemPathSet.has(key)) {
         consistency.push({
           artifact: 'theme',
           path: `items.${key}`,
@@ -264,7 +262,7 @@ export function diagnose(state: ProjectState, schemaValidator?: SchemaValidator)
       for (let j = 0; j < regions.length; j++) {
         const key = regions[j]?.key;
         if (typeof key !== 'string') continue;
-        if (itemKeySet.has(key) || fieldPathSet.has(key) || componentNodeKeySet.has(key)) continue;
+        if (itemKeySet.has(key) || itemPathSet.has(key) || componentNodeKeySet.has(key)) continue;
         consistency.push({
           artifact: 'theme',
           path: `pages[${i}].regions[${j}].key`,

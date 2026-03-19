@@ -33,4 +33,6 @@ export interface AdapterContext {
 export interface RenderAdapter {
     name: string;
     components: Partial<Record<string, AdapterRenderFn>>;
+    /** CSS text injected into the document head when this adapter is active. */
+    integrationCSS?: string;
 }

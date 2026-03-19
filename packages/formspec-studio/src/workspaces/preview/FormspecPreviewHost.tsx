@@ -2,7 +2,7 @@
 import { useRef, useEffect } from 'react';
 import { useProjectState } from '../../state/useProjectState';
 import { useProject } from '../../state/useProject';
-import { formspecBaseCssHref } from './formspec-base-css-url';
+import { formspecLayoutCssHref, formspecDefaultCssHref } from './formspec-base-css-url';
 import {
   normalizeComponentDoc,
   normalizeDefinitionDoc,
@@ -60,16 +60,20 @@ export function FormspecPreviewHost({ width }: FormspecPreviewHostProps) {
     }
   }
 
-  // Inject base CSS into document.head — form content lives in the element's light DOM,
+  // Inject formspec CSS into document.head — form content lives in the element's light DOM,
   // so document-level CSS reaches it (no shadow isolation needed on our side).
   useEffect(() => {
-    if (!formspecBaseCssHref) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = formspecBaseCssHref;
-    link.setAttribute('data-formspec-preview-base', 'true');
-    document.head.appendChild(link);
-    return () => { link.remove(); };
+    const links: HTMLLinkElement[] = [];
+    for (const href of [formspecLayoutCssHref, formspecDefaultCssHref]) {
+      if (!href) continue;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.setAttribute('data-formspec-preview-base', 'true');
+      document.head.appendChild(link);
+      links.push(link);
+    }
+    return () => { links.forEach(l => l.remove()); };
   }, []);
 
   // One-time: create and mount the <formspec-render> element.

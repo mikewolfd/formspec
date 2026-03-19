@@ -1,6 +1,7 @@
 /** @filedesc Package entry point: registers components and re-exports public API. */
-// Side effects
-import './formspec-base.css';
+// Side effects — layout is always loaded; default provides visual styling
+import './formspec-layout.css';
+import './formspec-default.css';
 import { registerDefaultComponents } from './components';
 registerDefaultComponents();
 

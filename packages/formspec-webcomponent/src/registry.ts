@@ -15,6 +15,8 @@ import type { RenderAdapter, AdapterRenderFn } from './adapters/types';
  * `registerDefaultComponents()`. Custom plugins can be added at any
  * time by calling {@link register} on the {@link globalRegistry} singleton.
  */
+const INTEGRATION_STYLE_ID = 'formspec-adapter-integration';
+
 export class ComponentRegistry {
     private plugins: Map<string, ComponentPlugin> = new Map();
     private adapters: Map<string, RenderAdapter> = new Map();
@@ -57,6 +59,21 @@ export class ComponentRegistry {
             return;
         }
         this.activeAdapter = name;
+        this.applyIntegrationCSS();
+    }
+
+    /** Inject or remove the active adapter's integrationCSS in the document head. */
+    private applyIntegrationCSS(): void {
+        const existing = document.getElementById(INTEGRATION_STYLE_ID);
+        if (existing) existing.remove();
+
+        const adapter = this.adapters.get(this.activeAdapter);
+        if (adapter?.integrationCSS) {
+            const style = document.createElement('style');
+            style.id = INTEGRATION_STYLE_ID;
+            style.textContent = adapter.integrationCSS;
+            document.head.appendChild(style);
+        }
     }
 
     /** Resolve the render function for a component type. Falls back to default adapter. */

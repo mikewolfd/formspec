@@ -1,6 +1,5 @@
 {
   "name": "formspec-references",
-  "description": "Reference example app with live form rendering and Python API server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -13,9 +12,9 @@
   },
   "dependencies": {
     "@preact/signals-core": "*",
-    "formspec-adapters": "*",
     "formspec-engine": "*",
-    "formspec-webcomponent": "*"
+    "formspec-webcomponent": "*",
+    "formspec-adapters": "*"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

@@ -15,6 +15,7 @@ import { renderFileUpload } from './file-upload';
 import { renderSignature } from './signature';
 import { renderWizard } from './wizard';
 import { renderTabs } from './tabs';
+import { integrationCSS } from './integration-css';
 
 /**
  * USWDS v3 adapter for formspec-webcomponent.
@@ -25,6 +26,7 @@ import { renderTabs } from './tabs';
  */
 export const uswdsAdapter: RenderAdapter = {
     name: 'uswds',
+    integrationCSS,
     components: {
         TextInput: renderTextInput,
         NumberInput: renderNumberInput,

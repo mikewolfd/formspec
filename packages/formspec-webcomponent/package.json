@@ -7,10 +7,11 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./formspec-base.css": "./dist/formspec-base.css"
+    "./formspec-layout.css": "./dist/formspec-layout.css",
+    "./formspec-default.css": "./dist/formspec-default.css"
   },
   "scripts": {
-    "build": "tsc && cp src/formspec-base.css dist/formspec-base.css",
+    "build": "tsc && cp src/formspec-layout.css src/formspec-default.css dist/",
     "test": "vitest run",
     "test:watch": "vitest"
   },

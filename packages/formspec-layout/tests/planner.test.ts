@@ -1010,12 +1010,112 @@ describe('grant-application integration', () => {
         expect(nodes[0].props.title).toBe('Applicant');
         const grid = nodes[0].children[0];
         expect(grid.component).toBe('Grid');
-        expect(grid.children[0].children[0].bindPath).toBe('applicantInfo.orgName');
+        const fieldNode = grid.children[0].children[0];
+        expect(fieldNode.bindPath).toBe('applicantInfo.orgName');
+        // props.bind must be the full path so signal lookups work at prefix=""
+        expect(fieldNode.props.bind).toBe('applicantInfo.orgName');
 
         // When a nested field is referenced in a region, its top-level parent
         // group is marked as assigned — prevents duplicate rendering.
         const unassignedGroup = nodes.find(n => n.bindPath === 'applicantInfo');
         expect(unassignedGroup).toBeUndefined();
+    });
+
+    it('resolves deeply nested dotted region keys (3 levels) in definition fallback', () => {
+        const items = [
+            {
+                key: 'section',
+                type: 'group',
+                label: 'Section',
+                children: [
+                    {
+                        key: 'address',
+                        type: 'group',
+                        label: 'Address',
+                        children: [
+                            { key: 'city', type: 'field', dataType: 'string', label: 'City' },
+                        ],
+                    },
+                ],
+            },
+        ];
+
+        const ctx: PlanContext = {
+            items,
+            theme: {
+                pages: [
+                    {
+                        id: 'page1',
+                        title: 'Location',
+                        regions: [
+                            { key: 'section.address.city', span: 12 },
+                        ],
+                    },
+                ],
+            },
+            findItem: makeFindItem(items),
+            isComponentAvailable: () => true,
+        };
+
+        const nodes = planDefinitionFallback(items, ctx);
+
+        expect(nodes[0].component).toBe('Page');
+        const grid = nodes[0].children[0];
+        expect(grid.component).toBe('Grid');
+        const fieldNode = grid.children[0].children[0];
+        expect(fieldNode.bindPath).toBe('section.address.city');
+        expect(fieldNode.props.bind).toBe('section.address.city');
+    });
+
+    it('resolves nested group as region with full bind path and scopeChange', () => {
+        const items = [
+            {
+                key: 'section',
+                type: 'group',
+                label: 'Section',
+                children: [
+                    {
+                        key: 'address',
+                        type: 'group',
+                        label: 'Address',
+                        children: [
+                            { key: 'city', type: 'field', dataType: 'string', label: 'City' },
+                            { key: 'zip', type: 'field', dataType: 'string', label: 'Zip' },
+                        ],
+                    },
+                ],
+            },
+        ];
+
+        const ctx: PlanContext = {
+            items,
+            theme: {
+                pages: [
+                    {
+                        id: 'page1',
+                        title: 'Address Details',
+                        regions: [
+                            { key: 'section.address', span: 12 },
+                        ],
+                    },
+                ],
+            },
+            findItem: makeFindItem(items),
+            isComponentAvailable: () => true,
+        };
+
+        const nodes = planDefinitionFallback(items, ctx);
+
+        expect(nodes[0].component).toBe('Page');
+        const grid = nodes[0].children[0];
+        expect(grid.component).toBe('Grid');
+        const groupNode = grid.children[0].children[0];
+        expect(groupNode.component).toBe('Stack');
+        expect(groupNode.bindPath).toBe('section.address');
+        expect(groupNode.props.bind).toBe('section.address');
+        expect(groupNode.scopeChange).toBe(true);
+        // Children should be planned inside the group scope
+        expect(groupNode.children).toHaveLength(2);
     });
 
     it('finds component nodes by bind in nested layouts (Columns→Stack→Input)', () => {
