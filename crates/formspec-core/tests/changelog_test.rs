@@ -566,3 +566,175 @@ fn option_set_path_format() {
         .expect("should have optionSet added");
     assert_eq!(added.path, "optionSets.states");
 }
+
+// ── Changelog gap tests ──────────────────────────────────────────
+
+/// Spec: changelog-spec.md §4 — "Items without keys are silently skipped by index_by_key"
+#[test]
+fn items_without_keys_are_silently_skipped() {
+    let old = json!({
+        "version": "1.0.0",
+        "items": [
+            { "key": "name", "dataType": "string" },
+            { "dataType": "string" }
+        ]
+    });
+    let new = json!({
+        "version": "2.0.0",
+        "items": [
+            { "key": "name", "dataType": "string" },
+            { "dataType": "integer" }
+        ]
+    });
+    // Should not panic — keyless items are silently skipped
+    let cl = generate_changelog(&old, &new, URL);
+    // Only keyed items are diffed — the keyless item change is invisible
+    let item_changes: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Item)
+        .collect();
+    assert!(item_changes.is_empty(), "keyless items should be skipped, got: {}", item_changes.len());
+}
+
+/// Spec: changelog-spec.md §4 — "classify_item_modification with non-object returns Compatible"
+#[test]
+fn classify_non_object_item_modification() {
+    // When items are not objects (e.g., strings), treating as Compatible
+    let old = json!({
+        "version": "1.0.0",
+        "items": [
+            { "key": "x", "dataType": "string" }
+        ]
+    });
+    let mut new = old.clone();
+    new["version"] = json!("2.0.0");
+    // Modify a non-breaking key
+    new["items"][0]["hint"] = json!("enter value");
+    let cl = generate_changelog(&old, &new, URL);
+    let item_changes: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Item && c.change_type == ChangeType::Modified)
+        .collect();
+    assert_eq!(item_changes.len(), 1);
+    // "hint" is in ITEM_COSMETIC_KEYS → Cosmetic, but "description" also is
+    assert_eq!(item_changes[0].impact, ChangeImpact::Cosmetic);
+}
+
+/// Spec: changelog-spec.md §5 — "bind_has_required: boolean false returns false"
+#[test]
+fn bind_has_required_boolean_false() {
+    let old = json!({
+        "version": "1.0.0",
+        "binds": {}
+    });
+    let new = json!({
+        "version": "2.0.0",
+        "binds": {
+            "field": { "required": false }
+        }
+    });
+    let cl = generate_changelog(&old, &new, URL);
+    let bind_adds: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
+        .collect();
+    assert_eq!(bind_adds.len(), 1);
+    // required=false should NOT be treated as having required → Compatible, not Breaking
+    assert_eq!(bind_adds[0].impact, ChangeImpact::Compatible);
+}
+
+/// Spec: changelog-spec.md §5 — "bind_has_required: string 'false' returns false"
+#[test]
+fn bind_has_required_string_false() {
+    let old = json!({ "version": "1.0.0", "binds": {} });
+    let new = json!({
+        "version": "2.0.0",
+        "binds": { "field": { "required": "false" } }
+    });
+    let cl = generate_changelog(&old, &new, URL);
+    let bind_adds: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
+        .collect();
+    assert_eq!(bind_adds.len(), 1);
+    assert_eq!(bind_adds[0].impact, ChangeImpact::Compatible,
+        "required='false' should be treated as non-required");
+}
+
+/// Spec: changelog-spec.md §5 — "bind_has_required: string 'false()' returns false"
+#[test]
+fn bind_has_required_string_false_fn() {
+    let old = json!({ "version": "1.0.0", "binds": {} });
+    let new = json!({
+        "version": "2.0.0",
+        "binds": { "field": { "required": "false()" } }
+    });
+    let cl = generate_changelog(&old, &new, URL);
+    let bind_adds: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
+        .collect();
+    assert_eq!(bind_adds.len(), 1);
+    assert_eq!(bind_adds[0].impact, ChangeImpact::Compatible,
+        "required='false()' should be treated as non-required");
+}
+
+/// Spec: changelog-spec.md §5 — "bind_has_required: empty string returns false"
+#[test]
+fn bind_has_required_empty_string() {
+    let old = json!({ "version": "1.0.0", "binds": {} });
+    let new = json!({
+        "version": "2.0.0",
+        "binds": { "field": { "required": "" } }
+    });
+    let cl = generate_changelog(&old, &new, URL);
+    let bind_adds: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
+        .collect();
+    assert_eq!(bind_adds.len(), 1);
+    assert_eq!(bind_adds[0].impact, ChangeImpact::Compatible,
+        "required='' should be treated as non-required");
+}
+
+/// Spec: changelog-spec.md §5 — "bind_has_required: boolean true returns true (Breaking)"
+#[test]
+fn bind_has_required_boolean_true() {
+    let old = json!({ "version": "1.0.0", "binds": {} });
+    let new = json!({
+        "version": "2.0.0",
+        "binds": { "field": { "required": true } }
+    });
+    let cl = generate_changelog(&old, &new, URL);
+    let bind_adds: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Bind && c.change_type == ChangeType::Added)
+        .collect();
+    assert_eq!(bind_adds.len(), 1);
+    assert_eq!(bind_adds[0].impact, ChangeImpact::Breaking,
+        "required=true should be Breaking");
+}
+
+/// Spec: changelog-spec.md §3 — "Migration removed is Compatible"
+#[test]
+fn migration_removed_is_compatible() {
+    let mut old = base_def();
+    old["migrations"] = json!([{ "from": "1.0.0", "to": "2.0.0" }]);
+    let new = base_def();
+
+    let cl = generate_changelog(&old, &new, URL);
+    let changes: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Migration && c.change_type == ChangeType::Removed)
+        .collect();
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0].impact, ChangeImpact::Compatible);
+}
+
+/// Spec: changelog-spec.md §3 — "Description added is metadata Cosmetic"
+#[test]
+fn description_metadata_change() {
+    let old = base_def();
+    let mut new = base_def();
+    new["description"] = json!("A test form for demonstration");
+
+    let cl = generate_changelog(&old, &new, URL);
+    let meta: Vec<_> = cl.changes.iter()
+        .filter(|c| c.target == ChangeTarget::Metadata && c.path == "description")
+        .collect();
+    assert_eq!(meta.len(), 1);
+    assert_eq!(meta[0].change_type, ChangeType::Added);
+    assert_eq!(meta[0].impact, ChangeImpact::Cosmetic);
+}

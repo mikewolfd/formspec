@@ -260,4 +260,56 @@ mod tests {
         assert!(!requires_options_source("Stack"));
         assert!(!requires_options_source("Card"));
     }
+
+    // ── Parameterized compatibility matrix ───────────────────────
+    //
+    // This test iterates ALL rules in COMPAT_RULES and verifies that:
+    //   - Every entry in `strict_allowed` returns Compatible
+    //   - Every entry in `authoring_allowed` returns CompatibleWithWarning
+    // This catches drift when components or data types are added to the rules
+    // but the matrix was not updated consistently.
+
+    /// Spec: component-spec.md §6.1 — exhaustive compatibility matrix
+    #[test]
+    fn parameterized_compat_matrix_covers_all_rules() {
+        for rule in COMPAT_RULES {
+            // Verify every strict_allowed type returns Compatible
+            for &dt in rule.strict_allowed {
+                let result = classify_compatibility(rule.component, dt);
+                assert_eq!(
+                    result,
+                    Compatibility::Compatible,
+                    "Component '{}' with dataType '{}' should be Compatible (strict_allowed), got {:?}",
+                    rule.component, dt, result,
+                );
+            }
+
+            // Verify every authoring_allowed type returns CompatibleWithWarning
+            for &dt in rule.authoring_allowed {
+                let result = classify_compatibility(rule.component, dt);
+                assert_eq!(
+                    result,
+                    Compatibility::CompatibleWithWarning,
+                    "Component '{}' with dataType '{}' should be CompatibleWithWarning (authoring_allowed), got {:?}",
+                    rule.component, dt, result,
+                );
+            }
+        }
+    }
+
+    /// Spec: component-spec.md §6.1 — types not in either list should be Incompatible
+    #[test]
+    fn unlisted_data_type_is_incompatible() {
+        // Pick a data type that's definitely not in any rule's allowed lists
+        for rule in COMPAT_RULES {
+            // "unknown_type_xyz" is not a real data type, so it should be Incompatible
+            let result = classify_compatibility(rule.component, "unknown_type_xyz");
+            assert_eq!(
+                result,
+                Compatibility::Incompatible,
+                "Component '{}' with unknown dataType should be Incompatible",
+                rule.component,
+            );
+        }
+    }
 }

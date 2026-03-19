@@ -300,4 +300,101 @@ mod tests {
         let issues = validate_extension_usage(&items, &registry);
         assert_eq!(issues.len(), 2);
     }
+
+    // ── Draft status passes clean — extension-registry.md §3.1 ──
+
+    /// Spec: extension-registry.md §3.1 — "Draft status passes clean (no issue emitted)"
+    #[test]
+    fn draft_extension_passes_clean() {
+        let mut registry = MapRegistry::new();
+        registry.add(RegistryEntryInfo {
+            name: "x-formspec-draft".to_string(),
+            status: RegistryEntryStatus::Draft,
+            display_name: Some("Draft Extension".to_string()),
+            deprecation_notice: None,
+        });
+        let items = vec![TestItem {
+            key: "field".to_string(),
+            extensions: vec!["x-formspec-draft".to_string()],
+            kids: vec![],
+        }];
+        let issues = validate_extension_usage(&items, &registry);
+        assert!(issues.is_empty(), "Draft extension should not produce issues");
+    }
+
+    // ── Empty item tree — extension-registry.md §4 ──────────────
+
+    /// Spec: extension-registry.md §4 — "Empty item tree produces no issues"
+    #[test]
+    fn empty_item_tree() {
+        let registry = make_registry();
+        let items: Vec<TestItem> = vec![];
+        let issues = validate_extension_usage(&items, &registry);
+        assert!(issues.is_empty());
+    }
+
+    // ── display_name being None in messages — extension-registry.md §3.2 ─
+
+    /// Spec: extension-registry.md §3.2 — "Retired extension with None display_name uses extension name"
+    #[test]
+    fn retired_extension_none_display_name_uses_ext_name() {
+        let mut registry = MapRegistry::new();
+        registry.add(RegistryEntryInfo {
+            name: "x-formspec-gone".to_string(),
+            status: RegistryEntryStatus::Retired,
+            display_name: None,
+            deprecation_notice: None,
+        });
+        let items = vec![TestItem {
+            key: "field".to_string(),
+            extensions: vec!["x-formspec-gone".to_string()],
+            kids: vec![],
+        }];
+        let issues = validate_extension_usage(&items, &registry);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, ExtensionErrorCode::ExtensionRetired);
+        // When display_name is None, the message should use the extension name
+        assert!(issues[0].message.contains("x-formspec-gone"), "msg: {}", issues[0].message);
+    }
+
+    /// Spec: extension-registry.md §3.2 — "Deprecated extension with None display_name uses extension name"
+    #[test]
+    fn deprecated_extension_none_display_name_uses_ext_name() {
+        let mut registry = MapRegistry::new();
+        registry.add(RegistryEntryInfo {
+            name: "x-formspec-legacy".to_string(),
+            status: RegistryEntryStatus::Deprecated,
+            display_name: None,
+            deprecation_notice: Some("Use x-formspec-new".to_string()),
+        });
+        let items = vec![TestItem {
+            key: "field".to_string(),
+            extensions: vec!["x-formspec-legacy".to_string()],
+            kids: vec![],
+        }];
+        let issues = validate_extension_usage(&items, &registry);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, ExtensionErrorCode::ExtensionDeprecated);
+        assert!(issues[0].message.contains("x-formspec-legacy"), "msg: {}", issues[0].message);
+    }
+
+    /// Spec: extension-registry.md §3.2 — "Deprecated without notice uses 'deprecated' fallback"
+    #[test]
+    fn deprecated_extension_no_notice_uses_fallback() {
+        let mut registry = MapRegistry::new();
+        registry.add(RegistryEntryInfo {
+            name: "x-formspec-old2".to_string(),
+            status: RegistryEntryStatus::Deprecated,
+            display_name: Some("Old Extension 2".to_string()),
+            deprecation_notice: None,
+        });
+        let items = vec![TestItem {
+            key: "field".to_string(),
+            extensions: vec!["x-formspec-old2".to_string()],
+            kids: vec![],
+        }];
+        let issues = validate_extension_usage(&items, &registry);
+        assert_eq!(issues.len(), 1);
+        assert!(issues[0].message.contains("deprecated"), "msg: {}", issues[0].message);
+    }
 }

@@ -287,4 +287,105 @@ mod tests {
         assert_eq!(result.document_type, Some(DocumentType::Definition));
         assert!(result.errors.is_empty());
     }
+
+    // ── Marker overrides heuristic — schema_validator ────────────
+
+    /// Spec: schema spec — "Marker field ($formspec) overrides heuristic detection"
+    #[test]
+    fn marker_overrides_heuristic_ambiguity() {
+        // Doc has both the definition marker AND theme heuristic fields
+        let doc = json!({
+            "$formspec": "1.0",
+            "items": [],
+            "title": "Test",
+            "tokens": {},
+            "selectors": []
+        });
+        // Marker should win
+        assert_eq!(detect_document_type(&doc), Some(DocumentType::Definition));
+    }
+
+    /// Spec: schema spec — "Marker field ($formspecTheme) overrides heuristic for theme"
+    #[test]
+    fn theme_marker_overrides_other_heuristics() {
+        let doc = json!({
+            "$formspecTheme": "1.0",
+            "tokens": {},
+            // Also has items + title (definition heuristic), but marker wins
+            "items": [],
+            "title": "Test"
+        });
+        assert_eq!(detect_document_type(&doc), Some(DocumentType::Theme));
+    }
+
+    // ── Registry heuristic detection ─────────────────────────────
+
+    /// Spec: schema spec — "Registry detected by heuristic: entries + extensions"
+    #[test]
+    fn detect_registry_by_heuristic() {
+        let doc = json!({
+            "entries": [],
+            "extensions": {}
+        });
+        assert_eq!(detect_document_type(&doc), Some(DocumentType::Registry));
+    }
+
+    // ── Non-object input ─────────────────────────────────────────
+
+    /// Spec: schema spec — "Non-object input returns None from detect_document_type"
+    #[test]
+    fn detect_non_object_returns_none() {
+        assert_eq!(detect_document_type(&json!("string")), None);
+        assert_eq!(detect_document_type(&json!(42)), None);
+        assert_eq!(detect_document_type(&json!(null)), None);
+        assert_eq!(detect_document_type(&json!(true)), None);
+        assert_eq!(detect_document_type(&json!([1, 2, 3])), None);
+    }
+
+    // ── Heuristic theme via tokens only ──────────────────────────
+
+    /// Spec: schema spec — "Theme heuristic via 'tokens' field alone"
+    #[test]
+    fn detect_theme_by_tokens_heuristic() {
+        let doc = json!({ "tokens": { "color-primary": "#000" } });
+        assert_eq!(detect_document_type(&doc), Some(DocumentType::Theme));
+    }
+
+    /// Spec: schema spec — "Theme heuristic via 'selectors' field alone"
+    #[test]
+    fn detect_theme_by_selectors_heuristic() {
+        let doc = json!({ "selectors": [{ "match": "field" }] });
+        assert_eq!(detect_document_type(&doc), Some(DocumentType::Theme));
+    }
+
+    // ── Component heuristic ──────────────────────────────────────
+
+    /// Spec: schema spec — "Component heuristic requires both 'tree' and 'componentType'"
+    #[test]
+    fn detect_component_heuristic_needs_both() {
+        // Only tree — not enough
+        assert_eq!(detect_document_type(&json!({ "tree": {} })), None);
+        // Only componentType — not enough
+        assert_eq!(detect_document_type(&json!({ "componentType": "Stack" })), None);
+        // Both — detected
+        assert_eq!(
+            detect_document_type(&json!({ "tree": {}, "componentType": "Stack" })),
+            Some(DocumentType::Component)
+        );
+    }
+
+    // ── DocumentType::schema_key coverage ────────────────────────
+
+    /// Spec: schema spec — "All document types have correct schema_key values"
+    #[test]
+    fn schema_key_values() {
+        assert_eq!(DocumentType::Definition.schema_key(), "definition");
+        assert_eq!(DocumentType::Theme.schema_key(), "theme");
+        assert_eq!(DocumentType::Mapping.schema_key(), "mapping");
+        assert_eq!(DocumentType::Component.schema_key(), "component");
+        assert_eq!(DocumentType::Response.schema_key(), "response");
+        assert_eq!(DocumentType::ValidationReport.schema_key(), "validationReport");
+        assert_eq!(DocumentType::Registry.schema_key(), "registry");
+        assert_eq!(DocumentType::Changelog.schema_key(), "changelog");
+    }
 }

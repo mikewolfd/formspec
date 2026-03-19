@@ -418,6 +418,21 @@ mod tests {
         assert!(diags[0].message.contains("x-missing"));
     }
 
+    // 11. Extension with "active" status — same as "stable", no diagnostic
+    /// Spec: extension-registry.md §2.1 — "active" and "stable" are both valid active statuses
+    #[test]
+    fn active_status_extension_produces_no_diagnostic() {
+        let doc = def_with_items(json!([
+            { "key": "field", "extensions": { "x-ext": true } }
+        ]));
+        let reg = registry_with_entries(json!([{
+            "name": "x-ext",
+            "status": "active"
+        }]));
+        let diags = check_extensions(&doc, &[reg]);
+        assert!(diags.is_empty(), "status='active' should resolve without diagnostics");
+    }
+
     // Extra: deeply nested items
     #[test]
     fn deeply_nested_items_path() {

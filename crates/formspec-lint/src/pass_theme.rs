@@ -1048,4 +1048,49 @@ mod tests {
         let diags = lint_theme(&theme, None);
         assert_eq!(with_code(&diags, "W702").len(), 1);
     }
+
+    // ── Empty pages array ────────────────────────────────────────
+
+    /// Spec: theme-spec.md §5 — empty pages array is valid (no pages defined)
+    #[test]
+    fn empty_pages_array_no_diagnostics() {
+        let theme = json!({ "pages": [] });
+        let diags = lint_theme(&theme, None);
+        assert!(with_code(&diags, "E710").is_empty());
+        assert!(with_code(&diags, "W711").is_empty());
+    }
+
+    // ── Pages without id fields ─────────────────────────────────
+
+    /// Spec: theme-spec.md §5 — pages without an id field do not trigger E710
+    /// (they simply don't participate in duplicate checking)
+    #[test]
+    fn pages_without_id_skip_duplicate_check() {
+        let theme = json!({
+            "pages": [
+                { "title": "Step 1" },
+                { "title": "Step 2" },
+                { "id": "review", "title": "Review" }
+            ]
+        });
+        let diags = lint_theme(&theme, None);
+        assert!(with_code(&diags, "E710").is_empty(), "Pages without id should be silently skipped");
+    }
+
+    // ── $token. in non-string contexts ──────────────────────────
+
+    /// Spec: theme-spec.md §3 — $token. references are only extracted from string values;
+    /// numeric or boolean values do not trigger token reference checks.
+    #[test]
+    fn token_ref_in_numeric_value_not_checked() {
+        let theme = json!({
+            "tokens": {},
+            "defaults": {
+                "columns": 3,
+                "visible": true
+            }
+        });
+        let diags = lint_theme(&theme, None);
+        assert!(with_code(&diags, "W704").is_empty(), "Non-string values should not be checked for token refs");
+    }
 }

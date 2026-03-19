@@ -353,4 +353,81 @@ mod tests {
         assert_eq!(index.by_key["deep"].json_path, "$.items[0].children[1].children[0]");
         assert_eq!(index.by_full_path["outer.inner.deep"].full_path, "outer.inner.deep");
     }
+
+    // ── Edge cases: non-string keys ──────────────────────────────
+
+    /// Spec: spec.md §3.1 — "key" must be a string; null key is skipped
+    #[test]
+    fn item_with_null_key_is_skipped() {
+        let doc = json!({
+            "items": [
+                { "key": null, "dataType": "string" },
+                { "key": "valid", "dataType": "string" }
+            ]
+        });
+        let index = build_item_index(&doc);
+        assert_eq!(index.by_key.len(), 1);
+        assert!(index.by_key.contains_key("valid"));
+        assert!(index.diagnostics.is_empty());
+    }
+
+    /// Spec: spec.md §3.1 — "key" must be a string; numeric key is skipped
+    #[test]
+    fn item_with_numeric_key_is_skipped() {
+        let doc = json!({
+            "items": [
+                { "key": 123, "dataType": "string" },
+                { "key": "valid", "dataType": "integer" }
+            ]
+        });
+        let index = build_item_index(&doc);
+        assert_eq!(index.by_key.len(), 1);
+        assert!(index.by_key.contains_key("valid"));
+        assert!(index.diagnostics.is_empty());
+    }
+
+    // ── Deeply nested groups (3+ levels) with repeatable at intermediate ──
+
+    /// Spec: spec.md §5.3 — repeatable groups can nest to arbitrary depth
+    #[test]
+    fn deeply_nested_groups_with_intermediate_repeatable() {
+        let doc = json!({
+            "items": [{
+                "key": "sections",
+                "repeatable": true,
+                "children": [{
+                    "key": "rows",
+                    "repeatable": true,
+                    "children": [{
+                        "key": "cells",
+                        "repeatable": true,
+                        "children": [
+                            { "key": "value", "dataType": "string" }
+                        ]
+                    }]
+                }]
+            }]
+        });
+        let index = build_item_index(&doc);
+
+        // All 4 levels present
+        assert!(index.by_full_path.contains_key("sections"));
+        assert!(index.by_full_path.contains_key("sections.rows"));
+        assert!(index.by_full_path.contains_key("sections.rows.cells"));
+        assert!(index.by_full_path.contains_key("sections.rows.cells.value"));
+
+        // All 3 intermediate groups marked repeatable
+        assert!(index.repeatable_groups.contains("sections"));
+        assert!(index.repeatable_groups.contains("sections.rows"));
+        assert!(index.repeatable_groups.contains("sections.rows.cells"));
+        assert!(!index.repeatable_groups.contains("sections.rows.cells.value"));
+
+        // Parent paths are correct
+        assert_eq!(
+            index.by_full_path["sections.rows.cells.value"].parent_full_path.as_deref(),
+            Some("sections.rows.cells")
+        );
+
+        assert!(index.diagnostics.is_empty());
+    }
 }

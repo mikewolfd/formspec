@@ -689,4 +689,75 @@ mod tests {
             assert_eq!(d.pass, 3, "All reference diagnostics should be pass 3, got pass {} for {}", d.pass, d.code);
         }
     }
+
+    // ── Array-format binds with wildcard on non-repeatable group ─
+
+    /// Spec: spec.md §4.5 — wildcard binds in array format validate identically to object format
+    #[test]
+    fn array_format_wildcard_on_non_repeatable_emits_e300() {
+        let doc = json!({
+            "items": [{
+                "key": "personal",
+                "children": [{ "key": "name", "dataType": "string" }]
+            }],
+            "binds": [{ "path": "personal[*].name", "required": "true" }]
+        });
+        let diags = lint(&doc);
+        let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
+        assert_eq!(e300.len(), 1, "Wildcard on non-repeatable group in array-format should emit E300");
+        assert!(e300[0].message.contains("non-repeatable"));
+    }
+
+    // ── Ambiguous-key path resolution ───────────────────────────
+
+    /// Spec: spec.md §3.2 — when a bind key is ambiguous (appears in multiple places),
+    /// resolution via `by_key` is blocked and must match via `by_full_path` instead.
+    #[test]
+    fn ambiguous_key_bind_emits_e300_when_not_full_path() {
+        let doc = json!({
+            "items": [
+                { "key": "name", "dataType": "string" },
+                {
+                    "key": "contact",
+                    "children": [{ "key": "name", "dataType": "string" }]
+                }
+            ],
+            "binds": { "name": { "required": "true" } }
+        });
+        let index = crate::tree::build_item_index(&doc);
+        // "name" should be in ambiguous_keys
+        assert!(index.ambiguous_keys.contains("name"), "Key 'name' should be ambiguous");
+
+        let diags = check_references(&doc, &index);
+        // "name" matches by_full_path (top-level item has full_path "name"), so it resolves
+        assert!(
+            !diags.iter().any(|d| d.code == "E300"),
+            "Top-level 'name' should resolve via by_full_path even though key is ambiguous"
+        );
+    }
+
+    /// Spec: spec.md §3.2 — ambiguous key that does NOT match a full_path should fail
+    #[test]
+    fn ambiguous_key_not_in_full_path_emits_e300() {
+        let doc = json!({
+            "items": [
+                {
+                    "key": "group1",
+                    "children": [{ "key": "x", "dataType": "string" }]
+                },
+                {
+                    "key": "group2",
+                    "children": [{ "key": "x", "dataType": "string" }]
+                }
+            ],
+            "binds": { "x": { "required": "true" } }
+        });
+        let index = crate::tree::build_item_index(&doc);
+        assert!(index.ambiguous_keys.contains("x"));
+
+        let diags = check_references(&doc, &index);
+        // "x" is ambiguous and NOT a full_path (full_paths are "group1.x" and "group2.x")
+        let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
+        assert_eq!(e300.len(), 1, "Ambiguous key 'x' with no matching full_path should emit E300");
+    }
 }

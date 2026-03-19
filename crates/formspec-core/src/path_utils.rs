@@ -202,4 +202,108 @@ mod tests {
         assert_eq!(leaf_key("group.child.field"), "field");
         assert_eq!(leaf_key("field"), "field");
     }
+
+    // ── Empty string edge cases — path_utils ─────────────────────
+
+    /// Spec: spec.md §3.1 — "Empty string path resolves to no segments"
+    #[test]
+    fn empty_string_normalize_segment() {
+        assert_eq!(normalize_path_segment(""), "");
+    }
+
+    /// Spec: spec.md §3.1 — "Empty string path normalizes to empty"
+    #[test]
+    fn empty_string_normalize_indexed_path() {
+        assert_eq!(normalize_indexed_path(""), "");
+    }
+
+    /// Spec: spec.md §3.1 — "Empty string path splits to empty vec"
+    #[test]
+    fn empty_string_split_normalized_path() {
+        let result = split_normalized_path("");
+        assert!(result.is_empty());
+    }
+
+    /// Spec: spec.md §3.1 — "item_at_path with empty string returns None"
+    #[test]
+    fn empty_string_item_at_path() {
+        let tree = vec![leaf("field")];
+        assert!(item_at_path(&tree, "").is_none());
+    }
+
+    /// Spec: spec.md §3.1 — "item_location_at_path with empty string returns None"
+    #[test]
+    fn empty_string_item_location_at_path() {
+        let tree = vec![leaf("field")];
+        assert!(item_location_at_path(&tree, "").is_none());
+    }
+
+    /// Spec: spec.md §3.1 — "parent_path of empty string returns empty"
+    #[test]
+    fn empty_string_parent_path() {
+        assert_eq!(parent_path(""), "");
+    }
+
+    /// Spec: spec.md §3.1 — "leaf_key of empty string returns empty"
+    #[test]
+    fn empty_string_leaf_key() {
+        assert_eq!(leaf_key(""), "");
+    }
+
+    // ── Deeply nested tree traversal (3+ levels) ─────────────────
+
+    /// Spec: spec.md §3.2 — "item_at_path traverses 3+ nesting levels"
+    #[test]
+    fn deeply_nested_item_at_path() {
+        let tree = vec![
+            item("level1", vec![
+                item("level2", vec![
+                    item("level3", vec![
+                        leaf("target"),
+                    ]),
+                ]),
+            ]),
+        ];
+        let found = item_at_path(&tree, "level1.level2.level3.target").unwrap();
+        assert_eq!(found.key(), "target");
+    }
+
+    /// Spec: spec.md §3.2 — "item_location_at_path works at 3+ depth"
+    #[test]
+    fn deeply_nested_item_location_at_path() {
+        let tree = vec![
+            item("a", vec![
+                item("b", vec![
+                    leaf("c1"),
+                    leaf("c2"),
+                ]),
+            ]),
+        ];
+        let loc = item_location_at_path(&tree, "a.b.c2").unwrap();
+        assert_eq!(loc.item.key(), "c2");
+        assert_eq!(loc.index, 1);
+        assert_eq!(loc.parent.len(), 2);
+    }
+
+    // ── parent_path edge cases ───────────────────────────────────
+
+    /// Spec: spec.md §3.1 — "parent_path with leading dot"
+    #[test]
+    fn parent_path_leading_dot() {
+        // ".field" → parent is "" (before the last dot)
+        assert_eq!(parent_path(".field"), "");
+    }
+
+    /// Spec: spec.md §3.1 — "parent_path with trailing dot"
+    #[test]
+    fn parent_path_trailing_dot() {
+        // "field." → parent is "field" (before the last dot)
+        assert_eq!(parent_path("field."), "field");
+    }
+
+    /// Spec: spec.md §3.1 — "parent_path of deeply nested path"
+    #[test]
+    fn parent_path_deep() {
+        assert_eq!(parent_path("a.b.c.d.e"), "a.b.c.d");
+    }
 }

@@ -346,4 +346,61 @@ mod tests {
         let diags = analyze_dependencies(&compiled);
         assert_eq!(diags.len(), 2, "Two independent cycles should produce 2 diagnostics");
     }
+
+    // ── Wildcard path dependencies ─────────────────────────────
+
+    /// Spec: spec.md §5.4 — wildcard paths like $lines[*].amount create dependency on base key
+    #[test]
+    fn wildcard_path_dependency_uses_base_key() {
+        // "total" depends on "$lines[*].amount" — base key is "lines"
+        // If "lines" also depends on "total", we have a cycle
+        let compiled = vec![
+            expr("total", "sum($lines[*].amount)"),
+            expr("lines", "$total"),
+        ];
+        let diags = analyze_dependencies(&compiled);
+        assert_eq!(diags.len(), 1, "Wildcard dependency should use base key 'lines' and detect cycle");
+        assert!(diags[0].message.contains("lines"));
+        assert!(diags[0].message.contains("total"));
+    }
+
+    /// Spec: spec.md §5.4 — wildcard ref with no cycle
+    #[test]
+    fn wildcard_path_no_cycle_when_acyclic() {
+        let compiled = vec![
+            expr("total", "sum($lines[*].amount)"),
+            expr("lines", "42"),
+        ];
+        let diags = analyze_dependencies(&compiled);
+        assert!(diags.is_empty(), "No cycle when wildcard target doesn't reference source");
+    }
+
+    // ── relevant + calculate on same bind key merge dependencies ─
+
+    /// Spec: spec.md §4.3 — multiple expression slots on the same bind key
+    /// merge into a single node in the dependency graph
+    #[test]
+    fn relevant_and_calculate_on_same_key_merge_deps() {
+        // 'a' has calculate=$b and relevant=$c
+        // 'b' depends on nothing, 'c' depends on $a → cycle between a and c
+        let compiled = vec![
+            CompiledExpression {
+                expression: "$b + 1".to_string(),
+                expression_path: "$.binds.a.calculate".to_string(),
+                bind_target: Some("a".to_string()),
+            },
+            CompiledExpression {
+                expression: "$c".to_string(),
+                expression_path: "$.binds.a.relevant".to_string(),
+                bind_target: Some("a".to_string()),
+            },
+            expr("b", "10"),
+            expr("c", "$a"),
+        ];
+        let diags = analyze_dependencies(&compiled);
+        // a → c → a cycle (via relevant slot)
+        assert_eq!(diags.len(), 1, "Should detect cycle between a and c through merged deps");
+        assert!(diags[0].message.contains('a'));
+        assert!(diags[0].message.contains('c'));
+    }
 }

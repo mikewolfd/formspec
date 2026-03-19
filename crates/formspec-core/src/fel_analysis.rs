@@ -430,4 +430,155 @@ mod tests {
         let result = analyze_fel("sum($items[*].price)");
         assert!(result.references.contains("items[*].price"));
     }
+
+    // ── rewrite_instance_name callback — fel_analysis ────────────
+
+    /// Spec: fel-grammar.md §6.3 — "rewrite_instance_name rewrites @instance('name') arg"
+    #[test]
+    fn rewrite_instance_name_callback() {
+        let expr = parse("@instance('group1')").unwrap();
+        let rewritten = rewrite_fel_references(&expr, &RewriteOptions {
+            rewrite_field_path: None,
+            rewrite_variable: None,
+            rewrite_instance_name: Some(Box::new(|name| {
+                if name == "group1" { Some("newGroup".to_string()) } else { None }
+            })),
+        });
+        let printed = fel_core::print_expr(&rewritten);
+        assert!(printed.contains("newGroup"), "expected 'newGroup' in rewritten expr: {printed}");
+    }
+
+    /// Spec: fel-grammar.md §6.3 — "rewrite_instance_name returns None leaves original"
+    #[test]
+    fn rewrite_instance_name_none_preserves() {
+        let expr = parse("@instance('keep')").unwrap();
+        let rewritten = rewrite_fel_references(&expr, &RewriteOptions {
+            rewrite_field_path: None,
+            rewrite_variable: None,
+            rewrite_instance_name: Some(Box::new(|_| None)),
+        });
+        let printed = fel_core::print_expr(&rewritten);
+        assert!(printed.contains("keep"), "original should be preserved: {printed}");
+    }
+
+    // ── Complex nested expressions in rewriting ──────────────────
+
+    /// Spec: fel-grammar.md §5 — "Rewriting works inside ternary branches"
+    #[test]
+    fn rewrite_inside_ternary() {
+        let expr = parse("if $flag then $a else $b").unwrap();
+        let rewritten = rewrite_fel_references(&expr, &RewriteOptions {
+            rewrite_field_path: Some(Box::new(|path| Some(format!("pre.{path}")))),
+            rewrite_variable: None,
+            rewrite_instance_name: None,
+        });
+        let mut refs = HashSet::new();
+        let mut vars = HashSet::new();
+        let mut fns = HashSet::new();
+        collect_info(&rewritten, &mut refs, &mut vars, &mut fns);
+        assert!(refs.contains("pre.flag"));
+        assert!(refs.contains("pre.a"));
+        assert!(refs.contains("pre.b"));
+    }
+
+    /// Spec: fel-grammar.md §5 — "Rewriting works inside function args"
+    #[test]
+    fn rewrite_inside_function_args() {
+        let expr = parse("sum($items[*].qty) + max($items[*].price)").unwrap();
+        let rewritten = rewrite_fel_references(&expr, &RewriteOptions {
+            rewrite_field_path: Some(Box::new(|path| Some(format!("order.{path}")))),
+            rewrite_variable: None,
+            rewrite_instance_name: None,
+        });
+        let mut refs = HashSet::new();
+        let mut vars = HashSet::new();
+        let mut fns = HashSet::new();
+        collect_info(&rewritten, &mut refs, &mut vars, &mut fns);
+        assert!(refs.contains("order.items[*].qty"), "refs: {refs:?}");
+        assert!(refs.contains("order.items[*].price"), "refs: {refs:?}");
+    }
+
+    /// Spec: fel-grammar.md §5 — "Rewriting works inside let-binding value and body"
+    #[test]
+    fn rewrite_inside_let_binding() {
+        let expr = parse("let x = $a in $b + x").unwrap();
+        let rewritten = rewrite_fel_references(&expr, &RewriteOptions {
+            rewrite_field_path: Some(Box::new(|path| Some(format!("p.{path}")))),
+            rewrite_variable: None,
+            rewrite_instance_name: None,
+        });
+        let mut refs = HashSet::new();
+        let mut vars = HashSet::new();
+        let mut fns = HashSet::new();
+        collect_info(&rewritten, &mut refs, &mut vars, &mut fns);
+        assert!(refs.contains("p.a"), "refs: {refs:?}");
+        assert!(refs.contains("p.b"), "refs: {refs:?}");
+    }
+
+    // ── Object and array literal analysis ────────────────────────
+
+    /// Spec: fel-grammar.md §3.5 — "Object literal values are analyzed for references"
+    #[test]
+    fn analyze_object_literal() {
+        let result = analyze_fel("{name: $first, addr: $city}");
+        assert!(result.valid);
+        assert!(result.references.contains("first"));
+        assert!(result.references.contains("city"));
+    }
+
+    /// Spec: fel-grammar.md §3.4 — "Array literal elements are analyzed for references"
+    #[test]
+    fn analyze_array_literal() {
+        let result = analyze_fel("[$a, $b, $c]");
+        assert!(result.valid);
+        assert!(result.references.contains("a"));
+        assert!(result.references.contains("b"));
+        assert!(result.references.contains("c"));
+    }
+
+    // ── PostfixAccess analysis ───────────────────────────────────
+
+    /// Spec: fel-grammar.md §3.6 — "PostfixAccess inner expression is analyzed"
+    #[test]
+    fn analyze_postfix_access() {
+        let result = analyze_fel("$obj.name");
+        assert!(result.valid);
+        // FieldRef with path segments captures the full dotted path
+        assert!(result.references.contains("obj.name") || result.references.contains("obj"),
+            "refs: {:?}", result.references);
+    }
+
+    // ── LetBinding analysis ──────────────────────────────────────
+
+    /// Spec: fel-grammar.md §7 — "Let binding value and body are both analyzed"
+    #[test]
+    fn analyze_let_binding() {
+        let result = analyze_fel("let total = $qty * $price in total + $tax");
+        assert!(result.valid);
+        assert!(result.references.contains("qty"), "refs: {:?}", result.references);
+        assert!(result.references.contains("price"), "refs: {:?}", result.references);
+        assert!(result.references.contains("tax"), "refs: {:?}", result.references);
+    }
+
+    // ── Membership analysis ──────────────────────────────────────
+
+    /// Spec: fel-grammar.md §5.2 — "Membership (in/not-in) operands are analyzed"
+    #[test]
+    fn analyze_membership_expression() {
+        let result = analyze_fel("$val in $list");
+        assert!(result.valid);
+        assert!(result.references.contains("val"));
+        assert!(result.references.contains("list"));
+    }
+
+    // ── NullCoalesce analysis ────────────────────────────────────
+
+    /// Spec: fel-grammar.md §5.3 — "NullCoalesce operands are analyzed"
+    #[test]
+    fn analyze_null_coalesce() {
+        let result = analyze_fel("$primary ?? $fallback");
+        assert!(result.valid);
+        assert!(result.references.contains("primary"));
+        assert!(result.references.contains("fallback"));
+    }
 }

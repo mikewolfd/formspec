@@ -944,6 +944,78 @@ mod tests {
         assert_eq!(with_code(&diags, "W804").len(), 1);
     }
 
+    // ── Custom component with empty params array ──────────────
+
+    /// Spec: component-spec.md §8.2 — custom component with "params": [] means no required params
+    #[test]
+    fn custom_component_empty_params_no_e806() {
+        let comp = json!({
+            "components": {
+                "EmptyParamsWidget": {
+                    "tree": { "component": "Stack", "children": [] },
+                    "params": []
+                }
+            },
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "EmptyParamsWidget" }
+                ]
+            }
+        });
+        let diags = lint_component(&comp, None);
+        assert!(with_code(&diags, "E806").is_empty(),
+            "Empty params array means no required params — no E806");
+        assert!(with_code(&diags, "E801").is_empty(),
+            "Custom component should not be flagged as unknown");
+    }
+
+    // ── SubmitButton component ──────────────────────────────────
+
+    /// Spec: component-spec.md §7.33 — SubmitButton is a built-in component
+    #[test]
+    fn submit_button_is_recognized_builtin() {
+        let comp = json!({
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "SubmitButton" }
+                ]
+            }
+        });
+        let diags = lint_component(&comp, None);
+        assert!(with_code(&diags, "E801").is_empty(),
+            "SubmitButton should be recognized as a built-in component");
+    }
+
+    /// Spec: component-spec.md §7.33 — SubmitButton should not declare a bind (it's not an input)
+    #[test]
+    fn submit_button_with_bind_not_input_component() {
+        let comp = json!({
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "SubmitButton", "bind": "field1" }
+                ]
+            }
+        });
+        let diags = lint_component(&comp, None);
+        // SubmitButton is not in LAYOUT_NO_BIND or CONTAINER_NO_BIND, and it's not an input component.
+        // So W801 should NOT fire (it's not a layout/container), and W803 should NOT fire (it's not input).
+        // But W804 duplicate bind tracking still applies.
+        assert!(with_code(&diags, "W801").is_empty(),
+            "SubmitButton is not layout/container, so no W801");
+    }
+
+    // ── W804 semantic divergence documentation ──────────────────
+    //
+    // NOTE: In Rust, W804 means "duplicate bind in the component tree" — any
+    // two nodes (regardless of type) sharing the same bind value triggers it.
+    //
+    // In the Python linter, W804 means "unresolved Summary/DataTable bind" —
+    // a completely different semantic. If the Python-equivalent checks are
+    // added to this crate in the future, they should use a different code.
+
     // Field lookup finds nested definition items
     #[test]
     fn field_lookup_finds_nested_items() {

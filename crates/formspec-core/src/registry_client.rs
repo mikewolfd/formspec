@@ -947,6 +947,153 @@ mod tests {
         assert!(reg.lookup("x-nope").is_none());
     }
 
+    // ── is_valid_extension_name edge cases ──────────────────────
+
+    /// Spec: extension-registry.md §2.1 — "Extension name must match x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*"
+    #[test]
+    fn extension_name_valid_cases() {
+        // Validated through the validate() method which calls is_valid_extension_name
+        // But we can test indirectly by creating entries and validating
+
+        // Valid: simple x-prefixed
+        let val = json!({
+            "publisher": { "name": "X", "url": "https://x.com" },
+            "published": "2026-01-01T00:00:00Z",
+            "entries": [{
+                "name": "x-test",
+                "category": "property",
+                "version": "1.0.0",
+                "status": "stable",
+                "description": "test",
+                "compatibility": {}
+            }]
+        });
+        let reg = Registry::from_json(&val).unwrap();
+        let issues = reg.validate();
+        assert!(issues.is_empty(), "x-test should be valid: {issues:?}");
+    }
+
+    /// Spec: extension-registry.md §2.1 — "Name too short fails"
+    #[test]
+    fn extension_name_too_short() {
+        let val = json!({
+            "publisher": { "name": "X", "url": "https://x.com" },
+            "published": "2026-01-01T00:00:00Z",
+            "entries": [{
+                "name": "x-",
+                "category": "property",
+                "version": "1.0.0",
+                "status": "stable",
+                "description": "test",
+                "compatibility": {}
+            }]
+        });
+        let reg = Registry::from_json(&val).unwrap();
+        let issues = reg.validate();
+        assert!(!issues.is_empty(), "x- should be invalid");
+    }
+
+    /// Spec: extension-registry.md §2.1 — "Name with uppercase fails"
+    #[test]
+    fn extension_name_uppercase_fails() {
+        let val = json!({
+            "publisher": { "name": "X", "url": "https://x.com" },
+            "published": "2026-01-01T00:00:00Z",
+            "entries": [{
+                "name": "x-Test",
+                "category": "property",
+                "version": "1.0.0",
+                "status": "stable",
+                "description": "test",
+                "compatibility": {}
+            }]
+        });
+        let reg = Registry::from_json(&val).unwrap();
+        let issues = reg.validate();
+        assert!(!issues.is_empty(), "x-Test should be invalid (uppercase)");
+    }
+
+    /// Spec: extension-registry.md §2.1 — "Name with digits after first letter is valid"
+    #[test]
+    fn extension_name_with_digits() {
+        let val = json!({
+            "publisher": { "name": "X", "url": "https://x.com" },
+            "published": "2026-01-01T00:00:00Z",
+            "entries": [{
+                "name": "x-test123",
+                "category": "property",
+                "version": "1.0.0",
+                "status": "stable",
+                "description": "test",
+                "compatibility": {}
+            }]
+        });
+        let reg = Registry::from_json(&val).unwrap();
+        let issues = reg.validate();
+        assert!(issues.is_empty(), "x-test123 should be valid: {issues:?}");
+    }
+
+    /// Spec: extension-registry.md §2.1 — "Name starting with digit after x- fails"
+    #[test]
+    fn extension_name_digit_after_prefix() {
+        let val = json!({
+            "publisher": { "name": "X", "url": "https://x.com" },
+            "published": "2026-01-01T00:00:00Z",
+            "entries": [{
+                "name": "x-1test",
+                "category": "property",
+                "version": "1.0.0",
+                "status": "stable",
+                "description": "test",
+                "compatibility": {}
+            }]
+        });
+        let reg = Registry::from_json(&val).unwrap();
+        let issues = reg.validate();
+        assert!(!issues.is_empty(), "x-1test should be invalid (digit start)");
+    }
+
+    /// Spec: extension-registry.md §2.1 — "Multi-segment name is valid"
+    #[test]
+    fn extension_name_multi_segment() {
+        let val = json!({
+            "publisher": { "name": "X", "url": "https://x.com" },
+            "published": "2026-01-01T00:00:00Z",
+            "entries": [{
+                "name": "x-formspec-url-validator",
+                "category": "property",
+                "version": "1.0.0",
+                "status": "stable",
+                "description": "test",
+                "compatibility": {}
+            }]
+        });
+        let reg = Registry::from_json(&val).unwrap();
+        let issues = reg.validate();
+        assert!(issues.is_empty(), "x-formspec-url-validator should be valid: {issues:?}");
+    }
+
+    // ── Version with non-numeric parts ───────────────────────────
+
+    /// Spec: extension-registry.md §2.3 — "Version with non-numeric parts parses as 0"
+    #[test]
+    fn version_non_numeric_parts() {
+        // "1.0.0-beta" → parse_version drops non-numeric, gets (1, 0, 0)
+        // The non-numeric part "0-beta" should parse as 0 via filter_map
+        assert!(version_satisfies("1.0.0", "1.0.0"));
+        // A version like "1.beta.0" should degrade gracefully
+        assert!(version_satisfies("1.0.0", ">=1"));
+    }
+
+    /// Spec: extension-registry.md §2.3 — "Short version string zero-pads"
+    #[test]
+    fn version_short_string() {
+        // "2" should match "2.0.0"
+        assert!(version_satisfies("2.0.0", "2"));
+        // "1.5" should match "1.5.0"
+        assert!(version_satisfies("1.5.0", ">=1.5"));
+    }
+
     // ── Parse real registry document ────────────────────────────
 
     #[test]

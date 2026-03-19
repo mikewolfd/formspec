@@ -638,6 +638,69 @@ mod tests {
         assert_eq!(result.diagnostics[0].path, "$.binds.b.calculate");
     }
 
+    // ── Screener binds in array format ──────────────────────────
+
+    /// Spec: spec.md §9.2 — screener binds can use array format like top-level binds
+    #[test]
+    fn screener_binds_array_format_parsed() {
+        let doc = json!({
+            "screener": {
+                "binds": [
+                    { "path": "q1", "required": "true", "constraint": "$ != ''" }
+                ],
+                "routes": []
+            }
+        });
+        let result = compile_expressions(&doc);
+
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.compiled.len(), 2);
+
+        let paths: Vec<&str> = result.compiled.iter().map(|e| e.expression_path.as_str()).collect();
+        assert!(paths.contains(&"$.screener.binds[0].required"));
+        assert!(paths.contains(&"$.screener.binds[0].constraint"));
+    }
+
+    // ── Shape with both constraint and composed operator ────────
+
+    /// Spec: spec.md §6.3 — shapes can have both constraint and composed operators simultaneously
+    #[test]
+    fn shape_constraint_and_composed_operator_simultaneously() {
+        let doc = json!({
+            "shapes": [{
+                "constraint": "$total > 0",
+                "and": ["$a > 0", "$b > 0"]
+            }]
+        });
+        let result = compile_expressions(&doc);
+
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.compiled.len(), 3);
+
+        let paths: Vec<&str> = result.compiled.iter().map(|e| e.expression_path.as_str()).collect();
+        assert!(paths.contains(&"$.shapes[0].constraint"));
+        assert!(paths.contains(&"$.shapes[0].and[0]"));
+        assert!(paths.contains(&"$.shapes[0].and[1]"));
+    }
+
+    // ── Variables array with missing expression field ────────────
+
+    /// Spec: spec.md §8.1 — variable entries without an expression field are silently skipped
+    #[test]
+    fn variables_missing_expression_field_skipped() {
+        let doc = json!({
+            "variables": [
+                { "name": "total" },
+                { "name": "average", "expression": "sum($items) / count($items)" }
+            ]
+        });
+        let result = compile_expressions(&doc);
+
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.compiled.len(), 1, "Only the variable with expression should compile");
+        assert_eq!(result.compiled[0].expression_path, "$.variables[1].expression");
+    }
+
     #[test]
     fn invalid_screener_route_condition() {
         let doc = json!({

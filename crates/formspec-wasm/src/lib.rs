@@ -616,3 +616,832 @@ fn category_to_str(c: registry_client::ExtensionCategory) -> &'static str {
         registry_client::ExtensionCategory::Namespace => "namespace",
     }
 }
+
+// ── Tests ───────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fel_core::{FelDate, FelMoney};
+    use serde_json::json;
+
+    // ── PRIORITY 1: Serialization round-trips ────────────────────
+
+    // ── json_to_fel / fel_to_json ────────────────────────────────
+
+    /// Correctness: json_to_fel round-trip preserves Null variant
+    #[test]
+    fn json_fel_roundtrip_null() {
+        let json_val = Value::Null;
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Null);
+        let back = fel_to_json(&fel);
+        assert_eq!(back, Value::Null);
+    }
+
+    /// Correctness: json_to_fel round-trip preserves Boolean true
+    #[test]
+    fn json_fel_roundtrip_bool_true() {
+        let json_val = json!(true);
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Boolean(true));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!(true));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves Boolean false
+    #[test]
+    fn json_fel_roundtrip_bool_false() {
+        let json_val = json!(false);
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Boolean(false));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!(false));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves String values
+    #[test]
+    fn json_fel_roundtrip_string() {
+        let json_val = json!("hello world");
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::String("hello world".to_string()));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!("hello world"));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves empty string
+    #[test]
+    fn json_fel_roundtrip_empty_string() {
+        let json_val = json!("");
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::String(String::new()));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!(""));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves integer numbers
+    #[test]
+    fn json_fel_roundtrip_integer() {
+        let json_val = json!(42);
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Number(Decimal::from(42)));
+        // fel_to_json should emit integers without fractional part
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!(42));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves decimal numbers
+    #[test]
+    fn json_fel_roundtrip_decimal() {
+        let json_val = json!(3.14);
+        let fel = json_to_fel(&json_val);
+        // Should be a Number variant (exact Decimal depends on f64 conversion)
+        if let FelValue::Number(d) = &fel {
+            let f = d.to_f64().unwrap();
+            assert!((f - 3.14).abs() < 1e-10, "expected ~3.14, got {f}");
+        } else {
+            panic!("expected FelValue::Number, got {:?}", fel);
+        }
+        let back = fel_to_json(&fel);
+        // Round-trip through f64 should produce approximately 3.14
+        assert!(back.as_f64().unwrap() - 3.14 < 1e-10);
+    }
+
+    /// Correctness: json_to_fel round-trip preserves negative numbers
+    #[test]
+    fn json_fel_roundtrip_negative() {
+        let json_val = json!(-7);
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Number(Decimal::from(-7)));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!(-7));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves zero
+    #[test]
+    fn json_fel_roundtrip_zero() {
+        let json_val = json!(0);
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Number(Decimal::ZERO));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!(0));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves arrays
+    #[test]
+    fn json_fel_roundtrip_array() {
+        let json_val = json!([1, "two", null, true]);
+        let fel = json_to_fel(&json_val);
+        if let FelValue::Array(arr) = &fel {
+            assert_eq!(arr.len(), 4);
+            assert_eq!(arr[0], FelValue::Number(Decimal::from(1)));
+            assert_eq!(arr[1], FelValue::String("two".to_string()));
+            assert_eq!(arr[2], FelValue::Null);
+            assert_eq!(arr[3], FelValue::Boolean(true));
+        } else {
+            panic!("expected FelValue::Array, got {:?}", fel);
+        }
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!([1, "two", null, true]));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves empty array
+    #[test]
+    fn json_fel_roundtrip_empty_array() {
+        let json_val = json!([]);
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Array(vec![]));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!([]));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves objects
+    #[test]
+    fn json_fel_roundtrip_object() {
+        let json_val = json!({"name": "Alice", "age": 30});
+        let fel = json_to_fel(&json_val);
+        if let FelValue::Object(entries) = &fel {
+            assert_eq!(entries.len(), 2);
+            // Object is a Vec of pairs — order may vary from JSON parsing
+            let names: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+            assert!(names.contains(&"name"));
+            assert!(names.contains(&"age"));
+        } else {
+            panic!("expected FelValue::Object, got {:?}", fel);
+        }
+        let back = fel_to_json(&fel);
+        assert_eq!(back["name"], json!("Alice"));
+        assert_eq!(back["age"], json!(30));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves empty object
+    #[test]
+    fn json_fel_roundtrip_empty_object() {
+        let json_val = json!({});
+        let fel = json_to_fel(&json_val);
+        assert_eq!(fel, FelValue::Object(vec![]));
+        let back = fel_to_json(&fel);
+        assert_eq!(back, json!({}));
+    }
+
+    /// Correctness: json_to_fel round-trip preserves nested arrays and objects
+    #[test]
+    fn json_fel_roundtrip_nested() {
+        let json_val = json!({
+            "items": [{"id": 1}, {"id": 2}],
+            "meta": {"nested": {"deep": true}}
+        });
+        let fel = json_to_fel(&json_val);
+        let back = fel_to_json(&fel);
+        assert_eq!(back["items"][0]["id"], json!(1));
+        assert_eq!(back["items"][1]["id"], json!(2));
+        assert_eq!(back["meta"]["nested"]["deep"], json!(true));
+    }
+
+    /// Edge case: very large integer converts through Decimal without data loss
+    #[test]
+    fn json_fel_roundtrip_large_integer() {
+        // i64::MAX = 9223372036854775807
+        let json_val = json!(9223372036854775807_i64);
+        let fel = json_to_fel(&json_val);
+        // This goes through as_f64().unwrap_or(0.0) then Decimal::from_f64
+        // Large integers may lose precision through f64
+        if let FelValue::Number(d) = &fel {
+            // At least it should be a Number, not Null
+            assert!(d.to_f64().is_some());
+        } else {
+            panic!("expected FelValue::Number, got {:?}", fel);
+        }
+    }
+
+    /// Edge case: very small decimal converts through Decimal
+    #[test]
+    fn json_fel_roundtrip_small_decimal() {
+        let json_val = json!(0.000001);
+        let fel = json_to_fel(&json_val);
+        if let FelValue::Number(d) = &fel {
+            let f = d.to_f64().unwrap();
+            assert!((f - 0.000001).abs() < 1e-12);
+        } else {
+            panic!("expected FelValue::Number, got {:?}", fel);
+        }
+    }
+
+    /// Correctness: fel_to_json serializes FelDate as ISO string
+    #[test]
+    fn fel_to_json_date_serializes_iso() {
+        let date = FelValue::Date(FelDate::Date {
+            year: 2026,
+            month: 3,
+            day: 19,
+        });
+        let json = fel_to_json(&date);
+        assert_eq!(json, json!("2026-03-19"));
+    }
+
+    /// Correctness: fel_to_json serializes FelMoney as structured object
+    /// Spec: Money types serialize to { amount, currency }
+    #[test]
+    fn fel_to_json_money_structured_shape() {
+        let money = FelValue::Money(FelMoney {
+            amount: Decimal::new(1999, 2), // 19.99
+            currency: "USD".to_string(),
+        });
+        let json = fel_to_json(&money);
+        assert!(json.is_object(), "Money should serialize to JSON object");
+        assert_eq!(json["currency"], json!("USD"));
+        // amount 19.99 has fractional part, should serialize as float
+        let amount = json["amount"].as_f64().unwrap();
+        assert!((amount - 19.99).abs() < 1e-10);
+    }
+
+    /// Correctness: fel_to_json serializes integer Decimal to JSON integer (no .0)
+    #[test]
+    fn fel_to_json_integer_decimal_is_json_integer() {
+        let val = FelValue::Number(Decimal::from(100));
+        let json = fel_to_json(&val);
+        // Should be an integer, not 100.0
+        assert!(json.is_i64() || json.is_u64(), "expected JSON integer, got {:?}", json);
+        assert_eq!(json.as_i64().unwrap(), 100);
+    }
+
+    /// Edge case: Decimal NaN or special values that can't become f64 produce Null
+    #[test]
+    fn fel_to_json_unconvertible_decimal_produces_null() {
+        // Decimal::MAX might overflow f64 — test the fallback path
+        let huge = Decimal::MAX;
+        let val = FelValue::Number(huge);
+        let json = fel_to_json(&val);
+        // Either a number or null, depending on f64 conversion
+        // The point is: no panic
+        assert!(json.is_number() || json.is_null());
+    }
+
+    // ── json_to_field_map ────────────────────────────────────────
+
+    /// Correctness: json_to_field_map builds HashMap from JSON object
+    #[test]
+    fn json_to_field_map_basic() {
+        let val = json!({"x": 10, "y": "hello", "z": null});
+        let map = json_to_field_map(&val);
+        assert_eq!(map.len(), 3);
+        assert_eq!(map["x"], FelValue::Number(Decimal::from(10)));
+        assert_eq!(map["y"], FelValue::String("hello".to_string()));
+        assert_eq!(map["z"], FelValue::Null);
+    }
+
+    /// Correctness: json_to_field_map returns empty map for non-object input
+    #[test]
+    fn json_to_field_map_non_object_returns_empty() {
+        let val = json!([1, 2, 3]);
+        let map = json_to_field_map(&val);
+        assert!(map.is_empty());
+    }
+
+    /// Correctness: json_to_field_map returns empty map for empty object
+    #[test]
+    fn json_to_field_map_empty_object() {
+        let val = json!({});
+        let map = json_to_field_map(&val);
+        assert!(map.is_empty());
+    }
+
+    // ── parse_mapping_rules ──────────────────────────────────────
+
+    /// Correctness: parse_mapping_rules parses a complete rule with all fields
+    /// Spec: mapping-spec — each rule has sourcePath, targetPath, transform, condition, priority, etc.
+    #[test]
+    fn parse_mapping_rules_complete_rule() {
+        let rules_json = json!([{
+            "sourcePath": "firstName",
+            "targetPath": "first_name",
+            "transform": "preserve",
+            "condition": "$age > 18",
+            "priority": 5,
+            "reversePriority": 3,
+            "default": "unknown",
+            "bidirectional": false
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert_eq!(rules.len(), 1);
+        let r = &rules[0];
+        assert_eq!(r.source_path.as_deref(), Some("firstName"));
+        assert_eq!(r.target_path, "first_name");
+        assert!(matches!(r.transform, formspec_core::TransformType::Preserve));
+        assert_eq!(r.condition.as_deref(), Some("$age > 18"));
+        assert_eq!(r.priority, 5);
+        assert_eq!(r.reverse_priority, Some(3));
+        assert_eq!(r.default, Some(json!("unknown")));
+        assert_eq!(r.bidirectional, false);
+    }
+
+    /// Correctness: parse_mapping_rules handles minimal rule — verify defaults match spec
+    /// Spec: missing transform defaults to "preserve", missing sourcePath → None, missing targetPath → ""
+    #[test]
+    fn parse_mapping_rules_minimal_defaults() {
+        let rules_json = json!([{}]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert_eq!(rules.len(), 1);
+        let r = &rules[0];
+        assert_eq!(r.source_path, None, "missing sourcePath should be None");
+        assert_eq!(r.target_path, "", "missing targetPath should default to empty string");
+        assert!(matches!(r.transform, formspec_core::TransformType::Preserve),
+            "missing transform should default to Preserve");
+        assert_eq!(r.condition, None);
+        assert_eq!(r.priority, 0, "missing priority defaults to 0");
+        assert_eq!(r.reverse_priority, None);
+        assert_eq!(r.default, None);
+        assert_eq!(r.bidirectional, true, "missing bidirectional defaults to true");
+    }
+
+    /// Correctness: parse_mapping_rules parses "constant" transform with value
+    #[test]
+    fn parse_mapping_rules_constant_transform() {
+        let rules_json = json!([{
+            "targetPath": "status",
+            "transform": "constant",
+            "value": "active"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Constant(v) = &rules[0].transform {
+            assert_eq!(*v, json!("active"));
+        } else {
+            panic!("expected Constant transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "constant" transform with null when value missing
+    #[test]
+    fn parse_mapping_rules_constant_missing_value() {
+        let rules_json = json!([{
+            "targetPath": "x",
+            "transform": "constant"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Constant(v) = &rules[0].transform {
+            assert_eq!(*v, Value::Null);
+        } else {
+            panic!("expected Constant transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "expression" transform
+    #[test]
+    fn parse_mapping_rules_expression_transform() {
+        let rules_json = json!([{
+            "sourcePath": "a",
+            "targetPath": "b",
+            "transform": "expression",
+            "expression": "$a + $b"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Expression(expr) = &rules[0].transform {
+            assert_eq!(expr, "$a + $b");
+        } else {
+            panic!("expected Expression transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "coerce" transform with all target types
+    #[test]
+    fn parse_mapping_rules_coerce_all_types() {
+        let types_and_expected = vec![
+            ("number", formspec_core::CoerceType::Number),
+            ("integer", formspec_core::CoerceType::Integer),
+            ("boolean", formspec_core::CoerceType::Boolean),
+            ("date", formspec_core::CoerceType::Date),
+            ("datetime", formspec_core::CoerceType::DateTime),
+            ("string", formspec_core::CoerceType::String),
+            ("unknown_defaults_to_string", formspec_core::CoerceType::String),
+        ];
+        for (coerce_str, expected_type) in types_and_expected {
+            let rules_json = json!([{
+                "sourcePath": "x",
+                "targetPath": "y",
+                "transform": "coerce",
+                "coerce": coerce_str
+            }]);
+            let rules = parse_mapping_rules(&rules_json).unwrap();
+            if let formspec_core::TransformType::Coerce(ct) = &rules[0].transform {
+                assert_eq!(*ct, expected_type, "coerce type mismatch for '{coerce_str}'");
+            } else {
+                panic!("expected Coerce transform for '{coerce_str}'");
+            }
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "valueMap" transform
+    #[test]
+    fn parse_mapping_rules_valuemap_transform() {
+        let rules_json = json!([{
+            "sourcePath": "status",
+            "targetPath": "code",
+            "transform": "valueMap",
+            "valueMap": {"active": 1, "inactive": 0},
+            "unmapped": "error"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::ValueMap { forward, unmapped } = &rules[0].transform {
+            assert_eq!(forward.len(), 2);
+            assert!(matches!(unmapped, formspec_core::UnmappedStrategy::Error));
+        } else {
+            panic!("expected ValueMap transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules valueMap defaults unmapped to PassThrough
+    #[test]
+    fn parse_mapping_rules_valuemap_default_unmapped() {
+        let rules_json = json!([{
+            "sourcePath": "x",
+            "targetPath": "y",
+            "transform": "valueMap",
+            "valueMap": {"a": "b"}
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::ValueMap { unmapped, .. } = &rules[0].transform {
+            assert!(matches!(unmapped, formspec_core::UnmappedStrategy::PassThrough));
+        } else {
+            panic!("expected ValueMap transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "flatten" transform with separator
+    #[test]
+    fn parse_mapping_rules_flatten_transform() {
+        let rules_json = json!([{
+            "sourcePath": "address",
+            "targetPath": "flat",
+            "transform": "flatten",
+            "separator": "_"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Flatten { separator } = &rules[0].transform {
+            assert_eq!(separator, "_");
+        } else {
+            panic!("expected Flatten transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules flatten defaults separator to "."
+    #[test]
+    fn parse_mapping_rules_flatten_default_separator() {
+        let rules_json = json!([{
+            "sourcePath": "x",
+            "targetPath": "y",
+            "transform": "flatten"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Flatten { separator } = &rules[0].transform {
+            assert_eq!(separator, ".");
+        } else {
+            panic!("expected Flatten transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "nest" transform
+    #[test]
+    fn parse_mapping_rules_nest_transform() {
+        let rules_json = json!([{
+            "sourcePath": "flat_key",
+            "targetPath": "nested",
+            "transform": "nest",
+            "separator": "/"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Nest { separator } = &rules[0].transform {
+            assert_eq!(separator, "/");
+        } else {
+            panic!("expected Nest transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "concat" transform
+    #[test]
+    fn parse_mapping_rules_concat_transform() {
+        let rules_json = json!([{
+            "sourcePath": "parts",
+            "targetPath": "full",
+            "transform": "concat",
+            "expression": " "
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Concat(sep) = &rules[0].transform {
+            assert_eq!(sep, " ");
+        } else {
+            panic!("expected Concat transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "split" transform
+    #[test]
+    fn parse_mapping_rules_split_transform() {
+        let rules_json = json!([{
+            "sourcePath": "full",
+            "targetPath": "parts",
+            "transform": "split",
+            "expression": ","
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        if let formspec_core::TransformType::Split(sep) = &rules[0].transform {
+            assert_eq!(sep, ",");
+        } else {
+            panic!("expected Split transform");
+        }
+    }
+
+    /// Correctness: parse_mapping_rules parses "drop" transform
+    #[test]
+    fn parse_mapping_rules_drop_transform() {
+        let rules_json = json!([{
+            "sourcePath": "internal",
+            "targetPath": "",
+            "transform": "drop"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert!(matches!(rules[0].transform, formspec_core::TransformType::Drop));
+    }
+
+    /// Error: parse_mapping_rules rejects unknown transform type (returns Err)
+    /// Note: JsError::new() panics outside WASM, so we verify the error path fires
+    /// by checking that the result is Err (not Ok).
+    #[test]
+    #[should_panic(expected = "cannot call wasm-bindgen imported functions on non-wasm targets")]
+    fn parse_mapping_rules_unknown_transform_errors() {
+        let rules_json = json!([{
+            "sourcePath": "x",
+            "targetPath": "y",
+            "transform": "teleport"
+        }]);
+        // This panics because JsError::new() can't run outside WASM.
+        // The panic proves the error path is reached (not silently accepted).
+        let _ = parse_mapping_rules(&rules_json);
+    }
+
+    /// Error: parse_mapping_rules rejects non-array input
+    #[test]
+    #[should_panic(expected = "cannot call wasm-bindgen imported functions on non-wasm targets")]
+    fn parse_mapping_rules_rejects_non_array() {
+        let rules_json = json!({"not": "an array"});
+        let _ = parse_mapping_rules(&rules_json);
+    }
+
+    /// Error: parse_mapping_rules rejects non-object element
+    #[test]
+    #[should_panic(expected = "cannot call wasm-bindgen imported functions on non-wasm targets")]
+    fn parse_mapping_rules_rejects_non_object_element() {
+        let rules_json = json!([42]);
+        let _ = parse_mapping_rules(&rules_json);
+    }
+
+    /// Correctness: parse_mapping_rules handles empty array
+    #[test]
+    fn parse_mapping_rules_empty_array() {
+        let rules_json = json!([]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert!(rules.is_empty());
+    }
+
+    /// Correctness: parse_mapping_rules handles multiple rules
+    #[test]
+    fn parse_mapping_rules_multiple_rules() {
+        let rules_json = json!([
+            {"sourcePath": "a", "targetPath": "x", "transform": "preserve"},
+            {"sourcePath": "b", "targetPath": "y", "transform": "drop"},
+            {"targetPath": "z", "transform": "constant", "value": 99}
+        ]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert_eq!(rules.len(), 3);
+        assert!(matches!(rules[0].transform, formspec_core::TransformType::Preserve));
+        assert!(matches!(rules[1].transform, formspec_core::TransformType::Drop));
+        assert!(matches!(rules[2].transform, formspec_core::TransformType::Constant(_)));
+    }
+
+    // ── parse_mapping_document ───────────────────────────────────
+
+    /// Correctness: parse_mapping_document with autoMap and missing rules
+    #[test]
+    fn parse_mapping_document_auto_map_no_rules() {
+        let doc = json!({"autoMap": true});
+        let result = parse_mapping_document(&doc).unwrap();
+        assert!(result.rules.is_empty());
+        assert_eq!(result.auto_map, true);
+        assert!(result.defaults.is_none());
+    }
+
+    /// Correctness: parse_mapping_document with defaults
+    #[test]
+    fn parse_mapping_document_with_defaults() {
+        let doc = json!({
+            "rules": [],
+            "defaults": {"status": "pending", "count": 0}
+        });
+        let result = parse_mapping_document(&doc).unwrap();
+        let defaults = result.defaults.unwrap();
+        assert_eq!(defaults["status"], json!("pending"));
+        assert_eq!(defaults["count"], json!(0));
+    }
+
+    /// Correctness: parse_mapping_document minimal valid document
+    #[test]
+    fn parse_mapping_document_minimal() {
+        let doc = json!({});
+        let result = parse_mapping_document(&doc).unwrap();
+        assert!(result.rules.is_empty());
+        assert_eq!(result.auto_map, false);
+        assert!(result.defaults.is_none());
+    }
+
+    /// Error: parse_mapping_document rejects non-object
+    #[test]
+    #[should_panic(expected = "cannot call wasm-bindgen imported functions on non-wasm targets")]
+    fn parse_mapping_document_rejects_non_object() {
+        let doc = json!("not an object");
+        // Panics because JsError::new() can't run outside WASM — proves error path is reached
+        let _ = parse_mapping_document(&doc);
+    }
+
+    // ── PRIORITY 2: JSON output shape contract tests ─────────────
+
+    /// Contract: deps_to_json produces the expected JSON shape with all fields
+    #[test]
+    fn deps_to_json_shape() {
+        let deps = Dependencies {
+            fields: ["firstName".to_string(), "lastName".to_string()].into_iter().collect(),
+            context_refs: ["@current".to_string()].into_iter().collect(),
+            instance_refs: ["group1".to_string()].into_iter().collect(),
+            mip_deps: Default::default(),
+            has_self_ref: true,
+            has_wildcard: false,
+            uses_prev_next: true,
+        };
+        let json = deps_to_json(&deps);
+
+        // Verify all expected keys exist and have correct types
+        assert!(json["fields"].is_array(), "fields should be array");
+        assert!(json["contextRefs"].is_array(), "contextRefs should be array");
+        assert!(json["instanceRefs"].is_array(), "instanceRefs should be array");
+        assert!(json["mipDeps"].is_array(), "mipDeps should be array");
+        assert_eq!(json["hasSelfRef"], json!(true));
+        assert_eq!(json["hasWildcard"], json!(false));
+        assert_eq!(json["usesPrevNext"], json!(true));
+
+        // Verify content
+        let fields: Vec<&str> = json["fields"].as_array().unwrap()
+            .iter().map(|v| v.as_str().unwrap()).collect();
+        assert!(fields.contains(&"firstName"));
+        assert!(fields.contains(&"lastName"));
+    }
+
+    /// Contract: deps_to_json with empty dependencies
+    #[test]
+    fn deps_to_json_empty() {
+        let deps = Dependencies::default();
+        let json = deps_to_json(&deps);
+        assert_eq!(json["fields"].as_array().unwrap().len(), 0);
+        assert_eq!(json["hasSelfRef"], json!(false));
+        assert_eq!(json["hasWildcard"], json!(false));
+        assert_eq!(json["usesPrevNext"], json!(false));
+    }
+
+    // ── PRIORITY 3: parse_status_str / status_to_str ─────────────
+
+    /// Correctness: parse_status_str accepts "draft"
+    #[test]
+    fn parse_status_draft() {
+        assert!(matches!(parse_status_str("draft"), Some(formspec_core::RegistryEntryStatus::Draft)));
+    }
+
+    /// Correctness: parse_status_str accepts "stable" as Active
+    #[test]
+    fn parse_status_stable() {
+        assert!(matches!(parse_status_str("stable"), Some(formspec_core::RegistryEntryStatus::Active)));
+    }
+
+    /// Correctness: parse_status_str accepts "active" as Active (alias)
+    #[test]
+    fn parse_status_active_alias() {
+        assert!(matches!(parse_status_str("active"), Some(formspec_core::RegistryEntryStatus::Active)));
+    }
+
+    /// Correctness: parse_status_str accepts "deprecated"
+    #[test]
+    fn parse_status_deprecated() {
+        assert!(matches!(parse_status_str("deprecated"), Some(formspec_core::RegistryEntryStatus::Deprecated)));
+    }
+
+    /// Correctness: parse_status_str accepts "retired"
+    #[test]
+    fn parse_status_retired() {
+        assert!(matches!(parse_status_str("retired"), Some(formspec_core::RegistryEntryStatus::Retired)));
+    }
+
+    /// Correctness: parse_status_str returns None for unknown status
+    #[test]
+    fn parse_status_unknown() {
+        assert!(parse_status_str("invalid").is_none());
+        assert!(parse_status_str("").is_none());
+        assert!(parse_status_str("Active").is_none(), "status parsing is case-sensitive");
+    }
+
+    /// Asymmetry: parse_status_str("active") → Active, but status_to_str(Active) → "stable"
+    /// This means "active" is accepted as input but never produced as output.
+    /// Documenting this asymmetry — parse_status_str accepts both "active" and "stable"
+    /// but status_to_str always emits "stable" for the Active variant.
+    #[test]
+    fn status_str_asymmetry_active_vs_stable() {
+        // "active" parses to Active
+        let status = parse_status_str("active").unwrap();
+        // Active serializes to "stable"
+        let output = status_to_str(status);
+        assert_eq!(output, "stable", "Active variant serializes as 'stable', not 'active'");
+
+        // "stable" also parses to Active
+        let status2 = parse_status_str("stable").unwrap();
+        let output2 = status_to_str(status2);
+        assert_eq!(output2, "stable");
+    }
+
+    /// Correctness: status_to_str covers all variants
+    #[test]
+    fn status_to_str_all_variants() {
+        assert_eq!(status_to_str(formspec_core::RegistryEntryStatus::Draft), "draft");
+        assert_eq!(status_to_str(formspec_core::RegistryEntryStatus::Active), "stable");
+        assert_eq!(status_to_str(formspec_core::RegistryEntryStatus::Deprecated), "deprecated");
+        assert_eq!(status_to_str(formspec_core::RegistryEntryStatus::Retired), "retired");
+    }
+
+    // ── category_to_str ──────────────────────────────────────────
+
+    /// Correctness: category_to_str covers all ExtensionCategory variants
+    #[test]
+    fn category_to_str_all_variants() {
+        assert_eq!(category_to_str(registry_client::ExtensionCategory::DataType), "dataType");
+        assert_eq!(category_to_str(registry_client::ExtensionCategory::Function), "function");
+        assert_eq!(category_to_str(registry_client::ExtensionCategory::Constraint), "constraint");
+        assert_eq!(category_to_str(registry_client::ExtensionCategory::Property), "property");
+        assert_eq!(category_to_str(registry_client::ExtensionCategory::Namespace), "namespace");
+    }
+
+    // ── lint_result_to_json ──────────────────────────────────────
+
+    /// Contract: lint_result_to_json produces the expected { documentType, valid, diagnostics } shape
+    #[test]
+    fn lint_result_to_json_shape() {
+        let result = formspec_lint::LintResult {
+            document_type: None,
+            valid: true,
+            diagnostics: vec![],
+        };
+        let json = lint_result_to_json(&result);
+        assert_eq!(json["valid"], json!(true));
+        assert!(json["documentType"].is_null());
+        assert_eq!(json["diagnostics"].as_array().unwrap().len(), 0);
+    }
+
+    /// Contract: lint_result_to_json serializes diagnostics with correct severity strings
+    #[test]
+    fn lint_result_to_json_diagnostic_severities() {
+        let result = formspec_lint::LintResult {
+            document_type: None,
+            valid: false,
+            diagnostics: vec![
+                formspec_lint::LintDiagnostic {
+                    code: "E001".to_string(),
+                    pass: 1,
+                    severity: formspec_lint::LintSeverity::Error,
+                    path: "/items/0".to_string(),
+                    message: "test error".to_string(),
+                },
+                formspec_lint::LintDiagnostic {
+                    code: "W001".to_string(),
+                    pass: 2,
+                    severity: formspec_lint::LintSeverity::Warning,
+                    path: String::new(),
+                    message: "test warning".to_string(),
+                },
+                formspec_lint::LintDiagnostic {
+                    code: "I001".to_string(),
+                    pass: 3,
+                    severity: formspec_lint::LintSeverity::Info,
+                    path: String::new(),
+                    message: "test info".to_string(),
+                },
+            ],
+        };
+        let json = lint_result_to_json(&result);
+        let diags = json["diagnostics"].as_array().unwrap();
+        assert_eq!(diags.len(), 3);
+
+        assert_eq!(diags[0]["severity"], json!("error"));
+        assert_eq!(diags[0]["code"], json!("E001"));
+        assert_eq!(diags[0]["path"], json!("/items/0"));
+        assert_eq!(diags[0]["message"], json!("test error"));
+        assert_eq!(diags[0]["pass"], json!(1));
+
+        assert_eq!(diags[1]["severity"], json!("warning"));
+        assert_eq!(diags[1]["path"], json!(""), "empty path serializes as empty string");
+
+        assert_eq!(diags[2]["severity"], json!("info"));
+    }
+}

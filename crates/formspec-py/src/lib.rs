@@ -702,3 +702,734 @@ fn parse_mapping_rules(val: &Value) -> PyResult<Vec<runtime_mapping::MappingRule
     }
     Ok(rules)
 }
+
+// ── Tests ───────────────────────────────────────────────────────
+//
+// NOTE: PyO3 #[pyfunction] wrappers and type conversion helpers
+// (python_to_fel, fel_to_python, json_to_python, pydict_to_field_map)
+// require a live Python interpreter. They CANNOT be tested with `cargo test`.
+// Those functions should be tested via Python-side integration tests in
+// tests/conformance/ or tests/unit/ using `import formspec_rust`.
+//
+// What IS testable here: all pure-Rust helpers that do string↔enum mapping
+// and serde_json::Value → domain struct parsing.
+//
+// Run with: cargo test -p formspec-py --no-default-features
+// (The default "extension-module" feature disables Python linking for tests.)
+//
+// API surface gaps vs WASM sibling (crates/formspec-wasm):
+// TODO: printFEL — pretty-print a parsed FEL AST back to source
+// TODO: normalizeIndexedPath — normalize $field[0].sub paths
+// TODO: lintDocumentWithRegistries — lint with registry context for extension resolution
+// TODO: assembleDefinition — resolve $ref inclusions to produce self-contained definition
+// TODO: executeMapping (rules-level) — execute raw MappingRule[] without document wrapper
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── parse_status_str ────────────────────────────────────────
+
+    /// Spec: extension-registry.llm.md line 25 — lifecycle states: draft, stable, deprecated, retired
+    /// "draft" maps to Draft variant.
+    #[test]
+    fn parse_status_str_draft() {
+        assert_eq!(parse_status_str("draft"), Some(RegistryEntryStatus::Draft));
+    }
+
+    /// Spec: extension-registry.llm.md line 25 — "stable" is the canonical wire name for Active
+    #[test]
+    fn parse_status_str_stable() {
+        assert_eq!(parse_status_str("stable"), Some(RegistryEntryStatus::Active));
+    }
+
+    /// Spec: "active" is accepted as an alias for the Active/stable status.
+    /// This is a binding-layer convenience — the spec uses "stable" but
+    /// internal Rust enums use Active. Both wire names must resolve.
+    #[test]
+    fn parse_status_str_active_alias() {
+        assert_eq!(parse_status_str("active"), Some(RegistryEntryStatus::Active));
+    }
+
+    /// Spec: extension-registry.llm.md line 25 — "deprecated" maps to Deprecated
+    #[test]
+    fn parse_status_str_deprecated() {
+        assert_eq!(parse_status_str("deprecated"), Some(RegistryEntryStatus::Deprecated));
+    }
+
+    /// Spec: extension-registry.llm.md line 25 — "retired" maps to Retired
+    #[test]
+    fn parse_status_str_retired() {
+        assert_eq!(parse_status_str("retired"), Some(RegistryEntryStatus::Retired));
+    }
+
+    /// Boundary: unknown status strings must return None (not panic).
+    #[test]
+    fn parse_status_str_unknown_returns_none() {
+        assert_eq!(parse_status_str("experimental"), None);
+        assert_eq!(parse_status_str(""), None);
+        assert_eq!(parse_status_str("Draft"), None); // case-sensitive
+        assert_eq!(parse_status_str("STABLE"), None);
+    }
+
+    // ── status_str (reverse of parse_status_str) ────────────────
+
+    /// Spec: extension-registry.llm.md line 25 — Draft emits "draft"
+    #[test]
+    fn status_str_draft() {
+        assert_eq!(status_str(RegistryEntryStatus::Draft), "draft");
+    }
+
+    /// Spec: Active emits "stable" (NOT "active") — this is the canonical wire name.
+    /// Asymmetry: parse_status_str("active") → Active, but status_str(Active) → "stable".
+    #[test]
+    fn status_str_active_emits_stable() {
+        assert_eq!(status_str(RegistryEntryStatus::Active), "stable");
+    }
+
+    /// Spec: Deprecated emits "deprecated"
+    #[test]
+    fn status_str_deprecated() {
+        assert_eq!(status_str(RegistryEntryStatus::Deprecated), "deprecated");
+    }
+
+    /// Spec: Retired emits "retired"
+    #[test]
+    fn status_str_retired() {
+        assert_eq!(status_str(RegistryEntryStatus::Retired), "retired");
+    }
+
+    /// Correctness: round-trip parse→emit for all canonical wire names.
+    /// Documents the "active"→"stable" asymmetry: parse("active") → Active → "stable".
+    #[test]
+    fn status_roundtrip_canonical_names() {
+        for name in &["draft", "stable", "deprecated", "retired"] {
+            let parsed = parse_status_str(name).expect(name);
+            assert_eq!(status_str(parsed), *name, "round-trip failed for {name}");
+        }
+    }
+
+    /// Correctness: the "active" alias does NOT round-trip — it normalizes to "stable".
+    #[test]
+    fn status_active_alias_normalizes_to_stable() {
+        let parsed = parse_status_str("active").unwrap();
+        assert_eq!(status_str(parsed), "stable");
+    }
+
+    // ── category_str ────────────────────────────────────────────
+
+    /// Spec: extension-registry.llm.md — registry entry categories
+    #[test]
+    fn category_str_all_variants() {
+        assert_eq!(category_str(registry_client::ExtensionCategory::DataType), "dataType");
+        assert_eq!(category_str(registry_client::ExtensionCategory::Function), "function");
+        assert_eq!(category_str(registry_client::ExtensionCategory::Constraint), "constraint");
+        assert_eq!(category_str(registry_client::ExtensionCategory::Property), "property");
+        assert_eq!(category_str(registry_client::ExtensionCategory::Namespace), "namespace");
+    }
+
+    // ── change_type_str ─────────────────────────────────────────
+
+    /// Spec: changelog-spec — change types: added, removed, modified
+    #[test]
+    fn change_type_str_all_variants() {
+        assert_eq!(change_type_str(&changelog::ChangeType::Added), "added");
+        assert_eq!(change_type_str(&changelog::ChangeType::Removed), "removed");
+        assert_eq!(change_type_str(&changelog::ChangeType::Modified), "modified");
+    }
+
+    // ── change_target_str ───────────────────────────────────────
+
+    /// Spec: changelog-spec — change targets cover all definition subsystems
+    #[test]
+    fn change_target_str_all_variants() {
+        assert_eq!(change_target_str(&changelog::ChangeTarget::Item), "item");
+        assert_eq!(change_target_str(&changelog::ChangeTarget::Bind), "bind");
+        assert_eq!(change_target_str(&changelog::ChangeTarget::Shape), "shape");
+        assert_eq!(change_target_str(&changelog::ChangeTarget::OptionSet), "optionSet");
+        assert_eq!(change_target_str(&changelog::ChangeTarget::DataSource), "dataSource");
+        assert_eq!(change_target_str(&changelog::ChangeTarget::Screener), "screener");
+        assert_eq!(change_target_str(&changelog::ChangeTarget::Migration), "migration");
+        assert_eq!(change_target_str(&changelog::ChangeTarget::Metadata), "metadata");
+    }
+
+    // ── change_impact_str ───────────────────────────────────────
+
+    /// Spec: changelog-spec — impact levels for semver classification
+    #[test]
+    fn change_impact_str_all_variants() {
+        assert_eq!(change_impact_str(changelog::ChangeImpact::Cosmetic), "cosmetic");
+        assert_eq!(change_impact_str(changelog::ChangeImpact::Compatible), "compatible");
+        assert_eq!(change_impact_str(changelog::ChangeImpact::Breaking), "breaking");
+    }
+
+    // ── semver_impact_str ───────────────────────────────────────
+
+    /// Spec: changelog-spec — semver bump classification
+    #[test]
+    fn semver_impact_str_all_variants() {
+        assert_eq!(semver_impact_str(changelog::SemverImpact::Patch), "patch");
+        assert_eq!(semver_impact_str(changelog::SemverImpact::Minor), "minor");
+        assert_eq!(semver_impact_str(changelog::SemverImpact::Major), "major");
+    }
+
+    // ── parse_direction ─────────────────────────────────────────
+
+    /// Spec: mapping-spec.md §2 — forward mapping: Response → External
+    #[test]
+    fn parse_direction_forward() {
+        let dir = parse_direction("forward").unwrap();
+        assert!(matches!(dir, runtime_mapping::MappingDirection::Forward));
+    }
+
+    /// Spec: mapping-spec.md §2 — reverse mapping: External → Response
+    #[test]
+    fn parse_direction_reverse() {
+        let dir = parse_direction("reverse").unwrap();
+        assert!(matches!(dir, runtime_mapping::MappingDirection::Reverse));
+    }
+
+    /// Boundary: invalid direction strings must produce PyValueError
+    #[test]
+    fn parse_direction_invalid_returns_err() {
+        assert!(parse_direction("").is_err());
+        assert!(parse_direction("both").is_err());
+        assert!(parse_direction("Forward").is_err()); // case-sensitive
+    }
+
+    /// Correctness: invalid direction returns Err (message inspection requires Python GIL)
+    #[test]
+    fn parse_direction_error_for_invalid_input() {
+        // NOTE: Cannot inspect PyErr message without a live Python interpreter.
+        // The error message formatting is tested via Python-side integration tests.
+        assert!(parse_direction("sideways").is_err());
+        assert!(parse_direction("backwards").is_err());
+    }
+
+    // ── registry_entry_count ────────────────────────────────────
+
+    /// Correctness: counts entries array length from a registry JSON value
+    #[test]
+    fn registry_entry_count_with_entries() {
+        let val = json!({
+            "entries": [
+                {"name": "x-ext-a"},
+                {"name": "x-ext-b"},
+                {"name": "x-ext-c"}
+            ]
+        });
+        assert_eq!(registry_entry_count(&val), 3);
+    }
+
+    /// Boundary: missing "entries" key returns 0
+    #[test]
+    fn registry_entry_count_missing_key() {
+        let val = json!({"publisher": {}});
+        assert_eq!(registry_entry_count(&val), 0);
+    }
+
+    /// Boundary: "entries" is not an array returns 0
+    #[test]
+    fn registry_entry_count_not_array() {
+        let val = json!({"entries": "not an array"});
+        assert_eq!(registry_entry_count(&val), 0);
+    }
+
+    /// Boundary: empty entries array returns 0
+    #[test]
+    fn registry_entry_count_empty_array() {
+        let val = json!({"entries": []});
+        assert_eq!(registry_entry_count(&val), 0);
+    }
+
+    // ── parse_mapping_rules ─────────────────────────────────────
+
+    /// Spec: mapping-spec.md §3.3 — minimal preserve rule with defaults
+    #[test]
+    fn parse_mapping_rules_minimal_preserve() {
+        let rules_json = json!([{
+            "sourcePath": "name",
+            "targetPath": "full_name"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].source_path.as_deref(), Some("name"));
+        assert_eq!(rules[0].target_path, "full_name");
+        assert!(matches!(rules[0].transform, runtime_mapping::TransformType::Preserve));
+        // Defaults
+        assert_eq!(rules[0].priority, 0);
+        assert!(rules[0].reverse_priority.is_none());
+        assert!(rules[0].default.is_none());
+        assert!(rules[0].condition.is_none());
+        assert!(rules[0].bidirectional); // default true per spec
+    }
+
+    /// Spec: mapping-spec.md — transform "drop" explicitly excludes a field
+    #[test]
+    fn parse_mapping_rules_drop_transform() {
+        let rules_json = json!([{
+            "sourcePath": "internal_id",
+            "targetPath": "id",
+            "transform": "drop"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert!(matches!(rules[0].transform, runtime_mapping::TransformType::Drop));
+    }
+
+    /// Spec: mapping-spec.md — transform "constant" injects a literal value
+    #[test]
+    fn parse_mapping_rules_constant_transform() {
+        let rules_json = json!([{
+            "targetPath": "version",
+            "transform": "constant",
+            "value": "1.0"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Constant(v) => {
+                assert_eq!(v, &json!("1.0"));
+            }
+            other => panic!("expected Constant, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — constant with no "value" key defaults to null
+    #[test]
+    fn parse_mapping_rules_constant_missing_value_defaults_null() {
+        let rules_json = json!([{
+            "targetPath": "cleared",
+            "transform": "constant"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Constant(v) => {
+                assert_eq!(v, &Value::Null);
+            }
+            other => panic!("expected Constant(Null), got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — coerce transform with each target type
+    #[test]
+    fn parse_mapping_rules_coerce_all_types() {
+        let types_and_expected = [
+            ("string", runtime_mapping::CoerceType::String),
+            ("number", runtime_mapping::CoerceType::Number),
+            ("integer", runtime_mapping::CoerceType::Integer),
+            ("boolean", runtime_mapping::CoerceType::Boolean),
+            ("date", runtime_mapping::CoerceType::Date),
+            ("datetime", runtime_mapping::CoerceType::DateTime),
+        ];
+        for (coerce_str, expected) in &types_and_expected {
+            let rules_json = json!([{
+                "sourcePath": "val",
+                "targetPath": "out",
+                "transform": "coerce",
+                "coerce": coerce_str
+            }]);
+            let rules = parse_mapping_rules(&rules_json).unwrap();
+            match &rules[0].transform {
+                runtime_mapping::TransformType::Coerce(ct) => {
+                    assert_eq!(ct, expected, "coerce type mismatch for '{coerce_str}'");
+                }
+                other => panic!("expected Coerce for '{coerce_str}', got {:?}", other),
+            }
+        }
+    }
+
+    /// Boundary: coerce with unknown type falls back to String
+    #[test]
+    fn parse_mapping_rules_coerce_unknown_defaults_to_string() {
+        let rules_json = json!([{
+            "sourcePath": "val",
+            "targetPath": "out",
+            "transform": "coerce",
+            "coerce": "timestamp"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Coerce(ct) => {
+                assert_eq!(*ct, runtime_mapping::CoerceType::String);
+            }
+            other => panic!("expected Coerce(String) fallback, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — expression transform with FEL expression
+    #[test]
+    fn parse_mapping_rules_expression_transform() {
+        let rules_json = json!([{
+            "sourcePath": "first",
+            "targetPath": "greeting",
+            "transform": "expression",
+            "expression": "concat('Hello, ', $)"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Expression(expr) => {
+                assert_eq!(expr, "concat('Hello, ', $)");
+            }
+            other => panic!("expected Expression, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — valueMap transform with lookup table
+    #[test]
+    fn parse_mapping_rules_value_map_transform() {
+        let rules_json = json!([{
+            "sourcePath": "status",
+            "targetPath": "code",
+            "transform": "valueMap",
+            "valueMap": {
+                "active": "A",
+                "inactive": "I"
+            }
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::ValueMap { forward, unmapped } => {
+                assert_eq!(forward.len(), 2);
+                assert!(matches!(unmapped, runtime_mapping::UnmappedStrategy::PassThrough));
+            }
+            other => panic!("expected ValueMap, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — valueMap with unmapped: "error"
+    #[test]
+    fn parse_mapping_rules_value_map_unmapped_error() {
+        let rules_json = json!([{
+            "sourcePath": "status",
+            "targetPath": "code",
+            "transform": "valueMap",
+            "valueMap": {"yes": "Y"},
+            "unmapped": "error"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::ValueMap { unmapped, .. } => {
+                assert!(matches!(unmapped, runtime_mapping::UnmappedStrategy::Error));
+            }
+            other => panic!("expected ValueMap with Error strategy, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — flatten transform with separator
+    #[test]
+    fn parse_mapping_rules_flatten_transform() {
+        let rules_json = json!([{
+            "sourcePath": "address",
+            "targetPath": "address_flat",
+            "transform": "flatten",
+            "separator": "_"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Flatten { separator } => {
+                assert_eq!(separator, "_");
+            }
+            other => panic!("expected Flatten, got {:?}", other),
+        }
+    }
+
+    /// Boundary: flatten with no separator defaults to "."
+    #[test]
+    fn parse_mapping_rules_flatten_default_separator() {
+        let rules_json = json!([{
+            "sourcePath": "address",
+            "targetPath": "address_flat",
+            "transform": "flatten"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Flatten { separator } => {
+                assert_eq!(separator, ".");
+            }
+            other => panic!("expected Flatten with default separator, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — nest transform (inverse of flatten)
+    #[test]
+    fn parse_mapping_rules_nest_transform() {
+        let rules_json = json!([{
+            "sourcePath": "address_flat",
+            "targetPath": "address",
+            "transform": "nest",
+            "separator": "_"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Nest { separator } => {
+                assert_eq!(separator, "_");
+            }
+            other => panic!("expected Nest, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — concat transform with FEL expression
+    #[test]
+    fn parse_mapping_rules_concat_transform() {
+        let rules_json = json!([{
+            "sourcePath": "parts",
+            "targetPath": "full",
+            "transform": "concat",
+            "expression": "join($, ' ')"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Concat(expr) => {
+                assert_eq!(expr, "join($, ' ')");
+            }
+            other => panic!("expected Concat, got {:?}", other),
+        }
+    }
+
+    /// Spec: mapping-spec.md — split transform with FEL expression
+    #[test]
+    fn parse_mapping_rules_split_transform() {
+        let rules_json = json!([{
+            "sourcePath": "full",
+            "targetPath": "parts",
+            "transform": "split",
+            "expression": "split($, ' ')"
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        match &rules[0].transform {
+            runtime_mapping::TransformType::Split(expr) => {
+                assert_eq!(expr, "split($, ' ')");
+            }
+            other => panic!("expected Split, got {:?}", other),
+        }
+    }
+
+    /// Boundary: unknown transform type produces error
+    #[test]
+    fn parse_mapping_rules_unknown_transform_errors() {
+        let rules_json = json!([{
+            "sourcePath": "a",
+            "targetPath": "b",
+            "transform": "magic"
+        }]);
+        // NOTE: Cannot inspect PyErr message without a live Python interpreter.
+        // The error content is tested via Python-side integration tests.
+        assert!(parse_mapping_rules(&rules_json).is_err());
+    }
+
+    /// Boundary: rules must be an array
+    #[test]
+    fn parse_mapping_rules_not_array_errors() {
+        let rules_json = json!({"not": "array"});
+        assert!(parse_mapping_rules(&rules_json).is_err());
+    }
+
+    /// Boundary: each rule must be an object
+    #[test]
+    fn parse_mapping_rules_rule_not_object_errors() {
+        let rules_json = json!(["not an object"]);
+        assert!(parse_mapping_rules(&rules_json).is_err());
+    }
+
+    /// Correctness: all optional fields parsed when present
+    #[test]
+    fn parse_mapping_rules_full_rule_with_all_fields() {
+        let rules_json = json!([{
+            "sourcePath": "income",
+            "targetPath": "annual_income",
+            "transform": "preserve",
+            "condition": "$income > 0",
+            "priority": 10,
+            "reversePriority": 5,
+            "default": 0,
+            "bidirectional": false
+        }]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        let r = &rules[0];
+        assert_eq!(r.source_path.as_deref(), Some("income"));
+        assert_eq!(r.target_path, "annual_income");
+        assert!(matches!(r.transform, runtime_mapping::TransformType::Preserve));
+        assert_eq!(r.condition.as_deref(), Some("$income > 0"));
+        assert_eq!(r.priority, 10);
+        assert_eq!(r.reverse_priority, Some(5));
+        assert_eq!(r.default, Some(json!(0)));
+        assert!(!r.bidirectional);
+    }
+
+    /// Correctness: multiple rules parsed in order
+    #[test]
+    fn parse_mapping_rules_multiple_rules_preserved_order() {
+        let rules_json = json!([
+            {"sourcePath": "a", "targetPath": "x"},
+            {"sourcePath": "b", "targetPath": "y"},
+            {"sourcePath": "c", "targetPath": "z"}
+        ]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert_eq!(rules.len(), 3);
+        assert_eq!(rules[0].source_path.as_deref(), Some("a"));
+        assert_eq!(rules[1].source_path.as_deref(), Some("b"));
+        assert_eq!(rules[2].source_path.as_deref(), Some("c"));
+    }
+
+    /// Boundary: empty rules array is valid
+    #[test]
+    fn parse_mapping_rules_empty_array() {
+        let rules_json = json!([]);
+        let rules = parse_mapping_rules(&rules_json).unwrap();
+        assert!(rules.is_empty());
+    }
+
+    // ── parse_mapping_document ──────────────────────────────────
+
+    /// Spec: mapping-spec.md §3 — minimal valid mapping document
+    #[test]
+    fn parse_mapping_document_minimal() {
+        let doc = json!({
+            "rules": [
+                {"sourcePath": "a", "targetPath": "b"}
+            ]
+        });
+        let result = parse_mapping_document(&doc).unwrap();
+        assert_eq!(result.rules.len(), 1);
+        assert!(!result.auto_map); // default false
+        assert!(result.defaults.is_none());
+    }
+
+    /// Spec: mapping-spec.md line 599 — autoMap: true generates synthetic preserve rules
+    #[test]
+    fn parse_mapping_document_with_auto_map() {
+        let doc = json!({
+            "rules": [],
+            "autoMap": true
+        });
+        let result = parse_mapping_document(&doc).unwrap();
+        assert!(result.auto_map);
+    }
+
+    /// Correctness: defaults object is preserved
+    #[test]
+    fn parse_mapping_document_with_defaults() {
+        let doc = json!({
+            "rules": [],
+            "defaults": {
+                "version": "2.0",
+                "source": "formspec"
+            }
+        });
+        let result = parse_mapping_document(&doc).unwrap();
+        let defaults = result.defaults.as_ref().expect("defaults should be present");
+        assert_eq!(defaults.get("version"), Some(&json!("2.0")));
+        assert_eq!(defaults.get("source"), Some(&json!("formspec")));
+    }
+
+    /// Boundary: missing "rules" key produces error
+    #[test]
+    fn parse_mapping_document_missing_rules_errors() {
+        let doc = json!({"autoMap": true});
+        assert!(parse_mapping_document(&doc).is_err());
+    }
+
+    /// Boundary: non-object input produces error
+    #[test]
+    fn parse_mapping_document_not_object_errors() {
+        let doc = json!("not an object");
+        assert!(parse_mapping_document(&doc).is_err());
+    }
+
+    /// Boundary: defaults that is not an object is silently ignored (returns None)
+    #[test]
+    fn parse_mapping_document_defaults_not_object_ignored() {
+        let doc = json!({
+            "rules": [],
+            "defaults": "not an object"
+        });
+        let result = parse_mapping_document(&doc).unwrap();
+        assert!(result.defaults.is_none());
+    }
+
+    // ── Integration: parse_mapping_document + parse_mapping_rules ─
+
+    /// Spec: mapping-spec.md §6 example — complete mapping document with mixed transforms
+    #[test]
+    fn parse_mapping_document_complex_example() {
+        let doc = json!({
+            "rules": [
+                {
+                    "sourcePath": "patient.name",
+                    "targetPath": "full_name",
+                    "transform": "preserve"
+                },
+                {
+                    "sourcePath": "patient.dob",
+                    "targetPath": "date_of_birth",
+                    "transform": "coerce",
+                    "coerce": "date"
+                },
+                {
+                    "targetPath": "system_version",
+                    "transform": "constant",
+                    "value": "3.1"
+                },
+                {
+                    "sourcePath": "patient.status",
+                    "targetPath": "status_code",
+                    "transform": "valueMap",
+                    "valueMap": {
+                        "active": "A",
+                        "inactive": "I",
+                        "deceased": "D"
+                    },
+                    "unmapped": "error"
+                }
+            ],
+            "autoMap": false,
+            "defaults": {
+                "format": "HL7"
+            }
+        });
+        let result = parse_mapping_document(&doc).unwrap();
+        assert_eq!(result.rules.len(), 4);
+        assert!(!result.auto_map);
+        assert!(result.defaults.is_some());
+
+        // Verify each rule parsed to the correct transform type
+        assert!(matches!(result.rules[0].transform, runtime_mapping::TransformType::Preserve));
+        assert!(matches!(result.rules[1].transform, runtime_mapping::TransformType::Coerce(runtime_mapping::CoerceType::Date)));
+        assert!(matches!(result.rules[2].transform, runtime_mapping::TransformType::Constant(_)));
+        assert!(matches!(result.rules[3].transform, runtime_mapping::TransformType::ValueMap { .. }));
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Untestable functions — require Python interpreter
+    // ────────────────────────────────────────────────────────────
+    //
+    // The following functions use PyO3 types (Python<'_>, PyObject, Bound<'_, PyDict>)
+    // and cannot be tested without a live Python interpreter:
+    //
+    // python_to_fel(py, obj) → FelValue
+    //   TODO: Test that bool is extracted BEFORE int (Python bool subclasses int).
+    //         Test None → Null, int → Number(Decimal), float → Number(Decimal),
+    //         str → String, list → Array, dict → Object, unknown → Null.
+    //         Write as: `python3 -m pytest tests/unit/test_rust_bindings.py`
+    //
+    // fel_to_python(py, val) → PyObject
+    //   TODO: Test Number with zero fract → int, non-zero fract → float,
+    //         Date → ISO string, Money → dict with amount + currency,
+    //         Array → list, Object → dict, Null → None.
+    //
+    // json_to_python(py, val) → PyObject
+    //   TODO: Test all JSON types map correctly. Number edge cases:
+    //         i64-representable → int, f64-representable → float, neither → None.
+    //
+    // pydict_to_field_map(py, dict) → HashMap<String, FelValue>
+    //   TODO: Test mixed-type dict, empty dict, nested structures.
+    //
+    // All #[pyfunction]s (eval_fel, parse_fel, get_dependencies, extract_deps,
+    // analyze_expression, detect_type, lint_document, evaluate_def,
+    // parse_registry, find_registry_entry, validate_lifecycle, well_known_url,
+    // generate_changelog, execute_mapping_doc):
+    //   These are thin wrappers that delegate to sibling crates.
+    //   The underlying logic is tested in those crates.
+    //   Python-side tests should verify the binding boundary:
+    //   correct argument passing, error propagation, and return type mapping.
+}
