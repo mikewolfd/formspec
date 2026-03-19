@@ -1006,10 +1006,10 @@ describe('grant-application integration', () => {
         expect(grid.component).toBe('Grid');
         expect(grid.children[0].children[0].bindPath).toBe('applicantInfo.orgName');
 
-        // The parent group should still appear in unassigned (field-level
-        // region does NOT exclude entire parent group)
+        // When a nested field is referenced in a region, its top-level parent
+        // group is marked as assigned — prevents duplicate rendering.
         const unassignedGroup = nodes.find(n => n.bindPath === 'applicantInfo');
-        expect(unassignedGroup).toBeDefined();
+        expect(unassignedGroup).toBeUndefined();
     });
 
     it('finds component nodes by bind in nested layouts (Columns→Stack→Input)', () => {

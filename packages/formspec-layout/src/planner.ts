@@ -794,13 +794,13 @@ function collectAssignedTopLevelKeys(items: any[], pages: any[]): Set<string> {
         for (const region of Array.isArray(page.regions) ? page.regions : []) {
             const path = findItemPathByKey(items, region.key);
             if (!path) continue;
-            
-            // A top-level item is only "assigned" (and thus removed from fallback)
-            // if the region key refers exactly to that top-level item.
-            // Dotted paths (nested items) do not consume the entire top-level group.
-            if (!path.includes('.')) {
-                assigned.add(path);
-            }
+
+            // Extract the top-level segment. When a region references a nested
+            // item (e.g. "applicantInfo.orgName"), the top-level parent group
+            // ("applicantInfo") is considered assigned — prevents duplicate
+            // rendering of the parent group's entire subtree.
+            const topKey = path.includes('.') ? path.split('.')[0] : path;
+            assigned.add(topKey);
         }
     }
 
