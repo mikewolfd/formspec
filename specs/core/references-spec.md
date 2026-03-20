@@ -148,17 +148,13 @@ Custom types MUST be prefixed with `x-` (e.g., `"x-org-training-video"`).
 
 References within a `references` array are **ordered**. The first reference in the array is the most relevant to the attachment point; subsequent references are progressively less central. Processors that present references to humans or agents SHOULD preserve this authoring order.
 
-When `priority` is present, it takes precedence over positional order for grouping purposes — all `"primary"` references are surfaced before `"supplementary"`, regardless of array position. Within a priority tier, array order determines presentation sequence.
+References are grouped by their effective priority tier (primary, supplementary, background — see §2.1 for the default). All primary references are surfaced before supplementary, regardless of array position. Within a tier, array order determines presentation sequence.
 
 > **Rationale:** Leaving order undefined would force divergent implementations — some treating order as significant, others not — with no way to reconcile them later. Defining it now costs nothing and prevents a class of interoperability bugs.
 
 ### 2.5 Reference Relationships
 
 A Reference MAY declare a `rel` property that describes its relationship to the attachment point (the field, group, or form it is attached to). This enables consumers to understand not just *what* a reference points to, but *how* it relates to the thing being filled out.
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `rel` | string | OPTIONAL | Relationship type. See table below. |
 
 **Defined relationship types:**
 
@@ -168,13 +164,14 @@ A Reference MAY declare a `rel` property that describes its relationship to the 
 | `"constrains"` | The referenced document imposes constraints or limits on valid values (e.g., a rate ceiling, an enumeration of permitted codes). |
 | `"defines"` | The referenced document defines the term or concept represented by the attachment point (e.g., a glossary entry). |
 | `"exemplifies"` | The referenced document provides an example or template for the attachment point. |
-| `"supersedes"` | The referenced document replaces a prior version. Use with a second reference (with `rel: "superseded-by"` or without `rel`) pointing to the prior version. |
+| `"supersedes"` | The referenced document replaces a prior version of an earlier reference at the same attachment point. |
+| `"superseded-by"` | The referenced document has been replaced by a newer version. Typically paired with a sibling reference carrying `rel: "supersedes"`. |
 | `"derived-from"` | The attachment point's value or structure is derived from the referenced source (e.g., a pre-populated field drawn from an external record). |
 | `"see-also"` | General association — the reference provides related but non-essential context. This is the implicit relationship when `rel` is absent. |
 
 Custom relationship types MUST be prefixed with `x-` (e.g., `"x-org-audit-trail"`).
 
-When `rel` is absent, processors MUST treat the relationship as `"see-also"`.
+When `rel` is absent, processors MUST treat the relationship as `"see-also"`. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning. This mirrors the tolerance rule for unrecognized `type` values (§2.3).
 
 > **Design note:** Relationship types are modeled after [IANA Link Relations](https://www.iana.org/assignments/link-relations/) and HTML's `rel` attribute. The set is intentionally small and focused on the reference–attachment-point relationship, not reference-to-reference relationships. References do not link to each other; if two references are related, that relationship is expressed in the documents they point to, not in the Formspec definition.
 
@@ -294,6 +291,8 @@ Reference URIs MAY include a **fragment** (the portion after `#` per [RFC 3986 �
 - **JSON**: Fragment uses JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901)) (e.g., `schema.json#/definitions/CostCategory`).
 - **Plain text / Markdown**: No standard fragment semantics. Use `selector` (below) instead.
 
+When a URI includes a fragment, authors SHOULD include `mediaType` to enable consumers to interpret the fragment correctly.
+
 For URI schemes that do not support fragments natively (e.g., `vectorstore:`, `kb:`), or when the target media type lacks fragment semantics, a Reference MAY include a `selector` property:
 
 | Property | Type | Required | Description |
@@ -325,7 +324,7 @@ When both a URI fragment and `selector` are present, the URI fragment is the mac
 
 ## 4. Attachment Points
 
-References can be attached at three levels. Each level uses the same `references` property containing an array of Reference objects.
+References can be attached at three levels. Each level uses the same `references` property containing an array of Reference objects. References within an array are ordered — see §2.4.
 
 ### 4.1 Form-Level References
 
@@ -465,7 +464,7 @@ Definitions MAY declare a top-level `referenceDefs` object that serves as a regi
 
 #### 4.6.2 Referencing Shared Definitions
 
-Within any `references` array, an entry MAY use `{ "$ref": "#/referenceDefs/{key}" }` instead of a full Reference object. The `$ref` value MUST be a JSON Pointer ([RFC 6901]) relative to the definition root, pointing to a key in `referenceDefs`.
+Within any `references` array, an entry MAY use `{ "$ref": "#/referenceDefs/{key}" }` instead of a full Reference object. The `$ref` value MUST be a JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901)) relative to the definition root, pointing to a key in `referenceDefs`.
 
 ```json
 {
@@ -500,9 +499,10 @@ A `$ref` entry MAY include additional properties alongside `$ref`. These propert
 
 1. `$ref` resolution is performed at **load time**, before any processing. After resolution, the definition behaves as if all references were declared inline.
 2. A `$ref` pointing to a nonexistent key in `referenceDefs` is a definition error. Processors MUST report it and MUST NOT silently ignore the broken reference.
-3. `$ref` values MUST NOT be recursive — a `referenceDefs` entry MUST NOT itself contain a `$ref`.
+3. `$ref` values MUST NOT be recursive — a `referenceDefs` entry MUST NOT use the `$ref` resolution mechanism defined in this section.
 4. `referenceDefs` entries that are never referenced are inert — they impose no processing cost and MUST NOT cause warnings.
-5. After resolution, the `id` of the resolved reference is the key from `referenceDefs` (unless overridden by the referencing entry).
+5. After resolution, the `id` of the resolved reference is the `referenceDefs` key. An override entry MUST NOT include `id` — the identity of a `$ref`-resolved reference is always the key it points to.
+6. The result of merging overrides with the base reference MUST satisfy all validation rules in §2.3. Processors MUST validate the merged result, not the base and overrides independently.
 
 > **Rationale:** This is the same pattern used by JSON Schema's `$defs` and Formspec's own `$ref` for modular composition (core §6.6). Without a reuse mechanism, definitions with many fields citing the same regulation will contain dozens of identical reference objects — a maintenance hazard where updating one copy but not the others creates silent inconsistency. `referenceDefs` makes the single-source-of-truth pattern expressible.
 
@@ -604,9 +604,9 @@ This specification defines conformance requirements for `references` handling. T
 ### 8.1 Core Processor Requirements
 
 - A conformant Core processor MUST accept definitions containing `references` without error.
-- A conformant Core processor MUST preserve `references` on round-trip (serialize/deserialize). This follows the same principle as core §8.4 rule 5 (extension round-trip preservation).
+- A conformant Core processor MUST preserve `references` and `referenceDefs` on round-trip (serialize/deserialize). This follows the same principle as core §8.4 rule 5 (extension round-trip preservation).
 - A conformant Core processor MUST NOT use `references` to alter data capture, validation, or the processing model.
-- `references` MUST NOT appear in Response data.
+- `references` and `referenceDefs` MUST NOT appear in Response data.
 
 ### 8.2 Extended Processor Requirements
 
