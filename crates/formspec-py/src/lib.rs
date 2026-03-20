@@ -24,7 +24,7 @@ use formspec_core::registry_client::{self, Registry};
 use formspec_core::runtime_mapping;
 use formspec_core::{analyze_fel, detect_document_type, get_fel_dependencies};
 use formspec_eval::evaluate_definition;
-use formspec_lint::lint;
+use formspec_lint::{LintMode, LintOptions, lint_with_options};
 
 // ── FEL Evaluation ──────────────────────────────────────────────
 
@@ -197,16 +197,58 @@ fn detect_type(document: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
 /// Lint a Formspec document (7-pass static analysis).
 ///
 /// Args:
-///     json_str: JSON string of the Formspec document
+///     document: Python dict of the Formspec document
+///     mode: Optional lint mode — "authoring" or "runtime" (default)
+///     registry_documents: Optional list of registry document dicts for extension resolution
+///     definition_document: Optional definition document dict for cross-artifact validation
 ///
 /// Returns:
 ///     A dict with: document_type, valid, diagnostics (list of dicts)
-#[pyfunction]
-fn lint_document(py: Python, document: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+#[pyfunction(signature = (document, mode=None, registry_documents=None, definition_document=None))]
+fn lint_document(
+    py: Python,
+    document: &Bound<'_, PyAny>,
+    mode: Option<&str>,
+    registry_documents: Option<&Bound<'_, PyList>>,
+    definition_document: Option<&Bound<'_, PyAny>>,
+) -> PyResult<PyObject> {
     let doc: Value = depythonize(document)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
-    let result = lint(&doc);
+    let lint_mode = match mode {
+        Some("authoring") => LintMode::Authoring,
+        _ => LintMode::Runtime,
+    };
+
+    let registry_docs: Vec<Value> = match registry_documents {
+        Some(list) => {
+            let mut docs = Vec::new();
+            for item in list.iter() {
+                let val: Value = depythonize(&item)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                docs.push(val);
+            }
+            docs
+        }
+        None => Vec::new(),
+    };
+
+    let def_doc: Option<Value> = match definition_document {
+        Some(d) => {
+            let val: Value = depythonize(d)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+            Some(val)
+        }
+        None => None,
+    };
+
+    let options = LintOptions {
+        mode: lint_mode,
+        registry_documents: registry_docs,
+        definition_document: def_doc,
+    };
+
+    let result = lint_with_options(&doc, &options);
 
     let diagnostics = PyList::empty(py);
     for d in &result.diagnostics {

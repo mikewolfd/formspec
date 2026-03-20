@@ -69,7 +69,6 @@ def test_missing_custom_component_params_is_reported() -> None:
     assert any(diag.code == "E806" for diag in diagnostics)
 
 
-@pytest.mark.skip(reason="Rust linter does not accept component_definition param — cross-doc E803 check not supported yet")
 def test_select_requires_options_source() -> None:
     definition = _definition()
     # Remove options source to trigger semantic diagnostic.

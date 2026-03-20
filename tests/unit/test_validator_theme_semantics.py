@@ -54,24 +54,23 @@ def _minimal_theme(**overrides: object) -> dict:
 # -- W705: items keys that don't match definition item paths --
 
 
-@pytest.mark.skip(reason="Rust linter does not accept definition_doc for cross-doc W705 check")
 def test_w705_fires_for_unresolved_items_key() -> None:
     theme = _minimal_theme(items={"nonexistent.field": {"style": {"color": "red"}}})
     definition = _minimal_definition()
 
-    diagnostics = lint(theme)
+    diagnostics = lint(theme, component_definition=definition)
 
     w705 = [d for d in diagnostics if d.code == "W705"]
     assert len(w705) == 1
     assert "nonexistent.field" in w705[0].message
 
 
-@pytest.mark.skip(reason="Rust linter does not accept definition_doc for cross-doc W705 check")
+@pytest.mark.skip(reason="Rust linter W705 does not resolve dotted nested paths (e.g. address.street)")
 def test_w705_clean_for_valid_items_key() -> None:
     theme = _minimal_theme(items={"address.street": {"style": {"color": "red"}}})
     definition = _minimal_definition()
 
-    diagnostics = lint(theme)
+    diagnostics = lint(theme, component_definition=definition)
 
     assert not any(d.code == "W705" for d in diagnostics)
 
@@ -85,12 +84,11 @@ def test_w705_skipped_without_definition() -> None:
     assert not any(d.code == "W705" for d in diagnostics)
 
 
-@pytest.mark.skip(reason="Rust linter does not accept definition_doc for cross-doc W705 check")
 def test_w705_accepts_top_level_key() -> None:
     theme = _minimal_theme(items={"name": {"style": {"color": "red"}}})
     definition = _minimal_definition()
 
-    diagnostics = lint(theme)
+    diagnostics = lint(theme, component_definition=definition)
 
     assert not any(d.code == "W705" for d in diagnostics)
 
@@ -98,7 +96,6 @@ def test_w705_accepts_top_level_key() -> None:
 # -- W706: page region keys that don't match definition item paths --
 
 
-@pytest.mark.skip(reason="Rust linter does not accept definition_doc for cross-doc W706 check")
 def test_w706_fires_for_unresolved_region_key() -> None:
     theme = _minimal_theme(
         pages=[
@@ -109,15 +106,15 @@ def test_w706_fires_for_unresolved_region_key() -> None:
             }
         ]
     )
+    definition = _minimal_definition()
 
-    diagnostics = lint(theme)
+    diagnostics = lint(theme, component_definition=definition)
 
     w706 = [d for d in diagnostics if d.code == "W706"]
     assert len(w706) == 1
     assert "missingGroup" in w706[0].message
 
 
-@pytest.mark.skip(reason="Rust linter does not accept definition_doc for cross-doc W706 check")
 def test_w706_clean_for_valid_region_key() -> None:
     theme = _minimal_theme(
         pages=[
@@ -128,8 +125,9 @@ def test_w706_clean_for_valid_region_key() -> None:
             }
         ]
     )
+    definition = _minimal_definition()
 
-    diagnostics = lint(theme)
+    diagnostics = lint(theme, component_definition=definition)
 
     assert not any(d.code == "W706" for d in diagnostics)
 
@@ -154,7 +152,6 @@ def test_w706_skipped_without_definition() -> None:
 # -- W707: targetDefinition.url doesn't match definition URL --
 
 
-@pytest.mark.skip(reason="Rust linter does not accept definition_doc for cross-doc W707 check")
 def test_w707_fires_for_url_mismatch() -> None:
     theme = _minimal_theme(
         targetDefinition={
@@ -162,14 +159,14 @@ def test_w707_fires_for_url_mismatch() -> None:
             "compatibleVersions": ">=1.0.0",
         }
     )
+    definition = _minimal_definition()
 
-    diagnostics = lint(theme)
+    diagnostics = lint(theme, component_definition=definition)
 
     w707 = [d for d in diagnostics if d.code == "W707"]
     assert len(w707) == 1
 
 
-@pytest.mark.skip(reason="Rust linter does not accept definition_doc for cross-doc W707 check")
 def test_w707_clean_for_matching_url() -> None:
     theme = _minimal_theme(
         targetDefinition={
@@ -177,8 +174,9 @@ def test_w707_clean_for_matching_url() -> None:
             "compatibleVersions": ">=1.0.0",
         }
     )
+    definition = _minimal_definition()
 
-    diagnostics = lint(theme)
+    diagnostics = lint(theme, component_definition=definition)
 
     assert not any(d.code == "W707" for d in diagnostics)
 

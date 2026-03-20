@@ -93,22 +93,49 @@ class TestItemDiff:
 # Bind diffing
 # ===========================================================================
 
-@pytest.mark.skip(reason="Rust changelog backend does not diff binds yet")
 class TestBindDiff:
     def test_added_required_bind_is_breaking(self):
-        pass
+        old = _def()
+        new = _def(binds=[{'path': 'name', 'required': 'true'}])
+        cl = _changelog(old, new)
+        bind_change = next(c for c in cl['changes'] if c['target'] == 'bind')
+        assert bind_change['change_type'] == 'added'
+        assert bind_change['path'] == 'name'
+        assert bind_change['impact'] == 'breaking'
 
     def test_added_optional_bind_is_compatible(self):
-        pass
+        old = _def()
+        new = _def(binds=[{'path': 'email', 'calculate': '$firstName & "@example.com"'}])
+        cl = _changelog(old, new)
+        bind_change = next(c for c in cl['changes'] if c['target'] == 'bind')
+        assert bind_change['change_type'] == 'added'
+        assert bind_change['path'] == 'email'
+        assert bind_change['impact'] == 'compatible'
 
     def test_removed_bind_is_breaking(self):
-        pass
+        old = _def(binds=[{'path': 'age', 'required': 'true'}])
+        new = _def()
+        cl = _changelog(old, new)
+        bind_change = next(c for c in cl['changes'] if c['target'] == 'bind')
+        assert bind_change['change_type'] == 'removed'
+        assert bind_change['path'] == 'age'
+        assert bind_change['impact'] == 'breaking'
 
     def test_modified_bind_adding_required_is_breaking(self):
-        pass
+        old = _def(binds=[{'path': 'phone', 'relevant': '$hasPhone'}])
+        new = _def(binds=[{'path': 'phone', 'relevant': '$hasPhone', 'required': 'true'}])
+        cl = _changelog(old, new)
+        bind_change = next(c for c in cl['changes'] if c['target'] == 'bind')
+        assert bind_change['change_type'] == 'modified'
+        assert bind_change['impact'] == 'breaking'
 
     def test_modified_bind_removing_required_is_compatible(self):
-        pass
+        old = _def(binds=[{'path': 'notes', 'required': 'true'}])
+        new = _def(binds=[{'path': 'notes'}])
+        cl = _changelog(old, new)
+        bind_change = next(c for c in cl['changes'] if c['target'] == 'bind')
+        assert bind_change['change_type'] == 'modified'
+        assert bind_change['impact'] == 'compatible'
 
 
 # ===========================================================================

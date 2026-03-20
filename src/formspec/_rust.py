@@ -289,23 +289,28 @@ def lint(
 ) -> list[LintDiagnostic]:
     """Run the Rust linter on a Formspec document.
 
-    Note: schema_only, no_fel, component_definition, and registry_documents are
-    accepted for API compatibility but currently ignored — the Rust lint_document
-    function does not yet accept these parameters.
+    Args:
+        document: The Formspec document dict to lint.
+        schema_only: Not yet supported by Rust linter — emits a warning if True.
+        no_fel: Not yet supported by Rust linter — emits a warning if True.
+        component_definition: Optional definition document for cross-artifact checks.
+        registry_documents: Optional list of registry documents for extension resolution.
     """
-    _ignored = {
+    unsupported = {
         "schema_only": schema_only,
         "no_fel": no_fel,
-        "component_definition": component_definition,
-        "registry_documents": registry_documents,
     }
-    active = [k for k, v in _ignored.items() if v]
+    active = [k for k, v in unsupported.items() if v]
     if active:
         warnings.warn(
-            f"lint() parameter(s) {', '.join(active)} ignored — not yet supported by Rust linter",
+            f"lint() parameter(s) {', '.join(active)} not yet supported by Rust linter",
             stacklevel=2,
         )
-    raw = formspec_rust.lint_document(document)
+    raw = formspec_rust.lint_document(
+        document,
+        registry_documents=registry_documents,
+        definition_document=component_definition,
+    )
     diagnostics = raw.get("diagnostics", [])
     return [
         LintDiagnostic(

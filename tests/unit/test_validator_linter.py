@@ -137,7 +137,7 @@ def _definition_with_extension(ext_name: str, ext_value=True) -> dict:
     }
 
 
-@pytest.mark.skip(reason="Rust linter does not implement E600 extension resolution yet")
+@pytest.mark.skip(reason="Rust linter only fires E600 when a registry is provided — no-registry case not supported")
 def test_unresolved_extension_emits_E600() -> None:
     """Extension declared but no registry provided — should produce E600."""
     document = _definition_with_extension("x-formspec-email")
@@ -149,7 +149,7 @@ def test_unresolved_extension_emits_E600() -> None:
     ), f"Expected E600 for unresolved extension, got: {[d.code for d in diagnostics]}"
 
 
-@pytest.mark.skip(reason="Rust linter does not implement E600 extension resolution yet")
+@pytest.mark.skip(reason="Rust linter only fires E600 when a registry is provided — no-registry case not supported")
 def test_unresolved_extension_names_extension_in_message() -> None:
     """E600 message should include the unresolved extension name."""
     document = _definition_with_extension("x-acme-widget")
@@ -161,7 +161,6 @@ def test_unresolved_extension_names_extension_in_message() -> None:
     assert "x-acme-widget" in e600[0].message
 
 
-@pytest.mark.skip(reason="Rust linter does not implement E600 extension resolution yet")
 def test_resolved_extension_no_E600() -> None:
     """Extension declared with matching registry — no E600."""
     document = _definition_with_extension("x-formspec-email")
@@ -171,7 +170,6 @@ def test_resolved_extension_no_E600() -> None:
     assert not any(diag.code == "E600" for diag in diagnostics)
 
 
-@pytest.mark.skip(reason="Rust linter does not implement E600 extension resolution yet")
 def test_disabled_extension_no_E600() -> None:
     """Extension set to false — no E600 even without registry."""
     document = _definition_with_extension("x-acme-widget", ext_value=False)
@@ -181,7 +179,6 @@ def test_disabled_extension_no_E600() -> None:
     assert not any(diag.code == "E600" for diag in diagnostics)
 
 
-@pytest.mark.skip(reason="Rust linter does not implement E600 extension resolution yet")
 def test_unknown_extension_with_registry_emits_E600() -> None:
     """Registry loaded but extension not in it — should still E600."""
     document = _definition_with_extension("x-acme-unknown")

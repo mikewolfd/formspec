@@ -41,6 +41,12 @@ pub struct ItemInfo {
     pub nrb: Option<String>,
     /// Parent path (None for top-level items).
     pub parent_path: Option<String>,
+    /// Whether this group is repeatable.
+    pub repeatable: bool,
+    /// Minimum repeat count (for repeatable groups).
+    pub repeat_min: Option<u64>,
+    /// Maximum repeat count (for repeatable groups).
+    pub repeat_max: Option<u64>,
     /// Child items.
     pub children: Vec<ItemInfo>,
 }
@@ -317,6 +323,12 @@ fn build_item_info(item: &Value, binds: Option<&Value>, parent_path: Option<&str
             .and_then(|v| v.as_str())
             .map(String::from),
         parent_path: parent_path.map(String::from),
+        repeatable: item
+            .get("repeatable")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        repeat_min: item.get("minRepeat").and_then(|v| v.as_u64()),
+        repeat_max: item.get("maxRepeat").and_then(|v| v.as_u64()),
         children,
     }
 }
@@ -354,7 +366,15 @@ pub fn expand_wildcard_path(pattern: &str, data: &HashMap<String, Value>) -> Vec
 }
 
 /// Detect the repeat count for a given base path by looking at the data keys.
+/// Supports both indexed-key format (`base[0].field`, `base[1].field`) and
+/// array-valued format (`base` -> `[...]`).
 fn detect_repeat_count(base: &str, data: &HashMap<String, Value>) -> usize {
+    // Check if data[base] is an array (flat data format)
+    if let Some(Value::Array(arr)) = data.get(base) {
+        return arr.len();
+    }
+
+    // Check indexed-key format (expanded data format)
     let mut max_index = 0usize;
     let prefix = format!("{}[", base);
     for key in data.keys() {
@@ -562,7 +582,7 @@ pub fn revalidate(
     shapes: Option<&[Value]>,
 ) -> Vec<ValidationResult> {
     let mut results = Vec::new();
-    let env = build_validation_env(values);
+    let mut env = build_validation_env(values);
     let shapes_by_id: HashMap<String, &Value> = shapes
         .unwrap_or(&[])
         .iter()
@@ -575,12 +595,12 @@ pub fn revalidate(
         .collect();
 
     // Bind constraints
-    validate_items(items, &env, values, &mut results);
+    validate_items(items, &mut env, values, &mut results);
 
     // Shape rules
     if let Some(shapes) = shapes {
         for shape in shapes {
-            validate_shape(shape, &shapes_by_id, &env, &mut results);
+            validate_shape(shape, &shapes_by_id, &mut env, values, &mut results);
         }
     }
 
@@ -589,7 +609,7 @@ pub fn revalidate(
 
 fn validate_items(
     items: &[ItemInfo],
-    env: &FormspecEnvironment,
+    env: &mut FormspecEnvironment,
     values: &HashMap<String, Value>,
     results: &mut Vec<ValidationResult>,
 ) {
@@ -619,8 +639,36 @@ fn validate_items(
             }
         }
 
-        // Constraint check
+        // Type mismatch check (only for scalar values, not arrays/objects)
+        if !val.is_null() && !val.is_array() && !val.is_object() {
+            if let Some(ref dt) = item.data_type {
+                let mismatch = match dt.as_str() {
+                    "string" => !val.is_string(),
+                    "integer" => !val.is_i64() && !val.is_u64() && !(val.is_f64() && {
+                        let f = val.as_f64().unwrap();
+                        f.fract() == 0.0
+                    }),
+                    "number" | "decimal" => !val.is_number(),
+                    "boolean" => !val.is_boolean(),
+                    _ => false,
+                };
+                if mismatch {
+                    results.push(ValidationResult {
+                        path: item.path.clone(),
+                        severity: "error".to_string(),
+                        kind: "type".to_string(),
+                        message: format!("Invalid {dt}"),
+                    });
+                }
+            }
+        }
+
+        // Constraint check — set bare $ to current field value
         if let Some(ref expr) = item.constraint {
+            // Temporarily bind bare $ to this field's value
+            let prev_dollar = env.data.remove("");
+            env.data.insert(String::new(), json_to_fel(val));
+
             if let Ok(parsed) = parse(expr) {
                 let result = evaluate(&parsed, env);
                 if !constraint_passes(&result.value) {
@@ -635,6 +683,37 @@ fn validate_items(
                     });
                 }
             }
+
+            // Restore previous bare $ binding
+            env.data.remove("");
+            if let Some(prev) = prev_dollar {
+                env.data.insert(String::new(), prev);
+            }
+        }
+
+        // Cardinality check for repeatable groups
+        if item.repeatable {
+            let count = detect_repeat_count(&item.path, values);
+            if let Some(min) = item.repeat_min {
+                if (count as u64) < min {
+                    results.push(ValidationResult {
+                        path: item.path.clone(),
+                        severity: "error".to_string(),
+                        kind: "cardinality".to_string(),
+                        message: format!("Minimum {min} entries required"),
+                    });
+                }
+            }
+            if let Some(max) = item.repeat_max {
+                if (count as u64) > max {
+                    results.push(ValidationResult {
+                        path: item.path.clone(),
+                        severity: "error".to_string(),
+                        kind: "cardinality".to_string(),
+                        message: format!("Maximum {max} entries allowed"),
+                    });
+                }
+            }
         }
 
         validate_items(&item.children, env, values, results);
@@ -644,7 +723,8 @@ fn validate_items(
 fn validate_shape(
     shape: &Value,
     shapes_by_id: &HashMap<String, &Value>,
-    env: &FormspecEnvironment,
+    env: &mut FormspecEnvironment,
+    values: &HashMap<String, Value>,
     results: &mut Vec<ValidationResult>,
 ) {
     let target = shape.get("target").and_then(|v| v.as_str()).unwrap_or("");
@@ -664,6 +744,14 @@ fn validate_shape(
         }
     }
 
+    // Bind bare $ to target field value for shape constraint evaluation
+    let prev_dollar = env.data.remove("");
+    if !target.is_empty() {
+        if let Some(target_val) = values.get(target) {
+            env.data.insert(String::new(), json_to_fel(target_val));
+        }
+    }
+
     let mut visiting = HashSet::new();
     if !shape_passes(shape, shapes_by_id, env, &mut visiting) {
         results.push(ValidationResult {
@@ -672,6 +760,12 @@ fn validate_shape(
             kind: "shape".to_string(),
             message: message.to_string(),
         });
+    }
+
+    // Restore previous bare $ binding
+    env.data.remove("");
+    if let Some(prev) = prev_dollar {
+        env.data.insert(String::new(), prev);
     }
 }
 
@@ -2055,6 +2149,9 @@ mod tests {
             whitespace: None,
             nrb: Some("keep".to_string()),
             parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         }];
 
@@ -2088,6 +2185,9 @@ mod tests {
             whitespace: None,
             nrb: Some("keep".to_string()),
             parent_path: Some("items[*]".to_string()),
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         };
 
@@ -2123,6 +2223,9 @@ mod tests {
             whitespace: None,
             nrb: Some("empty".to_string()),
             parent_path: Some("items".to_string()),
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         };
 
@@ -2157,6 +2260,9 @@ mod tests {
             whitespace: None,
             nrb: Some("keep".to_string()),
             parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         };
 
@@ -2203,6 +2309,9 @@ mod tests {
             whitespace: None,
             nrb: Some("empty".to_string()),
             parent_path: Some("items[0]".to_string()),
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         };
 
@@ -2223,6 +2332,9 @@ mod tests {
             whitespace: None,
             nrb: Some("keep".to_string()),
             parent_path: Some("items[*]".to_string()),
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         };
 
@@ -3167,6 +3279,9 @@ mod tests {
             whitespace: None,
             nrb: None,
             parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         }];
 
@@ -3199,6 +3314,9 @@ mod tests {
             whitespace: None,
             nrb: None,
             parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         }];
 
@@ -3230,6 +3348,9 @@ mod tests {
             whitespace: None,
             nrb: None,
             parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
             children: vec![],
         }];
 

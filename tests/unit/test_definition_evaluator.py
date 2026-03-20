@@ -603,33 +603,124 @@ class TestBindValidation:
         errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
         assert len(errors) == 0
 
-    @pytest.mark.skip(reason="Rust backend does not support bare $ in bind constraints yet")
     def test_bare_dollar_constraint_passes_positive(self):
-        pass
+        """Bare $ in constraint must resolve to the field value, not null."""
+        defn = {
+            'items': [{'type': 'field', 'key': 'amount', 'dataType': 'integer'}],
+            'binds': [{'path': 'amount', 'constraint': '$ >= 0'}],
+        }
+        result = evaluate_definition(defn, {'amount': 45000})
+        errors = [r for r in result.results if r['kind'] == 'bind']
+        assert len(errors) == 0
 
-    @pytest.mark.skip(reason="Rust backend does not support bare $ in bind constraints yet")
     def test_bare_dollar_constraint_fails_negative(self):
-        pass
+        """Bare $ in constraint must detect actual violations."""
+        defn = {
+            'items': [{'type': 'field', 'key': 'amount', 'dataType': 'integer'}],
+            'binds': [{'path': 'amount', 'constraint': '$ >= 0'}],
+        }
+        result = evaluate_definition(defn, {'amount': -5})
+        errors = [r for r in result.results if r['kind'] == 'bind']
+        assert len(errors) == 1
 
-    @pytest.mark.skip(reason="Rust backend does not support bare $ in bind constraints yet")
     def test_bare_dollar_constraint_skipped_when_empty(self):
-        pass
+        """Constraint with bare $ is skipped when field is empty/null."""
+        defn = {
+            'items': [{'type': 'field', 'key': 'amount', 'dataType': 'integer'}],
+            'binds': [{'path': 'amount', 'constraint': '$ >= 0'}],
+        }
+        result = evaluate_definition(defn, {'amount': None})
+        errors = [r for r in result.results if r['kind'] == 'bind']
+        assert len(errors) == 0
 
-    @pytest.mark.skip(reason="Rust backend does not support bare $ in wildcard bind constraints yet")
+    @pytest.mark.skip(reason="Rust backend does not support wildcard bind constraints yet")
     def test_bare_dollar_wildcard_constraint(self):
         pass
 
-    @pytest.mark.skip(reason="Rust backend does not support bare $ in shape constraints yet")
     def test_shape_bare_dollar_with_target(self):
-        pass
+        """Shape constraint with target injects target value as bare $."""
+        defn = {
+            'items': [{'type': 'field', 'key': 'score', 'dataType': 'integer'}],
+            'shapes': [{
+                'id': 'scoreRange', 'target': 'score', 'severity': 'error',
+                'message': 'Score out of range', 'code': 'SCORE',
+                'constraint': '$ >= 0 and $ <= 100',
+            }],
+        }
+        result = evaluate_definition(defn, {'score': 50})
+        assert result.results == []
+        result2 = evaluate_definition(defn, {'score': 150})
+        assert len(result2.results) == 1
+        assert result2.results[0]['message'] == 'Score out of range'
 
-    @pytest.mark.skip(reason="Rust backend does not support bare $ + default + relevance interaction yet")
+    @pytest.mark.skip(reason="Rust backend: bare $ does not resolve correctly for nested group bind paths")
     def test_default_bind_relevance_with_numeric_constraint(self):
-        pass
+        """Regression: multiChoice -> relevance + default=0 + constraint $ >= 0."""
+        defn = {
+            'items': [
+                {
+                    'type': 'field', 'key': 'topics', 'dataType': 'multiChoice',
+                    'options': [
+                        {'value': 'employment', 'label': 'Employment'},
+                        {'value': 'housing', 'label': 'Housing'},
+                    ]
+                },
+                {
+                    'type': 'group', 'key': 'expenditures',
+                    'children': [
+                        {'type': 'field', 'key': 'employment', 'dataType': 'decimal'},
+                        {'type': 'field', 'key': 'housing', 'dataType': 'decimal'},
+                    ]
+                },
+            ],
+            'binds': [
+                {
+                    'path': 'expenditures.employment',
+                    'relevant': "selected($topics, 'employment')",
+                    'default': 0,
+                    'constraint': '$ >= 0',
+                    'constraintMessage': 'Cannot be negative',
+                },
+                {
+                    'path': 'expenditures.housing',
+                    'relevant': "selected($topics, 'housing')",
+                    'default': 0,
+                    'constraint': '$ >= 0',
+                    'constraintMessage': 'Cannot be negative',
+                },
+            ],
+        }
+        # Scenario: employment selected with default value 0 -> constraint passes
+        result = evaluate_definition(defn, {
+            'topics': ['employment'],
+            'expenditures': {'employment': 0, 'housing': 0},
+        })
+        constraint_errors = [r for r in result.results if r['kind'] == 'bind' and 'negative' in r.get('message', '').lower()]
+        assert len(constraint_errors) == 0
 
-    @pytest.mark.skip(reason="Rust backend does not emit TYPE_MISMATCH validation errors")
+        # Scenario: employment selected with positive value -> constraint passes
+        result = evaluate_definition(defn, {
+            'topics': ['employment'],
+            'expenditures': {'employment': 45000, 'housing': 0},
+        })
+        constraint_errors = [r for r in result.results if r['kind'] == 'bind' and 'negative' in r.get('message', '').lower()]
+        assert len(constraint_errors) == 0
+
+        # Scenario: negative value -> constraint fails
+        result = evaluate_definition(defn, {
+            'topics': ['employment'],
+            'expenditures': {'employment': -100, 'housing': 0},
+        })
+        constraint_errors = [r for r in result.results if r['kind'] == 'bind' and 'negative' in r.get('message', '').lower()]
+        assert len(constraint_errors) == 1
+
     def test_type_validation_string(self):
-        pass
+        defn = {
+            'items': [{'type': 'field', 'key': 'name', 'dataType': 'string'}],
+        }
+        result = evaluate_definition(defn, {'name': 42})
+        errors = [r for r in result.results if r['kind'] == 'type']
+        assert len(errors) == 1
 
     def test_type_validation_null_passes(self):
         """Null/empty always valid for type check."""
@@ -679,16 +770,48 @@ class TestBindContextNullSemantics:
 
 # ── Cardinality validation ───────────────────────────────────────────────────
 
-@pytest.mark.skip(reason="Rust backend does not emit MIN_REPEAT/MAX_REPEAT validation errors")
 class TestCardinality:
     def test_min_repeat(self):
-        pass
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'rows', 'repeatable': True,
+                'minRepeat': 2, 'maxRepeat': 5,
+                'children': [
+                    {'type': 'field', 'key': 'val', 'dataType': 'string'},
+                ]
+            }]
+        }
+        result = evaluate_definition(defn, {'rows': [{'val': 'a'}]})
+        errors = [r for r in result.results if r['kind'] == 'cardinality']
+        assert len(errors) == 1
 
     def test_max_repeat(self):
-        pass
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'rows', 'repeatable': True,
+                'minRepeat': 1, 'maxRepeat': 2,
+                'children': [
+                    {'type': 'field', 'key': 'val', 'dataType': 'string'},
+                ]
+            }]
+        }
+        result = evaluate_definition(defn, {'rows': [{'val': 'a'}, {'val': 'b'}, {'val': 'c'}]})
+        errors = [r for r in result.results if r['kind'] == 'cardinality']
+        assert len(errors) == 1
 
     def test_cardinality_ok(self):
-        pass
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'rows', 'repeatable': True,
+                'minRepeat': 1, 'maxRepeat': 3,
+                'children': [
+                    {'type': 'field', 'key': 'val', 'dataType': 'string'},
+                ]
+            }]
+        }
+        result = evaluate_definition(defn, {'rows': [{'val': 'a'}, {'val': 'b'}]})
+        errors = [r for r in result.results if r['kind'] == 'cardinality']
+        assert len(errors) == 0
 
 
 # ── Shape timing ─────────────────────────────────────────────────────────────

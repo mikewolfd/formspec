@@ -255,74 +255,84 @@ fn classify_item_modification(old: &Value, new: &Value) -> ChangeImpact {
     }
 }
 
-/// Diff the `binds` object, keyed by bind path.
-fn diff_binds(old_def: &Value, new_def: &Value, changes: &mut Vec<Change>) {
-    let empty_obj = serde_json::Map::new();
-    let old_binds = old_def
-        .get("binds")
-        .and_then(|v| v.as_object())
-        .unwrap_or(&empty_obj);
-    let new_binds = new_def
-        .get("binds")
-        .and_then(|v| v.as_object())
-        .unwrap_or(&empty_obj);
+/// Index binds by path. Handles both formats:
+/// - Object format: `"binds": { "name": { "required": "true" } }` (key = path)
+/// - Array format: `"binds": [{ "path": "name", "required": "true" }]`
+fn index_binds_by_path<'a>(def: &'a Value) -> Vec<(&'a str, &'a Value)> {
+    match def.get("binds") {
+        Some(Value::Object(obj)) => obj.iter().map(|(k, v)| (k.as_str(), v)).collect(),
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.get("path").and_then(|p| p.as_str()).map(|p| (p, v)))
+            .collect(),
+        _ => vec![],
+    }
+}
 
-    let old_keys: std::collections::HashSet<&String> = old_binds.keys().collect();
-    let new_keys: std::collections::HashSet<&String> = new_binds.keys().collect();
+/// Diff the `binds` array, keyed by each bind's `path` field.
+fn diff_binds(old_def: &Value, new_def: &Value, changes: &mut Vec<Change>) {
+    let old_binds = index_binds_by_path(old_def);
+    let new_binds = index_binds_by_path(new_def);
+
+    let old_keys: std::collections::HashSet<&str> = old_binds.iter().map(|(k, _)| *k).collect();
+    let new_keys: std::collections::HashSet<&str> = new_binds.iter().map(|(k, _)| *k).collect();
 
     // Added
-    for key in new_keys.difference(&old_keys) {
-        let val = &new_binds[key.as_str()];
-        let has_required = bind_has_required(val);
-        changes.push(Change {
-            change_type: ChangeType::Added,
-            target: ChangeTarget::Bind,
-            path: key.to_string(),
-            impact: if has_required {
-                ChangeImpact::Breaking
-            } else {
-                ChangeImpact::Compatible
-            },
-            key: None,
-            description: None,
-            before: None,
-            after: Some(val.clone()),
-            migration_hint: None,
-        });
+    for &(path, val) in &new_binds {
+        if !old_keys.contains(path) {
+            let has_required = bind_has_required(val);
+            changes.push(Change {
+                change_type: ChangeType::Added,
+                target: ChangeTarget::Bind,
+                path: path.to_string(),
+                impact: if has_required {
+                    ChangeImpact::Breaking
+                } else {
+                    ChangeImpact::Compatible
+                },
+                key: None,
+                description: None,
+                before: None,
+                after: Some(val.clone()),
+                migration_hint: None,
+            });
+        }
     }
 
     // Removed
-    for key in old_keys.difference(&new_keys) {
-        changes.push(Change {
-            change_type: ChangeType::Removed,
-            target: ChangeTarget::Bind,
-            path: key.to_string(),
-            impact: ChangeImpact::Breaking,
-            key: None,
-            description: None,
-            before: Some(old_binds[key.as_str()].clone()),
-            after: None,
-            migration_hint: None,
-        });
+    for &(path, val) in &old_binds {
+        if !new_keys.contains(path) {
+            changes.push(Change {
+                change_type: ChangeType::Removed,
+                target: ChangeTarget::Bind,
+                path: path.to_string(),
+                impact: ChangeImpact::Breaking,
+                key: None,
+                description: None,
+                before: Some(val.clone()),
+                after: None,
+                migration_hint: None,
+            });
+        }
     }
 
     // Modified
-    for key in old_keys.intersection(&new_keys) {
-        let old_val = &old_binds[key.as_str()];
-        let new_val = &new_binds[key.as_str()];
-        if old_val != new_val {
-            let impact = classify_bind_modification(old_val, new_val);
-            changes.push(Change {
-                change_type: ChangeType::Modified,
-                target: ChangeTarget::Bind,
-                path: key.to_string(),
-                impact,
-                key: None,
-                description: None,
-                before: Some(old_val.clone()),
-                after: Some(new_val.clone()),
-                migration_hint: None,
-            });
+    for &(path, old_val) in &old_binds {
+        if let Some(&(_, new_val)) = new_binds.iter().find(|(k, _)| *k == path) {
+            if old_val != new_val {
+                let impact = classify_bind_modification(old_val, new_val);
+                changes.push(Change {
+                    change_type: ChangeType::Modified,
+                    target: ChangeTarget::Bind,
+                    path: path.to_string(),
+                    impact,
+                    key: None,
+                    description: None,
+                    before: Some(old_val.clone()),
+                    after: Some(new_val.clone()),
+                    migration_hint: None,
+                });
+            }
         }
     }
 }
