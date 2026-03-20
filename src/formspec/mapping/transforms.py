@@ -7,38 +7,55 @@ evaluation and access to the full source/target documents.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from ..fel import parse, Evaluator, Environment, build_default_registry
-from ..fel.types import to_python, from_python, FelNull, is_null
+from ..fel.runtime import FelRuntime, default_fel_runtime
+from ..fel.types import FelNull, is_null, to_python
 
 
 class TransformContext:
     """Shared state for transform execution: source/target data and FEL evaluation capability."""
 
-    def __init__(self, source_data: dict, target_data: dict | None = None):
+    def __init__(
+        self,
+        source_data: dict,
+        target_data: dict | None = None,
+        fel_runtime: FelRuntime | None = None,
+    ):
         self.source_data = source_data
         self.target_data = target_data or {}
+        self.fel_runtime = fel_runtime or default_fel_runtime()
 
     def eval_fel(self, expression: str, dollar_value: Any = None) -> Any:
         """Evaluate a FEL expression with $ bound to the current source value and source/target in scope."""
         data = dict(self.source_data) if self.source_data else {}
-        data['source'] = self.source_data
-        if self.target_data:
-            data['target'] = self.target_data
-        env = Environment(data=data)
-        # Bind $ (bare field ref with empty path) to the source value via let-scope
         if dollar_value is not None:
-            env.push_scope({'': from_python(dollar_value)})
-        functions = build_default_registry()
-        ev = Evaluator(env, functions)
-        ast_node = parse(expression)
-        result = ev.evaluate(ast_node)
+            data[''] = dollar_value
         if dollar_value is not None:
-            env.pop_scope()
-        return to_python(result)
+            data.setdefault('$', dollar_value)
+        result = self.fel_runtime.evaluate(
+            _normalize_mapping_expression(expression),
+            data,
+            variables={
+                name: value
+                for name, value in {
+                    'source': self.source_data,
+                    'target': self.target_data if self.target_data else None,
+                }.items()
+                if value is not None
+            },
+        )
+        return to_python(result.value)
+
+
+def _normalize_mapping_expression(expression: str) -> str:
+    """Rewrite legacy mapping aliases to FEL context references."""
+    expr = re.sub(r'(?<![@$\w])source\.', '@source.', expression)
+    expr = re.sub(r'(?<![@$\w])target\.', '@target.', expr)
+    return expr
 
 
 def transform_preserve(value: Any, rule: dict, ctx: TransformContext) -> Any:

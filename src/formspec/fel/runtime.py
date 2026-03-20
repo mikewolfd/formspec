@@ -1,45 +1,72 @@
-"""FEL runtime protocol — abstraction layer for swappable FEL backends.
+"""Rust-backed FEL runtime contract for Python.
 
-Defines Protocol classes that both the built-in Python FEL implementation and
-future Rust/PyO3 implementations can satisfy, enabling seamless backend swaps
-while keeping the same test infrastructure and consumer code.
-
-Usage::
-
-    from formspec.fel.runtime import FelRuntime, default_fel_runtime
-
-    # Use the default (Python) runtime
-    rt = default_fel_runtime()
-    result = rt.evaluate("1 + 2", {"x": 10})
-
-    # Or inject a custom runtime (e.g. Rust/PyO3)
-    evaluator = DefinitionEvaluator(definition, fel_runtime=custom_runtime)
+The pure-Python parser/evaluator stack has been decommissioned. Python now
+depends on the ``formspec_rust`` PyO3 module for FEL parsing, evaluation, and
+dependency extraction.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable, Protocol, runtime_checkable
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Protocol, runtime_checkable
 
-from .evaluator import EvalResult
-from .dependencies import DependencySet
-from .types import FelValue
+import formspec_rust
+
+from .errors import Diagnostic, FelSyntaxError, Severity
+from .types import (
+    FelArray,
+    FelBoolean,
+    FelDate,
+    FelMoney,
+    FelNumber,
+    FelObject,
+    FelString,
+    FelValue,
+    fel_decimal,
+    from_python,
+    is_null,
+    to_python,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedExpression:
+    """Opaque parsed FEL handle.
+
+    The Rust backend validates syntax but does not expose an AST to Python.
+    Consumers must treat this as an opaque token.
+    """
+
+    source: str
+
+
+@dataclass(slots=True)
+class EvalResult:
+    """Value + diagnostics bundle returned by the FEL runtime."""
+
+    value: FelValue
+    diagnostics: list[Diagnostic] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class DependencySet:
+    """Static references extracted from a FEL expression."""
+
+    fields: set[str] = field(default_factory=set)
+    instance_refs: set[str] = field(default_factory=set)
+    context_refs: set[str] = field(default_factory=set)
+    mip_deps: set[str] = field(default_factory=set)
+    has_self_ref: bool = False
+    has_wildcard: bool = False
+    uses_prev_next: bool = False
 
 
 @runtime_checkable
 class FelRuntime(Protocol):
-    """Pluggable FEL runtime — the single abstraction consumers depend on.
+    """Pluggable FEL runtime interface."""
 
-    Implementations:
-    - ``DefaultFelRuntime`` — built-in Python parser + evaluator
-    - (future) Rust/PyO3 backend
-    """
-
-    def parse(self, source: str) -> Any:
-        """Parse a FEL expression into an AST (opaque to consumers).
-
-        Raises:
-            FelSyntaxError: If the expression cannot be parsed.
-        """
+    def parse(self, source: str) -> ParsedExpression:
         ...
 
     def evaluate(
@@ -52,133 +79,29 @@ class FelRuntime(Protocol):
         extensions: dict[str, Any] | None = None,
         variables: dict[str, FelValue] | None = None,
     ) -> EvalResult:
-        """Parse and evaluate a FEL expression in one call.
-
-        Raises:
-            FelSyntaxError: If the expression cannot be parsed.
-        """
         ...
 
     def extract_dependencies(self, source: str) -> DependencySet:
-        """Parse and statically extract all referenced dependencies.
-
-        Raises:
-            FelSyntaxError: If the expression cannot be parsed.
-        """
         ...
 
-    def register_function(
-        self,
-        name: str,
-        impl: Callable,
-        meta: dict | None = None,
-    ) -> None:
-        """Register an extension function into the runtime.
-
-        Spec S3.12, S8.1: runtime-extensible function catalog.
-        """
+    def register_function(self, name: str, impl: Any, meta: dict | None = None) -> None:
         ...
-
-
-class DefaultFelRuntime:
-    """FEL runtime backed by the built-in Python parser and evaluator."""
-
-    def __init__(self) -> None:
-        self._extension_functions: dict[str, Callable] = {}
-
-    def register_function(
-        self,
-        name: str,
-        impl: Callable,
-        meta: dict | None = None,
-    ) -> None:
-        """Register an extension function into the runtime."""
-        self._extension_functions[name] = impl
-
-    def parse(self, source: str) -> Any:
-        from .parser import parse as _parse
-        return _parse(source)
-
-    def evaluate(
-        self,
-        source: str,
-        data: dict | None = None,
-        *,
-        instances: dict[str, dict] | None = None,
-        mip_states: dict[str, Any] | None = None,
-        extensions: dict[str, Any] | None = None,
-        variables: dict[str, FelValue] | None = None,
-    ) -> EvalResult:
-        from .parser import parse as _parse
-        from .evaluator import Evaluator
-        from .environment import Environment
-        from .functions import build_default_registry
-
-        ast = _parse(source)
-        env = Environment(
-            data=data,
-            instances=instances,
-            mip_states=mip_states,
-            variables=variables,
-        )
-        functions = build_default_registry()
-        if self._extension_functions:
-            functions.update(self._extension_functions)
-        if extensions:
-            functions.update(extensions)
-        ev = Evaluator(env, functions)
-        value = ev.evaluate(ast)
-        return EvalResult(value=value, diagnostics=ev.diagnostics)
-
-    def extract_dependencies(self, source: str) -> DependencySet:
-        from .parser import parse as _parse
-        from .dependencies import extract_dependencies as _extract
-
-        ast = _parse(source)
-        return _extract(ast)
 
 
 class RustFelRuntime:
-    """FEL runtime backed by the Rust/PyO3 ``formspec_rust`` module.
+    """FEL runtime backed by the mandatory ``formspec_rust`` module."""
 
-    Falls back to ``DefaultFelRuntime`` if the native module is not installed.
-    Extension functions registered via ``register_function`` are NOT supported
-    in the Rust backend — they are silently ignored (Rust evaluator has its own
-    stdlib and doesn't accept dynamic JS/Python callbacks).
-    """
+    def register_function(self, name: str, impl: Any, meta: dict | None = None) -> None:
+        raise NotImplementedError(
+            "Dynamic Python FEL extensions were removed with the pure-Python evaluator. "
+            "Use the Rust builtin catalog or add the function in Rust."
+        )
 
-    _available: bool | None = None
-
-    def __init__(self) -> None:
-        self._extension_functions: dict[str, Callable] = {}
-
-    @classmethod
-    def is_available(cls) -> bool:
-        if cls._available is None:
-            try:
-                import formspec_rust as _  # noqa: F401
-                cls._available = True
-            except ImportError:
-                cls._available = False
-        return cls._available
-
-    def register_function(
-        self,
-        name: str,
-        impl: Callable,
-        meta: dict | None = None,
-    ) -> None:
-        # Rust runtime doesn't support dynamic function registration from Python.
-        self._extension_functions[name] = impl
-
-    def parse(self, source: str) -> Any:
-        import formspec_rust
+    def parse(self, source: str) -> ParsedExpression:
         valid = formspec_rust.parse_fel(source)
         if not valid:
-            from .errors import FelSyntaxError
             raise FelSyntaxError(f"FEL parse error: {source!r}")
-        # Return a sentinel — the Rust module doesn't expose an AST object.
-        return {"_rust_parsed": True, "source": source}
+        return ParsedExpression(source=source)
 
     def evaluate(
         self,
@@ -190,40 +113,168 @@ class RustFelRuntime:
         extensions: dict[str, Any] | None = None,
         variables: dict[str, FelValue] | None = None,
     ) -> EvalResult:
-        import formspec_rust
-        fields = dict(data or {})
-        if variables:
-            fields.update(variables)
-        value = formspec_rust.eval_fel(source, fields)
-        return EvalResult(value=value, diagnostics=[])
+        if extensions:
+            raise NotImplementedError(
+                "Dynamic Python FEL extensions are no longer supported by the Rust runtime."
+            )
+
+        payload = formspec_rust.eval_fel_detailed(
+            source,
+            data or {},
+            instances or None,
+            _serialize_mip_states(mip_states),
+            _serialize_variables(data or {}, variables),
+            datetime.now().isoformat(timespec="seconds"),
+        )
+        value = _deserialize_value(payload.get("value"))
+        diagnostics = [
+            Diagnostic(
+                message=_normalize_diagnostic_message(str(raw.get("message", ""))),
+                pos=None,
+                severity=_severity_from_str(raw.get("severity")),
+            )
+            for raw in payload.get("diagnostics", [])
+            if isinstance(raw, dict)
+        ]
+        return EvalResult(value=value, diagnostics=diagnostics)
 
     def extract_dependencies(self, source: str) -> DependencySet:
-        import formspec_rust
         raw = formspec_rust.extract_deps(source)
         return DependencySet(
-            fields=set(raw.get("fields", [])),
+            fields={field.replace("[*]", "") for field in raw.get("fields", [])},
             instance_refs=set(raw.get("instance_refs", [])),
-            context_refs=set(raw.get("context_refs", [])),
+            context_refs={_normalize_context_ref(ref) for ref in raw.get("context_refs", [])},
             mip_deps=set(raw.get("mip_deps", [])),
-            has_self_ref=raw.get("has_self_ref", False),
-            has_wildcard=raw.get("has_wildcard", False),
-            uses_prev_next=raw.get("uses_prev_next", False),
+            has_self_ref=bool(raw.get("has_self_ref", False)),
+            has_wildcard=bool(raw.get("has_wildcard", False)),
+            uses_prev_next=bool(raw.get("uses_prev_next", False)),
         )
 
 
-# Singleton
-_default_runtime: DefaultFelRuntime | RustFelRuntime | None = None
+_default_runtime: RustFelRuntime | None = None
 
 
-def default_fel_runtime() -> DefaultFelRuntime | RustFelRuntime:
-    """Return the shared default FEL runtime instance.
+def default_fel_runtime() -> RustFelRuntime:
+    """Return the shared Rust FEL runtime instance."""
 
-    Prefers the Rust backend when ``formspec_rust`` is installed.
-    """
     global _default_runtime
     if _default_runtime is None:
-        if RustFelRuntime.is_available():
-            _default_runtime = RustFelRuntime()
-        else:
-            _default_runtime = DefaultFelRuntime()
+        _default_runtime = RustFelRuntime()
     return _default_runtime
+
+
+def builtin_function_catalog() -> list[dict[str, str]]:
+    """Return Rust-exported builtin function metadata."""
+
+    return list(formspec_rust.list_builtin_functions())
+
+
+def _serialize_variables(
+    data: dict[str, Any],
+    variables: dict[str, FelValue] | None,
+) -> dict[str, Any] | None:
+    serialized: dict[str, Any] = {}
+    if variables:
+        serialized.update(
+            {
+                name: _serialize_value(value)
+                for name, value in variables.items()
+            }
+        )
+
+    # Preserve the legacy Python behavior where @source/@target could be supplied
+    # via the primary data payload.
+    for contextual_name in ("source", "target"):
+        if contextual_name in data and contextual_name not in serialized:
+            serialized[contextual_name] = data[contextual_name]
+
+    return serialized or None
+
+
+def _serialize_mip_states(mip_states: dict[str, Any] | None) -> dict[str, dict[str, bool]] | None:
+    if not mip_states:
+        return None
+
+    serialized: dict[str, dict[str, bool]] = {}
+    for path, state in mip_states.items():
+        if isinstance(state, dict):
+            serialized[path] = {
+                "valid": bool(state.get("valid", True)),
+                "relevant": bool(state.get("relevant", True)),
+                "readonly": bool(state.get("readonly", False)),
+                "required": bool(state.get("required", False)),
+            }
+            continue
+        serialized[path] = {
+            "valid": bool(getattr(state, "valid", True)),
+            "relevant": bool(getattr(state, "relevant", True)),
+            "readonly": bool(getattr(state, "readonly", False)),
+            "required": bool(getattr(state, "required", False)),
+        }
+    return serialized
+
+
+def _severity_from_str(raw: str | None) -> Severity:
+    match raw:
+        case "warning":
+            return Severity.WARNING
+        case "info":
+            return Severity.WARNING
+        case _:
+            return Severity.ERROR
+
+
+def _serialize_value(value: Any) -> Any:
+    if is_null(value) or isinstance(
+        value,
+        (FelNumber, FelString, FelBoolean, FelDate, FelArray, FelMoney, FelObject),
+    ):
+        return to_python(value)
+    return value
+
+
+def _deserialize_value(value: Any) -> FelValue:
+    if isinstance(value, dict) and "__fel_type__" in value:
+        tagged_type = value["__fel_type__"]
+        if tagged_type == "number":
+            return FelNumber(fel_decimal(value.get("value")))
+        if tagged_type in {"date", "datetime"}:
+            return from_python(_parse_iso_date_like(value.get("value")))
+        if tagged_type == "money":
+            return from_python(
+                {
+                    "amount": value.get("amount"),
+                    "currency": value.get("currency"),
+                }
+            )
+    if isinstance(value, list):
+        return from_python([to_python(_deserialize_value(item)) for item in value])
+    if isinstance(value, dict):
+        return from_python({key: to_python(_deserialize_value(item)) for key, item in value.items()})
+    return from_python(value)
+
+
+def _parse_iso_date_like(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    if "T" in value:
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return value
+    try:
+        return datetime.fromisoformat(value).date()
+    except ValueError:
+        return value
+
+
+def _normalize_context_ref(ref: str) -> str:
+    if "." in ref:
+        return ref.split(".", 1)[0]
+    return ref
+
+
+def _normalize_diagnostic_message(message: str) -> str:
+    if message.startswith("undefined function: "):
+        return "Undefined function: " + message.split(": ", 1)[1]
+    return message

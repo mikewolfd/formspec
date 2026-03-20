@@ -19,12 +19,12 @@ from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_EVEN
 
 from .fel import (
-    evaluate as _fel_evaluate, extract_dependencies as _fel_extract_deps, parse as _fel_parse,
-    FelTrue, FelValue, Environment, Evaluator as FelEvaluator, FelNull,
+    FelNull,
+    FelTrue,
+    FelValue,
 )
 from .fel.runtime import FelRuntime, default_fel_runtime
-from .fel.types import from_python, to_python
-from .fel.functions import build_default_registry
+from .fel.types import to_python
 from .registry import Registry, RegistryEntry, _version_satisfies
 
 _UNSET = object()
@@ -125,9 +125,6 @@ class DefinitionEvaluator:
         for name, inst in definition.get('instances', {}).items():
             if isinstance(inst, dict) and 'data' in inst:
                 self._instances[name] = inst['data']
-
-        # Cache parsed ASTs for bind expressions
-        self._ast_cache: dict[str, object] = {}
 
     # ── Phase 1: Rebuild ─────────────────────────────────────────────────
 
@@ -248,11 +245,6 @@ class DefinitionEvaluator:
 
     # ── Phase 2: Recalculate ─────────────────────────────────────────────
 
-    def _parse_cached(self, expr: str):
-        if expr not in self._ast_cache:
-            self._ast_cache[expr] = self._fel.parse(expr)
-        return self._ast_cache[expr]
-
     def _eval_fel(
         self, expr: str, data: dict, variables: dict[str, FelValue],
         scope: dict | None = None, path: str | None = None,
@@ -260,21 +252,15 @@ class DefinitionEvaluator:
         """Evaluate a FEL expression, optionally with a scope pushed."""
         if path is not None:
             variables = self._evaluate_variables_for_path(data, path)
+        eval_data = dict(data)
         if scope is not None:
-            ast = self._parse_cached(expr)
-            env = Environment(
-                data=data,
-                variables=variables,
-                instances=self._instances,
-            )
-            env.push_scope({k: from_python(v) for k, v in scope.items()})
-            functions = build_default_registry()
-            ev = FelEvaluator(env, functions)
-            result = ev.evaluate(ast)
-            env.pop_scope()
-            return result
-        else:
-            return self._fel.evaluate(expr, data, variables=variables, instances=self._instances).value
+            eval_data.update(scope)
+        return self._fel.evaluate(
+            expr,
+            eval_data,
+            variables=variables,
+            instances=self._instances,
+        ).value
 
     def _apply_whitespace(self, data: dict) -> None:
         """Apply whitespace transforms to string fields in-place."""

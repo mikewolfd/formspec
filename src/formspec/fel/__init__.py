@@ -1,35 +1,58 @@
-"""Formspec Expression Language (FEL) -- public API surface.
+"""Public FEL runtime API for Python.
 
-Re-exports from internal modules to provide a flat import namespace for
-server-side evaluation, static dependency analysis, and conformance testing.
-
-Pipeline: source -> parse() -> AST -> evaluate()/extract_dependencies()
-
-Convenience entry points:
-    evaluate(source, data, ...) -> EvalResult   -- parse + evaluate in one call
-    extract_dependencies(source) -> DependencySet -- parse + static analysis
-    register_extension(registry, ...) -- add user functions to a registry
-    parse(source) -> AST node -- raw parse for advanced use
+The Python package now exposes the Rust-backed runtime contract rather than the
+legacy parser/evaluator internals. Parsing returns an opaque handle used only
+for syntax validation; evaluation and dependency extraction remain the primary
+entry points.
 """
+
+from __future__ import annotations
+
+from .keywords import RESERVED_WORDS
+from .metadata import BUILTIN_NAMES, builtin_function_catalog
+from .runtime import (
+    DependencySet,
+    EvalResult,
+    FelRuntime,
+    ParsedExpression,
+    RustFelRuntime,
+    default_fel_runtime,
+)
+from .types import (
+    FelArray,
+    FelBoolean,
+    FelDate,
+    FelFalse,
+    FelMoney,
+    FelNull,
+    FelNumber,
+    FelObject,
+    FelString,
+    FelTrue,
+    FelValue,
+    fel_bool,
+    from_python,
+    is_null,
+    to_python,
+    typeof,
+)
+from .errors import (
+    Diagnostic,
+    FelDefinitionError,
+    FelError,
+    FelEvaluationError,
+    FelSyntaxError,
+    Severity,
+    SourcePos,
+)
 
 __version__ = "1.0.0"
 
-from .parser import parse
-from .evaluator import Evaluator, EvalResult
-from .environment import Environment, RepeatContext, MipState
-from .functions import build_default_registry, FuncDef, BUILTIN_NAMES
-from .dependencies import extract_dependencies as _extract_deps, DependencySet
-from .extensions import register_extension
-from .types import (
-    FelNull, FelNumber, FelString, FelBoolean, FelDate,
-    FelArray, FelMoney, FelObject, FelTrue, FelFalse,
-    FelValue, fel_bool, from_python, to_python, typeof, is_null,
-)
-from .errors import (
-    FelError, FelSyntaxError, FelDefinitionError, FelEvaluationError,
-    Diagnostic, SourcePos, Severity,
-)
-from .runtime import FelRuntime, DefaultFelRuntime, RustFelRuntime, default_fel_runtime
+
+def parse(source: str) -> ParsedExpression:
+    """Validate FEL syntax and return an opaque parsed handle."""
+
+    return default_fel_runtime().parse(source)
 
 
 def evaluate(
@@ -37,27 +60,15 @@ def evaluate(
     data: dict | None = None,
     *,
     instances: dict[str, dict] | None = None,
-    mip_states: dict[str, MipState] | None = None,
-    extensions: dict[str, FuncDef] | None = None,
-    variables: dict[str, 'FelValue'] | None = None,
+    mip_states: dict[str, object] | None = None,
+    extensions: dict[str, object] | None = None,
+    variables: dict[str, FelValue] | None = None,
 ) -> EvalResult:
-    """Parse and evaluate a FEL expression in one call.
+    """Evaluate a FEL expression through the Rust runtime."""
 
-    Delegates to the default FEL runtime (Rust when available, Python fallback).
-
-    Args:
-        source: FEL expression (e.g. ``"$price * $quantity"``).
-        data: Primary instance data dict for ``$field`` resolution.
-        instances: Named data sources for ``@instance('name')`` lookups.
-        mip_states: Per-field MIP states for ``valid()``/``relevant()``/etc.
-        extensions: Extra FuncDefs to merge into the built-in registry.
-        variables: Pre-computed named variable values for ``@name`` lookups.
-
-    Raises:
-        FelSyntaxError: If the expression cannot be parsed.
-    """
     return default_fel_runtime().evaluate(
-        source, data,
+        source,
+        data,
         instances=instances,
         mip_states=mip_states,
         extensions=extensions,
@@ -66,11 +77,45 @@ def evaluate(
 
 
 def extract_dependencies(source: str) -> DependencySet:
-    """Parse a FEL expression and statically extract all referenced dependencies.
+    """Extract static dependencies from a FEL expression."""
 
-    Delegates to the default FEL runtime (Rust when available, Python fallback).
-
-    Raises:
-        FelSyntaxError: If the expression cannot be parsed.
-    """
     return default_fel_runtime().extract_dependencies(source)
+
+
+__all__ = [
+    "BUILTIN_NAMES",
+    "DependencySet",
+    "Diagnostic",
+    "EvalResult",
+    "FelArray",
+    "FelBoolean",
+    "FelDate",
+    "FelDefinitionError",
+    "FelError",
+    "FelEvaluationError",
+    "FelFalse",
+    "FelMoney",
+    "FelNull",
+    "FelNumber",
+    "FelObject",
+    "FelRuntime",
+    "FelString",
+    "FelSyntaxError",
+    "FelTrue",
+    "FelValue",
+    "ParsedExpression",
+    "RESERVED_WORDS",
+    "RustFelRuntime",
+    "Severity",
+    "SourcePos",
+    "builtin_function_catalog",
+    "default_fel_runtime",
+    "evaluate",
+    "extract_dependencies",
+    "fel_bool",
+    "from_python",
+    "is_null",
+    "parse",
+    "to_python",
+    "typeof",
+]

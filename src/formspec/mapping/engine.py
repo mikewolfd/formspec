@@ -11,7 +11,6 @@ import copy
 import re
 from typing import Any
 
-from ..fel import parse as _default_parse, Evaluator, Environment, build_default_registry
 from ..fel.runtime import FelRuntime, default_fel_runtime
 from ..fel.types import to_python, FelBoolean, FelTrue
 from .transforms import TRANSFORMS, TransformContext, _DROP_SENTINEL
@@ -230,10 +229,14 @@ class MappingEngine:
             return True
 
         data = dict(ctx.source_data) if ctx.source_data else {}
-        data['source'] = ctx.source_data
-        if ctx.target_data:
-            data['target'] = ctx.target_data
-        result = self._fel.evaluate(condition, data).value
+        result = self._fel.evaluate(
+            _normalize_mapping_expression(condition),
+            data,
+            variables={
+                'source': ctx.source_data,
+                'target': ctx.target_data,
+            },
+        ).value
 
         if isinstance(result, FelBoolean):
             return result is FelTrue
@@ -262,6 +265,13 @@ def _resolve_path(data: Any, path: str | None) -> Any:
         else:
             return None
     return current
+
+
+def _normalize_mapping_expression(expression: str) -> str:
+    """Rewrite legacy mapping aliases to FEL context references."""
+    expr = re.sub(r'(?<![@$\w])source\.', '@source.', expression)
+    expr = re.sub(r'(?<![@$\w])target\.', '@target.', expr)
+    return expr
 
 
 def _set_path(data: dict, path: str, value: Any) -> None:

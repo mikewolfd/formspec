@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from formspec.fel.dependencies import extract_dependencies as extract_ast_dependencies
+from formspec.fel import extract_dependencies
 
 from .diagnostic import LintDiagnostic
 from .expressions import CompiledExpression
@@ -31,7 +31,7 @@ def analyze_dependencies(compiled_expressions: list[CompiledExpression]) -> Depe
         if not compiled.bind_target:
             continue
 
-        deps = extract_ast_dependencies(compiled.ast)
+        deps = extract_dependencies(compiled.expression)
         node = compiled.bind_target
         result.graph.setdefault(node, set()).update(deps.fields)
         if compiled.bind_path_pointer and node not in bind_path_lookup:

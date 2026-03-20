@@ -14,7 +14,7 @@ from typing import Any
 from typing import Callable
 
 from formspec.fel.errors import FelSyntaxError
-from formspec.fel.parser import parse as _default_parse
+from formspec.fel.runtime import ParsedExpression, default_fel_runtime
 
 from .diagnostic import LintDiagnostic
 from .references import canonical_item_path
@@ -31,7 +31,7 @@ _BIND_EXPRESSION_FIELDS = _BIND_DATAFLOW_FIELDS + _BIND_VALIDATION_FIELDS
 class CompiledExpression:
     """Successfully parsed FEL expression with its AST and optional bind target for dependency wiring."""
 
-    ast: Any
+    parsed: ParsedExpression
     expression: str
     expression_path: str
     bind_target: str | None = None
@@ -52,7 +52,7 @@ def compile_expressions(
 ) -> ExpressionCompilationResult:
     """Entry point: compile all FEL expressions in binds, shapes, screener binds, and screener routes. Emits E400 on syntax errors."""
     if parse is None:
-        parse = _default_parse
+        parse = default_fel_runtime().parse
     _parse_fn = parse  # captured by _parse_one calls below
     result = ExpressionCompilationResult()
 
@@ -207,11 +207,13 @@ def _parse_one(
     owner_kind: str,
     bind_target: str | None = None,
     bind_path_pointer: str | None = None,
-    parse: Callable[[str], Any] = _default_parse,
+    parse: Callable[[str], ParsedExpression] | None = None,
 ) -> None:
     """Parse a single FEL string; append CompiledExpression on success or E400 diagnostic on failure."""
+    if parse is None:
+        parse = default_fel_runtime().parse
     try:
-        ast = parse(expression)
+        parsed = parse(expression)
     except FelSyntaxError as exc:
         result.diagnostics.append(
             LintDiagnostic(
@@ -227,7 +229,7 @@ def _parse_one(
 
     result.compiled.append(
         CompiledExpression(
-            ast=ast,
+            parsed=parsed,
             expression=expression,
             expression_path=path,
             bind_target=bind_target,

@@ -1,6 +1,6 @@
 # formspec (Python)
 
-`src/formspec/` — Python reference implementation and tooling backend. Implements the FEL parse/evaluate/dependency-extract pipeline, multi-pass static linter, bidirectional format adapters (JSON/XML/CSV), Mapping DSL engine, changelog generation, and extension registry client.
+`src/formspec/` — Python tooling backend. Uses the Rust/PyO3 runtime for FEL parsing, evaluation, and dependency extraction, plus Python-side lint orchestration, adapters, mapping helpers, changelog generation, and registry access.
 
 **Entry point:** `src/formspec/` (namespace package; import from subpackages directly)
 **No re-exports from `__init__.py`** — use `from formspec.fel import ...`, `from formspec.validator import ...`, etc.
@@ -9,47 +9,42 @@
 
 ## FEL — `src/formspec/fel/`
 
-Parse-evaluate pipeline for FEL (Formspec Expression Language).
+Rust-backed FEL runtime contract for Python. The legacy pure-Python parser/evaluator stack has been removed.
 
 ### Quick Start
 
 ```python
-from formspec.fel import evaluate, parse, extract_dependencies
+from formspec.fel import evaluate, parse, extract_dependencies, to_python
 
-# Parse and evaluate
+parsed = parse("$price * $quantity")  # syntax validation + opaque handle
+
 result = evaluate("$price * $quantity", {"price": 10, "quantity": 3})
-print(result.value)       # FelNumber(Decimal('30'))
-print(result.diagnostics) # []
+print(to_python(result.value))  # Decimal('30')
+print(result.diagnostics)       # []
 
-# Dependency extraction
 deps = extract_dependencies("sum($items[*].cost) + $base")
-print(deps.fields)        # {'items.cost', 'base'}
-print(deps.has_wildcard)  # True
+print(deps.fields)              # {'items.cost', 'base'}
+print(deps.has_wildcard)        # True
 ```
 
 ### Public API (`fel/__init__.py`)
 
 ```python
-# Top-level convenience
 evaluate(source: str, data: dict | None = None, *,
          instances: dict[str, dict] | None = None,
-         mip_states: dict[str, MipState] | None = None,
-         extensions: dict[str, FuncDef] | None = None) -> EvalResult
+         mip_states: dict[str, object] | None = None,
+         extensions: dict[str, object] | None = None,
+         variables: dict[str, FelValue] | None = None) -> EvalResult
 
-extract_dependencies(source: str) -> DependencySet  # parse + walk in one call
+extract_dependencies(source: str) -> DependencySet
+parse(source: str) -> ParsedExpression        # opaque handle; raises FelSyntaxError
 
-# Core classes
-parse(source: str) -> Expr       # Raises FelSyntaxError
-Evaluator(env: Environment, functions: dict | None = None)
-Environment(data=None, instances=None, mip_states=None)
-
-# Function registry
-build_default_registry() -> dict[str, FuncDef]
-register_extension(registry, name, impl, min_args, max_args=None) -> None
+default_fel_runtime() -> RustFelRuntime
+builtin_function_catalog() -> list[dict[str, str]]
 BUILTIN_NAMES: frozenset[str]
+RESERVED_WORDS: frozenset[str]
 
-# Type wrappers
-FelNull, FelTrue, FelFalse           # Singletons
+FelNull, FelTrue, FelFalse
 FelNumber(value: Decimal)
 FelString(value: str)
 FelBoolean(value: bool)
@@ -57,176 +52,46 @@ FelDate(value: date | datetime)
 FelArray(elements: tuple)
 FelMoney(amount: Decimal, currency: str)
 FelObject(fields: dict)
-FelValue                              # Union type alias
+FelValue
 
 fel_bool(v) -> FelBoolean
-from_python(val) -> FelValue          # Auto-detects {amount, currency} dicts as money
-to_python(val: FelValue)              # → JSON-serializable Python natives
+from_python(val) -> FelValue
+to_python(val: FelValue)
 typeof(val: FelValue) -> str
 is_null(val) -> bool
 
-# Errors
 FelError, FelSyntaxError, FelDefinitionError, FelEvaluationError
 Diagnostic(message: str, pos: SourcePos | None, severity: Severity)
 SourcePos(offset: int, line: int, col: int)
 Severity.ERROR, Severity.WARNING
 ```
 
+### Runtime Contract
+
+- `parse()` performs syntax validation and returns `ParsedExpression(source=...)`. Python does not receive a public AST anymore.
+- `evaluate()` and `extract_dependencies()` call the mandatory `formspec_rust` PyO3 module.
+- `builtin_function_catalog()` and `BUILTIN_NAMES` are exported from Rust metadata.
+- Dynamic Python FEL extensions are no longer supported. `register_extension(...)` remains only to reject the removed contract explicitly.
+
 ### Type System (`fel/types.py`)
 
-Every FEL value is a **frozen dataclass** — immutable and hashable. Numerics use `decimal.Decimal` with 34-digit precision and `ROUND_HALF_EVEN` (banker's rounding).
+Every FEL value remains a frozen Python dataclass wrapper. `from_python()` and `to_python()` still convert between Python-native values and the public FEL value types, including `{amount, currency}` money objects.
 
-`from_python` auto-detects: `None` → `FelNull`, `bool` → `FelBoolean`, `int`/`float`/`Decimal` → `FelNumber`, `str` → `FelString`, `list`/`tuple` → `FelArray`, `dict` with `{amount, currency}` keys → `FelMoney`, other `dict` → `FelObject`.
-
-### Parser (`fel/parser.py`)
-
-Scannerless recursive-descent parser that operates on the source string and implements the PEG grammar.
-
-```python
-parse(source: str) -> Expr  # Raises FelSyntaxError
-```
-
-**Operator precedence** (lowest → highest):
-1. `let x = ... in ...`
-2. `if ... then ... else ...`
-3. Ternary `? :`
-4. `or`
-5. `and`
-6. `=` / `!=`
-7. `<` / `>` / `<=` / `>=`
-8. `in` / `not in`
-9. `??` (null coalesce)
-10. `+` / `-` / `&` (string concatenation)
-11. `*` / `/` / `%`
-12. Unary `not` / `-`
-13. Postfix `.field` / `[n]` / `[*]`
-14. Atoms (literals, field refs, context refs, function calls, parens)
-
-`if(...)` parses as `FunctionCall('if', ...)`. `if ... then ... else` is the keyword form. A parallel no-in grammar branch disambiguates the `in` keyword from membership `in`. Lookahead distinguishes `??` from `?`.
-
-**Reserved words:** `true false null and or not in if then else let`
-
-### AST Nodes (`fel/ast_nodes.py`)
-
-Every node is a frozen dataclass with a `pos: SourcePos` field.
-
-**Path segments:** `DotSegment(name)`, `IndexSegment(index: int)` (1-based), `WildcardSegment()`
-
-**Expression nodes:**
-
-| Node | Represents |
-|---|---|
-| `NumberLiteral(value: Decimal)` | `42`, `3.14` |
-| `StringLiteral(value: str)` | `'hello'`, `"world"` |
-| `BooleanLiteral(value: bool)` | `true`, `false` |
-| `NullLiteral` | `null` |
-| `DateLiteral(value: date\|datetime)` | `@2024-01-15`, `@2024-01-15T10:30:00Z` |
-| `ArrayLiteral(elements: tuple)` | `[a, b, c]` |
-| `ObjectLiteral(entries: tuple[tuple[str, Expr], ...])` | `{key: val}` |
-| `FieldRef(segments: tuple[PathSegment, ...])` | `$field.sub[1]`; bare `$` = empty segments |
-| `ContextRef(name: str, arg: str\|None, tail: tuple[str, ...])` | `@current`, `@instance('x').a.b` |
-| `UnaryOp(op: str, operand)` | `not x`, `-x` |
-| `BinaryOp(op: str, left, right)` | `+`, `-`, `*`, `/`, `%`, `&`, `=`, `!=`, `<`, `>`, `<=`, `>=`, `??`, `and`, `or` |
-| `TernaryOp(condition, then_expr, else_expr)` | `a ? b : c` |
-| `IfThenElse(condition, then_expr, else_expr)` | `if a then b else c` |
-| `LetBinding(name: str, value, body)` | `let x = ... in ...` |
-| `FunctionCall(name: str, args: tuple)` | `sum($items)` |
-| `MembershipOp(value, container, negated: bool)` | `x in arr`, `x not in arr` |
-| `PostfixAccess(expr, segments: tuple)` | `expr.field`, `expr[n]` |
-
-### Evaluator (`fel/evaluator.py`)
-
-Tree-walking evaluator.
-
-```python
-@dataclass
-class EvalResult:
-    value: FelValue
-    diagnostics: list[Diagnostic]
-
-class Evaluator:
-    def __init__(self, env: Environment, functions: dict | None = None)
-    def evaluate(self, node) -> FelValue
-```
-
-**Key evaluation rules:**
-- **Null propagation:** Most operators return `FelNull` when either operand is null. Exceptions: equality (`null = null` → true, `null = x` → false), `??` (null coalesce), `and`/`or` (short-circuit).
-- **Element-wise array operations:** Binary operators broadcast scalars across arrays; two equal-length arrays apply element-wise.
-- **Decimal arithmetic:** 34-digit precision. Division by zero → `FelNull` + diagnostic (non-fatal).
-- **1-based array indexing** in `[n]` access.
-- **Wildcard access** (`[*]`) maps remaining path across all array elements.
-- **Non-fatal diagnostics:** The evaluator records errors as `Diagnostic` objects and continues.
-- **Let-binding scoping:** Push/pop scope stack on `Environment`.
-
-### Environment (`fel/environment.py`)
-
-```python
-@dataclass
-class RepeatContext:
-    current: FelValue   # Current row object
-    index: int          # 1-based
-    count: int
-    parent: FelValue
-    collection: list    # All rows
-
-@dataclass
-class MipState:
-    valid: bool = True
-    relevant: bool = True
-    readonly: bool = False
-    required: bool = False
-
-class Environment:
-    def __init__(self, data=None, instances=None, mip_states=None)
-    def push_scope(self, bindings: dict[str, FelValue]) -> None
-    def pop_scope(self) -> None
-    def lookup_let_binding(self, name: str) -> FelValue | None
-    def resolve_field(self, path: list[str]) -> FelValue
-    def resolve_context(self, name: str, arg: str | None, tail: list[str]) -> FelValue
-```
-
-**Field resolution for `$field`:** let-bindings (innermost first) → instance data.
-**Bare `$` resolution:** scope stack → `repeat_context.current` → entire data dict.
-**Context refs:** `@current`, `@index`, `@count`, `@instance('name')`, `@source`, `@target`.
-
-### Standard Library Functions (`fel/functions.py`)
-
-50+ functions. `FuncDef(name, impl, min_args, max_args, propagate_null=True, special_form=False)`.
-
-Special forms receive the evaluator and AST nodes rather than pre-evaluated values. Used by `if()`, `countWhere()`, MIP functions, and repeat navigation.
-
-| Category | Functions |
-|---|---|
-| **Aggregates** | `sum(arr)`, `count(arr)`, `avg(arr)`, `min(arr)`, `max(arr)`, `countWhere(arr, predicate)` [special form — rebinds `$` per element] |
-| **String** | `length`, `contains`, `startsWith`, `endsWith`, `substring(s,start,len?)`, `replace`, `upper`, `lower`, `trim`, `matches(s,regex)`, `format(template,...args)` |
-| **Numeric** | `round(n,precision?)`, `floor`, `ceil`, `abs`, `power(base,exp)` |
-| **Date** | `today()`, `now()`, `year`, `month`, `day`, `hours`, `minutes`, `seconds`, `time(h,m,s)`, `timeDiff(t1,t2)`, `dateDiff(d1,d2,unit)`, `dateAdd(d,n,unit)` |
-| **Logical** | `if(cond,then,else)` [special form], `coalesce(...args)`, `empty(val)`, `present(val)`, `selected(arr,val)` |
-| **Type-check** | `isNumber`, `isString`, `isDate`, `isNull`, `typeOf` |
-| **Cast** | `number`, `string`, `boolean`, `date` |
-| **Money** | `money(amount,currency)`, `moneyAmount`, `moneyCurrency`, `moneyAdd`, `moneySum` |
-| **MIP-state** | `valid($field)`, `relevant($field)`, `readonly($field)`, `required($field)` [special forms — look up MipState] |
-| **Repeat nav** | `prev()`, `next()`, `parent()` [special forms — operate on RepeatContext] |
-
-`register_extension(registry, name, impl, min_args, max_args)` — validates the name against pattern `x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*` and rejects collisions with builtins. Extensions are always null-propagating and cannot be special forms.
-
-### Dependency Extraction (`fel/dependencies.py`)
+### Dependency Extraction
 
 ```python
 @dataclass
 class DependencySet:
-    fields: set[str]           # e.g. {'firstName', 'address.city'}
-    instance_refs: set[str]    # e.g. {'priorYear'}
-    context_refs: set[str]     # e.g. {'@current', '@index'}
-    mip_deps: set[str]         # e.g. {'ein'} from valid($ein)
-    has_self_ref: bool          # bare $
-    has_wildcard: bool          # $repeat[*].field
-    uses_prev_next: bool        # prev() or next()
-
-def extract_dependencies(node) -> DependencySet
+    fields: set[str]
+    instance_refs: set[str]
+    context_refs: set[str]
+    mip_deps: set[str]
+    has_self_ref: bool
+    has_wildcard: bool
+    uses_prev_next: bool
 ```
 
-Skips let-bound variables (tracked in `let_vars: set[str]`). `countWhere` skips bare `$` in the predicate (element-bound).
+`extract_dependencies()` returns the Rust-generated static dependency set used by the validator and evaluator.
 
 ---
 
