@@ -1,0 +1,407 @@
+"""Thin wrappers over formspec_rust (PyO3) — the only Rust bridge in the package."""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from decimal import Decimal
+
+import msgspec
+import formspec_rust
+
+from .fel.errors import Diagnostic, FelSyntaxError, Severity
+from .fel.types import (
+    FelArray,
+    FelBoolean,
+    FelDate,
+    FelFalse,
+    FelMoney,
+    FelNull,
+    FelNumber,
+    FelObject,
+    FelString,
+    FelTrue,
+    FelValue,
+    fel_decimal,
+    from_python,
+    is_null,
+    to_python,
+)
+
+
+# ── Result types ─────────────────────────────────────────────────
+
+
+class ProcessingResult(msgspec.Struct, frozen=True):
+    """Output of evaluate_definition()."""
+    valid: bool
+    results: list[dict]
+    data: dict
+    variables: dict
+    non_relevant: list[str]
+
+
+class MappingDiagnostic(msgspec.Struct, frozen=True):
+    rule_index: int
+    source_path: str | None
+    target_path: str
+    message: str
+
+
+class MappingResult(msgspec.Struct, frozen=True):
+    direction: str
+    output: dict
+    rules_applied: int
+    diagnostics: list[MappingDiagnostic]
+
+
+class LintDiagnostic(msgspec.Struct, frozen=True):
+    code: str
+    severity: str
+    path: str
+    message: str
+
+
+class RegistryInfo(msgspec.Struct, frozen=True):
+    publisher: dict
+    published: str
+    entry_count: int
+    validation_issues: list[str]
+
+
+class ParsedExpression(msgspec.Struct, frozen=True):
+    """Opaque syntax-validated handle — source only, no AST exposed."""
+    source: str
+
+
+class EvalResult(msgspec.Struct, frozen=True):
+    # Note: EvalResult is constructed manually, NOT via msgspec.convert(),
+    # because FelValue is a custom union type that msgspec cannot auto-hydrate.
+    value: FelValue
+    diagnostics: list[Diagnostic]
+
+
+class DependencySet(msgspec.Struct, frozen=True):
+    fields: set[str]
+    instance_refs: set[str]
+    context_refs: set[str]
+    mip_deps: set[str]
+    has_self_ref: bool
+    has_wildcard: bool
+    uses_prev_next: bool
+
+
+# ── Private helpers ──────────────────────────────────────────────
+
+
+def _severity_from_str(raw: str | None) -> Severity:
+    if raw == "warning":
+        return Severity.WARNING
+    if raw == "info":
+        return Severity.WARNING
+    return Severity.ERROR
+
+
+def _deserialize_value(value: object) -> FelValue:
+    """Convert Rust's tagged return value to a FEL type."""
+    if isinstance(value, dict) and "__fel_type__" in value:
+        tagged_type = value["__fel_type__"]
+        if tagged_type == "number":
+            return FelNumber(fel_decimal(value.get("value")))
+        if tagged_type in {"date", "datetime"}:
+            return from_python(_parse_iso_date_like(value.get("value")))
+        if tagged_type == "money":
+            return from_python(
+                {"amount": value.get("amount"), "currency": value.get("currency")}
+            )
+    if isinstance(value, list):
+        return from_python([to_python(_deserialize_value(item)) for item in value])
+    if isinstance(value, dict):
+        return from_python(
+            {key: to_python(_deserialize_value(item)) for key, item in value.items()}
+        )
+    return from_python(value)
+
+
+def _parse_iso_date_like(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    if "T" in value:
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return value
+    try:
+        return datetime.fromisoformat(value).date()
+    except ValueError:
+        return value
+
+
+def _normalize_context_ref(ref: str) -> str:
+    bare = ref.lstrip("@")
+    if "." in bare:
+        return bare.split(".", 1)[0]
+    return bare
+
+
+def _normalize_diagnostic_message(message: str) -> str:
+    if message.startswith("undefined function: "):
+        return "Undefined function: " + message.split(": ", 1)[1]
+    return message
+
+
+def _serialize_value(value: object) -> object:
+    """Convert FEL type to Python-native for Rust consumption."""
+    if is_null(value) or isinstance(
+        value,
+        (FelNumber, FelString, FelBoolean, FelDate, FelArray, FelMoney, FelObject),
+    ):
+        return to_python(value)
+    return value
+
+
+def _serialize_mip_states(
+    mip_states: dict[str, object] | None,
+) -> dict[str, dict[str, bool]] | None:
+    if not mip_states:
+        return None
+    serialized: dict[str, dict[str, bool]] = {}
+    for path, state in mip_states.items():
+        if isinstance(state, dict):
+            serialized[path] = {
+                "valid": bool(state.get("valid", True)),
+                "relevant": bool(state.get("relevant", True)),
+                "readonly": bool(state.get("readonly", False)),
+                "required": bool(state.get("required", False)),
+            }
+        else:
+            serialized[path] = {
+                "valid": bool(getattr(state, "valid", True)),
+                "relevant": bool(getattr(state, "relevant", True)),
+                "readonly": bool(getattr(state, "readonly", False)),
+                "required": bool(getattr(state, "required", False)),
+            }
+    return serialized
+
+
+def _serialize_variables(
+    data: dict[str, object],
+    variables: dict[str, FelValue] | None,
+) -> dict[str, object] | None:
+    serialized: dict[str, object] = {}
+    if variables:
+        serialized.update(
+            {name: _serialize_value(value) for name, value in variables.items()}
+        )
+    for contextual_name in ("source", "target"):
+        if contextual_name in data and contextual_name not in serialized:
+            serialized[contextual_name] = data[contextual_name]
+    return serialized or None
+
+
+# ── FEL functions ────────────────────────────────────────────────
+
+
+def parse(source: str) -> ParsedExpression:
+    """Validate FEL syntax and return an opaque handle."""
+    valid = formspec_rust.parse_fel(source)
+    if not valid:
+        raise FelSyntaxError(f"FEL parse error: {source!r}")
+    return ParsedExpression(source=source)
+
+
+def evaluate(
+    source: str,
+    data: dict | None = None,
+    *,
+    instances: dict[str, dict] | None = None,
+    mip_states: dict[str, object] | None = None,
+    extensions: dict[str, object] | None = None,
+    variables: dict[str, FelValue] | None = None,
+) -> EvalResult:
+    """Evaluate a FEL expression through the Rust runtime."""
+    if extensions:
+        raise NotImplementedError(
+            "Dynamic Python FEL extensions are no longer supported by the Rust runtime."
+        )
+
+    payload = formspec_rust.eval_fel_detailed(
+        source,
+        data or {},
+        instances or None,
+        _serialize_mip_states(mip_states),
+        _serialize_variables(data or {}, variables),
+        datetime.now().isoformat(timespec="seconds"),
+    )
+    value = _deserialize_value(payload.get("value"))
+    diagnostics = [
+        Diagnostic(
+            message=_normalize_diagnostic_message(str(raw.get("message", ""))),
+            pos=None,
+            severity=_severity_from_str(raw.get("severity")),
+        )
+        for raw in payload.get("diagnostics", [])
+        if isinstance(raw, dict)
+    ]
+    return EvalResult(value=value, diagnostics=diagnostics)
+
+
+def extract_dependencies(source: str) -> DependencySet:
+    """Extract static dependencies from a FEL expression."""
+    raw = formspec_rust.extract_deps(source)
+    return DependencySet(
+        fields={field.replace("[*]", "") for field in raw.get("fields", [])},
+        instance_refs=set(raw.get("instance_refs", [])),
+        context_refs={_normalize_context_ref(r) for r in raw.get("context_refs", [])},
+        mip_deps=set(raw.get("mip_deps", [])),
+        has_self_ref=bool(raw.get("has_self_ref", False)),
+        has_wildcard=bool(raw.get("has_wildcard", False)),
+        uses_prev_next=bool(raw.get("uses_prev_next", False)),
+    )
+
+
+def builtin_function_catalog() -> list[dict[str, str]]:
+    """Return Rust-exported builtin function metadata."""
+    return list(formspec_rust.list_builtin_functions())
+
+
+BUILTIN_NAMES: frozenset[str] = frozenset(
+    entry["name"] for entry in builtin_function_catalog()
+)
+
+
+# ── Linting ──────────────────────────────────────────────────────
+
+
+def detect_document_type(document: dict) -> str | None:
+    """Detect document type from a Formspec document dict."""
+    return formspec_rust.detect_type(document)
+
+
+def lint(
+    document: dict,
+    *,
+    schema_only: bool = False,
+    no_fel: bool = False,
+    component_definition: dict | None = None,
+    registry_documents: list[dict] | None = None,
+) -> list[LintDiagnostic]:
+    """Run the Rust linter on a Formspec document.
+
+    Note: schema_only, no_fel, component_definition, and registry_documents are
+    accepted for API compatibility but currently ignored — the Rust lint_document
+    function does not yet accept these parameters.
+    """
+    raw = formspec_rust.lint_document(document)
+    diagnostics = raw.get("diagnostics", [])
+    return [
+        LintDiagnostic(
+            code=d.get("code", ""),
+            severity=d.get("severity", "error"),
+            path=d.get("path", ""),
+            message=d.get("message", ""),
+        )
+        for d in diagnostics
+    ]
+
+
+# ── Evaluation ───────────────────────────────────────────────────
+
+
+def evaluate_definition(definition: dict, data: dict) -> ProcessingResult:
+    """Evaluate a definition against data using the Rust batch evaluator."""
+    raw = formspec_rust.evaluate_def(definition, data)
+    validations = raw.get("validations", [])
+    is_valid = not any(v.get("severity") == "error" for v in validations)
+    return ProcessingResult(
+        valid=is_valid,
+        results=validations,
+        data=raw.get("values", {}),
+        variables=raw.get("variables", {}),
+        non_relevant=raw.get("non_relevant", []),
+    )
+
+
+# ── Mapping ──────────────────────────────────────────────────────
+
+
+def execute_mapping(
+    mapping_doc: dict,
+    source: dict,
+    direction: str = "forward",
+) -> MappingResult:
+    """Execute a mapping document against source data."""
+    raw = formspec_rust.execute_mapping_doc(mapping_doc, source, direction)
+    diags = [
+        MappingDiagnostic(
+            rule_index=d.get("rule_index", 0),
+            source_path=d.get("source_path"),
+            target_path=d.get("target_path", ""),
+            message=d.get("message", ""),
+        )
+        for d in raw.get("diagnostics", [])
+    ]
+    return MappingResult(
+        direction=raw.get("direction", direction),
+        output=raw.get("output", {}),
+        rules_applied=raw.get("rules_applied", 0),
+        diagnostics=diags,
+    )
+
+
+# ── Registry ─────────────────────────────────────────────────────
+
+
+def parse_registry(registry: dict) -> RegistryInfo:
+    """Parse a registry document and return summary info."""
+    raw = formspec_rust.parse_registry(registry)
+    return RegistryInfo(
+        publisher=raw.get("publisher", {}),
+        published=raw.get("published", ""),
+        entry_count=raw.get("entry_count", 0),
+        validation_issues=raw.get("validation_issues", []),
+    )
+
+
+def find_registry_entry(
+    registry: dict,
+    name: str,
+    version: str | None = None,
+) -> dict | None:
+    """Find a registry entry by name and optional version constraint."""
+    return formspec_rust.find_registry_entry(registry, name, version or "")
+
+
+def validate_lifecycle_transition(from_status: str, to_status: str) -> bool:
+    """Check if a lifecycle status transition is valid."""
+    return formspec_rust.validate_lifecycle(from_status, to_status)
+
+
+def well_known_registry_url(base_url: str) -> str:
+    """Return the well-known URL for a registry base URL."""
+    return formspec_rust.well_known_url(base_url)
+
+
+# ── Changelog ────────────────────────────────────────────────────
+
+
+def generate_changelog(
+    old_def: dict,
+    new_def: dict,
+    definition_url: str = "",
+) -> dict:
+    """Generate a changelog between two definition versions."""
+    return formspec_rust.generate_changelog(old_def, new_def, definition_url)
+
+
+# ── Path utility (inlined from deleted validator.references) ─────
+
+
+def canonical_item_path(path: str) -> str:
+    """Normalize bind/target path ($.foo, /foo, foo.bar) to dot-separated key form."""
+    trimmed = path.strip()
+    if trimmed.startswith("$."):
+        trimmed = trimmed[2:]
+    if trimmed.startswith("/"):
+        trimmed = trimmed[1:]
+    trimmed = trimmed.replace("/", ".")
+    return ".".join(segment for segment in trimmed.split(".") if segment)
