@@ -93,6 +93,8 @@ A Reference is a JSON object that points to an external (or inline) source of co
 | `description` | string | OPTIONAL | Longer explanation of what this reference contains and when to consult it. |
 | `tags` | array of string | OPTIONAL | Categorization tags for filtering and discovery (e.g., `["regulation", "2-cfr-200"]`, `["rag", "embeddings"]`). |
 | `priority` | string | OPTIONAL | `"primary"`, `"supplementary"`, or `"background"`. Indicates how prominently the reference should be surfaced. When absent, processors MUST treat the reference as `"supplementary"` (this is a processing-model default, not a schema `default`). |
+| `rel` | string | OPTIONAL | Relationship of this reference to the attachment point. See §2.5 for defined values. When absent, the relationship is `"see-also"`. |
+| `selector` | string | OPTIONAL | Advisory hint identifying the relevant portion of the referenced resource when URI fragments are insufficient. See §3.6. |
 | `extensions` | object | OPTIONAL | Extension data. All keys MUST be prefixed with `x-`. |
 
 ### 2.2 Reference Types
@@ -141,6 +143,67 @@ Custom types MUST be prefixed with `x-` (e.g., `"x-org-training-video"`).
 - An empty `references` array (`"references": []`) is valid and semantically equivalent to omitting the property.
 - Multiple references MAY share the same `uri` value (e.g., the same document serving as both a human `"regulation"` and an agent `"context"` reference with different `audience` values).
 - Reference property values are **static**. FEL expressions MUST NOT appear in any reference property (`uri`, `content`, `title`, etc.). Dynamic reference resolution, if needed, MUST be handled by the host environment or via `formspec-fn:` URIs (§3.4).
+
+### 2.4 Array Ordering
+
+References within a `references` array are **ordered**. The first reference in the array is the most relevant to the attachment point; subsequent references are progressively less central. Processors that present references to humans or agents SHOULD preserve this authoring order.
+
+When `priority` is present, it takes precedence over positional order for grouping purposes — all `"primary"` references are surfaced before `"supplementary"`, regardless of array position. Within a priority tier, array order determines presentation sequence.
+
+> **Rationale:** Leaving order undefined would force divergent implementations — some treating order as significant, others not — with no way to reconcile them later. Defining it now costs nothing and prevents a class of interoperability bugs.
+
+### 2.5 Reference Relationships
+
+A Reference MAY declare a `rel` property that describes its relationship to the attachment point (the field, group, or form it is attached to). This enables consumers to understand not just *what* a reference points to, but *how* it relates to the thing being filled out.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `rel` | string | OPTIONAL | Relationship type. See table below. |
+
+**Defined relationship types:**
+
+| `rel` value | Meaning |
+|-------------|---------|
+| `"authorizes"` | The referenced document authorizes or permits the action described by the attachment point (e.g., a regulation authorizing a particular cost category). |
+| `"constrains"` | The referenced document imposes constraints or limits on valid values (e.g., a rate ceiling, an enumeration of permitted codes). |
+| `"defines"` | The referenced document defines the term or concept represented by the attachment point (e.g., a glossary entry). |
+| `"exemplifies"` | The referenced document provides an example or template for the attachment point. |
+| `"supersedes"` | The referenced document replaces a prior version. Use with a second reference (with `rel: "superseded-by"` or without `rel`) pointing to the prior version. |
+| `"derived-from"` | The attachment point's value or structure is derived from the referenced source (e.g., a pre-populated field drawn from an external record). |
+| `"see-also"` | General association — the reference provides related but non-essential context. This is the implicit relationship when `rel` is absent. |
+
+Custom relationship types MUST be prefixed with `x-` (e.g., `"x-org-audit-trail"`).
+
+When `rel` is absent, processors MUST treat the relationship as `"see-also"`.
+
+> **Design note:** Relationship types are modeled after [IANA Link Relations](https://www.iana.org/assignments/link-relations/) and HTML's `rel` attribute. The set is intentionally small and focused on the reference–attachment-point relationship, not reference-to-reference relationships. References do not link to each other; if two references are related, that relationship is expressed in the documents they point to, not in the Formspec definition.
+
+**Example:**
+
+```json
+{
+  "key": "indirectCostRate",
+  "type": "field",
+  "label": "Indirect Cost Rate",
+  "dataType": "decimal",
+  "references": [
+    {
+      "type": "regulation",
+      "audience": "both",
+      "rel": "constrains",
+      "title": "2 CFR §200.414 — Indirect (F&A) Costs",
+      "uri": "https://www.ecfr.gov/current/title-2/section-200.414"
+    },
+    {
+      "type": "context",
+      "audience": "agent",
+      "rel": "defines",
+      "title": "Indirect cost rate guidance",
+      "content": "The indirect cost rate is a percentage negotiated between the grantee organization and its cognizant federal agency..."
+    }
+  ]
+}
+```
 
 ## 3. URI Schemes for Agent Data Stores
 
@@ -221,6 +284,44 @@ urn:x-{org}:{type}:{id}
 ```
 
 Example: `urn:x-acme:vectordb:collection-42`
+
+### 3.6 Fragment Targeting
+
+Reference URIs MAY include a **fragment** (the portion after `#` per [RFC 3986 §3.5](https://www.rfc-editor.org/rfc/rfc3986#section-3.5)) to identify a specific part of the referenced resource. Fragment semantics are defined by the media type of the target resource:
+
+- **HTML**: Fragment identifies an element by `id` (e.g., `https://ecfr.gov/title-2/section-200.414#p-200.414(f)`).
+- **PDF**: Fragment follows the open parameters convention (e.g., `guide.pdf#page=12`).
+- **JSON**: Fragment uses JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901)) (e.g., `schema.json#/definitions/CostCategory`).
+- **Plain text / Markdown**: No standard fragment semantics. Use `selector` (below) instead.
+
+For URI schemes that do not support fragments natively (e.g., `vectorstore:`, `kb:`), or when the target media type lacks fragment semantics, a Reference MAY include a `selector` property:
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `selector` | string | OPTIONAL | A human- and agent-readable hint identifying the relevant portion of the referenced resource. Not a formal addressing mechanism — it is advisory context that helps consumers locate the relevant content. |
+
+`selector` is intentionally unstructured. Examples:
+
+- `"Section 200.414(f) — De minimis rate"` — points to a regulation subsection
+- `"Chapter 3: Budget Justification"` — points to a document chapter
+- `"rows where category = 'indirect'"` — hints at relevant data within a dataset
+
+When both a URI fragment and `selector` are present, the URI fragment is the machine-actionable locator and `selector` provides supplementary human-readable context.
+
+> **Rationale:** Without fragment or selector support, authors are forced to duplicate relevant excerpts into `content`, creating a second copy that drifts from the source. Fragments are already part of the URI spec — this section simply blesses their use and fills the gap for schemes that lack them.
+
+**Example:**
+
+```json
+{
+  "type": "regulation",
+  "audience": "both",
+  "rel": "constrains",
+  "title": "De minimis indirect cost rate",
+  "uri": "https://www.ecfr.gov/current/title-2/section-200.414#p-200.414(f)",
+  "selector": "Section 200.414(f) — De minimis rate of 10%"
+}
+```
 
 ## 4. Attachment Points
 
@@ -325,6 +426,85 @@ Authors who need pinned references SHOULD:
 - Use `content` for inline snapshots that are immutable with the definition version.
 - Include version information in URIs where the external system supports it (e.g., `https://www.ecfr.gov/current/title-2/section-200.414?version=2025-01-01`).
 - Use `description` to note the expected version or date of the referenced content.
+
+### 4.6 Reuse via `referenceDefs`
+
+Definitions MAY declare a top-level `referenceDefs` object that serves as a registry of reusable Reference objects. Items then refer to these shared definitions instead of duplicating them inline, eliminating copy-paste sprawl and the drift that comes with it.
+
+#### 4.6.1 Declaring Shared References
+
+`referenceDefs` is an object whose keys are reference identifiers (matching `[a-zA-Z][a-zA-Z0-9_-]*`) and whose values are Reference objects. The key becomes the reference's `id` — if the Reference object also declares an `id`, it MUST match the key.
+
+```json
+{
+  "$formspec": "1.0",
+  "url": "https://example.gov/forms/sf-425",
+  "version": "2025.1.0",
+  "status": "active",
+  "title": "Federal Financial Report (SF-425)",
+  "referenceDefs": {
+    "cfr-200-414": {
+      "type": "regulation",
+      "audience": "both",
+      "rel": "constrains",
+      "title": "2 CFR §200.414 — Indirect (F&A) Costs",
+      "uri": "https://www.ecfr.gov/current/title-2/section-200.414",
+      "priority": "primary"
+    },
+    "grant-kb": {
+      "type": "vector-store",
+      "audience": "agent",
+      "title": "Federal grants guidance knowledge base",
+      "uri": "vectorstore:pinecone/federal-grants-v3",
+      "tags": ["rag", "grants", "2-cfr-200"]
+    }
+  },
+  "items": []
+}
+```
+
+#### 4.6.2 Referencing Shared Definitions
+
+Within any `references` array, an entry MAY use `{ "$ref": "#/referenceDefs/{key}" }` instead of a full Reference object. The `$ref` value MUST be a JSON Pointer ([RFC 6901]) relative to the definition root, pointing to a key in `referenceDefs`.
+
+```json
+{
+  "key": "indirectCostRate",
+  "type": "field",
+  "label": "Indirect Cost Rate",
+  "dataType": "decimal",
+  "references": [
+    { "$ref": "#/referenceDefs/cfr-200-414" },
+    { "$ref": "#/referenceDefs/grant-kb" },
+    {
+      "type": "context",
+      "audience": "agent",
+      "title": "Indirect cost rate field guidance",
+      "content": "The indirect cost rate is a percentage negotiated between..."
+    }
+  ]
+}
+```
+
+A `$ref` entry MAY include additional properties alongside `$ref`. These properties **override** the corresponding properties from the referenced definition (shallow merge — top-level keys only). This allows site-specific customization without duplicating the entire reference:
+
+```json
+{
+  "$ref": "#/referenceDefs/cfr-200-414",
+  "selector": "Section 200.414(f) — De minimis rate of 10%",
+  "priority": "primary"
+}
+```
+
+#### 4.6.3 Resolution Rules
+
+1. `$ref` resolution is performed at **load time**, before any processing. After resolution, the definition behaves as if all references were declared inline.
+2. A `$ref` pointing to a nonexistent key in `referenceDefs` is a definition error. Processors MUST report it and MUST NOT silently ignore the broken reference.
+3. `$ref` values MUST NOT be recursive — a `referenceDefs` entry MUST NOT itself contain a `$ref`.
+4. `referenceDefs` entries that are never referenced are inert — they impose no processing cost and MUST NOT cause warnings.
+5. After resolution, the `id` of the resolved reference is the key from `referenceDefs` (unless overridden by the referencing entry).
+
+> **Rationale:** This is the same pattern used by JSON Schema's `$defs` and Formspec's own `$ref` for modular composition (core §6.6). Without a reuse mechanism, definitions with many fields citing the same regulation will contain dozens of identical reference objects — a maintenance hazard where updating one copy but not the others creates silent inconsistency. `referenceDefs` makes the single-source-of-truth pattern expressible.
 
 ## 5. Agent Integration Patterns
 
