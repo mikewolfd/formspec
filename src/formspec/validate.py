@@ -22,16 +22,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from formspec.changelog import generate_changelog
-from formspec.evaluator import DefinitionEvaluator
-from formspec.factories import create_form_processor, create_mapping_engine
-from formspec.fel import extract_dependencies
+from formspec._rust import (
+    evaluate_definition,
+    execute_mapping,
+    generate_changelog,
+    lint,
+    detect_document_type,
+    parse_registry,
+    find_registry_entry,
+    extract_dependencies,
+    canonical_item_path,
+    LintDiagnostic,
+)
 from formspec.fel.errors import FelSyntaxError
-from formspec.mapping import MappingEngine
-from formspec.registry import Registry
-from formspec.validator import LintDiagnostic, lint
-from formspec.validator.references import canonical_item_path
-from formspec.validator.schema import SchemaValidator
 
 # ── Artifact data structures ─────────────────────────────────────────────────
 
@@ -144,7 +147,6 @@ def discover_artifacts(
     registry_paths: tuple[Path, ...] = (),
 ) -> DiscoveredArtifacts:
     """Glob *.json files, classify via schema detection, and pair by URL references."""
-    sv = SchemaValidator()
     arts = DiscoveredArtifacts()
 
     # Collect all JSON paths
@@ -162,7 +164,7 @@ def discover_artifacts(
             arts.unknown.append(path)
             continue
 
-        doc_type = sv.detect_document_type(doc)
+        doc_type = detect_document_type(doc)
         if doc_type == "definition":
             url = doc.get("url", "")
             version = doc.get("version", "")
@@ -352,18 +354,17 @@ def _pass_response_schema(arts: DiscoveredArtifacts) -> PassResult:
     if not arts.responses:
         return PassResult(title="Response fixture schema validation", empty=True)
 
-    sv = SchemaValidator()
     pr = PassResult(title="Response fixture schema validation")
     for resp in arts.responses:
-        result = sv.validate(resp.doc)
-        errors = [d for d in result.diagnostics if d.severity == "error"]
-        warnings = [d for d in result.diagnostics if d.severity == "warning"]
+        diags = lint(resp.doc)
+        errors = [d for d in diags if d.severity == "error"]
+        warnings = [d for d in diags if d.severity == "warning"]
         pr.items.append(
             PassItemResult(
                 label=resp.path.name,
                 error_count=len(errors),
                 warning_count=len(warnings),
-                diagnostics=result.diagnostics,
+                diagnostics=diags,
             )
         )
     return pr
@@ -371,23 +372,13 @@ def _pass_response_schema(arts: DiscoveredArtifacts) -> PassResult:
 
 def _pass_runtime_evaluation(arts: DiscoveredArtifacts) -> PassResult:
     if not arts.responses or not arts.definitions:
-        return PassResult(title="Runtime evaluation (DefinitionEvaluator)", empty=True)
+        return PassResult(title="Runtime evaluation", empty=True)
 
-    registries = []
-    for reg_art in arts.registries:
-        try:
-            registries.append(Registry(reg_art.doc))
-        except Exception:
-            pass
-
-    evaluators: dict[tuple[str, str], DefinitionEvaluator] = {}
-    for identity, da in arts.definition_versions.items():
-        evaluators[identity] = create_form_processor(da.doc, registries=registries)
-
-    pr = PassResult(title="Runtime evaluation (DefinitionEvaluator)")
+    pr = PassResult(title="Runtime evaluation")
     for resp in arts.responses:
-        ev = evaluators.get((resp.definition_url, resp.definition_version))
-        if not ev:
+        identity = (resp.definition_url, resp.definition_version)
+        da = arts.definition_versions.get(identity)
+        if not da:
             message = (
                 "No definition found for pinned response "
                 f"{resp.definition_url}@{resp.definition_version}"
@@ -412,12 +403,11 @@ def _pass_runtime_evaluation(arts: DiscoveredArtifacts) -> PassResult:
             continue
 
         data = resp.doc.get("data", {})
+        result = evaluate_definition(da.doc, data)
+        errors = [r for r in result.results if r.get("severity") == "error"]
+        warnings = [r for r in result.results if r.get("severity") == "warning"]
+
         mode = "submit" if resp.status == "completed" else "continuous"
-        result = ev.process(data, mode=mode)
-
-        errors = [r for r in result.results if r["severity"] == "error"]
-        warnings = [r for r in result.results if r["severity"] == "warning"]
-
         if mode == "submit":
             pr.items.append(
                 PassItemResult(
@@ -428,7 +418,6 @@ def _pass_runtime_evaluation(arts: DiscoveredArtifacts) -> PassResult:
                 )
             )
         else:
-            # Continuous-mode errors are expected — show summary only
             summary = f"valid={result.valid}, {len(errors)} error(s), {len(warnings)} warning(s) (expected for in-progress)"
             pr.items.append(
                 PassItemResult(
@@ -447,27 +436,12 @@ def _pass_mapping_forward(arts: DiscoveredArtifacts) -> PassResult:
 
     pr = PassResult(title="Mapping engine (forward transform)")
 
-    # Index completed responses by definition URL
     completed: dict[str, list[ResponseArtifact]] = {}
     for resp in arts.responses:
         if resp.status == "completed":
             completed.setdefault(resp.definition_url, []).append(resp)
 
     for mapping in arts.mappings:
-        try:
-            engine = create_mapping_engine(mapping.doc)
-        except Exception as e:
-            pr.items.append(
-                PassItemResult(
-                    label=f"MappingEngine init ({mapping.path.name})",
-                    error_count=1,
-                    runtime_results=[
-                        {"severity": "error", "message": str(e), "path": ""}
-                    ],
-                )
-            )
-            continue
-
         matching_responses = completed.get(mapping.definition_ref, [])
         if not matching_responses:
             pr.items.append(
@@ -480,8 +454,8 @@ def _pass_mapping_forward(arts: DiscoveredArtifacts) -> PassResult:
         for resp in matching_responses:
             data = resp.doc.get("data", {})
             try:
-                result = engine.forward(data)
-                keys = len(result)
+                result = execute_mapping(mapping.doc, data, "forward")
+                keys = len(result.output)
                 pr.items.append(
                     PassItemResult(
                         label=f"forward({resp.path.name}) via {mapping.path.name}",
@@ -511,7 +485,6 @@ def _pass_changelog_generation(arts: DiscoveredArtifacts) -> PassResult:
     if not arts.changelog_pairs:
         return PassResult(title="Changelog generation", empty=True)
 
-    sv = SchemaValidator()
     pr = PassResult(title="Changelog generation")
 
     for parent, child in arts.changelog_pairs:
@@ -531,30 +504,30 @@ def _pass_changelog_generation(arts: DiscoveredArtifacts) -> PassResult:
             continue
 
         changes = changelog.get("changes", [])
-        impact = changelog.get("semverImpact", "unknown")
+        impact = changelog.get("semver_impact", "unknown")
         pr.items.append(
             PassItemResult(
                 label=f"generate_changelog({pair_label})",
                 runtime_results=[
                     {
                         "severity": "info",
-                        "message": f"{len(changes)} change(s), semverImpact={impact}",
+                        "message": f"{len(changes)} change(s), semver_impact={impact}",
                         "path": "",
                     }
                 ],
             )
         )
 
-        # Validate the generated changelog against schema
-        result = sv.validate(changelog)
-        errors = [d for d in result.diagnostics if d.severity == "error"]
-        warnings = [d for d in result.diagnostics if d.severity == "warning"]
+        # Validate the generated changelog against schema via lint
+        diags = lint(changelog)
+        errors = [d for d in diags if d.severity == "error"]
+        warnings = [d for d in diags if d.severity == "warning"]
         pr.items.append(
             PassItemResult(
                 label="generated changelog schema",
                 error_count=len(errors),
                 warning_count=len(warnings),
-                diagnostics=result.diagnostics,
+                diagnostics=diags,
             )
         )
     return pr
@@ -591,11 +564,11 @@ def _pass_registry(arts: DiscoveredArtifacts) -> PassResult:
 
     for reg_file in arts.registries:
         try:
-            registry = Registry(reg_file.doc)
+            info = parse_registry(reg_file.doc)
         except Exception as e:
             pr.items.append(
                 PassItemResult(
-                    label=f"Registry init ({reg_file.path.name})",
+                    label=f"Registry parse ({reg_file.path.name})",
                     error_count=1,
                     runtime_results=[
                         {"severity": "error", "message": str(e), "path": ""}
@@ -604,15 +577,14 @@ def _pass_registry(arts: DiscoveredArtifacts) -> PassResult:
             )
             continue
 
-        issues = registry.validate()
-        if issues:
+        if info.validation_issues:
             pr.items.append(
                 PassItemResult(
                     label=f"registry.validate() ({reg_file.path.name})",
-                    error_count=len(issues),
+                    error_count=len(info.validation_issues),
                     runtime_results=[
                         {"severity": "error", "message": issue, "path": ""}
-                        for issue in issues
+                        for issue in info.validation_issues
                     ],
                 )
             )
@@ -630,7 +602,6 @@ def _pass_registry(arts: DiscoveredArtifacts) -> PassResult:
                 )
             )
 
-    # Resolve extensions referenced in definitions
     for da in all_defs.values():
         ext_names: set[str] = set()
         for item in _walk_items(da.doc.get("items", [])):
@@ -640,30 +611,27 @@ def _pass_registry(arts: DiscoveredArtifacts) -> PassResult:
         if not ext_names:
             continue
 
-        # Try to resolve against all loaded registries
         for ext_name in sorted(ext_names):
             found = False
             for reg_file in arts.registries:
-                try:
-                    reg = Registry(reg_file.doc)
-                    entry = reg.find_one(ext_name)
-                    if entry:
-                        pr.items.append(
-                            PassItemResult(
-                                label=f"{da.path.name}: {ext_name}",
-                                runtime_results=[
-                                    {
-                                        "severity": "info",
-                                        "message": f"v{entry.version} ({entry.status})",
-                                        "path": "",
-                                    }
-                                ],
-                            )
+                entry = find_registry_entry(reg_file.doc, ext_name)
+                if entry:
+                    version = entry.get("version", "?")
+                    status = entry.get("status", "?")
+                    pr.items.append(
+                        PassItemResult(
+                            label=f"{da.path.name}: {ext_name}",
+                            runtime_results=[
+                                {
+                                    "severity": "info",
+                                    "message": f"v{version} ({status})",
+                                    "path": "",
+                                }
+                            ],
                         )
-                        found = True
-                        break
-                except Exception:
-                    pass
+                    )
+                    found = True
+                    break
             if not found:
                 pr.items.append(
                     PassItemResult(
