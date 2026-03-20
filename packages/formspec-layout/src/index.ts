@@ -12,6 +12,7 @@
 export {
     resolvePresentation,
     resolveWidget,
+    setTailwindMerge,
 } from './theme-resolver.js';
 export type {
     ThemeDocument,

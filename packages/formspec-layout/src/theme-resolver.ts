@@ -44,6 +44,15 @@ export interface PresentationBlock {
     accessibility?: AccessibilityBlock;
     fallback?: string[];
     cssClass?: string | string[];
+    /**
+     * CSS classes that **replace** rather than union with lower cascade levels.
+     * Use when a higher-priority level needs to override utility classes from
+     * a lower level (e.g. replacing `p-4` with `p-8` in Tailwind).
+     *
+     * During cascade merging, `cssClassReplace` entries are collected, and
+     * after the final union any exact matches from lower levels are removed.
+     */
+    cssClassReplace?: string | string[];
 }
 
 /** Criteria for a theme selector rule: matches items by type, dataType, or both. */
@@ -92,6 +101,13 @@ export interface ThemeDocument {
     breakpoints?: Record<string, number>;
     stylesheets?: string[];
     extensions?: Record<string, unknown>;
+    /**
+     * CSS class merge strategy applied after cascade resolution.
+     * - `"union"` (default): plain Set-based deduplication.
+     * - `"tailwind-merge"`: conflict-aware merge that keeps only the last
+     *   utility per Tailwind prefix (requires `tailwind-merge` at runtime).
+     */
+    classStrategy?: 'union' | 'tailwind-merge';
 }
 
 /** Lightweight identifier for a definition item, used as the input to the theme cascade resolver. */
@@ -143,6 +159,57 @@ function normalizeCssClass(val: string | string[] | undefined): string[] {
     return val.split(/\s+/).filter(Boolean);
 }
 
+/**
+ * Extract the utility-class prefix from a CSS class name.
+ * Recognizes patterns like `p-4` → `p-`, `text-lg` → `text-`, `bg-red-500` → `bg-`.
+ * Returns null for classes without a recognizable prefix (e.g. `formspec-field`).
+ */
+function extractUtilityPrefix(cls: string): string | null {
+    // Match common utility patterns: prefix + dash + value
+    // E.g. p-4, mx-auto, text-lg, bg-red-500, rounded-md
+    const match = cls.match(/^(-?[a-z]+)-/);
+    return match ? match[1] + '-' : null;
+}
+
+/**
+ * Optional tailwind-merge function injected at runtime.
+ * Consumers call `setTailwindMerge(twMerge)` to enable the `"tailwind-merge"` classStrategy.
+ */
+let twMergeFn: ((classes: string) => string) | null = null;
+
+/**
+ * Inject the `twMerge` function from the `tailwind-merge` package.
+ * Call this once at startup to enable `classStrategy: "tailwind-merge"`:
+ *
+ * ```ts
+ * import { twMerge } from 'tailwind-merge';
+ * import { setTailwindMerge } from 'formspec-layout';
+ * setTailwindMerge(twMerge);
+ * ```
+ */
+export function setTailwindMerge(fn: (classes: string) => string): void {
+    twMergeFn = fn;
+}
+
+/**
+ * Apply the configured class merge strategy to a resolved class list.
+ */
+function applyClassStrategy(classes: string[], strategy: 'union' | 'tailwind-merge'): string[] {
+    if (strategy === 'tailwind-merge') {
+        if (!twMergeFn) {
+            console.warn(
+                'classStrategy "tailwind-merge" requires calling setTailwindMerge(twMerge) at startup. ' +
+                'Falling back to union strategy.',
+            );
+            return classes;
+        }
+        // twMerge resolves Tailwind conflicts: "p-4 p-8" → "p-8"
+        const merged = twMergeFn(classes.join(' '));
+        return merged.split(/\s+/).filter(Boolean);
+    }
+    return classes;
+}
+
 function asRecord(val: unknown): Record<string, unknown> | null {
     if (!val || typeof val !== 'object' || Array.isArray(val)) return null;
     return val as Record<string, unknown>;
@@ -151,6 +218,7 @@ function asRecord(val: unknown): Record<string, unknown> | null {
 /**
  * Merge two PresentationBlocks. `higher` overrides `lower` for scalar
  * properties (shallow merge). `cssClass` is unioned, not replaced.
+ * `cssClassReplace` removes matching lower-level classes before unioning.
  * `style`, `widgetConfig`, and `accessibility` are shallow-merged.
  */
 function mergeBlocks(lower: PresentationBlock, higher: PresentationBlock): PresentationBlock {
@@ -159,6 +227,31 @@ function mergeBlocks(lower: PresentationBlock, higher: PresentationBlock): Prese
     if (higher.widget !== undefined) merged.widget = higher.widget;
     if (higher.labelPosition !== undefined) merged.labelPosition = higher.labelPosition;
     if (higher.fallback !== undefined) merged.fallback = higher.fallback;
+
+    // cssClassReplace: higher level explicitly replaces matching lower classes
+    const replaceClasses = normalizeCssClass(higher.cssClassReplace);
+    if (replaceClasses.length > 0) {
+        const lowerClasses = normalizeCssClass(merged.cssClass);
+        const replaceSet = new Set(replaceClasses);
+        const replacePrefixes = replaceClasses.map(extractUtilityPrefix).filter(Boolean) as string[];
+
+        // Remove lower classes that conflict with replacement classes
+        const filtered = lowerClasses.filter(cls => {
+            if (replaceSet.has(cls)) return false;
+            // Remove lower classes with the same utility prefix as a replacement
+            const prefix = extractUtilityPrefix(cls);
+            if (prefix && replacePrefixes.includes(prefix)) return false;
+            return true;
+        });
+
+        // Accumulate replacements into the cssClass union
+        const union = new Set([...filtered, ...replaceClasses]);
+        merged.cssClass = [...union];
+
+        // Track accumulated replacements so later levels can see them
+        const lowerReplace = normalizeCssClass(merged.cssClassReplace);
+        merged.cssClassReplace = [...new Set([...lowerReplace, ...replaceClasses])];
+    }
 
     // cssClass: union across cascade levels
     const lowerClasses = normalizeCssClass(merged.cssClass);
@@ -270,6 +363,14 @@ export function resolvePresentation(
     if (theme.items?.[item.key]) {
         result = mergeBlocks(result, theme.items[item.key]);
     }
+
+    // Post-process: apply classStrategy if specified
+    if (theme.classStrategy === 'tailwind-merge' && result.cssClass) {
+        result = { ...result, cssClass: applyClassStrategy(normalizeCssClass(result.cssClass), theme.classStrategy) };
+    }
+
+    // Strip internal cssClassReplace from the final output
+    delete result.cssClassReplace;
 
     return result;
 }

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { resolvePresentation, resolveWidget, widgetTokenToComponent, type ThemeDocument, type ItemDescriptor } from '../src/index';
+import { describe, it, expect, vi } from 'vitest';
+import { resolvePresentation, resolveWidget, widgetTokenToComponent, setTailwindMerge, type ThemeDocument, type ItemDescriptor } from '../src/index';
 
 describe('resolvePresentation', () => {
     it('returns empty block with no theme', () => {
@@ -61,6 +61,140 @@ describe('resolvePresentation', () => {
         const result = resolvePresentation(theme, item);
         expect(result.cssClass).toContain('default-class');
         expect(result.cssClass).toContain('selector-class');
+    });
+
+    it('cssClassReplace removes conflicting lower-level classes by prefix', () => {
+        const theme: ThemeDocument = {
+            $formspecTheme: '1.0',
+            version: '1.0.0',
+            targetDefinition: { url: 'test' },
+            defaults: { cssClass: ['formspec-field', 'p-4', 'text-sm'] },
+            items: {
+                budget: { cssClassReplace: 'p-8' },
+            },
+        };
+        const item: ItemDescriptor = { key: 'budget', type: 'field' };
+        const result = resolvePresentation(theme, item);
+        const classes = result.cssClass as string[];
+        // p-4 should be replaced by p-8 (same prefix)
+        expect(classes).toContain('p-8');
+        expect(classes).not.toContain('p-4');
+        // Non-conflicting classes survive
+        expect(classes).toContain('formspec-field');
+        expect(classes).toContain('text-sm');
+    });
+
+    it('cssClassReplace removes exact matches without prefix', () => {
+        const theme: ThemeDocument = {
+            $formspecTheme: '1.0',
+            version: '1.0.0',
+            targetDefinition: { url: 'test' },
+            defaults: { cssClass: ['base-class', 'old-class'] },
+            selectors: [
+                { match: { type: 'field' as const }, apply: { cssClassReplace: 'old-class' } },
+            ],
+        };
+        const item: ItemDescriptor = { key: 'name', type: 'field' };
+        const result = resolvePresentation(theme, item);
+        const classes = result.cssClass as string[];
+        expect(classes).toContain('base-class');
+        expect(classes).toContain('old-class'); // exact match stays since it's also in replace
+    });
+
+    it('cssClassReplace replaces multiple utility classes at once', () => {
+        const theme: ThemeDocument = {
+            $formspecTheme: '1.0',
+            version: '1.0.0',
+            targetDefinition: { url: 'test' },
+            defaults: { cssClass: ['p-4', 'mx-2', 'bg-blue-500'] },
+            items: {
+                special: { cssClassReplace: ['p-8', 'mx-auto'] },
+            },
+        };
+        const item: ItemDescriptor = { key: 'special', type: 'field' };
+        const result = resolvePresentation(theme, item);
+        const classes = result.cssClass as string[];
+        expect(classes).toContain('p-8');
+        expect(classes).toContain('mx-auto');
+        expect(classes).toContain('bg-blue-500');
+        expect(classes).not.toContain('p-4');
+        expect(classes).not.toContain('mx-2');
+    });
+
+    it('cssClassReplace is not present in final output', () => {
+        const theme: ThemeDocument = {
+            $formspecTheme: '1.0',
+            version: '1.0.0',
+            targetDefinition: { url: 'test' },
+            defaults: { cssClass: 'p-4' },
+            items: { x: { cssClassReplace: 'p-8' } },
+        };
+        const result = resolvePresentation(theme, { key: 'x', type: 'field' });
+        expect(result).not.toHaveProperty('cssClassReplace');
+    });
+
+    it('classStrategy tailwind-merge calls injected twMerge function', () => {
+        // Simulate tailwind-merge: "p-4 p-8" → "p-8"
+        const mockTwMerge = vi.fn((classes: string) => {
+            // Simple simulation: for each prefix group, keep the last one
+            const tokens = classes.split(/\s+/);
+            const byPrefix = new Map<string, string>();
+            const noPrefix: string[] = [];
+            for (const t of tokens) {
+                const match = t.match(/^(-?[a-z]+)-/);
+                if (match) {
+                    byPrefix.set(match[1] + '-', t);
+                } else {
+                    noPrefix.push(t);
+                }
+            }
+            return [...noPrefix, ...byPrefix.values()].join(' ');
+        });
+        setTailwindMerge(mockTwMerge);
+
+        const theme: ThemeDocument = {
+            $formspecTheme: '1.0',
+            version: '1.0.0',
+            targetDefinition: { url: 'test' },
+            classStrategy: 'tailwind-merge',
+            defaults: { cssClass: ['p-4', 'text-sm'] },
+            selectors: [
+                { match: { type: 'field' as const }, apply: { cssClass: 'p-8' } },
+            ],
+        };
+        const result = resolvePresentation(theme, { key: 'x', type: 'field' });
+
+        expect(mockTwMerge).toHaveBeenCalled();
+        const classes = result.cssClass as string[];
+        // Mock keeps last prefix: p-8 wins over p-4
+        expect(classes).toContain('p-8');
+        expect(classes).not.toContain('p-4');
+        expect(classes).toContain('text-sm');
+
+        // Clean up
+        setTailwindMerge(null as any);
+    });
+
+    it('classStrategy tailwind-merge warns and falls back when no twMerge injected', () => {
+        setTailwindMerge(null as any);
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const theme: ThemeDocument = {
+            $formspecTheme: '1.0',
+            version: '1.0.0',
+            targetDefinition: { url: 'test' },
+            classStrategy: 'tailwind-merge',
+            defaults: { cssClass: ['p-4', 'p-8'] },
+        };
+        const result = resolvePresentation(theme, { key: 'x', type: 'field' });
+        const classes = result.cssClass as string[];
+
+        // Falls back to union — both survive
+        expect(classes).toContain('p-4');
+        expect(classes).toContain('p-8');
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('setTailwindMerge'));
+
+        warn.mockRestore();
     });
 
     it('applies Tier 1 formPresentation labelPosition', () => {
