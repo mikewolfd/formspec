@@ -41,7 +41,7 @@ document are to be interpreted as described in [BCP 14][rfc2119] [RFC 2119]
 [RFC 8174] when, and only when, they appear in ALL CAPITALS, as shown here.
 
 JSON syntax and data types are as defined in [RFC 8259]. URI syntax is as
-defined in [RFC 3986].
+defined in [RFC 3986]. JSON Pointer syntax is as defined in [RFC 6901].
 
 Terms defined in the Formspec v1.0 core specification — including *Definition*,
 *Item*, *Bind*, *FEL*, and *conformant processor* — retain their
@@ -140,6 +140,7 @@ Custom types MUST be prefixed with `x-` (e.g., `"x-org-training-video"`).
 - `audience` MUST be one of: `"human"`, `"agent"`, `"both"`.
 - `type` MUST be a recognized type from §2.2 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed type MUST skip the reference and SHOULD emit a warning, but MUST NOT reject the definition.
 - `priority` when present MUST be one of: `"primary"`, `"supplementary"`, `"background"`.
+- `rel` when present MUST be a recognized relationship type from §2.5 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning.
 - An empty `references` array (`"references": []`) is valid and semantically equivalent to omitting the property.
 - Multiple references MAY share the same `uri` value (e.g., the same document serving as both a human `"regulation"` and an agent `"context"` reference with different `audience` values).
 - Reference property values are **static**. FEL expressions MUST NOT appear in any reference property (`uri`, `content`, `title`, etc.). Dynamic reference resolution, if needed, MUST be handled by the host environment or via `formspec-fn:` URIs (§3.4).
@@ -417,6 +418,8 @@ When a Group uses `$ref` to include items from another definition (core §6.6), 
 
 Form-level references from the referenced definition are NOT imported — only item-level references travel with their items. If the host definition needs the referenced definition's form-level context, it must redeclare those references explicitly.
 
+**`referenceDefs` during assembly**: The referenced definition's `referenceDefs` are NOT merged into the host definition. The assembler MUST resolve all reference `$ref` pointers within imported items to their inline form before inserting them into the host item tree. After assembly, no imported item may contain a `$ref` pointing to the source definition's `referenceDefs`. This is consistent with the assembly principle that the output is a self-contained definition (core §6.6.2).
+
 ### 4.5 URI Stability and Versioning
 
 Reference URIs are **not versioned** alongside the definition. A definition at version `2025.1.0` and version `2025.2.0` may contain the same reference URI pointing to content that has changed independently. This is by design — references point to living external resources.
@@ -519,8 +522,9 @@ When an agent assists a user with a specific field, the recommended approach is 
 3. Collect `references` from the form level.
 4. Filter by `audience` (`"agent"` or `"both"`).
 5. Sort by `priority` (`"primary"` first, then `"supplementary"`, then `"background"`).
-6. Use inline `content` references directly as context.
-7. Resolve `uri` references as appropriate (fetch documents, query vector stores, call APIs).
+6. Use `rel` to weight references appropriately — `"constrains"` and `"defines"` references are authoritative context for the attachment point and SHOULD be consulted before `"see-also"` references, which provide background.
+7. Use inline `content` references directly as context.
+8. Resolve `uri` references as appropriate (fetch documents, query vector stores, call APIs).
 
 ### 5.2 Vector Store Query Pattern
 
@@ -596,6 +600,7 @@ References are metadata and renderers are free to present them however they choo
 - **Human `example` references**: render inline or in a popover when the user focuses the field.
 - **Agent references**: not rendered in the UI. Consumed programmatically by companion agents.
 - **`audience: "both"` references**: available to both rendering and agent pipelines. A `regulation` reference might render as a citation link for humans while also being queryable context for an agent.
+- **Relationship-aware rendering**: Renderers MAY use `rel` to differentiate presentation. For example, `rel: "constrains"` references could display with a "Requirements" heading or a distinct icon, while `rel: "exemplifies"` references could render as expandable example panels. `rel: "superseded-by"` references SHOULD be visually de-emphasized or annotated as outdated.
 
 ## 8. Conformance
 
