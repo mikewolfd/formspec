@@ -1,6 +1,7 @@
-//! Formspec Linter — 7-pass static analysis and validation pipeline.
+//! Formspec Linter — 8-pass static analysis and validation pipeline.
 //!
 //! Pass 1 (E100): Document type detection
+//! Pass 1b (E101): JSON Schema validation against embedded schemas
 //! Pass 2 (E200/E201): Tree indexing, duplicate key/path detection
 //! Pass 3 (E300/E301/E302/W300): Reference validation — bind paths, shape targets, optionSets
 //! Pass 3b (E600/E601/E602): Extension resolution against registry documents
@@ -9,6 +10,7 @@
 //! Pass 6 (W700-W711/E710): Theme — token validation, reference integrity, page semantics
 //! Pass 7 (E800-E807/W800-W804): Components — tree validation, type compatibility, bind resolution
 
+mod schema_validation;
 mod types;
 
 pub mod component_matrix;
@@ -59,7 +61,10 @@ pub fn lint_with_options(doc: &Value, options: &LintOptions) -> LintResult {
 
     let doc_type = doc_type.unwrap();
 
-    // ── schema_only: return after pass 1 ────────────────────────
+    // ── Pass 1b: Schema validation (E101) ────────────────────────
+    diagnostics.extend(schema_validation::validate_schema(doc, doc_type));
+
+    // ── schema_only: return after pass 1 + 1b ───────────────────
     if options.schema_only {
         sort_diagnostics(&mut diagnostics);
         diagnostics.retain(|d| !d.suppressed_in(options.mode));
@@ -80,9 +85,10 @@ pub fn lint_with_options(doc: &Value, options: &LintOptions) -> LintResult {
         diagnostics.append(&mut tree_index.diagnostics);
 
         // Pass gating: stop if structural errors exist from pass 2
+        // (skip E101 schema errors from pass 1b — they don't indicate broken structure)
         if diagnostics
             .iter()
-            .any(|d| d.severity == LintSeverity::Error)
+            .any(|d| d.severity == LintSeverity::Error && d.pass >= 2)
         {
             sort_diagnostics(&mut diagnostics);
             diagnostics.retain(|d| !d.suppressed_in(options.mode));
@@ -166,18 +172,25 @@ mod tests {
     // Single-pass behaviour (E302, W300, E301, wildcard binds, extension
     // details) is tested exhaustively in the per-module tests. Duplicating
     // those here would add maintenance cost without additional confidence.
+    //
+    // All definition fixtures use schema-valid format: binds as array with
+    // `path`, items with `type`+`label`, shapes with `id`+`message`.
+
+    // Shared schema-required fields for definition fixtures.
+    const DEF_URL: &str = "https://example.com/forms/test";
+    const DEF_VER: &str = "1.0.0";
 
     /// Spec: spec.md §2.1 — "$formspec" key identifies a valid definition document
     #[test]
     fn valid_definition_passes_all_passes() {
         let def = json!({
             "$formspec": "1.0",
-            "title": "Test",
-            "items": [{ "key": "name", "dataType": "string" }],
-            "binds": { "name": { "required": "true" } }
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [{ "key": "name", "type": "field", "label": "Name", "dataType": "string" }],
+            "binds": [{ "path": "name", "required": "true" }]
         });
         let result = lint(&def);
-        assert!(result.valid);
+        assert!(result.valid, "got: {:?}", result.diagnostics.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>());
         assert_eq!(result.document_type, Some(DocumentType::Definition));
     }
 
@@ -196,11 +209,15 @@ mod tests {
     fn pass_gating_stops_on_structural_errors() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "name" }, { "key": "name" }],
-            "binds": {
-                "nonexistent": { "required": "true" },
-                "name": { "calculate": "invalid ++" }
-            }
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [
+                { "key": "name", "type": "field", "label": "N" },
+                { "key": "name", "type": "field", "label": "N" }
+            ],
+            "binds": [
+                { "path": "nonexistent", "required": "true" },
+                { "path": "name", "calculate": "invalid ++" }
+            ]
         });
         let result = lint(&def);
         assert!(result.diagnostics.iter().any(|d| d.code == "E201"));
@@ -216,11 +233,12 @@ mod tests {
     fn diagnostic_sorting_uses_lexicographic_tuple() {
         let def = json!({
             "$formspec": "1.0",
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
             "items": [
-                { "key": "name", "dataType": "string" },
-                { "key": "color", "dataType": "boolean", "optionSet": "missing_set" }
+                { "key": "name", "type": "field", "label": "N", "dataType": "string" },
+                { "key": "color", "type": "field", "label": "C", "dataType": "boolean", "optionSet": "missing_set" }
             ],
-            "binds": { "name": { "calculate": "invalid ++" } }
+            "binds": [{ "path": "name", "calculate": "invalid ++" }]
         });
         let result = lint(&def);
         assert!(result.diagnostics.len() >= 2);
@@ -244,7 +262,8 @@ mod tests {
     fn lint_mode_authoring_suppresses_w300() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "f", "dataType": "boolean", "optionSet": "opts" }],
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [{ "key": "f", "type": "field", "label": "F", "dataType": "boolean", "optionSet": "opts" }],
             "optionSets": { "opts": { "options": [{ "value": "yes" }] } }
         });
         let rt = lint_with_options(
@@ -276,8 +295,10 @@ mod tests {
     fn screener_integration_spans_passes() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "age", "dataType": "integer" }],
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [{ "key": "age", "type": "field", "label": "Age", "dataType": "integer" }],
             "screener": {
+                "items": [{ "key": "age", "type": "field", "label": "Age", "dataType": "integer" }],
                 "routes": [
                     { "condition": "$age >= 18", "target": "adult" },
                     { "condition": "invalid ++ expr", "target": "error" }
@@ -299,10 +320,12 @@ mod tests {
     fn extension_resolution_cross_pass_integration() {
         let def = json!({
             "$formspec": "1.0",
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
             "items": [
-                { "key": "age", "dataType": "integer" }
+                { "key": "age", "type": "field", "label": "Age", "dataType": "integer" }
             ],
             "screener": {
+                "items": [{ "key": "screening_age", "type": "field", "label": "Age", "dataType": "integer" }],
                 "routes": [
                     { "condition": "$age >= 18", "target": "adult" }
                 ]
@@ -312,7 +335,7 @@ mod tests {
         let screener_errors = result
             .diagnostics
             .iter()
-            .filter(|d| d.path.contains("screener"))
+            .filter(|d| d.path.contains("screener") && d.code != "E101")
             .count();
         assert_eq!(
             screener_errors, 0,
@@ -322,16 +345,14 @@ mod tests {
 
     #[test]
     fn test_diagnostic_sorting() {
-        // Create a document that produces diagnostics from multiple passes
         let def = json!({
             "$formspec": "1.0",
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
             "items": [
-                { "key": "name", "dataType": "string" },
-                { "key": "color", "dataType": "boolean", "optionSet": "missing_set" }
+                { "key": "name", "type": "field", "label": "N", "dataType": "string" },
+                { "key": "color", "type": "field", "label": "C", "dataType": "boolean", "optionSet": "missing_set" }
             ],
-            "binds": {
-                "name": { "calculate": "invalid ++" }
-            }
+            "binds": [{ "path": "name", "calculate": "invalid ++" }]
         });
         let result = lint(&def);
         assert!(
@@ -339,7 +360,6 @@ mod tests {
             "Should have multiple diagnostics"
         );
 
-        // Verify sorting: pass numbers are non-decreasing
         for window in result.diagnostics.windows(2) {
             let a = &window[0];
             let b = &window[1];
@@ -360,34 +380,29 @@ mod tests {
 
     #[test]
     fn test_pass_gating_on_structural_errors() {
-        // Duplicate keys = E201 (pass 2 structural error)
-        // Should NOT run pass 3+ checks
         let def = json!({
             "$formspec": "1.0",
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
             "items": [
-                { "key": "name" },
-                { "key": "name" }
+                { "key": "name", "type": "field", "label": "N" },
+                { "key": "name", "type": "field", "label": "N" }
             ],
-            "binds": {
-                "nonexistent": { "required": "true" },
-                "name": { "calculate": "invalid ++" }
-            }
+            "binds": [
+                { "path": "nonexistent", "required": "true" },
+                { "path": "name", "calculate": "invalid ++" }
+            ]
         });
         let result = lint(&def);
 
-        // Pass 2 error should be present
         assert!(
             result.diagnostics.iter().any(|d| d.code == "E201"),
             "E201 should be present"
         );
-
-        // Finding 49: verify .valid is false on early-return path
         assert!(
             !result.valid,
             "Document with structural errors should be invalid"
         );
 
-        // Pass 3 (E300) and pass 4 (E400) should NOT be present because of pass gating
         let pass3_plus = result.diagnostics.iter().filter(|d| d.pass >= 3).count();
         assert_eq!(
             pass3_plus, 0,
@@ -399,15 +414,15 @@ mod tests {
     fn test_lint_mode_authoring_suppresses_w300() {
         let def = json!({
             "$formspec": "1.0",
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
             "items": [
-                { "key": "field1", "dataType": "boolean", "optionSet": "opts" }
+                { "key": "field1", "type": "field", "label": "F1", "dataType": "boolean", "optionSet": "opts" }
             ],
             "optionSets": {
                 "opts": { "options": [{ "value": "yes" }] }
             }
         });
 
-        // Runtime mode: W300 present
         let runtime_result = lint_with_options(
             &def,
             &LintOptions {
@@ -422,7 +437,6 @@ mod tests {
             .count();
         assert_eq!(w300_runtime, 1, "Runtime mode should emit W300");
 
-        // Authoring mode: W300 suppressed
         let authoring_result = lint_with_options(
             &def,
             &LintOptions {
@@ -442,9 +456,10 @@ mod tests {
     fn test_e600_extension_resolution() {
         let def = json!({
             "$formspec": "1.0",
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
             "items": [
                 {
-                    "key": "email",
+                    "key": "email", "type": "field", "label": "Email",
                     "dataType": "string",
                     "extensions": {
                         "x-formspec-url": true,
@@ -475,7 +490,8 @@ mod tests {
     fn no_registries_emits_e600() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "e", "extensions": { "x-formspec-url": true } }]
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [{ "key": "e", "type": "field", "label": "E", "extensions": { "x-formspec-url": true } }]
         });
         let result = lint(&def);
         assert_eq!(
@@ -494,6 +510,8 @@ mod tests {
     fn theme_document_routes_to_pass_6() {
         let theme = json!({
             "$formspecTheme": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": DEF_URL },
             "tokens": { "primary": "#000" },
             "selectors": [{
                 "match": "*",
@@ -503,16 +521,19 @@ mod tests {
         let result = lint(&theme);
         assert_eq!(result.document_type, Some(DocumentType::Theme));
         assert!(result.diagnostics.iter().any(|d| d.code == "W704"));
-        assert_eq!(result.diagnostics.len(), 1);
+        let non_e101 = result.diagnostics.iter().filter(|d| d.code != "E101").count();
+        assert_eq!(non_e101, 1, "Only W704 expected (excluding any E101), got: {:?}",
+            result.diagnostics.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>());
     }
 
     /// Spec: component-spec.md §4.6 — W802 (compatible-with-warning) is suppressed
     /// in Authoring mode but present in Runtime mode.
     #[test]
     fn test_w802_authoring_mode_suppression() {
-        // TextInput + integer = CompatibleWithWarning → W802
         let comp = json!({
             "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": DEF_URL },
             "tree": {
                 "component": "Stack",
                 "children": [
@@ -522,10 +543,10 @@ mod tests {
         });
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "age", "dataType": "integer" }]
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [{ "key": "age", "type": "field", "label": "Age", "dataType": "integer" }]
         });
 
-        // Runtime mode: W802 present
         let runtime_result = lint_with_options(
             &comp,
             &LintOptions {
@@ -534,14 +555,12 @@ mod tests {
                 ..Default::default()
             },
         );
-        let w802_runtime = runtime_result
-            .diagnostics
-            .iter()
-            .filter(|d| d.code == "W802")
-            .count();
-        assert_eq!(w802_runtime, 1, "Runtime mode should emit W802");
+        assert_eq!(
+            runtime_result.diagnostics.iter().filter(|d| d.code == "W802").count(),
+            1,
+            "Runtime mode should emit W802"
+        );
 
-        // Authoring mode: W802 suppressed
         let authoring_result = lint_with_options(
             &comp,
             &LintOptions {
@@ -550,35 +569,42 @@ mod tests {
                 ..Default::default()
             },
         );
-        let w802_authoring = authoring_result
-            .diagnostics
-            .iter()
-            .filter(|d| d.code == "W802")
-            .count();
-        assert_eq!(w802_authoring, 0, "Authoring mode should suppress W802");
+        assert_eq!(
+            authoring_result.diagnostics.iter().filter(|d| d.code == "W802").count(),
+            0,
+            "Authoring mode should suppress W802"
+        );
     }
 
     #[test]
     fn component_document_routes_to_pass_7() {
-        let comp = json!({ "$formspecComponent": "1.0", "tree": { "children": [] } });
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": DEF_URL },
+            "tree": { "children": [] }
+        });
         let result = lint(&comp);
         assert_eq!(result.document_type, Some(DocumentType::Component));
         assert!(result.diagnostics.iter().any(|d| d.code == "E800"));
     }
 
-    /// Cross-pass integration: definition with errors across passes 3, 4, and 5
-    /// verifies that all passes run and diagnostics merge correctly.
+    /// Cross-pass integration: definition with errors across passes 3, 4, and 5.
     #[test]
     fn multi_pass_definition_collects_all_diagnostics() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "a" }, { "key": "b" }],
-            "binds": {
-                "ghost": { "required": "true" },
-                "a": { "calculate": "$b + 1" },
-                "b": { "calculate": "$a + 1" }
-            },
-            "shapes": [{ "target": "phantom", "constraint": "true" }]
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [
+                { "key": "a", "type": "field", "label": "A" },
+                { "key": "b", "type": "field", "label": "B" }
+            ],
+            "binds": [
+                { "path": "ghost", "required": "true" },
+                { "path": "a", "calculate": "$b + 1" },
+                { "path": "b", "calculate": "$a + 1" }
+            ],
+            "shapes": [{ "id": "s1", "target": "phantom", "message": "bad", "constraint": "true" }]
         });
         let result = lint(&def);
         assert!(
@@ -593,25 +619,28 @@ mod tests {
             result.diagnostics.iter().any(|d| d.code == "E500"),
             "Should have E500"
         );
-        // Verify monotonic pass ordering
         let passes: Vec<u8> = result.diagnostics.iter().map(|d| d.pass).collect();
         for w in passes.windows(2) {
             assert!(w[0] <= w[1], "Passes should be non-decreasing");
         }
     }
 
-    // ── schema_only: returns after pass 1 ─────────────────────────
+    // ── schema_only: returns after pass 1 + 1b ──────────────────
 
-    /// schema_only returns document type and no further diagnostics.
+    /// schema_only returns document type and schema diagnostics only.
     #[test]
     fn schema_only_skips_all_semantic_passes() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "a" }, { "key": "b" }],
-            "binds": {
-                "ghost": { "required": "true" },
-                "a": { "calculate": "invalid ++" }
-            }
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [
+                { "key": "a", "type": "field", "label": "A", "dataType": "string" },
+                { "key": "b", "type": "field", "label": "B", "dataType": "string" }
+            ],
+            "binds": [
+                { "path": "ghost", "required": "true" },
+                { "path": "a", "calculate": "invalid ++" }
+            ]
         });
         let result = lint_with_options(
             &def,
@@ -623,8 +652,8 @@ mod tests {
         assert_eq!(result.document_type, Some(DocumentType::Definition));
         assert!(
             result.diagnostics.is_empty(),
-            "schema_only should produce no diagnostics for a valid document type, got: {:?}",
-            result.diagnostics.iter().map(|d| &d.code).collect::<Vec<_>>()
+            "schema_only should produce no diagnostics for a schema-valid document, got: {:?}",
+            result.diagnostics.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>()
         );
         assert!(result.valid);
     }
@@ -651,20 +680,22 @@ mod tests {
     fn no_fel_skips_expression_and_dependency_passes() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "a" }, { "key": "b" }],
-            "binds": {
-                "a": { "calculate": "invalid ++" },
-                "b": { "calculate": "$a + 1" }
-            }
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [
+                { "key": "a", "type": "field", "label": "A" },
+                { "key": "b", "type": "field", "label": "B" }
+            ],
+            "binds": [
+                { "path": "a", "calculate": "invalid ++" },
+                { "path": "b", "calculate": "$a + 1" }
+            ]
         });
-        // Without no_fel: should have E400 from invalid expression
         let full_result = lint(&def);
         assert!(
             full_result.diagnostics.iter().any(|d| d.code == "E400"),
             "Full lint should report E400"
         );
 
-        // With no_fel: no E400 or E500
         let result = lint_with_options(
             &def,
             &LintOptions {
@@ -687,10 +718,9 @@ mod tests {
     fn no_fel_still_runs_reference_checks() {
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "name" }],
-            "binds": {
-                "ghost": { "required": "true" }
-            }
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [{ "key": "name", "type": "field", "label": "N" }],
+            "binds": [{ "path": "ghost", "required": "true" }]
         });
         let result = lint_with_options(
             &def,
@@ -710,9 +740,10 @@ mod tests {
     /// Strict mode promotes W800/W802/W803/W804 to errors.
     #[test]
     fn strict_mode_promotes_component_warnings_to_errors() {
-        // TextInput + integer = CompatibleWithWarning → W802
         let comp = json!({
             "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": DEF_URL },
             "tree": {
                 "component": "Stack",
                 "children": [
@@ -722,7 +753,8 @@ mod tests {
         });
         let def = json!({
             "$formspec": "1.0",
-            "items": [{ "key": "age", "dataType": "integer" }]
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
+            "items": [{ "key": "age", "type": "field", "label": "Age", "dataType": "integer" }]
         });
         let result = lint_with_options(
             &comp,
@@ -753,9 +785,10 @@ mod tests {
     fn no_registries_emits_e600_for_all_enabled_extensions() {
         let def = json!({
             "$formspec": "1.0",
+            "url": DEF_URL, "version": DEF_VER, "status": "draft", "title": "T",
             "items": [
-                { "key": "a", "extensions": { "x-foo": true, "x-bar": false } },
-                { "key": "b", "extensions": { "x-baz": { "opt": 1 } } }
+                { "key": "a", "type": "field", "label": "A", "extensions": { "x-foo": true, "x-bar": false } },
+                { "key": "b", "type": "field", "label": "B", "extensions": { "x-baz": { "opt": 1 } } }
             ]
         });
         let result = lint(&def);
@@ -769,6 +802,68 @@ mod tests {
             2,
             "Should emit E600 for x-foo and x-baz (x-bar is disabled), got: {:?}",
             e600.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    // ── E101: Schema validation ──────────────────────────────────
+
+    /// Schema validation detects invalid enum values like "blob" for dataType.
+    #[test]
+    fn schema_validation_detects_invalid_data_type() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "https://example.com/forms/x",
+            "version": "1.0.0",
+            "status": "draft",
+            "title": "X",
+            "items": [{"key": "f1", "type": "field", "label": "F1", "dataType": "blob"}]
+        });
+        let result = lint(&def);
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == "E101"),
+            "Should emit E101 for invalid dataType 'blob', got: {:?}",
+            result.diagnostics.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>()
+        );
+    }
+
+    /// A fully valid definition should not produce E101 diagnostics.
+    #[test]
+    fn schema_validation_passes_valid_definition() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "https://example.com/forms/x",
+            "version": "1.0.0",
+            "status": "draft",
+            "title": "X",
+            "items": [{"key": "f1", "type": "field", "label": "F1", "dataType": "string"}]
+        });
+        let result = lint(&def);
+        assert!(
+            !result.diagnostics.iter().any(|d| d.code == "E101"),
+            "Valid definition should not produce E101, got: {:?}",
+            result.diagnostics.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>()
+        );
+    }
+
+    /// E101 path should point to the specific location of the error.
+    #[test]
+    fn schema_validation_reports_correct_path() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "https://example.com/forms/x",
+            "version": "1.0.0",
+            "status": "draft",
+            "title": "X",
+            "items": [{"key": "f1", "type": "field", "label": "F1", "dataType": "blob"}]
+        });
+        let result = lint(&def);
+        let e101: Vec<_> = result.diagnostics.iter().filter(|d| d.code == "E101").collect();
+        assert!(!e101.is_empty());
+        // The path should reference items[0].dataType
+        assert!(
+            e101.iter().any(|d| d.path.contains("items") && d.path.contains("dataType")),
+            "E101 path should reference the dataType location, got paths: {:?}",
+            e101.iter().map(|d| &d.path).collect::<Vec<_>>()
         );
     }
 }
