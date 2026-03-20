@@ -24,7 +24,7 @@
 
 ## `renderSelect: AdapterRenderFn<SelectBehavior>`
 
-## `createFieldDOM(behavior: FieldBehavior, actx: AdapterContext): FieldDOM`
+## `createFieldDOM(behavior: FieldBehavior, actx: AdapterContext, options?: FieldDOMOptions): FieldDOM`
 
 Create the common field wrapper structure: root div, label, description, hint, error.
 Uses behavior.widgetClassSlots for x-classes support (from theme widgetConfig).
@@ -39,6 +39,10 @@ Call this AFTER inserting the control element.
 
 Apply widgetClassSlots.control to the actual input element(s).
 For radio/checkbox groups, applies to each input. For others, applies to the control.
+
+#### interface `FieldDOMOptions`
+
+- **labelFor** (`boolean`): Set false for group controls where the label shouldn't target a single input. Default true.
 
 #### interface `FieldDOM`
 
@@ -59,6 +63,34 @@ For radio/checkbox groups, applies to each input. For others, applies to the con
 ## `renderToggle: AdapterRenderFn<ToggleBehavior>`
 
 ## `renderWizard: AdapterRenderFn<WizardBehavior>`
+
+## `createSignatureCanvas(config: SignatureCanvasConfig): SignatureCanvasResult`
+
+Create a signature canvas with mouse + touch drawing, DPR-aware scaling,
+and ResizeObserver. Dispatches custom events on the provided eventTarget.
+
+Adapters own the surrounding DOM (label, button, error); this utility
+owns the canvas behavior.
+
+#### interface `SignatureCanvasConfig`
+
+@filedesc Shared signature canvas drawing utility — used by default and external adapters.
+
+- **height** (`number`): Canvas height in CSS pixels.
+- **strokeColor** (`string`): Stroke color for drawing.
+- **eventTarget** (`HTMLElement`): Element that receives `formspec-signature-drawn` and `formspec-signature-cleared` events.
+
+#### interface `SignatureCanvasResult`
+
+- **canvas** (`HTMLCanvasElement`): The canvas element — append this to your adapter's DOM.
+
+##### `clear(): void`
+
+Clear the canvas and dispatch `formspec-signature-cleared`.
+
+##### `dispose(): void`
+
+Disconnect the ResizeObserver and clean up.
 
 #### interface `AdapterContext`
 
@@ -93,8 +125,7 @@ Apply a single class value (string or array) to an element's classList.
 A render adapter provides DOM construction functions for component types.
 Missing entries fall back to the default adapter.
 
-- **name**: `string`
-- **components**: `Partial<Record<string, AdapterRenderFn>>`
+- **integrationCSS** (`string`): CSS text injected into the document head when this adapter is active.
 
 #### type `AdapterRenderFn`
 
@@ -176,16 +207,7 @@ substituted with concrete values. Adapters never need token resolution.
 
 #### interface `FieldRefs`
 
-- **root**: `HTMLElement`
-- **label**: `HTMLElement`
-- **control**: `HTMLElement`
-- **hint?**: `HTMLElement`
-- **error?**: `HTMLElement`
-- **optionControls?**: `Map<string, HTMLInputElement>`
-- **rebuildOptions?**: `(container: HTMLElement, options: ReadonlyArray<{
-        value: string;
-        label: string;
-    }>) => Map<string, HTMLInputElement>`
+- **onValidationChange** (`(hasError: boolean, message: string) => void`): Called by bind() when validation state changes. Adapters use this to toggle error classes.
 
 #### interface `SubmitDetail`
 
@@ -304,13 +326,25 @@ Custom adapters can ignore this — they own their own styling.
 - **height**: `number`
 - **strokeColor**: `string`
 
+#### interface `WizardSidenavItemRefs`
+
+Sidenav item refs for reactive class/text updates without DOM rebuilds.
+
+- **item**: `HTMLElement`
+- **button**: `HTMLButtonElement`
+- **circle**: `HTMLElement`
+
+#### interface `WizardProgressItemRefs`
+
+Progress indicator refs for reactive class updates without DOM rebuilds.
+
+- **indicator**: `HTMLElement`
+- **label?**: `HTMLElement`
+
 #### interface `WizardRefs`
 
-- **root**: `HTMLElement`
-- **stepIndicators?**: `HTMLElement[]`
-- **stepContent**: `HTMLElement`
-- **prevButton?**: `HTMLButtonElement`
-- **nextButton?**: `HTMLButtonElement`
+- **sidenavItems** (`WizardSidenavItemRefs[]`): Sidenav items built once by the adapter; bind() toggles classes/text.
+- **progressItems** (`WizardProgressItemRefs[]`): Progress indicators built once by the adapter; bind() toggles classes.
 
 #### interface `WizardBehavior`
 
@@ -354,7 +388,7 @@ Custom adapters can ignore this — they own their own styling.
 Context passed to behavior hooks. Subset of RenderContext
 focused on what behaviors actually need.
 
-- **engine**: `FormEngine`
+- **engine**: `IFormEngine`
 - **definition**: `any`
 - **prefix**: `string`
 - **cleanupFns**: `Array<() => void>`
@@ -558,6 +592,14 @@ Editable cells use `<input>` elements with type coercion; read-only cells displa
 including currency formatting for money values. Cell effect subscriptions are tracked and
 disposed on re-render to prevent leaks.
 
+## `focusFirstIn(container: HTMLElement): HTMLElement`
+
+Focus the first focusable descendant, or the element itself. Returns the focused element.
+
+## `FOCUSABLE_SELECTOR`
+
+Selector matching keyboard-focusable elements.
+
 #### class `FormspecRender`
 
 `<formspec-render>` custom element -- the entry point for rendering a
@@ -579,7 +621,7 @@ Orchestrates the full rendering pipeline:
 - **_componentDocument** (`any`): @internal
 - **_themeDocument** (`ThemeDocument | null`): @internal
 - **_registryEntries** (`Map<string, any>`): @internal
-- **engine** (`FormEngine | null`): @internal
+- **engine** (`IFormEngine | null`): @internal
 - **cleanupFns** (`Array<() => void>`): @internal
 - **stylesheetHrefs** (`string[]`): @internal
 - **touchedFields** (`Set<string>`): Fields the user has interacted with (blur). Validation errors are hidden until touched.
@@ -627,7 +669,7 @@ Returns the current screener completion + routing state.
 
 @internal
 
-##### `getEngine(): FormEngine | null`
+##### `getEngine(): IFormEngine | null`
 
 Return the underlying {@link FormEngine} instance, or `null` if no
 definition has been set yet. Useful for direct engine access in tests
@@ -635,12 +677,12 @@ or advanced integrations.
 
 ##### `getDiagnosticsSnapshot(options?: {
         mode?: 'continuous' | 'submit';
-    }): import("formspec-engine").FormEngineDiagnosticsSnapshot | null`
+    }): import("formspec-engine/dist/interfaces").FormEngineDiagnosticsSnapshot | null`
 
 Capture a diagnostics snapshot from the engine, including current signal
 values, validation state, and repeat counts.
 
-##### `applyReplayEvent(event: any): import("formspec-engine").EngineReplayApplyResult | {
+##### `applyReplayEvent(event: any): import("formspec-engine/dist/interfaces").EngineReplayApplyResult | {
         ok: boolean;
         event: any;
         error: string;
@@ -650,7 +692,7 @@ Apply a single replay event (e.g. `setValue`, `addRepeat`) to the engine.
 
 ##### `replay(events: any[], options?: {
         stopOnError?: boolean;
-    }): import("formspec-engine").EngineReplayResult | {
+    }): import("formspec-engine/dist/interfaces").EngineReplayResult | {
         applied: number;
         results: never[];
         errors: {
@@ -776,18 +818,6 @@ External code can register additional plugins via `globalRegistry.register(plugi
 
 #### class `ComponentRegistry`
 
-Map-based registry that dispatches component type strings to their
-{@link ComponentPlugin} implementations, and resolves render adapter
-functions for the headless component architecture.
-
-At render time the `FormspecRender` element looks up each component
-descriptor's `component` field in the registry to find the plugin
-responsible for building the corresponding DOM subtree.
-
-Built-in components are registered at module load via
-`registerDefaultComponents()`. Custom plugins can be added at any
-time by calling {@link register} on the {@link globalRegistry} singleton.
-
 - **(get) size** (`number`): The number of currently registered component plugins.
 - **(get) activeAdapterName** (`string`): Get the name of the currently active adapter.
 
@@ -827,7 +857,7 @@ Resolve the render function for a component type. Falls back to default adapter.
 - **activeBreakpointSignal**: `ReturnType<typeof signal<string | null>>`
 - **cleanups**: `Array<() => void>`
 
-## `emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement, prefix: string): void`
+## `emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement, prefix: string, headingLevel?: number): void`
 
 Walk a LayoutNode tree from the planner and emit DOM.
 
@@ -1046,7 +1076,7 @@ toolkit of rendering helpers so plugins can build DOM, resolve tokens,
 apply theme styles, and recursively render child components without
 depending on the `FormspecRender` element directly.
 
-- **engine** (`FormEngine`): The active FormEngine instance managing reactive form state.
+- **engine** (`IFormEngine`): The active form engine instance managing reactive form state.
 - **componentDocument** (`any`): The loaded component document (component tree, custom components, tokens, breakpoints).
 - **themeDocument** (`ThemeDocument | null`): The loaded theme document, or `null` when no theme is provided.
 - **prefix** (`string`): Dotted path prefix for the current render scope (e.g. `"group[0]"`).

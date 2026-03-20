@@ -4,7 +4,7 @@
 
 Core form state management engine. Parses a FormspecDefinition and builds a reactive signal network for field values, relevance, validation, repeat groups, computed variables, and response serialization. Includes FEL expression compilation, definition assembly, and bidirectional runtime mapping.
 
-## `getBuiltinFELFunctionCatalog(): FELBuiltinFunctionCatalogEntry[]`
+## `getBuiltinFELFunctionCatalog(runtime?: IFelRuntime): FELBuiltinFunctionCatalogEntry[]`
 
 Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation.
 
@@ -24,10 +24,7 @@ Loading/error state for a field whose options are fetched from a remote URL via 
 
 Runtime configuration injected into the engine to control time, locale, timezone, and deterministic seeding.
 
-- **now?**: `(() => EngineNowInput) | EngineNowInput`
-- **locale?**: `string`
-- **timeZone?**: `string`
-- **seed?**: `string | number`
+- **felRuntime** (`IFelRuntime`): Pluggable FEL runtime. Defaults to the built-in Chevrotain pipeline when omitted.
 
 #### interface `RegistryEntry`
 
@@ -242,6 +239,7 @@ compiles bind expressions, fetches remote options, and wires up shape evaluation
 - **instanceData** (`Record<string, any>`): Static instance data loaded from the definition's `instances` section, keyed by instance name.
 - **instanceVersion** (`Signal<number>`): Version signal incremented whenever instance data changes, enabling FEL reactivity for
 - **dependencies** (`Record<string, string[]>`): Dependency graph mapping each field path to the paths it depends on, built during FEL compilation.
+- **felRuntime** (`IFelRuntime`): The pluggable FEL runtime used for expression compilation and evaluation.
 - **structureVersion** (`Signal<number>`): Monotonically increasing counter that increments whenever repeat instances are added or removed, enabling reactive UI rebuilds.
 - **(get) formPresentation** (`any`): Returns the definition's `formPresentation` block (layout, wizard, default currency, etc.), or null if absent.
 
@@ -484,6 +482,18 @@ Lookup hooks required to validate extension usage against a registry-backed cata
 
 - **resolveEntry**: `(name: string) => RegistryEntry | undefined`
 
+## `createFormEngine(definition: FormDefinition, runtimeContext?: FormEngineRuntimeContext, registryEntries?: RegistryEntry[]): IFormEngine`
+
+Create a form engine instance.
+When WASM is available and no explicit felRuntime is provided,
+uses the WASM FEL runtime. Falls back to Chevrotain otherwise.
+
+## `createMappingEngine(mappingDocument: any, felRuntime?: IFelRuntime): IRuntimeMappingEngine`
+
+Create a runtime mapping engine instance.
+When WASM is available and no explicit felRuntime is provided,
+uses the WASM FEL runtime.
+
 ## `analyzeFEL(expression: string, options?: {
     includeCst?: boolean;
 }): FELAnalysis`
@@ -530,6 +540,29 @@ Callback options used by {@link rewriteFELReferences}.
 - **rewriteInstanceName?**: `(name: string) => string`
 - **rewriteNavigationTarget?**: `(name: string, fn: 'prev' | 'next' | 'parent') => string`
 
+## `chevrotainFelRuntime: ChevrotainFelRuntime`
+
+Shared default instance.
+
+#### class `ChevrotainFelRuntime`
+
+FEL runtime backed by the existing Chevrotain pipeline
+(lexer → parser → CstVisitor interpreter + dependency visitor).
+
+This is the default runtime used when no Rust/WASM backend is available.
+
+##### `compile(expression: string): FelCompilationResult`
+
+##### `listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[]`
+
+##### `extractDependencies(expression: string): string[]`
+
+##### `registerFunction(name: string, impl: (...args: any[]) => any, meta?: {
+        signature?: string;
+        description?: string;
+        category?: string;
+    }): void`
+
 ## `dependencyVisitor: FelDependencyVisitor`
 
 Pre-instantiated dependency visitor singleton.
@@ -570,33 +603,6 @@ Usage: call `interpreter.evaluate(cst, context)` where `cst` is the output
 of `parser.expression()` and `context` is a {@link FelContext} wired to
 the FormEngine's signal graph.
 
-#### interface `FELBuiltinFunctionCatalogEntry`
-
-Built-in FEL function metadata exposed for tooling/autocomplete surfaces.
-
-- **name**: `string`
-- **category**: `string`
-- **signature?**: `string`
-- **description?**: `string`
-
-#### interface `FelContext`
-
-Runtime context provided to the interpreter for each FEL evaluation.
-
-Bridges the interpreter to the FormEngine's reactive signal graph. Each
-callback reads from a Preact signal so that evaluations are automatically
-tracked as signal dependencies, enabling reactive re-computation when
-upstream values change.
-
-- **getSignalValue** (`(path: string) => any`): Read the current value of a field signal at the given dotted path.
-- **getRepeatsValue** (`(path: string) => number`): Read the current repeat instance count for a repeatable group.
-- **getRelevantValue** (`(path: string) => boolean`): Read whether the field at the given path is currently relevant (visible).
-- **getRequiredValue** (`(path: string) => boolean`): Read whether the field at the given path is currently required.
-- **getReadonlyValue** (`(path: string) => boolean`): Read whether the field at the given path is currently readonly.
-- **getValidationErrors** (`(path: string) => number`): Read the count of validation errors for the field at the given path.
-- **currentItemPath** (`string`): The fully-qualified dotted path of the item whose bind expression is being evaluated. Used for relative `$` field references.
-- **engine** (`any`): Reference to the FormEngine instance. Used by stdlib functions that need engine-level APIs (e.g. `instance()`, variable lookup).
-
 #### class `FelUnsupportedFunctionError`
 
 ##### `constructor(functionName: string)`
@@ -631,6 +637,15 @@ This is the main entry point for stage 3 of the FEL pipeline. The caller
 provides the CST (from `parser.expression()`) and a {@link FelContext}
 wired to the FormEngine's signal graph. The returned value is used for
 calculated fields, conditional relevance, validation constraints, etc.
+
+##### `registerFunction(name: string, impl: (...args: any[]) => any, meta?: {
+        signature?: string;
+        description?: string;
+        category?: string;
+    }): void`
+
+Register an extension function into the runtime stdlib.
+Used by registry-loaded extensions (Spec S3.12, S8.1).
 
 ##### `listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[]`
 
@@ -905,7 +920,7 @@ Pre-instantiated FEL parser singleton.
 Shared across the engine to avoid the cost of repeated Chevrotain self-analysis.
 Usage: set `parser.input = FelLexer.tokenize(expr).tokens`, then call
 `parser.expression()` to obtain a CST node. The CST is then passed to the
-{@link interpreter} or {@link dependencyVisitor} for evaluation or analysis.
+the interpreter or dependency visitor for evaluation or analysis.
 
 #### class `FelParser`
 
@@ -926,6 +941,304 @@ Every FEL expression string is parsed starting from this rule. It delegates
 to `letExpr`, which cascades through the full precedence hierarchy.
 The resulting CST node is passed to {@link FelInterpreter.evaluate} or
 {@link FelDependencyVisitor.getDependencies}.
+
+#### interface `IFelEngineContext`
+
+Minimal engine interface required by the FEL stdlib functions.
+
+Only the methods actually called via `ctx.engine` in the interpreter are
+included here.  `FormEngine` satisfies this interface.
+
+- **signals** (`Record<string, any>`): Field value signals by path (used by MIP lookup and row-building in stdlib).
+- **relevantSignals** (`Record<string, any>`): Visibility state signals by path (used by MIP lookup).
+- **requiredSignals** (`Record<string, any>`): Required state signals by path (used by MIP lookup).
+- **readonlySignals** (`Record<string, any>`): Readonly state signals by path (used by MIP lookup).
+- **validationResults** (`Record<string, any>`): Bind-level validation results by path (used by MIP lookup).
+
+##### `getInstanceData(name: string, path?: string): any`
+
+Retrieve inline instance data by name, optionally drilling into a sub-path.
+
+##### `getVariableValue(name: string, scopePath: string): any`
+
+Read the current value of a named variable, resolved within the given scope path.
+
+#### interface `FelContext`
+
+Runtime context provided to the FEL evaluator for field/MIP state lookups.
+
+Bridges the evaluator to the form engine's state (reactive signals, static
+data, etc.).  Each callback reads a single value so evaluation frameworks
+can track dependencies automatically.
+
+- **getSignalValue** (`(path: string) => any`): Read the current value of a field signal at the given dotted path.
+- **getRepeatsValue** (`(path: string) => number`): Read the current repeat instance count for a repeatable group.
+- **getRelevantValue** (`(path: string) => boolean`): Read whether the field at the given path is currently relevant (visible).
+- **getRequiredValue** (`(path: string) => boolean`): Read whether the field at the given path is currently required.
+- **getReadonlyValue** (`(path: string) => boolean`): Read whether the field at the given path is currently readonly.
+- **getValidationErrors** (`(path: string) => number`): Read the count of validation errors for the field at the given path.
+- **currentItemPath** (`string`): The fully-qualified dotted path of the item whose bind expression is being evaluated.
+- **engine** (`IFelEngineContext`): Reference to the engine instance (used by stdlib functions like `instance()` and variable resolution).
+
+#### interface `FELBuiltinFunctionCatalogEntry`
+
+Built-in FEL function metadata exposed for tooling/autocomplete surfaces.
+
+- **name**: `string`
+- **category**: `string`
+- **signature?**: `string`
+- **description?**: `string`
+
+#### interface `ICompiledExpression`
+
+Opaque handle to a compiled FEL expression.
+
+Backends store whatever internal representation they need (Chevrotain CST,
+Rust AST handle, WASM bytecode, etc.).  Consumers only interact with
+the dependencies list and the `evaluate` method.
+
+- **dependencies** (`string[]`): Field paths referenced by this expression (used to wire reactive dependencies).
+
+##### `evaluate(context: FelContext): any`
+
+Evaluate the expression against the given runtime context.
+
+#### interface `FelCompilationError`
+
+Error returned when a FEL expression fails to compile (lex or parse errors).
+
+- **message**: `string`
+- **offset?**: `number`
+- **line?**: `number`
+- **column?**: `number`
+
+#### interface `FelCompilationResult`
+
+Result of compiling a FEL expression.  Either `expression` is set (success)
+or `errors` is non-empty (failure).
+
+- **expression**: `ICompiledExpression | null`
+- **errors**: `FelCompilationError[]`
+
+#### interface `IFelRuntime`
+
+Pluggable FEL runtime — the single abstraction the FormEngine depends on
+for expression compilation and evaluation.
+
+Implementations:
+- `ChevrotainFelRuntime` — current JS/Chevrotain pipeline (lexer → parser → CstVisitor)
+- (future) `RustFelRuntime` — Rust/WASM backend compiled from the shared Rust crate
+
+##### `compile(expression: string): FelCompilationResult`
+
+Compile a FEL expression string into an evaluable handle.
+
+Returns a result with the compiled expression and any errors.
+If compilation fails, `expression` is null and `errors` is non-empty.
+
+##### `listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[]`
+
+Return the catalog of built-in FEL functions for tooling surfaces.
+
+##### `extractDependencies(expression: string): string[]`
+
+Extract field path dependencies from a FEL expression without full compilation.
+Spec S3.6.1 (MUST): dependency analysis for reactive wiring.
+
+##### `registerFunction(name: string, impl: (...args: any[]) => any, meta?: {
+        signature?: string;
+        description?: string;
+        category?: string;
+    }): void`
+
+Register an extension function from the registry.
+Spec S3.12, S8.1: runtime-extensible function catalog.
+
+## `wasmFelRuntime: WasmFelRuntime`
+
+Shared singleton instance.
+
+#### class `WasmFelRuntime`
+
+FEL runtime backed by the Rust WASM module.
+
+Requires WASM to be initialized before use (call `initWasm()` first).
+If WASM is not ready, `compile()` returns an error result rather than
+throwing, allowing graceful degradation.
+
+##### `compile(expression: string): FelCompilationResult`
+
+##### `listBuiltInFunctions(): FELBuiltinFunctionCatalogEntry[]`
+
+##### `extractDependencies(expression: string): string[]`
+
+##### `registerFunction(_name: string, _impl: (...args: any[]) => any, _meta?: {
+        signature?: string;
+        description?: string;
+        category?: string;
+    }): void`
+
+#### interface `IFormEngine`
+
+The complete public interface of the form engine.
+
+Consumers (webcomponent, test harnesses, tools) depend on this interface
+rather than the concrete `FormEngine` class, enabling seamless backend
+swaps (e.g. Rust/WASM).
+
+Implementations:
+- `FormEngine` — current JS implementation with Preact signals
+- (future) `RustFormEngine` — Rust/WASM backend
+
+- **signals** (`Record<string, any>`): Field values by path.
+- **relevantSignals** (`Record<string, Signal<boolean>>`): Visibility state by path.
+- **requiredSignals** (`Record<string, Signal<boolean>>`): Required state by path.
+- **readonlySignals** (`Record<string, Signal<boolean>>`): Readonly state by path.
+- **errorSignals** (`Record<string, Signal<string | null>>`): First error message (or null) per field.
+- **validationResults** (`Record<string, Signal<ValidationResult[]>>`): Bind-level validation results per field.
+- **shapeResults** (`Record<string, Signal<ValidationResult[]>>`): Shape-level validation results by shape ID.
+- **repeats** (`Record<string, Signal<number>>`): Repeat instance counts per group.
+- **optionSignals** (`Record<string, Signal<OptionEntry[]>>`): Resolved option lists for choice/multiChoice fields.
+- **optionStateSignals** (`Record<string, Signal<RemoteOptionsState>>`): Remote options loading/error state.
+- **variableSignals** (`Record<string, Signal<any>>`): Computed variable values by `"scope:name"`.
+- **instanceData** (`Record<string, any>`): Static instance data by name.
+- **instanceVersion** (`Signal<number>`): Version counter for instance data reactivity.
+- **structureVersion** (`Signal<number>`): Version counter for repeat structure changes.
+- **definition** (`FormDefinition`): The loaded form definition.
+- **dependencies** (`Record<string, string[]>`): Dependency graph: field → upstream paths.
+- **felRuntime** (`IFelRuntime`): The pluggable FEL runtime.
+
+##### `setRuntimeContext(context: FormEngineRuntimeContext): void`
+
+##### `getOptions(path: string): OptionEntry[]`
+
+##### `getOptionsSignal(path: string): Signal<OptionEntry[]> | undefined`
+
+##### `getOptionsState(path: string): RemoteOptionsState`
+
+##### `getOptionsStateSignal(path: string): Signal<RemoteOptionsState> | undefined`
+
+##### `waitForRemoteOptions(): Promise<void>`
+
+##### `waitForInstanceSources(): Promise<void>`
+
+##### `setInstanceValue(name: string, path: string | undefined, value: any): void`
+
+##### `getInstanceData(name: string, path?: string): any`
+
+##### `getDisabledDisplay(path: string): 'hidden' | 'protected'`
+
+##### `getVariableValue(name: string, scopePath: string): any`
+
+##### `addRepeatInstance(itemName: string): number | undefined`
+
+##### `removeRepeatInstance(itemName: string, index: number): void`
+
+##### `compileExpression(expression: string, currentItemName?: string): () => any`
+
+##### `setValue(name: string, value: any): void`
+
+##### `getValidationReport(options?: {
+        mode?: 'continuous' | 'submit';
+    }): ValidationReport`
+
+##### `evaluateShape(shapeId: string): ValidationResult[]`
+
+##### `isPathRelevant(path: string): boolean`
+
+##### `getResponse(meta?: {
+        id?: string;
+        author?: {
+            id: string;
+            name?: string;
+        };
+        subject?: {
+            id: string;
+            type?: string;
+        };
+        mode?: 'continuous' | 'submit';
+    }): any`
+
+##### `getDiagnosticsSnapshot(options?: {
+        mode?: 'continuous' | 'submit';
+    }): FormEngineDiagnosticsSnapshot`
+
+##### `applyReplayEvent(event: EngineReplayEvent): EngineReplayApplyResult`
+
+##### `replay(events: EngineReplayEvent[], options?: {
+        stopOnError?: boolean;
+    }): EngineReplayResult`
+
+##### `getDefinition(): FormDefinition`
+
+##### `setLabelContext(context: string | null): void`
+
+##### `getLabel(item: FormItem): string`
+
+##### `injectExternalValidation(results: Array<{
+        path: string;
+        severity: string;
+        code: string;
+        message: string;
+        source?: string;
+    }>): void`
+
+Inject external validation results (e.g. from server-side). Spec S5.7.1 (MUST).
+
+##### `clearExternalValidation(path?: string): void`
+
+Clear external validation results, optionally for a specific path. Spec S5.7.2.
+
+##### `setRegistryEntries(entries: any[]): void`
+
+Load registry entries for extension resolution. Spec S8.1.
+
+##### `evaluateScreener(answers: Record<string, any>): {
+        target: string;
+        label?: string;
+        extensions?: Record<string, any>;
+    } | null`
+
+##### `migrateResponse(responseData: Record<string, any>, fromVersion: string): Record<string, any>`
+
+#### interface `MappingDiagnostic`
+
+A diagnostic emitted during mapping rule execution.
+
+- **ruleIndex**: `number`
+- **sourcePath?**: `string`
+- **targetPath?**: `string`
+- **errorCode**: `'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE' | 'VERSION_MISMATCH' | 'INVALID_FEL'`
+- **message**: `string`
+
+#### interface `RuntimeMappingResult`
+
+Result of a mapping operation.
+
+- **direction**: `MappingDirection`
+- **output**: `any`
+- **appliedRules**: `number`
+- **diagnostics**: `MappingDiagnostic[]`
+
+#### interface `IRuntimeMappingEngine`
+
+Pluggable bidirectional mapping engine interface.
+
+Implementations:
+- `RuntimeMappingEngine` — current JS implementation
+- (future) Rust/WASM backend
+
+##### `forward(source: any): RuntimeMappingResult`
+
+##### `reverse(source: any): RuntimeMappingResult`
+
+#### type `MappingDirection`
+
+Direction of a mapping operation.
+
+```ts
+type MappingDirection = 'forward' | 'reverse';
+```
 
 ## `normalizePathSegment(segment: string): string`
 
@@ -962,34 +1275,6 @@ Resolved mutable location of an item in a tree.
 - **index**: `number`
 - **item**: `T`
 
-#### interface `MappingDiagnostic`
-
-A structured diagnostic emitted during a mapping operation.
-`ruleIndex` is -1 for document-level diagnostics; otherwise it is the 0-based index of the rule in the sorted rule list.
-
-- **ruleIndex**: `number`
-- **sourcePath?**: `string`
-- **targetPath?**: `string`
-- **errorCode**: `'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE'`
-- **message**: `string`
-
-#### interface `RuntimeMappingResult`
-
-The result of executing a mapping operation, including the transformed output, rule count, and any diagnostics.
-
-- **direction**: `MappingDirection`
-- **output**: `any`
-- **appliedRules**: `number`
-- **diagnostics**: `MappingDiagnostic[]`
-
-#### type `MappingDirection`
-
-The direction of a mapping operation: `"forward"` maps Formspec data to an external format, `"reverse"` maps back.
-
-```ts
-type MappingDirection = 'forward' | 'reverse';
-```
-
 #### class `RuntimeMappingEngine`
 
 Bidirectional data transform engine driven by a Formspec mapping document.
@@ -999,7 +1284,7 @@ valueMap, coerce, preserve, expression, flatten, nest, concat, split), and per-r
 overrides. Forward mapping transforms Formspec response data into an external format; reverse
 mapping transforms external data back into Formspec shape.
 
-##### `constructor(mappingDocument: any)`
+##### `constructor(mappingDocument: any, felRuntime?: IFelRuntime)`
 
 Creates a RuntimeMappingEngine from a mapping document.
 
@@ -1050,4 +1335,98 @@ Create a schema validator that uses the same strategy as the Python validator:
 ```ts
 type DocumentType = "definition" | "theme" | "component" | "mapping" | "response" | "validation_report" | "validation_result" | "registry" | "changelog" | "fel_functions";
 ```
+
+## `isWasmReady(): boolean`
+
+Whether the WASM module has been initialized and is ready for use.
+
+## `initWasm(): Promise<void>`
+
+Initialize the WASM module. Safe to call multiple times — subsequent calls
+return the same promise. Resolves when WASM is ready; rejects on failure.
+
+## `wasmEvalFEL(expression: string, fields?: Record<string, any>): any`
+
+Evaluate a FEL expression with optional field values. Returns the evaluated result.
+
+## `wasmParseFEL(expression: string): boolean`
+
+Parse a FEL expression and return whether it's valid.
+
+## `wasmGetFELDependencies(expression: string): string[]`
+
+Extract field path dependencies from a FEL expression. Returns an array of path strings.
+
+## `wasmExtractDependencies(expression: string): {
+    fields: string[];
+    contextRefs: string[];
+    instanceRefs: string[];
+    mipDeps: string[];
+    hasSelfRef: boolean;
+    hasWildcard: boolean;
+    usesPrevNext: boolean;
+}`
+
+Extract full dependency info from a FEL expression.
+
+## `wasmNormalizeIndexedPath(path: string): string`
+
+Normalize a dotted path by stripping repeat indices.
+
+## `wasmDetectDocumentType(doc: unknown): string | null`
+
+Detect the document type of a Formspec JSON document.
+
+## `wasmAssembleDefinition(definition: unknown, fragments: Record<string, unknown>): {
+    definition: any;
+    warnings: string[];
+    errors: string[];
+}`
+
+Assemble a definition by resolving $ref inclusions.
+
+## `wasmExecuteMapping(rules: unknown[], source: unknown, direction: 'forward' | 'reverse'): {
+    direction: string;
+    output: any;
+    rulesApplied: number;
+    diagnostics: any[];
+}`
+
+Execute a mapping transform.
+
+## `wasmExecuteMappingDoc(doc: unknown, source: unknown, direction: 'forward' | 'reverse'): {
+    direction: string;
+    output: any;
+    rulesApplied: number;
+    diagnostics: any[];
+}`
+
+Execute a full mapping document (rules + defaults + autoMap).
+
+## `wasmLintDocument(doc: unknown): {
+    documentType: string | null;
+    valid: boolean;
+    diagnostics: any[];
+}`
+
+Lint a Formspec document.
+
+## `wasmEvaluateDefinition(definition: unknown, data: Record<string, unknown>): {
+    values: any;
+    validations: any[];
+    nonRelevant: string[];
+    variables: any;
+}`
+
+Evaluate a Formspec definition against provided data.
+
+## `wasmAnalyzeFEL(expression: string): {
+    valid: boolean;
+    errors: string[];
+    references: string[];
+    variables: string[];
+    functions: string[];
+}`
+
+Analyze a FEL expression and return structural info.
 

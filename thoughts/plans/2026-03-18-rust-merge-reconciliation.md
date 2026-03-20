@@ -384,33 +384,57 @@ Test files use direct construction — intentional.
 
 ## Decommission Status
 
-### TS File Deletion — DEFERRED
+The goal is full replacement of TS and Python implementations with Rust. External consumers are the **migration target list**, not blockers.
 
-The original plan called for deleting all non-reactive TS files after WASM wiring. **Analysis shows this is not feasible** because external packages depend on exports from these files:
+### TS Migration Tiers
 
-| File | Blocked By | External Consumer |
-|------|------------|-------------------|
-| `fel/lexer.ts` | `FelLexer` export | `formspec-studio` (syntax highlighting) |
-| `fel/parser.ts` | `parser` export | `formspec-studio` (editor utils) |
-| `fel/interpreter.ts` | `ChevrotainFelRuntime` dependency | Fallback FEL runtime |
-| `fel/dependency-visitor.ts` | `ChevrotainFelRuntime` dependency | Fallback FEL runtime |
-| `fel/analysis.ts` | `analyzeFEL`, `rewriteFELReferences` | `formspec-core`, `formspec-studio-core` |
-| `path-utils.ts` | `itemAtPath`, `normalizeIndexedPath` | `formspec-core` (6 files) |
-| `schema-validator.ts` | `createSchemaValidator` (wraps AJV) | `formspec-mcp`, `formspec-core` |
-| `extension-analysis.ts` | `validateExtensionUsage` | `formspec-core/diagnostics` |
-| `runtime-mapping.ts` | Class used by `createMappingEngine` | Factory returns TS instances |
-| `assembler.ts` | Not externally consumed | ✅ Could be WASM-replaced |
+#### Tier 1 — Ready to Swap (WASM equivalent exists, consumer changes import)
 
-**Architecture reality:** WASM accelerates the runtime hot path (FEL evaluation via `WasmFelRuntime`). The TS files remain as the public API surface for tooling, analysis, and syntax-aware editor features that need Chevrotain tokens or typed object traversal. This is a valid architecture — Rust handles computation, TS handles tooling.
+| TS File | WASM Replacement | Consumers to Migrate |
+|---------|-----------------|---------------------|
+| `assembler.ts` | `wasmAssembleDefinition()` | `formspec-core` (if any), `index.ts` re-export |
+| `fel/interpreter.ts` | `wasmEvalFEL()` via `WasmFelRuntime` | `ChevrotainFelRuntime` fallback path |
+| `fel/dependency-visitor.ts` | `wasmExtractDependencies()` | Internal to `ChevrotainFelRuntime` |
 
-### Python File Deletion — DEFERRED
+#### Tier 2 — Needs Thin WASM Wrapper (Rust capability exists, not yet exposed to JS)
 
-The `RustFelRuntime` is the default FEL backend (auto-selected when `formspec_rust` is installed). Python FEL source files are retained as `DefaultFelRuntime` fallback for environments without the native extension. Full deletion requires:
-1. Making `formspec_rust` a hard dependency (not optional fallback)
-2. Rewriting FEL-specific tests to be backend-agnostic
-3. Updating `__init__.py` exports to not import from Python FEL modules
+| TS File | Rust Has It | What's Missing | Consumers |
+|---------|------------|----------------|-----------|
+| `extension-analysis.ts` | Lint pass E600 | Standalone `wasmValidateExtensionUsage()` export, or consumers call lint | `formspec-core/diagnostics` |
+| `runtime-mapping.ts` | `execute_mapping_wasm()` | Stateless — consumer `formspec-core/queries/mapping-queries.ts` needs adapted from class to function calls | `formspec-core` |
+| `schema-validator.ts` | `lint_document()` does schema validation internally | Standalone schema validation result, or consumers use lint pipeline instead of AJV | `formspec-mcp`, `formspec-core` |
 
-This is low-priority since the Rust backend is already active and tested (2,201 tests pass).
+#### Tier 3 — Needs New Rust Exports (functionality gap)
+
+| TS File | What Consumers Need | Gap |
+|---------|-------------------|-----|
+| `fel/analysis.ts` | `analyzeFEL()` ✅ exists, `rewriteFELReferences()` ❌ | Add `rewrite_fel_references()` to `fel-core` + WASM export |
+| `path-utils.ts` | `normalizeIndexedPath()` ✅ exists, `itemAtPath()` ❌, `itemLocationAtPath()` ❌ | Add definition-tree traversal to `formspec-core` + WASM export |
+
+Consumers: `formspec-core` (6 files), `formspec-studio-core`
+
+#### Tier 4 — Architecturally Hard (Chevrotain-specific)
+
+| TS File | What Consumers Need | Why It's Hard |
+|---------|-------------------|---------------|
+| `fel/lexer.ts` | `FelLexer` — Chevrotain token objects with position/type metadata | Studio syntax highlighting needs positioned token stream; Rust lexer would need to serialize token spans to JSON |
+| `fel/parser.ts` | `parser` — Chevrotain CST for editor utils | Studio needs structured CST for bracket matching, error recovery, completion; would require serializing Rust AST to a JS-consumable format |
+
+Consumer: `formspec-studio` (`src/lib/fel-editor-utils.ts`)
+
+**Options for Tier 4:**
+1. Add `wasmTokenizeFEL()` returning `{ type, text, startOffset, endOffset }[]` — covers syntax highlighting
+2. Add `wasmParseFELToAST()` returning serialized AST — covers editor utils
+3. Keep Chevrotain for Studio editor tooling only (smallest scope, but leaves the dependency)
+
+### Python Migration Status
+
+The `RustFelRuntime` is the default FEL backend (auto-selected when `formspec_rust` is installed). Full decommission requires:
+
+1. ~~Rewrite FEL-specific tests to be backend-agnostic~~ — ✅ Done. All 2,201 tests use the public `evaluate()` API.
+2. **Make `formspec_rust` a hard dependency** — requires proper `pyproject.toml` for the `formspec` package + CI must build/install PyO3 module (Rust toolchain + maturin in Python test job).
+3. **Migrate `__init__.py` exports** — `fel/__init__.py` re-exports Python internals (`parse`, `Evaluator`, `Environment`, `build_default_registry`, `DependencySet`) that have no PyO3 equivalents. Either expose from Rust or drop from public API.
+4. **Delete Python FEL files** — `parser.py`, `evaluator.py`, `environment.py`, `functions.py`, `dependencies.py`, `ast_nodes.py` — once steps 2-3 are complete.
 
 ---
 
