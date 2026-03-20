@@ -196,6 +196,63 @@ Move to studio-core alongside the tree helpers it depends on. Expose as `compute
 
 ---
 
+## Category 9: Bind Normalization (Duplicated)
+
+### MOVE → studio-core
+
+**File:** `packages/formspec-studio/src/workspaces/logic/LogicTab.tsx` (lines 52–74)
+- **`normalizeBinds(binds, items)`**: Converts the definition's `binds` (array form) into a grouped `Record<path, BindEntry>`, and extracts `prePopulate` from item definitions into the same structure. Merges two separate definition structures into one unified view.
+
+**File:** `packages/formspec-studio/src/components/CommandPalette.tsx` (lines 23–39)
+- **`normalizeBinds(binds)`**: Another local implementation — same concept, slightly different shape. Classic code smell from duplicated domain logic.
+
+### Recommendation
+Add `Project.getBindsView()` or `normalizeBinds()` to studio-core. Both call sites consume the same merged view.
+
+---
+
+## Category 10: Sample Data Generation & Engine Seeding
+
+### MOVE → studio-core
+
+**File:** `packages/formspec-studio/src/workspaces/mapping/MappingPreview.tsx` (lines 19–85)
+- **`generateSchemaSample()`**: Creates a FormEngine, walks all definition items, generates type-appropriate fake data using `@faker-js/faker` with key-name heuristics (e.g., `keyLower.includes('email')` → faker email), handles repeatable groups. Significant data generation algorithm.
+
+**File:** `packages/formspec-studio/src/workspaces/data/TestResponse.tsx` (lines 7–17)
+- **`seedInitialValues(engine, items, prefix)`**: Recursively walks definition items, calls `engine.setValue()` for fields with non-expression initial values. Duplicates engine initialization logic that `evaluation-helpers.ts` in studio-core also handles.
+
+### Recommendation
+Add `Project.generateSampleData()` and consolidate engine seeding into studio-core's existing `previewForm()` / `validateResponse()` helpers.
+
+---
+
+## Category 11: Definition Queries (Option Sets, Search Index)
+
+### MOVE → studio-core
+
+**File:** `packages/formspec-studio/src/workspaces/data/OptionSets.tsx` (lines 49–59)
+- Usage count computation: Uses `flatItems()` to walk all definition items and count references to each `optionSet` by name. Pure cross-definition query.
+
+**File:** `packages/formspec-studio/src/components/CommandPalette.tsx` (lines 60–121)
+- Search index construction: Builds a flat list of searchable results from items, variables, binds, and shapes with keyword arrays encoding what terms each entity matches against. This is a search-index over the definition.
+
+### Recommendation
+Add `Project.getOptionSetUsage()` and `Project.getSearchIndex()` methods to studio-core. These are pure queries that any consumer (not just the React UI) would benefit from.
+
+---
+
+## Category 12: Widget Resolution Priority
+
+### MOVE → studio-core
+
+**File:** `packages/formspec-studio/src/workspaces/editor/properties/WidgetHintSection.tsx` (lines 21–25)
+- Three-way widget resolution: `widgetHint presentation → component tree override → compatibility-matrix default`. This precedence order is a spec-level rule embedded in a React component.
+
+### Recommendation
+Add `Project.resolvedWidgetFor(path)` that encapsulates this resolution order.
+
+---
+
 ## What Should NOT Move
 
 ### Pure UI State (KEEP in studio)
@@ -224,11 +281,14 @@ Note: The **data** (which categories exist, which functions exist) should move. 
 |----------|----------|-------|-------|--------|
 | **P0** | FEL editing utils | `fel-editor-utils.ts`, `fel-catalog.ts`, `humanize.ts` | ~612 | Unblocks FEL editor reuse |
 | **P0** | Tree/path helpers | `tree-helpers.ts`, `selection-helpers.ts`, parts of `field-helpers.ts` | ~300 | Unblocks DnD/canvas reuse |
+| **P0** | Bind normalization | `LogicTab.tsx`, `CommandPalette.tsx` (duplicated!) | ~60 | Eliminates duplication |
 | **P1** | Field type catalog | Part of `AddItemPalette.tsx`, part of `field-helpers.ts` | ~300 | Unblocks item palette reuse |
 | **P1** | Drop target computation | `compute-drop-target.ts` | ~294 | Unblocks DnD reuse |
-| **P1** | Widget compatibility | Part of `field-helpers.ts` | ~40 | Clean API boundary |
+| **P1** | Widget compatibility | Part of `field-helpers.ts`, `WidgetHintSection.tsx` | ~50 | Clean API boundary |
+| **P1** | Definition queries | `OptionSets.tsx`, `CommandPalette.tsx` | ~80 | Reusable queries |
 | **P2** | Serialization adapters | `adapters.ts` | ~187 | Already works, lower urgency |
 | **P2** | Document normalization | `preview-documents.ts` | ~84 | Could fold into Project.export |
+| **P2** | Sample data generation | `MappingPreview.tsx`, `TestResponse.tsx` | ~100 | Consolidates engine seeding |
 
 ---
 
@@ -281,6 +341,11 @@ export function buildSequentialMoves(sortedPaths: string[], targetParentPath: st
 // serialization.ts
 export function serializeMappedData(data: any, options: AdapterOptions): string;
 
-// On Project class
-export function exportForPreview(): { definition: unknown; component: unknown; theme: unknown };
+// queries.ts (new Project methods)
+Project.getBindsView(): Record<string, BindEntry>;       // replaces 2x normalizeBinds()
+Project.getOptionSetUsage(): Record<string, number>;     // replaces inline flatItems loop
+Project.getSearchIndex(): SearchEntry[];                 // replaces CommandPalette index builder
+Project.resolvedWidgetFor(path: string): string;         // replaces 3-way inline resolution
+Project.generateSampleData(): Record<string, unknown>;   // replaces faker-based generation
+Project.exportForPreview(): { definition; component; theme };  // replaces preview-documents.ts
 ```
