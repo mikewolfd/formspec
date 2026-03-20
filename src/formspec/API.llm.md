@@ -201,7 +201,8 @@ Instantiate once per definition; call process() for each submission.
 ##### `__init__(
     self,
     definition: dict,
-    registries: list[Registry] | None = None
+    registries: list[Registry] | None = None,
+    fel_runtime: FelRuntime | None = None
 )`
 
 ##### `evaluate_variables(
@@ -228,6 +229,31 @@ Convenience: return just the validation results.
 
 Evaluate screener routes in declaration order against screener-only answers.
 
+
+## `formspec.factories`
+
+Factory functions for creating processor instances — seam for backend swapping.
+
+### `create_form_processor(
+    definition: dict,
+    registries: list[Registry] | None = None,
+    fel_runtime: FelRuntime | None = None
+) -> DefinitionEvaluator`
+
+Create a form processor (DefinitionEvaluator) instance.
+
+Consumers should use this instead of direct ``DefinitionEvaluator(...)``
+construction to enable transparent backend swapping (e.g. Rust/PyO3).
+
+### `create_mapping_engine(
+    mapping_doc: dict,
+    fel_runtime: FelRuntime | None = None
+) -> MappingEngine`
+
+Create a mapping engine instance.
+
+Consumers should use this instead of direct ``MappingEngine(...)``
+construction to enable transparent backend swapping.
 
 ## `formspec.fel`
 
@@ -787,6 +813,102 @@ unary > postfix > atom). A parallel ``_no_in`` method set suppresses the bare
 
 Parse a FEL expression string into a frozen-dataclass AST, or raise FelSyntaxError.
 
+### `formspec.fel.runtime`
+
+FEL runtime protocol — abstraction layer for swappable FEL backends.
+
+Defines Protocol classes that both the built-in Python FEL implementation and
+future Rust/PyO3 implementations can satisfy, enabling seamless backend swaps
+while keeping the same test infrastructure and consumer code.
+
+Usage::
+
+    from formspec.fel.runtime import FelRuntime, default_fel_runtime
+
+    # Use the default (Python) runtime
+    rt = default_fel_runtime()
+    result = rt.evaluate("1 + 2", {"x": 10})
+
+    # Or inject a custom runtime (e.g. Rust/PyO3)
+    evaluator = DefinitionEvaluator(definition, fel_runtime=custom_runtime)
+
+##### `default_fel_runtime() -> DefaultFelRuntime`
+
+Return the shared default FEL runtime instance.
+
+#### class `FelRuntime`
+
+Pluggable FEL runtime — the single abstraction consumers depend on.
+
+Implementations:
+- ``DefaultFelRuntime`` — built-in Python parser + evaluator
+- (future) Rust/PyO3 backend
+
+##### `__init__(self, *args, **kwargs)`
+
+##### `parse(self, source: str) -> Any`
+
+Parse a FEL expression into an AST (opaque to consumers).
+
+Raises:
+    FelSyntaxError: If the expression cannot be parsed.
+
+##### `evaluate(
+    self,
+    source: str,
+    data: dict | None = None,
+    *,
+    instances: dict[str, dict] | None = None,
+    mip_states: dict[str, typing.Any] | None = None,
+    extensions: dict[str, typing.Any] | None = None,
+    variables: dict[str, typing.Union[_FelNullType, FelNumber, FelString, FelBoolean, FelDate, FelArray, FelMoney, FelObject]] | None = None
+) -> EvalResult`
+
+Parse and evaluate a FEL expression in one call.
+
+Raises:
+    FelSyntaxError: If the expression cannot be parsed.
+
+##### `extract_dependencies(self, source: str) -> DependencySet`
+
+Parse and statically extract all referenced dependencies.
+
+Raises:
+    FelSyntaxError: If the expression cannot be parsed.
+
+##### `register_function(self, name: str, impl: Callable, meta: dict | None = None) -> None`
+
+Register an extension function into the runtime.
+
+Spec S3.12, S8.1: runtime-extensible function catalog.
+
+
+#### class `DefaultFelRuntime`
+
+FEL runtime backed by the built-in Python parser and evaluator.
+
+##### `__init__(self)`
+
+##### `register_function(self, name: str, impl: Callable, meta: dict | None = None) -> None`
+
+Register an extension function into the runtime.
+
+##### `parse(self, source: str) -> Any`
+
+##### `evaluate(
+    self,
+    source: str,
+    data: dict | None = None,
+    *,
+    instances: dict[str, dict] | None = None,
+    mip_states: dict[str, typing.Any] | None = None,
+    extensions: dict[str, typing.Any] | None = None,
+    variables: dict[str, typing.Union[_FelNullType, FelNumber, FelString, FelBoolean, FelDate, FelArray, FelMoney, FelObject]] | None = None
+) -> EvalResult`
+
+##### `extract_dependencies(self, source: str) -> DependencySet`
+
+
 ### `formspec.fel.types`
 
 FEL runtime value types — frozen dataclass wrappers for every value the evaluator can produce.
@@ -890,7 +1012,11 @@ Bidirectional rule engine: evaluates a mapping document's rules to transform dat
 Accepts a validated mapping document (mapping.schema.json) and exposes
 forward() (Response -> target) and reverse() (target -> Response) methods.
 
-##### `__init__(self, mapping_doc: dict)`
+##### `__init__(
+    self,
+    mapping_doc: dict,
+    fel_runtime: FelRuntime | None = None
+)`
 
 ##### `forward(self, source_data: dict) -> dict`
 
@@ -899,6 +1025,124 @@ Transform Formspec Response data to the target schema, applying rules by descend
 ##### `reverse(self, target_data: dict) -> dict`
 
 Transform target-schema data back to Formspec Response format; skips non-bidirectional rules.
+
+
+## `formspec.protocols`
+
+Formspec protocols — abstraction layer for swappable backends.
+
+Defines Protocol classes for the major Formspec subsystems so that both
+the built-in Python implementations and future Rust/PyO3 backends can
+satisfy the same contracts.
+
+Usage::
+
+    from formspec.protocols import FormProcessor, FormValidator, MappingProcessor
+
+    def submit(processor: FormProcessor, data: dict) -> bool:
+        result = processor.process(data)
+        return result.valid
+
+#### class `FormProcessor`
+
+Server-side form processor interface.
+
+Implementations:
+- ``DefinitionEvaluator`` — built-in 4-phase batch processor
+- (future) Rust/PyO3 backend
+
+##### `__init__(self, *args, **kwargs)`
+
+##### `process(self, data: dict, *, mode: str = 'submit') -> Any`
+
+Run all processing phases and return a ProcessingResult.
+
+Returns an object with at least: valid (bool), results (list[dict]),
+data (dict), variables (dict), counts (dict).
+
+##### `validate(self, data: dict, *, mode: str = 'submit') -> list[dict]`
+
+Convenience: return just the validation results.
+
+##### `evaluate_screener(self, answers: dict) -> dict[str, object] | None`
+
+Evaluate screener routes against answers. Returns matching route or None.
+
+##### `evaluate_variables(
+    self,
+    data: dict
+) -> dict[str, typing.Union[_FelNullType, FelNumber, FelString, FelBoolean, FelDate, FelArray, FelMoney, FelObject]]`
+
+Evaluate definition-wide variables in dependency order.
+
+##### `inject_external_validation(self, results: list[dict]) -> None`
+
+Inject external validation results (e.g. from server-side). Spec S5.7.1 (MUST).
+
+##### `clear_external_validation(self, path: str | None = None) -> None`
+
+Clear external validation results, optionally for a specific path. Spec S5.7.2.
+
+
+#### class `FormValidator`
+
+Static lint/validation interface for Formspec documents.
+
+Implementations:
+- ``FormspecLinter`` — built-in multi-pass lint orchestrator
+- (future) Rust/PyO3 backend
+
+##### `__init__(self, *args, **kwargs)`
+
+##### `lint(
+    self,
+    document: Any,
+    *,
+    schema_only: bool = False,
+    no_fel: bool = False,
+    component_definition: dict[str, typing.Any] | None = None,
+    registry_documents: list[dict[str, typing.Any]] | None = None
+) -> list[typing.Any]`
+
+Run linting passes and return sorted diagnostics.
+
+
+#### class `MappingProcessor`
+
+Bidirectional data mapping interface.
+
+Implementations:
+- ``MappingEngine`` — built-in rule-based mapper
+- (future) Rust/PyO3 backend
+
+##### `__init__(self, *args, **kwargs)`
+
+##### `forward(self, source_data: dict) -> dict`
+
+Transform Formspec response data to external target format.
+
+##### `reverse(self, target_data: dict) -> dict`
+
+Transform external data back to Formspec response format.
+
+
+#### class `DataAdapter`
+
+Wire format serializer/deserializer interface.
+
+Implementations:
+- ``JsonAdapter``, ``XmlAdapter``, ``CsvAdapter`` — built-in adapters
+- (future) Rust/PyO3 backend
+
+##### `__init__(self, *args, **kwargs)`
+
+##### `serialize(self, value: Any) -> bytes`
+
+Encode a value tree to wire-format bytes.
+
+##### `deserialize(self, data: bytes) -> Any`
+
+Decode wire-format bytes into a value tree.
 
 
 ## `formspec.registry`
@@ -1160,7 +1404,8 @@ Stateful pipeline orchestrator: holds a schema validator and policy, runs gated 
 ##### `__init__(
     self,
     schema_validator: SchemaValidator | None = None,
-    policy: LintPolicy | None = None
+    policy: LintPolicy | None = None,
+    fel_runtime: FelRuntime | None = None
 )`
 
 ##### `lint(

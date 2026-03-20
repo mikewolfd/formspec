@@ -7,23 +7,27 @@ status: draft
 
 # Formspec References Specification v1.0
 
-**Version:** 1.0.0-draft.1  
-**Date:** 2026-03-19  
-**Editors:** Formspec Working Group  
-**Companion to:** Formspec v1.0 — A JSON-Native Declarative Form Standard  
+**Version:** 1.0.0-draft.1
+**Date:** 2026-03-19
+**Editors:** Formspec Working Group
+**Companion to:** Formspec v1.0 — A JSON-Native Declarative Form Standard
 
 ---
 
 ## Abstract
 
 The Formspec References Specification is a companion to Formspec v1.0 that
-defines a declarative mechanism for attaching external documentation, knowledge
-sources, and AI agent data stores to any level of a Formspec definition — the
-form itself, a group or section, or an individual field. A Reference is a JSON
-object that points to contextual information (regulatory guidance, help
-articles, vector store collections, tool schemas) and declares its intended
-audience (human, agent, or both). References are pure metadata: they MUST NOT
-affect data capture, validation, or the processing model.
+defines a standalone sidecar document for attaching external documentation,
+knowledge sources, and AI agent data stores to any level of a Formspec
+definition — the form itself, a group or section, or an individual field.
+A References Document lives alongside the Definition (like Theme and Component
+documents) and binds references to specific items by path. Multiple References
+Documents MAY target the same Definition — for different audiences, languages,
+or domains. A Reference is a JSON object that points to contextual information
+(regulatory guidance, help articles, vector store collections, tool schemas)
+and declares its intended audience (human, agent, or both). References are pure
+metadata: they MUST NOT affect data capture, validation, or the processing
+model.
 
 ## Status of This Document
 
@@ -60,7 +64,7 @@ core-specification meanings throughout this document unless explicitly redefined
 
 Forms exist in context. A tax form references regulatory guidance. A clinical intake form references diagnostic criteria. A grant application references federal reporting standards. Today, that context lives outside the form — in separate documents, institutional knowledge, or the heads of trained staff.
 
-The References specification adds a declarative mechanism for attaching reference documentation, knowledge sources, and assistive data stores to any level of a Formspec definition: the form itself, a group/section, or an individual field. References serve two audiences:
+The References specification defines a standalone sidecar document that binds reference documentation, knowledge sources, and assistive data stores to specific items within a Formspec definition. Like Theme (Tier 2) and Component (Tier 3) documents, a References Document lives alongside the Definition rather than embedded within it. References serve two audiences:
 
 1. **Human users** — contextual help, regulatory guidance, policy documents, instructional material.
 2. **AI companion agents** — retrieval-augmented generation (RAG) endpoints, vector store collections, knowledge base articles, tool schemas, and structured context that agents can query at runtime to assist users.
@@ -69,10 +73,11 @@ References are **metadata** — they MUST NOT affect data capture, validation, o
 
 ### 1.1 Design Principles
 
-1. **Additive, not invasive** — References layer onto existing definitions. Removing all references produces an identical form from a data/behavior perspective.
+1. **Additive, not invasive** — References live in a separate document. Removing or ignoring the References Document produces an identical form from a data/behavior perspective. The Definition is never modified.
 2. **Audience-aware** — Each reference declares its intended audience (`human`, `agent`, or `both`), enabling renderers and agents to filter appropriately.
 3. **Transport-agnostic** — References can point to static documents (URLs), structured data endpoints (APIs), or abstract resource identifiers (vector store collection IDs). The spec defines the pointer; the consumer resolves it.
-4. **Scoped** — References attach at the level they apply to. A form-level reference provides global context; a field-level reference provides targeted guidance for that specific input.
+4. **Composable** — Multiple References Documents MAY target the same Definition, enabling audience separation, locale variants, and domain overlays without coordination between authors.
+5. **Scoped** — Each reference declares its target item by path. A form-level reference (`"#"`) provides global context; an item-targeted reference provides guidance for that specific input.
 
 ## 2. Reference Object
 
@@ -82,7 +87,7 @@ A Reference is a JSON object that points to an external (or inline) source of co
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `id` | string | RECOMMENDED | Stable identifier for this reference, unique within the definition. Enables deduplication and cross-referencing. Pattern: `[a-zA-Z][a-zA-Z0-9_-]*` |
+| `id` | string | RECOMMENDED | Stable identifier for this reference, unique within the document. Enables deduplication and cross-referencing. Pattern: `[a-zA-Z][a-zA-Z0-9_-]*` |
 | `type` | string | REQUIRED | The kind of reference. See §2.2. |
 | `audience` | string | REQUIRED | Who this reference is for: `"human"`, `"agent"`, or `"both"`. |
 | `title` | string | RECOMMENDED | Human-readable title or short description of the reference. |
@@ -136,18 +141,18 @@ Custom types MUST be prefixed with `x-` (e.g., `"x-org-training-video"`).
 
 - At least one of `uri` or `content` MUST be present.
 - If both `uri` and `content` are present, `content` is treated as a cached/fallback representation of the URI target.
-- `id`, when present, MUST be unique among all references that share the same attachment point (i.e., unique within the same `references` array). IDs SHOULD be unique across the entire definition to enable unambiguous cross-referencing, but this is not a hard requirement.
+- `id`, when present, MUST be unique within the References Document. IDs SHOULD be unique across all loaded References Documents targeting the same Definition to enable unambiguous cross-referencing, but this is not a hard requirement.
 - `audience` MUST be one of: `"human"`, `"agent"`, `"both"`.
-- `type` MUST be a recognized type from §2.2 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed type MUST skip the reference and SHOULD emit a warning, but MUST NOT reject the definition.
+- `type` MUST be a recognized type from §2.2 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed type MUST skip the reference and SHOULD emit a warning, but MUST NOT reject the document.
 - `priority` when present MUST be one of: `"primary"`, `"supplementary"`, `"background"`.
 - `rel` when present MUST be a recognized relationship type from §2.5 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning.
-- An empty `references` array (`"references": []`) is valid and semantically equivalent to omitting the property.
+- An empty `references` array (`"references": []`) is valid and semantically equivalent to a document with no bindings.
 - Multiple references MAY share the same `uri` value (e.g., the same document serving as both a human `"regulation"` and an agent `"context"` reference with different `audience` values).
 - Reference property values are **static**. FEL expressions MUST NOT appear in any reference property (`uri`, `content`, `title`, etc.). Dynamic reference resolution, if needed, MUST be handled by the host environment or via `formspec-fn:` URIs (§3.4).
 
 ### 2.4 Array Ordering
 
-References within a `references` array are **ordered**. The first reference in the array is the most relevant to the attachment point; subsequent references are progressively less central. Processors that present references to humans or agents SHOULD preserve this authoring order.
+References within the `references` array are **ordered**. The first reference in the array is the most relevant; subsequent references are progressively less central. Processors that present references to humans or agents SHOULD preserve this authoring order.
 
 References are grouped by their effective priority tier (primary, supplementary, background — see §2.1 for the default). All primary references are surfaced before supplementary, regardless of array position. Within a tier, array order determines presentation sequence.
 
@@ -155,51 +160,37 @@ References are grouped by their effective priority tier (primary, supplementary,
 
 ### 2.5 Reference Relationships
 
-A Reference MAY declare a `rel` property that describes its relationship to the attachment point (the field, group, or form it is attached to). This enables consumers to understand not just *what* a reference points to, but *how* it relates to the thing being filled out.
+A Reference MAY declare a `rel` property that describes its relationship to the target item (the field, group, or form it is bound to). This enables consumers to understand not just *what* a reference points to, but *how* it relates to the thing being filled out.
 
 **Defined relationship types:**
 
 | `rel` value | Meaning |
 |-------------|---------|
-| `"authorizes"` | The referenced document authorizes or permits the action described by the attachment point (e.g., a regulation authorizing a particular cost category). |
+| `"authorizes"` | The referenced document authorizes or permits the action described by the target (e.g., a regulation authorizing a particular cost category). |
 | `"constrains"` | The referenced document imposes constraints or limits on valid values (e.g., a rate ceiling, an enumeration of permitted codes). |
-| `"defines"` | The referenced document defines the term or concept represented by the attachment point (e.g., a glossary entry). |
-| `"exemplifies"` | The referenced document provides an example or template for the attachment point. |
-| `"supersedes"` | The referenced document replaces a prior version of an earlier reference at the same attachment point. |
+| `"defines"` | The referenced document defines the term or concept represented by the target (e.g., a glossary entry). |
+| `"exemplifies"` | The referenced document provides an example or template for the target. |
+| `"supersedes"` | The referenced document replaces a prior version of an earlier reference at the same target. |
 | `"superseded-by"` | The referenced document has been replaced by a newer version. Typically paired with a sibling reference carrying `rel: "supersedes"`. |
-| `"derived-from"` | The attachment point's value or structure is derived from the referenced source (e.g., a pre-populated field drawn from an external record). |
+| `"derived-from"` | The target's value or structure is derived from the referenced source (e.g., a pre-populated field drawn from an external record). |
 | `"see-also"` | General association — the reference provides related but non-essential context. This is the implicit relationship when `rel` is absent. |
 
 Custom relationship types MUST be prefixed with `x-` (e.g., `"x-org-audit-trail"`).
 
 When `rel` is absent, processors MUST treat the relationship as `"see-also"`. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning. This mirrors the tolerance rule for unrecognized `type` values (§2.3).
 
-> **Design note:** Relationship types are modeled after [IANA Link Relations](https://www.iana.org/assignments/link-relations/) and HTML's `rel` attribute. The set is intentionally small and focused on the reference–attachment-point relationship, not reference-to-reference relationships. References do not link to each other; if two references are related, that relationship is expressed in the documents they point to, not in the Formspec definition.
+> **Design note:** Relationship types are modeled after [IANA Link Relations](https://www.iana.org/assignments/link-relations/) and HTML's `rel` attribute. The set is intentionally small and focused on the reference–target relationship, not reference-to-reference relationships. References do not link to each other; if two references are related, that relationship is expressed in the documents they point to, not in the References Document.
 
 **Example:**
 
 ```json
 {
-  "key": "indirectCostRate",
-  "type": "field",
-  "label": "Indirect Cost Rate",
-  "dataType": "decimal",
-  "references": [
-    {
-      "type": "regulation",
-      "audience": "both",
-      "rel": "constrains",
-      "title": "2 CFR §200.414 — Indirect (F&A) Costs",
-      "uri": "https://www.ecfr.gov/current/title-2/section-200.414"
-    },
-    {
-      "type": "context",
-      "audience": "agent",
-      "rel": "defines",
-      "title": "Indirect cost rate guidance",
-      "content": "The indirect cost rate is a percentage negotiated between the grantee organization and its cognizant federal agency..."
-    }
-  ]
+  "target": "indirectCostRate",
+  "type": "regulation",
+  "audience": "both",
+  "rel": "constrains",
+  "title": "2 CFR §200.414 — Indirect (F&A) Costs",
+  "uri": "https://www.ecfr.gov/current/title-2/section-200.414"
 }
 ```
 
@@ -323,127 +314,30 @@ When both a URI fragment and `selector` are present, the URI fragment is the mac
 }
 ```
 
-## 4. Attachment Points
+## 4. References Document
 
-References can be attached at three levels. Each level uses the same `references` property containing an array of Reference objects. References within an array are ordered — see §2.4.
+A **References Document** is a standalone JSON sidecar that binds references to a target Definition. Like Theme (Tier 2) and Component (Tier 3) documents, it lives alongside the Definition rather than embedded within it. This separation enables multiple References Documents to target the same Definition — for different audiences, languages, domains, or deployment contexts — without modifying the Definition itself.
 
-### 4.1 Form-Level References
+### 4.1 Document Structure
 
-Declared as a top-level `references` property on the Definition object. These provide context for the entire form.
+A References Document MUST contain:
 
-```json
-{
-  "$formspec": "1.0",
-  "url": "https://example.gov/forms/sf-425",
-  "version": "2025.1.0",
-  "status": "active",
-  "title": "Federal Financial Report (SF-425)",
-  "references": [
-    {
-      "id": "cfr-guidance",
-      "type": "regulation",
-      "audience": "both",
-      "title": "2 CFR Part 200 — Uniform Administrative Requirements",
-      "uri": "https://www.ecfr.gov/current/title-2/subtitle-A/chapter-II/part-200",
-      "priority": "primary"
-    },
-    {
-      "id": "completion-guide",
-      "type": "documentation",
-      "audience": "human",
-      "title": "SF-425 Line-by-Line Completion Guide",
-      "uri": "https://example.gov/help/sf425-guide.pdf",
-      "mediaType": "application/pdf"
-    },
-    {
-      "id": "grant-kb",
-      "type": "vector-store",
-      "audience": "agent",
-      "title": "Federal grants guidance knowledge base",
-      "uri": "vectorstore:pinecone/federal-grants-v3",
-      "description": "Embeddings of all OMB circulars, 2 CFR 200 subparts, and agency-specific grant guidance. Query with field-level questions for contextual help.",
-      "tags": ["rag", "grants", "2-cfr-200"]
-    }
-  ],
-  "items": []
-}
-```
+- **`$formspecReferences`** — Version pin. MUST be `"1.0"`.
+- **`version`** — Version of this References Document (independently versioned from the target Definition).
+- **`targetDefinition`** — Binding to the target Definition by canonical URL, with an optional `compatibleVersions` semver range.
+- **`references`** — Ordered array of Bound References (§4.2).
 
-### 4.2 Item-Level References
-
-Declared as a `references` property on any Item (field, group, or display). These provide targeted context for that specific part of the form.
+A References Document MAY also contain: `url`, `name`, `title`, `description`, `referenceDefs` (§4.6).
 
 ```json
 {
-  "key": "indirectCostRate",
-  "type": "field",
-  "label": "Indirect Cost Rate",
-  "dataType": "decimal",
-  "description": "Your organization's negotiated indirect cost rate.",
-  "references": [
-    {
-      "type": "regulation",
-      "audience": "both",
-      "title": "2 CFR §200.414 — Indirect (F&A) Costs",
-      "uri": "https://www.ecfr.gov/current/title-2/section-200.414"
-    },
-    {
-      "type": "context",
-      "audience": "agent",
-      "title": "Indirect cost rate guidance",
-      "content": "The indirect cost rate is a percentage negotiated between the grantee organization and its cognizant federal agency. It represents overhead costs (facilities, administration) that cannot be directly attributed to a specific grant. Common values range from 10% to 65%. Organizations without a negotiated rate may use the de minimis rate of 10% per 2 CFR §200.414(f). The rate entered here should match the organization's current Negotiated Indirect Cost Rate Agreement (NICRA).",
-      "priority": "primary"
-    },
-    {
-      "type": "example",
-      "audience": "human",
-      "title": "How to find your indirect cost rate",
-      "uri": "https://example.gov/help/indirect-cost-rate-examples"
-    }
-  ]
-}
-```
-
-### 4.3 Inheritance and Scoping
-
-References do NOT inherit. A field does not automatically receive its parent group's references. This is intentional — consumers that need broader context should walk up the item tree and collect references from ancestor groups and the form level.
-
-**Rationale**: Automatic inheritance would create ambiguity about which references apply to a specific field vs. its container. Explicit attachment keeps the model simple and predictable. While references do not inherit in the data model, consumers (particularly agents) may choose to collect references from ancestor scopes for broader context — see the recommended context assembly pattern in §5.1.
-
-**Non-relevant items**: References on non-relevant items persist in the definition (they are structural metadata, not runtime state). However, agents and renderers SHOULD NOT surface references for items that are currently non-relevant, since the user cannot interact with those items.
-
-### 4.4 Modular Composition
-
-When a Group uses `$ref` to include items from another definition (core §6.6), references on the imported items are carried into the assembled definition. The `keyPrefix` mechanism applies only to item keys and bind paths — reference `id` values are NOT prefixed. If this creates `id` collisions, the assembler SHOULD emit a warning. Imported references retain their original URIs and content; the assembler MUST NOT rewrite them.
-
-Form-level references from the referenced definition are NOT imported — only item-level references travel with their items. If the host definition needs the referenced definition's form-level context, it must redeclare those references explicitly.
-
-**`referenceDefs` during assembly**: The referenced definition's `referenceDefs` are NOT merged into the host definition. The assembler MUST resolve all reference `$ref` pointers within imported items to their inline form before inserting them into the host item tree. After assembly, no imported item may contain a `$ref` pointing to the source definition's `referenceDefs`. This is consistent with the assembly principle that the output is a self-contained definition (core §6.6.2).
-
-### 4.5 URI Stability and Versioning
-
-Reference URIs are **not versioned** alongside the definition. A definition at version `2025.1.0` and version `2025.2.0` may contain the same reference URI pointing to content that has changed independently. This is by design — references point to living external resources.
-
-Authors who need pinned references SHOULD:
-- Use `content` for inline snapshots that are immutable with the definition version.
-- Include version information in URIs where the external system supports it (e.g., `https://www.ecfr.gov/current/title-2/section-200.414?version=2025-01-01`).
-- Use `description` to note the expected version or date of the referenced content.
-
-### 4.6 Reuse via `referenceDefs`
-
-Definitions MAY declare a top-level `referenceDefs` object that serves as a registry of reusable Reference objects. Items then refer to these shared definitions instead of duplicating them inline, eliminating copy-paste sprawl and the drift that comes with it.
-
-#### 4.6.1 Declaring Shared References
-
-`referenceDefs` is an object whose keys are reference identifiers (matching `[a-zA-Z][a-zA-Z0-9_-]*`) and whose values are Reference objects. The key becomes the reference's `id` — if the Reference object also declares an `id`, it MUST match the key.
-
-```json
-{
-  "$formspec": "1.0",
-  "url": "https://example.gov/forms/sf-425",
-  "version": "2025.1.0",
-  "status": "active",
-  "title": "Federal Financial Report (SF-425)",
+  "$formspecReferences": "1.0",
+  "version": "1.0.0",
+  "title": "SF-425 Federal Guidance References",
+  "targetDefinition": {
+    "url": "https://example.gov/forms/sf-425",
+    "compatibleVersions": ">=2025.1.0"
+  },
   "referenceDefs": {
     "cfr-200-414": {
       "type": "regulation",
@@ -461,30 +355,131 @@ Definitions MAY declare a top-level `referenceDefs` object that serves as a regi
       "tags": ["rag", "grants", "2-cfr-200"]
     }
   },
-  "items": []
+  "references": [
+    {
+      "target": "#",
+      "id": "cfr-guidance",
+      "type": "regulation",
+      "audience": "both",
+      "title": "2 CFR Part 200 — Uniform Administrative Requirements",
+      "uri": "https://www.ecfr.gov/current/title-2/subtitle-A/chapter-II/part-200",
+      "priority": "primary"
+    },
+    {
+      "target": "#",
+      "id": "completion-guide",
+      "type": "documentation",
+      "audience": "human",
+      "title": "SF-425 Line-by-Line Completion Guide",
+      "uri": "https://example.gov/help/sf425-guide.pdf",
+      "mediaType": "application/pdf"
+    },
+    {
+      "target": "#",
+      "id": "grant-kb",
+      "type": "vector-store",
+      "audience": "agent",
+      "title": "Federal grants guidance knowledge base",
+      "uri": "vectorstore:pinecone/federal-grants-v3",
+      "description": "Embeddings of all OMB circulars, 2 CFR 200 subparts, and agency-specific grant guidance. Query with field-level questions for contextual help.",
+      "tags": ["rag", "grants", "2-cfr-200"]
+    },
+    {
+      "target": "indirectCostRate",
+      "$ref": "#/referenceDefs/cfr-200-414",
+      "selector": "Section 200.414(f) — De minimis rate of 10%"
+    },
+    {
+      "target": "indirectCostRate",
+      "type": "context",
+      "audience": "agent",
+      "rel": "defines",
+      "title": "Indirect cost rate guidance",
+      "content": "The indirect cost rate is a percentage negotiated between the grantee organization and its cognizant federal agency. It represents overhead costs (facilities, administration) that cannot be directly attributed to a specific grant. Common values range from 10% to 65%. Organizations without a negotiated rate may use the de minimis rate of 10% per 2 CFR §200.414(f). The rate entered here should match the organization's current Negotiated Indirect Cost Rate Agreement (NICRA).",
+      "priority": "primary"
+    },
+    {
+      "target": "indirectCostRate",
+      "type": "example",
+      "audience": "human",
+      "title": "How to find your indirect cost rate",
+      "uri": "https://example.gov/help/indirect-cost-rate-examples"
+    }
+  ]
 }
 ```
 
-#### 4.6.2 Referencing Shared Definitions
+### 4.2 Bound References
 
-Within any `references` array, an entry MAY use `{ "$ref": "#/referenceDefs/{key}" }` instead of a full Reference object. The `$ref` value MUST be a JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901)) relative to the definition root, pointing to a key in `referenceDefs`.
+Each entry in the `references` array is a **Bound Reference** — a Reference object (§2) with an additional required `target` property that binds it to a specific location in the target Definition.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `target` | string | REQUIRED | Path identifying which Definition item(s) this reference applies to. Uses the same dot-notation path syntax as Bind paths (core §4.3). The special value `"#"` means form-level (applies to the entire form). Multiple references MAY target the same path. |
+
+In addition to `target`, a Bound Reference contains all Reference properties from §2.1, or a `$ref` pointer to a `referenceDefs` entry (§4.6).
+
+**Target path examples:**
+
+| Target | Meaning |
+|--------|---------|
+| `"#"` | Form-level — applies to the entire form |
+| `"indirectCostRate"` | A specific field |
+| `"budget.lineItems"` | A nested group |
+| `"lineItems[*].amount"` | All instances of a field within a repeat |
+
+### 4.3 Target Definition Binding
+
+The `targetDefinition` object declares which Definition this References Document is designed for:
 
 ```json
 {
-  "key": "indirectCostRate",
-  "type": "field",
-  "label": "Indirect Cost Rate",
-  "dataType": "decimal",
-  "references": [
-    { "$ref": "#/referenceDefs/cfr-200-414" },
-    { "$ref": "#/referenceDefs/grant-kb" },
-    {
-      "type": "context",
-      "audience": "agent",
-      "title": "Indirect cost rate field guidance",
-      "content": "The indirect cost rate is a percentage negotiated between..."
-    }
-  ]
+  "url": "https://example.gov/forms/sf-425",
+  "compatibleVersions": ">=2025.1.0 <3.0.0"
+}
+```
+
+- `url` (REQUIRED) — Canonical URL of the target Definition (its `url` property).
+- `compatibleVersions` (OPTIONAL) — Semver range expression describing which Definition versions this document supports. When absent, the document is compatible with any version at that URL.
+
+A processor loading a References Document SHOULD verify that the Definition's version satisfies `compatibleVersions` before applying references. On mismatch, the processor SHOULD emit a warning but MAY still apply the references (warn-and-continue).
+
+### 4.4 Multiple References Documents
+
+Multiple References Documents MAY target the same Definition. This enables:
+
+- **Audience separation** — one document for human-facing help, another for agent context.
+- **Locale variants** — one document per language, each with `language`-tagged references.
+- **Domain overlays** — a base references document plus a domain-specific overlay (e.g., agency-specific regulatory guidance on top of a shared form).
+
+When multiple documents target the same Definition, a processor MUST merge their references by collecting all Bound References into a single ordered list. Within each document, array order is preserved (§2.4). Across documents, the processor determines load order (implementation-defined).
+
+References from different documents that target the same path are **additive** — they do not replace each other.
+
+### 4.5 Scoping and Non-Inheritance
+
+References target specific items by path. A reference targeting a group does NOT automatically apply to the group's children — each item must be targeted explicitly.
+
+**Rationale**: Automatic inheritance would create ambiguity about which references apply to a specific field vs. its container. Explicit targeting keeps the model simple and predictable. Consumers (particularly agents) that want hierarchical context may collect references from ancestor paths — see the recommended context assembly pattern in §5.1.
+
+**Non-relevant items**: References targeting non-relevant items persist in the References Document (they are structural metadata). However, agents and renderers SHOULD NOT surface references for items that are currently non-relevant, since the user cannot interact with those items.
+
+### 4.6 Reuse via `referenceDefs`
+
+A References Document MAY declare a `referenceDefs` object — a registry of reusable Reference objects. Entries in the `references` array may use `$ref` pointers instead of duplicating reference objects inline.
+
+#### 4.6.1 Declaring Shared References
+
+`referenceDefs` is an object whose keys are reference identifiers (matching `[a-zA-Z][a-zA-Z0-9_-]*`) and whose values are Reference objects. The key becomes the reference's `id` — if the Reference object also declares an `id`, it MUST match the key.
+
+#### 4.6.2 Referencing Shared Definitions
+
+Within the `references` array, a Bound Reference MAY use `{ "$ref": "#/referenceDefs/{key}" }` instead of inline Reference properties. The `$ref` value MUST be a JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901)) relative to the References Document root.
+
+```json
+{
+  "target": "indirectCostRate",
+  "$ref": "#/referenceDefs/cfr-200-414"
 }
 ```
 
@@ -492,6 +487,7 @@ A `$ref` entry MAY include additional properties alongside `$ref`. These propert
 
 ```json
 {
+  "target": "indirectCostRate",
   "$ref": "#/referenceDefs/cfr-200-414",
   "selector": "Section 200.414(f) — De minimis rate of 10%",
   "priority": "primary"
@@ -500,14 +496,29 @@ A `$ref` entry MAY include additional properties alongside `$ref`. These propert
 
 #### 4.6.3 Resolution Rules
 
-1. `$ref` resolution is performed at **load time**, before any processing. After resolution, the definition behaves as if all references were declared inline.
-2. A `$ref` pointing to a nonexistent key in `referenceDefs` is a definition error. Processors MUST report it and MUST NOT silently ignore the broken reference.
+1. `$ref` resolution is performed at **load time**, before any processing. After resolution, the document behaves as if all references were declared inline.
+2. A `$ref` pointing to a nonexistent key in `referenceDefs` is a document error. Processors MUST report it and MUST NOT silently ignore the broken reference.
 3. `$ref` values MUST NOT be recursive — a `referenceDefs` entry MUST NOT use the `$ref` resolution mechanism defined in this section.
 4. `referenceDefs` entries that are never referenced are inert — they impose no processing cost and MUST NOT cause warnings.
 5. After resolution, the `id` of the resolved reference is the `referenceDefs` key. An override entry MUST NOT include `id` — the identity of a `$ref`-resolved reference is always the key it points to.
 6. The result of merging overrides with the base reference MUST satisfy all validation rules in §2.3. Processors MUST validate the merged result, not the base and overrides independently.
 
-> **Rationale:** This is the same pattern used by JSON Schema's `$defs` and Formspec's own `$ref` for modular composition (core §6.6). Without a reuse mechanism, definitions with many fields citing the same regulation will contain dozens of identical reference objects — a maintenance hazard where updating one copy but not the others creates silent inconsistency. `referenceDefs` makes the single-source-of-truth pattern expressible.
+> **Rationale:** This is the same pattern used by JSON Schema's `$defs` and Formspec's own `$ref` for modular composition (core §6.6). Without a reuse mechanism, documents with many items citing the same regulation will contain dozens of identical reference objects — a maintenance hazard where updating one copy but not the others creates silent inconsistency. `referenceDefs` makes the single-source-of-truth pattern expressible.
+
+### 4.7 URI Stability and Versioning
+
+Reference URIs are **not versioned** alongside the References Document or the target Definition. A reference URI may point to content that changes independently. This is by design — references point to living external resources.
+
+Authors who need pinned references SHOULD:
+- Use `content` for inline snapshots that are immutable with the document version.
+- Include version information in URIs where the external system supports it (e.g., `https://www.ecfr.gov/current/title-2/section-200.414?version=2025-01-01`).
+- Use `description` to note the expected version or date of the referenced content.
+
+### 4.8 Modular Composition
+
+When a Group uses `$ref` to include items from another definition (core §6.6), references in a sidecar References Document targeting the source definition do NOT automatically transfer to the assembled definition. The host definition's References Document(s) must explicitly bind references to any imported items using the assembled paths (which include the `keyPrefix` from the import).
+
+> **Rationale:** Since References Documents are separate from the Definition, there is no mechanism for the assembler to "carry" them. The host authors are responsible for providing reference context for imported items. This is consistent with the sidecar model — the Definition is assembled independently of its references.
 
 ## 5. Agent Integration Patterns
 
@@ -517,12 +528,12 @@ This section describes how AI companion agents are expected to consume reference
 
 When an agent assists a user with a specific field, the recommended approach is to:
 
-1. Collect `references` from the target field.
-2. Collect `references` from ancestor groups (walking up the item tree).
-3. Collect `references` from the form level.
+1. Collect all loaded References Documents targeting the active Definition.
+2. Filter to Bound References whose `target` matches the field's path.
+3. Additionally collect Bound References targeting ancestor groups (walking up the item tree by path segments) and form-level references (`target: "#"`).
 4. Filter by `audience` (`"agent"` or `"both"`).
 5. Sort by `priority` (`"primary"` first, then `"supplementary"`, then `"background"`).
-6. Use `rel` to weight references appropriately — `"constrains"` and `"defines"` references are authoritative context for the attachment point and SHOULD be consulted before `"see-also"` references, which provide background.
+6. Use `rel` to weight references appropriately — `"constrains"` and `"defines"` references are authoritative context for the target and SHOULD be consulted before `"see-also"` references, which provide background.
 7. Use inline `content` references directly as context.
 8. Resolve `uri` references as appropriate (fetch documents, query vector stores, call APIs).
 
@@ -550,6 +561,7 @@ Agent context assembly:
 
 ```json
 {
+  "target": "indirectCostRate",
   "type": "tool",
   "audience": "agent",
   "title": "NICRA Lookup",
@@ -589,8 +601,8 @@ References complement but do not replace existing Item properties:
 | **`references`** | **External context, knowledge sources, agent data** | **Human + Agent** | **Implementation-defined** |
 
 - `description` and `hint` remain the right place for concise, inline human guidance.
-- `references` are for deeper context: full documents, knowledge bases, regulatory citations, and agent-consumable data sources.
-- An agent SHOULD use `label`, `hint`, and `description` as lightweight context before consulting `references` for deeper information.
+- `references` (in the sidecar document) are for deeper context: full documents, knowledge bases, regulatory citations, and agent-consumable data sources.
+- An agent SHOULD use `label`, `hint`, and `description` as lightweight context before consulting references for deeper information.
 
 ## 7. Rendering Guidance
 
@@ -604,34 +616,37 @@ References are metadata and renderers are free to present them however they choo
 
 ## 8. Conformance
 
-This specification defines conformance requirements for `references` handling. These requirements are modeled after the round-trip preservation rule in core §8.4 (rule 5): processors MUST round-trip data they do not consume. Core §1.4 will be updated to reference this companion spec.
+This specification defines conformance requirements for References Document handling.
 
 ### 8.1 Core Processor Requirements
 
-- A conformant Core processor MUST accept definitions containing `references` without error.
-- A conformant Core processor MUST preserve `references` and `referenceDefs` on round-trip (serialize/deserialize). This follows the same principle as core §8.4 rule 5 (extension round-trip preservation).
-- A conformant Core processor MUST NOT use `references` to alter data capture, validation, or the processing model.
-- `references` and `referenceDefs` MUST NOT appear in Response data.
+- A conformant Core processor MAY ignore References Documents entirely — they are an additive layer.
+- A conformant Core processor MUST NOT use references to alter data capture, validation, or the processing model.
+- References MUST NOT appear in Response data.
 
 ### 8.2 Extended Processor Requirements
 
+- An Extended processor that supports references MUST load and validate References Documents against the schema in §9.
+- An Extended processor that supports references MUST resolve `$ref` pointers within the document at load time (§4.6.3).
+- An Extended processor SHOULD verify `targetDefinition` compatibility (§4.3) and emit a warning on mismatch.
+- An Extended processor SHOULD validate that `target` paths in Bound References correspond to items that exist in the target Definition. A `target` pointing to a nonexistent item SHOULD emit a warning but MUST NOT cause document rejection.
 - An Extended processor that supports references SHOULD surface human-audience references in the UI.
 - An Extended processor that supports agent integration SHOULD make agent-audience references available to companion agents via a documented API.
-- An Extended processor SHOULD validate reference objects against the schema in this specification.
-- An Extended processor that encounters a reference with an unrecognized `type` (non-`x-`-prefixed) SHOULD emit a warning and MUST ignore the reference without rejecting the definition.
+- An Extended processor that encounters a reference with an unrecognized `type` (non-`x-`-prefixed) SHOULD emit a warning and MUST ignore the reference without rejecting the document.
 
 ## 9. Schema
 
-The normative JSON Schema for references will be added to `schemas/definition.schema.json` as a `Reference` `$def`, with `references` arrays on both the top-level Definition and the Item base type. The schema for the `type` property requires a union of the recognized enum values and the `^x-.+` pattern for custom types (e.g., `oneOf: [{enum: [...]}, {pattern: "^x-.+"}]`).
+The normative JSON Schema for References Documents is defined in `schemas/references.schema.json`. This is a standalone schema (not embedded in the definition schema) consistent with the sidecar document model.
 
-<!-- schema-ref:start definition.schema.json#/$defs/Reference -->
+<!-- schema-ref:start references.schema.json -->
 <!-- schema-ref:end -->
 
 ## 10. Security Considerations
 
 - **URI resolution**: Agents and renderers MUST NOT blindly fetch arbitrary URIs from references. Implementations SHOULD maintain an allowlist of trusted domains or delegate URI resolution to the host environment.
 - **Inline content**: `content` values (especially objects) MUST be treated as untrusted data. Renderers MUST sanitize HTML/markdown content before display. Agents SHOULD treat inline content as context, not as executable instructions.
-- **Credential exposure**: Reference URIs MUST NOT contain credentials (API keys, tokens). Authentication for protected resources MUST be handled by the host environment or agent runtime, not embedded in the definition.
+- **Credential exposure**: Reference URIs MUST NOT contain credentials (API keys, tokens). Authentication for protected resources MUST be handled by the host environment or agent runtime, not embedded in the document.
 - **Prompt injection**: Agent implementations MUST be aware that `content` fields and fetched reference documents could contain adversarial text. Standard prompt injection mitigations apply.
 - **Circular resolution**: A reference URI could point back to the definition itself or to another reference that creates a loop. Implementations that recursively resolve reference URIs MUST guard against circular resolution (e.g., via a visited-set or depth limit).
 - **Browser security**: Web implementations that fetch reference URIs for display (human-audience references) are subject to CORS and Content Security Policy restrictions. Implementations SHOULD proxy external reference content through a trusted backend rather than fetching directly from the browser.
+- **Document provenance**: Since References Documents are separate files that bind to a Definition by URL, implementations SHOULD verify the provenance of loaded References Documents. Loading references from untrusted sources could inject misleading context into agent pipelines.
