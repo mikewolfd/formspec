@@ -98,12 +98,19 @@ if options.mode == LintMode::Strict {
 
 **Dependency:** Add `jsonschema = "0.28"` (or latest) to `formspec-lint/Cargo.toml`. Embed schemas as `const` strings.
 
-**Schema file embedding:** Use a build script or `include_str!` macro:
+**Schema file embedding:** Use `include_str!` for all schema files:
 ```rust
 const DEFINITION_SCHEMA: &str = include_str!("../../../schemas/definition.schema.json");
+const COMPONENT_SCHEMA: &str = include_str!("../../../schemas/component.schema.json");
+// ... etc for all 8 schemas
 ```
 
-Compile each schema once (lazy_static or OnceLock) and reuse across lint calls.
+**Cross-file `$ref` resolution (CRITICAL):** Several schemas use cross-file `$ref` URIs:
+- `response.schema.json` → refs `validationResult.schema.json` via `$id` URI
+- `validationReport.schema.json` → refs `validationResult.schema.json` via `$id` URI
+- `theme.schema.json` → refs `component.schema.json` defs (Tokens, Breakpoints, etc.)
+
+Naive single-schema compilation will break for these. Must register ALL embedded schemas into a shared resolver before compiling any individual schema. Use `jsonschema`'s `Draft202012Validator::options().with_resource(uri, schema)` API to build a resolver that maps each schema's `$id` URI to its embedded string content. Compile all schemas once via `OnceLock` and reuse across lint calls.
 
 ### 6. W705 dotted nested path resolution
 
@@ -121,22 +128,26 @@ Compile each schema once (lazy_static or OnceLock) and reuse across lint calls.
 - Mode `Disabled` → evaluate no shapes
 - `"demand"` shapes are never evaluated in batch — only via explicit per-shape calls
 
+**Naming note:** The spec defines two distinct concepts: per-shape `timing` (definition-time: continuous/submit/demand) and global validation mode (runtime: continuous/deferred/disabled). The evaluator parameter represents the *evaluation trigger context* — "what shapes should fire right now?" — not the global validation mode. We call it `EvalTrigger` to avoid conflation.
+
 **Change in formspec-eval:**
 
-Add an `EvalMode` enum:
+Add an `EvalTrigger` enum:
 ```rust
-pub enum EvalMode { Continuous, Submit, Disabled }
+/// The evaluation trigger context — determines which shapes fire.
+/// Not the same as the spec's global validation mode (§5.5).
+pub enum EvalTrigger { Continuous, Submit, Disabled }
 ```
 
-Add `mode: EvalMode` parameter to `evaluate_definition` (or create `evaluate_definition_with_mode` to avoid breaking the existing signature, with the original delegating to it with `Continuous`).
+Add `trigger: EvalTrigger` parameter to `evaluate_definition` (or create `evaluate_definition_with_trigger` to avoid breaking the existing signature, with the original delegating to it with `Continuous`).
 
 In `revalidate`, read each shape's `timing` field (default `"continuous"`) and skip if it doesn't match the mode:
 ```rust
 let timing = shape.get("timing").and_then(|v| v.as_str()).unwrap_or("continuous");
 match mode {
-    EvalMode::Disabled => continue,
-    EvalMode::Continuous => if timing != "continuous" { continue; },
-    EvalMode::Submit => if timing == "demand" { continue; },
+    EvalTrigger::Disabled => continue,
+    EvalTrigger::Continuous => if timing != "continuous" { continue; },
+    EvalTrigger::Submit => if timing == "demand" { continue; },
 }
 ```
 
@@ -183,6 +194,8 @@ pub fn evaluate_screener(
 
 **PyO3:** Add `evaluate_screener` function. Forward from `_rust.py`.
 
+**Note:** This design does NOT evaluate screener binds (calculate, relevant, constraint on screener items). The TS engine also skips screener binds during route evaluation — binds are a rendering/UI concern, not a routing concern. If a future test requires bind evaluation during screener routing, add it then.
+
 ### 9. Non-relevant shape suppression
 
 **What:** Shapes targeting non-relevant fields must not fire (spec §5.6 rule 1, conformance requirement §2.5.2).
@@ -195,6 +208,7 @@ if let Some(item) = find_item_by_path(items, target_path) {
         continue; // spec §5.6 rule 1
     }
 }
+// Special case: target "#" (root) is always relevant
 ```
 
 ### 10. `excludedValue`
@@ -207,7 +221,7 @@ if let Some(item) = find_item_by_path(items, target_path) {
 
 ### 11. Circular variable dependency detection
 
-**What:** The `topo_sort_variables` function already exists and detects cycles. But `evaluate_definition` currently catches the error and silently returns None for cyclic variables. Per spec §3.6.2, §4.5.2, §3.10.1, the evaluator MUST signal a definition error.
+**What:** The `topo_sort_variables` function already exists and detects cycles. But `evaluate_definition` currently catches the error and silently returns None for cyclic variables. Per spec §4.5.2, the evaluator MUST signal a definition error.
 
 **Change:** In `evaluate_definition`, when `topo_sort_variables` returns `Err(cycle_msg)`, add a `ValidationResult` with `severity: "error"`, `kind: "definition"`, `message: cycle_msg` to the output. Do NOT silently swallow the error.
 
@@ -245,7 +259,7 @@ Must detect circular shape references (A references B which references A) and re
 
 **Change in fel-core:** In the comparison operator evaluation (`evaluate_binary` or equivalent), when operands are of incompatible types (especially `Money` vs `Number`), return `FelValue::Null` and push a diagnostic with message like `"Type error: cannot compare money with number — use moneyAmount() to extract the numeric value"`.
 
-The diagnostic is author-facing (severity: warning), not a ValidationResult. The shape constraint that triggered it will see `null`, which in a constraint context means "passes" (spec §3.8.1).
+The diagnostic is author-facing (severity: warning), not a ValidationResult. The shape constraint that triggered it will see `null`, which in a constraint context means "passes" (null propagation rule: `constraint` null → `true`).
 
 ### 14. Default on relevance transition
 
@@ -254,10 +268,11 @@ The diagnostic is author-facing (severity: warning), not a ValidationResult. The
 **Change:**
 1. Add `default_value: Option<Value>` to `ItemInfo`, populated from the bind's `default` property.
 2. Add `prev_relevant: bool` to `ItemInfo` (or track previous relevance in a separate structure).
-3. In the recalculate phase, after evaluating `relevant`: if `!prev_relevant && now_relevant && field_is_empty`, apply the default value.
-4. If `default` starts with `=`, evaluate as FEL expression. Otherwise treat as literal.
+3. In the recalculate phase, after evaluating `relevant`: if `!prev_relevant && now_relevant && field_is_empty`, apply the default value as a literal.
 
-**Note:** Follow TS engine behavior — only apply default when field is empty (null/empty string). The spec says unconditional MUST but the TS engine's empty-check is better product behavior.
+**Important:** The bind `default` property is always a **literal value**, NOT a FEL expression. Only `initialValue` (an Item property) supports the `=expression` prefix syntax. Do NOT add FEL evaluation to `default`.
+
+**Spec divergence (intentional):** The spec (§5.6 rule 5) says `default` MUST be applied unconditionally on every non-relevant-to-relevant transition. The TS engine only applies when the field is empty (null/empty string). We follow the TS engine behavior — applying unconditionally would wipe user input after a hide/show cycle, which is hostile UX. This is a known spec divergence; the spec may need an errata.
 
 ### 15. Wildcard bind paths + calculate + shapes (5 tests)
 
@@ -281,6 +296,8 @@ fn normalize_bind_path(path: &str) -> String {
 ```
 
 When matching a bind to items, a bind with path `items[*].amount` matches any item with path matching `items.amount` (after normalization). The bind is then applied to ALL matching concrete instances.
+
+**Caveat:** This `replace("[*]", "")` approach is simplistic. For doubly-nested repeats like `a[*].b[*].c`, stripping all `[*]` produces `a.b.c` which could produce false matches. For the current test suite (single-level repeats only), this is sufficient. Nested repeat wildcard matching can be refined later if needed.
 
 **Phase C: Per-instance calculate evaluation**
 
