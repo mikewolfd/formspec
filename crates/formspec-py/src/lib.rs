@@ -7,6 +7,7 @@
 /// with native Rust performance while maintaining the same API surface.
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList};
+use pythonize::depythonize;
 
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
@@ -185,9 +186,9 @@ fn list_builtin_functions(py: Python) -> PyResult<PyObject> {
 ///
 /// Returns the document type string or None.
 #[pyfunction]
-fn detect_type(json_str: &str) -> PyResult<Option<String>> {
-    let doc: Value = serde_json::from_str(json_str)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("invalid JSON: {e}")))?;
+fn detect_type(document: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
+    let doc: Value = depythonize(document)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
     Ok(detect_document_type(&doc).map(|dt| dt.schema_key().to_string()))
 }
 
@@ -201,9 +202,9 @@ fn detect_type(json_str: &str) -> PyResult<Option<String>> {
 /// Returns:
 ///     A dict with: document_type, valid, diagnostics (list of dicts)
 #[pyfunction]
-fn lint_document(py: Python, json_str: &str) -> PyResult<PyObject> {
-    let doc: Value = serde_json::from_str(json_str)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("invalid JSON: {e}")))?;
+fn lint_document(py: Python, document: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let doc: Value = depythonize(document)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
     let result = lint(&doc);
 
@@ -247,12 +248,11 @@ fn lint_document(py: Python, json_str: &str) -> PyResult<PyObject> {
 /// Returns:
 ///     A dict with: values, validations, non_relevant
 #[pyfunction]
-fn evaluate_def(py: Python, definition_json: &str, data_json: &str) -> PyResult<PyObject> {
-    let definition: Value = serde_json::from_str(definition_json).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("invalid definition JSON: {e}"))
-    })?;
-    let data_val: Value = serde_json::from_str(data_json)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("invalid data JSON: {e}")))?;
+fn evaluate_def(py: Python, definition: &Bound<'_, PyAny>, data: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let definition: Value = depythonize(definition)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    let data_val: Value = depythonize(data)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
     let data: HashMap<String, Value> = data_val
         .as_object()
@@ -296,9 +296,9 @@ fn evaluate_def(py: Python, definition_json: &str, data_json: &str) -> PyResult<
 ///
 /// Returns a dict with: publisher (dict), published (str), entry_count (int), validation_issues (list).
 #[pyfunction]
-fn parse_registry(py: Python, registry_json: &str) -> PyResult<PyObject> {
-    let val: Value = serde_json::from_str(registry_json)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("invalid JSON: {e}")))?;
+fn parse_registry(py: Python, registry: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let val: Value = depythonize(registry)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
     let registry = Registry::from_json(&val)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
@@ -325,12 +325,12 @@ fn parse_registry(py: Python, registry_json: &str) -> PyResult<PyObject> {
 #[pyfunction]
 fn find_registry_entry(
     py: Python,
-    registry_json: &str,
+    registry: &Bound<'_, PyAny>,
     name: &str,
     version_constraint: &str,
 ) -> PyResult<PyObject> {
-    let val: Value = serde_json::from_str(registry_json)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("invalid JSON: {e}")))?;
+    let val: Value = depythonize(registry)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
     let registry = Registry::from_json(&val)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
@@ -400,16 +400,14 @@ fn well_known_url(base_url: &str) -> PyResult<String> {
 #[pyfunction]
 fn generate_changelog(
     py: Python,
-    old_def_json: &str,
-    new_def_json: &str,
+    old_def_obj: &Bound<'_, PyAny>,
+    new_def_obj: &Bound<'_, PyAny>,
     definition_url: &str,
 ) -> PyResult<PyObject> {
-    let old_def: Value = serde_json::from_str(old_def_json).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("invalid old definition JSON: {e}"))
-    })?;
-    let new_def: Value = serde_json::from_str(new_def_json).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("invalid new definition JSON: {e}"))
-    })?;
+    let old_def: Value = depythonize(old_def_obj)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    let new_def: Value = depythonize(new_def_obj)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
     let result = changelog::generate_changelog(&old_def, &new_def, definition_url);
 
@@ -463,16 +461,14 @@ fn generate_changelog(
 #[pyfunction]
 fn execute_mapping_doc(
     py: Python,
-    doc_json: &str,
-    source_json: &str,
+    doc_obj: &Bound<'_, PyAny>,
+    source_obj: &Bound<'_, PyAny>,
     direction: &str,
 ) -> PyResult<PyObject> {
-    let doc_val: Value = serde_json::from_str(doc_json).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("invalid mapping doc JSON: {e}"))
-    })?;
-    let source: Value = serde_json::from_str(source_json).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("invalid source JSON: {e}"))
-    })?;
+    let doc_val: Value = depythonize(doc_obj)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    let source: Value = depythonize(source_obj)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
     let dir = parse_direction(direction)?;
 
     let mapping_doc = parse_mapping_document(&doc_val)?;
