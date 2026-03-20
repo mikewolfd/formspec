@@ -57,7 +57,15 @@ core-specification meanings throughout this document unless explicitly redefined
 
 ## Bottom Line Up Front
 
-<!-- bluf:start references-spec -->
+<!-- bluf:start file=references-spec.bluf.md -->
+- References Documents are standalone JSON sidecars that bind external resources to specific Definition items by path — like Theme and Component documents, they live alongside the Definition.
+- Each Bound Reference declares a `target` (item path or `"#"` for form-level), a `type` (documentation, regulation, vector-store, tool, context, etc.), and an `audience` (human, agent, both).
+- Content is provided via `uri` (external pointer) and/or inline `content`. URI schemes support vector stores (`vectorstore:`), knowledge bases (`kb:`), and host-provided sources (`formspec-fn:`).
+- Multiple References Documents MAY target the same Definition — for audience separation, locale variants, or domain overlays. References merge additively.
+- References are pure metadata — they MUST NOT affect data capture, validation, or the processing model.
+- The `type` and `rel` properties are open strings for forward compatibility — processors SHOULD warn on unrecognized values but MUST NOT reject the document.
+- References do NOT inherit from parent to child; consumers walk the tree to collect context.
+- `referenceDefs` enables DRY reuse of shared reference objects across bindings via `$ref` pointers with optional overrides.
 <!-- bluf:end -->
 
 ## 1. Introduction
@@ -98,7 +106,7 @@ A Reference is a JSON object that points to an external (or inline) source of co
 | `description` | string | OPTIONAL | Longer explanation of what this reference contains and when to consult it. |
 | `tags` | array of string | OPTIONAL | Categorization tags for filtering and discovery (e.g., `["regulation", "2-cfr-200"]`, `["rag", "embeddings"]`). |
 | `priority` | string | OPTIONAL | `"primary"`, `"supplementary"`, or `"background"`. Indicates how prominently the reference should be surfaced. When absent, processors MUST treat the reference as `"supplementary"` (this is a processing-model default, not a schema `default`). |
-| `rel` | string | OPTIONAL | Relationship of this reference to the attachment point. See §2.5 for defined values. When absent, the relationship is `"see-also"`. |
+| `rel` | string | OPTIONAL | Relationship of this reference to the target. See §2.5 for defined values. When absent, the relationship is `"see-also"`. |
 | `selector` | string | OPTIONAL | Advisory hint identifying the relevant portion of the referenced resource when URI fragments are insufficient. See §3.6. |
 | `extensions` | object | OPTIONAL | Extension data. All keys MUST be prefixed with `x-`. |
 
@@ -137,15 +145,17 @@ Types are grouped by intended interface pattern — the distinction is about **h
 
 Custom types MUST be prefixed with `x-` (e.g., `"x-org-training-video"`).
 
+The `type` property is an open string — the schema does not reject unrecognized values. Processors encountering an unrecognized, non-`x-`-prefixed type SHOULD emit a warning and MAY skip the reference, but MUST NOT reject the document. This ensures forward compatibility when new standard types are added in future versions.
+
 ### 2.3 Validation Rules
 
 - At least one of `uri` or `content` MUST be present.
 - If both `uri` and `content` are present, `content` is treated as a cached/fallback representation of the URI target.
 - `id`, when present, MUST be unique within the References Document. IDs SHOULD be unique across all loaded References Documents targeting the same Definition to enable unambiguous cross-referencing, but this is not a hard requirement.
 - `audience` MUST be one of: `"human"`, `"agent"`, `"both"`.
-- `type` MUST be a recognized type from §2.2 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed type MUST skip the reference and SHOULD emit a warning, but MUST NOT reject the document.
+- `type` MUST be a recognized type from §2.2 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed type SHOULD emit a warning and MAY skip the reference, but MUST NOT reject the document.
 - `priority` when present MUST be one of: `"primary"`, `"supplementary"`, `"background"`.
-- `rel` when present MUST be a recognized relationship type from §2.5 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning.
+- `rel` when present SHOULD be a recognized relationship type from §2.5 or an `x-`-prefixed custom type. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning. The `rel` property is an open string — the schema does not reject unrecognized values.
 - An empty `references` array (`"references": []`) is valid and semantically equivalent to a document with no bindings.
 - Multiple references MAY share the same `uri` value (e.g., the same document serving as both a human `"regulation"` and an agent `"context"` reference with different `audience` values).
 - Reference property values are **static**. FEL expressions MUST NOT appear in any reference property (`uri`, `content`, `title`, etc.). Dynamic reference resolution, if needed, MUST be handled by the host environment or via `formspec-fn:` URIs (§3.4).
@@ -177,7 +187,7 @@ A Reference MAY declare a `rel` property that describes its relationship to the 
 
 Custom relationship types MUST be prefixed with `x-` (e.g., `"x-org-audit-trail"`).
 
-When `rel` is absent, processors MUST treat the relationship as `"see-also"`. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning. This mirrors the tolerance rule for unrecognized `type` values (§2.3).
+When `rel` is absent, processors MUST treat the relationship as `"see-also"`. A processor encountering an unrecognized, non-`x-`-prefixed `rel` value MUST treat it as `"see-also"` and SHOULD emit a warning. Like `type`, the `rel` property is an open string — the schema does not reject unrecognized values, ensuring forward compatibility.
 
 > **Design note:** Relationship types are modeled after [IANA Link Relations](https://www.iana.org/assignments/link-relations/) and HTML's `rel` attribute. The set is intentionally small and focused on the reference–target relationship, not reference-to-reference relationships. References do not link to each other; if two references are related, that relationship is expressed in the documents they point to, not in the References Document.
 
@@ -229,6 +239,7 @@ Standard HTTPS URIs are used for retrieval APIs. The `type: "retrieval"` plus op
 
 ```json
 {
+  "target": "#",
   "type": "retrieval",
   "audience": "agent",
   "uri": "https://rag.example.gov/query",
@@ -257,6 +268,7 @@ This delegates resolution to the host environment, which maps the function name 
 Example:
 ```json
 {
+  "target": "#",
   "type": "vector-store",
   "audience": "agent",
   "uri": "formspec-fn:searchGuidance",
@@ -327,7 +339,13 @@ A References Document MUST contain:
 - **`targetDefinition`** — Binding to the target Definition by canonical URL, with an optional `compatibleVersions` semver range.
 - **`references`** — Ordered array of Bound References (§4.2).
 
-A References Document MAY also contain: `url`, `name`, `title`, `description`, `referenceDefs` (§4.6).
+A References Document MAY also contain:
+
+- **`url`** — Canonical URI identifier for this document.
+- **`name`** — Machine-readable short name. Pattern: `[a-zA-Z][a-zA-Z0-9_-]*` (letters, digits, hyphens, underscores; must start with a letter).
+- **`title`** — Human-readable name.
+- **`description`** — Human-readable description of purpose and scope.
+- **`referenceDefs`** — Registry of reusable Reference objects (§4.6).
 
 ```json
 {
@@ -415,7 +433,7 @@ Each entry in the `references` array is a **Bound Reference** — a Reference ob
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `target` | string | REQUIRED | Path identifying which Definition item(s) this reference applies to. Uses the same dot-notation path syntax as Bind paths (core §4.3). The special value `"#"` means form-level (applies to the entire form). Multiple references MAY target the same path. |
+| `target` | string | REQUIRED | Path identifying which Definition item(s) this reference applies to. Uses the same dot-notation path syntax as Bind paths (core §4.3.3). The special value `"#"` means form-level (applies to the entire form). Multiple references MAY target the same path. |
 
 In addition to `target`, a Bound Reference contains all Reference properties from §2.1, or a `$ref` pointer to a `referenceDefs` entry (§4.6).
 
@@ -439,10 +457,10 @@ The `targetDefinition` object declares which Definition this References Document
 }
 ```
 
-- `url` (REQUIRED) — Canonical URL of the target Definition (its `url` property).
+- `url` (REQUIRED) — Canonical URL of the target Definition (its `url` property). A processor loading a References Document MUST verify that the `url` matches the loaded Definition's `url`. If the URLs do not match, the processor MUST NOT apply the references and SHOULD emit an error.
 - `compatibleVersions` (OPTIONAL) — Semver range expression describing which Definition versions this document supports. When absent, the document is compatible with any version at that URL.
 
-A processor loading a References Document SHOULD verify that the Definition's version satisfies `compatibleVersions` before applying references. On mismatch, the processor SHOULD emit a warning but MAY still apply the references (warn-and-continue).
+A processor loading a References Document SHOULD verify that the Definition's version satisfies `compatibleVersions` before applying references. On version mismatch, the processor SHOULD emit a warning but MAY still apply the references (warn-and-continue).
 
 ### 4.4 Multiple References Documents
 
@@ -470,7 +488,7 @@ A References Document MAY declare a `referenceDefs` object — a registry of reu
 
 #### 4.6.1 Declaring Shared References
 
-`referenceDefs` is an object whose keys are reference identifiers (matching `[a-zA-Z][a-zA-Z0-9_-]*`) and whose values are Reference objects. The key becomes the reference's `id` — if the Reference object also declares an `id`, it MUST match the key.
+`referenceDefs` is an object whose keys are reference identifiers (matching `[a-zA-Z][a-zA-Z0-9_-]*`) and whose values are Reference objects. The key becomes the reference's `id` — if the Reference object also declares an `id`, it MUST match the key. This constraint cannot be expressed in JSON Schema and MUST be enforced at processing time.
 
 #### 4.6.2 Referencing Shared Definitions
 
@@ -628,17 +646,42 @@ This specification defines conformance requirements for References Document hand
 
 - An Extended processor that supports references MUST load and validate References Documents against the schema in §9.
 - An Extended processor that supports references MUST resolve `$ref` pointers within the document at load time (§4.6.3).
-- An Extended processor SHOULD verify `targetDefinition` compatibility (§4.3) and emit a warning on mismatch.
+- An Extended processor MUST verify that `targetDefinition.url` matches the loaded Definition's `url`. On mismatch, the processor MUST NOT apply the references and SHOULD emit an error (§4.3).
+- An Extended processor SHOULD verify `targetDefinition.compatibleVersions` and emit a warning on version mismatch (§4.3).
+- An Extended processor MUST validate that `referenceDefs` entries with an explicit `id` have that `id` match the entry's key (§4.6.1). A mismatch is a document error.
 - An Extended processor SHOULD validate that `target` paths in Bound References correspond to items that exist in the target Definition. A `target` pointing to a nonexistent item SHOULD emit a warning but MUST NOT cause document rejection.
 - An Extended processor that supports references SHOULD surface human-audience references in the UI.
 - An Extended processor that supports agent integration SHOULD make agent-audience references available to companion agents via a documented API.
-- An Extended processor that encounters a reference with an unrecognized `type` (non-`x-`-prefixed) SHOULD emit a warning and MUST ignore the reference without rejecting the document.
+- An Extended processor that encounters a reference with an unrecognized `type` (non-`x-`-prefixed) SHOULD emit a warning and MAY skip the reference, but MUST NOT reject the document.
 
 ## 9. Schema
 
-The normative JSON Schema for References Documents is defined in `schemas/references.schema.json`. This is a standalone schema (not embedded in the definition schema) consistent with the sidecar document model.
+The normative JSON Schema for References Documents is defined in `schemas/references.schema.json`. This is a standalone schema (not embedded in the definition schema) consistent with the sidecar document model. The `TargetDefinition` type is shared with the Component schema via `$ref`.
 
-<!-- schema-ref:start references.schema.json -->
+<!-- schema-ref:start schema=schemas/references.schema.json pointers=#/properties/$formspecReferences,#/properties/targetDefinition,#/properties/references,#/$defs/BoundReference,#/$defs/Reference,#/$defs/ReferenceOrRef,#/$defs/ReferenceDefs -->
+<!-- generated:schema-ref id= -->
+| Pointer | Field | Type | Required | Notes | Description |
+|---|---|---|---|---|---|
+| `#/properties/$formspecReferences` | `(self)` | <code>string</code> | — | const: <code>"1.0"</code>; critical | References specification version. MUST be '1.0'. |
+| `#/properties/targetDefinition` | `(self)` | <code>&#36;ref</code> | — | <code>&#36;ref</code>: <code>https://formspec.org/schemas/component/1.0#/&#36;defs/TargetDefinition</code>; critical | Binding to the target Formspec Definition and optional compatibility range. |
+| `#/properties/references` | `(self)` | <code>array</code> | — | critical | Ordered list of references bound to the target Definition. Each entry specifies a target path (item key or '#' for form-level) and a reference or $ref pointer. References are static and resolved at load time. |
+| `#/$defs/BoundReference/properties/target` | `target` | <code>string</code> | yes | critical | Path identifying which Definition item(s) this reference applies to. Uses dot notation for nesting and [*] for all instances of a repeatable group. The special value '#' means form-level (applies to the entire form). Multiple references may target the same path. |
+| `#/$defs/Reference/properties/audience` | `audience` | <code>string</code> | yes | enum: <code>"human"</code>, <code>"agent"</code>, <code>"both"</code>; critical | Who consumes this reference. 'human': rendered in the UI (help panels, links, tooltips). 'agent': consumed programmatically by AI agents (not rendered). 'both': available to both rendering and agent pipelines. |
+| `#/$defs/Reference/properties/content` | `content` | <code>composite</code> | no | — | Inline content of the reference. REQUIRED unless 'uri' is provided. May be a plain text string, markdown, or structured JSON object. |
+| `#/$defs/Reference/properties/description` | `description` | <code>string</code> | no | — | Longer explanation of what this reference provides and why it is relevant. |
+| `#/$defs/Reference/properties/extensions` | `extensions` | <code>object</code> | no | — | Reference-level extension data. All keys MUST be prefixed with 'x-'. |
+| `#/$defs/Reference/properties/id` | `id` | <code>string</code> | no | pattern: <code>^[a-zA-Z][a-zA-Z0-9_-]*&#36;</code> | Identifier for this reference. RECOMMENDED. When present, MUST be unique within this References Document. When used as a referenceDefs key, the key and id MUST match (processing-time validation). |
+| `#/$defs/Reference/properties/language` | `language` | <code>string</code> | no | — | BCP 47 language tag for the referenced content. |
+| `#/$defs/Reference/properties/mediaType` | `mediaType` | <code>string</code> | no | — | MIME type of the referenced resource (RFC 2045). |
+| `#/$defs/Reference/properties/priority` | `priority` | <code>string</code> | no | enum: <code>"primary"</code>, <code>"supplementary"</code>, <code>"background"</code> | Relative importance. 'primary': surfaced first. 'supplementary' (implicit default): normal. 'background': contextual. |
+| `#/$defs/Reference/properties/rel` | `rel` | <code>string</code> | no | — | Semantic relationship to the target. Known values: 'authorizes', 'constrains', 'defines', 'exemplifies', 'supersedes', 'superseded-by', 'derived-from', 'see-also' (implicit default). Custom types MUST be prefixed with 'x-'. Unrecognized non-'x-' values: processor SHOULD warn and treat as 'see-also'. |
+| `#/$defs/Reference/properties/selector` | `selector` | <code>string</code> | no | — | Fragment-targeting hint for resources without native fragment semantics. |
+| `#/$defs/Reference/properties/tags` | `tags` | <code>array</code> | no | — | Categorization tags for filtering and grouping references. |
+| `#/$defs/Reference/properties/title` | `title` | <code>string</code> | no | — | Human-readable label for this reference. RECOMMENDED. |
+| `#/$defs/Reference/properties/type` | `type` | <code>string</code> | yes | critical | Classification of the referenced resource. Human-oriented: 'documentation', 'example'. Shared: 'regulation', 'policy', 'glossary', 'schema'. Agent-oriented: 'vector-store', 'knowledge-base', 'retrieval', 'tool', 'api', 'context'. Custom types MUST be prefixed with 'x-'. Unrecognized non-'x-' types: processor SHOULD warn and MAY skip. |
+| `#/$defs/Reference/properties/uri` | `uri` | <code>string</code> | no | — | URI of the referenced resource. REQUIRED unless 'content' is provided. Supports https:, vectorstore:, kb:, formspec-fn:, and urn: schemes. |
+| `#/$defs/ReferenceOrRef` | `(self)` | <code>composite</code> | — | — | Either a full inline Reference object, or a $ref pointer to a referenceDefs entry with optional property overrides. When $ref is present, the base object is shallow-merged with sibling properties (overrides win). The 'id' property MUST NOT appear alongside $ref — the referenceDefs key becomes the resolved id. |
+| `#/$defs/ReferenceDefs` | `(self)` | <code>object</code> | — | — | Registry of reusable Reference objects keyed by identifier. Entries MUST NOT use $ref to other entries (no recursion). The key becomes the resolved reference's 'id' — if the entry also declares 'id', it MUST match the key (processing-time validation, not schema-enforceable). Broken $ref pointers are document errors. |
 <!-- schema-ref:end -->
 
 ## 10. Security Considerations

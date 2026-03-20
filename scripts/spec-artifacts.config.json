@@ -140,6 +140,22 @@
         "Processors must reject unsupported component-document versions and unknown non-x top-level properties.",
         "Renderable trees must satisfy component-category constraints, bind compatibility, and declared structural limits."
       ]
+    },
+    {
+      "spec": "specs/core/references-spec.md",
+      "schema": "schemas/references.schema.json",
+      "llm": "specs/core/references-spec.llm.md",
+      "behaviorEssentials": [
+        "References Documents are standalone sidecars that bind external resources to Definition items by path — they MUST NOT alter data capture, validation, or the processing model.",
+        "Each Bound Reference targets a specific item path (or '#' for form-level); references do not inherit from parent groups to children.",
+        "The type and rel properties are open strings for forward compatibility — processors SHOULD warn on unrecognized values but MUST NOT reject the document.",
+        "Multiple References Documents may target the same Definition; their references are merged additively with document-internal order preserved."
+      ],
+      "conformanceEssentials": [
+        "A conforming references document must include $formspecReferences=1.0, version, targetDefinition, and references.",
+        "Extended processors must verify targetDefinition.url matches the loaded Definition and resolve all $ref pointers at load time.",
+        "Extended processors must validate referenceDefs id-key matching and should warn on target paths that don't correspond to definition items."
+      ]
     }
   ]
 }

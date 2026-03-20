@@ -32,8 +32,8 @@
     },
     "name": {
       "type": "string",
-      "pattern": "^[a-zA-Z][a-zA-Z0-9\\-]*$",
-      "description": "Machine-readable short name for this References Document.",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$",
+      "description": "Machine-readable short name for this References Document. Pattern: letters, digits, hyphens, underscores; must start with a letter.",
       "examples": [
         "sf-425-federal-refs",
         "grant-agent-context"
@@ -62,7 +62,7 @@
       }
     },
     "targetDefinition": {
-      "$ref": "#/$defs/TargetDefinition",
+      "$ref": "https://formspec.org/schemas/component/1.0#/$defs/TargetDefinition",
       "description": "Binding to the target Formspec Definition and optional compatibility range.",
       "examples": [
         { "url": "https://example.gov/forms/sf-425", "compatibleVersions": ">=2025.1.0" }
@@ -82,6 +82,23 @@
         "$ref": "#/$defs/BoundReference"
       },
       "description": "Ordered list of references bound to the target Definition. Each entry specifies a target path (item key or '#' for form-level) and a reference or $ref pointer. References are static and resolved at load time.",
+      "examples": [
+        [
+          {
+            "target": "#",
+            "type": "regulation",
+            "audience": "both",
+            "title": "2 CFR Part 200",
+            "uri": "https://www.ecfr.gov/current/title-2/subtitle-A/chapter-II/part-200"
+          },
+          {
+            "target": "indirectCostRate",
+            "type": "context",
+            "audience": "agent",
+            "content": "The indirect cost rate is a percentage negotiated with the cognizant federal agency."
+          }
+        ]
+      ],
       "x-lm": {
         "critical": true,
         "intent": "The reference bindings that connect resources to definition items."
@@ -90,25 +107,9 @@
   },
 
   "$defs": {
-    "TargetDefinition": {
-      "type": "object",
-      "required": ["url"],
-      "additionalProperties": false,
-      "properties": {
-        "url": {
-          "type": "string",
-          "format": "uri",
-          "description": "Canonical URL of the target Definition (its url property)."
-        },
-        "compatibleVersions": {
-          "type": "string",
-          "description": "Semver range expression describing which Definition versions this document supports. When absent, compatible with any version."
-        }
-      }
-    },
     "BoundReference": {
       "type": "object",
-      "description": "A reference bound to a specific location in the target Definition. The 'target' path identifies which item(s) this reference applies to. Uses the same path syntax as Bind.path. The special value '#' targets the entire form (form-level reference).",
+      "description": "A reference bound to a specific location in the target Definition. The 'target' path identifies which item(s) this reference applies to. Uses the same path syntax as Bind.path (core §4.3.3). The special value '#' targets the entire form (form-level reference).",
       "required": [
         "target"
       ],
@@ -147,7 +148,7 @@
         "id": {
           "type": "string",
           "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
-          "description": "Identifier for this reference. RECOMMENDED. When present, MUST be unique within this References Document.",
+          "description": "Identifier for this reference. RECOMMENDED. When present, MUST be unique within this References Document. When used as a referenceDefs key, the key and id MUST match (processing-time validation).",
           "examples": [
             "cfr-200-414",
             "grant-kb",
@@ -155,30 +156,8 @@
           ]
         },
         "type": {
-          "description": "Classification of the referenced resource. Human-oriented: 'documentation', 'example'. Shared: 'regulation', 'policy', 'glossary', 'schema'. Agent-oriented: 'vector-store', 'knowledge-base', 'retrieval', 'tool', 'api', 'context'. Custom types MUST be prefixed with 'x-'. Unrecognized non-'x-' types: processor SHOULD warn and skip.",
-          "oneOf": [
-            {
-              "type": "string",
-              "enum": [
-                "documentation",
-                "example",
-                "regulation",
-                "policy",
-                "glossary",
-                "schema",
-                "vector-store",
-                "knowledge-base",
-                "retrieval",
-                "tool",
-                "api",
-                "context"
-              ]
-            },
-            {
-              "type": "string",
-              "pattern": "^x-.+"
-            }
-          ],
+          "type": "string",
+          "description": "Classification of the referenced resource. Human-oriented: 'documentation', 'example'. Shared: 'regulation', 'policy', 'glossary', 'schema'. Agent-oriented: 'vector-store', 'knowledge-base', 'retrieval', 'tool', 'api', 'context'. Custom types MUST be prefixed with 'x-'. Unrecognized non-'x-' types: processor SHOULD warn and MAY skip.",
           "examples": [
             "regulation",
             "documentation",
@@ -265,26 +244,8 @@
           "description": "Relative importance. 'primary': surfaced first. 'supplementary' (implicit default): normal. 'background': contextual."
         },
         "rel": {
-          "description": "Semantic relationship to the target. 'authorizes', 'constrains', 'defines', 'exemplifies', 'supersedes', 'superseded-by', 'derived-from', 'see-also' (implicit default). Custom types MUST be prefixed with 'x-'.",
-          "oneOf": [
-            {
-              "type": "string",
-              "enum": [
-                "authorizes",
-                "constrains",
-                "defines",
-                "exemplifies",
-                "supersedes",
-                "superseded-by",
-                "derived-from",
-                "see-also"
-              ]
-            },
-            {
-              "type": "string",
-              "pattern": "^x-.+"
-            }
-          ],
+          "type": "string",
+          "description": "Semantic relationship to the target. Known values: 'authorizes', 'constrains', 'defines', 'exemplifies', 'supersedes', 'superseded-by', 'derived-from', 'see-also' (implicit default). Custom types MUST be prefixed with 'x-'. Unrecognized non-'x-' values: processor SHOULD warn and treat as 'see-also'.",
           "examples": ["constrains", "defines", "see-also"]
         },
         "selector": {
@@ -332,29 +293,13 @@
               "type": "string",
               "enum": ["primary", "supplementary", "background"]
             },
-            "rel": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": ["authorizes", "constrains", "defines", "exemplifies", "supersedes", "superseded-by", "derived-from", "see-also"]
-                },
-                { "type": "string", "pattern": "^x-.+" }
-              ]
-            },
+            "rel": { "type": "string" },
             "selector": { "type": "string" },
             "audience": {
               "type": "string",
               "enum": ["human", "agent", "both"]
             },
-            "type": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": ["documentation", "example", "regulation", "policy", "glossary", "schema", "vector-store", "knowledge-base", "retrieval", "tool", "api", "context"]
-                },
-                { "type": "string", "pattern": "^x-.+" }
-              ]
-            },
+            "type": { "type": "string" },
             "extensions": {
               "type": "object",
               "propertyNames": { "pattern": "^x-" }
@@ -373,7 +318,7 @@
       "additionalProperties": {
         "$ref": "#/$defs/Reference"
       },
-      "description": "Registry of reusable Reference objects keyed by identifier. Entries MUST NOT use $ref to other entries (no recursion). The key becomes the resolved reference's 'id'. Broken $ref pointers are document errors."
+      "description": "Registry of reusable Reference objects keyed by identifier. Entries MUST NOT use $ref to other entries (no recursion). The key becomes the resolved reference's 'id' — if the entry also declares 'id', it MUST match the key (processing-time validation, not schema-enforceable). Broken $ref pointers are document errors."
     }
   }
 }
