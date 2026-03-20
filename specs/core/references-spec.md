@@ -347,6 +347,8 @@ A References Document MAY also contain:
 - **`description`** — Human-readable description of purpose and scope.
 - **`referenceDefs`** — Registry of reusable Reference objects (§4.6).
 
+As with other Formspec sidecar documents, a References Document MAY include additional properties prefixed with `x-` at the document root (e.g., `"x-org-metadata": {...}`). Unrecognized `x-`-prefixed properties MUST be preserved on round-trip.
+
 ```json
 {
   "$formspecReferences": "1.0",
@@ -680,7 +682,7 @@ The normative JSON Schema for References Documents is defined in `schemas/refere
 | `#/$defs/Reference/properties/title` | `title` | <code>string</code> | no | — | Human-readable label for this reference. RECOMMENDED. |
 | `#/$defs/Reference/properties/type` | `type` | <code>string</code> | yes | critical | Classification of the referenced resource. Human-oriented: 'documentation', 'example'. Shared: 'regulation', 'policy', 'glossary', 'schema'. Agent-oriented: 'vector-store', 'knowledge-base', 'retrieval', 'tool', 'api', 'context'. Custom types MUST be prefixed with 'x-'. Unrecognized non-'x-' types: processor SHOULD warn and MAY skip. |
 | `#/$defs/Reference/properties/uri` | `uri` | <code>string</code> | no | — | URI of the referenced resource. REQUIRED unless 'content' is provided. Supports https:, vectorstore:, kb:, formspec-fn:, and urn: schemes. |
-| `#/$defs/ReferenceOrRef` | `(self)` | <code>composite</code> | — | — | Either a full inline Reference object, or a $ref pointer to a referenceDefs entry with optional property overrides. When $ref is present, the base object is shallow-merged with sibling properties (overrides win). The 'id' property MUST NOT appear alongside $ref — the referenceDefs key becomes the resolved id. |
+| `#/$defs/ReferenceOrRef` | `(self)` | <code>composite</code> | — | — | Either a full inline Reference object, or a $ref pointer to a referenceDefs entry with optional property overrides. When $ref is present, the base object is shallow-merged with sibling properties (overrides win). The 'id' property MUST NOT appear alongside $ref — the referenceDefs key becomes the resolved id. MAINTENANCE NOTE: The $ref branch explicitly lists override properties — if a property is added to Reference, it must also be added to the $ref branch or overrides for that property will be silently rejected. |
 | `#/$defs/ReferenceDefs` | `(self)` | <code>object</code> | — | — | Registry of reusable Reference objects keyed by identifier. Entries MUST NOT use $ref to other entries (no recursion). The key becomes the resolved reference's 'id' — if the entry also declares 'id', it MUST match the key (processing-time validation, not schema-enforceable). Broken $ref pointers are document errors. |
 <!-- schema-ref:end -->
 
