@@ -306,7 +306,133 @@ None of these reference schema files at runtime, but they duplicate knowledge th
 
 ---
 
-## Proposed Studio-Core API Additions
+## Three-Tier Placement Analysis
+
+Not all business logic belongs in studio-core. The guiding principle: **how far down the stack is the knowledge defined?**
+
+- **Engine** (`formspec-engine`): Spec-level facts — things defined by the FEL grammar or data type system
+- **Core** (`formspec-core`): Structural queries over the definition/project model — same level as `resolvePageView()`, `fieldPaths()`
+- **Studio-core** (`formspec-studio-core`): Authoring UX helpers — defaults, coercion, placement, catalogs
+
+### Full Change List
+
+#### → Engine (`formspec-engine`)
+
+| # | What | Current Location | Reasoning |
+|---|------|-----------------|-----------|
+| E1 | **FEL identifier validation** — `isValidFELIdentifier(name)` / `sanitizeFELIdentifier(name)` | `VariablesSection.tsx` line 31 (`/[^a-zA-Z0-9_]/g`), duplicated in `OptionSets.tsx` line 49 and `DataSources.tsx` line 108 | The valid-identifier character set is defined by the FEL grammar. Engine already owns the FEL lexer — it should export these predicates so every consumer uses the same rule. Currently three copies with slight behavioral differences (remove vs. replace-with-underscore). |
+| E2 | **Data type taxonomy predicates** — `isChoiceLike(dt)`, `isDecimalLike(dt)`, `isRepeatableType(dt)` | `SelectedItemProperties.tsx` lines 49–51 (inline boolean expressions), implicitly in `field-helpers.ts` TYPE_MAP | These classifications derive from the spec's data type definitions. Engine defines what data types exist — it should also export how they group. Any consumer (engine validators, studio, future CLI tools) needs the same taxonomy. |
+| E3 | **FEL function metadata** — signatures, parameter types, descriptions for all ~60 stdlib functions | `fel-catalog.ts` lines 27–99 (`FUNCTION_DETAILS`) | Engine implements these functions. The metadata describing them (arity, parameter names, descriptions) is a spec-level fact, not a studio concern. Engine should export a `getFELFunctionCatalog()` that returns structured metadata. Studio just adds display properties (colors, icons). |
+
+#### → Core (`formspec-core`)
+
+| # | What | Current Location | Reasoning |
+|---|------|-----------------|-----------|
+| C1 | **`normalizeBinds(binds, items)`** — merge binds array + prePopulate into unified path-keyed map | `LogicTab.tsx` lines 52–74, duplicated in `CommandPalette.tsx` lines 23–39 | A structural query over the definition, same class as `resolvePageView()` and `resolveThemeCascade()` which already live in core. Two copies exist today — classic sign it belongs in the shared layer. |
+| C2 | **Shapes constraint normalization** — `constraint/or/and` → display string | `ShapesSection.tsx` lines 106–108 | Core already owns shape command handlers and understands the shapes schema. The polymorphic constraint representation is a definition-level concept. Any consumer rendering shapes needs this. |
+| C3 | **Option set usage counting** — walk item tree, count references per option set name | `OptionSets.tsx` lines 52–58 | A cross-definition query analogous to `fieldPaths()` or `dependencyGraph()` — both already in core's `queries/` directory. Also needed for safe-delete guards. |
+| C4 | **Page mode interpretation** — what counts as a "page", filtering items by active page | `EditorCanvas.tsx` lines 65–140 | Core already owns `resolvePageStructure()` and `resolvePageView()`. The EditorCanvas re-derives the same semantics inline. Should use core's existing functions or extend them. |
+| C5 | **Drop target computation** — `computeDropTarget()`, `buildSequentialMoves()` | `compute-drop-target.ts` (294 lines) | Pure functions encoding definition-tree structural move validity. Core already owns `moveItems` command handling — the legality/ordering rules belong alongside it. Zero DOM dependency. |
+| C6 | **Definition tree flattening** — `buildDefLookup()`, `flattenComponentTree()`, `buildBindKeyMap()` | `tree-helpers.ts` (200 lines) | Structural queries over definition and component trees. Core owns both document schemas. Used by DnD, canvas, search, and multiple studio components — should be a single shared implementation. |
+| C7 | **Multi-select path operations** — `pruneDescendants()`, `sortForBatchDelete()`, `buildBatchMoveCommands()` | `selection-helpers.ts` (55 lines) | Pure path-algebra functions that encode definition path semantics (parent/child/descendant relationships). Core owns path resolution — these belong there. |
+| C8 | **Field path flattening + bind/shape lookups** — `flatItems()`, `bindsFor()`, `shapesFor()` | `field-helpers.ts` lines 18–60 | Definition queries. Core already has `Project.fieldPaths()`, `Project.itemAt()`, `Project.bindFor()`. These are either duplicates or missing query methods. |
+| C9 | **Artifact type → bundle key mapping** — human-readable artifact names to bundle schema keys | `ImportDialog.tsx` line 137 (`.toLowerCase()`) | Core owns the `ProjectState` bundle schema. The mapping from display names to bundle keys is a vocabulary concern — currently relies on a fragile `.toLowerCase()` convention. |
+| C10 | **Search index construction** — builds searchable entries from items, variables, binds, shapes | `CommandPalette.tsx` lines 60–121 | A cross-definition query that walks the full definition model. Same pattern as core's `statistics()`, `diagnose()`, and `dependencyGraph()` queries. |
+| C11 | **Serialization adapters** — JSON/XML/CSV output formatting | `adapters.ts` (187 lines) | Python already has `src/formspec/adapters/`. The TS equivalent is spec-level behavior — format-specific serialization rules defined by the mapping spec. Could also go in engine alongside `RuntimeMappingEngine`, but core is the minimum viable home. |
+
+#### → Studio-core (`formspec-studio-core`)
+
+| # | What | Current Location | Reasoning |
+|---|------|-----------------|-----------|
+| S1 | **Field type catalog** — `FIELD_TYPE_CATALOG` with metadata (label, description, icon, category, keywords) | `AddItemPalette.tsx` lines 28–265 | Studio-core owns the authoring API (`addField`, `addGroup`, `addContent`). The catalog of what you *can* add is the authoring counterpart. Display properties (icons, colors) stay in studio; structural data (types, categories, keywords) moves. |
+| S2 | **Type display metadata** — `TYPE_MAP`, `dataTypeInfo()` | `field-helpers.ts` lines 68–88 | Maps data types → display info. Depends on the type taxonomy (engine) but adds authoring-level display metadata. Studio-core already has `resolveFieldType()` — this extends it. |
+| S3 | **Property help text** — `propertyHelp` record | `field-helpers.ts` lines 139–161 | Help text derived from the spec but specific to the authoring experience. Any editor UI needs it. Not spec-level (engine doesn't need it) but not rendering-specific either. |
+| S4 | **Widget compatibility matrix** — `compatibleWidgets()`, `widgetHintForComponent()`, `componentForWidgetHint()` | `field-helpers.ts` lines 97–137 | Studio-core already owns `resolveWidget()` and `widgetHintFor()`. The compatibility matrix and bidirectional mapping are the same concern. |
+| S5 | **Widget resolution priority** — three-way precedence: `widgetHint` → component tree override → compatibility default | `WidgetHintSection.tsx` lines 21–25 | Authoring-level resolution order. Studio-core owns `resolveWidget()` — this is the full version. |
+| S6 | **FEL editing utilities** — validation, highlighting, autocomplete triggers, filtering | `fel-editor-utils.ts` (456 lines) | Pure authoring support functions. Depend on engine's FEL lexer/parser but add editing intelligence (cursor-aware autocomplete, syntax highlighting tokens). Any editor UI needs these — not just React studio. |
+| S7 | **FEL humanization** — `humanizeFEL()` | `humanize.ts` (44 lines) | Authoring UX — converting FEL to human-readable strings for display. Not spec-level, but any authoring surface needs it. |
+| S8 | **FEL function display catalog** — merge engine metadata with category colors/order | `fel-catalog.ts` lines 101–112 (`getFELCatalog`) | Bridges engine's function metadata (E3) with display concerns. Studio-core is the right seam — it already bridges engine and UI for other concerns. |
+| S9 | **`parseRepeatValue()`** — string → int coercion for min/maxRepeat | `GroupConfigSection.tsx` lines 8–13 | Input coercion for an authoring operation. Studio-core owns group editing — this validation helper belongs with it. |
+| S10 | **Default shape values** — `'*'`, `'true'`, `'Validation failed'`, `severity: 'error'` | `ShapesSection.tsx` lines 30–37 | Studio-core owns `addValidation()`. What a "blank" shape looks like is an authoring default, not a spec rule. Should be `addValidationWithDefaults()`. |
+| S11 | **Name sanitization** — `sanitizeName()` for option sets and data sources | `OptionSets.tsx` line 49, `DataSources.tsx` line 108 (identical, duplicated) | Authoring UX: takes user input, produces a valid identifier. Depends on engine's identifier rules (E1) but adds the replace-with-underscore behavior specific to authoring. Single shared `sanitizeIdentifier()` in studio-core. |
+| S12 | **`handleAddItem` path derivation** — compute insertion path from active page state | `EditorCanvas.tsx` lines 184–216 | Studio-core owns `addField`/`addGroup`/`addContent`. The "figure out where to insert based on active page" logic is an authoring placement concern — should be a `PlacementOptions` parameter or helper. |
+| S13 | **Widget hint → content kind mapping** — `WIDGET_HINT_TO_KIND` | `EditorCanvas.tsx` lines 37–44 | Studio-core owns `resolveFieldType()` and `widgetHintFor()`. This reverse mapping (hint → `addContent` kind parameter) belongs alongside them. |
+| S14 | **Document normalization for preview** — `normalizeDefinitionDoc()`, `normalizeComponentDoc()`, `normalizeThemeDoc()` | `preview-documents.ts` (84 lines) | Bridge between studio's model and the webcomponent's expectations. Studio-core already has `previewForm()` — these normalizations could become `Project.exportForPreview()`. |
+| S15 | **Sample data generation** — `generateSchemaSample()` with faker heuristics | `MappingPreview.tsx` lines 19–85 | Authoring tool: generates realistic test data for preview. Studio-core owns `previewForm()` and `validateResponse()` — sample generation is the same family. |
+| S16 | **Engine seeding** — `seedInitialValues()` | `TestResponse.tsx` lines 7–17 | Duplicates logic already in studio-core's `evaluation-helpers.ts`. Should consolidate into the existing helper. |
+| S17 | **Item classification helpers** — `isChoice`, `isDecimalLike`, `isMoney` computed from dataType | `SelectedItemProperties.tsx` lines 49–51 | These inline expressions should call engine predicates (E2) but the "which property sections to show for which classification" logic is an authoring UX concern. Studio-core should expose `getPropertySections(type, dataType)` or similar. |
+| S18 | **Existing bind behavior type enumeration** — merging bind keys with prePopulate presence | `SelectedItemProperties.tsx` lines 53–56 | Parallel to the `normalizeBinds` problem (C1). Once C1 exists, this becomes a trivial call. But the "which behavior types are available to add" logic is authoring UX. |
+
+---
+
+## Dependency Flow
+
+```
+formspec-engine (E1–E3)
+       ↓ imports
+formspec-core (C1–C11)
+       ↓ imports
+formspec-studio-core (S1–S18)
+       ↓ imports
+formspec-studio (pure UI: rendering, React hooks, DOM events)
+```
+
+Each layer only imports downward. Studio-core bridges engine predicates and core queries into authoring-friendly APIs. Studio becomes a pure rendering layer.
+
+---
+
+## Proposed API Additions
+
+### Engine additions
+
+```typescript
+// fel/identifiers.ts
+export function isValidFELIdentifier(name: string): boolean;
+export function sanitizeFELIdentifier(name: string): string;
+
+// data-types.ts
+export function isChoiceLike(dataType: string): boolean;
+export function isDecimalLike(dataType: string): boolean;
+export function isRepeatableType(dataType: string): boolean;
+export function dataTypeCategory(dataType: string): 'text' | 'numeric' | 'choice' | 'temporal' | 'binary' | 'special';
+
+// fel/catalog.ts
+export function getFELFunctionCatalog(): FELFunctionMeta[];
+```
+
+### Core additions
+
+```typescript
+// queries/binds.ts
+export function normalizeBinds(binds: unknown[], items: FormItem[]): Record<string, BindView>;
+
+// queries/shapes.ts
+export function normalizeShapeConstraint(shape: Shape): string;
+
+// queries/option-sets.ts
+export function optionSetUsage(items: FormItem[]): Record<string, number>;
+
+// queries/search.ts
+export function buildSearchIndex(definition: FormDefinition): SearchEntry[];
+
+// dnd/drop-target.ts (moved from studio)
+export function computeDropTarget(...): DropTarget | null;
+export function buildSequentialMoves(...): DefinitionMove[];
+
+// tree/flatten.ts (moved from studio)
+export function buildDefLookup(items: FormItem[]): Map<string, DefLookupEntry>;
+export function flattenComponentTree(root: CompNode, ...): FlatEntry[];
+export function flattenDefinition(items: FormItem[]): FlatItem[];
+
+// tree/selection.ts (moved from studio)
+export function pruneDescendants(paths: Set<string>): string[];
+export function sortForBatchDelete(paths: string[]): string[];
+
+// serialization/adapters.ts (moved from studio)
+export function serializeMappedData(data: any, options: AdapterOptions): string;
+```
+
+### Studio-core additions
 
 ```typescript
 // catalogs.ts
@@ -314,38 +440,28 @@ export function getFieldTypeCatalog(): FieldTypeOption[];
 export function getDataTypeInfo(dataType: string): DataTypeDisplay;
 export function getPropertyHelp(): Record<string, string>;
 export function compatibleWidgets(type: string, dataType?: string): string[];
+export function widgetHintToContentKind(hint: string): string | undefined;
 
 // fel-editing.ts
 export function validateFEL(expression: string): string | null;
-export function buildFELHighlightTokens(expression: string, sigs?: Record<string, string>): FELHighlightToken[];
+export function buildFELHighlightTokens(expression: string): FELHighlightToken[];
 export function getFELAutocompleteTrigger(expression: string, caret: number): FELAutocompleteTrigger | null;
 export function getFELFunctionAutocompleteTrigger(expression: string, caret: number): FELAutocompleteTrigger | null;
 export function getFELInstanceNameAutocompleteTrigger(expression: string, caret: number): FELAutocompleteTrigger | null;
 export function filterFELFieldOptions(options: FELEditorFieldOption[], query: string): FELEditorFieldOption[];
 export function filterFELFunctionOptions(options: FELEditorFunctionOption[], query: string): FELEditorFunctionOption[];
-export function getInstanceFieldOptions(instances: Record<string, FormspecInstance> | undefined, instanceName: string): FELEditorFieldOption[];
-export function getInstanceNameOptions(instances: Record<string, FormspecInstance> | undefined, query: string): string[];
-export function getFELFunctionCatalog(): FELFunction[];
 export function humanizeFEL(expression: string): string;
 
-// tree-operations.ts
-export function buildDefLookup(items: FormItem[], prefix?: string): Map<string, DefLookupEntry>;
-export function buildBindKeyMap(defLookup: Map<string, DefLookupEntry>): Map<string, string>;
-export function flattenComponentTree(root: CompNode, defLookup: Map<string, DefLookupEntry>, bindKeyMap?: Map<string, string>): FlatEntry[];
-export function flattenDefinition(items: FormItem[], prefix?: string): FlatItem[];
-export function pruneDescendants(paths: Set<string>): string[];
-export function sortForBatchDelete(paths: string[]): string[];
-export function computeDropTarget(activePath: string, overPath: string, position: DropPosition, flatList: FlatEntry[], selectedPaths?: Set<string>): DropTarget | null;
-export function buildSequentialMoves(sortedPaths: string[], targetParentPath: string | null, rawTargetIndex: number, flatList: FlatEntry[]): DefinitionMove[];
+// identifiers.ts
+export function sanitizeIdentifier(name: string): string;  // uses engine's isValidFELIdentifier + replace-with-underscore
 
-// serialization.ts
-export function serializeMappedData(data: any, options: AdapterOptions): string;
-
-// queries.ts (new Project methods)
-Project.getBindsView(): Record<string, BindEntry>;       // replaces 2x normalizeBinds()
-Project.getOptionSetUsage(): Record<string, number>;     // replaces inline flatItems loop
-Project.getSearchIndex(): SearchEntry[];                 // replaces CommandPalette index builder
-Project.resolvedWidgetFor(path: string): string;         // replaces 3-way inline resolution
-Project.generateSampleData(): Record<string, unknown>;   // replaces faker-based generation
-Project.exportForPreview(): { definition; component; theme };  // replaces preview-documents.ts
+// New Project methods
+Project.getBindsView(): Record<string, BindView>;
+Project.getOptionSetUsage(): Record<string, number>;
+Project.getSearchIndex(): SearchEntry[];
+Project.resolvedWidgetFor(path: string): string;
+Project.generateSampleData(): Record<string, unknown>;
+Project.exportForPreview(): { definition; component; theme };
+Project.addValidationWithDefaults(): HelperResult;
+Project.computeInsertionPath(activePage?: number): string | undefined;
 ```
