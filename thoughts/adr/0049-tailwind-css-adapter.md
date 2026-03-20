@@ -118,6 +118,51 @@ export { uswdsAdapter } from './uswds/index';
 export { tailwindAdapter } from './tailwind/index';
 ```
 
+### CSS class cascade conflict resolution
+
+The theme cascade uses union semantics for `cssClass` — all levels accumulate. This creates a problem specific to utility-first frameworks: when a default level specifies `p-4` and a selector or item override specifies `p-8`, both survive the union. With Tailwind, the winner depends on CSS generation order, not cascade priority.
+
+Two complementary mechanisms address this:
+
+**`cssClassReplace` (spec-level, framework-agnostic).** A new `PresentationBlock` property that explicitly replaces lower-cascade classes instead of unioning with them. During `mergeBlocks()`, replacement classes remove any lower-level class that shares the same utility prefix (e.g., `p-` prefix matches `p-4`, `p-8`, `p-auto`). The property is stripped from the final resolved output.
+
+```json
+{
+  "defaults": { "cssClass": ["formspec-field", "p-4", "text-sm"] },
+  "items": {
+    "budget": { "cssClassReplace": "p-8" }
+  }
+}
+```
+Resolved for `budget`: `["formspec-field", "text-sm", "p-8"]` — `p-4` is gone.
+
+This works for any CSS framework and requires no runtime dependency. Theme authors use it when they know a higher-priority level needs to override a specific utility from a lower level.
+
+**`classStrategy: "tailwind-merge"` (runtime, Tailwind-specific).** A `ThemeDocument`-level option that runs the final resolved class list through the [`tailwind-merge`](https://github.com/dcastil/tailwind-merge) library as a post-processing step. This handles conflicts automatically — `"p-4 p-8"` → `"p-8"` — including arbitrary values, responsive modifiers, and state variants.
+
+```json
+{
+  "$formspecTheme": "1.0",
+  "classStrategy": "tailwind-merge",
+  "defaults": { "cssClass": ["p-4", "text-sm"] },
+  "selectors": [
+    { "match": { "type": "field" }, "apply": { "cssClass": "p-8" } }
+  ]
+}
+```
+
+To avoid a hard dependency, consumers inject `twMerge` at startup:
+
+```typescript
+import { twMerge } from 'tailwind-merge';
+import { setTailwindMerge } from 'formspec-layout';
+setTailwindMerge(twMerge);
+```
+
+If `setTailwindMerge` was never called, the resolver logs a warning and falls back to plain union semantics.
+
+**When to use which:** `cssClassReplace` is surgical — use it for specific overrides in theme JSON when you know exactly which class to replace. `classStrategy: "tailwind-merge"` is automatic — use it when the theme is Tailwind-based and you want all conflicts resolved without thinking about them. They compose: `cssClassReplace` runs during cascade merging, `tailwind-merge` runs after as a final pass.
+
 ### Scope
 
 The Tailwind adapter implements the same 15 component types as USWDS:
@@ -146,6 +191,8 @@ Layout components (Grid, Stack, Page, etc.) are not in scope — formspec's layo
 - **Second adapter to maintain.** Every behavior contract change requires updates to both USWDS and Tailwind adapters. Mitigated by the adapters being structurally identical — changes are mechanical.
 - **Tailwind CDN is not production-grade.** The Play CDN scans the DOM at runtime, is larger than a purged build, and Tailwind explicitly discourages it for production. The adapter must document this clearly and guide users toward the CLI build for production use.
 - **Class string maintenance.** Tailwind utility strings are long (`"block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"`). Changes to the visual design require editing string literals across multiple files. This is inherent to Tailwind's approach and acceptable for a reference implementation.
+- **`tailwind-merge` adds a runtime dependency.** ~3KB gzipped, but it's opt-in — only loaded when `classStrategy: "tailwind-merge"` is set and `setTailwindMerge()` is called. Projects that don't use Tailwind pay nothing.
+- **`cssClassReplace` prefix matching is heuristic.** The `extractUtilityPrefix()` function uses a simple regex (`/^(-?[a-z]+)-/`) that works for standard Tailwind utilities but won't handle every edge case (e.g., `2xl:` responsive prefixes). For full conflict resolution, use `classStrategy: "tailwind-merge"` instead.
 
 ## Alternatives Considered
 
