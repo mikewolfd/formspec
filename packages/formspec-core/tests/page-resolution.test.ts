@@ -337,6 +337,68 @@ describe('resolvePageStructure', () => {
     expect(result.unassignedItems).toEqual(['group1']);
   });
 
+  it('group is not unassigned when all its children are placed as regions', () => {
+    const state = makeState({
+      definition: {
+        formPresentation: { pageMode: 'wizard' },
+        items: [
+          {
+            key: 'app',
+            type: 'group',
+            label: 'Applicant',
+            children: [
+              { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+              { key: 'dob', type: 'field', dataType: 'date', label: 'DOB' },
+            ],
+          },
+        ],
+      },
+      theme: {
+        pages: [
+          { id: 'p1', title: 'Step 1', regions: [{ key: 'name' }, { key: 'dob' }] },
+        ],
+      },
+    });
+
+    const result = resolvePageStructure(state, ['app', 'name', 'dob']);
+
+    // Group 'app' is not in any region directly, but all its children are.
+    // It should NOT appear in unassignedItems.
+    expect(result.unassignedItems).toEqual([]);
+  });
+
+  it('group IS unassigned when only some children are placed', () => {
+    const state = makeState({
+      definition: {
+        formPresentation: { pageMode: 'wizard' },
+        items: [
+          {
+            key: 'app',
+            type: 'group',
+            label: 'Applicant',
+            children: [
+              { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+              { key: 'dob', type: 'field', dataType: 'date', label: 'DOB' },
+            ],
+          },
+        ],
+      },
+      theme: {
+        pages: [
+          { id: 'p1', title: 'Step 1', regions: [{ key: 'name' }] },
+        ],
+      },
+    });
+
+    const result = resolvePageStructure(state, ['app', 'name', 'dob']);
+
+    // 'dob' is not placed — group 'app' is partially unassigned.
+    // Show 'dob' as unassigned (not the group, since one child IS placed).
+    expect(result.unassignedItems).toContain('dob');
+    expect(result.unassignedItems).not.toContain('app');
+    expect(result.unassignedItems).not.toContain('name');
+  });
+
   it('does not include wizardConfig (component concern, not resolution)', () => {
     const result = resolvePageStructure(makeState(), []);
 

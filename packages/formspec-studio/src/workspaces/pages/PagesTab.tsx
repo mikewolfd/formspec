@@ -1,5 +1,5 @@
 /** @filedesc Pages workspace tab for managing wizard pages, regions, and page-level diagnostics. */
-import { useState, useCallback, useRef, useEffect, useContext, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useContext } from 'react';
 import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from '@dnd-kit/dom';
@@ -9,7 +9,7 @@ import { useProject } from '../../state/useProject';
 import { ActivePageContext } from '../../state/useActivePage';
 import { DragHandle } from '../editor/DragHandle';
 import { PagesFocusView } from './PagesFocusView';
-import type { PageView, PageItemView } from 'formspec-studio-core';
+import type { PageView } from 'formspec-studio-core';
 
 // ── ModeSelector ──────────────────────────────────────────────────────
 
@@ -52,19 +52,12 @@ function PageCard({
   page,
   index,
   total,
-  breakpointNames,
   isExpanded,
   onToggle,
   onDelete,
-  onMoveUp,
-  onMoveDown,
   onUpdateTitle,
   onUpdateDescription,
   onRemoveItem,
-  onUpdateItemWidth,
-  onUpdateItemOffset,
-  onUpdateItemResponsive,
-  onReorderItem,
   onEditLayout,
   sortableRef,
   dragHandleRef,
@@ -73,20 +66,12 @@ function PageCard({
   page: PageView;
   index: number;
   total: number;
-  /** Ordered list of breakpoint names to show in responsive override UI */
-  breakpointNames: string[];
   isExpanded: boolean;
   onToggle: () => void;
   onDelete: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
   onUpdateTitle: (title: string) => void;
   onUpdateDescription: (description: string | undefined) => void;
   onRemoveItem: (itemKey: string) => void;
-  onUpdateItemWidth: (itemKey: string, width: number) => void;
-  onUpdateItemOffset: (itemKey: string, offset: number | undefined) => void;
-  onUpdateItemResponsive: (itemKey: string, breakpoint: string, overrides: { width?: number; offset?: number; hidden?: boolean } | undefined) => void;
-  onReorderItem: (itemKey: string, direction: 'up' | 'down') => void;
   onEditLayout?: () => void;
   sortableRef?: (el: Element | null) => void;
   dragHandleRef?: (el: Element | null) => void;
@@ -95,29 +80,8 @@ function PageCard({
   const items = page.items ?? [];
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [startVisibleFor, setStartVisibleFor] = useState<Set<number>>(new Set());
-  /** Per-item index: whether the responsive overrides section is expanded */
-  const [responsiveExpandedFor, setResponsiveExpandedFor] = useState<Set<number>>(new Set());
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descInputRef = useRef<HTMLInputElement>(null);
-  const gridBarRef = useRef<HTMLDivElement>(null);
-
-  const showStartFor = useCallback((idx: number) => {
-    setStartVisibleFor((prev) => new Set([...prev, idx]));
-  }, []);
-
-  const toggleResponsiveFor = useCallback((idx: number) => {
-    setResponsiveExpandedFor((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) {
-        next.delete(idx);
-      } else {
-        next.add(idx);
-      }
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -132,18 +96,6 @@ function PageCard({
       descInputRef.current.select();
     }
   }, [isEditingDescription]);
-
-  // Deselect grid segment on click-outside
-  useEffect(() => {
-    if (selectedItemIndex === null) return;
-    function handleMouseDown(e: MouseEvent) {
-      if (gridBarRef.current && !gridBarRef.current.contains(e.target as Node)) {
-        setSelectedItemIndex(null);
-      }
-    }
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [selectedItemIndex]);
 
   const commitTitle = useCallback(() => {
     if (!titleInputRef.current) return;
@@ -255,86 +207,18 @@ function PageCard({
       {/* Expanded detail */}
       {isExpanded && (
         <div className="border-t border-border p-3 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-          {/* Larger grid preview — interactive (FF3) */}
+          {/* Compact grid preview */}
           {items.length > 0 && (
-            <div ref={gridBarRef} className="grid grid-cols-12 gap-1 h-8">
-              {items.map((item, i) => {
-                const isBroken = item.status === 'broken';
-                const isSelected = selectedItemIndex === i;
-                const segmentClass = `border rounded text-[9px] text-center flex items-center justify-center text-muted truncate cursor-pointer transition-all ${
-                  isBroken
-                    ? `bg-amber-100/50 border-amber-300/50 hover:bg-amber-200/50${isSelected ? ' ring-1 ring-amber-400' : ''}`
-                    : isSelected
-                      ? 'bg-accent/30 border-accent/70 ring-1 ring-accent'
-                      : 'bg-accent/15 border-accent/30 hover:bg-accent/25'
-                }`;
-                const segmentStyle = { gridColumn: `span ${Math.min(item.width, 12)}` };
-
-                // Single <button> element for both selected/unselected states — avoids stale refs.
-                // The "remove" control uses span[role="button"] so it's not nested inside <button>.
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label="grid segment"
-                    aria-pressed={isSelected}
-                    onClick={() => setSelectedItemIndex(isSelected ? null : i)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setSelectedItemIndex(null);
-                    }}
-                    className={segmentClass}
-                    style={segmentStyle}
-                  >
-                    {isSelected ? (
-                      <span className="flex items-center gap-1 px-1 w-full justify-center">
-                        <input
-                          type="number"
-                          min={1}
-                          max={12}
-                          aria-label="grid segment span"
-                          key={`gs-sp-${i}-${item.key}-${item.width}`}
-                          defaultValue={item.width}
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => {
-                            e.stopPropagation();
-                            if (e.key === 'Escape') setSelectedItemIndex(null);
-                          }}
-                          onBlur={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val) && val >= 1 && val <= 12 && val !== item.width) {
-                              onUpdateItemWidth(item.key, val);
-                            }
-                          }}
-                          className="font-mono text-ink w-8 text-center bg-surface border border-border/50 rounded text-[10px] py-0"
-                        />
-                        {/* span[role="button"] avoids invalid nested <button> element */}
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          aria-label="remove segment"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveItem(item.key);
-                            setSelectedItemIndex(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.stopPropagation();
-                              onRemoveItem(item.key);
-                              setSelectedItemIndex(null);
-                            }
-                          }}
-                          className="text-[9px] text-muted hover:text-error transition-colors shrink-0 cursor-pointer"
-                        >
-                          &times;
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="truncate px-0.5">{item.label}</span>
-                    )}
-                  </button>
-                );
-              })}
+            <div className="grid grid-cols-12 gap-0.5 h-6">
+              {items.map((item, i) => (
+                <div
+                  key={i}
+                  className={`rounded-sm flex items-center justify-center text-[8px] text-muted truncate ${item.status === 'broken' ? 'bg-amber-300/30' : 'bg-accent/20'}`}
+                  style={{ gridColumn: `span ${Math.min(item.width, 12)}` }}
+                >
+                  <span className="truncate px-0.5">{item.label}</span>
+                </div>
+              ))}
             </div>
           )}
 
@@ -368,198 +252,26 @@ function PageCard({
             </button>
           )}
 
-          {/* Item list with editing controls */}
+          {/* Item list — simplified for Overview Mode */}
           {items.length > 0 && (
-            <div className="space-y-1">
-              {items.map((item, idx) => {
-                const responsive = item.responsive;
-                const responsiveOpen = responsiveExpandedFor.has(idx);
-                const hasResponsive = responsive && Object.keys(responsive).length > 0;
-
+            <div className="space-y-0.5">
+              {items.map((item) => {
+                const isBroken = item.status === 'broken';
+                const widthLabel = item.width === 12 ? 'Full' : item.width === 6 ? 'Half' : item.width === 4 ? 'Third' : item.width === 3 ? 'Quarter' : `${item.width}/12`;
                 return (
-                  <div key={`rk-${idx}-${item.key}`} className="rounded bg-subtle/30">
-                    {/* Main item row */}
-                    <div className="flex items-center gap-2 text-[12px] px-2 py-1">
-                      <span className="font-mono text-ink flex-1 truncate">
-                        {item.label}
-                      </span>
-                      {/* Start column — show if explicit value or user clicked to add */}
-                      {(item.offset !== undefined || startVisibleFor.has(idx)) ? (
-                        <>
-                          <span className="text-muted text-[10px]">start</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={12}
-                            aria-label="start"
-                            key={`st-${idx}-${item.key}-${item.offset}`}
-                            defaultValue={item.offset ?? 1}
-                            onBlur={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              onUpdateItemOffset(item.key, !isNaN(val) && val >= 1 && val <= 12 ? val : undefined);
-                            }}
-                            className="font-mono text-ink w-10 text-center bg-transparent border border-border/50 rounded text-[11px] py-0.5"
-                          />
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          aria-label="Add start"
-                          onClick={() => showStartFor(idx)}
-                          className="text-[9px] text-muted hover:text-ink"
-                          title="Set start column"
-                        >
-                          +col
-                        </button>
-                      )}
-                      <span className="text-muted text-[10px]">span</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={12}
-                        key={`sp-${idx}-${item.key}-${item.width}`}
-                        defaultValue={item.width}
-                        onBlur={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          if (!isNaN(val) && val >= 1 && val <= 12 && val !== item.width) {
-                            onUpdateItemWidth(item.key, val);
-                          }
-                        }}
-                        className="font-mono text-ink w-10 text-center bg-transparent border border-border/50 rounded text-[11px] py-0.5"
-                      />
-                      {/* Responsive toggle button */}
-                      <button
-                        type="button"
-                        aria-label={responsiveOpen ? 'Hide responsive overrides' : 'Show responsive overrides'}
-                        onClick={() => toggleResponsiveFor(idx)}
-                        title="Responsive breakpoint overrides"
-                        className={`text-[9px] px-1 rounded transition-colors ${
-                          hasResponsive
-                            ? 'text-accent font-bold'
-                            : responsiveOpen
-                            ? 'text-ink'
-                            : 'text-muted hover:text-ink'
-                        }`}
-                      >
-                        {responsiveOpen ? 'resp\u25B4' : 'resp\u25BE'}
-                      </button>
-                      <div className="flex gap-0.5">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => onReorderItem(item.key, 'up')}
-                          className="text-[9px] text-muted hover:text-ink disabled:opacity-30 px-0.5"
-                          title="Move region up"
-                        >
-                          &#9650;
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === items.length - 1}
-                          onClick={() => onReorderItem(item.key, 'down')}
-                          className="text-[9px] text-muted hover:text-ink disabled:opacity-30 px-0.5"
-                          title="Move region down"
-                        >
-                          &#9660;
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label="Remove region"
-                        onClick={() => onRemoveItem(item.key)}
-                        className="text-[10px] text-muted hover:text-error transition-colors px-1"
-                      >
-                        &times;
-                      </button>
-                    </div>
-
-                    {/* Responsive overrides section — expanded per item */}
-                    {responsiveOpen && (
-                      <div className="px-2 pb-2 space-y-1 border-t border-border/30 mt-0.5 pt-1.5">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-muted">
-                            Responsive
-                          </span>
-                          {hasResponsive && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                // Clear all breakpoints one by one
-                                for (const bp of breakpointNames) {
-                                  if (responsive[bp]) {
-                                    onUpdateItemResponsive(item.key, bp, undefined);
-                                  }
-                                }
-                              }}
-                              className="text-[9px] text-muted hover:text-error transition-colors"
-                              title="Clear all responsive overrides"
-                            >
-                              Clear all
-                            </button>
-                          )}
-                        </div>
-                        {breakpointNames.map((bp) => {
-                          const bpOverride = responsive?.[bp] ?? {};
-                          return (
-                            <div key={bp} className="flex items-center gap-2">
-                              <span className="text-[10px] font-mono text-muted w-6 shrink-0">{bp}</span>
-                              {/* Hidden toggle */}
-                              <label className="flex items-center gap-1 cursor-pointer select-none">
-                                <input
-                                  type="checkbox"
-                                  checked={bpOverride.hidden === true}
-                                  onChange={(e) => {
-                                    const hidden = e.target.checked || undefined;
-                                    const newOverride = { ...bpOverride, hidden };
-                                    // Clean up undefined hidden
-                                    if (!newOverride.hidden) delete newOverride.hidden;
-                                    // If empty, remove the breakpoint
-                                    onUpdateItemResponsive(
-                                      item.key,
-                                      bp,
-                                      Object.keys(newOverride).length > 0 ? newOverride : undefined,
-                                    );
-                                  }}
-                                  className="w-3 h-3"
-                                />
-                                <span className="text-[10px] text-muted">hide</span>
-                              </label>
-                              {/* Width override — only when not hidden */}
-                              {bpOverride.hidden !== true && (
-                                <>
-                                  <span className="text-[10px] text-muted">span</span>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={12}
-                                    aria-label={`${bp} span`}
-                                    key={`resp-sp-${idx}-${bp}-${bpOverride.width}`}
-                                    defaultValue={bpOverride.width ?? ''}
-                                    placeholder="—"
-                                    onBlur={(e) => {
-                                      const val = e.target.value.trim() === '' ? undefined : parseInt(e.target.value, 10);
-                                      const newWidth = val !== undefined && !isNaN(val) && val >= 1 && val <= 12 ? val : undefined;
-                                      const updated = { ...bpOverride };
-                                      if (newWidth !== undefined) {
-                                        updated.width = newWidth;
-                                      } else {
-                                        delete updated.width;
-                                      }
-                                      onUpdateItemResponsive(
-                                        item.key,
-                                        bp,
-                                        Object.keys(updated).length > 0 ? updated : undefined,
-                                      );
-                                    }}
-                                    className="font-mono text-ink w-10 text-center bg-transparent border border-border/50 rounded text-[10px] py-0.5"
-                                  />
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                  <div key={item.key} className={`flex items-center gap-2 text-[12px] px-2 py-1 rounded ${isBroken ? 'bg-amber-50' : 'bg-subtle/30'}`}>
+                    <span className={`flex-1 truncate ${isBroken ? 'text-amber-700' : 'text-ink'}`}>
+                      {item.label}
+                    </span>
+                    <span className="text-[10px] text-muted font-mono shrink-0">{widthLabel}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${item.label}`}
+                      onClick={() => onRemoveItem(item.key)}
+                      className="text-[10px] text-muted hover:text-error transition-colors px-0.5 shrink-0"
+                    >
+                      &times;
+                    </button>
                   </div>
                 );
               })}
@@ -567,44 +279,24 @@ function PageCard({
           )}
 
           {/* Actions */}
-          <div className="flex justify-between items-center pt-2 border-t border-border">
-            <div className="flex gap-2">
+          <div className="flex justify-end items-center gap-2 pt-2 border-t border-border">
+            {onEditLayout && (
               <button
                 type="button"
-                disabled={index === 0}
-                onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-                className="text-[10px] font-mono text-muted hover:text-ink disabled:opacity-30"
+                aria-label="Edit Layout"
+                onClick={(e) => { e.stopPropagation(); onEditLayout(); }}
+                className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
               >
-                Move Up
+                Edit Layout
               </button>
-              <button
-                type="button"
-                disabled={index === total - 1}
-                onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-                className="text-[10px] font-mono text-muted hover:text-ink disabled:opacity-30"
-              >
-                Move Down
-              </button>
-            </div>
-            <div className="flex gap-2">
-              {onEditLayout && (
-                <button
-                  type="button"
-                  aria-label="Edit Layout"
-                  onClick={(e) => { e.stopPropagation(); onEditLayout(); }}
-                  className="text-[10px] text-accent hover:text-accent-hover font-bold uppercase tracking-wider transition-colors"
-                >
-                  Edit Layout
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="text-[10px] text-muted hover:text-error font-bold uppercase tracking-wider transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded text-error/60 hover:text-error hover:bg-error/5 transition-colors"
+            >
+              Delete
+            </button>
           </div>
         </div>
       )}
@@ -763,20 +455,12 @@ export function PagesTab() {
 
   /** Shared callback props for PageCard / SortablePageCard */
   const pageCardProps = useCallback((page: PageView) => ({
-    breakpointNames: structure.breakpointNames,
     onDelete: () => project.removePage(page.id),
-    onMoveUp: () => project.reorderPage(page.id, 'up'),
-    onMoveDown: () => project.reorderPage(page.id, 'down'),
     onUpdateTitle: (title: string) => project.updatePage(page.id, { title }),
     onUpdateDescription: (description: string | undefined) => project.updatePage(page.id, { description }),
     onRemoveItem: (key: string) => project.removeItemFromPage(page.id, key),
-    onUpdateItemWidth: (key: string, width: number) => project.setItemWidth(page.id, key, width),
-    onUpdateItemOffset: (key: string, offset: number | undefined) => project.setItemOffset(page.id, key, offset),
-    onUpdateItemResponsive: (key: string, bp: string, overrides: { width?: number; offset?: number; hidden?: boolean } | undefined) =>
-      project.setItemResponsive(page.id, key, bp, overrides),
-    onReorderItem: (key: string, dir: 'up' | 'down') => project.reorderItemOnPage(page.id, key, dir),
     onEditLayout: () => setFocusedPageId(page.id),
-  }), [project, structure.breakpointNames]);
+  }), [project]);
 
   // Focus Mode — full-width layout editor for a single page
   if (focusedPageId) {

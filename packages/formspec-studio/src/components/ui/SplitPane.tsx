@@ -65,7 +65,7 @@ export function SplitPane({
   return (
     <div 
       ref={containerRef} 
-      className={`flex w-full min-h-[300px] border border-border/40 rounded-xl overflow-hidden bg-subtle/10 ${className}`}
+      className={`flex w-full h-full border border-border/40 rounded-xl overflow-hidden bg-subtle/10 ${className}`}
     >
       <div 
         style={{ width: `${split}%` }} 

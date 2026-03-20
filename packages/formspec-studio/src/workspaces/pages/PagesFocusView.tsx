@@ -107,7 +107,7 @@ export function PagesFocusView({ pageId, onBack, onNavigate }: PagesFocusViewPro
 
   const mainContent = isPaletteOpen ? (
     <SplitPane
-      initialSplit={75}
+      initialSplit={70}
       minRight={200}
       left={gridCanvas}
       right={
@@ -192,6 +192,13 @@ export function PagesFocusView({ pageId, onBack, onNavigate }: PagesFocusViewPro
           </button>
         )}
       </div>
+
+      {/* Page description */}
+      {page.description && (
+        <div className="px-4 py-1.5 text-[12px] text-muted border-b border-border/20">
+          {page.description}
+        </div>
+      )}
 
       {/* Breakpoint bar */}
       <BreakpointBar

@@ -38,7 +38,7 @@ export function GridCanvas({
   return (
     <div
       data-grid-canvas
-      className="relative min-h-[120px]"
+      className="relative min-h-[200px] p-4 bg-subtle/5 rounded-lg"
       style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '8px' }}
       tabIndex={0}
       onKeyDown={(e) => {
@@ -58,7 +58,7 @@ export function GridCanvas({
       {Array.from({ length: 12 }, (_, i) => (
         <div
           key={`guide-${i}`}
-          className="absolute top-0 bottom-0 border-l border-border/10 pointer-events-none"
+          className="absolute top-0 bottom-0 border-l border-border/30 border-dashed pointer-events-none"
           style={{ left: `${(i / 12) * 100}%` }}
         />
       ))}

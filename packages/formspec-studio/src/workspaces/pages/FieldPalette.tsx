@@ -29,24 +29,37 @@ function buildPaletteGroups(
   items: FormItem[],
   itemPageMap: Record<string, string>,
 ): PaletteGroup[] {
-  const rootItems: PaletteItem[] = [];
   const groups: PaletteGroup[] = [];
 
   for (const item of items) {
-    const paletteItem: PaletteItem = {
-      key: item.key,
-      label: item.label ?? item.key,
-      type: (item as any).type ?? 'field',
-      placed: item.key in itemPageMap,
-    };
-
-    // Top-level items go to root group
-    rootItems.push(paletteItem);
-  }
-
-  // Build root group
-  if (rootItems.length > 0) {
-    groups.unshift({ key: null, label: 'Items', items: rootItems });
+    if ((item as any).type === 'group' && (item as any).children?.length > 0) {
+      // Group with children — show as a named section
+      const children: PaletteItem[] = ((item as any).children ?? []).map((child: any) => ({
+        key: child.key,
+        label: child.label ?? child.key,
+        type: child.type ?? 'field',
+        placed: child.key in itemPageMap,
+      }));
+      groups.push({
+        key: item.key,
+        label: item.label ?? item.key,
+        items: children,
+      });
+    } else {
+      // Top-level non-group items go to a root section
+      const existing = groups.find(g => g.key === null);
+      const paletteItem: PaletteItem = {
+        key: item.key,
+        label: item.label ?? item.key,
+        type: (item as any).type ?? 'field',
+        placed: item.key in itemPageMap,
+      };
+      if (existing) {
+        existing.items.push(paletteItem);
+      } else {
+        groups.unshift({ key: null, label: 'Items', items: [paletteItem] });
+      }
+    }
   }
 
   return groups;
@@ -122,7 +135,7 @@ export function FieldPalette({ pageId, isOpen, onToggle }: FieldPaletteProps) {
                     <TypeIcon type={item.type} />
 
                     {/* Label */}
-                    <span className="flex-1 truncate">{item.label}</span>
+                    <span className="flex-1 min-w-0 text-ellipsis overflow-hidden whitespace-nowrap">{item.label}</span>
 
                     {/* Placed indicator or quick-add */}
                     {item.placed ? (
