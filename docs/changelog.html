@@ -124,7 +124,7 @@ generated references are the structural contract. <!-- bluf:end --></li>
 <col style="width: 16%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Pointer</th>
 <th>Field</th>
 <th>Type</th>
@@ -134,7 +134,7 @@ generated references are the structural contract. <!-- bluf:end --></li>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>#/properties/$schema</code></td>
 <td><code>$schema</code></td>
 <td><code>string</code></td>
@@ -142,7 +142,7 @@ generated references are the structural contract. <!-- bluf:end --></li>
 <td>—</td>
 <td>—</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/changes</code></td>
 <td><code>changes</code></td>
 <td><code>array</code></td>
@@ -151,7 +151,7 @@ generated references are the structural contract. <!-- bluf:end --></li>
 <td>Ordered array of Change objects. Each entry describes one atomic
 modification to a definition element.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/definitionUrl</code></td>
 <td><code>definitionUrl</code></td>
 <td><code>string</code></td>
@@ -160,7 +160,7 @@ modification to a definition element.</td>
 <td>Canonical URL of the Definition whose versions are compared. Must
 match the definition’s top-level ‘url’ property.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/fromVersion</code></td>
 <td><code>fromVersion</code></td>
 <td><code>string</code></td>
@@ -169,7 +169,7 @@ match the definition’s top-level ‘url’ property.</td>
 <td>Base version (before changes). Interpreted per the definition’s
 versionAlgorithm (default: semver).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/generatedAt</code></td>
 <td><code>generatedAt</code></td>
 <td><code>string</code></td>
@@ -177,7 +177,7 @@ versionAlgorithm (default: semver).</td>
 <td>—</td>
 <td>ISO 8601 timestamp when this changelog was generated.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/semverImpact</code></td>
 <td><code>semverImpact</code></td>
 <td><code>string</code></td>
@@ -188,7 +188,7 @@ versionAlgorithm (default: semver).</td>
 the changes array: breaking → major, compatible → minor, cosmetic →
 patch.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/summary</code></td>
 <td><code>summary</code></td>
 <td><code>string</code></td>
@@ -196,7 +196,7 @@ patch.</td>
 <td>—</td>
 <td>Human-readable summary of changes for release notes.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/toVersion</code></td>
 <td><code>toVersion</code></td>
 <td><code>string</code></td>
@@ -256,7 +256,7 @@ element.</p>
 <col style="width: 25%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Req</th>
@@ -264,7 +264,7 @@ element.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>type</code></td>
 <td>enum</td>
 <td>REQUIRED</td>
@@ -272,7 +272,7 @@ element.</p>
 <code>"modified"</code>, <code>"moved"</code>,
 <code>"renamed"</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>target</code></td>
 <td>enum</td>
 <td>REQUIRED</td>
@@ -281,34 +281,34 @@ element.</p>
 <code>"screener"</code>, <code>"migration"</code>,
 <code>"metadata"</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>path</code></td>
 <td>string</td>
 <td>REQUIRED</td>
 <td>Dot-path to the affected element (e.g.,
 <code>"items.budget.personnel"</code>).</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>key</code></td>
 <td>string</td>
 <td>OPTIONAL</td>
 <td>The item <code>key</code> when <code>target</code> is
 <code>"item"</code>.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>impact</code></td>
 <td>enum</td>
 <td>REQUIRED</td>
 <td><code>"breaking"</code>, <code>"compatible"</code>,
 <code>"cosmetic"</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>description</code></td>
 <td>string</td>
 <td>RECOMMENDED</td>
 <td>Human-readable description of the change.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>before</code></td>
 <td>any</td>
 <td>OPTIONAL</td>
@@ -316,14 +316,14 @@ element.</p>
 <code>modified</code>, <code>removed</code>, <code>renamed</code>,
 <code>moved</code>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>after</code></td>
 <td>any</td>
 <td>OPTIONAL</td>
 <td>New value or structural fragment. Present for <code>added</code>,
 <code>modified</code>, <code>renamed</code>, <code>moved</code>.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>migrationHint</code></td>
 <td>string</td>
 <td>OPTIONAL</td>
@@ -382,37 +382,37 @@ Unlisted changes default to <strong>cosmetic</strong>.</p>
 <col style="width: 50%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Change</th>
 <th>Rationale</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>Item removed</td>
 <td>Existing responses lose a field.</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Item key renamed</td>
 <td>Stored response keys no longer match.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>dataType</code> changed</td>
 <td>Stored values may be invalid under new type.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>required</code> constraint added to existing field</td>
 <td>Previously valid responses may fail.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>repeat</code> → non-repeat (or vice versa)</td>
 <td>Structural change to stored data.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>itemType</code> changed (e.g., group → field)</td>
 <td>Structural change to stored data.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Option removed from closed optionSet</td>
 <td>Existing selections become invalid.</td>
 </tr>
@@ -425,37 +425,37 @@ Unlisted changes default to <strong>cosmetic</strong>.</p>
 <col style="width: 50%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Change</th>
 <th>Rationale</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>Item added (optional)</td>
 <td>No impact on existing responses.</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Item added (required) with default</td>
 <td>Fillable from default; no data loss.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Option added to optionSet</td>
 <td>Existing selections remain valid.</td>
 </tr>
-<tr class="even">
+<tr>
 <td>New shape added</td>
 <td>Presentation only; additive.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>New bind added</td>
 <td>Additive data mapping.</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Constraint relaxed (e.g., maxLength increased)</td>
 <td>Existing data still valid.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Item moved between groups (key preserved)</td>
 <td>Data intact; layout change only.</td>
 </tr>
@@ -464,33 +464,33 @@ Unlisted changes default to <strong>cosmetic</strong>.</p>
 <h3 id="cosmetic-patch">4.3 Cosmetic (→ patch)</h3>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Change</th>
 <th>Rationale</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>label</code> changed</td>
 <td>Display-only.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>hint</code> changed</td>
 <td>Display-only.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>help</code> changed</td>
 <td>Display-only.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>description</code> changed</td>
 <td>Display-only.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Display order changed within a group</td>
 <td>No data impact.</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Shape property modified (e.g., width)</td>
 <td>Presentation-only.</td>
 </tr>
@@ -540,35 +540,35 @@ breaking changes provides sufficient information to
 <col style="width: 33%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Change type</th>
 <th><code>migrationHint</code></th>
 <th>Generated <code>fieldMap</code> entry</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>removed</code></td>
 <td><code>"drop"</code></td>
 <td><em>(omit key — value is discarded)</em></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>removed</code></td>
 <td><code>"preserve"</code></td>
 <td><code>{ "oldKey": "oldKey" }</code> — carry forward into extension
 data</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>renamed</code></td>
 <td>FEL expression (e.g., <code>$old.cost</code>)</td>
 <td><code>{ "newKey": "$old.cost" }</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>modified</code> (dataType change)</td>
 <td>FEL expression (e.g., <code>STRING($old.amount)</code>)</td>
 <td><code>{ "amount": "STRING($old.amount)" }</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>modified</code> (added required + default)</td>
 <td><code>"preserve"</code></td>
 <td><code>{ "field": "$old.field ?? 'default'" }</code></td>

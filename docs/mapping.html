@@ -673,37 +673,37 @@ Mapping Document. Specifically:</p>
 <col style="width: 48%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>§6.7 Migration Concept</th>
 <th>Mapping DSL Equivalent</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>source</code> (field path in old version)</td>
 <td>Field Rule <code>sourcePath</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>target</code> (field path in new version, or
 <code>null</code>)</td>
 <td>Field Rule <code>targetPath</code> (or <code>targetPath</code>
 absent with <code>transform: "drop"</code>)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>transform: "preserve"</code></td>
 <td>Field Rule with <code>transform: "preserve"</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>transform: "drop"</code></td>
 <td>Field Rule with <code>transform: "drop"</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>transform: "expression"</code> with
 <code>expression</code></td>
 <td>Field Rule with <code>transform: "expression"</code> and
 <code>expression</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>defaults</code> object</td>
 <td>Mapping Document <code>defaults</code> section</td>
 </tr>
@@ -818,7 +818,7 @@ enumerates all recognized properties.</p>
 <col style="width: 16%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Pointer</th>
 <th>Field</th>
 <th>Type</th>
@@ -828,7 +828,7 @@ enumerates all recognized properties.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>#/properties/$schema</code></td>
 <td><code>$schema</code></td>
 <td><code>string</code></td>
@@ -837,7 +837,7 @@ enumerates all recognized properties.</p>
 <td>URI identifying the version of the Mapping DSL specification this
 document conforms to.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/adapters</code></td>
 <td><code>adapters</code></td>
 <td><code>object</code></td>
@@ -848,7 +848,7 @@ active adapter is determined by targetSchema.format. Built-in adapters:
 ‘json’ (Mapping Core), ‘xml’ and ‘csv’ (Mapping Extended). Custom
 adapters use x- prefix.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/autoMap</code></td>
 <td><code>autoMap</code></td>
 <td><code>boolean</code></td>
@@ -860,7 +860,7 @@ rule’s sourcePath. Synthetic rules use identical source and target
 paths. Explicit rules always take precedence. When targetSchema.format
 is ‘csv’, auto-mapped paths containing dots are silently skipped.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/conformanceLevel</code></td>
 <td><code>conformanceLevel</code></td>
 <td><code>string</code></td>
@@ -873,7 +873,7 @@ adds reverse mapping with round-trip fidelity. ‘extended’: adds XML and
 CSV adapters. Each level is a strict superset of the preceding
 level.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/defaults</code></td>
 <td><code>defaults</code></td>
 <td><code>object</code></td>
@@ -884,7 +884,7 @@ execute. Keys are dot-notation target paths; values are literal JSON
 values. Any Field Rule that writes to the same path will overwrite the
 default. Defaults are applied only in the forward direction.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/definitionRef</code></td>
 <td><code>definitionRef</code></td>
 <td><code>string</code></td>
@@ -894,7 +894,7 @@ default. Defaults are applied only in the forward direction.</td>
 targets. Corresponds to the Definition’s ‘url’ property — the canonical
 identity that is stable across versions.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/definitionVersion</code></td>
 <td><code>definitionVersion</code></td>
 <td><code>string</code></td>
@@ -905,7 +905,7 @@ node-semver syntax. An implementation MUST refuse to execute a Mapping
 Document when the resolved Definition version does not satisfy this
 range.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/direction</code></td>
 <td><code>direction</code></td>
 <td><code>string</code></td>
@@ -918,7 +918,7 @@ forward execution MUST raise an error. ‘both’: rules are evaluated in
 either direction; each Field Rule MAY supply an explicit reverse
 override.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/rules</code></td>
 <td><code>rules</code></td>
 <td><code>array</code></td>
@@ -929,7 +929,7 @@ override.</td>
 document order. When two rules write to the same targetPath,
 last-write-wins. MUST contain at least one element.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>#/properties/targetSchema</code></td>
 <td><code>targetSchema</code></td>
 <td><code>$ref</code></td>
@@ -939,7 +939,7 @@ last-write-wins. MUST contain at least one element.</td>
 Determines the adapter used for serialization and the path syntax rules
 for targetPath values.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>#/properties/version</code></td>
 <td><code>version</code></td>
 <td><code>string</code></td>
@@ -971,23 +971,23 @@ range.</p>
 <col style="width: 50%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Value</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>"forward"</code></td>
 <td>Rules are evaluated source-to-target only. Reverse execution MUST
 raise an error.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"reverse"</code></td>
 <td>Rules are evaluated target-to-source only. Forward execution MUST
 raise an error.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>"both"</code></td>
 <td>Rules are evaluated in either direction. Each Field Rule MAY supply
 an explicit <code>reverse</code> override (§ 3.3).</td>
@@ -1094,7 +1094,7 @@ selection.</p>
 <col style="width: 20%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Required</th>
@@ -1103,7 +1103,7 @@ selection.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>format</code></td>
 <td><code>string</code></td>
 <td>REQUIRED</td>
@@ -1111,7 +1111,7 @@ selection.</p>
 <td>The structural format of the target. MUST be one of
 <code>"json"</code>, <code>"xml"</code>, or <code>"csv"</code>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>RECOMMENDED</td>
@@ -1119,21 +1119,21 @@ selection.</p>
 <td>Human-readable name of the target schema
 (e.g. <code>"FHIR Patient R4"</code>).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>url</code></td>
 <td><code>string</code></td>
 <td>OPTIONAL</td>
 <td>—</td>
 <td>Canonical URL or URI pointing to the target schema definition.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>rootElement</code></td>
 <td><code>string</code></td>
 <td>CONDITIONAL</td>
 <td>REQUIRED when <code>format</code> is <code>"xml"</code></td>
 <td>The local name of the root XML element in the target document.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>namespaces</code></td>
 <td><code>object</code></td>
 <td>CONDITIONAL</td>
@@ -1189,7 +1189,7 @@ Document.</p>
 <col style="width: 20%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Required</th>
@@ -1198,7 +1198,7 @@ Document.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>sourcePath</code></td>
 <td><code>string</code></td>
 <td>CONDITIONAL</td>
@@ -1207,7 +1207,7 @@ Document.</p>
 all transforms except <code>"constant"</code> and <code>"drop"</code>
 (when used with only a <code>targetPath</code>).</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>targetPath</code></td>
 <td><code>string</code></td>
 <td>CONDITIONAL</td>
@@ -1216,7 +1216,7 @@ all transforms except <code>"constant"</code> and <code>"drop"</code>
 REQUIRED for all transforms except <code>"drop"</code> (when used with
 only a <code>sourcePath</code>).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>transform</code></td>
 <td><code>string</code></td>
 <td>REQUIRED</td>
@@ -1224,7 +1224,7 @@ only a <code>sourcePath</code>).</td>
 <td>The transform type. See <a href="#331-transform-types">§
 3.3.1</a>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>expression</code></td>
 <td><code>string</code></td>
 <td>CONDITIONAL</td>
@@ -1235,7 +1235,7 @@ only a <code>sourcePath</code>).</td>
 <code>$</code> binds to the resolved source value and
 <code>@source</code> binds to the entire source document.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>coerce</code></td>
 <td><code>object</code></td>
 <td>CONDITIONAL</td>
@@ -1244,7 +1244,7 @@ only a <code>sourcePath</code>).</td>
 <code>"coerce"</code>. See <a href="#332-coerce-object">§
 3.3.2</a>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>valueMap</code></td>
 <td><code>object</code></td>
 <td>CONDITIONAL</td>
@@ -1253,7 +1253,7 @@ only a <code>sourcePath</code>).</td>
 <code>"valueMap"</code>. See <a href="#333-valuemap-object">§
 3.3.3</a>.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>reverse</code></td>
 <td><code>object</code></td>
 <td>OPTIONAL</td>
@@ -1263,7 +1263,7 @@ the reverse direction. The object MAY contain any Field Rule property
 except <code>sourcePath</code>, <code>targetPath</code>, and
 <code>reverse</code> itself.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>bidirectional</code></td>
 <td><code>boolean</code></td>
 <td>OPTIONAL</td>
@@ -1271,7 +1271,7 @@ except <code>sourcePath</code>, <code>targetPath</code>, and
 <td>If <code>false</code>, the rule is skipped during reverse execution
 (even when <code>direction</code> is <code>"both"</code>).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>condition</code></td>
 <td><code>string</code></td>
 <td>OPTIONAL</td>
@@ -1280,7 +1280,7 @@ except <code>sourcePath</code>, <code>targetPath</code>, and
 executed only when the expression evaluates to <code>true</code>.
 Bindings are the same as for <code>expression</code>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>default</code></td>
 <td><em>any</em></td>
 <td>OPTIONAL</td>
@@ -1289,7 +1289,7 @@ Bindings are the same as for <code>expression</code>.</td>
 <code>undefined</code>, <code>null</code>, or is absent from the source
 document.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>array</code></td>
 <td><code>object</code></td>
 <td>OPTIONAL</td>
@@ -1297,7 +1297,7 @@ document.</td>
 <td>Array handling descriptor. See <a href="#334-array-object">§
 3.3.4</a>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>description</code></td>
 <td><code>string</code></td>
 <td>OPTIONAL</td>
@@ -1305,7 +1305,7 @@ document.</td>
 <td>Human-readable description of the rule’s intent. Implementations
 MUST ignore this property during execution.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>priority</code></td>
 <td><code>integer</code></td>
 <td>OPTIONAL</td>
@@ -1327,64 +1327,64 @@ string values.</p>
 <col style="width: 50%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Value</th>
 <th>Behavior</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>"preserve"</code></td>
 <td>Copy the source value to the target without modification. The source
 and target types SHOULD be compatible.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"drop"</code></td>
 <td>Explicitly exclude the field from the output. When
 <code>sourcePath</code> is given, the source value is consumed and
 discarded. When <code>targetPath</code> is given, any value that would
 have been written (e.g. via <code>autoMap</code>) is suppressed.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>"expression"</code></td>
 <td>Evaluate the FEL <code>expression</code> and write its result to
 <code>targetPath</code>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"coerce"</code></td>
 <td>Convert the source value from one type to another according to the
 <code>coerce</code> descriptor.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>"valueMap"</code></td>
 <td>Replace the source value using the lookup table defined in the
 <code>valueMap</code> descriptor.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"flatten"</code></td>
 <td>Collapse a nested source structure into a scalar or flat object at
 <code>targetPath</code>. The <code>expression</code> property MUST be
 provided to define the flattening logic.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>"nest"</code></td>
 <td>Expand a scalar or flat source value into a nested structure at
 <code>targetPath</code>. The <code>expression</code> property MUST be
 provided.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"constant"</code></td>
 <td>Write a fixed value to <code>targetPath</code>. The value is defined
 by <code>expression</code>, which MUST be a FEL literal or deterministic
 expression. <code>sourcePath</code> MAY be omitted.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>"concat"</code></td>
 <td>Concatenate multiple source values into a single target string.
 <code>expression</code> defines the template
 (e.g. <code>@source.first + ' ' + @source.last</code>).</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"split"</code></td>
 <td>Split a single source value into multiple target values.
 <code>expression</code> defines the splitting logic and MUST return an
@@ -1401,7 +1401,7 @@ array or object.</td>
 <col style="width: 25%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Required</th>
@@ -1409,7 +1409,7 @@ array or object.</td>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>from</code></td>
 <td><code>string</code></td>
 <td>REQUIRED</td>
@@ -1418,13 +1418,13 @@ array or object.</td>
 <code>"datetime"</code>, <code>"integer"</code>, <code>"array"</code>,
 <code>"object"</code>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>to</code></td>
 <td><code>string</code></td>
 <td>REQUIRED</td>
 <td>Target data type. Same enumeration as <code>from</code>.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>format</code></td>
 <td><code>string</code></td>
 <td>OPTIONAL</td>
@@ -1447,7 +1447,7 @@ runtime.</p>
 <col style="width: 20%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Required</th>
@@ -1456,7 +1456,7 @@ runtime.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>forward</code></td>
 <td><code>object</code></td>
 <td>REQUIRED</td>
@@ -1464,7 +1464,7 @@ runtime.</p>
 <td>Key-value pairs mapping source values (keys) to target values
 (values) in the forward direction.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>reverse</code></td>
 <td><code>object</code></td>
 <td>OPTIONAL</td>
@@ -1475,7 +1475,7 @@ implementation MUST infer the reverse map by inverting
 keys map to the same value), the implementation MUST raise an error
 rather than silently choose.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>unmapped</code></td>
 <td><code>string</code></td>
 <td>OPTIONAL</td>
@@ -1484,7 +1484,7 @@ rather than silently choose.</td>
 <code>"error"</code> (raise), <code>"drop"</code> (omit field), or
 <code>"passthrough"</code> (copy value unchanged).</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>default</code></td>
 <td><em>any</em></td>
 <td>OPTIONAL</td>
@@ -1505,7 +1505,7 @@ a fallback is desired, or when the source value is
 <col style="width: 20%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Required</th>
@@ -1514,7 +1514,7 @@ a fallback is desired, or when the source value is
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>mode</code></td>
 <td><code>string</code></td>
 <td>REQUIRED</td>
@@ -1523,7 +1523,7 @@ a fallback is desired, or when the source value is
 <code>"whole"</code> (treat the entire array as the source value), or
 <code>"indexed"</code> (apply positional inner rules).</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>separator</code></td>
 <td><code>string</code></td>
 <td>OPTIONAL</td>
@@ -1532,7 +1532,7 @@ a fallback is desired, or when the source value is
 or <code>"split"</code> and the source or target is a delimited
 string.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>innerRules</code></td>
 <td><code>array</code></td>
 <td>OPTIONAL</td>
@@ -1659,7 +1659,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb10-1"><a href=
 <p>The effective rule set at execution time is:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>#</th>
 <th><code>sourcePath</code></th>
 <th><code>targetPath</code></th>
@@ -1668,21 +1668,21 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb10-1"><a href=
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>1</td>
 <td><code>email</code></td>
 <td><code>contact.emailAddress</code></td>
 <td><code>preserve</code></td>
 <td>Explicit</td>
 </tr>
-<tr class="even">
+<tr>
 <td>2</td>
 <td><code>name</code></td>
 <td><code>name</code></td>
 <td><code>preserve</code></td>
 <td>Auto-mapped</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>3</td>
 <td><code>age</code></td>
 <td><code>age</code></td>
@@ -1710,7 +1710,7 @@ the rule.</p>
 <col style="width: 36%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Type</th>
 <th>Description</th>
 <th>Auto-Reversible</th>
@@ -1718,61 +1718,61 @@ the rule.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>preserve</code></td>
 <td>Identity copy; value passes through unmodified</td>
 <td>Yes</td>
 <td>—</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>drop</code></td>
 <td>Discard; target field is omitted</td>
 <td>No</td>
 <td>—</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>expression</code></td>
 <td>Evaluate a FEL expression</td>
 <td>No</td>
 <td><code>expression</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>coerce</code></td>
 <td>Convert value to a different type</td>
 <td>Conditional</td>
 <td><code>coerce</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>valueMap</code></td>
 <td>Lookup-table substitution</td>
 <td>Conditional</td>
 <td><code>valueMap</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>flatten</code></td>
 <td>Collapse nested structure into flat keys or string</td>
 <td>Yes</td>
 <td>—</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>nest</code></td>
 <td>Expand flat keys or string into nested structure</td>
 <td>Yes</td>
 <td>—</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>constant</code></td>
 <td>Emit a fixed value regardless of source</td>
 <td>No</td>
 <td><code>expression</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>concat</code></td>
 <td>Join multiple source values into one string</td>
 <td>No</td>
 <td><code>expression</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>split</code></td>
 <td>Split a single string into multiple target values</td>
 <td>No</td>
@@ -1824,17 +1824,17 @@ string to compute the target value.</p>
 <h4 id="binding-context">Binding Context</h4>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Variable</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>$</code></td>
 <td>The resolved source value at <code>sourcePath</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>@source</code></td>
 <td>The entire source document root</td>
 </tr>
@@ -1900,7 +1900,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 <col style="width: 12%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>From ↓  To →</th>
 <th><code>string</code></th>
 <th><code>number</code></th>
@@ -1912,7 +1912,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong><code>string</code></strong></td>
 <td>—</td>
 <td>✔</td>
@@ -1922,7 +1922,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 <td>✔</td>
 <td>✘</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong><code>number</code></strong></td>
 <td>✔</td>
 <td>—</td>
@@ -1932,7 +1932,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 <td>✘</td>
 <td>✘</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong><code>integer</code></strong></td>
 <td>✔</td>
 <td>✔</td>
@@ -1942,7 +1942,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 <td>✘</td>
 <td>✘</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong><code>boolean</code></strong></td>
 <td>✔</td>
 <td>✔</td>
@@ -1952,7 +1952,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 <td>✘</td>
 <td>✘</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong><code>date</code></strong></td>
 <td>✔</td>
 <td>✘</td>
@@ -1962,7 +1962,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 <td>✔</td>
 <td>✘</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong><code>datetime</code></strong></td>
 <td>✔</td>
 <td>✘</td>
@@ -1972,7 +1972,7 @@ type to another. The rule MUST include a <code>coerce</code> object with
 <td>—</td>
 <td>✘</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong><code>money</code></strong></td>
 <td>✔</td>
 <td>✔⁴</td>
@@ -2064,25 +2064,25 @@ bijective.</p>
 <col style="width: 50%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Strategy</th>
 <th>Behavior</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>"error"</code></td>
 <td>MUST produce a runtime mapping error. This is the default.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"passthrough"</code></td>
 <td>Pass the source value through to the target unmodified.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>"drop"</code></td>
 <td>Omit the target field entirely.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>"default"</code></td>
 <td>Use the value specified in the rule’s <code>default</code> property.
 The rule MUST define <code>default</code> when this strategy is
@@ -2138,7 +2138,7 @@ MUST support three modes:</p>
 <col style="width: 42%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Mode</th>
 <th>Source Type</th>
 <th>Behavior</th>
@@ -2146,20 +2146,20 @@ MUST support three modes:</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>Delimited</strong></td>
 <td>Array of scalars</td>
 <td>Join elements into a delimited string</td>
 <td><code>separator</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>Positional</strong></td>
 <td>Array</td>
 <td>Map each element to <code>&lt;targetPath&gt;_0</code>,
 <code>&lt;targetPath&gt;_1</code>, …</td>
 <td>None (default for arrays without <code>separator</code>)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>Dot-prefix</strong></td>
 <td>Object</td>
 <td>Flatten nested keys as dot-delimited paths</td>
@@ -2331,7 +2331,7 @@ Schema</h4>
 <col style="width: 30%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Required</th>
@@ -2339,21 +2339,21 @@ Schema</h4>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>mode</code></td>
 <td>string</td>
 <td>REQUIRED</td>
 <td><code>"each"</code>, <code>"whole"</code>, or
 <code>"indexed"</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>separator</code></td>
 <td>string</td>
 <td>OPTIONAL</td>
 <td>Delimiter for string serialization. Valid only with
 <code>"whole"</code>.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>innerRules</code></td>
 <td>array</td>
 <td>OPTIONAL</td>
@@ -2476,19 +2476,19 @@ Execution</h3>
 <strong>directions</strong>:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Direction</th>
 <th>Source</th>
 <th>Target</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>Forward</strong></td>
 <td>Formspec Response</td>
 <td>External schema (default)</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>Reverse</strong></td>
 <td>External schema</td>
 <td>Formspec Response</td>
@@ -2512,7 +2512,7 @@ derive its inverse without an explicit <code>reverse</code> block.</p>
 <col style="width: 15%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Transform</th>
 <th style="text-align: center;">Auto-Reversible</th>
 <th>Inverse</th>
@@ -2520,61 +2520,61 @@ derive its inverse without an explicit <code>reverse</code> block.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>preserve</code></td>
 <td style="text-align: center;">Yes</td>
 <td><code>preserve</code></td>
 <td>Identity is its own inverse.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>drop</code></td>
 <td style="text-align: center;">No</td>
 <td>—</td>
 <td>Value discarded.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>expression</code></td>
 <td style="text-align: center;">No</td>
 <td>—</td>
 <td>Arbitrary FEL; not generally invertible.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>coerce</code></td>
 <td style="text-align: center;">Conditional</td>
 <td><code>coerce</code> (inverse pair)</td>
 <td>Only for lossless type pairs (see below).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>valueMap</code></td>
 <td style="text-align: center;">Conditional</td>
 <td><code>valueMap</code> (inverted)</td>
 <td>Only when the map is bijective.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>flatten</code></td>
 <td style="text-align: center;">Yes</td>
 <td><code>nest</code></td>
 <td>Structural inverse (§4.7–4.8).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>nest</code></td>
 <td style="text-align: center;">Yes</td>
 <td><code>flatten</code></td>
 <td>Structural inverse (§4.7–4.8).</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>constant</code></td>
 <td style="text-align: center;">No</td>
 <td>—</td>
 <td>No source value to recover.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>concat</code></td>
 <td style="text-align: center;">No</td>
 <td>—</td>
 <td>Segment boundaries lost.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>split</code></td>
 <td style="text-align: center;">No</td>
 <td>—</td>
@@ -2590,27 +2590,27 @@ directions):</p>
 <col style="width: 38%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>From → To</th>
 <th>Notes</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>string</code> ↔︎ <code>integer</code></td>
 <td>String must be a valid integer literal.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>string</code> ↔︎ <code>number</code></td>
 <td>String must be a valid JSON number; implementation MUST preserve
 full decimal precision.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>string</code> ↔︎ <code>boolean</code></td>
 <td>Only <code>"true"</code>/<code>"false"</code>
 (case-insensitive).</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>date</code> ↔︎ <code>string</code></td>
 <td>Lossless when ISO 8601 format is specified.</td>
 </tr>
@@ -2625,34 +2625,34 @@ reverse execution, it MUST apply the derived inverse automatically.</p>
 auto-derivation. Permitted properties:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>transform</code></td>
 <td>string</td>
 <td>Reverse transform type.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>expression</code></td>
 <td>string</td>
 <td>FEL expression for reverse.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>coerce</code></td>
 <td>string</td>
 <td>Target type for reverse coercion.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>valueMap</code></td>
 <td>object</td>
 <td>Reverse value map.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>default</code></td>
 <td>any</td>
 <td>Default when external field is absent.</td>
@@ -2747,19 +2747,19 @@ implements:</p>
 <col style="width: 37%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Operation</th>
 <th>Signature</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>serialize</strong></td>
 <td><code>(JSONValue) → bytes</code></td>
 <td>Internal JSON → wire format.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>deserialize</strong></td>
 <td><code>(bytes) → JSONValue</code></td>
 <td>Wire format → internal JSON.</td>
@@ -2769,24 +2769,24 @@ implements:</p>
 <p>Three built-in adapters are defined:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Adapter</th>
 <th>Conformance Level</th>
 <th>Wire Format</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>JSON</td>
 <td>Mapping Core</td>
 <td>[RFC 8259]</td>
 </tr>
-<tr class="even">
+<tr>
 <td>XML</td>
 <td>Mapping Extended</td>
 <td>XML 1.0</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>CSV</td>
 <td>Mapping Extended</td>
 <td>[RFC 4180]</td>
@@ -2810,7 +2810,7 @@ Intermediate objects and arrays MUST be created automatically.</p>
 <col style="width: 34%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Default</th>
@@ -2818,19 +2818,19 @@ Intermediate objects and arrays MUST be created automatically.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>pretty</code></td>
 <td>boolean</td>
 <td><code>false</code></td>
 <td>Emit indented JSON.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>sortKeys</code></td>
 <td>boolean</td>
 <td><code>false</code></td>
 <td>Sort object keys lexicographically.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>nullHandling</code></td>
 <td>string</td>
 <td><code>"include"</code></td>
@@ -2847,24 +2847,24 @@ Extended)</h3>
 <p><strong>Target path conventions:</strong></p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Syntax</th>
 <th>Meaning</th>
 <th>Example Output</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>a.b.c</code></td>
 <td>Nested elements</td>
 <td><code>&lt;a&gt;&lt;b&gt;&lt;c&gt;…&lt;/c&gt;&lt;/b&gt;&lt;/a&gt;</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>a.b.@id</code></td>
 <td>Attribute on parent</td>
 <td><code>&lt;a&gt;&lt;b id="…"/&gt;&lt;/a&gt;</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>a.b[0].c</code></td>
 <td>Repeated sibling</td>
 <td>First <code>&lt;b&gt;&lt;c&gt;…&lt;/c&gt;&lt;/b&gt;</code> under
@@ -2889,7 +2889,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb34-1"><a href=
 <col style="width: 34%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Default</th>
@@ -2897,19 +2897,19 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb34-1"><a href=
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>declaration</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
 <td>Include <code>&lt;?xml?&gt;</code> declaration.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>indent</code></td>
 <td>integer</td>
 <td><code>2</code></td>
 <td>Spaces per level; <code>0</code> disables.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>cdata</code></td>
 <td>string[]</td>
 <td><code>[]</code></td>
@@ -2922,8 +2922,8 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb34-1"><a href=
 <code>order.customer</code>, and <code>notes</code> →
 <code>order.notes</code> (with <code>cdata: ["order.notes"]</code>):</p>
 <div class="sourceCode" id="cb35"><pre
-class="sourceCode xml"><code class="sourceCode xml"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">&lt;?xml</span><span class="ot"> version=</span><span class="st">&quot;1.0&quot;</span><span class="ot"> encoding=</span><span class="st">&quot;UTF-8&quot;</span><span class="fu">?&gt;</span></span>
-<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">Order</span><span class="ot"> xmlns=</span><span class="st">&quot;urn:example:orders:v2&quot;</span><span class="ot"> id=</span><span class="st">&quot;12345&quot;</span>&gt;</span>
+class="sourceCode xml"><code class="sourceCode xml"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">&lt;?xml</span> <span class="ot">version=</span><span class="st">&quot;1.0&quot;</span> <span class="ot">encoding=</span><span class="st">&quot;UTF-8&quot;</span><span class="fu">?&gt;</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">Order</span> <span class="ot">xmlns=</span><span class="st">&quot;urn:example:orders:v2&quot;</span> <span class="ot">id=</span><span class="st">&quot;12345&quot;</span>&gt;</span>
 <span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">customer</span>&gt;Acme Corp&lt;/<span class="kw">customer</span>&gt;</span>
 <span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">notes</span>&gt;<span class="bn">&lt;![CDATA[</span>Handle with care &amp; urgency<span class="bn">]]&gt;</span>&lt;/<span class="kw">notes</span>&gt;</span>
 <span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">Order</span>&gt;</span></code></pre></div>
@@ -2940,7 +2940,7 @@ rows.</p>
 <p><strong>Configuration</strong> (<code>adapters.csv</code>):</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Default</th>
@@ -2948,31 +2948,31 @@ rows.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>delimiter</code></td>
 <td>string</td>
 <td><code>","</code></td>
 <td>Field delimiter.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>quote</code></td>
 <td>string</td>
 <td><code>"\""</code></td>
 <td>Quote character.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>header</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
 <td>Emit header row.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>encoding</code></td>
 <td>string</td>
 <td><code>"utf-8"</code></td>
 <td>Character encoding.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>lineEnding</code></td>
 <td>string</td>
 <td><code>"crlf"</code></td>
@@ -3015,14 +3015,14 @@ sequential model.</p>
 <col style="width: 52%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Step</th>
 <th>Name</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>1</td>
 <td><strong>Validate</strong></td>
 <td>Parse the Mapping Document as JSON ([RFC 8259]). Verify conformance
@@ -3030,7 +3030,7 @@ to the Mapping DSL schema (§3). Confirm <code>definitionVersion</code>
 compatibility with the source Response. Halt on any validation error
 (§7.2).</td>
 </tr>
-<tr class="even">
+<tr>
 <td>2</td>
 <td><strong>Resolve direction</strong></td>
 <td>Read <code>direction</code> (<code>"forward"</code> /
@@ -3038,27 +3038,27 @@ compatibility with the source Response. Halt on any validation error
 <code>"forward"</code>). Select the active direction. Filter Field Rules
 to those participating in the active direction (§5.4).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>3</td>
 <td><strong>Apply defaults</strong></td>
 <td>Write each key-value pair from <code>defaults</code> to the target.
 Defaults MUST NOT overwrite values subsequently written by Field
 Rules.</td>
 </tr>
-<tr class="even">
+<tr>
 <td>4</td>
 <td><strong>Generate auto-map rules</strong></td>
 <td>If <code>"autoMap": true</code>, synthesize a <code>preserve</code>
 rule for every source field not already covered by an explicit rule.
 Synthesized rules MUST have lower priority than all explicit rules.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>5</td>
 <td><strong>Sort rules</strong></td>
 <td>Order all Field Rules by <code>priority</code> descending.
 Equal-priority rules MUST retain document order (stable sort).</td>
 </tr>
-<tr class="even">
+<tr>
 <td>6</td>
 <td><strong>Execute rules</strong></td>
 <td>For each rule: <strong>(a)</strong> evaluate <code>condition</code>
@@ -3067,7 +3067,7 @@ resolve <code>sourcePath</code>; <strong>(c)</strong> apply
 <code>transform</code>; <strong>(d)</strong> write result to
 <code>targetPath</code>.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>7</td>
 <td><strong>Serialize</strong></td>
 <td>Pass the target document to the active Adapter (§6).</td>
@@ -3086,32 +3086,32 @@ explicit <code>reverse</code> blocks) per §5.2–5.3.</p>
 <col style="width: 33%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Category</th>
 <th>Examples</th>
 <th>Behavior</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>Validation</strong></td>
 <td>Malformed JSON, missing required properties, unknown transform type,
 invalid FEL syntax, <code>definitionVersion</code> out of range.</td>
 <td>MUST halt before Step 6.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>Resolution</strong></td>
 <td><code>sourcePath</code> not found, runtime version mismatch.</td>
 <td>If <code>default</code> exists, use it and continue. Otherwise
 produce a diagnostic (non-fatal).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>Transform</strong></td>
 <td>Coercion failure, unmapped <code>valueMap</code> value with
 <code>"error"</code> strategy, FEL runtime exception.</td>
 <td>Produce a diagnostic. Non-fatal; continue with remaining rules.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>Adapter</strong></td>
 <td>Nested path in CSV, encoding error, namespace conflict.</td>
 <td>MUST halt. Partial output MUST NOT be emitted.</td>
@@ -3133,34 +3133,34 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb38-1"><a href=
 <col style="width: 44%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Property</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>ruleIndex</code></td>
 <td>integer</td>
 <td>Zero-based rule index; <code>-1</code> if not rule-specific.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>sourcePath</code></td>
 <td>string</td>
 <td>Resolved source path at failure.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>targetPath</code></td>
 <td>string</td>
 <td>Declared target path.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>errorCode</code></td>
 <td>string</td>
 <td>Machine-readable code (see below).</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>message</code></td>
 <td>string</td>
 <td>Human-readable description.</td>
@@ -3186,7 +3186,7 @@ follows:</p>
 <col style="width: 18%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Scenario</th>
 <th><code>preserve</code></th>
 <th><code>expression</code></th>
@@ -3195,21 +3195,21 @@ follows:</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>Absent + <code>default</code></td>
 <td>Write <code>default</code>.</td>
 <td>Write <code>default</code> (skip expression).</td>
 <td>Write <code>default</code>.</td>
 <td>Write <code>default</code>.</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Absent, no <code>default</code></td>
 <td>Omit target.</td>
 <td>Evaluate with <code>$</code> = <code>null</code>.</td>
 <td>Omit target.</td>
 <td>Omit target.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Explicit <code>null</code></td>
 <td>Write <code>null</code>.</td>
 <td>Evaluate with <code>$</code> = <code>null</code>.</td>
@@ -3432,41 +3432,41 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb43-1"><a href=
 <col style="width: 14%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>§6.7 Property</th>
 <th>Mapping Document Property</th>
 <th>Notes</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>source</code></td>
 <td><code>sourcePath</code></td>
 <td>Direct rename.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>target</code></td>
 <td><code>targetPath</code></td>
 <td><code>null</code> → <code>transform: "drop"</code>, no
 <code>targetPath</code>.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>transform</code></td>
 <td><code>transform</code></td>
 <td>Values <code>"preserve"</code>, <code>"drop"</code>,
 <code>"expression"</code> are identical.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>expression</code></td>
 <td><code>expression</code></td>
 <td>FEL bindings (<code>$</code>, <code>@source</code>) unchanged.</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>defaults</code></td>
 <td><code>defaults</code></td>
 <td>Moved to Mapping Document top level.</td>
 </tr>
-<tr class="even">
+<tr>
 <td><em>(pass-through)</em></td>
 <td><code>autoMap: true</code></td>
 <td>Implicit §6.7 carry-forward for unmentioned fields.</td>

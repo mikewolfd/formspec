@@ -1,0 +1,8 @@
+- References Documents are standalone JSON sidecars that bind external resources to specific Definition items by path — like Theme and Component documents, they live alongside the Definition.
+- Each Bound Reference declares a `target` (item path or `"#"` for form-level), a `type` (documentation, regulation, vector-store, tool, context, etc.), and an `audience` (human, agent, both).
+- Content is provided via `uri` (external pointer) and/or inline `content`. URI schemes support vector stores (`vectorstore:`), knowledge bases (`kb:`), and host-provided sources (`formspec-fn:`).
+- Multiple References Documents MAY target the same Definition — for audience separation, locale variants, or domain overlays. References merge additively.
+- References are pure metadata — they MUST NOT affect data capture, validation, or the processing model.
+- The `type` and `rel` properties are open strings for forward compatibility — processors SHOULD warn on unrecognized values but MUST NOT reject the document.
+- References do NOT inherit from parent to child; consumers walk the tree to collect context.
+- `referenceDefs` enables DRY reuse of shared reference objects across bindings via `$ref` pointers with optional overrides.

@@ -113,60 +113,60 @@ parse tree.</p>
 <col style="width: 80%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Notation</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>'text'</code></td>
 <td>Literal string match</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>[a-z]</code></td>
 <td>Character class (any character in range)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>e1 e2</code></td>
 <td>Sequence: match <code>e1</code> then <code>e2</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>e1 / e2</code></td>
 <td>Ordered choice: try <code>e1</code>; if it fails, try
 <code>e2</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>e*</code></td>
 <td>Zero or more repetitions of <code>e</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>e+</code></td>
 <td>One or more repetitions of <code>e</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>e?</code></td>
 <td>Optional: zero or one occurrence of <code>e</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>!e</code></td>
 <td>Negative lookahead: succeeds iff <code>e</code> fails; consumes no
 input</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>&amp;e</code></td>
 <td>Positive lookahead: succeeds iff <code>e</code> succeeds; consumes
 no input</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>( )</code></td>
 <td>Grouping</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>{n}</code></td>
 <td>Exactly <code>n</code> repetitions</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>.</code></td>
 <td>Any single character</td>
 </tr>
@@ -222,37 +222,37 @@ HexDigit       ← [0-9a-fA-F]</code></pre>
 <p>Defined escape sequences:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Escape</th>
 <th>Character</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>\\</code></td>
 <td>Backslash (<code>U+005C</code>)</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>\'</code></td>
 <td>Single quote (<code>U+0027</code>)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>\"</code></td>
 <td>Double quote (<code>U+0022</code>)</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>\n</code></td>
 <td>Line feed (<code>U+000A</code>)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>\r</code></td>
 <td>Carriage return (<code>U+000D</code>)</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>\t</code></td>
 <td>Horizontal tab (<code>U+0009</code>)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>\uXXXX</code></td>
 <td>Unicode code point (4 hex digits)</td>
 </tr>
@@ -413,7 +413,7 @@ table is normative and matches the structural encoding in §4.</p>
 <col style="width: 52%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th style="text-align: center;">Prec.</th>
 <th>Operator(s)</th>
 <th>Category</th>
@@ -422,49 +422,49 @@ table is normative and matches the structural encoding in §4.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td style="text-align: center;">0</td>
 <td><code>let … = … in …</code></td>
 <td>Binding</td>
 <td style="text-align: center;">Right</td>
 <td><code>let x = 1 in x + 2</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td style="text-align: center;">0</td>
 <td><code>if … then … else …</code></td>
 <td>Conditional</td>
 <td style="text-align: center;">Right</td>
 <td><code>if $a then 'yes' else 'no'</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td style="text-align: center;">1</td>
 <td><code>? :</code></td>
 <td>Ternary</td>
 <td style="text-align: center;">Right</td>
 <td><code>$a &gt; 0 ? 'pos' : 'neg'</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td style="text-align: center;">2</td>
 <td><code>or</code></td>
 <td>Logical OR</td>
 <td style="text-align: center;">Left</td>
 <td><code>$a or $b</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td style="text-align: center;">3</td>
 <td><code>and</code></td>
 <td>Logical AND</td>
 <td style="text-align: center;">Left</td>
 <td><code>$a and $b</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td style="text-align: center;">4</td>
 <td><code>=</code> <code>!=</code></td>
 <td>Equality</td>
 <td style="text-align: center;">Left</td>
 <td><code>$x = 5</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td style="text-align: center;">5</td>
 <td><code>&lt;</code> <code>&gt;</code> <code>&lt;=</code>
 <code>&gt;=</code></td>
@@ -472,35 +472,35 @@ table is normative and matches the structural encoding in §4.</p>
 <td style="text-align: center;">Left</td>
 <td><code>$age &gt;= 18</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td style="text-align: center;">6</td>
 <td><code>in</code> <code>not in</code></td>
 <td>Membership</td>
 <td style="text-align: center;">Non</td>
 <td><code>$s in ['a','b']</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td style="text-align: center;">7</td>
 <td><code>??</code></td>
 <td>Null-coalescing</td>
 <td style="text-align: center;">Left</td>
 <td><code>$x ?? 0</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td style="text-align: center;">8</td>
 <td><code>+</code> <code>-</code> <code>&amp;</code></td>
 <td>Add / Concat</td>
 <td style="text-align: center;">Left</td>
 <td><code>$a + $b</code>, <code>$s &amp; '!'</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td style="text-align: center;">9</td>
 <td><code>*</code> <code>/</code> <code>%</code></td>
 <td>Multiply</td>
 <td style="text-align: center;">Left</td>
 <td><code>$a * $b</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td style="text-align: center;">10</td>
 <td><code>not</code> (prefix), <code>-</code> (negate)</td>
 <td>Unary</td>
@@ -533,79 +533,79 @@ ContextRef     ← &#39;@&#39; Identifier (&#39;(&#39; _ StringLiteral _ &#39;)&
 <col style="width: 30%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Syntax</th>
 <th>Description</th>
 <th>Example</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>$</code></td>
 <td>Current context node (self-reference).</td>
 <td><code>$ &gt; 0</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>$ident</code></td>
 <td>Field reference resolved from nearest scope.</td>
 <td><code>$firstName</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>$a.b.c</code></td>
 <td>Nested field path through groups.</td>
 <td><code>$address.city</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>$a[n]</code></td>
 <td>1-based index into a repeat collection.</td>
 <td><code>$items[1].name</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>$a[*]</code></td>
 <td>Wildcard — array of all values across repeat instances.</td>
 <td><code>sum($items[*].amt)</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>$a[n].b</code></td>
 <td>Field within indexed repeat instance.</td>
 <td><code>$items[2].qty</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>$a[*].b</code></td>
 <td>Field across all repeat instances (produces array).</td>
 <td><code>$items[*].qty</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>@current</code></td>
 <td>Explicit reference to the current repeat instance.</td>
 <td><code>@current.amount</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>@index</code></td>
 <td>1-based position of current repeat instance.</td>
 <td><code>@index = 1</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>@count</code></td>
 <td>Total instances in current repeat collection.</td>
 <td><code>@count &gt;= 1</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>@name</code></td>
 <td>Value of named variable declared in <code>variables</code></td>
 <td></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>@instance('n')</code></td>
 <td>Secondary data-source instance.</td>
 <td><code>@instance('prior').income</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>@source</code></td>
 <td>Source binding in mapping DSL.</td>
 <td><code>@source.fieldA</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>@target</code></td>
 <td>Target binding in mapping DSL.</td>
 <td><code>@target.fieldB</code></td>

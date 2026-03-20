@@ -282,7 +282,8 @@ Convenience entry points:
 
 Parse and evaluate a FEL expression in one call.
 
-Delegates to the default FEL runtime (Rust when available, Python fallback).
+Builds an Environment and function registry, parses ``source``, evaluates
+the AST, and returns an EvalResult with the computed value and diagnostics.
 
 Args:
     source: FEL expression (e.g. ``"$price * $quantity"``).
@@ -299,7 +300,9 @@ Raises:
 
 Parse a FEL expression and statically extract all referenced dependencies.
 
-Delegates to the default FEL runtime (Rust when available, Python fallback).
+Returns a DependencySet of field paths, context refs, instance refs, MIP
+dependencies, and structural flags (self-ref, wildcards, prev/next) --
+without evaluating the expression.
 
 Raises:
     FelSyntaxError: If the expression cannot be parsed.
@@ -829,13 +832,9 @@ Usage::
     # Or inject a custom runtime (e.g. Rust/PyO3)
     evaluator = DefinitionEvaluator(definition, fel_runtime=custom_runtime)
 
-##### `default_fel_runtime(
-    
-) -> DefaultFelRuntime | RustFelRuntime`
+##### `default_fel_runtime() -> DefaultFelRuntime`
 
 Return the shared default FEL runtime instance.
-
-Prefers the Rust backend when ``formspec_rust`` is installed.
 
 #### class `FelRuntime`
 
@@ -893,37 +892,6 @@ FEL runtime backed by the built-in Python parser and evaluator.
 ##### `register_function(self, name: str, impl: Callable, meta: dict | None = None) -> None`
 
 Register an extension function into the runtime.
-
-##### `parse(self, source: str) -> Any`
-
-##### `evaluate(
-    self,
-    source: str,
-    data: dict | None = None,
-    *,
-    instances: dict[str, dict] | None = None,
-    mip_states: dict[str, typing.Any] | None = None,
-    extensions: dict[str, typing.Any] | None = None,
-    variables: dict[str, typing.Union[_FelNullType, FelNumber, FelString, FelBoolean, FelDate, FelArray, FelMoney, FelObject]] | None = None
-) -> EvalResult`
-
-##### `extract_dependencies(self, source: str) -> DependencySet`
-
-
-#### class `RustFelRuntime`
-
-FEL runtime backed by the Rust/PyO3 ``formspec_rust`` module.
-
-Falls back to ``DefaultFelRuntime`` if the native module is not installed.
-Extension functions registered via ``register_function`` are NOT supported
-in the Rust backend — they are silently ignored (Rust evaluator has its own
-stdlib and doesn't accept dynamic JS/Python callbacks).
-
-##### `__init__(self)`
-
-##### `is_available(cls) -> bool`
-
-##### `register_function(self, name: str, impl: Callable, meta: dict | None = None) -> None`
 
 ##### `parse(self, source: str) -> Any`
 
