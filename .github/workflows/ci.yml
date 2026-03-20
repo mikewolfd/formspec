@@ -31,7 +31,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install pytest hypothesis "jsonschema[format]"
+      - run: pip install maturin pytest hypothesis "jsonschema[format]"
+      - run: pip install --no-build-isolation ./crates/formspec-py
       - run: pytest --ignore=tests/e2e
 
   e2e-tests:
