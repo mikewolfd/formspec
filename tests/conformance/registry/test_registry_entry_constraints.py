@@ -24,7 +24,7 @@ from hypothesis import strategies as st
 
 from formspec._rust import evaluate_definition, parse_registry, find_registry_entry
 
-pytestmark = pytest.mark.xfail(
+_xfail_constraint = pytest.mark.xfail(
     reason="Rust evaluate_definition does not support registry-based extension constraint enforcement",
     strict=False,
 )
@@ -99,11 +99,13 @@ class TestEmail:
     def test_valid_emails_pass(self, data: str):
         assert not _has_code(self.EV, {"v": data}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from(["plaintext", "missing@", "@nodomain", "spaces in@x.com", "a@@b.com"]))
     def test_invalid_emails_fail(self, data: str):
         assert _has_code(self.EV, {"v": data}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(length=st.integers(min_value=255, max_value=400))
     def test_max_length_enforced(self, length: int):
@@ -124,6 +126,7 @@ class TestPhoneE164:
         phone = f"+{first}{''.join(rest)}"
         assert not _has_code(self.EV, {"v": phone}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from(["1234567890", "+0123456789", "+", "+ 1234", "abc", "+1234567890123456"]))
     def test_invalid_e164_fail(self, data: str):
@@ -152,6 +155,7 @@ class TestPhoneNANP:
         phone = f"({a1}{a2}{a3}) {e1}{e2}{e3}-{n1}{n2}{n3}{n4}"
         assert not _has_code(self.EV, {"v": phone}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from([
         "(012) 345-6789",   # area starts with 0
@@ -179,6 +183,7 @@ class TestPostalCodeUS:
         zip_code = f"{base}-{plus4}" if use_plus4 else base
         assert not _has_code(self.EV, {"v": zip_code}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from(["1234", "123456", "12345-", "12345-123", "abcde", "12345-12345"]))
     def test_invalid_zip_fail(self, data: str):
@@ -200,6 +205,7 @@ class TestSSN:
         ssn = f"{area:03d}-{group:02d}-{serial:04d}"
         assert not _has_code(self.EV, {"v": ssn}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from([
         "000-12-3456",  # area 000
@@ -224,6 +230,7 @@ class TestEIN:
     def test_valid_ein_pass(self, prefix: str, suffix: str):
         assert not _has_code(self.EV, {"v": f"{prefix}-{suffix}"}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from(["12-34567890", "1-2345678", "123456789", "AB-CDEFGHI"]))
     def test_invalid_ein_fail(self, data: str):
@@ -241,6 +248,7 @@ class TestCreditCard:
         card = "".join([str(i % 10) for i in range(length)])
         assert not _has_code(self.EV, {"v": card}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from([
         "1234",                      # too short
@@ -268,6 +276,7 @@ class TestColorHex:
         color = f"#{hex3}" if short else f"#{hex6}"
         assert not _has_code(self.EV, {"v": color}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from(["FF0000", "#GG0000", "#12", "#12345", "#1234567", "red"]))
     def test_invalid_color_fail(self, data: str):
@@ -293,11 +302,13 @@ class TestSlug:
         assume(len(slug) <= 128)
         assert not _has_code(self.EV, {"v": slug}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from(["-start", "end-", "UPPER", "has spaces", "special!char"]))
     def test_invalid_slug_fail(self, data: str):
         assert _has_code(self.EV, {"v": data}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     def test_max_length_enforced(self):
         assert _has_code(self.EV, {"v": "a" * 129}, "MAX_LENGTH_EXCEEDED")
 
@@ -317,6 +328,7 @@ class TestIPv4:
     def test_valid_ipv4_pass(self, a: int, b: int, c: int, d: int):
         assert not _has_code(self.EV, {"v": f"{a}.{b}.{c}.{d}"}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from(["256.1.1.1", "1.2.3", "1.2.3.4.5", "abc.def.ghi.jkl"]))
     def test_invalid_ipv4_fail(self, data: str):
@@ -346,6 +358,7 @@ class TestURL:
             url += f"/{path}"
         assert not _has_code(self.EV, {"v": url}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     @SETTINGS
     @given(data=st.sampled_from([
         "http://example.com",            # http, not https
@@ -359,6 +372,7 @@ class TestURL:
     def test_invalid_urls_fail(self, data: str):
         assert _has_code(self.EV, {"v": data}, "PATTERN_MISMATCH")
 
+    @_xfail_constraint
     def test_max_length_enforced(self):
         long_url = "https://example.com/" + "a" * 2040
         assert _has_code(self.EV, {"v": long_url}, "MAX_LENGTH_EXCEEDED")
@@ -374,11 +388,13 @@ class TestPercentage:
     def test_valid_range_pass(self, val: float):
         assert _has_no_constraint_codes(self.EV, {"v": val})
 
+    @_xfail_constraint
     @SETTINGS
     @given(val=st.floats(min_value=-1e6, max_value=-0.001, allow_nan=False, allow_infinity=False))
     def test_below_zero_fails(self, val: float):
         assert _has_code(self.EV, {"v": val}, "RANGE_UNDERFLOW")
 
+    @_xfail_constraint
     @SETTINGS
     @given(val=st.floats(min_value=100.001, max_value=1e6, allow_nan=False, allow_infinity=False))
     def test_above_100_fails(self, val: float):
@@ -395,6 +411,7 @@ class TestCurrencyUSD:
     def test_non_negative_pass(self, val: float):
         assert not _has_code(self.EV, {"v": val}, "RANGE_UNDERFLOW")
 
+    @_xfail_constraint
     @SETTINGS
     @given(val=st.floats(min_value=-1e9, max_value=-0.001, allow_nan=False, allow_infinity=False))
     def test_negative_fails(self, val: float):
@@ -437,6 +454,7 @@ class TestMaskGraceful:
 class TestUnresolvedExtension:
     """Evaluator must emit UNRESOLVED_EXTENSION when an extension has no registry entry."""
 
+    @_xfail_constraint
     def test_no_registry_produces_unresolved_error(self):
         """Field declares extension but no registry is loaded."""
         ev = _EvaluatorProxy({
@@ -457,6 +475,7 @@ class TestUnresolvedExtension:
             r.get("code") == "UNRESOLVED_EXTENSION" for r in results
         ), "Expected UNRESOLVED_EXTENSION when no registry loaded"
 
+    @_xfail_constraint
     def test_unknown_extension_produces_unresolved_error(self):
         """Field declares an extension not present in the loaded registry."""
         ev = _EvaluatorProxy({
@@ -477,6 +496,7 @@ class TestUnresolvedExtension:
         assert len(codes) == 1
         assert "x-acme-widget" in codes[0].get("message", "")
 
+    @_xfail_constraint
     def test_message_names_extension(self):
         """The error message should include the unresolved extension name."""
         ev = _EvaluatorProxy({
@@ -525,6 +545,7 @@ class TestUnresolvedExtension:
 class TestPatternMismatchMessage:
     """PATTERN_MISMATCH should use displayName, not generic 'Pattern mismatch'."""
 
+    @_xfail_constraint
     def test_message_uses_display_name(self):
         ev = _make_evaluator("x-formspec-email", "string")
         results = ev.validate({"v": "bad"})
@@ -533,6 +554,7 @@ class TestPatternMismatchMessage:
         assert "Email address" in err[0]["message"], f"Expected displayName in message, got: {err[0]['message']}"
         assert "Pattern mismatch" not in err[0]["message"]
 
+    @_xfail_constraint
     def test_url_message_uses_display_name(self):
         ev = _make_evaluator("x-formspec-url", "string")
         results = ev.validate({"v": "s"})
@@ -546,6 +568,7 @@ class TestPatternMismatchMessage:
 class TestNamespaceIntegrity:
     """x-formspec-common namespace must list every non-namespace entry."""
 
+    @_xfail_constraint
     def test_all_entries_listed(self):
         ns = find_registry_entry(REGISTRY_DOC, "x-formspec-common")
         assert ns is not None
@@ -583,6 +606,7 @@ class TestCompatibilityCheck:
         results = ev.validate({"v": "user@example.com"})
         assert not any(r.get("code") == "EXTENSION_COMPATIBILITY_MISMATCH" for r in results)
 
+    @_xfail_constraint
     def test_incompatible_produces_warning(self):
         """Entry with incompatible formspecVersion range should produce warning."""
         entry = _raw_email_entry(compatibility={"formspecVersion": ">=2.0.0 <3.0.0"})
@@ -602,6 +626,7 @@ class TestCompatibilityCheck:
         assert len(compat) == 1
         assert compat[0]["severity"] == "warning"
 
+    @_xfail_constraint
     def test_incompatible_message_includes_info(self):
         """Warning message should include extension name and required version range."""
         entry = _raw_email_entry(compatibility={"formspecVersion": ">=2.0.0 <3.0.0"})
@@ -628,6 +653,7 @@ class TestCompatibilityCheck:
 class TestStatusEnforcement:
     """§7.4: Evaluator must emit warning for retired, info for deprecated."""
 
+    @_xfail_constraint
     def test_retired_produces_warning(self):
         """Retired extension should produce EXTENSION_RETIRED warning."""
         entry = _raw_email_entry(status="retired")
@@ -647,6 +673,7 @@ class TestStatusEnforcement:
         assert len(retired) == 1
         assert retired[0]["severity"] == "warning"
 
+    @_xfail_constraint
     def test_retired_message_includes_name(self):
         """Retired warning should name the extension."""
         entry = _raw_email_entry(status="retired")
@@ -665,6 +692,7 @@ class TestStatusEnforcement:
         retired = [r for r in results if r.get("code") == "EXTENSION_RETIRED"]
         assert "x-formspec-email" in retired[0]["message"]
 
+    @_xfail_constraint
     def test_deprecated_produces_info(self):
         """Deprecated extension should produce EXTENSION_DEPRECATED info."""
         entry = _raw_email_entry(
@@ -687,6 +715,7 @@ class TestStatusEnforcement:
         assert len(deprecated) == 1
         assert deprecated[0]["severity"] == "info"
 
+    @_xfail_constraint
     def test_deprecated_message_includes_notice(self):
         """Deprecation notice from entry should appear in message."""
         entry = _raw_email_entry(

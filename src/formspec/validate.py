@@ -787,7 +787,7 @@ def _location_bind_path(location: str) -> str | None:
 
 
 def validate_all(artifacts: DiscoveredArtifacts) -> ValidationReport:
-    """Run all 9 validation passes and return a structured report."""
+    """Run all 10 validation passes and return a structured report."""
     return ValidationReport(
         passes=[
             _pass_definition_linting(artifacts),

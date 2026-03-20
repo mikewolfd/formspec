@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
 from datetime import date, datetime
-from decimal import Decimal
 
 import msgspec
 import formspec_rust
@@ -133,7 +133,7 @@ def _parse_iso_date_like(value: object) -> object:
         except ValueError:
             return value
     try:
-        return datetime.fromisoformat(value).date()
+        return date.fromisoformat(value)
     except ValueError:
         return value
 
@@ -164,7 +164,7 @@ def _serialize_value(value: object) -> object:
 def _serialize_mip_states(
     mip_states: dict[str, object] | None,
 ) -> dict[str, dict[str, bool]] | None:
-    if not mip_states:
+    if mip_states is None:
         return None
     serialized: dict[str, dict[str, bool]] = {}
     for path, state in mip_states.items():
@@ -293,6 +293,18 @@ def lint(
     accepted for API compatibility but currently ignored — the Rust lint_document
     function does not yet accept these parameters.
     """
+    _ignored = {
+        "schema_only": schema_only,
+        "no_fel": no_fel,
+        "component_definition": component_definition,
+        "registry_documents": registry_documents,
+    }
+    active = [k for k, v in _ignored.items() if v]
+    if active:
+        warnings.warn(
+            f"lint() parameter(s) {', '.join(active)} ignored — not yet supported by Rust linter",
+            stacklevel=2,
+        )
     raw = formspec_rust.lint_document(document)
     diagnostics = raw.get("diagnostics", [])
     return [
