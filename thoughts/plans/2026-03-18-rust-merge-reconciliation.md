@@ -517,9 +517,11 @@ After Steps 6–10, only format adapters and the artifact orchestrator stay Pyth
 
 ### Conformance Traps
 
-#### Dual Indexing (S4.3.3 + FEL Grammar S6.2)
+#### Dual Indexing (S4.3.3 + FEL Grammar S6.2) ⚠️ SPEC CONTRADICTION
 - **Bind paths and ValidationResult paths**: **0-based**. `items[0].field`
 - **FEL expressions**: **1-based**. `$items[1].field` is the first instance. Out-of-bounds signals an error.
+- **`@index`**: **1-based** per FEL grammar S6.1 and both TS/Rust implementations.
+- **CONTRADICTION**: Core spec S3.2.2 says FEL uses **0-based** indexing (`$lineItems[0].amount`) and `@index` is 0-based. FEL grammar S6.1/S6.2 says **1-based**. Both implementations use 1-based. **FEL grammar is authoritative for FEL semantics; core spec S3.2.2 needs amendment.**
 
 #### Context-Sensitive Null Propagation (S3.8.1)
 | Bind type | null treatment |
@@ -536,25 +538,51 @@ After Steps 6–10, only format adapters and the artifact orchestrator stay Pyth
 - `required`, `calculate`, `constraint`: **no inheritance**
 
 #### NRB Calculation Continuation (S5.6)
-`calculate` binds MUST continue to evaluate when non-relevant. Only validation and required checks are suppressed.
+`calculate` binds MUST continue to evaluate when non-relevant. Validation, required checks, and type checks are suppressed. `excludedValue` controls what downstream expressions see for non-relevant user-input fields: `"preserve"` (default — last value) or `"null"`.
 
 #### Element-Wise Array Operations (S3.9)
 - Equal-length arrays: element-wise operation; different lengths: error; scalar+array: broadcast.
+- Null elements within arrays follow per-element null propagation: null in position N produces null at position N (not whole-array null).
 
-#### `let`/`in` Parser Ambiguity (FEL Grammar)
-`in` inside `let`-value position needs parens: `let x = (1 in $arr) in ...`
+#### `let`/`in` Parser Ambiguity (FEL Grammar S4)
+`in` inside `let`-value position needs parens: `let x = (1 in $arr) in ...`. The normative grammar's `LetValue` production says `IfExpr` but a prose comment says "Membership omitted" — this requires a custom production chain that skips the Membership level. The informative grammar in core spec S3.7 does NOT have this disambiguation.
 
 #### Wildcard Dependency Tracking (S3.6.4)
-`$repeat[*].field` — dependency is on the collection, not per-instance. Add/remove instances marks dirty.
+`$repeat[*].field` — dependency is on the collection, not per-instance. Both field value changes within any instance AND add/remove of instances mark the wildcard-dependent expression as dirty.
 
 #### Whitespace Normalization (S4.3.1)
 `whitespace` bind applied BEFORE storage and BEFORE constraint evaluation. Integer/decimal always trimmed regardless.
 
 #### `money` Type Serialization (S3.4.1)
-Money amounts MUST be serialized as JSON strings. `moneyAmount()` returns a string, not a number.
+Money amounts MUST be serialized as **JSON strings** (not JSON numbers) to preserve precision. However, `moneyAmount()` (S3.5.7) returns a **number** for arithmetic use — do not confuse serialization format with FEL runtime type.
 
 #### Deferred Processing (S2.4)
-Batch operations accumulate writes; one cycle runs at end with union of dirty nodes.
+Batch operations accumulate writes; one cycle runs at end with union of dirty nodes. **Conformance requirement:** the processor MUST produce the same final state regardless of whether changes are processed individually or in a batch.
+
+#### `calculate` Implies `readonly` (S4.3.1)
+A node with a `calculate` bind is **implicitly `readonly`** unless `readonly` is explicitly set to `"false"`. Easy to miss — affects how the engine handles user input on calculated fields.
+
+#### Circular Dependency Detection is Mandatory (S2.4 Phase 1)
+If a cycle is detected during Rebuild, the processor **MUST signal a definition error and MUST NOT proceed** to Phase 2. This is a hard halt, not a warning or graceful degradation.
+
+#### `required` Treats Empty Array as Unsatisfied (S4.3.1)
+A value is "empty" if it is `null`, empty string `""`, or empty array `[]`. The `[]` case is easy to miss — `required` on a multiChoice field means "at least one selection."
+
+#### Evaluation Errors Produce `null` + Diagnostic (S3.10.2)
+Runtime evaluation errors (type mismatches, division by zero, index OOB, etc.) produce `null` and a diagnostic — they do **NOT** halt processing. The form continues working. The `null` then propagates per S3.8.1 context-sensitive rules.
+
+#### `excludedValue` vs `nonRelevantBehavior` Dual Control (S4.3.1 + S5.6)
+Two separate mechanisms for non-relevant fields that operate independently:
+- `excludedValue` (`"preserve"` / `"null"`) — controls what **in-memory expressions** see for the non-relevant field's value
+- `nonRelevantBehavior` (`"remove"` / `"empty"` / `"keep"`) — controls the **serialized output** (response/submission)
+
+An implementor could easily conflate them or implement only one.
+
+#### Shape Composition Circular References (S5.2.2)
+Composed shapes referencing each other circularly are a **definition error**. Must be detected during shape evaluation setup, not at runtime.
+
+#### `if()` Function vs `if...then...else` Keyword (FEL Grammar S4)
+FEL has two distinct `if` forms: `if(cond, a, b)` (function-call syntax via the `IfCall` production) and `if cond then a else b` (keyword syntax via the `IfExpr` production). Both are valid. The function form uses the reserved word `if` through a special grammar production — it is NOT a regular user-defined function.
 
 ### Architecture Decisions Made
 
