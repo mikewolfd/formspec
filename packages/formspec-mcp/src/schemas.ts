@@ -1,7 +1,13 @@
 /** @filedesc Loads and caches JSON Schema validators and raw schema text for MCP. */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createSchemaValidator, type SchemaValidator } from 'formspec-engine';
+import {
+  type DocumentType,
+  type SchemaValidationError,
+  type SchemaValidationResult,
+  type SchemaValidator,
+} from 'formspec-engine';
+import { wasmLintDocument } from 'formspec-engine/dist/wasm-bridge.js';
 
 let validator: SchemaValidator | null = null;
 
@@ -10,11 +16,27 @@ let validator: SchemaValidator | null = null;
  * Call once at startup. Throws (fatal) if any schema file is missing.
  */
 export function initSchemas(schemasDir: string): SchemaValidator {
-  const definition = JSON.parse(readFileSync(resolve(schemasDir, 'definition.schema.json'), 'utf-8'));
-  const component = JSON.parse(readFileSync(resolve(schemasDir, 'component.schema.json'), 'utf-8'));
-  const theme = JSON.parse(readFileSync(resolve(schemasDir, 'theme.schema.json'), 'utf-8'));
+  JSON.parse(readFileSync(resolve(schemasDir, 'definition.schema.json'), 'utf-8'));
+  JSON.parse(readFileSync(resolve(schemasDir, 'component.schema.json'), 'utf-8'));
+  JSON.parse(readFileSync(resolve(schemasDir, 'theme.schema.json'), 'utf-8'));
 
-  validator = createSchemaValidator({ definition, component, theme });
+  validator = {
+    validate(document: unknown, documentType?: DocumentType | null): SchemaValidationResult {
+      const result = wasmLintDocument(document);
+      const errors: SchemaValidationError[] = (result.diagnostics ?? []).map((diagnostic: {
+        path?: string;
+        message?: string;
+        code?: string;
+      }) => ({
+        path: diagnostic.path ?? '$',
+        message: diagnostic.message ?? diagnostic.code ?? 'Schema validation failed',
+      }));
+      return {
+        documentType: (documentType ?? result.documentType ?? null) as DocumentType | null,
+        errors,
+      };
+    },
+  };
   return validator;
 }
 

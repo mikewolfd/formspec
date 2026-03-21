@@ -3,12 +3,30 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import { createRawProject } from '../src/index.js';
-import { createSchemaValidator } from 'formspec-engine';
+import { initWasm, lintDocument, type SchemaValidator } from 'formspec-engine';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMAS_DIR = path.resolve(__dirname, '../../../schemas');
 
+await initWasm();
+
 describe('diagnose', () => {
+  function createLintBackedSchemaValidator(): SchemaValidator {
+    return {
+      validate(document) {
+        const result = lintDocument(document);
+        return {
+          documentType: result.documentType as any,
+          errors: result.diagnostics.map((diagnostic: any) => ({
+            path: diagnostic.path ?? '$',
+            message: diagnostic.message,
+            raw: diagnostic,
+          })),
+        };
+      },
+    };
+  }
+
   it('returns clean diagnostics for valid empty project', () => {
     const project = createRawProject();
     const diag = project.diagnose();
@@ -41,7 +59,8 @@ describe('diagnose', () => {
     const definitionSchema = JSON.parse(
       fs.readFileSync(path.join(SCHEMAS_DIR, 'definition.schema.json'), 'utf-8'),
     );
-    const validator = createSchemaValidator({ definition: definitionSchema });
+    expect(definitionSchema).toBeTruthy();
+    const validator = createLintBackedSchemaValidator();
     const project = createRawProject({
       schemaValidator: validator,
       seed: {

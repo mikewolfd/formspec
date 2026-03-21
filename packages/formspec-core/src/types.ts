@@ -238,7 +238,7 @@ export interface ProjectOptions {
   maxHistoryDepth?: number;
   /** Middleware functions inserted into the dispatch pipeline. */
   middleware?: Middleware[];
-  /** Optional schema validator (from formspec-engine createSchemaValidator). When set, diagnose() runs structural validation and populates the structural diagnostics array. Omit in environments where schemas are not available (e.g. browser without bundled schemas). */
+  /** Optional schema validator. A wrapper around formspec-engine `lintDocument()` is sufficient. When set, diagnose() runs structural validation and populates the structural diagnostics array. Omit in environments where schemas are not available (e.g. browser without bundled schemas). */
   schemaValidator?: SchemaValidator;
   /** Additional command handlers merged with builtins. Keys override builtins. */
   handlers?: Record<string, CommandHandler>;

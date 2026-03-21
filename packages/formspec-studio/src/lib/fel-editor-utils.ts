@@ -1,5 +1,5 @@
 /** @filedesc Utilities for FEL editor autocomplete triggers, syntax highlighting, and token parsing. */
-import { FelLexer, parser, type FormspecInstance } from 'formspec-engine';
+import { analyzeFEL, tokenizeFEL, type FormspecInstance } from 'formspec-engine';
 
 export interface FELEditorFieldOption {
   path: string;
@@ -74,18 +74,10 @@ export function validateFEL(expression: string): string | null {
     return null;
   }
 
-  const lexResult = FelLexer.tokenize(expression);
-  if (lexResult.errors.length) {
-    const first = lexResult.errors[0];
+  const analysis = analyzeFEL(expression);
+  if (analysis.errors.length) {
+    const first = analysis.errors[0];
     return formatLocationMessage(first.line, first.column, first.message);
-  }
-
-  parser.input = lexResult.tokens;
-  parser.expression();
-  if (parser.errors.length) {
-    const first = parser.errors[0];
-    const token = first.token as { startLine?: number; startColumn?: number } | undefined;
-    return formatLocationMessage(token?.startLine, token?.startColumn, first.message);
   }
 
   return null;
@@ -99,18 +91,18 @@ export function buildFELHighlightTokens(
     return [];
   }
 
-  const lexResult = FelLexer.tokenize(expression);
-  if (!lexResult.tokens.length) {
+  const lexedTokens = tokenizeFEL(expression).filter((token) => token.tokenType !== 'EOF');
+  if (!lexedTokens.length) {
     return [{ key: '0', text: expression, kind: 'plain' }];
   }
 
   const tokens: FELHighlightToken[] = [];
   let cursor = 0;
 
-  for (let index = 0; index < lexResult.tokens.length; index += 1) {
-    const token = lexResult.tokens[index];
-    const startOffset = token.startOffset ?? cursor;
-    const endOffset = token.endOffset ?? (startOffset + token.image.length - 1);
+  for (let index = 0; index < lexedTokens.length; index += 1) {
+    const token = lexedTokens[index];
+    const startOffset = token.start;
+    const endOffset = token.end;
 
     if (startOffset > cursor) {
       tokens.push({
@@ -120,21 +112,21 @@ export function buildFELHighlightTokens(
       });
     }
 
-    const nextToken = lexResult.tokens[index + 1];
-    const kind = classifyToken(token.tokenType.name, nextToken?.tokenType.name);
+    const nextToken = lexedTokens[index + 1];
+    const kind = classifyToken(token.tokenType, nextToken?.tokenType);
     const highlight: FELHighlightToken = {
-      key: `${token.startOffset ?? index}-${token.tokenType.name}-${index}`,
-      text: token.image,
+      key: `${token.start}-${token.tokenType}-${index}`,
+      text: token.text,
       kind
     };
 
     if (kind === 'function') {
-      highlight.functionName = token.image;
-      highlight.signature = functionSignatures[token.image] ?? `${token.image}(...)`;
+      highlight.functionName = token.text;
+      highlight.signature = functionSignatures[token.text] ?? `${token.text}(...)`;
     }
 
     tokens.push(highlight);
-    cursor = endOffset + 1;
+    cursor = endOffset;
   }
 
   if (cursor < expression.length) {
