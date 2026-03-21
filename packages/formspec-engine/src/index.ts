@@ -1,324 +1,317 @@
-/** @filedesc Core FormEngine class, public API surface, and re-exported types. */
-import { signal, computed, effect, batch, Signal } from '@preact/signals-core';
-export { FelLexer } from './fel/lexer.js';
-export { parser } from './fel/parser.js';
-import { itemAtPath } from './runtime-path-utils.js';
-import type { IFelRuntime, ICompiledExpression, FelContext, FELBuiltinFunctionCatalogEntry } from './fel/runtime.js';
-import { FALLBACK_BUILTIN_FEL_FUNCTION_CATALOG } from './fel/builtin-catalog.js';
-import { wasmFelRuntime } from './fel/wasm-runtime.js';
+/** @filedesc Batch FormEngine powered by the Rust/WASM evaluator. */
 
-export type { IFelRuntime, ICompiledExpression, FelContext, FELBuiltinFunctionCatalogEntry } from './fel/runtime.js';
-export { WasmFelRuntime, wasmFelRuntime } from './fel/wasm-runtime.js';
-export { initWasm, isWasmReady } from './wasm-bridge.js';
-export type { IFormEngine, IRuntimeMappingEngine } from './interfaces.js';
-export type {
-    FelCompilationError,
-    FelCompilationResult,
-} from './fel/runtime.js';
+import { batch, signal, type Signal } from '@preact/signals-core';
+import type {
+    FormBind,
+    FormDefinition,
+    FormInstance,
+    FormItem,
+    FormShape,
+    FormVariable,
+    OptionEntry,
+    ValidationReport as FormspecValidationReport,
+    ValidationResult as FormspecValidationResult,
+} from 'formspec-types';
 
-export { assembleDefinition, assembleDefinitionSync, rewriteFEL, rewriteMessageTemplate } from './assembler.js';
-export type { AssemblyProvenance, AssemblyResult, DefinitionResolver, RewriteMap } from './assembler.js';
-export { RuntimeMappingEngine } from './runtime-mapping.js';
-export type { MappingDirection, RuntimeMappingResult, MappingDiagnostic } from './runtime-mapping.js';
-export { createFormEngine, createMappingEngine } from './factories.js';
-export { analyzeFEL, getFELDependencies } from './fel/analysis.js';
-export { rewriteFELReferences } from './fel/rewrite.js';
-export type { FELAnalysis, FELAnalysisError, FELRewriteOptions } from './fel/analysis.js';
-// FELBuiltinFunctionCatalogEntry re-exported from './fel/runtime.js' above
-export { validateExtensionUsage } from './extension-analysis.js';
-export type { ExtensionUsageIssue, ValidateExtensionUsageOptions } from './extension-analysis.js';
-export {
-    itemAtPath,
-    itemLocationAtPath,
-    normalizeIndexedPath,
-    normalizePathSegment,
-    splitNormalizedPath
-} from './runtime-path-utils.js';
-export { createSchemaValidator } from './schema-validator.js';
-export type {
+import { diffEvalResults, type EvalResult, type EvalValidation } from './diff.js';
+import {
+    assembleDefinition as legacyAssembleDefinition,
+    assembleDefinitionSync as legacyAssembleDefinitionSync,
+    rewriteFEL as legacyRewriteFEL,
+} from './assembler.js';
+import { analyzeFEL as legacyAnalyzeFEL } from './fel/analysis.js';
+import { rewriteFELReferences as legacyRewriteFELReferences } from './fel/rewrite.js';
+import type {
+    AssemblyProvenance,
+    AssemblyResult,
+    ComponentDocument,
+    ComponentObject,
+    DefinitionResolver,
     DocumentType,
+    EngineReplayApplyResult,
+    EngineReplayEvent,
+    EngineReplayResult,
+    ExtensionUsageIssue,
+    FELAnalysis,
+    FELBuiltinFunctionCatalogEntry,
+    FormEngineDiagnosticsSnapshot,
+    FormEngineRuntimeContext,
+    IFormEngine,
+    IRuntimeMappingEngine,
+    MappingDiagnostic,
+    MappingDirection,
+    PinnedResponseReference,
+    RegistryEntry,
+    RemoteOptionsState,
+    RewriteMap,
+    RuntimeMappingResult,
     SchemaValidationError,
     SchemaValidationResult,
     SchemaValidator,
     SchemaValidatorSchemas,
-} from './schema-validator.js';
+} from './interfaces.js';
+import { RuntimeMappingEngine as LegacyRuntimeMappingEngine } from './runtime-mapping.js';
+import {
+    initWasm,
+    isWasmReady,
+    wasmAssembleDefinition,
+    wasmEvaluateDefinition,
+    wasmEvalFELWithContext,
+    wasmExecuteMappingDoc,
+    wasmFindRegistryEntry,
+    wasmGenerateChangelog,
+    wasmGetFELDependencies,
+    wasmItemAtPath,
+    wasmItemLocationAtPath,
+    wasmLintDocument,
+    wasmListBuiltinFunctions,
+    wasmNormalizeIndexedPath,
+    wasmParseRegistry,
+    wasmPrintFEL,
+    wasmRewriteFELReferences,
+    wasmRewriteMessageTemplate,
+    wasmTokenizeFEL,
+    wasmValidateExtensionUsage,
+    wasmValidateLifecycleTransition,
+    wasmWellKnownRegistryUrl,
+    type WasmFelContext,
+} from './wasm-bridge.js';
 
-/** Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation. */
-export function getBuiltinFELFunctionCatalog(runtime?: IFelRuntime): FELBuiltinFunctionCatalogEntry[] {
-    const catalog = (runtime ?? wasmFelRuntime).listBuiltInFunctions();
-    return catalog.length > 0 ? catalog : FALLBACK_BUILTIN_FEL_FUNCTION_CATALOG;
-}
+export type {
+    AssemblyProvenance,
+    AssemblyResult,
+    ComponentDocument,
+    ComponentObject,
+    DefinitionResolver,
+    DocumentType,
+    EngineReplayApplyResult,
+    EngineReplayEvent,
+    EngineReplayResult,
+    ExtensionUsageIssue,
+    FELAnalysis,
+    FELBuiltinFunctionCatalogEntry,
+    FormEngineDiagnosticsSnapshot,
+    FormEngineRuntimeContext,
+    IFormEngine,
+    IRuntimeMappingEngine,
+    MappingDiagnostic,
+    MappingDirection,
+    PinnedResponseReference,
+    RegistryEntry,
+    RemoteOptionsState,
+    RewriteMap,
+    RuntimeMappingResult,
+    SchemaValidationError,
+    SchemaValidationResult,
+    SchemaValidator,
+    SchemaValidatorSchemas,
+} from './interfaces.js';
 
-// ── Canonical types from formspec-types ──────────────────────────────
-// All form-document types derive from the schema-generated formspec-types
-// package. remoteOptions is engine-only (not in schema — the spec uses
-// optionSets.source for external options). Pending consolidation.
-
-import type {
-    FormItem, FormBind, FormShape, FormVariable, FormInstance,
-    OptionEntry, FormDefinition,
-    ValidationResult as FormspecValidationResult,
-    ValidationReport as FormspecValidationReport,
-} from 'formspec-types';
-
-/** A single item in a Formspec definition tree. Alias for the schema-generated FormItem. */
 export type FormspecItem = FormItem;
-
-/**
- * Bind with engine-only `remoteOptions` shorthand (not in schema).
- * The spec-defined mechanism is optionSets.source — this is a per-bind
- * convenience that predates formal spec alignment.
- */
-export type FormspecBind = FormBind & {
-    /** URL for fetching remote option lists. Engine-only; not in schema. */
-    remoteOptions?: string;
-};
-
-/** A selectable option for choice/multiChoice fields. */
-export type FormspecOption = OptionEntry;
-
-/** Loading/error state for a field whose options are fetched from a remote URL via the `remoteOptions` bind. */
-export interface RemoteOptionsState {
-    loading: boolean;
-    error: string | null;
-}
-
-/** Cross-field validation rule. Alias for the schema-generated Shape. */
+export type FormspecBind = FormBind & { remoteOptions?: string };
 export type FormspecShape = FormShape;
-
-/** Named computed variable. Alias for the schema-generated Variable. */
 export type FormspecVariable = FormVariable;
-
-/** Named data instance. Alias for the schema-generated Instance. */
 export type FormspecInstance = FormInstance;
-
-/** Top-level form definition. Alias for the schema-generated FormDefinition. */
 export type FormspecDefinition = FormDefinition;
-
-/** A single validation finding targeting a specific field path. */
+export type FormspecOption = OptionEntry;
 export type ValidationResult = FormspecValidationResult;
-
-/** Aggregated validation output for the entire form. */
 export type ValidationReport = FormspecValidationReport;
 
-/**
- * Internal bind configuration built by merging inline item properties
- * (precision, relevant, etc.) with explicit definition.binds entries.
- * Not exported — engine-internal only.
- */
+export { initWasm, isWasmReady };
+
+export const normalizeIndexedPath = wasmNormalizeIndexedPath;
+export const itemAtPath = wasmItemAtPath;
+export const itemLocationAtPath = wasmItemLocationAtPath;
+export const analyzeFEL = legacyAnalyzeFEL;
+export const tokenizeFEL = wasmTokenizeFEL;
+export const rewriteFELReferences = legacyRewriteFELReferences;
+export const rewriteMessageTemplate = wasmRewriteMessageTemplate;
+export const lintDocument = wasmLintDocument;
+export const parseRegistry = wasmParseRegistry;
+export const findRegistryEntry = wasmFindRegistryEntry;
+export const validateLifecycleTransition = wasmValidateLifecycleTransition;
+export const wellKnownRegistryUrl = wasmWellKnownRegistryUrl;
+export const generateChangelog = wasmGenerateChangelog;
+export const printFEL = wasmPrintFEL;
+export const evaluateDefinition = wasmEvaluateDefinition;
+
+export function getBuiltinFELFunctionCatalog(): FELBuiltinFunctionCatalogEntry[] {
+    return wasmListBuiltinFunctions();
+}
+
+export function getFELDependencies(expression: string): string[] {
+    return wasmGetFELDependencies(expression);
+}
+
+export function validateExtensionUsage(
+    items: unknown[],
+    options: { resolveEntry: (name: string) => RegistryEntry | undefined },
+): ExtensionUsageIssue[] {
+    const names = new Set<string>();
+    collectExtensionNames(items, names);
+    const registryEntries: Record<string, RegistryEntry> = {};
+    for (const name of names) {
+        const entry = options.resolveEntry(name);
+        if (entry) {
+            registryEntries[name] = entry;
+        }
+    }
+    return wasmValidateExtensionUsage(items, registryEntries) as ExtensionUsageIssue[];
+}
+
+export function createSchemaValidator(_schemas?: SchemaValidatorSchemas): SchemaValidator {
+    return {
+        validate(document: unknown, documentType?: DocumentType | null): SchemaValidationResult {
+            const result = lintDocument(document);
+            return {
+                documentType: (documentType ?? result.documentType ?? null) as DocumentType | null,
+                errors: (result.diagnostics ?? [])
+                    .filter((diag: any) => diag?.severity === 'error')
+                    .map(
+                        (diag: any): SchemaValidationError => ({
+                            path: typeof diag.path === 'string' ? diag.path : '$',
+                            message: typeof diag.message === 'string' ? diag.message : 'Schema validation failed',
+                            raw: diag,
+                        }),
+                    ),
+            };
+        },
+    };
+}
+
+export function createMappingEngine(mappingDoc: unknown): IRuntimeMappingEngine {
+    return new LegacyRuntimeMappingEngine(mappingDoc as any);
+}
+
+export class RuntimeMappingEngine implements IRuntimeMappingEngine {
+    private readonly runtime: IRuntimeMappingEngine;
+
+    constructor(mappingDoc: unknown) {
+        this.runtime = new LegacyRuntimeMappingEngine(mappingDoc as any);
+    }
+
+    public forward(source: any): RuntimeMappingResult {
+        return this.runtime.forward(source);
+    }
+
+    public reverse(source: any): RuntimeMappingResult {
+        return this.runtime.reverse(source);
+    }
+}
+
+export function createFormEngine(
+    definition: FormDefinition,
+    context?: FormEngineRuntimeContext,
+    registryEntries?: RegistryEntry[],
+): FormEngine {
+    return new FormEngine(definition, context, registryEntries);
+}
+
+export function rewriteFEL(expression: string, map: RewriteMap): string {
+    return legacyRewriteFEL(expression, map as any);
+}
+
+export function assembleDefinitionSync(
+    definition: FormDefinition,
+    resolver: Record<string, unknown> | ((url: string, version?: string) => unknown),
+): AssemblyResult {
+    if (typeof resolver !== 'function') {
+        return legacyAssembleDefinitionSync(
+            definition as any,
+            ((url: string, version?: string) => resolver[version ? `${url}|${version}` : url] ?? resolver[url]) as any,
+        ) as AssemblyResult;
+    }
+    return legacyAssembleDefinitionSync(definition as any, resolver as any) as AssemblyResult;
+}
+
+export async function assembleDefinition(
+    definition: FormDefinition,
+    resolver: DefinitionResolver,
+): Promise<AssemblyResult> {
+    return legacyAssembleDefinition(definition as any, resolver as any) as Promise<AssemblyResult>;
+}
+
 type EngineBindConfig = FormspecBind & {
-    /** Decimal precision copied from item.precision (an Item property, not a Bind property). */
     precision?: number;
+    disabledDisplay?: 'hidden' | 'protected';
 };
 
-export interface PinnedResponseReference {
-    definitionUrl: string;
-    definitionVersion: string;
+type RuntimeNowInput = Date | string | number;
+
+interface ExtensionConstraintState {
+    diagnostics: ValidationResult[];
+    pattern?: RegExp;
+    maxLength?: number;
+    minimum?: number;
+    maximum?: number;
+    displayName?: string;
 }
 
-/** Accepted input types for the engine's "now" provider: a Date object, an ISO string, or a Unix timestamp. */
-export type EngineNowInput = Date | string | number;
-
-/** Runtime configuration injected into the engine to control time, locale, timezone, and deterministic seeding. */
-export interface FormEngineRuntimeContext {
-    now?: (() => EngineNowInput) | EngineNowInput;
-    locale?: string;
-    timeZone?: string;
-    seed?: string | number;
-    /** Pluggable FEL runtime. Defaults to the WASM runtime when omitted. */
-    felRuntime?: IFelRuntime;
+interface PendingInitialExpression {
+    path: string;
+    expression: string;
 }
 
-/** A registry extension entry providing constraints and metadata for custom data types. */
-export interface RegistryEntry {
+interface RegistryValidationFinding {
+    path: string;
+    result: ValidationResult;
+}
+
+interface FieldRecord {
+    path: string;
+    item: FormItem;
+}
+
+interface OrderedVariableDef {
+    key: string;
+    scope: string;
     name: string;
-    category?: string;
-    version?: string;
-    status?: string;
-    description?: string;
-    compatibility?: { formspecVersion?: string; mappingDslVersion?: string };
-    deprecationNotice?: string;
-    baseType?: string;
-    constraints?: {
-        pattern?: string;
-        maxLength?: number;
-        [key: string]: any;
-    };
-    metadata?: Record<string, any>;
-    [key: string]: any;
+    expression: string;
 }
-
-/** A complete point-in-time snapshot of engine state for debugging: all values, MIP states, dependencies, and validation. */
-export interface FormEngineDiagnosticsSnapshot {
-    definition: {
-        url: string;
-        version: string;
-        title: string;
-    };
-    timestamp: string;
-    structureVersion: number;
-    repeats: Record<string, number>;
-    values: Record<string, any>;
-    mips: Record<string, {
-        relevant: boolean;
-        required: boolean;
-        readonly: boolean;
-        error: string | null;
-    }>;
-    dependencies: Record<string, string[]>;
-    validation: ValidationReport;
-    runtimeContext: {
-        now: string;
-        locale?: string;
-        timeZone?: string;
-        seed?: string | number;
-    };
-}
-
-/** A discriminated union of events that can be replayed against a FormEngine instance (setValue, repeat operations, validation, response). */
-export type EngineReplayEvent =
-    | { type: 'setValue'; path: string; value: any }
-    | { type: 'addRepeatInstance'; path: string }
-    | { type: 'removeRepeatInstance'; path: string; index: number }
-    | { type: 'evaluateShape'; shapeId: string }
-    | { type: 'getValidationReport'; mode?: 'continuous' | 'submit' }
-    | { type: 'getResponse'; mode?: 'continuous' | 'submit' };
-
-/** The result of applying a single replay event, including success/failure status and optional output. */
-export interface EngineReplayApplyResult {
-    ok: boolean;
-    event: EngineReplayEvent;
-    output?: any;
-    error?: string;
-}
-
-/** Aggregate result of replaying a sequence of events, with per-event results and any errors encountered. */
-export interface EngineReplayResult {
-    applied: number;
-    results: EngineReplayApplyResult[];
-    errors: Array<{
-        index: number;
-        event: EngineReplayEvent;
-        error: string;
-    }>;
-}
-
-/**
- * Central reactive form state manager for Formspec definitions.
- *
- * FormEngine parses a {@link FormspecDefinition} and builds a network of Preact signals
- * representing field values, relevance (visibility), required/readonly state, validation
- * results, repeat group counts, option lists, and computed variables. All signals update
- * automatically when dependencies change.
- *
- * Key capabilities:
- * - **FEL compilation** with caching and dependency tracking for calculated fields, constraints, and shapes.
- * - **Bind constraint evaluation** (field-level: required, readonly, calculate, constraint, relevance).
- * - **Shape evaluation** (cross-field rules with composition operators, supporting continuous/submit/demand timing).
- * - **Repeat group lifecycle** (add/remove instances with automatic signal initialization and cleanup).
- * - **Response serialization** honoring nonRelevantBehavior settings.
- * - **Diagnostics snapshots** for debugging.
- * - **Event replay** for testing and deterministic reproduction.
- * - **Version migrations** for evolving definitions.
- * - **Remote options** fetching from bind-configured URLs.
- * - **Screener evaluation** for conditional form routing.
- */
-/**
- * Spec §3.8.1: in constraint context, null/undefined → true (passes).
- * FEL comparisons with nullish operands propagate null. A null constraint
- * result means "no opinion" — the constraint is not violated.
- */
-function constraintPasses(raw: unknown): boolean {
-    return raw === null || raw === undefined ? true : !!raw;
-}
-
-/** Parse a dotted version string (e.g. "1.0" or "1.0.0") into a comparable numeric tuple, padded to 3 parts. */
-function parseVersion(v: string): [number, number, number] {
-    const parts = v.split('.').map(Number);
-    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
-}
-
-/** Test a version against a space-separated semver constraint (e.g. ">=1.0.0 <2.0.0"). */
-function versionSatisfies(version: string, constraint: string): boolean {
-    const ver = parseVersion(version);
-    for (const part of constraint.trim().split(/\s+/)) {
-        let op: string, target: [number, number, number];
-        if (part.startsWith('>=')) { op = '>='; target = parseVersion(part.slice(2)); }
-        else if (part.startsWith('<=')) { op = '<='; target = parseVersion(part.slice(2)); }
-        else if (part.startsWith('>')) { op = '>'; target = parseVersion(part.slice(1)); }
-        else if (part.startsWith('<')) { op = '<'; target = parseVersion(part.slice(1)); }
-        else { op = '=='; target = parseVersion(part); }
-
-        const cmp = ver[0] !== target[0] ? ver[0] - target[0]
-            : ver[1] !== target[1] ? ver[1] - target[1]
-            : ver[2] - target[2];
-
-        if (op === '>=' && cmp < 0) return false;
-        if (op === '<=' && cmp > 0) return false;
-        if (op === '>' && cmp <= 0) return false;
-        if (op === '<' && cmp >= 0) return false;
-        if (op === '==' && cmp !== 0) return false;
-    }
-    return true;
-}
-
-import type { IFormEngine } from './interfaces.js';
 
 export class FormEngine implements IFormEngine {
-    readonly definition: FormspecDefinition;
+    public static instanceSourceCache = new Map<string, any>();
 
-    /** Reactive signals holding current field values, keyed by full dotted path (e.g. `"group[0].field"`). */
-    public signals: Record<string, any> = {};
+    public readonly definition: FormDefinition;
+    public readonly signals: Record<string, Signal<any>> = {};
+    public readonly relevantSignals: Record<string, Signal<boolean>> = {};
+    public readonly requiredSignals: Record<string, Signal<boolean>> = {};
+    public readonly readonlySignals: Record<string, Signal<boolean>> = {};
+    public readonly errorSignals: Record<string, Signal<string | null>> = {};
+    public readonly validationResults: Record<string, Signal<ValidationResult[]>> = {};
+    public readonly shapeResults: Record<string, Signal<ValidationResult[]>> = {};
+    public readonly repeats: Record<string, Signal<number>> = {};
+    public readonly optionSignals: Record<string, Signal<OptionEntry[]>> = {};
+    public readonly optionStateSignals: Record<string, Signal<RemoteOptionsState>> = {};
+    public readonly variableSignals: Record<string, Signal<any>> = {};
+    public readonly instanceData: Record<string, any> = {};
+    public readonly instanceVersion = signal(0);
+    public readonly structureVersion = signal(0);
 
-    /** Reactive boolean signals indicating whether each field/group is currently relevant (visible). */
-    public relevantSignals: Record<string, Signal<boolean>> = {};
+    private readonly _evaluationVersion = signal(0);
+    private readonly _bindConfigs: Record<string, EngineBindConfig> = {};
+    private readonly _fieldItems = new Map<string, FormItem>();
+    private readonly _groupItems = new Map<string, FormItem>();
+    private readonly _shapeTiming = new Map<string, 'continuous' | 'submit' | 'demand'>();
+    private readonly _pendingInitialExpressions: PendingInitialExpression[] = [];
+    private readonly _instanceCalculateBinds: EngineBindConfig[] = [];
+    private readonly _displaySignalPaths = new Set<string>();
+    private readonly _prePopulateReadonly = new Set<string>();
+    private readonly _calculatedFields = new Set<string>();
+    private readonly _registryEntries = new Map<string, RegistryEntry>();
+    private readonly _remoteOptionsTasks: Array<Promise<void>> = [];
+    private readonly _instanceSourceTasks: Array<Promise<void>> = [];
+    private readonly _variableDefs: FormspecVariable[];
+    private readonly _variableSignalKeys = new Map<string, string[]>();
+    private readonly _externalValidation: ValidationResult[] = [];
+    private readonly _orderedVariableDefs: OrderedVariableDef[];
+    private readonly _orderedCalculatedPaths: string[];
 
-    /** Reactive boolean signals indicating whether each field is currently required. */
-    public requiredSignals: Record<string, Signal<boolean>> = {};
-
-    /** Reactive boolean signals indicating whether each field is currently readonly. */
-    public readonlySignals: Record<string, Signal<boolean>> = {};
-
-    /** Reactive signals holding the first error message (or null) for each field, derived from validationResults. */
-    public errorSignals: Record<string, Signal<string | null>> = {};
-
-    /** Reactive signals holding bind-level validation results for each field path. */
-    public validationResults: Record<string, Signal<ValidationResult[]>> = {};
-
-    /** Reactive signals holding shape-level validation results, keyed by shape ID. */
-    public shapeResults: Record<string, Signal<ValidationResult[]>> = {};
-
-    /** Reactive signals holding the current instance count for each repeatable group path. */
-    public repeats: Record<string, Signal<number>> = {};
-
-    /** Reactive signals holding the resolved option lists for choice/multiChoice fields. */
-    public optionSignals: Record<string, Signal<FormspecOption[]>> = {};
-
-    /** Reactive signals holding the loading/error state for fields with remote options. */
-    public optionStateSignals: Record<string, Signal<RemoteOptionsState>> = {};
-
-    /** Reactive signals holding computed variable values, keyed by `"scope:name"` (e.g. `"#:totalDirect"`). */
-    public variableSignals: Record<string, Signal<any>> = {};
-
-    /** Static instance data loaded from the definition's `instances` section, keyed by instance name. */
-    public instanceData: Record<string, any> = {};
-    /** Version signal incremented whenever instance data changes, enabling FEL reactivity for @instance() reads. */
-    public instanceVersion = signal(0);
-
-    /** Dependency graph mapping each field path to the paths it depends on, built during FEL compilation. */
-    public dependencies: Record<string, string[]> = {};
-    private knownNames: Set<string> = new Set();
-    /** Paths of display item signals — excluded from getResponse data. */
-    private displaySignalPaths: Set<string> = new Set();
-    private bindConfigs: Record<string, EngineBindConfig> = {};
-    private compiledExpressions: Record<string, () => any> = {};
-    /** The pluggable FEL runtime used for expression compilation and evaluation. */
-    public readonly felRuntime: IFelRuntime;
-    private registryEntries: Map<string, RegistryEntry> = new Map();
-    private remoteOptionsTasks: Array<Promise<void>> = [];
-    private instanceSourceTasks: Array<Promise<void>> = [];
-    private static instanceSourceCache = new Map<string, any>();
-    private runtimeContext: {
+    private _data: Record<string, any> = {};
+    private _previousVisibleResult: EvalResult | null = null;
+    private _fullResult: EvalResult | null = null;
+    private _labelContext: string | null = null;
+    private _runtimeContext: {
         nowProvider: () => Date;
         locale?: string;
         timeZone?: string;
@@ -326,46 +319,39 @@ export class FormEngine implements IFormEngine {
     } = {
         nowProvider: () => new Date(),
     };
-    /** Monotonically increasing counter that increments whenever repeat instances are added or removed, enabling reactive UI rebuilds. */
-    public structureVersion = signal(0);
 
-    /**
-     * Creates a new FormEngine from a Formspec definition.
-     *
-     * Initializes all reactive signals, resolves option sets, loads instance data,
-     * compiles bind expressions, fetches remote options, and wires up shape evaluation.
-     *
-     * @param definition - The complete Formspec definition document.
-     * @param runtimeContext - Optional runtime overrides for time, locale, timezone, and seed.
-     * @param registryEntries - Optional registry extension entries for enforcing extension constraints.
-     */
-    constructor(definition: FormspecDefinition, runtimeContext?: FormEngineRuntimeContext, registryEntries?: RegistryEntry[]) {
-        this.definition = definition;
-        this.felRuntime = runtimeContext?.felRuntime ?? wasmFelRuntime;
+    public constructor(
+        definition: FormDefinition,
+        runtimeContext?: FormEngineRuntimeContext,
+        registryEntries?: RegistryEntry[],
+    ) {
+        this.definition = cloneValue(definition);
+        this._variableDefs = [...(this.definition.variables ?? [])];
+
         if (runtimeContext) {
             this.setRuntimeContext(runtimeContext);
         }
         if (registryEntries) {
             for (const entry of registryEntries) {
-                if (entry.name) this.registryEntries.set(entry.name, entry);
+                if (entry?.name) {
+                    this._registryEntries.set(entry.name, entry);
+                }
             }
         }
+
         this.resolveOptionSets();
         this.initializeOptionSignals();
         this.initializeInstances();
-        this.initializeBindConfigs(definition.items);
-        if (definition.binds) {
-            for (const bind of definition.binds) {
-                // Normalize wildcard paths: items[*].field → items.field (matches baseKey lookups)
-                const normalizedPath = bind.path.replace(/\[\*\]/g, '');
-                this.bindConfigs[normalizedPath] = { ...this.bindConfigs[normalizedPath], ...bind, path: normalizedPath };
-            }
-        }
+        this.initializeBindConfigs(this.definition.items);
+        this.collectInstanceCalculateBinds();
+        this.validateInstanceCalculateTargets();
+        this.validateVariableCycles();
+        this.validateCalculateCycles();
+        this._orderedVariableDefs = this.buildOrderedVariableDefs();
+        this._orderedCalculatedPaths = this.buildOrderedCalculatedPaths();
+        this.registerItems(this.definition.items);
         this.initializeRemoteOptions();
-        this.initializeSignals();
-        this.initializeShapes();
-        this.initializeVariables();
-        this.initializeInstanceCalculates();
+        this._evaluate();
     }
 
     public static resolvePinnedDefinition<T extends { url?: string; version?: string }>(
@@ -377,7 +363,9 @@ export class FormEngine implements IFormEngine {
                 definition.url === response.definitionUrl
                 && definition.version === response.definitionVersion,
         );
-        if (exact) return exact;
+        if (exact) {
+            return exact;
+        }
 
         const availableVersions = definitions
             .filter((definition) => definition.url === response.definitionUrl)
@@ -392,1802 +380,282 @@ export class FormEngine implements IFormEngine {
         throw new Error(message);
     }
 
-    private coerceDate(value: EngineNowInput): Date {
-        if (value instanceof Date) {
-            return new Date(value.getTime());
-        }
-        const coerced = new Date(value);
-        if (isNaN(coerced.getTime())) {
-            return new Date();
-        }
-        return coerced;
+    public get formPresentation(): any {
+        return this.definition.formPresentation ?? null;
     }
 
-    private resolveNowProvider(now: FormEngineRuntimeContext['now']): () => Date {
-        if (typeof now === 'function') {
-            const provider = now as () => EngineNowInput;
-            return () => this.coerceDate(provider());
-        }
-        if (now !== undefined) {
-            const fixed = this.coerceDate(now as EngineNowInput);
-            return () => new Date(fixed.getTime());
-        }
-        return () => new Date();
-    }
-
-    private nowISO(): string {
-        return this.runtimeContext.nowProvider().toISOString();
-    }
-
-    /**
-     * Updates the engine's runtime context (now provider, locale, timezone, seed).
-     * Only explicitly provided keys are changed; omitted keys are left as-is.
-     */
-    public setRuntimeContext(context: FormEngineRuntimeContext = {}) {
+    public setRuntimeContext(context: FormEngineRuntimeContext = {}): void {
         if (Object.prototype.hasOwnProperty.call(context, 'now')) {
-            this.runtimeContext.nowProvider = this.resolveNowProvider(context.now);
+            this._runtimeContext.nowProvider = resolveNowProvider(context.now);
         }
         if (Object.prototype.hasOwnProperty.call(context, 'locale')) {
-            this.runtimeContext.locale = context.locale;
+            this._runtimeContext.locale = context.locale;
         }
         if (Object.prototype.hasOwnProperty.call(context, 'timeZone')) {
-            this.runtimeContext.timeZone = context.timeZone;
+            this._runtimeContext.timeZone = context.timeZone;
         }
         if (Object.prototype.hasOwnProperty.call(context, 'seed')) {
-            this.runtimeContext.seed = context.seed;
+            this._runtimeContext.seed = context.seed;
+        }
+        if (this._fullResult) {
+            this._evaluate();
         }
     }
 
-    /**
-     * Resolve optionSet references on items into concrete options arrays.
-     */
-    private resolveOptionSets() {
-        if (!this.definition.optionSets) return;
-        this.resolveOptionSetsRecursive(this.definition.items);
+    public getOptions(path: string): OptionEntry[] {
+        return this.optionSignals[toBasePath(path)]?.value ?? [];
     }
 
-    private resolveOptionSetsRecursive(items: FormspecItem[]) {
-        for (const item of items) {
-            if (item.optionSet && this.definition.optionSets?.[item.optionSet]) {
-                const entry = this.definition.optionSets[item.optionSet];
-                // Engine supports both OptionSet objects and bare OptionEntry[] arrays
-                item.options = Array.isArray(entry) ? entry : (entry.options ?? []);
-            }
-            if (item.children) {
-                this.resolveOptionSetsRecursive(item.children);
-            }
-        }
+    public getOptionsSignal(path: string): Signal<OptionEntry[]> | undefined {
+        return this.optionSignals[toBasePath(path)];
     }
 
-    private initializeOptionSignals() {
-        this.initializeOptionSignalsRecursive(this.definition.items);
-    }
-
-    private initializeOptionSignalsRecursive(items: FormspecItem[], prefix = '') {
-        for (const item of items) {
-            const fullName = prefix ? `${prefix}.${item.key}` : item.key;
-            if (item.type === 'field') {
-                const options = Array.isArray(item.options) ? item.options.map((opt) => ({
-                    value: String(opt.value),
-                    label: String(opt.label),
-                })) : [];
-                this.optionSignals[fullName] = signal(options);
-                this.optionStateSignals[fullName] = signal({ loading: false, error: null });
-            }
-            if (item.children) {
-                this.initializeOptionSignalsRecursive(item.children, fullName);
-            }
-        }
-    }
-
-    private normalizeRemoteOptions(payload: any): FormspecOption[] {
-        const rawOptions = Array.isArray(payload)
-            ? payload
-            : Array.isArray(payload?.options)
-                ? payload.options
-                : null;
-        if (!rawOptions) {
-            throw new Error('Remote options response must be an array or { options: [...] }');
-        }
-        return rawOptions
-            .filter((opt: any) => opt && typeof opt === 'object' && opt.value !== undefined && opt.label !== undefined)
-            .map((opt: any) => ({
-                value: String(opt.value),
-                label: String(opt.label),
-            }));
-    }
-
-    private initializeRemoteOptions() {
-        if (!this.definition.binds) return;
-        for (const bind of (this.definition.binds as FormspecBind[])) {
-            if (!bind.remoteOptions) continue;
-
-            const path = bind.path.replace(/\[\*\]/g, '');
-            if (!this.optionSignals[path]) {
-                this.optionSignals[path] = signal([]);
-            }
-            if (!this.optionStateSignals[path]) {
-                this.optionStateSignals[path] = signal({ loading: false, error: null });
-            }
-
-            this.optionStateSignals[path].value = { loading: true, error: null };
-            const task = fetch(bind.remoteOptions)
-                .then((response) => {
-                    if (!response.ok) {
-                        throw new Error(`Remote options fetch failed (${response.status})`);
-                    }
-                    return response.json();
-                })
-                .then((payload) => {
-                    const normalized = this.normalizeRemoteOptions(payload);
-                    this.optionSignals[path].value = normalized;
-                    this.optionStateSignals[path].value = { loading: false, error: null };
-                })
-                .catch((error) => {
-                    const message = error instanceof Error ? error.message : String(error);
-                    this.optionStateSignals[path].value = { loading: false, error: message };
-                });
-            this.remoteOptionsTasks.push(task);
-        }
-    }
-
-    /**
-     * Returns the current resolved options array for a choice/multiChoice field.
-     * @param path - Full field path (repeat indices are stripped to find the base options).
-     */
-    public getOptions(path: string): FormspecOption[] {
-        const baseName = path.replace(/\[\d+\]/g, '');
-        if (this.optionSignals[baseName]) {
-            return this.optionSignals[baseName].value;
-        }
-        return [];
-    }
-
-    /** Returns the reactive signal holding the options array for a field, or undefined if no options exist. */
-    public getOptionsSignal(path: string): Signal<FormspecOption[]> | undefined {
-        const baseName = path.replace(/\[\d+\]/g, '');
-        return this.optionSignals[baseName];
-    }
-
-    /** Returns the current loading/error state for a field's remote options. */
     public getOptionsState(path: string): RemoteOptionsState {
-        const baseName = path.replace(/\[\d+\]/g, '');
-        return this.optionStateSignals[baseName]?.value || { loading: false, error: null };
+        return this.optionStateSignals[toBasePath(path)]?.value ?? { loading: false, error: null };
     }
 
-    /** Returns the reactive signal holding the remote options loading/error state, or undefined. */
     public getOptionsStateSignal(path: string): Signal<RemoteOptionsState> | undefined {
-        const baseName = path.replace(/\[\d+\]/g, '');
-        return this.optionStateSignals[baseName];
+        return this.optionStateSignals[toBasePath(path)];
     }
 
-    /** Waits for all in-flight remote options fetches to settle (resolve or reject). */
     public async waitForRemoteOptions(): Promise<void> {
-        if (this.remoteOptionsTasks.length === 0) return;
-        await Promise.allSettled(this.remoteOptionsTasks);
+        await Promise.allSettled(this._remoteOptionsTasks);
     }
 
-    /** Waits for all in-flight instance source fetches to settle (resolve or reject). */
     public async waitForInstanceSources(): Promise<void> {
-        if (this.instanceSourceTasks.length === 0) return;
-        await Promise.allSettled(this.instanceSourceTasks);
+        await Promise.allSettled(this._instanceSourceTasks);
     }
 
-    private parseInstanceTarget(path: string): { instanceName: string; instancePath?: string } | null {
-        const explicit = path.match(/^instances\.([a-zA-Z][a-zA-Z0-9_]*)\.?(.*)$/);
-        if (explicit) {
-            const [, instanceName, instancePath] = explicit;
-            return { instanceName, instancePath: instancePath || undefined };
-        }
-
-        const felSyntax = path.match(/^@instance\((['"])([^'"]+)\1\)\.?(.*)$/);
-        if (felSyntax) {
-            const [, , instanceName, instancePath] = felSyntax;
-            return { instanceName, instancePath: instancePath || undefined };
-        }
-        return null;
-    }
-
-    private valuesEqual(a: any, b: any): boolean {
-        if (a === b) return true;
-        try {
-            return JSON.stringify(a) === JSON.stringify(b);
-        } catch {
-            return false;
-        }
-    }
-
-    private setObjectPath(target: Record<string, any>, path: string, value: any) {
-        const parts = path.split('.').filter(Boolean);
-        if (parts.length === 0) return;
-        let current: any = target;
-        for (let i = 0; i < parts.length - 1; i++) {
-            const part = parts[i];
-            if (current[part] === null || current[part] === undefined || typeof current[part] !== 'object' || Array.isArray(current[part])) {
-                current[part] = {};
-            }
-            current = current[part];
-        }
-        current[parts[parts.length - 1]] = value;
-    }
-
-    private validateInstanceSchema(instanceName: string, data: any) {
-        const schema = this.definition.instances?.[instanceName]?.schema;
-        if (!schema || typeof schema !== 'object') return;
-        for (const [path, dataType] of Object.entries(schema)) {
-            if (typeof dataType !== 'string') continue;
-            const value = this.getValueFromDataPath(data ?? {}, path);
-            if (value === null || value === undefined) continue;
-            if (!this.validateDataType(value, dataType)) {
-                throw new Error(
-                    `Instance '${instanceName}' schema mismatch at '${path}': expected ${dataType}`
-                );
-            }
-        }
-    }
-
-    private writeInstanceValue(
-        instanceName: string,
-        path: string | undefined,
-        value: any,
-        options?: { bypassReadonly?: boolean }
-    ) {
-        const instanceConfig = this.definition.instances?.[instanceName];
-        if (!instanceConfig) {
-            throw new Error(`Unknown instance '${instanceName}'`);
-        }
-        if (!options?.bypassReadonly && instanceConfig.readonly !== false) {
-            throw new Error(`Instance '${instanceName}' is readonly`);
-        }
-
-        let nextData: any;
-        if (!path) {
-            nextData = this.cloneValue(value);
-        } else {
-            const base = this.cloneValue(this.instanceData[instanceName] ?? {});
-            const container = (base && typeof base === 'object' && !Array.isArray(base)) ? base : {};
-            this.setObjectPath(container, path, this.cloneValue(value));
-            nextData = container;
-        }
-
-        this.validateInstanceSchema(instanceName, nextData);
-        if (this.valuesEqual(this.instanceData[instanceName], nextData)) return;
-        this.instanceData[instanceName] = nextData;
-        this.instanceVersion.value++;
-    }
-
-    /**
-     * Writes to a named instance. Intended for writable (`readonly: false`) scratch-pad instances.
-     * @param name - Instance name.
-     * @param path - Optional dot path inside the instance object.
-     * @param value - New value (or subtree value when path is provided).
-     */
-    public setInstanceValue(name: string, path: string | undefined, value: any) {
+    public setInstanceValue(name: string, path: string | undefined, value: any): void {
         this.writeInstanceValue(name, path, value);
+        this._evaluate();
     }
 
-    private initializeInstanceSource(name: string, inst: FormspecInstance) {
-        if (!inst.source) return;
-        if (inst.static && FormEngine.instanceSourceCache.has(inst.source)) {
-            const cached = this.cloneValue(FormEngine.instanceSourceCache.get(inst.source));
-            if (!this.valuesEqual(this.instanceData[name], cached)) {
-                this.instanceData[name] = cached;
-                this.instanceVersion.value++;
-            }
-            return;
-        }
-
-        const source = inst.source;
-        const task = fetch(source)
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`Instance source fetch failed (${response.status})`);
-                }
-                return response.json();
-            })
-            .then((payload) => {
-                this.validateInstanceSchema(name, payload);
-                const nextData = this.cloneValue(payload);
-                if (inst.static) {
-                    FormEngine.instanceSourceCache.set(source, this.cloneValue(nextData));
-                }
-                if (!this.valuesEqual(this.instanceData[name], nextData)) {
-                    this.instanceData[name] = nextData;
-                    this.instanceVersion.value++;
-                }
-            })
-            .catch((error) => {
-                // Keep fallback inline data if source retrieval fails.
-                console.error(`Failed to load instance source '${name}':`, error);
-            });
-        this.instanceSourceTasks.push(task);
-    }
-
-    private initializeInstances() {
-        if (!this.definition.instances) return;
-        for (const [name, inst] of Object.entries(this.definition.instances)) {
-            if (inst.data !== undefined) {
-                const fallback = this.cloneValue(inst.data);
-                this.validateInstanceSchema(name, fallback);
-                this.instanceData[name] = fallback;
-            }
-            this.initializeInstanceSource(name, inst);
-        }
-    }
-
-    /**
-     * Retrieves data from a named instance, optionally navigating to a nested path.
-     * Used by FEL's `instance()` function and the pre-population system.
-     * @param name - The instance name as declared in the definition's `instances` section.
-     * @param path - Optional dot-separated path into the instance data.
-     */
     public getInstanceData(name: string, path?: string): any {
         const data = this.instanceData[name];
-        if (data === undefined) return undefined;
-        if (!path) return data;
-        // Navigate path into data
-        const parts = path.split('.');
-        let current = data;
-        for (const part of parts) {
-            if (current === null || current === undefined) return undefined;
-            current = current[part];
+        if (data === undefined) {
+            return undefined;
         }
-        return current;
+        return path ? getNestedValue(data, path) : data;
     }
 
-    /**
-     * Returns the disabledDisplay mode for a field path from its bind configuration.
-     * - `"hidden"` (default): the field wrapper is display:none when non-relevant.
-     * - `"protected"`: the field remains visible but grayed out / disabled when non-relevant.
-     */
     public getDisabledDisplay(path: string): 'hidden' | 'protected' {
-        const baseName = path.replace(/\[\d+\]/g, '');
-        return this.bindConfigs[baseName]?.disabledDisplay || 'hidden';
+        return this._bindConfigs[toBasePath(path)]?.disabledDisplay ?? 'hidden';
     }
 
-    private initializeShapes() {
-        if (!this.definition.shapes) return;
-        for (const shape of this.definition.shapes) {
-            const timing = shape.timing || 'continuous';
-            if (timing === 'continuous') {
-                this.initShape(shape);
-            }
-            // submit and demand shapes are stored for later evaluation
-        }
-    }
-
-    private initializeVariables() {
-        if (!this.definition.variables) return;
-
-        // Topological sort: build dependency graph among variables
-        const vars = this.definition.variables;
-        const varByName = new Map<string, FormspecVariable>();
-        for (const v of vars) varByName.set(v.name, v);
-
-        // Detect dependencies between variables (one variable referencing @anotherVariable)
-        const varDeps = new Map<string, string[]>();
-        for (const v of vars) {
-            const deps: string[] = [];
-            // Scan expression for @varName references
-            const atRefs = v.expression.match(/@([a-zA-Z][a-zA-Z0-9_]*)/g) || [];
-            for (const ref of atRefs) {
-                const name = ref.slice(1); // remove @
-                if (name !== 'index' && name !== 'current' && name !== 'count' && varByName.has(name)) {
-                    deps.push(name);
-                }
-            }
-            varDeps.set(v.name, deps);
-        }
-
-        // Topological sort with cycle detection
-        const sorted: FormspecVariable[] = [];
-        const visited = new Set<string>();
-        const inStack = new Set<string>();
-
-        const visit = (name: string) => {
-            if (inStack.has(name)) {
-                throw new Error(`Circular variable dependency detected involving: ${name}`);
-            }
-            if (visited.has(name)) return;
-            inStack.add(name);
-            for (const dep of varDeps.get(name) || []) {
-                visit(dep);
-            }
-            inStack.delete(name);
-            visited.add(name);
-            sorted.push(varByName.get(name)!);
-        };
-
-        for (const v of vars) visit(v.name);
-
-        // Initialize variable signals in dependency order
-        for (const v of sorted) {
-            const scope = v.scope || '#';
-            const varKey = `${scope}:${v.name}`;
-            // Evaluate expression in the scope context.
-            // For scoped variables, use "scope.__var" as context so that sibling fields
-            // like "amount" resolve to "scope.amount" via parent path resolution.
-            const contextPath = scope === '#' ? '' : `${scope}.__var`;
-            const compiledExpr = this.compileFEL(v.expression, contextPath, undefined, true);
-            this.variableSignals[varKey] = computed(() => compiledExpr());
-        }
-    }
-
-    private initializeInstanceCalculates() {
-        if (!this.definition.binds) return;
-        for (const bind of this.definition.binds) {
-            if (!bind.calculate) continue;
-            const target = this.parseInstanceTarget(bind.path);
-            if (!target) continue;
-
-            const instanceConfig = this.definition.instances?.[target.instanceName];
-            if (!instanceConfig) {
-                throw new Error(`Unknown instance '${target.instanceName}' targeted by bind '${bind.path}'`);
-            }
-            if (instanceConfig.readonly !== false) {
-                throw new Error(`Calculate bind cannot target readonly instance '${target.instanceName}'`);
-            }
-
-            const compiledCalc = this.compileFEL(bind.calculate, '', undefined, false);
-            effect(() => {
-                const value = compiledCalc();
-                try {
-                    this.writeInstanceValue(target.instanceName, target.instancePath, value, { bypassReadonly: true });
-                } catch (error) {
-                    console.error(`Failed to apply calculate bind to instance '${target.instanceName}':`, error);
-                }
-            });
-        }
-    }
-
-    /**
-     * Resolves a computed variable by name using lexical scope lookup.
-     * Searches from the given scope path upward through ancestor scopes to the global scope (`#`).
-     * @param name - The variable name (without the `@` prefix used in FEL).
-     * @param scopePath - The dot-separated path of the current evaluation context.
-     * @returns The computed variable value, or `undefined` if not found.
-     */
     public getVariableValue(name: string, scopePath: string): any {
-        const parts = scopePath ? scopePath.split('.').filter(Boolean) : [];
-        const scopesToTry: string[] = [];
-        const seen = new Set<string>();
-
-        const pushScope = (scope: string) => {
-            if (!scope || seen.has(scope)) return;
-            seen.add(scope);
-            scopesToTry.push(scope);
-        };
-
-        // Try exact scope path and each ancestor, then index-stripped variants.
-        for (let i = parts.length; i >= 1; i--) {
-            const rawScope = parts.slice(0, i).join('.');
-            pushScope(rawScope);
-            const normalizedScope = rawScope.replace(/\[\d+\]/g, '');
-            pushScope(normalizedScope);
-        }
-
-        // Always include definition-wide fallback.
-        pushScope('#');
-
-        for (const scope of scopesToTry) {
-            const key = `${scope}:${name}`;
-            if (this.variableSignals[key]) return this.variableSignals[key].value;
-        }
-        return undefined;
+        const visible = this.getVisibleVariableEntries(scopePath);
+        return visible[name];
     }
 
-    private initShape(shape: FormspecShape) {
-        const shapeId = shape.id;
-        this.shapeResults[shapeId] = computed(() => this.evaluateShapeForPaths(shape));
-    }
-
-    /**
-     * Evaluate a shape's constraints for all matching target paths.
-     * Used by both continuous (reactive) and on-demand evaluation.
-     */
-    private evaluateShapeForPaths(shape: FormspecShape): ValidationResult[] {
-        this.structureVersion.value;
-        const results: ValidationResult[] = [];
-        const targetPaths = this.resolveWildcardPath(shape.target);
-
-        for (const path of targetPaths) {
-            const isRelevant = path === '#' || this.isPathRelevant(path);
-            if (!isRelevant) {
-                continue;
-            }
-
-            if (shape.activeWhen) {
-                const activeFn = this.compileFEL(shape.activeWhen, path, undefined, true);
-                if (!activeFn()) {
-                    continue;
-                }
-            }
-
-            const failed = this.evaluateShapeConstraints(shape, path);
-            if (failed) {
-                // Evaluate context map if present
-                let ctx: Record<string, any> | undefined;
-                if (shape.context) {
-                    ctx = {};
-                    for (const [key, expr] of Object.entries(shape.context)) {
-                        const fn = this.compileFEL(expr, path, undefined, true);
-                        ctx[key] = fn();
-                    }
-                }
-
-                const result: ValidationResult = {
-                    severity: shape.severity || "error",
-                    path: this.toExternalPath(path),
-                    message: this.interpolateMessage(shape.message, path),
-                    constraintKind: "shape",
-                    code: shape.code || "SHAPE_FAILED",
-                    source: "shape",
-                    shapeId: shape.id,
-                    constraint: shape.constraint
-                };
-                if (ctx) result.context = ctx;
-                results.push(result);
-            }
+    public addRepeatInstance(itemName: string): number | undefined {
+        const path = this.resolveRepeatPath(itemName);
+        const item = this._groupItems.get(path);
+        if (!item?.repeatable) {
+            return undefined;
         }
-        return results;
-    }
-
-    /**
-     * Evaluate a composition element: if it's a shape ID, resolve the referenced
-     * shape's pass/fail result; otherwise compile and evaluate as FEL.
-     * Returns the raw result — callers use constraintPasses() for null semantics.
-     */
-    private evaluateCompositionElement(expr: string, path: string): unknown {
-        // Shape ID reference: check if this string matches a known shape
-        if (this.shapeResults[expr]) {
-            // Shape passes when it has no validation results (no failures)
-            return this.shapeResults[expr].value.length === 0;
-        }
-        // Inline FEL expression — return raw value so callers can handle null
-        const fn = this.compileFEL(expr, path, undefined, true);
-        return fn();
-    }
-
-    private evaluateShapeConstraints(shape: FormspecShape, path: string): boolean {
-        // Primary constraint — null/undefined → passes (spec §3.8.1)
-        if (shape.constraint) {
-            const fn = this.compileFEL(shape.constraint, path, undefined, true);
-            if (!constraintPasses(fn())) {
-                return true;
-            }
-        }
-
-        // and: all must pass — null = no opinion = passes
-        if (shape.and) {
-            for (const expr of shape.and) {
-                if (!constraintPasses(this.evaluateCompositionElement(expr, path))) return true;
-            }
-        }
-
-        // or: at least one must pass — null = no opinion = passes
-        if (shape.or) {
-            let anyPass = false;
-            for (const expr of shape.or) {
-                if (constraintPasses(this.evaluateCompositionElement(expr, path))) { anyPass = true; break; }
-            }
-            if (!anyPass) return true;
-        }
-
-        // not: fails only when the inner expression is definitively true.
-        // null = indeterminate = not definitively true → passes.
-        if (shape.not) {
-            const raw = this.evaluateCompositionElement(shape.not, path);
-            if (raw !== null && raw !== undefined && !!raw) return true;
-        }
-
-        // xone: exactly one must be definitively true.
-        // null = indeterminate → does not count toward pass tally.
-        if (shape.xone) {
-            let passCount = 0;
-            for (const expr of shape.xone) {
-                const raw = this.evaluateCompositionElement(expr, path);
-                if (raw !== null && raw !== undefined && !!raw) passCount++;
-            }
-            if (passCount !== 1) return true;
-        }
-
-        return false;
-    }
-
-    private interpolateMessage(message: string, contextPath: string): string {
-        return message.replace(/\{\{(.+?)\}\}/g, (_, expr) => {
-            try {
-                const fn = this.compileFEL(expr, contextPath, undefined, true);
-                return String(fn());
-            } catch (e) {
-                return `{{${expr}}}`;
-            }
-        });
-    }
-
-    private resolveWildcardPath(path: string): string[] {
-        if (path === "#") return [""];
-        if (!path.includes('[*]')) return [path];
-
-        const results: string[] = [];
-        const asteriskIndex = path.indexOf('[*]');
-        const base = path.substring(0, asteriskIndex);
-        const remaining = path.substring(asteriskIndex + 3);
-
-        const count = this.repeats[base]?.value || 0;
-        for (let i = 0; i < count; i++) {
-            const concrete = `${base}[${i}]${remaining}`;
-            results.push(...this.resolveWildcardPath(concrete));
-        }
-        return results;
-    }
-
-    private toExternalPath(path: string): string {
-        if (!path) return "#";
-        return path.replace(/\[(\d+)\]/g, (_, p1) => `[${parseInt(p1) + 1}]`);
-    }
-
-    private initializeBindConfigs(items: FormspecItem[], prefix = '') {
-        for (const item of items) {
-            const fullName = prefix ? `${prefix}.${item.key}` : item.key;
-            const relevant = item.relevant || item.visible;
-            if (relevant || item.required || item.calculate || item.readonly || item.constraint || item.precision !== undefined) {
-                this.bindConfigs[fullName] = {
-                    path: fullName,
-                    relevant: relevant,
-                    required: item.required,
-                    calculate: item.calculate,
-                    readonly: item.readonly,
-                    constraint: item.constraint,
-                    constraintMessage: item.message,
-                    precision: item.precision,
-                };
-            }
-            if (item.children) {
-                this.initializeBindConfigs(item.children, fullName);
-            }
-        }
-    }
-
-    private discoverAllNames(items: FormspecItem[], prefix = ''): string[] {
-        let names: string[] = [];
-        for (const item of items) {
-            const fullName = prefix ? `${prefix}.${item.key}` : item.key;
-            names.push(fullName);
-            if (item.children) {
-                names.push(...this.discoverAllNames(item.children, fullName));
-            }
-        }
-        return names;
-    }
-
-    private initializeSignals() {
-        this.knownNames = new Set(this.discoverAllNames(this.definition.items));
-        for (const item of this.definition.items) {
-            this.initItem(item);
-        }
-        this.detectCycles();
-        this.structureVersion.value++;
-    }
-
-    private detectCycles() {
-        const visited = new Set<string>();
-        const recursionStack = new Set<string>();
-
-        const visit = (node: string) => {
-            if (recursionStack.has(node)) {
-                console.error(`Cyclic dependency detected involving field: ${node}`);
-                throw new Error(`Cyclic dependency detected involving field: ${node}`);
-            }
-            if (visited.has(node)) return;
-
-            visited.add(node);
-            recursionStack.add(node);
-
-            const deps = this.dependencies[node] || [];
-            for (const dep of deps) {
-                if (dep === node) continue; // skip self-references (e.g. constraints reading own value)
-                visit(dep);
-            }
-
-            recursionStack.delete(node);
-        };
-
-        for (const node of Object.keys(this.dependencies)) {
-            visit(node);
-        }
-    }
-
-    private validateDataType(value: any, dataType: string): boolean {
-        if (value === null || value === undefined || value === '') return true;
-        switch (dataType) {
-            case 'integer':
-                return Number.isInteger(value);
-            case 'number':
-            case 'decimal':
-                return typeof value === 'number' && !isNaN(value);
-            case 'money':
-                if (typeof value === 'number') return !isNaN(value);
-                return typeof value === 'object' && 'amount' in value &&
-                    (value.amount === null || (typeof value.amount === 'number' && !isNaN(value.amount)));
-            case 'boolean':
-                return typeof value === 'boolean';
-            case 'date':
-                return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
-            case 'dateTime':
-                return !isNaN(Date.parse(String(value)));
-            case 'time':
-                return /^\d{2}:\d{2}(:\d{2})?$/.test(String(value));
-            case 'uri':
-                try { new URL(String(value)); return true; } catch { return false; }
-            default:
-                return true;
-        }
-    }
-
-    private initItem(item: FormspecItem, prefix = '') {
-        const key = item.key;
-        if (!key) throw new Error("Item missing required 'key'");
-        const fullName = prefix ? `${prefix}.${key}` : key;
-        const baseKey = fullName.replace(/\[\d+\]/g, '');
-        const bind = this.bindConfigs[baseKey];
-
-        // Relevancy (Visibility)
-        this.relevantSignals[fullName] = signal(true);
-        if (bind && bind.relevant) {
-            const compiled = this.compileFEL(bind.relevant!, fullName, undefined, true);
-            this.relevantSignals[fullName] = computed(() => {
-                const value = compiled();
-                return value === null || value === undefined ? true : !!value;
-            });
-        }
-
-        if (item.type === 'group') {
-            // Check for unresolved extensions on groups (no constraint enforcement — groups have no values)
-            const groupUnresolved: string[] = [];
-            const groupExtDiagnostics: ValidationResult[] = [];
-            const groupFormspecVersion = this.definition.$formspec || '1.0';
-            const groupExts = item.extensions;
-            if (groupExts && typeof groupExts === 'object') {
-                for (const [extName, extEnabled] of Object.entries(groupExts)) {
-                    if (!extEnabled) continue;
-                    const entry = this.registryEntries.get(extName);
-                    if (!entry) {
-                        groupUnresolved.push(extName);
-                        continue;
-                    }
-                    const requiredRange = entry.compatibility?.formspecVersion;
-                    if (requiredRange && !versionSatisfies(groupFormspecVersion, requiredRange)) {
-                        groupExtDiagnostics.push({ severity: "warning", path: this.toExternalPath(fullName), message: `Extension '${extName}' requires formspec ${requiredRange} but definition uses ${groupFormspecVersion}`, constraintKind: "constraint", code: "EXTENSION_COMPATIBILITY_MISMATCH", source: "bind" });
-                    }
-                    if (entry.status === 'retired') {
-                        groupExtDiagnostics.push({ severity: "warning", path: this.toExternalPath(fullName), message: `Extension '${extName}' is retired and should not be used`, constraintKind: "constraint", code: "EXTENSION_RETIRED", source: "bind" });
-                    } else if (entry.status === 'deprecated') {
-                        groupExtDiagnostics.push({ severity: "info", path: this.toExternalPath(fullName), message: entry.deprecationNotice || `Extension '${extName}' is deprecated`, constraintKind: "constraint", code: "EXTENSION_DEPRECATED", source: "bind" });
-                    }
-                }
-            }
-
-            if (item.repeatable) {
-                const initialCount = item.minRepeat !== undefined ? item.minRepeat : 1;
-                this.repeats[fullName] = signal(initialCount);
-
-                this.validationResults[fullName] = computed(() => {
-                    const results: ValidationResult[] = [];
-
-                    for (const extName of groupUnresolved) {
-                        results.push({ severity: "error", path: this.toExternalPath(fullName), message: `Unresolved extension '${extName}': no matching registry entry loaded`, constraintKind: "constraint", code: "UNRESOLVED_EXTENSION", source: "bind" });
-                    }
-                    results.push(...groupExtDiagnostics);
-
-                    const count = this.repeats[fullName].value;
-                    if (item.minRepeat !== undefined && count < item.minRepeat) {
-                        results.push({
-                            severity: "error",
-                            path: this.toExternalPath(fullName),
-                            message: `Minimum ${item.minRepeat} entries required`,
-                            constraintKind: "cardinality",
-                            code: "MIN_REPEAT"
-                        });
-                    }
-                    if (item.maxRepeat !== undefined && count > item.maxRepeat) {
-                        results.push({
-                            severity: "error",
-                            path: this.toExternalPath(fullName),
-                            message: `Maximum ${item.maxRepeat} entries allowed`,
-                            constraintKind: "cardinality",
-                            code: "MAX_REPEAT"
-                        });
-                    }
-                    return results;
-                });
-
-                for (let i = 0; i < initialCount; i++) {
-                    this.initRepeatInstance(item, fullName, i);
-                }
-            } else {
-                // Non-repeatable group: emit extension diagnostics if any
-                if (groupUnresolved.length > 0 || groupExtDiagnostics.length > 0) {
-                    this.validationResults[fullName] = computed(() => {
-                        const results: ValidationResult[] = [];
-                        for (const extName of groupUnresolved) {
-                            results.push({ severity: "error", path: this.toExternalPath(fullName), message: `Unresolved extension '${extName}': no matching registry entry loaded`, constraintKind: "constraint", code: "UNRESOLVED_EXTENSION", source: "bind" });
-                        }
-                        results.push(...groupExtDiagnostics);
-                        return results;
-                    });
-                }
-                if (item.children) {
-                    for (const child of item.children) {
-                        this.initItem(child, fullName);
-                    }
-                }
-            }
-        } else if (item.type === 'field') {
-            let initialValue: any = item.initialValue !== undefined ? item.initialValue : '';
-            const dataType = item.dataType;
-            if (!dataType) throw new Error(`Field '${fullName}' missing required 'dataType'`);
-
-            if (typeof initialValue === 'string' && initialValue.startsWith('=')) {
-                const expr = initialValue.substring(1);
-                const compiled = this.compileFEL(expr, fullName, undefined, true);
-                initialValue = compiled();
-            }
-
-            if (initialValue === '' && (dataType === 'integer' || dataType === 'decimal' || dataType === 'number' || dataType === 'money')) {
-                initialValue = null;
-            }
-            if (initialValue === '' && dataType === 'boolean') {
-                initialValue = false;
-            }
-            
-            // prePopulate: override initial value from instance data
-            let prePopReadonly = false;
-            if (item.prePopulate) {
-                const ppData = this.getInstanceData(item.prePopulate.instance, item.prePopulate.path);
-                if (ppData !== undefined) {
-                    initialValue = ppData;
-                }
-                if (item.prePopulate.editable === false) {
-                    prePopReadonly = true;
-                }
-            }
-
-            this.signals[fullName] = signal(initialValue);
-            this.requiredSignals[fullName] = signal(false);
-            this.readonlySignals[fullName] = signal(prePopReadonly);
-            this.errorSignals[fullName] = signal(null);
-            this.validationResults[fullName] = signal([]);
-
-            // Initialize bind-driven signals BEFORE creating validation computed,
-            // so the computed captures the correct signal references.
-            if (bind) {
-                if (bind.calculate) {
-                    const compiledCalc = this.compileFEL(bind.calculate, fullName, undefined, false);
-                    if (bind.precision !== undefined) {
-                        const factor = Math.pow(10, bind.precision);
-                        this.signals[fullName] = computed(() => {
-                            const raw = compiledCalc();
-                            return typeof raw === 'number' && !isNaN(raw)
-                                ? Math.round(raw * factor) / factor
-                                : raw;
-                        });
-                    } else {
-                        this.signals[fullName] = computed(compiledCalc);
-                    }
-                }
-                if (bind.required) {
-                    if (typeof bind.required === 'string') {
-                        const compiled = this.compileFEL(bind.required as string, fullName, undefined, true);
-                        this.requiredSignals[fullName] = computed(() => !!compiled());
-                    } else {
-                        this.requiredSignals[fullName] = signal(!!bind.required);
-                    }
-                }
-                if (bind.readonly) {
-                    if (typeof bind.readonly === 'string') {
-                        const compiled = this.compileFEL(bind.readonly as string, fullName, undefined, true);
-                        this.readonlySignals[fullName] = computed(() => !!compiled());
-                    } else {
-                        this.readonlySignals[fullName] = signal(!!bind.readonly);
-                    }
-                }
-            }
-
-            const compiledConstraint = bind?.constraint ? this.compileFEL(bind.constraint, fullName, undefined, true) : null;
-            let patternRegex: RegExp | null = null;
-            if (typeof item.pattern === 'string') {
-                try {
-                    patternRegex = new RegExp(item.pattern as string);
-                } catch {
-                    patternRegex = null;
-                }
-            }
-
-            // Resolve registry extension constraints (pattern, maxLength) for this field.
-            let registryPatternRegex: RegExp | null = null;
-            let registryMaxLength: number | null = null;
-            let registryMinimum: number | null = null;
-            let registryMaximum: number | null = null;
-            let registryDisplayName: string | null = null;
-            const unresolvedExtensions: string[] = [];
-            const extensionDiagnostics: ValidationResult[] = [];
-            const formspecVersion = this.definition.$formspec || '1.0';
-            const exts = item.extensions;
-            if (exts && typeof exts === 'object') {
-                for (const [extName, extEnabled] of Object.entries(exts)) {
-                    if (!extEnabled) continue;
-                    const entry = this.registryEntries.get(extName);
-                    if (!entry) {
-                        unresolvedExtensions.push(extName);
-                        continue;
-                    }
-
-                    // §7.3 Compatibility check
-                    const requiredRange = entry.compatibility?.formspecVersion;
-                    if (requiredRange && !versionSatisfies(formspecVersion, requiredRange)) {
-                        extensionDiagnostics.push({
-                            severity: "warning",
-                            path: this.toExternalPath(fullName),
-                            message: `Extension '${extName}' requires formspec ${requiredRange} but definition uses ${formspecVersion}`,
-                            constraintKind: "constraint",
-                            code: "EXTENSION_COMPATIBILITY_MISMATCH",
-                            source: "bind"
-                        });
-                    }
-
-                    // §7.4 Status enforcement
-                    if (entry.status === 'retired') {
-                        extensionDiagnostics.push({
-                            severity: "warning",
-                            path: this.toExternalPath(fullName),
-                            message: `Extension '${extName}' is retired and should not be used`,
-                            constraintKind: "constraint",
-                            code: "EXTENSION_RETIRED",
-                            source: "bind"
-                        });
-                    } else if (entry.status === 'deprecated') {
-                        const notice = entry.deprecationNotice || `Extension '${extName}' is deprecated`;
-                        extensionDiagnostics.push({
-                            severity: "info",
-                            path: this.toExternalPath(fullName),
-                            message: notice,
-                            constraintKind: "constraint",
-                            code: "EXTENSION_DEPRECATED",
-                            source: "bind"
-                        });
-                    }
-
-                    if (!registryDisplayName && entry.metadata?.displayName) {
-                        registryDisplayName = entry.metadata.displayName;
-                    }
-                    if (!entry.constraints) continue;
-                    if (entry.constraints.pattern && !registryPatternRegex) {
-                        try {
-                            registryPatternRegex = new RegExp(entry.constraints.pattern);
-                        } catch { /* skip invalid patterns */ }
-                    }
-                    if (entry.constraints.maxLength != null && registryMaxLength == null) {
-                        registryMaxLength = entry.constraints.maxLength;
-                    }
-                    if (entry.constraints.minimum != null && registryMinimum == null) {
-                        registryMinimum = entry.constraints.minimum;
-                    }
-                    if (entry.constraints.maximum != null && registryMaximum == null) {
-                        registryMaximum = entry.constraints.maximum;
-                    }
-                }
-            }
-
-            this.validationResults[fullName] = computed(() => {
-                const results: ValidationResult[] = [];
-                const value = this.signals[fullName].value;
-                const isRequired = this.requiredSignals[fullName].value;
-
-                // 0. Unresolved extensions
-                for (const extName of unresolvedExtensions) {
-                    results.push({
-                        severity: "error",
-                        path: this.toExternalPath(fullName),
-                        message: `Unresolved extension '${extName}': no matching registry entry loaded`,
-                        constraintKind: "constraint",
-                        code: "UNRESOLVED_EXTENSION",
-                        source: "bind"
-                    });
-                }
-
-                // 0b. Extension diagnostics (§7.3 compatibility, §7.4 status)
-                results.push(...extensionDiagnostics);
-
-                // 1. DataType Validation
-                if (!this.validateDataType(value, dataType)) {
-                    results.push({
-                        severity: "error",
-                        path: this.toExternalPath(fullName),
-                        message: `Invalid ${dataType}`,
-                        constraintKind: "type",
-                        code: "TYPE_MISMATCH",
-                        source: "bind"
-                    });
-                }
-
-                // 2. Required Validation
-                // Money fields store objects like { amount, currency }; treat missing amount as empty.
-                const isMoneyEmpty = dataType === 'money'
-                    && value !== null
-                    && value !== undefined
-                    && typeof value === 'object'
-                    && 'amount' in value
-                    && (value.amount === null || value.amount === undefined || value.amount === '');
-
-                if (isRequired && (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0) || isMoneyEmpty)) {
-                    results.push({
-                        severity: "error",
-                        path: this.toExternalPath(fullName),
-                        message: "Required",
-                        constraintKind: "required",
-                        code: "REQUIRED",
-                        source: "bind"
-                    });
-                }
-
-                // 3. Bind Constraint
-                // Null-propagating: skip when value is empty — the `required` Bind is
-                // responsible for ensuring a value exists (spec §3.8.1).
-                if (compiledConstraint && !(value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0))) {
-                    if (!constraintPasses(compiledConstraint())) {
-                        results.push({
-                            severity: "error",
-                            path: this.toExternalPath(fullName),
-                            message: bind?.constraintMessage || "Invalid",
-                            constraintKind: "constraint",
-                            code: "CONSTRAINT_FAILED",
-                            source: "bind",
-                            constraint: bind?.constraint
-                        });
-                    }
-                }
-
-                // 4. Pattern Validation
-                // Null-propagating: do not emit pattern errors for empty optional values.
-                if (patternRegex && !(value === null || value === undefined || value === '')) {
-                    if (!patternRegex.test(String(value))) {
-                        results.push({
-                            severity: "error",
-                            path: this.toExternalPath(fullName),
-                            message: "Pattern mismatch",
-                            constraintKind: "constraint",
-                            code: "PATTERN_MISMATCH",
-                            source: "bind"
-                        });
-                    }
-                }
-
-                // 5. Registry extension constraints (pattern, maxLength, minimum, maximum)
-                // Null-propagating: skip for empty optional values.
-                if (!(value === null || value === undefined || value === '')) {
-                    if (registryPatternRegex && !registryPatternRegex.test(String(value))) {
-                        results.push({
-                            severity: "error",
-                            path: this.toExternalPath(fullName),
-                            message: registryDisplayName ? `Must be a valid ${registryDisplayName}` : "Pattern mismatch",
-                            constraintKind: "constraint",
-                            code: "PATTERN_MISMATCH",
-                            source: "bind"
-                        });
-                    }
-                    if (registryMaxLength != null && String(value).length > registryMaxLength) {
-                        results.push({
-                            severity: "error",
-                            path: this.toExternalPath(fullName),
-                            message: `Must be at most ${registryMaxLength} characters`,
-                            constraintKind: "constraint",
-                            code: "MAX_LENGTH_EXCEEDED",
-                            source: "bind"
-                        });
-                    }
-                    const numVal = typeof value === 'number' ? value : Number(value);
-                    if (!isNaN(numVal)) {
-                        if (registryMinimum != null && numVal < registryMinimum) {
-                            results.push({
-                                severity: "error",
-                                path: this.toExternalPath(fullName),
-                                message: `Must be at least ${registryMinimum}`,
-                                constraintKind: "constraint",
-                                code: "RANGE_UNDERFLOW",
-                                source: "bind"
-                            });
-                        }
-                        if (registryMaximum != null && numVal > registryMaximum) {
-                            results.push({
-                                severity: "error",
-                                path: this.toExternalPath(fullName),
-                                message: `Must be at most ${registryMaximum}`,
-                                constraintKind: "constraint",
-                                code: "RANGE_OVERFLOW",
-                                source: "bind"
-                            });
-                        }
-                    }
-                }
-                return results;
-            });
-
-            this.errorSignals[fullName] = computed(() => {
-                const res = this.validationResults[fullName].value;
-                return res.length > 0 ? res[0].message : null;
-            });
-            
-            // Default bind: apply default value on relevance transition
-            if (bind?.default !== undefined) {
-                let prevRelevant = this.relevantSignals[fullName]?.peek?.() ?? true;
-                // Coerce money defaults: ensure amount is numeric, not string
-                let defaultVal = bind.default;
-                if (dataType === 'money' && defaultVal && typeof defaultVal === 'object' && 'amount' in defaultVal && typeof defaultVal.amount === 'string') {
-                    defaultVal = { ...defaultVal, amount: defaultVal.amount === '' ? null : Number(defaultVal.amount) };
-                }
-                const sigRef = this.signals[fullName];
-                if (this.relevantSignals[fullName] && sigRef && !('_dispose' in sigRef)) {
-                    // Only for writable signals (not computed/calculated)
-                    effect(() => {
-                        const nowRelevant = this.relevantSignals[fullName].value;
-                        if (nowRelevant && !prevRelevant) {
-                            // Transitioning to relevant — apply default
-                            if (this.signals[fullName].peek() === null ||
-                                this.signals[fullName].peek() === undefined ||
-                                this.signals[fullName].peek() === '') {
-                                this.signals[fullName].value = defaultVal;
-                            }
-                        }
-                        prevRelevant = nowRelevant;
-                    });
-                }
-            }
-
-            if (item.children) {
-                for (const child of item.children) {
-                    this.initItem(child, fullName);
-                }
-            }
-        } else if (item.type === 'display') {
-            // Display items don't collect data, but can have computed text via calculate bind.
-            if (bind?.calculate) {
-                const compiledCalc = this.compileFEL(bind.calculate, fullName, undefined, false);
-                this.signals[fullName] = computed(compiledCalc);
-                this.displaySignalPaths.add(fullName);
-            }
-        }
-    }
-
-    private initRepeatInstance(item: FormspecItem, fullName: string, index: number) {
-        if (!item.children) return;
-        const prefix = `${fullName}[${index}]`;
-        for (const child of item.children) {
-            this.initItem(child, prefix);
-        }
-    }
-
-    /**
-     * Adds a new repeat instance to a repeatable group, initializing all child signals.
-     * Does not enforce maxRepeat; exceeding the maximum produces a validation error instead.
-     * @param itemName - The full path of the repeatable group.
-     * @returns The zero-based index of the newly created instance, or undefined if the item is not repeatable.
-     */
-    public addRepeatInstance(itemName: string) {
-        const item = this.findItem(this.definition.items, itemName);
-        if (item && item.repeatable) {
-            const index = this.repeats[itemName].value;
-            batch(() => {
-                this.initRepeatInstance(item!, itemName, index);
-                this.repeats[itemName].value++;
-                this.structureVersion.value++;
-            });
-            return index;
-        }
-    }
-
-    private cloneValue<T>(value: T): T {
-        if (value === null || value === undefined || typeof value !== 'object') {
-            return value;
-        }
-        const cloner = (globalThis as any).structuredClone;
-        if (typeof cloner === 'function') {
-            return cloner(value);
-        }
-        return JSON.parse(JSON.stringify(value));
-    }
-
-    private isWritableSignal(sig: any): boolean {
-        if (!sig) return false;
-        const proto = Object.getPrototypeOf(sig);
-        if (!proto) return false;
-        const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
-        return !!descriptor?.set;
-    }
-
-    private snapshotGroupChildren(items: FormspecItem[], prefix: string): Record<string, any> {
-        const snapshot: Record<string, any> = {};
-        for (const item of items) {
-            const path = `${prefix}.${item.key}`;
-            if (item.type === 'field') {
-                snapshot[item.key] = this.cloneValue(this.signals[path]?.value);
-                continue;
-            }
-
-            if (item.type === 'group') {
-                if (item.repeatable) {
-                    const count = this.repeats[path]?.value ?? 0;
-                    const rows: Array<Record<string, any>> = [];
-                    for (let i = 0; i < count; i++) {
-                        rows.push(this.snapshotGroupChildren(item.children || [], `${path}[${i}]`));
-                    }
-                    snapshot[item.key] = rows;
-                } else {
-                    snapshot[item.key] = this.snapshotGroupChildren(item.children || [], path);
-                }
-            }
-        }
-        return snapshot;
-    }
-
-    private clearRepeatSubtree(rootRepeatPath: string) {
-        const prefix = `${rootRepeatPath}[`;
-        const stores = [
-            this.signals,
-            this.relevantSignals,
-            this.requiredSignals,
-            this.readonlySignals,
-            this.errorSignals,
-            this.validationResults,
-            this.repeats
-        ];
-
-        for (const store of stores) {
-            for (const key of Object.keys(store)) {
-                if (key.startsWith(prefix)) {
-                    delete store[key];
-                }
-            }
-        }
-    }
-
-    private applyGroupChildrenSnapshot(items: FormspecItem[], prefix: string, snapshot: Record<string, any>) {
-        for (const item of items) {
-            const path = `${prefix}.${item.key}`;
-            if (item.type === 'field') {
-                const sig = this.signals[path];
-                if (sig && this.isWritableSignal(sig)) {
-                    sig.value = this.cloneValue(snapshot?.[item.key]);
-                }
-                continue;
-            }
-
-            if (item.type === 'group') {
-                if (item.repeatable) {
-                    const desiredRows: Array<Record<string, any>> = Array.isArray(snapshot?.[item.key]) ? snapshot[item.key] : [];
-                    let currentCount = this.repeats[path]?.value ?? 0;
-
-                    while (currentCount < desiredRows.length) {
-                        this.addRepeatInstance(path);
-                        currentCount = this.repeats[path]?.value ?? 0;
-                    }
-                    while (currentCount > desiredRows.length) {
-                        this.removeRepeatInstance(path, currentCount - 1);
-                        currentCount = this.repeats[path]?.value ?? 0;
-                    }
-
-                    for (let i = 0; i < desiredRows.length; i++) {
-                        this.applyGroupChildrenSnapshot(item.children || [], `${path}[${i}]`, desiredRows[i] || {});
-                    }
-                } else {
-                    this.applyGroupChildrenSnapshot(item.children || [], path, snapshot?.[item.key] || {});
-                }
-            }
-        }
-    }
-
-    /**
-     * Removes a repeat instance at the given index, shifting subsequent instances down.
-     * Does not enforce minRepeat; going below the minimum produces a validation error instead.
-     * @param itemName - The full path of the repeatable group.
-     * @param index - The zero-based index of the instance to remove.
-     */
-    public removeRepeatInstance(itemName: string, index: number) {
-        const count = this.repeats[itemName]?.value;
-        if (count == null || index < 0 || index >= count) return;
-
-        const item = this.findItem(this.definition.items, itemName);
-        if (!item || !item.children) return;
-
-        const snapshots: Array<Record<string, any>> = [];
-        for (let i = 0; i < count; i++) {
-            snapshots.push(this.snapshotGroupChildren(item.children, `${itemName}[${i}]`));
-        }
-        snapshots.splice(index, 1);
-
+        const index = this.repeats[path]?.value ?? 0;
         batch(() => {
-            this.clearRepeatSubtree(itemName);
-            this.repeats[itemName].value = snapshots.length;
-            for (let i = 0; i < snapshots.length; i++) {
-                this.initRepeatInstance(item!, itemName, i);
-                this.applyGroupChildrenSnapshot(item!.children!, `${itemName}[${i}]`, snapshots[i]);
-            }
-            this.structureVersion.value++;
+            this.repeats[path].value = index + 1;
+            this.registerItemChildren(item.children ?? [], `${path}[${index}]`);
+            this.structureVersion.value += 1;
         });
+        this._evaluate();
+        return index;
     }
 
-    private collectFieldKeys(items: FormspecItem[], prefix = ''): string[] {
-        const keys: string[] = [];
-        for (const item of items) {
-            const path = prefix ? `${prefix}.${item.key}` : item.key;
-            if (item.type === 'field') {
-                keys.push(path);
-            }
-            if (item.children) {
-                keys.push(...this.collectFieldKeys(item.children, path));
-            }
-        }
-        return keys;
-    }
-
-    private findItem(items: FormspecItem[], name: string): FormspecItem | undefined {
-        return itemAtPath(items, name);
-    }
-
-    /**
-     * Compiles a FEL expression into a callable function that evaluates against the engine's current state.
-     * Results are cached; subsequent calls with the same expression and context return the cached function.
-     * @param expression - The FEL expression string to compile.
-     * @param currentItemName - The field path providing evaluation context for relative references.
-     * @returns A zero-argument function that returns the expression's current value.
-     */
-    public compileExpression(expression: string, currentItemName: string = '') {
-        return this.compileFEL(expression, currentItemName, undefined, true);
-    }
-
-    private compileFEL(expression: string, currentItemName: string, index?: number, includeSelf = false): () => any {
-        const cacheKey = `${expression}|${currentItemName}|${includeSelf}`;
-        if (this.compiledExpressions[cacheKey]) return this.compiledExpressions[cacheKey];
-
-        const result = this.felRuntime.compile(expression);
-
-        if (!result.expression) {
-            console.error(`FEL Parse Errors for "${expression}":`, result.errors);
-            const errorFn = () => null;
-            this.compiledExpressions[cacheKey] = errorFn;
-            return errorFn;
-        }
-
-        const compiledExpr = result.expression;
-        const baseCurrentItemName = currentItemName.replace(/\[\d+\]/g, '');
-        const astDeps = compiledExpr.dependencies;
-
-        if (!this.dependencies[baseCurrentItemName]) {
-            this.dependencies[baseCurrentItemName] = [];
-        }
-
-        const lastDot = currentItemName.lastIndexOf('.');
-        const parentPath = lastDot === -1 ? '' : currentItemName.substring(0, lastDot);
-
-        for (const dep of astDeps) {
-            let fullDepPath = dep;
-            if (dep === '') {
-                fullDepPath = baseCurrentItemName;
-            } else if (!dep.includes('.') && parentPath) {
-                fullDepPath = `${parentPath}.${dep}`;
-            }
-
-            const cleanDepPath = fullDepPath.replace(/\[\d+\]/g, '');
-            if (!this.dependencies[baseCurrentItemName].includes(cleanDepPath)) {
-                this.dependencies[baseCurrentItemName].push(cleanDepPath);
-            }
-        }
-
-        const compiled = () => {
-            this.structureVersion.value;
-            this.instanceVersion.value;
-            // Track dependencies in signals
-            for (const dep of astDeps) {
-                let fullDepPath = dep;
-                if (dep === '') {
-                    if (!includeSelf) continue; // Skip self-references for calculate expressions
-                    fullDepPath = currentItemName;
-                } else if (!dep.includes('.') && parentPath) {
-                    fullDepPath = `${parentPath}.${dep}`;
-                }
-
-                if (this.signals[fullDepPath]) this.signals[fullDepPath].value;
-                if (this.repeats[fullDepPath]) this.repeats[fullDepPath].value;
-                if (this.relevantSignals[fullDepPath]) this.relevantSignals[fullDepPath].value;
-            }
-
-            const context: FelContext = {
-                getSignalValue: (path: string) => {
-                    // excludedValue: when "null", non-relevant fields return null
-                    const cleanPath = path.replace(/\[\d+\]/g, '');
-                    const pathBind = this.bindConfigs[cleanPath];
-                    if (pathBind?.excludedValue === 'null' && this.relevantSignals[path] && !this.relevantSignals[path].value) {
-                        return null;
-                    }
-                    if (this.signals[path]) return this.signals[path].value;
-                    // Check if path traverses a repeatable group — collect instances into array
-                    // Supports nested repeats by scanning each dotted segment.
-                    // '*' segments (from [*] wildcards in FEL) are skipped — the repeat
-                    // expansion happens automatically when the group segment is encountered.
-                    const segments = path.split('.');
-                    const resolvedPaths = [''];
-                    for (let s = 0; s < segments.length; s++) {
-                        const seg = segments[s];
-                        if (seg === '*') continue; // skip wildcard markers
-                        const newPaths: string[] = [];
-                        for (const rp of resolvedPaths) {
-                            const candidate = rp ? `${rp}.${seg}` : seg;
-                            if (this.repeats[candidate]) {
-                                const count = this.repeats[candidate].value;
-                                for (let i = 0; i < count; i++) {
-                                    newPaths.push(`${candidate}[${i}]`);
-                                }
-                            } else {
-                                newPaths.push(candidate);
-                            }
-                        }
-                        resolvedPaths.length = 0;
-                        resolvedPaths.push(...newPaths);
-                    }
-                    // If we expanded repeats, collect leaf signal values
-                    if (resolvedPaths.length > 0 && resolvedPaths[0] !== path) {
-                        const result: any[] = [];
-                        for (const rp of resolvedPaths) {
-                            const sig = this.signals[rp];
-                            if (sig) {
-                                const val = sig.value;
-                                if (Array.isArray(val)) {
-                                    result.push(...val);
-                                } else {
-                                    result.push(val);
-                                }
-                            }
-                        }
-                        if (result.length > 0) return result;
-                    }
-                    return undefined;
-                },
-                getRepeatsValue: (path: string) => this.repeats[path]?.value ?? 0,
-                getRelevantValue: (path: string) => this.relevantSignals[path]?.value ?? true,
-                getRequiredValue: (path: string) => this.requiredSignals[path]?.value ?? false,
-                getReadonlyValue: (path: string) => this.readonlySignals[path]?.value ?? false,
-                getValidationErrors: (path: string) => {
-                    const vr = this.validationResults[path];
-                    if (!vr) return 0;
-                    return vr.value.filter(r => r.severity === 'error').length;
-                },
-                currentItemPath: currentItemName,
-                engine: this
-            };
-
-            try {
-                return compiledExpr.evaluate(context);
-            } catch (e) {
-                const message = e instanceof Error ? e.message : String(e);
-                if (message.includes('Unsupported FEL function:')) {
-                    throw e;
-                }
-                console.error("FEL Evaluation Error:", e);
-                return null;
-            }
-        };
-
-        this.compiledExpressions[cacheKey] = compiled;
-        return compiled;
-    }
-
-    private getValueFromDataPath(data: Record<string, any>, path: string): any {
-        if (!path) return data;
-
-        let currentValues: any[] = [data];
-        const segments = path.split('.');
-
-        for (const segment of segments) {
-            const nextValues: any[] = [];
-            const match = segment.match(/^([^\[\]]+)(?:\[(\*|\d+)\])?$/);
-
-            for (const current of currentValues) {
-                if (current === null || current === undefined) continue;
-
-                if (!match) {
-                    if (/^\d+$/.test(segment)) {
-                        const idx = parseInt(segment, 10) - 1; // FEL index access is 1-based.
-                        if (Array.isArray(current) && idx >= 0 && idx < current.length) {
-                            nextValues.push(current[idx]);
-                        } else if (typeof current === 'object' && segment in current) {
-                            nextValues.push((current as any)[segment]);
-                        }
-                    } else if (segment === '*') {
-                        if (Array.isArray(current)) {
-                            nextValues.push(...current);
-                        }
-                    } else if (typeof current === 'object' && segment in current) {
-                        nextValues.push((current as any)[segment]);
-                    }
-                    continue;
-                }
-
-                const base = match[1];
-                const indexToken = match[2];
-                const baseValue = (current as any)[base];
-
-                if (indexToken === undefined) {
-                    if (Array.isArray(baseValue)) {
-                        nextValues.push(...baseValue);
-                    } else {
-                        nextValues.push(baseValue);
-                    }
-                    continue;
-                }
-
-                if (indexToken === '*') {
-                    if (Array.isArray(baseValue)) {
-                        nextValues.push(...baseValue);
-                    }
-                    continue;
-                }
-
-                const idx = parseInt(indexToken, 10) - 1; // FEL index access is 1-based.
-                if (Array.isArray(baseValue) && idx >= 0 && idx < baseValue.length) {
-                    nextValues.push(baseValue[idx]);
-                }
-            }
-
-            currentValues = nextValues;
-            if (currentValues.length === 0) return undefined;
-        }
-
-        return currentValues.length === 1 ? currentValues[0] : currentValues;
-    }
-
-    private evaluateMigrationExpression(expression: string, data: Record<string, any>): any {
-        const result = this.felRuntime.compile(expression);
-        if (!result.expression) return null;
-
-        const context: FelContext = {
-            getSignalValue: (path: string) => this.getValueFromDataPath(data, path),
-            getRepeatsValue: (path: string) => {
-                const value = this.getValueFromDataPath(data, path);
-                return Array.isArray(value) ? value.length : 0;
-            },
-            getRelevantValue: () => true,
-            getRequiredValue: () => false,
-            getReadonlyValue: () => false,
-            getValidationErrors: () => 0,
-            currentItemPath: '',
-            engine: this
-        };
-
-        try {
-            return result.expression.evaluate(context);
-        } catch {
-            return null;
-        }
-    }
-
-    /**
-     * Sets a field's value, applying whitespace transforms, type coercion, and precision enforcement
-     * as configured by the field's bind and data type.
-     * @param name - Full field path including repeat indices (e.g. `"expenses[0].amount"`).
-     * @param value - The new value to set.
-     */
-    public setValue(name: string, value: any) {
-        const instanceTarget = this.parseInstanceTarget(name);
-        if (instanceTarget) {
-            this.writeInstanceValue(instanceTarget.instanceName, instanceTarget.instancePath, value);
+    public removeRepeatInstance(itemName: string, index: number): void {
+        const path = this.resolveRepeatPath(itemName);
+        const item = this._groupItems.get(path);
+        const count = this.repeats[path]?.value ?? 0;
+        if (!item?.repeatable || index < 0 || index >= count) {
             return;
         }
 
-        const baseName = name.replace(/\[\d+\]/g, '');
-        const item = this.findItem(this.definition.items, baseName);
-        const dataType = item?.dataType || (item?.type as string);
-        const bind = this.bindConfigs[baseName];
+        const rows: Record<string, any>[] = [];
+        for (let current = 0; current < count; current += 1) {
+            rows.push(this.snapshotGroupChildren(item.children ?? [], `${path}[${current}]`));
+        }
+        rows.splice(index, 1);
 
-        // Whitespace transform (before type coercion)
-        if (typeof value === 'string' && bind?.whitespace) {
-            switch (bind.whitespace) {
-                case 'trim': value = value.trim(); break;
-                case 'normalize': value = value.replace(/\s+/g, ' ').trim(); break;
-                case 'remove': value = value.replace(/\s/g, ''); break;
+        batch(() => {
+            this.clearRepeatSubtree(path);
+            this.repeats[path].value = rows.length;
+            for (let current = 0; current < rows.length; current += 1) {
+                this.registerItemChildren(item.children ?? [], `${path}[${current}]`);
+                this.applyGroupChildrenSnapshot(item.children ?? [], `${path}[${current}]`, rows[current]);
             }
-        }
+            this.structureVersion.value += 1;
+        });
 
-        // Type coercion
-        if (dataType && (dataType === 'integer' || dataType === 'decimal' || dataType === 'number') && typeof value === 'string') {
-            value = value === '' ? null : Number(value);
-        }
-        if (dataType === 'money' && typeof value === 'number') {
-            const currency = item?.currency || this.definition.formPresentation?.defaultCurrency || '';
-            value = { amount: value, currency };
-        }
-        if (dataType === 'money' && value && typeof value === 'object' && typeof value.amount === 'string') {
-            value = { ...value, amount: value.amount === '' ? null : Number(value.amount) };
-        }
-
-        // Precision enforcement
-        if (bind?.precision !== undefined && typeof value === 'number' && !isNaN(value)) {
-            const factor = Math.pow(10, bind.precision);
-            value = Math.round(value * factor) / factor;
-        }
-
-        const sig = this.signals[name];
-        if (sig && this.isWritableSignal(sig)) {
-            sig.value = value;
-        }
+        this._evaluate();
     }
 
-    /**
-     * Builds and returns the current validation report, aggregating bind-level and shape-level results.
-     * In `"continuous"` mode (default), only continuous-timing shapes are included.
-     * In `"submit"` mode, submit-timing shapes are also evaluated.
-     * Non-relevant fields are excluded from the report.
-     * @param options - Optional mode selection (`"continuous"` or `"submit"`).
-     */
-    public getValidationReport(options?: { mode?: 'continuous' | 'submit' }): ValidationReport {
-        const mode = options?.mode || 'continuous';
-        const allResults: ValidationResult[] = [];
+    public compileExpression(expression: string, currentItemName = ''): () => any {
+        return () => {
+            this._evaluationVersion.value;
+            this.instanceVersion.value;
+            this.structureVersion.value;
+            return this.evaluateExpression(expression, currentItemName);
+        };
+    }
 
-        // Always include bind-level validation (field constraints)
-        for (const key of Object.keys(this.validationResults)) {
-            if (this.isPathRelevant(key)) {
-                allResults.push(...this.validationResults[key].value);
+    public setValue(name: string, value: any): void {
+        if (typeof name !== 'string') {
+            throw new TypeError('setValue path cannot be null');
+        }
+
+        const instanceTarget = parseInstanceTarget(name);
+        if (instanceTarget) {
+            this.writeInstanceValue(instanceTarget.instanceName, instanceTarget.instancePath, value);
+            this._evaluate();
+            return;
+        }
+
+        const basePath = toBasePath(name);
+        if (this._calculatedFields.has(basePath)) {
+            return;
+        }
+
+        const item = this._fieldItems.get(basePath);
+        if (!item) {
+            return;
+        }
+
+        const bind = this._bindConfigs[basePath];
+        const nextValue = coerceFieldValue(item, bind, this.definition, value);
+        this._data[name] = cloneValue(nextValue);
+        this._evaluate();
+    }
+
+    public getValidationReport(options?: { mode?: 'continuous' | 'submit' }): ValidationReport {
+        const mode = options?.mode ?? 'continuous';
+        const results: ValidationResult[] = [];
+
+        for (const [path, signalRef] of Object.entries(this.validationResults)) {
+            if (this.isPathRelevant(path)) {
+                results.push(...signalRef.value);
             }
         }
 
-        // Include continuous shape results (always)
-        for (const shapeId of Object.keys(this.shapeResults)) {
-            allResults.push(...this.shapeResults[shapeId].value);
+        for (const signalRef of Object.values(this.shapeResults)) {
+            results.push(...signalRef.value);
         }
 
-        // In submit mode, also evaluate submit-timing shapes
-        if (mode === 'submit' && this.definition.shapes) {
-            for (const shape of this.definition.shapes) {
-                if (shape.timing === 'submit') {
-                    allResults.push(...this.evaluateShapeForPaths(shape));
+        if (mode === 'submit') {
+            const submitResult = this.evaluateResultForTrigger('submit');
+            for (const validation of submitResult.validations) {
+                if (!validation.shapeId) {
+                    continue;
+                }
+                if ((this._shapeTiming.get(validation.shapeId) ?? 'continuous') === 'submit') {
+                    results.push(toValidationResult(validation));
                 }
             }
         }
 
         const counts = { error: 0, warning: 0, info: 0 };
-        for (const r of allResults) {
-            counts[r.severity]++;
+        for (const result of results) {
+            counts[result.severity as keyof typeof counts] += 1;
         }
 
         return {
             valid: counts.error === 0,
-            results: allResults,
+            results,
             counts,
-            timestamp: this.nowISO()
+            timestamp: this.nowISO(),
         };
     }
 
-    /**
-     * Evaluates a specific shape by ID on demand, returning any resulting validation findings.
-     * Typically used for demand-timing shapes that are not automatically evaluated.
-     * @param shapeId - The shape's unique identifier from the definition.
-     * @returns An array of validation results (empty if the shape passes or is not found).
-     */
     public evaluateShape(shapeId: string): ValidationResult[] {
-        const shape = this.definition.shapes?.find(s => s.id === shapeId);
-        if (!shape) return [];
-        return this.evaluateShapeForPaths(shape);
+        const timing = this._shapeTiming.get(shapeId) ?? 'continuous';
+        if (timing === 'demand') {
+            return this.evaluateResultForTrigger('demand').validations
+                .filter((result) => result.shapeId === shapeId)
+                .map(toValidationResult);
+        }
+        if (!this._fullResult) {
+            this._evaluate();
+        }
+        return this._fullResult?.validations
+            .filter((result) => result.shapeId === shapeId)
+            .map(toValidationResult) ?? [];
     }
 
-    // TODO: Consider getResolvedState(path) returning {relevant, required, readonly}
-    // with parent-chain resolution, so we don't repeat this walk for each property.
     public isPathRelevant(path: string): boolean {
-        if (!path) return true;
-        const parts = path.split(/[\[\]\.]/).filter(Boolean);
-        let currentPath = '';
-        for (let i = 0; i < parts.length; i++) {
-            const part = parts[i];
-            const isNumber = !isNaN(parseInt(part)) && /^\d+$/.test(part);
-            if (isNumber) {
-                currentPath += `[${part}]`;
-            } else {
-                currentPath += (currentPath ? '.' : '') + part;
-            }
-            if (this.relevantSignals[currentPath] && !this.relevantSignals[currentPath].value) {
+        if (!path) {
+            return true;
+        }
+        const segments = splitIndexedPath(path);
+        let current = '';
+        for (const segment of segments) {
+            current = current ? appendPath(current, segment) : segment;
+            if (this.relevantSignals[current] && !this.relevantSignals[current].value) {
                 return false;
             }
         }
         return true;
     }
 
-    /**
-     * Serializes the current form state into a Formspec response document.
-     * Respects nonRelevantBehavior settings (remove, empty, or keep) when building the data tree.
-     * Includes a full validation report and metadata (definitionUrl, definitionVersion, status, authored timestamp).
-     * @param meta - Optional metadata: response id, author, subject, and validation mode.
-     * @returns A Formspec response object ready for submission or persistence.
-     */
-    public getResponse(meta?: { id?: string; author?: { id: string; name?: string }; subject?: { id: string; type?: string }; mode?: 'continuous' | 'submit' }) {
-        const data: any = {};
-        const mode = meta?.mode || 'continuous';
+    public getResponse(meta?: {
+        id?: string;
+        author?: { id: string; name?: string };
+        subject?: { id: string; type?: string };
+        mode?: 'continuous' | 'submit';
+    }): any {
+        const data: Record<string, any> = {};
+        const mode = meta?.mode ?? 'continuous';
+        const defaultBehavior = this.definition.nonRelevantBehavior ?? 'remove';
 
-        const defaultNRB = this.definition.nonRelevantBehavior || 'remove';
-
-        for (const key of Object.keys(this.signals)) {
-            if (this.displaySignalPaths.has(key)) continue;
-            const isRelevant = this.isPathRelevant(key);
-            const baseName = key.replace(/\[\d+\]/g, '');
-            let nrb = defaultNRB;
-            const ownBind = this.bindConfigs[baseName];
-            if (ownBind?.nonRelevantBehavior) {
-                nrb = ownBind.nonRelevantBehavior;
-            } else {
-                const nrbParts = baseName.split('.');
-                for (let ai = nrbParts.length - 1; ai >= 1; ai--) {
-                    const ancestor = nrbParts.slice(0, ai).join('.');
-                    const ancestorBind = this.bindConfigs[ancestor];
-                    if (ancestorBind?.nonRelevantBehavior) {
-                        nrb = ancestorBind.nonRelevantBehavior;
-                        break;
-                    }
-                }
+        for (const [path, signalRef] of Object.entries(this.signals)) {
+            if (this._displaySignalPaths.has(path)) {
+                continue;
             }
 
-            if (!isRelevant) {
-                if (nrb === 'remove') continue;
-            }
-
-            const parts = key.split(/[\[\]\.]/).filter(Boolean);
-            let current = data;
-            for (let i = 0; i < parts.length - 1; i++) {
-                const part = parts[i];
-                const nextPart = parts[i+1];
-                const isNextNumber = !isNaN(parseInt(nextPart));
-                if (current[part] !== undefined && (typeof current[part] !== 'object' || current[part] === null)) {
-                    // Parent segment already holds a scalar (e.g. a field with child items).
-                    // Flatten child to the current container level to avoid clobbering the scalar.
+            const relevant = this.isPathRelevant(path);
+            let behavior = defaultBehavior;
+            for (const ancestor of getAncestorBasePaths(path)) {
+                const bind = this._bindConfigs[ancestor];
+                if (bind?.nonRelevantBehavior) {
+                    behavior = bind.nonRelevantBehavior;
                     break;
                 }
-                if (!current[part]) {
-                    current[part] = isNextNumber ? [] : {};
-                }
-                current = current[part];
             }
 
-            if (!isRelevant && nrb === 'empty') {
-                current[parts[parts.length - 1]] = null;
-            } else {
-                const val = this.signals[key].value;
-                current[parts[parts.length - 1]] = Array.isArray(val) ? [...val] : (typeof val === 'object' && val !== null ? {...val} : val);
+            if (!relevant && behavior === 'remove') {
+                continue;
             }
+
+            const value = !relevant && behavior === 'empty'
+                ? null
+                : cloneValue(signalRef.value);
+            setResponsePathValue(data, path, value);
         }
 
-        // Submit mode uses full validation (continuous + submit shapes)
         const report = this.getValidationReport({ mode });
-
         const response: any = {
-            definitionUrl: this.definition.url || "http://example.org/form",
-            definitionVersion: this.definition.version || "1.0.0",
-            status: report.valid ? "completed" : "in-progress",
+            definitionUrl: this.definition.url ?? 'http://example.org/form',
+            definitionVersion: this.definition.version ?? '1.0.0',
+            status: report.valid ? 'completed' : 'in-progress',
             data,
             validationResults: report.results,
-            authored: this.nowISO()
+            authored: this.nowISO(),
         };
 
-        if (meta?.id) response.id = meta.id;
-        if (meta?.author) response.author = meta.author;
-        if (meta?.subject) response.subject = meta.subject;
+        if (meta?.id) {
+            response.id = meta.id;
+        }
+        if (meta?.author) {
+            response.author = meta.author;
+        }
+        if (meta?.subject) {
+            response.subject = meta.subject;
+        }
 
         return response;
     }
 
-    /**
-     * Captures a complete point-in-time snapshot of the engine's internal state for debugging.
-     * Includes all field values, MIP states (relevant/required/readonly/error), dependency graph,
-     * repeat counts, validation report, and runtime context.
-     * @param options - Optional validation mode for the included report.
-     */
     public getDiagnosticsSnapshot(options?: { mode?: 'continuous' | 'submit' }): FormEngineDiagnosticsSnapshot {
-        const mode = options?.mode || 'continuous';
         const values: Record<string, any> = {};
         const mips: FormEngineDiagnosticsSnapshot['mips'] = {};
         const repeats: Record<string, number> = {};
@@ -2196,9 +664,8 @@ export class FormEngine implements IFormEngine {
             repeats[path] = repeatSignal.value;
         }
 
-        const signalPaths = Object.keys(this.signals).sort();
-        for (const path of signalPaths) {
-            values[path] = this.cloneValue(this.signals[path]?.value);
+        for (const [path, signalRef] of Object.entries(this.signals)) {
+            values[path] = cloneValue(signalRef.value);
             mips[path] = {
                 relevant: this.relevantSignals[path]?.value ?? true,
                 required: this.requiredSignals[path]?.value ?? false,
@@ -2219,23 +686,16 @@ export class FormEngine implements IFormEngine {
             repeats,
             values,
             mips,
-            dependencies: this.cloneValue(this.dependencies),
-            validation: this.getValidationReport({ mode }),
+            validation: this.getValidationReport(options),
             runtimeContext: {
                 now: timestamp,
-                locale: this.runtimeContext.locale,
-                timeZone: this.runtimeContext.timeZone,
-                seed: this.runtimeContext.seed,
+                locale: this._runtimeContext.locale,
+                timeZone: this._runtimeContext.timeZone,
+                seed: this._runtimeContext.seed,
             },
         };
     }
 
-    /**
-     * Applies a single replay event to the engine, dispatching to the appropriate method.
-     * Catches errors and returns them in the result rather than throwing.
-     * @param event - The replay event to apply.
-     * @returns A result indicating success/failure, with optional output and error message.
-     */
     public applyReplayEvent(event: EngineReplayEvent): EngineReplayApplyResult {
         try {
             switch (event.type) {
@@ -2267,143 +727,133 @@ export class FormEngine implements IFormEngine {
         }
     }
 
-    /**
-     * Replays a sequence of events against the engine in order, for deterministic state reproduction.
-     * @param events - The ordered list of replay events to apply.
-     * @param options - If `stopOnError` is true, replay halts on the first failed event.
-     * @returns Aggregate results with per-event outcomes and any errors.
-     */
     public replay(events: EngineReplayEvent[], options?: { stopOnError?: boolean }): EngineReplayResult {
         const results: EngineReplayApplyResult[] = [];
         const errors: EngineReplayResult['errors'] = [];
         let applied = 0;
 
-        for (let i = 0; i < events.length; i++) {
-            const result = this.applyReplayEvent(events[i]);
+        for (let index = 0; index < events.length; index += 1) {
+            const result = this.applyReplayEvent(events[index]);
             results.push(result);
             if (result.ok) {
-                applied++;
-            } else {
-                errors.push({
-                    index: i,
-                    event: events[i],
-                    error: result.error || 'Unknown replay error',
-                });
-                if (options?.stopOnError) {
-                    break;
-                }
+                applied += 1;
+                continue;
+            }
+            errors.push({
+                index,
+                event: events[index],
+                error: result.error ?? 'Unknown replay error',
+            });
+            if (options?.stopOnError) {
+                break;
             }
         }
 
-        return {
-            applied,
-            results,
-            errors,
-        };
+        return { applied, results, errors };
     }
 
-    // === Extended Features (Phase 11) ===
-
-    /** Returns the loaded Formspec definition document. */
-    public getDefinition(): FormspecDefinition {
+    public getDefinition(): FormDefinition {
         return this.definition;
     }
 
-    /** Returns the definition's `formPresentation` block (layout, wizard, default currency, etc.), or null if absent. */
-    get formPresentation(): any {
-        return this.definition.formPresentation || null;
+    public setLabelContext(context: string | null): void {
+        this._labelContext = context;
     }
 
-    private labelContext: string | null = null;
-
-    /**
-     * Sets the active label context key, used by {@link getLabel} to select alternate label strings.
-     * @param context - A label context key (e.g. `"short"`, `"print"`), or null to use the default label.
-     */
-    public setLabelContext(context: string | null) {
-        this.labelContext = context;
-    }
-
-    /**
-     * Returns the label for an item, honoring the current label context if one is set.
-     * Falls back to the item's default `label` property when no context match is found.
-     */
-    public getLabel(item: FormspecItem): string {
-        if (this.labelContext && item.labels && item.labels[this.labelContext]) {
-            return item.labels[this.labelContext];
+    public getLabel(item: FormItem): string {
+        if (this._labelContext && item.labels?.[this._labelContext]) {
+            return item.labels[this._labelContext];
         }
         return item.label;
     }
 
-    /**
-     * Evaluates the definition's screener routes against provided answers.
-     * Screener items are NOT part of the form's instance data — answers are passed
-     * directly and evaluated in isolation. Routes are evaluated in declaration order;
-     * first match wins. Returns the matching route or null if none match.
-     */
-    public evaluateScreener(answers: Record<string, any>): { target: string; label?: string; extensions?: Record<string, any> } | null {
-        const screener = this.definition.screener;
-        if (!screener?.routes) return null;
+    public injectExternalValidation(
+        results: Array<{ path: string; severity: string; code: string; message: string; source?: string }>,
+    ): void {
+        this._externalValidation.splice(
+            0,
+            this._externalValidation.length,
+            ...results.map((result) =>
+                makeValidationResult({
+                    path: result.path,
+                    severity: result.severity as ValidationResult['severity'],
+                    constraintKind: 'constraint',
+                    code: result.code,
+                    message: result.message,
+                    source: (result.source ?? 'external') as ValidationResult['source'],
+                })),
+        );
+        this._evaluate();
+    }
 
-        // Build a FelContext that reads from the answers object, not form signals
-        const screenerContext: FelContext = {
-            getSignalValue: (path: string) => {
-                // Simple path lookup in answers (supports dotted paths)
-                const segments = path.split('.');
-                let value: any = answers;
-                for (const seg of segments) {
-                    if (value == null) return null;
-                    value = value[seg];
+    public clearExternalValidation(path?: string): void {
+        if (!path) {
+            this._externalValidation.splice(0, this._externalValidation.length);
+        } else {
+            const base = toBasePath(path);
+            for (let index = this._externalValidation.length - 1; index >= 0; index -= 1) {
+                if (toBasePath(this._externalValidation[index].path) === base) {
+                    this._externalValidation.splice(index, 1);
                 }
-                return value ?? null;
-            },
-            getRepeatsValue: () => 0,
-            getRelevantValue: () => true,
-            getRequiredValue: () => false,
-            getReadonlyValue: () => false,
-            getValidationErrors: () => 0,
-            currentItemPath: '',
-            engine: this
-        };
+            }
+        }
+        this._evaluate();
+    }
 
-        for (const route of screener.routes) {
-            const compilationResult = this.felRuntime.compile(route.condition);
-            if (!compilationResult.expression) continue;
+    public setRegistryEntries(entries: any[]): void {
+        this._registryEntries.clear();
+        for (const entry of entries) {
+            if (entry?.name) {
+                this._registryEntries.set(entry.name, entry);
+            }
+        }
+        this._evaluate();
+    }
 
-            try {
-                const result = compilationResult.expression.evaluate(screenerContext);
-                if (result) {
-                    const out: { target: string; label?: string; extensions?: Record<string, any> } = { target: route.target };
-                    if (route.label !== undefined) out.label = route.label;
-                    if (route.extensions !== undefined) out.extensions = route.extensions;
-                    return out;
+    public evaluateScreener(
+        answers: Record<string, any>,
+    ): { target: string; label?: string; extensions?: Record<string, any> } | null {
+        const routes = this.definition.screener?.routes;
+        if (!routes) {
+            return null;
+        }
+        const fields = flattenObject(answers);
+        for (const route of routes) {
+            const value = safeEvaluateExpression(route.condition, {
+                fields,
+                variables: {},
+                instances: {},
+                nowIso: this.nowISO(),
+            });
+            if (value) {
+                const output: { target: string; label?: string; extensions?: Record<string, any> } = {
+                    target: route.target,
+                };
+                if (route.label !== undefined) {
+                    output.label = route.label;
                 }
-            } catch {
-                continue;
+                if (route.extensions !== undefined) {
+                    output.extensions = route.extensions;
+                }
+                return output;
             }
         }
         return null;
     }
 
-    /**
-     * Applies version migrations to response data, transforming it from `fromVersion` to the current definition version.
-     * Supports rename, remove, add, and FEL-based transform operations as defined in the definition's `migrations` array.
-     * @param responseData - The response data object to migrate.
-     * @param fromVersion - The version string the response data was created against.
-     * @returns The migrated response data.
-     */
     public migrateResponse(responseData: Record<string, any>, fromVersion: string): Record<string, any> {
         const migrations = this.definition.migrations;
-        if (!migrations || !Array.isArray(migrations)) return responseData;
+        if (!Array.isArray(migrations)) {
+            return responseData;
+        }
 
-        // Sort migrations by fromVersion, apply those >= fromVersion
-        const applicable = migrations.filter(m => m.fromVersion >= fromVersion);
-        applicable.sort((a: any, b: any) => a.fromVersion.localeCompare(b.fromVersion));
+        const applicable = migrations
+            .filter((migration: any) => migration.fromVersion >= fromVersion)
+            .sort((left: any, right: any) => left.fromVersion.localeCompare(right.fromVersion));
 
-        let data = { ...responseData };
+        let data = cloneValue(responseData);
         for (const migration of applicable) {
-            if (!migration.changes) continue;
-            for (const change of migration.changes) {
+            for (const change of migration.changes ?? []) {
                 switch (change.type) {
                     case 'rename':
                         if (data[change.from] !== undefined) {
@@ -2416,12 +866,18 @@ export class FormEngine implements IFormEngine {
                         break;
                     case 'add':
                         if (data[change.path] === undefined) {
-                            data[change.path] = change.default;
+                            data[change.path] = cloneValue(change.default);
                         }
                         break;
                     case 'transform':
-                        if (data[change.path] !== undefined && change.expression) {
-                            data[change.path] = this.evaluateMigrationExpression(change.expression, data);
+                        if (data[change.path] !== undefined && typeof change.expression === 'string') {
+                            const fields = flattenObject(data);
+                            data[change.path] = safeEvaluateExpression(change.expression, {
+                                fields,
+                                variables: {},
+                                instances: {},
+                                nowIso: this.nowISO(),
+                            });
                         }
                         break;
                 }
@@ -2429,35 +885,2174 @@ export class FormEngine implements IFormEngine {
         }
         return data;
     }
+
+    private nowISO(): string {
+        return this._runtimeContext.nowProvider().toISOString();
+    }
+
+    private resolveOptionSets(): void {
+        const optionSets = this.definition.optionSets;
+        if (!optionSets) {
+            return;
+        }
+        const visit = (items: FormItem[]): void => {
+            for (const item of items) {
+                if (item.optionSet && optionSets[item.optionSet]) {
+                    const entry = optionSets[item.optionSet];
+                    item.options = Array.isArray(entry) ? entry : (entry.options ?? []);
+                }
+                if (item.children) {
+                    visit(item.children);
+                }
+            }
+        };
+        visit(this.definition.items);
+    }
+
+    private initializeOptionSignals(): void {
+        const visit = (items: FormItem[], prefix = ''): void => {
+            for (const item of items) {
+                const path = prefix ? `${prefix}.${item.key}` : item.key;
+                if (item.type === 'field') {
+                    const options = Array.isArray(item.options)
+                        ? item.options.map((option) => ({
+                            value: String(option.value),
+                            label: String(option.label),
+                        }))
+                        : [];
+                    this.optionSignals[path] = signal(options);
+                    this.optionStateSignals[path] = signal({ loading: false, error: null });
+                }
+                if (item.children) {
+                    visit(item.children, path);
+                }
+            }
+        };
+        visit(this.definition.items);
+    }
+
+    private initializeInstances(): void {
+        const instances = this.definition.instances;
+        if (!instances) {
+            return;
+        }
+
+        for (const [name, instance] of Object.entries(instances)) {
+            if (instance.data !== undefined) {
+                const seedData = cloneValue(instance.data);
+                this.validateInstanceSchema(name, seedData);
+                this.instanceData[name] = seedData;
+            }
+            this.initializeInstanceSource(name, instance);
+        }
+    }
+
+    private initializeInstanceSource(name: string, instance: FormspecInstance): void {
+        if (!instance.source) {
+            return;
+        }
+
+        if (instance.static && FormEngine.instanceSourceCache.has(instance.source)) {
+            this.instanceData[name] = cloneValue(FormEngine.instanceSourceCache.get(instance.source));
+            return;
+        }
+
+        const task = fetch(instance.source)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Instance source fetch failed (${response.status})`);
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                this.validateInstanceSchema(name, payload);
+                const nextValue = cloneValue(payload);
+                if (instance.static) {
+                    FormEngine.instanceSourceCache.set(instance.source!, cloneValue(nextValue));
+                }
+                this.instanceData[name] = nextValue;
+                this.instanceVersion.value += 1;
+                this._evaluate();
+            })
+            .catch((error) => {
+                console.error(`Failed to load instance source '${name}':`, error);
+            });
+
+        this._instanceSourceTasks.push(task);
+    }
+
+    private initializeBindConfigs(items: FormItem[], prefix = ''): void {
+        for (const item of items) {
+            const path = prefix ? `${prefix}.${item.key}` : item.key;
+            this._groupItems.set(path, item);
+            const inlineBind = extractInlineBind(item, path);
+            if (inlineBind) {
+                this._bindConfigs[path] = { ...this._bindConfigs[path], ...inlineBind };
+            }
+            if (item.children) {
+                this.initializeBindConfigs(item.children, path);
+            }
+        }
+
+        for (const bind of this.definition.binds ?? []) {
+            const path = toBasePath(bind.path);
+            this._bindConfigs[path] = { ...this._bindConfigs[path], ...(bind as EngineBindConfig), path };
+            if (bind.calculate && !parseInstanceTarget(bind.path)) {
+                this._calculatedFields.add(path);
+            }
+        }
+
+        for (const shape of this.definition.shapes ?? []) {
+            if (shape.id) {
+                this._shapeTiming.set(shape.id, (shape.timing ?? 'continuous') as 'continuous' | 'submit' | 'demand');
+                if (!this.shapeResults[shape.id]) {
+                    this.shapeResults[shape.id] = signal([]);
+                }
+            }
+        }
+
+        for (const variableDef of this._variableDefs) {
+            const key = `${variableDef.scope ?? '#'}:${variableDef.name}`;
+            this.variableSignals[key] = signal(null);
+            const existing = this._variableSignalKeys.get(variableDef.name) ?? [];
+            existing.push(key);
+            this._variableSignalKeys.set(variableDef.name, existing);
+        }
+    }
+
+    private collectInstanceCalculateBinds(): void {
+        for (const bind of Object.values(this._bindConfigs)) {
+            if (bind.calculate && parseInstanceTarget(bind.path)) {
+                this._instanceCalculateBinds.push(bind);
+            }
+        }
+    }
+
+    private validateInstanceCalculateTargets(): void {
+        for (const bind of this._instanceCalculateBinds) {
+            const target = parseInstanceTarget(bind.path);
+            if (!target) {
+                continue;
+            }
+            const instance = this.definition.instances?.[target.instanceName];
+            if (!instance) {
+                throw new Error(`Unknown instance '${target.instanceName}' targeted by bind '${bind.path}'`);
+            }
+            if (instance.readonly !== false) {
+                throw new Error(`Calculate bind cannot target readonly instance '${target.instanceName}'`);
+            }
+        }
+    }
+
+    private validateVariableCycles(): void {
+        const graph = new Map<string, Set<string>>();
+        for (const variableDef of this._variableDefs) {
+            const deps = new Set<string>();
+            for (const name of legacyAnalyzeFEL(variableDef.expression).variables) {
+                deps.add(name);
+            }
+            graph.set(variableDef.name, deps);
+        }
+        detectNamedCycle(graph, 'Circular variable dependency');
+    }
+
+    private validateCalculateCycles(): void {
+        const graph = new Map<string, Set<string>>();
+        for (const [path, bind] of Object.entries(this._bindConfigs)) {
+            if (!bind.calculate || parseInstanceTarget(path)) {
+                continue;
+            }
+            const deps = new Set<string>();
+            const parentPath = parentPathOf(path);
+            for (const dep of wasmGetFELDependencies(bind.calculate)) {
+                const resolved = resolveRelativeDependency(dep, parentPath, path);
+                if (resolved) {
+                    deps.add(toBasePath(resolved));
+                }
+            }
+            graph.set(path, deps);
+        }
+        detectNamedCycle(graph, 'Cyclic dependency detected');
+    }
+
+    private registerItems(items: FormItem[], prefix = ''): void {
+        for (const item of items) {
+            const path = prefix ? `${prefix}.${item.key}` : item.key;
+            this._groupItems.set(path, item);
+            this.relevantSignals[path] ??= signal(true);
+            this.requiredSignals[path] ??= signal(false);
+            this.readonlySignals[path] ??= signal(false);
+            this.validationResults[path] ??= signal([]);
+            this.errorSignals[path] ??= signal(null);
+
+            if (item.type === 'field') {
+                this._fieldItems.set(path, item);
+                this.initializeFieldSignal(path, item);
+                if (item.children) {
+                    this.registerItemChildren(item.children, path);
+                }
+                continue;
+            }
+
+            if (item.type === 'display') {
+                this._displaySignalPaths.add(path);
+                if (this._bindConfigs[path]?.calculate) {
+                    this.signals[path] = signal(null);
+                }
+                continue;
+            }
+
+            if (item.repeatable) {
+                const count = item.minRepeat ?? 1;
+                this.repeats[path] = signal(count);
+                for (let index = 0; index < count; index += 1) {
+                    this.registerItemChildren(item.children ?? [], `${path}[${index}]`);
+                }
+            } else {
+                this.registerItemChildren(item.children ?? [], path);
+            }
+        }
+    }
+
+    private registerItemChildren(items: FormItem[], prefix: string): void {
+        for (const item of items) {
+            const path = `${prefix}.${item.key}`;
+            this._groupItems.set(path, item);
+            this.relevantSignals[path] ??= signal(true);
+            this.requiredSignals[path] ??= signal(false);
+            this.readonlySignals[path] ??= signal(false);
+            this.validationResults[path] ??= signal([]);
+            this.errorSignals[path] ??= signal(null);
+
+            if (item.type === 'field') {
+                this._fieldItems.set(toBasePath(path), item);
+                this.initializeFieldSignal(path, item);
+                if (item.children) {
+                    this.registerItemChildren(item.children, path);
+                }
+                continue;
+            }
+
+            if (item.type === 'display') {
+                this._displaySignalPaths.add(path);
+                if (this._bindConfigs[toBasePath(path)]?.calculate) {
+                    this.signals[path] ??= signal(null);
+                }
+                continue;
+            }
+
+            if (item.repeatable) {
+                const count = item.minRepeat ?? 1;
+                this.repeats[path] = signal(count);
+                for (let index = 0; index < count; index += 1) {
+                    this.registerItemChildren(item.children ?? [], `${path}[${index}]`);
+                }
+            } else {
+                this.registerItemChildren(item.children ?? [], path);
+            }
+        }
+    }
+
+    private initializeFieldSignal(path: string, item: FormItem): void {
+        if (this.signals[path]) {
+            return;
+        }
+        const initial = this.resolveInitialFieldValue(path, item);
+        this.signals[path] = signal(cloneValue(initial));
+        this._data[path] = cloneValue(initial);
+    }
+
+    private resolveInitialFieldValue(path: string, item: FormItem): any {
+        const prePopulate = item.prePopulate;
+        if (prePopulate) {
+            const value = this.getInstanceData(prePopulate.instance, prePopulate.path);
+            if (value !== undefined) {
+                if (prePopulate.editable === false) {
+                    this._prePopulateReadonly.add(path);
+                }
+                return cloneValue(value);
+            }
+            if (prePopulate.editable === false) {
+                this._prePopulateReadonly.add(path);
+            }
+        }
+
+        if (typeof item.initialValue === 'string' && item.initialValue.startsWith('=')) {
+            this._pendingInitialExpressions.push({
+                path,
+                expression: item.initialValue.slice(1),
+            });
+            return emptyValueForItem(item);
+        }
+
+        if (item.initialValue !== undefined) {
+            return coerceInitialValue(item, item.initialValue);
+        }
+
+        return emptyValueForItem(item);
+    }
+
+    private initializeRemoteOptions(): void {
+        for (const bind of Object.values(this._bindConfigs)) {
+            if (!bind.remoteOptions) {
+                continue;
+            }
+            const path = toBasePath(bind.path);
+            const state = this.optionStateSignals[path] ?? signal({ loading: false, error: null });
+            this.optionStateSignals[path] = state;
+            state.value = { loading: true, error: null };
+            const task = fetch(bind.remoteOptions)
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Remote options fetch failed (${response.status})`);
+                    }
+                    return response.json();
+                })
+                .then((payload) => {
+                    const options = normalizeRemoteOptions(payload);
+                    this.optionSignals[path] = this.optionSignals[path] ?? signal([]);
+                    this.optionSignals[path].value = options;
+                    state.value = { loading: false, error: null };
+                })
+                .catch((error) => {
+                    state.value = {
+                        loading: false,
+                        error: error instanceof Error ? error.message : String(error),
+                    };
+                });
+            this._remoteOptionsTasks.push(task);
+        }
+    }
+
+    private writeInstanceValue(
+        instanceName: string,
+        path: string | undefined,
+        value: any,
+        options?: { bypassReadonly?: boolean },
+    ): void {
+        const instance = this.definition.instances?.[instanceName];
+        if (!instance) {
+            throw new Error(`Unknown instance '${instanceName}'`);
+        }
+        if (!options?.bypassReadonly && instance.readonly !== false) {
+            throw new Error(`Instance '${instanceName}' is readonly`);
+        }
+
+        let nextValue: any;
+        if (!path) {
+            nextValue = cloneValue(value);
+        } else {
+            nextValue = cloneValue(this.instanceData[instanceName] ?? {});
+            setNestedPathValue(nextValue, path, cloneValue(value));
+        }
+        this.validateInstanceSchema(instanceName, nextValue);
+        if (deepEqual(this.instanceData[instanceName], nextValue)) {
+            return;
+        }
+        this.instanceData[instanceName] = nextValue;
+        this.instanceVersion.value += 1;
+    }
+
+    private validateInstanceSchema(instanceName: string, data: any): void {
+        const schema = this.definition.instances?.[instanceName]?.schema;
+        if (!schema || typeof schema !== 'object') {
+            return;
+        }
+        for (const [path, dataType] of Object.entries(schema)) {
+            if (typeof dataType !== 'string') {
+                continue;
+            }
+            const value = getNestedValue(data, path);
+            if (value === undefined || value === null) {
+                continue;
+            }
+            if (!validateDataType(value, dataType)) {
+                throw new Error(`Instance '${instanceName}' schema mismatch at '${path}': expected ${dataType}`);
+            }
+        }
+    }
+
+    private evaluateExpression(
+        expression: string,
+        currentItemPath = '',
+        dataOverride?: Record<string, any>,
+        resultOverride?: EvalResult | null,
+        scopedVariableOverrides?: Record<string, any>,
+    ): any {
+        return safeEvaluateExpression(
+            this.normalizeExpressionForWasm(expression, currentItemPath),
+            this.buildExpressionContext(currentItemPath, dataOverride, resultOverride, scopedVariableOverrides),
+        );
+    }
+
+    private buildExpressionContext(
+        currentItemPath = '',
+        dataOverride?: Record<string, any>,
+        resultOverride?: EvalResult | null,
+        scopedVariableOverrides?: Record<string, any>,
+    ): WasmFelContext {
+        const result = resultOverride ?? this._fullResult;
+        const rawFields = {
+            ...(dataOverride ?? this._data),
+            ...(result?.values ?? {}),
+            ...snapshotSignals(this.signals),
+        };
+        const fields: Record<string, any> = {};
+        for (const [path, value] of Object.entries(rawFields)) {
+            setExpressionContextValue(fields, path, cloneValue(this.getExpressionValueForPath(path, value)));
+        }
+
+        const scopePath = parentPathOf(currentItemPath);
+        if (scopePath) {
+            const prefixA = `${scopePath}.`;
+            const prefixB = `${scopePath}[`;
+            for (const [path, value] of Object.entries(rawFields)) {
+                if (path.startsWith(prefixA)) {
+                    setExpressionContextValue(fields, path.slice(prefixA.length), cloneValue(value));
+                } else if (path.startsWith(prefixB)) {
+                    setExpressionContextValue(fields, path.slice(scopePath.length + 1), cloneValue(value));
+                }
+            }
+        }
+
+        const mipStates: WasmFelContext['mipStates'] = {};
+        for (const path of Object.keys(this.signals)) {
+            const state = {
+                valid: (this.validationResults[path]?.value ?? []).every((result) => result.severity !== 'error'),
+                relevant: this.relevantSignals[path]?.value ?? true,
+                readonly: this.readonlySignals[path]?.value ?? false,
+                required: this.requiredSignals[path]?.value ?? false,
+            };
+            if (path.includes('[')) {
+                mipStates[toFelIndexedPath(path)] = { ...state };
+            } else {
+                mipStates[path] = state;
+            }
+            if (scopePath) {
+                const prefixA = `${scopePath}.`;
+                const prefixB = `${scopePath}[`;
+                if (path.startsWith(prefixA)) {
+                    mipStates[path.slice(prefixA.length)] = { ...state };
+                } else if (path.startsWith(prefixB)) {
+                    mipStates[path.slice(scopePath.length + 1)] = { ...state };
+                }
+            }
+        }
+
+        return {
+            fields,
+            variables: this.getVisibleVariableEntries(currentItemPath, scopedVariableOverrides),
+            mipStates,
+            repeatContext: this.buildRepeatContext(currentItemPath),
+            instances: cloneValue(this.instanceData),
+            nowIso: this.nowISO(),
+        };
+    }
+
+    private buildRepeatContext(currentItemPath: string): WasmFelContext['repeatContext'] | undefined {
+        const repeatAncestors = getRepeatAncestors(currentItemPath, this.repeats);
+        if (repeatAncestors.length === 0) {
+            return undefined;
+        }
+
+        let parent: WasmFelContext['repeatContext'] | undefined;
+        for (const entry of repeatAncestors) {
+            const collection = buildRepeatCollection(entry.groupPath, entry.count, this.signals);
+            parent = {
+                current: collection[entry.index] ?? null,
+                index: entry.index + 1,
+                count: entry.count,
+                collection,
+                parent,
+            };
+        }
+
+        const outerParentPath = parentPathOf(repeatAncestors[repeatAncestors.length - 1].groupPath);
+        if (parent && outerParentPath) {
+            parent.parent = {
+                current: buildGroupSnapshotForPath(outerParentPath, this.signals),
+                index: 1,
+                count: 1,
+                collection: [buildGroupSnapshotForPath(outerParentPath, this.signals)],
+                parent: parent.parent,
+            };
+        }
+
+        return parent;
+    }
+
+    private getVisibleVariableEntries(scopePath: string, overrides?: Record<string, any>): Record<string, any> {
+        const visible: Record<string, any> = {};
+        const candidates = ['#', ...getScopeAncestors(scopePath)];
+        for (const scope of candidates) {
+            for (const variableDef of this._variableDefs) {
+                if ((variableDef.scope ?? '#') !== scope) {
+                    continue;
+                }
+                const key = `${variableDef.scope ?? '#'}:${variableDef.name}`;
+                visible[variableDef.name] = overrides && Object.prototype.hasOwnProperty.call(overrides, key)
+                    ? overrides[key]
+                    : (this.variableSignals[key]?.value ?? null);
+            }
+        }
+        return visible;
+    }
+
+    private _evaluate(): void {
+        let attempt = 0;
+        let fullResult: EvalResult | null = null;
+
+        while (attempt < 6) {
+            const baseResult = wasmEvaluateDefinition(this.definition, this._data, {
+                nowIso: this.nowISO(),
+                previousValidations: this._fullResult?.validations as unknown as Array<{
+                    path: string;
+                    severity: string;
+                    constraintKind: string;
+                    code: string;
+                    message: string;
+                    source: string;
+                    shapeId?: string;
+                    context?: Record<string, unknown>;
+                }> | undefined,
+            }) as EvalResult;
+            fullResult = this.withExtraValidations(baseResult);
+
+            const appliedInitial = this.applyPendingInitialExpressions(fullResult);
+            const appliedDefaults = this.applyRelevanceDefaults(fullResult);
+            const appliedInstanceCalculates = this.applyInstanceCalculates(fullResult);
+
+            if (!appliedInitial && !appliedDefaults && !appliedInstanceCalculates) {
+                break;
+            }
+            attempt += 1;
+        }
+
+        if (!fullResult) {
+            return;
+        }
+
+        const visibleResult = this.filterContinuousShapeResults(fullResult);
+        const delta = diffEvalResults(this._previousVisibleResult, visibleResult);
+
+        batch(() => {
+            this.patchValueSignals(fullResult.values);
+            this.patchDeltaSignals(delta);
+            for (let pass = 0; pass < 3; pass += 1) {
+                this.patchDerivedMipSignals();
+                this.patchBindValidationSignals();
+                this.patchVariableSignals(fullResult);
+                this.patchCalculatedSignals();
+            }
+            this.patchDerivedMipSignals();
+            this.patchBindValidationSignals();
+            this.syncInstanceCalculateSignals();
+            this.patchErrorSignals();
+            this._evaluationVersion.value += 1;
+        });
+
+        this._previousVisibleResult = visibleResult;
+        this._fullResult = fullResult;
+    }
+
+    private evaluateResultForTrigger(trigger: 'continuous' | 'submit' | 'demand' | 'disabled'): EvalResult {
+        return this.withExtraValidations(wasmEvaluateDefinition(this.definition, this._data, {
+            nowIso: this.nowISO(),
+            trigger,
+            previousValidations: this._fullResult?.validations as unknown as Array<{
+                path: string;
+                severity: string;
+                constraintKind: string;
+                code: string;
+                message: string;
+                source: string;
+                shapeId?: string;
+                context?: Record<string, unknown>;
+            }> | undefined,
+        }) as EvalResult);
+    }
+
+    private withExtraValidations(result: EvalResult): EvalResult {
+        const validations: EvalValidation[] = result.validations.filter((validation) => validation.source !== 'extension');
+        const nonRelevant = new Set(result.nonRelevant.map(toBasePath));
+        const mergedValues = { ...this._data, ...result.values };
+
+        for (const [path, repeatSignal] of Object.entries(this.repeats)) {
+            if (nonRelevant.has(path)) {
+                continue;
+            }
+            const item = this._groupItems.get(path);
+            if (!item?.repeatable) {
+                continue;
+            }
+            if (item.minRepeat !== undefined && repeatSignal.value < item.minRepeat) {
+                validations.push({
+                    path,
+                    severity: 'error',
+                    constraintKind: 'cardinality',
+                    code: 'MIN_REPEAT',
+                    message: `Minimum ${item.minRepeat} entries required`,
+                    source: 'bind',
+                });
+            }
+            if (item.maxRepeat !== undefined && repeatSignal.value > item.maxRepeat) {
+                validations.push({
+                    path,
+                    severity: 'error',
+                    constraintKind: 'cardinality',
+                    code: 'MAX_REPEAT',
+                    message: `Maximum ${item.maxRepeat} entries allowed`,
+                    source: 'bind',
+                });
+            }
+        }
+
+        for (const finding of this.collectRegistryValidationFindings(mergedValues, nonRelevant)) {
+            validations.push(finding.result as unknown as EvalValidation);
+        }
+
+        validations.push(...this._externalValidation as unknown as EvalValidation[]);
+
+        return {
+            ...result,
+            validations,
+        };
+    }
+
+    private filterContinuousShapeResults(result: EvalResult): EvalResult {
+        return {
+            ...result,
+            validations: result.validations.filter((validation) => {
+                if (!validation.shapeId) {
+                    return true;
+                }
+                return (this._shapeTiming.get(validation.shapeId) ?? 'continuous') === 'continuous';
+            }),
+        };
+    }
+
+    private collectRegistryValidationFindings(
+        values: Record<string, any>,
+        nonRelevant: Set<string>,
+    ): RegistryValidationFinding[] {
+        const findings: RegistryValidationFinding[] = [];
+
+        for (const [path, item] of this._allRegistryAwareItems()) {
+            const basePath = toBasePath(path);
+            if (nonRelevant.has(basePath)) {
+                continue;
+            }
+
+            const state = this.buildExtensionConstraintState(basePath, item);
+            for (const diagnostic of state.diagnostics) {
+                findings.push({ path: basePath, result: diagnostic });
+            }
+
+            if (item.type !== 'field') {
+                continue;
+            }
+
+            const value = values[path];
+            if (value === undefined || value === null || value === '') {
+                continue;
+            }
+
+            if (state.pattern && !state.pattern.test(String(value))) {
+                findings.push({
+                    path,
+                    result: {
+                        path,
+                        severity: 'error',
+                        constraintKind: 'constraint',
+                        code: 'PATTERN_MISMATCH',
+                        message: state.displayName ? `Must be a valid ${state.displayName}` : 'Pattern mismatch',
+                        source: 'bind',
+                    },
+                });
+            }
+
+            if (state.maxLength != null && String(value).length > state.maxLength) {
+                findings.push({
+                    path,
+                    result: {
+                        path,
+                        severity: 'error',
+                        constraintKind: 'constraint',
+                        code: 'MAX_LENGTH_EXCEEDED',
+                        message: `Must be at most ${state.maxLength} characters`,
+                        source: 'bind',
+                    },
+                });
+            }
+
+            const numericValue = typeof value === 'number' ? value : Number(value);
+            if (!Number.isNaN(numericValue)) {
+                if (state.minimum != null && numericValue < state.minimum) {
+                    findings.push({
+                        path,
+                        result: {
+                            path,
+                            severity: 'error',
+                            constraintKind: 'constraint',
+                            code: 'RANGE_UNDERFLOW',
+                            message: `Must be at least ${state.minimum}`,
+                            source: 'bind',
+                        },
+                    });
+                }
+                if (state.maximum != null && numericValue > state.maximum) {
+                    findings.push({
+                        path,
+                        result: {
+                            path,
+                            severity: 'error',
+                            constraintKind: 'constraint',
+                            code: 'RANGE_OVERFLOW',
+                            message: `Must be at most ${state.maximum}`,
+                            source: 'bind',
+                        },
+                    });
+                }
+            }
+        }
+
+        return findings;
+    }
+
+    private _allRegistryAwareItems(): Array<[string, FormItem]> {
+        const items: Array<[string, FormItem]> = [];
+        for (const [path, item] of this._groupItems.entries()) {
+            if (item.extensions && Object.keys(item.extensions).length > 0) {
+                items.push([path, item]);
+            }
+        }
+        for (const [path, item] of this._fieldItems.entries()) {
+            if (item.extensions && Object.keys(item.extensions).length > 0) {
+                if (!items.find(([existing]) => existing === path)) {
+                    items.push([path, item]);
+                }
+            }
+        }
+        return items;
+    }
+
+    private buildExtensionConstraintState(path: string, item: FormItem): ExtensionConstraintState {
+        const diagnostics: ValidationResult[] = [];
+        let pattern: RegExp | undefined;
+        let maxLength: number | undefined;
+        let minimum: number | undefined;
+        let maximum: number | undefined;
+        let displayName: string | undefined;
+        const formspecVersion = this.definition.$formspec ?? this.definition.version ?? '1.0';
+
+        for (const [name, enabled] of Object.entries(item.extensions ?? {})) {
+            if (enabled === false) {
+                continue;
+            }
+            const entry = this._registryEntries.get(name);
+            if (!entry) {
+                diagnostics.push({
+                    path,
+                    severity: 'error',
+                    constraintKind: 'constraint',
+                    code: 'UNRESOLVED_EXTENSION',
+                    message: `Unresolved extension '${name}': no matching registry entry loaded`,
+                    source: 'bind',
+                });
+                continue;
+            }
+            const requiredRange = entry.compatibility?.formspecVersion;
+            if (requiredRange && !versionSatisfies(formspecVersion, requiredRange)) {
+                diagnostics.push({
+                    path,
+                    severity: 'warning',
+                    constraintKind: 'constraint',
+                    code: 'EXTENSION_COMPATIBILITY_MISMATCH',
+                    message: `Extension '${name}' requires formspec ${requiredRange} but definition uses ${formspecVersion}`,
+                    source: 'bind',
+                });
+            }
+            if (entry.status === 'retired') {
+                diagnostics.push({
+                    path,
+                    severity: 'warning',
+                    constraintKind: 'constraint',
+                    code: 'EXTENSION_RETIRED',
+                    message: `Extension '${name}' is retired and should not be used`,
+                    source: 'bind',
+                });
+            } else if (entry.status === 'deprecated') {
+                diagnostics.push({
+                    path,
+                    severity: 'info',
+                    constraintKind: 'constraint',
+                    code: 'EXTENSION_DEPRECATED',
+                    message: entry.deprecationNotice || `Extension '${name}' is deprecated`,
+                    source: 'bind',
+                });
+            }
+            displayName ??= entry.metadata?.displayName;
+            if (!pattern && entry.constraints?.pattern) {
+                try {
+                    pattern = new RegExp(entry.constraints.pattern);
+                } catch {
+                    pattern = undefined;
+                }
+            }
+            if (maxLength == null && entry.constraints?.maxLength != null) {
+                maxLength = entry.constraints.maxLength;
+            }
+            if (minimum == null && entry.constraints?.minimum != null) {
+                minimum = entry.constraints.minimum;
+            }
+            if (maximum == null && entry.constraints?.maximum != null) {
+                maximum = entry.constraints.maximum;
+            }
+        }
+
+        return {
+            diagnostics,
+            pattern,
+            maxLength,
+            minimum,
+            maximum,
+            displayName,
+        };
+    }
+
+    private applyPendingInitialExpressions(result: EvalResult): boolean {
+        let changed = false;
+        for (const pending of this._pendingInitialExpressions) {
+            if (!isEmptyValue(this._data[pending.path])) {
+                continue;
+            }
+            const nextValue = this.evaluateExpression(pending.expression, pending.path, this._data, result);
+            if (nextValue === undefined) {
+                continue;
+            }
+            this._data[pending.path] = cloneValue(nextValue);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private applyRelevanceDefaults(result: EvalResult): boolean {
+        const previous = new Set(this._previousVisibleResult?.nonRelevant ?? []);
+        const current = new Set(result.nonRelevant);
+        let changed = false;
+
+        for (const [path, bind] of Object.entries(this._bindConfigs)) {
+            if (bind.default === undefined) {
+                continue;
+            }
+            if (!previous.has(path) || current.has(path)) {
+                continue;
+            }
+            const concretePaths = Object.keys(this.signals).filter((signalPath) => toBasePath(signalPath) === path);
+            for (const concretePath of concretePaths) {
+                if (!isEmptyValue(this._data[concretePath])) {
+                    continue;
+                }
+                const nextValue = typeof bind.default === 'string' && bind.default.startsWith('=')
+                    ? this.evaluateExpression(bind.default.slice(1), concretePath, this._data, result)
+                    : bind.default;
+                this._data[concretePath] = cloneValue(nextValue);
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private applyInstanceCalculates(result: EvalResult): boolean {
+        let changed = false;
+        for (const bind of this._instanceCalculateBinds) {
+            const target = parseInstanceTarget(bind.path);
+            if (!target || !bind.calculate) {
+                continue;
+            }
+            const value = this.evaluateExpression(bind.calculate, '', this._data, result);
+            const before = cloneValue(this.getInstanceData(target.instanceName, target.instancePath));
+            this.writeInstanceValue(target.instanceName, target.instancePath, value, { bypassReadonly: true });
+            if (!deepEqual(before, this.getInstanceData(target.instanceName, target.instancePath))) {
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private patchValueSignals(values: Record<string, any>): void {
+        for (const [path, value] of Object.entries(values)) {
+            if (this.signals[path]) {
+                this.signals[path].value = cloneValue(value);
+            }
+        }
+    }
+
+    private patchDeltaSignals(delta: ReturnType<typeof diffEvalResults>): void {
+        for (const [path, relevant] of Object.entries(delta.relevant)) {
+            this.relevantSignals[path] ??= signal(true);
+            this.relevantSignals[path].value = relevant;
+        }
+        for (const [path, required] of Object.entries(delta.required)) {
+            this.requiredSignals[path] ??= signal(false);
+            this.requiredSignals[path].value = required;
+        }
+        for (const [path, readonly] of Object.entries(delta.readonly)) {
+            this.readonlySignals[path] ??= signal(false);
+            this.readonlySignals[path].value = readonly || this._prePopulateReadonly.has(path);
+        }
+        for (const [path, results] of Object.entries(delta.validations)) {
+            this.validationResults[path] ??= signal([]);
+            this.validationResults[path].value = toValidationResults(results);
+        }
+        for (const path of delta.removedValidationPaths) {
+            if (this.validationResults[path]) {
+                this.validationResults[path].value = [];
+            }
+        }
+        for (const [shapeId, results] of Object.entries(delta.shapeResults)) {
+            this.shapeResults[shapeId] ??= signal([]);
+            this.shapeResults[shapeId].value = toValidationResults(results);
+        }
+        for (const shapeId of delta.removedShapeIds) {
+            if (this.shapeResults[shapeId]) {
+                this.shapeResults[shapeId].value = [];
+            }
+        }
+    }
+
+    private patchVariableSignals(result: EvalResult): void {
+        const scopedValues: Record<string, any> = {};
+        for (const variableDef of this._orderedVariableDefs) {
+            const visible = this.evaluateExpression(
+                variableDef.expression,
+                variableDef.scope === '#'
+                    ? ''
+                    : `${variableDef.scope}.__var`,
+                this._data,
+                result,
+                scopedValues,
+            );
+            scopedValues[variableDef.key] = visible;
+            if (this.variableSignals[variableDef.key]) {
+                this.variableSignals[variableDef.key].value = visible;
+            }
+        }
+    }
+
+    private patchCalculatedSignals(): void {
+        for (const path of this._orderedCalculatedPaths) {
+            const bind = this._bindConfigs[path];
+            if (!bind?.calculate || parseInstanceTarget(bind.path)) {
+                continue;
+            }
+            const concretePaths = this.getConcretePathsForBasePath(path, this.signals);
+            for (const concretePath of concretePaths) {
+                const field = this._fieldItems.get(toBasePath(concretePath)) ?? this._fieldItems.get(path);
+                const rawValue = this.evaluateExpression(bind.calculate, concretePath);
+                const nextValue = field
+                    ? coerceFieldValue(field, bind, this.definition, rawValue)
+                    : rawValue;
+                if (this.signals[concretePath]) {
+                    this.signals[concretePath].value = cloneValue(nextValue);
+                }
+            }
+        }
+    }
+
+    private syncInstanceCalculateSignals(): void {
+        for (const bind of this._instanceCalculateBinds) {
+            const target = parseInstanceTarget(bind.path);
+            if (!target || !bind.calculate) {
+                continue;
+            }
+            const nextValue = this.evaluateExpression(bind.calculate);
+            if ((nextValue === null || nextValue === undefined)
+                && this.getInstanceData(target.instanceName, target.instancePath) !== undefined) {
+                continue;
+            }
+            this.writeInstanceValue(target.instanceName, target.instancePath, nextValue, { bypassReadonly: true });
+        }
+    }
+
+    private patchDerivedMipSignals(): void {
+        for (const [path, bind] of Object.entries(this._bindConfigs)) {
+            const concretePaths = this.getConcretePathsForBasePath(path, this.relevantSignals);
+            for (const concretePath of concretePaths) {
+                if (bind.relevant !== undefined) {
+                    const rawRelevant = typeof bind.relevant === 'string'
+                        ? this.evaluateExpression(bind.relevant, concretePath)
+                        : bind.relevant;
+                    const nextRelevant = rawRelevant === null || rawRelevant === undefined ? true : !!rawRelevant;
+                    this.relevantSignals[concretePath] ??= signal(true);
+                    this.relevantSignals[concretePath].value = nextRelevant;
+                }
+                if (bind.required !== undefined) {
+                    const nextRequired = typeof bind.required === 'string'
+                        ? !!this.evaluateExpression(bind.required, concretePath)
+                        : !!bind.required;
+                    this.requiredSignals[concretePath] ??= signal(false);
+                    this.requiredSignals[concretePath].value = nextRequired;
+                }
+                if (bind.readonly !== undefined) {
+                    const nextReadonly = typeof bind.readonly === 'string'
+                        ? !!this.evaluateExpression(bind.readonly, concretePath)
+                        : !!bind.readonly;
+                    this.readonlySignals[concretePath] ??= signal(false);
+                    this.readonlySignals[concretePath].value = nextReadonly || this._prePopulateReadonly.has(concretePath);
+                }
+            }
+        }
+    }
+
+    private patchBindValidationSignals(): void {
+        for (const [path, signalRef] of Object.entries(this.validationResults)) {
+            const bind = this._bindConfigs[toBasePath(path)];
+            if (!bind) {
+                continue;
+            }
+            const preserved = signalRef.value.filter((result) =>
+                !(result.source === 'bind' && (result.code === 'REQUIRED' || result.code === 'CONSTRAINT_FAILED')));
+            const value = this.signals[path]?.value;
+            const nextResults = [...preserved];
+            if ((this.requiredSignals[path]?.value ?? false) && isEmptyValue(value)) {
+                nextResults.push(makeValidationResult({
+                    path,
+                    severity: 'error',
+                    constraintKind: 'required',
+                    code: 'REQUIRED',
+                    message: 'Required',
+                    source: 'bind',
+                }));
+            }
+            if (bind.constraint && !isEmptyValue(value)) {
+                const passed = this.evaluateExpression(bind.constraint, path);
+                if (!(passed === null || passed === undefined ? true : !!passed)) {
+                    nextResults.push(makeValidationResult({
+                        path,
+                        severity: 'error',
+                        constraintKind: 'constraint',
+                        code: 'CONSTRAINT_FAILED',
+                        message: bind.constraintMessage || 'Invalid',
+                        source: 'bind',
+                    }));
+                }
+            }
+            signalRef.value = nextResults;
+        }
+    }
+
+    private getConcretePathsForBasePath<T>(basePath: string, store: Record<string, T>): string[] {
+        return Object.keys(store).filter((path) => toBasePath(path) === basePath);
+    }
+
+    private normalizeExpressionForWasm(expression: string, currentItemPath = ''): string {
+        let normalized = expression;
+        const currentFieldName = currentItemPath
+            ? splitIndexedPath(currentItemPath).at(-1)?.replace(/\[\d+\]$/, '') ?? ''
+            : '';
+        if (currentFieldName) {
+            normalized = replaceBareCurrentFieldRefs(normalized, currentFieldName);
+        }
+        const repeatAliases = buildRepeatValueAliases(snapshotSignals(this.signals)).map(([path]) => path);
+        repeatAliases.sort((left, right) => right.length - left.length);
+
+        for (const alias of repeatAliases) {
+            const wildcardPath = `$${toRepeatWildcardPath(alias)}`;
+            const escapedAlias = escapeRegExp(alias);
+            const implicitPattern = new RegExp(`(^|[^$@A-Za-z0-9_])(${escapedAlias})(?![A-Za-z0-9_\\[])`, 'g');
+            normalized = normalized.replace(implicitPattern, (_match, prefix) => `${prefix}${wildcardPath}`);
+            normalized = normalized.replace(
+                new RegExp(`\\$${escapedAlias}(?![A-Za-z0-9_\\[])`, 'g'),
+                wildcardPath,
+            );
+        }
+
+        return normalized;
+    }
+
+    private getExpressionValueForPath(path: string, value: unknown): unknown {
+        const bind = this._bindConfigs[toBasePath(path)];
+        if (bind?.excludedValue === 'null' && this.relevantSignals[path]?.value === false) {
+            return null;
+        }
+        return value;
+    }
+
+    private resolveRepeatPath(itemName: string): string {
+        return this.repeats[itemName] ? itemName : toBasePath(itemName);
+    }
+
+    private buildOrderedVariableDefs(): OrderedVariableDef[] {
+        const defs = this._variableDefs.map((variableDef) => ({
+            key: `${variableDef.scope ?? '#'}:${variableDef.name}`,
+            scope: variableDef.scope ?? '#',
+            name: variableDef.name,
+            expression: variableDef.expression,
+        }));
+        const graph = new Map<string, Set<string>>();
+        for (const def of defs) {
+            const deps = new Set<string>();
+            for (const name of legacyAnalyzeFEL(def.expression).variables) {
+                const sameScope = defs.find((candidate) => candidate.name === name && candidate.scope === def.scope);
+                const globalScope = defs.find((candidate) => candidate.name === name && candidate.scope === '#');
+                if (sameScope) {
+                    deps.add(sameScope.key);
+                } else if (globalScope) {
+                    deps.add(globalScope.key);
+                }
+            }
+            graph.set(def.key, deps);
+        }
+        return topoSortKeys(defs, graph);
+    }
+
+    private buildOrderedCalculatedPaths(): string[] {
+        const defs = Object.entries(this._bindConfigs)
+            .filter(([path, bind]) => !!bind.calculate && !parseInstanceTarget(path))
+            .map(([path, bind]) => ({ key: path, expression: bind.calculate! }));
+        const graph = new Map<string, Set<string>>();
+        for (const def of defs) {
+            const deps = new Set<string>();
+            const parent = parentPathOf(def.key);
+            for (const dep of wasmGetFELDependencies(def.expression)) {
+                const resolved = resolveRelativeDependency(dep, parent, def.key);
+                if (!resolved) {
+                    continue;
+                }
+                const baseResolved = toBasePath(resolved);
+                if (baseResolved !== def.key && this._bindConfigs[baseResolved]?.calculate) {
+                    deps.add(baseResolved);
+                }
+            }
+            graph.set(def.key, deps);
+        }
+        return topoSortKeys(defs, graph).map((entry) => entry.key);
+    }
+
+    private patchErrorSignals(): void {
+        for (const [path, signalRef] of Object.entries(this.validationResults)) {
+            const firstError = signalRef.value.find((result) => result.severity === 'error')?.message ?? null;
+            this.errorSignals[path] ??= signal(null);
+            this.errorSignals[path].value = firstError;
+        }
+    }
+
+    private snapshotGroupChildren(items: FormItem[], prefix: string): Record<string, any> {
+        const snapshot: Record<string, any> = {};
+        for (const item of items) {
+            const path = `${prefix}.${item.key}`;
+            if (item.type === 'field') {
+                snapshot[item.key] = cloneValue(this.signals[path]?.value);
+                continue;
+            }
+            if (item.type === 'group') {
+                if (item.repeatable) {
+                    const count = this.repeats[path]?.value ?? 0;
+                    const rows: Record<string, any>[] = [];
+                    for (let index = 0; index < count; index += 1) {
+                        rows.push(this.snapshotGroupChildren(item.children ?? [], `${path}[${index}]`));
+                    }
+                    snapshot[item.key] = rows;
+                } else {
+                    snapshot[item.key] = this.snapshotGroupChildren(item.children ?? [], path);
+                }
+            }
+        }
+        return snapshot;
+    }
+
+    private applyGroupChildrenSnapshot(items: FormItem[], prefix: string, snapshot: Record<string, any>): void {
+        for (const item of items) {
+            const path = `${prefix}.${item.key}`;
+            if (item.type === 'field') {
+                const value = cloneValue(snapshot?.[item.key]);
+                this._data[path] = value;
+                if (this.signals[path]) {
+                    this.signals[path].value = value;
+                }
+                continue;
+            }
+            if (item.type === 'group') {
+                if (item.repeatable) {
+                    const rows = Array.isArray(snapshot?.[item.key]) ? snapshot[item.key] : [];
+                    for (let index = 0; index < rows.length; index += 1) {
+                        this.applyGroupChildrenSnapshot(item.children ?? [], `${path}[${index}]`, rows[index] ?? {});
+                    }
+                } else {
+                    this.applyGroupChildrenSnapshot(item.children ?? [], path, snapshot?.[item.key] ?? {});
+                }
+            }
+        }
+    }
+
+    private clearRepeatSubtree(rootRepeatPath: string): void {
+        const prefix = `${rootRepeatPath}[`;
+        const stores: Array<Record<string, any>> = [
+            this.signals,
+            this.relevantSignals,
+            this.requiredSignals,
+            this.readonlySignals,
+            this.errorSignals,
+            this.validationResults,
+            this.optionSignals,
+            this.optionStateSignals,
+            this.repeats,
+        ];
+
+        for (const store of stores) {
+            for (const key of Object.keys(store)) {
+                if (key.startsWith(prefix)) {
+                    delete store[key];
+                }
+            }
+        }
+
+        for (const key of Object.keys(this._data)) {
+            if (key.startsWith(prefix)) {
+                delete this._data[key];
+            }
+        }
+    }
 }
 
-/** A node in the component tree describing which UI component to render, with optional binding, conditional visibility, and children. */
-export interface ComponentObject {
-    component: string;
-    bind?: string;
-    when?: string;
-    style?: Record<string, any>;
-    children?: ComponentObject[];
-    [key: string]: any;
+function normalizeRemoteOptions(payload: any): OptionEntry[] {
+    const options = Array.isArray(payload) ? payload : Array.isArray(payload?.options) ? payload.options : null;
+    if (!options) {
+        throw new Error('Remote options response must be an array or { options: [...] }');
+    }
+    return options
+        .filter((option: any) => option && typeof option === 'object' && option.value !== undefined && option.label !== undefined)
+        .map((option: any) => ({
+            value: String(option.value),
+            label: String(option.label),
+        }));
 }
 
-/**
- * A Formspec Component Document that defines the UI component tree, breakpoints, tokens,
- * and custom component specifications for rendering a specific definition.
- */
-export interface ComponentDocument {
-    $formspecComponent: string;
-    version: string;
-    targetDefinition: {
-        url: string;
-        compatibleVersions?: string;
+function makeValidationResult(
+    result: Pick<ValidationResult, 'path' | 'severity' | 'constraintKind' | 'code' | 'message' | 'source'>
+    & Partial<Pick<ValidationResult, 'shapeId' | 'context'>>,
+): ValidationResult {
+    return {
+        ...result,
+        path: toFelIndexedPath(result.path),
+    } as ValidationResult;
+}
+
+function toValidationResult(result: EvalValidation): ValidationResult {
+    return {
+        ...(result as unknown as ValidationResult),
+        path: toFelIndexedPath(result.path),
     };
-    url?: string;
-    name?: string;
-    title?: string;
-    description?: string;
-    breakpoints?: Record<string, number>;
-    tokens?: Record<string, any>;
-    components?: Record<string, any>;
-    tree: ComponentObject;
+}
+
+function toValidationResults(results: EvalValidation[]): ValidationResult[] {
+    return results.map(toValidationResult);
+}
+
+function toRuntimeMappingResult(result: {
+    direction: string;
+    output: any;
+    rulesApplied: number;
+    diagnostics: any[];
+}): RuntimeMappingResult {
+    return {
+        direction: result.direction as MappingDirection,
+        output: result.output,
+        appliedRules: result.rulesApplied,
+        diagnostics: (result.diagnostics ?? []) as MappingDiagnostic[],
+    };
+}
+
+function emptyValueForItem(item: FormItem): any {
+    if (item.type !== 'field') {
+        return null;
+    }
+    switch (item.dataType) {
+        case 'integer':
+        case 'decimal':
+        case 'number':
+        case 'money':
+        case 'date':
+        case 'dateTime':
+        case 'time':
+            return null;
+        case 'boolean':
+            return false;
+        case 'multiChoice':
+            return [];
+        default:
+            return '';
+    }
+}
+
+function coerceInitialValue(item: FormItem, value: any): any {
+    if (item.dataType === 'boolean' && value === '') {
+        return false;
+    }
+    if (['integer', 'decimal', 'number'].includes(item.dataType ?? '') && value === '') {
+        return null;
+    }
+    if (item.dataType === 'money' && typeof value === 'number') {
+        return { amount: value, currency: item.currency ?? '' };
+    }
+    return cloneValue(value);
+}
+
+function coerceFieldValue(
+    item: FormItem,
+    bind: EngineBindConfig | undefined,
+    definition: FormDefinition,
+    value: any,
+): any {
+    let nextValue = value;
+
+    if (typeof nextValue === 'string' && bind?.whitespace) {
+        switch (bind.whitespace) {
+            case 'trim':
+                nextValue = nextValue.trim();
+                break;
+            case 'normalize':
+                nextValue = nextValue.replace(/\s+/g, ' ').trim();
+                break;
+            case 'remove':
+                nextValue = nextValue.replace(/\s/g, '');
+                break;
+        }
+    }
+
+    if (typeof nextValue === 'string' && ['integer', 'decimal', 'number'].includes(item.dataType ?? '')) {
+        nextValue = nextValue === '' ? null : Number(nextValue);
+    }
+    if (item.dataType === 'money' && typeof nextValue === 'number') {
+        nextValue = {
+            amount: nextValue,
+            currency: item.currency ?? definition.formPresentation?.defaultCurrency ?? '',
+        };
+    }
+    if (item.dataType === 'money' && nextValue && typeof nextValue === 'object' && typeof nextValue.amount === 'string') {
+        nextValue = {
+            ...nextValue,
+            amount: nextValue.amount === '' ? null : Number(nextValue.amount),
+        };
+    }
+
+    if (bind?.precision !== undefined && typeof nextValue === 'number' && !Number.isNaN(nextValue)) {
+        const factor = 10 ** bind.precision;
+        nextValue = Math.round(nextValue * factor) / factor;
+    }
+
+    return cloneValue(nextValue);
+}
+
+function validateDataType(value: any, dataType: string): boolean {
+    switch (dataType) {
+        case 'string':
+            return typeof value === 'string';
+        case 'boolean':
+            return typeof value === 'boolean';
+        case 'integer':
+            return typeof value === 'number' && Number.isInteger(value);
+        case 'decimal':
+        case 'number':
+            return typeof value === 'number' && !Number.isNaN(value);
+        case 'money':
+            return value && typeof value === 'object' && typeof value.amount === 'number';
+        case 'array':
+            return Array.isArray(value);
+        case 'object':
+            return value !== null && typeof value === 'object' && !Array.isArray(value);
+        default:
+            return true;
+    }
+}
+
+function cloneValue<T>(value: T): T {
+    if (value === null || value === undefined || typeof value !== 'object') {
+        return value;
+    }
+    const copier = (globalThis as any).structuredClone;
+    if (typeof copier === 'function') {
+        return copier(value);
+    }
+    return JSON.parse(JSON.stringify(value));
+}
+
+function deepEqual(left: unknown, right: unknown): boolean {
+    if (Object.is(left, right)) {
+        return true;
+    }
+    if (Array.isArray(left) && Array.isArray(right)) {
+        return left.length === right.length && left.every((entry, index) => deepEqual(entry, right[index]));
+    }
+    if (left && right && typeof left === 'object' && typeof right === 'object') {
+        const leftKeys = Object.keys(left as Record<string, unknown>).sort();
+        const rightKeys = Object.keys(right as Record<string, unknown>).sort();
+        if (!deepEqual(leftKeys, rightKeys)) {
+            return false;
+        }
+        return leftKeys.every((key) =>
+            deepEqual((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]));
+    }
+    return false;
+}
+
+function resolveNowProvider(now: FormEngineRuntimeContext['now']): () => Date {
+    if (typeof now === 'function') {
+        return () => coerceDate(now());
+    }
+    if (now !== undefined) {
+        const fixed = coerceDate(now);
+        return () => new Date(fixed.getTime());
+    }
+    return () => new Date();
+}
+
+function coerceDate(value: RuntimeNowInput): Date {
+    if (value instanceof Date) {
+        return new Date(value.getTime());
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function toBasePath(path: string): string {
+    return wasmNormalizeIndexedPath(path).replace(/\[\*\]/g, '');
+}
+
+function parseInstanceTarget(path: string): { instanceName: string; instancePath?: string } | null {
+    const explicit = path.match(/^instances\.([a-zA-Z][a-zA-Z0-9_]*)\.?(.*)$/);
+    if (explicit) {
+        return {
+            instanceName: explicit[1],
+            instancePath: explicit[2] || undefined,
+        };
+    }
+    const felSyntax = path.match(/^@instance\((['"])([^'"]+)\1\)\.?(.*)$/);
+    if (felSyntax) {
+        return {
+            instanceName: felSyntax[2],
+            instancePath: felSyntax[3] || undefined,
+        };
+    }
+    return null;
+}
+
+function splitIndexedPath(path: string): string[] {
+    return path.match(/[^.[\]]+|\[\d+\]/g)?.map((segment) => segment.startsWith('[') ? segment : segment) ?? [];
+}
+
+function appendPath(base: string, segment: string): string {
+    return segment.startsWith('[') ? `${base}${segment}` : `${base}.${segment}`;
+}
+
+function parentPathOf(path: string): string {
+    if (!path) {
+        return '';
+    }
+    const segments = path.match(/[^.[\]]+|\[\d+\]/g) ?? [];
+    if (segments.length <= 1) {
+        return '';
+    }
+    const parts = segments.slice(0, -1);
+    let current = parts[0] ?? '';
+    for (let index = 1; index < parts.length; index += 1) {
+        current = appendPath(current, parts[index]);
+    }
+    return current;
+}
+
+function getAncestorBasePaths(path: string): string[] {
+    const segments = splitIndexedPath(toBasePath(path));
+    const result: string[] = [];
+    for (let index = segments.length; index >= 1; index -= 1) {
+        result.push(segments.slice(0, index).join('.'));
+    }
+    return result;
+}
+
+function getScopeAncestors(scopePath: string): string[] {
+    const stripped = toBasePath(scopePath);
+    if (!stripped) {
+        return [];
+    }
+    const parts = stripped.split('.').filter(Boolean);
+    const scopes: string[] = [];
+    for (let index = 1; index <= parts.length; index += 1) {
+        scopes.push(parts.slice(0, index).join('.'));
+    }
+    return scopes;
+}
+
+function getNestedValue(target: any, path: string): any {
+    const tokens = path.match(/[^.[\]]+|\[(\d+)\]/g) ?? [];
+    let current = target;
+    for (const token of tokens) {
+        if (current === null || current === undefined) {
+            return undefined;
+        }
+        if (token.startsWith('[')) {
+            const index = Number(token.slice(1, -1));
+            current = current[index];
+        } else {
+            current = current[token];
+        }
+    }
+    return current;
+}
+
+function setNestedPathValue(target: Record<string, any>, path: string, value: any): void {
+    const tokens = path.match(/[^.[\]]+|\[(\d+)\]/g) ?? [];
+    let current: any = target;
+    for (let index = 0; index < tokens.length - 1; index += 1) {
+        const token = tokens[index];
+        const next = tokens[index + 1];
+        if (token.startsWith('[')) {
+            const arrayIndex = Number(token.slice(1, -1));
+            current[arrayIndex] ??= next?.startsWith('[') ? [] : {};
+            current = current[arrayIndex];
+            continue;
+        }
+        current[token] ??= next?.startsWith('[') ? [] : {};
+        current = current[token];
+    }
+    const last = tokens[tokens.length - 1];
+    if (!last) {
+        return;
+    }
+    if (last.startsWith('[')) {
+        current[Number(last.slice(1, -1))] = value;
+    } else {
+        current[last] = value;
+    }
+}
+
+function setExpressionContextValue(target: Record<string, any>, path: string, value: any): void {
+    const tokens = path.match(/[^.[\]]+|\[(\d+)\]/g) ?? [];
+    if (tokens.length === 0) {
+        return;
+    }
+
+    let current: any = target;
+    for (let index = 0; index < tokens.length - 1; index += 1) {
+        if (current === null || current === undefined || typeof current !== 'object') {
+            return;
+        }
+
+        const token = tokens[index];
+        const next = tokens[index + 1];
+        if (token.startsWith('[')) {
+            const arrayIndex = Number(token.slice(1, -1));
+            const existing = current[arrayIndex];
+            if (existing !== undefined && (existing === null || typeof existing !== 'object')) {
+                return;
+            }
+            current[arrayIndex] ??= next?.startsWith('[') ? [] : {};
+            current = current[arrayIndex];
+            continue;
+        }
+
+        const existing = current[token];
+        if (existing !== undefined && (existing === null || typeof existing !== 'object')) {
+            return;
+        }
+        current[token] ??= next?.startsWith('[') ? [] : {};
+        current = current[token];
+    }
+
+    if (current === null || current === undefined || typeof current !== 'object') {
+        return;
+    }
+
+    const last = tokens[tokens.length - 1];
+    if (last.startsWith('[')) {
+        current[Number(last.slice(1, -1))] = value;
+    } else {
+        current[last] = value;
+    }
+}
+
+function setResponsePathValue(target: Record<string, any>, path: string, value: any): void {
+    const tokens = path.match(/[^.[\]]+|\[(\d+)\]/g) ?? [];
+    if (tokens.length === 0) {
+        return;
+    }
+
+    let current: any = target;
+    for (let index = 0; index < tokens.length - 1; index += 1) {
+        const token = tokens[index];
+        const next = tokens[index + 1];
+
+        if (token.startsWith('[')) {
+            const arrayIndex = Number(token.slice(1, -1));
+            const existing = current[arrayIndex];
+            if (existing !== undefined && (existing === null || typeof existing !== 'object')) {
+                const fallbackPath = tokens.slice(index + 1).join('.');
+                setResponsePathValue(target, fallbackPath, value);
+                return;
+            }
+            current[arrayIndex] ??= next?.startsWith('[') ? [] : {};
+            current = current[arrayIndex];
+            continue;
+        }
+
+        const existing = current[token];
+        if (existing !== undefined && (existing === null || typeof existing !== 'object')) {
+            const fallbackPath = tokens
+                .slice(0, index)
+                .concat(tokens.slice(index + 1))
+                .join('.');
+            setResponsePathValue(target, fallbackPath, value);
+            return;
+        }
+        current[token] ??= next?.startsWith('[') ? [] : {};
+        current = current[token];
+    }
+
+    const last = tokens[tokens.length - 1];
+    if (last.startsWith('[')) {
+        current[Number(last.slice(1, -1))] = value;
+    } else {
+        current[last] = value;
+    }
+}
+
+function replaceBareCurrentFieldRefs(expression: string, currentFieldName: string): string {
+    if (!currentFieldName || !expression.includes('$')) {
+        return expression;
+    }
+
+    let output = '';
+    let quote: '"' | "'" | null = null;
+
+    for (let index = 0; index < expression.length; index += 1) {
+        const char = expression[index];
+        const previous = index > 0 ? expression[index - 1] : '';
+        const next = index + 1 < expression.length ? expression[index + 1] : '';
+
+        if (quote) {
+            output += char;
+            if (char === '\\' && next) {
+                output += next;
+                index += 1;
+                continue;
+            }
+            if (char === quote) {
+                quote = null;
+            }
+            continue;
+        }
+
+        if (char === "'" || char === '"') {
+            quote = char;
+            output += char;
+            continue;
+        }
+
+        if (
+            char === '$'
+            && !/[A-Za-z0-9_]/.test(previous)
+            && !/[A-Za-z0-9_]/.test(next)
+        ) {
+            output += currentFieldName;
+            continue;
+        }
+
+        output += char;
+    }
+
+    return output;
+}
+
+function flattenObject(value: any, prefix = '', output: Record<string, any> = {}): Record<string, any> {
+    if (Array.isArray(value)) {
+        value.forEach((entry, index) => {
+            const path = `${prefix}[${index}]`;
+            flattenObject(entry, path, output);
+        });
+        if (prefix) {
+            output[prefix] = cloneValue(value);
+        }
+        return output;
+    }
+    if (value && typeof value === 'object') {
+        for (const [key, entry] of Object.entries(value)) {
+            const path = prefix ? `${prefix}.${key}` : key;
+            flattenObject(entry, path, output);
+        }
+        if (prefix) {
+            output[prefix] = cloneValue(value);
+        }
+        return output;
+    }
+    if (prefix) {
+        output[prefix] = cloneValue(value);
+    }
+    return output;
+}
+
+function buildGroupSnapshotForPath(prefix: string, signals: Record<string, Signal<any>>): Record<string, any> {
+    const snapshot: Record<string, any> = {};
+    for (const [path, signalRef] of Object.entries(signals)) {
+        if (!path.startsWith(`${prefix}.`)) {
+            continue;
+        }
+        const relative = path.slice(prefix.length + 1);
+        if (!relative || relative.includes('[')) {
+            continue;
+        }
+        setNestedPathValue(snapshot, relative, cloneValue(signalRef.value));
+    }
+    return snapshot;
+}
+
+function buildRepeatCollection(groupPath: string, count: number, signals: Record<string, Signal<any>>): any[] {
+    const rows: any[] = [];
+    for (let index = 0; index < count; index += 1) {
+        const prefix = `${groupPath}[${index}]`;
+        const row: Record<string, any> = {};
+        for (const [path, signalRef] of Object.entries(signals)) {
+            if (!path.startsWith(`${prefix}.`)) {
+                continue;
+            }
+            const relative = path.slice(prefix.length + 1);
+            setResponsePathValue(row, relative, cloneValue(signalRef.value));
+        }
+        rows.push(row);
+    }
+    return rows;
+}
+
+function getRepeatAncestors(
+    currentItemPath: string,
+    repeats: Record<string, Signal<number>>,
+): Array<{ groupPath: string; index: number; count: number }> {
+    const matches = currentItemPath.match(/[^.[\]]+\[\d+\]|[^.[\]]+/g) ?? [];
+    const ancestors: Array<{ groupPath: string; index: number; count: number }> = [];
+    let current = '';
+    for (const segment of matches) {
+        const repeatMatch = segment.match(/^(.+)\[(\d+)\]$/);
+        if (repeatMatch) {
+            current = current ? `${current}.${repeatMatch[1]}` : repeatMatch[1];
+            if (repeats[current]) {
+                ancestors.push({
+                    groupPath: current,
+                    index: Number(repeatMatch[2]),
+                    count: repeats[current].value,
+                });
+            }
+            current = `${current}[${repeatMatch[2]}]`;
+        } else {
+            current = current ? `${current}.${segment}` : segment;
+        }
+    }
+    return ancestors;
+}
+
+function isEmptyValue(value: unknown): boolean {
+    return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+}
+
+function safeEvaluateExpression(expression: string, context: WasmFelContext): any {
+    try {
+        return wasmEvalFELWithContext(expression, context);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes('Unsupported FEL function:')) {
+            throw error;
+        }
+        return null;
+    }
+}
+
+function extractInlineBind(item: FormItem, path: string): EngineBindConfig | null {
+    const bind: EngineBindConfig = { path };
+    let used = false;
+    for (const key of [
+        'calculate',
+        'constraint',
+        'constraintMessage',
+        'relevant',
+        'required',
+        'readonly',
+        'default',
+        'precision',
+        'disabledDisplay',
+        'whitespace',
+        'nonRelevantBehavior',
+        'remoteOptions',
+        'excludedValue',
+    ] as const) {
+        if ((item as any)[key] !== undefined) {
+            (bind as any)[key] = (item as any)[key];
+            used = true;
+        }
+    }
+    if ((item as any).visible !== undefined && bind.relevant === undefined) {
+        bind.relevant = (item as any).visible;
+        used = true;
+    }
+    return used ? bind : null;
+}
+
+function detectNamedCycle(graph: Map<string, Set<string>>, message: string): void {
+    const visiting = new Set<string>();
+    const visited = new Set<string>();
+
+    const visit = (node: string): void => {
+        if (visited.has(node)) {
+            return;
+        }
+        if (visiting.has(node)) {
+            throw new Error(message);
+        }
+        visiting.add(node);
+        for (const dep of graph.get(node) ?? []) {
+            if (graph.has(dep)) {
+                visit(dep);
+            }
+        }
+        visiting.delete(node);
+        visited.add(node);
+    };
+
+    for (const node of graph.keys()) {
+        visit(node);
+    }
+}
+
+function topoSortKeys<T extends { key: string }>(
+    nodes: T[],
+    graph: Map<string, Set<string>>,
+): T[] {
+    const pending = new Map(nodes.map((node) => [node.key, node]));
+    const incoming = new Map<string, number>();
+    for (const node of nodes) {
+        incoming.set(node.key, 0);
+    }
+    for (const deps of graph.values()) {
+        for (const dep of deps) {
+            incoming.set(dep, incoming.get(dep) ?? 0);
+        }
+    }
+    for (const [key, deps] of graph.entries()) {
+        incoming.set(key, incoming.get(key) ?? 0);
+        for (const dep of deps) {
+            incoming.set(key, (incoming.get(key) ?? 0) + 1);
+        }
+    }
+
+    const ordered: T[] = [];
+    const queue: string[] = [...nodes.filter((node) => (incoming.get(node.key) ?? 0) === 0).map((node) => node.key)];
+    while (queue.length > 0) {
+        const key = queue.shift()!;
+        const node = pending.get(key);
+        if (!node) {
+            continue;
+        }
+        pending.delete(key);
+        ordered.push(node);
+        for (const [otherKey, deps] of graph.entries()) {
+            if (!deps.has(key)) {
+                continue;
+            }
+            const nextIncoming = (incoming.get(otherKey) ?? 0) - 1;
+            incoming.set(otherKey, nextIncoming);
+            if (nextIncoming === 0) {
+                queue.push(otherKey);
+            }
+        }
+    }
+
+    if (pending.size > 0) {
+        ordered.push(...pending.values());
+    }
+    return ordered;
+}
+
+function snapshotSignals(signals: Record<string, Signal<any>>): Record<string, any> {
+    const snapshot: Record<string, any> = {};
+    for (const [path, signalRef] of Object.entries(signals)) {
+        snapshot[path] = cloneValue(signalRef.value);
+    }
+    return snapshot;
+}
+
+function toFelIndexedPath(path: string): string {
+    return path.replace(/\[(\d+)\]/g, (_match, index) => `[${Number(index) + 1}]`);
+}
+
+function buildRepeatValueAliases(valuesByPath: Record<string, any>): Array<[string, any[]]> {
+    const grouped = new Map<string, Array<{ index: number; value: any }>>();
+    for (const [path, value] of Object.entries(valuesByPath)) {
+        const match = path.match(/^(.*)\[(\d+)\]\.([^.[\]]+)$/);
+        if (!match) {
+            continue;
+        }
+        const alias = `${match[1]}.${match[3]}`;
+        const entries = grouped.get(alias) ?? [];
+        entries.push({ index: Number(match[2]), value: cloneValue(value) });
+        grouped.set(alias, entries);
+    }
+    return [...grouped.entries()].map(([path, entries]) => [
+        path,
+        entries.sort((left, right) => left.index - right.index).map((entry) => entry.value),
+    ]);
+}
+
+function toRepeatWildcardPath(alias: string): string {
+    const lastDot = alias.lastIndexOf('.');
+    if (lastDot === -1) {
+        return `${alias}[*]`;
+    }
+    return `${alias.slice(0, lastDot)}[*].${alias.slice(lastDot + 1)}`;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function resolveRelativeDependency(dep: string, parentPath: string, selfPath: string): string | null {
+    if (!dep) {
+        return selfPath;
+    }
+    if (dep.includes('.')) {
+        return dep;
+    }
+    return parentPath ? `${parentPath}.${dep}` : dep;
+}
+
+function collectExtensionNames(items: unknown[], names: Set<string>): void {
+    for (const item of items as Array<Record<string, any>>) {
+        for (const [name, enabled] of Object.entries(item?.extensions ?? {})) {
+            if (enabled !== false) {
+                names.add(name);
+            }
+        }
+        if (Array.isArray(item?.children)) {
+            collectExtensionNames(item.children, names);
+        }
+    }
+}
+
+function parseVersion(version: string): [number, number, number] {
+    const parts = version.split('.').map(Number);
+    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+}
+
+function versionSatisfies(version: string, constraint: string): boolean {
+    const parsedVersion = parseVersion(version);
+    for (const part of constraint.trim().split(/\s+/)) {
+        let operator = '==';
+        let targetText = part;
+        if (part.startsWith('>=')) {
+            operator = '>=';
+            targetText = part.slice(2);
+        } else if (part.startsWith('<=')) {
+            operator = '<=';
+            targetText = part.slice(2);
+        } else if (part.startsWith('>')) {
+            operator = '>';
+            targetText = part.slice(1);
+        } else if (part.startsWith('<')) {
+            operator = '<';
+            targetText = part.slice(1);
+        }
+        const target = parseVersion(targetText);
+        const cmp = parsedVersion[0] !== target[0]
+            ? parsedVersion[0] - target[0]
+            : parsedVersion[1] !== target[1]
+                ? parsedVersion[1] - target[1]
+                : parsedVersion[2] - target[2];
+        if (operator === '>=' && cmp < 0) return false;
+        if (operator === '<=' && cmp > 0) return false;
+        if (operator === '>' && cmp <= 0) return false;
+        if (operator === '<' && cmp >= 0) return false;
+        if (operator === '==' && cmp !== 0) return false;
+    }
+    return true;
+}
+
+function parseRef(ref: string): { url: string; version?: string } {
+    const [withoutFragment] = ref.split('#');
+    const pipeIndex = withoutFragment.indexOf('|');
+    if (pipeIndex === -1) {
+        return { url: withoutFragment };
+    }
+    return {
+        url: withoutFragment.slice(0, pipeIndex),
+        version: withoutFragment.slice(pipeIndex + 1),
+    };
+}
+
+function collectRefs(node: unknown, refs: Set<string>): void {
+    if (!node || typeof node !== 'object') {
+        return;
+    }
+    if (Array.isArray(node)) {
+        for (const entry of node) {
+            collectRefs(entry, refs);
+        }
+        return;
+    }
+    const object = node as Record<string, unknown>;
+    if (typeof object.$ref === 'string') {
+        refs.add(object.$ref);
+    }
+    for (const value of Object.values(object)) {
+        collectRefs(value, refs);
+    }
+}
+
+async function assembleDefinitionAsyncInternal(
+    definition: FormDefinition,
+    resolver: DefinitionResolver,
+): Promise<AssemblyResult> {
+    const fragments: Record<string, unknown> = {};
+    const assembledFrom: AssemblyProvenance[] = [];
+    const queue = new Set<string>();
+    collectRefs(definition, queue);
+    const seen = new Set<string>();
+
+    while (queue.size > 0) {
+        const ref = queue.values().next().value as string;
+        queue.delete(ref);
+        if (seen.has(ref)) {
+            continue;
+        }
+        seen.add(ref);
+        const { url, version } = parseRef(ref);
+        const resolved = await resolver(url, version);
+        fragments[ref] = resolved;
+        assembledFrom.push({
+            url,
+            version: resolved.version ?? version ?? '',
+        });
+        collectRefs(resolved, queue);
+    }
+
+    const result = wasmAssembleDefinition(definition, fragments);
+    if ((result.errors?.length ?? 0) > 0) {
+        throw new Error(result.errors.join('\n'));
+    }
+    return {
+        definition: result.definition,
+        assembledFrom,
+    };
+}
+
+function assembleDefinitionSyncInternal(
+    definition: FormDefinition,
+    resolver: Record<string, unknown> | ((url: string, version?: string) => unknown),
+): AssemblyResult {
+    const resolveOne = typeof resolver === 'function'
+        ? resolver
+        : (url: string, version?: string) => resolver[version ? `${url}|${version}` : url] ?? resolver[url];
+
+    const fragments: Record<string, unknown> = {};
+    const assembledFrom: AssemblyProvenance[] = [];
+    const queue = new Set<string>();
+    collectRefs(definition, queue);
+    const seen = new Set<string>();
+
+    while (queue.size > 0) {
+        const ref = queue.values().next().value as string;
+        queue.delete(ref);
+        if (seen.has(ref)) {
+            continue;
+        }
+        seen.add(ref);
+        const { url, version } = parseRef(ref);
+        const resolved = resolveOne(url, version);
+        fragments[ref] = resolved;
+        assembledFrom.push({
+            url,
+            version: (resolved as any)?.version ?? version ?? '',
+        });
+        collectRefs(resolved, queue);
+    }
+
+    const result = wasmAssembleDefinition(definition, fragments);
+    if ((result.errors?.length ?? 0) > 0) {
+        throw new Error(result.errors.join('\n'));
+    }
+    return {
+        definition: result.definition,
+        assembledFrom,
+    };
+}
+
+function rewriteFELCompat(expression: string, map: RewriteMap): string {
+    return legacyRewriteFEL(expression, map as any);
+}
+
+function collectRewriteFields(expression: string, map: RewriteMap): Record<string, string> {
+    const rewrites: Record<string, string> = {};
+    for (const fieldPath of legacyAnalyzeFEL(expression).references) {
+        const next = rewriteDollarPath(fieldPath, map);
+        if (next !== fieldPath) {
+            rewrites[fieldPath] = next;
+        }
+    }
+    return rewrites;
+}
+
+function collectRewriteCurrentPaths(expression: string, map: RewriteMap): Record<string, string> {
+    const rewrites: Record<string, string> = {};
+    for (const match of expression.matchAll(/@current\.([A-Za-z0-9_.[\]*]+)/g)) {
+        const currentPath = match[1];
+        const next = rewriteCurrentSegments(currentPath, map);
+        if (next !== currentPath) {
+            rewrites[currentPath] = next;
+        }
+    }
+    return rewrites;
+}
+
+function collectRewriteNavigationTargets(expression: string, map: RewriteMap): Record<string, string> {
+    const rewrites: Record<string, string> = {};
+    for (const match of expression.matchAll(/\b(?:prev|next|parent)\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+        const fieldName = match[1];
+        if (map.importedKeys.has(fieldName)) {
+            rewrites[fieldName] = `${map.keyPrefix}${fieldName}`;
+        }
+    }
+    return rewrites;
+}
+
+function rewriteDollarPath(path: string, map: RewriteMap): string {
+    const segments = path.split('.');
+    let changed = false;
+    const next = segments.map((segment, index) => {
+        const bracketIndex = segment.indexOf('[');
+        const base = bracketIndex === -1 ? segment : segment.slice(0, bracketIndex);
+        const suffix = bracketIndex === -1 ? '' : segment.slice(bracketIndex);
+        if (index === 0 && base === map.fragmentRootKey && map.fragmentRootKey) {
+            changed = true;
+            return `${map.hostGroupKey}${suffix}`;
+        }
+        if (map.importedKeys.has(base)) {
+            changed = true;
+            return `${map.keyPrefix}${base}${suffix}`;
+        }
+        return segment;
+    });
+    return changed ? next.join('.') : path;
+}
+
+function rewriteCurrentSegments(path: string, map: RewriteMap): string {
+    const segments = path.split('.');
+    let changed = false;
+    const next = segments.map((segment) => {
+        const bracketIndex = segment.indexOf('[');
+        const base = bracketIndex === -1 ? segment : segment.slice(0, bracketIndex);
+        const suffix = bracketIndex === -1 ? '' : segment.slice(bracketIndex);
+        if (map.importedKeys.has(base)) {
+            changed = true;
+            return `${map.keyPrefix}${base}${suffix}`;
+        }
+        return segment;
+    });
+    return changed ? next.join('.') : path;
 }
