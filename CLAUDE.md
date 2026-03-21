@@ -241,6 +241,17 @@ Every feature or bugfix follows this loop. Do NOT write implementation before a 
 3. **Expand** — Add tests for edge cases and the full requirement. See which fail, make them pass.
 4. **Verify** — Run the full suite to confirm zero regressions.
 
+## Code Review Workflow — Test Before Fix
+
+When a code review (manual or automated) identifies a bug, do NOT fix it directly. Follow the same red-green discipline:
+
+1. **Write a failing test** that reproduces the bug. Run it, confirm it fails for the right reason.
+2. **Fix the bug** with the simplest change that makes the test pass.
+3. **Expand coverage** — add edge-case tests around the bug site. If the review found one bug here, there may be others nearby.
+4. **Verify** — run the full suite to confirm zero regressions.
+
+This applies to every bug found during review — correctness issues, safety problems, silent data loss, off-by-one errors, all of it. The test is proof the bug existed and proof it's fixed. A fix without a test is an unverified claim.
+
 ## Testing Philosophy
 
 **The goal is confidence in correctness, not test quantity.** Write the fewest tests that give you high confidence the code works. One well-chosen integration test that exercises the real path is worth more than ten unit tests mocking every seam.
