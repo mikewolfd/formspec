@@ -46,7 +46,6 @@ def test_detect_definition_doc_type() -> None:
     assert lint(document) == []
 
 
-@pytest.mark.skip(reason="Rust linter does not perform JSON Schema validation — no schema-level diagnostics")
 def test_schema_error_maps_to_diagnostic_path() -> None:
     document = {
         "$formspec": "1.0",
@@ -109,7 +108,7 @@ def test_component_validation_completes_on_large_tree() -> None:
     lint(doc)
 
 
-@pytest.mark.skip(reason="Rust linter does not perform JSON Schema validation — bogusProperty not detected")
+@pytest.mark.skip(reason="Rust jsonschema crate does not track unevaluatedProperties through allOf>if/then composition")
 @_with_timeout(10)
 def test_component_validation_detects_errors() -> None:
     """Component validation should still report genuine schema violations."""

@@ -431,6 +431,16 @@ fn augment_array_value(out: &mut HashMap<String, Value>, prefix: &str, value: &V
     }
 }
 
+/// Check if a value is an array of objects (repeat group data).
+/// These should not be set in the FEL env to avoid 1-based array indexing conflicts.
+fn is_repeat_group_array(v: &Value) -> bool {
+    if let Value::Array(arr) = v {
+        !arr.is_empty() && arr.iter().all(|e| e.is_object())
+    } else {
+        false
+    }
+}
+
 /// Detect the repeat count for a given base path by looking at the data keys.
 /// Supports both indexed-key format (`base[0].field`, `base[1].field`) and
 /// array-valued format (`base` -> `[...]`).
@@ -573,7 +583,8 @@ pub fn recalculate(
     let mut env = FormspecEnvironment::new();
     let mut values = data.clone();
 
-    // Populate environment with current data
+    // Populate environment with ALL data (including arrays) for variable evaluation.
+    // Variables may aggregate over arrays (e.g., sum($items[*].amount)).
     for (k, v) in &values {
         env.set_field(k, json_to_fel(v));
     }
@@ -594,6 +605,17 @@ pub fn recalculate(
     // For scoped resolution, we use scoped_var_values in evaluate_items_with_inheritance
     for (name, val) in &var_values {
         env.set_variable(name, json_to_fel(val));
+    }
+
+    // After variable evaluation, remove repeat group arrays from the env.
+    // Flat indexed keys (e.g., rows[0].a) remain — FEL should resolve through
+    // those instead to avoid 1-based array indexing conflicts.
+    let array_keys: Vec<String> = values.iter()
+        .filter(|(_, v)| is_repeat_group_array(v))
+        .map(|(k, _)| k.clone())
+        .collect();
+    for k in &array_keys {
+        env.set_field(k, FelValue::Null);
     }
 
     let has_scoped = var_defs.iter().any(|v| {
@@ -1021,14 +1043,26 @@ fn evaluate_items_with_inheritance_scoped(
             },
         );
 
-        evaluate_items_with_inheritance_scoped(
-            &mut item.children,
-            env,
-            values,
-            item.relevant,
-            item.readonly,
-            scoped_vars,
-        );
+        // For repeatable groups, use row-scoped aliases so bare $sibling resolves
+        if item.repeatable && !item.children.is_empty() {
+            evaluate_repeat_children_with_aliases(
+                &mut item.children,
+                env,
+                values,
+                item.relevant,
+                item.readonly,
+                &item.path,
+            );
+        } else {
+            evaluate_items_with_inheritance_scoped(
+                &mut item.children,
+                env,
+                values,
+                item.relevant,
+                item.readonly,
+                scoped_vars,
+            );
+        }
     }
 }
 
@@ -1582,7 +1616,11 @@ fn apply_excluded_values_to_env(items: &[ItemInfo], env: &mut FormspecEnvironmen
 fn build_validation_env(values: &HashMap<String, Value>) -> FormspecEnvironment {
     let mut env = FormspecEnvironment::new();
     for (k, v) in values {
-        env.set_field(k, json_to_fel(v));
+        // Skip repeat group arrays — flat indexed keys exist and FEL should
+        // use those instead (array path resolution uses 1-based indexing).
+        if !is_repeat_group_array(v) {
+            env.set_field(k, json_to_fel(v));
+        }
     }
     env
 }

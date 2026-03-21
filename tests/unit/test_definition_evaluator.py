@@ -108,17 +108,74 @@ class TestEvaluateVariables:
         result = evaluate_definition(defn, {'items': [{'amount': 100}, {'amount': 200}]})
         assert result.variables['total'] == pytest.approx(300)
 
-    @pytest.mark.skip(reason="Rust backend does not support scoped variables yet")
     def test_scoped_variable_resolves_from_nearest_group_scope(self):
-        pass
+        """A variable scoped to a group resolves from the nearest ancestor."""
+        defn = {
+            'items': [
+                {
+                    'type': 'group', 'key': 'outer',
+                    'children': [
+                        {
+                            'type': 'group', 'key': 'inner',
+                            'children': [
+                                {'type': 'field', 'key': 'val', 'dataType': 'integer'},
+                            ],
+                        },
+                    ],
+                },
+            ],
+            'variables': [
+                {'name': 'multiplier', 'expression': '2', 'scope': 'outer'},
+                {'name': 'multiplier', 'expression': '10', 'scope': 'outer.inner'},
+            ],
+            'binds': [{'path': 'outer.inner.val', 'calculate': '@multiplier'}],
+        }
+        result = evaluate_definition(defn, {'outer': {'inner': {'val': 0}}})
+        # Nearest scope (inner) wins — multiplier = 10
+        assert result.data.get('outer.inner.val', result.data.get('outer', {}).get('inner', {}).get('val')) == 10
 
-    @pytest.mark.skip(reason="Rust backend does not support scoped variables yet")
     def test_scoped_variable_is_not_visible_outside_its_scope(self):
-        pass
+        """A variable scoped to a group is not visible to items outside that group."""
+        defn = {
+            'items': [
+                {
+                    'type': 'group', 'key': 'section',
+                    'children': [
+                        {'type': 'field', 'key': 'inner', 'dataType': 'integer'},
+                    ],
+                },
+                {'type': 'field', 'key': 'outer', 'dataType': 'integer'},
+            ],
+            'variables': [
+                {'name': 'secret', 'expression': '42', 'scope': 'section'},
+            ],
+            'binds': [{'path': 'outer', 'calculate': '$secret'}],
+        }
+        result = evaluate_definition(defn, {'section': {'inner': 0}, 'outer': 0})
+        # $secret is not visible outside 'section', so calculate should not resolve
+        # The value stays as-is (0) or becomes null
+        outer_val = result.data.get('outer')
+        assert outer_val is None or outer_val == 0
 
-    @pytest.mark.skip(reason="Rust backend does not support scoped variables yet")
     def test_scoped_variable_resolves_for_repeat_descendants(self):
-        pass
+        """A variable scoped to a repeatable group resolves for children in each instance."""
+        defn = {
+            'items': [
+                {
+                    'type': 'group', 'key': 'rows', 'repeatable': True,
+                    'children': [
+                        {'type': 'field', 'key': 'amount', 'dataType': 'integer'},
+                        {'type': 'field', 'key': 'doubled', 'dataType': 'integer'},
+                    ],
+                },
+            ],
+            'variables': [
+                {'name': 'factor', 'expression': '2', 'scope': 'rows'},
+            ],
+            'binds': [{'path': 'rows[*].doubled', 'calculate': '$rows[*].amount * @factor'}],
+        }
+        result = evaluate_definition(defn, {'rows': [{'amount': 5, 'doubled': 0}]})
+        assert result.data.get('rows[0].doubled', result.data.get('rows', [{}])[0].get('doubled')) == 10
 
 
 # ── Shape evaluation ─────────────────────────────────────────────────────────
@@ -269,13 +326,46 @@ class TestValidate:
         assert self._validate(shape, {'text': 'Real content'}) == []
         assert self._validate(shape, {'text': 'Content TBD'}) != []
 
-    @pytest.mark.skip(reason="Rust backend does not support wildcard shape targets yet")
     def test_wildcard_target_shape_emits_concrete_repeat_path(self):
-        pass
+        """Wildcard shape target expands to concrete indexed paths."""
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'rows', 'repeatable': True,
+                'children': [
+                    {'type': 'field', 'key': 'score', 'dataType': 'integer'},
+                ],
+            }],
+            'shapes': [{
+                'id': 's1', 'target': 'rows[*].score', 'severity': 'error',
+                'message': 'Score must be positive', 'code': 'POS',
+                'constraint': '$ > 0',
+            }],
+        }
+        result = evaluate_definition(defn, {'rows': [{'score': 5}, {'score': -1}]})
+        errors = [r for r in result.results if 'positive' in r.get('message', '')]
+        assert len(errors) == 1
+        assert errors[0]['path'] == 'rows[1].score'
 
-    @pytest.mark.skip(reason="Rust backend does not support wildcard shape targets yet")
     def test_wildcard_target_shape_uses_row_scope_for_sibling_references(self):
-        pass
+        """Shape with wildcard target can reference siblings in the same row."""
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'rows', 'repeatable': True,
+                'children': [
+                    {'type': 'field', 'key': 'min', 'dataType': 'integer'},
+                    {'type': 'field', 'key': 'max', 'dataType': 'integer'},
+                ],
+            }],
+            'shapes': [{
+                'id': 's1', 'target': 'rows[*].max', 'severity': 'error',
+                'message': 'Max must exceed min', 'code': 'RANGE',
+                'constraint': '$ > $rows[*].min',
+            }],
+        }
+        result = evaluate_definition(defn, {'rows': [{'min': 1, 'max': 10}, {'min': 5, 'max': 3}]})
+        errors = [r for r in result.results if 'exceed' in r.get('message', '')]
+        assert len(errors) == 1
+        assert errors[0]['path'] == 'rows[1].max'
 
 
 # ── Item registry + bind index ───────────────────────────────────────────────
@@ -373,9 +463,21 @@ class TestBindIndex:
         errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
         assert len(errors) == 1
 
-    @pytest.mark.skip(reason="Rust backend does not support wildcard bind paths yet")
     def test_wildcard_bind_path(self):
-        pass
+        """Wildcard bind path applies required to each concrete instance."""
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'items', 'repeatable': True,
+                'children': [
+                    {'type': 'field', 'key': 'name', 'dataType': 'string'},
+                ],
+            }],
+            'binds': [{'path': 'items[*].name', 'required': 'true'}],
+        }
+        result = evaluate_definition(defn, {'items': [{'name': 'Alice'}, {'name': ''}]})
+        errors = [r for r in result.results if 'equired' in r.get('message', '')]
+        assert len(errors) == 1
+        assert errors[0]['path'] == 'items[1].name'
 
 
 # ── Repeat expansion ─────────────────────────────────────────────────────────
@@ -573,9 +675,27 @@ class TestCalculate:
         result = evaluate_definition(defn, {'a': 10, 'b': 20, 'total': 0})
         assert result.data['total'] == 30
 
-    @pytest.mark.skip(reason="Rust backend does not support wildcard bind calculate yet")
     def test_repeat_scoped_calculate(self):
-        pass
+        """Wildcard bind calculate evaluates per concrete instance."""
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'items', 'repeatable': True,
+                'children': [
+                    {'type': 'field', 'key': 'qty', 'dataType': 'integer'},
+                    {'type': 'field', 'key': 'price', 'dataType': 'decimal'},
+                    {'type': 'field', 'key': 'total', 'dataType': 'decimal'},
+                ],
+            }],
+            'binds': [{'path': 'items[*].total', 'calculate': '$items[*].qty * $items[*].price'}],
+        }
+        result = evaluate_definition(defn, {
+            'items': [{'qty': 2, 'price': 10, 'total': 0}, {'qty': 5, 'price': 3, 'total': 0}]
+        })
+        # Check instance 0: 2 * 10 = 20, instance 1: 5 * 3 = 15
+        t0 = result.data.get('items[0].total')
+        t1 = result.data.get('items[1].total')
+        assert t0 == pytest.approx(20)
+        assert t1 == pytest.approx(15)
 
     def test_calculate_with_precision(self):
         defn = {
@@ -682,9 +802,27 @@ class TestBindValidation:
         errors = [r for r in result.results if r['kind'] == 'bind']
         assert len(errors) == 0
 
-    @pytest.mark.skip(reason="Rust backend does not support wildcard bind constraints yet")
     def test_bare_dollar_wildcard_constraint(self):
-        pass
+        """Wildcard bind constraint with bare $ resolves to the instance's field value."""
+        defn = {
+            'items': [{
+                'type': 'group', 'key': 'rows', 'repeatable': True,
+                'children': [
+                    {'type': 'field', 'key': 'amount', 'dataType': 'decimal'},
+                ],
+            }],
+            'binds': [{
+                'path': 'rows[*].amount',
+                'constraint': '$ >= 0',
+                'constraintMessage': 'Amount must be non-negative',
+            }],
+        }
+        result = evaluate_definition(defn, {
+            'rows': [{'amount': 100}, {'amount': -5}, {'amount': 50}]
+        })
+        errors = [r for r in result.results if 'non-negative' in r.get('message', '')]
+        assert len(errors) == 1
+        assert errors[0]['path'] == 'rows[1].amount'
 
     def test_shape_bare_dollar_with_target(self):
         """Shape constraint with target injects target value as bare $."""
@@ -1084,7 +1222,7 @@ class TestCreationTimeInitializers:
         result2 = evaluate_definition(defn, {'status': 'final'})
         assert result2.data.get('status') == 'final'
 
-    @pytest.mark.skip(reason="Rust backend does not support prepopulate/instance yet")
+    @pytest.mark.skip(reason="Rust backend does not support prepopulate/instance — requires instance context in evaluate_def")
     def test_prepopulate_reads_from_instance_when_field_missing(self):
         pass
 
