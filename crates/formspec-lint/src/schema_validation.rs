@@ -1,10 +1,16 @@
 //! @filedesc Pass 1b: JSON Schema validation — validates documents against embedded schemas (E101).
+//!
+//! Component documents use per-node validation to avoid O(N^depth) backtracking
+//! from oneOf + unevaluatedProperties on recursive component trees. Each node is
+//! validated against its specific `$defs` entry (discriminated by `component` const),
+//! while the document envelope is validated with a shallow placeholder tree.
 
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use formspec_core::{DocumentType, json_pointer_to_jsonpath};
 use jsonschema::{Resource, Validator};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::types::LintDiagnostic;
 
@@ -41,7 +47,7 @@ const CROSS_REF_SCHEMAS: &[(&str, &str)] = &[
 
 struct SchemaSet {
     definition: Validator,
-    component: Validator,
+    envelope_component: Validator,
     theme: Validator,
     response: Validator,
     mapping: Validator,
@@ -55,7 +61,7 @@ fn schema_set() -> &'static SchemaSet {
     static SET: OnceLock<SchemaSet> = OnceLock::new();
     SET.get_or_init(|| SchemaSet {
         definition: build_validator(DEFINITION_SCHEMA),
-        component: build_validator(COMPONENT_SCHEMA),
+        envelope_component: build_validator(COMPONENT_SCHEMA),
         theme: build_validator(THEME_SCHEMA),
         response: build_validator(RESPONSE_SCHEMA),
         mapping: build_validator(MAPPING_SCHEMA),
@@ -80,15 +86,98 @@ fn build_validator(schema_text: &str) -> Validator {
     opts.build(&schema).expect("embedded schema compiles")
 }
 
+// ── Per-node component validators ───────────────────────────────
+
+/// One compiled validator per component type, keyed by the `component` const value.
+/// Built from the component schema's `$defs` with recursive refs (ChildrenArray,
+/// AnyComponent) replaced by permissive stubs — we handle recursion ourselves.
+struct ComponentNodeValidators {
+    per_type: HashMap<String, Validator>,
+    /// Fallback for custom component refs (any `component` value not matching a built-in).
+    custom_ref: Validator,
+}
+
+fn component_node_validators() -> &'static ComponentNodeValidators {
+    static VALIDATORS: OnceLock<ComponentNodeValidators> = OnceLock::new();
+    VALIDATORS.get_or_init(|| {
+        let full_schema: Value =
+            serde_json::from_str(COMPONENT_SCHEMA).expect("embedded schema is valid JSON");
+        let original_defs = full_schema
+            .get("$defs")
+            .and_then(Value::as_object)
+            .expect("component schema has $defs");
+
+        // Copy all $defs, then override the recursive ones to break the cycle.
+        let mut defs = original_defs.clone();
+        defs.insert("ChildrenArray".to_string(), json!({"type": "array"}));
+        defs.insert(
+            "AnyComponent".to_string(),
+            json!({
+                "type": "object",
+                "required": ["component"],
+                "properties": {
+                    "component": {"type": "string", "minLength": 1}
+                }
+            }),
+        );
+
+        // Find component types: those whose `properties.component` has a `const`.
+        let component_names: Vec<String> = original_defs
+            .iter()
+            .filter(|(_, v)| {
+                v.get("properties")
+                    .and_then(|p| p.get("component"))
+                    .and_then(|c| c.get("const"))
+                    .is_some()
+            })
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        let mut per_type = HashMap::new();
+        for name in &component_names {
+            let const_val = original_defs[name]["properties"]["component"]["const"]
+                .as_str()
+                .unwrap_or(name)
+                .to_string();
+
+            let wrapper = json!({
+                "$defs": defs,
+                "$ref": format!("#/$defs/{}", name)
+            });
+
+            let validator = jsonschema::options()
+                .build(&wrapper)
+                .unwrap_or_else(|e| panic!("embedded component schema '{name}' must compile: {e}"));
+            per_type.insert(const_val, validator);
+        }
+
+        // CustomComponentRef: fallback for any component name not matching a built-in.
+        // Uses `not: { enum: [...] }` instead of a const, so we build it separately.
+        let custom_ref_wrapper = json!({
+            "$defs": defs,
+            "$ref": "#/$defs/CustomComponentRef"
+        });
+        let custom_ref = jsonschema::options()
+            .build(&custom_ref_wrapper)
+            .expect("embedded CustomComponentRef schema must compile");
+
+        ComponentNodeValidators { per_type, custom_ref }
+    })
+}
+
 // ── Public API ───────────────────────────────────────────────────
 
 /// Validate a document against its JSON Schema, returning E101 diagnostics.
 pub fn validate_schema(doc: &Value, doc_type: DocumentType) -> Vec<LintDiagnostic> {
+    if doc_type == DocumentType::Component {
+        return validate_component_schema(doc);
+    }
+
     let set = schema_set();
 
     let validator = match doc_type {
         DocumentType::Definition => &set.definition,
-        DocumentType::Component => &set.component,
+        DocumentType::Component => unreachable!(),
         DocumentType::Theme => &set.theme,
         DocumentType::Response => &set.response,
         DocumentType::Mapping => &set.mapping,
@@ -96,7 +185,6 @@ pub fn validate_schema(doc: &Value, doc_type: DocumentType) -> Vec<LintDiagnosti
         DocumentType::Registry => &set.registry,
         DocumentType::ValidationReport => &set.validation_report,
         DocumentType::ValidationResult => &set.validation_result,
-        // No schema for FelFunctions in the lint pipeline
         DocumentType::FelFunctions => return Vec::new(),
     };
 
@@ -108,6 +196,91 @@ pub fn validate_schema(doc: &Value, doc_type: DocumentType) -> Vec<LintDiagnosti
             LintDiagnostic::error("E101", 1, path, err.to_string())
         })
         .collect()
+}
+
+/// Component-specific validation: envelope + per-node.
+///
+/// 1. Validates the document envelope (version, targetDefinition, etc.) by
+///    substituting a minimal single-node tree — no recursive oneOf.
+/// 2. Walks the real tree and validates each component node individually
+///    against its specific `$defs` entry (discriminated by `component` const).
+fn validate_component_schema(doc: &Value) -> Vec<LintDiagnostic> {
+    let set = schema_set();
+    let node_validators = component_node_validators();
+    let mut diags = Vec::new();
+
+    // ── Envelope validation ──────────────────────────────────────
+    // Replace all trees with a minimal valid single-node tree to avoid
+    // oneOf backtracking while still validating envelope fields.
+    let minimal_node = json!({"component": "Stack"});
+    let mut shallow = doc.clone();
+    if let Some(obj) = shallow.as_object_mut() {
+        obj.insert("tree".to_string(), minimal_node.clone());
+        if let Some(comps) = obj.get_mut("components").and_then(Value::as_object_mut) {
+            for comp_def in comps.values_mut() {
+                if let Some(cd) = comp_def.as_object_mut() {
+                    cd.insert("tree".to_string(), minimal_node.clone());
+                }
+            }
+        }
+    }
+    for err in set.envelope_component.iter_errors(&shallow) {
+        let pointer = err.instance_path().as_str();
+        let path = json_pointer_to_jsonpath(pointer);
+        diags.push(LintDiagnostic::error("E101", 1, path, err.to_string()));
+    }
+
+    // ── Per-node validation ──────────────────────────────────────
+    if let Some(tree) = doc.get("tree") {
+        walk_and_validate(tree, "/tree", node_validators, &mut diags);
+    }
+    if let Some(comps) = doc.get("components").and_then(Value::as_object) {
+        for (name, comp_def) in comps {
+            if let Some(template_tree) = comp_def.get("tree") {
+                let pointer = format!("/components/{name}/tree");
+                walk_and_validate(template_tree, &pointer, node_validators, &mut diags);
+            }
+        }
+    }
+
+    diags
+}
+
+/// Recursively walk a component tree and validate each node against its
+/// type-specific validator (built-in) or the CustomComponentRef validator (fallback).
+fn walk_and_validate(
+    node: &Value,
+    pointer: &str,
+    node_validators: &ComponentNodeValidators,
+    diags: &mut Vec<LintDiagnostic>,
+) {
+    let Some(obj) = node.as_object() else { return };
+    let Some(component) = obj.get("component").and_then(Value::as_str) else {
+        return;
+    };
+
+    let validator = node_validators
+        .per_type
+        .get(component)
+        .unwrap_or(&node_validators.custom_ref);
+
+    for err in validator.iter_errors(node) {
+        let err_pointer = err.instance_path().as_str();
+        let full_pointer = if err_pointer.is_empty() {
+            pointer.to_string()
+        } else {
+            format!("{pointer}{err_pointer}")
+        };
+        let path = json_pointer_to_jsonpath(&full_pointer);
+        diags.push(LintDiagnostic::error("E101", 1, path, err.to_string()));
+    }
+
+    if let Some(children) = obj.get("children").and_then(Value::as_array) {
+        for (i, child) in children.iter().enumerate() {
+            let child_pointer = format!("{pointer}/children/{i}");
+            walk_and_validate(child, &child_pointer, node_validators, diags);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -263,5 +436,139 @@ mod tests {
             assert_eq!(d.pass, 1);
             assert_eq!(d.severity, LintSeverity::Error);
         }
+    }
+
+    #[test]
+    fn component_deep_tree_validates_in_linear_time() {
+        // Build a 50-level deep component tree — would hang with oneOf backtracking.
+        fn nest(depth: u32) -> Value {
+            if depth == 0 {
+                return json!({"component": "TextInput", "bind": "leaf"});
+            }
+            json!({
+                "component": "Stack",
+                "children": [nest(depth - 1)]
+            })
+        }
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": "https://example.com/forms/x" },
+            "tree": nest(50)
+        });
+        let diags = validate_schema(&comp, DocumentType::Component);
+        assert!(
+            diags.is_empty(),
+            "Deep valid tree should produce no E101, got: {:?}",
+            diags.iter().map(|d| (&d.code, &d.path, &d.message)).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn component_per_node_catches_invalid_property() {
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": "https://example.com/forms/x" },
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "TextInput", "bind": "name", "direction": "vertical" }
+                ]
+            }
+        });
+        let diags = validate_schema(&comp, DocumentType::Component);
+        // "direction" is not a valid TextInput property — unevaluatedProperties: false should catch it
+        assert!(
+            diags.iter().any(|d| d.code == "E101" && d.path.contains("children[0]")),
+            "Should emit E101 for invalid TextInput property, got: {:?}",
+            diags.iter().map(|d| (&d.code, &d.path, &d.message)).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn component_envelope_catches_missing_version() {
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "targetDefinition": { "url": "https://example.com/forms/x" },
+            "tree": { "component": "Stack" }
+        });
+        let diags = validate_schema(&comp, DocumentType::Component);
+        assert!(
+            diags.iter().any(|d| d.code == "E101" && d.message.contains("version")),
+            "Should report missing 'version', got: {:?}",
+            diags.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn custom_component_ref_valid_no_e101() {
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": "https://example.com/forms/x" },
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "AddressBlock", "params": { "prefix": "home" } }
+                ]
+            }
+        });
+        let diags = validate_schema(&comp, DocumentType::Component);
+        assert!(
+            diags.is_empty(),
+            "Valid custom component ref should produce no E101, got: {:?}",
+            diags.iter().map(|d| (&d.code, &d.path, &d.message)).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn custom_component_ref_rejects_invalid_property() {
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": "https://example.com/forms/x" },
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "AddressBlock", "bogusField": 42 }
+                ]
+            }
+        });
+        let diags = validate_schema(&comp, DocumentType::Component);
+        assert!(
+            diags.iter().any(|d| d.code == "E101" && d.path.contains("children[0]")),
+            "Should emit E101 for invalid custom component ref property, got: {:?}",
+            diags.iter().map(|d| (&d.code, &d.path, &d.message)).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn custom_component_template_tree_validated() {
+        let comp = json!({
+            "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": "https://example.com/forms/x" },
+            "components": {
+                "AddressBlock": {
+                    "params": ["prefix"],
+                    "tree": {
+                        "component": "Stack",
+                        "children": [
+                            { "component": "TextInput", "bind": "street", "direction": "vertical" }
+                        ]
+                    }
+                }
+            },
+            "tree": { "component": "Stack" }
+        });
+        let diags = validate_schema(&comp, DocumentType::Component);
+        assert!(
+            diags.iter().any(|d| d.code == "E101"
+                && d.path.contains("components")
+                && d.path.contains("children[0]")),
+            "Should catch invalid property in custom component template tree, got: {:?}",
+            diags.iter().map(|d| (&d.code, &d.path, &d.message)).collect::<Vec<_>>()
+        );
     }
 }
