@@ -69,9 +69,8 @@ fn build_validator(schema_text: &str) -> Validator {
     for &(ref_text, ref_id) in CROSS_REF_SCHEMAS {
         let ref_val: Value = serde_json::from_str(ref_text)
             .expect("cross-ref schema is valid JSON");
-        let resource = Resource::from_contents(ref_val)
-            .expect("cross-ref schema is a valid Resource");
-        opts.with_resource(ref_id, resource);
+        let resource = Resource::from_contents(ref_val);
+        opts = opts.with_resource(ref_id, resource);
     }
     opts.build(&schema)
         .expect("embedded schema compiles")
@@ -100,7 +99,7 @@ pub fn validate_schema(doc: &Value, doc_type: DocumentType) -> Vec<LintDiagnosti
     validator
         .iter_errors(doc)
         .map(|err| {
-            let pointer = err.instance_path.as_str();
+            let pointer = err.instance_path().as_str();
             let path = json_pointer_to_jsonpath(pointer);
             LintDiagnostic::error(
                 "E101",

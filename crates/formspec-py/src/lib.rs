@@ -7,6 +7,8 @@
 /// with native Rust performance while maintaining the same API surface.
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList};
+
+type PyObject = Py<PyAny>;
 use pythonize::depythonize;
 
 use rust_decimal::Decimal;
@@ -680,7 +682,7 @@ fn build_formspec_env(
 }
 
 fn pyany_to_mip_state(obj: &Bound<'_, PyAny>) -> PyResult<MipState> {
-    if let Ok(dict) = obj.downcast::<PyDict>() {
+    if let Ok(dict) = obj.cast::<PyDict>() {
         return Ok(MipState {
             valid: dict
                 .get_item("valid")?
@@ -723,14 +725,14 @@ fn python_to_fel(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<FelValue> {
     if let Ok(s) = obj.extract::<String>() {
         return Ok(FelValue::String(s));
     }
-    if let Ok(list) = obj.downcast::<PyList>() {
+    if let Ok(list) = obj.cast::<PyList>() {
         let mut arr = Vec::new();
         for item in list.iter() {
             arr.push(python_to_fel(py, &item)?);
         }
         return Ok(FelValue::Array(arr));
     }
-    if let Ok(dict) = obj.downcast::<PyDict>() {
+    if let Ok(dict) = obj.cast::<PyDict>() {
         let tagged_type = dict
             .get_item("__fel_type__")?
             .and_then(|value| value.extract::<String>().ok());
