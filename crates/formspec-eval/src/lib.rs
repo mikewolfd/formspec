@@ -410,7 +410,7 @@ pub fn expand_wildcard_path(pattern: &str, data: &HashMap<String, Value>) -> Vec
 /// Augment nested data with indexed paths for repeat groups.
 /// `{"rows": [{"a": 1}]}` adds `{"rows[0].a": 1}` while keeping the original `rows` key.
 /// This lets FEL resolve `$rows[0].a` via flat lookup while preserving nested output format.
-fn flatten_nested_data(data: &HashMap<String, Value>) -> HashMap<String, Value> {
+fn augment_nested_data(data: &HashMap<String, Value>) -> HashMap<String, Value> {
     let mut augmented = data.clone();
     for (key, value) in data {
         augment_array_value(&mut augmented, key, value);
@@ -419,18 +419,19 @@ fn flatten_nested_data(data: &HashMap<String, Value>) -> HashMap<String, Value> 
 }
 
 fn augment_array_value(out: &mut HashMap<String, Value>, prefix: &str, value: &Value) {
+    if !is_repeat_group_array(value) {
+        return;
+    }
+    // Array of objects = repeat group instances — add indexed paths
     if let Value::Array(arr) = value {
-        if !arr.is_empty() && arr.iter().all(|e| e.is_object()) {
-            // Array of objects = repeat group instances — add indexed paths
-            for (i, elem) in arr.iter().enumerate() {
-                let indexed = format!("{prefix}[{i}]");
-                if let Value::Object(map) = elem {
-                    for (k, v) in map {
-                        let path = format!("{indexed}.{k}");
-                        out.insert(path.clone(), v.clone());
-                        // Recurse for nested repeat groups
-                        augment_array_value(out, &path, v);
-                    }
+        for (i, elem) in arr.iter().enumerate() {
+            let indexed = format!("{prefix}[{i}]");
+            if let Value::Object(map) = elem {
+                for (k, v) in map {
+                    let path = format!("{indexed}.{k}");
+                    out.insert(path.clone(), v.clone());
+                    // Recurse for nested repeat groups
+                    augment_array_value(out, &path, v);
                 }
             }
         }
@@ -522,8 +523,8 @@ fn is_wildcard_bind(path: &str) -> bool {
 /// a concrete index. E.g., `$items[*].qty * $items[*].price` with index 2
 /// becomes `$items[2].qty * $items[2].price`.
 fn instantiate_wildcard_expr(expr: &str, base: &str, index: usize) -> String {
-    let wildcard_pattern = format!("{}[*]", base);
-    let concrete = format!("{}[{}]", base, index);
+    let wildcard_pattern = format!("${}[*]", base);
+    let concrete = format!("${}[{}]", base, index);
     expr.replace(&wildcard_pattern, &concrete)
 }
 
@@ -621,7 +622,7 @@ pub fn recalculate(
         .map(|(k, _)| k.clone())
         .collect();
     for k in &array_keys {
-        env.set_field(k, FelValue::Null);
+        env.data.remove(k);
     }
 
     let has_scoped = var_defs.iter().any(|v| {
@@ -698,6 +699,101 @@ fn evaluate_variables_scoped(
     (var_values, scoped_values, cycle_err)
 }
 
+/// Evaluate a single item's bind expressions with inheritance.
+///
+/// Handles: prev_relevant save, relevance (AND inheritance), default transition,
+/// excludedValue, readonly (OR inheritance), required (only if relevant),
+/// value loading, calculate evaluation, and MIP state update.
+fn evaluate_single_item(
+    item: &mut ItemInfo,
+    env: &mut FormspecEnvironment,
+    values: &mut HashMap<String, Value>,
+    parent_relevant: bool,
+    parent_readonly: bool,
+) {
+    // Save previous relevance for transition detection (9c)
+    item.prev_relevant = item.relevant;
+
+    // Evaluate own relevance expression
+    let own_relevant = if let Some(ref expr) = item.relevance {
+        eval_bool(expr, env, true)
+    } else {
+        true
+    };
+    // AND inheritance: if parent is not relevant, child is not relevant
+    item.relevant = own_relevant && parent_relevant;
+
+    // 9c: Default on relevance transition — non-relevant → relevant + empty → apply default
+    if item.relevant && !item.prev_relevant {
+        if let Some(ref default_val) = item.default_value {
+            let current = values.get(&item.path);
+            let is_empty = match current {
+                None | Some(Value::Null) => true,
+                Some(Value::String(s)) => s.is_empty(),
+                _ => false,
+            };
+            if is_empty {
+                values.insert(item.path.clone(), default_val.clone());
+                env.set_field(&item.path, json_to_fel(default_val));
+            }
+        }
+    }
+
+    // 9a: excludedValue — when non-relevant and excludedValue=="null", set FEL value to Null
+    if !item.relevant {
+        if let Some(ref ev) = item.excluded_value {
+            if ev == "null" {
+                env.set_field(&item.path, FelValue::Null);
+            }
+        }
+    }
+
+    // Evaluate own readonly expression
+    let own_readonly = if let Some(ref expr) = item.readonly_expr {
+        eval_bool(expr, env, false)
+    } else {
+        false
+    };
+    // OR inheritance: if parent is readonly, child is readonly
+    item.readonly = own_readonly || parent_readonly;
+
+    // Required: no inheritance, only evaluate if relevant
+    if item.relevant {
+        if let Some(ref expr) = item.required_expr {
+            item.required = eval_bool(expr, env, false);
+        }
+    } else {
+        item.required = false;
+    }
+
+    // Load current value from data
+    if let Some(val) = values.get(&item.path) {
+        item.value = val.clone();
+    }
+
+    // Evaluate calculate (continues even when non-relevant per S5.6)
+    if let Some(ref expr) = item.calculate {
+        if let Ok(parsed) = parse(expr) {
+            let result = evaluate(&parsed, env);
+            let json_val = fel_to_json(&result.value);
+            values.insert(item.path.clone(), json_val.clone());
+            item.value = json_val;
+            env.set_field(&item.path, result.value);
+        }
+    }
+
+    // Update MIP state
+    env.set_mip(
+        &item.path,
+        MipState {
+            valid: true, // updated in Phase 3
+            relevant: item.relevant,
+            readonly: item.readonly,
+            required: item.required,
+        },
+    );
+}
+
 /// Evaluate items with bind inheritance rules:
 /// - relevant: AND inheritance (parent false -> children false)
 /// - readonly: OR inheritance (parent true -> children true)
@@ -710,92 +806,9 @@ fn evaluate_items_with_inheritance(
     parent_readonly: bool,
 ) {
     for item in items.iter_mut() {
-        // Save previous relevance for transition detection (9c)
-        item.prev_relevant = item.relevant;
-
-        // Evaluate own relevance expression
-        let own_relevant = if let Some(ref expr) = item.relevance {
-            eval_bool(expr, env, true)
-        } else {
-            true
-        };
-        // AND inheritance: if parent is not relevant, child is not relevant
-        item.relevant = own_relevant && parent_relevant;
-
-        // 9c: Default on relevance transition — non-relevant → relevant + empty → apply default
-        if item.relevant && !item.prev_relevant {
-            if let Some(ref default_val) = item.default_value {
-                let current = values.get(&item.path);
-                let is_empty = match current {
-                    None | Some(Value::Null) => true,
-                    Some(Value::String(s)) => s.is_empty(),
-                    _ => false,
-                };
-                if is_empty {
-                    values.insert(item.path.clone(), default_val.clone());
-                    env.set_field(&item.path, json_to_fel(default_val));
-                }
-            }
-        }
-
-        // 9a: excludedValue — when non-relevant and excludedValue=="null", set FEL value to Null
-        if !item.relevant {
-            if let Some(ref ev) = item.excluded_value {
-                if ev == "null" {
-                    env.set_field(&item.path, FelValue::Null);
-                }
-            }
-        }
-
-        // Evaluate own readonly expression
-        let own_readonly = if let Some(ref expr) = item.readonly_expr {
-            eval_bool(expr, env, false)
-        } else {
-            false
-        };
-        // OR inheritance: if parent is readonly, child is readonly
-        item.readonly = own_readonly || parent_readonly;
-
-        // Required: no inheritance, only evaluate if relevant
-        if item.relevant {
-            if let Some(ref expr) = item.required_expr {
-                item.required = eval_bool(expr, env, false);
-            }
-        } else {
-            item.required = false;
-        }
-
-        // Load current value from data
-        if let Some(val) = values.get(&item.path) {
-            item.value = val.clone();
-        }
-
-        // Evaluate calculate (continues even when non-relevant per S5.6)
-        if let Some(ref expr) = item.calculate {
-            if let Ok(parsed) = parse(expr) {
-                let result = evaluate(&parsed, env);
-                let json_val = fel_to_json(&result.value);
-                values.insert(item.path.clone(), json_val.clone());
-                item.value = json_val;
-                env.set_field(&item.path, result.value);
-            }
-        }
-
-        // Update MIP state
-        env.set_mip(
-            &item.path,
-            MipState {
-                valid: true, // updated in Phase 3
-                relevant: item.relevant,
-                readonly: item.readonly,
-                required: item.required,
-            },
-        );
+        evaluate_single_item(item, env, values, parent_relevant, parent_readonly);
 
         // Recurse into children with inherited state.
-        // For repeatable groups, add bare-name field aliases per instance
-        // so that wildcard bind expressions like `$enabled` resolve to
-        // the concrete sibling value (e.g., `rows[0].enabled`).
         if item.repeatable && !item.children.is_empty() {
             evaluate_repeat_children_with_aliases(
                 &mut item.children,
@@ -803,7 +816,7 @@ fn evaluate_items_with_inheritance(
                 values,
                 item.relevant,
                 item.readonly,
-                &item.path,
+                None,
             );
         } else {
             evaluate_items_with_inheritance(
@@ -819,27 +832,35 @@ fn evaluate_items_with_inheritance(
 
 /// Evaluate children of a repeatable group, adding bare-name field aliases
 /// so `$sibling` resolves to the concrete indexed value in each row.
+///
+/// When `scoped_vars` is provided, variable scope filtering is applied per item
+/// (propagated from `evaluate_items_with_inheritance_scoped`).
 fn evaluate_repeat_children_with_aliases(
     children: &mut [ItemInfo],
     env: &mut FormspecEnvironment,
     values: &mut HashMap<String, Value>,
     parent_relevant: bool,
     parent_readonly: bool,
-    group_path: &str,
+    scoped_vars: Option<&HashMap<String, Value>>,
 ) {
     // Group children by instance index (e.g., "rows[0]." prefix)
     // and set bare-name aliases before evaluating each batch.
     let mut current_instance: Option<String> = None;
     let mut bare_names: Vec<String> = Vec::new();
+    // Save original env values for bare names so we can restore after cleanup
+    let mut saved_values: HashMap<String, Option<FelValue>> = HashMap::new();
 
     for item in children.iter_mut() {
         let instance_prefix = item.parent_path.as_deref().unwrap_or("");
 
         // When the instance changes, set up bare-name aliases
         if current_instance.as_deref() != Some(instance_prefix) {
-            // Clean up previous aliases
+            // Restore previous values for bare names
             for name in &bare_names {
-                env.set_field(name, FelValue::Null);
+                match saved_values.remove(name) {
+                    Some(Some(val)) => env.set_field(name, val),
+                    _ => { env.data.remove(name); }
+                }
             }
             bare_names.clear();
 
@@ -849,6 +870,8 @@ fn evaluate_repeat_children_with_aliases(
             for (k, v) in values.iter() {
                 if let Some(bare) = k.strip_prefix(&prefix_dot) {
                     if !bare.contains('.') {
+                        // Save original value before overwriting
+                        saved_values.insert(bare.to_string(), env.data.get(bare).cloned());
                         env.set_field(bare, json_to_fel(v));
                         bare_names.push(bare.to_string());
                     }
@@ -856,78 +879,24 @@ fn evaluate_repeat_children_with_aliases(
             }
         }
 
-        // Process this item normally
-        item.prev_relevant = item.relevant;
-        let own_relevant = if let Some(ref expr) = item.relevance {
-            eval_bool(expr, env, true)
-        } else {
-            true
-        };
-        item.relevant = own_relevant && parent_relevant;
-
-        if item.relevant && !item.prev_relevant {
-            if let Some(ref default_val) = item.default_value {
-                let current = values.get(&item.path);
-                let is_empty = match current {
-                    None | Some(Value::Null) => true,
-                    Some(Value::String(s)) => s.is_empty(),
-                    _ => false,
-                };
-                if is_empty {
-                    values.insert(item.path.clone(), default_val.clone());
-                    env.set_field(&item.path, json_to_fel(default_val));
-                }
+        // Apply scoped variable filtering if provided
+        if let Some(sv) = scoped_vars {
+            let visible = visible_variables(sv, &item.path);
+            env.variables.clear();
+            for (name, val) in &visible {
+                env.set_variable(name, json_to_fel(val));
             }
         }
 
-        if !item.relevant {
-            if let Some(ref ev) = item.excluded_value {
-                if ev == "null" {
-                    env.set_field(&item.path, FelValue::Null);
-                }
+        // Process this item
+        evaluate_single_item(item, env, values, parent_relevant, parent_readonly);
+
+        // Update bare-name alias with calculated value so siblings see it
+        if item.calculate.is_some() {
+            if let Some(val) = values.get(&item.path) {
+                env.set_field(&item.key, json_to_fel(val));
             }
         }
-
-        let own_readonly = if let Some(ref expr) = item.readonly_expr {
-            eval_bool(expr, env, false)
-        } else {
-            false
-        };
-        item.readonly = own_readonly || parent_readonly;
-
-        if item.relevant {
-            if let Some(ref expr) = item.required_expr {
-                item.required = eval_bool(expr, env, false);
-            }
-        } else {
-            item.required = false;
-        }
-
-        if let Some(val) = values.get(&item.path) {
-            item.value = val.clone();
-        }
-
-        if let Some(ref expr) = item.calculate {
-            if let Ok(parsed) = parse(expr) {
-                let result = evaluate(&parsed, env);
-                let json_val = fel_to_json(&result.value);
-                values.insert(item.path.clone(), json_val.clone());
-                item.value = json_val.clone();
-                env.set_field(&item.path, json_to_fel(&json_val));
-                // Update bare-name alias with calculated value
-                env.set_field(&item.key, json_to_fel(&json_val));
-            }
-        }
-
-        env.set_mip(
-            &item.path,
-            MipState {
-                valid: true,
-                relevant: item.relevant,
-                readonly: item.readonly,
-                required: item.required,
-            },
-        );
 
         // Recurse into nested groups
         if item.repeatable && !item.children.is_empty() {
@@ -937,7 +906,16 @@ fn evaluate_repeat_children_with_aliases(
                 values,
                 item.relevant,
                 item.readonly,
-                &item.path,
+                scoped_vars,
+            );
+        } else if let Some(sv) = scoped_vars {
+            evaluate_items_with_inheritance_scoped(
+                &mut item.children,
+                env,
+                values,
+                item.relevant,
+                item.readonly,
+                sv,
             );
         } else {
             evaluate_items_with_inheritance(
@@ -950,9 +928,12 @@ fn evaluate_repeat_children_with_aliases(
         }
     }
 
-    // Clean up aliases
+    // Restore original values for bare names
     for name in &bare_names {
-        env.set_field(name, FelValue::Null);
+        match saved_values.remove(name) {
+            Some(Some(val)) => env.set_field(name, val),
+            _ => { env.data.remove(name); }
+        }
     }
 }
 
@@ -969,87 +950,14 @@ fn evaluate_items_with_inheritance_scoped(
     for item in items.iter_mut() {
         // Compute visible variables for this item's path and set them in env
         let visible = visible_variables(scoped_vars, &item.path);
-        // Clear all variables, then set only visible ones
         env.variables.clear();
         for (name, val) in &visible {
             env.set_variable(name, json_to_fel(val));
         }
 
-        // Save previous relevance for transition detection
-        item.prev_relevant = item.relevant;
+        evaluate_single_item(item, env, values, parent_relevant, parent_readonly);
 
-        let own_relevant = if let Some(ref expr) = item.relevance {
-            eval_bool(expr, env, true)
-        } else {
-            true
-        };
-        item.relevant = own_relevant && parent_relevant;
-
-        // 9c: Default on relevance transition
-        if item.relevant && !item.prev_relevant {
-            if let Some(ref default_val) = item.default_value {
-                let current = values.get(&item.path);
-                let is_empty = match current {
-                    None | Some(Value::Null) => true,
-                    Some(Value::String(s)) => s.is_empty(),
-                    _ => false,
-                };
-                if is_empty {
-                    values.insert(item.path.clone(), default_val.clone());
-                    env.set_field(&item.path, json_to_fel(default_val));
-                }
-            }
-        }
-
-        // 9a: excludedValue
-        if !item.relevant {
-            if let Some(ref ev) = item.excluded_value {
-                if ev == "null" {
-                    env.set_field(&item.path, FelValue::Null);
-                }
-            }
-        }
-
-        let own_readonly = if let Some(ref expr) = item.readonly_expr {
-            eval_bool(expr, env, false)
-        } else {
-            false
-        };
-        item.readonly = own_readonly || parent_readonly;
-
-        if item.relevant {
-            if let Some(ref expr) = item.required_expr {
-                item.required = eval_bool(expr, env, false);
-            }
-        } else {
-            item.required = false;
-        }
-
-        if let Some(val) = values.get(&item.path) {
-            item.value = val.clone();
-        }
-
-        if let Some(ref expr) = item.calculate {
-            if let Ok(parsed) = parse(expr) {
-                let result = evaluate(&parsed, env);
-                let json_val = fel_to_json(&result.value);
-                values.insert(item.path.clone(), json_val.clone());
-                item.value = json_val;
-                env.set_field(&item.path, result.value);
-            }
-        }
-
-        env.set_mip(
-            &item.path,
-            MipState {
-                valid: true,
-                relevant: item.relevant,
-                readonly: item.readonly,
-                required: item.required,
-            },
-        );
-
-        // For repeatable groups, use row-scoped aliases so bare $sibling resolves
+        // Recurse: for repeatable groups, pass scoped_vars through
         if item.repeatable && !item.children.is_empty() {
             evaluate_repeat_children_with_aliases(
                 &mut item.children,
@@ -1057,7 +965,7 @@ fn evaluate_items_with_inheritance_scoped(
                 values,
                 item.relevant,
                 item.readonly,
-                &item.path,
+                Some(scoped_vars),
             );
         } else {
             evaluate_items_with_inheritance_scoped(
@@ -1582,36 +1490,34 @@ fn resolve_value_by_path(values: &HashMap<String, Value>, path: &str) -> Value {
     }
     // Walk nested objects/arrays, handling indexed segments like "rows[0]"
     let segments: Vec<&str> = path.split('.').collect();
-    if segments.len() >= 1 {
-        let (root_key, root_index) = parse_path_segment(segments[0]);
-        if let Some(root) = values.get(root_key) {
-            let mut current = match root_index {
-                Some(idx) => match root.as_array().and_then(|a| a.get(idx)) {
-                    Some(v) => v,
+    let (root_key, root_index) = parse_path_segment(segments[0]);
+    if let Some(root) = values.get(root_key) {
+        let mut current = match root_index {
+            Some(idx) => match root.as_array().and_then(|a| a.get(idx)) {
+                Some(v) => v,
+                None => return Value::Null,
+            },
+            None => root,
+        };
+        for seg in &segments[1..] {
+            let (key, index) = parse_path_segment(seg);
+            match current {
+                Value::Object(map) => match map.get(key) {
+                    Some(v) => {
+                        current = match index {
+                            Some(idx) => match v.as_array().and_then(|a| a.get(idx)) {
+                                Some(el) => el,
+                                None => return Value::Null,
+                            },
+                            None => v,
+                        };
+                    }
                     None => return Value::Null,
                 },
-                None => root,
-            };
-            for seg in &segments[1..] {
-                let (key, index) = parse_path_segment(seg);
-                match current {
-                    Value::Object(map) => match map.get(key) {
-                        Some(v) => {
-                            current = match index {
-                                Some(idx) => match v.as_array().and_then(|a| a.get(idx)) {
-                                    Some(el) => el,
-                                    None => return Value::Null,
-                                },
-                                None => v,
-                            };
-                        }
-                        None => return Value::Null,
-                    },
-                    _ => return Value::Null,
-                }
+                _ => return Value::Null,
             }
-            return current.clone();
         }
+        return current.clone();
     }
     Value::Null
 }
@@ -1789,7 +1695,7 @@ pub fn evaluate_definition_with_trigger(
     // Phase 0: Flatten nested data into indexed paths.
     // Converts `{"rows": [{"a": 1}]}` → `{"rows[0].a": 1}` so the FEL
     // evaluator can resolve `$rows[0].a` via flat key lookup.
-    let flat_data = flatten_nested_data(data);
+    let flat_data = augment_nested_data(data);
 
     // Phase 1: Rebuild
     let mut items = rebuild_item_tree(definition);
@@ -1908,8 +1814,6 @@ fn apply_wildcard_binds(
         }
     }
 }
-
-/// Collect the keys of direct children of a repeatable group for sibling ref rewriting.
 
 /// Collect wildcard bind entries from the binds object/array.
 fn collect_wildcard_binds(binds: Option<&Value>) -> Vec<(String, serde_json::Map<String, Value>)> {
@@ -5520,6 +5424,95 @@ mod tests {
         assert_eq!(visible_top.get("local_var"), None);
     }
 
+    // ── Bug regression tests ────────────────────────────────────
+
+    /// Scoped variables are visible inside repeatable group children.
+    /// After the refactor, _with_aliases propagates scoped_vars through
+    /// so the scoped path is used consistently.
+    #[test]
+    fn scoped_variable_visible_inside_repeatable_group() {
+        let def = json!({
+            "items": [
+                {
+                    "key": "section",
+                    "children": [
+                        {
+                            "key": "rows",
+                            "repeatable": true,
+                            "children": [
+                                { "key": "amount", "dataType": "integer" },
+                                { "key": "adjusted", "dataType": "integer" }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "binds": {
+                "section.rows[*].adjusted": { "calculate": "$amount * @rate" }
+            },
+            "variables": [
+                { "name": "rate", "expression": "2", "scope": "section" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("section.rows[0].amount".to_string(), json!(100));
+        data.insert("section.rows[1].amount".to_string(), json!(200));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(
+            result.values.get("section.rows[0].adjusted"),
+            Some(&json!(200)),
+            "scoped @rate should be visible inside repeatable group children"
+        );
+        assert_eq!(
+            result.values.get("section.rows[1].adjusted"),
+            Some(&json!(400)),
+            "scoped @rate should be visible inside second repeat instance"
+        );
+    }
+
+    /// Bug 3: Bare-name aliases must not shadow top-level fields permanently.
+    /// After evaluating a repeatable group, a top-level field with the same
+    /// bare name as a repeat child must still have its original value.
+    #[test]
+    fn bare_name_alias_does_not_shadow_top_level_field() {
+        let def = json!({
+            "items": [
+                {
+                    "key": "rows",
+                    "repeatable": true,
+                    "children": [
+                        { "key": "amount", "dataType": "decimal" }
+                    ]
+                },
+                { "key": "amount", "dataType": "decimal" },
+                { "key": "result", "dataType": "decimal" }
+            ],
+            "binds": {
+                "result": { "calculate": "$amount" }
+            }
+        });
+
+        let mut data = HashMap::new();
+        data.insert("amount".to_string(), json!(999));
+        data.insert("rows[0].amount".to_string(), json!(10));
+
+        let result = evaluate_definition(&def, &data);
+        // The top-level `amount` should not be nulled out by alias cleanup
+        assert_eq!(
+            result.values.get("amount"),
+            Some(&json!(999)),
+            "top-level field 'amount' must survive bare-name alias cleanup"
+        );
+        // `result` should calculate from the top-level `amount`, not null
+        assert_eq!(
+            result.values.get("result"),
+            Some(&json!(999)),
+            "calculate referencing $amount should use top-level value, not null from alias cleanup"
+        );
+    }
+
     /// expand_repeat_instances does nothing for non-repeatable groups.
     #[test]
     fn expand_repeat_instances_no_repeatables() {
@@ -5534,5 +5527,64 @@ mod tests {
         expand_repeat_instances(&mut items, &data);
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].key, "name");
+    }
+
+    // ── Bug fix tests ──────────────────────────────────────────────
+
+    /// instantiate_wildcard_expr must not match a name-prefix substring.
+    /// If base="row" and the expr contains "$myrow[*]", only "$row[*]"
+    /// should be replaced — "$myrow[*]" must remain untouched.
+    #[test]
+    fn instantiate_wildcard_expr_no_prefix_collision() {
+        let result = instantiate_wildcard_expr("$myrow[*].field + $row[*].field", "row", 0);
+        assert_eq!(result, "$myrow[*].field + $row[0].field",
+            "must not replace inside $myrow — only $row");
+    }
+
+    #[test]
+    fn instantiate_wildcard_expr_dotted_base() {
+        // Nested repeat group: base is "section.rows"
+        let result = instantiate_wildcard_expr(
+            "$section.rows[*].qty * $section.rows[*].price", "section.rows", 3);
+        assert_eq!(result, "$section.rows[3].qty * $section.rows[3].price");
+    }
+
+    #[test]
+    fn instantiate_wildcard_expr_no_match() {
+        // Expression has no wildcard for this base — unchanged
+        let result = instantiate_wildcard_expr("$other[*].x", "items", 0);
+        assert_eq!(result, "$other[*].x");
+    }
+
+    /// resolve_value_by_path: the segments.len() >= 1 guard is always true.
+    /// This test confirms the function works for empty-string path.
+    #[test]
+    fn resolve_value_by_path_empty_path() {
+        let values = HashMap::new();
+        let result = resolve_value_by_path(&values, "");
+        assert_eq!(result, Value::Null);
+    }
+
+    /// augment_array_value should delegate to is_repeat_group_array
+    /// instead of duplicating the check. Non-object arrays should NOT be flattened.
+    #[test]
+    fn augment_nested_data_skips_primitive_arrays() {
+        let mut data = HashMap::new();
+        data.insert("tags".to_string(), json!(["a", "b", "c"]));
+        let flat = augment_nested_data(&data);
+        assert!(!flat.contains_key("tags[0]"));
+        assert_eq!(flat.get("tags"), Some(&json!(["a", "b", "c"])));
+    }
+
+    /// build_validation_env must skip repeat group arrays entirely (not set null).
+    #[test]
+    fn build_validation_env_skips_repeat_group_arrays() {
+        let mut data = HashMap::new();
+        data.insert("rows".to_string(), json!([{"a": 1}]));
+        data.insert("rows[0].a".to_string(), json!(1));
+
+        let env = build_validation_env(&data);
+        assert!(!env.data.contains_key("rows"),
+            "build_validation_env should skip repeat group arrays entirely");
     }
 }
