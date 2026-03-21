@@ -74,10 +74,16 @@ pub struct ValidationResult {
     pub path: String,
     /// Severity: error, warning, info.
     pub severity: String,
-    /// Constraint kind: bind, shape, schema.
-    pub kind: String,
+    /// Constraint kind: required, constraint, type, cardinality, shape.
+    pub constraint_kind: String,
+    /// Validation code: REQUIRED, CONSTRAINT_FAILED, TYPE_MISMATCH, etc.
+    pub code: String,
     /// Human-readable message.
     pub message: String,
+    /// Source of the validation: bind, shape, definition.
+    pub source: String,
+    /// Shape ID (for shape validations only).
+    pub shape_id: Option<String>,
 }
 
 /// When to evaluate shape rules.
@@ -1168,8 +1174,11 @@ fn validate_items(
                 results.push(ValidationResult {
                     path: item.path.clone(),
                     severity: "error".to_string(),
-                    kind: "bind".to_string(),
+                    constraint_kind: "required".to_string(),
+                    code: "REQUIRED".to_string(),
                     message: "Required field is empty".to_string(),
+                    source: "bind".to_string(),
+                    shape_id: None,
                 });
             }
         }
@@ -1191,8 +1200,11 @@ fn validate_items(
                     results.push(ValidationResult {
                         path: item.path.clone(),
                         severity: "error".to_string(),
-                        kind: "type".to_string(),
+                        constraint_kind: "type".to_string(),
+                        code: "TYPE_MISMATCH".to_string(),
                         message: format!("Invalid {dt}"),
+                        source: "bind".to_string(),
+                        shape_id: None,
                     });
                 }
             }
@@ -1210,11 +1222,14 @@ fn validate_items(
                     results.push(ValidationResult {
                         path: item.path.clone(),
                         severity: "error".to_string(),
-                        kind: "bind".to_string(),
+                        constraint_kind: "constraint".to_string(),
+                        code: "CONSTRAINT_FAILED".to_string(),
                         message: item
                             .constraint_message
                             .clone()
                             .unwrap_or_else(|| format!("Constraint failed: {expr}")),
+                        source: "bind".to_string(),
+                        shape_id: None,
                     });
                 }
             }
@@ -1234,8 +1249,11 @@ fn validate_items(
                     results.push(ValidationResult {
                         path: item.path.clone(),
                         severity: "error".to_string(),
-                        kind: "cardinality".to_string(),
+                        constraint_kind: "cardinality".to_string(),
+                        code: "MIN_REPEAT".to_string(),
                         message: format!("Minimum {min} entries required"),
+                        source: "bind".to_string(),
+                        shape_id: None,
                     });
                 }
             }
@@ -1244,8 +1262,11 @@ fn validate_items(
                     results.push(ValidationResult {
                         path: item.path.clone(),
                         severity: "error".to_string(),
-                        kind: "cardinality".to_string(),
+                        constraint_kind: "cardinality".to_string(),
+                        code: "MAX_REPEAT".to_string(),
                         message: format!("Maximum {max} entries allowed"),
+                        source: "bind".to_string(),
+                        shape_id: None,
                     });
                 }
             }
@@ -1303,13 +1324,19 @@ fn validate_shape(
         }
     }
 
+    let sid = shape.get("id").and_then(|v| v.as_str()).map(str::to_string);
+    let scode = shape.get("code").and_then(|v| v.as_str()).unwrap_or("SHAPE_FAILED");
+
     let mut visiting = HashSet::new();
     if !shape_passes(shape, shapes_by_id, env, &mut visiting) {
         results.push(ValidationResult {
             path: target.to_string(),
             severity: severity.to_string(),
-            kind: "shape".to_string(),
+            constraint_kind: "shape".to_string(),
+            code: scode.to_string(),
             message: message.to_string(),
+            source: "shape".to_string(),
+            shape_id: sid.clone(),
         });
     }
 
@@ -1391,12 +1418,18 @@ fn validate_wildcard_shape(
             true
         };
 
+        let sid = shape.get("id").and_then(|v| v.as_str()).map(str::to_string);
+        let scode = shape.get("code").and_then(|v| v.as_str()).unwrap_or("SHAPE_FAILED");
+
         if !passes {
             results.push(ValidationResult {
                 path: concrete_path.clone(),
                 severity: severity.to_string(),
-                kind: "shape".to_string(),
+                constraint_kind: "shape".to_string(),
+                code: scode.to_string(),
                 message: message.to_string(),
+                source: "shape".to_string(),
+                shape_id: sid.clone(),
             });
         }
 
@@ -1784,8 +1817,11 @@ pub fn evaluate_definition_with_trigger(
         validations.push(ValidationResult {
             path: String::new(),
             severity: "error".to_string(),
-            kind: "definition".to_string(),
+            constraint_kind: "definition".to_string(),
+            code: "CIRCULAR_DEPENDENCY".to_string(),
             message: cycle_msg,
+            source: "definition".to_string(),
+            shape_id: None,
         });
     }
 
@@ -2170,7 +2206,8 @@ mod tests {
         let data = HashMap::new(); // name is missing/null
         let result = evaluate_definition(&def, &data);
         assert!(!result.validations.is_empty());
-        assert_eq!(result.validations[0].kind, "bind");
+        assert_eq!(result.validations[0].constraint_kind, "required");
+        assert_eq!(result.validations[0].code, "REQUIRED");
         assert!(result.validations[0].message.contains("Required"));
     }
 
@@ -2756,7 +2793,7 @@ mod tests {
 
         let result = evaluate_definition(&def, &data);
         assert_eq!(result.validations.len(), 1, "one shape violation expected");
-        assert_eq!(result.validations[0].kind, "shape");
+        assert_eq!(result.validations[0].constraint_kind, "shape");
         assert_eq!(result.validations[0].path, "b");
         assert_eq!(result.validations[0].message, "a must exceed b");
         assert_eq!(result.validations[0].severity, "error");
@@ -3044,7 +3081,7 @@ mod tests {
             1,
             "empty string must fail required check"
         );
-        assert_eq!(result.validations[0].kind, "bind");
+        assert_eq!(result.validations[0].constraint_kind, "required");
         assert!(result.validations[0].message.contains("Required"));
     }
 
@@ -3666,9 +3703,10 @@ mod tests {
         let result = evaluate_definition(&def, &data);
         assert_eq!(result.validations.len(), 1);
         assert_eq!(
-            result.validations[0].kind, "bind",
-            "required violations should have kind='bind'"
+            result.validations[0].constraint_kind, "required",
+            "required violations should have constraint_kind='required'"
         );
+        assert_eq!(result.validations[0].code, "REQUIRED");
         assert_eq!(result.validations[0].severity, "error");
     }
 
@@ -3690,9 +3728,10 @@ mod tests {
         let result = evaluate_definition(&def, &data);
         assert_eq!(result.validations.len(), 1);
         assert_eq!(
-            result.validations[0].kind, "bind",
-            "constraint violations should have kind='bind'"
+            result.validations[0].constraint_kind, "constraint",
+            "constraint violations should have constraint_kind='constraint'"
         );
+        assert_eq!(result.validations[0].code, "CONSTRAINT_FAILED");
     }
 
     /// Spec: spec.md §2.5.1 L867 — shape violations use kind="shape"
@@ -3716,8 +3755,8 @@ mod tests {
         let result = evaluate_definition(&def, &data);
         assert_eq!(result.validations.len(), 1);
         assert_eq!(
-            result.validations[0].kind, "shape",
-            "shape violations should have kind='shape'"
+            result.validations[0].constraint_kind, "shape",
+            "shape violations should have constraint_kind='shape'"
         );
     }
 
@@ -3894,7 +3933,7 @@ mod tests {
             1,
             "empty array is empty — required should fail"
         );
-        assert_eq!(result.validations[0].kind, "bind");
+        assert_eq!(result.validations[0].constraint_kind, "required");
     }
 
     /// Spec: core/spec.md §4.3.1 (line 2242) — empty object is NOT listed as empty.
@@ -4259,7 +4298,7 @@ mod tests {
         let results = revalidate(&items, &values, None, EvalTrigger::Continuous);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "email");
-        assert_eq!(results[0].kind, "bind");
+        assert_eq!(results[0].constraint_kind, "required");
         assert!(results[0].message.contains("Required"));
     }
 
@@ -4411,7 +4450,7 @@ mod tests {
         let shape_results: Vec<&ValidationResult> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "shape")
+            .filter(|v| v.constraint_kind == "shape")
             .collect();
         // First shape fails ($value > 0 is false for -5)
         // Second shape passes ($value < 100 is true for -5)
@@ -4451,7 +4490,7 @@ mod tests {
         let shape_results: Vec<&ValidationResult> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "shape")
+            .filter(|v| v.constraint_kind == "shape")
             .collect();
         assert_eq!(
             shape_results.len(),
@@ -4495,7 +4534,7 @@ mod tests {
         let shape_results: Vec<&ValidationResult> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "shape")
+            .filter(|v| v.constraint_kind == "shape")
             .collect();
         assert_eq!(shape_results.len(), 1);
         assert_eq!(shape_results[0].severity, "info");
@@ -4527,7 +4566,7 @@ mod tests {
         let shape_results: Vec<&ValidationResult> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "shape")
+            .filter(|v| v.constraint_kind == "shape")
             .collect();
         assert!(
             shape_results.is_empty(),
@@ -4558,7 +4597,7 @@ mod tests {
         let shape_results: Vec<&ValidationResult> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "shape")
+            .filter(|v| v.constraint_kind == "shape")
             .collect();
         assert_eq!(shape_results.len(), 1, "root shapes must always fire");
     }
@@ -4581,7 +4620,7 @@ mod tests {
         let cycle_errors: Vec<&ValidationResult> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "definition" && v.message.contains("ircular"))
+            .filter(|v| v.constraint_kind == "definition" && v.message.contains("ircular"))
             .collect();
         assert!(
             !cycle_errors.is_empty(),
@@ -4762,7 +4801,7 @@ mod tests {
         // With excludedValue="null", the FEL env sees $extra as null
         // so the constraint "$extra == null or $extra > 0" passes
         let shape_errors: Vec<_> = result.validations.iter()
-            .filter(|v| v.kind == "shape")
+            .filter(|v| v.constraint_kind == "shape")
             .collect();
         assert!(shape_errors.is_empty(), "shape should pass because excluded extra is null in FEL");
         // But NRB=keep means the actual data still has the value
@@ -4866,7 +4905,7 @@ mod tests {
         data.insert("expenditures".to_string(), json!({"employment": 45000}));
         let result = evaluate_definition(&def, &data);
         let errors: Vec<_> = result.validations.iter()
-            .filter(|v| v.kind == "bind" && v.message.contains("negative"))
+            .filter(|v| v.source == "bind" && v.message.contains("negative"))
             .collect();
         assert!(errors.is_empty(), "positive value should pass constraint");
 
@@ -4875,7 +4914,7 @@ mod tests {
         data2.insert("expenditures".to_string(), json!({"employment": -100}));
         let result2 = evaluate_definition(&def, &data2);
         let errors2: Vec<_> = result2.validations.iter()
-            .filter(|v| v.kind == "bind" && v.message.contains("negative"))
+            .filter(|v| v.source == "bind" && v.message.contains("negative"))
             .collect();
         assert_eq!(errors2.len(), 1, "negative value should fail constraint");
     }
@@ -5001,7 +5040,7 @@ mod tests {
         let errors: Vec<_> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "bind" && v.message.contains("non-negative"))
+            .filter(|v| v.source == "bind" && v.message.contains("non-negative"))
             .collect();
         assert_eq!(errors.len(), 1, "only instance 1 should fail");
         assert_eq!(errors[0].path, "rows[1].amount");
@@ -5038,7 +5077,7 @@ mod tests {
         let shape_errors: Vec<_> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "shape")
+            .filter(|v| v.constraint_kind == "shape")
             .collect();
         assert_eq!(shape_errors.len(), 1, "only instance 1 should fail");
         assert_eq!(
@@ -5082,7 +5121,7 @@ mod tests {
         let shape_errors: Vec<_> = result
             .validations
             .iter()
-            .filter(|v| v.kind == "shape" && v.message == "End must exceed start")
+            .filter(|v| v.constraint_kind == "shape" && v.message == "End must exceed start")
             .collect();
         assert_eq!(shape_errors.len(), 1, "only row 1 should fail");
         assert_eq!(shape_errors[0].path, "rows[1].end");

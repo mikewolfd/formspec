@@ -326,8 +326,13 @@ fn evaluate_def(py: Python, definition: &Bound<'_, PyAny>, data: &Bound<'_, PyAn
         let entry = PyDict::new(py);
         entry.set_item("path", &v.path)?;
         entry.set_item("severity", &v.severity)?;
-        entry.set_item("kind", &v.kind)?;
+        entry.set_item("constraintKind", &v.constraint_kind)?;
+        entry.set_item("code", &v.code)?;
         entry.set_item("message", &v.message)?;
+        entry.set_item("source", &v.source)?;
+        if let Some(ref sid) = v.shape_id {
+            entry.set_item("shapeId", sid)?;
+        }
         validations.append(entry)?;
     }
 

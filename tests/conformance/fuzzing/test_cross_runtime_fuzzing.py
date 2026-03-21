@@ -166,10 +166,15 @@ def _canonicalize_report(report: dict[str, Any]) -> dict[str, Any]:
         }
         canonical_results.append({k: v for k, v in entry.items() if v is not None})
 
+    # Normalize counts: drop zero-valued entries so Python (only non-zero) and
+    # Node (always includes error/warning/info) compare equal.
+    raw_counts = report.get("counts", {})
+    counts = {k: v for k, v in raw_counts.items() if v}
+
     return _normalize_json(
         {
             "valid": report.get("valid"),
-            "counts": report.get("counts", {}),
+            "counts": counts,
             "results": canonical_results,
         }
     )

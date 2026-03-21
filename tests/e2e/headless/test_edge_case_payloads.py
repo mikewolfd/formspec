@@ -230,8 +230,8 @@ def test_microgrant_payload_evaluates_and_returns_shape_results(
     # Rust evaluator produces validation results
     assert isinstance(result.results, list)
     assert isinstance(result.data, dict)
-    # Shape results use kind="shape" in the Rust backend
-    shape_results = [r for r in result.results if r.get("kind") == "shape"]
+    # Shape results use constraintKind="shape" in the Rust backend
+    shape_results = [r for r in result.results if r.get("constraintKind") == "shape"]
     assert len(shape_results) > 0, "Expected shape validation results"
 
 
@@ -269,7 +269,7 @@ def test_clinical_payload_evaluates_and_returns_results(
     assert isinstance(result.results, list)
     assert isinstance(result.data, dict)
     # Rust evaluator computes severityScore via calculate bind
-    shape_results = [r for r in result.results if r.get("kind") == "shape"]
+    shape_results = [r for r in result.results if r.get("constraintKind") == "shape"]
     assert len(shape_results) > 0, "Expected shape validation results"
 
 

@@ -96,7 +96,7 @@ class TestEvaluateVariables:
             ],
         }
         result = evaluate_definition(defn, {})
-        circular = [r for r in result.results if r.get('kind') == 'definition']
+        circular = [r for r in result.results if r.get('constraintKind') == 'definition']
         assert len(circular) > 0, f"Expected definition-kind result for circular deps, got: {result.results}"
         assert circular[0].get('severity') == 'error'
         assert 'ircular' in circular[0].get('message', '')
@@ -447,7 +447,7 @@ class TestBindIndex:
             ]
         }
         result = evaluate_definition(defn, {'name': ''})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 1
 
     def test_merge_binds_for_same_path(self):
@@ -459,7 +459,7 @@ class TestBindIndex:
             ]
         }
         result = evaluate_definition(defn, {'email': ''})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 1
 
     def test_wildcard_bind_path(self):
@@ -616,7 +616,7 @@ class TestRequired:
             'binds': [{'path': 'name', 'required': 'true'}],
         }
         result = evaluate_definition(defn, {'name': ''})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 1
 
     def test_required_no_inheritance(self):
@@ -716,7 +716,7 @@ class TestBindValidation:
             'binds': [{'path': 'name', 'required': 'true'}],
         }
         result = evaluate_definition(defn, {'name': ''})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 1
         assert errors[0]['path'] == 'name'
 
@@ -726,7 +726,7 @@ class TestBindValidation:
             'binds': [{'path': 'name', 'required': 'true'}],
         }
         result = evaluate_definition(defn, {'name': None})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 1
 
     def test_required_with_value_passes(self):
@@ -735,7 +735,7 @@ class TestBindValidation:
             'binds': [{'path': 'name', 'required': 'true'}],
         }
         result = evaluate_definition(defn, {'name': 'Alice'})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 0
 
     def test_constraint_failing(self):
@@ -744,7 +744,7 @@ class TestBindValidation:
             'binds': [{'path': 'age', 'constraint': '$age >= 18', 'constraintMessage': 'Must be 18+'}],
         }
         result = evaluate_definition(defn, {'age': 15})
-        errors = [r for r in result.results if r['kind'] == 'bind']
+        errors = [r for r in result.results if r.get('source') == 'bind']
         assert len(errors) == 1
         assert errors[0]['message'] == 'Must be 18+'
 
@@ -754,7 +754,7 @@ class TestBindValidation:
             'binds': [{'path': 'age', 'constraint': '$age >= 18'}],
         }
         result = evaluate_definition(defn, {'age': 21})
-        errors = [r for r in result.results if r['kind'] == 'bind']
+        errors = [r for r in result.results if r.get('source') == 'bind']
         assert len(errors) == 0
 
     def test_non_relevant_fields_skip_validation(self):
@@ -768,7 +768,7 @@ class TestBindValidation:
             ],
         }
         result = evaluate_definition(defn, {'show': False, 'name': ''})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 0
 
     def test_bare_dollar_constraint_passes_positive(self):
@@ -778,7 +778,7 @@ class TestBindValidation:
             'binds': [{'path': 'amount', 'constraint': '$ >= 0'}],
         }
         result = evaluate_definition(defn, {'amount': 45000})
-        errors = [r for r in result.results if r['kind'] == 'bind']
+        errors = [r for r in result.results if r.get('source') == 'bind']
         assert len(errors) == 0
 
     def test_bare_dollar_constraint_fails_negative(self):
@@ -788,7 +788,7 @@ class TestBindValidation:
             'binds': [{'path': 'amount', 'constraint': '$ >= 0'}],
         }
         result = evaluate_definition(defn, {'amount': -5})
-        errors = [r for r in result.results if r['kind'] == 'bind']
+        errors = [r for r in result.results if r.get('source') == 'bind']
         assert len(errors) == 1
 
     def test_bare_dollar_constraint_skipped_when_empty(self):
@@ -798,7 +798,7 @@ class TestBindValidation:
             'binds': [{'path': 'amount', 'constraint': '$ >= 0'}],
         }
         result = evaluate_definition(defn, {'amount': None})
-        errors = [r for r in result.results if r['kind'] == 'bind']
+        errors = [r for r in result.results if r.get('source') == 'bind']
         assert len(errors) == 0
 
     def test_bare_dollar_wildcard_constraint(self):
@@ -880,7 +880,7 @@ class TestBindValidation:
             'topics': ['employment'],
             'expenditures': {'employment': 0, 'housing': 0},
         })
-        constraint_errors = [r for r in result.results if r['kind'] == 'bind' and 'negative' in r.get('message', '').lower()]
+        constraint_errors = [r for r in result.results if r.get('source') == 'bind' and 'negative' in r.get('message', '').lower()]
         assert len(constraint_errors) == 0
 
         # Scenario: employment selected with positive value -> constraint passes
@@ -888,7 +888,7 @@ class TestBindValidation:
             'topics': ['employment'],
             'expenditures': {'employment': 45000, 'housing': 0},
         })
-        constraint_errors = [r for r in result.results if r['kind'] == 'bind' and 'negative' in r.get('message', '').lower()]
+        constraint_errors = [r for r in result.results if r.get('source') == 'bind' and 'negative' in r.get('message', '').lower()]
         assert len(constraint_errors) == 0
 
         # Scenario: negative value -> constraint fails
@@ -896,7 +896,7 @@ class TestBindValidation:
             'topics': ['employment'],
             'expenditures': {'employment': -100, 'housing': 0},
         })
-        constraint_errors = [r for r in result.results if r['kind'] == 'bind' and 'negative' in r.get('message', '').lower()]
+        constraint_errors = [r for r in result.results if r.get('source') == 'bind' and 'negative' in r.get('message', '').lower()]
         assert len(constraint_errors) == 1
 
     def test_type_validation_string(self):
@@ -904,7 +904,7 @@ class TestBindValidation:
             'items': [{'type': 'field', 'key': 'name', 'dataType': 'string'}],
         }
         result = evaluate_definition(defn, {'name': 42})
-        errors = [r for r in result.results if r['kind'] == 'type']
+        errors = [r for r in result.results if r.get('constraintKind') == 'type']
         assert len(errors) == 1
 
     def test_type_validation_null_passes(self):
@@ -922,7 +922,7 @@ class TestBindValidation:
             'binds': [{'path': 'amount', 'constraint': '$missing > 0'}],
         }
         result = evaluate_definition(defn, {'amount': 5})
-        errors = [r for r in result.results if r['kind'] == 'bind']
+        errors = [r for r in result.results if r.get('source') == 'bind']
         assert errors == []
 
 
@@ -941,7 +941,7 @@ class TestBindContextNullSemantics:
             'binds': [{'path': 'name', 'required': '$missing > 0'}],
         }
         result = evaluate_definition(defn, {'name': ''})
-        errors = [r for r in result.results if r['kind'] == 'bind' and 'equired' in r['message']]
+        errors = [r for r in result.results if r.get('source') == 'bind' and 'equired' in r['message']]
         assert len(errors) == 0
 
     def test_readonly_null_defaults_false(self):
@@ -967,7 +967,7 @@ class TestCardinality:
             }]
         }
         result = evaluate_definition(defn, {'rows': [{'val': 'a'}]})
-        errors = [r for r in result.results if r['kind'] == 'cardinality']
+        errors = [r for r in result.results if r.get('constraintKind') == 'cardinality']
         assert len(errors) == 1
 
     def test_max_repeat(self):
@@ -981,7 +981,7 @@ class TestCardinality:
             }]
         }
         result = evaluate_definition(defn, {'rows': [{'val': 'a'}, {'val': 'b'}, {'val': 'c'}]})
-        errors = [r for r in result.results if r['kind'] == 'cardinality']
+        errors = [r for r in result.results if r.get('constraintKind') == 'cardinality']
         assert len(errors) == 1
 
     def test_cardinality_ok(self):
@@ -995,7 +995,7 @@ class TestCardinality:
             }]
         }
         result = evaluate_definition(defn, {'rows': [{'val': 'a'}, {'val': 'b'}]})
-        errors = [r for r in result.results if r['kind'] == 'cardinality']
+        errors = [r for r in result.results if r.get('constraintKind') == 'cardinality']
         assert len(errors) == 0
 
 
@@ -1194,14 +1194,14 @@ class TestNonRelevantBehavior:
         }
         # Field is non-relevant with excludedValue=null: FEL sees null → shape passes
         result = evaluate_definition(defn, {'visible': False, 'extra': -5})
-        shape_errors = [r for r in result.results if r.get('kind') == 'shape']
+        shape_errors = [r for r in result.results if r.get('constraintKind') == 'shape']
         assert shape_errors == [], f"Shape should pass (excluded field is null in FEL), got: {shape_errors}"
         # NRB=keep means original value is preserved in output
         assert result.data.get('extra') == -5
 
         # When field IS relevant, the actual value is used → shape fails
         result2 = evaluate_definition(defn, {'visible': True, 'extra': -5})
-        shape_errors2 = [r for r in result2.results if r.get('kind') == 'shape']
+        shape_errors2 = [r for r in result2.results if r.get('constraintKind') == 'shape']
         assert len(shape_errors2) == 1, "Shape should fail when field is relevant and negative"
 
 

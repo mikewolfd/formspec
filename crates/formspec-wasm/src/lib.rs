@@ -579,12 +579,20 @@ fn evaluate_definition_inner(definition_json: &str, data_json: &str) -> Result<S
 
     let json = serde_json::json!({
         "values": result.values,
-        "validations": result.validations.iter().map(|v| serde_json::json!({
-            "path": v.path,
-            "severity": v.severity,
-            "kind": v.kind,
-            "message": v.message,
-        })).collect::<Vec<_>>(),
+        "validations": result.validations.iter().map(|v| {
+            let mut entry = serde_json::json!({
+                "path": v.path,
+                "severity": v.severity,
+                "constraintKind": v.constraint_kind,
+                "code": v.code,
+                "message": v.message,
+                "source": v.source,
+            });
+            if let Some(ref sid) = v.shape_id {
+                entry["shapeId"] = serde_json::json!(sid);
+            }
+            entry
+        }).collect::<Vec<_>>(),
         "nonRelevant": result.non_relevant,
         "variables": result.variables,
     });
@@ -1509,13 +1517,17 @@ mod tests {
             let v = &validations[0];
             assert!(v.get("path").is_some(), "validation missing 'path'");
             assert!(v.get("severity").is_some(), "validation missing 'severity'");
-            assert!(v.get("kind").is_some(), "validation missing 'kind'");
+            assert!(v.get("constraintKind").is_some(), "validation missing 'constraintKind'");
+            assert!(v.get("code").is_some(), "validation missing 'code'");
             assert!(v.get("message").is_some(), "validation missing 'message'");
+            assert!(v.get("source").is_some(), "validation missing 'source'");
 
-            // Severity and kind are strings
+            // Severity, constraintKind, code, source are strings
             assert!(v["severity"].is_string());
-            assert!(v["kind"].is_string());
+            assert!(v["constraintKind"].is_string());
+            assert!(v["code"].is_string());
             assert!(v["message"].is_string());
+            assert!(v["source"].is_string());
         }
     }
 

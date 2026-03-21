@@ -1,6 +1,6 @@
 /** @filedesc Cross-runtime fuzz runner: compares form processing/validation results between TS and Python. */
 import fs from 'node:fs';
-import { FormEngine } from '../../../packages/formspec-engine/dist/index.js';
+import { FormEngine, initWasm } from '../../../packages/formspec-engine/dist/index.js';
 
 function normalizeNumber(value) {
   if (Number.isNaN(value) || !Number.isFinite(value)) return String(value);
@@ -59,7 +59,9 @@ function runProcessingCase(caseDoc) {
   });
 }
 
-function main() {
+async function main() {
+  await initWasm();
+
   const raw = fs.readFileSync(0, 'utf8');
   const payload = raw.trim().length > 0 ? JSON.parse(raw) : {};
   const cases = Array.isArray(payload.cases) ? payload.cases : [];
@@ -84,4 +86,4 @@ function main() {
   process.stdout.write(`${JSON.stringify({ results })}\n`);
 }
 
-main();
+main().catch((e) => { process.stderr.write(String(e) + '\n'); process.exit(1); });
