@@ -1,14 +1,12 @@
 //! Bidirectional mapping engine for transforming data between formats.
 
-use rust_decimal::Decimal;
 /// Bidirectional data-transform engine for Formspec mapping documents.
 ///
 /// Executes mapping rules to transform data between Formspec response format
 /// and external formats (forward: Formspec → external, reverse: external → Formspec).
-use rust_decimal::prelude::*;
 use serde_json::Value;
 
-use fel_core::{FelValue, FormspecEnvironment, evaluate, parse};
+use fel_core::{FormspecEnvironment, evaluate, fel_to_json, json_to_fel, parse};
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -259,73 +257,6 @@ fn set_by_path(obj: &mut Value, path: &str, value: Value) {
                 }
                 _ => return,
             }
-        }
-    }
-}
-
-// ── FEL ↔ JSON conversion ──────────────────────────────────────
-
-fn json_to_fel(val: &Value) -> FelValue {
-    match val {
-        Value::Null => FelValue::Null,
-        Value::Bool(b) => FelValue::Boolean(*b),
-        Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                FelValue::Number(Decimal::from(i))
-            } else if let Some(u) = n.as_u64() {
-                FelValue::Number(Decimal::from(u))
-            } else if let Some(f) = n.as_f64() {
-                FelValue::Number(Decimal::from_f64(f).unwrap_or(Decimal::ZERO))
-            } else {
-                FelValue::Null
-            }
-        }
-        Value::String(s) => FelValue::String(s.clone()),
-        Value::Array(arr) => FelValue::Array(arr.iter().map(json_to_fel).collect()),
-        Value::Object(map) => FelValue::Object(
-            map.iter()
-                .map(|(k, v)| (k.clone(), json_to_fel(v)))
-                .collect(),
-        ),
-    }
-}
-
-fn fel_to_json(val: &FelValue) -> Value {
-    match val {
-        FelValue::Null => Value::Null,
-        FelValue::Boolean(b) => Value::Bool(*b),
-        FelValue::Number(n) => {
-            if n.fract().is_zero()
-                && let Some(i) = n.to_i64()
-            {
-                return Value::Number(serde_json::Number::from(i));
-            }
-            if let Some(f) = n.to_f64() {
-                serde_json::Number::from_f64(f)
-                    .map(Value::Number)
-                    .unwrap_or(Value::Null)
-            } else {
-                Value::Null
-            }
-        }
-        FelValue::String(s) => Value::String(s.clone()),
-        FelValue::Date(d) => Value::String(d.format_iso()),
-        FelValue::Array(arr) => Value::Array(arr.iter().map(fel_to_json).collect()),
-        FelValue::Object(entries) => {
-            let map: serde_json::Map<String, Value> = entries
-                .iter()
-                .map(|(k, v)| (k.clone(), fel_to_json(v)))
-                .collect();
-            Value::Object(map)
-        }
-        FelValue::Money(m) => {
-            let mut map = serde_json::Map::new();
-            map.insert(
-                "amount".to_string(),
-                fel_to_json(&FelValue::Number(m.amount)),
-            );
-            map.insert("currency".to_string(), Value::String(m.currency.clone()));
-            Value::Object(map)
         }
     }
 }

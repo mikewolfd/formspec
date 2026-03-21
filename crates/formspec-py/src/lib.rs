@@ -787,20 +787,25 @@ fn python_to_fel(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<FelValue> {
             }
         }
 
-        let amount = dict
-            .get_item("amount")?
-            .and_then(|value| value.extract::<String>().ok());
         let currency = dict
             .get_item("currency")?
             .and_then(|value| value.extract::<String>().ok());
-        if let (Some(amount_str), Some(currency)) = (amount, currency) {
-            return Ok(match Decimal::from_str_exact(&amount_str) {
-                Ok(d) => FelValue::Money(fel_core::FelMoney {
-                    amount: d,
-                    currency,
-                }),
-                Err(_) => FelValue::Null,
-            });
+        if let Some(currency) = currency
+            && let Some(amount_obj) = dict.get_item("amount")?
+        {
+            // Try numeric extraction first (int → Decimal, float → Decimal)
+            let maybe_decimal = if let Ok(i) = amount_obj.extract::<i64>() {
+                Some(Decimal::from(i))
+            } else if let Ok(f) = amount_obj.extract::<f64>() {
+                Decimal::from_f64(f)
+            } else if let Ok(s) = amount_obj.extract::<String>() {
+                Decimal::from_str_exact(&s).ok()
+            } else {
+                None
+            };
+            if let Some(amount) = maybe_decimal {
+                return Ok(FelValue::Money(fel_core::FelMoney { amount, currency }));
+            }
         }
 
         let mut entries = Vec::new();

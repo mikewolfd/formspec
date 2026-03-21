@@ -6,15 +6,13 @@
 /// The binding layer handles type conversion only — no business logic here.
 use wasm_bindgen::prelude::*;
 
-use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
 use serde_json::Value;
 use std::collections::HashMap;
 
 use fel_core::{
-    Dependencies, FelMoney, FelValue, FormspecEnvironment, MapEnvironment, MipState,
-    builtin_function_catalog, evaluate, extract_dependencies, parse, parse_date_literal,
-    parse_datetime_literal, print_expr,
+    Dependencies, FelValue, FormspecEnvironment, MapEnvironment, MipState,
+    builtin_function_catalog, evaluate, extract_dependencies, fel_to_json, json_to_fel, parse,
+    print_expr,
 };
 use formspec_core::changelog;
 use formspec_core::registry_client::{self, Registry};
@@ -1041,91 +1039,6 @@ fn json_to_field_map(val: &Value) -> HashMap<String, FelValue> {
     map
 }
 
-fn json_to_fel(val: &Value) -> FelValue {
-    match val {
-        Value::Null => FelValue::Null,
-        Value::Bool(b) => FelValue::Boolean(*b),
-        Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                FelValue::Number(Decimal::from(i))
-            } else if let Some(u) = n.as_u64() {
-                FelValue::Number(Decimal::from(u))
-            } else if let Some(f) = n.as_f64() {
-                FelValue::Number(Decimal::from_f64(f).unwrap_or(Decimal::ZERO))
-            } else {
-                FelValue::Null
-            }
-        }
-        Value::String(s) => {
-            let prefixed = format!("@{s}");
-            if let Some(date) = parse_date_literal(&prefixed) {
-                FelValue::Date(date)
-            } else if let Some(datetime) = parse_datetime_literal(&prefixed) {
-                FelValue::Date(datetime)
-            } else {
-                FelValue::String(s.clone())
-            }
-        }
-        Value::Array(arr) => FelValue::Array(arr.iter().map(json_to_fel).collect()),
-        Value::Object(map) => {
-            if let (Some(amount), Some(currency)) = (
-                map.get("amount"),
-                map.get("currency").and_then(|v| v.as_str()),
-            ) {
-                let amount_value = json_to_fel(amount);
-                if let FelValue::Number(amount_number) = amount_value {
-                    return FelValue::Money(FelMoney {
-                        amount: amount_number,
-                        currency: currency.to_string(),
-                    });
-                }
-            }
-            FelValue::Object(
-                map.iter()
-                    .map(|(k, v)| (k.clone(), json_to_fel(v)))
-                    .collect(),
-            )
-        }
-    }
-}
-
-fn fel_to_json(val: &FelValue) -> Value {
-    match val {
-        FelValue::Null => Value::Null,
-        FelValue::Boolean(b) => Value::Bool(*b),
-        FelValue::Number(n) => {
-            if n.fract().is_zero()
-                && let Some(i) = n.to_i64()
-            {
-                return Value::Number(serde_json::Number::from(i));
-            }
-            n.to_f64()
-                .and_then(serde_json::Number::from_f64)
-                .map(Value::Number)
-                .unwrap_or(Value::Null)
-        }
-        FelValue::String(s) => Value::String(s.clone()),
-        FelValue::Date(d) => Value::String(d.format_iso()),
-        FelValue::Array(arr) => Value::Array(arr.iter().map(fel_to_json).collect()),
-        FelValue::Object(entries) => {
-            let map: serde_json::Map<String, Value> = entries
-                .iter()
-                .map(|(k, v)| (k.clone(), fel_to_json(v)))
-                .collect();
-            Value::Object(map)
-        }
-        FelValue::Money(m) => {
-            let mut map = serde_json::Map::new();
-            map.insert(
-                "amount".to_string(),
-                fel_to_json(&FelValue::Number(m.amount)),
-            );
-            map.insert("currency".to_string(), Value::String(m.currency.clone()));
-            Value::Object(map)
-        }
-    }
-}
-
 fn deps_to_json(deps: &Dependencies) -> Value {
     serde_json::json!({
         "fields": deps.fields.iter().collect::<Vec<_>>(),
@@ -1388,6 +1301,8 @@ fn category_to_str(c: registry_client::ExtensionCategory) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal::Decimal;
+    use rust_decimal::prelude::*;
     use serde_json::json;
 
     // ── Helpers ─────────────────────────────────────────────────
