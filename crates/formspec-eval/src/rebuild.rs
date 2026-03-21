@@ -159,7 +159,7 @@ fn build_item_info(item: &Value, binds: Option<&Value>, parent_path: Option<&str
             .and_then(|v| v.as_object())
             .map(|obj| {
                 obj.iter()
-                    .filter(|(_, v)| v.as_bool().unwrap_or(false))
+                    .filter(|(_, v)| !v.is_null() && v.as_bool() != Some(false))
                     .map(|(k, _)| k.clone())
                     .collect()
             })

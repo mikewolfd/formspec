@@ -972,23 +972,9 @@ type EngineBindConfig = FormspecBind & {
 
 type RuntimeNowInput = Date | string | number;
 
-interface ExtensionConstraintState {
-    diagnostics: ValidationResult[];
-    pattern?: RegExp;
-    maxLength?: number;
-    minimum?: number;
-    maximum?: number;
-    displayName?: string;
-}
-
 interface PendingInitialExpression {
     path: string;
     expression: string;
-}
-
-interface RegistryValidationFinding {
-    path: string;
-    result: ValidationResult;
 }
 
 interface FieldRecord {
@@ -1033,6 +1019,7 @@ export class FormEngine implements IFormEngine {
     private readonly _prePopulateReadonly = new Set<string>();
     private readonly _calculatedFields = new Set<string>();
     private readonly _registryEntries = new Map<string, RegistryEntry>();
+    private _registryDocuments: unknown[] = [];
     private readonly _remoteOptionsTasks: Array<Promise<void>> = [];
     private readonly _instanceSourceTasks: Array<Promise<void>> = [];
     private readonly _variableDefs: FormspecVariable[];
@@ -1071,6 +1058,7 @@ export class FormEngine implements IFormEngine {
                     this._registryEntries.set(entry.name, entry);
                 }
             }
+            this._registryDocuments = [{ entries: registryEntries }];
         }
 
         this.resolveOptionSets();
@@ -1558,6 +1546,7 @@ export class FormEngine implements IFormEngine {
                 this._registryEntries.set(entry.name, entry);
             }
         }
+        this._registryDocuments = [{ entries }];
         this._evaluate();
     }
 
@@ -2151,40 +2140,31 @@ export class FormEngine implements IFormEngine {
     }
 
     private _evaluate(): void {
-        let attempt = 0;
-        let fullResult: EvalResult | null = null;
+        const baseResult = wasmEvaluateDefinition(this.definition, this._data, {
+            nowIso: this.nowISO(),
+            previousValidations: this._fullResult?.validations as unknown as Array<{
+                path: string;
+                severity: string;
+                constraintKind: string;
+                code: string;
+                message: string;
+                source: string;
+                shapeId?: string;
+                context?: Record<string, unknown>;
+            }> | undefined,
+            previousNonRelevant: this._fullResult?.nonRelevant,
+            instances: this.instanceData,
+            registryDocuments: this._registryDocuments,
+        }) as EvalResult;
+        const evalResult = this.withExtraValidations(baseResult);
 
-        while (attempt < 6) {
-            const baseResult = wasmEvaluateDefinition(this.definition, this._data, {
-                nowIso: this.nowISO(),
-                previousValidations: this._fullResult?.validations as unknown as Array<{
-                    path: string;
-                    severity: string;
-                    constraintKind: string;
-                    code: string;
-                    message: string;
-                    source: string;
-                    shapeId?: string;
-                    context?: Record<string, unknown>;
-                }> | undefined,
-            }) as EvalResult;
-            fullResult = this.withExtraValidations(baseResult);
-
-            const appliedInitial = this.applyPendingInitialExpressions(fullResult);
-            const appliedDefaults = this.applyRelevanceDefaults(fullResult);
-            const appliedInstanceCalculates = this.applyInstanceCalculates(fullResult);
-
-            if (!appliedInitial && !appliedDefaults && !appliedInstanceCalculates) {
-                break;
-            }
-            attempt += 1;
-        }
-
-        if (!fullResult) {
-            return;
-        }
-
-        const evalResult: EvalResult = fullResult;
+        // Apply TS-side fixups that WASM can't handle:
+        // 1. Pending initial expressions (=expr) that the TS engine tracked during init
+        this.applyPendingInitialExpressions(evalResult);
+        // 2. Relevance defaults (expression defaults on non-relevant → relevant transitions)
+        this.applyRelevanceDefaults(evalResult);
+        // 3. Instance calculate write-back (binds targeting @instance(...) paths)
+        this.applyInstanceCalculates(evalResult);
         const visibleResult = this.filterContinuousShapeResults(evalResult);
         const delta = diffEvalResults(this._previousVisibleResult, visibleResult);
 
@@ -2222,32 +2202,21 @@ export class FormEngine implements IFormEngine {
                 shapeId?: string;
                 context?: Record<string, unknown>;
             }> | undefined,
+            previousNonRelevant: this._fullResult?.nonRelevant,
+            instances: this.instanceData,
+            registryDocuments: this._registryDocuments,
         }) as EvalResult);
     }
 
     private withExtraValidations(result: EvalResult): EvalResult {
-        // Filter out WASM extension validations and WASM-produced cardinality
-        // (the engine has authoritative repeat counts from signals).
+        // WASM now produces complete extension and shape validations.
+        // Filter only WASM-produced cardinality (TS owns repeat counts via signals).
         const validations: EvalValidation[] = result.validations.filter(
-            (validation) => validation.source !== 'extension' && validation.constraintKind !== 'cardinality',
+            (validation) => validation.constraintKind !== 'cardinality',
         );
         const nonRelevant = new Set(result.nonRelevant.map(toBasePath));
-        // Merge user data with calculated field values from signals. User-entered _data
-        // takes priority (it's the raw input for validation), but calculated fields use
-        // signal values since patchCalculatedSignals may have computed values that WASM
-        // couldn't (e.g., sum() over repeat groups returns null from WASM but is computed
-        // correctly by the TS-side FEL evaluator with nested context).
-        const signals = snapshotSignals(this.signals);
-        const mergedValues: Record<string, any> = { ...signals, ...this._data };
-        for (const calcPath of this._calculatedFields) {
-            const concretePaths = this.getConcretePathsForBasePath(calcPath, this.signals);
-            for (const cp of concretePaths) {
-                if (signals[cp] !== undefined && signals[cp] !== null) {
-                    mergedValues[cp] = signals[cp];
-                }
-            }
-        }
 
+        // TS-authoritative cardinality from repeat signals
         for (const [path, repeatSignal] of Object.entries(this.repeats)) {
             if (nonRelevant.has(path)) {
                 continue;
@@ -2278,11 +2247,21 @@ export class FormEngine implements IFormEngine {
             }
         }
 
-        // Supplement shape validations via TS fallback for any shape WASM didn't produce
-        // a validation result for. WASM batch evaluation handles most shapes, but shapes
-        // using @instance() refs or certain expression patterns may not produce results.
-        // The TS supplement re-evaluates those using wasmEvalFELWithContext.
+        // TS shape supplement for shapes WASM missed (bare variable refs in constraints).
+        // WASM's FEL evaluator resolves bare identifiers only from field data, not variables.
+        // Shapes referencing variables via bare names (e.g., "grandTotal" instead of "@grandTotal")
+        // won't fire in WASM. Re-evaluate those shapes in TS with full context.
         const evaluatedShapeIds = new Set(validations.filter((v) => v.shapeId).map((v) => v.shapeId));
+        const signals = snapshotSignals(this.signals);
+        const mergedValues: Record<string, any> = { ...signals, ...this._data };
+        for (const calcPath of this._calculatedFields) {
+            const concretePaths = this.getConcretePathsForBasePath(calcPath, this.signals);
+            for (const cp of concretePaths) {
+                if (signals[cp] !== undefined && signals[cp] !== null) {
+                    mergedValues[cp] = signals[cp];
+                }
+            }
+        }
         const shapeEvalContext: WasmFelContext = {
             fields: buildFlatFieldContext(mergedValues),
             variables: this.getVisibleVariableEntries(''),
@@ -2302,11 +2281,9 @@ export class FormEngine implements IFormEngine {
                 continue;
             }
             const target = (shape as any).target ?? '#';
-            // Respect non-relevant targets
             if (target !== '#' && nonRelevant.has(toBasePath(target))) {
                 continue;
             }
-            // Respect activeWhen guard
             const activeWhen = (shape as any).activeWhen;
             if (activeWhen) {
                 const active = safeEvaluateExpression(activeWhen, shapeEvalContext);
@@ -2329,10 +2306,6 @@ export class FormEngine implements IFormEngine {
             }
         }
 
-        for (const finding of this.collectRegistryValidationFindings(mergedValues, nonRelevant)) {
-            validations.push(finding.result as unknown as EvalValidation);
-        }
-
         validations.push(...this._externalValidation as unknown as EvalValidation[]);
 
         return {
@@ -2353,194 +2326,7 @@ export class FormEngine implements IFormEngine {
         };
     }
 
-    private collectRegistryValidationFindings(
-        values: Record<string, any>,
-        nonRelevant: Set<string>,
-    ): RegistryValidationFinding[] {
-        const findings: RegistryValidationFinding[] = [];
 
-        for (const [path, item] of this._allRegistryAwareItems()) {
-            const basePath = toBasePath(path);
-            if (nonRelevant.has(basePath)) {
-                continue;
-            }
-
-            const state = this.buildExtensionConstraintState(basePath, item);
-            for (const diagnostic of state.diagnostics) {
-                findings.push({ path: basePath, result: diagnostic });
-            }
-
-            if (item.type !== 'field') {
-                continue;
-            }
-
-            const value = values[path];
-            if (value === undefined || value === null || value === '') {
-                continue;
-            }
-
-            if (state.pattern && !state.pattern.test(String(value))) {
-                findings.push({
-                    path,
-                    result: {
-                        path,
-                        severity: 'error',
-                        constraintKind: 'constraint',
-                        code: 'PATTERN_MISMATCH',
-                        message: state.displayName ? `Must be a valid ${state.displayName}` : 'Pattern mismatch',
-                        source: 'bind',
-                    },
-                });
-            }
-
-            if (state.maxLength != null && String(value).length > state.maxLength) {
-                findings.push({
-                    path,
-                    result: {
-                        path,
-                        severity: 'error',
-                        constraintKind: 'constraint',
-                        code: 'MAX_LENGTH_EXCEEDED',
-                        message: `Must be at most ${state.maxLength} characters`,
-                        source: 'bind',
-                    },
-                });
-            }
-
-            const numericValue = typeof value === 'number' ? value : Number(value);
-            if (!Number.isNaN(numericValue)) {
-                if (state.minimum != null && numericValue < state.minimum) {
-                    findings.push({
-                        path,
-                        result: {
-                            path,
-                            severity: 'error',
-                            constraintKind: 'constraint',
-                            code: 'RANGE_UNDERFLOW',
-                            message: `Must be at least ${state.minimum}`,
-                            source: 'bind',
-                        },
-                    });
-                }
-                if (state.maximum != null && numericValue > state.maximum) {
-                    findings.push({
-                        path,
-                        result: {
-                            path,
-                            severity: 'error',
-                            constraintKind: 'constraint',
-                            code: 'RANGE_OVERFLOW',
-                            message: `Must be at most ${state.maximum}`,
-                            source: 'bind',
-                        },
-                    });
-                }
-            }
-        }
-
-        return findings;
-    }
-
-    private _allRegistryAwareItems(): Array<[string, FormItem]> {
-        const items: Array<[string, FormItem]> = [];
-        for (const [path, item] of this._groupItems.entries()) {
-            if (item.extensions && Object.keys(item.extensions).length > 0) {
-                items.push([path, item]);
-            }
-        }
-        for (const [path, item] of this._fieldItems.entries()) {
-            if (item.extensions && Object.keys(item.extensions).length > 0) {
-                if (!items.find(([existing]) => existing === path)) {
-                    items.push([path, item]);
-                }
-            }
-        }
-        return items;
-    }
-
-    private buildExtensionConstraintState(path: string, item: FormItem): ExtensionConstraintState {
-        const diagnostics: ValidationResult[] = [];
-        let pattern: RegExp | undefined;
-        let maxLength: number | undefined;
-        let minimum: number | undefined;
-        let maximum: number | undefined;
-        let displayName: string | undefined;
-        const formspecVersion = this.definition.$formspec ?? this.definition.version ?? '1.0';
-
-        for (const [name, enabled] of Object.entries(item.extensions ?? {})) {
-            if (enabled === false) {
-                continue;
-            }
-            const entry = this._registryEntries.get(name);
-            if (!entry) {
-                diagnostics.push({
-                    path,
-                    severity: 'error',
-                    constraintKind: 'constraint',
-                    code: 'UNRESOLVED_EXTENSION',
-                    message: `Unresolved extension '${name}': no matching registry entry loaded`,
-                    source: 'bind',
-                });
-                continue;
-            }
-            const requiredRange = entry.compatibility?.formspecVersion;
-            if (requiredRange && !versionSatisfies(formspecVersion, requiredRange)) {
-                diagnostics.push({
-                    path,
-                    severity: 'warning',
-                    constraintKind: 'constraint',
-                    code: 'EXTENSION_COMPATIBILITY_MISMATCH',
-                    message: `Extension '${name}' requires formspec ${requiredRange} but definition uses ${formspecVersion}`,
-                    source: 'bind',
-                });
-            }
-            if (entry.status === 'retired') {
-                diagnostics.push({
-                    path,
-                    severity: 'warning',
-                    constraintKind: 'constraint',
-                    code: 'EXTENSION_RETIRED',
-                    message: `Extension '${name}' is retired and should not be used`,
-                    source: 'bind',
-                });
-            } else if (entry.status === 'deprecated') {
-                diagnostics.push({
-                    path,
-                    severity: 'info',
-                    constraintKind: 'constraint',
-                    code: 'EXTENSION_DEPRECATED',
-                    message: entry.deprecationNotice || `Extension '${name}' is deprecated`,
-                    source: 'bind',
-                });
-            }
-            displayName ??= entry.metadata?.displayName;
-            if (!pattern && entry.constraints?.pattern) {
-                try {
-                    pattern = new RegExp(entry.constraints.pattern);
-                } catch {
-                    pattern = undefined;
-                }
-            }
-            if (maxLength == null && entry.constraints?.maxLength != null) {
-                maxLength = entry.constraints.maxLength;
-            }
-            if (minimum == null && entry.constraints?.minimum != null) {
-                minimum = entry.constraints.minimum;
-            }
-            if (maximum == null && entry.constraints?.maximum != null) {
-                maximum = entry.constraints.maximum;
-            }
-        }
-
-        return {
-            diagnostics,
-            pattern,
-            maxLength,
-            minimum,
-            maximum,
-            displayName,
-        };
-    }
 
     private applyPendingInitialExpressions(result: EvalResult): boolean {
         let changed = false;
@@ -3763,44 +3549,6 @@ function collectExtensionNames(items: unknown[], names: Set<string>): void {
             collectExtensionNames(item.children, names);
         }
     }
-}
-
-function parseVersion(version: string): [number, number, number] {
-    const parts = version.split('.').map(Number);
-    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
-}
-
-function versionSatisfies(version: string, constraint: string): boolean {
-    const parsedVersion = parseVersion(version);
-    for (const part of constraint.trim().split(/\s+/)) {
-        let operator = '==';
-        let targetText = part;
-        if (part.startsWith('>=')) {
-            operator = '>=';
-            targetText = part.slice(2);
-        } else if (part.startsWith('<=')) {
-            operator = '<=';
-            targetText = part.slice(2);
-        } else if (part.startsWith('>')) {
-            operator = '>';
-            targetText = part.slice(1);
-        } else if (part.startsWith('<')) {
-            operator = '<';
-            targetText = part.slice(1);
-        }
-        const target = parseVersion(targetText);
-        const cmp = parsedVersion[0] !== target[0]
-            ? parsedVersion[0] - target[0]
-            : parsedVersion[1] !== target[1]
-                ? parsedVersion[1] - target[1]
-                : parsedVersion[2] - target[2];
-        if (operator === '>=' && cmp < 0) return false;
-        if (operator === '<=' && cmp > 0) return false;
-        if (operator === '>' && cmp <= 0) return false;
-        if (operator === '<' && cmp >= 0) return false;
-        if (operator === '==' && cmp !== 0) return false;
-    }
-    return true;
 }
 
 function parseRef(ref: string): { url: string; version?: string; fragment?: string } {

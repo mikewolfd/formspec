@@ -261,6 +261,9 @@ export function wasmEvaluateDefinition(
             shapeId?: string;
             context?: Record<string, unknown>;
         }>;
+        previousNonRelevant?: string[];
+        instances?: Record<string, unknown>;
+        registryDocuments?: unknown[];
     },
 ): {
     values: any;

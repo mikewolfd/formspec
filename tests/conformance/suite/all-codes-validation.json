@@ -32,11 +32,11 @@
     "results": [
       {
         "code": "EXTENSION_COMPATIBILITY_MISMATCH",
-        "constraintKind": "constraint",
-        "message": "Extension 'x-test-compat' requires formspec >=99.0.0 but definition uses 1.0",
+        "constraintKind": "extension",
+        "message": "Extension 'x-test-compat' requires formspec version >=99.0.0",
         "path": "compat_field",
         "severity": "warning",
-        "source": "bind"
+        "source": "extension"
       },
       {
         "code": "CONSTRAINT_FAILED",
@@ -49,11 +49,11 @@
       },
       {
         "code": "EXTENSION_DEPRECATED",
-        "constraintKind": "constraint",
+        "constraintKind": "extension",
         "message": "Extension 'x-test-deprecated' is deprecated",
         "path": "deprecated_field",
         "severity": "info",
-        "source": "bind"
+        "source": "extension"
       },
       {
         "code": "MAX_REPEAT",
@@ -64,11 +64,11 @@
       },
       {
         "code": "MAX_LENGTH_EXCEEDED",
-        "constraintKind": "constraint",
-        "message": "Must be at most 5 characters",
+        "constraintKind": "extension",
+        "message": "Short Code must be at most 5 characters",
         "path": "maxlen_field",
         "severity": "error",
-        "source": "bind"
+        "source": "extension"
       },
       {
         "code": "MIN_REPEAT",
@@ -79,27 +79,27 @@
       },
       {
         "code": "PATTERN_MISMATCH",
-        "constraintKind": "constraint",
+        "constraintKind": "extension",
         "message": "Must be a valid Test Pattern",
         "path": "patterned_field",
         "severity": "error",
-        "source": "bind"
+        "source": "extension"
       },
       {
         "code": "RANGE_OVERFLOW",
-        "constraintKind": "constraint",
-        "message": "Must be at most 100",
+        "constraintKind": "extension",
+        "message": "Ranged Value must be at most 100",
         "path": "range_high_field",
         "severity": "error",
-        "source": "bind"
+        "source": "extension"
       },
       {
         "code": "RANGE_UNDERFLOW",
-        "constraintKind": "constraint",
-        "message": "Must be at least 10",
+        "constraintKind": "extension",
+        "message": "Ranged Value must be at least 10",
         "path": "range_low_field",
         "severity": "error",
-        "source": "bind"
+        "source": "extension"
       },
       {
         "code": "REQUIRED",
@@ -111,11 +111,11 @@
       },
       {
         "code": "EXTENSION_RETIRED",
-        "constraintKind": "constraint",
-        "message": "Extension 'x-test-retired' is retired and should not be used",
+        "constraintKind": "extension",
+        "message": "Extension 'x-test-retired' is retired",
         "path": "retired_field",
         "severity": "warning",
-        "source": "bind"
+        "source": "extension"
       },
       {
         "code": "SHAPE_FAILED",
@@ -137,11 +137,11 @@
       },
       {
         "code": "UNRESOLVED_EXTENSION",
-        "constraintKind": "constraint",
+        "constraintKind": "extension",
         "message": "Unresolved extension 'x-nonexistent': no matching registry entry loaded",
         "path": "unresolved_ext_field",
         "severity": "error",
-        "source": "bind"
+        "source": "extension"
       }
     ]
   },

@@ -164,8 +164,16 @@ fn validate_items(
             }
         }
 
-        // Constraint check — set bare $ to current field value (9d: use resolved value)
-        if let Some(ref expr) = item.constraint {
+        // Constraint check — skip for empty values (§3.8.1).
+        // "A constraint that cannot be evaluated due to null inputs is not considered
+        // violated."  The `required` bind, not `constraint`, enforces non-emptiness.
+        let is_empty_for_constraint = match &val {
+            Value::Null => true,
+            Value::String(s) => s.is_empty(),
+            Value::Array(arr) => arr.is_empty(),
+            _ => false,
+        };
+        if !is_empty_for_constraint && let Some(ref expr) = item.constraint {
             // Temporarily bind bare $ to this field's value
             let prev_dollar = env.data.remove("");
             env.data.insert(String::new(), json_to_fel(&val));
@@ -252,10 +260,10 @@ fn validate_extension_constraints(
             // Extension not found in any loaded registry
             results.push(ValidationResult {
                 path: item.path.clone(),
-                severity: "warning".to_string(),
+                severity: "error".to_string(),
                 constraint_kind: "extension".to_string(),
                 code: "UNRESOLVED_EXTENSION".to_string(),
-                message: format!("Extension '{ext_name}' not found in any loaded registry"),
+                message: format!("Unresolved extension '{ext_name}': no matching registry entry loaded"),
                 constraint: None,
                 source: "extension".to_string(),
                 shape_id: None,
@@ -280,16 +288,16 @@ fn validate_extension_constraints(
                 });
             }
             "deprecated" => {
-                let notice = constraint
-                    .deprecation_notice
-                    .as_deref()
-                    .unwrap_or("No migration guidance available");
+                let message = match &constraint.deprecation_notice {
+                    Some(notice) => notice.clone(),
+                    None => format!("Extension '{ext_name}' is deprecated"),
+                };
                 results.push(ValidationResult {
                     path: item.path.clone(),
                     severity: "info".to_string(),
                     constraint_kind: "extension".to_string(),
                     code: "EXTENSION_DEPRECATED".to_string(),
-                    message: format!("Extension '{ext_name}' is deprecated: {notice}"),
+                    message,
                     constraint: None,
                     source: "extension".to_string(),
                     shape_id: None,
@@ -318,8 +326,14 @@ fn validate_extension_constraints(
             }
         }
 
-        // Skip value constraints if the value is null/empty
-        if val.is_null() {
+        // Skip value constraints if the value is null/empty (§3.8.1)
+        let is_empty_ext = match &val {
+            Value::Null => true,
+            Value::String(s) => s.is_empty(),
+            Value::Array(arr) => arr.is_empty(),
+            _ => false,
+        };
+        if is_empty_ext {
             continue;
         }
 
@@ -1215,6 +1229,177 @@ mod tests {
         assert!(
             !env.data.contains_key("rows"),
             "build_validation_env should skip repeat group arrays entirely"
+        );
+    }
+
+    /// Spec: §3.8.1 — Bind constraint skipped when value is empty.
+    /// "A constraint that cannot be evaluated due to null inputs is not considered
+    /// violated."  Empty string, null, and empty array should all skip constraint.
+    #[test]
+    fn constraint_skipped_on_empty_string() {
+        let items = vec![ItemInfo {
+            key: "email".to_string(),
+            path: "email".to_string(),
+            data_type: Some("string".to_string()),
+            value: Value::Null,
+            relevant: true,
+            required: false,
+            readonly: false,
+            calculate: None,
+            constraint: Some("matches($, '.*@.*')".to_string()),
+            constraint_message: None,
+            relevance: None,
+            required_expr: None,
+            readonly_expr: None,
+            whitespace: None,
+            nrb: None,
+            excluded_value: None,
+            default_value: None,
+            default_expression: None,
+            initial_value: None,
+            prev_relevant: true,
+            parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
+            extensions: vec![],
+            pre_populate_instance: None,
+            pre_populate_path: None,
+            children: vec![],
+        }];
+
+        // Empty string value — constraint must not fire
+        let mut values: HashMap<String, Value> = HashMap::new();
+        values.insert("email".to_string(), json!(""));
+        let results = revalidate(
+            &items,
+            &values,
+            &HashMap::new(),
+            None,
+            EvalTrigger::Continuous,
+            &[],
+            "1.0.0",
+            None,
+            &HashMap::new(),
+        );
+        let constraint_errors: Vec<_> = results
+            .iter()
+            .filter(|r| r.code == "CONSTRAINT_FAILED")
+            .collect();
+        assert!(
+            constraint_errors.is_empty(),
+            "constraint must not fire on empty string, got: {constraint_errors:?}"
+        );
+    }
+
+    #[test]
+    fn constraint_skipped_on_null() {
+        let items = vec![ItemInfo {
+            key: "email".to_string(),
+            path: "email".to_string(),
+            data_type: Some("string".to_string()),
+            value: Value::Null,
+            relevant: true,
+            required: false,
+            readonly: false,
+            calculate: None,
+            constraint: Some("matches($, '.*@.*')".to_string()),
+            constraint_message: None,
+            relevance: None,
+            required_expr: None,
+            readonly_expr: None,
+            whitespace: None,
+            nrb: None,
+            excluded_value: None,
+            default_value: None,
+            default_expression: None,
+            initial_value: None,
+            prev_relevant: true,
+            parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
+            extensions: vec![],
+            pre_populate_instance: None,
+            pre_populate_path: None,
+            children: vec![],
+        }];
+
+        let values: HashMap<String, Value> = HashMap::new();
+        let results = revalidate(
+            &items,
+            &values,
+            &HashMap::new(),
+            None,
+            EvalTrigger::Continuous,
+            &[],
+            "1.0.0",
+            None,
+            &HashMap::new(),
+        );
+        let constraint_errors: Vec<_> = results
+            .iter()
+            .filter(|r| r.code == "CONSTRAINT_FAILED")
+            .collect();
+        assert!(
+            constraint_errors.is_empty(),
+            "constraint must not fire on null value, got: {constraint_errors:?}"
+        );
+    }
+
+    #[test]
+    fn constraint_skipped_on_empty_array() {
+        let items = vec![ItemInfo {
+            key: "tags".to_string(),
+            path: "tags".to_string(),
+            data_type: Some("multiChoice".to_string()),
+            value: Value::Null,
+            relevant: true,
+            required: false,
+            readonly: false,
+            calculate: None,
+            constraint: Some("count($tags) > 0".to_string()),
+            constraint_message: None,
+            relevance: None,
+            required_expr: None,
+            readonly_expr: None,
+            whitespace: None,
+            nrb: None,
+            excluded_value: None,
+            default_value: None,
+            default_expression: None,
+            initial_value: None,
+            prev_relevant: true,
+            parent_path: None,
+            repeatable: false,
+            repeat_min: None,
+            repeat_max: None,
+            extensions: vec![],
+            pre_populate_instance: None,
+            pre_populate_path: None,
+            children: vec![],
+        }];
+
+        let mut values: HashMap<String, Value> = HashMap::new();
+        values.insert("tags".to_string(), json!([]));
+        let results = revalidate(
+            &items,
+            &values,
+            &HashMap::new(),
+            None,
+            EvalTrigger::Continuous,
+            &[],
+            "1.0.0",
+            None,
+            &HashMap::new(),
+        );
+        let constraint_errors: Vec<_> = results
+            .iter()
+            .filter(|r| r.code == "CONSTRAINT_FAILED")
+            .collect();
+        assert!(
+            constraint_errors.is_empty(),
+            "constraint must not fire on empty array, got: {constraint_errors:?}"
         );
     }
 }
