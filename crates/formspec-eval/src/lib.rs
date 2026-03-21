@@ -511,45 +511,6 @@ fn instantiate_wildcard_expr(expr: &str, base: &str, index: usize) -> String {
     expr.replace(&wildcard_pattern, &concrete)
 }
 
-/// Rewrite bare `$sibling` references in a wildcard bind expression to
-/// concrete paths like `$base[index].sibling`. This handles the common
-/// pattern where a wildcard bind uses `$enabled` to mean `$rows[0].enabled`.
-fn instantiate_sibling_refs(expr: &str, base: &str, index: usize, sibling_keys: &[String]) -> String {
-    let mut result = expr.to_string();
-    // Sort by length descending to avoid replacing substrings of longer names
-    let mut keys: Vec<&String> = sibling_keys.iter().collect();
-    keys.sort_by(|a, b| b.len().cmp(&a.len()));
-    for key in keys {
-        let bare = format!("${}", key);
-        let concrete = format!("${}[{}].{}", base, index, key);
-        // Only replace if it's a standalone reference (not already qualified)
-        // Check that the char before $ (if any) is not alphanumeric and
-        // the char after the key is not alphanumeric or '['
-        let mut new_result = String::new();
-        let mut i = 0;
-        let bytes = result.as_bytes();
-        while i < bytes.len() {
-            if result[i..].starts_with(&bare) {
-                let before_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
-                let after_pos = i + bare.len();
-                let after_ok = after_pos >= bytes.len()
-                    || (!bytes[after_pos].is_ascii_alphanumeric()
-                        && bytes[after_pos] != b'_'
-                        && bytes[after_pos] != b'[');
-                if before_ok && after_ok {
-                    new_result.push_str(&concrete);
-                    i += bare.len();
-                    continue;
-                }
-            }
-            new_result.push(bytes[i] as char);
-            i += 1;
-        }
-        result = new_result;
-    }
-    result
-}
-
 /// Extract the base path from a wildcard bind path.
 /// E.g., `items[*].total` → `items`.
 fn wildcard_base(path: &str) -> Option<&str> {
@@ -1875,18 +1836,6 @@ fn apply_wildcard_binds(
 }
 
 /// Collect the keys of direct children of a repeatable group for sibling ref rewriting.
-fn collect_sibling_keys(items: &[ItemInfo], base: &str) -> Vec<String> {
-    for item in items {
-        if item.path == base && item.repeatable {
-            return item.children.iter().map(|c| c.key.clone()).collect();
-        }
-        let result = collect_sibling_keys(&item.children, base);
-        if !result.is_empty() {
-            return result;
-        }
-    }
-    vec![]
-}
 
 /// Collect wildcard bind entries from the binds object/array.
 fn collect_wildcard_binds(binds: Option<&Value>) -> Vec<(String, serde_json::Map<String, Value>)> {
