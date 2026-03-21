@@ -1077,6 +1077,7 @@ fn coerce_type_from_str(s: &str) -> Option<runtime_mapping::CoerceType> {
         "boolean" => Some(runtime_mapping::CoerceType::Boolean),
         "date" => Some(runtime_mapping::CoerceType::Date),
         "datetime" => Some(runtime_mapping::CoerceType::DateTime),
+        "array" => Some(runtime_mapping::CoerceType::Array),
         _ => None,
     }
 }
@@ -1106,6 +1107,187 @@ fn parse_mapping_document_inner(val: &Value) -> Result<runtime_mapping::MappingD
     })
 }
 
+#[allow(dead_code)]
+fn parse_mapping_rules(val: &Value) -> PyResult<Vec<runtime_mapping::MappingRule>> {
+    parse_mapping_rules_inner(val).map_err(pyo3::exceptions::PyValueError::new_err)
+}
+
+/// Parse an array descriptor from a rule object.
+fn parse_array_descriptor(
+    obj: &serde_json::Map<String, Value>,
+    rule_idx: usize,
+) -> Result<Option<runtime_mapping::ArrayDescriptor>, String> {
+    let arr_val = match obj.get("array") {
+        Some(v) => v,
+        None => return Ok(None),
+    };
+    let arr_obj = arr_val
+        .as_object()
+        .ok_or_else(|| format!("rule[{rule_idx}]: 'array' must be an object"))?;
+
+    let mode = match arr_obj.get("mode").and_then(|v| v.as_str()) {
+        Some("each") => runtime_mapping::ArrayMode::Each,
+        Some("indexed") => runtime_mapping::ArrayMode::Indexed,
+        Some("whole") | None => runtime_mapping::ArrayMode::Whole,
+        Some(other) => {
+            return Err(format!(
+                "rule[{rule_idx}]: unknown array mode: {other}"
+            ))
+        }
+    };
+
+    let inner_rules = if let Some(inner_val) = arr_obj.get("innerRules") {
+        parse_inner_rules(inner_val, rule_idx, mode)?
+    } else {
+        vec![]
+    };
+
+    Ok(Some(runtime_mapping::ArrayDescriptor { mode, inner_rules }))
+}
+
+/// Parse innerRules for array descriptors — reuses the main rule parser,
+/// then patches indexed-mode rules to use `index` as sourcePath.
+fn parse_inner_rules(
+    val: &Value,
+    _parent_idx: usize,
+    mode: runtime_mapping::ArrayMode,
+) -> Result<Vec<runtime_mapping::MappingRule>, String> {
+    let mut rules = parse_mapping_rules_inner(val)?;
+    if mode == runtime_mapping::ArrayMode::Indexed {
+        let empty = vec![];
+        let arr = val.as_array().unwrap_or(&empty);
+        for (i, rule) in rules.iter_mut().enumerate() {
+            if let Some(idx) = arr.get(i)
+                .and_then(|v| v.as_object())
+                .and_then(|obj| obj.get("index"))
+                .and_then(|v| v.as_u64())
+            {
+                // Combine index with existing sourcePath: "0.phaseName"
+                rule.source_path = match &rule.source_path {
+                    Some(sp) if !sp.is_empty() => Some(format!("{idx}.{sp}")),
+                    _ => Some(idx.to_string()),
+                };
+            }
+        }
+    }
+    Ok(rules)
+}
+
+/// Parse a reverse-direction transform override from a rule object.
+fn parse_reverse_override(
+    obj: &serde_json::Map<String, Value>,
+    rule_idx: usize,
+) -> Result<Option<Box<runtime_mapping::ReverseOverride>>, String> {
+    let rev_val = match obj.get("reverse") {
+        Some(v) => v,
+        None => return Ok(None),
+    };
+    let rev_obj = rev_val
+        .as_object()
+        .ok_or_else(|| format!("rule[{rule_idx}]: 'reverse' must be an object"))?;
+
+    let transform_str = rev_obj
+        .get("transform")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| format!("rule[{rule_idx}]: reverse override requires 'transform'"))?;
+
+    let transform = match transform_str {
+        "expression" => {
+            let expr = rev_obj
+                .get("expression")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    format!("rule[{rule_idx}]: reverse 'expression' transform requires 'expression'")
+                })?;
+            runtime_mapping::TransformType::Expression(expr.to_string())
+        }
+        "preserve" => runtime_mapping::TransformType::Preserve,
+        "constant" => {
+            let expr = rev_obj
+                .get("expression")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    format!("rule[{rule_idx}]: reverse 'constant' transform requires 'expression'")
+                })?;
+            runtime_mapping::TransformType::Expression(expr.to_string())
+        }
+        "valueMap" => {
+            let vm = rev_obj.get("valueMap").and_then(|v| v.as_object());
+            let (forward, unmapped_strategy) = if let Some(m) = vm {
+                if let Some(fwd_val) = m.get("forward") {
+                    let fwd: Vec<(Value, Value)> = fwd_val
+                        .as_object()
+                        .map(|fwd_map| {
+                            fwd_map.iter()
+                                .map(|(k, v)| (Value::String(k.clone()), v.clone()))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let strategy = match m.get("unmapped").and_then(|v| v.as_str()) {
+                        Some("error") => runtime_mapping::UnmappedStrategy::Error,
+                        Some("drop") => runtime_mapping::UnmappedStrategy::Drop,
+                        Some("default") => runtime_mapping::UnmappedStrategy::Default,
+                        _ => runtime_mapping::UnmappedStrategy::PassThrough,
+                    };
+                    (fwd, strategy)
+                } else {
+                    let fwd: Vec<(Value, Value)> = m.iter()
+                        .map(|(k, v)| (Value::String(k.clone()), v.clone()))
+                        .collect();
+                    (fwd, runtime_mapping::UnmappedStrategy::PassThrough)
+                }
+            } else {
+                (vec![], runtime_mapping::UnmappedStrategy::PassThrough)
+            };
+            runtime_mapping::TransformType::ValueMap { forward, unmapped: unmapped_strategy }
+        }
+        "coerce" => {
+            let coerce_val = rev_obj.get("coerce").ok_or_else(|| {
+                format!("rule[{rule_idx}]: reverse 'coerce' requires 'coerce' property")
+            })?;
+            let coerce_type = parse_coerce_type(coerce_val)
+                .ok_or_else(|| format!("rule[{rule_idx}]: invalid reverse coerce value"))?;
+            runtime_mapping::TransformType::Coerce(coerce_type)
+        }
+        "concat" => {
+            let expr = rev_obj
+                .get("expression")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("rule[{rule_idx}]: reverse 'concat' requires 'expression'"))?;
+            runtime_mapping::TransformType::Concat(expr.to_string())
+        }
+        "split" => {
+            let expr = rev_obj
+                .get("expression")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("rule[{rule_idx}]: reverse 'split' requires 'expression'"))?;
+            runtime_mapping::TransformType::Split(expr.to_string())
+        }
+        "flatten" => runtime_mapping::TransformType::Flatten {
+            separator: rev_obj
+                .get("separator")
+                .and_then(|v| v.as_str())
+                .unwrap_or(".")
+                .to_string(),
+        },
+        "nest" => runtime_mapping::TransformType::Nest {
+            separator: rev_obj
+                .get("separator")
+                .and_then(|v| v.as_str())
+                .unwrap_or(".")
+                .to_string(),
+        },
+        "drop" => runtime_mapping::TransformType::Drop,
+        other => {
+            return Err(format!(
+                "rule[{rule_idx}]: unsupported reverse transform: {other}"
+            ))
+        }
+    };
+
+    Ok(Some(Box::new(runtime_mapping::ReverseOverride { transform })))
+}
+
 /// Core mapping-rule parser returning `Result<_, String>` for testability without FFI.
 fn parse_mapping_rules_inner(val: &Value) -> Result<Vec<runtime_mapping::MappingRule>, String> {
     let arr = val
@@ -1124,6 +1306,9 @@ fn parse_mapping_rules_inner(val: &Value) -> Result<Vec<runtime_mapping::Mapping
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("rule[{i}]: missing required field 'transform'"))?;
 
+        // Extra default from full-form valueMap (populated in the valueMap arm)
+        let mut vm_default: Option<Value> = None;
+
         let transform = match transform_str {
             "preserve" => runtime_mapping::TransformType::Preserve,
             "drop" => runtime_mapping::TransformType::Drop,
@@ -1134,7 +1319,9 @@ fn parse_mapping_rules_inner(val: &Value) -> Result<Vec<runtime_mapping::Mapping
                     .ok_or_else(|| {
                         format!("rule[{i}]: transform 'constant' requires 'expression'")
                     })?;
-                runtime_mapping::TransformType::Constant(Value::String(expr.to_string()))
+                // Evaluate the expression at runtime via Expression transform,
+                // since Constant(Value) returns the value literally.
+                runtime_mapping::TransformType::Expression(expr.to_string())
             }
             "coerce" => {
                 let coerce_val = obj.get("coerce").ok_or_else(|| {
@@ -1154,22 +1341,46 @@ fn parse_mapping_rules_inner(val: &Value) -> Result<Vec<runtime_mapping::Mapping
                 runtime_mapping::TransformType::Expression(expr.to_string())
             }
             "valueMap" => {
-                let entries = obj.get("valueMap").and_then(|v| v.as_object());
-                let forward: Vec<(Value, Value)> = entries
-                    .map(|m| {
-                        m.iter()
+                let vm = obj.get("valueMap").and_then(|v| v.as_object());
+                // Detect full-form valueMap (has a "forward" key) vs shorthand (flat map)
+                let (forward, unmapped_strategy) = if let Some(m) = vm {
+                    if let Some(fwd_val) = m.get("forward") {
+                        // Full-form: { "forward": {...}, "unmapped": "...", "default": "..." }
+                        let fwd: Vec<(Value, Value)> = fwd_val
+                            .as_object()
+                            .map(|fwd_map| {
+                                fwd_map
+                                    .iter()
+                                    .map(|(k, v)| (Value::String(k.clone()), v.clone()))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        let strategy = match m.get("unmapped").and_then(|v| v.as_str()) {
+                            Some("error") => runtime_mapping::UnmappedStrategy::Error,
+                            Some("drop") => runtime_mapping::UnmappedStrategy::Drop,
+                            Some("default") => runtime_mapping::UnmappedStrategy::Default,
+                            Some("passthrough") => runtime_mapping::UnmappedStrategy::PassThrough,
+                            _ => runtime_mapping::UnmappedStrategy::PassThrough,
+                        };
+                        (fwd, strategy)
+                    } else {
+                        // Shorthand: flat key-value map
+                        let fwd: Vec<(Value, Value)> = m
+                            .iter()
                             .map(|(k, v)| (Value::String(k.clone()), v.clone()))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                            .collect();
+                        (fwd, runtime_mapping::UnmappedStrategy::PassThrough)
+                    }
+                } else {
+                    (vec![], runtime_mapping::UnmappedStrategy::PassThrough)
+                };
+                // Full-form may have a default value for unmapped strategy
+                vm_default = vm
+                    .and_then(|m| m.get("default"))
+                    .cloned();
                 runtime_mapping::TransformType::ValueMap {
                     forward,
-                    unmapped: match obj.get("unmapped").and_then(|v| v.as_str()) {
-                        Some("error") => runtime_mapping::UnmappedStrategy::Error,
-                        Some("drop") => runtime_mapping::UnmappedStrategy::Drop,
-                        Some("default") => runtime_mapping::UnmappedStrategy::Default,
-                        _ => runtime_mapping::UnmappedStrategy::PassThrough,
-                    },
+                    unmapped: unmapped_strategy,
                 }
             }
             "flatten" => runtime_mapping::TransformType::Flatten {
@@ -1236,12 +1447,14 @@ fn parse_mapping_rules_inner(val: &Value) -> Result<Vec<runtime_mapping::Mapping
             reverse_priority: obj
                 .get("reversePriority")
                 .and_then(|v| v.as_i64())
-                .and_then(|n| i32::try_from(n).ok()),
-            default: obj.get("default").cloned(),
+                .map(|n| n as i32),
+            default: obj.get("default").cloned().or(vm_default),
             bidirectional: obj
                 .get("bidirectional")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(true),
+            array: parse_array_descriptor(obj, i)?,
+            reverse: parse_reverse_override(obj, i)?,
         });
     }
     Ok(rules)
@@ -1576,11 +1789,12 @@ mod tests {
             "expression": "1.0"
         }]);
         let rules = parse_mapping_rules_inner(&rules_json).unwrap();
+        // Constant transform maps to Expression to evaluate FEL at runtime
         match &rules[0].transform {
-            runtime_mapping::TransformType::Constant(v) => {
-                assert_eq!(v, &json!("1.0"));
+            runtime_mapping::TransformType::Expression(expr) => {
+                assert_eq!(expr, "1.0");
             }
-            other => panic!("expected Constant, got {:?}", other),
+            other => panic!("expected Expression (from constant), got {:?}", other),
         }
     }
 
@@ -1686,8 +1900,7 @@ mod tests {
             "sourcePath": "status",
             "targetPath": "code",
             "transform": "valueMap",
-            "valueMap": {"yes": "Y"},
-            "unmapped": "error"
+            "valueMap": {"forward": {"yes": "Y"}, "unmapped": "error"}
         }]);
         let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         match &rules[0].transform {
@@ -2251,8 +2464,7 @@ mod tests {
                 "sourcePath": "a",
                 "targetPath": "b",
                 "transform": "valueMap",
-                "valueMap": {"x": 1},
-                "unmapped": strategy_str
+                "valueMap": {"forward": {"x": 1}, "unmapped": strategy_str}
             }]);
             let result = parse_mapping_rules_inner(&rules).unwrap();
             if let runtime_mapping::TransformType::ValueMap { unmapped, .. } = &result[0].transform
@@ -2274,8 +2486,7 @@ mod tests {
             "sourcePath": "a",
             "targetPath": "b",
             "transform": "valueMap",
-            "valueMap": {"x": 1},
-            "unmapped": "nonexistent"
+            "valueMap": {"forward": {"x": 1}, "unmapped": "nonexistent"}
         }]);
         let result = parse_mapping_rules_inner(&rules).unwrap();
         if let runtime_mapping::TransformType::ValueMap { unmapped, .. } = &result[0].transform {

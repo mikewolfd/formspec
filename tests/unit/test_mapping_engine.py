@@ -81,7 +81,6 @@ class TestDrop:
 # ===========================================================================
 
 class TestExpression:
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL expressions in expression transform")
     def test_simple_expression(self):
         doc = _make_doc([
             {
@@ -94,7 +93,6 @@ class TestExpression:
         result = execute_mapping(doc, {'price': 100}, "forward").output
         assert abs(result['priceWithTax'] - 110) < 0.01
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL expressions in expression transform")
     def test_expression_with_source_ref(self):
         doc = _make_doc([
             {
@@ -113,7 +111,6 @@ class TestExpression:
 # ===========================================================================
 
 class TestConstant:
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL in constant transform (returns literal string)")
     def test_static_value(self):
         doc = _make_doc([
             {
@@ -125,7 +122,6 @@ class TestConstant:
         result = execute_mapping(doc, {}, "forward").output
         assert result['type'] == 'patient'
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL in constant transform (returns literal string)")
     def test_computed_constant(self):
         doc = _make_doc([
             {
@@ -180,7 +176,6 @@ class TestCoerce:
         assert execute_mapping(doc, {'active': 'true'}, "forward").output['active'] is True
         assert execute_mapping(doc, {'active': 'false'}, "forward").output['active'] is False
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not support coerce to 'array'")
     def test_value_to_array(self):
         doc = _make_doc([
             {
@@ -224,7 +219,6 @@ class TestValueMap:
         assert execute_mapping(doc, {'status': 'active'}, "forward").output['state'] == 'A'
         assert execute_mapping(doc, {'status': 'inactive'}, "forward").output['state'] == 'I'
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not support full-form valueMap with forward/unmapped keys")
     def test_full_form_map(self):
         doc = _make_doc([
             {
@@ -240,7 +234,6 @@ class TestValueMap:
         assert execute_mapping(doc, {'gender': 'male'}, "forward").output['sex'] == 'M'
         assert execute_mapping(doc, {'gender': 'other'}, "forward").output['sex'] == 'other'
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not support unmapped:'error' in full-form valueMap")
     def test_unmapped_error(self):
         doc = _make_doc([
             {
@@ -253,7 +246,6 @@ class TestValueMap:
         with pytest.raises((ValueError, Exception)):
             execute_mapping(doc, {'val': 'unknown'}, "forward")
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not support unmapped:'default' in full-form valueMap")
     def test_unmapped_default(self):
         doc = _make_doc([
             {
@@ -322,7 +314,6 @@ class TestNest:
 # ===========================================================================
 
 class TestConcat:
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL expressions in concat transform")
     def test_concat_expression(self):
         doc = _make_doc([
             {
@@ -341,7 +332,6 @@ class TestConcat:
 # ===========================================================================
 
 class TestSplit:
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL expressions in split transform")
     def test_split_expression(self):
         """Split transform evaluates FEL expression on the source value."""
         doc = _make_doc([
@@ -361,7 +351,6 @@ class TestSplit:
 # ===========================================================================
 
 class TestConditionGuards:
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL condition guards with source refs")
     def test_condition_true_executes(self):
         doc = _make_doc([
             {
@@ -388,7 +377,6 @@ class TestConditionGuards:
         result = execute_mapping(doc, {'premium': False}, "forward").output
         assert 'tier' not in result
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL condition guards with source refs")
     def test_multiple_conditional_rules(self):
         doc = _make_doc([
             {
@@ -413,7 +401,6 @@ class TestConditionGuards:
 # ===========================================================================
 
 class TestPriority:
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL in constant transform (returns literal string)")
     def test_higher_priority_executes_first(self):
         """Higher priority rules execute first; last write wins for same path."""
         doc = _make_doc([
@@ -434,7 +421,6 @@ class TestPriority:
         result = execute_mapping(doc, {}, "forward").output
         assert result['val'] == 'low'
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL in constant transform (returns literal string)")
     def test_default_priority_zero(self):
         doc = _make_doc([
             {
@@ -480,7 +466,6 @@ class TestReverse:
         assert result['name'] == 'Bob'
         assert 'internal' not in result
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not auto-invert full-form valueMap on reverse")
     def test_reverse_value_map_auto_invert(self):
         doc = _make_doc([
             {
@@ -496,7 +481,6 @@ class TestReverse:
         result = execute_mapping(doc, {'state': 'A'}, "reverse").output
         assert result['status'] == 'active'
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not evaluate FEL expressions in reverse override")
     def test_reverse_override(self):
         doc = _make_doc([
             {
@@ -531,7 +515,6 @@ class TestArrayDescriptor:
         result = execute_mapping(doc, {'items': [1, 2, 3]}, "forward").output
         assert result['entries'] == [1, 2, 3]
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not apply innerRules in array each mode")
     def test_each_with_inner_rules(self):
         doc = _make_doc([
             {
@@ -571,7 +554,6 @@ class TestArrayDescriptor:
         result = execute_mapping(doc, {'tags': ['a', 'b', 'c']}, "forward").output
         assert result['tagStr'] == 'a,b,c'
 
-    @pytest.mark.xfail(reason="Rust mapping engine does not apply innerRules in array indexed mode")
     def test_indexed_mode(self):
         doc = _make_doc([
             {
@@ -698,7 +680,6 @@ class TestCustomAdapterRegistration:
 
 class TestFullPipeline:
 
-    @pytest.mark.xfail(reason="Rust mapping engine: full-form valueMap + FEL condition guards not supported")
     def test_complex_mapping_with_conditions_and_valuemap(self):
         doc = _make_doc([
             {'sourcePath': 'name', 'targetPath': 'patientName', 'transform': 'preserve'},
@@ -743,7 +724,6 @@ class TestFullPipeline:
         output = adapter.serialize(result)
         assert b'"name": "Test"' in output or b'"name":"Test"' in output
 
-    @pytest.mark.xfail(reason="Rust mapping engine: FEL constant + condition guards not supported")
     def test_multiple_rules_same_target(self):
         """When multiple rules write to the same target, last writer wins."""
         doc = _make_doc([

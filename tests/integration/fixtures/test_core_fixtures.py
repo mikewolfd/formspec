@@ -101,10 +101,6 @@ def test_grant_mapping_exercises_bidirectional_deep_coverage() -> None:
     assert any("priority" in inner_rule for inner_rule in inner_rules)
     assert any("index" in inner_rule for inner_rule in inner_rules)
 
-@pytest.mark.xfail(
-    reason="Rust mapping engine: FEL expressions, conditions, full-form valueMap not yet supported",
-    strict=False,
-)
 def test_grant_mapping_executes_forward_and_reverse() -> None:
     mapping = _load_mapping()
 

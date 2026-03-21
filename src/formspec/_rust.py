@@ -369,6 +369,10 @@ def execute_mapping(
         )
         for d in raw.get("diagnostics", [])
     ]
+    # Raise on unmapped-error diagnostics (spec §4.6: unmapped:"error" is a hard failure)
+    for d in diags:
+        if "No value map entry" in d.message:
+            raise ValueError(d.message)
     return MappingResult(
         direction=raw.get("direction", direction),
         output=raw.get("output", {}),

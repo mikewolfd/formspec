@@ -36,6 +36,36 @@ pub struct MappingRule {
     pub default: Option<Value>,
     /// Whether this rule participates in reverse execution (default true).
     pub bidirectional: bool,
+    /// Array descriptor for iterating over array source values.
+    pub array: Option<ArrayDescriptor>,
+    /// Reverse-direction transform override.
+    pub reverse: Option<Box<ReverseOverride>>,
+}
+
+/// Array iteration descriptor.
+#[derive(Debug, Clone)]
+pub struct ArrayDescriptor {
+    /// Iteration mode: "each", "indexed", or "whole".
+    pub mode: ArrayMode,
+    /// Sub-rules applied per element (each/indexed modes).
+    pub inner_rules: Vec<MappingRule>,
+}
+
+/// Array iteration mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArrayMode {
+    /// Process each element individually.
+    Each,
+    /// Access elements by index.
+    Indexed,
+    /// Treat the array as a single value (default).
+    Whole,
+}
+
+/// Reverse-direction transform override.
+#[derive(Debug, Clone)]
+pub struct ReverseOverride {
+    pub transform: TransformType,
 }
 
 /// Supported transform types.
@@ -91,6 +121,7 @@ pub enum CoerceType {
     Boolean,
     Date,
     DateTime,
+    Array,
 }
 
 /// A diagnostic from mapping execution.
@@ -128,15 +159,22 @@ fn build_mapping_env(
 ) -> FormspecEnvironment {
     let mut env = FormspecEnvironment::new();
     if let Some(value) = dollar {
-        env.set_field("$", json_to_fel(value));
+        // Bare $ resolves from data[""] in the environment
+        env.set_field("", json_to_fel(value));
     }
     if let Some(obj) = source_doc.as_object() {
         for (k, v) in obj {
             env.set_field(k, json_to_fel(v));
         }
     }
-    env.set_variable("source", json_to_fel(source_doc));
-    env.set_variable("target", json_to_fel(target_doc));
+    // Set as both variables (@source/@target) and fields (source.x/target.x)
+    // so FEL expressions can use either syntax.
+    let source_fel = json_to_fel(source_doc);
+    let target_fel = json_to_fel(target_doc);
+    env.set_variable("source", source_fel.clone());
+    env.set_variable("target", target_fel.clone());
+    env.set_field("source", source_fel);
+    env.set_field("target", target_fel);
     env
 }
 
@@ -326,14 +364,106 @@ pub fn execute_mapping(
             _ => rule.default.clone().unwrap_or(Value::Null),
         };
 
+        // Handle array descriptor with innerRules
+        if let Some(ref arr_desc) = rule.array {
+            if !arr_desc.inner_rules.is_empty() {
+                match arr_desc.mode {
+                    ArrayMode::Each => {
+                        if let Value::Array(elements) = &source_value {
+                            let mut result_arr = Vec::new();
+                            for elem in elements {
+                                let inner_result =
+                                    execute_mapping(&arr_desc.inner_rules, elem, direction);
+                                result_arr.push(inner_result.output);
+                            }
+                            set_by_path(&mut output, tgt_path, Value::Array(result_arr));
+                            rules_applied += 1;
+                            continue;
+                        }
+                    }
+                    ArrayMode::Indexed => {
+                        if let Value::Array(elements) = &source_value {
+                            let mut indexed_output = Value::Object(serde_json::Map::new());
+                            for inner_rule in &arr_desc.inner_rules {
+                                if let Some(ref sp) = inner_rule.source_path {
+                                    // sourcePath encodes "index:sub_path"
+                                    // First segment is the array index
+                                    if let Ok(idx) = sp.parse::<usize>() {
+                                        // Pure index — copy the whole element
+                                        if let Some(elem) = elements.get(idx) {
+                                            set_by_path(
+                                                &mut indexed_output,
+                                                &inner_rule.target_path,
+                                                elem.clone(),
+                                            );
+                                        }
+                                    } else {
+                                        // Source path has a sub-path — find index
+                                        // from the inner_rule's array field if present,
+                                        // otherwise try to parse as "N.subpath"
+                                        let parts: Vec<&str> = sp.splitn(2, '.').collect();
+                                        if let Ok(idx) = parts[0].parse::<usize>() {
+                                            if let Some(elem) = elements.get(idx) {
+                                                let sub_val = if parts.len() > 1 {
+                                                    get_by_path(elem, parts[1]).clone()
+                                                } else {
+                                                    elem.clone()
+                                                };
+                                                set_by_path(
+                                                    &mut indexed_output,
+                                                    &inner_rule.target_path,
+                                                    sub_val,
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            set_by_path(&mut output, tgt_path, indexed_output);
+                            rules_applied += 1;
+                            continue;
+                        }
+                    }
+                    ArrayMode::Whole => {} // fall through to normal transform
+                }
+            }
+        }
+
+        // Use reverse override transform when in reverse direction
+        let using_reverse_override = direction == MappingDirection::Reverse && rule.reverse.is_some();
+        let active_transform = match direction {
+            MappingDirection::Reverse => rule
+                .reverse
+                .as_ref()
+                .map(|r| &r.transform)
+                .unwrap_or(&rule.transform),
+            MappingDirection::Forward => &rule.transform,
+        };
+
         // Apply transform
-        let transformed = match &rule.transform {
+        let transformed = match active_transform {
             TransformType::Drop => continue,
             TransformType::Preserve => source_value,
             TransformType::Constant(val) => val.clone(),
             TransformType::ValueMap { forward, unmapped } => {
-                let mapped = match direction {
-                    MappingDirection::Forward => apply_value_map(
+                let mapped = if direction == MappingDirection::Reverse && !using_reverse_override {
+                    // Auto-invert the map for reverse (not used when override provides its own map)
+                    let reversed: Vec<(Value, Value)> = forward
+                        .iter()
+                        .map(|(k, v)| (v.clone(), k.clone()))
+                        .collect();
+                    apply_value_map(
+                        &source_value,
+                        &reversed,
+                        *unmapped,
+                        rule_idx,
+                        tgt_path,
+                        &mut diagnostics,
+                        rule.default.as_ref(),
+                    )
+                } else {
+                    // Forward direction, or reverse override already has the correct map
+                    apply_value_map(
                         &source_value,
                         forward,
                         *unmapped,
@@ -341,23 +471,7 @@ pub fn execute_mapping(
                         tgt_path,
                         &mut diagnostics,
                         rule.default.as_ref(),
-                    ),
-                    MappingDirection::Reverse => {
-                        // Auto-invert the map
-                        let reversed: Vec<(Value, Value)> = forward
-                            .iter()
-                            .map(|(k, v)| (v.clone(), k.clone()))
-                            .collect();
-                        apply_value_map(
-                            &source_value,
-                            &reversed,
-                            *unmapped,
-                            rule_idx,
-                            tgt_path,
-                            &mut diagnostics,
-                            rule.default.as_ref(),
-                        )
-                    }
+                    )
                 };
                 match mapped {
                     Some(v) => v,
@@ -373,7 +487,7 @@ pub fn execute_mapping(
             ),
             TransformType::Expression(fel_expr) => match parse(fel_expr) {
                 Ok(expr) => {
-                    let env = build_mapping_env(source, &output, None);
+                    let env = build_mapping_env(source, &output, Some(&source_value));
                     let result = evaluate(&expr, &env);
                     fel_to_json(&result.value)
                 }
@@ -541,6 +655,11 @@ fn apply_coerce(
                 _ => Value::Null,
             }
         }
+        CoerceType::Array => match value {
+            Value::Array(_) => value.clone(),
+            Value::Null => Value::Null,
+            _ => Value::Array(vec![value.clone()]),
+        }
     }
 }
 
@@ -631,13 +750,18 @@ pub fn execute_mapping_doc(
         && direction == MappingDirection::Forward
         && let Some(obj) = source.as_object()
     {
-        let covered: std::collections::HashSet<&str> = doc
-            .rules
-            .iter()
-            .filter_map(|r| r.source_path.as_deref())
-            .collect();
+        let mut covered: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for r in &doc.rules {
+            if let Some(ref sp) = r.source_path {
+                covered.insert(sp.clone());
+                // Also cover the top-level segment for dotted paths
+                if let Some(top) = sp.split('.').next() {
+                    covered.insert(top.to_string());
+                }
+            }
+        }
         for key in obj.keys() {
-            if !covered.contains(key.as_str()) {
+            if !covered.contains(key) {
                 rules.push(MappingRule {
                     source_path: Some(key.clone()),
                     target_path: key.clone(),
@@ -647,6 +771,8 @@ pub fn execute_mapping_doc(
                     reverse_priority: None,
                     default: None,
                     bidirectional: true,
+                    array: None,
+                    reverse: None,
                 });
             }
         }
@@ -688,6 +814,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "name": "Alice" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -706,6 +834,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({});
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -723,6 +853,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "secret": "hidden" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -744,6 +876,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "status": "active" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -764,6 +898,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "statusCode": 1 });
         let result = execute_mapping(&rules, &source, MappingDirection::Reverse);
@@ -781,6 +917,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "count": 42 });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -798,6 +936,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "amount": "99.5" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -815,6 +955,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "name": "Bob" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -833,6 +975,8 @@ mod tests {
                 reverse_priority: None,
                 default: None,
                 bidirectional: true,
+                array: None,
+                reverse: None,
             },
             MappingRule {
                 source_path: Some("last".to_string()),
@@ -843,6 +987,8 @@ mod tests {
                 reverse_priority: None,
                 default: None,
                 bidirectional: true,
+                array: None,
+                reverse: None,
             },
         ];
         let source = json!({ "first": "Alice", "last": "Smith" });
@@ -866,6 +1012,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "val": "unknown" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -883,6 +1031,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "first": "Alice", "last": "Smith" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -900,6 +1050,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "qty": 5, "price": 10 });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -917,6 +1069,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "active": "true" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -934,6 +1088,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "amount": 3.7 });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -962,6 +1118,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }
     }
 
@@ -1231,6 +1389,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "val": "unknown" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -1586,6 +1746,8 @@ mod tests {
                 reverse_priority: None,
                 default: None,
                 bidirectional: true,
+                array: None,
+                reverse: None,
             },
             MappingRule {
                 source_path: None,
@@ -1596,6 +1758,8 @@ mod tests {
                 reverse_priority: None,
                 default: None,
                 bidirectional: true,
+                array: None,
+                reverse: None,
             },
         ];
         let result = execute_mapping(&rules, &json!({}), MappingDirection::Forward);
@@ -1618,6 +1782,8 @@ mod tests {
                 reverse_priority: Some(1), // low reverse priority → executes last in reverse
                 default: None,
                 bidirectional: true,
+                array: None,
+                reverse: None,
             },
             MappingRule {
                 source_path: Some("b".to_string()),
@@ -1628,6 +1794,8 @@ mod tests {
                 reverse_priority: Some(10), // high reverse priority → executes first in reverse
                 default: None,
                 bidirectional: true,
+                array: None,
+                reverse: None,
             },
         ];
         // Forward: sorted descending by priority. rule_a (10) first, rule_b (1) last.
@@ -1709,6 +1877,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "val": "unknown" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -1734,6 +1904,8 @@ mod tests {
             reverse_priority: None,
             default: Some(json!("fallback")),
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "val": "unknown" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);
@@ -1755,6 +1927,8 @@ mod tests {
             reverse_priority: None,
             default: None,
             bidirectional: true,
+            array: None,
+            reverse: None,
         }];
         let source = json!({ "val": "unknown" });
         let result = execute_mapping(&rules, &source, MappingDirection::Forward);

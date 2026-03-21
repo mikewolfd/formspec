@@ -1239,6 +1239,8 @@ fn parse_mapping_rules_inner(val: &Value) -> Result<Vec<formspec_core::MappingRu
                 .get("bidirectional")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(true),
+            array: None,
+            reverse: None,
         });
     }
     Ok(rules)
