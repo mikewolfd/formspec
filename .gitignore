@@ -48,6 +48,7 @@ site/public/references/
 # MCP bundle (build output)
 *.mcpb
 
-# Rust build artifacts
+# Rust / WASM build artifacts
 target/
+packages/formspec-engine/wasm-pkg/
 thoughts/private/
