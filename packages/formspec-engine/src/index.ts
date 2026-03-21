@@ -886,6 +886,7 @@ export class FormEngine implements IFormEngine {
         }
 
         return {
+            $formspecValidationReport: '1.0' as const,
             valid: counts.error === 0,
             results: finalResults,
             counts,
@@ -960,6 +961,7 @@ export class FormEngine implements IFormEngine {
 
         const report = this.getValidationReport({ mode });
         const response: any = {
+            $formspecResponse: '1.0',
             definitionUrl: this.definition.url ?? 'http://example.org/form',
             definitionVersion: this.definition.version ?? '1.0.0',
             status: report.valid ? 'completed' : 'in-progress',
@@ -2361,6 +2363,7 @@ function makeValidationResult(
     & Partial<Pick<ValidationResult, 'shapeId' | 'context'>>,
 ): ValidationResult {
     return {
+        $formspecValidationResult: '1.0',
         ...result,
         path: toFelIndexedPath(result.path),
     } as ValidationResult;
@@ -2369,6 +2372,7 @@ function makeValidationResult(
 function toValidationResult(result: EvalValidation): ValidationResult {
     return {
         ...(result as unknown as ValidationResult),
+        $formspecValidationResult: '1.0',
         path: toFelIndexedPath(result.path),
     };
 }
