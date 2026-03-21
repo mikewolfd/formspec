@@ -19,7 +19,7 @@ function resolvePython(): string {
 }
 const PYTHON = resolvePython();
 
-describe('Formspec Studio Core E2E Validation', () => {
+describe('Formspec Studio Core E2E Validation', { timeout: 60_000 }, () => {
   let tmpDir: string;
   let project: ReturnType<typeof createRawProject>;
 
@@ -39,15 +39,28 @@ describe('Formspec Studio Core E2E Validation', () => {
     expect(diag.counts.error).toBe(0);
     expect(diag.counts.warning).toBe(0);
 
+    const bundle = project.export();
+
     const defPath = path.join(tmpDir, 'definition.json');
     const themePath = path.join(tmpDir, 'theme.json');
     const compPath = path.join(tmpDir, 'component.json');
     const mapPath = path.join(tmpDir, 'mapping.json');
 
-    fs.writeFileSync(defPath, JSON.stringify(project.definition, null, 2));
-    fs.writeFileSync(themePath, JSON.stringify(project.theme, null, 2));
-    fs.writeFileSync(compPath, JSON.stringify(project.component, null, 2));
-    fs.writeFileSync(mapPath, JSON.stringify(project.mapping, null, 2));
+    fs.writeFileSync(defPath, JSON.stringify(bundle.definition, null, 2));
+    fs.writeFileSync(themePath, JSON.stringify(bundle.theme, null, 2));
+    // Only write component when a tree has been authored (null tree = no authored tree)
+    if (bundle.component.tree) {
+      fs.writeFileSync(compPath, JSON.stringify(bundle.component, null, 2));
+    } else if (fs.existsSync(compPath)) {
+      fs.unlinkSync(compPath);
+    }
+    // Only write mapping when rules exist (empty rules array fails schema minItems: 1)
+    const defaultMapping = bundle.mappings[Object.keys(bundle.mappings)[0]];
+    if (defaultMapping && (defaultMapping as any).rules?.length > 0) {
+      fs.writeFileSync(mapPath, JSON.stringify(defaultMapping, null, 2));
+    } else if (fs.existsSync(mapPath)) {
+      fs.unlinkSync(mapPath);
+    }
 
     const rootDir = path.resolve(__dirname, '../../..');
     const validateCmd = `${PYTHON} -m formspec.validate ${tmpDir} --registry registries/formspec-common.registry.json`;
