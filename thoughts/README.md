@@ -94,6 +94,9 @@ Numbers 0024, 0026, 0027, 0028, 0032, 0034, 0038 were execution plans, not decis
 | [studio-core-helpers-schema-addendum](plans/2026-03-15-studio-core-helpers-schema-addendum.md) | 2026-03-15 | Schema cross-ref inconsistencies |
 | [core-studio-split](plans/2026-03-15-formspec-core-studio-split.md) | 2026-03-15 | Split into core + studio-core |
 | [core-runtime-redesign](plans/2026-03-15-formspec-core-runtime-redesign.md) | 2026-03-15 | Decompose RawProject |
+| [rust-backend-transition](plans/2026-03-17-rust-backend-transition.md) | 2026-03-17 | Rust backend adoption plan |
+| [rust-merge-reconciliation](plans/2026-03-18-rust-merge-reconciliation.md) | 2026-03-18 | Reconcile merged Rust rewrite work |
+| [rust-decommission-tasks](plans/2026-03-20-rust-decommission-tasks.md) | 2026-03-20 | Task backlog for TS/Python runtime decommission |
 
 ---
 

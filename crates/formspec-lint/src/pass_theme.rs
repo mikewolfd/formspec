@@ -49,14 +49,14 @@ fn classify_token(name: &str) -> TokenCategory {
 
 // ── Value validators ────────────────────────────────────────────
 
-/// Check if a string is a valid CSS color: hex (#RGB, #RRGGBB, #RRGGBBAA),
-/// rgb(), rgba(), hsl(), hsla().
+/// Check if a string is a valid CSS color: hex (#RGB, #RGBA, #RRGGBB, #RRGGBBAA),
+/// rgb(), rgba(), hsl(), hsla(), or CSS named colors.
 fn is_css_color(s: &str) -> bool {
     let s = s.trim();
     if s.starts_with('#') {
         let hex = &s[1..];
         let len = hex.len();
-        return (len == 3 || len == 6 || len == 8)
+        return (len == 3 || len == 4 || len == 6 || len == 8)
             && hex.chars().all(|c| c.is_ascii_hexdigit());
     }
     // Functional notation: rgb(), rgba(), hsl(), hsla()
@@ -65,7 +65,166 @@ fn is_css_color(s: &str) -> bool {
             return true;
         }
     }
-    false
+    // CSS named colors (Level 4)
+    is_css_named_color(s)
+}
+
+/// CSS named colors from CSS Color Level 4.
+/// Only checks the wrapper format, not exhaustive enumeration — we accept any
+/// lowercase-matching name from the CSS specification.
+fn is_css_named_color(s: &str) -> bool {
+    const NAMED_COLORS: &[&str] = &[
+        "aliceblue",
+        "antiquewhite",
+        "aqua",
+        "aquamarine",
+        "azure",
+        "beige",
+        "bisque",
+        "black",
+        "blanchedalmond",
+        "blue",
+        "blueviolet",
+        "brown",
+        "burlywood",
+        "cadetblue",
+        "chartreuse",
+        "chocolate",
+        "coral",
+        "cornflowerblue",
+        "cornsilk",
+        "crimson",
+        "cyan",
+        "darkblue",
+        "darkcyan",
+        "darkgoldenrod",
+        "darkgray",
+        "darkgreen",
+        "darkgrey",
+        "darkkhaki",
+        "darkmagenta",
+        "darkolivegreen",
+        "darkorange",
+        "darkorchid",
+        "darkred",
+        "darksalmon",
+        "darkseagreen",
+        "darkslateblue",
+        "darkslategray",
+        "darkslategrey",
+        "darkturquoise",
+        "darkviolet",
+        "deeppink",
+        "deepskyblue",
+        "dimgray",
+        "dimgrey",
+        "dodgerblue",
+        "firebrick",
+        "floralwhite",
+        "forestgreen",
+        "fuchsia",
+        "gainsboro",
+        "ghostwhite",
+        "gold",
+        "goldenrod",
+        "gray",
+        "green",
+        "greenyellow",
+        "grey",
+        "honeydew",
+        "hotpink",
+        "indianred",
+        "indigo",
+        "ivory",
+        "khaki",
+        "lavender",
+        "lavenderblush",
+        "lawngreen",
+        "lemonchiffon",
+        "lightblue",
+        "lightcoral",
+        "lightcyan",
+        "lightgoldenrodyellow",
+        "lightgray",
+        "lightgreen",
+        "lightgrey",
+        "lightpink",
+        "lightsalmon",
+        "lightseagreen",
+        "lightskyblue",
+        "lightslategray",
+        "lightslategrey",
+        "lightsteelblue",
+        "lightyellow",
+        "lime",
+        "limegreen",
+        "linen",
+        "magenta",
+        "maroon",
+        "mediumaquamarine",
+        "mediumblue",
+        "mediumorchid",
+        "mediumpurple",
+        "mediumseagreen",
+        "mediumslateblue",
+        "mediumspringgreen",
+        "mediumturquoise",
+        "mediumvioletred",
+        "midnightblue",
+        "mintcream",
+        "mistyrose",
+        "moccasin",
+        "navajowhite",
+        "navy",
+        "oldlace",
+        "olive",
+        "olivedrab",
+        "orange",
+        "orangered",
+        "orchid",
+        "palegoldenrod",
+        "palegreen",
+        "paleturquoise",
+        "palevioletred",
+        "papayawhip",
+        "peachpuff",
+        "peru",
+        "pink",
+        "plum",
+        "powderblue",
+        "purple",
+        "rebeccapurple",
+        "red",
+        "rosybrown",
+        "royalblue",
+        "saddlebrown",
+        "salmon",
+        "sandybrown",
+        "seagreen",
+        "seashell",
+        "sienna",
+        "silver",
+        "skyblue",
+        "slateblue",
+        "slategray",
+        "slategrey",
+        "snow",
+        "springgreen",
+        "steelblue",
+        "tan",
+        "teal",
+        "thistle",
+        "tomato",
+        "turquoise",
+        "violet",
+        "wheat",
+        "white",
+        "whitesmoke",
+        "yellow",
+        "yellowgreen",
+        "transparent",
+    ];
+    NAMED_COLORS.contains(&s.to_ascii_lowercase().as_str())
 }
 
 /// Valid CSS length units.
@@ -123,7 +282,15 @@ fn extract_token_refs(text: &str) -> Vec<&str> {
         }
         // Token name: everything up to whitespace, comma, semicolon, quote, or end
         let name_end = text[name_start..]
-            .find(|c: char| c.is_whitespace() || c == ',' || c == ';' || c == '\'' || c == '"' || c == ')' || c == '}')
+            .find(|c: char| {
+                c.is_whitespace()
+                    || c == ','
+                    || c == ';'
+                    || c == '\''
+                    || c == '"'
+                    || c == ')'
+                    || c == '}'
+            })
             .map_or(text.len(), |e| name_start + e);
         if name_end > name_start {
             refs.push(&text[name_start..name_end]);
@@ -135,22 +302,30 @@ fn extract_token_refs(text: &str) -> Vec<&str> {
 
 // ── Definition item path collection ─────────────────────────────
 
-/// Collect all item keys from a definition's item tree (flat keys, not dotted paths).
+/// Collect all item keys and dotted paths from a definition's item tree.
+/// Both bare keys (e.g., "amount") and full dotted paths (e.g., "lines.amount")
+/// are included so that theme overrides can reference items either way.
 fn collect_definition_item_keys(definition: &Value) -> HashSet<String> {
     let mut keys = HashSet::new();
     if let Some(items) = definition.get("items").and_then(|v| v.as_array()) {
-        collect_keys_recursive(items, &mut keys);
+        collect_item_paths(items, "", &mut keys);
     }
     keys
 }
 
-fn collect_keys_recursive(items: &[Value], keys: &mut HashSet<String>) {
+fn collect_item_paths(items: &[Value], prefix: &str, paths: &mut HashSet<String>) {
     for item in items {
         if let Some(key) = item.get("key").and_then(|v| v.as_str()) {
-            keys.insert(key.to_string());
-        }
-        if let Some(children) = item.get("children").and_then(|v| v.as_array()) {
-            collect_keys_recursive(children, keys);
+            let full = if prefix.is_empty() {
+                key.to_string()
+            } else {
+                format!("{prefix}.{key}")
+            };
+            paths.insert(full.clone());
+            paths.insert(key.to_string()); // bare key for top-level matching
+            if let Some(children) = item.get("children").and_then(|v| v.as_array()) {
+                collect_item_paths(children, &full, paths);
+            }
         }
     }
 }
@@ -159,7 +334,12 @@ fn collect_keys_recursive(items: &[Value], keys: &mut HashSet<String>) {
 
 /// Walk a JSON value recursively, collecting token references from all string values.
 /// Calls `visitor(path, token_name)` for each `$token.X` found.
-fn walk_token_refs(value: &Value, path: &str, token_names: &HashSet<String>, diags: &mut Vec<LintDiagnostic>) {
+fn walk_token_refs(
+    value: &Value,
+    path: &str,
+    token_names: &HashSet<String>,
+    diags: &mut Vec<LintDiagnostic>,
+) {
     match value {
         Value::String(s) => {
             for token_name in extract_token_refs(s) {
@@ -168,7 +348,9 @@ fn walk_token_refs(value: &Value, path: &str, token_names: &HashSet<String>, dia
                         "W704",
                         PASS,
                         path,
-                        format!("Token reference '$token.{token_name}' not found in declared tokens"),
+                        format!(
+                            "Token reference '$token.{token_name}' not found in declared tokens"
+                        ),
                     ));
                 }
             }
@@ -298,11 +480,21 @@ pub fn lint_theme(theme: &Value, definition: Option<&Value>) -> Vec<LintDiagnost
     if let Some(selectors) = theme.get("selectors").and_then(|v| v.as_array()) {
         for (i, selector) in selectors.iter().enumerate() {
             if let Some(apply) = selector.get("apply") {
-                walk_token_refs(apply, &format!("$.selectors[{i}].apply"), &token_names, &mut diags);
+                walk_token_refs(
+                    apply,
+                    &format!("$.selectors[{i}].apply"),
+                    &token_names,
+                    &mut diags,
+                );
             }
             // Also check "properties" (used on main branch)
             if let Some(props) = selector.get("properties") {
-                walk_token_refs(props, &format!("$.selectors[{i}].properties"), &token_names, &mut diags);
+                walk_token_refs(
+                    props,
+                    &format!("$.selectors[{i}].properties"),
+                    &token_names,
+                    &mut diags,
+                );
             }
         }
     }
@@ -367,7 +559,9 @@ pub fn lint_theme(theme: &Value, definition: Option<&Value>) -> Vec<LintDiagnost
                         "W705",
                         PASS,
                         format!("$.items.{key}"),
-                        format!("Theme item override '{key}' does not match any definition item path"),
+                        format!(
+                            "Theme item override '{key}' does not match any definition item path"
+                        ),
                     ));
                 }
             }
@@ -570,7 +764,10 @@ mod tests {
         for w in (100..=900).step_by(100) {
             let theme = json!({ "tokens": { "typography.fontweight.x": w.to_string() } });
             let diags = lint_theme(&theme, None);
-            assert!(with_code(&diags, "W702").is_empty(), "Weight {w} should be valid");
+            assert!(
+                with_code(&diags, "W702").is_empty(),
+                "Weight {w} should be valid"
+            );
         }
     }
 
@@ -784,22 +981,34 @@ mod tests {
 
     #[test]
     fn classify_font_weight_tokens() {
-        assert_eq!(classify_token("typography.fontweight.body"), TokenCategory::FontWeight);
+        assert_eq!(
+            classify_token("typography.fontweight.body"),
+            TokenCategory::FontWeight
+        );
         assert_eq!(classify_token("fontWeight"), TokenCategory::FontWeight);
         assert_eq!(classify_token("heading.weight"), TokenCategory::FontWeight);
     }
 
     #[test]
     fn classify_line_height_tokens() {
-        assert_eq!(classify_token("typography.lineheight.body"), TokenCategory::LineHeight);
-        assert_eq!(classify_token("body.line-height"), TokenCategory::LineHeight);
+        assert_eq!(
+            classify_token("typography.lineheight.body"),
+            TokenCategory::LineHeight
+        );
+        assert_eq!(
+            classify_token("body.line-height"),
+            TokenCategory::LineHeight
+        );
     }
 
     #[test]
     fn classify_other_tokens() {
         assert_eq!(classify_token("border.radius"), TokenCategory::Other);
         assert_eq!(classify_token("elevation.low"), TokenCategory::Other);
-        assert_eq!(classify_token("typography.body.family"), TokenCategory::Other);
+        assert_eq!(
+            classify_token("typography.body.family"),
+            TokenCategory::Other
+        );
     }
 
     // ── 11. $token.X extraction ─────────────────────────────────
@@ -812,7 +1021,8 @@ mod tests {
 
     #[test]
     fn extract_multiple_refs() {
-        let refs = extract_token_refs("border: 1px solid $token.color.border, bg: $token.color.surface");
+        let refs =
+            extract_token_refs("border: 1px solid $token.color.border, bg: $token.color.surface");
         assert_eq!(refs, vec!["color.border", "color.surface"]);
     }
 
@@ -1030,7 +1240,220 @@ mod tests {
             }]
         });
         let diags = lint_theme(&theme, Some(&def));
-        assert!(with_code(&diags, "W705").is_empty(), "amount is a nested child, should match");
+        assert!(
+            with_code(&diags, "W705").is_empty(),
+            "amount is a nested child, should match"
+        );
+    }
+
+    /// Dotted nested path (e.g., "lines.amount") should match a nested child.
+    #[test]
+    fn w705_dotted_nested_path_matches() {
+        let theme = json!({
+            "items": {
+                "lines.amount": { "widget": "numberInput" }
+            }
+        });
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [{
+                "key": "lines",
+                "children": [{ "key": "amount", "dataType": "decimal" }]
+            }]
+        });
+        let diags = lint_theme(&theme, Some(&def));
+        assert!(
+            with_code(&diags, "W705").is_empty(),
+            "lines.amount is a valid dotted path, should not warn"
+        );
+    }
+
+    /// Dotted path that doesn't correspond to the actual nesting should warn.
+    #[test]
+    fn w705_invalid_dotted_path_warns() {
+        let theme = json!({
+            "items": {
+                "lines.ghost": { "widget": "numberInput" }
+            }
+        });
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [{
+                "key": "lines",
+                "children": [{ "key": "amount", "dataType": "decimal" }]
+            }]
+        });
+        let diags = lint_theme(&theme, Some(&def));
+        assert_eq!(
+            with_code(&diags, "W705").len(),
+            1,
+            "lines.ghost is not a valid path"
+        );
+    }
+
+    /// Deeply nested dotted path (3 levels) should match.
+    #[test]
+    fn w705_deep_dotted_path_matches() {
+        let theme = json!({
+            "items": {
+                "section.group.field": { "widget": "textInput" }
+            }
+        });
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [{
+                "key": "section",
+                "children": [{
+                    "key": "group",
+                    "children": [{ "key": "field", "dataType": "string" }]
+                }]
+            }]
+        });
+        let diags = lint_theme(&theme, Some(&def));
+        assert!(
+            with_code(&diags, "W705").is_empty(),
+            "section.group.field is a valid dotted path"
+        );
+    }
+
+    // ── Finding 56: rgb() content not validated ────────────────
+
+    /// Spec: theme-spec.md §3.2 (line 251) — is_css_color intentionally only
+    /// checks the wrapper format (rgb(...), hsl(...), etc), not the validity
+    /// of the content inside the parentheses.
+    #[test]
+    fn functional_color_content_not_validated() {
+        assert!(
+            is_css_color("rgb(not, valid, at all)"),
+            "is_css_color only checks the wrapper, not content validity"
+        );
+    }
+
+    // ── Finding 57: Named CSS colors ─────────────────────────────
+
+    /// Spec: theme-spec.md §3.2 (line 251) — "Colors (hex, rgb, hsl, named)".
+    /// Named colors like "red", "navy", "transparent" must be accepted.
+    #[test]
+    fn named_css_colors_accepted() {
+        for name in &[
+            "red",
+            "blue",
+            "green",
+            "navy",
+            "transparent",
+            "rebeccapurple",
+            "coral",
+        ] {
+            assert!(
+                is_css_color(name),
+                "Named color '{name}' should be accepted"
+            );
+        }
+    }
+
+    /// Spec: theme-spec.md §3.2 — named colors are case-insensitive.
+    #[test]
+    fn named_css_colors_case_insensitive() {
+        assert!(is_css_color("Red"));
+        assert!(is_css_color("BLUE"));
+        assert!(is_css_color("Navy"));
+    }
+
+    /// Spec: theme-spec.md §3.2 — named color tokens should not emit W700.
+    #[test]
+    fn named_color_token_no_w700() {
+        let theme = json!({
+            "tokens": {
+                "color.primary": "red",
+                "color.secondary": "navy",
+                "color.bg": "transparent"
+            }
+        });
+        let diags = lint_theme(&theme, None);
+        assert!(
+            with_code(&diags, "W700").is_empty(),
+            "Named colors should not emit W700"
+        );
+    }
+
+    // ── Finding 58: 4-char hex (#RGBA) ───────────────────────────
+
+    /// Spec: theme-spec.md §3.2 — "hex" includes CSS Color Level 4's #RGBA format.
+    #[test]
+    fn four_char_hex_rgba_accepted() {
+        assert!(is_css_color("#F00A"), "#RGBA (4-char hex) should be valid");
+        assert!(is_css_color("#abcd"), "lowercase #RGBA should be valid");
+    }
+
+    /// Spec: theme-spec.md §3.2 — #RGBA token should not emit W700.
+    #[test]
+    fn four_char_hex_token_no_w700() {
+        let theme = json!({
+            "tokens": { "color.overlay": "#0008" }
+        });
+        let diags = lint_theme(&theme, None);
+        assert!(
+            with_code(&diags, "W700").is_empty(),
+            "#RGBA hex should not emit W700"
+        );
+    }
+
+    // ── Finding 59: Negative CSS lengths ─────────────────────────
+
+    /// Spec: theme-spec.md §3.2 — CSS allows negative lengths (e.g. margins).
+    #[test]
+    fn negative_css_length_accepted() {
+        assert!(is_css_length("-8px"), "Negative px length should be valid");
+        assert!(
+            is_css_length("-1.5rem"),
+            "Negative rem length should be valid"
+        );
+        assert!(is_css_length("-50%"), "Negative percentage should be valid");
+    }
+
+    // ── Finding 60: Whitespace between number and unit ───────────
+
+    /// Spec: theme-spec.md §3.2 — CSS forbids whitespace between the number and unit.
+    #[test]
+    fn whitespace_between_number_and_unit_rejected() {
+        assert!(
+            !is_css_length("8 px"),
+            "Whitespace before unit should be rejected"
+        );
+        assert!(
+            !is_css_length("1 rem"),
+            "Whitespace before rem should be rejected"
+        );
+    }
+
+    // ── Finding 61: Region without key in W706 check ─────────────
+
+    /// Spec: theme-spec.md §6.2, schemas/theme.schema.json — a region without
+    /// a `key` field is skipped in the W706 check (no panic, no diagnostic).
+    #[test]
+    fn region_without_key_skipped_in_w706() {
+        let theme = json!({
+            "pages": [{
+                "id": "p1",
+                "regions": [
+                    { "span": 12 },
+                    { "key": "missing_field", "span": 6 }
+                ]
+            }]
+        });
+        let def = json!({
+            "$formspec": "1.0",
+            "items": [{ "key": "name" }]
+        });
+        let diags = lint_theme(&theme, Some(&def));
+        // Only the region WITH a key should be checked — "missing_field" not in definition → W706
+        let w706 = with_code(&diags, "W706");
+        assert_eq!(
+            w706.len(),
+            1,
+            "Only the region with key should produce W706"
+        );
+        assert!(w706[0].message.contains("missing_field"));
     }
 
     // ── Number-typed token values ───────────────────────────────
@@ -1074,7 +1497,10 @@ mod tests {
             ]
         });
         let diags = lint_theme(&theme, None);
-        assert!(with_code(&diags, "E710").is_empty(), "Pages without id should be silently skipped");
+        assert!(
+            with_code(&diags, "E710").is_empty(),
+            "Pages without id should be silently skipped"
+        );
     }
 
     // ── $token. in non-string contexts ──────────────────────────
@@ -1091,6 +1517,9 @@ mod tests {
             }
         });
         let diags = lint_theme(&theme, None);
-        assert!(with_code(&diags, "W704").is_empty(), "Non-string values should not be checked for token refs");
+        assert!(
+            with_code(&diags, "W704").is_empty(),
+            "Non-string values should not be checked for token refs"
+        );
     }
 }

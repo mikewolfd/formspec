@@ -36,7 +36,9 @@ pub fn split_normalized_path(path: &str) -> Vec<&str> {
 /// A generic tree node shape for path traversal.
 pub trait TreeItem {
     fn key(&self) -> &str;
-    fn children(&self) -> &[Self] where Self: Sized;
+    fn children(&self) -> &[Self]
+    where
+        Self: Sized;
 }
 
 /// A resolved position in a tree: the parent slice, index within it, and the item itself.
@@ -66,7 +68,10 @@ pub fn item_at_path<'a, T: TreeItem>(items: &'a [T], path: &str) -> Option<&'a T
 }
 
 /// Resolve the location triple (parent, index, item) for a dotted path.
-pub fn item_location_at_path<'a, T: TreeItem>(items: &'a [T], path: &str) -> Option<ItemLocation<'a, T>> {
+pub fn item_location_at_path<'a, T: TreeItem>(
+    items: &'a [T],
+    path: &str,
+) -> Option<ItemLocation<'a, T>> {
     let segments = split_normalized_path(path);
     if segments.is_empty() {
         return None;
@@ -128,11 +133,17 @@ mod tests {
     }
 
     fn item(key: &str, children: Vec<TestItem>) -> TestItem {
-        TestItem { key: key.to_string(), kids: children }
+        TestItem {
+            key: key.to_string(),
+            kids: children,
+        }
     }
 
     fn leaf(key: &str) -> TestItem {
-        TestItem { key: key.to_string(), kids: vec![] }
+        TestItem {
+            key: key.to_string(),
+            kids: vec![],
+        }
     }
 
     #[test]
@@ -144,7 +155,10 @@ mod tests {
 
     #[test]
     fn test_normalize_indexed_path() {
-        assert_eq!(normalize_indexed_path("group[0].items[1].field"), "group.items.field");
+        assert_eq!(
+            normalize_indexed_path("group[0].items[1].field"),
+            "group.items.field"
+        );
         assert_eq!(normalize_indexed_path("simple"), "simple");
         assert_eq!(normalize_indexed_path("a[0].b[*].c"), "a.b.c");
     }
@@ -159,14 +173,8 @@ mod tests {
     #[test]
     fn test_item_at_path() {
         let tree = vec![
-            item("personal", vec![
-                leaf("name"),
-                leaf("email"),
-            ]),
-            item("address", vec![
-                leaf("city"),
-                leaf("zip"),
-            ]),
+            item("personal", vec![leaf("name"), leaf("email")]),
+            item("address", vec![leaf("city"), leaf("zip")]),
         ];
 
         assert_eq!(item_at_path(&tree, "personal.name").unwrap().key(), "name");
@@ -177,12 +185,7 @@ mod tests {
 
     #[test]
     fn test_item_location_at_path() {
-        let tree = vec![
-            item("group", vec![
-                leaf("field1"),
-                leaf("field2"),
-            ]),
-        ];
+        let tree = vec![item("group", vec![leaf("field1"), leaf("field2")])];
 
         let loc = item_location_at_path(&tree, "group.field2").unwrap();
         assert_eq!(loc.item.key(), "field2");
@@ -255,15 +258,10 @@ mod tests {
     /// Spec: spec.md §3.2 — "item_at_path traverses 3+ nesting levels"
     #[test]
     fn deeply_nested_item_at_path() {
-        let tree = vec![
-            item("level1", vec![
-                item("level2", vec![
-                    item("level3", vec![
-                        leaf("target"),
-                    ]),
-                ]),
-            ]),
-        ];
+        let tree = vec![item(
+            "level1",
+            vec![item("level2", vec![item("level3", vec![leaf("target")])])],
+        )];
         let found = item_at_path(&tree, "level1.level2.level3.target").unwrap();
         assert_eq!(found.key(), "target");
     }
@@ -271,14 +269,7 @@ mod tests {
     /// Spec: spec.md §3.2 — "item_location_at_path works at 3+ depth"
     #[test]
     fn deeply_nested_item_location_at_path() {
-        let tree = vec![
-            item("a", vec![
-                item("b", vec![
-                    leaf("c1"),
-                    leaf("c2"),
-                ]),
-            ]),
-        ];
+        let tree = vec![item("a", vec![item("b", vec![leaf("c1"), leaf("c2")])])];
         let loc = item_location_at_path(&tree, "a.b.c2").unwrap();
         assert_eq!(loc.item.key(), "c2");
         assert_eq!(loc.index, 1);
@@ -305,5 +296,35 @@ mod tests {
     #[test]
     fn parent_path_deep() {
         assert_eq!(parent_path("a.b.c.d.e"), "a.b.c.d");
+    }
+    /// Spec: core/spec.md §5.3 (uses RFC 6901) — JSON Pointer treats segments as
+    /// opaque strings. `01` is a valid key, not array index 1. Since
+    /// `json_pointer_to_jsonpath` lives in schema_validator, we test normalization
+    /// behavior of leading-zero segments here: `normalize_indexed_path` strips
+    /// bracket indices but `01` without brackets is just a normal dotted segment.
+    #[test]
+    fn normalize_leading_zero_segment_preserved() {
+        // "items.01.key" — `01` is a plain dotted segment, not a bracket index.
+        // It should pass through normalization unchanged.
+        assert_eq!(normalize_indexed_path("items.01.key"), "items.01.key");
+    }
+
+    /// Spec: core/spec.md §4.3.3 — normalize_indexed_path is idempotent:
+    /// applying it twice produces the same result as applying it once.
+    #[test]
+    fn normalize_indexed_path_idempotent() {
+        let paths = [
+            "group[0].items[1].field",
+            "a[0].b[*].c",
+            "simple",
+            "deep.nested.path",
+            "items[0].children[1].key[2]",
+            "",
+        ];
+        for path in &paths {
+            let once = normalize_indexed_path(path);
+            let twice = normalize_indexed_path(&once);
+            assert_eq!(once, twice, "idempotence failed for input '{path}'");
+        }
     }
 }

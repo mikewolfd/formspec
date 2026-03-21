@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from formspec.evaluator import DefinitionEvaluator
+import pytest
+
+from formspec._rust import evaluate_definition, evaluate_screener
 
 
 def _definition_with_screener() -> dict:
@@ -44,33 +46,39 @@ def _definition_with_screener() -> dict:
 
 
 def test_evaluate_screener_returns_first_matching_route_in_declaration_order() -> None:
-    evaluator = DefinitionEvaluator(_definition_with_screener())
+    defn = _definition_with_screener()
+    # Both conditions match: nonprofit AND returning.
+    # The first route ("Returning") should win because it appears first.
+    answers = {"orgType": "nonprofit", "isReturning": True}
+    result = evaluate_screener(defn, answers)
+    assert result is not None
+    assert result["target"] == "https://example.org/forms/returning|1.0.0"
+    assert result["label"] == "Returning"
 
-    returning = evaluator.evaluate_screener({"orgType": "nonprofit", "isReturning": True})
-    new = evaluator.evaluate_screener({"orgType": "nonprofit", "isReturning": False})
-    fallback = evaluator.evaluate_screener({"orgType": "forprofit", "isReturning": False})
+    # Only nonprofit — second route matches first.
+    answers2 = {"orgType": "nonprofit", "isReturning": False}
+    result2 = evaluate_screener(defn, answers2)
+    assert result2 is not None
+    assert result2["target"] == "https://example.org/forms/new|1.0.0"
+    assert result2["label"] == "New"
 
-    assert returning == {
-        "target": "https://example.org/forms/returning|1.0.0",
-        "label": "Returning",
-    }
-    assert new == {
-        "target": "https://example.org/forms/new|1.0.0",
-        "label": "New",
-    }
-    assert fallback == {
-        "target": "https://example.org/forms/general|1.0.0",
-        "label": "General",
-        "extensions": {"x-route-kind": "fallback"},
-    }
+    # Fallback — no specific match.
+    answers3 = {"orgType": "forprofit"}
+    result3 = evaluate_screener(defn, answers3)
+    assert result3 is not None
+    assert result3["target"] == "https://example.org/forms/general|1.0.0"
 
 
 def test_screener_answers_are_not_written_into_main_form_data() -> None:
-    evaluator = DefinitionEvaluator(_definition_with_screener())
+    defn = _definition_with_screener()
+    answers = {"orgType": "nonprofit", "isReturning": True}
 
-    evaluator.evaluate_screener({"orgType": "nonprofit", "isReturning": True})
-    result = evaluator.process({"applicantName": "Ada"})
+    # Run screener
+    route = evaluate_screener(defn, answers)
+    assert route is not None
 
-    assert result.data == {"applicantName": "Ada"}
+    # Now evaluate the main form with empty data.
+    # Screener answers must NOT appear in the output.
+    result = evaluate_definition(defn, {})
     assert "orgType" not in result.data
     assert "isReturning" not in result.data

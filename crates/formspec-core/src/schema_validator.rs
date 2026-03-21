@@ -5,6 +5,7 @@
 /// Uses dependency inversion: the actual JSON Schema validation is provided by the host
 /// via `JsonSchemaValidator` trait. This crate provides document type detection, path
 /// translation, and the component tree walking strategy.
+use serde::Serialize;
 use serde_json::Value;
 
 // ── Document types ──────────────────────────────────────────────
@@ -18,8 +19,10 @@ pub enum DocumentType {
     Component,
     Response,
     ValidationReport,
+    ValidationResult,
     Registry,
     Changelog,
+    FelFunctions,
 }
 
 impl DocumentType {
@@ -31,9 +34,28 @@ impl DocumentType {
             DocumentType::Mapping => "mapping",
             DocumentType::Component => "component",
             DocumentType::Response => "response",
-            DocumentType::ValidationReport => "validationReport",
+            DocumentType::ValidationReport => "validation_report",
+            DocumentType::ValidationResult => "validation_result",
             DocumentType::Registry => "registry",
             DocumentType::Changelog => "changelog",
+            DocumentType::FelFunctions => "fel_functions",
+        }
+    }
+
+    /// Parse the public schema key string used by the TS/Python layers.
+    pub fn from_schema_key(key: &str) -> Option<Self> {
+        match key {
+            "definition" => Some(DocumentType::Definition),
+            "theme" => Some(DocumentType::Theme),
+            "mapping" => Some(DocumentType::Mapping),
+            "component" => Some(DocumentType::Component),
+            "response" => Some(DocumentType::Response),
+            "validation_report" | "validationReport" => Some(DocumentType::ValidationReport),
+            "validation_result" | "validationResult" => Some(DocumentType::ValidationResult),
+            "registry" => Some(DocumentType::Registry),
+            "changelog" => Some(DocumentType::Changelog),
+            "fel_functions" | "fel-functions" => Some(DocumentType::FelFunctions),
+            _ => None,
         }
     }
 }
@@ -56,6 +78,30 @@ pub struct SchemaValidationResult {
     pub document_type: Option<DocumentType>,
     /// Validation errors.
     pub errors: Vec<SchemaValidationError>,
+}
+
+/// A single component subtree node that needs host-side schema execution.
+#[derive(Debug, Clone, Serialize)]
+pub struct ComponentValidationTarget {
+    /// JSON Pointer to the node root (e.g. `/tree/children/0`).
+    pub pointer: String,
+    /// Component type string used to pick the correct schema definition.
+    pub component: String,
+    /// Raw node value to validate.
+    pub node: Value,
+}
+
+/// Validation dispatch plan returned to host runtimes that execute JSON Schema locally.
+#[derive(Debug, Clone, Serialize)]
+pub struct SchemaValidationPlan {
+    /// Detected or explicitly requested document type.
+    pub document_type: Option<String>,
+    /// Strategy discriminator: `unknown`, `document`, or `component`.
+    pub mode: String,
+    /// Per-node validation targets for component documents.
+    pub component_targets: Vec<ComponentValidationTarget>,
+    /// Populated only for `unknown` mode.
+    pub error: Option<String>,
 }
 
 // ── Document type detection ─────────────────────────────────────
@@ -96,6 +142,18 @@ pub fn detect_document_type(doc: &Value) -> Option<DocumentType> {
     // Response: required fields include data + status + authored
     if obj.contains_key("data") && obj.contains_key("status") && obj.contains_key("authored") {
         return Some(DocumentType::Response);
+    }
+    // ValidationResult: path + severity + constraintKind + message
+    if obj.contains_key("path")
+        && obj.contains_key("severity")
+        && obj.contains_key("constraintKind")
+        && obj.contains_key("message")
+    {
+        return Some(DocumentType::ValidationResult);
+    }
+    // FEL Functions catalog: version + functions
+    if obj.contains_key("version") && obj.contains_key("functions") {
+        return Some(DocumentType::FelFunctions);
     }
     // ValidationReport: required fields include valid + results + counts
     if obj.contains_key("valid") && obj.contains_key("results") && obj.contains_key("counts") {
@@ -139,7 +197,8 @@ pub fn validate_document(
             document_type: None,
             errors: vec![SchemaValidationError {
                 path: "$".to_string(),
-                message: "Cannot determine document type: no recognized marker field found".to_string(),
+                message: "Cannot determine document type: no recognized marker field found"
+                    .to_string(),
             }],
         },
         Some(dt) => {
@@ -170,6 +229,83 @@ pub fn json_pointer_to_jsonpath(pointer: &str) -> String {
         }
     }
     result
+}
+
+/// Build the validation execution plan for a document.
+///
+/// Non-component documents validate as a single root document. Component documents use
+/// the same shallow-document + per-node strategy as the host validators to avoid
+/// whole-tree oneOf backtracking.
+pub fn schema_validation_plan(
+    doc: &Value,
+    document_type_override: Option<DocumentType>,
+) -> SchemaValidationPlan {
+    let detected = document_type_override.or_else(|| detect_document_type(doc));
+
+    match detected {
+        None => SchemaValidationPlan {
+            document_type: None,
+            mode: "unknown".to_string(),
+            component_targets: Vec::new(),
+            error: Some("Unable to detect Formspec document type".to_string()),
+        },
+        Some(DocumentType::Component) => SchemaValidationPlan {
+            document_type: Some(DocumentType::Component.schema_key().to_string()),
+            mode: "component".to_string(),
+            component_targets: collect_component_targets(doc),
+            error: None,
+        },
+        Some(dt) => SchemaValidationPlan {
+            document_type: Some(dt.schema_key().to_string()),
+            mode: "document".to_string(),
+            component_targets: Vec::new(),
+            error: None,
+        },
+    }
+}
+
+fn collect_component_targets(doc: &Value) -> Vec<ComponentValidationTarget> {
+    let mut targets = Vec::new();
+    let Some(obj) = doc.as_object() else {
+        return targets;
+    };
+
+    if let Some(tree) = obj.get("tree") {
+        walk_component_node(tree, "/tree", &mut targets);
+    }
+
+    if let Some(components) = obj.get("components").and_then(Value::as_object) {
+        for (name, component_def) in components {
+            if let Some(template_tree) = component_def.get("tree") {
+                let pointer = format!("/components/{name}/tree");
+                walk_component_node(template_tree, &pointer, &mut targets);
+            }
+        }
+    }
+
+    targets
+}
+
+fn walk_component_node(node: &Value, pointer: &str, out: &mut Vec<ComponentValidationTarget>) {
+    let Some(obj) = node.as_object() else {
+        return;
+    };
+    let Some(component_name) = obj.get("component").and_then(Value::as_str) else {
+        return;
+    };
+
+    out.push(ComponentValidationTarget {
+        pointer: pointer.to_string(),
+        component: component_name.to_string(),
+        node: node.clone(),
+    });
+
+    if let Some(children) = obj.get("children").and_then(Value::as_array) {
+        for (index, child) in children.iter().enumerate() {
+            let child_pointer = format!("{pointer}/children/{index}");
+            walk_component_node(child, &child_pointer, out);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -221,7 +357,33 @@ mod tests {
             "counts": { "error": 0, "warning": 0, "info": 0 },
             "timestamp": "2025-01-01T00:00:00Z"
         });
-        assert_eq!(detect_document_type(&doc), Some(DocumentType::ValidationReport));
+        assert_eq!(
+            detect_document_type(&doc),
+            Some(DocumentType::ValidationReport)
+        );
+    }
+
+    #[test]
+    fn test_detect_validation_result() {
+        let doc = json!({
+            "path": "field",
+            "severity": "error",
+            "constraintKind": "required",
+            "message": "Required",
+        });
+        assert_eq!(
+            detect_document_type(&doc),
+            Some(DocumentType::ValidationResult)
+        );
+    }
+
+    #[test]
+    fn test_detect_fel_functions() {
+        let doc = json!({
+            "version": "1.0.0",
+            "functions": [],
+        });
+        assert_eq!(detect_document_type(&doc), Some(DocumentType::FelFunctions));
     }
 
     #[test]
@@ -253,7 +415,10 @@ mod tests {
     fn test_json_pointer_to_jsonpath() {
         assert_eq!(json_pointer_to_jsonpath(""), "$");
         assert_eq!(json_pointer_to_jsonpath("/items/0/key"), "$.items[0].key");
-        assert_eq!(json_pointer_to_jsonpath("/items/0/children/1"), "$.items[0].children[1]");
+        assert_eq!(
+            json_pointer_to_jsonpath("/items/0/children/1"),
+            "$.items[0].children[1]"
+        );
         assert_eq!(json_pointer_to_jsonpath("/title"), "$.title");
     }
 
@@ -270,7 +435,11 @@ mod tests {
         let result = validate_document(&doc, &NoopValidator);
         assert!(result.document_type.is_none());
         assert_eq!(result.errors.len(), 1);
-        assert!(result.errors[0].message.contains("Cannot determine document type"));
+        assert!(
+            result.errors[0]
+                .message
+                .contains("Cannot determine document type")
+        );
     }
 
     #[test]
@@ -366,7 +535,10 @@ mod tests {
         // Only tree — not enough
         assert_eq!(detect_document_type(&json!({ "tree": {} })), None);
         // Only componentType — not enough
-        assert_eq!(detect_document_type(&json!({ "componentType": "Stack" })), None);
+        assert_eq!(
+            detect_document_type(&json!({ "componentType": "Stack" })),
+            None
+        );
         // Both — detected
         assert_eq!(
             detect_document_type(&json!({ "tree": {}, "componentType": "Stack" })),
@@ -384,8 +556,128 @@ mod tests {
         assert_eq!(DocumentType::Mapping.schema_key(), "mapping");
         assert_eq!(DocumentType::Component.schema_key(), "component");
         assert_eq!(DocumentType::Response.schema_key(), "response");
-        assert_eq!(DocumentType::ValidationReport.schema_key(), "validationReport");
+        assert_eq!(
+            DocumentType::ValidationReport.schema_key(),
+            "validation_report"
+        );
+        assert_eq!(
+            DocumentType::ValidationResult.schema_key(),
+            "validation_result"
+        );
         assert_eq!(DocumentType::Registry.schema_key(), "registry");
         assert_eq!(DocumentType::Changelog.schema_key(), "changelog");
+        assert_eq!(DocumentType::FelFunctions.schema_key(), "fel_functions");
+    }
+
+    #[test]
+    fn schema_key_parser_accepts_public_values() {
+        assert_eq!(
+            DocumentType::from_schema_key("validation_report"),
+            Some(DocumentType::ValidationReport)
+        );
+        assert_eq!(
+            DocumentType::from_schema_key("validation_result"),
+            Some(DocumentType::ValidationResult)
+        );
+        assert_eq!(
+            DocumentType::from_schema_key("fel_functions"),
+            Some(DocumentType::FelFunctions)
+        );
+        assert_eq!(DocumentType::from_schema_key("missing"), None);
+    }
+
+    #[test]
+    fn component_validation_plan_collects_main_tree_and_templates() {
+        let doc = json!({
+            "$formspecComponent": "1.0",
+            "version": "1.0.0",
+            "targetDefinition": { "url": "https://example.com/def" },
+            "tree": {
+                "component": "Page",
+                "children": [
+                    { "component": "TextInput", "bind": "name" }
+                ]
+            },
+            "components": {
+                "CustomCard": {
+                    "tree": {
+                        "component": "Stack",
+                        "children": [
+                            { "component": "TextInput", "bind": "email" }
+                        ]
+                    }
+                }
+            }
+        });
+
+        let plan = schema_validation_plan(&doc, None);
+        assert_eq!(plan.document_type.as_deref(), Some("component"));
+        assert_eq!(plan.mode, "component");
+        assert_eq!(plan.component_targets.len(), 4);
+        assert_eq!(plan.component_targets[0].pointer, "/tree");
+        assert_eq!(plan.component_targets[1].pointer, "/tree/children/0");
+        assert_eq!(
+            plan.component_targets[2].pointer,
+            "/components/CustomCard/tree"
+        );
+        assert_eq!(
+            plan.component_targets[3].pointer,
+            "/components/CustomCard/tree/children/0"
+        );
+    }
+
+    #[test]
+    fn unknown_validation_plan_reports_error() {
+        let doc = json!({ "random": true });
+        let plan = schema_validation_plan(&doc, None);
+        assert_eq!(plan.document_type, None);
+        assert_eq!(plan.mode, "unknown");
+        assert_eq!(
+            plan.error.as_deref(),
+            Some("Unable to detect Formspec document type")
+        );
+    }
+    /// Spec: schemas/definition.schema.json — validate_document with a mock
+    /// validator that returns actual SchemaValidationError instances, verifying
+    /// that detected type is passed through and errors are propagated.
+    #[test]
+    fn test_validate_document_with_errors() {
+        struct ErrorValidator;
+        impl JsonSchemaValidator for ErrorValidator {
+            fn validate(&self, _doc: &Value, dt: DocumentType) -> Vec<SchemaValidationError> {
+                vec![
+                    SchemaValidationError {
+                        path: "$.items[0].key".to_string(),
+                        message: format!("required property missing in {}", dt.schema_key()),
+                    },
+                    SchemaValidationError {
+                        path: "$.title".to_string(),
+                        message: "must be a string".to_string(),
+                    },
+                ]
+            }
+        }
+
+        let doc = json!({ "$formspec": "1.0", "items": [{}], "title": 42 });
+        let result = validate_document(&doc, &ErrorValidator);
+        assert_eq!(result.document_type, Some(DocumentType::Definition));
+        assert_eq!(result.errors.len(), 2);
+        assert_eq!(result.errors[0].path, "$.items[0].key");
+        assert!(result.errors[0].message.contains("definition"));
+        assert_eq!(result.errors[1].path, "$.title");
+        assert_eq!(result.errors[1].message, "must be a string");
+    }
+
+    /// Spec: core/spec.md §5.3 (RFC 6901) — JSON Pointer segment `01` is an opaque
+    /// string per RFC 6901, not array index 1. `json_pointer_to_jsonpath` currently
+    /// treats any numeric segment as an array index. This test documents that
+    /// leading-zero segments like `/items/01/key` are treated as array indices.
+    #[test]
+    fn json_pointer_leading_zero_treated_as_index() {
+        // `01` parses as usize 1, so it becomes [1] in JSONPath.
+        // This documents the current behavior — RFC 6901 says `01` is opaque,
+        // but practical JSON Pointer usage in schemas treats it as an index.
+        let result = json_pointer_to_jsonpath("/items/01/key");
+        assert_eq!(result, "$.items[1].key");
     }
 }

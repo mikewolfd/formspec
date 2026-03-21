@@ -179,13 +179,15 @@ export const pagesHandlers: Record<string, CommandHandler> = {
         }
       }
 
-      // Attach the group itself to the page (not its children).
-      // The reconciler distributes top-level nodes by key, so regions
-      // must reference group keys, not child keys.
+      // Place each child field as a separate region so the layout builder
+      // can arrange individual fields on the 12-column grid.
       const targetHint = pageHint ?? lastPageHint;
       if (targetHint && pageMap.has(targetHint)) {
         const page = pageMap.get(targetHint)!;
-        page.regions.push({ key: (item as any).key, span: 12 });
+        const children = (item as any).children ?? [];
+        for (const child of children) {
+          page.regions.push({ key: child.key, span: 12 });
+        }
       }
     }
 

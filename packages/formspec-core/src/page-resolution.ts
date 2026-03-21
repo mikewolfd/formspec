@@ -96,7 +96,9 @@ export function resolvePageStructure(
     }
   }
 
-  // 2. Inherit page IDs for child items (groups assign all children by default)
+  // 2. Bidirectional page ID propagation
+  // Top-down: groups assign page IDs to their children.
+  // Bottom-up: groups whose children are ALL assigned inherit a page ID.
   function propagate(items: FormItem[], parentPageId?: string) {
     for (const item of items) {
       const inheritedId = itemPageMap[item.key] ?? parentPageId;
@@ -105,25 +107,52 @@ export function resolvePageStructure(
       }
       if (item.children) {
         propagate(item.children, inheritedId);
+        // Bottom-up: if all children are assigned, mark the group as assigned too
+        if (!(item.key in itemPageMap)) {
+          const allChildrenAssigned = item.children.length > 0 &&
+            item.children.every(c => c.key in itemPageMap);
+          if (allChildrenAssigned) {
+            itemPageMap[item.key] = itemPageMap[item.children[0].key];
+          }
+        }
       }
     }
   }
   propagate(state.definition.items ?? []);
 
-  // Compute unassigned items (top-level only)
-  // An item is unassigned if it's not in any region and didn't inherit from parent.
-  // We only show the highest-level unassigned item in any branch.
+  // Compute unassigned items.
+  // For groups with children: if the group is unassigned but SOME children are
+  // assigned, only show the unassigned children (not the group itself).
+  // For groups with NO children assigned: show the group (not individual children).
   const unassignedItems: string[] = [];
   const visited = new Set<string>();
-  function collectUnassigned(items: FormItem[], parentUnassigned: boolean = false) {
+  function collectUnassigned(items: FormItem[]) {
     for (const item of items) {
       visited.add(item.key);
-      const isUnassigned = !(item.key in itemPageMap);
-      if (isUnassigned && !parentUnassigned) {
+      const isAssigned = item.key in itemPageMap;
+
+      if (item.children && item.children.length > 0) {
+        const anyChildAssigned = item.children.some(c => c.key in itemPageMap);
+        if (isAssigned) {
+          // Group fully assigned (all children placed) — nothing to show
+        } else if (anyChildAssigned) {
+          // Partial: some children placed, some not — show only unassigned children
+          for (const child of item.children) {
+            visited.add(child.key);
+            if (!(child.key in itemPageMap)) {
+              unassignedItems.push(child.key);
+            }
+          }
+        } else {
+          // No children assigned — show the group itself
+          unassignedItems.push(item.key);
+          // Mark children as visited so they don't appear separately
+          for (const child of item.children) {
+            visited.add(child.key);
+          }
+        }
+      } else if (!isAssigned) {
         unassignedItems.push(item.key);
-      }
-      if (item.children) {
-        collectUnassigned(item.children, isUnassigned || parentUnassigned);
       }
     }
   }

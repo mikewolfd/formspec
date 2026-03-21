@@ -2,13 +2,12 @@
 import { signal, computed, effect, batch, Signal } from '@preact/signals-core';
 export { FelLexer } from './fel/lexer.js';
 export { parser } from './fel/parser.js';
-import { FelUnsupportedFunctionError } from './fel/chevrotain-runtime.js';
-import { itemAtPath } from './path-utils.js';
+import { itemAtPath } from './runtime-path-utils.js';
 import type { IFelRuntime, ICompiledExpression, FelContext, FELBuiltinFunctionCatalogEntry } from './fel/runtime.js';
-import { chevrotainFelRuntime } from './fel/chevrotain-runtime.js';
+import { FALLBACK_BUILTIN_FEL_FUNCTION_CATALOG } from './fel/builtin-catalog.js';
+import { wasmFelRuntime } from './fel/wasm-runtime.js';
 
 export type { IFelRuntime, ICompiledExpression, FelContext, FELBuiltinFunctionCatalogEntry } from './fel/runtime.js';
-export { ChevrotainFelRuntime, chevrotainFelRuntime } from './fel/chevrotain-runtime.js';
 export { WasmFelRuntime, wasmFelRuntime } from './fel/wasm-runtime.js';
 export { initWasm, isWasmReady } from './wasm-bridge.js';
 export type { IFormEngine, IRuntimeMappingEngine } from './interfaces.js';
@@ -22,7 +21,8 @@ export type { AssemblyProvenance, AssemblyResult, DefinitionResolver, RewriteMap
 export { RuntimeMappingEngine } from './runtime-mapping.js';
 export type { MappingDirection, RuntimeMappingResult, MappingDiagnostic } from './runtime-mapping.js';
 export { createFormEngine, createMappingEngine } from './factories.js';
-export { analyzeFEL, getFELDependencies, rewriteFELReferences } from './fel/analysis.js';
+export { analyzeFEL, getFELDependencies } from './fel/analysis.js';
+export { rewriteFELReferences } from './fel/rewrite.js';
 export type { FELAnalysis, FELAnalysisError, FELRewriteOptions } from './fel/analysis.js';
 // FELBuiltinFunctionCatalogEntry re-exported from './fel/runtime.js' above
 export { validateExtensionUsage } from './extension-analysis.js';
@@ -33,7 +33,7 @@ export {
     normalizeIndexedPath,
     normalizePathSegment,
     splitNormalizedPath
-} from './path-utils.js';
+} from './runtime-path-utils.js';
 export { createSchemaValidator } from './schema-validator.js';
 export type {
     DocumentType,
@@ -45,7 +45,8 @@ export type {
 
 /** Return the runtime-backed catalog of built-in FEL functions for editor tooling and docs generation. */
 export function getBuiltinFELFunctionCatalog(runtime?: IFelRuntime): FELBuiltinFunctionCatalogEntry[] {
-    return (runtime ?? chevrotainFelRuntime).listBuiltInFunctions();
+    const catalog = (runtime ?? wasmFelRuntime).listBuiltInFunctions();
+    return catalog.length > 0 ? catalog : FALLBACK_BUILTIN_FEL_FUNCTION_CATALOG;
 }
 
 // ── Canonical types from formspec-types ──────────────────────────────
@@ -124,7 +125,7 @@ export interface FormEngineRuntimeContext {
     locale?: string;
     timeZone?: string;
     seed?: string | number;
-    /** Pluggable FEL runtime. Defaults to the built-in Chevrotain pipeline when omitted. */
+    /** Pluggable FEL runtime. Defaults to the WASM runtime when omitted. */
     felRuntime?: IFelRuntime;
 }
 
@@ -340,7 +341,7 @@ export class FormEngine implements IFormEngine {
      */
     constructor(definition: FormspecDefinition, runtimeContext?: FormEngineRuntimeContext, registryEntries?: RegistryEntry[]) {
         this.definition = definition;
-        this.felRuntime = runtimeContext?.felRuntime ?? chevrotainFelRuntime;
+        this.felRuntime = runtimeContext?.felRuntime ?? wasmFelRuntime;
         if (runtimeContext) {
             this.setRuntimeContext(runtimeContext);
         }
@@ -1867,7 +1868,8 @@ export class FormEngine implements IFormEngine {
             try {
                 return compiledExpr.evaluate(context);
             } catch (e) {
-                if (e instanceof FelUnsupportedFunctionError) {
+                const message = e instanceof Error ? e.message : String(e);
+                if (message.includes('Unsupported FEL function:')) {
                     throw e;
                 }
                 console.error("FEL Evaluation Error:", e);

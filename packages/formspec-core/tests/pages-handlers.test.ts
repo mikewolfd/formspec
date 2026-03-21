@@ -193,7 +193,9 @@ describe('pages.autoGenerate', () => {
     const pages = project.theme.pages as any[];
     expect(pages).toHaveLength(2);
     expect(pages[0].title).toBe('Personal');
+    expect(pages[0].regions.map((r: any) => r.key)).toEqual(['name']);
     expect(pages[1].title).toBe('Contact');
+    expect(pages[1].regions.map((r: any) => r.key)).toEqual(['email']);
     expect((project.definition as any).formPresentation?.pageMode).toBe('wizard');
   });
 
@@ -227,8 +229,9 @@ describe('pages.autoGenerate', () => {
 
     const pages = project.theme.pages as any[];
     expect(pages).toHaveLength(2);
-    expect(pages[0].regions.map((r: any) => r.key)).toEqual(['basic', 'extra']);
-    expect(pages[1].regions.map((r: any) => r.key)).toEqual(['contact']);
+    // autoGenerate places children (not groups) as regions
+    expect(pages[0].regions.map((r: any) => r.key)).toEqual(['name', 'notes']);
+    expect(pages[1].regions.map((r: any) => r.key)).toEqual(['email']);
   });
 
   it('preserves tabs mode when auto-generating pages', () => {

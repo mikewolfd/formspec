@@ -18,7 +18,11 @@ pub enum FelValue {
 /// A date or datetime value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FelDate {
-    Date { year: i32, month: u32, day: u32 },
+    Date {
+        year: i32,
+        month: u32,
+        day: u32,
+    },
     DateTime {
         year: i32,
         month: u32,
@@ -167,7 +171,12 @@ impl FelDate {
                 minute,
                 second,
                 ..
-            } => self.ordinal_days() * 86400 + *hour as i64 * 3600 + *minute as i64 * 60 + *second as i64,
+            } => {
+                self.ordinal_days() * 86400
+                    + *hour as i64 * 3600
+                    + *minute as i64 * 60
+                    + *second as i64
+            }
         }
     }
 
@@ -192,8 +201,16 @@ impl FelDate {
 
 /// Days from civil date (algorithm from Howard Hinnant).
 fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
-    let y = if month <= 2 { year as i64 - 1 } else { year as i64 };
-    let m = if month <= 2 { month as i64 + 9 } else { month as i64 - 3 };
+    let y = if month <= 2 {
+        year as i64 - 1
+    } else {
+        year as i64
+    };
+    let m = if month <= 2 {
+        month as i64 + 9
+    } else {
+        month as i64 - 3
+    };
     let era = if y >= 0 { y } else { y - 399 } / 400;
     let yoe = (y - era * 400) as u64;
     let doy = (153 * m as u64 + 2) / 5 + day as u64 - 1;
@@ -279,6 +296,11 @@ fn civil_from_days(z: i64) -> FelDate {
     }
 }
 
+/// Convert days since epoch back to civil date.
+pub fn civil_from_days_pub(z: i64) -> FelDate {
+    civil_from_days(z)
+}
+
 /// Format a Decimal: strip trailing zeros, show as integer when possible.
 pub fn format_number(n: Decimal) -> String {
     let normalized = n.normalize();
@@ -318,6 +340,131 @@ impl fmt::Display for FelValue {
                 write!(f, "}}")
             }
             FelValue::Money(m) => write!(f, "{} {}", format_number(m.amount), m.currency),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Spec: core/spec.md §3.5.4, fel-grammar.md §3.6 —
+    /// days_in_month must return correct values for all 12 months,
+    /// including Feb in leap and non-leap years, and century rules.
+    #[test]
+    fn days_in_month_all_months() {
+        // 31-day months
+        assert_eq!(days_in_month(2024, 1), 31);
+        assert_eq!(days_in_month(2024, 3), 31);
+        assert_eq!(days_in_month(2024, 5), 31);
+        assert_eq!(days_in_month(2024, 7), 31);
+        assert_eq!(days_in_month(2024, 8), 31);
+        assert_eq!(days_in_month(2024, 10), 31);
+        assert_eq!(days_in_month(2024, 12), 31);
+        // 30-day months
+        assert_eq!(days_in_month(2024, 4), 30);
+        assert_eq!(days_in_month(2024, 6), 30);
+        assert_eq!(days_in_month(2024, 9), 30);
+        assert_eq!(days_in_month(2024, 11), 30);
+    }
+
+    /// Spec: core/spec.md §3.5.4 — Feb in leap year.
+    #[test]
+    fn days_in_month_feb_leap_year() {
+        assert_eq!(days_in_month(2024, 2), 29, "2024 is a leap year");
+    }
+
+    /// Spec: core/spec.md §3.5.4 — Feb in non-leap year.
+    #[test]
+    fn days_in_month_feb_non_leap_year() {
+        assert_eq!(days_in_month(2023, 2), 28, "2023 is not a leap year");
+    }
+
+    /// Spec: core/spec.md §3.5.4 — Century leap year rules:
+    /// 2000 is a leap year (divisible by 400), 1900 is not (divisible by 100 but not 400).
+    #[test]
+    fn days_in_month_century_leap_rules() {
+        assert_eq!(
+            days_in_month(2000, 2),
+            29,
+            "2000 is divisible by 400 → leap"
+        );
+        assert_eq!(
+            days_in_month(1900, 2),
+            28,
+            "1900 is divisible by 100 but not 400 → not leap"
+        );
+    }
+
+    /// Spec: fel-grammar.md §3.6, core/spec.md §3.4.3 —
+    /// parse_date_literal must reject invalid month (13).
+    #[test]
+    fn parse_date_literal_invalid_month() {
+        assert!(
+            parse_date_literal("@2024-13-01").is_none(),
+            "month 13 is invalid"
+        );
+    }
+
+    /// Spec: fel-grammar.md §3.6, core/spec.md §3.4.3 —
+    /// parse_date_literal must reject invalid day (32).
+    #[test]
+    fn parse_date_literal_invalid_day() {
+        assert!(
+            parse_date_literal("@2024-01-32").is_none(),
+            "day 32 is invalid"
+        );
+    }
+
+    /// Spec: fel-grammar.md §3.6, core/spec.md §3.4.3 —
+    /// parse_date_literal must reject Feb 29 on a non-leap year.
+    #[test]
+    fn parse_date_literal_feb29_non_leap() {
+        assert!(
+            parse_date_literal("@2023-02-29").is_none(),
+            "2023 is not a leap year"
+        );
+        assert!(
+            parse_date_literal("@2024-02-29").is_some(),
+            "2024 is a leap year"
+        );
+    }
+
+    /// Spec: core/spec.md §3.4.3 — valid dates must parse successfully.
+    #[test]
+    fn parse_date_literal_valid() {
+        let d = parse_date_literal("@2024-06-15").unwrap();
+        assert_eq!(
+            d,
+            FelDate::Date {
+                year: 2024,
+                month: 6,
+                day: 15
+            }
+        );
+    }
+
+    /// Spec: core/spec.md §3.5.4 — round-trip: date → ordinal days → date
+    /// must produce the original date (identity property).
+    #[test]
+    fn civil_from_days_round_trip() {
+        let test_dates = [
+            (2024, 1, 1),
+            (2024, 2, 29), // leap day
+            (2024, 12, 31),
+            (2000, 1, 1),  // century leap
+            (1900, 3, 1),  // century non-leap
+            (1970, 1, 1),  // unix epoch
+            (2026, 3, 19), // today
+        ];
+        for (year, month, day) in test_dates {
+            let date = FelDate::Date { year, month, day };
+            let days = date.ordinal_days();
+            let reconstructed = civil_from_days_pub(days);
+            assert_eq!(
+                reconstructed, date,
+                "round-trip failed for {year}-{month:02}-{day:02}"
+            );
         }
     }
 }

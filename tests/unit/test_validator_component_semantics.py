@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from formspec.validator.component import lint_component_semantics
+import pytest
+
+from formspec._rust import lint
 
 
 def _definition() -> dict:
@@ -30,29 +32,39 @@ def _definition() -> dict:
 
 def test_custom_component_cycle_is_reported() -> None:
     component_doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/forms/x"},
         "components": {
             "A": {"tree": {"component": "B"}},
             "B": {"tree": {"component": "A"}},
-        }
+        },
+        "tree": {"component": "Stack"},
     }
 
-    diagnostics = lint_component_semantics(component_doc)
+    diagnostics = lint(component_doc)
 
     assert any(diag.code == "E807" for diag in diagnostics)
 
 
 def test_missing_custom_component_params_is_reported() -> None:
     component_doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/forms/x"},
         "components": {
             "CustomInput": {
                 "params": ["field"],
                 "tree": {"component": "TextInput", "bind": "{field}"},
             }
         },
-        "tree": {"component": "CustomInput"},
+        "tree": {
+            "component": "Stack",
+            "children": [{"component": "CustomInput"}],
+        },
     }
 
-    diagnostics = lint_component_semantics(component_doc)
+    diagnostics = lint(component_doc)
 
     assert any(diag.code == "E806" for diag in diagnostics)
 
@@ -63,19 +75,25 @@ def test_select_requires_options_source() -> None:
     definition["items"][0].pop("options")
 
     component_doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/forms/x"},
         "tree": {
             "component": "Stack",
             "children": [{"component": "Select", "bind": "choiceField"}],
         }
     }
 
-    diagnostics = lint_component_semantics(component_doc, definition_doc=definition)
+    diagnostics = lint(component_doc, component_definition=definition)
 
     assert any(diag.code == "E803" for diag in diagnostics)
 
 
 def test_duplicate_editable_input_bind_warning() -> None:
     component_doc = {
+        "$formspecComponent": "1.0",
+        "version": "1.0.0",
+        "targetDefinition": {"url": "https://example.com/forms/x"},
         "tree": {
             "component": "Stack",
             "children": [
@@ -85,6 +103,6 @@ def test_duplicate_editable_input_bind_warning() -> None:
         }
     }
 
-    diagnostics = lint_component_semantics(component_doc, definition_doc=_definition())
+    diagnostics = lint(component_doc)
 
     assert any(diag.code == "W803" for diag in diagnostics)
