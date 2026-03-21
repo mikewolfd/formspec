@@ -111,6 +111,7 @@ mod tests {
             nrb: nrb.map(String::from),
             excluded_value: None,
             default_value: None,
+            default_expression: None,
             initial_value: None,
             prev_relevant: true,
             parent_path: None,

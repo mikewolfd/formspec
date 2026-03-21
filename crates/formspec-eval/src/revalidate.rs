@@ -24,6 +24,7 @@ pub fn revalidate(
     extension_constraints: &[ExtensionConstraint],
     formspec_version: &str,
     now_iso: Option<&str>,
+    instances: &HashMap<String, Value>,
 ) -> Vec<ValidationResult> {
     let mut results = Vec::new();
 
@@ -31,7 +32,7 @@ pub fn revalidate(
         return results;
     }
 
-    let mut env = build_validation_env(values, variables, now_iso);
+    let mut env = build_validation_env(values, variables, now_iso, instances);
 
     // 9a: Apply excludedValue — non-relevant fields with excludedValue="null" appear as null in FEL
     apply_excluded_values_to_env(items, &mut env);
@@ -810,6 +811,7 @@ pub(crate) fn build_validation_env(
     values: &HashMap<String, Value>,
     variables: &HashMap<String, Value>,
     now_iso: Option<&str>,
+    instances: &HashMap<String, Value>,
 ) -> FormspecEnvironment {
     let mut env = FormspecEnvironment::new();
     if let Some(now_iso) = now_iso {
@@ -824,6 +826,9 @@ pub(crate) fn build_validation_env(
     }
     for (name, value) in variables {
         env.set_variable(name, json_to_fel(value));
+    }
+    for (name, value) in instances {
+        env.set_instance(name, json_to_fel(value));
     }
     env
 }
@@ -1065,6 +1070,7 @@ mod tests {
             nrb: None,
             excluded_value: None,
             default_value: None,
+            default_expression: None,
             initial_value: None,
             prev_relevant: true,
             parent_path: None,
@@ -1087,6 +1093,7 @@ mod tests {
             &[],
             "1.0.0",
             None,
+            &HashMap::new(),
         );
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "email");
@@ -1114,6 +1121,7 @@ mod tests {
             nrb: None,
             excluded_value: None,
             default_value: None,
+            default_expression: None,
             initial_value: None,
             prev_relevant: true,
             parent_path: None,
@@ -1136,6 +1144,7 @@ mod tests {
             &[],
             "1.0.0",
             None,
+            &HashMap::new(),
         );
         assert!(
             results.is_empty(),
@@ -1163,6 +1172,7 @@ mod tests {
             nrb: None,
             excluded_value: None,
             default_value: None,
+            default_expression: None,
             initial_value: None,
             prev_relevant: true,
             parent_path: None,
@@ -1187,6 +1197,7 @@ mod tests {
             &[],
             "1.0.0",
             None,
+            &HashMap::new(),
         );
         assert!(
             results.is_empty(),
@@ -1200,7 +1211,7 @@ mod tests {
         data.insert("rows".to_string(), json!([{"a": 1}]));
         data.insert("rows[0].a".to_string(), json!(1));
 
-        let env = build_validation_env(&data, &HashMap::new(), None);
+        let env = build_validation_env(&data, &HashMap::new(), None, &HashMap::new());
         assert!(
             !env.data.contains_key("rows"),
             "build_validation_env should skip repeat group arrays entirely"

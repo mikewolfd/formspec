@@ -143,6 +143,11 @@ pub fn evaluate_definition_full_with_instances_and_context(
     let binds = definition.get("binds");
     rebuild::apply_wildcard_binds(&mut items, binds, &seeded_data);
 
+    // Phase 1.8: Restore previous relevance state for transition detection
+    if let Some(ref prev_nr) = context.previous_non_relevant {
+        apply_previous_non_relevant(&mut items, prev_nr);
+    }
+
     // Phase 2: Recalculate (with variables, whitespace, inheritance, scoped variables)
     let (mut values, var_values, cycle_err) = recalculate(
         &mut items,
@@ -150,6 +155,7 @@ pub fn evaluate_definition_full_with_instances_and_context(
         definition,
         context.now_iso.as_deref(),
         context.previous_validations.as_deref(),
+        instances,
     );
 
     // Phase 3: Revalidate
@@ -167,6 +173,7 @@ pub fn evaluate_definition_full_with_instances_and_context(
         extension_constraints,
         formspec_version,
         context.now_iso.as_deref(),
+        instances,
     );
 
     // Surface circular variable dependency as a validation error
@@ -215,6 +222,18 @@ pub fn evaluate_definition_full_with_instances_and_context(
 
 // Also re-export parse_variables since it was pub
 pub use rebuild::parse_variables;
+
+// ── Previous relevance restoration ──────────────────────────────
+
+/// Mark items as previously non-relevant for transition detection.
+fn apply_previous_non_relevant(items: &mut [ItemInfo], non_relevant_paths: &[String]) {
+    for item in items.iter_mut() {
+        if non_relevant_paths.contains(&item.path) {
+            item.prev_relevant = false;
+        }
+        apply_previous_non_relevant(&mut item.children, non_relevant_paths);
+    }
+}
 
 // ── prePopulate helpers ─────────────────────────────────────────
 
@@ -2004,8 +2023,8 @@ mod tests {
             &def,
             &data,
             &EvalContext {
-                now_iso: None,
                 previous_validations: Some(result.validations.clone()),
+                ..EvalContext::default()
             },
         );
 
@@ -2786,5 +2805,236 @@ mod tests {
             Some(&json!(999)),
             "calculate referencing $amount should use top-level value, not null from alias cleanup"
         );
+    }
+
+    // ── @instance() in FEL expressions ──────────────────────────
+
+    #[test]
+    fn instance_ref_in_calculate_resolves() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [{ "key": "rate", "type": "field", "dataType": "decimal", "label": "Rate" }],
+            "binds": [{ "path": "rate", "calculate": "@instance('config').defaultRate" }],
+            "instances": [{ "name": "config", "src": "static", "data": {} }],
+        });
+        let data = HashMap::new();
+        let mut instances = HashMap::new();
+        instances.insert("config".into(), json!({ "defaultRate": 0.15 }));
+        let result = evaluate_definition_full_with_instances(
+            &def, &data, EvalTrigger::Continuous, &[], &instances,
+        );
+        assert_eq!(result.values.get("rate"), Some(&json!(0.15)));
+    }
+
+    #[test]
+    fn instance_ref_in_constraint_resolves() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [{ "key": "amount", "type": "field", "dataType": "decimal", "label": "Amt" }],
+            "binds": [{ "path": "amount",
+                "constraint": "$amount <= @instance('limits').maxAmount",
+                "constraintMessage": "Exceeds limit" }],
+            "instances": [{ "name": "limits", "src": "static", "data": {} }],
+        });
+        let mut data = HashMap::new();
+        data.insert("amount".into(), json!(500));
+        let mut instances = HashMap::new();
+        instances.insert("limits".into(), json!({ "maxAmount": 100 }));
+        let result = evaluate_definition_full_with_instances(
+            &def, &data, EvalTrigger::Continuous, &[], &instances,
+        );
+        assert!(
+            result.validations.iter().any(|v| v.code == "CONSTRAINT_FAILED"),
+            "constraint referencing @instance should fire"
+        );
+    }
+
+    #[test]
+    fn instance_ref_in_shape_constraint_resolves() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [{ "key": "total", "type": "field", "dataType": "decimal", "label": "T" }],
+            "shapes": [{ "id": "cap", "target": "total", "severity": "error",
+                "constraint": "$total <= @instance('rules').cap",
+                "message": "Over cap", "code": "OVER_CAP" }],
+            "instances": [{ "name": "rules", "src": "static", "data": {} }],
+        });
+        let mut data = HashMap::new();
+        data.insert("total".into(), json!(200));
+        let mut instances = HashMap::new();
+        instances.insert("rules".into(), json!({ "cap": 100 }));
+        let result = evaluate_definition_full_with_instances(
+            &def, &data, EvalTrigger::Continuous, &[], &instances,
+        );
+        assert!(result.validations.iter().any(|v| v.code == "OVER_CAP"));
+    }
+
+    #[test]
+    fn instance_ref_in_relevant_resolves() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [{ "key": "extra", "type": "field", "dataType": "string", "label": "E" }],
+            "binds": [{ "path": "extra", "relevant": "@instance('flags').showExtra" }],
+            "instances": [{ "name": "flags", "src": "static", "data": {} }],
+        });
+        let data = HashMap::new();
+        let mut instances = HashMap::new();
+        instances.insert("flags".into(), json!({ "showExtra": false }));
+        let result = evaluate_definition_full_with_instances(
+            &def, &data, EvalTrigger::Continuous, &[], &instances,
+        );
+        assert!(result.non_relevant.contains(&"extra".to_string()));
+    }
+
+    #[test]
+    fn missing_instance_name_returns_null_not_panic() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [{ "key": "val", "type": "field", "dataType": "string", "label": "V" }],
+            "binds": [{ "path": "val", "calculate": "@instance('nonexistent').foo" }],
+        });
+        let result = evaluate_definition_full_with_instances(
+            &def, &HashMap::new(), EvalTrigger::Continuous, &[], &HashMap::new(),
+        );
+        // Should not panic — value should be null
+        assert!(
+            result.values.get("val").is_none()
+                || result.values.get("val") == Some(&json!(null))
+        );
+    }
+
+    #[test]
+    fn nested_instance_path_resolves() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [{ "key": "city", "type": "field", "dataType": "string", "label": "C" }],
+            "binds": [{ "path": "city", "calculate": "@instance('org').address.city" }],
+            "instances": [{ "name": "org", "src": "static", "data": {} }],
+        });
+        let mut instances = HashMap::new();
+        instances.insert("org".into(), json!({ "address": { "city": "Springfield" } }));
+        let result = evaluate_definition_full_with_instances(
+            &def, &HashMap::new(), EvalTrigger::Continuous, &[], &instances,
+        );
+        assert_eq!(result.values.get("city"), Some(&json!("Springfield")));
+    }
+
+    // ── 0b: Expression defaults on relevance transition ─────────
+
+    #[test]
+    fn expression_default_applied_on_relevance_transition() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [
+                { "key": "toggle", "type": "field", "dataType": "boolean", "label": "Toggle" },
+                { "key": "derived", "type": "field", "dataType": "string", "label": "D" },
+            ],
+            "binds": [
+                { "path": "derived", "relevant": "$toggle", "default": "='hello' & ' world'" },
+            ],
+        });
+        // Pass 1: toggle=false → derived non-relevant
+        let mut data = HashMap::new();
+        data.insert("toggle".into(), json!(false));
+        let result1 = evaluate_definition(&def, &data);
+        assert!(result1.non_relevant.contains(&"derived".to_string()),
+            "derived should be non-relevant when toggle=false");
+
+        // Pass 2: toggle=true, carry forward non-relevant state → transition fires
+        data.insert("toggle".into(), json!(true));
+        let result2 = evaluate_definition_with_context(&def, &data, &EvalContext {
+            now_iso: None,
+            previous_validations: None,
+            previous_non_relevant: Some(result1.non_relevant.clone()),
+        });
+        assert_eq!(result2.values.get("derived"), Some(&json!("hello world")),
+            "expression default should fire on non-relevant → relevant transition");
+    }
+
+    #[test]
+    fn expression_default_does_not_overwrite_user_value() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [
+                { "key": "toggle", "type": "field", "dataType": "boolean", "label": "Toggle" },
+                { "key": "name", "type": "field", "dataType": "string", "label": "Name" },
+            ],
+            "binds": [
+                { "path": "name", "relevant": "$toggle", "default": "='default' & 'Name'" },
+            ],
+        });
+        // toggle=true, user has entered a value → default must NOT overwrite
+        let mut data = HashMap::new();
+        data.insert("toggle".into(), json!(true));
+        data.insert("name".into(), json!("UserValue"));
+        let result = evaluate_definition_with_context(&def, &data, &EvalContext {
+            now_iso: None,
+            previous_validations: None,
+            previous_non_relevant: Some(vec!["name".to_string()]),
+        });
+        assert_eq!(result.values.get("name"), Some(&json!("UserValue")),
+            "expression default must not overwrite user-entered value");
+    }
+
+    #[test]
+    fn literal_default_still_works_after_expression_default_change() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [
+                { "key": "toggle", "type": "field", "dataType": "boolean", "label": "Toggle" },
+                { "key": "status", "type": "field", "dataType": "string", "label": "S" },
+            ],
+            "binds": [
+                { "path": "status", "relevant": "$toggle", "default": "active" },
+            ],
+        });
+        // Pass 1: toggle=false → status non-relevant
+        let mut data = HashMap::new();
+        data.insert("toggle".into(), json!(false));
+        let result1 = evaluate_definition(&def, &data);
+        assert!(result1.non_relevant.contains(&"status".to_string()));
+
+        // Pass 2: toggle=true, carry forward non-relevant → literal default fires
+        data.insert("toggle".into(), json!(true));
+        let result2 = evaluate_definition_with_context(&def, &data, &EvalContext {
+            now_iso: None,
+            previous_validations: None,
+            previous_non_relevant: Some(result1.non_relevant.clone()),
+        });
+        assert_eq!(result2.values.get("status"), Some(&json!("active")),
+            "literal default should still fire on relevance transition");
+    }
+
+    #[test]
+    fn expression_default_in_repeat_group() {
+        let def = json!({
+            "$formspec": "1.0", "url": "test", "version": "1.0.0", "title": "T",
+            "items": [
+                { "key": "toggle", "type": "field", "dataType": "boolean", "label": "T" },
+                { "key": "items", "type": "group", "label": "Items", "repeatable": true,
+                  "children": [
+                    { "key": "label", "type": "field", "dataType": "string", "label": "L" }
+                ]}
+            ],
+            "binds": [
+                { "path": "items[*].label", "relevant": "$toggle", "default": "='item' & '-default'" },
+            ],
+        });
+        // Pass 1: toggle=false → items[0].label non-relevant
+        let mut data = HashMap::new();
+        data.insert("toggle".into(), json!(false));
+        data.insert("items[0].label".into(), Value::Null);
+        let result1 = evaluate_definition(&def, &data);
+
+        // Pass 2: toggle=true → transition fires expression default in repeat
+        data.insert("toggle".into(), json!(true));
+        let result2 = evaluate_definition_with_context(&def, &data, &EvalContext {
+            now_iso: None,
+            previous_validations: None,
+            previous_non_relevant: Some(result1.non_relevant.clone()),
+        });
+        let label = result2.values.get("items[0].label");
+        assert_eq!(label, Some(&json!("item-default")),
+            "expression default should fire in repeat group on relevance transition");
     }
 }

@@ -135,12 +135,16 @@ fn build_item_info(item: &Value, binds: Option<&Value>, parent_path: Option<&str
             .and_then(|v| v.as_str())
             .map(String::from),
         default_value: bind.and_then(|b| b.get("default")).and_then(|v| {
-            // Only literal defaults (not FEL expressions starting with =)
             match v {
                 Value::String(s) if s.starts_with('=') => None,
                 other => Some(other.clone()),
             }
         }),
+        default_expression: bind
+            .and_then(|b| b.get("default"))
+            .and_then(|v| v.as_str())
+            .filter(|s| s.starts_with('='))
+            .map(|s| s[1..].to_string()),
         initial_value: item.get("initialValue").cloned(),
         prev_relevant: true,
         parent_path: parent_path.map(String::from),
@@ -385,6 +389,18 @@ pub(crate) fn apply_wildcard_binds(
                 }
                 if let Some(ev) = bind_obj.get("excludedValue").and_then(|v| v.as_str()) {
                     item.excluded_value = Some(ev.to_string());
+                }
+                if let Some(default_val) = bind_obj.get("default") {
+                    match default_val {
+                        Value::String(s) if s.starts_with('=') => {
+                            item.default_expression = Some(inst(&s[1..]));
+                            item.default_value = None;
+                        }
+                        other => {
+                            item.default_value = Some(other.clone());
+                            item.default_expression = None;
+                        }
+                    }
                 }
             }
         }

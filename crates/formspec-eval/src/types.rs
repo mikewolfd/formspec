@@ -42,6 +42,8 @@ pub struct ItemInfo {
     pub excluded_value: Option<String>,
     /// Default value to apply on non-relevant → relevant transition when field is empty.
     pub default_value: Option<Value>,
+    /// FEL expression default (without `=` prefix) for relevance transitions.
+    pub default_expression: Option<String>,
     /// Initial value for field seeding (literal or "=expr").
     pub initial_value: Option<Value>,
     /// Previous relevance state (for tracking transitions).
@@ -113,6 +115,8 @@ pub enum EvalTrigger {
 pub struct EvalContext {
     pub now_iso: Option<String>,
     pub previous_validations: Option<Vec<ValidationResult>>,
+    /// Paths that were non-relevant in the prior evaluation cycle.
+    pub previous_non_relevant: Option<Vec<String>>,
 }
 
 /// Pre-parsed extension constraint data from a registry entry.

@@ -660,6 +660,16 @@ fn parse_eval_context(ctx_obj: &serde_json::Map<String, Value>) -> Result<EvalCo
         .map(parse_validation_results)
         .transpose()?;
 
+    let previous_non_relevant = ctx_obj
+        .get("previousNonRelevant")
+        .or_else(|| ctx_obj.get("previous_non_relevant"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        });
+
     Ok(EvalContext {
         now_iso: ctx_obj
             .get("nowIso")
@@ -667,6 +677,7 @@ fn parse_eval_context(ctx_obj: &serde_json::Map<String, Value>) -> Result<EvalCo
             .and_then(|v| v.as_str())
             .map(str::to_string),
         previous_validations,
+        previous_non_relevant,
     })
 }
 

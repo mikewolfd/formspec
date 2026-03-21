@@ -125,6 +125,7 @@ pub fn recalculate(
     definition: &Value,
     now_iso: Option<&str>,
     previous_validations: Option<&[crate::types::ValidationResult]>,
+    instances: &HashMap<String, Value>,
 ) -> (
     HashMap<String, Value>,
     HashMap<String, Value>,
@@ -133,6 +134,11 @@ pub fn recalculate(
     let mut env = FormspecEnvironment::new();
     if let Some(now_iso) = now_iso {
         env.set_now_from_iso(now_iso);
+    }
+
+    // Populate named instances so @instance('name').path resolves in FEL
+    for (name, value) in instances {
+        env.set_instance(name, json_to_fel(value));
     }
     let mut values = data.clone();
 
@@ -447,8 +453,9 @@ pub(crate) fn evaluate_single_item(
     parent_readonly: bool,
     invalid_paths: &HashSet<String>,
 ) {
-    // Save previous relevance for transition detection (9c)
-    item.prev_relevant = item.relevant;
+    // Save previous relevance for transition detection (9c).
+    // prev_relevant is either from rebuild (true) or injected via EvalContext.
+    let was_relevant = item.prev_relevant;
 
     // Evaluate own relevance expression
     let own_relevant = if let Some(ref expr) = item.relevance {
@@ -460,10 +467,7 @@ pub(crate) fn evaluate_single_item(
     item.relevant = own_relevant && parent_relevant;
 
     // 9c: Default on relevance transition — non-relevant → relevant + empty → apply default
-    if item.relevant
-        && !item.prev_relevant
-        && let Some(ref default_val) = item.default_value
-    {
+    if item.relevant && !was_relevant {
         let current = values.get(&item.path);
         let is_empty = match current {
             None | Some(Value::Null) => true,
@@ -471,8 +475,19 @@ pub(crate) fn evaluate_single_item(
             _ => false,
         };
         if is_empty {
-            values.insert(item.path.clone(), default_val.clone());
-            env.set_field(&item.path, json_to_fel(default_val));
+            if let Some(ref expr) = item.default_expression {
+                // Expression default: evaluate FEL and apply result
+                if let Ok(parsed) = parse(expr) {
+                    let result = evaluate(&parsed, env);
+                    let json_val = fel_to_json(&result.value);
+                    values.insert(item.path.clone(), json_val.clone());
+                    env.set_field(&item.path, result.value);
+                }
+            } else if let Some(ref default_val) = item.default_value {
+                // Literal default
+                values.insert(item.path.clone(), default_val.clone());
+                env.set_field(&item.path, json_to_fel(default_val));
+            }
         }
     }
 
@@ -1050,7 +1065,7 @@ mod tests {
 
         let data = HashMap::new();
         let mut items = rebuild_item_tree(&def);
-        let _ = recalculate(&mut items, &data, &def, None, None);
+        let _ = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         let parent = find_item_by_path(&items, "parent").unwrap();
         assert!(!parent.relevant, "parent should be non-relevant");
@@ -1079,7 +1094,7 @@ mod tests {
 
         let data = HashMap::new();
         let mut items = rebuild_item_tree(&def);
-        let _ = recalculate(&mut items, &data, &def, None, None);
+        let _ = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         let parent = find_item_by_path(&items, "parent").unwrap();
         assert!(parent.relevant, "parent should be relevant");
@@ -1112,7 +1127,7 @@ mod tests {
         data.insert("section.field".to_string(), json!("test"));
 
         let mut items = rebuild_item_tree(&def);
-        let (values, _, _) = recalculate(&mut items, &data, &def, None, None);
+        let (values, _, _) = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         let child = find_item_by_path(&items, "section.field").unwrap();
         assert!(
@@ -1146,7 +1161,7 @@ mod tests {
         data.insert("section.field".to_string(), json!("test"));
 
         let mut items = rebuild_item_tree(&def);
-        let _ = recalculate(&mut items, &data, &def, None, None);
+        let _ = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         let parent = find_item_by_path(&items, "section").unwrap();
         assert!(
@@ -1181,7 +1196,7 @@ mod tests {
         data.insert("qty".to_string(), json!(4));
 
         let mut items = rebuild_item_tree(&def);
-        let (values, var_values, _) = recalculate(&mut items, &data, &def, None, None);
+        let (values, var_values, _) = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         assert_eq!(values.get("total"), Some(&json!(100)));
         assert!(
@@ -1206,7 +1221,7 @@ mod tests {
         data.insert("toggle".to_string(), json!(false));
 
         let mut items = rebuild_item_tree(&def);
-        let _ = recalculate(&mut items, &data, &def, None, None);
+        let _ = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         let field = find_item_by_path(&items, "field").unwrap();
         assert!(
@@ -1265,7 +1280,7 @@ mod tests {
 
         let data = HashMap::new();
         let mut items = rebuild_item_tree(&def);
-        let _ = recalculate(&mut items, &data, &def, None, None);
+        let _ = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         assert!(!find_item_by_path(&items, "grandparent").unwrap().relevant);
         assert!(
@@ -1302,7 +1317,7 @@ mod tests {
         data.insert("grandparent.parent.child".to_string(), json!("val"));
 
         let mut items = rebuild_item_tree(&def);
-        let _ = recalculate(&mut items, &data, &def, None, None);
+        let _ = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         let child = find_item_by_path(&items, "grandparent.parent.child").unwrap();
         assert!(
@@ -1336,7 +1351,7 @@ mod tests {
 
         let data = HashMap::new();
         let mut items = rebuild_item_tree(&def);
-        let _ = recalculate(&mut items, &data, &def, None, None);
+        let _ = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         let grandparent = find_item_by_path(&items, "grandparent").unwrap();
         assert!(
@@ -1367,7 +1382,7 @@ mod tests {
 
         let data = HashMap::new();
         let mut items = rebuild_item_tree(&def);
-        let (values, _, _) = recalculate(&mut items, &data, &def, None, None);
+        let (values, _, _) = recalculate(&mut items, &data, &def, None, None, &HashMap::new());
 
         assert_eq!(values.get("parent"), Some(&json!(42)));
         assert_eq!(values.get("parent.child"), None);
