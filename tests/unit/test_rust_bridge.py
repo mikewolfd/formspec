@@ -1,6 +1,9 @@
 """Tests for the _rust bridge module — verifies Python↔Rust boundary."""
 
+import inspect
+
 import pytest
+import formspec_rust
 from formspec._rust import (
     parse,
     ParsedExpression,
@@ -25,6 +28,31 @@ from formspec._rust import (
 )
 from formspec.fel.errors import FelSyntaxError
 from formspec.fel.types import FelNumber, FelString, is_null
+
+
+def test_formspec_rust_exports_expected_contract():
+    assert getattr(formspec_rust, "PY_API_VERSION", None) == 1
+
+    signature = inspect.signature(formspec_rust.evaluate_def)
+    assert list(signature.parameters.keys()) == [
+        "definition",
+        "data",
+        "trigger",
+        "registry_documents",
+        "instances",
+    ]
+
+    for name in (
+        "eval_fel_detailed",
+        "extract_deps",
+        "detect_type",
+        "lint_document",
+        "evaluate_def",
+        "evaluate_screener_py",
+        "execute_mapping_doc",
+        "generate_changelog",
+    ):
+        assert hasattr(formspec_rust, name), f"missing formspec_rust export: {name}"
 
 
 # ── FEL parse ────────────────────────────────────────────────────

@@ -137,6 +137,14 @@ class TestBindDiff:
         assert bind_change['change_type'] == 'modified'
         assert bind_change['impact'] == 'compatible'
 
+    def test_duplicate_bind_path_entries_are_merged_before_diffing(self):
+        d = _def(binds=[
+            {'path': 'rate', 'relevant': '$orgType != "government"'},
+            {'path': 'rate', 'constraint': '$ = null or ($ >= 0 and $ <= 100)'},
+        ])
+        cl = _changelog(d, d)
+        assert [c for c in cl['changes'] if c['target'] == 'bind'] == []
+
 
 # ===========================================================================
 # Shape diffing

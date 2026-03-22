@@ -3,6 +3,9 @@
 //! Compares two Formspec definition JSON documents section-by-section and
 //! produces an ordered list of `Change` records with impact classification.
 
+use std::collections::HashMap;
+
+use serde_json::Map;
 use serde_json::Value;
 
 /// Kind of change between two definition versions.
@@ -258,14 +261,54 @@ fn classify_item_modification(old: &Value, new: &Value) -> ChangeImpact {
 /// Index binds by path. Handles both formats:
 /// - Object format: `"binds": { "name": { "required": "true" } }` (key = path)
 /// - Array format: `"binds": [{ "path": "name", "required": "true" }]`
-fn index_binds_by_path(def: &Value) -> Vec<(&str, &Value)> {
+fn index_binds_by_path(def: &Value) -> Vec<(String, Value)> {
     match def.get("binds") {
-        Some(Value::Object(obj)) => obj.iter().map(|(k, v)| (k.as_str(), v)).collect(),
-        Some(Value::Array(arr)) => arr
+        Some(Value::Object(obj)) => obj
             .iter()
-            .filter_map(|v| v.get("path").and_then(|p| p.as_str()).map(|p| (p, v)))
+            .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
+        Some(Value::Array(arr)) => merge_bind_array_entries(arr),
         _ => vec![],
+    }
+}
+
+fn merge_bind_array_entries(arr: &[Value]) -> Vec<(String, Value)> {
+    let mut merged: Vec<(String, Value)> = Vec::new();
+    let mut positions: HashMap<String, usize> = HashMap::new();
+
+    for bind in arr {
+        let Some(path) = bind.get("path").and_then(|p| p.as_str()) else {
+            continue;
+        };
+
+        if let Some(index) = positions.get(path).copied() {
+            merge_bind_value(&mut merged[index].1, bind, path);
+            continue;
+        }
+
+        let mut initial = Value::Object(Map::new());
+        merge_bind_value(&mut initial, bind, path);
+        positions.insert(path.to_string(), merged.len());
+        merged.push((path.to_string(), initial));
+    }
+
+    merged
+}
+
+fn merge_bind_value(target: &mut Value, incoming: &Value, path: &str) {
+    let Value::Object(target_obj) = target else {
+        *target = incoming.clone();
+        return;
+    };
+
+    let Some(incoming_obj) = incoming.as_object() else {
+        *target = incoming.clone();
+        return;
+    };
+
+    target_obj.insert("path".to_string(), Value::String(path.to_string()));
+    for (key, value) in incoming_obj {
+        target_obj.insert(key.clone(), value.clone());
     }
 }
 
@@ -274,12 +317,12 @@ fn diff_binds(old_def: &Value, new_def: &Value, changes: &mut Vec<Change>) {
     let old_binds = index_binds_by_path(old_def);
     let new_binds = index_binds_by_path(new_def);
 
-    let old_keys: std::collections::HashSet<&str> = old_binds.iter().map(|(k, _)| *k).collect();
-    let new_keys: std::collections::HashSet<&str> = new_binds.iter().map(|(k, _)| *k).collect();
+    let old_keys: std::collections::HashSet<&str> = old_binds.iter().map(|(k, _)| k.as_str()).collect();
+    let new_keys: std::collections::HashSet<&str> = new_binds.iter().map(|(k, _)| k.as_str()).collect();
 
     // Added
-    for &(path, val) in &new_binds {
-        if !old_keys.contains(path) {
+    for (path, val) in &new_binds {
+        if !old_keys.contains(path.as_str()) {
             let has_required = bind_has_required(val);
             changes.push(Change {
                 change_type: ChangeType::Added,
@@ -300,8 +343,8 @@ fn diff_binds(old_def: &Value, new_def: &Value, changes: &mut Vec<Change>) {
     }
 
     // Removed
-    for &(path, val) in &old_binds {
-        if !new_keys.contains(path) {
+    for (path, val) in &old_binds {
+        if !new_keys.contains(path.as_str()) {
             changes.push(Change {
                 change_type: ChangeType::Removed,
                 target: ChangeTarget::Bind,
@@ -317,8 +360,8 @@ fn diff_binds(old_def: &Value, new_def: &Value, changes: &mut Vec<Change>) {
     }
 
     // Modified
-    for &(path, old_val) in &old_binds {
-        if let Some(&(_, new_val)) = new_binds.iter().find(|(k, _)| *k == path)
+    for (path, old_val) in &old_binds {
+        if let Some((_, new_val)) = new_binds.iter().find(|(k, _)| k == path)
             && old_val != new_val
         {
             let impact = classify_bind_modification(old_val, new_val);

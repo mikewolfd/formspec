@@ -1,5 +1,7 @@
 //! PyO3 bindings for Formspec — FEL, linting, definition evaluation, registry, changelog, and mapping to Python.
 
+const PY_API_VERSION: u32 = 1;
+
 /// PyO3 bindings for Formspec — exposes FEL evaluation, linting, evaluation,
 /// registry parsing, changelog generation, and mapping execution to Python.
 ///
@@ -726,6 +728,8 @@ fn execute_mapping_doc(
 /// formspec_rust — Native Rust implementation of Formspec processing.
 #[pymodule]
 fn formspec_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("PY_API_VERSION", PY_API_VERSION)?;
+    m.add("CRATE_VERSION", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(eval_fel, m)?)?;
     m.add_function(wrap_pyfunction!(eval_fel_detailed, m)?)?;
     m.add_function(wrap_pyfunction!(parse_fel, m)?)?;

@@ -223,7 +223,7 @@ def prior_year_data():
 def evaluate(request: EvaluateRequest):
     try:
         result = fel_evaluate(request.expression, data=request.data)
-    except FelSyntaxError as exc:
+    except (FelSyntaxError, ValueError) as exc:
         raise HTTPException(status_code=400, detail={"error": str(exc)})
     return EvaluateResponse(
         value=_json_safe(to_python(result.value)),
@@ -346,4 +346,24 @@ def dependencies(definitionFile: str | None = None, definitionUrl: str | None = 
 @app.post("/changelog")
 def changelog(request: ChangelogRequest):
     url = request.new.get("url", request.old.get("url", ""))
-    return generate_changelog(request.old, request.new, url)
+    raw = generate_changelog(request.old, request.new, url)
+    changes = []
+    for change in raw.get("changes", []):
+        changes.append({
+            "type": change.get("change_type"),
+            "target": change.get("target"),
+            "path": change.get("path"),
+            "impact": change.get("impact"),
+            "key": change.get("key"),
+            "description": change.get("description"),
+            "before": change.get("before"),
+            "after": change.get("after"),
+            "migrationHint": change.get("migration_hint"),
+        })
+    return {
+        "definitionUrl": raw.get("definition_url", url),
+        "fromVersion": raw.get("from_version"),
+        "toVersion": raw.get("to_version"),
+        "semverImpact": raw.get("semver_impact"),
+        "changes": changes,
+    }

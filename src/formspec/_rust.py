@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+import inspect
+import sys
 
 import msgspec
 import formspec_rust
@@ -27,6 +29,73 @@ from formspec.fel.types import (  # noqa: E402
     is_null,
     to_python,
 )
+
+EXPECTED_PY_API_VERSION = 1
+_REQUIRED_EXPORTS = (
+    "eval_fel_detailed",
+    "extract_deps",
+    "detect_type",
+    "lint_document",
+    "evaluate_def",
+    "evaluate_screener_py",
+    "execute_mapping_doc",
+    "generate_changelog",
+)
+
+
+def _assert_rust_extension_contract() -> None:
+    api_version = getattr(formspec_rust, "PY_API_VERSION", None)
+    crate_version = getattr(formspec_rust, "CRATE_VERSION", "<unknown>")
+    module_file = getattr(formspec_rust, "__file__", "<unknown>")
+    env_hint = (
+        f"python={sys.executable}; "
+        f"formspec_rust={module_file}; "
+        f"crate_version={crate_version}"
+    )
+    if api_version != EXPECTED_PY_API_VERSION:
+        raise ImportError(
+            "formspec_rust is incompatible with src/formspec/_rust.py: "
+            f"expected PY_API_VERSION={EXPECTED_PY_API_VERSION}, got {api_version!r} "
+            f"({env_hint}). "
+            "Reinstall the local extension with: python3 -m pip install --no-build-isolation ./crates/formspec-py"
+        )
+
+    missing = [name for name in _REQUIRED_EXPORTS if not hasattr(formspec_rust, name)]
+    if missing:
+        raise ImportError(
+            "formspec_rust is missing required exports: "
+            + ", ".join(sorted(missing))
+            + f" ({env_hint}). "
+            + "Reinstall the local extension with: python3 -m pip install --no-build-isolation ./crates/formspec-py"
+        )
+
+    try:
+        signature = inspect.signature(formspec_rust.evaluate_def)
+    except (TypeError, ValueError) as exc:
+        raise ImportError(
+            "formspec_rust.evaluate_def signature could not be inspected; "
+            "the installed extension may be stale. "
+            f"({env_hint}). "
+            "Reinstall the local extension with: python3 -m pip install --no-build-isolation ./crates/formspec-py"
+        ) from exc
+
+    expected_params = [
+        "definition",
+        "data",
+        "trigger",
+        "registry_documents",
+        "instances",
+    ]
+    actual_params = list(signature.parameters.keys())
+    if actual_params != expected_params:
+        raise ImportError(
+            "formspec_rust.evaluate_def has an incompatible signature: "
+            f"expected {expected_params}, got {actual_params} ({env_hint}). "
+            "Reinstall the local extension with: python3 -m pip install --no-build-isolation ./crates/formspec-py"
+        )
+
+
+_assert_rust_extension_contract()
 
 
 # ── Result types ─────────────────────────────────────────────────
