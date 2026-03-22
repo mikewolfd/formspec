@@ -1,10 +1,28 @@
 //! Depth-first traversal of definition `items` / `children` JSON arrays.
 //!
-//! Used by lint passes that need stable `$.items[0].children[1]` paths and dotted bind paths.
-//! Skips array elements without a string `key` (and does not recurse into their `children`),
-//! matching the lint tree index pass and option-set reference checks.
+//! Call sites choose [`DefinitionItemKeyPolicy`]:
+//! - **Lint / static analysis** use [`DefinitionItemKeyPolicy::RequireStringKey`]: only visit nodes
+//!   whose `key` is a JSON string (including `""`). Skip other elements and **do not** recurse into
+//!   their `children`.
+//! - **Runtime eval item-tree rebuild** uses [`coerce_definition_item_key_segment`] /
+//!   [`DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty`]: missing, null, or non-string `key` is
+//!   treated as `""`; every array element is visited and `children` are always walked when present.
 
 use serde_json::Value;
+
+/// How to interpret `item["key"]` when walking definition `items` / `children`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DefinitionItemKeyPolicy {
+    /// Only visit objects whose `key` is a JSON string (including `""`).
+    ///
+    /// Missing, null, number, object, or array: skip the node and **do not** descend into
+    /// `children`.
+    RequireStringKey,
+    /// Missing or non-string `key` is treated as `""`.
+    ///
+    /// Visit every array element and always recurse into `children` when present.
+    CoerceNonStringKeyToEmpty,
+}
 
 /// One definition item with canonical paths for diagnostics and binds.
 #[derive(Debug, Clone)]
@@ -21,29 +39,54 @@ pub struct DefinitionItemVisitCtx<'a> {
     pub parent_dotted: Option<String>,
 }
 
-/// Visit every object with a string `key` under `items`, depth-first.
+/// Key segment for runtime item-tree rebuild: missing or non-string `key` → `""`.
+#[inline]
+pub fn coerce_definition_item_key_segment(item: &Value) -> &str {
+    item.get("key").and_then(Value::as_str).unwrap_or("")
+}
+
+/// Resolve the key segment for `item` under `policy`.
+///
+/// Returns `None` only for [`DefinitionItemKeyPolicy::RequireStringKey`] when `key` is not a JSON
+/// string.
+pub fn definition_item_key_segment(item: &Value, policy: DefinitionItemKeyPolicy) -> Option<&str> {
+    match policy {
+        DefinitionItemKeyPolicy::RequireStringKey => item.get("key").and_then(Value::as_str),
+        DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty => {
+            Some(coerce_definition_item_key_segment(item))
+        }
+    }
+}
+
+/// Dotted bind path from an optional parent prefix and this node's key segment (may be `""`).
+pub fn definition_item_dotted_path(parent_dotted: Option<&str>, key_segment: &str) -> String {
+    match parent_dotted {
+        Some(prefix) => format!("{prefix}.{key_segment}"),
+        None => key_segment.to_string(),
+    }
+}
+
+/// Visit definition items under a JSON array with an explicit key policy.
 ///
 /// `json_array_parent` is the path to the **array** (no `[i]` suffix), e.g. `$.items` or
 /// `$.items[0].children`.
-pub fn visit_definition_items_json(
+pub fn visit_definition_items_json_with_policy(
     items: &[Value],
     json_array_parent: &str,
     parent_dotted: Option<&str>,
+    policy: DefinitionItemKeyPolicy,
     visitor: &mut impl FnMut(&DefinitionItemVisitCtx<'_>),
 ) {
     for (i, item) in items.iter().enumerate() {
-        let Some(key) = item.get("key").and_then(Value::as_str) else {
+        let Some(key_str) = definition_item_key_segment(item, policy) else {
             continue;
         };
         let json_path = format!("{json_array_parent}[{i}]");
-        let dotted_path = match parent_dotted {
-            Some(prefix) => format!("{prefix}.{key}"),
-            None => key.to_string(),
-        };
+        let dotted_path = definition_item_dotted_path(parent_dotted, key_str);
         let parent_dotted_owned = parent_dotted.map(str::to_string);
         visitor(&DefinitionItemVisitCtx {
             item,
-            key,
+            key: key_str,
             index: i,
             json_path,
             dotted_path: dotted_path.clone(),
@@ -51,9 +94,31 @@ pub fn visit_definition_items_json(
         });
         if let Some(children) = item.get("children").and_then(Value::as_array) {
             let child_parent = format!("{json_array_parent}[{i}].children");
-            visit_definition_items_json(children, &child_parent, Some(&dotted_path), visitor);
+            visit_definition_items_json_with_policy(
+                children,
+                &child_parent,
+                Some(&dotted_path),
+                policy,
+                visitor,
+            );
         }
     }
+}
+
+/// Visit every object with a string `key` under `items`, depth-first ([`RequireStringKey`]).
+pub fn visit_definition_items_json(
+    items: &[Value],
+    json_array_parent: &str,
+    parent_dotted: Option<&str>,
+    visitor: &mut impl FnMut(&DefinitionItemVisitCtx<'_>),
+) {
+    visit_definition_items_json_with_policy(
+        items,
+        json_array_parent,
+        parent_dotted,
+        DefinitionItemKeyPolicy::RequireStringKey,
+        visitor,
+    );
 }
 
 /// Walk `document["items"]` when present; no-op if missing or not an array.
@@ -65,4 +130,70 @@ pub fn visit_definition_items_from_document(
         return;
     };
     visit_definition_items_json(items, "$.items", None, visitor);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn require_string_key_skips_keyless_parent_and_children() {
+        let doc = json!({
+            "items": [
+                { "key": 1, "children": [{ "key": "child" }] }
+            ]
+        });
+        let items = doc["items"].as_array().unwrap();
+        let mut keys = Vec::new();
+        visit_definition_items_json_with_policy(
+            items,
+            "$.items",
+            None,
+            DefinitionItemKeyPolicy::RequireStringKey,
+            &mut |ctx| keys.push(ctx.dotted_path.clone()),
+        );
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn require_string_key_visits_empty_string_key() {
+        let doc = json!({ "items": [{ "key": "", "type": "field" }] });
+        let items = doc["items"].as_array().unwrap();
+        let mut keys = Vec::new();
+        visit_definition_items_json_with_policy(
+            items,
+            "$.items",
+            None,
+            DefinitionItemKeyPolicy::RequireStringKey,
+            &mut |ctx| keys.push(ctx.key.to_string()),
+        );
+        assert_eq!(keys, vec![""]);
+    }
+
+    #[test]
+    fn coerce_visits_keyless_parent_and_descends_to_keyed_child() {
+        let doc = json!({
+            "items": [
+                { "key": null, "children": [{ "key": "child" }] }
+            ]
+        });
+        let items = doc["items"].as_array().unwrap();
+        let mut paths = Vec::new();
+        visit_definition_items_json_with_policy(
+            items,
+            "$.items",
+            None,
+            DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty,
+            &mut |ctx| paths.push(ctx.dotted_path.clone()),
+        );
+        assert_eq!(paths, vec!["", ".child"]);
+    }
+
+    #[test]
+    fn definition_item_dotted_path_matches_eval_style() {
+        assert_eq!(definition_item_dotted_path(None, ""), "");
+        assert_eq!(definition_item_dotted_path(Some("a"), ""), "a.");
+        assert_eq!(definition_item_dotted_path(Some("a"), "b"), "a.b");
+    }
 }

@@ -1,5 +1,6 @@
 //! Build `ItemInfo` tree from definition `items` and merge `binds` (object or array style).
 
+use formspec_core::definition_items::{coerce_definition_item_key_segment, definition_item_dotted_path};
 use serde_json::Value;
 
 use crate::types::{ItemInfo, VariableDef};
@@ -84,11 +85,7 @@ fn build_item_info(
     parent_path: Option<&str>,
     default_currency: Option<&str>,
 ) -> ItemInfo {
-    let key = item
-        .get("key")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let key = coerce_definition_item_key_segment(item).to_string();
     let item_type = item
         .get("type")
         .and_then(|v| v.as_str())
@@ -110,10 +107,7 @@ fn build_item_info(
         .or(default_currency)
         .map(String::from);
 
-    let path = match parent_path {
-        Some(prefix) => format!("{}.{}", prefix, key),
-        None => key.clone(),
-    };
+    let path = definition_item_dotted_path(parent_path, &key);
 
     // Look up bind for this path
     let mut bind = resolve_bind(binds, &path)
