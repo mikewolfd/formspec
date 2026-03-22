@@ -1,4 +1,8 @@
 //! Exact-text FEL rewriting that preserves non-reference source text.
+//!
+//! `ExactRewriteParser` mirrors FEL precedence and records non-overlapping text replacements;
+//! see `apply_replacements` for how spans are stitched back into the source.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use fel_core::lexer::{Lexer, SpannedToken, Token};
 use fel_core::{FelError, parse};
@@ -14,6 +18,9 @@ struct Replacement {
     text: String,
 }
 
+/// Rewrite `$` / `@` references in source text using span-aware lexing (preserves non-ref text).
+///
+/// On parse failure, returns `expression` unchanged.
 pub fn rewrite_fel_source_references(expression: &str, options: &RewriteOptions) -> String {
     if parse(expression).is_err() {
         return expression.to_string();
@@ -33,6 +40,7 @@ pub fn rewrite_fel_source_references(expression: &str, options: &RewriteOptions)
     apply_replacements(expression, &parser.replacements)
 }
 
+/// Rewrite each `{{ ... }}` FEL substring in a message template via [`rewrite_fel_source_references`].
 pub fn rewrite_message_template(message: &str, options: &RewriteOptions) -> String {
     let mut output = String::new();
     let mut cursor = 0usize;
@@ -701,6 +709,7 @@ fn quote_string_literal(value: &str, quote: char) -> String {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
 
     #[test]

@@ -1,4 +1,7 @@
 //! Value-map, coercion, flatten string, and FEL evaluation helpers.
+//!
+//! `apply_*` functions implement individual [`TransformType`](super::types::TransformType) steps.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use fel_core::{evaluate, fel_to_json, parse};
 use serde_json::Value;

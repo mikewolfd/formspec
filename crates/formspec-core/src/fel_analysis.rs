@@ -1,9 +1,12 @@
 //! FEL static analysis and expression rewriting for field references and variables.
+//!
+//! Parses FEL to extract field references, variables, and function calls, and supports
+//! AST rewriting via callbacks (for `$ref` fragment imports and similar).
+//!
+//! Private walkers (`collect_info`, `rewrite_expr`, `collect_rewrite_targets`, `parse_field_ref_from_path`)
+//! implement AST traversal; the public API wraps them.
+#![allow(clippy::missing_docs_in_private_items)]
 
-/// FEL static analysis and path rewriting.
-///
-/// Analyzes FEL expressions to extract field references, variables, function calls,
-/// and provides expression rewriting via callbacks (for $ref fragment imports, etc.).
 use std::collections::HashSet;
 
 use fel_core::ast::{Expr, PathSegment};
@@ -33,13 +36,15 @@ pub struct FelAnalysis {
     pub functions: HashSet<String>,
 }
 
-/// A parse/analysis error with location info.
+/// A parse/analysis error with a human-readable message.
 #[derive(Debug, Clone)]
 pub struct FelAnalysisError {
+    /// Error text from the FEL parser or evaluator.
     pub message: String,
 }
 
 /// Field/variable/navigation targets that can be rewritten in a FEL expression.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Default)]
 pub struct FelRewriteTargets {
     pub field_paths: HashSet<String>,
@@ -49,7 +54,8 @@ pub struct FelRewriteTargets {
     pub navigation_targets: Vec<NavigationTarget>,
 }
 
-/// A literal navigation target passed to prev()/next()/parent().
+/// A literal navigation target passed to `prev` / `next` / `parent`.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NavigationTarget {
     pub function_name: String,
@@ -616,6 +622,7 @@ pub fn rewrite_options_from_camel_case_json(rewrites: &Value) -> RewriteOptions 
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
 
     #[test]

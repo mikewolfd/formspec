@@ -38,7 +38,9 @@ pub fn split_normalized_path(path: &str) -> Vec<&str> {
 
 /// A generic tree node shape for path traversal.
 pub trait TreeItem {
+    /// Stable segment key for this node (matches one dotted path segment).
     fn key(&self) -> &str;
+    /// Child nodes for the next path segment.
     fn children(&self) -> &[Self]
     where
         Self: Sized;
@@ -47,8 +49,11 @@ pub trait TreeItem {
 /// A resolved position in a tree: the parent slice, index within it, and the item itself.
 #[derive(Debug)]
 pub struct ItemLocation<'a, T> {
+    /// Sibling slice containing [`Self::item`].
     pub parent: &'a [T],
+    /// Index of [`Self::item`] within `parent`.
     pub index: usize,
+    /// The resolved node.
     pub item: &'a T,
 }
 
@@ -118,6 +123,7 @@ pub fn leaf_key(path: &str) -> &str {
 
 // ── JSON definition item arrays (`items` tree) ──────────────────
 
+/// Split a dotted item path into normalized key segments, or `None` if empty after normalization.
 fn json_item_path_segments(path: &str) -> Option<Vec<String>> {
     let normalized = normalize_indexed_path(path);
     let segments: Vec<String> = normalized
@@ -191,6 +197,7 @@ pub fn definition_item_location_to_json_value(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
 
     // Simple test tree node

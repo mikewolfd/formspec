@@ -1,6 +1,9 @@
 //! Deserialize mapping documents and rules from `serde_json::Value`.
 //!
 //! Used by WASM and PyO3 bindings; keeps JSON shape handling out of FFI crates.
+//!
+//! Private `coerce_type_from_str` / `parse_*` helpers deserialize nested rule shapes.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use serde_json::Value;
 

@@ -1,4 +1,7 @@
 //! JSON parsing helpers for registry documents.
+//!
+//! `parse_*` functions validate JSON shape and build typed registry rows.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use serde_json::Value;
 

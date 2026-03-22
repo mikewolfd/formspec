@@ -47,7 +47,9 @@ pub enum DefinitionItemKeyPolicy {
 /// One definition item with canonical paths for diagnostics and binds.
 #[derive(Debug, Clone)]
 pub struct DefinitionItemVisitCtx<'a> {
+    /// Raw JSON object for this definition item.
     pub item: &'a Value,
+    /// Resolved key segment (may be `""` when policy coerces).
     pub key: &'a str,
     /// Index of this node within its parent's `items` or `children` array.
     pub index: usize,
@@ -129,6 +131,7 @@ pub fn visit_definition_items_json_shallow(
     }
 }
 
+/// Build a visit context for array index `i` or return `None` when the key policy skips the node.
 fn definition_item_visit_ctx_at<'a>(
     i: usize,
     item: &'a Value,
@@ -180,7 +183,7 @@ pub fn visit_definition_items_json_with_policy(
     }
 }
 
-/// Visit every object with a string `key` under `items`, depth-first ([`RequireStringKey`]).
+/// Visit every object with a string `key` under `items`, depth-first ([`DefinitionItemKeyPolicy::RequireStringKey`]).
 pub fn visit_definition_items_json(
     items: &[Value],
     json_array_parent: &str,
@@ -209,6 +212,7 @@ pub fn visit_definition_items_from_document(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     use serde_json::json;
 

@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 /// Transform direction.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MappingDirection {
     Forward,
@@ -55,12 +56,14 @@ pub enum ArrayMode {
 }
 
 /// Reverse-direction transform override.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct ReverseOverride {
     pub transform: TransformType,
 }
 
 /// Supported transform types.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub enum TransformType {
     /// Copy value as-is.
@@ -105,6 +108,7 @@ pub enum UnmappedStrategy {
 }
 
 /// Target types for coercion.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoerceType {
     String,
@@ -117,6 +121,7 @@ pub enum CoerceType {
 }
 
 /// Structured error codes for mapping diagnostics.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MappingErrorCode {
     UnmappedValue,
@@ -127,6 +132,7 @@ pub enum MappingErrorCode {
 }
 
 impl MappingErrorCode {
+    /// Uppercase wire token for JSON diagnostics.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::UnmappedValue => "UNMAPPED_VALUE",
@@ -138,6 +144,7 @@ impl MappingErrorCode {
 }
 
 /// A diagnostic from mapping execution.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct MappingDiagnostic {
     pub rule_index: usize,
@@ -148,6 +155,7 @@ pub struct MappingDiagnostic {
 }
 
 /// Result of a mapping execution.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct MappingResult {
     pub direction: MappingDirection,
@@ -157,6 +165,7 @@ pub struct MappingResult {
 }
 
 /// A complete mapping document with rules, defaults, and autoMap.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct MappingDocument {
     pub rules: Vec<MappingRule>,

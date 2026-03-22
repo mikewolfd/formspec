@@ -1,8 +1,10 @@
 //! Validates extension usage in item trees against a registry catalog.
+//!
+//! Checks for unresolved, retired, and deprecated extensions on definition items.
+//!
+//! `walk_items` recurses the [`ExtensionItem`] tree; [`JsonDefinitionItem`] is the JSON-backed adapter.
+#![allow(clippy::missing_docs_in_private_items)]
 
-/// Validates x-extension usage in definition item trees against a registry catalog.
-///
-/// Checks for unresolved, retired, and deprecated extensions.
 use std::collections::HashMap;
 
 use serde_json::Value;
@@ -12,6 +14,7 @@ use crate::registry_client;
 // ── Types ───────────────────────────────────────────────────────
 
 /// Severity levels for extension validation issues.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionSeverity {
     Error,
@@ -31,6 +34,7 @@ impl ExtensionSeverity {
 }
 
 /// Error codes for extension validation.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionErrorCode {
     UnresolvedExtension,
@@ -65,6 +69,7 @@ pub struct ExtensionUsageIssue {
 }
 
 /// Lifecycle status of a registry entry.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegistryEntryStatus {
     Draft,
@@ -76,14 +81,19 @@ pub enum RegistryEntryStatus {
 /// Minimal registry entry info needed for extension validation.
 #[derive(Debug, Clone)]
 pub struct RegistryEntryInfo {
+    /// Extension name (e.g. `x-formspec-url`).
     pub name: String,
+    /// Lifecycle state from the registry document.
     pub status: RegistryEntryStatus,
+    /// Optional human-readable title from the registry.
     pub display_name: Option<String>,
+    /// Optional deprecation message when status is deprecated.
     pub deprecation_notice: Option<String>,
 }
 
 /// Callback trait for looking up registry entries.
 pub trait RegistryLookup {
+    /// Return registry metadata for `extension_name`, or `None` if unknown.
     fn lookup(&self, extension_name: &str) -> Option<RegistryEntryInfo>;
 }
 
@@ -93,12 +103,14 @@ pub struct MapRegistry {
 }
 
 impl MapRegistry {
+    /// Empty registry.
     pub fn new() -> Self {
         Self {
             entries: HashMap::new(),
         }
     }
 
+    /// Insert or replace an entry keyed by [`RegistryEntryInfo::name`].
     pub fn add(&mut self, entry: RegistryEntryInfo) {
         self.entries.insert(entry.name.clone(), entry);
     }
@@ -323,6 +335,7 @@ pub fn map_registry_from_extension_entry_map(entries: &HashMap<String, Value>) -
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
 
     struct TestItem {

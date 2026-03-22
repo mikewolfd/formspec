@@ -1,4 +1,7 @@
 //! `serde_json::Value` projections for WASM and Python FFI (use with `json_to_python` on the Py side).
+//!
+//! Private `*_str` helpers stringify changelog enums; `change_to_object` builds each change row.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use serde_json::{json, Value};
 

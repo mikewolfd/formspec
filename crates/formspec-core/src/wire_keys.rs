@@ -2,7 +2,7 @@
 
 use fel_core::JsonWireStyle;
 
-/// Keys for [`crate::runtime_mapping::wire_json::mapping_result_to_json_value`].
+/// Keys for [`crate::runtime_mapping::mapping_result_to_json_value`].
 pub fn mapping_result_host_keys(
     style: JsonWireStyle,
 ) -> (
@@ -30,7 +30,7 @@ pub fn mapping_result_host_keys(
     }
 }
 
-/// Keys for [`crate::registry_client::wire_json::registry_parse_summary_to_json_value`].
+/// Keys for [`crate::registry_client::registry_parse_summary_to_json_value`].
 pub fn registry_parse_summary_keys(style: JsonWireStyle) -> (&'static str, &'static str) {
     match style {
         JsonWireStyle::JsCamel => ("entryCount", "validationIssues"),
@@ -38,7 +38,7 @@ pub fn registry_parse_summary_keys(style: JsonWireStyle) -> (&'static str, &'sta
     }
 }
 
-/// Keys for [`crate::registry_client::wire_json::registry_entry_to_json_value`].
+/// Keys for [`crate::registry_client::registry_entry_to_json_value`].
 pub fn registry_entry_keys(style: JsonWireStyle) -> (&'static str, &'static str) {
     match style {
         JsonWireStyle::JsCamel => ("deprecationNotice", "baseType"),
@@ -71,6 +71,7 @@ pub fn evaluation_batch_keys(style: JsonWireStyle) -> (&'static str, &'static st
 }
 
 /// Top-level changelog object keys for [`crate::json_artifacts::changelog_to_json_value`].
+#[allow(missing_docs)]
 pub struct ChangelogRootKeys {
     pub definition_url: &'static str,
     pub from_version: &'static str,
@@ -78,6 +79,7 @@ pub struct ChangelogRootKeys {
     pub semver_impact: &'static str,
 }
 
+/// Field names for the changelog root object in the given wire style.
 pub fn changelog_root_keys(style: JsonWireStyle) -> ChangelogRootKeys {
     match style {
         JsonWireStyle::JsCamel => ChangelogRootKeys {

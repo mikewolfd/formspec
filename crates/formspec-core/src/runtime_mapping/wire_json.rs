@@ -7,6 +7,7 @@ use crate::wire_keys::mapping_result_host_keys;
 
 use super::types::{MappingDirection, MappingResult};
 
+/// Serialize [`MappingDirection`] to the wire string (`forward` / `reverse`).
 pub fn mapping_direction_wire(d: MappingDirection) -> &'static str {
     match d {
         MappingDirection::Forward => "forward",
@@ -14,6 +15,7 @@ pub fn mapping_direction_wire(d: MappingDirection) -> &'static str {
     }
 }
 
+/// Parse wire direction string into [`MappingDirection`].
 pub fn parse_mapping_direction_wire(s: &str) -> Result<MappingDirection, String> {
     match s {
         "forward" => Ok(MappingDirection::Forward),

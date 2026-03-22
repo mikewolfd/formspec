@@ -1,4 +1,5 @@
 //! Unit tests for the registry client.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use crate::extension_analysis::{RegistryEntryStatus, RegistryLookup};
 use serde_json::json;

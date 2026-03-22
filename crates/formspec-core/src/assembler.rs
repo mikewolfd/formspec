@@ -1,4 +1,9 @@
 //! Resolves $ref inclusions and assembles self-contained definitions with FEL rewriting.
+//!
+//! ## Internal helpers
+//! Private functions walk `items`, merge referenced fragments (`resolve_*`, `perform_assembly`),
+//! hoist binds/shapes/variables (`import_*`), and rewrite FEL paths (`rewrite_*`, `split_path_segments`).
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::collections::{HashMap, HashSet};
 
@@ -7,11 +12,21 @@ use serde_json::{Map, Value, json};
 use crate::wire_keys::assembly_provenance_keys;
 use crate::{JsonWireStyle, RewriteOptions, rewrite_fel_source_references, rewrite_message_template};
 
+/// Failure while resolving `$ref` or merging assembled fragments.
 #[derive(Debug, Clone)]
 pub enum AssemblyError {
+    /// A `$ref` cycle was detected.
     CircularRef(String),
-    KeyCollision { key: String, source: String },
+    /// Two sources contributed the same item `key`.
+    KeyCollision {
+        /// Colliding item key in the merged tree.
+        key: String,
+        /// Description of the conflicting source (e.g. URI).
+        source: String,
+    },
+    /// `$ref` target was not found in the resolver.
     RefNotFound(String),
+    /// Resolver or merge failed with a message.
     ResolutionError(String),
 }
 
@@ -30,37 +45,53 @@ impl std::fmt::Display for AssemblyError {
 
 impl std::error::Error for AssemblyError {}
 
+/// Source record for one merged definition fragment (URL, version, optional key prefix).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssemblyProvenance {
+    /// Source document URL or identifier.
     pub url: String,
+    /// Version string from the source document.
     pub version: String,
+    /// Optional key prefix applied when merging items from this fragment.
     pub key_prefix: Option<String>,
+    /// Optional JSON Pointer–style fragment path within the resolved document.
     pub fragment: Option<String>,
 }
 
+/// Output of [`assemble_definition`]: merged definition plus warnings, errors, provenance.
 #[derive(Debug, Clone)]
 pub struct AssemblyResult {
+    /// Assembled definition JSON (typically includes merged `items`).
     pub definition: Value,
+    /// Non-fatal issues (e.g. skipped optional refs).
     pub warnings: Vec<String>,
+    /// Fatal assembly problems.
     pub errors: Vec<AssemblyError>,
+    /// Ordered list of fragments that contributed to the result.
     pub assembled_from: Vec<AssemblyProvenance>,
 }
 
+/// Resolves a `$ref` URI string to a JSON fragment.
 pub trait RefResolver {
+    /// Return the resolved JSON value, or `None` if unknown.
     fn resolve(&self, ref_uri: &str) -> Option<Value>;
 }
 
+/// In-memory [`RefResolver`] backed by a URI → JSON map.
 pub struct MapResolver {
+    /// Resolved URI → JSON fragment map.
     fragments: HashMap<String, Value>,
 }
 
 impl MapResolver {
+    /// Empty resolver.
     pub fn new() -> Self {
         Self {
             fragments: HashMap::new(),
         }
     }
 
+    /// Insert or replace a resolved fragment for `uri`.
     pub fn add(&mut self, uri: &str, fragment: Value) {
         self.fragments.insert(uri.to_string(), fragment);
     }
@@ -87,6 +118,10 @@ impl RefResolver for MapResolver {
     }
 }
 
+/// Walk `definition["items"]`, expand `$ref` objects using `resolver`, and merge fragments.
+///
+/// Item keys are rewritten when fragments supply `keyPrefix`. FEL in binds and message
+/// templates is rewritten to match merged keys (see `rewrite_fel_source_references`).
 pub fn assemble_definition(definition: &Value, resolver: &dyn RefResolver) -> AssemblyResult {
     let mut result = AssemblyResult {
         definition: definition.clone(),
@@ -1064,6 +1099,7 @@ struct FelRewriteMap {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     use serde_json::json;
 

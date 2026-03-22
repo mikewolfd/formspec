@@ -2,6 +2,9 @@
 //!
 //! Compares two Formspec definition JSON documents section-by-section and
 //! produces an ordered list of `Change` records with impact classification.
+//!
+//! Private `diff_*` / `merge_*` / `classify_*` helpers implement the section-by-section comparison.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::collections::HashMap;
 
@@ -9,6 +12,7 @@ use serde_json::Map;
 use serde_json::Value;
 
 /// Kind of change between two definition versions.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChangeType {
     Added,
@@ -17,6 +21,7 @@ pub enum ChangeType {
 }
 
 /// Definition subsystem affected by a change.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChangeTarget {
     Item,
@@ -30,6 +35,7 @@ pub enum ChangeTarget {
 }
 
 /// Severity classification of a single change.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ChangeImpact {
     Cosmetic,
@@ -38,6 +44,7 @@ pub enum ChangeImpact {
 }
 
 /// Semantic version bump implied by the aggregate impact.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SemverImpact {
     Patch,
@@ -46,6 +53,7 @@ pub enum SemverImpact {
 }
 
 /// A single atomic change between two definition versions.
+#[allow(missing_docs)]
 pub struct Change {
     pub change_type: ChangeType,
     pub target: ChangeTarget,
@@ -59,6 +67,7 @@ pub struct Change {
 }
 
 /// Structured diff between two definition versions.
+#[allow(missing_docs)]
 pub struct Changelog {
     pub definition_url: String,
     pub from_version: String,

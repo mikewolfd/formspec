@@ -1,4 +1,5 @@
 //! Unit tests for `runtime_mapping`.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use serde_json::{Value, json};
 

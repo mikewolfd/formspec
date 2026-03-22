@@ -3,6 +3,7 @@
 use fel_core::{FormspecEnvironment, json_to_fel};
 use serde_json::Value;
 
+/// Map `source` / `target` JSON into fields and `@source` / `@target` variables for FEL in rules.
 pub(crate) fn build_mapping_env(
     source_doc: &Value,
     target_doc: &Value,

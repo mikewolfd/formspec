@@ -1,16 +1,16 @@
 //! Schema validation with document type detection and validation dispatch.
+//!
+//! Uses dependency inversion: JSON Schema validation is provided by the host via
+//! [`JsonSchemaValidator`]. This module detects document types, translates paths, and
+//! plans per-component validation for component trees.
 
-/// Schema validation for Formspec artifacts — document type detection and validation dispatch.
-///
-/// Uses dependency inversion: the actual JSON Schema validation is provided by the host
-/// via `JsonSchemaValidator` trait. This crate provides document type detection, path
-/// translation, and the component tree walking strategy.
 use serde::Serialize;
 use serde_json::Value;
 
 // ── Document types ──────────────────────────────────────────────
 
 /// All recognized Formspec document types.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DocumentType {
     Definition,
@@ -65,7 +65,7 @@ impl DocumentType {
 /// A schema validation error with path and message.
 #[derive(Debug, Clone)]
 pub struct SchemaValidationError {
-    /// JSONPath to the invalid element (e.g., "$.items[0].key").
+    /// JSONPath to the invalid element (e.g., `$.items\[0\].key`).
     pub path: String,
     /// Human-readable error message.
     pub message: String,
@@ -189,7 +189,7 @@ pub fn validate_document(
 
 // ── Path translation utilities ──────────────────────────────────
 
-/// Convert a JSON Pointer (e.g., "/items/0/key") to a JSONPath (e.g., "$.items[0].key").
+/// Convert a JSON Pointer (e.g., `/items/0/key`) to a JSONPath (e.g., `$.items\[0\].key`).
 pub fn json_pointer_to_jsonpath(pointer: &str) -> String {
     if pointer.is_empty() {
         return "$".to_string();
@@ -240,6 +240,7 @@ pub fn schema_validation_plan(
     }
 }
 
+/// Walk `tree` and `components/*/tree` to build [`ComponentValidationTarget`] rows for host validators.
 fn collect_component_targets(doc: &Value) -> Vec<ComponentValidationTarget> {
     let mut targets = Vec::new();
     let Some(obj) = doc.as_object() else {
@@ -262,6 +263,7 @@ fn collect_component_targets(doc: &Value) -> Vec<ComponentValidationTarget> {
     targets
 }
 
+/// Depth-first visit of one component JSON node, pushing leaf widgets that declare `component`.
 fn walk_component_node(node: &Value, pointer: &str, out: &mut Vec<ComponentValidationTarget>) {
     let child_seg = |parent: &str, i: usize| format!("{parent}/children/{i}");
     crate::component_tree::visit_component_subtree(node, pointer, &child_seg, &mut |n, p| {
@@ -281,6 +283,7 @@ fn walk_component_node(node: &Value, pointer: &str, out: &mut Vec<ComponentValid
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     use serde_json::json;
 

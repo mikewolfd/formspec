@@ -3,6 +3,7 @@
 use crate::extension_analysis::RegistryEntryStatus;
 
 /// Extension mechanism category.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionCategory {
     DataType,
@@ -13,6 +14,7 @@ pub enum ExtensionCategory {
 }
 
 /// Organization publishing a registry document.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct Publisher {
     pub name: String,
@@ -21,6 +23,7 @@ pub struct Publisher {
 }
 
 /// A single extension record with full metadata.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct RegistryEntry {
     pub name: String,
@@ -35,6 +38,7 @@ pub struct RegistryEntry {
 }
 
 /// Function/constraint parameter declaration.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct Parameter {
     pub name: String,
@@ -66,6 +70,7 @@ impl std::fmt::Display for RegistryError {
 impl std::error::Error for RegistryError {}
 
 /// A parsed registry document with indexed entries.
+#[allow(missing_docs, clippy::missing_docs_in_private_items)]
 #[derive(Debug)]
 pub struct Registry {
     pub publisher: Publisher,

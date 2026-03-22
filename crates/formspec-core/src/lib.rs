@@ -1,9 +1,12 @@
 //! Formspec core processing — FEL, paths, schemas, assembly, mappings, extensions.
+//!
+//! Depends on the `fel_core` crate and holds the non-reactive processing layer used by WASM,
+//! Python, and batch evaluators. Human overview: crate `README.md`. Markdown API export:
+//! `docs/rustdoc-md/API.md` (regenerate with `npm run docs:formspec-core`).
+#![warn(missing_docs)]
+// Enforced via `cargo clippy -p formspec-core`; rustc ignores `clippy::` lints.
+#![warn(clippy::missing_docs_in_private_items)]
 
-/// Formspec core processing — FEL analysis, path utils, schema validation, assembler.
-///
-/// This crate depends on `fel-core` and provides the non-reactive processing layer
-/// that replaces the TypeScript engine's pure-logic modules.
 pub mod assembler;
 pub mod changelog;
 pub mod component_tree;
