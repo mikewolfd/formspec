@@ -8,6 +8,7 @@
 | `formspec-py/src/lib.rs` | Done — `convert`, `fel`, `document`, `registry`, `changelog`, `mapping`, `native_tests`; thin `lib.rs` + `#[pymodule]` |
 | `formspec-wasm/src/lib.rs` | Done — `convert`, `fel`, `document`, `evaluate`, `definition`, `mapping`, `registry`, `changelog`, `wasm_tests`; thin `lib.rs` |
 | `formspec-core` `runtime_mapping` | Done — `runtime_mapping/{mod,types,path,env,transforms,engine,document,tests}.rs`; dead `apply_flatten` / `apply_nest` removed |
+| `formspec-core` `registry_client` | Done — `registry_client/{mod,types,parse,registry,version,name,tests}.rs` |
 | Remaining rows below | Not started in this pass |
 
 ## Scope
@@ -42,7 +43,7 @@ Script:
 1615  crates/formspec-eval/src/recalculate.rs
 1522  crates/formspec-lint/src/pass_theme.rs
 1461  crates/formspec-eval/src/revalidate.rs
-1256  crates/formspec-core/src/registry_client.rs
+—     crates/formspec-core/src/registry_client/ _(split; `mod.rs` + `types`, `parse`, `registry`, `version`, `name`, `tests`)_
 1248  crates/formspec-lint/src/pass_component.rs
 1143  crates/formspec-core/src/assembler.rs
 1087  crates/fel-core/src/parser.rs
@@ -124,10 +125,10 @@ Script:
 - Split into `revalidate/{items,extensions,shapes,env,scope}.rs`.
 - Centralize `env.data` mutation before moving validator logic.
 
-### [crates/formspec-core/src/registry_client.rs](/Users/mikewolfd/Work/formspec/crates/formspec-core/src/registry_client.rs)
+### [crates/formspec-core/src/registry_client/](/Users/mikewolfd/Work/formspec/crates/formspec-core/src/registry_client/mod.rs)
 
-- Split into `registry_client/{model,parse,query,validation,version,discovery}.rs`.
-- Keep parsing responsible for maintaining `entries` and `by_name` invariants.
+- Split into `types` (document model + errors), `parse` (JSON → entries), `registry` (`Registry` API + `RegistryLookup`), `version` (constraint matching), `name` (x- prefix rule), and `tests`.
+- `mod.rs` holds `validate_lifecycle_transition`, `well_known_url`, and `pub use` for the same public surface as before (`lib.rs` unchanged).
 
 ### [crates/formspec-lint/src/pass_component.rs](/Users/mikewolfd/Work/formspec/crates/formspec-lint/src/pass_component.rs)
 
