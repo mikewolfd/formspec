@@ -7,6 +7,8 @@
 //! - **Runtime eval item-tree rebuild** uses [`coerce_definition_item_key_segment`] /
 //!   [`DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty`]: missing, null, or non-string `key` is
 //!   treated as `""`; every array element is visited and `children` are always walked when present.
+//! - **Extension diagnostic prefixes** (lint pass 3b): map [`DefinitionItemVisitCtx::dotted_path`] via
+//!   [`extension_item_diagnostic_path_from_dotted`] to stable `$.items[key=…]`-style paths.
 //!
 //! ## Spec cross-references (`specs/*.llm.md`)
 //!
@@ -81,6 +83,25 @@ pub fn definition_item_dotted_path(parent_dotted: Option<&str>, key_segment: &st
         Some(prefix) => format!("{prefix}.{key_segment}"),
         None => key_segment.to_string(),
     }
+}
+
+/// Map a bind-style dotted item path to the extensions-pass diagnostic prefix.
+///
+/// The lint extensions pass reports locations like `$.items[key=rootKey].nestedKey` (key-stable,
+/// not `$.items[0]`). That string is derived from the same dotted paths as
+/// [`visit_definition_items_json`] / [`DefinitionItemVisitCtx::dotted_path`]: the first segment is
+/// wrapped as `$.items[key=…]`; further segments are appended with dots.
+pub fn extension_item_diagnostic_path_from_dotted(dotted: &str) -> String {
+    let mut segments = dotted.split('.');
+    let Some(first) = segments.next() else {
+        return String::from("$.items[key=]");
+    };
+    let mut out = format!("$.items[key={first}]");
+    for seg in segments {
+        out.push('.');
+        out.push_str(seg);
+    }
+    out
 }
 
 /// Visit definition items under a JSON array with an explicit key policy.
@@ -212,5 +233,18 @@ mod tests {
         assert_eq!(definition_item_dotted_path(None, ""), "");
         assert_eq!(definition_item_dotted_path(Some("a"), ""), "a.");
         assert_eq!(definition_item_dotted_path(Some("a"), "b"), "a.b");
+    }
+
+    #[test]
+    fn extension_diagnostic_path_from_dotted() {
+        assert_eq!(
+            extension_item_diagnostic_path_from_dotted("field"),
+            "$.items[key=field]"
+        );
+        assert_eq!(
+            extension_item_diagnostic_path_from_dotted("group.child"),
+            "$.items[key=group].child"
+        );
+        assert_eq!(extension_item_diagnostic_path_from_dotted(""), "$.items[key=]");
     }
 }

@@ -7,12 +7,14 @@
 //!
 //! ## Diagnostic paths (key-based vs index-based)
 //!
-//! This pass reports item locations using **semantic** paths such as `$.items[key=foo]` and
-//! `{parent}.{key}` under `children`. Those strings are **not** interchangeable with the
-//! index-based paths produced by `formspec_core::visit_definition_items_json` (for example
-//! `$.items\[0\]`). Key-based paths stay stable when sibling order changes and match how authors
-//! name items. Switching extension diagnostics to indexed JSON paths would be a **user-visible**
-//! behavior change, not a refactor.
+//! Item locations use the shared `formspec_core::visit_definition_items_from_document` walker
+//! (same skip rules as other lint passes) plus
+//! `formspec_core::extension_item_diagnostic_path_from_dotted` to format **semantic** prefixes
+//! (`$.items[key=foo]`, `$.items[key=foo].bar`). Those strings are **not** interchangeable with the
+//! index-based `json_path` values on `formspec_core::DefinitionItemVisitCtx` (for example
+//! `$.items\[0\]`). Key-based
+//! prefixes stay stable when sibling order changes. Switching extension diagnostics to indexed JSON
+//! paths would be a **user-visible** behavior change, not a refactor.
 //!
 //! ## Spec cross-references (`specs/*.llm.md`)
 //!
@@ -39,6 +41,9 @@ use serde_json::Value;
 
 use formspec_core::extension_analysis::{
     MapRegistry, RegistryEntryInfo, RegistryEntryStatus, RegistryLookup,
+};
+use formspec_core::{
+    extension_item_diagnostic_path_from_dotted, visit_definition_items_from_document,
 };
 
 use crate::types::LintDiagnostic;
@@ -150,69 +155,25 @@ fn check_extensions_object(
     }
 }
 
-/// Semantic item paths (`$.items[key=k]`, then `{path}.{key}`).
-///
-/// Skips array elements without a string `key` (and does not recurse into their `children`), same
-/// rule as other key-based walks here. This remains **key-based** for diagnostics; do not replace
-/// with `visit_definition_items_json` output (indexed `$.items\[n\]` paths, …) without an explicit product decision
-/// — see the crate-level “Diagnostic paths” section.
-fn walk_extension_item_paths(
-    items: &[Value],
-    prefix: &str,
-    visitor: &mut impl FnMut(&str, &Value),
-) {
-    for item in items {
-        let key = match item.get("key").and_then(|v| v.as_str()) {
-            Some(k) => k,
-            None => continue,
-        };
-        let path = if prefix.is_empty() {
-            format!("$.items[key={key}]")
-        } else {
-            format!("{prefix}.{key}")
-        };
-
-        visitor(&path, item);
-
-        if let Some(children) = item.get("children").and_then(|v| v.as_array()) {
-            walk_extension_item_paths(children, &path, visitor);
-        }
-    }
-}
-
-fn walk_items(
-    items: &[Value],
-    prefix: &str,
-    registry: &dyn RegistryLookup,
-    out: &mut Vec<LintDiagnostic>,
-) {
-    walk_extension_item_paths(items, prefix, &mut |path, item| {
-        if let Some(extensions) = item.get("extensions").and_then(|v| v.as_object()) {
-            check_extensions_object(extensions, path, registry, out);
-        }
-    });
-}
-
 // ── Public API ─────────────────────────────────────────────────
 
 /// Collect all enabled extensions from the item tree.
 /// Returns `(JSONPath, extension_name)` for each extension with a truthy value.
 fn collect_all_enabled_extensions(document: &Value) -> Vec<(String, String)> {
     let mut result = Vec::new();
-    if let Some(items) = document.get("items").and_then(|v| v.as_array()) {
-        walk_extension_item_paths(items, "", &mut |path, item| {
-            if let Some(extensions) = item.get("extensions").and_then(|v| v.as_object()) {
-                for (ext_name, ext_value) in extensions {
-                    if is_extension_enabled(ext_value) {
-                        result.push((
-                            format!("{path}.extensions.{ext_name}"),
-                            ext_name.clone(),
-                        ));
-                    }
+    visit_definition_items_from_document(document, &mut |ctx| {
+        let path = extension_item_diagnostic_path_from_dotted(&ctx.dotted_path);
+        if let Some(extensions) = ctx.item.get("extensions").and_then(|v| v.as_object()) {
+            for (ext_name, ext_value) in extensions {
+                if is_extension_enabled(ext_value) {
+                    result.push((
+                        format!("{path}.extensions.{ext_name}"),
+                        ext_name.clone(),
+                    ));
                 }
             }
-        });
-    }
+        }
+    });
     result
 }
 
@@ -239,9 +200,12 @@ pub fn check_extensions(document: &Value, registry_documents: &[Value]) -> Vec<L
     let registry = build_registry(registry_documents);
 
     let mut diagnostics = Vec::new();
-    if let Some(items) = document.get("items").and_then(|v| v.as_array()) {
-        walk_items(items, "", &registry, &mut diagnostics);
-    }
+    visit_definition_items_from_document(document, &mut |ctx| {
+        let path = extension_item_diagnostic_path_from_dotted(&ctx.dotted_path);
+        if let Some(extensions) = ctx.item.get("extensions").and_then(|v| v.as_object()) {
+            check_extensions_object(extensions, &path, &registry, &mut diagnostics);
+        }
+    });
     diagnostics
 }
 

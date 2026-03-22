@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use formspec_core::visit_component_subtree;
+use formspec_core::{visit_component_subtree, visit_definition_items_from_document};
 use serde_json::Value;
 
 use crate::component_matrix::{
@@ -107,41 +107,28 @@ struct FieldInfo {
 /// Build a map of field key → FieldInfo from a definition's item tree.
 fn build_field_lookup(definition: &Value) -> HashMap<String, FieldInfo> {
     let mut lookup = HashMap::new();
-    if let Some(items) = definition.get("items").and_then(|v| v.as_array()) {
-        collect_fields(items, "", &mut lookup);
-    }
+    visit_definition_items_from_document(definition, &mut |ctx| {
+        let full = ctx.dotted_path.clone();
+        let data_type = ctx
+            .item
+            .get("dataType")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        let has_options = ctx.item.get("optionSet").is_some()
+            || ctx
+                .item
+                .get("options")
+                .and_then(|v| v.as_array())
+                .is_some_and(|a| !a.is_empty());
+        let info = FieldInfo {
+            data_type,
+            has_options,
+        };
+        // Insert both the full dotted path and the bare segment key.
+        lookup.insert(full.clone(), info.clone());
+        lookup.insert(ctx.key.to_string(), info);
+    });
     lookup
-}
-
-fn collect_fields(items: &[Value], prefix: &str, lookup: &mut HashMap<String, FieldInfo>) {
-    for item in items {
-        if let Some(key) = item.get("key").and_then(|v| v.as_str()) {
-            let full = if prefix.is_empty() {
-                key.to_string()
-            } else {
-                format!("{prefix}.{key}")
-            };
-            let data_type = item
-                .get("dataType")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            let has_options = item.get("optionSet").is_some()
-                || item
-                    .get("options")
-                    .and_then(|v| v.as_array())
-                    .is_some_and(|a| !a.is_empty());
-            let info = FieldInfo {
-                data_type,
-                has_options,
-            };
-            // Insert both the full dotted path and the bare key.
-            lookup.insert(full.clone(), info.clone());
-            lookup.insert(key.to_string(), info);
-            if let Some(children) = item.get("children").and_then(|v| v.as_array()) {
-                collect_fields(children, &full, lookup);
-            }
-        }
-    }
 }
 
 // ── Custom component cycle detection ────────────────────────────

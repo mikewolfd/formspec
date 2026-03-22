@@ -7,6 +7,8 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
+use formspec_core::visit_definition_items_from_document;
+
 use crate::types::LintDiagnostic;
 
 const PASS: u8 = 6;
@@ -306,27 +308,11 @@ fn extract_token_refs(text: &str) -> Vec<&str> {
 /// are included so that theme overrides can reference items either way.
 fn collect_definition_item_keys(definition: &Value) -> HashSet<String> {
     let mut keys = HashSet::new();
-    if let Some(items) = definition.get("items").and_then(|v| v.as_array()) {
-        collect_item_paths(items, "", &mut keys);
-    }
+    visit_definition_items_from_document(definition, &mut |ctx| {
+        keys.insert(ctx.dotted_path.clone());
+        keys.insert(ctx.key.to_string());
+    });
     keys
-}
-
-fn collect_item_paths(items: &[Value], prefix: &str, paths: &mut HashSet<String>) {
-    for item in items {
-        if let Some(key) = item.get("key").and_then(|v| v.as_str()) {
-            let full = if prefix.is_empty() {
-                key.to_string()
-            } else {
-                format!("{prefix}.{key}")
-            };
-            paths.insert(full.clone());
-            paths.insert(key.to_string()); // bare key for top-level matching
-            if let Some(children) = item.get("children").and_then(|v| v.as_array()) {
-                collect_item_paths(children, &full, paths);
-            }
-        }
-    }
 }
 
 // ── Token reference walking ─────────────────────────────────────
