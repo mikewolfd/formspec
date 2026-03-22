@@ -1,4 +1,4 @@
-# Makefile for Formspec Documentation
+# Makefile for Formspec — documentation, tests, and full compile (Rust + JS/WASM + PyO3).
 
 PANDOC = pandoc
 TEMPLATE = docs/template.html
@@ -25,11 +25,21 @@ test-studio-e2e:
 test-python:
 	pytest
 
-WASM_OUT = packages/formspec-engine/wasm-pkg
-
 build-wasm:
-	wasm-pack build crates/formspec-wasm --target web --out-dir ../../$(WASM_OUT) --no-opt
-	wasm-opt -Os --enable-bulk-memory --enable-nontrapping-float-to-int $(WASM_OUT)/formspec_wasm_bg.wasm -o $(WASM_OUT)/formspec_wasm_bg.wasm
+	npm run build:wasm --workspace=formspec-engine
+
+# Full compile: Rust workspace + npm workspaces (WASM via formspec-engine) + formspec_rust into active Python.
+build: build-rust build-js build-python
+
+build-rust:
+	cargo build --workspace
+
+build-js:
+	npm run build
+
+# Installs the maturin-built extension so `import formspec_rust` matches the tree (needs maturin: pip install maturin).
+build-python:
+	python3 -m pip install --no-build-isolation ./crates/formspec-py
 
 test-rust:
 	cargo test --workspace
@@ -111,4 +121,4 @@ clean:
 	      packages/formspec-mcp/API.llm.md \
 	      packages/formspec-studio-core/API.llm.md
 
-.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build-wasm test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
+.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python build-wasm test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean

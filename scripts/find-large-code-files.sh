@@ -62,13 +62,17 @@ should_skip() {
     fi
 
     case "$path" in
-      *.test.ts|*.test.js|*.test.py|*.test.rs|*.spec.ts|*.spec.js|*.spec.py|*.spec.rs)
+      *.test.ts|*.test.js|*.test.py|*.test.rs|*.spec.ts|*.spec.js|*.spec.py|*.spec.rs|*/tests.rs|*_tests.rs|*_test.rs)
         return 0
         ;;
     esac
   fi
 
   if [ "$include_generated" -eq 0 ] && [[ "$path" == */generated/* ]]; then
+    return 0
+  fi
+
+  if [ "$include_generated" -eq 0 ] && [[ "$path" == */wasm-pkg/* ]]; then
     return 0
   fi
 

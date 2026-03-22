@@ -116,8 +116,11 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
 ## Build & Development Commands
 
 ```bash
-# Build TypeScript packages
-npm run build                    # runs tsc in each package
+# Full monorepo compile (Rust workspace + npm build + pip install formspec-py / formspec_rust)
+make build
+
+# Build TypeScript packages only
+npm run build                    # runs tsc in each package (formspec-engine runs wasm-pack first)
 
 # Regenerate schema-driven spec artifacts (BLUF injection, schema refs, LLM docs) + filemap
 npm run docs:generate
