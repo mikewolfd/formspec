@@ -6,6 +6,7 @@
 /// that replaces the TypeScript engine's pure-logic modules.
 pub mod assembler;
 pub mod changelog;
+pub mod component_tree;
 pub mod extension_analysis;
 pub mod fel_analysis;
 pub mod fel_rewrite_exact;
@@ -55,3 +56,4 @@ pub use schema_validator::{
     SchemaValidationPlan, SchemaValidationResult, detect_document_type, json_pointer_to_jsonpath,
     schema_validation_plan, validate_document,
 };
+pub use component_tree::visit_component_subtree;

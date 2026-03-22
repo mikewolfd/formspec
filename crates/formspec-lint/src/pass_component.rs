@@ -5,6 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use formspec_core::visit_component_subtree;
 use serde_json::Value;
 
 use crate::component_matrix::{
@@ -195,6 +196,13 @@ struct WalkState<'a> {
 
 impl<'a> WalkState<'a> {
     fn walk_node(&mut self, node: &Value, path: &str) {
+        let child_seg = |parent: &str, i: usize| format!("{parent}.children[{i}]");
+        visit_component_subtree(node, path, &child_seg, &mut |n, p| {
+            self.apply_component_rules(n, p);
+        });
+    }
+
+    fn apply_component_rules(&mut self, node: &Value, path: &str) {
         let comp_type = match node.get("component").and_then(|v| v.as_str()) {
             Some(ct) => ct,
             None => return,
@@ -349,13 +357,6 @@ impl<'a> WalkState<'a> {
                         format!("Multiple editable inputs bind to the same field: '{bind}'"),
                     ));
                 }
-            }
-        }
-
-        // Recurse into children
-        if let Some(children) = node.get("children").and_then(|v| v.as_array()) {
-            for (i, child) in children.iter().enumerate() {
-                self.walk_node(child, &format!("{path}.children[{i}]"));
             }
         }
     }

@@ -263,25 +263,20 @@ fn collect_component_targets(doc: &Value) -> Vec<ComponentValidationTarget> {
 }
 
 fn walk_component_node(node: &Value, pointer: &str, out: &mut Vec<ComponentValidationTarget>) {
-    let Some(obj) = node.as_object() else {
-        return;
-    };
-    let Some(component_name) = obj.get("component").and_then(Value::as_str) else {
-        return;
-    };
-
-    out.push(ComponentValidationTarget {
-        pointer: pointer.to_string(),
-        component: component_name.to_string(),
-        node: node.clone(),
+    let child_seg = |parent: &str, i: usize| format!("{parent}/children/{i}");
+    crate::component_tree::visit_component_subtree(node, pointer, &child_seg, &mut |n, p| {
+        let Some(obj) = n.as_object() else {
+            return;
+        };
+        let Some(component_name) = obj.get("component").and_then(Value::as_str) else {
+            return;
+        };
+        out.push(ComponentValidationTarget {
+            pointer: p.to_string(),
+            component: component_name.to_string(),
+            node: n.clone(),
+        });
     });
-
-    if let Some(children) = obj.get("children").and_then(Value::as_array) {
-        for (index, child) in children.iter().enumerate() {
-            let child_pointer = format!("{pointer}/children/{index}");
-            walk_component_node(child, &child_pointer, out);
-        }
-    }
 }
 
 #[cfg(test)]

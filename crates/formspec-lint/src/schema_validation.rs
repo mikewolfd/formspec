@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use formspec_core::{DocumentType, json_pointer_to_jsonpath};
+use formspec_core::{DocumentType, json_pointer_to_jsonpath, visit_component_subtree};
 use jsonschema::{Resource, Validator};
 use serde_json::{Value, json};
 
@@ -257,33 +257,31 @@ fn walk_and_validate(
     node_validators: &ComponentNodeValidators,
     diags: &mut Vec<LintDiagnostic>,
 ) {
-    let Some(obj) = node.as_object() else { return };
-    let Some(component) = obj.get("component").and_then(Value::as_str) else {
-        return;
-    };
-
-    let validator = node_validators
-        .per_type
-        .get(component)
-        .unwrap_or(&node_validators.custom_ref);
-
-    for err in validator.iter_errors(node) {
-        let err_pointer = err.instance_path().as_str();
-        let full_pointer = if err_pointer.is_empty() {
-            pointer.to_string()
-        } else {
-            format!("{pointer}{err_pointer}")
+    let child_seg = |parent: &str, i: usize| format!("{parent}/children/{i}");
+    visit_component_subtree(node, pointer, &child_seg, &mut |n, p| {
+        let Some(obj) = n.as_object() else {
+            return;
         };
-        let path = json_pointer_to_jsonpath(&full_pointer);
-        diags.push(LintDiagnostic::error("E101", 1, path, err.to_string()));
-    }
+        let Some(component) = obj.get("component").and_then(Value::as_str) else {
+            return;
+        };
 
-    if let Some(children) = obj.get("children").and_then(Value::as_array) {
-        for (i, child) in children.iter().enumerate() {
-            let child_pointer = format!("{pointer}/children/{i}");
-            walk_and_validate(child, &child_pointer, node_validators, diags);
+        let validator = node_validators
+            .per_type
+            .get(component)
+            .unwrap_or(&node_validators.custom_ref);
+
+        for err in validator.iter_errors(n) {
+            let err_pointer = err.instance_path().as_str();
+            let full_pointer = if err_pointer.is_empty() {
+                p.to_string()
+            } else {
+                format!("{p}{err_pointer}")
+            };
+            let path = json_pointer_to_jsonpath(&full_pointer);
+            diags.push(LintDiagnostic::error("E101", 1, path, err.to_string()));
         }
-    }
+    });
 }
 
 #[cfg(test)]

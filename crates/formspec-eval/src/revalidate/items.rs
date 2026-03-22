@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use fancy_regex::Regex;
+use formspec_core::registry_client::version_satisfies;
 use serde_json::Value;
 
 use fel_core::{FormspecEnvironment, evaluate, parse};
@@ -344,47 +345,4 @@ fn validate_extension_constraints(
             }
         }
     }
-}
-
-/// Simple semver satisfaction check for extension compatibility ranges.
-fn version_satisfies(version: &str, constraint: &str) -> bool {
-    let v = parse_semver(version);
-
-    for token in constraint.split_whitespace() {
-        let (op, ver_str) = if let Some(rest) = token.strip_prefix(">=") {
-            (">=", rest)
-        } else if let Some(rest) = token.strip_prefix("<=") {
-            ("<=", rest)
-        } else if let Some(rest) = token.strip_prefix('>') {
-            (">", rest)
-        } else if let Some(rest) = token.strip_prefix('<') {
-            ("<", rest)
-        } else {
-            ("=", token)
-        };
-
-        let c = parse_semver(ver_str);
-
-        let ok = match op {
-            ">=" => v >= c,
-            "<=" => v <= c,
-            ">" => v > c,
-            "<" => v < c,
-            _ => v == c,
-        };
-        if !ok {
-            return false;
-        }
-    }
-    true
-}
-
-/// Parse a version string into a (major, minor, patch) tuple.
-fn parse_semver(v: &str) -> (u64, u64, u64) {
-    let parts: Vec<u64> = v.split('.').filter_map(|p| p.parse().ok()).collect();
-    (
-        parts.first().copied().unwrap_or(0),
-        parts.get(1).copied().unwrap_or(0),
-        parts.get(2).copied().unwrap_or(0),
-    )
 }
