@@ -5,11 +5,18 @@ export interface Props {
 
 const { currentPath = "/" } = Astro.props;
 
+/** Ignore trailing-slash differences (e.g. /references vs /references/). */
+function pathForActive(pathname: string, linkHref: string): boolean {
+  const p = pathname.replace(/\/$/, "") || "/";
+  const h = linkHref.split("#")[0].replace(/\/$/, "") || "/";
+  return p === h;
+}
+
 const links = [
   { href: "/#personas", label: "Who it's for" },
   { href: "/features/", label: "Features" },
   { href: "/architecture/", label: "Architecture" },
-  { href: "/references/", label: "References" },
+  { href: "/references", label: "References" },
   { href: "/docs/", label: "Docs" },
   { href: "/blog/", label: "Blog" },
 ];
@@ -31,7 +38,7 @@ const links = [
           <li>
             <a
               href={link.href}
-              class={currentPath === link.href ? "nav-link active" : "nav-link"}
+              class={pathForActive(currentPath, link.href) ? "nav-link active" : "nav-link"}
             >
               {link.label}
             </a>

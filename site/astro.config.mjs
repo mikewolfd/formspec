@@ -11,9 +11,6 @@ export default defineConfig({
     format: "directory",
   },
   outDir: "./dist",
-  redirects: {
-    "/references": "/references/index.html",
-  },
   markdown: {
     shikiConfig: {
       theme: "github-light",
