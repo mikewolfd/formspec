@@ -9,10 +9,11 @@ Sibling binding: **[`formspec-py`](../formspec-py/)** (`formspec_rust`) targets 
 | Module | Role |
 |--------|------|
 | `convert` | Item-tree navigation, `json_to_field_map`, lint result JSON, registry status strings, repeat context |
-| `fel` | FEL eval (with fields or full context), tokenize, print, deps, analysis, rewrites, builtins, path helpers |
+| `fel` | FEL eval (with fields or full context), `prepareFelExpression`, `rewriteFelForAssembly`, tokenize, print, deps, analysis, rewrites, builtins, path helpers |
 | `document` | `detectDocumentType`, `planSchemaValidation`, `lintDocument` (+ registries) |
 | `evaluate` | `evaluateDefinition`, `evaluateScreener`, context/trigger/registry parsing |
-| `definition` | `assembleDefinition` |
+| `value_coerce` | `coerceFieldValue` (item/bind/definition/value JSON strings) |
+| `definition` | `assembleDefinition`, `resolveOptionSetsOnDefinition`, `applyMigrationsToResponseData` |
 | `mapping` | `executeMapping`, `executeMappingDoc`, mapping document/rule JSON parsing |
 | `registry` | `parseRegistry`, `findRegistryEntry`, lifecycle, `wellKnownRegistryUrl`, extension usage validation |
 | `changelog` | `generateChangelog` |

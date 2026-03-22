@@ -2,8 +2,8 @@
 
 use formspec_eval::{
     EvalContext, EvalTrigger, ValidationResult, evaluate_definition,
-    evaluate_definition_full_with_instances, evaluate_definition_with_context,
-    evaluate_definition_with_trigger, evaluate_screener,
+    evaluate_definition_full_with_instances, evaluate_definition_full_with_instances_and_context,
+    evaluate_definition_with_context, evaluate_definition_with_trigger, evaluate_screener,
 };
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -1862,6 +1862,50 @@ fn repeat_calculate_has_access_to_index_and_count() {
 }
 
 #[test]
+fn host_repeat_counts_satisfy_min_repeat_with_sparse_flat_values() {
+    let def = json!({
+        "$formspec": "1.0",
+        "url": "test",
+        "version": "1.0.0",
+        "title": "T",
+        "items": [{
+            "key": "items",
+            "type": "group",
+            "repeatable": true,
+            "minRepeat": 2,
+            "children": [
+                { "key": "x", "type": "field", "dataType": "string", "label": "X" }
+            ]
+        }],
+    });
+
+    let data = HashMap::new();
+    let mut rc = HashMap::new();
+    rc.insert("items".to_string(), 2u64);
+
+    let ctx = EvalContext {
+        repeat_counts: Some(rc),
+        ..EvalContext::default()
+    };
+
+    let result = evaluate_definition_full_with_instances_and_context(
+        &def,
+        &data,
+        EvalTrigger::Continuous,
+        &[],
+        &HashMap::new(),
+        &ctx,
+    );
+
+    let min_repeat = result
+        .validations
+        .iter()
+        .filter(|v| v.code == "MIN_REPEAT")
+        .count();
+    assert_eq!(min_repeat, 0);
+}
+
+#[test]
 fn repeat_field_projection_supports_count_where() {
     let def = json!({
         "$formspec": "1.0",
@@ -3409,6 +3453,7 @@ fn expression_default_applied_on_relevance_transition() {
             now_iso: None,
             previous_validations: None,
             previous_non_relevant: Some(result1.non_relevant.clone()),
+            ..EvalContext::default()
         },
     );
     assert_eq!(
@@ -3441,6 +3486,7 @@ fn expression_default_does_not_overwrite_user_value() {
             now_iso: None,
             previous_validations: None,
             previous_non_relevant: Some(vec!["name".to_string()]),
+            ..EvalContext::default()
         },
     );
     assert_eq!(
@@ -3477,6 +3523,7 @@ fn literal_default_still_works_after_expression_default_change() {
             now_iso: None,
             previous_validations: None,
             previous_non_relevant: Some(result1.non_relevant.clone()),
+            ..EvalContext::default()
         },
     );
     assert_eq!(
@@ -3516,6 +3563,7 @@ fn expression_default_in_repeat_group() {
             now_iso: None,
             previous_validations: None,
             previous_non_relevant: Some(result1.non_relevant.clone()),
+            ..EvalContext::default()
         },
     );
     let label = result2.values.get("items[0].label");

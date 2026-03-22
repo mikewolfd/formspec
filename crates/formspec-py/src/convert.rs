@@ -348,10 +348,12 @@ pub(crate) fn parse_status_str(s: &str) -> Option<RegistryEntryStatus> {
     registry_client::parse_registry_entry_status(s)
 }
 
+#[cfg(test)]
 pub(crate) fn status_str(s: RegistryEntryStatus) -> &'static str {
     registry_client::registry_entry_status_to_wire(s)
 }
 
+#[cfg(test)]
 pub(crate) fn category_str(c: registry_client::ExtensionCategory) -> &'static str {
     registry_client::extension_category_to_wire(c)
 }

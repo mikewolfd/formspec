@@ -24,6 +24,8 @@ from formspec._rust import (
     validate_lifecycle_transition,
     well_known_registry_url,
     generate_changelog,
+    apply_migrations_to_response_data,
+    rewrite_fel_for_assembly,
     canonical_item_path,
 )
 from formspec.fel.errors import FelSyntaxError
@@ -40,6 +42,7 @@ def test_formspec_rust_exports_expected_contract():
         "trigger",
         "registry_documents",
         "instances",
+        "context",
     ]
 
     for name in (
@@ -51,6 +54,7 @@ def test_formspec_rust_exports_expected_contract():
         "evaluate_screener_py",
         "execute_mapping_doc",
         "generate_changelog",
+        "apply_migrations_to_response_data",
     ):
         assert hasattr(formspec_rust, name), f"missing formspec_rust export: {name}"
 
@@ -156,6 +160,24 @@ def test_evaluate_definition_simple():
     assert isinstance(result.data, dict)
 
 
+def test_evaluate_definition_validation_keys_match_wasm_camel_case():
+    """PyO3 must emit constraintKind / shapeId (JsCamel) so Python matches Node fuzzing and unit tests."""
+    definition = {
+        "url": "test://wire-keys",
+        "version": "1.0.0",
+        "items": [{"type": "field", "key": "name", "dataType": "string"}],
+        "binds": [{"path": "name", "required": True}],
+    }
+    result = evaluate_definition(definition, {})
+    assert result.results, "expected at least one validation"
+    keys = set(result.results[0].keys())
+    assert "constraintKind" in keys, (
+        "expected constraintKind on validation dicts (reinstall formspec-py if you see "
+        f"constraint_kind only: pip install --no-build-isolation ./crates/formspec-py). keys={sorted(keys)}"
+    )
+    assert "constraint_kind" not in keys
+
+
 # ── Mapping ──────────────────────────────────────────────────────
 
 
@@ -204,6 +226,38 @@ def test_generate_changelog_returns_dict():
     }
     result = generate_changelog(old_def, new_def, "test://def")
     assert isinstance(result, dict)
+
+
+def test_rewrite_fel_for_assembly_prefixes_imported_key():
+    out = rewrite_fel_for_assembly(
+        "$amount",
+        {
+            "fragmentRootKey": "budget",
+            "hostGroupKey": "projectBudget",
+            "importedKeys": ["budget", "amount"],
+            "keyPrefix": "proj_",
+        },
+    )
+    assert out == "$proj_amount"
+
+
+def test_apply_migrations_to_response_data_rename():
+    definition = {
+        "migrations": [
+            {
+                "fromVersion": "1.0.0",
+                "changes": [{"type": "rename", "from": "name", "to": "fullName"}],
+            }
+        ]
+    }
+    out = apply_migrations_to_response_data(
+        definition,
+        {"name": "Ada"},
+        "1.0.0",
+        now_iso="2020-01-01T00:00:00Z",
+    )
+    assert out.get("fullName") == "Ada"
+    assert "name" not in out
 
 
 # ── Path utility ─────────────────────────────────────────────────

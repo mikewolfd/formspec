@@ -623,6 +623,39 @@ fn unmapped_error_emits_diagnostic() {
     assert!(result.diagnostics[0].message.contains("No value map entry"));
 }
 
+#[test]
+fn parse_allows_omit_transform_when_array_has_inner_rules() {
+    let v = json!([{
+        "sourcePath": "items",
+        "targetPath": "out.items",
+        "array": {
+            "mode": "each",
+            "innerRules": [
+                { "sourcePath": "name", "targetPath": "label", "transform": "preserve" }
+            ]
+        }
+    }]);
+    let rules = parse_mapping_rules_from_value(&v).unwrap();
+    assert_eq!(rules.len(), 1);
+    assert!(matches!(rules[0].transform, TransformType::Preserve));
+    assert!(rules[0].array.is_some());
+}
+
+#[test]
+fn parse_value_map_new_shape_defaults_unmapped_to_error() {
+    let v = json!([{
+        "sourcePath": "status",
+        "targetPath": "out.status",
+        "transform": "valueMap",
+        "valueMap": { "forward": { "active": "A" } }
+    }]);
+    let rules = parse_mapping_rules_from_value(&v).unwrap();
+    let TransformType::ValueMap { unmapped, .. } = &rules[0].transform else {
+        panic!("expected ValueMap");
+    };
+    assert_eq!(*unmapped, UnmappedStrategy::Error);
+}
+
 // ── CoerceType::Date and DateTime — mapping-spec.md §4.6 ────
 
 /// Spec: mapping-spec.md §4.6 — "CoerceType::Date passes through string values"

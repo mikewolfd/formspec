@@ -32,5 +32,7 @@ __all__ = [
     "validate_lifecycle_transition",
     "well_known_registry_url",
     "generate_changelog",
+    "apply_migrations_to_response_data",
+    "rewrite_fel_for_assembly",
     "canonical_item_path",
 ]

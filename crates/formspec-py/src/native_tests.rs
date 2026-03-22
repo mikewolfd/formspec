@@ -438,7 +438,7 @@ mod tests {
         }
     }
 
-    /// Boundary: flatten with no separator defaults to "."
+    /// Boundary: flatten with no separator defaults to "" (arrays: positional keys; objects ignore it).
     #[test]
     fn parse_mapping_rules_flatten_default_separator() {
         let rules_json = json!([{
@@ -449,7 +449,7 @@ mod tests {
         let rules = parse_mapping_rules_inner(&rules_json).unwrap();
         match &rules[0].transform {
             runtime_mapping::TransformType::Flatten { separator } => {
-                assert_eq!(separator, ".");
+                assert_eq!(separator, "");
             }
             other => panic!("expected Flatten with default separator, got {:?}", other),
         }

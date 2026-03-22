@@ -8,16 +8,18 @@ use pyo3::types::PyDict;
 use fel_core::{
     JsonWireStyle, MapEnvironment, builtin_function_catalog_json_value,
     dependencies_to_json_value_styled, evaluate, extract_dependencies, fel_diagnostics_to_json_value,
-    parse,
+    parse, prepare_fel_expression_owned, prepare_fel_host_options_from_json_map,
 };
+use serde_json::Value;
 use formspec_core::{
-    analyze_fel, fel_analysis_to_json_value, get_fel_dependencies,
+    analyze_fel, assembly_fel_rewrite_map_from_value, fel_analysis_to_json_value,
+    get_fel_dependencies, rewrite_fel_for_assembly as rewrite_fel_for_assembly_core,
 };
 
 use crate::PyObject;
 use crate::convert::{
-    build_formspec_env, fel_to_python, fel_to_python_tagged, json_to_python, parse_fel_expr,
-    pydict_to_field_map,
+    build_formspec_env, depythonize_json, fel_to_python, fel_to_python_tagged, json_to_python,
+    parse_fel_expr, pydict_to_field_map,
 };
 
 // ── FEL Evaluation ──────────────────────────────────────────────
@@ -125,4 +127,34 @@ pub fn analyze_expression(py: Python, expression: &str) -> PyResult<PyObject> {
 pub fn list_builtin_functions(py: Python) -> PyResult<PyObject> {
     let json = builtin_function_catalog_json_value();
     json_to_python(py, &json)
+}
+
+/// Normalize FEL source for evaluation (same rules as the TS engine / `prepareFelExpression` WASM).
+///
+/// Args:
+///     options: dict with `expression` (required), optional `current_item_path` / `currentItemPath`,
+///         `replace_self_ref` / `replaceSelfRef`, `repeat_counts` / `repeatCounts`,
+///         and `values_by_path` / `valuesByPath` or `field_paths` / `fieldPaths`.
+#[pyfunction]
+pub fn prepare_fel_expression(options: &Bound<'_, PyAny>) -> PyResult<String> {
+    let v: Value = depythonize_json(options)?;
+    let m = v.as_object().ok_or_else(|| {
+        pyo3::exceptions::PyTypeError::new_err("prepare_fel_expression options must be a dict")
+    })?;
+    let owned = prepare_fel_host_options_from_json_map(m)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    Ok(prepare_fel_expression_owned(&owned))
+}
+
+/// Rewrite FEL using definition-assembly RewriteMap (fragment + host keys, same as TS `rewriteFEL`).
+#[pyfunction]
+#[pyo3(name = "rewrite_fel_for_assembly")]
+pub fn rewrite_fel_for_assembly_py(
+    expression: &str,
+    map: &Bound<'_, PyAny>,
+) -> PyResult<String> {
+    let v: Value = depythonize_json(map)?;
+    let m = assembly_fel_rewrite_map_from_value(&v)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    Ok(rewrite_fel_for_assembly_core(expression, &m))
 }

@@ -8,8 +8,15 @@ mod tests {
     use serde_json::{Value, json};
 
     use crate::changelog::generate_changelog_inner;
+    use crate::definition::{
+        apply_migrations_to_response_data_wasm, resolve_option_sets_on_definition_wasm,
+    };
     use crate::evaluate::evaluate_definition_inner;
-    use crate::fel::{eval_fel_inner, tokenize_fel_inner};
+    use crate::fel::{
+        eval_fel_inner, prepare_fel_expression_inner, rewrite_fel_for_assembly_inner,
+        tokenize_fel_inner,
+    };
+    use crate::value_coerce::coerce_field_value_inner;
     use crate::mapping::execute_mapping_inner;
     use crate::registry::find_registry_entry_inner;
     use formspec_core::{
@@ -244,6 +251,94 @@ mod tests {
         assert_eq!(tokens[5]["tokenType"], json!("Asterisk"));
         assert_eq!(tokens[8]["tokenType"], json!("Identifier"));
         assert_eq!(tokens[8]["text"], json!("qty"));
+    }
+
+    #[test]
+    fn rewrite_fel_for_assembly_inner_fragment_and_prefix() {
+        let map = json!({
+            "fragmentRootKey": "budget",
+            "hostGroupKey": "projectBudget",
+            "importedKeys": ["budget", "amount"],
+            "keyPrefix": "proj_"
+        });
+        let out = rewrite_fel_for_assembly_inner("$budget.amount", &map.to_string()).unwrap();
+        assert_eq!(out, "$projectBudget.proj_amount");
+    }
+
+    #[test]
+    fn prepare_fel_expression_inner_repeat_aliases_from_values_by_path() {
+        let opt = json!({
+            "expression": "rows.score",
+            "valuesByPath": { "rows[0].score": 1, "rows[1].score": 2 },
+        });
+        let out = prepare_fel_expression_inner(&opt.to_string()).unwrap();
+        assert_eq!(out, "$rows[*].score");
+    }
+
+    #[test]
+    fn coerce_field_value_inner_decimal_precision_round_trip() {
+        let item = json!({ "dataType": "decimal" });
+        let out = coerce_field_value_inner(
+            &item.to_string(),
+            r#"{"precision":1}"#,
+            "{}",
+            "\"42.26\"",
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v, json!(42.3));
+    }
+
+    #[test]
+    fn coerce_field_value_inner_money_number_wraps_default_currency() {
+        let item = json!({ "dataType": "money" });
+        let def = json!({ "formPresentation": { "defaultCurrency": "USD" } });
+        let out = coerce_field_value_inner(
+            &item.to_string(),
+            "",
+            &def.to_string(),
+            "42.26",
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["amount"], json!(42.26));
+        assert_eq!(v["currency"], json!("USD"));
+    }
+
+    #[test]
+    fn resolve_option_sets_on_definition_wasm_inlines_array_set() {
+        let def = json!({
+            "items": [{ "key": "c", "optionSet": "o" }],
+            "optionSets": { "o": [{ "value": "1", "label": "One" }] },
+        });
+        let out = resolve_option_sets_on_definition_wasm(&def.to_string()).unwrap();
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["items"][0]["options"].as_array().unwrap().len(), 1);
+        assert_eq!(v["items"][0]["options"][0]["label"], json!("One"));
+    }
+
+    #[test]
+    fn apply_migrations_to_response_data_wasm_rename_and_transform() {
+        let def = json!({
+            "migrations": [{
+                "fromVersion": "1.0.0",
+                "changes": [
+                    { "type": "rename", "from": "givenName", "to": "name" },
+                    { "type": "transform", "path": "nickname", "expression": "upper(name)" }
+                ]
+            }]
+        });
+        let data = json!({ "givenName": "alice", "nickname": "legacy" });
+        let out = apply_migrations_to_response_data_wasm(
+            &def.to_string(),
+            &data.to_string(),
+            "1.0.0",
+            "2020-01-01T00:00:00Z",
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["name"], json!("alice"));
+        assert_eq!(v["nickname"], json!("ALICE"));
     }
 
     // ── Finding 69: generate_changelog_inner output shape ───────

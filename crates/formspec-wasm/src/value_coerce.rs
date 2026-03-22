@@ -1,0 +1,47 @@
+//! WASM binding for inbound field coercion (`coerceFieldValue`).
+
+use formspec_core::coerce_field_value;
+use serde_json::Value;
+use wasm_bindgen::prelude::*;
+
+use crate::json_host::{parse_value_str, to_json_string};
+
+/// Coerce a field value using item + bind + definition metadata (JSON in/out).
+///
+/// `bind_json` may be empty, `"null"`, or a JSON object. Mirrors TS `coerceFieldValue`.
+#[wasm_bindgen(js_name = "coerceFieldValue")]
+pub fn coerce_field_value_wasm(
+    item_json: &str,
+    bind_json: &str,
+    definition_json: &str,
+    value_json: &str,
+) -> Result<String, JsError> {
+    coerce_field_value_inner(item_json, bind_json, definition_json, value_json)
+        .map_err(|e| JsError::new(&e))
+}
+
+pub(crate) fn coerce_field_value_inner(
+    item_json: &str,
+    bind_json: &str,
+    definition_json: &str,
+    value_json: &str,
+) -> Result<String, String> {
+    let item: Value = parse_value_str(item_json, "item JSON")?;
+    let definition: Value = parse_value_str(definition_json, "definition JSON")?;
+    let value: Value = parse_value_str(value_json, "value JSON")?;
+    let bind_owned = {
+        let t = bind_json.trim();
+        if t.is_empty() || t == "null" {
+            None
+        } else {
+            let b: Value = parse_value_str(bind_json, "bind JSON")?;
+            if b.is_null() {
+                None
+            } else {
+                Some(b)
+            }
+        }
+    };
+    let out = coerce_field_value(&item, bind_owned.as_ref(), &definition, value);
+    to_json_string(&out)
+}

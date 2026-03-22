@@ -6,10 +6,16 @@ use pyo3::prelude::*;
 use pyo3::types::PyList;
 use serde_json::Value;
 
-use formspec_core::{JsonWireStyle, detect_document_type};
+use formspec_core::{
+    JsonWireStyle, apply_migrations_to_response_data as apply_migrations_to_response_data_core,
+    coerce_field_value as coerce_field_value_core, detect_document_type,
+    resolve_option_sets_on_definition as resolve_option_sets_on_definition_core,
+};
 use formspec_eval::{
-    evaluate_definition_full_with_instances, evaluate_screener, evaluation_result_to_json_value_styled,
+    eval_context_from_json_object, evaluate_definition_full_with_instances_and_context,
+    evaluate_screener, evaluation_result_to_json_value_styled,
     extension_constraints_from_registry_documents, screener_route_to_json_value,
+    types::EvalContext,
 };
 use formspec_lint::{LintMode, LintOptions, lint_result_to_json_value, lint_with_options};
 
@@ -93,10 +99,12 @@ pub fn lint_document(
 ///     data: Python dict of field values
 ///     trigger: Optional shape timing mode ("continuous", "submit", "disabled")
 ///     registry_documents: Optional list of registry document dicts
+///     instances: Optional dict of named instance payloads
+///     context: Optional dict with now_iso / previous_validations / repeat_counts (snake or camel keys)
 ///
 /// Returns:
-///     A dict with: values, validations, non_relevant, variables, required, readonly
-#[pyfunction(signature = (definition, data, trigger=None, registry_documents=None, instances=None))]
+///     A dict with: values, validations, nonRelevant, variables, required, readonly (camelCase validation fields).
+#[pyfunction(signature = (definition, data, trigger=None, registry_documents=None, instances=None, context=None))]
 pub fn evaluate_def(
     py: Python,
     definition: &Bound<'_, PyAny>,
@@ -104,6 +112,7 @@ pub fn evaluate_def(
     trigger: Option<&str>,
     registry_documents: Option<&Bound<'_, PyList>>,
     instances: Option<&Bound<'_, PyAny>>,
+    context: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyObject> {
     let definition: Value = depythonize_json(definition)?;
     let data_val: Value = depythonize_json(data)?;
@@ -129,16 +138,92 @@ pub fn evaluate_def(
         None => HashMap::new(),
     };
 
-    let result = evaluate_definition_full_with_instances(
+    let eval_context = match context {
+        None => EvalContext::default(),
+        Some(ctx_any) => {
+            let ctx_val: Value = depythonize_json(ctx_any)?;
+            let map = ctx_val.as_object().ok_or_else(|| {
+                pyo3::exceptions::PyTypeError::new_err("context must be a dict")
+            })?;
+            eval_context_from_json_object(map).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(e)
+            })?
+        }
+    };
+
+    let result = evaluate_definition_full_with_instances_and_context(
         &definition,
         &data,
         eval_trigger,
         &constraints,
         &instances_map,
+        &eval_context,
     );
 
-    let json = evaluation_result_to_json_value_styled(&result, JsonWireStyle::PythonSnake);
+    // Match TypeScript/WASM and Python tests: validation results use constraintKind / shapeId (see schemas).
+    let json = evaluation_result_to_json_value_styled(&result, JsonWireStyle::JsCamel);
     json_to_python(py, &json)
+}
+
+// ── Field coercion ──────────────────────────────────────────────
+
+/// Coerce an inbound field value (whitespace, numeric strings, money, precision).
+///
+/// Args:
+///     item: Field item dict (at least `dataType`, optional `currency`)
+///     definition: Definition dict (`formPresentation.defaultCurrency` for money)
+///     value: Raw inbound value
+///     bind: Optional bind dict (`whitespace`, `precision`)
+#[pyfunction(signature = (item, definition, value, bind=None))]
+pub fn coerce_field_value(
+    py: Python,
+    item: &Bound<'_, PyAny>,
+    definition: &Bound<'_, PyAny>,
+    value: &Bound<'_, PyAny>,
+    bind: Option<&Bound<'_, PyAny>>,
+) -> PyResult<PyObject> {
+    let item_v: Value = depythonize_json(item)?;
+    let def_v: Value = depythonize_json(definition)?;
+    let val_v: Value = depythonize_json(value)?;
+    let bind_v = match bind {
+        None => None,
+        Some(b) => {
+            let v: Value = depythonize_json(b)?;
+            if v.is_null() {
+                None
+            } else {
+                Some(v)
+            }
+        }
+    };
+    let out = coerce_field_value_core(&item_v, bind_v.as_ref(), &def_v, val_v);
+    json_to_python(py, &out)
+}
+
+/// Inline `optionSet` references from `optionSets` on a definition dict (mutates a copy).
+#[pyfunction]
+pub fn resolve_option_sets_on_definition(
+    py: Python,
+    definition: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let mut v: Value = depythonize_json(definition)?;
+    resolve_option_sets_on_definition_core(&mut v);
+    json_to_python(py, &v)
+}
+
+/// Apply definition `migrations` to flat response field data (FEL `transform` in Rust).
+#[pyfunction]
+pub fn apply_migrations_to_response_data(
+    py: Python,
+    definition: &Bound<'_, PyAny>,
+    data: &Bound<'_, PyAny>,
+    from_version: &str,
+    now_iso: &str,
+) -> PyResult<PyObject> {
+    let def_v: Value = depythonize_json(definition)?;
+    let data_v: Value = depythonize_json(data)?;
+    let out = apply_migrations_to_response_data_core(&def_v, data_v, from_version, now_iso);
+    json_to_python(py, &out)
 }
 
 // ── Screener Evaluation ─────────────────────────────────────────

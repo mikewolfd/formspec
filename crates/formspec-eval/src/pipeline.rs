@@ -148,6 +148,7 @@ pub fn evaluate_definition_full_with_instances_and_context(
         extension_constraints,
         formspec_version,
         context.now_iso.as_deref(),
+        context.repeat_counts.as_ref(),
         instances,
     );
 
@@ -171,6 +172,7 @@ pub fn evaluate_definition_full_with_instances_and_context(
             extension_constraints,
             formspec_version,
             context.now_iso.as_deref(),
+            context.repeat_counts.as_ref(),
             instances,
         );
     }

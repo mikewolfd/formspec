@@ -135,7 +135,34 @@ fn parse_eval_context(ctx_obj: &Map<String, Value>) -> Result<EvalContext, Strin
             .map(str::to_string),
         previous_validations,
         previous_non_relevant,
+        repeat_counts: parse_repeat_counts(ctx_obj),
     })
+}
+
+/// Parses [`EvalContext`] fields from a host JSON object (clock, prior validations, `repeatCounts`, …).
+///
+/// Trigger, `instances`, and registry documents are not read; use [`eval_host_context_from_json_map`] for the full bundle.
+pub fn eval_context_from_json_object(
+    ctx_obj: &Map<String, Value>,
+) -> Result<EvalContext, String> {
+    parse_eval_context(ctx_obj)
+}
+
+fn parse_repeat_counts(ctx_obj: &Map<String, Value>) -> Option<HashMap<String, u64>> {
+    let obj = ctx_obj
+        .get("repeatCounts")
+        .or_else(|| ctx_obj.get("repeat_counts"))
+        .and_then(|v| v.as_object())?;
+    let mut out = HashMap::new();
+    for (k, v) in obj.iter() {
+        if let Some(n) = v
+            .as_u64()
+            .or_else(|| v.as_i64().filter(|&i| i >= 0).map(|i| i as u64))
+        {
+            out.insert(k.clone(), n);
+        }
+    }
+    Some(out)
 }
 
 fn parse_eval_trigger(ctx_obj: &Map<String, Value>) -> Result<EvalTrigger, String> {

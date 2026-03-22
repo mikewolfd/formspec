@@ -3,12 +3,14 @@
 use fel_core::{
     builtin_function_catalog_json_value, dependencies_to_json_value, evaluate, extract_dependencies,
     fel_to_json, field_map_from_json_str, formspec_environment_from_json_map, parse, print_expr,
-    reject_undefined_functions, tokenize_to_json_value,
+    prepare_fel_expression_owned, prepare_fel_host_options_from_json_map, reject_undefined_functions,
+    tokenize_to_json_value,
 };
 use formspec_core::{
-    analyze_fel, collect_fel_rewrite_targets, definition_item_location_to_json_value,
-    fel_analysis_to_json_value, fel_rewrite_targets_to_json_value, get_fel_dependencies,
-    json_definition_item_at_path, normalize_indexed_path, rewrite_fel_source_references,
+    analyze_fel, assembly_fel_rewrite_map_from_value, collect_fel_rewrite_targets,
+    definition_item_location_to_json_value, fel_analysis_to_json_value,
+    fel_rewrite_targets_to_json_value, get_fel_dependencies, json_definition_item_at_path,
+    normalize_indexed_path, rewrite_fel_for_assembly, rewrite_fel_source_references,
     rewrite_message_template, rewrite_options_from_camel_case_json, JsonWireStyle,
 };
 use serde_json::Value;
@@ -137,10 +139,38 @@ pub fn rewrite_message_template_wasm(
     Ok(rewrite_message_template(message, &options))
 }
 
+pub(crate) fn rewrite_fel_for_assembly_inner(expression: &str, map_json: &str) -> Result<String, String> {
+    let map_value: Value = parse_value_str(map_json, "assembly rewrite map JSON")?;
+    let map = assembly_fel_rewrite_map_from_value(&map_value)?;
+    Ok(rewrite_fel_for_assembly(expression, &map))
+}
+
+/// Rewrite FEL using assembly `RewriteMap` JSON (`fragmentRootKey`, `hostGroupKey`, `importedKeys`, `keyPrefix`).
+#[wasm_bindgen(js_name = "rewriteFelForAssembly")]
+pub fn rewrite_fel_for_assembly_wasm(expression: &str, map_json: &str) -> Result<String, JsError> {
+    rewrite_fel_for_assembly_inner(expression, map_json).map_err(|e| JsError::new(&e))
+}
+
 #[wasm_bindgen(js_name = "listBuiltinFunctions")]
 pub fn list_builtin_functions() -> Result<String, JsError> {
     let json = builtin_function_catalog_json_value();
     to_json_string(&json).map_err(|e| JsError::new(&e))
+}
+
+/// Normalize FEL source for host evaluation (bare `$`, repeat qualifiers, repeat aliases).
+/// `options_json`: `{ expression, currentItemPath?, replaceSelfRef?, repeatCounts?, valuesByPath? | fieldPaths? }`.
+#[wasm_bindgen(js_name = "prepareFelExpression")]
+pub fn prepare_fel_expression_wasm(options_json: &str) -> Result<String, JsError> {
+    prepare_fel_expression_inner(options_json).map_err(|e| JsError::new(&e))
+}
+
+pub(crate) fn prepare_fel_expression_inner(options_json: &str) -> Result<String, String> {
+    let v: Value = parse_value_str(options_json, "prepareFelExpression options JSON")?;
+    let obj = v
+        .as_object()
+        .ok_or("prepareFelExpression options must be a JSON object")?;
+    let owned = prepare_fel_host_options_from_json_map(obj)?;
+    Ok(prepare_fel_expression_owned(&owned))
 }
 
 // ── Path Utils ──────────────────────────────────────────────────

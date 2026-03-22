@@ -40,6 +40,8 @@ _REQUIRED_EXPORTS = (
     "evaluate_screener_py",
     "execute_mapping_doc",
     "generate_changelog",
+    "apply_migrations_to_response_data",
+    "rewrite_fel_for_assembly",
 )
 
 
@@ -85,6 +87,7 @@ def _assert_rust_extension_contract() -> None:
         "trigger",
         "registry_documents",
         "instances",
+        "context",
     ]
     actual_params = list(signature.parameters.keys())
     if actual_params != expected_params:
@@ -396,6 +399,7 @@ def evaluate_definition(
     mode: str = "continuous",
     registry_documents: list[dict] | None = None,
     instances: dict[str, dict] | None = None,
+    context: dict | None = None,
 ) -> ProcessingResult:
     """Evaluate a definition against data using the Rust batch evaluator.
 
@@ -407,8 +411,11 @@ def evaluate_definition(
             constraint enforcement. Pass an empty list to disable registry loading.
         instances: Optional dict of named instance data for prePopulate seeding.
             Keys are instance names, values are dicts of field data.
+        context: Optional evaluator context (e.g. now_iso, repeat_counts, previous_validations).
     """
-    raw = formspec_rust.evaluate_def(definition, data, mode, registry_documents, instances)
+    raw = formspec_rust.evaluate_def(
+        definition, data, mode, registry_documents, instances, context
+    )
     validations = raw.get("validations", [])
     is_valid = not any(v.get("severity") == "error" for v in validations)
     return ProcessingResult(
@@ -416,7 +423,7 @@ def evaluate_definition(
         results=validations,
         data=raw.get("values", {}),
         variables=raw.get("variables", {}),
-        non_relevant=raw.get("non_relevant", []),
+        non_relevant=raw.get("nonRelevant", raw.get("non_relevant", [])),
     )
 
 
@@ -499,6 +506,24 @@ def generate_changelog(
 ) -> dict:
     """Generate a changelog between two definition versions."""
     return formspec_rust.generate_changelog(old_def, new_def, definition_url)
+
+
+def apply_migrations_to_response_data(
+    definition: dict,
+    data: dict,
+    from_version: str,
+    *,
+    now_iso: str,
+) -> dict:
+    """Apply definition `migrations` to flat response field data (FEL transforms in Rust)."""
+    return formspec_rust.apply_migrations_to_response_data(
+        definition, data, from_version, now_iso
+    )
+
+
+def rewrite_fel_for_assembly(expression: str, map: dict) -> str:
+    """Rewrite FEL using assembly RewriteMap (fragment + host keys)."""
+    return formspec_rust.rewrite_fel_for_assembly(expression, map)
 
 
 # ── Path utility (inlined from deleted validator.references) ─────

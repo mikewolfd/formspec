@@ -27,6 +27,7 @@ pub(super) fn validate_items(
     values: &HashMap<String, Value>,
     ext_by_name: &HashMap<&str, &ExtensionConstraint>,
     formspec_version: &str,
+    repeat_counts: Option<&HashMap<String, u64>>,
     results: &mut Vec<ValidationResult>,
 ) {
     for item in items {
@@ -45,7 +46,7 @@ pub(super) fn validate_items(
                 severity: "error".to_string(),
                 constraint_kind: "required".to_string(),
                 code: "REQUIRED".to_string(),
-                message: "Required field is empty".to_string(),
+                message: "Required".to_string(),
                 constraint: None,
                 source: "bind".to_string(),
                 shape_id: None,
@@ -133,7 +134,10 @@ pub(super) fn validate_items(
 
         // Cardinality check for repeatable groups
         if item.repeatable {
-            let count = detect_repeat_count(&item.path, values);
+            let count = repeat_counts
+                .and_then(|m| m.get(&item.path).copied())
+                .map(|n| n as usize)
+                .unwrap_or_else(|| detect_repeat_count(&item.path, values));
             if let Some(min) = item.repeat_min
                 && (count as u64) < min
             {
@@ -172,6 +176,7 @@ pub(super) fn validate_items(
             values,
             ext_by_name,
             formspec_version,
+            repeat_counts,
             results,
         );
     }

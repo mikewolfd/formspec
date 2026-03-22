@@ -80,6 +80,15 @@ pub fn parse_mapping_document_from_value(val: &Value) -> Result<MappingDocument,
     })
 }
 
+/// True when the rule carries a non-empty `array.innerRules` array (outer `transform` is unused).
+fn has_nonempty_array_inner_rules(obj: &serde_json::Map<String, Value>) -> bool {
+    obj.get("array")
+        .and_then(|v| v.as_object())
+        .and_then(|a| a.get("innerRules"))
+        .and_then(|v| v.as_array())
+        .is_some_and(|a| !a.is_empty())
+}
+
 fn parse_array_descriptor(
     obj: &serde_json::Map<String, Value>,
     rule_idx: usize,
@@ -192,6 +201,8 @@ fn parse_reverse_override(
                         Some("error") => UnmappedStrategy::Error,
                         Some("drop") => UnmappedStrategy::Drop,
                         Some("default") => UnmappedStrategy::Default,
+                        Some("passthrough") => UnmappedStrategy::PassThrough,
+                        None => UnmappedStrategy::Error,
                         _ => UnmappedStrategy::PassThrough,
                     };
                     (fwd, strategy)
@@ -240,7 +251,7 @@ fn parse_reverse_override(
             separator: rev_obj
                 .get("separator")
                 .and_then(|v| v.as_str())
-                .unwrap_or(".")
+                .unwrap_or("")
                 .to_string(),
         },
         "nest" => TransformType::Nest {
@@ -273,10 +284,13 @@ pub fn parse_mapping_rules_from_value(val: &Value) -> Result<Vec<MappingRule>, S
             .as_object()
             .ok_or_else(|| format!("rule[{i}]: must be an object"))?;
 
-        let transform_str = obj
-            .get("transform")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| format!("rule[{i}]: missing required field 'transform'"))?;
+        let transform_str = match obj.get("transform").and_then(|v| v.as_str()) {
+            Some(s) => s,
+            None if has_nonempty_array_inner_rules(obj) => "preserve",
+            None => {
+                return Err(format!("rule[{i}]: missing required field 'transform'"));
+            }
+        };
 
         let mut vm_default: Option<Value> = None;
 
@@ -327,6 +341,7 @@ pub fn parse_mapping_rules_from_value(val: &Value) -> Result<Vec<MappingRule>, S
                             Some("drop") => UnmappedStrategy::Drop,
                             Some("default") => UnmappedStrategy::Default,
                             Some("passthrough") => UnmappedStrategy::PassThrough,
+                            None => UnmappedStrategy::Error,
                             _ => UnmappedStrategy::PassThrough,
                         };
                         (fwd, strategy)
@@ -350,7 +365,7 @@ pub fn parse_mapping_rules_from_value(val: &Value) -> Result<Vec<MappingRule>, S
                 separator: obj
                     .get("separator")
                     .and_then(|v| v.as_str())
-                    .unwrap_or(".")
+                    .unwrap_or("")
                     .to_string(),
             },
             "nest" => TransformType::Nest {

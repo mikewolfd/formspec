@@ -36,8 +36,9 @@ mod runtime_seed;
 
 pub use convert::resolve_value_by_path;
 pub use eval_json::{
-    EvalHostContextBundle, eval_host_context_from_json_map, evaluation_result_to_json_value,
-    evaluation_result_to_json_value_styled, screener_route_to_json_value,
+    EvalHostContextBundle, eval_context_from_json_object, eval_host_context_from_json_map,
+    evaluation_result_to_json_value, evaluation_result_to_json_value_styled,
+    screener_route_to_json_value,
 };
 pub use nrb::{apply_nrb, resolve_nrb};
 pub use pipeline::{

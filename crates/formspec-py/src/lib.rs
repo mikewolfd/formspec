@@ -37,9 +37,14 @@ fn formspec_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fel::extract_deps, m)?)?;
     m.add_function(wrap_pyfunction!(fel::analyze_expression, m)?)?;
     m.add_function(wrap_pyfunction!(fel::list_builtin_functions, m)?)?;
+    m.add_function(wrap_pyfunction!(fel::prepare_fel_expression, m)?)?;
+    m.add_function(wrap_pyfunction!(fel::rewrite_fel_for_assembly_py, m)?)?;
     m.add_function(wrap_pyfunction!(document::detect_type, m)?)?;
     m.add_function(wrap_pyfunction!(document::lint_document, m)?)?;
     m.add_function(wrap_pyfunction!(document::evaluate_def, m)?)?;
+    m.add_function(wrap_pyfunction!(document::coerce_field_value, m)?)?;
+    m.add_function(wrap_pyfunction!(document::resolve_option_sets_on_definition, m)?)?;
+    m.add_function(wrap_pyfunction!(document::apply_migrations_to_response_data, m)?)?;
     m.add_function(wrap_pyfunction!(document::evaluate_screener_py, m)?)?;
     m.add_function(wrap_pyfunction!(registry::parse_registry, m)?)?;
     m.add_function(wrap_pyfunction!(registry::find_registry_entry, m)?)?;

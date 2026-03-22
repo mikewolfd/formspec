@@ -8,6 +8,7 @@
 #![warn(clippy::missing_docs_in_private_items)]
 
 pub mod assembler;
+pub mod assembly_fel_rewrite;
 pub mod changelog;
 pub mod component_tree;
 pub mod definition_items;
@@ -16,16 +17,22 @@ pub mod fel_analysis;
 pub mod fel_rewrite_exact;
 pub mod json_artifacts;
 pub mod json_util;
+pub mod option_sets;
 pub mod path_utils;
+pub mod response_migration;
 pub mod registry_client;
 pub mod runtime_mapping;
 pub mod schema_validator;
+pub mod value_coerce;
 pub mod wire_keys;
 
 // Re-export key types
 pub use assembler::{
     AssemblyError, AssemblyProvenance, AssemblyResult, MapResolver, RefResolver,
     assemble_definition, assembly_result_to_json_value,
+};
+pub use assembly_fel_rewrite::{
+    AssemblyFelRewriteMap, assembly_fel_rewrite_map_from_value, rewrite_fel_for_assembly,
 };
 pub use extension_analysis::{
     ExtensionErrorCode, ExtensionItem, ExtensionSeverity, ExtensionUsageIssue, JsonDefinitionItem,
@@ -43,6 +50,8 @@ pub use json_artifacts::{
 };
 pub use fel_rewrite_exact::{rewrite_fel_source_references, rewrite_message_template};
 pub use json_util::json_object_to_string_map;
+pub use option_sets::resolve_option_sets_on_definition;
+pub use response_migration::apply_migrations_to_response_data;
 pub use path_utils::{
     ItemLocation, TreeItem, definition_item_location_to_json_value, item_at_path,
     item_location_at_path, json_definition_item_at_path, json_definition_item_location_at_path,
@@ -60,6 +69,7 @@ pub use schema_validator::{
     SchemaValidationPlan, SchemaValidationResult, detect_document_type, json_pointer_to_jsonpath,
     schema_validation_plan, validate_document,
 };
+pub use value_coerce::coerce_field_value;
 pub use component_tree::visit_component_subtree;
 pub use definition_items::{
     coerce_definition_item_key_segment, definition_item_dotted_path, definition_item_key_segment,

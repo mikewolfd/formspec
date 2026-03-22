@@ -82,6 +82,7 @@ pub struct SchemaValidationResult {
 
 /// A single component subtree node that needs host-side schema execution.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ComponentValidationTarget {
     /// JSON Pointer to the node root (e.g. `/tree/children/0`).
     pub pointer: String,
@@ -93,6 +94,7 @@ pub struct ComponentValidationTarget {
 
 /// Validation dispatch plan returned to host runtimes that execute JSON Schema locally.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SchemaValidationPlan {
     /// Detected or explicitly requested document type.
     pub document_type: Option<String>,
@@ -547,6 +549,19 @@ mod tests {
             plan.component_targets[3].pointer,
             "/components/CustomCard/tree/children/0"
         );
+    }
+
+    #[test]
+    fn schema_validation_plan_serialize_uses_camel_case_keys() {
+        let doc = json!({ "$formspec": "1.0", "items": [], "title": "T" });
+        let plan = schema_validation_plan(&doc, None);
+        let v = serde_json::to_value(&plan).unwrap();
+        assert!(v.get("documentType").is_some(), "expected documentType key");
+        assert!(
+            v.get("document_type").is_none(),
+            "Rust field names must not leak to JSON"
+        );
+        assert!(v.get("componentTargets").is_some());
     }
 
     #[test]

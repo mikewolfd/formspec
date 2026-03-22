@@ -26,6 +26,7 @@ pub fn revalidate(
     extension_constraints: &[ExtensionConstraint],
     formspec_version: &str,
     now_iso: Option<&str>,
+    repeat_counts: Option<&HashMap<String, u64>>,
     instances: &HashMap<String, Value>,
 ) -> Vec<ValidationResult> {
     let mut results = Vec::new();
@@ -63,6 +64,7 @@ pub fn revalidate(
         values,
         &ext_by_name,
         formspec_version,
+        repeat_counts,
         &mut results,
     );
 
@@ -150,6 +152,7 @@ mod tests {
             &[],
             "1.0.0",
             None,
+            None,
             &HashMap::new(),
         );
         assert_eq!(results.len(), 1);
@@ -203,6 +206,7 @@ mod tests {
             EvalTrigger::Continuous,
             &[],
             "1.0.0",
+            None,
             None,
             &HashMap::new(),
         );
@@ -259,6 +263,7 @@ mod tests {
             EvalTrigger::Continuous,
             &[],
             "1.0.0",
+            None,
             None,
             &HashMap::new(),
         );
@@ -332,6 +337,7 @@ mod tests {
             &[],
             "1.0.0",
             None,
+            None,
             &HashMap::new(),
         );
         let constraint_errors: Vec<_> = results
@@ -389,6 +395,7 @@ mod tests {
             EvalTrigger::Continuous,
             &[],
             "1.0.0",
+            None,
             None,
             &HashMap::new(),
         );
@@ -448,6 +455,7 @@ mod tests {
             EvalTrigger::Continuous,
             &[],
             "1.0.0",
+            None,
             None,
             &HashMap::new(),
         );

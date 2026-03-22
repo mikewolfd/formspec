@@ -22,6 +22,7 @@ mod fel;
 mod json_host;
 mod mapping;
 mod registry;
+mod value_coerce;
 
 #[cfg(test)]
 mod wasm_tests;

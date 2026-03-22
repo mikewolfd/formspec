@@ -2,15 +2,19 @@
 //!
 //! ## Internal helpers
 //! Private functions walk `items`, merge referenced fragments (`resolve_*`, `perform_assembly`),
-//! hoist binds/shapes/variables (`import_*`), and rewrite FEL paths (`rewrite_*`, `split_path_segments`).
+//! hoist binds/shapes/variables (`import_*`), and rewrite FEL via [`crate::assembly_fel_rewrite`].
 #![allow(clippy::missing_docs_in_private_items)]
 
 use std::collections::{HashMap, HashSet};
 
 use serde_json::{Map, Value, json};
 
+use crate::assembly_fel_rewrite::{
+    AssemblyFelRewriteMap as FelRewriteMap, assembly_prefix_path, rewrite_fel_for_assembly,
+    rewrite_message_template_for_assembly,
+};
 use crate::wire_keys::assembly_provenance_keys;
-use crate::{JsonWireStyle, RewriteOptions, rewrite_fel_source_references, rewrite_message_template};
+use crate::JsonWireStyle;
 
 /// Failure while resolving `$ref` or merging assembled fragments.
 #[derive(Debug, Clone)]
@@ -583,7 +587,7 @@ fn import_variables(
             if let Some(expression) = obj.get("expression").and_then(Value::as_str) {
                 obj.insert(
                     "expression".to_string(),
-                    Value::String(rewrite_expression(expression, map)),
+                    Value::String(rewrite_fel_for_assembly(expression, map)),
                 );
             }
             if let Some(scope) = obj.get("scope").and_then(Value::as_str) {
@@ -726,7 +730,7 @@ fn prefix_bind_path(bind: Value, group_path: &str, map: &FelRewriteMap) -> Value
     if let Some(obj) = bind.as_object_mut()
         && let Some(path) = obj.get("path").and_then(Value::as_str)
     {
-        let next_path = prefix_path(path, &map.key_prefix, &map.imported_keys);
+        let next_path = assembly_prefix_path(path, &map.key_prefix, &map.imported_keys);
         let next_path = if group_path.is_empty() {
             next_path
         } else {
@@ -743,7 +747,7 @@ fn prefix_shape_target(shape: Value, group_path: &str, map: &FelRewriteMap) -> V
         && let Some(target) = obj.get("target").and_then(Value::as_str)
         && target != "#"
     {
-        let next_target = prefix_path(target, &map.key_prefix, &map.imported_keys);
+        let next_target = assembly_prefix_path(target, &map.key_prefix, &map.imported_keys);
         let next_target = if group_path.is_empty() {
             next_target
         } else {
@@ -767,7 +771,7 @@ fn rewrite_bind(bind: Value, map: &FelRewriteMap) -> Value {
             if let Some(expression) = obj.get(key).and_then(Value::as_str) {
                 obj.insert(
                     key.to_string(),
-                    Value::String(rewrite_expression(expression, map)),
+                    Value::String(rewrite_fel_for_assembly(expression, map)),
                 );
             }
         }
@@ -776,7 +780,7 @@ fn rewrite_bind(bind: Value, map: &FelRewriteMap) -> Value {
         {
             obj.insert(
                 "default".to_string(),
-                Value::String(format!("={}", rewrite_expression(expr, map))),
+                Value::String(format!("={}", rewrite_fel_for_assembly(expr, map))),
             );
         }
     }
@@ -795,14 +799,14 @@ fn rewrite_shape(
             if let Some(expression) = obj.get(key).and_then(Value::as_str) {
                 obj.insert(
                     key.to_string(),
-                    Value::String(rewrite_expression(expression, map)),
+                    Value::String(rewrite_fel_for_assembly(expression, map)),
                 );
             }
         }
         if let Some(Value::Object(context)) = obj.get_mut("context") {
             for value in context.values_mut() {
                 if let Some(expression) = value.as_str() {
-                    *value = Value::String(rewrite_expression(expression, map));
+                    *value = Value::String(rewrite_fel_for_assembly(expression, map));
                 }
             }
         }
@@ -853,167 +857,11 @@ fn rewrite_shape_entry(
             .cloned()
             .unwrap_or_else(|| entry.to_string());
     }
-    rewrite_expression(entry, map)
+    rewrite_fel_for_assembly(entry, map)
 }
 
 fn rewrite_message(message: &str, map: &FelRewriteMap) -> String {
-    let options = make_rewrite_options(map);
-    rewrite_message_template(message, &options)
-}
-
-fn rewrite_expression(expression: &str, map: &FelRewriteMap) -> String {
-    let options = make_rewrite_options(map);
-    rewrite_fel_source_references(expression, &options)
-}
-
-fn make_rewrite_options(map: &FelRewriteMap) -> RewriteOptions {
-    let field_map = map.clone();
-    let current_map = map.clone();
-    let navigation_map = map.clone();
-
-    RewriteOptions {
-        rewrite_field_path: Some(Box::new(move |path| {
-            Some(rewrite_field_path(path, &field_map))
-        })),
-        rewrite_current_path: Some(Box::new(move |path| {
-            Some(rewrite_current_path(path, &current_map))
-        })),
-        rewrite_variable: None,
-        rewrite_instance_name: None,
-        rewrite_navigation_target: Some(Box::new(move |name, _fn_name| {
-            if navigation_map.imported_keys.contains(name) {
-                Some(format!("{}{}", navigation_map.key_prefix, name))
-            } else {
-                None
-            }
-        })),
-    }
-}
-
-fn rewrite_field_path(path: &str, map: &FelRewriteMap) -> String {
-    let segments = split_path_segments(path);
-    if segments.is_empty() {
-        return path.to_string();
-    }
-
-    let first_base = segment_base(&segments[0]);
-    let should_replace_root = (!map.fragment_root_key.is_empty()
-        && first_base == map.fragment_root_key)
-        || (map.fragment_root_key.is_empty()
-            && segments.len() > 1
-            && map.imported_keys.contains(first_base));
-
-    let mut rewritten = Vec::new();
-    let mut iter = segments.into_iter();
-    if should_replace_root {
-        rewritten.push(map.host_group_key.clone());
-        iter.next();
-    }
-
-    for segment in iter {
-        let base = segment_base(&segment);
-        if map.imported_keys.contains(base) {
-            rewritten.push(format!("{}{}", map.key_prefix, segment));
-        } else {
-            rewritten.push(segment);
-        }
-    }
-
-    if !should_replace_root && rewritten.is_empty() {
-        rewritten.push(path.to_string());
-    } else if !should_replace_root {
-        return join_path_segments(
-            &split_path_segments(path)
-                .into_iter()
-                .map(|segment| {
-                    let base = segment_base(&segment);
-                    if map.imported_keys.contains(base) {
-                        format!("{}{}", map.key_prefix, segment)
-                    } else {
-                        segment
-                    }
-                })
-                .collect::<Vec<_>>(),
-        );
-    }
-
-    join_path_segments(&rewritten)
-}
-
-fn rewrite_current_path(path: &str, map: &FelRewriteMap) -> String {
-    let segments = split_path_segments(path);
-    let rewritten: Vec<String> = segments
-        .into_iter()
-        .map(|segment| {
-            let base = segment_base(&segment);
-            if map.imported_keys.contains(base) {
-                format!("{}{}", map.key_prefix, segment)
-            } else {
-                segment
-            }
-        })
-        .collect();
-    join_path_segments(&rewritten)
-}
-
-fn prefix_path(path: &str, prefix: &str, imported_keys: &HashSet<String>) -> String {
-    let segments = split_path_segments(path);
-    let rewritten: Vec<String> = segments
-        .into_iter()
-        .map(|segment| {
-            let base = segment_base(&segment);
-            if imported_keys.contains(base) {
-                format!("{prefix}{segment}")
-            } else {
-                segment
-            }
-        })
-        .collect();
-    join_path_segments(&rewritten)
-}
-
-fn split_path_segments(path: &str) -> Vec<String> {
-    let mut segments = Vec::new();
-    let mut current = String::new();
-    let mut bracket_depth = 0usize;
-    for ch in path.chars() {
-        match ch {
-            '.' if bracket_depth == 0 => {
-                if !current.is_empty() {
-                    segments.push(current.clone());
-                    current.clear();
-                }
-            }
-            '[' => {
-                bracket_depth += 1;
-                current.push(ch);
-            }
-            ']' => {
-                bracket_depth = bracket_depth.saturating_sub(1);
-                current.push(ch);
-            }
-            _ => current.push(ch),
-        }
-    }
-    if !current.is_empty() {
-        segments.push(current);
-    }
-    segments
-}
-
-fn join_path_segments(segments: &[String]) -> String {
-    let mut result = String::new();
-    for (index, segment) in segments.iter().enumerate() {
-        if index > 0 && !segment.starts_with('[') {
-            result.push('.');
-        }
-        result.push_str(segment);
-    }
-    result
-}
-
-fn segment_base(segment: &str) -> &str {
-    segment.split('[').next().unwrap_or(segment)
+    rewrite_message_template_for_assembly(message, map)
 }
 
 fn current_item_path(parent_path: &str, key: &str) -> String {
@@ -1087,14 +935,6 @@ fn parse_ref(ref_uri: &str) -> ParsedRef {
             fragment,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-struct FelRewriteMap {
-    fragment_root_key: String,
-    host_group_key: String,
-    imported_keys: HashSet<String>,
-    key_prefix: String,
 }
 
 #[cfg(test)]
