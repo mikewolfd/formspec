@@ -584,6 +584,29 @@ fn screener_modified_is_compatible() {
 }
 
 #[test]
+fn duplicate_bind_path_array_entries_merge_before_diff() {
+    let d = json!({
+        "version": "1.0.0",
+        "binds": [
+            { "path": "rate", "relevant": "$orgType != \"government\"" },
+            { "path": "rate", "constraint": "$ = null or ($ >= 0 and $ <= 100)" },
+        ]
+    });
+    let cl = generate_changelog(&d, &d, URL);
+    let bind_changes: Vec<_> = cl
+        .changes
+        .iter()
+        .filter(|c| c.target == ChangeTarget::Bind)
+        .collect();
+    assert!(
+        bind_changes.is_empty(),
+        "identical defs with merged binds should produce no bind changes (got {} bind change(s))",
+        bind_changes.len()
+    );
+    assert_eq!(cl.semver_impact, SemverImpact::Patch);
+}
+
+#[test]
 fn bind_constraint_change_is_compatible() {
     let old = base_def();
     let mut new = base_def();

@@ -262,14 +262,32 @@ fn classify_item_modification(old: &Value, new: &Value) -> ChangeImpact {
 /// - Object format: `"binds": { "name": { "required": "true" } }` (key = path)
 /// - Array format: `"binds": [{ "path": "name", "required": "true" }]`
 fn index_binds_by_path(def: &Value) -> Vec<(String, Value)> {
-    match def.get("binds") {
+    let entries = match def.get("binds") {
         Some(Value::Object(obj)) => obj
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
         Some(Value::Array(arr)) => merge_bind_array_entries(arr),
         _ => vec![],
+    };
+    dedupe_bind_entries(entries)
+}
+
+/// Merge any duplicate `path` rows left after array/object indexing (e.g. Python
+/// `depythonize` can yield multiple array elements for the same path where
+/// `merge_bind_array_entries` already merged in the serde_json case).
+fn dedupe_bind_entries(entries: Vec<(String, Value)>) -> Vec<(String, Value)> {
+    let mut out: Vec<(String, Value)> = Vec::new();
+    let mut positions: HashMap<String, usize> = HashMap::new();
+    for (path, val) in entries {
+        if let Some(&idx) = positions.get(&path) {
+            merge_bind_value(&mut out[idx].1, &val, &path);
+        } else {
+            positions.insert(path.clone(), out.len());
+            out.push((path, val));
+        }
     }
+    out
 }
 
 fn merge_bind_array_entries(arr: &[Value]) -> Vec<(String, Value)> {

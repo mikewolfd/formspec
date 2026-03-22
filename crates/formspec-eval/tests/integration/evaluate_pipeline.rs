@@ -2412,6 +2412,85 @@ fn wildcard_shape_row_scoped_sibling_references() {
 }
 
 #[test]
+fn wildcard_shape_bare_dollar_gt_sibling_row_ref() {
+    // Python unit test parity: `$` = target field; `$rows[*].min` = same-row sibling.
+    let def = json!({
+        "items": [
+            {
+                "key": "rows",
+                "repeatable": true,
+                "children": [
+                    { "key": "min", "dataType": "integer" },
+                    { "key": "max", "dataType": "integer" }
+                ]
+            }
+        ],
+        "shapes": [{
+            "id": "s1",
+            "target": "rows[*].max",
+            "constraint": "$ > $rows[*].min",
+            "severity": "error",
+            "message": "Max must exceed min",
+            "code": "RANGE"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("rows[0].min".to_string(), json!(1));
+    data.insert("rows[0].max".to_string(), json!(10));
+    data.insert("rows[1].min".to_string(), json!(5));
+    data.insert("rows[1].max".to_string(), json!(3));
+
+    let result = evaluate_definition(&def, &data);
+    let shape_errors: Vec<_> = result
+        .validations
+        .iter()
+        .filter(|v| v.constraint_kind == "shape" && v.message.contains("exceed"))
+        .collect();
+    assert_eq!(shape_errors.len(), 1, "only row 1 max should fail");
+    assert_eq!(shape_errors[0].path, "rows[1].max");
+}
+
+#[test]
+fn wildcard_shape_bare_dollar_gt_sibling_nested_rows_array() {
+    let def = json!({
+        "items": [
+            {
+                "key": "rows",
+                "repeatable": true,
+                "children": [
+                    { "key": "min", "dataType": "integer" },
+                    { "key": "max", "dataType": "integer" }
+                ]
+            }
+        ],
+        "shapes": [{
+            "id": "s1",
+            "target": "rows[*].max",
+            "constraint": "$ > $rows[*].min",
+            "severity": "error",
+            "message": "Max must exceed min",
+            "code": "RANGE"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert(
+        "rows".to_string(),
+        json!([{"min": 1, "max": 10}, {"min": 5, "max": 3}]),
+    );
+
+    let result = evaluate_definition(&def, &data);
+    let shape_errors: Vec<_> = result
+        .validations
+        .iter()
+        .filter(|v| v.constraint_kind == "shape" && v.message.contains("exceed"))
+        .collect();
+    assert_eq!(shape_errors.len(), 1, "only row 1 max should fail");
+    assert_eq!(shape_errors[0].path, "rows[1].max");
+}
+
+#[test]
 fn wildcard_shape_active_when_and_constraint_use_current_row_aliases() {
     let def = json!({
         "items": [
