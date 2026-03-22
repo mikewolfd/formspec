@@ -165,20 +165,20 @@ test('wasmPlanSchemaValidation enumerates component tree targets', () => {
   );
 });
 
-test('wasmPlanSchemaValidation preserves schema-only document types', () => {
+test('wasmPlanSchemaValidation preserves explicit schema-only document types', () => {
   const validationResultPlan = wasmPlanSchemaValidation({
     path: 'field',
     severity: 'error',
     constraintKind: 'required',
     message: 'Required',
-  });
+  }, 'validation_result');
   assert.equal(validationResultPlan.documentType, 'validation_result');
   assert.equal(validationResultPlan.mode, 'document');
 
   const felFunctionsPlan = wasmPlanSchemaValidation({
     version: '1.0.0',
     functions: [],
-  });
+  }, 'fel_functions');
   assert.equal(felFunctionsPlan.documentType, 'fel_functions');
   assert.equal(felFunctionsPlan.mode, 'document');
 });

@@ -12,7 +12,10 @@ use crate::rebuild::{
     is_wildcard_bind, wildcard_base,
 };
 use crate::recalculate::eval_bool;
-use crate::types::{EvalTrigger, ExtensionConstraint, ItemInfo, ValidationResult, find_item_by_path};
+use crate::types::{
+    EvalTrigger, ExtensionConstraint, ItemInfo, ValidationResult, find_item_by_path,
+    resolve_qualified_repeat_refs,
+};
 
 /// Validate all constraints and shapes.
 pub fn revalidate(
@@ -174,11 +177,13 @@ fn validate_items(
             _ => false,
         };
         if !is_empty_for_constraint && let Some(ref expr) = item.constraint {
+            let normalized_expr = resolve_qualified_repeat_refs(expr, &item.path);
+            let saved_aliases = bind_sibling_aliases(env, values, &item.path);
             // Temporarily bind bare $ to this field's value
             let prev_dollar = env.data.remove("");
-            env.data.insert(String::new(), json_to_fel(&val));
+            env.data.insert(String::new(), json_to_validation_fel(&val));
 
-            if let Ok(parsed) = parse(expr) {
+            if let Ok(parsed) = parse(&normalized_expr) {
                 let result = evaluate(&parsed, env);
                 if !constraint_passes(&result.value) {
                     results.push(ValidationResult {
@@ -203,6 +208,7 @@ fn validate_items(
             if let Some(prev) = prev_dollar {
                 env.data.insert(String::new(), prev);
             }
+            restore_sibling_aliases(env, saved_aliases);
         }
 
         // Extension constraint enforcement
@@ -502,9 +508,15 @@ fn validate_shape(
 
     // Check activeWhen
     let saved_repeat_arrays = bind_repeat_group_arrays(env, items, values);
+    let saved_aliases = if target.is_empty() || target == "#" {
+        HashMap::new()
+    } else {
+        bind_sibling_aliases(env, values, target)
+    };
     if let Some(active_when) = shape.get("activeWhen").and_then(|v| v.as_str())
         && !eval_bool(active_when, env, true)
     {
+        restore_sibling_aliases(env, saved_aliases);
         restore_repeat_group_arrays(env, saved_repeat_arrays);
         return;
     }
@@ -514,7 +526,8 @@ fn validate_shape(
     if !target.is_empty()
         && let Some(target_val) = values.get(target)
     {
-        env.data.insert(String::new(), json_to_fel(target_val));
+        env.data
+            .insert(String::new(), json_to_validation_fel(target_val));
     }
 
     let sid = shape.get("id").and_then(|v| v.as_str()).map(str::to_string);
@@ -541,6 +554,7 @@ fn validate_shape(
         });
     }
 
+    restore_sibling_aliases(env, saved_aliases);
     restore_repeat_group_arrays(env, saved_repeat_arrays);
     // Restore previous bare $ binding
     env.data.remove("");
@@ -595,12 +609,12 @@ fn validate_wildcard_shape(
             None => continue,
         };
 
-        let saved_aliases = bind_row_aliases(env, values, concrete_path);
+        let saved_aliases = bind_sibling_aliases(env, values, concrete_path);
 
         // Build a row-scoped environment: instantiate [*] references in the constraint
         let prev_dollar = env.data.remove("");
         if let Some(val) = values.get(concrete_path.as_str()) {
-            env.data.insert(String::new(), json_to_fel(val));
+            env.data.insert(String::new(), json_to_validation_fel(val));
         }
 
         let active = shape
@@ -610,7 +624,7 @@ fn validate_wildcard_shape(
             .map(|expr| eval_bool(&expr, env, true))
             .unwrap_or(true);
         if !active {
-            restore_row_aliases(env, saved_aliases);
+            restore_sibling_aliases(env, saved_aliases);
             env.data.remove("");
             if let Some(prev) = prev_dollar {
                 env.data.insert(String::new(), prev);
@@ -651,7 +665,7 @@ fn validate_wildcard_shape(
         }
 
         // Restore bare $
-        restore_row_aliases(env, saved_aliases);
+        restore_sibling_aliases(env, saved_aliases);
         env.data.remove("");
         if let Some(prev) = prev_dollar {
             env.data.insert(String::new(), prev);
@@ -821,6 +835,30 @@ fn apply_excluded_values_to_env(items: &[ItemInfo], env: &mut FormspecEnvironmen
     }
 }
 
+fn normalize_money_like_json(value: &Value) -> Value {
+    match value {
+        Value::Array(array) => Value::Array(array.iter().map(normalize_money_like_json).collect()),
+        Value::Object(object) => {
+            let mut normalized: serde_json::Map<String, Value> = object
+                .iter()
+                .map(|(key, value)| (key.clone(), normalize_money_like_json(value)))
+                .collect();
+            if !normalized.contains_key("$type")
+                && normalized.contains_key("amount")
+                && normalized.contains_key("currency")
+            {
+                normalized.insert("$type".to_string(), Value::String("money".to_string()));
+            }
+            Value::Object(normalized)
+        }
+        _ => value.clone(),
+    }
+}
+
+fn json_to_validation_fel(value: &Value) -> FelValue {
+    json_to_fel(&normalize_money_like_json(value))
+}
+
 pub(crate) fn build_validation_env(
     values: &HashMap<String, Value>,
     variables: &HashMap<String, Value>,
@@ -835,11 +873,11 @@ pub(crate) fn build_validation_env(
         // Skip repeat group arrays — flat indexed keys exist and FEL should
         // use those instead (array path resolution uses 1-based indexing).
         if !is_repeat_group_array(v) {
-            env.set_field(k, json_to_fel(v));
+            env.set_field(k, json_to_validation_fel(v));
         }
     }
     for (name, value) in variables {
-        env.set_variable(name, json_to_fel(value));
+        env.set_variable(name, json_to_validation_fel(value));
     }
     for (name, value) in instances {
         env.set_instance(name, json_to_fel(value));
@@ -858,7 +896,7 @@ fn bind_repeat_group_arrays(
             && let Some(array) = build_repeat_group_array(&item.path, values)
         {
             saved.insert(item.path.clone(), env.data.get(&item.path).cloned());
-            env.set_field(&item.path, json_to_fel(&array));
+            env.set_field(&item.path, json_to_validation_fel(&array));
         }
         saved.extend(bind_repeat_group_arrays(env, &item.children, values));
     }
@@ -1022,7 +1060,7 @@ fn tokenize_json_path(path: &str) -> Vec<JsonPathToken> {
     tokens
 }
 
-fn bind_row_aliases(
+fn bind_sibling_aliases(
     env: &mut FormspecEnvironment,
     values: &HashMap<String, Value>,
     concrete_path: &str,
@@ -1038,13 +1076,13 @@ fn bind_row_aliases(
             && !alias.contains('.')
         {
             saved.insert(alias.to_string(), env.data.get(alias).cloned());
-            env.set_field(alias, json_to_fel(value));
+            env.set_field(alias, json_to_validation_fel(value));
         }
     }
     saved
 }
 
-fn restore_row_aliases(
+fn restore_sibling_aliases(
     env: &mut FormspecEnvironment,
     saved_aliases: HashMap<String, Option<FelValue>>,
 ) {
@@ -1069,12 +1107,15 @@ mod tests {
         let items = vec![ItemInfo {
             key: "email".to_string(),
             path: "email".to_string(),
+            item_type: "field".to_string(),
             data_type: Some("string".to_string()),
+            currency: None,
             value: Value::Null,
             relevant: true,
             required: true,
             readonly: false,
             calculate: None,
+            precision: None,
             constraint: Some("contains($email, \"@\")".to_string()),
             constraint_message: None,
             relevance: None,
@@ -1120,12 +1161,15 @@ mod tests {
         let items = vec![ItemInfo {
             key: "hidden".to_string(),
             path: "hidden".to_string(),
+            item_type: "field".to_string(),
             data_type: Some("string".to_string()),
+            currency: None,
             value: Value::Null,
             relevant: false,
             required: true,
             readonly: false,
             calculate: None,
+            precision: None,
             constraint: Some("false".to_string()),
             constraint_message: None,
             relevance: None,
@@ -1171,12 +1215,15 @@ mod tests {
         let items = vec![ItemInfo {
             key: "age".to_string(),
             path: "age".to_string(),
+            item_type: "field".to_string(),
             data_type: Some("integer".to_string()),
+            currency: None,
             value: json!(25),
             relevant: true,
             required: false,
             readonly: false,
             calculate: None,
+            precision: None,
             constraint: Some("$age >= 18".to_string()),
             constraint_message: None,
             relevance: None,
@@ -1240,12 +1287,15 @@ mod tests {
         let items = vec![ItemInfo {
             key: "email".to_string(),
             path: "email".to_string(),
+            item_type: "field".to_string(),
             data_type: Some("string".to_string()),
+            currency: None,
             value: Value::Null,
             relevant: true,
             required: false,
             readonly: false,
             calculate: None,
+            precision: None,
             constraint: Some("matches($, '.*@.*')".to_string()),
             constraint_message: None,
             relevance: None,
@@ -1297,12 +1347,15 @@ mod tests {
         let items = vec![ItemInfo {
             key: "email".to_string(),
             path: "email".to_string(),
+            item_type: "field".to_string(),
             data_type: Some("string".to_string()),
+            currency: None,
             value: Value::Null,
             relevant: true,
             required: false,
             readonly: false,
             calculate: None,
+            precision: None,
             constraint: Some("matches($, '.*@.*')".to_string()),
             constraint_message: None,
             relevance: None,
@@ -1352,12 +1405,15 @@ mod tests {
         let items = vec![ItemInfo {
             key: "tags".to_string(),
             path: "tags".to_string(),
+            item_type: "field".to_string(),
             data_type: Some("multiChoice".to_string()),
+            currency: None,
             value: Value::Null,
             relevant: true,
             required: false,
             readonly: false,
             calculate: None,
+            precision: None,
             constraint: Some("count($tags) > 0".to_string()),
             constraint_message: None,
             relevance: None,

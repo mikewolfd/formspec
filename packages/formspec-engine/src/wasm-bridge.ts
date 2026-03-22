@@ -208,7 +208,17 @@ export function wasmPlanSchemaValidation(
 export function wasmAssembleDefinition(
     definition: unknown,
     fragments: Record<string, unknown>,
-): { definition: any; warnings: string[]; errors: string[] } {
+): {
+    definition: any;
+    warnings: string[];
+    errors: string[];
+    assembledFrom?: Array<{
+        url: string;
+        version: string;
+        keyPrefix?: string;
+        fragment?: string;
+    }>;
+} {
     const resultJson = wasm().assembleDefinition(
         JSON.stringify(definition),
         JSON.stringify(fragments),
@@ -287,6 +297,18 @@ export function wasmEvaluateDefinition(
         JSON.stringify(definition),
         JSON.stringify(data),
         context ? JSON.stringify(context) : undefined,
+    );
+    return JSON.parse(resultJson);
+}
+
+/** Evaluate screener routes against an isolated answer payload. */
+export function wasmEvaluateScreener(
+    definition: unknown,
+    answers: Record<string, unknown>,
+): { target: string; label?: string; message?: string; extensions?: Record<string, unknown> } | null {
+    const resultJson = wasm().evaluateScreener(
+        JSON.stringify(definition),
+        JSON.stringify(answers),
     );
     return JSON.parse(resultJson);
 }

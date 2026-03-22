@@ -15,7 +15,10 @@ pub mod runtime_mapping;
 pub mod schema_validator;
 
 // Re-export key types
-pub use assembler::{AssemblyError, AssemblyResult, MapResolver, RefResolver, assemble_definition};
+pub use assembler::{
+    AssemblyError, AssemblyProvenance, AssemblyResult, MapResolver, RefResolver,
+    assemble_definition,
+};
 pub use extension_analysis::{
     ExtensionErrorCode, ExtensionItem, ExtensionSeverity, ExtensionUsageIssue, MapRegistry,
     RegistryEntryInfo, RegistryEntryStatus, RegistryLookup, validate_extension_usage,

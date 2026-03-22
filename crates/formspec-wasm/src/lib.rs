@@ -26,7 +26,7 @@ use formspec_core::{
 };
 use formspec_eval::{
     EvalContext, EvalTrigger, ExtensionConstraint, ValidationResult,
-    evaluate_definition_full_with_instances_and_context,
+    evaluate_definition_full_with_instances_and_context, evaluate_screener,
 };
 use formspec_lint::{LintOptions, lint, lint_with_options};
 
@@ -666,6 +666,41 @@ fn evaluate_definition_inner(
     serde_json::to_string(&json).map_err(|e| e.to_string())
 }
 
+/// Evaluate screener routes for an isolated answer payload.
+#[wasm_bindgen(js_name = "evaluateScreener")]
+pub fn evaluate_screener_wasm(
+    definition_json: &str,
+    answers_json: &str,
+) -> Result<String, JsError> {
+    let definition: Value = serde_json::from_str(definition_json)
+        .map_err(|e| JsError::new(&format!("invalid definition JSON: {e}")))?;
+    let answers_val: Value = serde_json::from_str(answers_json)
+        .map_err(|e| JsError::new(&format!("invalid answers JSON: {e}")))?;
+
+    let answers: HashMap<String, Value> = answers_val
+        .as_object()
+        .map(|obj| obj.iter().map(|(key, value)| (key.clone(), value.clone())).collect())
+        .unwrap_or_default();
+
+    let route = evaluate_screener(&definition, &answers).map(|route| {
+        let mut output = serde_json::json!({
+            "target": route.target,
+        });
+        if let Some(label) = route.label {
+            output["label"] = serde_json::json!(label);
+        }
+        if let Some(message) = route.message {
+            output["message"] = serde_json::json!(message);
+        }
+        if let Some(extensions) = route.extensions {
+            output["extensions"] = extensions;
+        }
+        output
+    });
+
+    serde_json::to_string(&route).map_err(|e| JsError::new(&e.to_string()))
+}
+
 fn parse_eval_context(ctx_obj: &serde_json::Map<String, Value>) -> Result<EvalContext, String> {
     let previous_validations = ctx_obj
         .get("previousValidations")
@@ -914,6 +949,14 @@ pub fn assemble_definition_wasm(
         "definition": result.definition,
         "warnings": result.warnings,
         "errors": result.errors.iter().map(|e| e.to_string()).collect::<Vec<_>>(),
+        "assembledFrom": result.assembled_from.iter().map(|entry| {
+            serde_json::json!({
+                "url": entry.url,
+                "version": entry.version,
+                "keyPrefix": entry.key_prefix,
+                "fragment": entry.fragment,
+            })
+        }).collect::<Vec<_>>(),
     });
     serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
 }

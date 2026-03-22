@@ -8,8 +8,161 @@ use fel_core::{
     json_to_fel, parse,
 };
 
-use crate::rebuild::{is_repeat_group_array, parse_variables};
-use crate::types::{ItemInfo, VariableDef, WhitespaceMode, strip_indices};
+use crate::rebuild::parse_variables;
+use crate::types::{
+    ItemInfo, VariableDef, WhitespaceMode, resolve_qualified_repeat_refs, strip_indices,
+};
+
+fn coerce_calculated_json(item: &ItemInfo, mut json_val: Value) -> Value {
+    if let Some(precision) = item.precision
+        && let Some(number) = json_val.as_f64()
+        && number.is_finite()
+    {
+        let factor = 10_f64.powi(precision as i32);
+        json_val = serde_json::json!((number * factor).round() / factor);
+    }
+
+    if item.data_type.as_deref() == Some("money")
+        && let Some(number) = json_val.as_f64()
+    {
+        json_val = serde_json::json!({
+            "amount": number,
+            "currency": item.currency.clone().unwrap_or_default(),
+        });
+    }
+
+    json_val
+}
+
+fn normalize_money_like_json(value: &Value) -> Value {
+    match value {
+        Value::Array(array) => Value::Array(array.iter().map(normalize_money_like_json).collect()),
+        Value::Object(object) => {
+            let mut normalized: serde_json::Map<String, Value> = object
+                .iter()
+                .map(|(key, value)| (key.clone(), normalize_money_like_json(value)))
+                .collect();
+            if !normalized.contains_key("$type")
+                && normalized.contains_key("amount")
+                && normalized.contains_key("currency")
+            {
+                normalized.insert("$type".to_string(), Value::String("money".to_string()));
+            }
+            Value::Object(normalized)
+        }
+        _ => value.clone(),
+    }
+}
+
+fn json_to_runtime_fel(value: &Value) -> FelValue {
+    json_to_fel(&normalize_money_like_json(value))
+}
+
+fn restore_instance_aliases(
+    env: &mut FormspecEnvironment,
+    alias_names: &[String],
+    saved_values: &mut HashMap<String, Option<FelValue>>,
+) {
+    for name in alias_names {
+        match saved_values.remove(name) {
+            Some(Some(val)) => env.set_field(name, val),
+            _ => {
+                env.data.remove(name);
+            }
+        }
+    }
+}
+
+fn apply_instance_aliases(
+    instance_prefix: &str,
+    env: &mut FormspecEnvironment,
+    values: &HashMap<String, Value>,
+    saved_values: &mut HashMap<String, Option<FelValue>>,
+) -> (Vec<String>, Vec<String>) {
+    let mut alias_names = Vec::new();
+    let mut nested_groups = Vec::new();
+    let mut seen_groups = HashSet::new();
+    let prefix_dot = format!("{instance_prefix}.");
+
+    for (k, v) in values.iter() {
+        let Some(relative) = k.strip_prefix(&prefix_dot) else {
+            continue;
+        };
+        if !relative.contains('.') {
+            saved_values.insert(relative.to_string(), env.data.get(relative).cloned());
+            env.set_field(relative, json_to_runtime_fel(v));
+            alias_names.push(relative.to_string());
+            continue;
+        }
+
+        if let Some(bracket_pos) = relative.find('[') {
+            let group_name = &relative[..bracket_pos];
+            if !group_name.contains('.') && seen_groups.insert(group_name.to_string()) {
+                saved_values.insert(group_name.to_string(), env.data.get(group_name).cloned());
+                let group_path = format!("{instance_prefix}.{group_name}");
+                if let Some(array) = build_repeat_group_array(&group_path, values) {
+                    env.set_field(group_name, json_to_runtime_fel(&array));
+                } else {
+                    env.data.remove(group_name);
+                }
+                alias_names.push(group_name.to_string());
+                nested_groups.push(group_name.to_string());
+            }
+        }
+    }
+
+    (alias_names, nested_groups)
+}
+
+fn refresh_nested_group_aliases(
+    instance_prefix: &str,
+    nested_groups: &[String],
+    env: &mut FormspecEnvironment,
+    values: &HashMap<String, Value>,
+) {
+    for group_name in nested_groups {
+        let group_path = format!("{instance_prefix}.{group_name}");
+        if let Some(array) = build_repeat_group_array(&group_path, values) {
+            env.set_field(group_name, json_to_runtime_fel(&array));
+        } else {
+            env.data.remove(group_name);
+        }
+    }
+}
+
+fn parse_repeat_instance_prefix(prefix: &str) -> Option<(String, usize)> {
+    if !prefix.ends_with(']') {
+        return None;
+    }
+    let bracket = prefix.rfind('[')?;
+    let index = prefix[bracket + 1..prefix.len() - 1].parse::<usize>().ok()?;
+    Some((prefix[..bracket].to_string(), index))
+}
+
+fn push_repeat_context_for_instance(
+    instance_prefix: &str,
+    env: &mut FormspecEnvironment,
+    values: &HashMap<String, Value>,
+) -> bool {
+    let Some((group_path, index)) = parse_repeat_instance_prefix(instance_prefix) else {
+        return false;
+    };
+    let Some(array) = build_repeat_group_array(&group_path, values).and_then(|value| match value {
+        Value::Array(entries) => Some(entries),
+        _ => None,
+    }) else {
+        return false;
+    };
+    let Some(current) = array.get(index).cloned() else {
+        return false;
+    };
+    let collection = array
+        .iter()
+        .map(json_to_runtime_fel)
+        .collect::<Vec<FelValue>>();
+    env.push_repeat(json_to_runtime_fel(&current), index + 1, array.len(), collection);
+    true
+}
 
 // ── Topological sort for variables ──────────────────────────────
 
@@ -108,6 +261,65 @@ pub(crate) fn visible_variables(
     visible
 }
 
+fn visible_variables_for_scope(
+    all_vars: &HashMap<String, Value>,
+    scope: &str,
+) -> HashMap<String, Value> {
+    if scope == "#" {
+        let mut visible = HashMap::new();
+        for (key, val) in all_vars {
+            if let Some(name) = key.strip_prefix("#:") {
+                visible.insert(name.to_string(), val.clone());
+            }
+        }
+        visible
+    } else {
+        visible_variables(all_vars, scope)
+    }
+}
+
+fn bind_scope_field_aliases(
+    env: &mut FormspecEnvironment,
+    scope: &str,
+) -> HashMap<String, Option<FelValue>> {
+    if scope == "#" {
+        return HashMap::new();
+    }
+
+    let mut saved = HashMap::new();
+    let prefix = format!("{scope}.");
+    let entries: Vec<(String, FelValue)> = env
+        .data
+        .iter()
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+
+    for (path, value) in entries {
+        if let Some(alias) = path.strip_prefix(&prefix)
+            && !alias.contains('.')
+        {
+            saved.insert(alias.to_string(), env.data.get(alias).cloned());
+            env.set_field(alias, value);
+        }
+    }
+
+    saved
+}
+
+fn restore_scope_field_aliases(
+    env: &mut FormspecEnvironment,
+    saved_aliases: HashMap<String, Option<FelValue>>,
+) {
+    for (alias, previous) in saved_aliases {
+        match previous {
+            Some(value) => env.set_field(&alias, value),
+            None => {
+                env.data.remove(&alias);
+            }
+        }
+    }
+}
+
 // ── Phase 2: Recalculate ────────────────────────────────────────
 
 /// Recalculate all computed values with full processing model.
@@ -138,14 +350,14 @@ pub fn recalculate(
 
     // Populate named instances so @instance('name').path resolves in FEL
     for (name, value) in instances {
-        env.set_instance(name, json_to_fel(value));
+        env.set_instance(name, json_to_runtime_fel(value));
     }
     let mut values = data.clone();
 
     // Populate environment with ALL data (including arrays) for variable evaluation.
     // Variables may aggregate over arrays (e.g., sum($items[*].amount)).
     for (k, v) in &values {
-        env.set_field(k, json_to_fel(v));
+        env.set_field(k, json_to_runtime_fel(v));
     }
 
     // Step 1: Apply whitespace normalization
@@ -153,8 +365,9 @@ pub fn recalculate(
 
     // Re-populate environment after whitespace changes
     for (k, v) in &values {
-        env.set_field(k, json_to_fel(v));
+        env.set_field(k, json_to_runtime_fel(v));
     }
+    populate_repeat_group_arrays(&*items, &values, &mut env);
 
     // Step 2: Evaluate variables in topological order
     let var_defs = parse_variables(definition);
@@ -164,19 +377,7 @@ pub fn recalculate(
     // Set all variables in environment for global access (backwards compat)
     // For scoped resolution, we use scoped_var_values in evaluate_items_with_inheritance
     for (name, val) in &_initial_var_values {
-        env.set_variable(name, json_to_fel(val));
-    }
-
-    // After variable evaluation, remove repeat group arrays from the env.
-    // Flat indexed keys (e.g., rows[0].a) remain — FEL should resolve through
-    // those instead to avoid 1-based array indexing conflicts.
-    let array_keys: Vec<String> = values
-        .iter()
-        .filter(|(_, v)| is_repeat_group_array(v))
-        .map(|(k, _)| k.clone())
-        .collect();
-    for k in &array_keys {
-        env.data.remove(k);
+        env.set_variable(name, json_to_runtime_fel(val));
     }
 
     let has_scoped = var_defs
@@ -207,9 +408,23 @@ pub fn recalculate(
     settle_calculated_values(items, &mut env, &mut values, has_scoped.then_some(&scoped_var_values));
     populate_repeat_group_arrays(&*items, &values, &mut env);
 
-    let (final_var_values, _, _) = evaluate_variables_scoped(&var_defs, &mut env);
+    let (mut final_var_values, final_scoped_var_values, _) =
+        evaluate_variables_scoped(&var_defs, &mut env);
     for (name, val) in &final_var_values {
-        env.set_variable(name, json_to_fel(val));
+        env.set_variable(name, json_to_runtime_fel(val));
+    }
+
+    settle_calculated_values(
+        items,
+        &mut env,
+        &mut values,
+        has_scoped.then_some(&final_scoped_var_values),
+    );
+    populate_repeat_group_arrays(&*items, &values, &mut env);
+
+    (final_var_values, _, _) = evaluate_variables_scoped(&var_defs, &mut env);
+    for (name, val) in &final_var_values {
+        env.set_variable(name, json_to_runtime_fel(val));
     }
 
     (values, final_var_values, cycle_err)
@@ -266,16 +481,24 @@ fn evaluate_variables_scoped(
         // Find all var_defs with this name (may be multiple scopes)
         let matching: Vec<_> = var_defs.iter().filter(|v| v.name == *name).collect();
         for var in matching {
+            let scope = var.scope.as_deref().unwrap_or("#");
+            let saved_aliases = bind_scope_field_aliases(env, scope);
+            let saved_variables = env.variables.clone();
+            env.variables.clear();
+            for (visible_name, visible_value) in visible_variables_for_scope(&scoped_values, scope) {
+                env.set_variable(&visible_name, json_to_runtime_fel(&visible_value));
+            }
             if let Ok(parsed) = parse(&var.expression) {
                 let result = evaluate(&parsed, env);
                 let json_val = fel_to_json(&result.value);
                 env.set_variable(name, result.value);
                 var_values.insert(name.clone(), json_val.clone());
 
-                let scope = var.scope.as_deref().unwrap_or("#");
                 let scoped_key = format!("{scope}:{name}");
                 scoped_values.insert(scoped_key, json_val);
             }
+            env.variables = saved_variables;
+            restore_scope_field_aliases(env, saved_aliases);
         }
     }
 
@@ -291,7 +514,7 @@ fn populate_repeat_group_arrays(
         if item.repeatable
             && let Some(array) = build_repeat_group_array(&item.path, values)
         {
-            env.set_field(&item.path, json_to_fel(&array));
+            env.set_field(&item.path, json_to_runtime_fel(&array));
         }
         populate_repeat_group_arrays(&item.children, values, env);
     }
@@ -453,13 +676,16 @@ pub(crate) fn evaluate_single_item(
     parent_readonly: bool,
     invalid_paths: &HashSet<String>,
 ) {
+    let normalize_expr = |expr: &str| resolve_qualified_repeat_refs(expr, &item.path);
+
     // Save previous relevance for transition detection (9c).
     // prev_relevant is either from rebuild (true) or injected via EvalContext.
     let was_relevant = item.prev_relevant;
 
     // Evaluate own relevance expression
     let own_relevant = if let Some(ref expr) = item.relevance {
-        eval_bool(expr, env, true)
+        let normalized_expr = normalize_expr(expr);
+        eval_bool(&normalized_expr, env, true)
     } else {
         true
     };
@@ -477,7 +703,8 @@ pub(crate) fn evaluate_single_item(
         if is_empty {
             if let Some(ref expr) = item.default_expression {
                 // Expression default: evaluate FEL and apply result
-                if let Ok(parsed) = parse(expr) {
+                let normalized_expr = normalize_expr(expr);
+                if let Ok(parsed) = parse(&normalized_expr) {
                     let result = evaluate(&parsed, env);
                     let json_val = fel_to_json(&result.value);
                     values.insert(item.path.clone(), json_val.clone());
@@ -486,7 +713,7 @@ pub(crate) fn evaluate_single_item(
             } else if let Some(ref default_val) = item.default_value {
                 // Literal default
                 values.insert(item.path.clone(), default_val.clone());
-                env.set_field(&item.path, json_to_fel(default_val));
+                env.set_field(&item.path, json_to_runtime_fel(default_val));
             }
         }
     }
@@ -501,7 +728,8 @@ pub(crate) fn evaluate_single_item(
 
     // Evaluate own readonly expression
     let own_readonly = if let Some(ref expr) = item.readonly_expr {
-        eval_bool(expr, env, false)
+        let normalized_expr = normalize_expr(expr);
+        eval_bool(&normalized_expr, env, false)
     } else {
         false
     };
@@ -511,7 +739,8 @@ pub(crate) fn evaluate_single_item(
     // Required: no inheritance, only evaluate if relevant
     if item.relevant {
         if let Some(ref expr) = item.required_expr {
-            item.required = eval_bool(expr, env, false);
+            let normalized_expr = normalize_expr(expr);
+            item.required = eval_bool(&normalized_expr, env, false);
         }
     } else {
         item.required = false;
@@ -523,14 +752,15 @@ pub(crate) fn evaluate_single_item(
     }
 
     // Evaluate calculate (continues even when non-relevant per S5.6)
-    if let Some(ref expr) = item.calculate
-        && let Ok(parsed) = parse(expr)
-    {
+    if let Some(ref expr) = item.calculate {
+        let normalized_expr = normalize_expr(expr);
+        if let Ok(parsed) = parse(&normalized_expr) {
         let result = evaluate(&parsed, env);
-        let json_val = fel_to_json(&result.value);
+        let json_val = coerce_calculated_json(item, fel_to_json(&result.value));
         values.insert(item.path.clone(), json_val.clone());
-        item.value = json_val;
-        env.set_field(&item.path, result.value);
+        item.value = json_val.clone();
+        env.set_field(&item.path, json_to_runtime_fel(&json_val));
+        }
     }
 
     // Update MIP state
@@ -608,39 +838,28 @@ fn evaluate_repeat_children_with_aliases(
     // Group children by instance index (e.g., "rows[0]." prefix)
     // and set bare-name aliases before evaluating each batch.
     let mut current_instance: Option<String> = None;
-    let mut bare_names: Vec<String> = Vec::new();
-    // Save original env values for bare names so we can restore after cleanup
+    let mut alias_names: Vec<String> = Vec::new();
+    let mut nested_groups: Vec<String> = Vec::new();
     let mut saved_values: HashMap<String, Option<FelValue>> = HashMap::new();
+    let mut repeat_context_active = false;
 
     for item in children.iter_mut() {
-        let instance_prefix = item.parent_path.as_deref().unwrap_or("");
+        let instance_prefix = item.parent_path.clone().unwrap_or_default();
 
         // When the instance changes, set up bare-name aliases
-        if current_instance.as_deref() != Some(instance_prefix) {
-            // Restore previous values for bare names
-            for name in &bare_names {
-                match saved_values.remove(name) {
-                    Some(Some(val)) => env.set_field(name, val),
-                    _ => {
-                        env.data.remove(name);
-                    }
-                }
+        if current_instance.as_deref() != Some(instance_prefix.as_str()) {
+            if repeat_context_active {
+                env.pop_repeat();
             }
-            bare_names.clear();
-
-            // Collect all sibling values for this instance
-            current_instance = Some(instance_prefix.to_string());
-            let prefix_dot = format!("{instance_prefix}.");
-            for (k, v) in values.iter() {
-                if let Some(bare) = k.strip_prefix(&prefix_dot)
-                    && !bare.contains('.')
-                {
-                    // Save original value before overwriting
-                    saved_values.insert(bare.to_string(), env.data.get(bare).cloned());
-                    env.set_field(bare, json_to_fel(v));
-                    bare_names.push(bare.to_string());
-                }
-            }
+            restore_instance_aliases(env, &alias_names, &mut saved_values);
+            alias_names.clear();
+            nested_groups.clear();
+            current_instance = Some(instance_prefix.clone());
+            let (next_aliases, next_nested_groups) =
+                apply_instance_aliases(&instance_prefix, env, values, &mut saved_values);
+            alias_names = next_aliases;
+            nested_groups = next_nested_groups;
+            repeat_context_active = push_repeat_context_for_instance(&instance_prefix, env, values);
         }
 
         // Apply scoped variable filtering if provided
@@ -648,7 +867,7 @@ fn evaluate_repeat_children_with_aliases(
             let visible = visible_variables(sv, &item.path);
             env.variables.clear();
             for (name, val) in &visible {
-                env.set_variable(name, json_to_fel(val));
+                env.set_variable(name, json_to_runtime_fel(val));
             }
         }
 
@@ -666,7 +885,8 @@ fn evaluate_repeat_children_with_aliases(
         if item.calculate.is_some()
             && let Some(val) = values.get(&item.path)
         {
-            env.set_field(&item.key, json_to_fel(val));
+            env.set_field(&item.key, json_to_runtime_fel(val));
+            refresh_nested_group_aliases(&instance_prefix, &nested_groups, env, values);
         }
 
         // Recurse into nested groups
@@ -702,15 +922,10 @@ fn evaluate_repeat_children_with_aliases(
         }
     }
 
-    // Restore original values for bare names
-    for name in &bare_names {
-        match saved_values.remove(name) {
-            Some(Some(val)) => env.set_field(name, val),
-            _ => {
-                env.data.remove(name);
-            }
-        }
+    if repeat_context_active {
+        env.pop_repeat();
     }
+    restore_instance_aliases(env, &alias_names, &mut saved_values);
 }
 
 /// Variant of evaluate_items_with_inheritance that pre-filters variables
@@ -729,7 +944,7 @@ fn evaluate_items_with_inheritance_scoped(
         let visible = visible_variables(scoped_vars, &item.path);
         env.variables.clear();
         for (name, val) in &visible {
-            env.set_variable(name, json_to_fel(val));
+            env.set_variable(name, json_to_runtime_fel(val));
         }
 
         evaluate_single_item(
@@ -822,7 +1037,7 @@ fn calculate_pass_items_scoped(
         let visible = visible_variables(scoped_vars, &item.path);
         env.variables.clear();
         for (name, val) in &visible {
-            env.set_variable(name, json_to_fel(val));
+            env.set_variable(name, json_to_runtime_fel(val));
         }
 
         changed |= evaluate_calculate_only(item, env, values);
@@ -850,41 +1065,34 @@ fn calculate_pass_repeat_children_with_aliases(
 ) -> bool {
     let mut changed = false;
     let mut current_instance: Option<String> = None;
-    let mut bare_names: Vec<String> = Vec::new();
+    let mut alias_names: Vec<String> = Vec::new();
+    let mut nested_groups: Vec<String> = Vec::new();
     let mut saved_values: HashMap<String, Option<FelValue>> = HashMap::new();
+    let mut repeat_context_active = false;
 
     for item in children.iter_mut() {
-        let instance_prefix = item.parent_path.as_deref().unwrap_or("");
+        let instance_prefix = item.parent_path.clone().unwrap_or_default();
 
-        if current_instance.as_deref() != Some(instance_prefix) {
-            for name in &bare_names {
-                match saved_values.remove(name) {
-                    Some(Some(val)) => env.set_field(name, val),
-                    _ => {
-                        env.data.remove(name);
-                    }
-                }
+        if current_instance.as_deref() != Some(instance_prefix.as_str()) {
+            if repeat_context_active {
+                env.pop_repeat();
             }
-            bare_names.clear();
-
-            current_instance = Some(instance_prefix.to_string());
-            let prefix_dot = format!("{instance_prefix}.");
-            for (k, v) in values.iter() {
-                if let Some(bare) = k.strip_prefix(&prefix_dot)
-                    && !bare.contains('.')
-                {
-                    saved_values.insert(bare.to_string(), env.data.get(bare).cloned());
-                    env.set_field(bare, json_to_fel(v));
-                    bare_names.push(bare.to_string());
-                }
-            }
+            restore_instance_aliases(env, &alias_names, &mut saved_values);
+            alias_names.clear();
+            nested_groups.clear();
+            current_instance = Some(instance_prefix.clone());
+            let (next_aliases, next_nested_groups) =
+                apply_instance_aliases(&instance_prefix, env, values, &mut saved_values);
+            alias_names = next_aliases;
+            nested_groups = next_nested_groups;
+            repeat_context_active = push_repeat_context_for_instance(&instance_prefix, env, values);
         }
 
         if let Some(scoped_vars) = scoped_vars {
             let visible = visible_variables(scoped_vars, &item.path);
             env.variables.clear();
             for (name, val) in &visible {
-                env.set_variable(name, json_to_fel(val));
+                env.set_variable(name, json_to_runtime_fel(val));
             }
         }
 
@@ -893,7 +1101,8 @@ fn calculate_pass_repeat_children_with_aliases(
         if item.calculate.is_some()
             && let Some(val) = values.get(&item.path)
         {
-            env.set_field(&item.key, json_to_fel(val));
+            env.set_field(&item.key, json_to_runtime_fel(val));
+            refresh_nested_group_aliases(&instance_prefix, &nested_groups, env, values);
         }
 
         if item.repeatable && !item.children.is_empty() {
@@ -910,14 +1119,10 @@ fn calculate_pass_repeat_children_with_aliases(
         }
     }
 
-    for name in &bare_names {
-        match saved_values.remove(name) {
-            Some(Some(val)) => env.set_field(name, val),
-            _ => {
-                env.data.remove(name);
-            }
-        }
+    if repeat_context_active {
+        env.pop_repeat();
     }
+    restore_instance_aliases(env, &alias_names, &mut saved_values);
 
     changed
 }
@@ -930,17 +1135,18 @@ fn evaluate_calculate_only(
     let Some(ref expr) = item.calculate else {
         return false;
     };
-    let Ok(parsed) = parse(expr) else {
+    let normalized_expr = resolve_qualified_repeat_refs(expr, &item.path);
+    let Ok(parsed) = parse(&normalized_expr) else {
         return false;
     };
 
     let result = evaluate(&parsed, env);
-    let json_val = fel_to_json(&result.value);
+    let json_val = coerce_calculated_json(item, fel_to_json(&result.value));
     let changed = values.get(&item.path) != Some(&json_val);
 
     values.insert(item.path.clone(), json_val.clone());
-    item.value = json_val;
-    env.set_field(&item.path, result.value);
+    item.value = json_val.clone();
+    env.set_field(&item.path, json_to_runtime_fel(&json_val));
 
     changed
 }

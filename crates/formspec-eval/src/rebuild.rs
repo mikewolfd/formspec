@@ -3,17 +3,29 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::types::{ItemInfo, VariableDef, find_item_by_path_mut};
+use crate::types::{ItemInfo, VariableDef, find_item_by_path_mut, internal_path_to_fel_path};
+
+fn bool_or_string_expr(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.clone()),
+        Value::Bool(flag) => Some(flag.to_string()),
+        _ => None,
+    }
+}
 
 /// Build the item tree from a definition JSON.
 pub fn rebuild_item_tree(definition: &Value) -> Vec<ItemInfo> {
     let items = definition.get("items").and_then(|v| v.as_array());
     let binds = definition.get("binds");
+    let default_currency = definition
+        .get("formPresentation")
+        .and_then(|v| v.get("defaultCurrency"))
+        .and_then(|v| v.as_str());
 
     match items {
         Some(items) => items
             .iter()
-            .map(|item| build_item_info(item, binds, None))
+            .map(|item| build_item_info(item, binds, None, default_currency))
             .collect(),
         None => vec![],
     }
@@ -44,32 +56,62 @@ pub fn parse_variables(definition: &Value) -> Vec<VariableDef> {
 fn resolve_bind<'a>(
     binds: Option<&'a Value>,
     key: &str,
-) -> Option<&'a serde_json::Map<String, Value>> {
+) -> Option<serde_json::Map<String, Value>> {
     let binds = binds?;
     // Support both object-style and array-style binds
     match binds {
-        Value::Object(map) => map.get(key)?.as_object(),
+        Value::Object(map) => map.get(key)?.as_object().cloned(),
         Value::Array(arr) => {
+            let mut merged = serde_json::Map::new();
             for bind in arr {
                 if bind.get("path").and_then(|v| v.as_str()) == Some(key) {
-                    return bind.as_object();
+                    if let Some(bind_obj) = bind.as_object() {
+                        for (field, value) in bind_obj {
+                            merged.insert(field.clone(), value.clone());
+                        }
+                    }
                 }
             }
-            None
+            if merged.is_empty() {
+                None
+            } else {
+                Some(merged)
+            }
         }
         _ => None,
     }
 }
 
-fn build_item_info(item: &Value, binds: Option<&Value>, parent_path: Option<&str>) -> ItemInfo {
+fn build_item_info(
+    item: &Value,
+    binds: Option<&Value>,
+    parent_path: Option<&str>,
+    default_currency: Option<&str>,
+) -> ItemInfo {
     let key = item
         .get("key")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    let item_type = item
+        .get("type")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .unwrap_or_else(|| {
+            if item.get("children").is_some() || item.get("repeatable").is_some() {
+                "group".to_string()
+            } else {
+                "field".to_string()
+            }
+        });
     let data_type = item
         .get("dataType")
         .and_then(|v| v.as_str())
+        .map(String::from);
+    let currency = item
+        .get("currency")
+        .and_then(|v| v.as_str())
+        .or(default_currency)
         .map(String::from);
 
     let path = match parent_path {
@@ -78,14 +120,37 @@ fn build_item_info(item: &Value, binds: Option<&Value>, parent_path: Option<&str
     };
 
     // Look up bind for this path
-    let bind = resolve_bind(binds, &path).or_else(|| resolve_bind(binds, &key));
+    let mut bind = resolve_bind(binds, &path).or_else(|| resolve_bind(binds, &key)).unwrap_or_default();
+    for field in [
+        "calculate",
+        "constraint",
+        "constraintMessage",
+        "relevant",
+        "required",
+        "readonly",
+        "default",
+        "precision",
+        "disabledDisplay",
+        "whitespace",
+        "nonRelevantBehavior",
+        "excludedValue",
+    ] {
+        if let Some(value) = item.get(field) {
+            bind.insert(field.to_string(), value.clone());
+        }
+    }
+    if bind.get("relevant").is_none()
+        && let Some(value) = item.get("visible")
+    {
+        bind.insert("relevant".to_string(), value.clone());
+    }
 
     let children = item
         .get("children")
         .and_then(|v| v.as_array())
         .map(|kids| {
             kids.iter()
-                .map(|k| build_item_info(k, binds, Some(&path)))
+                .map(|k| build_item_info(k, binds, Some(&path), default_currency))
                 .collect()
         })
         .unwrap_or_default();
@@ -93,54 +158,57 @@ fn build_item_info(item: &Value, binds: Option<&Value>, parent_path: Option<&str
     ItemInfo {
         key,
         path: path.clone(),
+        item_type,
         data_type,
+        currency,
         value: Value::Null,
         relevant: true,
         required: false,
         readonly: false,
-        calculate: bind
+        calculate: Some(&bind)
             .and_then(|b| b.get("calculate"))
             .and_then(|v| v.as_str())
             .map(String::from),
-        constraint: bind
+        precision: Some(&bind)
+            .and_then(|b| b.get("precision"))
+            .and_then(|v| v.as_u64())
+            .and_then(|value| u32::try_from(value).ok()),
+        constraint: Some(&bind)
             .and_then(|b| b.get("constraint"))
             .and_then(|v| v.as_str())
             .map(String::from),
-        constraint_message: bind
+        constraint_message: Some(&bind)
             .and_then(|b| b.get("constraintMessage"))
             .and_then(|v| v.as_str())
             .map(String::from),
-        relevance: bind
+        relevance: Some(&bind)
             .and_then(|b| b.get("relevant"))
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        required_expr: bind
+            .and_then(bool_or_string_expr),
+        required_expr: Some(&bind)
             .and_then(|b| b.get("required"))
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        readonly_expr: bind
+            .and_then(bool_or_string_expr),
+        readonly_expr: Some(&bind)
             .and_then(|b| b.get("readonly"))
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        whitespace: bind
+            .and_then(bool_or_string_expr),
+        whitespace: Some(&bind)
             .and_then(|b| b.get("whitespace"))
             .and_then(|v| v.as_str())
             .map(String::from),
-        nrb: bind
+        nrb: Some(&bind)
             .and_then(|b| b.get("nonRelevantBehavior"))
             .and_then(|v| v.as_str())
             .map(String::from),
-        excluded_value: bind
+        excluded_value: Some(&bind)
             .and_then(|b| b.get("excludedValue"))
             .and_then(|v| v.as_str())
             .map(String::from),
-        default_value: bind.and_then(|b| b.get("default")).and_then(|v| {
+        default_value: Some(&bind).and_then(|b| b.get("default")).and_then(|v| {
             match v {
                 Value::String(s) if s.starts_with('=') => None,
                 other => Some(other.clone()),
             }
         }),
-        default_expression: bind
+        default_expression: Some(&bind)
             .and_then(|b| b.get("default"))
             .and_then(|v| v.as_str())
             .filter(|s| s.starts_with('='))
@@ -199,15 +267,16 @@ pub fn expand_wildcard_path(pattern: &str, data: &HashMap<String, Value>) -> Vec
     // Find the count by looking at the data for the base path
     let count = detect_repeat_count(base, data);
 
-    (0..count)
-        .map(|i| {
-            if suffix.is_empty() {
-                format!("{}[{}]", base, i)
-            } else {
-                format!("{}[{}].{}", base, i, suffix)
-            }
-        })
-        .collect()
+    let mut expanded = Vec::new();
+    for i in 0..count {
+        let concrete = if suffix.is_empty() {
+            format!("{}[{}]", base, i)
+        } else {
+            format!("{}[{}].{}", base, i, suffix)
+        };
+        expanded.extend(expand_wildcard_path(&concrete, data));
+    }
+    expanded
 }
 
 /// Augment nested data with indexed paths for repeat groups.
@@ -284,10 +353,30 @@ pub fn expand_repeat_instances(items: &mut [ItemInfo], data: &HashMap<String, Va
     expand_repeat_instances_inner(items, data);
 }
 
+fn rebase_item_paths(item: &mut ItemInfo, from: &str, to: &str) {
+    if item.path == from {
+        item.path = to.to_string();
+    } else if let Some(relative) = item.path.strip_prefix(&format!("{from}.")) {
+        item.path = format!("{to}.{relative}");
+    }
+
+    if let Some(parent_path) = item.parent_path.clone() {
+        if parent_path == from {
+            item.parent_path = Some(to.to_string());
+        } else if let Some(relative) = parent_path.strip_prefix(&format!("{from}.")) {
+            item.parent_path = Some(format!("{to}.{relative}"));
+        }
+    }
+
+    for child in &mut item.children {
+        rebase_item_paths(child, from, to);
+    }
+}
+
 fn expand_repeat_instances_inner(items: &mut [ItemInfo], data: &HashMap<String, Value>) {
     for item in items.iter_mut() {
         if item.repeatable {
-            let count = detect_repeat_count(&item.path, data);
+            let count = detect_repeat_count(&item.path, data).max(item.repeat_min.unwrap_or(0) as usize);
             if count > 0 {
                 // Clone template children into concrete indexed instances
                 let template_children = item.children.clone();
@@ -295,13 +384,12 @@ fn expand_repeat_instances_inner(items: &mut [ItemInfo], data: &HashMap<String, 
                 for i in 0..count {
                     for child in &template_children {
                         let mut concrete = child.clone();
+                        let original_path = concrete.path.clone();
                         let indexed_path = format!("{}[{}].{}", item.path, i, child.key);
-                        concrete.path = indexed_path;
+                        rebase_item_paths(&mut concrete, &original_path, &indexed_path);
                         concrete.parent_path = Some(format!("{}[{}]", item.path, i));
                         // Recursively expand nested repeatables
-                        if !concrete.children.is_empty() {
-                            expand_repeat_instances_inner(&mut concrete.children, data);
-                        }
+                        expand_repeat_instances_inner(std::slice::from_mut(&mut concrete), data);
                         expanded.push(concrete);
                     }
                 }
@@ -326,7 +414,7 @@ pub(crate) fn is_wildcard_bind(path: &str) -> bool {
 /// becomes `$items[2].qty * $items[2].price`.
 pub(crate) fn instantiate_wildcard_expr(expr: &str, base: &str, index: usize) -> String {
     let wildcard_pattern = format!("${}[*]", base);
-    let concrete = format!("${}[{}]", base, index);
+    let concrete = format!("${}[{}]", base, index + 1);
     expr.replace(&wildcard_pattern, &concrete)
 }
 
@@ -352,17 +440,17 @@ pub(crate) fn apply_wildcard_binds(
     }
 
     for (bind_path, bind_obj) in &wildcard_binds {
-        let base = match wildcard_base(bind_path) {
-            Some(b) => b.to_string(),
-            None => continue,
+        let concrete_paths = {
+            let from_data = expand_wildcard_path(bind_path, data);
+            if from_data.is_empty() {
+                collect_matching_item_paths(items, bind_path)
+            } else {
+                from_data
+            }
         };
-
-        let count = detect_repeat_count(&base, data);
-        for i in 0..count {
-            let concrete_path = bind_path.replace("[*]", &format!("[{}]", i));
+        for concrete_path in concrete_paths {
             if let Some(item) = find_item_by_path_mut(items, &concrete_path) {
-                let inst = |expr: &str| -> String { instantiate_wildcard_expr(expr, &base, i) };
-                // Merge bind fields — only overwrite when the bind specifies the field.
+                let inst = |expr: &str| -> String { instantiate_concrete_expr(expr, bind_path, &concrete_path) };
                 if let Some(expr) = bind_obj.get("calculate").and_then(|v| v.as_str()) {
                     item.calculate = Some(inst(expr));
                 }
@@ -372,14 +460,14 @@ pub(crate) fn apply_wildcard_binds(
                 if let Some(msg) = bind_obj.get("constraintMessage").and_then(|v| v.as_str()) {
                     item.constraint_message = Some(msg.to_string());
                 }
-                if let Some(expr) = bind_obj.get("relevant").and_then(|v| v.as_str()) {
-                    item.relevance = Some(inst(expr));
+                if let Some(expr) = bind_obj.get("relevant").and_then(bool_or_string_expr) {
+                    item.relevance = Some(inst(&expr));
                 }
-                if let Some(expr) = bind_obj.get("required").and_then(|v| v.as_str()) {
-                    item.required_expr = Some(inst(expr));
+                if let Some(expr) = bind_obj.get("required").and_then(bool_or_string_expr) {
+                    item.required_expr = Some(inst(&expr));
                 }
-                if let Some(expr) = bind_obj.get("readonly").and_then(|v| v.as_str()) {
-                    item.readonly_expr = Some(inst(expr));
+                if let Some(expr) = bind_obj.get("readonly").and_then(bool_or_string_expr) {
+                    item.readonly_expr = Some(inst(&expr));
                 }
                 if let Some(ws) = bind_obj.get("whitespace").and_then(|v| v.as_str()) {
                     item.whitespace = Some(ws.to_string());
@@ -407,16 +495,87 @@ pub(crate) fn apply_wildcard_binds(
     }
 }
 
+fn collect_matching_item_paths(items: &[ItemInfo], wildcard_path: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    collect_matching_item_paths_inner(items, wildcard_path, &mut paths);
+    paths
+}
+
+fn collect_matching_item_paths_inner(items: &[ItemInfo], wildcard_path: &str, out: &mut Vec<String>) {
+    for item in items {
+        if wildcard_path_matches(wildcard_path, &item.path) {
+            out.push(item.path.clone());
+        }
+        collect_matching_item_paths_inner(&item.children, wildcard_path, out);
+    }
+}
+
+fn wildcard_path_matches(pattern: &str, path: &str) -> bool {
+    let parts: Vec<&str> = pattern.split("[*]").collect();
+    if parts.len() == 1 {
+        return pattern == path;
+    }
+
+    let mut remainder = path;
+    for (index, part) in parts.iter().enumerate() {
+        if index == 0 {
+            let Some(stripped) = remainder.strip_prefix(part) else {
+                return false;
+            };
+            remainder = stripped;
+            continue;
+        }
+
+        if !remainder.starts_with('[') {
+            return false;
+        }
+        let Some(end) = remainder.find(']') else {
+            return false;
+        };
+        if remainder[1..end].parse::<usize>().is_err() {
+            return false;
+        }
+        remainder = &remainder[end + 1..];
+        let Some(stripped) = remainder.strip_prefix(part) else {
+            return false;
+        };
+        remainder = stripped;
+    }
+
+    remainder.is_empty()
+}
+
+fn instantiate_concrete_expr(expr: &str, wildcard_path: &str, concrete_path: &str) -> String {
+    let wildcard_parts: Vec<&str> = wildcard_path.split('.').collect();
+    let concrete_parts: Vec<&str> = concrete_path.split('.').collect();
+    let mut result = expr.to_string();
+    let mut wildcard_prefix = Vec::new();
+    let mut concrete_prefix = Vec::new();
+
+    for (wildcard_part, concrete_part) in wildcard_parts.iter().zip(concrete_parts.iter()) {
+        wildcard_prefix.push(*wildcard_part);
+        concrete_prefix.push(*concrete_part);
+        if !wildcard_part.contains("[*]") {
+            continue;
+        }
+        let wildcard_ref = format!("${}", wildcard_prefix.join("."));
+        let concrete_ref = format!("${}", internal_path_to_fel_path(&concrete_prefix.join(".")));
+        result = result.replace(&wildcard_ref, &concrete_ref);
+    }
+
+    result
+}
+
 /// Collect wildcard bind entries from the binds object/array.
 fn collect_wildcard_binds(binds: Option<&Value>) -> Vec<(String, serde_json::Map<String, Value>)> {
-    let mut result = Vec::new();
+    let mut merged: HashMap<String, serde_json::Map<String, Value>> = HashMap::new();
     match binds {
         Some(Value::Object(map)) => {
             for (path, val) in map {
                 if is_wildcard_bind(path)
                     && let Some(obj) = val.as_object()
                 {
-                    result.push((path.clone(), obj.clone()));
+                    merged.insert(path.clone(), obj.clone());
                 }
             }
         }
@@ -426,19 +585,26 @@ fn collect_wildcard_binds(binds: Option<&Value>) -> Vec<(String, serde_json::Map
                     && is_wildcard_bind(path)
                     && let Some(obj) = bind.as_object()
                 {
-                    result.push((path.to_string(), obj.clone()));
+                    let entry = merged.entry(path.to_string()).or_default();
+                    for (field, value) in obj {
+                        entry.insert(field.clone(), value.clone());
+                    }
                 }
             }
         }
         _ => {}
     }
-    result
+    merged.into_iter().collect()
 }
 
 /// Seed initial values for fields that are missing from data (9e).
 /// If initialValue is a string starting with "=", evaluate as FEL expression.
 /// Otherwise use as literal.
-pub(crate) fn seed_initial_values(items: &[ItemInfo], data: &mut HashMap<String, Value>) {
+pub(crate) fn seed_initial_values(
+    items: &[ItemInfo],
+    data: &mut HashMap<String, Value>,
+    now_iso: Option<&str>,
+) {
     for item in items {
         if let Some(ref init_val) = item.initial_value
             && !data.contains_key(&item.path)
@@ -449,6 +615,9 @@ pub(crate) fn seed_initial_values(items: &[ItemInfo], data: &mut HashMap<String,
                     let expr_str = &s[1..];
                     if let Ok(parsed) = fel_core::parse(expr_str) {
                         let mut env = fel_core::FormspecEnvironment::new();
+                        if let Some(now_iso) = now_iso {
+                            env.set_now_from_iso(now_iso);
+                        }
                         for (k, v) in data.iter() {
                             env.set_field(k, fel_core::json_to_fel(v));
                         }
@@ -461,7 +630,7 @@ pub(crate) fn seed_initial_values(items: &[ItemInfo], data: &mut HashMap<String,
                 }
             }
         }
-        seed_initial_values(&item.children, data);
+        seed_initial_values(&item.children, data, now_iso);
     }
 }
 
@@ -522,16 +691,17 @@ mod tests {
     // ── Finding 34: Nested wildcard expansion ────────────────────
 
     #[test]
-    fn expand_wildcard_path_nested_wildcards_only_expands_first() {
+    fn expand_wildcard_path_nested_wildcards_expands_all_levels() {
         let mut data = HashMap::new();
         data.insert("items[0].subitems[0].value".to_string(), json!(1));
         data.insert("items[0].subitems[1].value".to_string(), json!(2));
         data.insert("items[1].subitems[0].value".to_string(), json!(3));
 
         let expanded = expand_wildcard_path("items[*].subitems[*].value", &data);
-        assert_eq!(expanded.len(), 2, "only outer wildcard expanded");
-        assert_eq!(expanded[0], "items[0].subitems[*].value");
-        assert_eq!(expanded[1], "items[1].subitems[*].value");
+        assert_eq!(expanded.len(), 3);
+        assert_eq!(expanded[0], "items[0].subitems[0].value");
+        assert_eq!(expanded[1], "items[0].subitems[1].value");
+        assert_eq!(expanded[2], "items[1].subitems[0].value");
     }
 
     // ── Finding 35: Sparse repeat indices ────────────────────────
@@ -697,7 +867,7 @@ mod tests {
     fn instantiate_wildcard_expr_no_prefix_collision() {
         let result = instantiate_wildcard_expr("$myrow[*].field + $row[*].field", "row", 0);
         assert_eq!(
-            result, "$myrow[*].field + $row[0].field",
+            result, "$myrow[*].field + $row[1].field",
             "must not replace inside $myrow — only $row"
         );
     }
@@ -709,7 +879,7 @@ mod tests {
             "section.rows",
             3,
         );
-        assert_eq!(result, "$section.rows[3].qty * $section.rows[3].price");
+        assert_eq!(result, "$section.rows[4].qty * $section.rows[4].price");
     }
 
     #[test]

@@ -1,35 +1,25 @@
 //! Resolves $ref inclusions and assembles self-contained definitions with FEL rewriting.
 
-/// Resolves `$ref` inclusions to produce self-contained definitions.
-///
-/// Key prefix application, circular reference detection, key collision handling,
-/// FEL path rewriting in binds/shapes/variables for imported fragments.
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde_json::{Map, Value};
 
-use crate::fel_analysis::{RewriteOptions, rewrite_fel_references};
-use fel_core::parse;
+use crate::{
+    RewriteOptions, rewrite_fel_source_references, rewrite_message_template,
+};
 
-// ── Types ───────────────────────────────────────────────────────
-
-/// Error during assembly.
 #[derive(Debug, Clone)]
 pub enum AssemblyError {
-    /// Circular $ref detected.
     CircularRef(String),
-    /// Key collision after prefix application.
     KeyCollision { key: String, source: String },
-    /// $ref target not found.
     RefNotFound(String),
-    /// Failed to resolve a $ref.
     ResolutionError(String),
 }
 
 impl std::fmt::Display for AssemblyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AssemblyError::CircularRef(r) => write!(f, "circular $ref: {r}"),
+            AssemblyError::CircularRef(r) => write!(f, "Circular $ref detected: {r}"),
             AssemblyError::KeyCollision { key, source } => {
                 write!(f, "key collision: '{key}' from {source}")
             }
@@ -41,31 +31,34 @@ impl std::fmt::Display for AssemblyError {
 
 impl std::error::Error for AssemblyError {}
 
-/// Result of assembly.
-#[derive(Debug, Clone)]
-pub struct AssemblyResult {
-    /// The assembled definition (self-contained, no $refs).
-    pub definition: Value,
-    /// Non-fatal warnings during assembly.
-    pub warnings: Vec<String>,
-    /// Fatal errors during assembly.
-    pub errors: Vec<AssemblyError>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssemblyProvenance {
+    pub url: String,
+    pub version: String,
+    pub key_prefix: Option<String>,
+    pub fragment: Option<String>,
 }
 
-/// Trait for resolving $ref URIs to definition fragments.
+#[derive(Debug, Clone)]
+pub struct AssemblyResult {
+    pub definition: Value,
+    pub warnings: Vec<String>,
+    pub errors: Vec<AssemblyError>,
+    pub assembled_from: Vec<AssemblyProvenance>,
+}
+
 pub trait RefResolver {
     fn resolve(&self, ref_uri: &str) -> Option<Value>;
 }
 
-/// HashMap-based resolver for testing.
 pub struct MapResolver {
-    fragments: std::collections::HashMap<String, Value>,
+    fragments: HashMap<String, Value>,
 }
 
 impl MapResolver {
     pub fn new() -> Self {
         Self {
-            fragments: std::collections::HashMap::new(),
+            fragments: HashMap::new(),
         }
     }
 
@@ -86,345 +79,880 @@ impl RefResolver for MapResolver {
     }
 }
 
-// ── Assembly ────────────────────────────────────────────────────
-
-/// Assemble a definition by resolving all $ref inclusions.
-///
-/// Walks the item tree, resolving `$ref` properties to inline the referenced
-/// fragment's items. Applies key prefixes, rewrites FEL paths in binds/shapes/variables,
-/// and detects circular references.
 pub fn assemble_definition(definition: &Value, resolver: &dyn RefResolver) -> AssemblyResult {
     let mut result = AssemblyResult {
         definition: definition.clone(),
         warnings: Vec::new(),
         errors: Vec::new(),
+        assembled_from: Vec::new(),
     };
 
-    let mut visited_refs: HashSet<String> = HashSet::new();
+    let mut visited_refs = HashSet::new();
+    let items = definition
+        .get("items")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let assembled_items = resolve_items(
+        &items,
+        "",
+        resolver,
+        &mut visited_refs,
+        &mut result.definition,
+        &mut result.errors,
+        &mut result.assembled_from,
+    );
 
-    if let Some(items) = definition.get("items").and_then(|v| v.as_array()) {
-        let mut assembled_items = Vec::new();
-        for item in items {
-            match resolve_item(item, resolver, &mut visited_refs, &mut result) {
-                Some(resolved) => assembled_items.push(resolved),
-                None => assembled_items.push(item.clone()),
-            }
-        }
-        if let Some(def_obj) = result.definition.as_object_mut() {
-            def_obj.insert("items".to_string(), Value::Array(assembled_items));
-        }
-    }
-
-    // Resolve $ref in variables
-    if let Some(vars) = definition.get("variables").and_then(|v| v.as_array()) {
-        let mut assembled_vars = Vec::new();
-        for var in vars {
-            assembled_vars.push(var.clone());
-        }
-        if let Some(def_obj) = result.definition.as_object_mut() {
-            def_obj.insert("variables".to_string(), Value::Array(assembled_vars));
-        }
+    if let Some(host) = result.definition.as_object_mut() {
+        host.insert("items".to_string(), Value::Array(assembled_items));
     }
 
     result
+}
+
+fn resolve_items(
+    items: &[Value],
+    parent_path: &str,
+    resolver: &dyn RefResolver,
+    visited_refs: &mut HashSet<String>,
+    host: &mut Value,
+    errors: &mut Vec<AssemblyError>,
+    assembled_from: &mut Vec<AssemblyProvenance>,
+) -> Vec<Value> {
+    let mut resolved = Vec::with_capacity(items.len());
+    for item in items {
+        resolved.push(resolve_item(
+            item,
+            parent_path,
+            resolver,
+            visited_refs,
+            host,
+            errors,
+            assembled_from,
+        ));
+    }
+    resolved
 }
 
 fn resolve_item(
     item: &Value,
+    parent_path: &str,
     resolver: &dyn RefResolver,
-    visited: &mut HashSet<String>,
-    result: &mut AssemblyResult,
-) -> Option<Value> {
-    let obj = item.as_object()?;
+    visited_refs: &mut HashSet<String>,
+    host: &mut Value,
+    errors: &mut Vec<AssemblyError>,
+    assembled_from: &mut Vec<AssemblyProvenance>,
+) -> Value {
+    let Some(obj) = item.as_object() else {
+        return item.clone();
+    };
 
-    // Check for $ref
-    if let Some(ref_val) = obj.get("$ref").and_then(|v| v.as_str()) {
-        let ref_uri = ref_val.to_string();
-
-        // Circular reference detection
-        if visited.contains(&ref_uri) {
-            result.errors.push(AssemblyError::CircularRef(ref_uri));
-            return None;
+    if let Some(ref_uri) = obj.get("$ref").and_then(Value::as_str) {
+        let parsed_ref = parse_ref(ref_uri);
+        let ref_key = versioned_ref_key(&parsed_ref.url, parsed_ref.version.as_deref());
+        if visited_refs.contains(&ref_key) {
+            errors.push(AssemblyError::CircularRef(ref_key));
+            return item.clone();
         }
-        visited.insert(ref_uri.clone());
 
-        // Resolve the fragment
-        let fragment = match resolver.resolve(&ref_uri) {
-            Some(f) => f,
-            None => {
-                result
-                    .errors
-                    .push(AssemblyError::RefNotFound(ref_uri.clone()));
-                visited.remove(&ref_uri);
-                return None;
-            }
+        visited_refs.insert(ref_key.clone());
+        let Some(referenced) = resolve_reference(resolver, ref_uri, &parsed_ref) else {
+            errors.push(AssemblyError::RefNotFound(ref_uri.to_string()));
+            visited_refs.remove(&ref_key);
+            return item.clone();
         };
 
-        // Apply key prefix from the $ref item
-        let key_prefix = obj.get("keyPrefix").and_then(|v| v.as_str()).unwrap_or("");
+        let mut assembled = perform_assembly(
+            item,
+            parent_path,
+            &referenced,
+            &parsed_ref,
+            host,
+            errors,
+            assembled_from,
+        );
+        let full_path = current_item_path(parent_path, obj.get("key").and_then(Value::as_str).unwrap_or(""));
 
-        // Build the resolved item from the fragment
-        let mut resolved = apply_fragment(item, &fragment, key_prefix, &ref_uri, result);
-
-        // Recursively resolve any $ref children in the resolved fragment (spec §6.6.2 Rule 5)
-        if let Some(children) = resolved.get("children").and_then(|v| v.as_array()).cloned() {
-            let mut resolved_children = Vec::new();
-            for child in &children {
-                match resolve_item(child, resolver, visited, result) {
-                    Some(r) => resolved_children.push(r),
-                    None => resolved_children.push(child.clone()),
-                }
-            }
-            if let Some(obj) = resolved.as_object_mut() {
-                obj.insert("children".to_string(), Value::Array(resolved_children));
+        if let Some(children) = assembled.get("children").and_then(Value::as_array).cloned() {
+            let resolved_children =
+                resolve_items(&children, &full_path, resolver, visited_refs, host, errors, assembled_from);
+            if let Some(assembled_obj) = assembled.as_object_mut() {
+                assembled_obj.insert("children".to_string(), Value::Array(resolved_children));
             }
         }
 
-        visited.remove(&ref_uri);
-        return Some(resolved);
+        visited_refs.remove(&ref_key);
+        return assembled;
     }
 
-    // Recursively resolve children
-    if let Some(children) = obj.get("children").and_then(|v| v.as_array()) {
-        let mut resolved_children = Vec::new();
-        for child in children {
-            match resolve_item(child, resolver, visited, result) {
-                Some(resolved) => resolved_children.push(resolved),
-                None => resolved_children.push(child.clone()),
-            }
+    if let Some(children) = obj.get("children").and_then(Value::as_array) {
+        let mut cloned = item.clone();
+        let full_path = current_item_path(parent_path, obj.get("key").and_then(Value::as_str).unwrap_or(""));
+        let resolved_children = resolve_items(children, &full_path, resolver, visited_refs, host, errors, assembled_from);
+        if let Some(cloned_obj) = cloned.as_object_mut() {
+            cloned_obj.insert("children".to_string(), Value::Array(resolved_children));
         }
-        let mut new_item = item.clone();
-        if let Some(obj) = new_item.as_object_mut() {
-            obj.insert("children".to_string(), Value::Array(resolved_children));
-        }
-        return Some(new_item);
+        return cloned;
     }
 
-    None
+    item.clone()
 }
 
-/// Apply a resolved fragment into the referencing item.
-///
-/// Copies properties from the $ref item (excluding $ref itself and keyPrefix),
-/// imports items from the fragment with optional key prefix, and rewrites FEL
-/// expressions in binds/shapes/variables.
-fn apply_fragment(
-    ref_item: &Value,
-    fragment: &Value,
-    key_prefix: &str,
-    _ref_uri: &str,
-    result: &mut AssemblyResult,
+fn perform_assembly(
+    group_item: &Value,
+    parent_path: &str,
+    referenced_def: &Value,
+    parsed_ref: &ParsedRef,
+    host: &mut Value,
+    errors: &mut Vec<AssemblyError>,
+    assembled_from: &mut Vec<AssemblyProvenance>,
 ) -> Value {
-    let mut merged = Map::new();
+    let Some(group_obj) = group_item.as_object() else {
+        return group_item.clone();
+    };
 
-    // Copy properties from the referencing item (except $ref and keyPrefix)
-    if let Some(ref_obj) = ref_item.as_object() {
-        for (k, v) in ref_obj {
-            if k != "$ref" && k != "keyPrefix" {
-                merged.insert(k.clone(), v.clone());
-            }
-        }
+    let group_key = group_obj.get("key").and_then(Value::as_str).unwrap_or("");
+    let key_prefix = group_obj
+        .get("keyPrefix")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let Some(source_items) = select_source_items(referenced_def, parsed_ref.fragment.as_deref()) else {
+        errors.push(AssemblyError::ResolutionError(format!(
+            "Fragment key \"{}\" not found in referenced definition {}",
+            parsed_ref.fragment.as_deref().unwrap_or(""),
+            parsed_ref.url
+        )));
+        return group_item.clone();
+    };
+
+    let imported_items: Vec<Value> = source_items
+        .iter()
+        .map(|item| prefix_item(item, key_prefix))
+        .collect();
+
+    let mut imported_keys = HashSet::new();
+    for item in &source_items {
+        collect_all_keys(item, &mut imported_keys);
     }
 
-    // Import items from fragment with key prefix
-    if let Some(frag_items) = fragment.get("items").and_then(|v| v.as_array()) {
-        let prefixed_items: Vec<Value> = frag_items
-            .iter()
-            .map(|item| apply_key_prefix(item, key_prefix))
-            .collect();
+    let group_path = current_item_path(parent_path, group_key);
+    let map = FelRewriteMap {
+        fragment_root_key: parsed_ref.fragment.clone().unwrap_or_default(),
+        host_group_key: group_key.to_string(),
+        imported_keys,
+        key_prefix: key_prefix.to_string(),
+    };
 
-        // Merge into existing children or create new
-        let existing = merged
-            .get("children")
-            .and_then(|v| v.as_array())
+    import_binds(referenced_def, parsed_ref.fragment.as_deref(), &group_path, &map, host);
+    import_shapes(
+        referenced_def,
+        parsed_ref.fragment.as_deref(),
+        &group_path,
+        group_key,
+        &map,
+        host,
+        errors,
+    );
+    import_variables(
+        referenced_def,
+        parsed_ref.fragment.as_deref(),
+        &map,
+        host,
+        errors,
+    );
+
+    let host_paths = collect_key_paths(
+        host.get("items")
+            .and_then(Value::as_array)
             .cloned()
-            .unwrap_or_default();
-        let mut all_children = existing;
-        all_children.extend(prefixed_items);
-        merged.insert("children".to_string(), Value::Array(all_children));
-    }
-
-    // Import binds from fragment with FEL path rewriting
-    if let Some(frag_binds) = fragment.get("binds").and_then(|v| v.as_object()) {
-        let existing_binds = merged
-            .entry("binds")
-            .or_insert_with(|| Value::Object(Map::new()));
-        if let Some(binds_obj) = existing_binds.as_object_mut() {
-            for (bind_key, bind_val) in frag_binds {
-                let new_key = if key_prefix.is_empty() {
-                    bind_key.clone()
-                } else {
-                    format!("{key_prefix}.{bind_key}")
-                };
-
-                // Rewrite FEL paths in bind values
-                let rewritten = rewrite_fel_in_bind(bind_val, key_prefix);
-                binds_obj.insert(new_key, rewritten);
-            }
+            .unwrap_or_default()
+            .as_slice(),
+        "",
+    );
+    let imported_paths = collect_key_paths(&imported_items, &group_path);
+    for path in imported_paths {
+        if host_paths.contains(&path) {
+            errors.push(AssemblyError::KeyCollision {
+                key: path,
+                source: parsed_ref.url.clone(),
+            });
         }
     }
 
-    // Import shapes from fragment
-    if let Some(frag_shapes) = fragment.get("shapes").and_then(|v| v.as_array()) {
-        let existing_shapes = merged
-            .entry("shapes")
-            .or_insert_with(|| Value::Array(Vec::new()));
-        if let Some(shapes_arr) = existing_shapes.as_array_mut() {
-            for shape in frag_shapes {
-                let rewritten = rewrite_fel_in_shape(shape, key_prefix);
-                shapes_arr.push(rewritten);
-            }
+    assembled_from.push(AssemblyProvenance {
+        url: parsed_ref.url.clone(),
+        version: parsed_ref.version.clone().unwrap_or_else(|| {
+            referenced_def
+                .get("version")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string()
+        }),
+        key_prefix: if key_prefix.is_empty() {
+            None
+        } else {
+            Some(key_prefix.to_string())
+        },
+        fragment: parsed_ref.fragment.clone(),
+    });
+
+    let mut assembled = Map::new();
+    for (key, value) in group_obj {
+        if key != "$ref" && key != "keyPrefix" {
+            assembled.insert(key.clone(), value.clone());
         }
     }
-
-    // Import variables from fragment
-    if let Some(frag_vars) = fragment.get("variables").and_then(|v| v.as_array()) {
-        let existing_vars = merged
-            .entry("variables")
-            .or_insert_with(|| Value::Array(Vec::new()));
-        if let Some(vars_arr) = existing_vars.as_array_mut() {
-            for var in frag_vars {
-                let mut rewritten = var.clone();
-                if let Some(calc) = var.get("calculate").and_then(|v| v.as_str())
-                    && let Some(obj) = rewritten.as_object_mut()
-                {
-                    obj.insert(
-                        "calculate".to_string(),
-                        Value::String(rewrite_fel_string(calc, key_prefix)),
-                    );
-                }
-                vars_arr.push(rewritten);
-            }
-        }
-    }
-
-    // Detect key collisions — spec requires abort on collision
-    if !key_prefix.is_empty()
-        && let Some(frag_items) = fragment.get("items").and_then(|v| v.as_array())
-    {
-        let mut seen_keys: HashSet<String> = HashSet::new();
-        for item in frag_items {
-            if let Some(key) = item.get("key").and_then(|v| v.as_str()) {
-                let prefixed = format!("{key_prefix}.{key}");
-                if !seen_keys.insert(prefixed.clone()) {
-                    result.errors.push(AssemblyError::KeyCollision {
-                        key: prefixed,
-                        source: _ref_uri.to_string(),
-                    });
-                    return Value::Object(merged);
-                }
-            }
-        }
-    }
-
-    Value::Object(merged)
+    assembled.insert("children".to_string(), Value::Array(imported_items));
+    Value::Object(assembled)
 }
 
-/// Apply key prefix to an item's key and its children recursively.
-fn apply_key_prefix(item: &Value, prefix: &str) -> Value {
+fn import_binds(
+    referenced_def: &Value,
+    fragment: Option<&str>,
+    group_path: &str,
+    map: &FelRewriteMap,
+    host: &mut Value,
+) {
+    let mut binds = extract_binds(referenced_def);
+    if fragment.is_some() {
+        binds.retain(|bind| bind_applies_to_fragment(bind, &map.imported_keys));
+    }
+    let binds: Vec<Value> = binds
+        .into_iter()
+        .map(|bind| rewrite_bind(prefix_bind_path(bind, group_path, map), map))
+        .collect();
+    if binds.is_empty() {
+        return;
+    }
+
+    let Some(host_obj) = host.as_object_mut() else {
+        return;
+    };
+    let host_binds = host_obj
+        .entry("binds")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Some(bind_array) = host_binds.as_array_mut() {
+        bind_array.extend(binds);
+    }
+}
+
+fn import_shapes(
+    referenced_def: &Value,
+    fragment: Option<&str>,
+    group_path: &str,
+    group_key: &str,
+    map: &FelRewriteMap,
+    host: &mut Value,
+    errors: &mut Vec<AssemblyError>,
+) {
+    let Some(host_obj) = host.as_object_mut() else {
+        return;
+    };
+
+    let mut shapes = referenced_def
+        .get("shapes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if fragment.is_some() {
+        shapes.retain(|shape| shape_applies_to_fragment(shape, &map.imported_keys));
+    }
+    if shapes.is_empty() {
+        return;
+    }
+
+    let existing_shape_ids: HashSet<String> = host_obj
+        .get("shapes")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|shape| {
+                    shape
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .map(ToString::to_string)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let imported_shape_ids: HashSet<String> = shapes
+        .iter()
+        .filter_map(|shape| shape.get("id").and_then(Value::as_str).map(ToString::to_string))
+        .collect();
+
+    let mut rename_map = HashMap::new();
+    for shape in &mut shapes {
+        if let Some(id) = shape.get("id").and_then(Value::as_str)
+            && existing_shape_ids.contains(id)
+        {
+            let renamed = format!("{group_key}_{id}");
+            rename_map.insert(id.to_string(), renamed.clone());
+            if let Some(shape_obj) = shape.as_object_mut() {
+                shape_obj.insert("id".to_string(), Value::String(renamed));
+            }
+        }
+    }
+
+    let shapes: Vec<Value> = shapes
+        .into_iter()
+        .map(|shape| rewrite_shape(prefix_shape_target(shape, group_path, map), map, &rename_map, &imported_shape_ids))
+        .collect();
+
+    let host_shapes = host_obj
+        .entry("shapes")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Some(shape_array) = host_shapes.as_array_mut() {
+        shape_array.extend(shapes);
+    } else {
+        errors.push(AssemblyError::ResolutionError(
+            "host shapes must be an array".to_string(),
+        ));
+    }
+}
+
+fn import_variables(
+    referenced_def: &Value,
+    fragment: Option<&str>,
+    map: &FelRewriteMap,
+    host: &mut Value,
+    errors: &mut Vec<AssemblyError>,
+) {
+    let mut variables = referenced_def
+        .get("variables")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if variables.is_empty() {
+        return;
+    }
+
+    if fragment.is_some() {
+        variables.retain(|variable| variable_applies_to_fragment(variable, map));
+    }
+    if variables.is_empty() {
+        return;
+    }
+
+    let Some(host_obj) = host.as_object_mut() else {
+        return;
+    };
+    let existing_names: HashSet<String> = host_obj
+        .get("variables")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|var| {
+                    var.get("name")
+                        .and_then(Value::as_str)
+                        .map(ToString::to_string)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut rewritten = Vec::new();
+    for mut variable in variables {
+        let name = variable
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if existing_names.contains(&name) {
+            errors.push(AssemblyError::ResolutionError(format!(
+                "Variable name collision during assembly: \"{name}\" already exists in host definition"
+            )));
+            continue;
+        }
+        if let Some(obj) = variable.as_object_mut() {
+            if let Some(expression) = obj.get("expression").and_then(Value::as_str) {
+                obj.insert(
+                    "expression".to_string(),
+                    Value::String(rewrite_expression(expression, map)),
+                );
+            }
+            if let Some(scope) = obj.get("scope").and_then(Value::as_str) {
+                let next_scope = if scope == "#" || scope.is_empty() {
+                    scope.to_string()
+                } else if scope == map.fragment_root_key {
+                    map.host_group_key.clone()
+                } else if map.imported_keys.contains(scope) {
+                    format!("{}{}", map.key_prefix, scope)
+                } else {
+                    scope.to_string()
+                };
+                obj.insert("scope".to_string(), Value::String(next_scope));
+            }
+        }
+        rewritten.push(variable);
+    }
+
+    if rewritten.is_empty() {
+        return;
+    }
+
+    let host_variables = host_obj
+        .entry("variables")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Some(var_array) = host_variables.as_array_mut() {
+        var_array.extend(rewritten);
+    }
+}
+
+fn extract_binds(definition: &Value) -> Vec<Value> {
+    match definition.get("binds") {
+        Some(Value::Array(array)) => array.clone(),
+        Some(Value::Object(object)) => object
+            .iter()
+            .map(|(path, value)| {
+                let mut bind = value.clone();
+                if let Some(bind_obj) = bind.as_object_mut() {
+                    bind_obj.insert("path".to_string(), Value::String(path.clone()));
+                    Value::Object(bind_obj.clone())
+                } else {
+                    let mut obj = Map::new();
+                    obj.insert("path".to_string(), Value::String(path.clone()));
+                    Value::Object(obj)
+                }
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn bind_applies_to_fragment(bind: &Value, imported_keys: &HashSet<String>) -> bool {
+    bind.get("path")
+        .and_then(Value::as_str)
+        .map(|path| {
+            let first = path
+                .split('.')
+                .next()
+                .unwrap_or("")
+                .split('[')
+                .next()
+                .unwrap_or("");
+            imported_keys.contains(first)
+        })
+        .unwrap_or(false)
+}
+
+fn shape_applies_to_fragment(shape: &Value, imported_keys: &HashSet<String>) -> bool {
+    let Some(target) = shape.get("target").and_then(Value::as_str) else {
+        return false;
+    };
+    if target == "#" {
+        return true;
+    }
+    let first = target
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .split('[')
+        .next()
+        .unwrap_or("");
+    imported_keys.contains(first)
+}
+
+fn variable_applies_to_fragment(variable: &Value, map: &FelRewriteMap) -> bool {
+    let Some(scope) = variable.get("scope").and_then(Value::as_str) else {
+        return true;
+    };
+    scope == "#" || scope.is_empty() || map.imported_keys.contains(scope)
+}
+
+fn prefix_item(item: &Value, prefix: &str) -> Value {
     if prefix.is_empty() {
         return item.clone();
     }
-
-    let mut result = item.clone();
-    if let Some(obj) = result.as_object_mut() {
-        if let Some(key) = obj.get("key").and_then(|v| v.as_str()) {
-            obj.insert("key".to_string(), Value::String(format!("{prefix}.{key}")));
+    let mut prefixed = item.clone();
+    if let Some(obj) = prefixed.as_object_mut() {
+        if let Some(key) = obj.get("key").and_then(Value::as_str) {
+            obj.insert("key".to_string(), Value::String(format!("{prefix}{key}")));
         }
-        if let Some(children) = obj.get("children").and_then(|v| v.as_array()).cloned() {
-            let prefixed: Vec<Value> = children
-                .iter()
-                .map(|c| apply_key_prefix(c, prefix))
-                .collect();
-            obj.insert("children".to_string(), Value::Array(prefixed));
+        if let Some(children) = obj.get("children").and_then(Value::as_array).cloned() {
+            let children: Vec<Value> = children.iter().map(|child| prefix_item(child, prefix)).collect();
+            obj.insert("children".to_string(), Value::Array(children));
         }
     }
-    result
+    prefixed
 }
 
-/// Rewrite FEL expression field paths with a key prefix.
-fn rewrite_fel_string(expression: &str, prefix: &str) -> String {
-    if prefix.is_empty() || expression.is_empty() {
-        return expression.to_string();
+fn collect_all_keys(item: &Value, keys: &mut HashSet<String>) {
+    if let Some(key) = item.get("key").and_then(Value::as_str) {
+        keys.insert(key.to_string());
     }
-
-    // Parse → rewrite AST → print back to string
-    match parse(expression) {
-        Ok(expr) => {
-            let rewritten = rewrite_fel_references(
-                &expr,
-                &RewriteOptions {
-                    rewrite_field_path: Some(Box::new({
-                        let p = prefix.to_string();
-                        move |path| Some(format!("{p}.{path}"))
-                    })),
-                    rewrite_current_path: None,
-                    rewrite_variable: None,
-                    rewrite_instance_name: None,
-                    rewrite_navigation_target: None,
-                },
-            );
-            fel_core::print_expr(&rewritten)
+    if let Some(children) = item.get("children").and_then(Value::as_array) {
+        for child in children {
+            collect_all_keys(child, keys);
         }
-        Err(_) => expression.to_string(),
     }
 }
 
-/// Rewrite FEL paths in a bind value object.
-fn rewrite_fel_in_bind(bind: &Value, prefix: &str) -> Value {
-    if prefix.is_empty() {
-        return bind.clone();
+fn collect_key_paths(items: &[Value], parent_path: &str) -> HashSet<String> {
+    let mut paths = HashSet::new();
+    for item in items {
+        let Some(key) = item.get("key").and_then(Value::as_str) else {
+            continue;
+        };
+        let path = current_item_path(parent_path, key);
+        paths.insert(path.clone());
+        if let Some(children) = item.get("children").and_then(Value::as_array) {
+            paths.extend(collect_key_paths(children, &path));
+        }
     }
-    let mut result = bind.clone();
-    if let Some(obj) = result.as_object_mut() {
-        for fel_key in &[
-            "calculate",
-            "relevant",
-            "required",
-            "readonly",
-            "constraint",
-        ] {
-            if let Some(expr) = obj.get(*fel_key).and_then(|v| v.as_str()) {
+    paths
+}
+
+fn prefix_bind_path(bind: Value, group_path: &str, map: &FelRewriteMap) -> Value {
+    let mut bind = bind;
+    if let Some(obj) = bind.as_object_mut()
+        && let Some(path) = obj.get("path").and_then(Value::as_str)
+    {
+        let next_path = prefix_path(path, &map.key_prefix, &map.imported_keys);
+        let next_path = if group_path.is_empty() {
+            next_path
+        } else {
+            format!("{group_path}.{next_path}")
+        };
+        obj.insert("path".to_string(), Value::String(next_path));
+    }
+    bind
+}
+
+fn prefix_shape_target(shape: Value, group_path: &str, map: &FelRewriteMap) -> Value {
+    let mut shape = shape;
+    if let Some(obj) = shape.as_object_mut()
+        && let Some(target) = obj.get("target").and_then(Value::as_str)
+        && target != "#"
+    {
+        let next_target = prefix_path(target, &map.key_prefix, &map.imported_keys);
+        let next_target = if group_path.is_empty() {
+            next_target
+        } else {
+            format!("{group_path}.{next_target}")
+        };
+        obj.insert("target".to_string(), Value::String(next_target));
+    }
+    shape
+}
+
+fn rewrite_bind(bind: Value, map: &FelRewriteMap) -> Value {
+    let mut bind = bind;
+    if let Some(obj) = bind.as_object_mut() {
+        for key in ["calculate", "constraint", "relevant", "readonly", "required"] {
+            if let Some(expression) = obj.get(key).and_then(Value::as_str) {
                 obj.insert(
-                    fel_key.to_string(),
-                    Value::String(rewrite_fel_string(expr, prefix)),
+                    key.to_string(),
+                    Value::String(rewrite_expression(expression, map)),
                 );
             }
         }
+        if let Some(default_expr) = obj.get("default").and_then(Value::as_str)
+            && let Some(expr) = default_expr.strip_prefix('=')
+        {
+            obj.insert(
+                "default".to_string(),
+                Value::String(format!("={}", rewrite_expression(expr, map))),
+            );
+        }
+    }
+    bind
+}
+
+fn rewrite_shape(
+    shape: Value,
+    map: &FelRewriteMap,
+    rename_map: &HashMap<String, String>,
+    imported_shape_ids: &HashSet<String>,
+) -> Value {
+    let mut shape = shape;
+    if let Some(obj) = shape.as_object_mut() {
+        for key in ["constraint", "activeWhen"] {
+            if let Some(expression) = obj.get(key).and_then(Value::as_str) {
+                obj.insert(
+                    key.to_string(),
+                    Value::String(rewrite_expression(expression, map)),
+                );
+            }
+        }
+        if let Some(Value::Object(context)) = obj.get_mut("context") {
+            for value in context.values_mut() {
+                if let Some(expression) = value.as_str() {
+                    *value = Value::String(rewrite_expression(expression, map));
+                }
+            }
+        }
+        if let Some(message) = obj.get("message").and_then(Value::as_str) {
+            obj.insert(
+                "message".to_string(),
+                Value::String(rewrite_message(message, map)),
+            );
+        }
+        for key in ["and", "or", "xone"] {
+            if let Some(Value::Array(entries)) = obj.get_mut(key) {
+                for entry in entries.iter_mut() {
+                    if let Some(text) = entry.as_str() {
+                        *entry = Value::String(rewrite_shape_entry(
+                            text,
+                            map,
+                            rename_map,
+                            imported_shape_ids,
+                        ));
+                    }
+                }
+            }
+        }
+        if let Some(text) = obj.get("not").and_then(Value::as_str) {
+            obj.insert(
+                "not".to_string(),
+                Value::String(rewrite_shape_entry(text, map, rename_map, imported_shape_ids)),
+            );
+        }
+    }
+    shape
+}
+
+fn rewrite_shape_entry(
+    entry: &str,
+    map: &FelRewriteMap,
+    rename_map: &HashMap<String, String>,
+    imported_shape_ids: &HashSet<String>,
+) -> String {
+    if imported_shape_ids.contains(entry) {
+        return rename_map
+            .get(entry)
+            .cloned()
+            .unwrap_or_else(|| entry.to_string());
+    }
+    rewrite_expression(entry, map)
+}
+
+fn rewrite_message(message: &str, map: &FelRewriteMap) -> String {
+    let options = make_rewrite_options(map);
+    rewrite_message_template(message, &options)
+}
+
+fn rewrite_expression(expression: &str, map: &FelRewriteMap) -> String {
+    let options = make_rewrite_options(map);
+    rewrite_fel_source_references(expression, &options)
+}
+
+fn make_rewrite_options(map: &FelRewriteMap) -> RewriteOptions {
+    let field_map = map.clone();
+    let current_map = map.clone();
+    let navigation_map = map.clone();
+
+    RewriteOptions {
+        rewrite_field_path: Some(Box::new(move |path| Some(rewrite_field_path(path, &field_map)))),
+        rewrite_current_path: Some(Box::new(move |path| Some(rewrite_current_path(path, &current_map)))),
+        rewrite_variable: None,
+        rewrite_instance_name: None,
+        rewrite_navigation_target: Some(Box::new(move |name, _fn_name| {
+            if navigation_map.imported_keys.contains(name) {
+                Some(format!("{}{}", navigation_map.key_prefix, name))
+            } else {
+                None
+            }
+        })),
+    }
+}
+
+fn rewrite_field_path(path: &str, map: &FelRewriteMap) -> String {
+    let segments = split_path_segments(path);
+    if segments.is_empty() {
+        return path.to_string();
+    }
+
+    let first_base = segment_base(&segments[0]);
+    let should_replace_root =
+        (!map.fragment_root_key.is_empty() && first_base == map.fragment_root_key)
+            || (map.fragment_root_key.is_empty()
+                && segments.len() > 1
+                && map.imported_keys.contains(first_base));
+
+    let mut rewritten = Vec::new();
+    let mut iter = segments.into_iter();
+    if should_replace_root {
+        rewritten.push(map.host_group_key.clone());
+        iter.next();
+    }
+
+    for segment in iter {
+        let base = segment_base(&segment);
+        if map.imported_keys.contains(base) {
+            rewritten.push(format!("{}{}", map.key_prefix, segment));
+        } else {
+            rewritten.push(segment);
+        }
+    }
+
+    if !should_replace_root && rewritten.is_empty() {
+        rewritten.push(path.to_string());
+    } else if !should_replace_root {
+        return join_path_segments(
+            &split_path_segments(path)
+                .into_iter()
+                .map(|segment| {
+                    let base = segment_base(&segment);
+                    if map.imported_keys.contains(base) {
+                        format!("{}{}", map.key_prefix, segment)
+                    } else {
+                        segment
+                    }
+                })
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    join_path_segments(&rewritten)
+}
+
+fn rewrite_current_path(path: &str, map: &FelRewriteMap) -> String {
+    let segments = split_path_segments(path);
+    let rewritten: Vec<String> = segments
+        .into_iter()
+        .map(|segment| {
+            let base = segment_base(&segment);
+            if map.imported_keys.contains(base) {
+                format!("{}{}", map.key_prefix, segment)
+            } else {
+                segment
+            }
+        })
+        .collect();
+    join_path_segments(&rewritten)
+}
+
+fn prefix_path(path: &str, prefix: &str, imported_keys: &HashSet<String>) -> String {
+    let segments = split_path_segments(path);
+    let rewritten: Vec<String> = segments
+        .into_iter()
+        .map(|segment| {
+            let base = segment_base(&segment);
+            if imported_keys.contains(base) {
+                format!("{prefix}{segment}")
+            } else {
+                segment
+            }
+        })
+        .collect();
+    join_path_segments(&rewritten)
+}
+
+fn split_path_segments(path: &str) -> Vec<String> {
+    let mut segments = Vec::new();
+    let mut current = String::new();
+    let mut bracket_depth = 0usize;
+    for ch in path.chars() {
+        match ch {
+            '.' if bracket_depth == 0 => {
+                if !current.is_empty() {
+                    segments.push(current.clone());
+                    current.clear();
+                }
+            }
+            '[' => {
+                bracket_depth += 1;
+                current.push(ch);
+            }
+            ']' => {
+                bracket_depth = bracket_depth.saturating_sub(1);
+                current.push(ch);
+            }
+            _ => current.push(ch),
+        }
+    }
+    if !current.is_empty() {
+        segments.push(current);
+    }
+    segments
+}
+
+fn join_path_segments(segments: &[String]) -> String {
+    let mut result = String::new();
+    for (index, segment) in segments.iter().enumerate() {
+        if index > 0 && !segment.starts_with('[') {
+            result.push('.');
+        }
+        result.push_str(segment);
     }
     result
 }
 
-/// Rewrite FEL paths in a shape object.
-fn rewrite_fel_in_shape(shape: &Value, prefix: &str) -> Value {
-    if prefix.is_empty() {
-        return shape.clone();
+fn segment_base(segment: &str) -> &str {
+    segment.split('[').next().unwrap_or(segment)
+}
+
+fn current_item_path(parent_path: &str, key: &str) -> String {
+    if parent_path.is_empty() {
+        key.to_string()
+    } else {
+        format!("{parent_path}.{key}")
     }
-    let mut result = shape.clone();
-    if let Some(obj) = result.as_object_mut() {
-        // Rewrite target paths
-        if let Some(target) = obj.get("target").and_then(|v| v.as_str()) {
-            obj.insert(
-                "target".to_string(),
-                Value::String(format!("{prefix}.{target}")),
-            );
+}
+
+fn select_source_items(definition: &Value, fragment: Option<&str>) -> Option<Vec<Value>> {
+    let items = definition.get("items").and_then(Value::as_array)?;
+    match fragment {
+        Some(fragment) => items
+            .iter()
+            .find(|item| item.get("key").and_then(Value::as_str) == Some(fragment))
+            .cloned()
+            .map(|item| vec![item]),
+        None => Some(items.clone()),
+    }
+}
+
+fn resolve_reference(resolver: &dyn RefResolver, ref_uri: &str, parsed_ref: &ParsedRef) -> Option<Value> {
+    resolver
+        .resolve(ref_uri)
+        .or_else(|| resolver.resolve(&versioned_ref_key(&parsed_ref.url, parsed_ref.version.as_deref())))
+        .or_else(|| resolver.resolve(&parsed_ref.url))
+}
+
+fn versioned_ref_key(url: &str, version: Option<&str>) -> String {
+    match version {
+        Some(version) if !version.is_empty() => format!("{url}|{version}"),
+        _ => url.to_string(),
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ParsedRef {
+    url: String,
+    version: Option<String>,
+    fragment: Option<String>,
+}
+
+fn parse_ref(ref_uri: &str) -> ParsedRef {
+    let mut remainder = ref_uri;
+    let mut fragment = None;
+    if let Some(index) = remainder.find('#') {
+        fragment = Some(remainder[index + 1..].to_string());
+        remainder = &remainder[..index];
+    }
+
+    if let Some(index) = remainder.find('|') {
+        ParsedRef {
+            url: remainder[..index].to_string(),
+            version: Some(remainder[index + 1..].to_string()),
+            fragment,
         }
-        // Rewrite constraint expression
-        if let Some(expr) = obj.get("constraint").and_then(|v| v.as_str()) {
-            obj.insert(
-                "constraint".to_string(),
-                Value::String(rewrite_fel_string(expr, prefix)),
-            );
-        }
-        // Rewrite activeWhen expression
-        if let Some(expr) = obj.get("activeWhen").and_then(|v| v.as_str()) {
-            obj.insert(
-                "activeWhen".to_string(),
-                Value::String(rewrite_fel_string(expr, prefix)),
-            );
+    } else {
+        ParsedRef {
+            url: remainder.to_string(),
+            version: None,
+            fragment,
         }
     }
-    result
+}
+
+#[derive(Debug, Clone)]
+struct FelRewriteMap {
+    fragment_root_key: String,
+    host_group_key: String,
+    imported_keys: HashSet<String>,
+    key_prefix: String,
 }
 
 #[cfg(test)]
@@ -433,617 +961,183 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_assemble_no_refs() {
-        let def = json!({
+    fn assemble_imports_array_binds_into_host_root() {
+        let host = json!({
             "$formspec": "1.0",
-            "title": "Test",
-            "items": [
-                { "key": "name", "dataType": "string" }
-            ]
-        });
-        let resolver = MapResolver::new();
-        let result = assemble_definition(&def, &resolver);
-        assert!(result.errors.is_empty());
-        assert_eq!(result.definition["items"][0]["key"], "name");
-    }
-
-    #[test]
-    fn test_assemble_with_ref() {
-        let def = json!({
-            "$formspec": "1.0",
-            "title": "Test",
-            "items": [
-                { "$ref": "contact.json", "key": "contact", "keyPrefix": "c" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "contact.json",
-            json!({
-                "items": [
-                    { "key": "name", "dataType": "string" },
-                    { "key": "email", "dataType": "string" }
-                ]
-            }),
-        );
-
-        let result = assemble_definition(&def, &resolver);
-        assert!(result.errors.is_empty());
-
-        // Items should be imported with key prefix
-        let children = result.definition["items"][0]["children"]
-            .as_array()
-            .unwrap();
-        assert_eq!(children.len(), 2);
-        assert_eq!(children[0]["key"], "c.name");
-        assert_eq!(children[1]["key"], "c.email");
-    }
-
-    #[test]
-    fn test_assemble_ref_not_found() {
-        let def = json!({
-            "items": [
-                { "$ref": "missing.json", "key": "x" }
-            ]
-        });
-        let resolver = MapResolver::new();
-        let result = assemble_definition(&def, &resolver);
-        assert_eq!(result.errors.len(), 1);
-        assert!(matches!(result.errors[0], AssemblyError::RefNotFound(_)));
-    }
-
-    // NOTE: test_ref_not_found_error was removed — it was a duplicate of
-    // test_assemble_ref_not_found above (both tested the same RefNotFound scenario).
-
-    #[test]
-    fn test_apply_key_prefix() {
-        let item = json!({
-            "key": "name",
-            "children": [
-                { "key": "first" },
-                { "key": "last" }
-            ]
-        });
-        let prefixed = apply_key_prefix(&item, "contact");
-        assert_eq!(prefixed["key"], "contact.name");
-        assert_eq!(prefixed["children"][0]["key"], "contact.first");
-        assert_eq!(prefixed["children"][1]["key"], "contact.last");
-    }
-
-    #[test]
-    fn test_bind_import_with_prefix() {
-        let def = json!({
-            "items": [
-                { "$ref": "frag.json", "key": "g", "keyPrefix": "p" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "frag.json",
-            json!({
-                "items": [{ "key": "f1" }],
-                "binds": {
-                    "f1": { "required": "true" }
-                }
-            }),
-        );
-
-        let result = assemble_definition(&def, &resolver);
-        assert!(result.errors.is_empty());
-        let binds = result.definition["items"][0]["binds"].as_object().unwrap();
-        assert!(binds.contains_key("p.f1"));
-    }
-
-    #[test]
-    fn test_no_prefix() {
-        let item = json!({ "key": "name" });
-        let result = apply_key_prefix(&item, "");
-        assert_eq!(result["key"], "name");
-    }
-
-    #[test]
-    fn test_fel_rewriting_with_prefix() {
-        // Verify the AST-based FEL rewriting works end-to-end
-        let result = rewrite_fel_string("$name + $age", "contact");
-        assert_eq!(result, "$contact.name + $contact.age");
-    }
-
-    #[test]
-    fn test_fel_rewriting_complex() {
-        let result = rewrite_fel_string("if $active then $total * 1.1 else 0", "order");
-        assert_eq!(result, "if $order.active then $order.total * 1.1 else 0");
-    }
-
-    /// Spec: spec.md §7.3 — "Self-referencing $ref MUST produce AssemblyError::CircularRef"
-    #[test]
-    fn assembler_self_referencing_ref_detected() {
-        let def = json!({
-            "items": [
-                { "$ref": "self.json", "key": "x" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "self.json",
-            json!({
-                "items": [
-                    { "$ref": "self.json", "key": "inner" }
-                ]
-            }),
-        );
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, AssemblyError::CircularRef(r) if r == "self.json")),
-            "expected CircularRef for self.json, got: {:?}",
-            result.errors
-        );
-    }
-
-    /// Spec: spec.md §7.3 — "Direct circular $ref (A→B, B→A) MUST produce AssemblyError::CircularRef"
-    #[test]
-    fn assembler_direct_circular_ref_detected() {
-        let def = json!({
-            "items": [
-                { "$ref": "a.json", "key": "a" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "a.json",
-            json!({
-                "items": [
-                    { "$ref": "b.json", "key": "from_a" }
-                ]
-            }),
-        );
-        resolver.add(
-            "b.json",
-            json!({
-                "items": [
-                    { "$ref": "a.json", "key": "from_b" }
-                ]
-            }),
-        );
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, AssemblyError::CircularRef(_))),
-            "expected CircularRef error, got: {:?}",
-            result.errors
-        );
-    }
-
-    /// Spec: spec.md §7.3 — "Transitive circular $ref (A→B→C→A) MUST produce AssemblyError::CircularRef"
-    #[test]
-    fn assembler_transitive_circular_ref_detected() {
-        let def = json!({
-            "items": [
-                { "$ref": "a.json", "key": "a" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "a.json",
-            json!({
-                "items": [{ "$ref": "b.json", "key": "from_a" }]
-            }),
-        );
-        resolver.add(
-            "b.json",
-            json!({
-                "items": [{ "$ref": "c.json", "key": "from_b" }]
-            }),
-        );
-        resolver.add(
-            "c.json",
-            json!({
-                "items": [{ "$ref": "a.json", "key": "from_c" }]
-            }),
-        );
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, AssemblyError::CircularRef(_))),
-            "expected CircularRef for transitive cycle, got: {:?}",
-            result.errors
-        );
-    }
-
-    /// Spec: spec.md §7.3 — "CircularRef IS detected when the same ref appears twice at top level"
-    /// This tests the working path: visited set catches the same URI appearing
-    /// across siblings in the top-level items array.
-    #[test]
-    fn assembler_circular_ref_detected_at_top_level() {
-        let def = json!({
-            "items": [
-                { "$ref": "frag.json", "key": "first" },
-                { "$ref": "frag.json", "key": "second" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "frag.json",
-            json!({
-                "items": [{ "key": "f1" }]
-            }),
-        );
-        let result = assemble_definition(&def, &resolver);
-        // The visited set is shared across siblings, so the second ref to frag.json
-        // should detect it. But actually, visited.remove is called after each resolve_item,
-        // so the second use is NOT circular — it's the same ref used twice at same level.
-        // This actually should succeed without error.
-        // Let's verify that same-level reuse is NOT flagged as circular.
-        assert!(
-            result.errors.is_empty(),
-            "Same ref at same level should not be circular: {:?}",
-            result.errors
-        );
-    }
-
-    /// Spec: spec.md §7.3 — "Key collision after prefix MUST produce AssemblyError::KeyCollision"
-    #[test]
-    fn assembler_key_collision_detected() {
-        let def = json!({
-            "items": [
-                { "$ref": "frag.json", "key": "g", "keyPrefix": "p" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "frag.json",
-            json!({
-                "items": [
-                    { "key": "name" },
-                    { "key": "name" }
-                ]
-            }),
-        );
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, AssemblyError::KeyCollision { .. })),
-            "expected KeyCollision error, got: {:?}",
-            result.errors
-        );
-    }
-
-    /// Spec: spec.md §7.3 — "Non-$ref item with children containing $ref items resolves recursively"
-    #[test]
-    fn assembler_recursive_child_resolution() {
-        let def = json!({
             "items": [
                 {
-                    "key": "group",
+                    "key": "homeAddress",
                     "type": "group",
-                    "children": [
-                        { "$ref": "child.json", "key": "child", "keyPrefix": "c" }
-                    ]
+                    "$ref": "https://example.org/common/address|1.0.0",
+                    "keyPrefix": "home_"
                 }
             ]
         });
         let mut resolver = MapResolver::new();
         resolver.add(
-            "child.json",
+            "https://example.org/common/address",
             json!({
+                "version": "1.0.0",
                 "items": [
-                    { "key": "field1", "dataType": "string" }
+                    { "key": "street", "type": "field", "dataType": "string" },
+                    { "key": "zip", "type": "field", "dataType": "string" }
+                ],
+                "binds": [
+                    { "path": "zip", "required": true }
                 ]
             }),
         );
-        let result = assemble_definition(&def, &resolver);
-        assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
-        // The group's children should contain the resolved $ref
-        let group = &result.definition["items"][0];
-        let children = group["children"].as_array().unwrap();
-        // The $ref item should now have children from the fragment
-        let child = &children[0];
-        let grandchildren = child["children"].as_array().unwrap();
-        assert_eq!(grandchildren[0]["key"], "c.field1");
+
+        let result = assemble_definition(&host, &resolver);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            result.definition["items"][0]["children"][0]["key"],
+            json!("home_street")
+        );
+        assert_eq!(
+            result.definition["items"][0]["children"][1]["key"],
+            json!("home_zip")
+        );
+        assert_eq!(
+            result.definition["binds"][0]["path"],
+            json!("homeAddress.home_zip")
+        );
+        assert_eq!(result.assembled_from.len(), 1);
     }
 
-    /// Spec: spec.md §7.3 — "Shape import with FEL rewriting applies key prefix to target and constraint"
     #[test]
-    fn assembler_shape_import_with_fel_rewriting() {
-        let def = json!({
+    fn assemble_fragment_rewrites_bind_fel_paths() {
+        let host = json!({
+            "$formspec": "1.0",
             "items": [
-                { "$ref": "frag.json", "key": "g", "keyPrefix": "p" }
+                {
+                    "key": "host",
+                    "type": "group",
+                    "$ref": "https://example.org/lib|1.0.0#budget",
+                    "keyPrefix": "proj_"
+                }
             ]
         });
         let mut resolver = MapResolver::new();
         resolver.add(
-            "frag.json",
+            "https://example.org/lib",
             json!({
-                "items": [{ "key": "total" }],
-                "shapes": [
+                "version": "1.0.0",
+                "items": [
                     {
-                        "name": "totalPositive",
-                        "target": "total",
-                        "constraint": "$total > 0",
-                        "activeWhen": "$active = true"
+                        "key": "budget",
+                        "type": "group",
+                        "children": [
+                            { "key": "lineItems", "type": "group", "children": [
+                                { "key": "lineAmount", "type": "field", "dataType": "decimal" }
+                            ]},
+                            { "key": "total", "type": "field", "dataType": "decimal" }
+                        ]
                     }
+                ],
+                "binds": [
+                    { "path": "budget.total", "calculate": "sum($budget.lineItems[*].lineAmount)" }
                 ]
             }),
         );
-        let result = assemble_definition(&def, &resolver);
-        assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
-        let shapes = result.definition["items"][0]["shapes"].as_array().unwrap();
-        assert_eq!(shapes.len(), 1);
-        assert_eq!(shapes[0]["target"], "p.total");
-        assert_eq!(shapes[0]["constraint"].as_str().unwrap(), "$p.total > 0");
+
+        let result = assemble_definition(&host, &resolver);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let bind = &result.definition["binds"][0];
+        assert_eq!(bind["path"], json!("host.proj_budget.proj_total"));
         assert_eq!(
-            shapes[0]["activeWhen"].as_str().unwrap(),
-            "$p.active = true"
+            bind["calculate"],
+            json!("sum($host.proj_lineItems[*].proj_lineAmount)")
         );
     }
 
-    /// Spec: spec.md §7.3 — "Variable import rewrites calculate expressions with key prefix"
     #[test]
-    fn assembler_variable_import_with_calculate_rewriting() {
-        let def = json!({
+    fn assemble_shapes_and_variables_follow_ts_contract() {
+        let host = json!({
+            "$formspec": "1.0",
             "items": [
-                { "$ref": "frag.json", "key": "g", "keyPrefix": "order" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "frag.json",
-            json!({
-                "items": [{ "key": "qty" }, { "key": "price" }],
-                "variables": [
-                    { "name": "lineTotal", "calculate": "$qty * $price" }
-                ]
-            }),
-        );
-        let result = assemble_definition(&def, &resolver);
-        assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
-        let vars = result.definition["items"][0]["variables"]
-            .as_array()
-            .unwrap();
-        assert_eq!(vars.len(), 1);
-        assert_eq!(
-            vars[0]["calculate"].as_str().unwrap(),
-            "$order.qty * $order.price"
-        );
-    }
-
-    #[test]
-    fn test_fel_rewriting_preserves_literals() {
-        let result = rewrite_fel_string("'hello' & $name", "p");
-        assert_eq!(result, "'hello' & $p.name");
-    }
-
-    #[test]
-    fn test_fel_rewriting_functions() {
-        let result = rewrite_fel_string("sum($items[*].qty)", "order");
-        assert_eq!(result, "sum($order.items[*].qty)");
-    }
-
-    // ── Recursive $ref resolution tests (spec §6.6.2 Rule 5) ──
-
-    #[test]
-    fn test_recursive_ref_resolution() {
-        // Fragment A references Fragment B — both levels should be resolved
-        let def = json!({
-            "items": [
-                { "$ref": "a.json", "key": "a" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "a.json",
-            json!({
-                "items": [
-                    { "$ref": "b.json", "key": "nested" }
-                ]
-            }),
-        );
-        resolver.add(
-            "b.json",
-            json!({
-                "items": [
-                    { "key": "leaf", "dataType": "string" }
-                ]
-            }),
-        );
-
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result.errors.is_empty(),
-            "expected no errors, got: {:?}",
-            result.errors
-        );
-
-        // a's children should contain the resolved nested item,
-        // which itself should have children from b.json
-        let a_children = result.definition["items"][0]["children"]
-            .as_array()
-            .unwrap();
-        assert_eq!(
-            a_children.len(),
-            1,
-            "a should have 1 child (the resolved nested ref)"
-        );
-        let nested_children = a_children[0]["children"].as_array().unwrap();
-        assert_eq!(
-            nested_children.len(),
-            1,
-            "nested should have 1 child from b.json"
-        );
-        assert_eq!(nested_children[0]["key"], "leaf");
-    }
-
-    #[test]
-    fn test_three_level_recursive_ref() {
-        let def = json!({
-            "items": [
-                { "$ref": "a.json", "key": "top" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "a.json",
-            json!({
-                "items": [{ "$ref": "b.json", "key": "mid" }]
-            }),
-        );
-        resolver.add(
-            "b.json",
-            json!({
-                "items": [{ "$ref": "c.json", "key": "deep" }]
-            }),
-        );
-        resolver.add(
-            "c.json",
-            json!({
-                "items": [{ "key": "bottom", "dataType": "number" }]
-            }),
-        );
-
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result.errors.is_empty(),
-            "expected no errors, got: {:?}",
-            result.errors
-        );
-
-        let bottom = &result.definition["items"][0]["children"][0]["children"][0]["children"][0];
-        assert_eq!(bottom["key"], "bottom");
-    }
-
-    // ── Circular $ref detection tests (spec §6.6.2 Rule 6) ──
-
-    #[test]
-    fn test_self_referencing_ref() {
-        let def = json!({
-            "items": [
-                { "$ref": "self.json", "key": "x" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "self.json",
-            json!({
-                "items": [
-                    { "$ref": "self.json", "key": "loop" }
-                ]
-            }),
-        );
-
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, AssemblyError::CircularRef(_))),
-            "expected CircularRef error for self-referencing $ref"
-        );
-    }
-
-    #[test]
-    fn test_direct_circular_ref() {
-        // A references B, B references A
-        let def = json!({
-            "items": [
-                { "$ref": "a.json", "key": "x" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "a.json",
-            json!({
-                "items": [
-                    { "$ref": "b.json", "key": "from_a" }
-                ]
-            }),
-        );
-        resolver.add(
-            "b.json",
-            json!({
-                "items": [
-                    { "$ref": "a.json", "key": "from_b" }
-                ]
-            }),
-        );
-
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, AssemblyError::CircularRef(_))),
-            "expected CircularRef error for A->B->A cycle"
-        );
-    }
-
-    #[test]
-    fn test_transitive_circular_ref() {
-        // A -> B -> C -> A
-        let def = json!({
-            "items": [
-                { "$ref": "a.json", "key": "x" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "a.json",
-            json!({
-                "items": [{ "$ref": "b.json", "key": "from_a" }]
-            }),
-        );
-        resolver.add(
-            "b.json",
-            json!({
-                "items": [{ "$ref": "c.json", "key": "from_b" }]
-            }),
-        );
-        resolver.add(
-            "c.json",
-            json!({
-                "items": [{ "$ref": "a.json", "key": "from_c" }]
-            }),
-        );
-
-        let result = assemble_definition(&def, &resolver);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, AssemblyError::CircularRef(_))),
-            "expected CircularRef error for A->B->C->A cycle"
-        );
-    }
-
-    #[test]
-    fn test_bind_import_rewrites_calculate() {
-        let def = json!({
-            "items": [
-                { "$ref": "frag.json", "key": "g", "keyPrefix": "p" }
-            ]
-        });
-        let mut resolver = MapResolver::new();
-        resolver.add(
-            "frag.json",
-            json!({
-                "items": [{ "key": "total" }],
-                "binds": {
-                    "total": { "calculate": "$qty * $price" }
+                {
+                    "key": "host",
+                    "type": "group",
+                    "$ref": "https://example.org/lib|1.0.0#budget",
+                    "keyPrefix": "proj_"
                 }
+            ],
+            "shapes": [
+                { "id": "existing-shape", "target": "#", "message": "Existing" }
+            ],
+            "variables": [
+                { "name": "alreadyHere", "expression": "true", "scope": "#" }
+            ]
+        });
+        let mut resolver = MapResolver::new();
+        resolver.add(
+            "https://example.org/lib",
+            json!({
+                "version": "1.0.0",
+                "items": [
+                    {
+                        "key": "budget",
+                        "type": "group",
+                        "children": [
+                            { "key": "grandTotal", "type": "field", "dataType": "decimal" }
+                        ]
+                    }
+                ],
+                "shapes": [
+                    { "id": "existing-shape", "target": "budget", "message": "{{$budget.grandTotal}}" },
+                    { "id": "ref-shape", "target": "budget", "message": "Refs", "and": ["existing-shape"] }
+                ],
+                "variables": [
+                    { "name": "budgetComplete", "expression": "present($budget.grandTotal)", "scope": "#" },
+                    { "name": "scopedToFragment", "expression": "true", "scope": "budget" }
+                ]
             }),
         );
 
-        let result = assemble_definition(&def, &resolver);
-        assert!(result.errors.is_empty());
-        let binds = result.definition["items"][0]["binds"].as_object().unwrap();
-        let calc = binds["p.total"]["calculate"].as_str().unwrap();
-        assert_eq!(calc, "$p.qty * $p.price");
+        let result = assemble_definition(&host, &resolver);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            result.definition["shapes"][1]["id"],
+            json!("host_existing-shape")
+        );
+        assert_eq!(
+            result.definition["shapes"][2]["and"][0],
+            json!("host_existing-shape")
+        );
+        assert_eq!(
+            result.definition["shapes"][1]["message"],
+            json!("{{$host.proj_grandTotal}}")
+        );
+        assert_eq!(
+            result.definition["variables"][1]["expression"],
+            json!("present($host.proj_grandTotal)")
+        );
+        assert_eq!(result.definition["variables"][2]["scope"], json!("host"));
+    }
+
+    #[test]
+    fn assemble_detects_circular_refs() {
+        let host = json!({
+            "$formspec": "1.0",
+            "items": [
+                { "key": "a", "type": "group", "$ref": "a.json" }
+            ]
+        });
+        let mut resolver = MapResolver::new();
+        resolver.add(
+            "a.json",
+            json!({
+                "items": [
+                    { "key": "child", "type": "group", "$ref": "a.json" }
+                ]
+            }),
+        );
+
+        let result = assemble_definition(&host, &resolver);
+        assert!(result
+            .errors
+            .iter()
+            .any(|error| matches!(error, AssemblyError::CircularRef(_))));
     }
 }

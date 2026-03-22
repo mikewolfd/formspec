@@ -11,6 +11,27 @@ pub struct ScreenerRouteResult {
     pub target: String,
     pub label: Option<String>,
     pub message: Option<String>,
+    pub extensions: Option<Value>,
+}
+
+fn normalize_money_like_json(value: &Value) -> Value {
+    match value {
+        Value::Array(array) => Value::Array(array.iter().map(normalize_money_like_json).collect()),
+        Value::Object(object) => {
+            let mut normalized: serde_json::Map<String, Value> = object
+                .iter()
+                .map(|(key, value)| (key.clone(), normalize_money_like_json(value)))
+                .collect();
+            if !normalized.contains_key("$type")
+                && normalized.contains_key("amount")
+                && normalized.contains_key("currency")
+            {
+                normalized.insert("$type".to_string(), Value::String("money".to_string()));
+            }
+            Value::Object(normalized)
+        }
+        _ => value.clone(),
+    }
 }
 
 /// Evaluate screener routes and return the first matching route.
@@ -25,7 +46,7 @@ pub fn evaluate_screener(
 
     let mut env = FormspecEnvironment::new();
     for (k, v) in answers {
-        env.set_field(k, json_to_fel(v));
+        env.set_field(k, json_to_fel(&normalize_money_like_json(v)));
     }
 
     for route in routes {
@@ -53,6 +74,7 @@ pub fn evaluate_screener(
                     .get("message")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
+                extensions: route.get("extensions").cloned(),
             });
         }
     }
@@ -87,7 +109,8 @@ mod tests {
                     {
                         "condition": "true",
                         "target": "https://example.org/forms/general|1.0.0",
-                        "label": "General"
+                        "label": "General",
+                        "extensions": { "x-priority": "high" }
                     }
                 ]
             }
@@ -104,6 +127,7 @@ mod tests {
         let route = result.unwrap();
         assert_eq!(route.target, "https://example.org/forms/new|1.0.0");
         assert_eq!(route.label, Some("New".to_string()));
+        assert_eq!(route.extensions, None);
     }
 
     #[test]
@@ -115,6 +139,7 @@ mod tests {
         assert!(result.is_some());
         let route = result.unwrap();
         assert_eq!(route.target, "https://example.org/forms/general|1.0.0");
+        assert_eq!(route.extensions, Some(json!({ "x-priority": "high" })));
     }
 
     #[test]
@@ -124,5 +149,66 @@ mod tests {
         });
         let answers = HashMap::new();
         assert!(evaluate_screener(&def, &answers).is_none());
+    }
+
+    #[test]
+    fn screener_treats_missing_answers_as_empty() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "https://example.org/screener",
+            "version": "1.0.0",
+            "title": "Test",
+            "items": [],
+            "screener": {
+                "items": [
+                    { "type": "field", "key": "choice", "dataType": "string" }
+                ],
+                "routes": [
+                    {
+                        "condition": "empty($choice)",
+                        "target": "/empty",
+                        "label": "Empty"
+                    }
+                ]
+            }
+        });
+        let answers = HashMap::new();
+        let result = evaluate_screener(&def, &answers);
+        assert_eq!(result.map(|route| route.target), Some("/empty".to_string()));
+    }
+
+    #[test]
+    fn screener_money_functions_accept_plain_money_answers() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "https://example.org/screener",
+            "version": "1.0.0",
+            "title": "Test",
+            "items": [],
+            "screener": {
+                "items": [
+                    { "type": "field", "key": "awardAmount", "dataType": "money" }
+                ],
+                "routes": [
+                    {
+                        "condition": "moneyAmount($awardAmount) < 250000",
+                        "target": "/short",
+                        "label": "Short"
+                    },
+                    {
+                        "condition": "true",
+                        "target": "/full",
+                        "label": "Full"
+                    }
+                ]
+            }
+        });
+        let mut answers = HashMap::new();
+        answers.insert(
+            "awardAmount".to_string(),
+            json!({ "amount": 100000, "currency": "USD" }),
+        );
+        let result = evaluate_screener(&def, &answers);
+        assert_eq!(result.map(|route| route.target), Some("/short".to_string()));
     }
 }

@@ -134,7 +134,7 @@ pub fn evaluate_definition_full_with_instances_and_context(
     seed_prepopulate_tree(&items, &mut seeded_data, instances);
 
     // Phase 1.5: Seed initial values for missing fields (9e)
-    rebuild::seed_initial_values(&items, &mut seeded_data);
+    rebuild::seed_initial_values(&items, &mut seeded_data, context.now_iso.as_deref());
 
     // Phase 1.6: Expand repeatable groups into concrete indexed instances
     expand_repeat_instances(&mut items, &seeded_data);
@@ -149,7 +149,7 @@ pub fn evaluate_definition_full_with_instances_and_context(
     }
 
     // Phase 2: Recalculate (with variables, whitespace, inheritance, scoped variables)
-    let (mut values, var_values, cycle_err) = recalculate(
+    let (mut values, mut var_values, cycle_err) = recalculate(
         &mut items,
         &seeded_data,
         definition,
@@ -175,6 +175,30 @@ pub fn evaluate_definition_full_with_instances_and_context(
         context.now_iso.as_deref(),
         instances,
     );
+
+    let (next_values, next_var_values, _) = recalculate(
+        &mut items,
+        &seeded_data,
+        definition,
+        context.now_iso.as_deref(),
+        Some(&validations),
+        instances,
+    );
+    if next_values != values || next_var_values != var_values {
+        values = next_values;
+        var_values = next_var_values;
+        validations = revalidate(
+            &items,
+            &values,
+            &var_values,
+            shapes.map(|v| v.as_slice()),
+            trigger,
+            extension_constraints,
+            formspec_version,
+            context.now_iso.as_deref(),
+            instances,
+        );
+    }
 
     // Surface circular variable dependency as a validation error
     if let Some(cycle_msg) = cycle_err {
@@ -322,6 +346,58 @@ mod tests {
     }
 
     #[test]
+    fn calculated_value_applies_precision() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                { "key": "price", "type": "field", "dataType": "decimal", "label": "P" },
+                { "key": "tax", "type": "field", "dataType": "decimal", "label": "Tax" }
+            ],
+            "binds": [
+                { "path": "tax", "calculate": "$price * 0.0725", "precision": 2 }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("price".to_string(), json!(99.99));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(result.values.get("tax"), Some(&json!(7.25)));
+    }
+
+    #[test]
+    fn calculated_money_field_wraps_as_money_object() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "formPresentation": { "defaultCurrency": "USD" },
+            "items": [
+                { "key": "qty", "type": "field", "dataType": "integer", "label": "Q" },
+                { "key": "rate", "type": "field", "dataType": "decimal", "label": "R" },
+                { "key": "total", "type": "field", "dataType": "money", "label": "Total" }
+            ],
+            "binds": [
+                { "path": "total", "calculate": "$qty * $rate" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("qty".to_string(), json!(5));
+        data.insert("rate".to_string(), json!(19.99));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(
+            result.values.get("total"),
+            Some(&json!({ "amount": 99.95, "currency": "USD" })),
+        );
+    }
+
+    #[test]
     fn test_required_validation() {
         let def = json!({
             "items": [
@@ -338,6 +414,21 @@ mod tests {
         assert_eq!(result.validations[0].constraint_kind, "required");
         assert_eq!(result.validations[0].code, "REQUIRED");
         assert!(result.validations[0].message.contains("Required"));
+    }
+
+    #[test]
+    fn required_boolean_bind_sets_required_state() {
+        let def = json!({
+            "items": [
+                { "key": "zip", "dataType": "string" }
+            ],
+            "binds": [
+                { "path": "zip", "required": true }
+            ]
+        });
+
+        let result = evaluate_definition(&def, &HashMap::new());
+        assert_eq!(result.required.get("zip"), Some(&true));
     }
 
     #[test]
@@ -2031,6 +2122,341 @@ mod tests {
         assert_eq!(result2.values.get("ageStatus"), Some(&json!("invalid")));
     }
 
+    #[test]
+    fn valid_mip_query_reflects_current_validation_state() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                { "key": "email", "type": "field", "dataType": "string", "label": "Email" },
+                { "key": "status", "type": "field", "dataType": "string", "label": "Status" }
+            ],
+            "binds": [
+                { "path": "email", "required": true },
+                { "path": "status", "calculate": "if valid(email) then 'ok' else 'missing'" }
+            ]
+        });
+
+        let result = evaluate_definition(&def, &HashMap::new());
+        assert_eq!(result.values.get("status"), Some(&json!("missing")));
+    }
+
+    #[test]
+    fn repeat_calculate_has_access_to_index_and_count() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                {
+                    "key": "items",
+                    "type": "group",
+                    "repeatable": true,
+                    "minRepeat": 2,
+                    "children": [
+                        { "key": "position", "type": "field", "dataType": "string", "label": "Position" }
+                    ]
+                }
+            ],
+            "binds": [
+                { "path": "items[*].position", "calculate": "string(@index) & ' of ' & string(@count)" }
+            ]
+        });
+
+        let result = evaluate_definition(&def, &HashMap::new());
+        assert_eq!(result.values.get("items[0].position"), Some(&json!("1 of 2")));
+        assert_eq!(result.values.get("items[1].position"), Some(&json!("2 of 2")));
+    }
+
+    #[test]
+    fn repeat_field_projection_supports_count_where() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                {
+                    "key": "rows",
+                    "type": "group",
+                    "repeatable": true,
+                    "minRepeat": 3,
+                    "children": [
+                        { "key": "score", "type": "field", "dataType": "integer", "label": "Score" }
+                    ]
+                },
+                { "key": "passing", "type": "field", "dataType": "integer", "label": "Passing" }
+            ],
+            "binds": [
+                { "path": "passing", "calculate": "countWhere(rows.score, $ >= 50)" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("rows[0].score".to_string(), json!(80));
+        data.insert("rows[1].score".to_string(), json!(30));
+        data.insert("rows[2].score".to_string(), json!(50));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(result.values.get("passing"), Some(&json!(2)));
+    }
+
+    #[test]
+    fn qualified_repeat_refs_resolve_to_same_instance() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                {
+                    "key": "line_items",
+                    "type": "group",
+                    "repeatable": true,
+                    "minRepeat": 2,
+                    "children": [
+                        { "key": "qty", "type": "field", "dataType": "integer", "label": "Qty" },
+                        { "key": "price", "type": "field", "dataType": "decimal", "label": "Price" },
+                        { "key": "total", "type": "field", "dataType": "decimal", "label": "Total" }
+                    ]
+                }
+            ],
+            "binds": [
+                { "path": "line_items[*].total", "calculate": "$line_items.qty * $line_items.price" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("line_items[0].qty".to_string(), json!(3));
+        data.insert("line_items[0].price".to_string(), json!(10));
+        data.insert("line_items[1].qty".to_string(), json!(5));
+        data.insert("line_items[1].price".to_string(), json!(20));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(result.values.get("line_items[0].total"), Some(&json!(30)));
+        assert_eq!(result.values.get("line_items[1].total"), Some(&json!(100)));
+    }
+
+    #[test]
+    fn qualified_repeat_refs_resolve_to_enclosing_instance() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                {
+                    "key": "orders",
+                    "type": "group",
+                    "repeatable": true,
+                    "minRepeat": 2,
+                    "children": [
+                        { "key": "discount_pct", "type": "field", "dataType": "decimal", "label": "Discount %" },
+                        {
+                            "key": "items",
+                            "type": "group",
+                            "repeatable": true,
+                            "minRepeat": 1,
+                            "children": [
+                                { "key": "qty", "type": "field", "dataType": "integer", "label": "Qty" },
+                                { "key": "unit_price", "type": "field", "dataType": "decimal", "label": "Unit Price" },
+                                { "key": "discounted_total", "type": "field", "dataType": "decimal", "label": "Discounted Total" }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "binds": [
+                {
+                    "path": "orders[*].items[*].discounted_total",
+                    "calculate": "$qty * $unit_price * (1 - $orders.discount_pct / 100)"
+                }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("orders[0].discount_pct".to_string(), json!(10));
+        data.insert("orders[0].items[0].qty".to_string(), json!(2));
+        data.insert("orders[0].items[0].unit_price".to_string(), json!(100));
+        data.insert("orders[1].discount_pct".to_string(), json!(50));
+        data.insert("orders[1].items[0].qty".to_string(), json!(2));
+        data.insert("orders[1].items[0].unit_price".to_string(), json!(100));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(
+            result.values.get("orders[0].items[0].discounted_total"),
+            Some(&json!(180)),
+        );
+        assert_eq!(
+            result.values.get("orders[1].items[0].discounted_total"),
+            Some(&json!(100)),
+        );
+    }
+
+    #[test]
+    fn qualified_repeat_refs_apply_in_relevance_expressions() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                {
+                    "key": "rows",
+                    "type": "group",
+                    "repeatable": true,
+                    "minRepeat": 2,
+                    "children": [
+                        { "key": "show_detail", "type": "field", "dataType": "boolean", "label": "Show" },
+                        { "key": "detail", "type": "field", "dataType": "string", "label": "Detail" }
+                    ]
+                }
+            ],
+            "binds": [
+                { "path": "rows[*].detail", "relevant": "$rows.show_detail = true" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("rows[0].show_detail".to_string(), json!(true));
+        data.insert("rows[1].show_detail".to_string(), json!(false));
+
+        let result = evaluate_definition(&def, &data);
+        assert!(
+            !result.non_relevant.contains(&"rows[0].detail".to_string()),
+            "row 0 detail should stay relevant",
+        );
+        assert!(
+            result.non_relevant.contains(&"rows[1].detail".to_string()),
+            "row 1 detail should be non-relevant",
+        );
+    }
+
+    #[test]
+    fn calculated_field_reacts_to_final_scoped_variable_values() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "variables": [
+                {
+                    "name": "budgetHasLineItems",
+                    "expression": "not isNull($lineItems[1].category)",
+                    "scope": "budget"
+                }
+            ],
+            "items": [
+                {
+                    "key": "budget",
+                    "type": "group",
+                    "children": [
+                        {
+                            "key": "lineItems",
+                            "type": "group",
+                            "repeatable": true,
+                            "minRepeat": 2,
+                            "children": [
+                                { "key": "category", "type": "field", "dataType": "string", "label": "Category" }
+                            ]
+                        },
+                        { "key": "hasLineItems", "type": "field", "dataType": "string", "label": "Has" }
+                    ]
+                }
+            ],
+            "binds": [
+                { "path": "budget.hasLineItems", "calculate": "string(@budgetHasLineItems)" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("budget.lineItems[0].category".to_string(), json!("Personnel"));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(result.values.get("budget.hasLineItems"), Some(&json!("true")));
+    }
+
+    #[test]
+    fn calculated_field_reacts_to_final_global_variable_values() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "variables": [
+                { "name": "totalDirect", "expression": "money(sum($budget.lineItems[*].subtotal), 'USD')" },
+                { "name": "grandTotal", "expression": "@totalDirect" }
+            ],
+            "items": [
+                {
+                    "key": "budget",
+                    "type": "group",
+                    "children": [
+                        {
+                            "key": "lineItems",
+                            "type": "group",
+                            "repeatable": true,
+                            "minRepeat": 2,
+                            "children": [
+                                { "key": "quantity", "type": "field", "dataType": "integer", "label": "Qty" },
+                                { "key": "unitCost", "type": "field", "dataType": "decimal", "label": "Cost" },
+                                { "key": "subtotal", "type": "field", "dataType": "decimal", "label": "Subtotal" }
+                            ]
+                        },
+                        { "key": "requestedAmount", "type": "field", "dataType": "money", "currency": "USD", "label": "Requested" },
+                        { "key": "budgetDeviation", "type": "field", "dataType": "money", "currency": "USD", "label": "Deviation" }
+                    ]
+                }
+            ],
+            "binds": [
+                { "path": "budget.lineItems[*].subtotal", "calculate": "$quantity * $unitCost" },
+                { "path": "budget.budgetDeviation", "calculate": "money(abs(moneyAmount($budget.requestedAmount) - moneyAmount(@grandTotal)), 'USD')" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("budget.lineItems[0].quantity".to_string(), json!(1));
+        data.insert("budget.lineItems[0].unitCost".to_string(), json!(1000));
+        data.insert(
+            "budget.requestedAmount".to_string(),
+            json!({ "amount": 800, "currency": "USD" }),
+        );
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(
+            result.values.get("budget.budgetDeviation"),
+            Some(&json!({ "$type": "money", "amount": 200, "currency": "USD" })),
+        );
+    }
+
+    #[test]
+    fn non_relevant_display_calculation_survives_nrb() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "test",
+            "version": "1.0.0",
+            "title": "T",
+            "items": [
+                { "key": "show", "type": "field", "dataType": "boolean", "label": "Show" },
+                { "key": "count", "type": "field", "dataType": "integer", "label": "Count" },
+                { "key": "info", "type": "display", "label": "Info" }
+            ],
+            "binds": [
+                { "path": "info", "relevant": "$show = true", "calculate": "format('Items: %s', $count)" }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("show".to_string(), json!(false));
+        data.insert("count".to_string(), json!(42));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(result.values.get("info"), Some(&json!("Items: 42")));
+    }
+
     // ── 9c: Default on relevance transition ──────────────────────
 
     #[test]
@@ -2132,6 +2558,21 @@ mod tests {
         data.insert("base".to_string(), json!(10));
         let result = evaluate_definition(&def, &data);
         assert_eq!(result.values.get("doubled"), Some(&json!(20)));
+    }
+
+    #[test]
+    fn initial_value_fel_expression_uses_context_now() {
+        let def = json!({
+            "items": [
+                { "key": "startDate", "dataType": "date", "initialValue": "=today()" }
+            ]
+        });
+
+        let result = evaluate_definition_with_context(&def, &HashMap::new(), &EvalContext {
+            now_iso: Some("2026-03-22T12:00:00.000Z".to_string()),
+            ..EvalContext::default()
+        });
+        assert_eq!(result.values.get("startDate"), Some(&json!("2026-03-22")));
     }
 
     // ── Wildcard bind paths + per-instance eval ──────────────────
@@ -2395,6 +2836,68 @@ mod tests {
         assert_eq!(shape_errors[0].path, "requested");
     }
 
+    #[test]
+    fn shape_constraints_handle_plain_money_field_values() {
+        let def = json!({
+            "items": [
+                { "key": "requested", "type": "field", "label": "Requested", "dataType": "money" }
+            ],
+            "variables": [
+                { "name": "grandTotal", "expression": "money(100, 'USD')" }
+            ],
+            "shapes": [{
+                "id": "budget-match",
+                "target": "requested",
+                "constraint": "abs(moneyAmount($requested) - moneyAmount(@grandTotal)) < 1",
+                "severity": "error",
+                "message": "Requested must equal grand total"
+            }]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("requested".to_string(), json!({ "amount": 0, "currency": "USD" }));
+
+        let result = evaluate_definition(&def, &data);
+        let shape_errors: Vec<_> = result
+            .validations
+            .iter()
+            .filter(|v| v.shape_id.as_deref() == Some("budget-match"))
+            .collect();
+        assert_eq!(
+            result.variables.get("grandTotal"),
+            Some(&json!({ "$type": "money", "amount": 100, "currency": "USD" }))
+        );
+        assert_eq!(shape_errors.len(), 1, "shape should evaluate plain money field values");
+        assert_eq!(shape_errors[0].path, "requested");
+    }
+
+    #[test]
+    fn calculated_money_sum_uses_plain_money_field_values() {
+        let def = json!({
+            "items": [
+                { "key": "employment", "type": "field", "dataType": "money" },
+                { "key": "housing", "type": "field", "dataType": "money" },
+                { "key": "health", "type": "field", "dataType": "money" },
+                { "key": "total", "type": "field", "dataType": "money" }
+            ],
+            "binds": [{
+                "path": "total",
+                "calculate": "coalesce(moneySum([$employment, $housing, $health]), money(0, 'USD'))"
+            }]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("employment".to_string(), json!({ "amount": 45000, "currency": "USD" }));
+        data.insert("housing".to_string(), json!({ "amount": 32000, "currency": "USD" }));
+        data.insert("health".to_string(), json!({ "amount": 28000, "currency": "USD" }));
+
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(
+            result.values.get("total"),
+            Some(&json!({ "$type": "money", "amount": 105000, "currency": "USD" }))
+        );
+    }
+
     // ── Scoped variables ─────────────────────────────────────────
 
     #[test]
@@ -2423,6 +2926,35 @@ mod tests {
             Some(&json!(20)),
             "scoped variable @rate should be visible to section.field"
         );
+    }
+
+    #[test]
+    fn scoped_variable_expression_can_reference_fields_in_scope() {
+        let def = json!({
+            "items": [
+                { "key": "rate", "type": "field", "dataType": "decimal", "initialValue": 0.1 },
+                {
+                    "key": "order",
+                    "children": [
+                        { "key": "amount", "type": "field", "dataType": "decimal", "initialValue": 200 },
+                        { "key": "tax", "type": "field", "dataType": "decimal" }
+                    ]
+                }
+            ],
+            "binds": {
+                "order.tax": { "calculate": "@localTax" }
+            },
+            "variables": [
+                { "name": "globalRate", "expression": "rate" },
+                { "name": "localTax", "expression": "amount * @globalRate", "scope": "order" }
+            ]
+        });
+
+        let data = HashMap::new();
+        let result = evaluate_definition(&def, &data);
+        assert_eq!(result.variables.get("globalRate"), Some(&json!(0.1)));
+        assert_eq!(result.variables.get("localTax"), Some(&json!(20)));
+        assert_eq!(result.values.get("order.tax"), Some(&json!(20)));
     }
 
     #[test]
@@ -2458,6 +2990,98 @@ mod tests {
             outer_val.is_none() || outer_val == Some(&Value::Null),
             "outer field outside scope should not see @rate (got {:?})",
             outer_val
+        );
+    }
+
+    #[test]
+    fn wildcard_bind_constraint_can_use_current_field_alias() {
+        let def = json!({
+            "items": [
+                {
+                    "key": "lines",
+                    "type": "group",
+                    "repeatable": true,
+                    "children": [
+                        { "key": "quantity", "type": "field", "dataType": "integer" }
+                    ]
+                }
+            ],
+            "binds": [
+                {
+                    "path": "lines[*].quantity",
+                    "constraint": "$quantity = null or $quantity >= 0",
+                    "constraintMessage": "Quantity must be non-negative"
+                }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert("lines[0].quantity".to_string(), json!(2));
+        data.insert("lines[1].quantity".to_string(), json!(-1));
+
+        let result = evaluate_definition(&def, &data);
+        let constraint_errors: Vec<_> = result
+            .validations
+            .iter()
+            .filter(|v| v.constraint_kind == "constraint")
+            .collect();
+        assert_eq!(constraint_errors.len(), 1, "only the negative row should fail");
+        assert_eq!(constraint_errors[0].path, "lines[1].quantity");
+        assert_eq!(
+            constraint_errors[0].message,
+            "Quantity must be non-negative"
+        );
+    }
+
+    #[test]
+    fn nested_repeat_wildcard_bind_constraint_applies_to_concrete_child_items() {
+        let def = json!({
+            "items": [
+                {
+                    "key": "projectPhases",
+                    "type": "group",
+                    "repeatable": true,
+                    "children": [
+                        {
+                            "key": "phaseTasks",
+                            "type": "group",
+                            "repeatable": true,
+                            "children": [
+                                { "key": "hourlyRate", "type": "field", "dataType": "money" }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "binds": [
+                {
+                    "path": "projectPhases[*].phaseTasks[*].hourlyRate",
+                    "constraint": "$hourlyRate = null or moneyAmount($hourlyRate) >= 0",
+                    "constraintMessage": "Hourly rate must not be negative."
+                }
+            ]
+        });
+
+        let mut data = HashMap::new();
+        data.insert(
+            "projectPhases[0].phaseTasks[0].hourlyRate".to_string(),
+            json!({ "amount": -100, "currency": "USD" }),
+        );
+
+        let result = evaluate_definition(&def, &data);
+        let constraint_errors: Vec<_> = result
+            .validations
+            .iter()
+            .filter(|v| v.constraint_kind == "constraint")
+            .collect();
+        assert_eq!(constraint_errors.len(), 1, "nested repeat child should fail constraint");
+        assert_eq!(
+            constraint_errors[0].path,
+            "projectPhases[0].phaseTasks[0].hourlyRate"
+        );
+        assert_eq!(
+            constraint_errors[0].message,
+            "Hourly rate must not be negative."
         );
     }
 

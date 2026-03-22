@@ -48,8 +48,10 @@ import {
     initWasm,
     isWasmReady,
     wasmAnalyzeFEL,
+    wasmAssembleDefinition,
     wasmCollectFELRewriteTargets,
     wasmEvaluateDefinition,
+    wasmEvaluateScreener,
     wasmEvalFELWithContext,
     wasmExecuteMappingDoc,
     wasmFindRegistryEntry,
@@ -563,21 +565,9 @@ type EngineBindConfig = FormspecBind & {
 
 type RuntimeNowInput = Date | string | number;
 
-interface PendingInitialExpression {
-    path: string;
-    expression: string;
-}
-
 interface FieldRecord {
     path: string;
     item: FormItem;
-}
-
-interface OrderedVariableDef {
-    key: string;
-    scope: string;
-    name: string;
-    expression: string;
 }
 
 export class FormEngine implements IFormEngine {
@@ -604,7 +594,6 @@ export class FormEngine implements IFormEngine {
     private readonly _fieldItems = new Map<string, FormItem>();
     private readonly _groupItems = new Map<string, FormItem>();
     private readonly _shapeTiming = new Map<string, 'continuous' | 'submit' | 'demand'>();
-    private readonly _pendingInitialExpressions: PendingInitialExpression[] = [];
     private readonly _instanceCalculateBinds: EngineBindConfig[] = [];
     private readonly _displaySignalPaths = new Set<string>();
     private readonly _prePopulateReadonly = new Set<string>();
@@ -616,8 +605,6 @@ export class FormEngine implements IFormEngine {
     private readonly _variableDefs: FormspecVariable[];
     private readonly _variableSignalKeys = new Map<string, string[]>();
     private readonly _externalValidation: ValidationResult[] = [];
-    private readonly _orderedVariableDefs: OrderedVariableDef[];
-    private readonly _orderedCalculatedPaths: string[];
 
     private _data: Record<string, any> = {};
     private _previousVisibleResult: EvalResult | null = null;
@@ -660,8 +647,6 @@ export class FormEngine implements IFormEngine {
         this.validateInstanceCalculateTargets();
         this.validateVariableCycles();
         this.validateCalculateCycles();
-        this._orderedVariableDefs = this.buildOrderedVariableDefs();
-        this._orderedCalculatedPaths = this.buildOrderedCalculatedPaths();
         this.registerItems(this.definition.items);
         this.initializeRemoteOptions();
         this._evaluate();
@@ -1146,32 +1131,7 @@ export class FormEngine implements IFormEngine {
     public evaluateScreener(
         answers: Record<string, any>,
     ): { target: string; label?: string; extensions?: Record<string, any> } | null {
-        const routes = this.definition.screener?.routes;
-        if (!routes) {
-            return null;
-        }
-        const fields = flattenObject(answers);
-        for (const route of routes) {
-            const value = safeEvaluateExpression(route.condition, {
-                fields,
-                variables: {},
-                instances: {},
-                nowIso: this.nowISO(),
-            });
-            if (value) {
-                const output: { target: string; label?: string; extensions?: Record<string, any> } = {
-                    target: route.target,
-                };
-                if (route.label !== undefined) {
-                    output.label = route.label;
-                }
-                if (route.extensions !== undefined) {
-                    output.extensions = route.extensions;
-                }
-                return output;
-            }
-        }
-        return null;
+        return wasmEvaluateScreener(this.definition, answers);
     }
 
     public migrateResponse(responseData: Record<string, any>, fromVersion: string): Record<string, any> {
@@ -1321,6 +1281,9 @@ export class FormEngine implements IFormEngine {
             const inlineBind = extractInlineBind(item, path);
             if (inlineBind) {
                 this._bindConfigs[path] = { ...this._bindConfigs[path], ...inlineBind };
+                if (inlineBind.calculate && !parseInstanceTarget(path)) {
+                    this._calculatedFields.add(path);
+                }
             }
             if (item.children) {
                 this.initializeBindConfigs(item.children, path);
@@ -1490,9 +1453,12 @@ export class FormEngine implements IFormEngine {
         if (this.signals[path]) {
             return;
         }
+        const hasExpressionInitial = typeof item.initialValue === 'string' && item.initialValue.startsWith('=');
         const initial = this.resolveInitialFieldValue(path, item);
         this.signals[path] = signal(cloneValue(initial));
-        this._data[path] = cloneValue(initial);
+        if (!hasExpressionInitial) {
+            this._data[path] = cloneValue(initial);
+        }
     }
 
     private resolveInitialFieldValue(path: string, item: FormItem): any {
@@ -1511,10 +1477,6 @@ export class FormEngine implements IFormEngine {
         }
 
         if (typeof item.initialValue === 'string' && item.initialValue.startsWith('=')) {
-            this._pendingInitialExpressions.push({
-                path,
-                expression: item.initialValue.slice(1),
-            });
             return emptyValueForItem(item);
         }
 
@@ -1633,7 +1595,7 @@ export class FormEngine implements IFormEngine {
         };
         const fields: Record<string, any> = {};
         for (const [path, value] of Object.entries(rawFields)) {
-            setExpressionContextValue(fields, path, cloneValue(this.getExpressionValueForPath(path, value)));
+            setExpressionContextValue(fields, path, toWasmContextValue(this.getExpressionValueForPath(path, value)));
         }
 
         const scopePath = parentPathOf(currentItemPath);
@@ -1642,9 +1604,9 @@ export class FormEngine implements IFormEngine {
             const prefixB = `${scopePath}[`;
             for (const [path, value] of Object.entries(rawFields)) {
                 if (path.startsWith(prefixA)) {
-                    setExpressionContextValue(fields, path.slice(prefixA.length), cloneValue(value));
+                    setExpressionContextValue(fields, path.slice(prefixA.length), toWasmContextValue(value));
                 } else if (path.startsWith(prefixB)) {
-                    setExpressionContextValue(fields, path.slice(scopePath.length + 1), cloneValue(value));
+                    setExpressionContextValue(fields, path.slice(scopePath.length + 1), toWasmContextValue(value));
                 }
             }
         }
@@ -1675,7 +1637,10 @@ export class FormEngine implements IFormEngine {
 
         return {
             fields,
-            variables: this.getVisibleVariableEntries(currentItemPath, scopedVariableOverrides),
+            variables: Object.fromEntries(
+                Object.entries(this.getVisibleVariableEntries(currentItemPath, scopedVariableOverrides))
+                    .map(([key, value]) => [key, toWasmContextValue(value)]),
+            ),
             mipStates,
             repeatContext: this.buildRepeatContext(currentItemPath),
             instances: cloneValue(this.instanceData),
@@ -1752,11 +1717,7 @@ export class FormEngine implements IFormEngine {
         const evalResult = this.withExtraValidations(baseResult);
 
         // Apply TS-side fixups that WASM can't handle:
-        // 1. Pending initial expressions (=expr) that the TS engine tracked during init
-        this.applyPendingInitialExpressions(evalResult);
-        // 2. Relevance defaults (expression defaults on non-relevant → relevant transitions)
-        this.applyRelevanceDefaults(evalResult);
-        // 3. Instance calculate write-back (binds targeting @instance(...) paths)
+        // 1. Instance calculate write-back (binds targeting @instance(...) paths)
         this.applyInstanceCalculates(evalResult);
         const visibleResult = this.filterContinuousShapeResults(evalResult);
         const delta = diffEvalResults(this._previousVisibleResult, visibleResult);
@@ -1764,14 +1725,6 @@ export class FormEngine implements IFormEngine {
         batch(() => {
             this.patchValueSignals(evalResult.values);
             this.patchDeltaSignals(delta);
-            for (let pass = 0; pass < 3; pass += 1) {
-                this.patchDerivedMipSignals();
-                this.patchBindValidationSignals();
-                this.patchVariableSignals(evalResult);
-                this.patchCalculatedSignals();
-            }
-            this.patchDerivedMipSignals();
-            this.patchBindValidationSignals();
             this.syncInstanceCalculateSignals();
             this.patchErrorSignals();
             this._evaluationVersion.value += 1;
@@ -1804,9 +1757,13 @@ export class FormEngine implements IFormEngine {
     private withExtraValidations(result: EvalResult): EvalResult {
         // WASM now produces complete extension and shape validations.
         // Filter only WASM-produced cardinality (TS owns repeat counts via signals).
-        const validations: EvalValidation[] = result.validations.filter(
-            (validation) => validation.constraintKind !== 'cardinality',
-        );
+        const validations: EvalValidation[] = result.validations
+            .filter((validation) => validation.constraintKind !== 'cardinality')
+            .map((validation) => (
+                validation.code === 'REQUIRED' && validation.source === 'bind'
+                    ? { ...validation, message: 'Required' }
+                    : validation
+            ));
         const nonRelevant = new Set(result.nonRelevant.map(toBasePath));
 
         // TS-authoritative cardinality from repeat signals
@@ -1840,65 +1797,6 @@ export class FormEngine implements IFormEngine {
             }
         }
 
-        // TS shape supplement for shapes WASM missed (bare variable refs in constraints).
-        // WASM's FEL evaluator resolves bare identifiers only from field data, not variables.
-        // Shapes referencing variables via bare names (e.g., "grandTotal" instead of "@grandTotal")
-        // won't fire in WASM. Re-evaluate those shapes in TS with full context.
-        const evaluatedShapeIds = new Set(validations.filter((v) => v.shapeId).map((v) => v.shapeId));
-        const signals = snapshotSignals(this.signals);
-        const mergedValues: Record<string, any> = { ...signals, ...this._data };
-        for (const calcPath of this._calculatedFields) {
-            const concretePaths = this.getConcretePathsForBasePath(calcPath, this.signals);
-            for (const cp of concretePaths) {
-                if (signals[cp] !== undefined && signals[cp] !== null) {
-                    mergedValues[cp] = signals[cp];
-                }
-            }
-        }
-        const shapeEvalContext: WasmFelContext = {
-            fields: buildFlatFieldContext(mergedValues),
-            variables: this.getVisibleVariableEntries(''),
-            instances: cloneValue(this.instanceData),
-            nowIso: this.nowISO(),
-        };
-        for (const shape of this.definition.shapes ?? []) {
-            if (!shape.id || evaluatedShapeIds.has(shape.id)) {
-                continue;
-            }
-            const timing = this._shapeTiming.get(shape.id) ?? 'continuous';
-            if (timing !== 'continuous') {
-                continue;
-            }
-            const constraint = (shape as any).constraint;
-            if (!constraint) {
-                continue;
-            }
-            const target = (shape as any).target ?? '#';
-            if (target !== '#' && nonRelevant.has(toBasePath(target))) {
-                continue;
-            }
-            const activeWhen = (shape as any).activeWhen;
-            if (activeWhen) {
-                const active = safeEvaluateExpression(activeWhen, shapeEvalContext);
-                if (!active) {
-                    continue;
-                }
-            }
-            const passed = safeEvaluateExpression(constraint, shapeEvalContext);
-            if (passed === null || passed === undefined ? false : !passed) {
-                validations.push({
-                    path: target,
-                    severity: shape.severity ?? 'error',
-                    constraintKind: 'shape',
-                    code: (shape as any).code ?? 'SHAPE_FAILED',
-                    message: (shape as any).message ?? 'Shape constraint failed',
-                    source: 'shape',
-                    shapeId: shape.id,
-                    constraint,
-                } as unknown as EvalValidation);
-            }
-        }
-
         validations.push(...this._externalValidation as unknown as EvalValidation[]);
 
         return {
@@ -1921,50 +1819,6 @@ export class FormEngine implements IFormEngine {
 
 
 
-    private applyPendingInitialExpressions(result: EvalResult): boolean {
-        let changed = false;
-        for (const pending of this._pendingInitialExpressions) {
-            if (!isEmptyValue(this._data[pending.path])) {
-                continue;
-            }
-            const nextValue = this.evaluateExpression(pending.expression, pending.path, this._data, result);
-            if (nextValue === undefined) {
-                continue;
-            }
-            this._data[pending.path] = cloneValue(nextValue);
-            changed = true;
-        }
-        return changed;
-    }
-
-    private applyRelevanceDefaults(result: EvalResult): boolean {
-        const previous = new Set(this._previousVisibleResult?.nonRelevant ?? []);
-        const current = new Set(result.nonRelevant);
-        let changed = false;
-
-        for (const [path, bind] of Object.entries(this._bindConfigs)) {
-            if (bind.default === undefined) {
-                continue;
-            }
-            if (!previous.has(path) || current.has(path)) {
-                continue;
-            }
-            const concretePaths = Object.keys(this.signals).filter((signalPath) => toBasePath(signalPath) === path);
-            for (const concretePath of concretePaths) {
-                if (!isEmptyValue(this._data[concretePath])) {
-                    continue;
-                }
-                const nextValue = typeof bind.default === 'string' && bind.default.startsWith('=')
-                    ? this.evaluateExpression(bind.default.slice(1), concretePath, this._data, result)
-                    : bind.default;
-                this._data[concretePath] = cloneValue(nextValue);
-                changed = true;
-            }
-        }
-
-        return changed;
-    }
-
     private applyInstanceCalculates(result: EvalResult): boolean {
         let changed = false;
         for (const bind of this._instanceCalculateBinds) {
@@ -1986,21 +1840,30 @@ export class FormEngine implements IFormEngine {
         for (const [path, value] of Object.entries(values)) {
             if (this.signals[path]) {
                 const basePath = toBasePath(path);
+                const normalizedValue = normalizeWasmValue(value);
+                const item = this._fieldItems.get(basePath);
+                const hasExpressionInitial = typeof item?.initialValue === 'string' && item.initialValue.startsWith('=');
+                if (!this._calculatedFields.has(basePath)
+                    && hasExpressionInitial
+                    && !(path in this._data)) {
+                    this._data[path] = cloneValue(normalizedValue);
+                } else if (!this._calculatedFields.has(basePath)
+                    && this._bindConfigs[basePath]?.default !== undefined
+                    && path in this._data
+                    && isEmptyValue(this._data[path])
+                    && !deepEqual(this._data[path], normalizedValue)) {
+                    this._data[path] = cloneValue(normalizedValue);
+                }
                 let rawValue: any;
                 if (!this._calculatedFields.has(basePath) && path in this._data) {
                     // For user-entered fields, prefer _data over WASM value. Whitespace
                     // transforms (trim/normalize) are applied at setValue time via coerceFieldValue,
                     // so _data already stores the transformed value. Signals reflect _data.
                     rawValue = this._data[path];
-                } else if (value == null && this._calculatedFields.has(basePath)) {
-                    // For calculated fields, if WASM returns null (e.g., sum() over a
-                    // not-yet-initialized repeat group), preserve the current signal value
-                    // rather than clobbering a valid previous computation with null.
-                    rawValue = this.signals[path].value;
                 } else {
                     rawValue = value;
                 }
-                this.signals[path].value = cloneValue(rawValue);
+                this.signals[path].value = normalizeWasmValue(rawValue);
             }
         }
     }
@@ -2036,42 +1899,18 @@ export class FormEngine implements IFormEngine {
                 this.shapeResults[shapeId].value = [];
             }
         }
-    }
-
-    private patchVariableSignals(result: EvalResult): void {
-        const scopedValues: Record<string, any> = {};
-        for (const variableDef of this._orderedVariableDefs) {
-            const visible = this.evaluateExpression(
-                variableDef.expression,
-                variableDef.scope === '#'
-                    ? ''
-                    : `${variableDef.scope}.__var`,
-                this._data,
-                result,
-                scopedValues,
-            );
-            scopedValues[variableDef.key] = visible;
-            if (this.variableSignals[variableDef.key]) {
-                this.variableSignals[variableDef.key].value = visible;
+        for (const [name, value] of Object.entries(delta.variables)) {
+            const signalKeys = this._variableSignalKeys.get(name) ?? [name];
+            for (const key of signalKeys) {
+                this.variableSignals[key] ??= signal(undefined);
+                this.variableSignals[key].value = normalizeWasmValue(value);
             }
         }
-    }
-
-    private patchCalculatedSignals(): void {
-        for (const path of this._orderedCalculatedPaths) {
-            const bind = this._bindConfigs[path];
-            if (!bind?.calculate || parseInstanceTarget(bind.path)) {
-                continue;
-            }
-            const concretePaths = this.getConcretePathsForBasePath(path, this.signals);
-            for (const concretePath of concretePaths) {
-                const field = this._fieldItems.get(toBasePath(concretePath)) ?? this._fieldItems.get(path);
-                const rawValue = this.evaluateExpression(bind.calculate, concretePath);
-                const nextValue = field
-                    ? coerceFieldValue(field, bind, this.definition, rawValue)
-                    : rawValue;
-                if (this.signals[concretePath]) {
-                    this.signals[concretePath].value = cloneValue(nextValue);
+        for (const name of delta.removedVariables) {
+            const signalKeys = this._variableSignalKeys.get(name) ?? [name];
+            for (const key of signalKeys) {
+                if (this.variableSignals[key]) {
+                    this.variableSignals[key].value = undefined;
                 }
             }
         }
@@ -2089,75 +1928,6 @@ export class FormEngine implements IFormEngine {
                 continue;
             }
             this.writeInstanceValue(target.instanceName, target.instancePath, nextValue, { bypassReadonly: true });
-        }
-    }
-
-    private patchDerivedMipSignals(): void {
-        for (const [path, bind] of Object.entries(this._bindConfigs)) {
-            const concretePaths = this.getConcretePathsForBasePath(path, this.relevantSignals);
-            for (const concretePath of concretePaths) {
-                if (bind.relevant !== undefined) {
-                    const rawRelevant = typeof bind.relevant === 'string'
-                        ? this.evaluateExpression(bind.relevant, concretePath)
-                        : bind.relevant;
-                    const nextRelevant = rawRelevant === null || rawRelevant === undefined ? true : !!rawRelevant;
-                    this.relevantSignals[concretePath] ??= signal(true);
-                    this.relevantSignals[concretePath].value = nextRelevant;
-                }
-                if (bind.required !== undefined) {
-                    const nextRequired = typeof bind.required === 'string'
-                        ? !!this.evaluateExpression(bind.required, concretePath)
-                        : !!bind.required;
-                    this.requiredSignals[concretePath] ??= signal(false);
-                    this.requiredSignals[concretePath].value = nextRequired;
-                }
-                if (bind.readonly !== undefined) {
-                    const nextReadonly = typeof bind.readonly === 'string'
-                        ? !!this.evaluateExpression(bind.readonly, concretePath)
-                        : !!bind.readonly;
-                    this.readonlySignals[concretePath] ??= signal(false);
-                    this.readonlySignals[concretePath].value = nextReadonly || this._prePopulateReadonly.has(concretePath);
-                }
-            }
-        }
-    }
-
-    private patchBindValidationSignals(): void {
-        for (const [path, signalRef] of Object.entries(this.validationResults)) {
-            const bind = this._bindConfigs[toBasePath(path)];
-            if (!bind) {
-                continue;
-            }
-            const preserved = signalRef.value.filter((result) =>
-                !(result.source === 'bind' && (result.code === 'REQUIRED' || result.code === 'CONSTRAINT_FAILED')));
-            const value = this.signals[path]?.value;
-            const nextResults = [...preserved];
-            if ((this.requiredSignals[path]?.value ?? false) && isEmptyValue(value)) {
-                nextResults.push(makeValidationResult({
-                    path,
-                    severity: 'error',
-                    constraintKind: 'required',
-                    code: 'REQUIRED',
-                    message: 'Required',
-                    source: 'bind',
-                }));
-            }
-            if (bind.constraint && !isEmptyValue(value)) {
-                const passed = this.evaluateExpression(bind.constraint, path, undefined, undefined, undefined, true);
-                if (!(passed === null || passed === undefined ? true : !!passed)) {
-                    const constraintResult = makeValidationResult({
-                        path,
-                        severity: 'error',
-                        constraintKind: 'constraint',
-                        code: 'CONSTRAINT_FAILED',
-                        message: bind.constraintMessage || 'Invalid',
-                        source: 'bind',
-                    });
-                    (constraintResult as any).constraint = bind.constraint;
-                    nextResults.push(constraintResult);
-                }
-            }
-            signalRef.value = nextResults;
         }
     }
 
@@ -2210,53 +1980,6 @@ export class FormEngine implements IFormEngine {
 
     private resolveRepeatPath(itemName: string): string {
         return this.repeats[itemName] ? itemName : toBasePath(itemName);
-    }
-
-    private buildOrderedVariableDefs(): OrderedVariableDef[] {
-        const defs = this._variableDefs.map((variableDef) => ({
-            key: `${variableDef.scope ?? '#'}:${variableDef.name}`,
-            scope: variableDef.scope ?? '#',
-            name: variableDef.name,
-            expression: variableDef.expression,
-        }));
-        const graph = new Map<string, Set<string>>();
-        for (const def of defs) {
-            const deps = new Set<string>();
-            for (const name of wasmAnalyzeFEL(def.expression).variables) {
-                const sameScope = defs.find((candidate) => candidate.name === name && candidate.scope === def.scope);
-                const globalScope = defs.find((candidate) => candidate.name === name && candidate.scope === '#');
-                if (sameScope) {
-                    deps.add(sameScope.key);
-                } else if (globalScope) {
-                    deps.add(globalScope.key);
-                }
-            }
-            graph.set(def.key, deps);
-        }
-        return topoSortKeys(defs, graph);
-    }
-
-    private buildOrderedCalculatedPaths(): string[] {
-        const defs = Object.entries(this._bindConfigs)
-            .filter(([path, bind]) => !!bind.calculate && !parseInstanceTarget(path))
-            .map(([path, bind]) => ({ key: path, expression: bind.calculate! }));
-        const graph = new Map<string, Set<string>>();
-        for (const def of defs) {
-            const deps = new Set<string>();
-            const parent = parentPathOf(def.key);
-            for (const dep of wasmGetFELDependencies(def.expression)) {
-                const resolved = resolveRelativeDependency(dep, parent, def.key);
-                if (!resolved) {
-                    continue;
-                }
-                const baseResolved = toBasePath(resolved);
-                if (baseResolved !== def.key && this._bindConfigs[baseResolved]?.calculate) {
-                    deps.add(baseResolved);
-                }
-            }
-            graph.set(def.key, deps);
-        }
-        return topoSortKeys(defs, graph).map((entry) => entry.key);
     }
 
     private patchErrorSignals(): void {
@@ -2513,6 +2236,47 @@ function cloneValue<T>(value: T): T {
         return copier(value);
     }
     return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeWasmValue<T>(value: T): T {
+    if (Array.isArray(value)) {
+        return value.map((entry) => normalizeWasmValue(entry)) as T;
+    }
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, any>;
+        if (record.$type === 'money' && 'amount' in record && 'currency' in record) {
+            return {
+                amount: normalizeWasmValue(record.amount),
+                currency: normalizeWasmValue(record.currency),
+            } as T;
+        }
+        return Object.fromEntries(
+            Object.entries(record)
+                .filter(([key]) => key !== '$type')
+                .map(([key, entry]) => [key, normalizeWasmValue(entry)]),
+        ) as T;
+    }
+    return cloneValue(value);
+}
+
+function toWasmContextValue<T>(value: T): T {
+    if (Array.isArray(value)) {
+        return value.map((entry) => toWasmContextValue(entry)) as T;
+    }
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, any>;
+        if (!('$type' in record) && 'amount' in record && 'currency' in record) {
+            return {
+                $type: 'money',
+                amount: toWasmContextValue(record.amount),
+                currency: toWasmContextValue(record.currency),
+            } as T;
+        }
+        return Object.fromEntries(
+            Object.entries(record).map(([key, entry]) => [key, toWasmContextValue(entry)]),
+        ) as T;
+    }
+    return cloneValue(value);
 }
 
 function deepEqual(left: unknown, right: unknown): boolean {
@@ -3045,23 +2809,6 @@ function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Check if a shape definition uses @instance() references that WASM can't resolve. */
-function shapeUsesInstanceRef(shape: any): boolean {
-    const check = (v: unknown) => typeof v === 'string' && v.includes('@instance');
-    return check(shape.constraint) || check(shape.activeWhen)
-        || (shape.context && Object.values(shape.context).some(check))
-        || check(shape.message);
-}
-
-
-/** Build a nested field context from flat dotted-path data (without signal snapshots). */
-function buildFlatFieldContext(data: Record<string, any>): Record<string, any> {
-    const fields: Record<string, any> = {};
-    for (const [path, value] of Object.entries(data)) {
-        setExpressionContextValue(fields, path, cloneValue(value));
-    }
-    return fields;
-}
 
 /**
  * Resolve $group.field qualified refs to sibling refs within repeat context.
@@ -3184,434 +2931,81 @@ function collectRefs(node: unknown, refs: Set<string>): void {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Assembly helpers — TS-native implementation
-// ---------------------------------------------------------------------------
-
-const FEL_BIND_PROPERTIES = ['calculate', 'constraint', 'relevant', 'readonly', 'required'] as const;
-
-/** Recursively prefix all item keys. */
-function prefixItems(items: FormItem[], prefix: string): FormItem[] {
-    return items.map(item => {
-        const newItem = { ...item, key: prefix + item.key };
-        if (newItem.children) {
-            newItem.children = prefixItems(newItem.children, prefix);
-        }
-        return newItem;
-    });
-}
-
-/** Recursively collect all item keys into a Set. */
-function collectAllKeys(item: FormItem, keys: Set<string>): void {
-    keys.add(item.key);
-    if (item.children) {
-        for (const child of item.children) {
-            collectAllKeys(child, keys);
-        }
-    }
-}
-
-/** Collect all keys from an item tree as dotted paths. */
-function collectKeyPaths(items: FormItem[], parentPath = ''): string[] {
-    const keys: string[] = [];
-    for (const item of items) {
-        const fullPath = parentPath ? `${parentPath}.${item.key}` : item.key;
-        keys.push(fullPath);
-        if (item.children) {
-            keys.push(...collectKeyPaths(item.children, fullPath));
-        }
-    }
-    return keys;
-}
-
-/** Prefix every segment of a dotted bind/shape path that was an imported key. */
-function prefixPath(path: string, prefix: string, importedKeys: Set<string>): string {
-    if (!prefix) return path;
-    return path.split('.').map(seg => {
-        const bracketIdx = seg.indexOf('[');
-        const baseName = bracketIdx !== -1 ? seg.substring(0, bracketIdx) : seg;
-        const suffix = bracketIdx !== -1 ? seg.substring(bracketIdx) : '';
-        if (importedKeys.has(baseName)) {
-            return prefix + baseName + suffix;
-        }
-        return seg;
-    }).join('.');
-}
-
-/** Prefix bind paths and prepend the host group path. */
-function prefixBindPaths(binds: FormBind[], prefix: string, importedKeys: Set<string>, hostPath: string): FormBind[] {
-    return binds.map(bind => ({
-        ...bind,
-        path: hostPath ? `${hostPath}.${prefixPath(bind.path, prefix, importedKeys)}` : prefixPath(bind.path, prefix, importedKeys),
-    }));
-}
-
-/** Prefix shape targets and prepend the host group path. */
-function prefixShapeTargets(shapes: FormShape[], prefix: string, importedKeys: Set<string>, hostPath: string): FormShape[] {
-    return shapes.map(shape => ({
-        ...shape,
-        target: shape.target === '#'
-            ? '#'
-            : (hostPath ? `${hostPath}.${prefixPath(shape.target, prefix, importedKeys)}` : prefixPath(shape.target, prefix, importedKeys)),
-    }));
-}
-
-/** Filter binds relevant to a fragment selection. */
-function filterBindsForFragment(binds: FormBind[], fragment: string | undefined, keys: Set<string>): FormBind[] {
-    if (!fragment) return [...binds];
-    return binds.filter(b => {
-        const firstSeg = b.path.split('.')[0].replace(/\[.*\]/, '');
-        return keys.has(firstSeg);
-    });
-}
-
-/** Filter shapes relevant to a fragment selection. */
-function filterShapesForFragment(shapes: FormShape[], fragment: string | undefined, keys: Set<string>): FormShape[] {
-    if (!fragment) return [...shapes];
-    return shapes.filter(s => {
-        if (s.target === '#') return true;
-        const firstSeg = s.target.split('.')[0].replace(/\[.*\]/, '');
-        return keys.has(firstSeg);
-    });
-}
-
-/** Rewrite all FEL-bearing properties of a bind. */
-function rewriteBindFEL(bind: FormBind, map: RewriteMap): FormBind {
-    const newBind = { ...bind };
-    for (const prop of FEL_BIND_PROPERTIES) {
-        const val = (newBind as any)[prop];
-        if (typeof val === 'string') {
-            (newBind as any)[prop] = rewriteFEL(val, map);
-        }
-    }
-    const defaultVal = (newBind as any).default;
-    if (typeof defaultVal === 'string' && defaultVal.startsWith('=')) {
-        (newBind as any).default = '=' + rewriteFEL(defaultVal.substring(1), map);
-    }
-    return newBind;
-}
-
-/** Rewrite FEL in {{...}} interpolation segments of a message string. */
-function rewriteAssemblyMessageTemplate(message: string, map: RewriteMap): string {
-    return message.replace(/\{\{(.*?)\}\}/g, (_full, expr: string) => {
-        return '{{' + rewriteFEL(expr, map) + '}}';
-    });
-}
-
-/** Rewrite a single composition entry: shape ID rename or FEL rewrite. */
-function rewriteCompositionEntry(
-    entry: string,
-    map: RewriteMap,
-    shapeIdRenameMap: Map<string, string>,
-    importedShapeIds: Set<string>,
-): string {
-    if (importedShapeIds.has(entry)) {
-        return shapeIdRenameMap.get(entry) || entry;
-    }
-    return rewriteFEL(entry, map);
-}
-
-/** Rewrite all FEL-bearing properties of a shape. */
-function rewriteShapeFEL(
-    shape: FormShape,
-    map: RewriteMap,
-    shapeIdRenameMap: Map<string, string>,
-    importedShapeIds: Set<string>,
-): FormShape {
-    const s: any = { ...shape };
-    if (typeof s.constraint === 'string') {
-        s.constraint = rewriteFEL(s.constraint, map);
-    }
-    if (typeof s.activeWhen === 'string') {
-        s.activeWhen = rewriteFEL(s.activeWhen, map);
-    }
-    if (s.context) {
-        const newCtx: Record<string, string> = {};
-        for (const [key, value] of Object.entries(s.context as Record<string, string>)) {
-            newCtx[key] = rewriteFEL(value, map);
-        }
-        s.context = newCtx;
-    }
-    if (typeof s.message === 'string') {
-        s.message = rewriteAssemblyMessageTemplate(s.message, map);
-    }
-    for (const op of ['and', 'or', 'xone'] as const) {
-        const arr = s[op];
-        if (Array.isArray(arr)) {
-            s[op] = arr.map((entry: string) =>
-                rewriteCompositionEntry(entry, map, shapeIdRenameMap, importedShapeIds),
-            );
-        }
-    }
-    if (typeof s.not === 'string') {
-        s.not = rewriteCompositionEntry(s.not, map, shapeIdRenameMap, importedShapeIds);
-    }
-    return s as FormShape;
-}
-
-/** Import and rewrite variables from a referenced definition. */
-function importVariables(
-    referencedDef: FormDefinition,
-    fragment: string | undefined,
-    importedKeys: Set<string>,
-    map: RewriteMap,
-    host: FormDefinition,
-): void {
-    const vars = (referencedDef as any).variables as FormVariable[] | undefined;
-    if (!vars?.length) return;
-
-    const varsToImport = fragment
-        ? vars.filter((v: any) => {
-            if (!v.scope || v.scope === '#') return true;
-            return importedKeys.has(v.scope);
-        })
-        : [...vars];
-
-    if (!varsToImport.length) return;
-
-    const existingNames = new Set(((host as any).variables || []).map((v: any) => v.name));
-    for (const v of varsToImport) {
-        if (existingNames.has(v.name)) {
-            throw new Error(`Variable name collision during assembly: "${v.name}" already exists in host definition`);
-        }
-    }
-
-    if (!(host as any).variables) (host as any).variables = [];
-    for (const v of varsToImport) {
-        const newVar: any = { ...v };
-        newVar.expression = rewriteFEL(v.expression, map);
-        if (newVar.scope && newVar.scope !== '#') {
-            if (newVar.scope === map.fragmentRootKey) {
-                newVar.scope = map.hostGroupKey;
-            } else if (map.importedKeys.has(newVar.scope)) {
-                newVar.scope = map.keyPrefix + newVar.scope;
-            }
-        }
-        (host as any).variables.push(newVar);
-    }
-}
-
-/**
- * Core assembly logic: imports items from a referenced definition into a host group,
- * applying keyPrefix, rewriting FEL in binds/shapes/variables, detecting key collisions.
- */
-function performAssembly(
-    groupItem: FormItem,
-    parentPath: string,
-    referencedDef: FormDefinition,
-    assembledFrom: AssemblyProvenance[],
-    host: FormDefinition,
-    url: string,
-    version: string | undefined,
-    fragment: string | undefined,
-): FormItem {
-    const keyPrefix = (groupItem as any).keyPrefix as string | undefined;
-
-    // Select items from referenced definition
-    let importedItems: FormItem[];
-    if (fragment) {
-        const found = referencedDef.items.find(i => i.key === fragment);
-        if (!found) {
-            throw new Error(`Fragment key "${fragment}" not found in referenced definition ${url}`);
-        }
-        importedItems = [found];
-    } else {
-        importedItems = [...referencedDef.items];
-    }
-
-    // Apply keyPrefix to imported items
-    if (keyPrefix) {
-        importedItems = prefixItems(importedItems, keyPrefix);
-    }
-
-    // Collect original root-level keys for path rewriting
-    const originalRootKeys = new Set<string>();
-    const sourceItems = fragment
-        ? referencedDef.items.filter(i => i.key === fragment)
-        : referencedDef.items;
-    for (const item of sourceItems) {
-        collectAllKeys(item, originalRootKeys);
-    }
-
-    // Build the full host path for this group
-    const groupPath = parentPath ? `${parentPath}.${groupItem.key}` : groupItem.key;
-
-    // Build RewriteMap for FEL expression rewriting
-    const rewriteMap: RewriteMap = {
-        fragmentRootKey: fragment || '',
-        hostGroupKey: groupItem.key,
-        importedKeys: originalRootKeys,
-        keyPrefix: keyPrefix || '',
-    };
-
-    // Import and rewrite binds
-    if ((referencedDef as any).binds) {
-        let importedBinds = filterBindsForFragment((referencedDef as any).binds, fragment, originalRootKeys);
-        importedBinds = prefixBindPaths(importedBinds, keyPrefix || '', originalRootKeys, groupPath);
-        importedBinds = importedBinds.map(b => rewriteBindFEL(b, rewriteMap));
-        if (!(host as any).binds) (host as any).binds = [];
-        (host as any).binds.push(...importedBinds);
-    }
-
-    // Import and rewrite shapes
-    const shapeIdRenameMap = new Map<string, string>();
-    const importedShapeIds = new Set<string>();
-    if ((referencedDef as any).shapes) {
-        let importedShapes = filterShapesForFragment((referencedDef as any).shapes, fragment, originalRootKeys);
-        importedShapes = prefixShapeTargets(importedShapes, keyPrefix || '', originalRootKeys, groupPath);
-
-        for (const shape of importedShapes) {
-            importedShapeIds.add(shape.id);
-        }
-
-        const existingShapeIds = new Set(((host as any).shapes || []).map((s: any) => s.id));
-        for (const shape of importedShapes) {
-            const originalId = shape.id;
-            if (existingShapeIds.has(originalId)) {
-                const newId = `${groupItem.key}_${originalId}`;
-                shapeIdRenameMap.set(originalId, newId);
-                (shape as any).id = newId;
-            }
-        }
-
-        importedShapes = importedShapes.map(s =>
-            rewriteShapeFEL(s, rewriteMap, shapeIdRenameMap, importedShapeIds),
-        );
-
-        if (!(host as any).shapes) (host as any).shapes = [];
-        (host as any).shapes.push(...importedShapes);
-    }
-
-    // Import and rewrite variables
-    importVariables(referencedDef, fragment, originalRootKeys, rewriteMap, host);
-
-    // Check for key collisions
-    const hostKeys = new Set(collectKeyPaths(host.items, ''));
-    const importedKeyPaths = collectKeyPaths(importedItems, groupPath);
-    for (const ik of importedKeyPaths) {
-        if (hostKeys.has(ik)) {
-            throw new Error(`Key collision after assembly: "${ik}" already exists in host definition`);
-        }
-    }
-
-    // Record provenance
-    assembledFrom.push({
-        url,
-        version: version || (referencedDef as any).version,
-        keyPrefix: keyPrefix,
-        fragment,
-    });
-
-    // Build the assembled group item (strip $ref and keyPrefix, add children)
-    const assembled: FormItem = {
-        key: groupItem.key,
-        type: 'group',
-        label: groupItem.label,
-        children: importedItems,
-    };
-    if (groupItem.repeatable) assembled.repeatable = groupItem.repeatable;
-    if (groupItem.minRepeat !== undefined) assembled.minRepeat = groupItem.minRepeat;
-    if (groupItem.maxRepeat !== undefined) assembled.maxRepeat = groupItem.maxRepeat;
-    if (groupItem.description) assembled.description = groupItem.description;
-    if ((groupItem as any).hint) (assembled as any).hint = (groupItem as any).hint;
-    if (groupItem.presentation) assembled.presentation = groupItem.presentation;
-
-    return assembled;
-}
-
-/** Recursively resolve items, inlining $ref groups via async resolver. */
-async function resolveItemsAsync(
-    items: FormItem[],
-    parentPath: string,
+async function collectResolvedFragmentsAsync(
+    definition: FormDefinition,
     resolver: DefinitionResolver,
-    assembledFrom: AssemblyProvenance[],
-    visitedRefs: Set<string>,
-    host: FormDefinition,
-): Promise<FormItem[]> {
-    const result: FormItem[] = [];
-    for (const item of items) {
-        if (item.type === 'group' && (item as any)['$ref']) {
-            const refUri = (item as any)['$ref'] as string;
-            const { url, version, fragment } = parseRef(refUri);
-            const refKey = version ? `${url}|${version}` : url;
-            if (visitedRefs.has(refKey)) {
-                throw new Error(`Circular $ref detected: ${refKey}`);
+): Promise<Record<string, unknown>> {
+    const fragments: Record<string, unknown> = {};
+    const visiting = new Set<string>();
+
+    const visit = async (node: unknown): Promise<void> => {
+        const refs = new Set<string>();
+        collectRefs(node, refs);
+        for (const refUri of refs) {
+            const { url, version } = parseRef(refUri);
+            const cacheKey = version ? `${url}|${version}` : url;
+            if (cacheKey in fragments || visiting.has(cacheKey)) {
+                continue;
             }
-            visitedRefs.add(refKey);
-            const referencedDef = await resolver(url, version) as FormDefinition;
-            const assembled = performAssembly(item, parentPath, referencedDef, assembledFrom, host, url, version, fragment);
-            const fullPath = parentPath ? `${parentPath}.${assembled.key}` : assembled.key;
-            if (assembled.children) {
-                assembled.children = await resolveItemsAsync(assembled.children, fullPath, resolver, assembledFrom, visitedRefs, host);
+            visiting.add(cacheKey);
+            const resolved = cloneValue(await resolver(url, version));
+            fragments[cacheKey] = resolved;
+            if (!(url in fragments)) {
+                fragments[url] = resolved;
             }
-            visitedRefs.delete(refKey);
-            result.push(assembled);
-        } else {
-            const newItem = { ...item };
-            if (newItem.children) {
-                const fullPath = parentPath ? `${parentPath}.${item.key}` : item.key;
-                newItem.children = await resolveItemsAsync(newItem.children, fullPath, resolver, assembledFrom, visitedRefs, host);
-            }
-            result.push(newItem);
+            await visit(resolved);
+            visiting.delete(cacheKey);
         }
-    }
-    return result;
+    };
+
+    await visit(definition);
+    return fragments;
 }
 
-/** Recursively resolve items, inlining $ref groups via sync resolver. */
-function resolveItemsSync(
-    items: FormItem[],
-    parentPath: string,
+function collectResolvedFragmentsSync(
+    definition: FormDefinition,
     resolver: (url: string, version?: string) => unknown,
-    assembledFrom: AssemblyProvenance[],
-    visitedRefs: Set<string>,
-    host: FormDefinition,
-): FormItem[] {
-    const result: FormItem[] = [];
-    for (const item of items) {
-        if (item.type === 'group' && (item as any)['$ref']) {
-            const refUri = (item as any)['$ref'] as string;
-            const { url, version, fragment } = parseRef(refUri);
-            const refKey = version ? `${url}|${version}` : url;
-            if (visitedRefs.has(refKey)) {
-                throw new Error(`Circular $ref detected: ${refKey}`);
+): Record<string, unknown> {
+    const fragments: Record<string, unknown> = {};
+    const visiting = new Set<string>();
+
+    const visit = (node: unknown): void => {
+        const refs = new Set<string>();
+        collectRefs(node, refs);
+        for (const refUri of refs) {
+            const { url, version } = parseRef(refUri);
+            const cacheKey = version ? `${url}|${version}` : url;
+            if (cacheKey in fragments || visiting.has(cacheKey)) {
+                continue;
             }
-            visitedRefs.add(refKey);
-            const referencedDef = resolver(url, version) as FormDefinition;
-            const assembled = performAssembly(item, parentPath, referencedDef, assembledFrom, host, url, version, fragment);
-            const fullPath = parentPath ? `${parentPath}.${assembled.key}` : assembled.key;
-            if (assembled.children) {
-                assembled.children = resolveItemsSync(assembled.children, fullPath, resolver, assembledFrom, visitedRefs, host);
+            visiting.add(cacheKey);
+            const resolved = cloneValue(resolver(url, version));
+            fragments[cacheKey] = resolved;
+            if (!(url in fragments)) {
+                fragments[url] = resolved;
             }
-            visitedRefs.delete(refKey);
-            result.push(assembled);
-        } else {
-            const newItem = { ...item };
-            if (newItem.children) {
-                const fullPath = parentPath ? `${parentPath}.${item.key}` : item.key;
-                newItem.children = resolveItemsSync(newItem.children, fullPath, resolver, assembledFrom, visitedRefs, host);
-            }
-            result.push(newItem);
+            visit(resolved);
+            visiting.delete(cacheKey);
         }
-    }
-    return result;
+    };
+
+    visit(definition);
+    return fragments;
 }
 
 async function assembleDefinitionAsyncInternal(
     definition: FormDefinition,
     resolver: DefinitionResolver,
 ): Promise<AssemblyResult> {
-    const assembledFrom: AssemblyProvenance[] = [];
-    const visitedRefs = new Set<string>();
-    const assembled = { ...definition };
-    // Deep-copy mutable arrays so performAssembly doesn't mutate the caller's definition
-    if (assembled.binds) assembled.binds = [...assembled.binds];
-    if ((assembled as any).shapes) (assembled as any).shapes = [...(assembled as any).shapes];
-    if ((assembled as any).variables) (assembled as any).variables = [...(assembled as any).variables];
-    assembled.items = await resolveItemsAsync(
-        definition.items, '', resolver, assembledFrom, visitedRefs, assembled,
-    );
-    return { definition: assembled, assembledFrom };
+    const fragments = await collectResolvedFragmentsAsync(definition, resolver);
+    const result = wasmAssembleDefinition(cloneValue(definition), fragments);
+    if (result.errors?.length) {
+        throw new Error(result.errors.join('\n'));
+    }
+    return {
+        definition: result.definition,
+        assembledFrom: result.assembledFrom ?? [],
+    };
 }
 
 function assembleDefinitionSyncInternal(
@@ -3621,16 +3015,13 @@ function assembleDefinitionSyncInternal(
     const resolveOne = typeof resolver === 'function'
         ? resolver
         : (url: string, version?: string) => resolver[version ? `${url}|${version}` : url] ?? resolver[url];
-
-    const assembledFrom: AssemblyProvenance[] = [];
-    const visitedRefs = new Set<string>();
-    const assembled = { ...definition };
-    // Deep-copy mutable arrays so performAssembly doesn't mutate the caller's definition
-    if (assembled.binds) assembled.binds = [...assembled.binds];
-    if ((assembled as any).shapes) (assembled as any).shapes = [...(assembled as any).shapes];
-    if ((assembled as any).variables) (assembled as any).variables = [...(assembled as any).variables];
-    assembled.items = resolveItemsSync(
-        definition.items, '', resolveOne, assembledFrom, visitedRefs, assembled,
-    );
-    return { definition: assembled, assembledFrom };
+    const fragments = collectResolvedFragmentsSync(definition, resolveOne);
+    const result = wasmAssembleDefinition(cloneValue(definition), fragments);
+    if (result.errors?.length) {
+        throw new Error(result.errors.join('\n'));
+    }
+    return {
+        definition: result.definition,
+        assembledFrom: result.assembledFrom ?? [],
+    };
 }

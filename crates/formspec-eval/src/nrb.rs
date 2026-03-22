@@ -73,7 +73,7 @@ fn collect_non_relevant_with_nrb(
 ) -> Vec<(String, NrbMode)> {
     let mut result = Vec::new();
     for item in items {
-        if !item.relevant {
+        if !item.relevant && item.item_type != "display" {
             let mode = item
                 .nrb
                 .as_deref()
@@ -96,12 +96,15 @@ mod tests {
         ItemInfo {
             key: path.split('.').last().unwrap_or(path).to_string(),
             path: path.to_string(),
+            item_type: "field".to_string(),
             data_type: None,
+            currency: None,
             value: Value::Null,
             relevant: false,
             required: false,
             readonly: false,
             calculate: None,
+            precision: None,
             constraint: None,
             constraint_message: None,
             relevance: None,
