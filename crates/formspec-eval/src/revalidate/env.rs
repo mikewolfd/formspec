@@ -1,4 +1,5 @@
 //! FEL environment construction for validation: fields, variables, instances, repeat arrays, row aliases.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::collections::HashMap;
 

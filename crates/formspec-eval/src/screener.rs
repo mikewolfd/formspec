@@ -10,9 +10,13 @@ use crate::fel_json::json_to_runtime_fel;
 /// Result of evaluating screener routes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScreenerRouteResult {
+    /// Route `target` id from the matched screener route.
     pub target: String,
+    /// Optional human-facing route label.
     pub label: Option<String>,
+    /// Optional message shown when this route matches.
     pub message: Option<String>,
+    /// Optional extension payload copied from the route object.
     pub extensions: Option<Value>,
 }
 
@@ -65,6 +69,7 @@ pub fn evaluate_screener(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     use serde_json::json;
 

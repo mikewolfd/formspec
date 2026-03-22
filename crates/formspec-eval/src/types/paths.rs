@@ -1,4 +1,5 @@
 //! Path normalization, tree lookup, and qualified repeat reference helpers.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use super::item_tree::ItemInfo;
 use std::collections::HashMap;
@@ -231,6 +232,7 @@ pub(crate) fn collect_mip_state(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
 
     #[test]

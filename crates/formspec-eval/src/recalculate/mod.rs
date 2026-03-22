@@ -1,7 +1,8 @@
 //! Phase 2: Recalculate — evaluate computed values and bind expressions.
 //!
-//! Submodules follow data flow: [`json_fel`] (coercion) → [`variables`] / [`repeats`] →
-//! [`bind_pass`] (relevance, required, readonly, whitespace) → [`calculate_pass`] (fixpoint).
+//! Submodules follow data flow: `json_fel` (coercion) → `variables` / `repeats` →
+//! `bind_pass` (relevance, required, readonly, whitespace) → `calculate_pass` (fixpoint).
+#![allow(clippy::missing_docs_in_private_items)]
 
 mod bind_pass;
 mod calculate_pass;
@@ -126,6 +127,7 @@ pub fn recalculate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     use crate::rebuild::rebuild_item_tree;
     use crate::types::find_item_by_path;

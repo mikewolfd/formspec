@@ -53,7 +53,9 @@ impl EvalTrigger {
 /// Optional runtime context injected into a single evaluation cycle.
 #[derive(Debug, Clone, Default)]
 pub struct EvalContext {
+    /// Wall-clock instant for FEL `now()` / date helpers (ISO-8601 string).
     pub now_iso: Option<String>,
+    /// Prior cycle validation results (e.g. for host-driven revalidation hints).
     pub previous_validations: Option<Vec<ValidationResult>>,
     /// Paths that were non-relevant in the prior evaluation cycle.
     pub previous_non_relevant: Option<Vec<String>>,

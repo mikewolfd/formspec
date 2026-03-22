@@ -1,4 +1,7 @@
 //! JSON helpers for definition evaluation and WASM eval context parsing.
+//!
+//! Private `parse_*` helpers deserialize host maps into [`EvalHostContextBundle`] fields.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::collections::HashMap;
 
@@ -85,9 +88,13 @@ pub fn screener_route_to_json_value(route: Option<&ScreenerRouteResult>) -> Valu
 
 /// Parsed WASM / JSON evaluation context bundle.
 pub struct EvalHostContextBundle {
+    /// Clock, prior validations, and prior non-relevant paths.
     pub context: EvalContext,
+    /// Shape-rule timing for this batch (`submit` / `continuous` / …).
     pub trigger: EvalTrigger,
+    /// Named instance payloads merged into the FEL environment.
     pub instances: HashMap<String, Value>,
+    /// Extension constraints derived from optional registry documents in the context object.
     pub constraints: Vec<ExtensionConstraint>,
 }
 

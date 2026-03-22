@@ -1,4 +1,5 @@
 //! Runtime seeding: prePopulate instances and previous non-relevant state.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use crate::types::ItemInfo;
 use serde_json::Value;

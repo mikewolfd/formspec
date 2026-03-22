@@ -199,6 +199,7 @@ pub(crate) fn evaluate_variables_scoped(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     use serde_json::json;
 

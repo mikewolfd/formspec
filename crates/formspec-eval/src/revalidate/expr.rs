@@ -1,4 +1,5 @@
 //! FEL expression evaluation for validation (shape and bind constraint truthiness).
+#![allow(clippy::missing_docs_in_private_items)]
 
 use fel_core::{FelValue, FormspecEnvironment, evaluate, parse};
 

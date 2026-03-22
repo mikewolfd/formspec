@@ -23,6 +23,7 @@
 //! Valid definitions satisfy Item `key` constraints in `schemas/definition.schema.json`. Coercing
 //! missing or non-string keys to `""` is **defensive** so eval can still traverse malformed JSON;
 //! it does not relax the normative spec for published definitions.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use formspec_core::{
     DefinitionItemKeyPolicy, DefinitionItemVisitCtx, visit_definition_items_json_shallow,

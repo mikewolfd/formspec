@@ -1,4 +1,5 @@
 //! Flat data augmentation for nested repeat groups and repeat-instance counting.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use serde_json::Value;
 use std::collections::HashMap;

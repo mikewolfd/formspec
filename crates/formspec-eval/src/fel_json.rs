@@ -1,4 +1,5 @@
 //! Money-aware JSON normalization for FEL field/variable loading (shared across pipeline stages).
+#![allow(clippy::missing_docs_in_private_items)]
 
 use fel_core::{FelValue, json_to_fel};
 use serde_json::Value;

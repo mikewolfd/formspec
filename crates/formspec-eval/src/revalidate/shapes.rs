@@ -1,4 +1,5 @@
 //! Shape rules: single targets, wildcard expansion, composition (and/or/not/xone), context.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::collections::{HashMap, HashSet};
 

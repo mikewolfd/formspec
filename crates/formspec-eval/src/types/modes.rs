@@ -12,6 +12,7 @@ pub enum NrbMode {
 }
 
 impl NrbMode {
+    /// Parse host/config string; unknown values map to [`NrbMode::Remove`].
     pub(crate) fn from_str_lossy(s: &str) -> Self {
         match s {
             "empty" => NrbMode::Empty,
@@ -24,13 +25,18 @@ impl NrbMode {
 /// Whitespace normalization mode.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WhitespaceMode {
+    /// Strip leading and trailing Unicode whitespace.
     Trim,
+    /// Collapse internal runs of whitespace to a single ASCII space.
     Normalize,
+    /// Remove all Unicode whitespace characters.
     Remove,
+    /// Leave string values unchanged.
     Preserve,
 }
 
 impl WhitespaceMode {
+    /// Parse host/config string; unknown values map to [`WhitespaceMode::Preserve`].
     pub(crate) fn from_str_lossy(s: &str) -> Self {
         match s {
             "trim" => WhitespaceMode::Trim,
@@ -40,6 +46,7 @@ impl WhitespaceMode {
         }
     }
 
+    /// Apply this normalization mode to `s`.
     pub(crate) fn apply(self, s: &str) -> String {
         match self {
             WhitespaceMode::Trim => s.trim().to_string(),
@@ -52,6 +59,7 @@ impl WhitespaceMode {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
 
     #[test]

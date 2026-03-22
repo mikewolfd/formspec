@@ -62,6 +62,7 @@ fn parse_path_segment(seg: &str) -> (&str, Option<usize>) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     use serde_json::json;
 

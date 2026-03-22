@@ -1,4 +1,5 @@
 //! Phase 4: NRB (Non-Relevant Behavior) application.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use serde_json::Value;
 use std::collections::HashMap;
@@ -91,6 +92,7 @@ fn collect_non_relevant_with_nrb(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
     fn make_item(path: &str, nrb: Option<&str>) -> ItemInfo {
         ItemInfo {

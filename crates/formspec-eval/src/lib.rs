@@ -2,13 +2,21 @@
 //!
 //! ## Layout
 //! The main path is [`pipeline::evaluate_definition_full_with_instances_and_context`]:
-//! 1. [`rebuild`] — definition → item tree, initial values, repeat expansion, wildcard binds
-//! 2. [`recalculate`] — relevance, required, readonly, variables, calculate
-//! 3. [`revalidate`] — required/type/constraint, extensions, shapes
-//! 4. [`nrb`] — output shaping for non-relevant fields
+//! 1. [`mod@rebuild`] — definition → item tree, initial values, repeat expansion, wildcard binds
+//! 2. [`mod@recalculate`] — relevance, required, readonly, variables, calculate ([`recalculate()`])
+//! 3. [`mod@revalidate`] — required/type/constraint, extensions, shapes ([`revalidate()`])
+//! 4. [`mod@nrb`] — output shaping for non-relevant fields
 //!
-//! Cross-cutting: [`convert`] (path resolution), `fel_json` (money-aware JSON→`FelValue` for env fields),
-//! [`runtime_seed`] (prePopulate / previous non-relevant). [`screener`] evaluates routes in an isolated env.
+//! Cross-cutting: [`mod@convert`] (path resolution), private `fel_json` (money-aware JSON→`FelValue` for env fields),
+//! private `runtime_seed` (prePopulate / previous non-relevant). [`mod@screener`] evaluates routes in an isolated env.
+//!
+//! ## Documentation
+//!
+//! - Human overview: crate `README.md` (phases, API map, context).
+//! - API reference: `cargo doc -p formspec-eval --no-deps --open`.
+//! - Markdown API export: `docs/rustdoc-md/API.md` (regenerate with `npm run docs:formspec-eval`).
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
 
 mod fel_json;
 mod value_predicate;
