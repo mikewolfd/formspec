@@ -4,9 +4,10 @@
 //! - **Lint / static analysis** use [`DefinitionItemKeyPolicy::RequireStringKey`]: only visit nodes
 //!   whose `key` is a JSON string (including `""`). Skip other elements and **do not** recurse into
 //!   their `children`.
-//! - **Runtime eval item-tree rebuild** uses [`coerce_definition_item_key_segment`] /
-//!   [`DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty`]: missing, null, or non-string `key` is
-//!   treated as `""`; every array element is visited and `children` are always walked when present.
+//! - **Runtime eval item-tree rebuild** uses [`visit_definition_items_json_shallow`] with
+//!   [`DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty`] at each `items` / `children` array, then
+//!   recurses into `children` with the same policy (see `formspec-eval` `rebuild_item_tree`).
+//!   [`coerce_definition_item_key_segment`] implements the coerce key segment for that policy.
 //! - **Extension diagnostic prefixes** (lint pass 3b): map [`DefinitionItemVisitCtx::dotted_path`] via
 //!   [`extension_item_diagnostic_path_from_dotted`] to stable `$.items[key=…]`-style paths.
 //!
@@ -104,6 +105,50 @@ pub fn extension_item_diagnostic_path_from_dotted(dotted: &str) -> String {
     out
 }
 
+/// Visit each element of a definition `items` or `children` array **once** (no recursion).
+///
+/// For each index `i`, builds the same [`DefinitionItemVisitCtx`] as the depth-first visitor:
+/// `json_path` is `{json_array_parent}[{i}]`, `dotted_path` from [`definition_item_dotted_path`].
+///
+/// Used by `formspec-eval` to rebuild the eval `ItemInfo` tree: recurse by walking
+/// `ctx.item["children"]` and calling this again with `json_array_parent =
+/// format!("{}.children", ctx.json_path)`.
+pub fn visit_definition_items_json_shallow(
+    items: &[Value],
+    json_array_parent: &str,
+    parent_dotted: Option<&str>,
+    policy: DefinitionItemKeyPolicy,
+    visitor: &mut impl FnMut(&DefinitionItemVisitCtx<'_>),
+) {
+    for (i, item) in items.iter().enumerate() {
+        if let Some(ctx) =
+            definition_item_visit_ctx_at(i, item, json_array_parent, parent_dotted, policy)
+        {
+            visitor(&ctx);
+        }
+    }
+}
+
+fn definition_item_visit_ctx_at<'a>(
+    i: usize,
+    item: &'a Value,
+    json_array_parent: &str,
+    parent_dotted: Option<&str>,
+    policy: DefinitionItemKeyPolicy,
+) -> Option<DefinitionItemVisitCtx<'a>> {
+    let key_str = definition_item_key_segment(item, policy)?;
+    let json_path = format!("{json_array_parent}[{i}]");
+    let dotted_path = definition_item_dotted_path(parent_dotted, key_str);
+    Some(DefinitionItemVisitCtx {
+        item,
+        key: key_str,
+        index: i,
+        json_path,
+        dotted_path,
+        parent_dotted: parent_dotted.map(str::to_string),
+    })
+}
+
 /// Visit definition items under a JSON array with an explicit key policy.
 ///
 /// `json_array_parent` is the path to the **array** (no `[i]` suffix), e.g. `$.items` or
@@ -116,29 +161,21 @@ pub fn visit_definition_items_json_with_policy(
     visitor: &mut impl FnMut(&DefinitionItemVisitCtx<'_>),
 ) {
     for (i, item) in items.iter().enumerate() {
-        let Some(key_str) = definition_item_key_segment(item, policy) else {
-            continue;
-        };
-        let json_path = format!("{json_array_parent}[{i}]");
-        let dotted_path = definition_item_dotted_path(parent_dotted, key_str);
-        let parent_dotted_owned = parent_dotted.map(str::to_string);
-        visitor(&DefinitionItemVisitCtx {
-            item,
-            key: key_str,
-            index: i,
-            json_path,
-            dotted_path: dotted_path.clone(),
-            parent_dotted: parent_dotted_owned,
-        });
-        if let Some(children) = item.get("children").and_then(Value::as_array) {
-            let child_parent = format!("{json_array_parent}[{i}].children");
-            visit_definition_items_json_with_policy(
-                children,
-                &child_parent,
-                Some(&dotted_path),
-                policy,
-                visitor,
-            );
+        if let Some(ctx) =
+            definition_item_visit_ctx_at(i, item, json_array_parent, parent_dotted, policy)
+        {
+            let dotted_for_children = ctx.dotted_path.clone();
+            visitor(&ctx);
+            if let Some(children) = ctx.item.get("children").and_then(Value::as_array) {
+                let child_parent = format!("{}.children", ctx.json_path);
+                visit_definition_items_json_with_policy(
+                    children,
+                    &child_parent,
+                    Some(&dotted_for_children),
+                    policy,
+                    visitor,
+                );
+            }
         }
     }
 }
@@ -246,5 +283,27 @@ mod tests {
             "$.items[key=group].child"
         );
         assert_eq!(extension_item_diagnostic_path_from_dotted(""), "$.items[key=]");
+    }
+
+    #[test]
+    fn shallow_visits_only_direct_array_members() {
+        let doc = json!({
+            "items": [
+                {
+                    "key": "g",
+                    "children": [{ "key": "c" }]
+                }
+            ]
+        });
+        let items = doc["items"].as_array().unwrap();
+        let mut paths = Vec::new();
+        visit_definition_items_json_shallow(
+            items,
+            "$.items",
+            None,
+            DefinitionItemKeyPolicy::RequireStringKey,
+            &mut |ctx| paths.push(ctx.dotted_path.clone()),
+        );
+        assert_eq!(paths, vec!["g"]);
     }
 }

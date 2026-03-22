@@ -61,6 +61,6 @@ pub use component_tree::visit_component_subtree;
 pub use definition_items::{
     coerce_definition_item_key_segment, definition_item_dotted_path, definition_item_key_segment,
     extension_item_diagnostic_path_from_dotted, visit_definition_items_from_document,
-    visit_definition_items_json, visit_definition_items_json_with_policy, DefinitionItemKeyPolicy,
-    DefinitionItemVisitCtx,
+    visit_definition_items_json, visit_definition_items_json_shallow,
+    visit_definition_items_json_with_policy, DefinitionItemKeyPolicy, DefinitionItemVisitCtx,
 };

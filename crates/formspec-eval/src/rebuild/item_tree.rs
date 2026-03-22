@@ -2,17 +2,15 @@
 //!
 //! # Item `key` policy (eval vs lint)
 //!
-//! Runtime rebuild uses [`formspec_core::DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty`]
-//! semantics via [`formspec_core::coerce_definition_item_key_segment`] and
-//! [`formspec_core::definition_item_dotted_path`]: missing or non-string `key` becomes `""`, every
-//! array element is turned into an [`ItemInfo`], and `children` are always walked.
+//! Runtime rebuild uses [`formspec_core::visit_definition_items_json_shallow`] with
+//! [`formspec_core::DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty`] at each `items` /
+//! `children` array, then recurses into each node's `children` with the same policy. Dotted paths and
+//! `json_path` prefixes match [`formspec_core::visit_definition_items_json_with_policy`] for the
+//! same policy.
 //!
 //! That **differs** from lint’s [`formspec_core::visit_definition_items_json`], which applies
 //! [`formspec_core::DefinitionItemKeyPolicy::RequireStringKey`] and skips keyless nodes (and their
-//! subtrees). We intentionally do **not** drive this module from
-//! `visit_definition_items_json_with_policy` using require semantics — that would change
-//! evaluation. Shared helpers only align dotted-path spelling with `formspec_core`; the recursive
-//! shape stays eval-specific.
+//! subtrees). We intentionally do **not** use require semantics here — that would change evaluation.
 //!
 //! ## Spec cross-references (`specs/*.llm.md`)
 //!
@@ -26,7 +24,9 @@
 //! missing or non-string keys to `""` is **defensive** so eval can still traverse malformed JSON;
 //! it does not relax the normative spec for published definitions.
 
-use formspec_core::definition_items::{coerce_definition_item_key_segment, definition_item_dotted_path};
+use formspec_core::{
+    DefinitionItemKeyPolicy, DefinitionItemVisitCtx, visit_definition_items_json_shallow,
+};
 use serde_json::Value;
 
 use crate::types::{ItemInfo, VariableDef};
@@ -49,10 +49,7 @@ pub fn rebuild_item_tree(definition: &Value) -> Vec<ItemInfo> {
         .and_then(|v| v.as_str());
 
     match items {
-        Some(items) => items
-            .iter()
-            .map(|item| build_item_info(item, binds, None, default_currency))
-            .collect(),
+        Some(items) => rebuild_items_slice(items, binds, None, default_currency, "$.items"),
         None => vec![],
     }
 }
@@ -77,6 +74,26 @@ pub fn parse_variables(definition: &Value) -> Vec<VariableDef> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn rebuild_items_slice(
+    items: &[Value],
+    binds: Option<&Value>,
+    parent_dotted: Option<&str>,
+    default_currency: Option<&str>,
+    json_array_parent: &str,
+) -> Vec<ItemInfo> {
+    let mut out = Vec::new();
+    visit_definition_items_json_shallow(
+        items,
+        json_array_parent,
+        parent_dotted,
+        DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty,
+        &mut |ctx| {
+            out.push(build_item_info_from_ctx(ctx, binds, default_currency));
+        },
+    );
+    out
 }
 
 fn resolve_bind<'a>(binds: Option<&'a Value>, key: &str) -> Option<serde_json::Map<String, Value>> {
@@ -105,13 +122,15 @@ fn resolve_bind<'a>(binds: Option<&'a Value>, key: &str) -> Option<serde_json::M
     }
 }
 
-fn build_item_info(
-    item: &Value,
+fn build_item_info_from_ctx(
+    ctx: &DefinitionItemVisitCtx<'_>,
     binds: Option<&Value>,
-    parent_path: Option<&str>,
     default_currency: Option<&str>,
 ) -> ItemInfo {
-    let key = coerce_definition_item_key_segment(item).to_string();
+    let item = ctx.item;
+    let key = ctx.key.to_string();
+    let path = ctx.dotted_path.clone();
+
     let item_type = item
         .get("type")
         .and_then(|v| v.as_str())
@@ -132,8 +151,6 @@ fn build_item_info(
         .and_then(|v| v.as_str())
         .or(default_currency)
         .map(String::from);
-
-    let path = definition_item_dotted_path(parent_path, &key);
 
     // Look up bind for this path
     let mut bind = resolve_bind(binds, &path)
@@ -167,15 +184,20 @@ fn build_item_info(
         .get("children")
         .and_then(|v| v.as_array())
         .map(|kids| {
-            kids.iter()
-                .map(|k| build_item_info(k, binds, Some(&path), default_currency))
-                .collect()
+            let child_prefix = format!("{}.children", ctx.json_path);
+            rebuild_items_slice(
+                kids,
+                binds,
+                Some(path.as_str()),
+                default_currency,
+                &child_prefix,
+            )
         })
         .unwrap_or_default();
 
     ItemInfo {
         key,
-        path: path.clone(),
+        path,
         item_type,
         data_type,
         currency,
@@ -233,7 +255,7 @@ fn build_item_info(
             .map(|s| s[1..].to_string()),
         initial_value: item.get("initialValue").cloned(),
         prev_relevant: true,
-        parent_path: parent_path.map(String::from),
+        parent_path: ctx.parent_dotted.clone(),
         repeatable: item
             .get("repeatable")
             .and_then(|v| v.as_bool())
