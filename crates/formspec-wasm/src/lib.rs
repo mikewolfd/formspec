@@ -5,7 +5,7 @@
 //! `formspec-eval`, and `formspec-lint`.
 //!
 //! ## Layout
-//! - `convert` — shared JSON / item-tree / FEL map helpers
+//! - `convert` — shared JSON / item-tree / FEL map helpers (`json_object_to_string_map`, …)
 //! - `fel` — FEL eval, tokenize, rewrite, path utilities
 //! - `document` — detect type, schema plan, lint
 //! - `evaluate` — batch definition evaluation, screener

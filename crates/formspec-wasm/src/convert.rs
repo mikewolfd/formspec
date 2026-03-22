@@ -7,21 +7,36 @@ use formspec_core::normalize_indexed_path;
 use formspec_core::registry_client;
 use serde_json::Value;
 
-pub(crate) fn json_item_at_path<'a>(items: &'a [Value], path: &str) -> Option<&'a Value> {
+/// Non-empty dotted segments after normalizing repeat indices.
+fn item_path_segments(path: &str) -> Option<Vec<String>> {
     let normalized = normalize_indexed_path(path);
-    let segments: Vec<&str> = normalized
+    let segments: Vec<String> = normalized
         .split('.')
         .filter(|segment| !segment.is_empty())
+        .map(str::to_string)
         .collect();
     if segments.is_empty() {
-        return None;
+        None
+    } else {
+        Some(segments)
     }
+}
+
+/// Clone a JSON object into a `String` → `Value` map; non-objects yield empty.
+pub(crate) fn json_object_to_string_map(val: &Value) -> HashMap<String, Value> {
+    val.as_object()
+        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        .unwrap_or_default()
+}
+
+pub(crate) fn json_item_at_path<'a>(items: &'a [Value], path: &str) -> Option<&'a Value> {
+    let segments = item_path_segments(path)?;
 
     let mut current_items = items;
     for (index, segment) in segments.iter().enumerate() {
         let found = current_items
             .iter()
-            .find(|item| item.get("key").and_then(Value::as_str) == Some(*segment))?;
+            .find(|item| item.get("key").and_then(Value::as_str) == Some(segment.as_str()))?;
         if index == segments.len() - 1 {
             return Some(found);
         }
@@ -34,20 +49,13 @@ pub(crate) fn json_item_location_at_path<'a>(
     items: &'a [Value],
     path: &str,
 ) -> Option<(usize, &'a Value)> {
-    let normalized = normalize_indexed_path(path);
-    let segments: Vec<&str> = normalized
-        .split('.')
-        .filter(|segment| !segment.is_empty())
-        .collect();
-    if segments.is_empty() {
-        return None;
-    }
+    let segments = item_path_segments(path)?;
 
     let mut current_items = items;
     for (depth, segment) in segments.iter().enumerate() {
         let index = current_items
             .iter()
-            .position(|item| item.get("key").and_then(Value::as_str) == Some(*segment))?;
+            .position(|item| item.get("key").and_then(Value::as_str) == Some(segment.as_str()))?;
         let item = &current_items[index];
         if depth == segments.len() - 1 {
             return Some((index, item));

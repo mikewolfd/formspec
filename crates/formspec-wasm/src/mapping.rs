@@ -12,29 +12,29 @@ use wasm_bindgen::prelude::*;
 ///   Note: the `from` field is currently ignored (used for validation, not dispatch).
 ///
 /// Returns `None` for unrecognized type strings or invalid shapes.
+///
+/// Matches the Python `formspec_rust` / `formspec-py` mapping binding: string shorthand,
+/// object `{ "to": "..." }` (optional `"from"` ignored), includes `array`.
 pub(crate) fn parse_coerce_type(val: &Value) -> Option<formspec_core::CoerceType> {
     match val {
-        Value::String(s) => match s.as_str() {
-            "string" => Some(formspec_core::CoerceType::String),
-            "number" => Some(formspec_core::CoerceType::Number),
-            "integer" => Some(formspec_core::CoerceType::Integer),
-            "boolean" => Some(formspec_core::CoerceType::Boolean),
-            "date" => Some(formspec_core::CoerceType::Date),
-            "datetime" => Some(formspec_core::CoerceType::DateTime),
-            _ => None,
-        },
-        Value::Object(obj) => {
-            let to = obj.get("to").and_then(|v| v.as_str())?;
-            match to {
-                "string" => Some(formspec_core::CoerceType::String),
-                "number" => Some(formspec_core::CoerceType::Number),
-                "integer" => Some(formspec_core::CoerceType::Integer),
-                "boolean" => Some(formspec_core::CoerceType::Boolean),
-                "date" => Some(formspec_core::CoerceType::Date),
-                "datetime" => Some(formspec_core::CoerceType::DateTime),
-                _ => None,
-            }
-        }
+        Value::String(s) => coerce_type_from_str(s),
+        Value::Object(obj) => obj
+            .get("to")
+            .and_then(|v| v.as_str())
+            .and_then(coerce_type_from_str),
+        _ => None,
+    }
+}
+
+fn coerce_type_from_str(s: &str) -> Option<formspec_core::CoerceType> {
+    match s {
+        "string" => Some(formspec_core::CoerceType::String),
+        "number" => Some(formspec_core::CoerceType::Number),
+        "integer" => Some(formspec_core::CoerceType::Integer),
+        "boolean" => Some(formspec_core::CoerceType::Boolean),
+        "date" => Some(formspec_core::CoerceType::Date),
+        "datetime" => Some(formspec_core::CoerceType::DateTime),
+        "array" => Some(formspec_core::CoerceType::Array),
         _ => None,
     }
 }

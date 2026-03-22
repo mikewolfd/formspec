@@ -9,6 +9,8 @@ use formspec_eval::{
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
+use crate::convert::json_object_to_string_map;
+
 // ── Definition Evaluation ───────────────────────────────────────
 
 /// Evaluate a Formspec definition against provided data (4-phase batch processor).
@@ -32,10 +34,7 @@ pub(crate) fn evaluate_definition_inner(
     let data_val: Value =
         serde_json::from_str(data_json).map_err(|e| format!("invalid data JSON: {e}"))?;
 
-    let data: HashMap<String, Value> = data_val
-        .as_object()
-        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-        .unwrap_or_default();
+    let data = json_object_to_string_map(&data_val);
 
     let (context, trigger, instances, constraints) = match context_json {
         Some(context_json) => {
@@ -106,10 +105,7 @@ pub fn evaluate_screener_wasm(
     let answers_val: Value = serde_json::from_str(answers_json)
         .map_err(|e| JsError::new(&format!("invalid answers JSON: {e}")))?;
 
-    let answers: HashMap<String, Value> = answers_val
-        .as_object()
-        .map(|obj| obj.iter().map(|(key, value)| (key.clone(), value.clone())).collect())
-        .unwrap_or_default();
+    let answers = json_object_to_string_map(&answers_val);
 
     let route = evaluate_screener(&definition, &answers).map(|route| {
         let mut output = serde_json::json!({
@@ -178,8 +174,7 @@ fn parse_eval_trigger(ctx_obj: &serde_json::Map<String, Value>) -> Result<EvalTr
 fn parse_instances(ctx_obj: &serde_json::Map<String, Value>) -> HashMap<String, Value> {
     ctx_obj
         .get("instances")
-        .and_then(|v| v.as_object())
-        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        .map(json_object_to_string_map)
         .unwrap_or_default()
 }
 

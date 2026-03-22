@@ -454,6 +454,10 @@ mod tests {
             parse_coerce_type(&json!("datetime")),
             Some(formspec_core::CoerceType::DateTime)
         ));
+        assert!(matches!(
+            parse_coerce_type(&json!("array")),
+            Some(formspec_core::CoerceType::Array)
+        ));
     }
 
     /// Spec: specs/mapping/mapping-spec.md §3.3.2 — Unknown string shorthand returns None.

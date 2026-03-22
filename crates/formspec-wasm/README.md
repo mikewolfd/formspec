@@ -2,6 +2,8 @@
 
 `wasm-bindgen` crate exposing the Rust Formspec stack to TypeScript and browsers. Public API is `#[wasm_bindgen]` functions on the crate root modules (`evalFEL`, `lintDocument`, `evaluateDefinition`, …); inputs and outputs are mostly JSON strings.
 
+Sibling binding: **[`formspec-py`](../formspec-py/)** (`formspec_rust`) targets the same stack for Python. Mapping JSON parsing (e.g. `parse_coerce_type`, including `array` coercion) is kept aligned with that crate where practical.
+
 ## Layout
 
 | Module | Role |

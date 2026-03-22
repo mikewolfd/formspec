@@ -18,6 +18,10 @@ use crate::convert::{
     push_repeat_context,
 };
 
+fn parse_fel_source(expression: &str) -> Result<fel_core::Expr, String> {
+    parse(expression).map_err(|e| e.to_string())
+}
+
 // ── FEL Evaluation ──────────────────────────────────────────────
 
 /// Parse and evaluate a FEL expression with optional field values (JSON object).
@@ -28,7 +32,7 @@ pub fn eval_fel(expression: &str, fields_json: &str) -> Result<String, JsError> 
 }
 
 pub(crate) fn eval_fel_inner(expression: &str, fields_json: &str) -> Result<String, String> {
-    let expr = parse(expression).map_err(|e| e.to_string())?;
+    let expr = parse_fel_source(expression)?;
 
     let fields: HashMap<String, FelValue> = if fields_json.is_empty() || fields_json == "{}" {
         HashMap::new()
@@ -53,7 +57,7 @@ pub fn eval_fel_with_context(expression: &str, context_json: &str) -> Result<Str
 }
 
 pub(crate) fn eval_fel_with_context_inner(expression: &str, context_json: &str) -> Result<String, String> {
-    let expr = parse(expression).map_err(|e| e.to_string())?;
+    let expr = parse_fel_source(expression)?;
 
     let ctx: Value =
         serde_json::from_str(context_json).map_err(|e| format!("invalid context JSON: {e}"))?;
@@ -178,7 +182,7 @@ pub(crate) fn tokenize_fel_inner(expression: &str) -> Result<String, String> {
 /// Useful for round-tripping after AST transformations.
 #[wasm_bindgen(js_name = "printFEL")]
 pub fn print_fel(expression: &str) -> Result<String, JsError> {
-    let expr = parse(expression).map_err(|e| JsError::new(&e.to_string()))?;
+    let expr = parse_fel_source(expression).map_err(|e| JsError::new(&e))?;
     Ok(print_expr(&expr))
 }
 
@@ -195,7 +199,7 @@ pub fn get_fel_deps(expression: &str) -> Result<String, JsError> {
 /// Returns a JSON object with dependency details.
 #[wasm_bindgen(js_name = "extractDependencies")]
 pub fn extract_deps(expression: &str) -> Result<String, JsError> {
-    let expr = parse(expression).map_err(|e| JsError::new(&e.to_string()))?;
+    let expr = parse_fel_source(expression).map_err(|e| JsError::new(&e))?;
     let deps = extract_dependencies(&expr);
     let json = deps_to_json(&deps);
     serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
