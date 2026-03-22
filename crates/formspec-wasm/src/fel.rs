@@ -14,6 +14,8 @@ use formspec_core::{
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
+use crate::json_host::{parse_json_as, parse_value_str, to_json_string};
+
 fn parse_fel_source(expression: &str) -> Result<fel_core::Expr, String> {
     parse(expression).map_err(|e| e.to_string())
 }
@@ -33,7 +35,7 @@ pub(crate) fn eval_fel_inner(expression: &str, fields_json: &str) -> Result<Stri
     let env = fel_core::MapEnvironment::with_fields(fields);
     let result = evaluate(&expr, &env);
     let json = fel_to_json(&result.value);
-    serde_json::to_string(&json).map_err(|e| e.to_string())
+    to_json_string(&json)
 }
 
 /// Evaluate a FEL expression with full FormspecEnvironment context.
@@ -48,14 +50,13 @@ pub(crate) fn eval_fel_with_context_inner(
     context_json: &str,
 ) -> Result<String, String> {
     let expr = parse_fel_source(expression)?;
-    let ctx: Value =
-        serde_json::from_str(context_json).map_err(|e| format!("invalid context JSON: {e}"))?;
+    let ctx: Value = parse_value_str(context_json, "context JSON")?;
     let ctx_obj = ctx.as_object().ok_or("context must be a JSON object")?;
     let env = formspec_environment_from_json_map(ctx_obj);
     let result = evaluate(&expr, &env);
     reject_undefined_functions(&result.diagnostics)?;
     let json = fel_to_json(&result.value);
-    serde_json::to_string(&json).map_err(|e| e.to_string())
+    to_json_string(&json)
 }
 
 /// Parse a FEL expression and return whether it's valid.
@@ -71,7 +72,7 @@ pub fn tokenize_fel(expression: &str) -> Result<String, JsError> {
 
 pub(crate) fn tokenize_fel_inner(expression: &str) -> Result<String, String> {
     let json = tokenize_to_json_value(expression)?;
-    serde_json::to_string(&json).map_err(|e| e.to_string())
+    to_json_string(&json)
 }
 
 /// Print a FEL expression AST back to normalized source string.
@@ -86,7 +87,7 @@ pub fn print_fel(expression: &str) -> Result<String, JsError> {
 pub fn get_fel_deps(expression: &str) -> Result<String, JsError> {
     let deps = get_fel_dependencies(expression);
     let arr: Vec<&str> = deps.iter().map(|s| s.as_str()).collect();
-    serde_json::to_string(&arr).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&arr).map_err(|e| JsError::new(&e))
 }
 
 /// Extract full dependency info from a FEL expression.
@@ -95,7 +96,7 @@ pub fn extract_deps(expression: &str) -> Result<String, JsError> {
     let expr = parse_fel_source(expression).map_err(|e| JsError::new(&e))?;
     let deps = extract_dependencies(&expr);
     let json = dependencies_to_json_value(&deps);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 // ── FEL Analysis ────────────────────────────────────────────────
@@ -104,14 +105,14 @@ pub fn extract_deps(expression: &str) -> Result<String, JsError> {
 pub fn analyze_fel_wasm(expression: &str) -> Result<String, JsError> {
     let result = analyze_fel(expression);
     let json = fel_analysis_to_json_value(&result);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 #[wasm_bindgen(js_name = "collectFELRewriteTargets")]
 pub fn collect_fel_rewrite_targets_wasm(expression: &str) -> Result<String, JsError> {
     let targets = collect_fel_rewrite_targets(expression);
     let json = fel_rewrite_targets_to_json_value(&targets);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 #[wasm_bindgen(js_name = "rewriteFELReferences")]
@@ -119,8 +120,8 @@ pub fn rewrite_fel_references_wasm(
     expression: &str,
     rewrites_json: &str,
 ) -> Result<String, JsError> {
-    let rewrites: Value = serde_json::from_str(rewrites_json)
-        .map_err(|e| JsError::new(&format!("invalid rewrites JSON: {e}")))?;
+    let rewrites: Value =
+        parse_value_str(rewrites_json, "rewrites JSON").map_err(|e| JsError::new(&e))?;
     let options = rewrite_options_from_camel_case_json(&rewrites);
     Ok(rewrite_fel_source_references(expression, &options))
 }
@@ -130,8 +131,8 @@ pub fn rewrite_message_template_wasm(
     message: &str,
     rewrites_json: &str,
 ) -> Result<String, JsError> {
-    let rewrites: Value = serde_json::from_str(rewrites_json)
-        .map_err(|e| JsError::new(&format!("invalid rewrites JSON: {e}")))?;
+    let rewrites: Value =
+        parse_value_str(rewrites_json, "rewrites JSON").map_err(|e| JsError::new(&e))?;
     let options = rewrite_options_from_camel_case_json(&rewrites);
     Ok(rewrite_message_template(message, &options))
 }
@@ -139,7 +140,7 @@ pub fn rewrite_message_template_wasm(
 #[wasm_bindgen(js_name = "listBuiltinFunctions")]
 pub fn list_builtin_functions() -> Result<String, JsError> {
     let json = builtin_function_catalog_json_value();
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 // ── Path Utils ──────────────────────────────────────────────────
@@ -151,18 +152,16 @@ pub fn normalize_path(path: &str) -> String {
 
 #[wasm_bindgen(js_name = "itemAtPath")]
 pub fn item_at_path_wasm(items_json: &str, path: &str) -> Result<String, JsError> {
-    let items: Vec<Value> = serde_json::from_str(items_json)
-        .map_err(|e| JsError::new(&format!("invalid items JSON: {e}")))?;
+    let items: Vec<Value> = parse_json_as(items_json, "items JSON").map_err(|e| JsError::new(&e))?;
     let json = json_definition_item_at_path(&items, path)
         .cloned()
         .unwrap_or(Value::Null);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 #[wasm_bindgen(js_name = "itemLocationAtPath")]
 pub fn item_location_at_path_wasm(items_json: &str, path: &str) -> Result<String, JsError> {
-    let items: Vec<Value> = serde_json::from_str(items_json)
-        .map_err(|e| JsError::new(&format!("invalid items JSON: {e}")))?;
+    let items: Vec<Value> = parse_json_as(items_json, "items JSON").map_err(|e| JsError::new(&e))?;
     let json = definition_item_location_to_json_value(&items, path, JsonWireStyle::JsCamel);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }

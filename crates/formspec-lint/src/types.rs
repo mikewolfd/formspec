@@ -25,6 +25,15 @@ impl LintSeverity {
             LintSeverity::Info => 2,
         }
     }
+
+    /// Wire string for JSON diagnostics (`error` / `warning` / `info`).
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            LintSeverity::Error => "error",
+            LintSeverity::Warning => "warning",
+            LintSeverity::Info => "info",
+        }
+    }
 }
 
 impl PartialOrd for LintSeverity {

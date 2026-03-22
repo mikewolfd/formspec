@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 
 use formspec_core::JsonWireStyle;
 
-use crate::{LintResult, LintSeverity};
+use crate::LintResult;
 
 /// Serialize a [`LintResult`] for host bindings.
 pub fn lint_result_to_json_value(result: &LintResult, style: JsonWireStyle) -> Value {
@@ -19,11 +19,7 @@ pub fn lint_result_to_json_value(result: &LintResult, style: JsonWireStyle) -> V
             json!({
                 "code": d.code,
                 "pass": d.pass,
-                "severity": match d.severity {
-                    LintSeverity::Error => "error",
-                    LintSeverity::Warning => "warning",
-                    LintSeverity::Info => "info",
-                },
+                "severity": d.severity.as_wire_str(),
                 "path": d.path,
                 "message": d.message,
             })

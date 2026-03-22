@@ -19,12 +19,34 @@ pub enum ExtensionSeverity {
     Info,
 }
 
+impl ExtensionSeverity {
+    /// Wire string for JSON output (`error` / `warning` / `info`).
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warning => "warning",
+            Self::Info => "info",
+        }
+    }
+}
+
 /// Error codes for extension validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionErrorCode {
     UnresolvedExtension,
     ExtensionRetired,
     ExtensionDeprecated,
+}
+
+impl ExtensionErrorCode {
+    /// Uppercase wire token for JSON (`UNRESOLVED_EXTENSION`, etc.).
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::UnresolvedExtension => "UNRESOLVED_EXTENSION",
+            Self::ExtensionRetired => "EXTENSION_RETIRED",
+            Self::ExtensionDeprecated => "EXTENSION_DEPRECATED",
+        }
+    }
 }
 
 /// A single extension usage validation issue.

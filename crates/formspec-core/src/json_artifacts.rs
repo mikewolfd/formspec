@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use crate::changelog::{
     Change, ChangeImpact, ChangeTarget, ChangeType, Changelog, SemverImpact,
 };
-use crate::extension_analysis::{ExtensionErrorCode, ExtensionSeverity, ExtensionUsageIssue};
+use crate::extension_analysis::ExtensionUsageIssue;
 
 /// Top-level JSON key style for host bindings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -129,16 +129,8 @@ pub fn extension_usage_issues_to_json_value(issues: &[ExtensionUsageIssue]) -> V
                 json!({
                     "path": issue.path,
                     "extension": issue.extension,
-                    "severity": match issue.severity {
-                        ExtensionSeverity::Error => "error",
-                        ExtensionSeverity::Warning => "warning",
-                        ExtensionSeverity::Info => "info",
-                    },
-                    "code": match issue.code {
-                        ExtensionErrorCode::UnresolvedExtension => "UNRESOLVED_EXTENSION",
-                        ExtensionErrorCode::ExtensionRetired => "EXTENSION_RETIRED",
-                        ExtensionErrorCode::ExtensionDeprecated => "EXTENSION_DEPRECATED",
-                    },
+                    "severity": issue.severity.as_wire_str(),
+                    "code": issue.code.as_wire_str(),
                     "message": issue.message,
                 })
             })

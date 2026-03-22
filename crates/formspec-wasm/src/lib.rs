@@ -19,6 +19,7 @@ mod definition;
 mod document;
 mod evaluate;
 mod fel;
+mod json_host;
 mod mapping;
 mod registry;
 

@@ -8,14 +8,15 @@ use formspec_lint::{lint, lint_result_to_json_value, lint_with_options, LintOpti
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
+use crate::json_host::{parse_json_as, parse_value_str, to_json_string};
+
 // ── Schema Validation ───────────────────────────────────────────
 
 /// Detect the document type of a Formspec JSON document.
 /// Returns the document type string or null.
 #[wasm_bindgen(js_name = "detectDocumentType")]
 pub fn detect_doc_type(doc_json: &str) -> Result<JsValue, JsError> {
-    let doc: Value =
-        serde_json::from_str(doc_json).map_err(|e| JsError::new(&format!("invalid JSON: {e}")))?;
+    let doc: Value = parse_value_str(doc_json, "JSON").map_err(|e| JsError::new(&e))?;
     match detect_document_type(&doc) {
         Some(dt) => Ok(JsValue::from_str(dt.schema_key())),
         None => Ok(JsValue::NULL),
@@ -34,14 +35,13 @@ pub fn plan_schema_validation_wasm(
     doc_json: &str,
     document_type_override: Option<String>,
 ) -> Result<String, JsError> {
-    let doc: Value =
-        serde_json::from_str(doc_json).map_err(|e| JsError::new(&format!("invalid JSON: {e}")))?;
+    let doc: Value = parse_value_str(doc_json, "JSON").map_err(|e| JsError::new(&e))?;
     let override_type = document_type_override
         .as_deref()
         .and_then(DocumentType::from_schema_key);
     let plan = schema_validation_plan(&doc, override_type);
     let v = serde_json::to_value(&plan).map_err(|e| JsError::new(&e.to_string()))?;
-    serde_json::to_string(&v).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&v).map_err(|e| JsError::new(&e))
 }
 
 // ── Linting ─────────────────────────────────────────────────────
@@ -50,11 +50,10 @@ pub fn plan_schema_validation_wasm(
 /// Returns JSON: { documentType, valid, diagnostics: [...] }
 #[wasm_bindgen(js_name = "lintDocument")]
 pub fn lint_document(doc_json: &str) -> Result<String, JsError> {
-    let doc: Value =
-        serde_json::from_str(doc_json).map_err(|e| JsError::new(&format!("invalid JSON: {e}")))?;
+    let doc: Value = parse_value_str(doc_json, "JSON").map_err(|e| JsError::new(&e))?;
     let result = lint(&doc);
     let json = lint_result_to_json_value(&result, JsonWireStyle::JsCamel);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 /// Lint with registry documents for extension resolution.
@@ -63,10 +62,9 @@ pub fn lint_document_with_registries(
     doc_json: &str,
     registries_json: &str,
 ) -> Result<String, JsError> {
-    let doc: Value = serde_json::from_str(doc_json)
-        .map_err(|e| JsError::new(&format!("invalid doc JSON: {e}")))?;
-    let registries: Vec<Value> = serde_json::from_str(registries_json)
-        .map_err(|e| JsError::new(&format!("invalid registries JSON: {e}")))?;
+    let doc: Value = parse_value_str(doc_json, "doc JSON").map_err(|e| JsError::new(&e))?;
+    let registries: Vec<Value> =
+        parse_json_as(registries_json, "registries JSON").map_err(|e| JsError::new(&e))?;
 
     let result = lint_with_options(
         &doc,
@@ -76,5 +74,5 @@ pub fn lint_document_with_registries(
         },
     );
     let json = lint_result_to_json_value(&result, JsonWireStyle::JsCamel);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }

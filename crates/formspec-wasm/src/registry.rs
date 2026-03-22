@@ -13,14 +13,15 @@ use formspec_core::{
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
+use crate::json_host::{parse_json_as, parse_value_str, to_json_string};
+
 #[wasm_bindgen(js_name = "parseRegistry")]
 pub fn parse_registry(registry_json: &str) -> Result<String, JsError> {
-    let val: Value = serde_json::from_str(registry_json)
-        .map_err(|e| JsError::new(&format!("invalid JSON: {e}")))?;
+    let val: Value = parse_value_str(registry_json, "JSON").map_err(|e| JsError::new(&e))?;
     let registry = Registry::from_json(&val).map_err(|e| JsError::new(&e.to_string()))?;
     let issues = registry.validate();
     let json = registry_parse_summary_to_json_value(&registry, &val, &issues, JsonWireStyle::JsCamel);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 #[wasm_bindgen(js_name = "findRegistryEntry")]
@@ -37,14 +38,13 @@ pub(crate) fn find_registry_entry_inner(
     name: &str,
     version_constraint: &str,
 ) -> Result<String, String> {
-    let val: Value =
-        serde_json::from_str(registry_json).map_err(|e| format!("invalid JSON: {e}"))?;
+    let val: Value = parse_value_str(registry_json, "JSON")?;
     let registry = Registry::from_json(&val).map_err(|e| e.to_string())?;
     let entry = registry.find_one(name, version_constraint_option(version_constraint));
     match entry {
         Some(e) => {
             let json = registry_entry_to_json_value(e, JsonWireStyle::JsCamel);
-            serde_json::to_string(&json).map_err(|e| e.to_string())
+            to_json_string(&json)
         }
         None => Ok("null".to_string()),
     }
@@ -73,14 +73,15 @@ pub fn validate_extension_usage_wasm(
     items_json: &str,
     registry_entries_json: &str,
 ) -> Result<String, JsError> {
-    let item_values: Value = serde_json::from_str(items_json)
-        .map_err(|e| JsError::new(&format!("invalid items JSON: {e}")))?;
+    let item_values: Value =
+        parse_value_str(items_json, "items JSON").map_err(|e| JsError::new(&e))?;
     let items = json_definition_items_tree_from_value(&item_values)
         .map_err(|e| JsError::new(&e))?;
-    let registry_entries: HashMap<String, Value> = serde_json::from_str(registry_entries_json)
-        .map_err(|e| JsError::new(&format!("invalid registry entries JSON: {e}")))?;
+    let registry_entries: HashMap<String, Value> =
+        parse_json_as(registry_entries_json, "registry entries JSON")
+            .map_err(|e| JsError::new(&e))?;
     let registry = map_registry_from_extension_entry_map(&registry_entries);
     let issues = validate_extension_usage(&items, &registry);
     let json = extension_usage_issues_to_json_value(&issues);
-    serde_json::to_string(&json).map_err(|e| JsError::new(&e.to_string()))
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
