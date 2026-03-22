@@ -2,83 +2,128 @@
   "$formspec": "1.0",
   "url": "https://formspec.org/examples/tailwind-demo",
   "version": "1.0.0",
-  "title": "Tailwind Adapter Demo",
-  "description": "A compact demo form exercising all field types supported by the Tailwind adapter.",
+  "status": "active",
+  "name": "tailwind-demo",
+  "title": "Tailwind Adapter Demo Form",
+  "description": "Small canonical demo form for exercising the Tailwind adapter with common input widgets and lightweight validation.",
+  "formPresentation": {
+    "pageMode": "single",
+    "labelPosition": "top",
+    "density": "comfortable"
+  },
   "items": [
     {
-      "name": "full_name",
-      "label": "Full Name",
-      "dataType": "string",
-      "bind": { "required": "true()" }
-    },
-    {
-      "name": "email",
-      "label": "Email Address",
-      "dataType": "string",
-      "bind": {
-        "required": "true()",
-        "constraint": "matches($email, '^[^@]+@[^@]+\\.[^@]+$')"
-      },
-      "presentation": { "widgetHint": "email" }
-    },
-    {
-      "name": "age",
-      "label": "Age",
-      "dataType": "integer",
-      "bind": {
-        "constraint": "$age >= 18 && $age <= 120",
-        "constraintMessage": "Must be between 18 and 120"
-      }
-    },
-    {
-      "name": "bio",
-      "label": "Short Bio",
-      "dataType": "text",
-      "hint": "Tell us about yourself in a few sentences."
-    },
-    {
-      "name": "role",
-      "label": "Primary Role",
-      "dataType": "choice",
-      "choices": [
-        { "value": "dev", "label": "Developer" },
-        { "value": "design", "label": "Designer" },
-        { "value": "pm", "label": "Product Manager" },
-        { "value": "other", "label": "Other" }
+      "key": "profile",
+      "type": "group",
+      "label": "Profile",
+      "children": [
+        {
+          "key": "fullName",
+          "type": "field",
+          "dataType": "string",
+          "label": "Full Name",
+          "description": "Enter the name you want displayed on the demo profile."
+        },
+        {
+          "key": "email",
+          "type": "field",
+          "dataType": "string",
+          "label": "Email Address"
+        },
+        {
+          "key": "role",
+          "type": "field",
+          "dataType": "choice",
+          "label": "Primary Role",
+          "options": [
+            { "value": "engineer", "label": "Engineer" },
+            { "value": "designer", "label": "Designer" },
+            { "value": "product", "label": "Product" },
+            { "value": "operations", "label": "Operations" }
+          ]
+        },
+        {
+          "key": "startDate",
+          "type": "field",
+          "dataType": "date",
+          "label": "Start Date"
+        }
       ]
     },
     {
-      "name": "skills",
-      "label": "Skills",
-      "dataType": "multiChoice",
-      "choices": [
-        { "value": "frontend", "label": "Frontend" },
-        { "value": "backend", "label": "Backend" },
-        { "value": "mobile", "label": "Mobile" },
-        { "value": "devops", "label": "DevOps" }
+      "key": "experience",
+      "type": "group",
+      "label": "Experience",
+      "children": [
+        {
+          "key": "years",
+          "type": "field",
+          "dataType": "integer",
+          "label": "Years of Experience",
+          "initialValue": 3
+        },
+        {
+          "key": "skills",
+          "type": "field",
+          "dataType": "multiChoice",
+          "label": "Favorite Tools",
+          "options": [
+            { "value": "tailwind", "label": "Tailwind CSS" },
+            { "value": "react", "label": "React" },
+            { "value": "typescript", "label": "TypeScript" },
+            { "value": "a11y", "label": "Accessibility Testing" }
+          ]
+        },
+        {
+          "key": "bio",
+          "type": "field",
+          "dataType": "text",
+          "label": "Short Bio",
+          "hint": "A few sentences is enough for the demo."
+        }
       ]
     },
     {
-      "name": "start_date",
-      "label": "Available Start Date",
-      "dataType": "date"
+      "key": "feedback",
+      "type": "group",
+      "label": "Feedback",
+      "children": [
+        {
+          "key": "newsletter",
+          "type": "field",
+          "dataType": "boolean",
+          "label": "Subscribe to release notes"
+        },
+        {
+          "key": "satisfaction",
+          "type": "field",
+          "dataType": "integer",
+          "label": "Overall Satisfaction",
+          "initialValue": 4
+        }
+      ]
+    }
+  ],
+  "binds": [
+    {
+      "path": "profile.fullName",
+      "required": "true",
+      "whitespace": "trim"
     },
     {
-      "name": "newsletter",
-      "label": "Subscribe to newsletter",
-      "dataType": "boolean"
+      "path": "profile.email",
+      "required": "true",
+      "whitespace": "trim"
     },
     {
-      "name": "experience",
-      "label": "Years of Experience",
-      "dataType": "integer",
-      "presentation": { "widgetHint": "slider" }
+      "path": "experience.years",
+      "constraint": "isNull($) or ($ >= 0 and $ <= 40)",
+      "constraintMessage": "Years of experience must be between 0 and 40."
     },
     {
-      "name": "satisfaction",
-      "label": "Overall Satisfaction",
-      "dataType": "integer",
-      "presentation": { "widgetHint": "rating" }
+      "path": "feedback.satisfaction",
+      "constraint": "isNull($) or ($ >= 1 and $ <= 5)",
+      "constraintMessage": "Satisfaction must be between 1 and 5."
     }
   ]
 }

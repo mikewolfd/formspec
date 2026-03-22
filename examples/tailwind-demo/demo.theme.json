@@ -5,6 +5,10 @@
   "name": "tailwind-demo",
   "title": "Tailwind CSS Demo Theme",
   "description": "Reference theme demonstrating the Tailwind CSS adapter. Uses the Tailwind Play CDN for zero-config demos.",
+  "targetDefinition": {
+    "url": "https://formspec.org/examples/tailwind-demo",
+    "compatibleVersions": ">=1.0.0 <2.0.0"
+  },
   "platform": "web",
   "stylesheets": ["https://cdn.tailwindcss.com"],
   "breakpoints": {
@@ -47,6 +51,29 @@
       "fontFamily": "$token.typography.family"
     }
   },
+  "items": {
+    "experience.years": {
+      "widget": "slider",
+      "widgetConfig": {
+        "min": 0,
+        "max": 40,
+        "step": 1,
+        "showValue": true
+      }
+    },
+    "feedback.satisfaction": {
+      "widget": "rating",
+      "widgetConfig": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    "experience.skills": {
+      "widgetConfig": {
+        "columns": 2
+      }
+    }
+  },
   "selectors": [
     {
       "match": { "dataType": "string" },
@@ -74,10 +101,6 @@
     },
     {
       "match": { "dataType": "integer" },
-      "apply": { "widget": "numberInput" }
-    },
-    {
-      "match": { "dataType": "decimal" },
       "apply": { "widget": "numberInput" }
     }
   ]
