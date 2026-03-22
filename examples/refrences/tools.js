@@ -2,11 +2,21 @@
  * Form Intelligence Dashboard — tools.js
  *
  * Generic version that works with any selected example.
- * Each tab talks to the Python backend at SERVER.
+ * Uses formspec-engine (Rust/WASM) instead of a Python API tier.
  */
 
+import {
+  initWasm,
+  evalFEL,
+  createMappingEngine,
+  generateChangelog,
+  getFELDependencies,
+} from 'formspec-engine';
+
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
-const SERVER = `${BASE}/api`;
+
+await initWasm();
+document.documentElement.dataset.formspecWasmReady = '1';
 
 // ── Example registry (mirrors main.js) ──
 const EXAMPLES = [
@@ -92,12 +102,6 @@ const EXAMPLES = [
 
 let currentExample = EXAMPLES[0];
 let currentDefinition = null;
-
-function toExamplesRelPath(dir, file) {
-  // Convert '/examples/foo' + 'bar.json' -> 'foo/bar.json' for server-side loading.
-  const base = String(dir || '').replace(/^\/?examples\//, '');
-  return file ? `${base}/${file}` : base;
-}
 
 // ── Example selector ──
 const exampleSelect = document.getElementById('tools-example-select');
@@ -205,6 +209,12 @@ examplesContainer.addEventListener('click', (e) => {
   hideResult('eval-result');
 });
 
+function felValueType(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
 document.getElementById('btn-evaluate')?.addEventListener('click', async () => {
   const expression = document.getElementById('eval-expression').value.trim();
   const dataStr = document.getElementById('eval-data').value.trim();
@@ -215,17 +225,18 @@ document.getElementById('btn-evaluate')?.addEventListener('click', async () => {
   try { data = JSON.parse(dataStr || '{}'); } catch { showError('eval-error', 'Invalid JSON in Sample Data field.'); return; }
 
   try {
-    const res = await fetch(`${SERVER}/evaluate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expression, data }) });
-    const body = await res.json();
-    if (!res.ok) { showError('eval-error', body?.detail?.error || body?.detail || 'Evaluation failed.'); return; }
-    document.getElementById('eval-result-value').textContent = body.value === null ? 'null' : JSON.stringify(body.value);
+    const value = evalFEL(expression, data);
+    document.getElementById('eval-result-value').textContent = value === null ? 'null' : JSON.stringify(value);
+    const t = felValueType(value);
     const typeEl = document.getElementById('eval-result-type');
-    typeEl.textContent = body.type;
-    typeEl.className = `badge badge-${body.type}`;
+    typeEl.textContent = t;
+    typeEl.className = `badge badge-${t}`;
     const diagEl = document.getElementById('eval-result-diagnostics');
-    diagEl.innerHTML = body.diagnostics.length ? body.diagnostics.map((d) => `<div style="color:var(--color-warning);font-size:0.85rem">${d}</div>`).join('') : '';
+    diagEl.innerHTML = '';
     showResult('eval-result');
-  } catch (e) { showError('eval-error', `Cannot reach server: ${e.message}. Is the server running?`); }
+  } catch (e) {
+    showError('eval-error', e.message || String(e));
+  }
 });
 
 // ── 2. Export ──
@@ -333,24 +344,24 @@ async function initExportCards() {
 
     try {
       const mapping = (currentExample.mappings || {})[format];
-      const params = new URLSearchParams();
-      if (mapping?.file) params.set('mappingFile', toExamplesRelPath(currentExample.dir, mapping.file));
-      params.set('definitionFile', toExamplesRelPath(currentExample.dir, currentExample.definition));
-      if (currentDefinition?.url) params.set('definitionUrl', currentDefinition.url);
-
-      const res = await fetch(`${SERVER}/export/${format}?${params}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data }),
-      });
-      if (!res.ok) { const err = await res.json().catch(() => ({})); showError('export-error', err.detail || `Export failed (${res.status}).`); return; }
-      const text = await res.text();
+      if (!mapping?.file) {
+        showError('export-error', 'No mapping file for this format.');
+        return;
+      }
+      const mapRes = await fetch(`${currentExample.dir}/${mapping.file}`);
+      if (!mapRes.ok) throw new Error(`Failed to load mapping (${mapRes.status})`);
+      const mappingDoc = await mapRes.json();
+      const engine = createMappingEngine(mappingDoc);
+      const out = engine.forward(data).output;
+      const text = typeof out === 'string' ? out : JSON.stringify(out, null, 2);
       lastExportData = text;
       lastExportFormat = format;
       document.getElementById('export-result-format').textContent = `${format.toUpperCase()} Output`;
       document.getElementById('export-result-content').textContent = text.length > 5000 ? text.slice(0, 5000) + '\n\n... (truncated)' : text;
       showResult('export-result');
-    } catch (e) { showError('export-error', `Cannot reach server: ${e.message}`); }
+    } catch (e) {
+      showError('export-error', e.message || String(e));
+    }
   });
 }
 initExportCards();
@@ -624,9 +635,25 @@ document.getElementById('btn-changelog')?.addEventListener('click', async () => 
   catch { showError('changelog-error', 'Invalid JSON. Both fields must contain valid JSON.'); return; }
 
   try {
-    const res = await fetch(`${SERVER}/changelog`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old: oldDef, new: newDef }) });
-    const body = await res.json();
-    if (!res.ok) { showError('changelog-error', body.detail || 'Comparison failed.'); return; }
+    const url = newDef.url || oldDef.url || '';
+    const raw = generateChangelog(oldDef, newDef, url);
+    const body = {
+      definitionUrl: raw.definitionUrl ?? raw.definition_url ?? url,
+      fromVersion: raw.fromVersion ?? raw.from_version,
+      toVersion: raw.toVersion ?? raw.to_version,
+      semverImpact: raw.semverImpact ?? raw.semver_impact,
+      changes: (raw.changes || []).map((c) => ({
+        type: c.type ?? c.change_type,
+        target: c.target,
+        path: c.path,
+        impact: c.impact,
+        key: c.key,
+        description: c.description,
+        before: c.before,
+        after: c.after,
+        migrationHint: c.migrationHint ?? c.migration_hint,
+      })),
+    };
 
     lastChangelogBody = body;
 
@@ -673,7 +700,9 @@ document.getElementById('btn-changelog')?.addEventListener('click', async () => 
     document.getElementById('changelog-json-content').textContent = JSON.stringify(body, null, 2);
 
     showResult('changelog-result');
-  } catch (e) { showError('changelog-error', `Cannot reach server: ${e.message}`); }
+  } catch (e) {
+    showError('changelog-error', e.message || String(e));
+  }
 });
 
 document.getElementById('btn-changelog-json')?.addEventListener('click', () => {
@@ -699,14 +728,15 @@ async function loadRegistry() {
   }
 
   try {
-    const params = new URLSearchParams();
-    params.set('registryFile', currentExample.registry);
-    const res = await fetch(`${SERVER}/registry?${params}`);
+    const res = await fetch(`${BASE}/registries/${currentExample.registry}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = await res.json();
-    renderRegistryCards(body.entries);
+    const regDoc = await res.json();
+    const entries = Array.isArray(regDoc.entries) ? regDoc.entries : [];
+    renderRegistryCards(entries);
     registryLoaded = true;
-  } catch (e) { showError('registry-error', `Cannot load extensions: ${e.message}`); }
+  } catch (e) {
+    showError('registry-error', `Cannot load extensions: ${e.message}`);
+  }
 }
 
 function renderRegistryCards(entries) {
@@ -744,16 +774,17 @@ document.getElementById('btn-registry-filter')?.addEventListener('click', async 
   const category = document.getElementById('registry-category').value;
   const status = document.getElementById('registry-status').value;
   hideError('registry-error');
-  const params = new URLSearchParams();
-  params.set('registryFile', currentExample.registry);
-  if (category) params.set('category', category);
-  if (status) params.set('status', status);
   try {
-    const res = await fetch(`${SERVER}/registry?${params}`);
+    const res = await fetch(`${BASE}/registries/${currentExample.registry}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = await res.json();
-    renderRegistryCards(body.entries);
-  } catch (e) { showError('registry-error', `Filter failed: ${e.message}`); }
+    const regDoc = await res.json();
+    let entries = Array.isArray(regDoc.entries) ? regDoc.entries : [];
+    if (category) entries = entries.filter((e) => e.category === category);
+    if (status) entries = entries.filter((e) => e.status === status);
+    renderRegistryCards(entries);
+  } catch (e) {
+    showError('registry-error', `Filter failed: ${e.message}`);
+  }
 });
 
 // ── 5. Dependencies ──
@@ -765,15 +796,30 @@ async function loadDependencies() {
   hideError('deps-error');
 
   try {
-    const params = new URLSearchParams();
-    params.set('definitionFile', toExamplesRelPath(currentExample.dir, currentExample.definition));
-    if (currentDefinition?.url) params.set('definitionUrl', currentDefinition.url);
-    const res = await fetch(`${SERVER}/dependencies?${params}`);
+    const res = await fetch(`${currentExample.dir}/${currentExample.definition}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    depsData = await res.json();
+    const definition = await res.json();
+    const graph = {};
+    for (const bind of definition.binds || []) {
+      const path = bind.path || '';
+      for (const exprKey of ['calculate', 'relevant', 'constraint', 'required', 'readonly']) {
+        const expr = bind[exprKey];
+        if (!expr || typeof expr !== 'string') continue;
+        try {
+          const deps = getFELDependencies(expr);
+          const key = exprKey === 'calculate' ? path : `${path}.${exprKey}`;
+          graph[key] = { depends_on: [...deps].sort(), expression: expr };
+        } catch {
+          /* skip malformed */
+        }
+      }
+    }
+    depsData = graph;
     depsLoaded = true;
     renderDependencyGraph(depsData);
-  } catch (e) { showError('deps-error', `Cannot load dependencies: ${e.message}`); }
+  } catch (e) {
+    showError('deps-error', `Cannot load dependencies: ${e.message}`);
+  }
 }
 
 async function renderDependencyGraph(data) {

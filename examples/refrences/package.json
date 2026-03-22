@@ -4,9 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n api,vite -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:client": "vite --port 8082 --open",
-    "dev:server": "PYTHONPATH=../../src:../.. uvicorn examples.refrences.server.main:app --reload --port 8000",
+    "dev": "vite --port 8082 --open",
     "build": "vite build",
     "preview": "vite preview --port 8082"
   },
@@ -15,8 +13,5 @@
     "formspec-engine": "*",
     "formspec-webcomponent": "*",
     "formspec-adapters": "*"
-  },
-  "devDependencies": {
-    "concurrently": "^9.0.0"
   }
 }

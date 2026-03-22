@@ -3,10 +3,20 @@ import 'formspec-webcomponent/formspec-layout.css';
 import 'formspec-webcomponent/formspec-default.css';
 import { FormspecRender, globalRegistry } from 'formspec-webcomponent';
 import { uswdsAdapter } from 'formspec-adapters';
+import {
+  initWasm,
+  evaluateDefinition,
+  createMappingEngine,
+  buildValidationReportEnvelope,
+  toValidationResults,
+  lintDocumentWithRegistries,
+} from 'formspec-engine';
+
+await initWasm();
+document.documentElement.dataset.formspecWasmReady = '1';
+
 customElements.define('formspec-render', FormspecRender);
 globalRegistry.registerAdapter(uswdsAdapter);
-
-const SERVER = '/api';
 
 // ── Example registry ──
 // Each entry points to a sibling directory under examples/.
@@ -22,6 +32,7 @@ const EXAMPLES = [
     css: 'grant-bridge.css',
     server: true,
     mappings: ['mapping.json', 'mapping-csv.json', 'mapping-xml.json'],
+    mappingFile: 'mapping.json',
     registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'sample-submission', label: 'Complete Submission', file: 'fixtures/sample-submission.json' },
@@ -37,6 +48,7 @@ const EXAMPLES = [
     dir: '/examples/grant-report',
     artifacts: { definition: 'tribal-short.definition.json', component: 'tribal-short.component.json', theme: 'tribal.theme.json' },
     server: true,
+    mappingFile: 'tribal-grant.mapping.json',
     registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'short-empty', label: 'Empty', file: 'fixtures/short-empty.response.json' },
@@ -51,6 +63,7 @@ const EXAMPLES = [
     dir: '/examples/grant-report',
     artifacts: { definition: 'tribal-long.definition.json', component: 'tribal-long.component.json', theme: 'tribal.theme.json' },
     server: true,
+    mappingFile: 'tribal-grant.mapping.json',
     registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'long-complete', label: 'Complete', file: 'fixtures/long-complete.response.json' },
@@ -64,6 +77,7 @@ const EXAMPLES = [
     dir: '/examples/invoice',
     artifacts: { definition: 'invoice.definition.json', component: 'invoice.component.json', theme: 'invoice.theme.json' },
     server: true,
+    mappingFile: 'invoice.mapping.json',
     registry: '/registries/formspec-common.registry.json',
     fixtures: [
       { id: 'invoice-empty', label: 'Empty', file: 'fixtures/invoice-empty.response.json' },
@@ -207,6 +221,15 @@ async function loadExample(ex, fixture = null) {
 
     const [definition, componentDoc, themeDoc, fixtureResponse] = await Promise.all(loads);
 
+    let mappingDoc = null;
+    if (ex.mappingFile) {
+      try {
+        mappingDoc = await loadJSON(`${ex.dir}/${ex.mappingFile}`);
+      } catch (err) {
+        console.warn(`Failed to load mapping ${ex.mappingFile}:`, err);
+      }
+    }
+
     // Load bridge CSS if specified
     if (ex.css) {
       const link = document.createElement('link');
@@ -252,15 +275,15 @@ async function loadExample(ex, fixture = null) {
       </details>
     `;
 
-    // Server response panel (optional; shown in a tab)
+    // Engine revalidation panel (optional; Rust/WASM parity with former Python /submit)
     const serverPanel = document.createElement('div');
     serverPanel.className = 'server-response';
     serverPanel.id = 'server-response';
     serverPanel.setAttribute('aria-live', 'polite');
     serverPanel.innerHTML = `
-      <h3>Server Response</h3>
+      <h3>Engine revalidation</h3>
       <div class="server-meta" id="server-meta"></div>
-      <p class="server-empty" id="server-empty">No server response yet. Submit a valid form to send it to the server.</p>
+      <p class="server-empty" id="server-empty">No revalidation yet. Submit a valid form to run Rust/WASM evaluation and mapping.</p>
       <details class="server-details" open>
         <summary>Validation Report</summary>
         <pre id="server-validation-pre"></pre>
@@ -324,7 +347,7 @@ async function loadExample(ex, fixture = null) {
     tabServer.id = 'tab-server';
     tabServer.setAttribute('role', 'tab');
     tabServer.setAttribute('aria-controls', 'panel-server');
-    tabServer.textContent = 'Server Response';
+    tabServer.textContent = 'Engine';
 
     tabs.appendChild(tabForm);
     tabs.appendChild(tabClient);
@@ -466,34 +489,63 @@ async function loadExample(ex, fixture = null) {
       if (!ex.server) return;
 
       try {
-        const res = await fetch(`${SERVER}/submit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(response),
+        const registryDoc = formEl.registryDocuments;
+        const registries = registryDoc ? [registryDoc] : [];
+
+        const linted = lintDocumentWithRegistries(definition, registries);
+        const diagnostics = (linted.diagnostics ?? [])
+          .filter((d) => d?.severity === 'error' || d?.severity === 'warning')
+          .map((d) => `[${d.severity}] ${d.path ?? '(root)'}: ${d.message ?? ''}`);
+
+        const data = response.data && typeof response.data === 'object' ? response.data : {};
+        const evalResult = evaluateDefinition(definition, data, {
+          trigger: 'submit',
+          registryDocuments: registries,
+          nowIso: new Date().toISOString(),
         });
-        const result = await res.json();
+
+        const timestamp = new Date().toISOString();
+        const report = buildValidationReportEnvelope(
+          toValidationResults(evalResult.validations ?? []),
+          timestamp,
+        );
+
+        let mapped = {};
+        if (mappingDoc) {
+          const mapEngine = createMappingEngine(mappingDoc);
+          const sourceValues = evalResult.values && typeof evalResult.values === 'object' ? evalResult.values : data;
+          mapped = mapEngine.forward(sourceValues).output ?? {};
+        }
+
+        const result = {
+          definitionUrl: response.definitionUrl,
+          definitionVersion: response.definitionVersion,
+          valid: report.valid,
+          results: report.results,
+          counts: report.counts,
+          timestamp: report.timestamp,
+          mapped,
+          diagnostics,
+        };
+
         const serverEmpty = serverPanel.querySelector('#server-empty');
         if (serverEmpty) serverEmpty.remove();
 
-        // Meta line — same format as client
         const serverMeta = serverPanel.querySelector('#server-meta');
         serverMeta.textContent = result.counts
           ? `valid=${!!result.valid}  errors=${result.counts.error || 0}  warnings=${result.counts.warning || 0}`
           : `valid=${!!result.valid}`;
 
-        // Validation results
         const reportData = { valid: result.valid, results: result.results, counts: result.counts, timestamp: result.timestamp };
         serverPanel.querySelector('#server-validation-pre').textContent = JSON.stringify(reportData, null, 2);
 
-        // Mapped data
-        serverPanel.querySelector('#server-mapped-pre').textContent = JSON.stringify(result.mapped, null, 2);
+        const mappedDisplay = typeof mapped === 'string' ? mapped : JSON.stringify(mapped, null, 2);
+        serverPanel.querySelector('#server-mapped-pre').textContent = mappedDisplay;
 
-        // Diagnostics
         serverPanel.querySelector('#server-diagnostics-pre').textContent = result.diagnostics?.length
           ? JSON.stringify(result.diagnostics, null, 2)
           : '(none)';
 
-        // Keep the full response in the hidden pre for test access
         serverPanel.querySelector('#server-response-pre').textContent = JSON.stringify(result, null, 2);
 
         setActiveTab('server');
@@ -501,7 +553,7 @@ async function loadExample(ex, fixture = null) {
         const serverEmpty = serverPanel.querySelector('#server-empty');
         if (serverEmpty) serverEmpty.remove();
         serverPanel.querySelector('#server-meta').textContent = 'Error';
-        serverPanel.querySelector('#server-validation-pre').textContent = `Error contacting server: ${err.message}`;
+        serverPanel.querySelector('#server-validation-pre').textContent = `Engine revalidation failed: ${err.message}`;
         serverPanel.querySelector('#server-response-pre').textContent = '';
         setActiveTab('server');
       }

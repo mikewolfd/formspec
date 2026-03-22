@@ -4,12 +4,12 @@ import fs from 'fs';
 
 const repoRoot = path.resolve(__dirname, '../..');
 
-const backendPort = process.env.FORMSPEC_BACKEND_PORT || '8000';
 const basePath = process.env.FORMSPEC_BASE_PATH || '/';
 
 export default defineConfig({
   base: basePath,
   build: {
+    target: 'es2022',
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
@@ -19,12 +19,6 @@ export default defineConfig({
   },
   server: {
     allowedHosts: true,
-    proxy: {
-      '/api': {
-        target: `http://localhost:${backendPort}`,
-        rewrite: (p) => p.replace(/^\/api/, ''),
-      },
-    },
     fs: {
       allow: [repoRoot],
     },

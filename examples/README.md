@@ -104,11 +104,11 @@ Community development grant application rendered with the **USWDS adapter**. A f
 
 ## refrences/
 
-Interactive reference dashboard that loads all example definitions and renders them with `<formspec-render>`. Runs on port 8082.
+Interactive reference dashboard that loads all example definitions and renders them with `<formspec-render>`. Revalidation, mapping export, FEL tools, and changelog run in the browser via **formspec-engine** (Rust/WASM), not the Python package. Runs on port 8082.
 
 ```bash
 cd examples/refrences
-npm run dev    # starts Vite + FastAPI concurrently
+npm run dev    # Vite only (from monorepo root: npm run start:references)
 ```
 
 | File | Purpose |
@@ -116,4 +116,4 @@ npm run dev    # starts Vite + FastAPI concurrently
 | `index.html` | Reference examples portal |
 | `tools.html` | Developer tools page |
 | `main.js` | Dashboard controller |
-| `server/main.py` | FastAPI backend |
+| `serve.py` | Optional static preview after `npm run build` (stdlib HTTP server) |
