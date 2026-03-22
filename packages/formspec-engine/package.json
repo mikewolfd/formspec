@@ -6,8 +6,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build:wasm": "wasm-pack build ../../crates/formspec-wasm --target bundler --out-dir ../../packages/formspec-engine/wasm-pkg",
-    "build": "tsc",
+    "build:wasm": "wasm-pack build ../../crates/formspec-wasm --target web --out-dir ../../packages/formspec-engine/wasm-pkg --no-opt && wasm-opt -Os --enable-bulk-memory --enable-nontrapping-float-to-int --enable-simd wasm-pkg/formspec_wasm_bg.wasm -o wasm-pkg/formspec_wasm_bg.wasm",
+    "build": "npm run build:wasm && tsc",
     "test:unit": "node --experimental-specifier-resolution=node --import ./tests/setup.mjs --test \"tests/**/*.test.mjs\"",
     "test": "npm run build && npm run test:unit"
   },

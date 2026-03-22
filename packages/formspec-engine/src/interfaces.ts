@@ -1,6 +1,6 @@
 /** @filedesc Engine public interfaces and shared exported types. */
 
-import type { Signal } from '@preact/signals-core';
+import type { EngineSignal } from './reactivity/types.js';
 import type {
     FormDefinition,
     FormItem,
@@ -228,29 +228,29 @@ export interface EngineReplayResult {
 // ── Main engine interface ───────────────────────────────────────────
 
 export interface IFormEngine {
-    readonly signals: Record<string, any>;
-    readonly relevantSignals: Record<string, Signal<boolean>>;
-    readonly requiredSignals: Record<string, Signal<boolean>>;
-    readonly readonlySignals: Record<string, Signal<boolean>>;
-    readonly errorSignals: Record<string, Signal<string | null>>;
-    readonly validationResults: Record<string, Signal<ValidationResult[]>>;
-    readonly shapeResults: Record<string, Signal<ValidationResult[]>>;
-    readonly repeats: Record<string, Signal<number>>;
-    readonly optionSignals: Record<string, Signal<OptionEntry[]>>;
-    readonly optionStateSignals: Record<string, Signal<RemoteOptionsState>>;
-    readonly variableSignals: Record<string, Signal<any>>;
+    readonly signals: Record<string, EngineSignal<any>>;
+    readonly relevantSignals: Record<string, EngineSignal<boolean>>;
+    readonly requiredSignals: Record<string, EngineSignal<boolean>>;
+    readonly readonlySignals: Record<string, EngineSignal<boolean>>;
+    readonly errorSignals: Record<string, EngineSignal<string | null>>;
+    readonly validationResults: Record<string, EngineSignal<ValidationResult[]>>;
+    readonly shapeResults: Record<string, EngineSignal<ValidationResult[]>>;
+    readonly repeats: Record<string, EngineSignal<number>>;
+    readonly optionSignals: Record<string, EngineSignal<OptionEntry[]>>;
+    readonly optionStateSignals: Record<string, EngineSignal<RemoteOptionsState>>;
+    readonly variableSignals: Record<string, EngineSignal<any>>;
     readonly instanceData: Record<string, any>;
-    readonly instanceVersion: Signal<number>;
-    readonly structureVersion: Signal<number>;
+    readonly instanceVersion: EngineSignal<number>;
+    readonly structureVersion: EngineSignal<number>;
 
     readonly definition: FormDefinition;
 
     setRuntimeContext(context: FormEngineRuntimeContext): void;
 
     getOptions(path: string): OptionEntry[];
-    getOptionsSignal(path: string): Signal<OptionEntry[]> | undefined;
+    getOptionsSignal(path: string): EngineSignal<OptionEntry[]> | undefined;
     getOptionsState(path: string): RemoteOptionsState;
-    getOptionsStateSignal(path: string): Signal<RemoteOptionsState> | undefined;
+    getOptionsStateSignal(path: string): EngineSignal<RemoteOptionsState> | undefined;
     waitForRemoteOptions(): Promise<void>;
     waitForInstanceSources(): Promise<void>;
 
