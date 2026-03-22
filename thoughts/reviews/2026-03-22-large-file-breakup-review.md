@@ -7,6 +7,7 @@
 | `formspec-eval` (`lib`, `rebuild`, `recalculate`, `revalidate`, `types`) | Done — modularized + integration tests + README |
 | `formspec-py/src/lib.rs` | Done — `convert`, `fel`, `document`, `registry`, `changelog`, `mapping`, `native_tests`; thin `lib.rs` + `#[pymodule]` |
 | `formspec-wasm/src/lib.rs` | Done — `convert`, `fel`, `document`, `evaluate`, `definition`, `mapping`, `registry`, `changelog`, `wasm_tests`; thin `lib.rs` |
+| `formspec-core` `runtime_mapping` | Done — `runtime_mapping/{mod,types,path,env,transforms,engine,document,tests}.rs`; dead `apply_flatten` / `apply_nest` removed |
 | Remaining rows below | Not started in this pass |
 
 ## Scope
@@ -36,7 +37,7 @@ Script:
 3027  packages/formspec-engine/src/index.ts
 2641  crates/formspec-py/src/lib.rs _(split; `lib.rs` is now a thin facade)_
 2591  crates/formspec-wasm/src/lib.rs _(split; `lib.rs` is now a thin facade)_
-2065  crates/formspec-core/src/runtime_mapping.rs
+—     crates/formspec-core/src/runtime_mapping/ _(split; `mod.rs` + focused modules; tests in `tests.rs`)_
 1715  crates/fel-core/src/evaluator.rs
 1615  crates/formspec-eval/src/recalculate.rs
 1522  crates/formspec-lint/src/pass_theme.rs
@@ -98,10 +99,10 @@ Script:
 - Split into `fel.rs`, `document.rs`, `evaluate.rs`, `definition.rs`, `mapping.rs`, and `registry.rs`.
 - Keep `lib.rs` to `wasm_bindgen` exports and wiring.
 
-### [crates/formspec-core/src/runtime_mapping.rs](/Users/mikewolfd/Work/formspec/crates/formspec-core/src/runtime_mapping.rs)
+### [crates/formspec-core/src/runtime_mapping/](/Users/mikewolfd/Work/formspec/crates/formspec-core/src/runtime_mapping/mod.rs)
 
-- Split into `runtime_mapping/{types,path,fel,transforms,engine,document,tests}.rs`.
-- Move the inline test suite out first.
+- Split into `types`, `path`, `env` (FEL environment), `transforms` (value map, coerce, FEL snippet), `engine` (`execute_mapping`), `document` (`execute_mapping_doc`), and `tests`.
+- Removed unused `apply_flatten` / `apply_nest` helpers (never called; flatten/nest paths use inline logic).
 
 ### [crates/fel-core/src/evaluator.rs](/Users/mikewolfd/Work/formspec/crates/fel-core/src/evaluator.rs)
 
