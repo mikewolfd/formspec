@@ -15,6 +15,7 @@ pub mod path_utils;
 pub mod registry_client;
 pub mod runtime_mapping;
 pub mod schema_validator;
+pub mod wire_keys;
 
 // Re-export key types
 pub use assembler::{

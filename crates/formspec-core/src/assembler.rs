@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use serde_json::{Map, Value, json};
 
+use crate::wire_keys::assembly_provenance_keys;
 use crate::{JsonWireStyle, RewriteOptions, rewrite_fel_source_references, rewrite_message_template};
 
 #[derive(Debug, Clone)]
@@ -119,10 +120,7 @@ pub fn assemble_definition(definition: &Value, resolver: &dyn RefResolver) -> As
 
 /// Assembly output for host bindings (camelCase vs snake_case provenance keys).
 pub fn assembly_result_to_json_value(result: &AssemblyResult, style: JsonWireStyle) -> Value {
-    let (key_prefix_k, assembled_k) = match style {
-        JsonWireStyle::JsCamel => ("keyPrefix", "assembledFrom"),
-        JsonWireStyle::PythonSnake => ("key_prefix", "assembled_from"),
-    };
+    let (key_prefix_k, assembled_k) = assembly_provenance_keys(style);
 
     let assembled: Vec<Value> = result
         .assembled_from

@@ -2,16 +2,14 @@
 
 use serde_json::{json, Map, Value};
 
+use formspec_core::wire_keys::lint_document_type_key;
 use formspec_core::JsonWireStyle;
 
 use crate::LintResult;
 
 /// Serialize a [`LintResult`] for host bindings.
 pub fn lint_result_to_json_value(result: &LintResult, style: JsonWireStyle) -> Value {
-    let doc_type_key = match style {
-        JsonWireStyle::JsCamel => "documentType",
-        JsonWireStyle::PythonSnake => "document_type",
-    };
+    let doc_type_key = lint_document_type_key(style);
     let diagnostics: Vec<Value> = result
         .diagnostics
         .iter()

@@ -1,0 +1,112 @@
+//! Centralized JSON field names for host bindings (`JsonWireStyle`).
+
+use fel_core::JsonWireStyle;
+
+/// Keys for [`crate::runtime_mapping::wire_json::mapping_result_to_json_value`].
+pub fn mapping_result_host_keys(
+    style: JsonWireStyle,
+) -> (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+) {
+    match style {
+        JsonWireStyle::JsCamel => (
+            "rulesApplied",
+            "ruleIndex",
+            "sourcePath",
+            "targetPath",
+            "errorCode",
+        ),
+        JsonWireStyle::PythonSnake => (
+            "rules_applied",
+            "rule_index",
+            "source_path",
+            "target_path",
+            "error_code",
+        ),
+    }
+}
+
+/// Keys for [`crate::registry_client::wire_json::registry_parse_summary_to_json_value`].
+pub fn registry_parse_summary_keys(style: JsonWireStyle) -> (&'static str, &'static str) {
+    match style {
+        JsonWireStyle::JsCamel => ("entryCount", "validationIssues"),
+        JsonWireStyle::PythonSnake => ("entry_count", "validation_issues"),
+    }
+}
+
+/// Keys for [`crate::registry_client::wire_json::registry_entry_to_json_value`].
+pub fn registry_entry_keys(style: JsonWireStyle) -> (&'static str, &'static str) {
+    match style {
+        JsonWireStyle::JsCamel => ("deprecationNotice", "baseType"),
+        JsonWireStyle::PythonSnake => ("deprecation_notice", "base_type"),
+    }
+}
+
+/// Keys for [`crate::assembler::assembly_result_to_json_value`] provenance rows + root.
+pub fn assembly_provenance_keys(style: JsonWireStyle) -> (&'static str, &'static str) {
+    match style {
+        JsonWireStyle::JsCamel => ("keyPrefix", "assembledFrom"),
+        JsonWireStyle::PythonSnake => ("key_prefix", "assembled_from"),
+    }
+}
+
+/// Parent path key for [`crate::path_utils::definition_item_location_to_json_value`].
+pub fn item_location_parent_key(style: JsonWireStyle) -> &'static str {
+    match style {
+        JsonWireStyle::JsCamel => "parentPath",
+        JsonWireStyle::PythonSnake => "parent_path",
+    }
+}
+
+/// Batch evaluation JSON keys: non-relevant paths, validation `constraintKind`, `shapeId`.
+pub fn evaluation_batch_keys(style: JsonWireStyle) -> (&'static str, &'static str, &'static str) {
+    match style {
+        JsonWireStyle::JsCamel => ("nonRelevant", "constraintKind", "shapeId"),
+        JsonWireStyle::PythonSnake => ("non_relevant", "constraint_kind", "shape_id"),
+    }
+}
+
+/// Top-level changelog object keys for [`crate::json_artifacts::changelog_to_json_value`].
+pub struct ChangelogRootKeys {
+    pub definition_url: &'static str,
+    pub from_version: &'static str,
+    pub to_version: &'static str,
+    pub semver_impact: &'static str,
+}
+
+pub fn changelog_root_keys(style: JsonWireStyle) -> ChangelogRootKeys {
+    match style {
+        JsonWireStyle::JsCamel => ChangelogRootKeys {
+            definition_url: "definitionUrl",
+            from_version: "fromVersion",
+            to_version: "toVersion",
+            semver_impact: "semverImpact",
+        },
+        JsonWireStyle::PythonSnake => ChangelogRootKeys {
+            definition_url: "definition_url",
+            from_version: "from_version",
+            to_version: "to_version",
+            semver_impact: "semver_impact",
+        },
+    }
+}
+
+/// Per-change object keys inside changelog JSON.
+pub fn changelog_change_keys(style: JsonWireStyle) -> (&'static str, &'static str) {
+    match style {
+        JsonWireStyle::JsCamel => ("type", "migrationHint"),
+        JsonWireStyle::PythonSnake => ("change_type", "migration_hint"),
+    }
+}
+
+/// Document type field for lint result JSON.
+pub fn lint_document_type_key(style: JsonWireStyle) -> &'static str {
+    match style {
+        JsonWireStyle::JsCamel => "documentType",
+        JsonWireStyle::PythonSnake => "document_type",
+    }
+}

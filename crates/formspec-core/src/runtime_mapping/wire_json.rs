@@ -3,6 +3,7 @@
 use serde_json::{Map, Value, json};
 
 use crate::JsonWireStyle;
+use crate::wire_keys::mapping_result_host_keys;
 
 use super::types::{MappingDirection, MappingResult};
 
@@ -23,22 +24,7 @@ pub fn parse_mapping_direction_wire(s: &str) -> Result<MappingDirection, String>
 
 /// Mapping execute result (`executeMapping` / `execute_mapping_doc`).
 pub fn mapping_result_to_json_value(result: &MappingResult, style: JsonWireStyle) -> Value {
-    let (rules_key, rule_idx_k, src_k, tgt_k, code_k) = match style {
-        JsonWireStyle::JsCamel => (
-            "rulesApplied",
-            "ruleIndex",
-            "sourcePath",
-            "targetPath",
-            "errorCode",
-        ),
-        JsonWireStyle::PythonSnake => (
-            "rules_applied",
-            "rule_index",
-            "source_path",
-            "target_path",
-            "error_code",
-        ),
-    };
+    let (rules_key, rule_idx_k, src_k, tgt_k, code_k) = mapping_result_host_keys(style);
 
     let diagnostics: Vec<Value> = result
         .diagnostics

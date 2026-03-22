@@ -6,6 +6,7 @@ use crate::changelog::{
     Change, ChangeImpact, ChangeTarget, ChangeType, Changelog, SemverImpact,
 };
 use crate::extension_analysis::ExtensionUsageIssue;
+use crate::wire_keys::{changelog_change_keys, changelog_root_keys};
 
 pub use fel_core::JsonWireStyle;
 
@@ -47,14 +48,7 @@ fn change_impact_str(i: ChangeImpact) -> &'static str {
 }
 
 fn change_to_object(c: &Change, style: JsonWireStyle) -> Value {
-    let type_key = match style {
-        JsonWireStyle::JsCamel => "type",
-        JsonWireStyle::PythonSnake => "change_type",
-    };
-    let migration_key = match style {
-        JsonWireStyle::JsCamel => "migrationHint",
-        JsonWireStyle::PythonSnake => "migration_hint",
-    };
+    let (type_key, migration_key) = changelog_change_keys(style);
     let mut m = serde_json::Map::new();
     m.insert(
         type_key.to_string(),
@@ -76,28 +70,13 @@ fn change_to_object(c: &Change, style: JsonWireStyle) -> Value {
 
 /// Serialize a generated changelog for FFI consumers.
 pub fn changelog_to_json_value(result: &Changelog, style: JsonWireStyle) -> Value {
-    let def_url_key = match style {
-        JsonWireStyle::JsCamel => "definitionUrl",
-        JsonWireStyle::PythonSnake => "definition_url",
-    };
-    let from_key = match style {
-        JsonWireStyle::JsCamel => "fromVersion",
-        JsonWireStyle::PythonSnake => "from_version",
-    };
-    let to_key = match style {
-        JsonWireStyle::JsCamel => "toVersion",
-        JsonWireStyle::PythonSnake => "to_version",
-    };
-    let semver_key = match style {
-        JsonWireStyle::JsCamel => "semverImpact",
-        JsonWireStyle::PythonSnake => "semver_impact",
-    };
+    let k = changelog_root_keys(style);
     let mut m = serde_json::Map::new();
-    m.insert(def_url_key.to_string(), json!(result.definition_url));
-    m.insert(from_key.to_string(), json!(result.from_version));
-    m.insert(to_key.to_string(), json!(result.to_version));
+    m.insert(k.definition_url.to_string(), json!(result.definition_url));
+    m.insert(k.from_version.to_string(), json!(result.from_version));
+    m.insert(k.to_version.to_string(), json!(result.to_version));
     m.insert(
-        semver_key.to_string(),
+        k.semver_impact.to_string(),
         json!(semver_impact_str(result.semver_impact)),
     );
     m.insert(

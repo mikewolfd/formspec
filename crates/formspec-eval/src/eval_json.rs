@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use serde_json::{Map, Value, json};
 
 use formspec_core::json_object_to_string_map;
+use formspec_core::wire_keys::evaluation_batch_keys;
 use formspec_core::JsonWireStyle;
 
 use crate::types::{EvalContext, EvalTrigger, EvaluationResult, ExtensionConstraint, ValidationResult};
@@ -20,10 +21,7 @@ pub fn evaluation_result_to_json_value_styled(
     result: &EvaluationResult,
     style: JsonWireStyle,
 ) -> Value {
-    let (nr_key, ck_key, sid_key) = match style {
-        JsonWireStyle::JsCamel => ("nonRelevant", "constraintKind", "shapeId"),
-        JsonWireStyle::PythonSnake => ("non_relevant", "constraint_kind", "shape_id"),
-    };
+    let (nr_key, ck_key, sid_key) = evaluation_batch_keys(style);
 
     let validations: Vec<Value> = result
         .validations

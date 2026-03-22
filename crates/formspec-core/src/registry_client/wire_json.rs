@@ -3,6 +3,7 @@
 use serde_json::{Map, Value, json};
 
 use crate::JsonWireStyle;
+use crate::wire_keys::{registry_entry_keys, registry_parse_summary_keys};
 
 use super::{extension_category_to_wire, registry_entry_status_to_wire, Registry, RegistryEntry};
 
@@ -30,10 +31,7 @@ pub fn registry_parse_summary_to_json_value(
     issues: &[String],
     style: JsonWireStyle,
 ) -> Value {
-    let (entry_count_k, validation_k) = match style {
-        JsonWireStyle::JsCamel => ("entryCount", "validationIssues"),
-        JsonWireStyle::PythonSnake => ("entry_count", "validation_issues"),
-    };
+    let (entry_count_k, validation_k) = registry_parse_summary_keys(style);
 
     let mut publisher = Map::new();
     publisher.insert("name".into(), json!(registry.publisher.name));
@@ -53,10 +51,7 @@ pub fn registry_parse_summary_to_json_value(
 
 /// Single registry entry for `findRegistryEntry` / `find_registry_entry`.
 pub fn registry_entry_to_json_value(entry: &RegistryEntry, style: JsonWireStyle) -> Value {
-    let (deprecation_k, base_type_k) = match style {
-        JsonWireStyle::JsCamel => ("deprecationNotice", "baseType"),
-        JsonWireStyle::PythonSnake => ("deprecation_notice", "base_type"),
-    };
+    let (deprecation_k, base_type_k) = registry_entry_keys(style);
 
     let mut m = Map::new();
     m.insert("name".into(), json!(entry.name));

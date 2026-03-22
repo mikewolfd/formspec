@@ -6,6 +6,7 @@
 use serde_json::{Value, json};
 
 use crate::JsonWireStyle;
+use crate::wire_keys::item_location_parent_key;
 
 /// Strip repeat indices from a single path segment: `lineItems[0]` → `lineItems`.
 pub fn normalize_path_segment(segment: &str) -> &str {
@@ -175,10 +176,7 @@ pub fn definition_item_location_to_json_value(
     path: &str,
     style: JsonWireStyle,
 ) -> Value {
-    let parent_key = match style {
-        JsonWireStyle::JsCamel => "parentPath",
-        JsonWireStyle::PythonSnake => "parent_path",
-    };
+    let parent_key = item_location_parent_key(style);
     match json_definition_item_location_at_path(items, path) {
         Some((index, item)) => {
             let mut m = serde_json::Map::new();
