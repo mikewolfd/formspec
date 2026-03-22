@@ -35,14 +35,13 @@ const LAYOUT_ROOTS: &[&str] = &[
 /// Layout-only components that should not declare a bind.
 const LAYOUT_NO_BIND: &[&str] = &["Page", "Stack", "Grid", "Wizard", "Spacer"];
 
-/// Container components that should not declare a bind (except DataTable).
+/// Container components that should not declare a bind (except DataTable and Accordion).
 const CONTAINER_NO_BIND: &[&str] = &[
     "Card",
     "Collapsible",
     "ConditionalGroup",
     "Columns",
     "Tabs",
-    "Accordion",
     "Panel",
     "Modal",
     "Popover",
@@ -237,9 +236,10 @@ impl<'a> WalkState<'a> {
             && let Some(def) = custom_defs.get(comp_type)
             && let Some(params) = def.get("params").and_then(|v| v.as_array())
         {
+            let provided_params = node.get("params").and_then(|v| v.as_object());
             for param_val in params {
                 if let Some(param_name) = param_val.as_str()
-                    && node.get(param_name).is_none()
+                    && !provided_params.is_some_and(|params| params.contains_key(param_name))
                 {
                     self.diags.push(LintDiagnostic::error(
                         "E806",
@@ -587,7 +587,7 @@ mod tests {
             "tree": {
                 "component": "Stack",
                 "children": [
-                    { "component": "LabeledField", "field": "name" }
+                    { "component": "LabeledField", "params": { "field": "name" } }
                 ]
             }
         });
@@ -609,7 +609,10 @@ mod tests {
             "tree": {
                 "component": "Stack",
                 "children": [
-                    { "component": "LabeledField", "field": "name", "label": "Name" }
+                    {
+                        "component": "LabeledField",
+                        "params": { "field": "name", "label": "Name" }
+                    }
                 ]
             }
         });
@@ -753,6 +756,20 @@ mod tests {
                 "component": "Stack",
                 "children": [
                     { "component": "DataTable", "bind": "items" }
+                ]
+            }
+        });
+        let diags = lint_component(&comp, None);
+        assert!(with_code(&diags, "W801").is_empty());
+    }
+
+    #[test]
+    fn accordion_bind_no_w801() {
+        let comp = json!({
+            "tree": {
+                "component": "Stack",
+                "children": [
+                    { "component": "Accordion", "bind": "items", "children": [] }
                 ]
             }
         });
@@ -990,8 +1007,7 @@ mod tests {
 
     // ── Finding 62: W801 for ALL no-bind components ────────────
 
-    /// Spec: component-spec.md §4.2 — all layout and container components
-    /// (except DataTable) should not declare a bind, emitting W801.
+    /// Spec: component-spec.md §4.2 — layout components should not declare a bind.
     #[test]
     fn w801_all_layout_no_bind_components() {
         for comp_type in LAYOUT_NO_BIND {
@@ -1016,7 +1032,8 @@ mod tests {
         }
     }
 
-    /// Spec: component-spec.md §4.2 — all container no-bind components emit W801.
+    /// Spec: component-spec.md §4.2 — container components without repeat-group bind
+    /// exceptions emit W801.
     #[test]
     fn w801_all_container_no_bind_components() {
         for comp_type in CONTAINER_NO_BIND {

@@ -5,20 +5,13 @@ import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { ensureCurrentFormspecRust, pythonTestEnv, resolvePython } from './python.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const EXAMPLES_DIR = path.resolve(__dirname, '../../../examples');
 const REGISTRY_PATH = path.resolve(__dirname, '../../../registries/formspec-common.registry.json');
 
-/** Resolve the correct Python binary — prefer pyenv when .python-version exists. */
-function resolvePython(): string {
-  try {
-    return execSync('pyenv which python3', { encoding: 'utf8', stdio: 'pipe' }).trim();
-  } catch {
-    return 'python3';
-  }
-}
 const PYTHON = resolvePython();
 
 /** Unbuffered stderr progress — to see where it freezes, run: npx vitest run tests/e2e-examples.test.ts --reporter=verbose 2>&1 */
@@ -268,6 +261,7 @@ describe('Formspec Studio E2E Examples Rehydration', () => {
 
   beforeAll(() => {
     process.env.DIAGNOSE_DEBUG = '1';
+    ensureCurrentFormspecRust(PYTHON, path.resolve(__dirname, '../../..'));
     tmpDir = path.resolve(__dirname, '../../../reconstructed-examples');
     if (fs.existsSync(tmpDir)) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -370,7 +364,7 @@ describe('Formspec Studio E2E Examples Rehydration', () => {
         try {
           const output = execSync(validateCmd, {
             cwd: path.resolve(__dirname, '../../..'),
-            env: { ...process.env, PYTHONPATH: path.resolve(__dirname, '../../../src') },
+            env: pythonTestEnv(path.resolve(__dirname, '../../..')),
             encoding: 'utf8',
             stdio: 'pipe',
             timeout: 60_000,

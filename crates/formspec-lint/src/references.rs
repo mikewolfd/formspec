@@ -179,12 +179,9 @@ fn validate_path(
     error_code: &str,
     index: &ItemTreeIndex,
 ) -> Option<LintDiagnostic> {
-    if path.contains("[*]") {
-        validate_wildcard_path(path, json_path, label, error_code, index)
-    } else if path.contains('.') {
-        validate_dotted_path(path, json_path, label, error_code, index)
-    } else {
-        validate_simple_key(path, json_path, label, error_code, index)
+    match resolve_path(path, label, index) {
+        Ok(()) => None,
+        Err(message) => Some(LintDiagnostic::error(error_code, 3, json_path, message)),
     }
 }
 
@@ -210,107 +207,101 @@ fn validate_simple_key(
     ))
 }
 
-/// Dotted path (e.g., `address.street`): try full_path first, then check base key exists.
-fn validate_dotted_path(
-    path: &str,
-    json_path: &str,
-    label: &str,
-    error_code: &str,
-    index: &ItemTreeIndex,
-) -> Option<LintDiagnostic> {
-    // Exact match on full dotted path
-    if index.by_full_path.contains_key(path) {
-        return None;
-    }
-
-    // Fallback: check that the base key (first segment) exists
-    let base_key = path.split('.').next().unwrap_or(path);
-    if index.by_key.contains_key(base_key) || index.by_full_path.contains_key(base_key) {
-        return None;
-    }
-
-    Some(LintDiagnostic::error(
-        error_code,
-        3,
-        json_path,
-        format!("{label} references unknown item: {path}"),
-    ))
+#[derive(Clone, Copy)]
+enum SegmentKind<'a> {
+    Exact(&'a str),
+    Wildcard(&'a str),
+    Indexed(&'a str),
 }
 
-/// Wildcard path (e.g., `lines[*].amount`):
-/// 1. Group before `[*]` must exist and be in `repeatable_groups`
-/// 2. Remainder after `[*].` must resolve as a child of that group
-fn validate_wildcard_path(
-    path: &str,
-    json_path: &str,
-    label: &str,
-    error_code: &str,
-    index: &ItemTreeIndex,
-) -> Option<LintDiagnostic> {
-    let parts: Vec<&str> = path.splitn(2, "[*]").collect();
-    if parts.len() != 2 {
-        return None;
+fn parse_segment(segment: &str) -> SegmentKind<'_> {
+    if let Some(key) = segment.strip_suffix("[*]") {
+        SegmentKind::Wildcard(key)
+    } else if let Some((key, suffix)) = segment.split_once('[') {
+        if suffix.starts_with("@index") && suffix.ends_with(']') {
+            SegmentKind::Indexed(key)
+        } else {
+            SegmentKind::Exact(segment)
+        }
+    } else {
+        SegmentKind::Exact(segment)
+    }
+}
+
+fn resolve_path(path: &str, label: &str, index: &ItemTreeIndex) -> Result<(), String> {
+    if !path.contains('.') && !path.contains('[') {
+        return validate_simple_key(path, "$", label, "E300", index)
+            .map_or(Ok(()), |diag| Err(diag.message));
     }
 
-    let group_path = parts[0];
-    let remainder = parts[1].trim_start_matches('.');
+    let mut segments = path.split('.');
+    let first = segments.next().unwrap_or(path);
+    let mut current = resolve_root_segment(path, first, label, index)?;
 
-    // Resolve the group: try full_path first, then by_key
-    let group_ref = index
-        .by_full_path
-        .get(group_path)
-        .or_else(|| index.by_key.get(group_path));
+    for segment in segments {
+        current = resolve_child_segment(path, label, current, segment, index)?;
+    }
 
-    let group_ref = match group_ref {
-        Some(r) => r,
-        None => {
-            return Some(LintDiagnostic::error(
-                error_code,
-                3,
-                json_path,
-                format!("{label} references unknown group: {group_path}"),
-            ));
+    Ok(())
+}
+
+fn resolve_root_segment<'a>(
+    path: &str,
+    segment: &str,
+    label: &str,
+    index: &'a ItemTreeIndex,
+) -> Result<&'a crate::tree::ItemRef, String> {
+    let parsed = parse_segment(segment);
+    let current = match parsed {
+        SegmentKind::Exact(key) | SegmentKind::Wildcard(key) | SegmentKind::Indexed(key) => {
+            index
+                .by_full_path
+                .get(key)
+                .or_else(|| {
+                    index.by_key.get(key).filter(|item_ref| {
+                        !index.ambiguous_keys.contains(key) && item_ref.parent_full_path.is_none()
+                    })
+                })
+                .ok_or_else(|| format!("{label} references unknown item: {path}"))?
         }
     };
 
-    // The group must be repeatable
-    if !index.repeatable_groups.contains(&group_ref.full_path) {
-        return Some(LintDiagnostic::error(
-            error_code,
-            3,
-            json_path,
-            format!("{label} uses wildcard on non-repeatable group: {group_path}"),
-        ));
+    ensure_repeatable_if_needed(label, current.full_path.as_str(), current, parsed)?;
+    Ok(current)
+}
+
+fn resolve_child_segment<'a>(
+    path: &str,
+    label: &str,
+    parent: &'a crate::tree::ItemRef,
+    segment: &str,
+    index: &'a ItemTreeIndex,
+) -> Result<&'a crate::tree::ItemRef, String> {
+    let parsed = parse_segment(segment);
+    let child_key = match parsed {
+        SegmentKind::Exact(key) | SegmentKind::Wildcard(key) | SegmentKind::Indexed(key) => key,
+    };
+    let child_path = format!("{}.{}", parent.full_path, child_key);
+    let child = index
+        .by_full_path
+        .get(&child_path)
+        .ok_or_else(|| format!("{label} references unknown item: {path}"))?;
+    ensure_repeatable_if_needed(label, &child_path, child, parsed)?;
+    Ok(child)
+}
+
+fn ensure_repeatable_if_needed(
+    label: &str,
+    path: &str,
+    item_ref: &crate::tree::ItemRef,
+    segment: SegmentKind<'_>,
+) -> Result<(), String> {
+    if matches!(segment, SegmentKind::Wildcard(_) | SegmentKind::Indexed(_))
+        && !item_ref.is_repeatable
+    {
+        return Err(format!("{label} uses wildcard on non-repeatable group: {path}"));
     }
-
-    // If there's a remainder, check it resolves as a child of the group
-    if !remainder.is_empty() {
-        let child_full_path = format!("{}.{remainder}", group_ref.full_path);
-        // Try exact full path match for the child
-        if index.by_full_path.contains_key(&child_full_path) {
-            return None;
-        }
-
-        // Fallback: check the first segment of the remainder exists as a key
-        // and is a child of this group (its parent_full_path matches the group)
-        let remainder_base = remainder.split('.').next().unwrap_or(remainder);
-        let is_child = index.by_key.get(remainder_base).is_some_and(|item_ref| {
-            item_ref.parent_full_path.as_deref() == Some(&group_ref.full_path)
-        });
-
-        if !is_child {
-            return Some(LintDiagnostic::error(
-                error_code,
-                3,
-                json_path,
-                format!(
-                    "{label} wildcard remainder '{remainder}' not found in group '{group_path}'"
-                ),
-            ));
-        }
-    }
-
-    None
+    Ok(())
 }
 
 #[cfg(test)]
@@ -394,6 +385,46 @@ mod tests {
             !codes(&diags).contains(&"E300"),
             "Wildcard on repeatable group with valid child should not emit E300"
         );
+    }
+
+    #[test]
+    fn valid_nested_wildcard_path_no_e300() {
+        let doc = json!({
+            "items": [{
+                "key": "conditions",
+                "repeatable": true,
+                "children": [{
+                    "key": "medications",
+                    "repeatable": true,
+                    "children": [{ "key": "startDate", "dataType": "date" }]
+                }]
+            }],
+            "binds": { "conditions[*].medications[*].startDate": { "required": "true" } }
+        });
+        let diags = lint(&doc);
+        assert!(
+            !codes(&diags).contains(&"E300"),
+            "Nested wildcard path should resolve across repeatable descendants"
+        );
+    }
+
+    #[test]
+    fn nested_wildcard_with_non_repeatable_inner_group_emits_e300() {
+        let doc = json!({
+            "items": [{
+                "key": "conditions",
+                "repeatable": true,
+                "children": [{
+                    "key": "medications",
+                    "children": [{ "key": "startDate", "dataType": "date" }]
+                }]
+            }],
+            "binds": { "conditions[*].medications[*].startDate": { "required": "true" } }
+        });
+        let diags = lint(&doc);
+        let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
+        assert_eq!(e300.len(), 1);
+        assert!(e300[0].message.contains("non-repeatable"));
     }
 
     // ── 5. Wildcard on non-repeatable group — E300 ────────────
@@ -674,15 +705,11 @@ mod tests {
         assert!(diags.is_empty());
     }
 
-    // ── Finding 50: Dotted path fallback behavior ─────────────
+    // ── Strict dotted path resolution ─────────────────────────
 
-    /// Spec: core/spec.md §4.3.3 (line 2276, 2296) — dotted paths resolve against item index.
-    /// The validate_dotted_path function falls back to checking the base key only.
-    /// If the base key "address" exists, "address.typo" silently passes because the
-    /// linter cannot statically verify sub-paths beyond depth-1 (children might be
-    /// dynamically resolved). This is intentional — only the base key is validated.
+    /// Spec: core/spec.md §4.3.3 — bind paths MUST resolve to at least one Item key.
     #[test]
-    fn dotted_path_fallback_when_base_key_exists() {
+    fn dotted_path_with_existing_base_but_missing_child_emits_e300() {
         let doc = json!({
             "items": [{
                 "key": "address",
@@ -691,13 +718,9 @@ mod tests {
             "binds": { "address.nonexistent": { "required": "true" } }
         });
         let diags = lint(&doc);
-        // Base key "address" exists, so the dotted path "address.nonexistent" passes
-        // even though "nonexistent" is not an actual child of "address".
-        // This is a known limitation: the fallback only checks the first segment.
-        assert!(
-            !codes(&diags).contains(&"E300"),
-            "Dotted path with existing base key should not emit E300 (fallback behavior)"
-        );
+        let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
+        assert_eq!(e300.len(), 1, "Missing dotted child should emit E300");
+        assert!(e300[0].message.contains("address.nonexistent"));
     }
 
     /// Spec: core/spec.md §4.3.3 (line 2276) — when base key does NOT exist, E300 is emitted.
