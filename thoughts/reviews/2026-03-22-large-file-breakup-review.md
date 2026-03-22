@@ -1,5 +1,13 @@
 # 2026-03-22 Large File Breakup Review
 
+## Progress (handoff)
+
+| Target | Status |
+|--------|--------|
+| `formspec-eval` (`lib`, `rebuild`, `recalculate`, `revalidate`, `types`) | Done — modularized + integration tests + README |
+| `formspec-py/src/lib.rs` | Done — `convert`, `fel`, `document`, `registry`, `changelog`, `mapping`, `native_tests`; thin `lib.rs` + `#[pymodule]` |
+| Remaining rows below | Not started in this pass |
+
 ## Scope
 
 This review covers `rs`, `ts`, `js`, and `py` files longer than 500 lines, excluding:

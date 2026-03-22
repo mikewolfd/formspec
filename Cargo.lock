@@ -324,6 +324,7 @@ dependencies = [
  "pyo3",
  "pythonize",
  "rust_decimal",
+ "serde",
  "serde_json",
 ]
 

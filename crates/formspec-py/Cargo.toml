@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "PyO3 bindings for Formspec — exposes all Rust crates to Python"
+readme = "README.md"
 
 [lib]
 name = "formspec_rust"
@@ -17,6 +18,7 @@ formspec-lint = { path = "../formspec-lint" }
 pyo3 = { version = "0.28" }
 pythonize = "0.28"
 rust_decimal = "1"
+serde = "1"
 serde_json = "1"
 
 [features]
