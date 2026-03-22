@@ -1,4 +1,18 @@
 //! Build `ItemInfo` tree from definition `items` and merge `binds` (object or array style).
+//!
+//! # Item `key` policy (eval vs lint)
+//!
+//! Runtime rebuild uses [`formspec_core::DefinitionItemKeyPolicy::CoerceNonStringKeyToEmpty`]
+//! semantics via [`formspec_core::coerce_definition_item_key_segment`] and
+//! [`formspec_core::definition_item_dotted_path`]: missing or non-string `key` becomes `""`, every
+//! array element is turned into an [`ItemInfo`], and `children` are always walked.
+//!
+//! That **differs** from lint’s [`formspec_core::visit_definition_items_json`], which applies
+//! [`formspec_core::DefinitionItemKeyPolicy::RequireStringKey`] and skips keyless nodes (and their
+//! subtrees). We intentionally do **not** drive this module from
+//! `visit_definition_items_json_with_policy` using require semantics — that would change
+//! evaluation. Shared helpers only align dotted-path spelling with `formspec_core`; the recursive
+//! shape stays eval-specific.
 
 use formspec_core::definition_items::{coerce_definition_item_key_segment, definition_item_dotted_path};
 use serde_json::Value;

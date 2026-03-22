@@ -5,6 +5,15 @@
 //! walks the item tree emitting diagnostics for unresolved, retired, or
 //! deprecated extensions.
 //!
+//! ## Diagnostic paths (key-based vs index-based)
+//!
+//! This pass reports item locations using **semantic** paths such as `$.items[key=foo]` and
+//! `{parent}.{key}` under `children`. Those strings are **not** interchangeable with the
+//! index-based paths produced by `formspec_core::visit_definition_items_json` (for example
+//! `$.items\[0\]`). Key-based paths stay stable when sibling order changes and match how authors
+//! name items. Switching extension diagnostics to indexed JSON paths would be a **user-visible**
+//! behavior change, not a refactor.
+//!
 //! ## Code naming convention
 //!
 //! The E-prefix on E600/E601/E602 stands for "Extensions pass" following the
@@ -129,7 +138,12 @@ fn check_extensions_object(
     }
 }
 
-/// Semantic item paths (`$.items[key=k]`, then `{path}.{key}`) — not index-based JSON paths.
+/// Semantic item paths (`$.items[key=k]`, then `{path}.{key}`).
+///
+/// Skips array elements without a string `key` (and does not recurse into their `children`), same
+/// rule as other key-based walks here. This remains **key-based** for diagnostics; do not replace
+/// with `visit_definition_items_json` output (indexed `$.items\[n\]` paths, …) without an explicit product decision
+/// — see the crate-level “Diagnostic paths” section.
 fn walk_extension_item_paths(
     items: &[Value],
     prefix: &str,
