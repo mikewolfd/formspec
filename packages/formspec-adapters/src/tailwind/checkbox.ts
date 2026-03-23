@@ -1,7 +1,7 @@
 /** @filedesc Tailwind adapter for Checkbox — single boolean as a compact selectable card. */
 import type { FieldBehavior, AdapterRenderFn } from 'formspec-webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
-import { createTailwindError, TW, TW_CARD_OPTION } from './shared';
+import { createTailwindError, TW, TW_CARD_OPTION, createCardOption, applyErrorStyling } from './shared';
 
 export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
     behavior, parent, actx
@@ -12,13 +12,9 @@ export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
     applyCascadeClasses(root, p);
     applyCascadeAccessibility(root, p);
 
-    const card = el('label', { class: TW_CARD_OPTION, for: behavior.id });
-
-    const input = document.createElement('input') as HTMLInputElement;
-    input.className = TW.controlSm;
-    input.id = behavior.id;
-    input.type = 'checkbox';
+    const { card, input } = createCardOption(behavior.id, behavior.label);
     input.name = behavior.fieldPath;
+    input.type = 'checkbox';
 
     const describedBy = [
         behavior.hint ? `${behavior.id}-hint` : '',
@@ -26,13 +22,7 @@ export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
     ].filter(Boolean).join(' ');
     input.setAttribute('aria-describedby', describedBy);
 
-    const text = el('span', {
-        class: p.labelPosition === 'hidden' ? 'sr-only' : TW.optionLabelText,
-    });
-    text.textContent = behavior.label;
-
-    card.appendChild(input);
-    card.appendChild(text);
+    // Label text is already added by createCardOption
     root.appendChild(card);
 
     let hint: HTMLElement | undefined;
@@ -51,9 +41,7 @@ export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
     const dispose = behavior.bind({
         root, label: card, control: input, hint, error,
         onValidationChange: (hasError) => {
-            card.classList.toggle('border-rose-500', hasError);
-            card.classList.toggle('ring-2', hasError);
-            card.classList.toggle('ring-rose-400/50', hasError);
+            applyErrorStyling(card, hasError);
         },
     });
     actx.onDispose(dispose);

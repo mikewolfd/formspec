@@ -1,7 +1,7 @@
 /** @filedesc Tailwind adapter for CheckboxGroup — card-style multi-select grid. */
 import type { CheckboxGroupBehavior, AdapterRenderFn } from 'formspec-webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
-import { createTailwindError, TW, TW_CARD_OPTION } from './shared';
+import { createTailwindError, TW, TW_CARD_OPTION, createCardOption, applyErrorStyling } from './shared';
 
 function optionGridClass(columns?: number): string {
     if (columns === 3) return 'grid gap-3 mt-3 sm:grid-cols-2 lg:grid-cols-3';
@@ -21,21 +21,11 @@ function buildCheckboxOptions(
         const opt = options[i];
         const optId = `${behavior.id}-${i}`;
 
-        const card = el('label', { class: TW_CARD_OPTION, for: optId });
-
-        const input = document.createElement('input') as HTMLInputElement;
-        input.className = TW.controlSm;
-        input.id = optId;
-        input.type = 'checkbox';
+        const { card, input } = createCardOption(optId, opt.label);
         input.name = behavior.fieldPath;
         input.value = opt.value;
         controls.set(opt.value, input);
 
-        const text = el('span', { class: TW.optionLabelText });
-        text.textContent = opt.label;
-
-        card.appendChild(input);
-        card.appendChild(text);
         container.appendChild(card);
     }
 
@@ -68,7 +58,7 @@ export const renderCheckboxGroup: AdapterRenderFn<CheckboxGroupBehavior> = (
     // Select All — compact row above the grid
     if (behavior.selectAll && behavior.options().length > 0) {
         const selectAllRow = el('div', {
-            class: 'mt-2 flex items-center gap-3 rounded-lg border border-dashed border-zinc-700/80 bg-zinc-800/50 px-3 py-2.5',
+            class: 'mt-2 flex items-center gap-3 rounded-lg border border-dashed border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface-muted)] px-3 py-2.5',
         });
         const selectAllId = `${behavior.id}-select-all`;
 
@@ -86,7 +76,7 @@ export const renderCheckboxGroup: AdapterRenderFn<CheckboxGroupBehavior> = (
         });
 
         const selectAllLabel = el('label', {
-            class: 'cursor-pointer text-sm font-semibold text-zinc-300',
+            class: 'cursor-pointer text-sm font-semibold text-[var(--formspec-tw-text)]',
             for: selectAllId,
         });
         selectAllLabel.textContent = 'Select all';
@@ -116,9 +106,7 @@ export const renderCheckboxGroup: AdapterRenderFn<CheckboxGroupBehavior> = (
             return optionControlsRef;
         },
         onValidationChange: (hasError) => {
-            fieldset.classList.toggle('ring-2', hasError);
-            fieldset.classList.toggle('ring-rose-400/60', hasError);
-            fieldset.classList.toggle('rounded-xl', hasError);
+            applyErrorStyling(fieldset, hasError);
         },
     });
     actx.onDispose(dispose);

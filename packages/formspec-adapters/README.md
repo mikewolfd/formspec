@@ -228,10 +228,27 @@ const renderTextInput: AdapterRenderFn<TextInputBehavior> = (behavior, parent, a
 ```
 
 **Tailwind integration notes:**
-- `behavior.presentation.style` (inline styles from theme cascade) can be skipped — Tailwind utility classes handle all styling. This is an explicit adapter choice.
-- The `sr-only` utility class handles `labelPosition: 'hidden'` natively.
-- `widgetConfig` can drive structural choices: `widgetConfig.direction === 'horizontal'` → add `flex flex-row` to a radio group container.
-- Tailwind's `peer` modifier pattern enables structurally different radio/checkbox DOM (see the USWDS Tailwind example in ADR 0046).
+
+- **`integrationCSS` is omitted** — nothing is injected into `<head>`. Styling is only utility classes on the emitted DOM, compiled by your Tailwind/Vite (or CDN) pipeline. In Tailwind v4, add `@source` for `packages/formspec-adapters/src/tailwind/**/*.ts` so class names are discovered.
+
+- **Core plugin styling** — `Card`, `SubmitButton`, and `ValidationSummary` are not adapter-rendered; they still use `formspec-*` class hooks. Import **`formspec-adapters/tailwind-formspec-core.css`** for light-theme defaults (teal accent, white cards, validation summary). Rules are in **`@layer components`** so Tailwind **utilities** on those nodes (e.g. `cssClass` on `SubmitButton`) override the defaults. Override `--formspec-tw-*` on `:root` for token tweaks without utilities.
+
+**Customization:**
+
+- The adapter is intentionally **neutral**. Colors are kept minimal in `TW` constants. Override via:
+  - `cssClass` in your theme (union-merge supported)
+  - CSS custom properties (`--accent-color`, `--error-color`)
+  - `tailwind-merge` (recommended — see below)
+- `behavior.presentation.style` can be used for inline styles if needed.
+- `widgetConfig` can drive structural choices.
+
+**tailwind-merge support:**
+The adapter works well with `tailwind-merge`. Call `setTailwindMerge(twMerge)` from `formspec-layout` in your app to automatically resolve conflicting utilities from the theme cascade.
+
+See ADR 0049 for details on `cssClassReplace` and `classStrategy: "tailwind-merge"`.
+
+**Current design:**
+Field widgets use subtle zinc / `currentColor` in `TW` constants. Shared defaults for `Card`, submit, and validation summary live in `src/tailwind/tailwind-formspec-core.css` (package export `formspec-adapters/tailwind-formspec-core.css`).
 
 ### Tailwind + `peer` Pattern (Radio Buttons)
 
@@ -340,6 +357,7 @@ const renderTextInput: AdapterRenderFn<TextInputBehavior> = (behavior, parent, a
 ```
 
 **Bootstrap integration notes:**
+
 - Bootstrap's `is-invalid` class on the input drives `invalid-feedback` visibility. You can watch `error.textContent` via a MutationObserver to toggle `is-invalid` on the input, or use CSS `:has()` if browser support allows.
 - `form-floating` labels (Bootstrap 5) require the `<input>` before the `<label>` — just reorder in the adapter.
 - `input-group` with prepend/append maps naturally to `TextInputBehavior.prefix` / `suffix`.

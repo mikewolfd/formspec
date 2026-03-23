@@ -1,40 +1,51 @@
-/** @filedesc Shared DOM construction for Tailwind field adapters — root, label, hint, error, describedBy. */
+/** @filedesc Shared DOM construction and neutral Tailwind utilities for adapters.
+ * Designed to be theme-agnostic. Colors should come from CSS variables, theme cssClass,
+ * or host Tailwind config. Includes tailwind-merge support.
+ */
 import type { FieldBehavior } from 'formspec-webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 
-// ── Tailwind utility class constants (teal / zinc dark — matches dark mesh background) ──
+// ── Semantic Tailwind utility groups — clean and maintainable ──
+// Base styles that can be extended via cssClass or CSS variables.
+// We avoid long concatenated strings and favor semantic groupings.
 
 export const TW = {
-    label: 'block text-sm font-semibold tracking-tight text-zinc-200 mb-1.5',
+    // Typography
+    label: 'mb-1.5 block text-sm font-semibold text-[var(--formspec-tw-text)]',
     labelHidden: 'sr-only',
-    hint: 'mt-1.5 text-sm leading-relaxed text-zinc-400',
-    error: 'mt-1.5 text-sm font-medium text-rose-400',
-    input:
-        'block w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-3.5 py-2.5 text-sm text-zinc-100 shadow-sm transition placeholder:text-zinc-500 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/15',
-    inputError: 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20',
-    inputNormal: 'border-zinc-700 focus:border-teal-500 focus:ring-teal-500/15',
+    hint: 'mt-1 text-xs leading-relaxed text-[var(--formspec-tw-muted)]',
+    error: 'mt-1.5 text-sm font-medium text-[var(--formspec-tw-danger)]',
+    legend: 'mb-2 text-sm font-semibold text-[var(--formspec-tw-text)]',
+
+    // Form inputs
+    input: 'block w-full rounded-xl border border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-field-bg)] px-3.5 py-2.5 text-sm text-[var(--formspec-tw-text)] shadow-[var(--formspec-tw-shadow-sm)] transition placeholder:text-[var(--formspec-tw-placeholder)] focus:border-[color:var(--formspec-tw-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--formspec-tw-accent-ring)]',
+    inputError: 'border-[color:var(--formspec-tw-danger)] focus:border-[color:var(--formspec-tw-danger)] focus:ring-[var(--formspec-tw-danger-ring)]',
+    inputNormal: 'border-[color:var(--formspec-tw-border)]',
+
+    // Layout
     group: 'mb-5',
     fieldset: 'mb-6 space-y-1 border-0 p-0',
-    legend: 'text-base font-semibold tracking-tight text-zinc-100 mb-1',
-    /** Native checkbox / radio inside cards — slightly larger hit target */
-    controlSm:
-        'peer mt-0.5 size-[1.125rem] shrink-0 cursor-pointer rounded-md border-zinc-600 text-teal-500 transition focus:ring-2 focus:ring-teal-500 focus:ring-offset-0',
-    radioSm:
-        'peer mt-0.5 size-[1.125rem] shrink-0 cursor-pointer border-zinc-600 text-teal-500 focus:ring-2 focus:ring-teal-500 focus:ring-offset-0',
-    optionLabelText: 'text-sm font-medium leading-snug text-zinc-200',
-    /** @deprecated use cardOption for new layouts */
-    optionLabel: 'text-sm font-medium leading-snug text-zinc-200',
+
+    // Controls
+    controlSm: 'peer size-[1.125rem] shrink-0 cursor-pointer rounded-md border-[color:var(--formspec-tw-border-strong)] bg-[var(--formspec-tw-surface)] text-[var(--formspec-tw-accent)] transition focus:ring-2 focus:ring-[var(--formspec-tw-accent-ring)] focus:ring-offset-0',
+    radioSm: 'peer size-[1.125rem] shrink-0 cursor-pointer border-[color:var(--formspec-tw-border-strong)] bg-[var(--formspec-tw-surface)] text-[var(--formspec-tw-accent)] transition focus:ring-2 focus:ring-[var(--formspec-tw-accent-ring)] focus:ring-offset-0',
+    optionLabelText: 'text-sm font-medium leading-snug text-[var(--formspec-tw-text)]',
+    optionLabel: 'text-sm font-medium leading-snug text-[var(--formspec-tw-text)]',
     optionWrapper: 'flex items-start gap-3',
-    button:
-        'inline-flex items-center justify-center rounded-xl bg-teal-500 px-5 py-2.5 text-sm font-semibold text-stone-950 shadow-md shadow-teal-500/25 transition hover:bg-teal-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900',
-    buttonOutline:
-        'inline-flex items-center justify-center rounded-xl border border-zinc-600 bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 shadow-sm transition hover:border-zinc-500 hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900',
-    buttonUnstyled: 'text-sm font-semibold text-teal-400 underline-offset-2 hover:text-teal-300 hover:underline',
+
+    // Buttons
+    button: 'inline-flex items-center justify-center rounded-xl bg-[var(--formspec-tw-accent)] px-5 py-2.5 text-sm font-semibold text-[var(--formspec-tw-accent-fg)] shadow-[var(--formspec-tw-shadow-md)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--formspec-tw-accent-ring)]',
+    buttonOutline: 'inline-flex items-center justify-center rounded-xl border border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface)] px-5 py-2.5 text-sm font-semibold text-[var(--formspec-tw-text)] shadow-[var(--formspec-tw-shadow-sm)] transition hover:border-[color:var(--formspec-tw-border-strong)] hover:bg-[var(--formspec-tw-surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--formspec-tw-accent-ring)]',
+    buttonUnstyled: 'text-sm font-semibold underline-offset-2 hover:underline',
+
+    // Container for form controls (Toggle, Rating, Slider, etc.)
+    controlContainer: 'flex min-h-[56px] items-center gap-4 rounded-2xl border border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface-muted)] px-5 py-3 shadow-[var(--formspec-tw-shadow-sm)] transition-colors',
 } as const;
 
-/** Classes for a selectable card row (checkbox / radio). */
+/** Base selectable card for checkbox/radio groups. 
+ * Highly customizable via cssClass or theme. Uses peer/has modifiers for state. */
 export const TW_CARD_OPTION =
-    'group flex cursor-pointer items-start gap-3 rounded-xl border-2 border-zinc-700/60 bg-zinc-900/50 px-4 py-3.5 shadow-sm transition-all duration-200 hover:border-teal-500/50 hover:shadow-md has-[:checked]:border-teal-500 has-[:checked]:bg-gradient-to-br has-[:checked]:from-teal-900/30 has-[:checked]:to-zinc-900 has-[:checked]:shadow-md has-[:checked]:ring-2 has-[:checked]:ring-teal-500/20';
+    'relative group flex cursor-pointer items-center gap-3 rounded-lg border border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface)] px-4 py-3 shadow-[var(--formspec-tw-shadow-sm)] transition-all duration-200 hover:border-[color:var(--formspec-tw-border-strong)] hover:bg-[var(--formspec-tw-surface-muted)] has-[:checked]:border-[color:var(--formspec-tw-accent)] has-[:checked]:bg-[var(--formspec-tw-accent-soft)] has-[:checked]:shadow-[var(--formspec-tw-shadow-md)] has-[:checked]:ring-1 has-[:checked]:ring-[var(--formspec-tw-accent-ring)]';
 
 // ── Shared field DOM ──────────────────────────────────────────────
 
@@ -108,4 +119,46 @@ export function toggleInputError(input: HTMLElement, hasError: boolean): void {
         input.classList.remove(...TW.inputError.split(/\s+/));
         input.classList.add(...TW.inputNormal.split(/\s+/));
     }
+}
+
+/** Creates a selectable card element for checkbox/radio groups. */
+export function createCardOption(id: string, labelText: string): { card: HTMLElement; input: HTMLInputElement; label: HTMLElement } {
+    const card = el('label', { class: TW_CARD_OPTION, for: id });
+
+    const input = document.createElement('input') as HTMLInputElement;
+    input.id = id;
+    input.type = 'checkbox';
+    input.className = TW.controlSm;
+
+    const text = el('span', { class: TW.optionLabelText });
+    text.textContent = labelText;
+
+    card.appendChild(input);
+    card.appendChild(text);
+
+    return { card, input, label: text };
+}
+
+/** Applies standard error styling to a container. Can be overridden by theme. */
+export function applyErrorStyling(el: HTMLElement, hasError: boolean, errorColor = 'rose'): void {
+    const prefix = errorColor === 'rose' ? 'rose' : errorColor;
+    el.classList.toggle('ring-2', hasError);
+    el.classList.toggle(`ring-${prefix}-400/60`, hasError);
+    el.classList.toggle('rounded-xl', hasError);
+}
+
+/**
+ * Optional tailwind-merge support.
+ * Import { twMerge } from 'tailwind-merge' in your app and call:
+ * setTailwindMerge(twMerge) from formspec-layout to enable automatic conflict resolution.
+ */
+let twMergeFn: ((...classes: string[]) => string) | null = null;
+
+export function setTailwindMerge(fn: ((...classes: string[]) => string) | null): void {
+    twMergeFn = fn;
+}
+
+export function mergeClasses(...classes: (string | undefined)[]): string {
+    const joined = classes.filter(Boolean).join(' ');
+    return twMergeFn ? twMergeFn(joined) : joined;
 }

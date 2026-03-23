@@ -1,4 +1,6 @@
 /** @filedesc Structural DOM tests for all 15 Tailwind adapter components. */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { renderTextInput } from '../../src/tailwind/text-input';
 import { renderNumberInput } from '../../src/tailwind/number-input';
@@ -62,7 +64,8 @@ describe('Tailwind TextInput', () => {
         // Error element
         const error = root.querySelector('[role="alert"]')!;
         expect(error).toBeTruthy();
-        hasClasses(error, 'text-sm', 'text-rose-600');
+        hasClasses(error, 'text-sm');
+        expect(error.className).toContain('var(--formspec-tw-danger)');
     });
 
     it('renders textarea when maxLines > 1', () => {
@@ -118,10 +121,10 @@ describe('Tailwind TextInput', () => {
         const input = parent.querySelector('input')!;
 
         refs.onValidationChange!(true);
-        expect(input.classList.contains('border-rose-500')).toBe(true);
+        expect(input.className).toContain('var(--formspec-tw-danger)');
 
         refs.onValidationChange!(false);
-        expect(input.classList.contains('border-rose-500')).toBe(false);
+        expect(input.className).not.toContain('var(--formspec-tw-danger)');
     });
 });
 
@@ -166,7 +169,7 @@ describe('Tailwind RadioGroup', () => {
         const parent = makeParent();
         renderRadioGroup(mockRadioGroup(), parent, mockAdapterContext());
         expect(parent.querySelector('.grid.gap-3')).toBeTruthy();
-        expect(parent.querySelectorAll('label.rounded-xl').length).toBeGreaterThanOrEqual(2);
+        expect(parent.querySelectorAll('label.rounded-lg').length).toBeGreaterThanOrEqual(2);
     });
 
     it('passes optionControls and rebuildOptions to bind()', () => {
@@ -415,11 +418,30 @@ describe('tailwindAdapter shape', () => {
         }
     });
 
-    it('ships compact integration CSS for rating + range polish', async () => {
+    it('does not inject integrationCSS (host Tailwind owns all control styling)', async () => {
         const { tailwindAdapter } = await import('../../src/tailwind/index');
-        const css = tailwindAdapter.integrationCSS || '';
-        expect(css.length).toBeGreaterThan(100);
-        expect(css.length).toBeLessThan(4000);
-        expect(css).toContain('formspec-rating-star--selected');
+        expect(tailwindAdapter.integrationCSS).toBeUndefined();
+    });
+});
+
+describe('tailwind core CSS defaults', () => {
+    it('prefers emitted formspec theme tokens over package fallback colors', () => {
+        const css = readFileSync(
+            resolve(import.meta.dirname, '../../src/tailwind/tailwind-formspec-core.css'),
+            'utf8',
+        );
+
+        expect(css).toContain('var(--formspec-color-primary');
+        expect(css).toContain('var(--formspec-color-surface');
+        expect(css).toContain('var(--formspec-color-text');
+    });
+
+    it('does not force global dark mode with prefers-color-scheme root overrides', () => {
+        const css = readFileSync(
+            resolve(import.meta.dirname, '../../src/tailwind/tailwind-formspec-core.css'),
+            'utf8',
+        );
+
+        expect(css).not.toContain('@media (prefers-color-scheme: dark)');
     });
 });

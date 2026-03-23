@@ -1,4 +1,10 @@
-/** @filedesc Tailwind CSS render adapter — utility-first styling on semantic HTML elements. */
+/**
+ * @filedesc Tailwind CSS render adapter — utility-first styling on semantic HTML elements.
+ *
+ * Core layout plugins (`Card`, `SubmitButton`, `ValidationSummary`) are not adapter-rendered;
+ * they use `formspec-*` classes. Import **`formspec-adapters/tailwind-formspec-core.css`** in your
+ * app (before host overrides) for sensible defaults, or supply your own styles.
+ */
 import type { RenderAdapter } from 'formspec-webcomponent';
 import { renderTextInput } from './text-input';
 import { renderNumberInput } from './number-input';
@@ -15,7 +21,6 @@ import { renderFileUpload } from './file-upload';
 import { renderSignature } from './signature';
 import { renderWizard } from './wizard';
 import { renderTabs } from './tabs';
-import { integrationCSS } from './integration-css';
 
 /**
  * Tailwind CSS adapter for formspec-webcomponent.
@@ -23,10 +28,12 @@ import { integrationCSS } from './integration-css';
  * Emits semantic HTML with Tailwind utility classes.
  * Requires Tailwind CSS to be loaded (CDN or built).
  * Does NOT require any JavaScript framework — bind() replaces it.
+ *
+ * No `integrationCSS`: controls are styled only via emitted classes; injected global
+ * rules would fight the host Tailwind build and `!important` would block theme overrides.
  */
 export const tailwindAdapter: RenderAdapter = {
     name: 'tailwind',
-    integrationCSS,
     components: {
         TextInput: renderTextInput,
         NumberInput: renderNumberInput,

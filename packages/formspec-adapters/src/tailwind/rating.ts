@@ -1,7 +1,7 @@
 /** @filedesc Tailwind adapter for Rating — star-rating with ARIA slider pattern. */
 import type { RatingBehavior, AdapterRenderFn } from 'formspec-webcomponent';
 import { el } from '../helpers';
-import { createTailwindFieldDOM } from './shared';
+import { createTailwindFieldDOM, TW } from './shared';
 
 export const renderRating: AdapterRenderFn<RatingBehavior> = (
     behavior, parent, actx
@@ -9,7 +9,7 @@ export const renderRating: AdapterRenderFn<RatingBehavior> = (
     const { root, label, hint, error, describedBy } = createTailwindFieldDOM(behavior, { labelFor: false });
 
     const container = el('div', {
-        class: 'formspec-rating-stars flex flex-wrap items-center gap-1 rounded-xl border border-zinc-700/80 bg-zinc-900/50 px-3 py-2',
+        class: `${TW.controlContainer} formspec-rating-stars flex items-center gap-1`,
         role: 'slider',
     });
     container.setAttribute('tabindex', '0');

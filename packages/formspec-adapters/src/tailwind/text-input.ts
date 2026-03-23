@@ -1,7 +1,7 @@
 /** @filedesc Tailwind adapter for TextInput — renders styled input or textarea. */
 import type { TextInputBehavior, AdapterRenderFn } from 'formspec-webcomponent';
 import { el } from '../helpers';
-import { createTailwindFieldDOM, TW, toggleInputError } from './shared';
+import { createTailwindFieldDOM, TW, toggleInputError, applyErrorStyling } from './shared';
 
 export const renderTextInput: AdapterRenderFn<TextInputBehavior> = (
     behavior, parent, actx
@@ -82,6 +82,7 @@ export const renderTextInput: AdapterRenderFn<TextInputBehavior> = (
         root, label, control, hint, error,
         onValidationChange: (hasError) => {
             toggleInputError(actualInput, hasError);
+            // Additional container styling can be added via applyErrorStyling(root, hasError) if desired
         },
     });
     actx.onDispose(dispose);

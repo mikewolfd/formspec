@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./tailwind-formspec-core.css": "./dist/tailwind-formspec-core.css"
   },
   "scripts": {
     "build:css": "node scripts/build-css.mjs",
