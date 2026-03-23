@@ -18,7 +18,7 @@
  * @module definition-instances
  */
 import type { CommandHandler } from '../types.js';
-import { rewriteFELReferences } from 'formspec-engine';
+import { rewriteFELReferences } from 'formspec-engine/fel-tools';
 import type { FormItem } from 'formspec-types';
 
 /**

@@ -1,5 +1,5 @@
 /** @filedesc Core type definitions for project state, commands, queries, and diagnostics. */
-import type { SchemaValidator } from 'formspec-engine';
+import type { SchemaValidator } from 'formspec-engine/fel-tools';
 import type {
   FormItem, FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
 } from 'formspec-types';

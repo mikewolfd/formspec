@@ -13,10 +13,8 @@
  */
 import type { CommandHandler } from '../types.js';
 import type { ProjectState } from '../types.js';
-import {
-  normalizeIndexedPath,
-  rewriteFELReferences,
-} from 'formspec-engine';
+import { normalizeIndexedPath } from 'formspec-engine/fel-runtime';
+import { rewriteFELReferences } from 'formspec-engine/fel-tools';
 import type { FormItem } from 'formspec-types';
 import { getEditableComponentDocument } from '../component-documents.js';
 import { resolveItemLocation } from './helpers.js';

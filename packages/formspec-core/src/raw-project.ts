@@ -75,7 +75,7 @@ import {
   browseExtensions as _browseExtensions,
   resolveExtension as _resolveExtension,
 } from './queries/index.js';
-import { itemAtPath } from 'formspec-engine';
+import { itemAtPath } from 'formspec-engine/fel-runtime';
 
 /** Components that manage their own group path binding and MUST keep their bind on export. */
 const SELF_MANAGED_GROUP_BINDS = new Set(['Accordion', 'DataTable']);

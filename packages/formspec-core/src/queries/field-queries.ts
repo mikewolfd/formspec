@@ -6,7 +6,7 @@
  * and returns a result with no side effects.
  */
 import type { FormItem } from 'formspec-types';
-import { itemAtPath, normalizeIndexedPath } from 'formspec-engine';
+import { itemAtPath, normalizeIndexedPath } from 'formspec-engine/fel-runtime';
 import { getCurrentComponentDocument, getEditableComponentDocument } from '../component-documents.js';
 import type {
   ProjectState,

@@ -2,13 +2,12 @@
  * Pure query function for multi-pass project diagnostics.
  */
 import type { FormItem } from 'formspec-types';
+import { analyzeFEL, normalizeIndexedPath } from 'formspec-engine/fel-runtime';
 import {
-  analyzeFEL,
-  normalizeIndexedPath,
   validateExtensionUsage,
   type DocumentType,
   type SchemaValidator,
-} from 'formspec-engine';
+} from 'formspec-engine/fel-tools';
 import { getCurrentComponentDocument } from '../component-documents.js';
 import { allExpressions } from './expression-index.js';
 import { dependencyGraph } from './dependency-graph.js';
