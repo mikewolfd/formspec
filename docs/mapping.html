@@ -231,12 +231,15 @@ stable for production use until a 1.0.0 release is published.</p>
 <p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
 “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “NOT RECOMMENDED”, “MAY”, and
 “OPTIONAL” in this document are to be interpreted as described in <a
-href="https://www.rfc-editor.org/rfc/rfc2119">BCP 14</a> [RFC 2119] [RFC
-8174] when, and only when, they appear in ALL CAPITALS, as shown
-here.</p>
-<p>JSON syntax and data types are as defined in [RFC 8259]. JSON Pointer
-syntax is as defined in [RFC 6901]. URI syntax is as defined in [RFC
-3986].</p>
+href="https://www.rfc-editor.org/rfc/rfc2119">BCP 14</a> [RFC 2119] <a
+href="https://www.rfc-editor.org/rfc/rfc8174">RFC 8174</a> when, and
+only when, they appear in ALL CAPITALS, as shown here.</p>
+<p>JSON syntax and data types are as defined in <a
+href="https://www.rfc-editor.org/rfc/rfc8259">RFC 8259</a>. JSON Pointer
+syntax is as defined in <a
+href="https://www.rfc-editor.org/rfc/rfc6901">RFC 6901</a>. URI syntax
+is as defined in <a href="https://www.rfc-editor.org/rfc/rfc3986">RFC
+3986</a>.</p>
 <p>Terms defined in the Formspec v1.0 core specification — including
 <em>Definition</em>, <em>Instance</em>, <em>Response</em>,
 <em>Bind</em>, <em>FEL</em>, and <em>conformant processor</em> — retain
@@ -455,10 +458,11 @@ deserializing an XML document into the mapping engine’s internal
 representation. The adapter MUST support namespace declarations,
 attribute-vs-element mapping, and mixed content handling.</li>
 <li>A <strong>CSV Adapter</strong> capable of serializing the mapping
-output as a CSV file conforming to [RFC 4180], and deserializing a CSV
-file into the mapping engine’s internal representation. The adapter MUST
-support configurable delimiters, header-row mapping, and multi-row
-repeat flattening.</li>
+output as a CSV file conforming to <a
+href="https://www.rfc-editor.org/rfc/rfc4180">RFC 4180</a>, and
+deserializing a CSV file into the mapping engine’s internal
+representation. The adapter MUST support configurable delimiters,
+header-row mapping, and multi-row repeat flattening.</li>
 <li>Adapter-specific configuration properties in the Mapping Document
 (e.g., XML namespace bindings, CSV delimiter, encoding).</li>
 </ol>
@@ -468,8 +472,8 @@ Mapping Bidirectional conformance.</p>
 <p>All normative JSON examples in this specification use the following
 conventions:</p>
 <ul>
-<li>JSON property names are enclosed in double quotes per [RFC
-8259].</li>
+<li>JSON property names are enclosed in double quotes per <a
+href="https://www.rfc-editor.org/rfc/rfc8259">RFC 8259</a>.</li>
 <li>Ellipsis (<code>...</code>) within a JSON object or array indicates
 that additional properties or elements may be present but are omitted
 for brevity.</li>
@@ -2818,7 +2822,7 @@ implements:</p>
 <tr>
 <td>JSON</td>
 <td>Mapping Core</td>
-<td>[RFC 8259]</td>
+<td><a href="https://www.rfc-editor.org/rfc/rfc8259">RFC 8259</a></td>
 </tr>
 <tr>
 <td>XML</td>
@@ -2828,7 +2832,7 @@ implements:</p>
 <tr>
 <td>CSV</td>
 <td>Mapping Extended</td>
-<td>[RFC 4180]</td>
+<td><a href="https://www.rfc-editor.org/rfc/rfc4180">RFC 4180</a></td>
 </tr>
 </tbody>
 </table>
@@ -2968,7 +2972,8 @@ class="sourceCode xml"><code class="sourceCode xml"><span id="cb35-1"><a href="#
 <span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">Order</span>&gt;</span></code></pre></div>
 <h3 id="csv-adapter-mapping-extended">6.4 CSV Adapter (Mapping
 Extended)</h3>
-<p>The CSV adapter serializes internal JSON as [RFC 4180] delimited
+<p>The CSV adapter serializes internal JSON as <a
+href="https://www.rfc-editor.org/rfc/rfc4180">RFC 4180</a> delimited
 text.</p>
 <p><strong>Structural constraint.</strong> All target paths MUST be
 simple identifiers (no dot-notation or brackets). A nested target path
@@ -3064,10 +3069,11 @@ sequential model.</p>
 <tr>
 <td>1</td>
 <td><strong>Validate</strong></td>
-<td>Parse the Mapping Document as JSON ([RFC 8259]). Verify conformance
-to the Mapping DSL schema (§3). Confirm <code>definitionVersion</code>
-compatibility with the source Response. Halt on any validation error
-(§7.2).</td>
+<td>Parse the Mapping Document as JSON (<a
+href="https://www.rfc-editor.org/rfc/rfc8259">RFC 8259</a>). Verify
+conformance to the Mapping DSL schema (§3). Confirm
+<code>definitionVersion</code> compatibility with the source Response.
+Halt on any validation error (§7.2).</td>
 </tr>
 <tr>
 <td>2</td>
