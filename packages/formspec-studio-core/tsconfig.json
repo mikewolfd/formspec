@@ -5,18 +5,12 @@
     "moduleResolution": "bundler",
     "declaration": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "formspec-engine/fel-runtime": ["../formspec-engine/src/fel/fel-api-runtime.ts"],
-      "formspec-engine/fel-tools": ["../formspec-engine/src/fel/fel-api-tools.ts"],
-      "formspec-engine/init-formspec-engine": ["../formspec-engine/src/init-formspec-engine.ts"],
-      "formspec-engine/render": ["../formspec-engine/src/engine-render-entry.ts"]
-    }
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"]
 }
