@@ -1,7 +1,7 @@
 # WASM runtime/tools split — size & timing baseline (ADR 0050)
 
-**Status:** Partial — sizes + rough Node timings recorded (2026-03-23)  
-**Date:** 2026-03-23  
+**Status:** Partial — sizes + Node timings including engine construction (2026-03-24)  
+**Date:** 2026-03-23 (updated 2026-03-24)  
 **Plan:** [2026-03-23-wasm-runtime-tools-split.md](../plans/2026-03-23-wasm-runtime-tools-split.md)
 
 ## Implementation note (current tree)
@@ -26,8 +26,10 @@ Sequence intent: `await initFormspecEngine()` → (optional) `await initFormspec
 |------|----------------|--------------|
 | `initFormspecEngine()` only | **4.26** | Fresh `node --input-type=module` subprocess, `performance.now()` around await. |
 | `initFormspecEngine()` + `initFormspecEngineTools()` | **8.62** | Fresh subprocess, both awaits. |
+| `createFormEngine(kitchen-sink)` after runtime init | **19.77** | Fresh subprocess; `tests/e2e/fixtures/kitchen-sink-holistic/definition.v2.json`. |
+| First `setValue('fullName', …)` after construction | **1.22** | Same subprocess as previous row. |
 
-**Not yet recorded:** browser timings; full sequence through `createFormEngine()` + first eval; monolith comparison on same machine.
+**Not yet recorded:** browser timings; explicit `_evaluate()` / full validation hot path microbench; monolith comparison on same machine.
 
 ## Commands (repeat measurements)
 

@@ -12,6 +12,9 @@ let _wasmToolsReady = false;
 let _initToolsPromise: Promise<void> | null = null;
 let _wasmTools: WasmToolsModule | null = null;
 
+/** Count of `import()` executions for tools glue (excludes early-return paths). For tests only. */
+let _toolsWasmDynamicImportCount = 0;
+
 /** Whether the tools WASM module has been initialized and is ready for use. */
 export function isWasmToolsReady(): boolean {
     return _wasmToolsReady;
@@ -34,6 +37,7 @@ export async function initWasmTools(): Promise<void> {
             }
             getWasmModule();
 
+            _toolsWasmDynamicImportCount += 1;
             const tools = await import('../wasm-pkg-tools/formspec_wasm_tools.js');
             const runningInNode = typeof globalThis.process !== 'undefined'
                 && globalThis.process.versions?.node;
@@ -105,15 +109,34 @@ function assertWasmToolsReadySync(): void {
     }
 }
 
-function verifyRuntimeToolsCompatibility(toolsMod: WasmToolsModule): void {
-    const runtimeVersion = getWasmModule().formspecWasmSplitAbiVersion();
-    const toolsVersion = toolsMod.formspecWasmSplitAbiVersion();
+/**
+ * Validates paired runtime/tools split ABI strings (same contract as `formspecWasmSplitAbiVersion()` in WASM).
+ * Exported for unit tests; `initWasmTools` uses this after loading the tools module.
+ */
+export function assertRuntimeToolsSplitAbiMatch(runtimeVersion: string, toolsVersion: string): void {
     if (runtimeVersion !== toolsVersion) {
         throw new Error(
             `WASM runtime/tools compatibility mismatch: runtime ABI=${runtimeVersion}, tools ABI=${toolsVersion}. ` +
                 'Rebuild wasm-pkg-runtime and wasm-pkg-tools from the same formspec-wasm commit.',
         );
     }
+}
+
+function verifyRuntimeToolsCompatibility(toolsMod: WasmToolsModule): void {
+    assertRuntimeToolsSplitAbiMatch(
+        getWasmModule().formspecWasmSplitAbiVersion(),
+        toolsMod.formspecWasmSplitAbiVersion(),
+    );
+}
+
+/** @internal Test helper — dynamic `import()` count for tools JS glue. */
+export function getToolsWasmDynamicImportCountForTest(): number {
+    return _toolsWasmDynamicImportCount;
+}
+
+/** @internal Reset import counter (use only in isolated test processes). */
+export function resetToolsWasmDynamicImportCountForTest(): void {
+    _toolsWasmDynamicImportCount = 0;
 }
 
 // ---------------------------------------------------------------------------

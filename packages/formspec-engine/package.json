@@ -12,7 +12,8 @@
     "build": "npm run build:wasm && tsc",
     "test:unit": "node --experimental-specifier-resolution=node --import ./tests/setup.mjs --test \"tests/**/*.test.mjs\"",
     "test:wasm-runtime-isolation": "node --experimental-specifier-resolution=node --test tests/isolation/wasm-runtime-isolation.mjs",
-    "test": "npm run build && npm run test:unit && npm run test:wasm-runtime-isolation"
+    "test:wasm-tools-import-count": "node --experimental-specifier-resolution=node --test tests/isolation/wasm-tools-import-count.mjs",
+    "test": "npm run build && npm run test:unit && npm run test:wasm-runtime-isolation && npm run test:wasm-tools-import-count"
   },
   "dependencies": {
     "@preact/signals-core": "^1.6.0",

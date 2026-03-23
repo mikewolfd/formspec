@@ -22,7 +22,7 @@ Record **evidence** for ADR acceptance criteria §Measure and gate.
 - [ ] Monolith `wasm-pkg/formspec_wasm_bg.wasm`: raw bytes, gzip, brotli (same `wasm-opt` flags as today). *Optional historical row — compare from a pre-split commit if needed.*
 - [x] Post-split runtime/tools `.wasm` sizes (raw + gzip + brotli) recorded in [2026-03-23-wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md). *Note: same Rust crate today → sizes match until Rust split.*
 - [x] Rough Node cold-process timings: `initFormspecEngine()` vs `init` + `initFormspecEngineTools()` in baseline doc.
-- [ ] Time through first `createFormEngine()` and first definition evaluation — same sequence as ADR acceptance criteria (browser + Node if both matter).
+- [x] Node: `createFormEngine()` + first `setValue` on kitchen-sink fixture — recorded in [wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md). *Browser + explicit eval/validation step still open.*
 - [ ] Optional: `cargo bloat` / `twiggy` on `formspec-wasm` for Rust-side intuition (not a gate by itself).
 
 Store numbers in this plan or the baseline template [2026-03-23-wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md) and link from ADR implementation notes when done.
@@ -129,9 +129,9 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 
 - [x] **Runtime isolation:** test that after `initFormspecEngine()` (or `initWasm()`) and through first `createFormEngine()` + minimal render/eval, tools JS glue module was **not** imported — e.g. Vitest mock on the dynamic import path, or assert no tools chunk is requested in the browser harness. *(Partial: `packages/formspec-engine/tests/isolation/wasm-runtime-isolation.mjs` runs without global setup and asserts tools stay unloaded + sync tools API throws.)*
 - [x] **Tools init idempotence:** `initFormspecEngineTools()` safe to call multiple times after global setup (`tests/wasm-tools-init.test.mjs`).
-- [ ] **Lazy tools (full):** call `createMappingEngine` or `wasmLintDocument` once; assert tools module loads exactly once; second call reuses init (needs import spy or counter).
+- [x] **Lazy tools (full):** `tests/isolation/wasm-tools-import-count.mjs` — `_toolsWasmDynamicImportCount` increments once across repeated `initFormspecEngineTools()` (`npm run test:wasm-tools-import-count`).
 - [ ] **Top-level API compatibility:** package-root imports for existing public APIs still resolve from `formspec-engine` without caller rewrites unless explicitly documented as a breaking change.
-- [ ] **Compatibility guard:** intentionally mismatched runtime/tools artifacts fail with the expected targeted error before any tools call proceeds.
+- [x] **Compatibility guard:** `assertRuntimeToolsSplitAbiMatch` + `tests/wasm-split-abi.test.mjs` lock the mismatch error text; full mismatched-artifact integration test still optional.
 - [ ] **Regression:** full engine test suite + `formspec-webcomponent` tests unchanged in public API.
 - [ ] **Registry:** fixture with `registryDocuments: [{ entries: [...] }]` still produces same eval / extension constraint behavior as baseline (snapshot or existing tests).
 
