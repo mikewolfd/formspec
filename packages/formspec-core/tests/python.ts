@@ -29,7 +29,7 @@ PY`,
     },
   ).trim();
 
-  return output.includes('registry_documents=None') && output.includes('instances=None');
+  return output.includes('registry_documents=None') && output.includes('instances=None') && output.includes('context=None');
 }
 
 export function ensureCurrentFormspecRust(pythonBin: string, rootDir: string): void {

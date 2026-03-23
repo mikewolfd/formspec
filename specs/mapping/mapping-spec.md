@@ -45,6 +45,11 @@ their core-specification meanings throughout this document unless explicitly
 redefined.
 
 [rfc2119]: https://www.rfc-editor.org/rfc/rfc2119
+[RFC 3986]: https://www.rfc-editor.org/rfc/rfc3986
+[RFC 4180]: https://www.rfc-editor.org/rfc/rfc4180
+[RFC 6901]: https://www.rfc-editor.org/rfc/rfc6901
+[RFC 8174]: https://www.rfc-editor.org/rfc/rfc8174
+[RFC 8259]: https://www.rfc-editor.org/rfc/rfc8259
 
 ---
 

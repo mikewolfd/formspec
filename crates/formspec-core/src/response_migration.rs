@@ -79,6 +79,14 @@ fn eval_transform(expression: &str, data: &Value, now_iso: &str) -> Value {
     fel_to_json(&result.value)
 }
 
+fn parse_semver_tuple(v: &str) -> (u32, u32, u32) {
+    let mut parts = v.splitn(3, '.');
+    let major = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let minor = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let patch = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    (major, minor, patch)
+}
+
 /// Apply ordered definition migrations to response field data.
 ///
 /// Expects `definition.migrations` as an array of objects with `fromVersion` (or `from_version`)
@@ -109,7 +117,7 @@ pub fn apply_migrations_to_response_data(
             let Some(obj) = m.as_object() else {
                 return false;
             };
-            migration_from_version(obj).is_some_and(|v| v >= from_version)
+            migration_from_version(obj).is_some_and(|v| parse_semver_tuple(v) >= parse_semver_tuple(from_version))
         })
         .collect();
 
@@ -117,12 +125,14 @@ pub fn apply_migrations_to_response_data(
         let va = a
             .as_object()
             .and_then(migration_from_version)
-            .unwrap_or("");
+            .map(parse_semver_tuple)
+            .unwrap_or((0, 0, 0));
         let vb = b
             .as_object()
             .and_then(migration_from_version)
-            .unwrap_or("");
-        va.cmp(vb)
+            .map(parse_semver_tuple)
+            .unwrap_or((0, 0, 0));
+        va.cmp(&vb)
     });
 
     let Value::Object(mut data) = response_data else {
@@ -267,5 +277,37 @@ mod tests {
         let data = json!({ "x": 1 });
         let out = apply_migrations_to_response_data(&def, data.clone(), "1.0.0", "2020-01-01T00:00:00Z");
         assert_eq!(out, data);
+    }
+
+    #[test]
+    fn multi_digit_versions_sort_numerically() {
+        let def = json!({
+            "items": [],
+            "migrations": [
+                { "fromVersion": "9.0.0", "changes": [{ "type": "rename", "from": "a", "to": "b" }] },
+                { "fromVersion": "10.0.0", "changes": [{ "type": "rename", "from": "b", "to": "c" }] }
+            ]
+        });
+        let data = json!({ "a": "value" });
+        let out = apply_migrations_to_response_data(&def, data, "9.0.0", "2020-01-01T00:00:00Z");
+        assert_eq!(out["c"], json!("value"));
+        assert_eq!(out.get("a"), None);
+        assert_eq!(out.get("b"), None);
+    }
+
+    #[test]
+    fn multi_digit_version_filter_excludes_lower_versions() {
+        let def = json!({
+            "items": [],
+            "migrations": [
+                { "fromVersion": "2.0.0", "changes": [{ "type": "rename", "from": "a", "to": "b" }] },
+                { "fromVersion": "10.0.0", "changes": [{ "type": "rename", "from": "b", "to": "c" }] }
+            ]
+        });
+        let data2 = json!({ "a": "low", "b": "high" });
+        let out = apply_migrations_to_response_data(&def, data2, "10.0.0", "2020-01-01T00:00:00Z");
+        assert_eq!(out["a"], json!("low"), "2.0.0 migration should NOT have run");
+        assert_eq!(out["c"], json!("high"));
+        assert_eq!(out.get("b"), None);
     }
 }
