@@ -2,11 +2,11 @@
 
 Core form state engine for Formspec. Manages field values, relevance, required state, readonly state, validation results, and repeat group counts via a reactive signal graph.
 
-**Where spec logic runs:** **Normative** evaluation (FEL execution, validation, coercion, migrations, batch definition eval, etc.) is implemented in **Rust** and exposed through **WASM** (`wasm-pkg-runtime` / `wasm-pkg-tools`). TypeScript is **orchestration** (signals, `FormEngine`, bridges) plus a **client-side FEL** lexer/parser/interpreter and dependency visitor used mainly to wire **reactive dependencies** in the browser — not the source of truth for spec semantics. See repo **`CLAUDE.md`** / **`AGENTS.md`** → **Architecture** → **Logic ownership (Rust / WASM first)**.
+**Where spec logic runs:** **Normative** FEL (parse, dependency lists, analysis, prepare, eval), validation, coercion, migrations, batch definition eval, etc. is implemented in **Rust** and exposed through **WASM** (`wasm-pkg-runtime` / `wasm-pkg-tools`). TypeScript is **orchestration**: Preact signals, `FormEngine`, and **thin** `src/fel/` modules (`fel-api-runtime.ts`, `fel-api-tools.ts`) that call the bridges — not a second in-tree FEL parser. See **`CLAUDE.md`** / **`AGENTS.md`** → **Architecture** → **Logic ownership (Rust / WASM first)**.
 
-**Runtime dependencies:** `@preact/signals-core ^1.6.0`, `chevrotain ^11.1.1`, `ajv ^8.18.0`
+**Runtime dependencies:** `@preact/signals-core ^1.6.0`, `formspec-types` (workspace)
 **Module format:** ESM (`dist/index.js`)
-**Build:** `npm run build` (tsc → `dist/`)
+**Build:** `npm run build` (two `wasm-pack` outputs under `wasm-pkg-runtime/` / `wasm-pkg-tools/`, then `tsc` → `dist/`)
 
 ---
 
@@ -334,21 +334,15 @@ The engine builds a reactive signal graph on construction. Three `@preact/signal
 - **`computed(fn)`** — read-only derived. Used for: `calculate` field values, FEL-based MIP states, validation results, error signals, variable signals.
 - **`effect(fn)`** — side effect. Used for: applying `bind.default` values on relevance transitions.
 
-All reactive wiring happens inside `compileFEL` closures. Each closure reads `structureVersion.value` and all dependency signal values, so Preact captures every dependency when the closure runs inside a `computed`.
+Reactive FEL uses **`compileExpression()`** closures: each closure reads `structureVersion`, instance/evaluation version signals, and calls **`wasmEvalFELWithContext`** with a JSON context built from engine state. Preact captures signal reads when the closure runs inside a `computed`. **Dependency lists** for binds (e.g. `calculate`) come from **`wasmGetFELDependencies`** during definition setup — same Rust parser as eval, not a TypeScript CST walk.
 
-### FEL pipeline (TypeScript — client wiring)
+### FEL surface in this package (`src/fel/`)
 
-**Runtime FEL results** in the live engine come from **WASM/Rust** (`wasmEvalFELWithContext`, etc.). The stages below live in `src/fel/` for **parsing, dependency extraction, and reactive `compileFEL` wiring** — see **Logic ownership** in `CLAUDE.md`.
+- **`fel-api-runtime.ts`** — WASM **runtime** only: `analyzeFEL`, `getFELDependencies`, `evaluateDefinition`, path helpers (`normalizeIndexedPath` → `wasmNormalizeIndexedPath`; `splitNormalizedPath` defers to WASM then splits). **`itemLocationAtPath`** walks the in-memory definition tree by key (host navigation). **`normalizePathSegment`** is a small exported string helper; full paths should use **`normalizeIndexedPath`** / **`splitNormalizedPath`** for Rust-aligned behavior.
+- **`fel-api-tools.ts`** — lazy **tools** WASM: tokenize/print/catalog, rewrites, lint-adjacent FEL helpers, etc.
+- **`fel-api.ts`** — re-exports both for `import 'formspec-engine'`.
 
-Four stages, all in `src/fel/`:
-
-1. **Lexer** (`lexer.ts`) — Chevrotain `Lexer` with 38 token types. Keywords: `True`, `False`, `Null`, `And`, `Or`, `Not`, `In`, `If`, `Then`, `Else`, `Let`. Literal types: string (single/double quoted), number, date (`@YYYY-MM-DD`), datetime (`@YYYY-MM-DDTHH:MM:SSZ`). Skips whitespace and comments.
-
-2. **Parser** (`parser.ts`) — Singleton `FelParser extends CstParser`. Produces a CST via `parser.expression()`. Operator precedence from lowest: `let`, `if/then/else`, ternary, `or`, `and`, equality, comparison, `in`, `??`, additive, multiplicative, unary, postfix, atoms.
-
-3. **Interpreter** (`interpreter.ts`) — Singleton `FelInterpreter extends BaseVisitor`. Evaluates CST nodes against a `FelContext` that bridges to engine signals. Field references: `$name` resolves relative to `currentItemPath`; `@index` gives 1-based repeat index; `@count` gives total instances; `@variableName` reads a variable. Aggregate fan-out: when a path traverses a repeatable group, the interpreter fans out into an array of all leaf values (enables `sum(items.amount)` without explicit `[*]`).
-
-4. **Dependency visitor** (`dependency-visitor.ts`) — Singleton `FelDependencyVisitor`. Walks a CST and returns de-duplicated field paths. Used by `compileFEL` to populate the dependency graph and ensure all referenced signals are read inside each compiled closure.
+Grammar, stdlib, and evaluation semantics live in **`fel-core`** / **`formspec-core`** (Rust); see **`crates/fel-core`** and **`crates/formspec-wasm`**.
 
 ### Standard library (44+ functions)
 

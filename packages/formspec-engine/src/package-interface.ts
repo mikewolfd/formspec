@@ -6,6 +6,10 @@
  *
  * Note: Spec aliases (`FormspecDefinition`, `ValidationReport`, …) and `export type { … }`
  * from `./interfaces.js` are not listed here; import those types directly when needed.
+ *
+ * @remarks Sub-properties use `typeof import(...)`. TypeDoc models those as internal `__module`
+ * symbols; root `typedoc.json` sets `validation.notExported` to `false` so API doc generation
+ * does not warn on this pattern.
  */
 export interface FormspecEnginePackage {
     /** `FormEngine` class and `createFormEngine` factory. */

@@ -24,5 +24,8 @@
       "FormEngine": "api/formspec-engine/classes/FormEngine.html"
     }
   },
-  "excludeInternal": true
+  "excludeInternal": true,
+  "validation": {
+    "notExported": false
+  }
 }

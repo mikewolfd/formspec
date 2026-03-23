@@ -677,12 +677,12 @@ or advanced integrations.
 
 ##### `getDiagnosticsSnapshot(options?: {
         mode?: 'continuous' | 'submit';
-    }): import("formspec-engine/dist/interfaces").FormEngineDiagnosticsSnapshot | null`
+    }): import("formspec-engine/render").FormEngineDiagnosticsSnapshot | null`
 
 Capture a diagnostics snapshot from the engine, including current signal
 values, validation state, and repeat counts.
 
-##### `applyReplayEvent(event: any): import("formspec-engine/dist/interfaces").EngineReplayApplyResult | {
+##### `applyReplayEvent(event: any): import("formspec-engine/render").EngineReplayApplyResult | {
         ok: boolean;
         event: any;
         error: string;
@@ -692,7 +692,7 @@ Apply a single replay event (e.g. `setValue`, `addRepeat`) to the engine.
 
 ##### `replay(events: any[], options?: {
         stopOnError?: boolean;
-    }): import("formspec-engine/dist/interfaces").EngineReplayResult | {
+    }): import("formspec-engine/render").EngineReplayResult | {
         applied: number;
         results: never[];
         errors: {
@@ -982,6 +982,10 @@ Interface for what emitNode/renderActualComponent need from FormspecRender.
 ## `stylesheetRefCounts: Map<string, number>`
 
 Module-level ref counts (was static on the class).
+
+## `getTailwindAdapterSafelistTokens(): string[]`
+
+Sorted unique utility tokens for Tailwind Play CDN `safelist`.
 
 ## `resolveToken(host: StylingHost, val: any): any`
 

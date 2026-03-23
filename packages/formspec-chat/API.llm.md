@@ -241,7 +241,7 @@ can use to generate fields with the correct extension declarations.
 Groups entries by category (dataType, constraint, function) and produces
 usage examples the model can follow.
 
-#### interface `RegistryEntry`
+#### interface `RegistryHintEntry`
 
 @filedesc Extracts concise extension hints from a registry document for AI prompt injection.
 
@@ -261,7 +261,9 @@ usage examples the model can follow.
 
 #### interface `RegistryDocument`
 
-- **entries**: `RegistryEntry[]`
+Minimal registry document shape accepted by {@link extractRegistryHints}.
+
+- **entries**: `RegistryHintEntry[]`
 
 #### class `SessionStore`
 

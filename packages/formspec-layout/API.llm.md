@@ -76,6 +76,17 @@ merging the 5-level theme cascade:
 Also provides {@link resolveWidget} for selecting the best available
 widget from a preference + fallback chain.
 
+## `setTailwindMerge(fn: (classes: string) => string): void`
+
+Inject the `twMerge` function from the `tailwind-merge` package.
+Call this once at startup to enable `classStrategy: "tailwind-merge"`:
+
+```ts
+import { twMerge } from 'tailwind-merge';
+import { setTailwindMerge } from 'formspec-layout';
+setTailwindMerge(twMerge);
+```
+
 ## `resolvePresentation(theme: ThemeDocument | null | undefined, item: ItemDescriptor, tier1?: Tier1Hints): PresentationBlock`
 
 Resolve the effective {@link PresentationBlock} for a single item by
@@ -112,13 +123,12 @@ ARIA-related presentation hints applied to a rendered element.
 
 Merged presentation directives for a single item: widget choice, label position, styles, CSS classes, accessibility, and fallback chain.
 
-- **widget?**: `string`
-- **widgetConfig?**: `Record<string, unknown>`
-- **labelPosition?**: `'top' | 'start' | 'hidden'`
-- **style?**: `Record<string, string | number>`
-- **accessibility?**: `AccessibilityBlock`
-- **fallback?**: `string[]`
-- **cssClass?**: `string | string[]`
+- **cssClassReplace** (`string | string[]`): CSS classes that **replace** rather than union with lower cascade levels.
+Use when a higher-priority level needs to override utility classes from
+a lower level (e.g. replacing `p-4` with `p-8` in Tailwind).
+
+During cascade merging, `cssClassReplace` entries are collected, and
+after the final union any exact matches from lower levels are removed.
 
 #### interface `SelectorMatch`
 
@@ -160,25 +170,10 @@ A page definition within a theme, used for wizard/tab page layouts with optional
 
 Top-level theme document: tokens, defaults, selectors, per-item overrides, pages, breakpoints, and stylesheets.
 
-- **$formspecTheme**: `'1.0'`
-- **version**: `string`
-- **targetDefinition**: `{
-        url: string;
-        compatibleVersions?: string;
-    }`
-- **url?**: `string`
-- **name?**: `string`
-- **title?**: `string`
-- **description?**: `string`
-- **platform?**: `string`
-- **tokens?**: `Record<string, string | number>`
-- **defaults?**: `PresentationBlock`
-- **selectors?**: `ThemeSelector[]`
-- **items?**: `Record<string, PresentationBlock>`
-- **pages?**: `Page[]`
-- **breakpoints?**: `Record<string, number>`
-- **stylesheets?**: `string[]`
-- **extensions?**: `Record<string, unknown>`
+- **classStrategy** (`'union' | 'tailwind-merge'`): CSS class merge strategy applied after cascade resolution.
+- `"union"` (default): plain Set-based deduplication.
+- `"tailwind-merge"`: conflict-aware merge that keeps only the last
+  utility per Tailwind prefix (requires `tailwind-merge` at runtime).
 
 #### interface `ItemDescriptor`
 

@@ -11,7 +11,7 @@ The **WASM runtime/tools split**, **`fel-api-runtime` / `fel-api-tools`**, **`in
 
 | Area | Rust-first? | Notes |
 |------|-------------|--------|
-| `fel-api-runtime.ts` | Yes | Passthrough to `wasm-bridge-runtime`; `analyzeFEL` only normalizes error **shape** for TS consumers. `splitNormalizedPath` delegates normalization to `wasmNormalizeIndexedPath`. `itemLocationAtPath` is **host tree navigation** (find item by key), not FEL evaluation. `normalizePathSegment` is a string helper (legacy); if it ever diverges from spec, it should move to Rust or call WASM. |
+| `fel-api-runtime.ts` | Yes | Passthrough to `wasm-bridge-runtime`; `analyzeFEL` only normalizes error **shape** for TS consumers. `splitNormalizedPath` delegates normalization to `wasmNormalizeIndexedPath`. `itemLocationAtPath` is **host tree navigation** (find item by key), not FEL evaluation. `normalizePathSegment` is a small exported string helper; Rust has `formspec_core::path_utils::normalize_path_segment` — keep behavior aligned or route through WASM if the spec treats segment normalization as normative. |
 | `fel-api-tools.ts` | Yes | Passthrough + `rewriteFELReferences` / `validateExtensionUsage` **orchestration** (callbacks, walking items to collect extension names) then **WASM** does rewrite/validation. |
 | `fel-api.ts` | Yes | Re-export barrel only. |
 | `init-formspec-engine.ts` | Yes | Module load / init order only. |
@@ -23,9 +23,9 @@ The **WASM runtime/tools split**, **`fel-api-runtime` / `fel-api-tools`**, **`in
 
 ## Pre-existing debt (not introduced here)
 
-- **Full TS FEL interpreter** under `packages/formspec-engine/src/fel/` still exists for reactive **compileFEL** / **DependencyVisitor**. That conflicts with a strict “all FEL in Rust” posture; the agreed framing is: **normative eval = WASM**, TS pipeline = **client wiring** until/unless replaced by Rust-side dep graph + WASM-only eval.
-- **`normalizePathSegment`** in `fel-api-runtime.ts` is pure TS regex; worth aligning with Rust if the spec defines path normalization normatively.
+- **Historical:** the repo once carried a Chevrotain-based TS FEL lexer/parser/interpreter for client-side wiring. That stack is **removed** from `formspec-engine`; parse/deps/analysis/eval for the engine go through **Rust + runtime WASM** (`getFELDependencies`, `analyzeFEL`, `wasmEvalFELWithContext`, etc.). **`compileExpression`** is a reactive wrapper around WASM eval, not a TS interpreter.
+- **`normalizePathSegment`** in `fel-api-runtime.ts` remains a TS convenience export; **`normalizeIndexedPath` / `splitNormalizedPath`** use WASM. Align `normalizePathSegment` with **`formspec_core::normalize_path_segment`** (or expose it from WASM) if callers need strict parity on odd segments.
 
-## README fix
+## Doc alignment (post-review)
 
-`packages/formspec-engine/README.md` opening previously implied the TS FEL stack was the full story; it now states **Rust/WASM = authoritative** and points to **Logic ownership** in `CLAUDE.md` / `AGENTS.md`, and the **FEL pipeline** subsection is labeled as TS wiring with eval from WASM.
+`packages/formspec-engine/README.md`, **`CLAUDE.md`**, and **`AGENTS.md`** now describe **Rust/WASM as authoritative** for FEL, the **`fel-api-runtime` / `fel-api-tools`** glue layout, and **`compileExpression`** — and no longer list a Chevrotain pipeline under `src/fel/`.
