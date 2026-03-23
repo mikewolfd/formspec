@@ -1,5 +1,5 @@
 /** @filedesc Screener UI: renders eligibility questions and routes to internal/external forms. */
-import type { IFormEngine } from 'formspec-engine';
+import type { IFormEngine } from 'formspec-engine/render';
 import { ScreenerRoute } from '../types.js';
 
 export interface ScreenerHost {

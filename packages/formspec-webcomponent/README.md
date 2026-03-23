@@ -8,7 +8,7 @@
 npm install formspec-webcomponent
 ```
 
-The package is ESM-only. It requires `formspec-engine` and `formspec-layout` as peer dependencies.
+The package is ESM-only. It requires `formspec-engine` and `formspec-layout` as peer dependencies. Runtime imports use **`formspec-engine/render`** and **`formspec-engine/init-formspec-engine`** so the custom element does not pull the full engine `fel-api` / tools JS glue graph.
 
 ## Quick Start
 
