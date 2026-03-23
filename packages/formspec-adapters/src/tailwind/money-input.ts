@@ -12,7 +12,7 @@ export const renderMoneyInput: AdapterRenderFn<MoneyInputBehavior> = (
 
     if (behavior.resolvedCurrency) {
         const prefix = el('span', {
-            class: 'inline-flex items-center rounded-l-xl border border-r-0 border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-400',
+            class: 'inline-flex items-center rounded-l-xl border border-r-0 border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface-muted)] px-3 text-sm text-[var(--formspec-tw-muted)]',
             'aria-hidden': 'true',
         });
         prefix.textContent = behavior.resolvedCurrency;
@@ -39,7 +39,7 @@ export const renderMoneyInput: AdapterRenderFn<MoneyInputBehavior> = (
     if (!behavior.resolvedCurrency) {
         const currencyInput = document.createElement('input') as HTMLInputElement;
         currencyInput.className =
-            'block w-20 rounded-r-xl border border-zinc-700 bg-zinc-900/80 px-2 py-2.5 text-sm text-zinc-100 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/15';
+            'block w-20 rounded-r-xl border border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface-muted)] px-2 py-2.5 text-sm text-[var(--formspec-tw-text)] shadow-sm focus:border-[color:var(--formspec-tw-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--formspec-tw-accent-ring)]';
         currencyInput.type = 'text';
         currencyInput.placeholder = 'Currency';
         currencyInput.name = `${behavior.fieldPath}__currency`;

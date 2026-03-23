@@ -12,7 +12,7 @@ export const renderSlider: AdapterRenderFn<SliderBehavior> = (
 
     const input = document.createElement('input') as HTMLInputElement;
     input.className =
-        'formspec-tw-range min-w-[10rem] flex-1 h-2 cursor-pointer rounded-full bg-zinc-700 accent-teal-500 appearance-none';
+        'formspec-tw-range min-w-[10rem] flex-1 h-2 cursor-pointer rounded-full bg-[var(--formspec-tw-surface-muted)] accent-[var(--formspec-tw-accent)] appearance-none';
     input.id = behavior.id;
     input.name = behavior.fieldPath;
     input.type = 'range';
@@ -41,8 +41,10 @@ export const renderSlider: AdapterRenderFn<SliderBehavior> = (
 
     if (behavior.showValue) {
         const valueDisplay = el('span', {
-            class: 'inline-flex min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg bg-teal-900/40 px-2 py-0.5 text-sm font-semibold tabular-nums text-teal-200 ring-1 ring-teal-500/20 formspec-slider-value',
+            class: 'inline-flex min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 py-0.5 text-sm font-semibold tabular-nums ring-1 ring-[var(--formspec-tw-accent-ring)] formspec-slider-value',
         });
+        valueDisplay.style.backgroundColor = 'color-mix(in srgb, var(--formspec-tw-accent) 15%, var(--formspec-tw-surface-muted))';
+        valueDisplay.style.color = 'var(--formspec-tw-accent)';
         container.appendChild(valueDisplay);
     }
 
@@ -53,7 +55,8 @@ export const renderSlider: AdapterRenderFn<SliderBehavior> = (
     const dispose = behavior.bind({
         root, label, control: container, hint, error,
         onValidationChange: (hasError) => {
-            input.classList.toggle('accent-rose-500', hasError);
+            input.classList.toggle('accent-[var(--formspec-tw-danger)]', hasError);
+            input.classList.toggle('accent-[var(--formspec-tw-accent)]', !hasError);
         },
     });
     actx.onDispose(dispose);

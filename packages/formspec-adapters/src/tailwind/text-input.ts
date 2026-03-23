@@ -43,7 +43,7 @@ export const renderTextInput: AdapterRenderFn<TextInputBehavior> = (
             const group = el('div', { class: 'flex rounded-xl shadow-sm' });
             if (behavior.prefix) {
                 const prefixEl = el('span', {
-                    class: 'inline-flex items-center rounded-l-xl border border-r-0 border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-400',
+                    class: 'inline-flex items-center rounded-l-xl border border-r-0 border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface-muted)] px-3 text-sm text-[var(--formspec-tw-muted)]',
                 });
                 prefixEl.textContent = behavior.prefix;
                 group.appendChild(prefixEl);
@@ -53,7 +53,7 @@ export const renderTextInput: AdapterRenderFn<TextInputBehavior> = (
             group.appendChild(input);
             if (behavior.suffix) {
                 const suffixEl = el('span', {
-                    class: 'inline-flex items-center rounded-r-xl border border-l-0 border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-400',
+                    class: 'inline-flex items-center rounded-r-xl border border-l-0 border-[color:var(--formspec-tw-border)] bg-[var(--formspec-tw-surface-muted)] px-3 text-sm text-[var(--formspec-tw-muted)]',
                 });
                 suffixEl.textContent = behavior.suffix;
                 group.appendChild(suffixEl);

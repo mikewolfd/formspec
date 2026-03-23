@@ -15,7 +15,7 @@ export const renderSignature: AdapterRenderFn<SignatureBehavior> = (
         eventTarget: root,
     });
     canvas.style.width = '100%';
-    canvas.classList.add('rounded-md', 'border', 'border-gray-300');
+    canvas.classList.add('rounded-md', 'border', 'border-[color:var(--formspec-tw-border)]');
     canvas.setAttribute('tabindex', '0');
     canvas.setAttribute('role', 'img');
     canvas.setAttribute('aria-label', 'Signature canvas. Use the Clear button to reset.');
@@ -37,8 +37,7 @@ export const renderSignature: AdapterRenderFn<SignatureBehavior> = (
     const dispose = behavior.bind({
         root, label, control: canvas, hint, error,
         onValidationChange: (hasError) => {
-            canvas.classList.toggle('border-red-500', hasError);
-            canvas.classList.toggle('border-gray-300', !hasError);
+            canvas.style.borderColor = hasError ? 'var(--formspec-tw-danger)' : '';
         },
     });
     actx.onDispose(dispose);

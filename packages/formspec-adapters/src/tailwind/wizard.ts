@@ -38,14 +38,21 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
             stepContent.className = 'flex items-center';
 
             const circle = document.createElement('span');
-            circle.className = i === 0
-                ? 'flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white'
-                : 'flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 text-sm font-medium text-gray-500';
+            circle.className = 'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium';
+            if (i === 0) {
+                circle.style.backgroundColor = 'var(--formspec-tw-accent)';
+                circle.style.color = 'var(--formspec-tw-accent-fg)';
+            } else {
+                circle.style.borderWidth = '2px';
+                circle.style.borderStyle = 'solid';
+                circle.style.borderColor = 'var(--formspec-tw-border)';
+                circle.style.color = 'var(--formspec-tw-muted)';
+            }
             circle.textContent = String(i + 1);
             stepContent.appendChild(circle);
 
             const stepLabel = document.createElement('span');
-            stepLabel.className = 'ml-2 text-sm font-medium text-gray-700';
+            stepLabel.className = 'ml-2 text-sm font-medium text-[var(--formspec-tw-text)]';
             stepLabel.textContent = behavior.steps[i]?.title || `Step ${i + 1}`;
             stepContent.appendChild(stepLabel);
 
@@ -54,7 +61,7 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
             // Connector line between steps
             if (i < behavior.totalSteps() - 1) {
                 const connector = document.createElement('div');
-                connector.className = 'absolute right-0 top-4 h-0.5 w-full bg-gray-200';
+                connector.className = 'absolute right-0 top-4 h-0.5 w-full bg-[var(--formspec-tw-border)]';
                 connector.style.left = '2rem';
                 connector.style.right = '0';
                 li.appendChild(connector);
@@ -128,12 +135,24 @@ export const renderWizard: AdapterRenderFn<WizardBehavior> = (
 
             for (let i = 0; i < stepElements!.length; i++) {
                 const circle = stepElements![i].querySelector('span')!;
+                circle.className = 'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium';
+                // Reset inline styles
+                circle.style.backgroundColor = '';
+                circle.style.color = '';
+                circle.style.borderWidth = '';
+                circle.style.borderStyle = '';
+                circle.style.borderColor = '';
                 if (i === activeIdx) {
-                    circle.className = 'flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white';
+                    circle.style.backgroundColor = 'var(--formspec-tw-accent)';
+                    circle.style.color = 'var(--formspec-tw-accent-fg)';
                 } else if (i < activeIdx) {
-                    circle.className = 'flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-sm font-medium text-white';
+                    circle.style.backgroundColor = 'var(--formspec-tw-success)';
+                    circle.style.color = 'var(--formspec-tw-accent-fg)';
                 } else {
-                    circle.className = 'flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 text-sm font-medium text-gray-500';
+                    circle.style.borderWidth = '2px';
+                    circle.style.borderStyle = 'solid';
+                    circle.style.borderColor = 'var(--formspec-tw-border)';
+                    circle.style.color = 'var(--formspec-tw-muted)';
                 }
             }
         };

@@ -140,10 +140,9 @@ export function createCardOption(id: string, labelText: string): { card: HTMLEle
 }
 
 /** Applies standard error styling to a container. Can be overridden by theme. */
-export function applyErrorStyling(el: HTMLElement, hasError: boolean, errorColor = 'rose'): void {
-    const prefix = errorColor === 'rose' ? 'rose' : errorColor;
+export function applyErrorStyling(el: HTMLElement, hasError: boolean): void {
     el.classList.toggle('ring-2', hasError);
-    el.classList.toggle(`ring-${prefix}-400/60`, hasError);
+    el.classList.toggle('ring-[var(--formspec-tw-danger-ring)]', hasError);
     el.classList.toggle('rounded-xl', hasError);
 }
 

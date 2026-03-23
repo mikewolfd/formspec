@@ -29,6 +29,16 @@
   --formspec-tw-knob-ring: rgb(15 23 42 / 0.08);
   --formspec-tw-shadow-sm: var(--formspec-shadow-sm, 0 1px 2px rgb(15 23 42 / 0.06));
   --formspec-tw-shadow-md: var(--formspec-shadow-md, 0 4px 12px rgb(15 23 42 / 0.14));
+  --formspec-tw-danger-bg: var(--formspec-color-error-bg, #fef2f2);
+  --formspec-tw-danger-text: var(--formspec-color-error-text, #450a0a);
+  --formspec-tw-danger-border: var(--formspec-color-error-border, #fecaca);
+  --formspec-tw-warning-border: var(--formspec-color-warning-border, #f59e0b);
+  --formspec-tw-warning-bg: var(--formspec-color-warning-bg, #fffbeb);
+  --formspec-tw-warning-text: var(--formspec-color-warning-text, #451a03);
+  --formspec-tw-info-border: var(--formspec-color-info-border, #0ea5e9);
+  --formspec-tw-info-bg: var(--formspec-color-info-bg, #f0f9ff);
+  --formspec-tw-info-text: var(--formspec-color-info-text, #0c4a6e);
+  --formspec-tw-success: var(--formspec-color-success, #16a34a);
 }
 
 @layer components {
@@ -98,18 +108,18 @@
     flex-direction: column;
     margin-bottom: 1rem;
     overflow: hidden;
-    border: 1px solid #fecaca;
+    border: 1px solid var(--formspec-tw-danger-border);
     border-radius: 0.75rem;
   }
 
   .formspec-validation-summary-header {
     margin: 0;
     padding: 0.625rem 0.875rem;
-    border-bottom: 1px solid #fecaca;
-    background: #fef2f2;
+    border-bottom: 1px solid var(--formspec-tw-danger-border);
+    background: var(--formspec-tw-danger-bg);
     font-size: 0.75rem;
     font-weight: 600;
-    color: #7f1d1d;
+    color: var(--formspec-tw-danger-text);
   }
 
   .formspec-shape-error,
@@ -140,21 +150,21 @@
   }
 
   .formspec-shape-error {
-    border-left-color: #ef4444;
-    background: #fef2f2;
-    color: #450a0a;
+    border-left-color: var(--formspec-tw-danger);
+    background: var(--formspec-tw-danger-bg);
+    color: var(--formspec-tw-danger-text);
   }
 
   .formspec-shape-warning {
-    border-left-color: #f59e0b;
-    background: #fffbeb;
-    color: #451a03;
+    border-left-color: var(--formspec-tw-warning-border);
+    background: var(--formspec-tw-warning-bg);
+    color: var(--formspec-tw-warning-text);
   }
 
   .formspec-shape-info {
-    border-left-color: #0ea5e9;
-    background: #f0f9ff;
-    color: #0c4a6e;
+    border-left-color: var(--formspec-tw-info-border);
+    background: var(--formspec-tw-info-bg);
+    color: var(--formspec-tw-info-text);
   }
 
   .formspec-validation-summary-link {

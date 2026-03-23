@@ -1,7 +1,7 @@
 /** @filedesc Tailwind adapter for RadioGroup — card-style option grid. */
 import type { RadioGroupBehavior, AdapterRenderFn } from 'formspec-webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
-import { createTailwindError, TW, TW_CARD_OPTION } from './shared';
+import { createTailwindError, TW, TW_CARD_OPTION, applyErrorStyling } from './shared';
 
 function buildRadioOptions(
     behavior: RadioGroupBehavior,
@@ -78,9 +78,7 @@ export const renderRadioGroup: AdapterRenderFn<RadioGroupBehavior> = (
         rebuildOptions: (_container, newOptions) =>
             buildRadioOptions(behavior, optionContainer, newOptions),
         onValidationChange: (hasError) => {
-            fieldset.classList.toggle('ring-2', hasError);
-            fieldset.classList.toggle('ring-rose-400/60', hasError);
-            fieldset.classList.toggle('rounded-xl', hasError);
+            applyErrorStyling(fieldset, hasError);
         },
     });
     actx.onDispose(dispose);

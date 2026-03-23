@@ -56,7 +56,7 @@ export const renderRating: AdapterRenderFn<RatingBehavior> = (
     for (let i = 1; i <= behavior.maxRating; i++) {
         const star = document.createElement('span');
         star.className =
-            'formspec-rating-star cursor-pointer select-none text-3xl text-zinc-600 transition-colors hover:scale-110 hover:text-teal-400';
+            'formspec-rating-star cursor-pointer select-none text-3xl text-[var(--formspec-tw-muted)] transition-colors hover:scale-110 hover:text-[var(--formspec-tw-accent)]';
         star.textContent = behavior.icon;
         star.dataset.value = String(i);
         star.addEventListener('click', (event: MouseEvent) => {
@@ -79,7 +79,7 @@ export const renderRating: AdapterRenderFn<RatingBehavior> = (
         root, label, control: container, hint, error,
         onValidationChange: (hasError) => {
             container.classList.toggle('ring-2', hasError);
-            container.classList.toggle('ring-red-500', hasError);
+            container.classList.toggle('ring-[var(--formspec-tw-danger-ring)]', hasError);
             container.classList.toggle('rounded', hasError);
         },
     });

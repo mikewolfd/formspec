@@ -78,9 +78,8 @@ describe('Tailwind TextInput', () => {
     it('renders prefix/suffix with input group', () => {
         const parent = makeParent();
         renderTextInput(mockTextInput({ prefix: '$', suffix: '.00' }), parent, mockAdapterContext());
-        const prefixes = parent.querySelectorAll('.formspec-tw-input-addon');
-        // Prefix and suffix should both exist in the group
-        const texts = Array.from(parent.querySelectorAll('[class*="text-zinc"]')).map(e => e.textContent);
+        // Prefix and suffix addons use CSS variable classes — select by muted text token
+        const texts = Array.from(parent.querySelectorAll('[class*="formspec-tw-muted"]')).map(e => e.textContent);
         expect(texts).toContain('$');
         expect(texts).toContain('.00');
     });
