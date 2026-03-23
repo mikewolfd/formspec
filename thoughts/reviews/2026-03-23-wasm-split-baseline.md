@@ -1,38 +1,45 @@
 # WASM runtime/tools split — size & timing baseline (ADR 0050)
 
-**Status:** Template — measurements not yet recorded  
+**Status:** Partial — sizes + rough Node timings recorded (2026-03-23)  
 **Date:** 2026-03-23  
 **Plan:** [2026-03-23-wasm-runtime-tools-split.md](../plans/2026-03-23-wasm-runtime-tools-split.md)
 
-## How to record
+## Implementation note (current tree)
 
-Fill this in when comparing **monolith** vs **split** artifacts using the **same** `wasm-opt` flags as `packages/formspec-engine/package.json` (`-Os` + bulk-memory + nontrapping-float-to-int + SIMD).
+Runtime and tools artifacts are built from the **same** `crates/formspec-wasm` crate twice (`wasm-pack` → `wasm-pkg-runtime` / `wasm-pkg-tools`). Until a **Rust crate/feature split** removes `formspec-lint` (and friends) from the runtime build, **`.wasm` byte sizes are effectively identical** between the two outputs. The delivered win today is **load order** (runtime-first) and **optional second fetch**, not a smaller runtime binary.
 
-### Artifact sizes
+## Artifact sizes
+
+Measured after `npm run build:wasm` in `packages/formspec-engine` (same `wasm-opt -Os` flags as `package.json`).
 
 | Artifact | Raw bytes | gzip | brotli | Notes |
 |----------|-----------|------|--------|--------|
-| ~~Monolith~~ `wasm-pkg/formspec_wasm_bg.wasm` | _TBD_ | _TBD_ | _TBD_ | Baseline from commit before split (or rebuild from historical `package.json` if needed) |
-| Runtime `wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm` | _TBD_ | _TBD_ | _TBD_ | |
-| Tools `wasm-pkg-tools/formspec_wasm_tools_bg.wasm` | _TBD_ | _TBD_ | _TBD_ | |
+| ~~Monolith~~ `wasm-pkg/formspec_wasm_bg.wasm` | — | — | — | Not re-recorded here; compare from a pre-split commit if a historical row is needed. |
+| Runtime `wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm` | 3,400,310 | 1,166,169 | 820,914 | Node measurement host: darwin; `brotli` CLI used. |
+| Tools `wasm-pkg-tools/formspec_wasm_tools_bg.wasm` | 3,400,302 | 1,166,163 | 820,285 | Differs only by wasm-pack naming/metadata padding. |
 
-### Timings (same sequence for each row)
+## Timings (rough, Node cold process)
 
-Sequence: `await initFormspecEngine()` → first `createFormEngine()` → first definition evaluation (e.g. engine-driven `_evaluate` / equivalent).
+Sequence intent: `await initFormspecEngine()` → (optional) `await initFormspecEngineTools()`.
 
-| Environment | Monolith | Runtime-only init | Runtime + tools init | Notes |
-|-------------|----------|-------------------|----------------------|--------|
-| Node (representative) | _TBD_ | _TBD_ | _TBD_ | |
-| Browser (optional) | _TBD_ | _TBD_ | _TBD_ | |
+| Step | ms (approx.) | How measured |
+|------|----------------|--------------|
+| `initFormspecEngine()` only | **4.26** | Fresh `node --input-type=module` subprocess, `performance.now()` around await. |
+| `initFormspecEngine()` + `initFormspecEngineTools()` | **8.62** | Fresh subprocess, both awaits. |
 
-### Commands (examples)
+**Not yet recorded:** browser timings; full sequence through `createFormEngine()` + first eval; monolith comparison on same machine.
+
+## Commands (repeat measurements)
 
 ```bash
-# Sizes (from repo root, after npm run build in packages/formspec-engine)
-wc -c packages/formspec-engine/wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm
-wc -c packages/formspec-engine/wasm-pkg-tools/formspec_wasm_tools_bg.wasm
-gzip -c packages/formspec-engine/wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm | wc -c
-# brotli -c … | wc -c  (if brotli CLI available)
+cd packages/formspec-engine
+npm run build:wasm
+
+wc -c wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm wasm-pkg-tools/formspec_wasm_tools_bg.wasm
+gzip -c wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm | wc -c
+gzip -c wasm-pkg-tools/formspec_wasm_tools_bg.wasm | wc -c
+brotli -c wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm | wc -c
+brotli -c wasm-pkg-tools/formspec_wasm_tools_bg.wasm | wc -c
 ```
 
-Link this file from the plan §Phase 0 when numbers exist.
+Link this file from the plan §Phase 0; extend with browser + eval sequence when gating ADR acceptance.

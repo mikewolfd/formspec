@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     initFormspecEngine,
+    initFormspecEngineTools,
     isFormspecEngineToolsInitialized,
 } from '../../dist/init-formspec-engine.js';
 import { isWasmToolsReady, wasmTokenizeFEL } from '../../dist/wasm-bridge.js';
@@ -19,4 +20,14 @@ test('tools bridge throws until initFormspecEngineTools', async () => {
         () => wasmTokenizeFEL('$a + 1'),
         /tools WASM/,
     );
+});
+
+test('initFormspecEngineTools enables tokenizeFEL bridge', async () => {
+    await initFormspecEngine();
+    await initFormspecEngineTools();
+    assert.equal(isWasmToolsReady(), true);
+    assert.equal(isFormspecEngineToolsInitialized(), true);
+    const tokens = wasmTokenizeFEL('1 + 2');
+    assert.ok(Array.isArray(tokens));
+    assert.ok(tokens.length > 0);
 });
