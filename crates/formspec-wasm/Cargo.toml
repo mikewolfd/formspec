@@ -9,10 +9,44 @@ readme = "README.md"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# Native executables for `cargo bloat` only — the tool parses Mach-O/ELF/PE, not WebAssembly.
+[[bin]]
+name = "formspec-wasm-bloat-runtime"
+path = "src/bin/bloat_runtime.rs"
+test = false
+
+[[bin]]
+name = "formspec-wasm-bloat-tools"
+path = "src/bin/bloat_tools.rs"
+required-features = ["full-wasm"]
+test = false
+
 [features]
-# Lint pulls `formspec-lint` + schema/jsonschema stack — omit from the runtime WASM artifact (ADR 0050).
-default = ["lint"]
-lint = ["dep:formspec-lint"]
+# Meta: everything the **tools** `.wasm` artifact needs (lazy-loaded in TS). `npm run build:wasm:tools` uses defaults.
+full-wasm = [
+    "lint",
+    "document-api",
+    "definition-assembly",
+    "mapping-api",
+    "registry-api",
+    "changelog-api",
+    "fel-authoring",
+]
+default = ["full-wasm"]
+# Lint pulls `formspec-lint` + schema/jsonschema stack — omit from the **runtime** WASM artifact (ADR 0050).
+lint = ["dep:formspec-lint", "document-api"]
+# Document type detection, JSON Pointer→Path, schema validation planning, and (with `lint`) lintDocument*.
+document-api = []
+# `$ref` / fragment assembly (`assembleDefinition`).
+definition-assembly = []
+# Mapping rule + document execution (`executeMapping`, `executeMappingDoc`).
+mapping-api = []
+# Registry parse/lookup/lifecycle/extension usage validation.
+registry-api = []
+# Definition diff changelog (`generateChangelog`).
+changelog-api = []
+# FEL parse/tokenize/print, full deps extract, rewrites, assembly rewrite, builtin catalog.
+fel-authoring = []
 
 [dependencies]
 fel-core = { path = "../fel-core" }

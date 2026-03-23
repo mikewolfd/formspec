@@ -6,21 +6,26 @@
 //!
 //! ## Layout
 //! - `fel` — FEL eval, tokenize, rewrite, path utilities
-//! - `document` — detect type, schema plan; lint only when `feature = "lint"`
-//! - `evaluate` — batch definition evaluation, screener
-//! - `definition` — assemble definition with `$ref` fragments
-//! - `mapping` — mapping rules + mapping document execution
-//! - `registry` — registry parse, lookup, lifecycle, extension validation
-//! - `changelog` — definition diff changelog
+//! - `document` — `document-api`: detect type, schema plan; `lint`: lintDocument*
+//! - `evaluate` — batch definition evaluation, screener (always in runtime WASM)
+//! - `definition` — always: option sets + migrations; `definition-assembly`: `assembleDefinition`
+//! - `mapping` — `mapping-api`
+//! - `registry` — `registry-api`
+//! - `changelog` — `changelog-api`
+//! - `fel` — core eval + analysis + path utils always; `fel-authoring`: tokenize/parse/print/rewrites/catalog
 //! - `wasm_tests` — native `cargo test` coverage (`#[cfg(test)]` only)
 
+#[cfg(feature = "changelog-api")]
 mod changelog;
 mod definition;
+#[cfg(feature = "document-api")]
 mod document;
 mod evaluate;
 mod fel;
 mod json_host;
+#[cfg(feature = "mapping-api")]
 mod mapping;
+#[cfg(feature = "registry-api")]
 mod registry;
 mod split_abi;
 mod value_coerce;

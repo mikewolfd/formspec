@@ -1,14 +1,14 @@
-//! Definition assembly (`$ref` resolution) for `wasm_bindgen`.
+//! Definition helpers for `wasm_bindgen` — option sets + migrations always; `$ref` assembly behind `definition-assembly`.
 
-use formspec_core::{
-    JsonWireStyle, MapResolver, apply_migrations_to_response_data, assemble_definition,
-    assembly_result_to_json_value, resolve_option_sets_on_definition,
-};
+use formspec_core::{apply_migrations_to_response_data, resolve_option_sets_on_definition};
+#[cfg(feature = "definition-assembly")]
+use formspec_core::{JsonWireStyle, MapResolver, assemble_definition, assembly_result_to_json_value};
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
 use crate::json_host::{parse_value_str, to_json_string};
 
+#[cfg(feature = "definition-assembly")]
 #[wasm_bindgen(js_name = "assembleDefinition")]
 pub fn assemble_definition_wasm(
     definition_json: &str,

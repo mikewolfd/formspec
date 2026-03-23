@@ -6,9 +6,18 @@
 
 | Feature | Default | Effect |
 |---------|---------|--------|
-| `lint` | **yes** | Enables `formspec-lint` and exports `lintDocument` / `lintDocumentWithRegistries`. |
+| **`full-wasm`** | **yes** | Meta-feature: enables every optional `wasm_bindgen` surface below (tools artifact). |
+| `lint` | **yes** (via `full-wasm`) | `formspec-lint` + `lintDocument` / `lintDocumentWithRegistries` (implies `document-api`). |
+| `document-api` | **yes** | `detectDocumentType`, `jsonPointerToJsonPath`, `planSchemaValidation`. |
+| `definition-assembly` | **yes** | `assembleDefinition` (`$ref` / fragments). |
+| `mapping-api` | **yes** | `executeMapping`, `executeMappingDoc`. |
+| `registry-api` | **yes** | Registry parse/lookup/lifecycle + `validateExtensionUsage`. |
+| `changelog-api` | **yes** | `generateChangelog`. |
+| `fel-authoring` | **yes** | `parseFEL`, `tokenizeFEL`, `printFEL`, `extractDependencies`, FEL rewrites, `rewriteFelForAssembly`, `listBuiltinFunctions`. |
 
-**ADR 0050:** `packages/formspec-engine` builds **runtime** WASM with `cargo … --no-default-features` (no `lint`) and **tools** WASM with default features. The TypeScript bridge loads runtime first and tools lazily.
+**Runtime WASM** (`npm run build:wasm:runtime`): `wasm-pack … -- --no-default-features` — **none** of the above; only **eval / screener / coerce / migrations / option sets / core FEL** (`evalFEL*`, `prepareFelExpression`, `getFELDependencies`, `analyzeFEL`, path helpers) + **split ABI** string.
+
+**Tools WASM**: default features = `full-wasm` (all rows). TypeScript loads runtime first, tools lazily (**ADR 0050**).
 
 Sibling binding: **[`formspec-py`](../formspec-py/)** (`formspec_rust`) targets the same stack for Python. Mapping JSON parsing (e.g. `parse_coerce_type`, including `array` coercion) is kept aligned with that crate where practical.
 
@@ -17,14 +26,14 @@ Sibling binding: **[`formspec-py`](../formspec-py/)** (`formspec_rust`) targets 
 | Module | Role |
 |--------|------|
 | `convert` | Item-tree navigation, `json_to_field_map`, lint result JSON, registry status strings, repeat context |
-| `fel` | FEL eval (with fields or full context), `prepareFelExpression`, `rewriteFelForAssembly`, tokenize, print, deps, analysis, rewrites, builtins, path helpers |
-| `document` | `detectDocumentType`, `planSchemaValidation`, `lintDocument` (+ registries) |
+| `fel` | Always: eval, `prepareFelExpression`, `getFELDependencies`, `analyzeFEL`, path helpers. `fel-authoring`: tokenize/parse/print/rewrites/catalog. |
+| `document` | `document-api`: detect/plan/jsonPointer. `lint`: lintDocument* |
 | `evaluate` | `evaluateDefinition`, `evaluateScreener`, context/trigger/registry parsing |
 | `value_coerce` | `coerceFieldValue` (item/bind/definition/value JSON strings) |
-| `definition` | `assembleDefinition`, `resolveOptionSetsOnDefinition`, `applyMigrationsToResponseData` |
-| `mapping` | `executeMapping`, `executeMappingDoc`, mapping document/rule JSON parsing |
-| `registry` | `parseRegistry`, `findRegistryEntry`, lifecycle, `wellKnownRegistryUrl`, extension usage validation |
-| `changelog` | `generateChangelog` |
+| `definition` | Always: option sets + migrations. `definition-assembly`: `assembleDefinition`. |
+| `mapping` | `mapping-api`: `executeMapping`, `executeMappingDoc` |
+| `registry` | `registry-api`: parse/find/lifecycle/well-known + `validateExtensionUsage` |
+| `changelog` | `changelog-api`: `generateChangelog` |
 | `lib.rs` | Crate docs and `mod` wiring only |
 | `wasm_tests` | Native `cargo test` for string-JSON helpers (`#[cfg(test)]` only) |
 
@@ -32,11 +41,27 @@ Sibling binding: **[`formspec-py`](../formspec-py/)** (`formspec_rust`) targets 
 
 ```bash
 cargo test -p formspec-wasm
-cargo test -p formspec-wasm --no-default-features   # same graph as runtime WASM
-# Runtime WASM (no lint):
+cargo test -p formspec-wasm --no-default-features   # minimal wasm_bindgen surface (42 tests; skips tools-only cases)
+# Runtime WASM (minimal features — see table above):
 wasm-pack build crates/formspec-wasm --target web --no-opt -- --no-default-features
 # Full / tools WASM:
 wasm-pack build crates/formspec-wasm --target web --no-opt
 ```
 
 Release profile disables `wasm-opt` in `Cargo.toml` metadata (see `package.metadata.wasm-pack`).
+
+## `cargo bloat` (native proxy)
+
+`cargo-bloat` cannot read `wasm32` binaries. This crate includes **`formspec-wasm-bloat-runtime`** and **`formspec-wasm-bloat-tools`** — small host executables that pull the same dependency graph as runtime vs tools WASM so `cargo bloat --crates` has a Mach-O/ELF binary to analyze. See [wasm-split-baseline.md](../../thoughts/reviews/2026-03-23-wasm-split-baseline.md) for commands and caveats.
+
+## `twiggy` (shipped WASM)
+
+**`twiggy`** profiles the **actual** `wasm-opt`’d `.wasm` files under `packages/formspec-engine/wasm-pkg-{runtime,tools}/`. Use it **together with** `cargo bloat`: bloat → **which crates**; twiggy → **what landed in wasm**, **`twiggy diff`** runtime→tools → **largest deltas** on the artifact.
+
+```bash
+# After: cd packages/formspec-engine && npm run build:wasm
+bash scripts/twiggy-wasm.sh              # repo root — full report
+npm run profile:twiggy --workspace=formspec-engine   # same script
+```
+
+Requires `twiggy` on PATH (`cargo install twiggy`). From monorepo root you can also run **`npm run wasm:twiggy`**. Details: [wasm-split-baseline.md](../../thoughts/reviews/2026-03-23-wasm-split-baseline.md) § *cargo bloat + twiggy*.

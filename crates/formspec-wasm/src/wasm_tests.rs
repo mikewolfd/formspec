@@ -7,17 +7,19 @@ mod tests {
     use rust_decimal::prelude::*;
     use serde_json::{Value, json};
 
+    #[cfg(feature = "changelog-api")]
     use crate::changelog::generate_changelog_inner;
     use crate::definition::{
         apply_migrations_to_response_data_wasm, resolve_option_sets_on_definition_wasm,
     };
     use crate::evaluate::evaluate_definition_inner;
-    use crate::fel::{
-        eval_fel_inner, prepare_fel_expression_inner, rewrite_fel_for_assembly_inner,
-        tokenize_fel_inner,
-    };
+    use crate::fel::{eval_fel_inner, prepare_fel_expression_inner};
+    #[cfg(feature = "fel-authoring")]
+    use crate::fel::{rewrite_fel_for_assembly_inner, tokenize_fel_inner};
     use crate::value_coerce::coerce_field_value_inner;
+    #[cfg(feature = "mapping-api")]
     use crate::mapping::execute_mapping_inner;
+    #[cfg(feature = "registry-api")]
     use crate::registry::find_registry_entry_inner;
     use formspec_core::{
         parse_coerce_type, parse_mapping_document_from_value as parse_mapping_document_inner,
@@ -33,6 +35,7 @@ mod tests {
         })
     }
 
+    #[cfg(feature = "registry-api")]
     fn minimal_registry() -> String {
         json!({
             "publisher": { "name": "Test Org", "url": "https://example.com" },
@@ -237,6 +240,7 @@ mod tests {
         assert_eq!(second_val["values"]["ageStatus"], json!("invalid"));
     }
 
+    #[cfg(feature = "fel-authoring")]
     #[test]
     fn tokenize_fel_returns_positioned_tokens() {
         let result = tokenize_fel_inner("sum($items[*].qty)").unwrap();
@@ -253,6 +257,7 @@ mod tests {
         assert_eq!(tokens[8]["text"], json!("qty"));
     }
 
+    #[cfg(feature = "fel-authoring")]
     #[test]
     fn rewrite_fel_for_assembly_inner_fragment_and_prefix() {
         let map = json!({
@@ -345,6 +350,7 @@ mod tests {
 
     /// Spec: specs/registry/changelog-spec.md §2 — Changelog output shape.
     /// Must contain: definitionUrl, fromVersion, toVersion, semverImpact, changes[].
+    #[cfg(feature = "changelog-api")]
     #[test]
     fn generate_changelog_inner_output_shape() {
         let old_def = json!({
@@ -385,6 +391,7 @@ mod tests {
     }
 
     /// Spec: specs/registry/changelog-spec.md §2 — Each change has type, target, path, impact.
+    #[cfg(feature = "changelog-api")]
     #[test]
     fn generate_changelog_inner_change_shape() {
         let old_def = json!({
@@ -448,6 +455,7 @@ mod tests {
     }
 
     /// Spec: specs/registry/changelog-spec.md §2 — Invalid old definition JSON returns error.
+    #[cfg(feature = "changelog-api")]
     #[test]
     fn generate_changelog_inner_invalid_json() {
         let result = generate_changelog_inner("not json", "{}", "url");
@@ -458,6 +466,7 @@ mod tests {
     // ── Finding 70: find_registry_entry_inner output shape ──────
 
     /// Spec: specs/registry/extension-registry.md §3 — Entry output has name, category, version, status, description.
+    #[cfg(feature = "registry-api")]
     #[test]
     fn find_registry_entry_inner_output_shape() {
         let registry = minimal_registry();
@@ -475,6 +484,7 @@ mod tests {
     }
 
     /// Spec: specs/registry/extension-registry.md §3 — Not found returns "null" string.
+    #[cfg(feature = "registry-api")]
     #[test]
     fn find_registry_entry_inner_not_found() {
         let registry = minimal_registry();
@@ -483,6 +493,7 @@ mod tests {
     }
 
     /// Spec: specs/registry/extension-registry.md §3 — Invalid JSON returns error.
+    #[cfg(feature = "registry-api")]
     #[test]
     fn find_registry_entry_inner_invalid_json() {
         let result = find_registry_entry_inner("not json", "x-test", "");
@@ -492,6 +503,7 @@ mod tests {
     // ── Finding 67: execute_mapping_inner ────────────────────────
 
     /// Spec: specs/mapping/mapping-spec.md §3 — Mapping execution returns direction, output, rulesApplied, diagnostics.
+    #[cfg(feature = "mapping-api")]
     #[test]
     fn execute_mapping_inner_output_shape() {
         let rules = json!([
@@ -516,6 +528,7 @@ mod tests {
     }
 
     /// Spec: specs/mapping/mapping-spec.md §3 — Invalid direction returns error.
+    #[cfg(feature = "mapping-api")]
     #[test]
     fn execute_mapping_inner_invalid_direction() {
         let result = execute_mapping_inner("[]", "{}", "sideways");

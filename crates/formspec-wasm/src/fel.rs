@@ -1,17 +1,23 @@
-//! FEL evaluation, analysis, rewrite helpers, and path utilities (`wasm_bindgen`).
+//! FEL evaluation, analysis, and path utilities (`wasm_bindgen`). `fel-authoring` adds parse/tokenize/print/rewrites/catalog.
 
 use fel_core::{
-    builtin_function_catalog_json_value, dependencies_to_json_value, evaluate, extract_dependencies,
-    fel_to_json, field_map_from_json_str, formspec_environment_from_json_map, parse, print_expr,
+    evaluate, fel_to_json, field_map_from_json_str, formspec_environment_from_json_map, parse,
     prepare_fel_expression_owned, prepare_fel_host_options_from_json_map, reject_undefined_functions,
+};
+#[cfg(feature = "fel-authoring")]
+use fel_core::{
+    builtin_function_catalog_json_value, dependencies_to_json_value, extract_dependencies, print_expr,
     tokenize_to_json_value,
 };
 use formspec_core::{
-    analyze_fel, assembly_fel_rewrite_map_from_value, collect_fel_rewrite_targets,
-    definition_item_location_to_json_value, fel_analysis_to_json_value,
-    fel_rewrite_targets_to_json_value, get_fel_dependencies, json_definition_item_at_path,
-    normalize_indexed_path, rewrite_fel_for_assembly, rewrite_fel_source_references,
-    rewrite_message_template, rewrite_options_from_camel_case_json, JsonWireStyle,
+    analyze_fel, definition_item_location_to_json_value, fel_analysis_to_json_value,
+    get_fel_dependencies, json_definition_item_at_path, normalize_indexed_path, JsonWireStyle,
+};
+#[cfg(feature = "fel-authoring")]
+use formspec_core::{
+    assembly_fel_rewrite_map_from_value, collect_fel_rewrite_targets, fel_rewrite_targets_to_json_value,
+    rewrite_fel_for_assembly, rewrite_fel_source_references, rewrite_message_template,
+    rewrite_options_from_camel_case_json,
 };
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
@@ -62,22 +68,26 @@ pub(crate) fn eval_fel_with_context_inner(
 }
 
 /// Parse a FEL expression and return whether it's valid.
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "parseFEL")]
 pub fn parse_fel(expression: &str) -> bool {
     parse(expression).is_ok()
 }
 
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "tokenizeFEL")]
 pub fn tokenize_fel(expression: &str) -> Result<String, JsError> {
     tokenize_fel_inner(expression).map_err(|e| JsError::new(&e))
 }
 
+#[cfg(feature = "fel-authoring")]
 pub(crate) fn tokenize_fel_inner(expression: &str) -> Result<String, String> {
     let json = tokenize_to_json_value(expression)?;
     to_json_string(&json)
 }
 
 /// Print a FEL expression AST back to normalized source string.
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "printFEL")]
 pub fn print_fel(expression: &str) -> Result<String, JsError> {
     let expr = parse_fel_source(expression).map_err(|e| JsError::new(&e))?;
@@ -93,6 +103,7 @@ pub fn get_fel_deps(expression: &str) -> Result<String, JsError> {
 }
 
 /// Extract full dependency info from a FEL expression.
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "extractDependencies")]
 pub fn extract_deps(expression: &str) -> Result<String, JsError> {
     let expr = parse_fel_source(expression).map_err(|e| JsError::new(&e))?;
@@ -110,6 +121,7 @@ pub fn analyze_fel_wasm(expression: &str) -> Result<String, JsError> {
     to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "collectFELRewriteTargets")]
 pub fn collect_fel_rewrite_targets_wasm(expression: &str) -> Result<String, JsError> {
     let targets = collect_fel_rewrite_targets(expression);
@@ -117,6 +129,7 @@ pub fn collect_fel_rewrite_targets_wasm(expression: &str) -> Result<String, JsEr
     to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "rewriteFELReferences")]
 pub fn rewrite_fel_references_wasm(
     expression: &str,
@@ -128,6 +141,7 @@ pub fn rewrite_fel_references_wasm(
     Ok(rewrite_fel_source_references(expression, &options))
 }
 
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "rewriteMessageTemplate")]
 pub fn rewrite_message_template_wasm(
     message: &str,
@@ -139,6 +153,7 @@ pub fn rewrite_message_template_wasm(
     Ok(rewrite_message_template(message, &options))
 }
 
+#[cfg(feature = "fel-authoring")]
 pub(crate) fn rewrite_fel_for_assembly_inner(expression: &str, map_json: &str) -> Result<String, String> {
     let map_value: Value = parse_value_str(map_json, "assembly rewrite map JSON")?;
     let map = assembly_fel_rewrite_map_from_value(&map_value)?;
@@ -146,11 +161,13 @@ pub(crate) fn rewrite_fel_for_assembly_inner(expression: &str, map_json: &str) -
 }
 
 /// Rewrite FEL using assembly `RewriteMap` JSON (`fragmentRootKey`, `hostGroupKey`, `importedKeys`, `keyPrefix`).
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "rewriteFelForAssembly")]
 pub fn rewrite_fel_for_assembly_wasm(expression: &str, map_json: &str) -> Result<String, JsError> {
     rewrite_fel_for_assembly_inner(expression, map_json).map_err(|e| JsError::new(&e))
 }
 
+#[cfg(feature = "fel-authoring")]
 #[wasm_bindgen(js_name = "listBuiltinFunctions")]
 pub fn list_builtin_functions() -> Result<String, JsError> {
     let json = builtin_function_catalog_json_value();
