@@ -394,7 +394,9 @@ Four stages, all in `src/fel/`:
 - Call **`await initFormspecEngineTools()`** before sync tooling APIs (`lintDocument`, `tokenizeFEL`, `assembleDefinitionSync`, `RuntimeMappingEngine`, …). **`await assembleDefinition()`** loads tools lazily on first use.
 - Paired artifacts expose **`formspecWasmSplitAbiVersion()`**; the JS bridge rejects mismatched runtime/tools builds.
 
-Generated `wasm-pkg-runtime/` and `wasm-pkg-tools/` are gitignored; run `npm run build` in this package (or the monorepo root) to produce them.
+Run `npm run build` in this package (or the monorepo root) to produce `wasm-pkg-runtime/` and `wasm-pkg-tools/`.
+
+**Git / npm publish:** these directories are **not** root-gitignored (so `npm pack` / `npm publish` can include them per `package.json` `files`). `wasm-pack` writes a pkg-local `.gitignore` containing `*`; the build scripts **delete** that file so npm does not skip the WASM tree. **Do not commit** `wasm-pkg-runtime/` or `wasm-pkg-tools/` — keep them untracked build outputs. `prepack` runs `npm run build` before pack.
 
 ---
 

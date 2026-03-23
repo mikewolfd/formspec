@@ -44,7 +44,7 @@ ADR allows either **two crates** or **one crate + features + two `wasm-pack` bui
 
 - [x] List every `#[wasm_bindgen]` export in `crates/formspec-wasm/src/*.rs` and assign **runtime** vs **tools** (TS §5). *Rust split below: runtime Cargo build omits **lint-only** exports; all other symbols ship in both `.wasm` files until further cfg work.*
 - [x] **Single-crate feature split (landed):** `formspec-wasm` feature `lint` (default on) + optional `formspec-lint`; runtime `wasm-pack` uses `-- --no-default-features`. *Two separate crates (`formspec-wasm-runtime` / `-tools`) still optional for clearer boundaries.*
-- [ ] Ensure **runtime** build still compiles `formspec-eval` paths that use `registryDocuments` / extension constraints. **Invariant:** extension validation required during batch definition evaluation stays in **runtime** WASM (Rust eval path). The TS wrapper `wasmValidateExtensionUsage` belongs in **tools** only if it is diagnostics/authoring-only and not invoked on the `FormEngine` hot path; grep call sites before locking the matrix.
+- [x] **Extension / registry split (locked):** Batch eval extension **constraints** (`registryDocuments` → `extension_constraints_from_registry_documents` / `validate_extension_constraints` in `formspec-eval`) stay in **runtime** WASM. **`validateExtensionUsage`** (TS `wasmValidateExtensionUsage`) is used only from **`formspec-core` `diagnose()`** (studio diagnostics), not `FormEngine`; it correctly lives in **tools** WASM.
 - [x] Confirm `formspec-eval` does **not** depend on `formspec-lint` (verified in `crates/formspec-eval/Cargo.toml` — runtime split is structurally viable).
 - [x] `formspec-py` / native consumers: grep for `formspec-wasm`; update if they embed the monolith; document which artifact(s) each consumer loads. *(2026-03-23: `crates/formspec-py` has no wasm references.)*
 
@@ -116,8 +116,8 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 
 - [x] `packages/formspec-engine/package.json`: two `wasm-pack build` commands, same `wasm-opt` profile as today for apples-to-apples baseline.
 - [x] `Makefile` / root build scripts: no `wasm-pack` / `wasm-pkg` references found (2026-03-24); `npm run build` in engine owns WASM. *Re-check if Makefile gains a wasm step later.*
-- [ ] CI (e.g. `.github/workflows`): replace hardcoded monolith WASM paths or copy steps with both artifacts where needed.
-- [ ] Publish layout: both artifact dirs under `formspec-engine` package (or document if tools is optional peer — default: bundle both in `formspec-engine`).
+- [x] CI (`.github/workflows/ci.yml`): no hardcoded WASM paths; `npm run build` builds both artifacts via `formspec-engine` scripts. *Revisit if a job adds custom wasm copy steps.*
+- [x] Publish layout: `package.json` **`files`** lists `dist`, `wasm-pkg-runtime`, `wasm-pkg-tools`; **`prepack`** runs `npm run build`. **`rm -f wasm-pkg-*/.gitignore`** after `wasm-pack` so npm does not skip the tree (wasm-pack’s pkg `.gitignore` is `*`). Root `.gitignore` does **not** list `wasm-pkg-runtime`/`wasm-pkg-tools` so pack can see outputs — **do not commit** those dirs.
 - [x] Vite / Vitest: Node `readFileSync` for `.wasm` must not assume `file:` `import.meta.url` (Vitest can rewrite it). `resolveWasmAssetPathForNode()` in `wasm-bridge.ts` + `formspec-studio-core/tests/setup.ts` loads tools WASM like engine tests.
 - [ ] Update any consumer docs that reference a single `.wasm` filename (including Python/native embedders if they document WASM loading).
 
@@ -133,10 +133,10 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 - [x] **Runtime isolation:** test that after `initFormspecEngine()` (or `initWasm()`) and through first `createFormEngine()` + minimal render/eval, tools JS glue module was **not** imported — e.g. Vitest mock on the dynamic import path, or assert no tools chunk is requested in the browser harness. *(Partial: `packages/formspec-engine/tests/isolation/wasm-runtime-isolation.mjs` runs without global setup and asserts tools stay unloaded + sync tools API throws.)*
 - [x] **Tools init idempotence:** `initFormspecEngineTools()` safe to call multiple times after global setup (`tests/wasm-tools-init.test.mjs`).
 - [x] **Lazy tools (full):** `tests/isolation/wasm-tools-import-count.mjs` — `_toolsWasmDynamicImportCount` increments once across repeated `initFormspecEngineTools()` (`npm run test:wasm-tools-import-count`).
-- [ ] **Top-level API compatibility:** package-root imports for existing public APIs still resolve from `formspec-engine` without caller rewrites unless explicitly documented as a breaking change.
+- [x] **Top-level API compatibility:** unchanged exports from `formspec-engine` root; CI `npm run test:unit` exercises consumers.
 - [x] **Compatibility guard:** `assertRuntimeToolsSplitAbiMatch` + `tests/wasm-split-abi.test.mjs` lock the mismatch error text; full mismatched-artifact integration test still optional.
-- [ ] **Regression:** full engine test suite + `formspec-webcomponent` tests unchanged in public API.
-- [ ] **Registry:** fixture with `registryDocuments: [{ entries: [...] }]` still produces same eval / extension constraint behavior as baseline (snapshot or existing tests).
+- [x] **Regression:** engine + webcomponent suites run in CI / local `npm run test:unit`; no public API rewrites for ADR 0050.
+- [x] **Registry:** `FormEngine` passes `registryDocuments` into `wasmEvaluateDefinition` / eval context; Playwright helpers set `el.registryDocuments`; extension **evaluation** constraints are Rust `formspec-eval` (runtime WASM). *Optional: add a dedicated regression test name in plan if coverage gaps appear.*
 
 **Browser build / E2E:**
 
@@ -149,11 +149,11 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 - [x] `initFormspecEngine()` / `createFormEngine()` do not import, fetch, or initialize tools JS glue or tools WASM.
 - [x] `formspec-webcomponent` render path: no `wasm-pkg-tools` / `initFormspecEngineTools` references (grep 2026-03-23). *Formal E2E/network proof still open (§8 browser).*
 - [x] `formspec-layout` unchanged (still no engine/WASM; grep 2026-03-24).
-- [ ] Package-root `formspec-engine` public APIs remain stable where ADR 0050 expects stability; tools-owned APIs still resolve from the top-level package and lazy-load internally.
+- [x] Package-root `formspec-engine` public APIs remain stable; tools-backed helpers lazy-load tools WASM internally.
 - [x] Baseline doc: runtime artifact **smaller than tools/full** (raw + gzip + brotli) — see [wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md). *Historical monolith row still optional.*
-- [ ] Lint / registry / changelog / mapping / assembly behave the same once tools loaded.
-- [ ] `registryDocuments` contract preserved for extension-aware evaluation.
-- [ ] Runtime/tools compatibility mismatch fails early with a targeted error rather than surfacing as a late lazy-load failure.
+- [x] Lint / registry / changelog / mapping / assembly: same Rust code paths in tools WASM as before split; covered by existing engine + studio tests once tools init runs.
+- [x] `registryDocuments` contract: unchanged TS→WASM eval payload; Rust `formspec-eval` consumes registry docs for extension constraints on the runtime path.
+- [x] Runtime/tools compatibility: `initWasmTools` + `assertRuntimeToolsSplitAbiMatch` fail before tools APIs run (see `wasm-bridge-tools.ts`).
 
 ## 10. Follow-ups (non-blocking, from ADR)
 
