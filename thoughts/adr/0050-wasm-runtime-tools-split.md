@@ -64,6 +64,7 @@ Contains authoring, diagnostics, and utility exports that are not required for f
 - Tools module is loaded lazily via dynamic import only when a tools API is called.
 - Public TypeScript APIs stay stable where possible; internals route calls to runtime or tools bridge.
 - Public APIs that are not render-critical may remain exported from `formspec-engine` while lazily loading the tools module on first use.
+- **`initFormspecEngine()`** (in `init-formspec-engine.ts`) imports only the runtime bridge and uses **`import('./wasm-bridge-tools.js')`** when **`initFormspecEngineTools()`** runs, so the **init subpath** does not statically reference tools WASM paths. The package root still re-exports **`fel-api`**, which pulls tools JS glue — embedders use **`formspec-engine/init-formspec-engine`** for init-only, and **`formspec-engine/render`** for **`FormEngine`** / **`createFormEngine`** without the FEL tooling facade (`formspec-webcomponent` does both; see engine README).
 
 ## Public API Boundary
 

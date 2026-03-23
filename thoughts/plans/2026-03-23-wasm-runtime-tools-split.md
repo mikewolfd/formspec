@@ -1,8 +1,8 @@
 # Implementation plan: WASM runtime / tools split (ADR 0050)
 
 **ADR:** [0050-wasm-runtime-tools-split.md](../adr/0050-wasm-runtime-tools-split.md)  
-**Status:** In progress (partial implementation landed)  
-**Date:** 2026-03-23
+**Status:** Complete — optional §2 (monolith row, `cargo bloat`, browser **timings**) and full Studio SPA network proof remain non-blocking.  
+**Date:** 2026-03-23 (closed out 2026-03-24)
 
 ## 1. Goal
 
@@ -22,8 +22,8 @@ Record **evidence** for ADR acceptance criteria §Measure and gate.
 - [ ] Monolith `wasm-pkg/formspec_wasm_bg.wasm`: raw bytes, gzip, brotli (same `wasm-opt` flags as today). *Optional historical row — compare from a pre-split commit if needed.*
 - [x] Post-split runtime/tools `.wasm` sizes (raw + gzip + brotli) recorded in [2026-03-23-wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md). *Note: same Rust crate today → sizes match until Rust split.*
 - [x] Rough Node cold-process timings: `initFormspecEngine()` vs `init` + `initFormspecEngineTools()` in baseline doc.
-- [x] Node: `createFormEngine()` + first `setValue` on kitchen-sink fixture — recorded in [wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md). *Browser + explicit eval/validation step still open.*
-- [ ] Optional: `cargo bloat` / `twiggy` on `formspec-wasm` for Rust-side intuition (not a gate by itself).
+- [x] Node: `createFormEngine()` + first `setValue` on kitchen-sink fixture — recorded in [wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md). *Browser **network** load order covered by Playwright §8; browser **timings** + explicit eval/validation microbench still open.*
+- [x] Optional: `cargo bloat` / `twiggy` on `formspec-wasm` for Rust-side intuition (not a gate by itself). *Recorded in [wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md): **`cargo bloat` cannot read wasm32 artifacts**; **`twiggy`** on post-`wasm-opt` `.wasm` + `twiggy monos` (zero rows this run).*
 
 Store numbers in this plan or the baseline template [2026-03-23-wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md) and link from ADR implementation notes when done.
 
@@ -48,7 +48,7 @@ ADR allows either **two crates** or **one crate + features + two `wasm-pack` bui
 - [x] Confirm `formspec-eval` does **not** depend on `formspec-lint` (verified in `crates/formspec-eval/Cargo.toml` — runtime split is structurally viable).
 - [x] `formspec-py` / native consumers: grep for `formspec-wasm`; update if they embed the monolith; document which artifact(s) each consumer loads. *(2026-03-23: `crates/formspec-py` has no wasm references.)*
 
-**Rust `#[wasm_bindgen]` vs Cargo `lint`:** All exports in `fel`, `evaluate`, `value_coerce`, `definition`, `mapping`, `registry`, `changelog`, `split_abi`, and the **non-lint** `document` APIs (`detectDocumentType`, `jsonPointerToJsonPath`, `planSchemaValidation`) appear in **both** WASM artifacts today. Only `lintDocument` and `lintDocumentWithRegistries` are behind `feature = "lint"` and exist **only** in the tools build. TS still routes document/lint calls through the tools module only (ADR 0050).
+**Rust `#[wasm_bindgen]` vs Cargo features (2026-03-24):** The **runtime** build uses **`--no-default-features`**, which omits the **`full-wasm`** bundle: **`lint`**, **`document-api`**, **`definition-assembly`**, **`mapping-api`**, **`registry-api`**, **`changelog-api`**, **`fel-authoring`**. Only **eval / screener / coerce / migrations / option sets / core FEL + `analyzeFEL` / path helpers / `prepareFelExpression` / `getFELDependencies` / split ABI** ship in runtime `.wasm`. The **tools** build uses defaults (`full-wasm`). TS routing unchanged (ADR 0050).
 
 ## 4. Export ownership matrix (`wasm-bridge.ts` → WASM)
 
@@ -119,7 +119,7 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 - [x] CI (`.github/workflows/ci.yml`): no hardcoded WASM paths; `npm run build` builds both artifacts via `formspec-engine` scripts. *Revisit if a job adds custom wasm copy steps.*
 - [x] Publish layout: `package.json` **`files`** lists `dist`, `wasm-pkg-runtime`, `wasm-pkg-tools`; **`prepack`** runs `npm run build`. **`rm -f wasm-pkg-*/.gitignore`** after `wasm-pack` so npm does not skip the tree (wasm-pack’s pkg `.gitignore` is `*`). Root `.gitignore` does **not** list `wasm-pkg-runtime`/`wasm-pkg-tools` so pack can see outputs — **do not commit** those dirs.
 - [x] Vite / Vitest: Node `readFileSync` for `.wasm` must not assume `file:` `import.meta.url` (Vitest can rewrite it). `resolveWasmAssetPathForNode()` in `wasm-bridge.ts` + `formspec-studio-core/tests/setup.ts` loads tools WASM like engine tests.
-- [ ] Update any consumer docs that reference a single `.wasm` filename (including Python/native embedders if they document WASM loading).
+- [x] Consumer-facing WASM docs: `CLAUDE.md` / `AGENTS.md` / `packages/formspec-engine/README.md` describe **runtime + tools** artifacts, lazy tools load, and the **`formspec-engine/init-formspec-engine`** subpath; ADR 0050 notes init vs package-root graph. *Historical monolith path `wasm-pkg/formspec_wasm_bg.wasm` lives only in baseline/review artifacts.*
 
 ## 7. Dependency fences & repo hygiene
 
@@ -140,14 +140,19 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 
 **Browser build / E2E:**
 
-- [ ] Build a minimal runtime-first browser entry and verify the initial bundle/chunk graph does **not** include tools JS glue or tools `.wasm`.
-- [ ] Load studio or a minimal Vite app: network tab shows only runtime artifacts until a tools feature is used.
-- [ ] After first tools API call, tools JS glue and tools `.wasm` load once and are reused.
+- [x] **Init entry static graph:** `npm run test:init-entry-runtime-only` (grep `dist/init-formspec-engine.js` for absent `wasm-pkg-tools` / `formspec_wasm_tools`). *Tools `.wasm` was already lazy inside `initWasmTools()`; this gate proves the **init** module does not statically pull tools paths.*
+- [x] **Render entry (`formspec-engine/render`):** `engine-render-entry.ts` + `npm run test:render-entry-runtime-only` — no `fel/fel-api`, no static `wasm-bridge-tools` / tools wasm paths. **`formspec-webcomponent`** imports **`createFormEngine`** / **`IFormEngine`** from this subpath; Vite storybook aliases `./render` and `./init-formspec-engine` to source.
+- [x] **Engine runtime chain:** `FormEngine`, `definition-setup`, `helpers`, `response-assembly`, and `wasm-fel` import **`wasm-bridge-runtime.js` only** (not `wasm-bridge.ts`). Mapping/assembly import **`wasm-bridge-tools.js`** directly. **`fel/fel-api.ts`** imports runtime + tools modules directly (no barrel).
+- [x] **`fel-api` split + subpaths:** `fel/fel-api-runtime.ts` + `fel/fel-api-tools.ts` + thin `fel-api.ts` barrel; **`exports`** **`./fel-runtime`** / **`./fel-tools`**; `npm run test:fel-runtime-entry-only`. **`formspec-core`** uses those subpaths ( **`tsconfig` `paths`** + Vitest alias order); **`formspec-engine` `index`** still re-exports **`fel-api`** for full API consumers.
+- [x] **`formspec-studio-core`:** same subpaths for FEL + init + render (`project.ts`, `evaluation-helpers.ts`, `tests/setup.ts`); **`tsconfig`** `moduleResolution: bundler` + **`paths`**; Vitest aliases with specific `formspec-engine/…` before the package root.
+- [x] **Minimal Vite harness + Playwright:** `tests/e2e/fixtures/wasm-runtime-network-harness.ts` (webcomponent + slim engine subpaths only) and `tests/e2e/browser/wasm/wasm-runtime-network.spec.ts` assert **no** `formspec_wasm_tools` / `wasm-pkg-tools` responses during runtime init, and at least one **runtime** artifact request. *`formspec-studio-core` uses the same engine subpaths as `formspec-core` (fel-runtime / fel-tools / init / render). Full Studio SPA bundle network proof optional.*
+- [x] **Main harness + tools init:** `tests/e2e/browser/wasm/wasm-tools-network.spec.ts` — no tools `.wasm` until `initFormspecEngineTools`, then **exactly one** tools WASM fetch for two `tokenizeFEL` calls. Harness exposes `initFormspecEngineTools` / `tokenizeFEL` on `window` for the test.
 
 ## 9. Completion checklist (maps to ADR acceptance criteria)
 
-- [x] `initFormspecEngine()` / `createFormEngine()` do not import, fetch, or initialize tools JS glue or tools WASM.
-- [x] `formspec-webcomponent` render path: no `wasm-pkg-tools` / `initFormspecEngineTools` references (grep 2026-03-23). *Formal E2E/network proof still open (§8 browser).*
+- [x] `initFormspecEngine()` does not statically import tools WASM paths; `initFormspecEngineTools()` dynamically loads `wasm-bridge-tools` then tools WASM (see `init-formspec-engine.ts`). *`import 'formspec-engine'` still pulls `wasm-bridge` via `fel-api` / root re-exports — runtime-only embedders can use subpath `formspec-engine/init-formspec-engine`.*
+- [x] `createFormEngine()` path: no extra tools init; tools WASM loads only on tools APIs / `initFormspecEngineTools`.
+- [x] `formspec-webcomponent` render path: no `wasm-pkg-tools` / `initFormspecEngineTools` references; **`initFormspecEngine`** from **`formspec-engine/init-formspec-engine`**; **`createFormEngine`** / **`IFormEngine`** from **`formspec-engine/render`**. *Slim-harness Playwright network check (§8).*
 - [x] `formspec-layout` unchanged (still no engine/WASM; grep 2026-03-24).
 - [x] Package-root `formspec-engine` public APIs remain stable; tools-backed helpers lazy-load tools WASM internally.
 - [x] Baseline doc: runtime artifact **smaller than tools/full** (raw + gzip + brotli) — see [wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md). *Historical monolith row still optional.*
