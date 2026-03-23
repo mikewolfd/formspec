@@ -5,6 +5,7 @@ const TOOLS_URL = 'http://localhost:8082/tools.html';
 test.describe('Tools Dashboard: Page Load & Tab Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(TOOLS_URL);
+    await page.waitForSelector('html[data-formspec-wasm-ready="1"]', { timeout: 30_000 });
   });
 
   test('page loads with header and back link', async ({ page }) => {
