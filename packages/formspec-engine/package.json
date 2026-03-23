@@ -5,6 +5,28 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./init-formspec-engine": {
+      "types": "./dist/init-formspec-engine.d.ts",
+      "default": "./dist/init-formspec-engine.js"
+    },
+    "./render": {
+      "types": "./dist/engine-render-entry.d.ts",
+      "default": "./dist/engine-render-entry.js"
+    },
+    "./fel-runtime": {
+      "types": "./dist/fel/fel-api-runtime.d.ts",
+      "default": "./dist/fel/fel-api-runtime.js"
+    },
+    "./fel-tools": {
+      "types": "./dist/fel/fel-api-tools.d.ts",
+      "default": "./dist/fel/fel-api-tools.js"
+    }
+  },
   "files": [
     "dist",
     "wasm-pkg-runtime",
@@ -15,11 +37,15 @@
     "build:wasm:runtime": "wasm-pack build ../../crates/formspec-wasm --target web --out-dir ../../packages/formspec-engine/wasm-pkg-runtime --out-name formspec_wasm_runtime --no-opt -- --no-default-features && rm -f wasm-pkg-runtime/.gitignore && wasm-opt -Os --enable-bulk-memory --enable-nontrapping-float-to-int --enable-simd wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm -o wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm",
     "build:wasm:tools": "wasm-pack build ../../crates/formspec-wasm --target web --out-dir ../../packages/formspec-engine/wasm-pkg-tools --out-name formspec_wasm_tools --no-opt && rm -f wasm-pkg-tools/.gitignore && wasm-opt -Os --enable-bulk-memory --enable-nontrapping-float-to-int --enable-simd wasm-pkg-tools/formspec_wasm_tools_bg.wasm -o wasm-pkg-tools/formspec_wasm_tools_bg.wasm",
     "build:wasm": "npm run build:wasm:runtime && npm run build:wasm:tools",
+    "profile:twiggy": "bash ../../scripts/twiggy-wasm.sh",
     "build": "npm run build:wasm && tsc",
     "test:unit": "node --experimental-specifier-resolution=node --import ./tests/setup.mjs --test \"tests/**/*.test.mjs\"",
     "test:wasm-runtime-isolation": "node --experimental-specifier-resolution=node --test tests/isolation/wasm-runtime-isolation.mjs",
     "test:wasm-tools-import-count": "node --experimental-specifier-resolution=node --test tests/isolation/wasm-tools-import-count.mjs",
-    "test": "npm run build && npm run test:unit && npm run test:wasm-runtime-isolation && npm run test:wasm-tools-import-count"
+    "test:init-entry-runtime-only": "node scripts/verify-init-entry-runtime-only.mjs",
+    "test:render-entry-runtime-only": "node scripts/verify-render-entry-runtime-only.mjs",
+    "test:fel-runtime-entry-only": "node scripts/verify-fel-runtime-entry-only.mjs",
+    "test": "npm run build && npm run test:init-entry-runtime-only && npm run test:render-entry-runtime-only && npm run test:fel-runtime-entry-only && npm run test:unit && npm run test:wasm-runtime-isolation && npm run test:wasm-tools-import-count"
   },
   "dependencies": {
     "@preact/signals-core": "^1.6.0",

@@ -3,7 +3,7 @@
 import type { FormDefinition } from 'formspec-types';
 import type { AssemblyResult, DefinitionResolver } from '../interfaces.js';
 import { cloneValue } from '../engine/helpers.js';
-import { initWasmTools, isWasmToolsReady, wasmAssembleDefinition } from '../wasm-bridge.js';
+import { initWasmTools, isWasmToolsReady, wasmAssembleDefinition } from '../wasm-bridge-tools.js';
 function parseRef(ref: string): { url: string; version?: string; fragment?: string } {
     let remainder = ref;
     let fragment: string | undefined;

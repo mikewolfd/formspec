@@ -2,7 +2,11 @@
 
 import type { FormVariable } from 'formspec-types';
 import type { FormDefinition } from 'formspec-types';
-import { wasmAnalyzeFEL, wasmGetFELDependencies, wasmResolveOptionSetsOnDefinition } from '../wasm-bridge.js';
+import {
+    wasmAnalyzeFEL,
+    wasmGetFELDependencies,
+    wasmResolveOptionSetsOnDefinition,
+} from '../wasm-bridge-runtime.js';
 import type { EngineBindConfig } from './helpers.js';
 import {
     detectNamedCycle,

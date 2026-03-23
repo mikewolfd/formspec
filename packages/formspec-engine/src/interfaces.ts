@@ -304,7 +304,16 @@ export interface MappingDiagnostic {
     ruleIndex: number;
     sourcePath?: string;
     targetPath?: string;
-    errorCode: 'COERCE_FAILURE' | 'UNMAPPED_VALUE' | 'FEL_RUNTIME' | 'PATH_NOT_FOUND' | 'INVALID_DOCUMENT' | 'ADAPTER_FAILURE' | 'VERSION_MISMATCH' | 'INVALID_FEL';
+    errorCode:
+        | 'COERCE_FAILURE'
+        | 'UNMAPPED_VALUE'
+        | 'FEL_RUNTIME'
+        | 'PATH_NOT_FOUND'
+        | 'INVALID_DOCUMENT'
+        | 'ADAPTER_FAILURE'
+        | 'VERSION_MISMATCH'
+        | 'INVALID_FEL'
+        | 'WASM_NOT_READY';
     message: string;
 }
 

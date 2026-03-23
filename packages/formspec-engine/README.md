@@ -1,6 +1,8 @@
 # formspec-engine
 
-Core form state engine for Formspec. Manages field values, relevance, required state, readonly state, validation results, and repeat group counts via a reactive signal graph. Includes the full FEL (Formspec Expression Language) pipeline: lexer, parser, interpreter with 44+ stdlib functions, and dependency visitor.
+Core form state engine for Formspec. Manages field values, relevance, required state, readonly state, validation results, and repeat group counts via a reactive signal graph.
+
+**Where spec logic runs:** **Normative** evaluation (FEL execution, validation, coercion, migrations, batch definition eval, etc.) is implemented in **Rust** and exposed through **WASM** (`wasm-pkg-runtime` / `wasm-pkg-tools`). TypeScript is **orchestration** (signals, `FormEngine`, bridges) plus a **client-side FEL** lexer/parser/interpreter and dependency visitor used mainly to wire **reactive dependencies** in the browser — not the source of truth for spec semantics. See repo **`CLAUDE.md`** / **`AGENTS.md`** → **Architecture** → **Logic ownership (Rust / WASM first)**.
 
 **Runtime dependencies:** `@preact/signals-core ^1.6.0`, `chevrotain ^11.1.1`, `ajv ^8.18.0`
 **Module format:** ESM (`dist/index.js`)
@@ -334,7 +336,9 @@ The engine builds a reactive signal graph on construction. Three `@preact/signal
 
 All reactive wiring happens inside `compileFEL` closures. Each closure reads `structureVersion.value` and all dependency signal values, so Preact captures every dependency when the closure runs inside a `computed`.
 
-### FEL pipeline
+### FEL pipeline (TypeScript — client wiring)
+
+**Runtime FEL results** in the live engine come from **WASM/Rust** (`wasmEvalFELWithContext`, etc.). The stages below live in `src/fel/` for **parsing, dependency extraction, and reactive `compileFEL` wiring** — see **Logic ownership** in `CLAUDE.md`.
 
 Four stages, all in `src/fel/`:
 
@@ -383,7 +387,7 @@ Four stages, all in `src/fel/`:
 
 ### Rust / WASM (split artifacts)
 
-`npm run build` compiles `crates/formspec-wasm` twice via `wasm-pack` and runs the same `wasm-opt` pass as before. The **runtime** build passes **`--no-default-features`** to Cargo so **`formspec-lint` is not linked** (`lintDocument` exists only in the tools artifact).
+`npm run build` compiles `crates/formspec-wasm` twice via `wasm-pack` and runs the same `wasm-opt` pass as before. The **runtime** build passes **`--no-default-features`**, which disables the **`full-wasm`** meta-feature: no **`formspec-lint`**, and no optional `wasm_bindgen` modules (document/plan, assembly, mapping, registry, changelog, FEL authoring helpers). Those exports exist only in the **tools** artifact. See **`crates/formspec-wasm` README** → Cargo features.
 
 | Output directory | Glue module prefix | Used for |
 |------------------|-------------------|----------|
@@ -394,7 +398,19 @@ Four stages, all in `src/fel/`:
 - Call **`await initFormspecEngineTools()`** before sync tooling APIs (`lintDocument`, `tokenizeFEL`, `assembleDefinitionSync`, `RuntimeMappingEngine`, …). **`await assembleDefinition()`** loads tools lazily on first use.
 - Paired artifacts expose **`formspecWasmSplitAbiVersion()`**; the JS bridge rejects mismatched runtime/tools builds.
 
+**Runtime-only startup (smaller static graph):** `init-formspec-engine.ts` imports only `wasm-bridge-runtime` and uses `import('./wasm-bridge-tools.js')` when tools init runs. The **`FormEngine`** implementation imports **runtime bridge only** (not the compatibility barrel). The package root (`import 'formspec-engine'`) still **re-exports `fel-api`**, which composes **`fel-runtime`** + **`fel-tools`** (both bridges), so a full **`index`** load still parses tools glue. Use **`formspec-engine/fel-runtime`** (and **`/fel-tools`** only where needed) to avoid that — e.g. **`formspec-core`** does. For embedders that only need startup + runtime WASM, import the subpath:
+
+```ts
+import { initFormspecEngine, isFormspecEngineInitialized } from 'formspec-engine/init-formspec-engine';
+```
+
+**Render / `<formspec-render>` surface:** import **`formspec-engine/render`** for **`createFormEngine`**, **`FormEngine`**, **`IFormEngine`**, response helpers, and inits — same runtime WASM path as above, **without** the FEL tooling facade (`fel-api`) or static tools bridge. `formspec-webcomponent` uses this subpath.
+
+(`package.json` **`exports`** exposes `./init-formspec-engine`, `./render`, **`./fel-runtime`** (path + `analyzeFEL` / `evaluateDefinition` / runtime WASM only), and **`./fel-tools`** (lint, registry, tokenize, rewrites, etc.). **`formspec-core`** imports **`fel-runtime`** / **`fel-tools`** so handlers that only need path helpers do not pull tools glue through the main package entry.)
+
 Run `npm run build` in this package (or the monorepo root) to produce `wasm-pkg-runtime/` and `wasm-pkg-tools/`.
+
+**Size profiling:** After `npm run build:wasm`, run **`npm run profile:twiggy`** for **`twiggy`** on both `.wasm` files (`top`, `--retained`, **`diff`** runtime→tools, `monos`, `garbage`). Complements **`cargo bloat`** on `formspec-wasm` proxy bins (crate names on host vs real wasm mass). Monorepo root: **`npm run wasm:twiggy`**. See **`thoughts/reviews/2026-03-23-wasm-split-baseline.md`**.
 
 **Git / npm publish:** these directories are **not** root-gitignored (so `npm pack` / `npm publish` can include them per `package.json` `files`). `wasm-pack` writes a pkg-local `.gitignore` containing `*`; the build scripts **delete** that file so npm does not skip the WASM tree. **Do not commit** `wasm-pkg-runtime/` or `wasm-pkg-tools/` — keep them untracked build outputs. `prepack` runs `npm run build` before pack.
 
@@ -405,8 +421,11 @@ Run `npm run build` in this package (or the monorepo root) to produce `wasm-pkg-
 Run with Node.js built-in test runner:
 
 ```bash
-npm test          # build + unit tests + runtime/tools isolation check
+npm test          # build + init-entry grep gate + unit tests + runtime/tools isolation checks
 npm run test:unit # test only (requires prior build; initializes runtime + tools WASM)
+npm run test:init-entry-runtime-only # grep dist/init-formspec-engine.js (no tools wasm path)
+npm run test:render-entry-runtime-only # grep dist/engine-render-entry.js (no fel facade / tools bridge)
+npm run test:fel-runtime-entry-only # grep dist/fel/fel-api-runtime.js (no tools bridge)
 npm run test:wasm-runtime-isolation # runtime-only init (no global setup)
 ```
 

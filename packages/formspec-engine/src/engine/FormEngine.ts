@@ -27,7 +27,7 @@ import {
     wasmEvaluateDefinition,
     wasmEvalFELWithContext,
     wasmEvaluateScreener,
-} from '../wasm-bridge.js';
+} from '../wasm-bridge-runtime.js';
 import {
     resolveOptionSetsOnDefinition,
     validateCalculateBindCycles,

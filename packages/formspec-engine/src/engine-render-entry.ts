@@ -1,4 +1,4 @@
-/** @filedesc Public API barrel for the Formspec engine package (WASM-backed evaluation). */
+/** @filedesc Render-first engine surface — FormEngine + init + response helpers; excludes FEL tooling facade and static tools bridge (ADR 0050). */
 
 import type {
     FormBind,
@@ -64,47 +64,8 @@ export {
     isFormspecEngineToolsInitialized,
 } from './init-formspec-engine.js';
 
-export {
-    normalizeIndexedPath,
-    itemAtPath,
-    tokenizeFEL,
-    analyzeFEL,
-    normalizePathSegment,
-    splitNormalizedPath,
-    itemLocationAtPath,
-    rewriteFELReferences,
-    rewriteMessageTemplate,
-    lintDocument,
-    parseRegistry,
-    findRegistryEntry,
-    validateLifecycleTransition,
-    wellKnownRegistryUrl,
-    generateChangelog,
-    printFEL,
-    evaluateDefinition,
-    getBuiltinFELFunctionCatalog,
-    getFELDependencies,
-    validateExtensionUsage,
-    createSchemaValidator,
-    rewriteFEL,
-} from './fel/fel-api.js';
-
-export type { TreeItemLike, ItemLocation } from './fel/fel-api.js';
-
-export { createMappingEngine, RuntimeMappingEngine } from './mapping/RuntimeMappingEngine.js';
-
-/** FEL eval for tooling (WASM); returns a JSON-compatible value. */
-export { wasmEvalFEL as evalFEL } from './wasm-bridge-runtime.js';
-
-/** Lint with extension registries (WASM). */
-export { wasmLintDocumentWithRegistries as lintDocumentWithRegistries } from './wasm-bridge-tools.js';
-
 export { buildValidationReportEnvelope } from './engine/response-assembly.js';
 export { toValidationResults } from './engine/helpers.js';
 
-export { assembleDefinition, assembleDefinitionSync } from './assembly/assembleDefinition.js';
-
 export { FormEngine } from './engine/FormEngine.js';
 export { createFormEngine } from './engine/init.js';
-
-export type { FormspecEnginePackage } from './package-interface.js';

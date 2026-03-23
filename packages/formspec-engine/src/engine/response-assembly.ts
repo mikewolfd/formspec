@@ -4,7 +4,7 @@ import type { FormDefinition } from 'formspec-types';
 import type { ValidationReport, ValidationResult } from 'formspec-types';
 import type { EvalResult } from '../diff.js';
 import type { PinnedResponseReference } from '../interfaces.js';
-import { wasmApplyMigrationsToResponseData } from '../wasm-bridge.js';
+import { wasmApplyMigrationsToResponseData } from '../wasm-bridge-runtime.js';
 import { toValidationResult } from './helpers.js';
 import type { EvalShapeTiming } from './wasm-fel.js';
 

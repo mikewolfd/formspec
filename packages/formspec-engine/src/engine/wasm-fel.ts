@@ -3,7 +3,7 @@
 import type { FormVariable } from 'formspec-types';
 import type { ValidationResult } from 'formspec-types';
 import type { EvalResult, EvalValidation } from '../diff.js';
-import type { WasmFelContext } from '../wasm-bridge.js';
+import type { WasmFelContext } from '../wasm-bridge-runtime.js';
 import type { EngineSignal } from '../reactivity/types.js';
 import type { EngineBindConfig } from './helpers.js';
 import {
@@ -19,7 +19,7 @@ import {
     toFelIndexedPath,
     toWasmContextValue,
 } from './helpers.js';
-import { wasmPrepareFelExpression } from '../wasm-bridge.js';
+import { wasmPrepareFelExpression } from '../wasm-bridge-runtime.js';
 
 // --- wasmEvaluateDefinition payload -------------------------------------------------------------
 

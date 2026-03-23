@@ -22,7 +22,7 @@ import {
     wasmGetFELDependencies,
     wasmNormalizeIndexedPath,
     type WasmFelContext,
-} from '../wasm-bridge.js';
+} from '../wasm-bridge-runtime.js';
 
 export type EngineBindConfig = FormBind & {
     remoteOptions?: string;
