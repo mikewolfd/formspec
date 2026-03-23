@@ -10,7 +10,7 @@ Consumers import all types from this package. Never import from `formspec-core` 
 npm install formspec-studio-core
 ```
 
-Dependencies: `formspec-core`, `formspec-engine`, `formspec-types`
+Dependencies: `formspec-core`, `formspec-engine`, `formspec-types`. This package imports **`formspec-engine`** via subpaths (`fel-runtime`, `fel-tools`, `init-formspec-engine`, `render`) so the default engine barrel is not pulled for studio-core’s static graph.
 
 ## Quick Start
 
@@ -90,6 +90,7 @@ project.onChange(() => rerender())  // returns unsubscribe fn
 All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation failure.
 
 **Fields and groups:**
+
 - `addField(path, label, type, props?)` — type aliases: `text`, `integer`, `decimal`, `boolean`, `date`, `choice`, `multichoice`, `currency`, `email`, `phone`, `file`, `signature`, `rating`, `slider`
 - `addGroup(path, label, props?)`
 - `addContent(path, body, kind?)` — kinds: `heading`, `paragraph`, `instructions`, `alert`, `banner`, `divider`
@@ -106,6 +107,7 @@ All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation
 - `batchDuplicateItems(paths[])`
 
 **Logic and validation:**
+
 - `showWhen(target, condition)` — sets `relevant` bind; validates FEL
 - `readonlyWhen(target, condition)` — sets `readonly` bind; validates FEL
 - `require(target, condition?)` — sets `required` bind
@@ -116,6 +118,7 @@ All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation
 - `removeValidation(shapeId)`
 
 **Variables and instances:**
+
 - `addVariable(name, expression, scope?)`
 - `updateVariable(name, expression)`
 - `removeVariable(name)` — warns on dangling references
@@ -126,14 +129,17 @@ All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation
 - `removeInstance(name)` — warns on dangling references
 
 **Choices:**
+
 - `defineChoices(name, options[])` — defines a named option set
 - `updateOptionSet(name, property, value)`
 - `deleteOptionSet(name)`
 
 **Repeatable sections:**
+
 - `makeRepeatable(target, props?)` — requires a group item; sets min/max/labels
 
 **Layout and flow:**
+
 - `applyLayout(targets, arrangement)` — arrangements: `columns-2`, `columns-3`, `columns-4`, `card`, `sidebar`, `inline`
 - `applyStyle(path, properties)`
 - `applyStyleAll(properties, target?, dataType?)` — target: `'form'` or `'fields'`
@@ -145,6 +151,7 @@ All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation
 - `setFlow(mode, props?)` — modes: `'single'`, `'wizard'`, `'tabs'`
 
 **Pages:**
+
 - `addPage(title, description?)` — creates definition group + theme page + wizard mode
 - `removePage(pageId)` — deletes theme page, definition group, and children atomically
 - `reorderPage(pageId, direction)`
@@ -155,6 +162,7 @@ All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation
 - `autoGeneratePages()`
 
 **Theme:**
+
 - `setToken(key, value)`
 - `setThemeDefault(property, value)`
 - `setBreakpoint(name, minWidth)`
@@ -167,11 +175,13 @@ All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation
 - `addRegion` / `updateRegion` / `deleteRegion` / `reorderRegion` / `setRegionKey`
 
 **Mapping:**
+
 - `mapField(sourcePath, targetPath)`
 - `unmapField(sourcePath)`
 - `setMappingProperty(property, value)`
 
 **Screener:**
+
 - `setScreener(enabled)`
 - `addScreenField(key, label, type, props?)`
 - `removeScreenField(key)`
@@ -181,6 +191,7 @@ All helpers return `HelperResult`. Helpers throw `HelperError` on pre-validation
 - `removeScreenRoute(routeIndex)` — blocks deletion of the last route
 
 **Metadata:**
+
 - `setMetadata(changes)` — title, description, version, status, pageMode, density, labelPosition, etc.
 - `loadBundle(bundle)` — imports a partial bundle; undoable
 

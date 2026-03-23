@@ -27,7 +27,8 @@ import {
   type MetadataChanges,
 } from './helper-types.js';
 import { resolveFieldType, resolveWidget, widgetHintFor, isTextareaWidget } from './field-type-aliases.js';
-import { rewriteFELReferences, analyzeFEL } from 'formspec-engine';
+import { analyzeFEL } from 'formspec-engine/fel-runtime';
+import { rewriteFELReferences } from 'formspec-engine/fel-tools';
 
 /**
  * Behavior-driven authoring API for Formspec.

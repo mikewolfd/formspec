@@ -2,14 +2,21 @@
   "compilerOptions": {
     "target": "es2020",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "declaration": true,
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "formspec-engine/fel-runtime": ["../formspec-engine/src/fel/fel-api-runtime.ts"],
+      "formspec-engine/fel-tools": ["../formspec-engine/src/fel/fel-api-tools.ts"],
+      "formspec-engine/init-formspec-engine": ["../formspec-engine/src/init-formspec-engine.ts"],
+      "formspec-engine/render": ["../formspec-engine/src/engine-render-entry.ts"]
+    }
   },
   "include": ["src/**/*"]
 }

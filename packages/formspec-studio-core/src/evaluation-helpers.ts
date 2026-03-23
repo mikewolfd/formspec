@@ -1,5 +1,10 @@
 /** @filedesc Preview and validation helpers that run FormEngine against a Project. */
-import { createFormEngine, type FormspecDefinition, type ValidationReport, type IFormEngine } from 'formspec-engine';
+import {
+    createFormEngine,
+    type FormspecDefinition,
+    type ValidationReport,
+    type IFormEngine,
+} from 'formspec-engine/render';
 import type { Project } from './project.js';
 
 /**
