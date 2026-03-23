@@ -22,20 +22,30 @@ test.describe('Download & Export Tab', () => {
     await page.locator('button[data-format="json"]').click();
     await expect(page.locator('#export-result')).toBeVisible();
     await expect(page.locator('#export-result-format')).toContainText('JSON');
-    await expect(page.locator('#export-result-content')).not.toBeEmpty();
+    const content = await page.locator('#export-result-content').textContent();
+    expect(content).toBeTruthy();
+    const parsed = JSON.parse(content!);
+    expect(parsed).not.toBeNull();
+    expect(typeof parsed).toBe('object');
+    expect(Object.keys(parsed).length).toBeGreaterThan(0);
   });
 
   test('clicking CSV export runs mapping and shows output', async ({ page }) => {
     await page.locator('button[data-format="csv"]').click();
     await expect(page.locator('#export-result')).toBeVisible();
     await expect(page.locator('#export-result-format')).toContainText('CSV');
-    await expect(page.locator('#export-result-content')).not.toBeEmpty();
+    const content = await page.locator('#export-result-content').textContent();
+    expect(content).toBeTruthy();
+    const lines = content!.trim().split('\n');
+    expect(lines.length).toBeGreaterThanOrEqual(2);
   });
 
   test('clicking XML export runs mapping and shows output', async ({ page }) => {
     await page.locator('button[data-format="xml"]').click();
     await expect(page.locator('#export-result')).toBeVisible();
     await expect(page.locator('#export-result-format')).toContainText('XML');
-    await expect(page.locator('#export-result-content')).not.toBeEmpty();
+    const content = await page.locator('#export-result-content').textContent();
+    expect(content).toBeTruthy();
+    expect(content).toContain('<?xml');
   });
 });
