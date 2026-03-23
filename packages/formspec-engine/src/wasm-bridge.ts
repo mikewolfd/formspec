@@ -5,13 +5,18 @@
 
 let _wasmReady = false;
 let _initPromise: Promise<void> | null = null;
+let _wasmToolsReady = false;
+let _initToolsPromise: Promise<void> | null = null;
 const nodeFsModuleName = 'node:fs';
-const nodeModuleModuleName = 'node:module';
-const nodePathModuleName = 'node:path';
 
 /** Whether the WASM module has been initialized and is ready for use. */
 export function isWasmReady(): boolean {
     return _wasmReady;
+}
+
+/** Whether the tools WASM module has been initialized and is ready for use. */
+export function isWasmToolsReady(): boolean {
+    return _wasmToolsReady;
 }
 
 /**
@@ -27,52 +32,20 @@ export async function initWasm(): Promise<void> {
 
     _initPromise = (async () => {
         try {
-            const runtime = await import('../wasm-pkg/formspec_wasm.js');
+            const runtime = await import('../wasm-pkg-runtime/formspec_wasm_runtime.js');
             const runningInNode = typeof globalThis.process !== 'undefined'
                 && globalThis.process.versions?.node;
             let wasmBytes: Uint8Array | null = null;
 
             if (runningInNode && typeof runtime.initSync === 'function') {
                 const { readFileSync } = await import(/* @vite-ignore */ nodeFsModuleName);
-
-                if (typeof import.meta.resolve === 'function') {
-                    try {
-                        const resolved = await import.meta.resolve('../wasm-pkg/formspec_wasm_bg.wasm');
-                        if (resolved.startsWith('file:')) {
-                            wasmBytes = readFileSync(new URL(resolved));
-                        }
-                    } catch {
-                        wasmBytes = null;
-                    }
-                }
-
-                if (!wasmBytes) {
-                    try {
-                        const { createRequire } = await import(/* @vite-ignore */ nodeModuleModuleName);
-                        const { dirname, resolve } = await import(/* @vite-ignore */ nodePathModuleName);
-                        const require = createRequire(resolve(process.cwd(), 'package.json'));
-                        const enginePackagePath = require.resolve('formspec-engine/package.json');
-                        wasmBytes = readFileSync(resolve(
-                            dirname(enginePackagePath),
-                            'wasm-pkg',
-                            'formspec_wasm_bg.wasm',
-                        ));
-                    } catch {
-                        wasmBytes = null;
-                    }
-                }
-
-                if (!wasmBytes
-                    && typeof import.meta.url === 'string'
-                    && import.meta.url.startsWith('file:')) {
-                    wasmBytes = readFileSync(new URL('../wasm-pkg/formspec_wasm_bg.wasm', import.meta.url));
-                }
+                wasmBytes = readFileSync(new URL('../wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm', import.meta.url));
             }
 
             if (typeof runtime.initSync === 'function' && wasmBytes) {
                 runtime.initSync({ module: wasmBytes });
             } else if (typeof runtime.default === 'function') {
-                await runtime.default();
+                await runtime.default({ module_or_path: new URL('../wasm-pkg-runtime/formspec_wasm_runtime_bg.wasm', import.meta.url) });
             }
 
             _wasm = runtime;
@@ -86,14 +59,58 @@ export async function initWasm(): Promise<void> {
     return _initPromise;
 }
 
+/**
+ * Initialize the tools WASM module (lazy-only paths: lint/registry/mapping/changelog/assembly).
+ * Safe to call multiple times — subsequent calls return the same promise.
+ */
+export async function initWasmTools(): Promise<void> {
+    if (_wasmToolsReady) return;
+    if (_initToolsPromise) return _initToolsPromise;
+
+    _initToolsPromise = (async () => {
+        try {
+            if (!_wasmReady || !_wasm) {
+                throw new Error(
+                    'Formspec tools WASM requires runtime WASM first. Call await initFormspecEngine() before initFormspecEngineTools().',
+                );
+            }
+            const tools = await import('../wasm-pkg-tools/formspec_wasm_tools.js');
+            const runningInNode = typeof globalThis.process !== 'undefined'
+                && globalThis.process.versions?.node;
+            let wasmBytes: Uint8Array | null = null;
+
+            if (runningInNode && typeof tools.initSync === 'function') {
+                const { readFileSync } = await import(/* @vite-ignore */ nodeFsModuleName);
+                wasmBytes = readFileSync(new URL('../wasm-pkg-tools/formspec_wasm_tools_bg.wasm', import.meta.url));
+            }
+
+            if (typeof tools.initSync === 'function' && wasmBytes) {
+                tools.initSync({ module: wasmBytes });
+            } else if (typeof tools.default === 'function') {
+                await tools.default({ module_or_path: new URL('../wasm-pkg-tools/formspec_wasm_tools_bg.wasm', import.meta.url) });
+            }
+
+            _wasmTools = tools;
+            verifyRuntimeToolsCompatibility(tools);
+            _wasmToolsReady = true;
+        } catch (e) {
+            _initToolsPromise = null;
+            throw e;
+        }
+    })();
+
+    return _initToolsPromise;
+}
 
 // ---------------------------------------------------------------------------
 // Module accessor — cached by initWasm, synchronous after initialization
 // ---------------------------------------------------------------------------
 
-type WasmModule = typeof import('../wasm-pkg/formspec_wasm.js');
+type WasmModule = typeof import('../wasm-pkg-runtime/formspec_wasm_runtime.js');
+type WasmToolsModule = typeof import('../wasm-pkg-tools/formspec_wasm_tools.js');
 
 let _wasm: WasmModule | null = null;
+let _wasmTools: WasmToolsModule | null = null;
 
 /** Synchronous accessor — throws if WASM is not initialized. */
 function wasm(): WasmModule {
@@ -101,6 +118,38 @@ function wasm(): WasmModule {
         throw new Error('Formspec engine not initialized. Call await initFormspecEngine() first.');
     }
     return _wasm;
+}
+
+/** Synchronous accessor for tools module — throws if tools WASM is not initialized. */
+function wasmTools(): WasmToolsModule {
+    if (!_wasmTools || !_wasmToolsReady) {
+        throw new Error(
+            'Formspec tools WASM not initialized. Call await initFormspecEngineTools() before lint/mapping/assembly APIs, ' +
+            'or await initWasmTools().',
+        );
+    }
+    return _wasmTools;
+}
+
+/** Throws unless tools WASM is ready — use before sync tools calls. */
+function assertWasmToolsReadySync(): void {
+    if (!_wasmToolsReady || !_wasmTools) {
+        throw new Error(
+            'Formspec tools WASM not ready. Call await initFormspecEngineTools() after await initFormspecEngine(), ' +
+            'or use await assembleDefinition() to load tools lazily.',
+        );
+    }
+}
+
+function verifyRuntimeToolsCompatibility(toolsMod: WasmToolsModule): void {
+    const runtimeVersion = wasm().formspecWasmSplitAbiVersion();
+    const toolsVersion = toolsMod.formspecWasmSplitAbiVersion();
+    if (runtimeVersion !== toolsVersion) {
+        throw new Error(
+            `WASM runtime/tools compatibility mismatch: runtime ABI=${runtimeVersion}, tools ABI=${toolsVersion}. ` +
+            'Rebuild wasm-pkg-runtime and wasm-pkg-tools from the same formspec-wasm commit.',
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +216,8 @@ export function wasmCoerceFieldValue(
 
 /** Parse a FEL expression and return whether it's valid. */
 export function wasmParseFEL(expression: string): boolean {
-    return wasm().parseFEL(expression);
+    assertWasmToolsReadySync();
+    return wasmTools().parseFEL(expression);
 }
 
 /** Tokenize a FEL expression and return positioned token records. */
@@ -177,7 +227,8 @@ export function wasmTokenizeFEL(expression: string): Array<{
     start: number;
     end: number;
 }> {
-    const resultJson = wasm().tokenizeFEL(expression);
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().tokenizeFEL(expression);
     return JSON.parse(resultJson);
 }
 
@@ -197,7 +248,8 @@ export function wasmExtractDependencies(expression: string): {
     hasWildcard: boolean;
     usesPrevNext: boolean;
 } {
-    const resultJson = wasm().extractDependencies(expression);
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().extractDependencies(expression);
     return JSON.parse(resultJson);
 }
 
@@ -225,12 +277,14 @@ export function wasmItemLocationAtPath<T = any>(
 
 /** Detect the document type of a Formspec JSON document. */
 export function wasmDetectDocumentType(doc: unknown): string | null {
-    return wasm().detectDocumentType(JSON.stringify(doc)) ?? null;
+    assertWasmToolsReadySync();
+    return wasmTools().detectDocumentType(JSON.stringify(doc)) ?? null;
 }
 
 /** Convert a JSON Pointer into a JSONPath string. */
 export function wasmJsonPointerToJsonPath(pointer: string): string {
-    return wasm().jsonPointerToJsonPath(pointer);
+    assertWasmToolsReadySync();
+    return wasmTools().jsonPointerToJsonPath(pointer);
 }
 
 /** Plan schema validation dispatch and component-node target enumeration. */
@@ -247,7 +301,8 @@ export function wasmPlanSchemaValidation(
     }>;
     error?: string | null;
 } {
-    const resultJson = wasm().planSchemaValidation(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().planSchemaValidation(
         JSON.stringify(doc),
         documentType ?? undefined,
     );
@@ -269,7 +324,8 @@ export function wasmAssembleDefinition(
         fragment?: string;
     }>;
 } {
-    const resultJson = wasm().assembleDefinition(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().assembleDefinition(
         JSON.stringify(definition),
         JSON.stringify(fragments),
     );
@@ -282,7 +338,8 @@ export function wasmExecuteMapping(
     source: unknown,
     direction: 'forward' | 'reverse',
 ): { direction: string; output: any; rulesApplied: number; diagnostics: any[] } {
-    const resultJson = wasm().executeMapping(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().executeMapping(
         JSON.stringify(rules),
         JSON.stringify(source),
         direction,
@@ -296,7 +353,8 @@ export function wasmExecuteMappingDoc(
     source: unknown,
     direction: 'forward' | 'reverse',
 ): { direction: string; output: any; rulesApplied: number; diagnostics: any[] } {
-    const resultJson = wasm().executeMappingDoc(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().executeMappingDoc(
         JSON.stringify(doc),
         JSON.stringify(source),
         direction,
@@ -310,7 +368,8 @@ export function wasmLintDocument(doc: unknown): {
     valid: boolean;
     diagnostics: any[];
 } {
-    const resultJson = wasm().lintDocument(JSON.stringify(doc));
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().lintDocument(JSON.stringify(doc));
     return JSON.parse(resultJson);
 }
 
@@ -385,7 +444,8 @@ export function wasmCollectFELRewriteTargets(expression: string): {
     instanceNames: string[];
     navigationTargets: Array<{ functionName: 'prev' | 'next' | 'parent'; name: string }>;
 } {
-    const resultJson = wasm().collectFELRewriteTargets(expression);
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().collectFELRewriteTargets(expression);
     return JSON.parse(resultJson);
 }
 
@@ -400,12 +460,14 @@ export function wasmRewriteFELReferences(
         navigationTargets?: Record<string, string>;
     },
 ): string {
-    return wasm().rewriteFELReferences(expression, JSON.stringify(rewrites));
+    assertWasmToolsReadySync();
+    return wasmTools().rewriteFELReferences(expression, JSON.stringify(rewrites));
 }
 
 /** Rewrite FEL using definition-assembly `RewriteMap` JSON (fragment + host keys). */
 export function wasmRewriteFelForAssembly(expression: string, mapJson: string): string {
-    return wasm().rewriteFelForAssembly(expression, mapJson);
+    assertWasmToolsReadySync();
+    return wasmTools().rewriteFelForAssembly(expression, mapJson);
 }
 
 /** Rewrite FEL expressions embedded in {{...}} interpolation segments. */
@@ -419,12 +481,14 @@ export function wasmRewriteMessageTemplate(
         navigationTargets?: Record<string, string>;
     },
 ): string {
-    return wasm().rewriteMessageTemplate(message, JSON.stringify(rewrites));
+    assertWasmToolsReadySync();
+    return wasmTools().rewriteMessageTemplate(message, JSON.stringify(rewrites));
 }
 
 /** Print a FEL expression AST back to normalized source. */
 export function wasmPrintFEL(expression: string): string {
-    return wasm().printFEL(expression);
+    assertWasmToolsReadySync();
+    return wasmTools().printFEL(expression);
 }
 
 /** Return the builtin FEL function catalog exported by the Rust runtime. */
@@ -434,7 +498,8 @@ export function wasmListBuiltinFunctions(): Array<{
     signature: string;
     description: string;
 }> {
-    const resultJson = wasm().listBuiltinFunctions();
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().listBuiltinFunctions();
     return JSON.parse(resultJson);
 }
 
@@ -443,7 +508,8 @@ export function wasmLintDocumentWithRegistries(
     doc: unknown,
     registries: unknown[],
 ): { documentType: string | null; valid: boolean; diagnostics: any[] } {
-    const resultJson = wasm().lintDocumentWithRegistries(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().lintDocumentWithRegistries(
         JSON.stringify(doc),
         JSON.stringify(registries),
     );
@@ -457,7 +523,8 @@ export function wasmParseRegistry(registry: unknown): {
     entryCount: number;
     validationIssues: any[];
 } {
-    const resultJson = wasm().parseRegistry(JSON.stringify(registry));
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().parseRegistry(JSON.stringify(registry));
     return JSON.parse(resultJson);
 }
 
@@ -467,7 +534,8 @@ export function wasmFindRegistryEntry(
     name: string,
     versionConstraint = '',
 ): any | null {
-    const resultJson = wasm().findRegistryEntry(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().findRegistryEntry(
         JSON.stringify(registry),
         name,
         versionConstraint,
@@ -477,12 +545,14 @@ export function wasmFindRegistryEntry(
 
 /** Validate a lifecycle transition between two registry statuses. */
 export function wasmValidateLifecycleTransition(from: string, to: string): boolean {
-    return wasm().validateLifecycleTransition(from, to);
+    assertWasmToolsReadySync();
+    return wasmTools().validateLifecycleTransition(from, to);
 }
 
 /** Construct a well-known registry URL from a base URL. */
 export function wasmWellKnownRegistryUrl(baseUrl: string): string {
-    return wasm().wellKnownRegistryUrl(baseUrl);
+    assertWasmToolsReadySync();
+    return wasmTools().wellKnownRegistryUrl(baseUrl);
 }
 
 /** Generate a structured changelog between two definitions. */
@@ -491,7 +561,8 @@ export function wasmGenerateChangelog(
     newDefinition: unknown,
     definitionUrl: string,
 ): any {
-    const resultJson = wasm().generateChangelog(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().generateChangelog(
         JSON.stringify(oldDefinition),
         JSON.stringify(newDefinition),
         definitionUrl,
@@ -510,7 +581,8 @@ export function wasmValidateExtensionUsage(
     code: 'UNRESOLVED_EXTENSION' | 'EXTENSION_RETIRED' | 'EXTENSION_DEPRECATED';
     message: string;
 }> {
-    const resultJson = wasm().validateExtensionUsage(
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().validateExtensionUsage(
         JSON.stringify(items),
         JSON.stringify(registryEntries),
     );

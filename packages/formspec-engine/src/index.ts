@@ -59,7 +59,9 @@ export { preactReactiveRuntime } from './reactivity/preact-runtime.js';
 export {
     initFormspecEngine,
     initFormspecEngine as initEngine,
+    initFormspecEngineTools,
     isFormspecEngineInitialized,
+    isFormspecEngineToolsInitialized,
 } from './init-formspec-engine.js';
 
 export {

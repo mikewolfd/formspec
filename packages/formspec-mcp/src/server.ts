@@ -26,6 +26,7 @@ import { handleDraft, handleLoad } from './tools/bootstrap.js';
 import * as lifecycle from './tools/lifecycle.js';
 
 import { createFormspecServer } from './create-server.js';
+import { initFormspecEngine, initFormspecEngineTools } from 'formspec-engine';
 
 // Re-export for backwards compatibility
 export { createFormspecServer } from './create-server.js';
@@ -52,6 +53,8 @@ export async function main() {
   }
   console.error('[formspec-mcp] Found schemas at:', actualSchemasDir);
 
+  await initFormspecEngine();
+  await initFormspecEngineTools();
   initSchemas(actualSchemasDir);
   initSchemaTexts(actualSchemasDir);
 

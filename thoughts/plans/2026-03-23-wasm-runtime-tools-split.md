@@ -1,7 +1,7 @@
 # Implementation plan: WASM runtime / tools split (ADR 0050)
 
 **ADR:** [0050-wasm-runtime-tools-split.md](../adr/0050-wasm-runtime-tools-split.md)  
-**Status:** Draft plan (execution not started)  
+**Status:** In progress (partial implementation landed)  
 **Date:** 2026-03-23
 
 ## 1. Goal
@@ -23,7 +23,7 @@ Record **evidence** for ADR acceptance criteria §Measure and gate.
 - [ ] Time from `initFormspecEngine()` completing through first `createFormEngine()` and first definition evaluation (`_evaluate()` or equivalent) — same sequence as ADR acceptance criteria (browser + Node if both matter).
 - [ ] Optional: `cargo bloat` / `twiggy` on `formspec-wasm` for Rust-side intuition (not a gate by itself).
 
-Store numbers in this plan or a sibling `thoughts/reviews/2026-03-23-wasm-split-baseline.md` and link from ADR implementation notes when done.
+Store numbers in this plan or the baseline template [2026-03-23-wasm-split-baseline.md](../reviews/2026-03-23-wasm-split-baseline.md) and link from ADR implementation notes when done.
 
 ## 3. Rust: crate layout (pick one, document in PR)
 
@@ -93,22 +93,22 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 
 ## 5. TypeScript bridge
 
-- [ ] Add `packages/formspec-engine/wasm-pkg-runtime/` and `wasm-pkg-tools/` (names TBD — keep consistent with generated crate names, e.g. `formspec_wasm_runtime_*`). Record the final directory and generated module name prefix in one place (fences, docs, CI) to avoid drift.
-- [ ] Reconcile **two `wasm-pack` outputs**: duplicate generated types / `InitInput` shapes if any; expose a **single** stable public type surface through the compatibility barrel (`wasm-bridge.ts`) so app code does not import both glue packages directly.
-- [ ] Export a shared split-module compatibility constant from both generated JS glue packages (for example `FORMSPEC_WASM_SPLIT_ABI_VERSION`) and validate it before any tools wrapper becomes callable.
-- [ ] Implement `initWasm()` → **runtime only** (current behavior for render-first apps).
-- [ ] Implement `initWasmTools()` — idempotent promise, dynamic `import()` of tools JS glue; Node path mirrors current `readFileSync` + `initSync` resolution logic.
-- [ ] `initWasmTools()` must verify runtime/tools compatibility before exposing tools APIs. On mismatch, fail fast with a targeted error that includes the runtime version, tools version, and artifact names.
+- [x] Add `packages/formspec-engine/wasm-pkg-runtime/` and `wasm-pkg-tools/` (names TBD — keep consistent with generated crate names, e.g. `formspec_wasm_runtime_*`). Record the final directory and generated module name prefix in one place (fences, docs, CI) to avoid drift.
+- [x] Reconcile **two `wasm-pack` outputs**: duplicate generated types / `InitInput` shapes if any; expose a **single** stable public type surface through the compatibility barrel (`wasm-bridge.ts`) so app code does not import both glue packages directly.
+- [x] Export a shared split-module compatibility constant from both generated JS glue packages (for example `FORMSPEC_WASM_SPLIT_ABI_VERSION`) and validate it before any tools wrapper becomes callable.
+- [x] Implement `initWasm()` → **runtime only** (current behavior for render-first apps).
+- [x] Implement `initWasmTools()` — idempotent promise, dynamic `import()` of tools JS glue; Node path mirrors current `readFileSync` + `initSync` resolution logic.
+- [x] `initWasmTools()` must verify runtime/tools compatibility before exposing tools APIs. On mismatch, fail fast with a targeted error that includes the runtime version, tools version, and artifact names.
 - [ ] Split implementation files:
   - `wasm-bridge-runtime.ts` — runtime `_wasm` handle + runtime wrappers
   - `wasm-bridge-tools.ts` — tools `_wasmTools` + tools wrappers; each public function `await ensureWasmTools()` then delegate
   - `wasm-bridge.ts` — re-export **same** `wasmXxx` names as today (compatibility barrel per ADR)
-- [ ] `createMappingEngine` / `assembleDefinition` / lint entrypoints: ensure first call triggers `initWasmTools()` only (never from `initFormspecEngine()` / `createFormEngine()` alone).
+- [x] `createMappingEngine` / `assembleDefinition` / lint entrypoints: ensure first call triggers `initWasmTools()` only (never from `initFormspecEngine()` / `createFormEngine()` alone). *(Note: `await assembleDefinition()` calls `initWasmTools()` lazily; sync `assembleDefinitionSync` / `RuntimeMappingEngine` require explicit `initFormspecEngineTools()`.)*
 - [ ] Error messages: if tools API called before tools load fails, surface clear “tools WASM failed to load” vs “runtime not initialized”.
 
 ## 6. Build & packaging
 
-- [ ] `packages/formspec-engine/package.json`: two `wasm-pack build` commands, same `wasm-opt` profile as today for apples-to-apples baseline.
+- [x] `packages/formspec-engine/package.json`: two `wasm-pack build` commands, same `wasm-opt` profile as today for apples-to-apples baseline.
 - [ ] `Makefile` / root build scripts: update any target that assumes a single `formspec-wasm` artifact (including `make build` ordering if applicable).
 - [ ] CI (e.g. `.github/workflows`): replace hardcoded monolith WASM paths or copy steps with both artifacts where needed.
 - [ ] Publish layout: both artifact dirs under `formspec-engine` package (or document if tools is optional peer — default: bundle both in `formspec-engine`).
@@ -117,14 +117,14 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 
 ## 7. Dependency fences & repo hygiene
 
-- [ ] `scripts/check-dep-fences.mjs`: extend `WASM_PATTERN` / owner rule so only `formspec-engine` may import `wasm-pkg-runtime`, `wasm-pkg-tools`, or generated module names (replace single `formspec_wasm` string with explicit allowlist).
-- [ ] Grep repo for `formspec_wasm`, `wasm-pkg/formspec_wasm`, `formspec-wasm` in docs, scripts, and workflow YAML; update CI/build instructions.
+- [x] `scripts/check-dep-fences.mjs`: extend `WASM_PATTERN` / owner rule so only `formspec-engine` may import `wasm-pkg-runtime`, `wasm-pkg-tools`, or generated module names (replace single `formspec_wasm` string with explicit allowlist).
+- [x] Grep repo for `formspec_wasm`, `wasm-pkg/formspec_wasm`, `formspec-wasm` in docs, scripts, and workflow YAML; update CI/build instructions. *(CI had no hardcoded monolith paths; `CLAUDE.md` / `AGENTS.md` / engine README / `.gitignore` / dep fences updated.)*
 
 ## 8. Testing strategy
 
 **Unit / integration (Vitest):**
 
-- [ ] **Runtime isolation:** test that after `initFormspecEngine()` (or `initWasm()`) and through first `createFormEngine()` + minimal render/eval, tools JS glue module was **not** imported — e.g. Vitest mock on the dynamic import path, or assert no tools chunk is requested in the browser harness.
+- [x] **Runtime isolation:** test that after `initFormspecEngine()` (or `initWasm()`) and through first `createFormEngine()` + minimal render/eval, tools JS glue module was **not** imported — e.g. Vitest mock on the dynamic import path, or assert no tools chunk is requested in the browser harness. *(Partial: `packages/formspec-engine/tests/isolation/wasm-runtime-isolation.mjs` runs without global setup and asserts tools stay unloaded + sync tools API throws.)*
 - [ ] **Lazy tools:** call `createMappingEngine` or `wasmLintDocument` once; assert tools module loads exactly once; second call reuses init.
 - [ ] **Top-level API compatibility:** package-root imports for existing public APIs still resolve from `formspec-engine` without caller rewrites unless explicitly documented as a breaking change.
 - [ ] **Compatibility guard:** intentionally mismatched runtime/tools artifacts fail with the expected targeted error before any tools call proceeds.
@@ -139,7 +139,7 @@ Lock ambiguous rows (**especially `wasmParseFEL`**, which may overlap runtime co
 
 ## 9. Completion checklist (maps to ADR acceptance criteria)
 
-- [ ] `initFormspecEngine()` / `createFormEngine()` do not import, fetch, or initialize tools JS glue or tools WASM.
+- [x] `initFormspecEngine()` / `createFormEngine()` do not import, fetch, or initialize tools JS glue or tools WASM.
 - [ ] `formspec-webcomponent` render path unchanged; no tools artifact is imported, fetched, or initialized.
 - [ ] `formspec-layout` unchanged (still no engine/WASM).
 - [ ] Package-root `formspec-engine` public APIs remain stable where ADR 0050 expects stability; tools-owned APIs still resolve from the top-level package and lazy-load internally.

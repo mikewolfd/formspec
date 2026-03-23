@@ -1,7 +1,7 @@
 /** @filedesc Entry point for the Studio app; registers the formspec-render custom element and mounts App. */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { initFormspecEngine } from 'formspec-engine';
+import { initFormspecEngine, initFormspecEngineTools } from 'formspec-engine';
 import 'formspec-webcomponent/formspec-default.css';
 import { FormspecRender } from 'formspec-webcomponent';
 import { App } from './App';
@@ -13,6 +13,7 @@ if (!customElements.get('formspec-render')) {
 
 async function bootstrap(): Promise<void> {
   await initFormspecEngine();
+  await initFormspecEngineTools();
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

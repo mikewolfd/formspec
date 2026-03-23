@@ -72,10 +72,10 @@ for (const dir of dirs) {
   }
 }
 
-// --- WASM fence: only formspec-engine may import from wasm-pkg / formspec-wasm ---
+// --- WASM fence: only formspec-engine may import generated WASM glue ---
 
 const WASM_OWNER = 'formspec-engine';
-const WASM_PATTERN = /(?:wasm-pkg|formspec-wasm|formspec_wasm)/;
+const WASM_PATTERN = /(?:wasm-pkg(?:-runtime|-tools)?|formspec-wasm|formspec_wasm(?:_runtime|_tools)?)/;
 
 for (const dir of dirs) {
   if (dir === WASM_OWNER) continue;
@@ -85,12 +85,13 @@ for (const dir of dirs) {
   let grepOut = '';
   try {
     grepOut = execSync(
-      `grep -rn "wasm-pkg\\|formspec-wasm\\|formspec_wasm" "${srcDir}" --include="*.ts" --include="*.mts" --include="*.js" --include="*.mjs" 2>/dev/null || true`,
+      `grep -rn "wasm-pkg\\|formspec-wasm\\|formspec_wasm\\|formspec_wasm_runtime\\|formspec_wasm_tools" "${srcDir}" --include="*.ts" --include="*.mts" --include="*.js" --include="*.mjs" 2>/dev/null || true`,
       { encoding: 'utf8' },
     );
   } catch { /* empty */ }
 
   for (const line of grepOut.split('\n').filter(Boolean)) {
+    if (!WASM_PATTERN.test(line)) continue;
     console.error(`✗  ${dir} imports WASM — only ${WASM_OWNER} may use the WASM package`);
     console.error(`   ${line}`);
     violations++;

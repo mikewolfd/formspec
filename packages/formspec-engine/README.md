@@ -381,6 +381,21 @@ Four stages, all in `src/fel/`:
 
 `assembleDefinition` resolves `$ref` group items into a self-contained definition. For each `$ref` the assembler: fetches the referenced definition, selects the fragment, applies `keyPrefix`, rewrites bind paths and shape targets into the host scope, rewrites all `$`-prefixed FEL references, imports variables, detects collisions, records provenance, and recurses into nested `$ref` items.
 
+### Rust / WASM (split artifacts)
+
+`npm run build` compiles `crates/formspec-wasm` twice via `wasm-pack` and runs the same `wasm-opt` pass as before:
+
+| Output directory | Glue module prefix | Used for |
+|------------------|-------------------|----------|
+| `wasm-pkg-runtime/` | `formspec_wasm_runtime*` | Default **`initFormspecEngine()`** path: `FormEngine`, batch eval, FEL eval, coercion, migrations, option-set inlining, path helpers |
+| `wasm-pkg-tools/` | `formspec_wasm_tools*` | Lint/schema planning, registry document helpers, mapping execution, definition assembly in WASM, FEL authoring helpers (tokenize, print, rewrites, …) |
+
+- Call **`await initFormspecEngine()`** before `FormEngine` or runtime WASM helpers.
+- Call **`await initFormspecEngineTools()`** before sync tooling APIs (`lintDocument`, `tokenizeFEL`, `assembleDefinitionSync`, `RuntimeMappingEngine`, …). **`await assembleDefinition()`** loads tools lazily on first use.
+- Paired artifacts expose **`formspecWasmSplitAbiVersion()`**; the JS bridge rejects mismatched runtime/tools builds.
+
+Generated `wasm-pkg-runtime/` and `wasm-pkg-tools/` are gitignored; run `npm run build` in this package (or the monorepo root) to produce them.
+
 ---
 
 ## Tests
@@ -388,8 +403,9 @@ Four stages, all in `src/fel/`:
 Run with Node.js built-in test runner:
 
 ```bash
-npm test          # build + test
-npm run test:unit # test only (requires prior build)
+npm test          # build + unit tests + runtime/tools isolation check
+npm run test:unit # test only (requires prior build; initializes runtime + tools WASM)
+npm run test:wasm-runtime-isolation # runtime-only init (no global setup)
 ```
 
 20 test files in `tests/` covering: bind behaviors, bind defaults and expression context, definition assembly (sync/async), FEL path rewriting, shape composition and timing, repeat lifecycle, response pruning, remote options, runtime diagnostics, replay, and runtime mapping.

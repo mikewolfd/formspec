@@ -6,7 +6,7 @@ import type {
     MappingDirection,
     RuntimeMappingResult,
 } from '../interfaces.js';
-import { wasmExecuteMappingDoc } from '../wasm-bridge.js';
+import { isWasmToolsReady, wasmExecuteMappingDoc } from '../wasm-bridge.js';
 
 interface MappingCSVConfig { delimiter?: string; quote?: string; header?: boolean; lineEnding?: 'crlf' | 'lf'; }
 
@@ -129,6 +129,19 @@ export class RuntimeMappingEngine implements IRuntimeMappingEngine {
     }
 
     private execute(direction: MappingDirection, source: any): RuntimeMappingResult {
+        if (!isWasmToolsReady()) {
+            return {
+                direction,
+                output: {},
+                appliedRules: 0,
+                diagnostics: [{
+                    ruleIndex: -1,
+                    errorCode: 'COERCE_FAILURE',
+                    message:
+                        'RuntimeMappingEngine requires tools WASM. Call await initFormspecEngineTools() after await initFormspecEngine().',
+                }],
+            };
+        }
         // Delegate to WASM for core rule evaluation
         let wasmResult: { direction: string; output: any; rulesApplied: number; diagnostics: any[] };
         try {

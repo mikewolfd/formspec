@@ -1,6 +1,6 @@
 /** @filedesc Public `initFormspecEngine` / `isFormspecEngineInitialized` — wraps wasm-bridge load for apps. */
 
-import { initWasm, isWasmReady } from './wasm-bridge.js';
+import { initWasm, initWasmTools, isWasmReady, isWasmToolsReady } from './wasm-bridge.js';
 
 /**
  * Initialize the Formspec engine (loads and links the Rust/WASM module).
@@ -19,4 +19,17 @@ export async function initFormspecEngine(): Promise<void> {
  */
 export function isFormspecEngineInitialized(): boolean {
     return isWasmReady();
+}
+
+/**
+ * Initialize the tools WASM module used by lint/mapping/registry/changelog helpers.
+ * Runtime-first flows do not need this.
+ */
+export async function initFormspecEngineTools(): Promise<void> {
+    return initWasmTools();
+}
+
+/** Whether the tools WASM module has completed initialization. */
+export function isFormspecEngineToolsInitialized(): boolean {
+    return isWasmToolsReady();
 }

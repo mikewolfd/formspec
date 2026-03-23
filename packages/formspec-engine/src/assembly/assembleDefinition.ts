@@ -3,7 +3,7 @@
 import type { FormDefinition } from 'formspec-types';
 import type { AssemblyResult, DefinitionResolver } from '../interfaces.js';
 import { cloneValue } from '../engine/helpers.js';
-import { wasmAssembleDefinition } from '../wasm-bridge.js';
+import { initWasmTools, isWasmToolsReady, wasmAssembleDefinition } from '../wasm-bridge.js';
 function parseRef(ref: string): { url: string; version?: string; fragment?: string } {
     let remainder = ref;
     let fragment: string | undefined;
@@ -108,6 +108,7 @@ async function assembleDefinitionAsyncInternal(
     definition: FormDefinition,
     resolver: DefinitionResolver,
 ): Promise<AssemblyResult> {
+    await initWasmTools();
     const fragments = await collectResolvedFragmentsAsync(definition, resolver);
     const result = wasmAssembleDefinition(cloneValue(definition), fragments);
     if (result.errors?.length) {
@@ -123,6 +124,12 @@ function assembleDefinitionSyncInternal(
     definition: FormDefinition,
     resolver: Record<string, unknown> | ((url: string, version?: string) => unknown),
 ): AssemblyResult {
+    if (!isWasmToolsReady()) {
+        throw new Error(
+            'assembleDefinitionSync requires tools WASM. Call await initFormspecEngineTools() after await initFormspecEngine(), ' +
+            'or use await assembleDefinition() to load tools lazily.',
+        );
+    }
     const resolveOne = typeof resolver === 'function'
         ? resolver
         : (url: string, version?: string) => resolver[version ? `${url}|${version}` : url] ?? resolver[url];

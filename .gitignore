@@ -51,4 +51,6 @@ site/public/references/
 # Rust / WASM build artifacts
 target/
 packages/formspec-engine/wasm-pkg/
+packages/formspec-engine/wasm-pkg-runtime/
+packages/formspec-engine/wasm-pkg-tools/
 thoughts/private/

@@ -185,7 +185,7 @@ Internal package dependencies must flow strictly downward through defined layers
 **Rules:**
 
 - A package at layer N may only depend on packages at layer < N (strictly lower). Same-layer dependencies are forbidden — they create lateral coupling that easily becomes circular.
-- **WASM is exclusive to `formspec-engine`.** No other package may import from `wasm-pkg`, `formspec-wasm`, or `formspec_wasm`. The engine is the sole bridge between the Rust/WASM tier and the TypeScript tier.
+- **WASM is exclusive to `formspec-engine`.** No other package may import from `wasm-pkg`, `wasm-pkg-runtime`, `wasm-pkg-tools`, `formspec-wasm`, or generated `formspec_wasm*` glue. The engine is the sole bridge between the Rust/WASM tier and the TypeScript tier.
 - When adding a new package, assign it a layer in `scripts/check-dep-fences.mjs` before adding any internal dependencies.
 - The fence checker validates `dependencies`, `peerDependencies`, and `devDependencies` — test-only imports count.
 
@@ -195,7 +195,7 @@ Internal package dependencies must flow strictly downward through defined layers
 
 Central class that manages form state. Maintains separate Preact Signals for: field values, relevance, required state, readonly state, validation results, and repeat counts. Computed signals auto-update when dependencies change. Key methods: `setDefinition()`, `setValue()`, `getResponse()`, `getValidationReport()`, `compileFEL()`.
 
-Apps that use `formspec-engine` directly (not only `formspec-webcomponent`) must call **`await initFormspecEngine()`** (alias: **`initEngine`**) once before constructing `FormEngine` or calling WASM-backed helpers. The web component package starts this automatically on import.
+Apps that use `formspec-engine` directly (not only `formspec-webcomponent`) must call **`await initFormspecEngine()`** (alias: **`initEngine`**) once before constructing `FormEngine` or calling WASM-backed helpers. The web component package starts this automatically on import. Authoring/tooling APIs (lint, registry helpers, mapping, sync assembly, FEL tokenize/print, etc.) need **`await initFormspecEngineTools()`** as well, unless they use **`await assembleDefinition()`**, which loads tools lazily. Runtime and tools ship as separate generated artifacts under `wasm-pkg-runtime/` and `wasm-pkg-tools/` (see `packages/formspec-engine/README.md`).
 
 ### FEL Pipeline (`packages/formspec-engine/src/fel/` — TypeScript)
 
