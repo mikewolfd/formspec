@@ -67,11 +67,10 @@ for (const r of [...byRel.keys()].sort((a, b) => a.localeCompare(b))) {
   byRel.delete(r);
 }
 
-const stamp = new Date().toISOString();
 const pieces = [
   `# ${title} — generated API (Markdown)`,
   "",
-  `Generated: ${stamp} (do not edit by hand; regenerate via npm script / cargo doc-md + this bundler)`,
+  `> Do not edit by hand; regenerate via npm script / cargo doc-md + this bundler.`,
   "",
   "Bundled from [cargo-doc-md](https://github.com/Crazytieguy/cargo-doc-md). Nested module paths are preserved in headings. Relative links may not resolve; search by heading.",
   "",
