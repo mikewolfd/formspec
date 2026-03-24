@@ -91,17 +91,18 @@ Form Standard</p>
 <hr />
 <h2 id="abstract">Abstract</h2>
 <p>The Formspec Extension Registry specification defines a JSON document
-format for publishing, discovering, and validating Formspec extensions.
-A Registry Document enumerates a set of named extensions — custom data
-types, custom functions, custom constraints, extension properties, and
-extension namespaces — together with their metadata, version history,
+format for publishing, discovering, and validating Formspec extensions
+and semantic metadata. A Registry Document enumerates a set of named
+entries — custom data types, custom functions, custom constraints,
+extension properties, extension namespaces, concept identities, and
+vocabulary bindings — together with their metadata, version history,
 compatibility bounds, and machine-readable schemas. This specification
 does not define a runtime service; it defines a static document format
 that MAY be served over HTTPS, bundled in a package, or checked into a
-repository. By standardizing how extensions are described and located,
-the Registry format enables tool vendors, form authors, and validation
-engines to interoperate across organizational boundaries without
-out-of-band coordination.</p>
+repository. By standardizing how extensions and concepts are described
+and located, the Registry format enables tool vendors, form authors,
+data governance teams, and validation engines to interoperate across
+organizational boundaries without out-of-band coordination.</p>
 <h2 id="status-of-this-document">Status of This Document</h2>
 <p>This document is a <strong>draft specification</strong>. It is a
 companion to the Formspec v1.0 core specification and does not modify or
@@ -557,6 +558,127 @@ namespace.</td>
 </tr>
 </tbody>
 </table>
+<p><strong><code>concept</code></strong> — Concept identity (Ontology
+specification):</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>conceptUri</code></td>
+<td>string (URI)</td>
+<td>REQUIRED</td>
+<td>The concept IRI in the external ontology or standard. Globally
+unique identifier for the concept this entry represents.</td>
+</tr>
+<tr>
+<td><code>conceptSystem</code></td>
+<td>string (URI)</td>
+<td>RECOMMENDED</td>
+<td>The ontology or concept system URI (e.g.,
+<code>https://schema.org</code>,
+<code>https://www.irs.gov/terms</code>).</td>
+</tr>
+<tr>
+<td><code>conceptCode</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Short code within the system (e.g., <code>"EIN"</code>,
+<code>"MR"</code>).</td>
+</tr>
+<tr>
+<td><code>equivalents</code></td>
+<td>array</td>
+<td>OPTIONAL</td>
+<td>Cross-system equivalences. Each element declares <code>system</code>
+(URI, REQUIRED), <code>code</code> (string, REQUIRED),
+<code>display</code> (string, OPTIONAL), and <code>type</code> (string,
+OPTIONAL — defaults to <code>"exact"</code>). Relationship types follow
+SKOS semantics: <code>exact</code>, <code>close</code>,
+<code>broader</code>, <code>narrower</code>, <code>related</code>.
+Custom types MUST be <code>x-</code>-prefixed.</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Descriptive metadata (e.g., <code>displayName</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>A field’s <code>semanticType</code> may reference a concept entry by
+name. When a processor encounters a <code>semanticType</code> value
+matching a loaded concept entry’s <code>name</code>, it SHOULD resolve
+the entry and make its concept metadata available to downstream
+tooling.</p>
+<p><strong><code>vocabulary</code></strong> — Vocabulary/terminology
+binding (Ontology specification):</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vocabularySystem</code></td>
+<td>string (URI)</td>
+<td>REQUIRED</td>
+<td>The terminology system URI (e.g.,
+<code>http://hl7.org/fhir/sid/icd-10</code>).</td>
+</tr>
+<tr>
+<td><code>vocabularyVersion</code></td>
+<td>string</td>
+<td>RECOMMENDED</td>
+<td>Version of the terminology (e.g., <code>"2024"</code>).</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Subset constraints: <code>ancestor</code> (root code),
+<code>maxDepth</code> (integer), <code>include</code> (array of codes),
+<code>exclude</code> (array of codes).</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Descriptive metadata (e.g., <code>displayName</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>Vocabulary entries complement Ontology Document vocabulary bindings
+by providing shared, reusable terminology metadata at the registry
+level.</p>
+<blockquote>
+<p><strong>Note:</strong> Unlike extension categories, concept and
+vocabulary entries MUST NOT affect the processing model (§2.4 of
+Formspec v1.0). They are pure metadata consumed by ontology-aware
+tooling, data science pipelines, and interoperability layers.</p>
+</blockquote>
 <hr />
 <h2 id="naming-rules">4. Naming Rules</h2>
 <p>This section codifies and extends the naming conventions of Formspec
@@ -582,6 +704,12 @@ and <code>version</code>.</p></li>
 resolved by publisher authority. Organizations SHOULD use the
 <code>x-{org}-{domain}</code> pattern (§8.5) to minimize collision
 risk.</p></li>
+<li><p>Concept entries SHOULD use the prefix <code>x-onto-</code> (e.g.,
+<code>x-onto-ein</code>, <code>x-onto-birthdate</code>) and vocabulary
+entries SHOULD use <code>x-vocab-</code> (e.g.,
+<code>x-vocab-icd10-cm</code>, <code>x-vocab-admin-gender</code>) to
+distinguish them from extension entries by convention. This is advisory;
+the naming regex is unchanged.</p></li>
 </ol>
 <hr />
 <h2 id="discovery">5. Discovery</h2>
@@ -687,6 +815,21 @@ regardless of the extension’s intended category, because without the
 registry entry the processor cannot determine the extension’s semantics.
 Disabled extensions (<code>"x-example": false</code>) MUST NOT trigger
 this error.</p></li>
+<li><p><strong>Concept resolution.</strong> When a Definition field’s
+<code>semanticType</code> matches the <code>name</code> of a loaded
+registry entry with <code>category: "concept"</code>, the processor
+SHOULD resolve the entry and make its concept metadata (URI,
+equivalents, display) available to downstream tooling. An unresolved
+<code>semanticType</code> that does not match any loaded concept entry
+is NOT an error — <code>semanticType</code> remains a freeform string
+for processors that do not support concept resolution.</p></li>
+<li><p><strong>Vocabulary resolution.</strong> Vocabulary entries
+provide shared terminology metadata that complements Ontology Document
+vocabulary bindings. When an Ontology Document vocabulary binding
+references a <code>system</code> that matches a loaded vocabulary
+registry entry’s <code>vocabularySystem</code>, the registry entry MAY
+provide default version and filter metadata. The Ontology Document’s
+values take precedence when both are present.</p></li>
 </ol>
 <hr />
 <h2 id="examples">8. Examples</h2>

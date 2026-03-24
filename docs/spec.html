@@ -174,6 +174,9 @@ Points</a>
 <li><a href="#custom-data-types-functions-and-constraints"
 id="toc-custom-data-types-functions-and-constraints">8.1 Custom Data
 Types, Functions, and Constraints</a></li>
+<li><a href="#concept-and-vocabulary-registry-entries"
+id="toc-concept-and-vocabulary-registry-entries">8.1.1 Concept and
+Vocabulary Registry Entries</a></li>
 <li><a href="#extension-properties" id="toc-extension-properties">8.4
 Extension Properties</a></li>
 <li><a href="#extension-namespaces" id="toc-extension-namespaces">8.5
@@ -4184,12 +4187,18 @@ recalculation). Distinct from the Bind <code>default</code> property
 <td><code>semanticType</code></td>
 <td>string</td>
 <td><strong>0..1</strong> (OPTIONAL)</td>
-<td>Domain meaning annotation (e.g., <code>"us-gov:ein"</code>,
-<code>"ietf:email"</code>, <code>"iso:phone-e164"</code>). Purely
-metadata — MUST NOT affect validation, calculation, or any behavioral
-semantics. Supports intelligent widget selection, data classification,
-and interoperability mapping. Implementations SHOULD use URIs or
-namespaced identifiers to avoid collisions.</td>
+<td>Domain meaning annotation. Purely metadata — MUST NOT affect
+validation, calculation, or any behavioral semantics. The value MAY be a
+freeform namespaced identifier (e.g., <code>"us-gov:ein"</code>), a URI
+(e.g., <code>"https://schema.org/birthDate"</code>), or the name of a
+loaded registry entry with <code>category: "concept"</code> (e.g.,
+<code>"x-onto-ein"</code>). When the value matches a loaded concept
+registry entry, processors SHOULD resolve it to the entry’s concept
+metadata (URI, equivalents, display name). Unresolved values are not
+errors — <code>semanticType</code> remains a freeform string for
+processors that do not support concept resolution. Supports intelligent
+widget selection, data classification, cross-form alignment, and
+interoperability mapping.</td>
 </tr>
 <tr>
 <td><code>prePopulate</code></td>
@@ -7558,6 +7567,31 @@ Instance data.</p></li>
 results when unsupported — processors MUST fail rather than
 skip.</p></li>
 </ol>
+<hr />
+<h3 id="concept-and-vocabulary-registry-entries">8.1.1 Concept and
+Vocabulary Registry Entries</h3>
+<p>In addition to the five extension categories defined in §8.1, the
+Extension Registry specification defines two metadata categories —
+<code>concept</code> and <code>vocabulary</code> — for publishing shared
+concept identity and terminology system bindings.</p>
+<p><strong>Concept entries</strong> associate a registry name with an
+external concept URI (IRI) and cross-system equivalences using SKOS
+relationship types (<code>exact</code>, <code>broader</code>,
+<code>narrower</code>, <code>related</code>, <code>close</code>). A
+field’s <code>semanticType</code> may reference a concept entry by name
+(e.g., <code>"semanticType": "x-onto-ein"</code>), enabling processors
+to resolve the entry and access its concept URI, equivalents, and
+display metadata.</p>
+<p><strong>Vocabulary entries</strong> associate a registry name with a
+terminology system URI, version, and optional subset filter. Vocabulary
+entries complement Ontology Document vocabulary bindings (see the
+Ontology specification) by providing shared, reusable terminology
+metadata at the registry level.</p>
+<p>Unlike extension categories, concept and vocabulary entries MUST NOT
+affect the processing model defined in §2.4. They are pure metadata
+consumed by ontology-aware tooling, data science pipelines, and
+interoperability layers. A processor that does not understand concept or
+vocabulary entries MUST ignore them without error.</p>
 <hr />
 <h3 id="extension-properties">8.4 Extension Properties</h3>
 <p>Any object in a Formspec Definition, Instance, Response, or
