@@ -189,16 +189,18 @@ test('pluralCategory() with field value as count', () => {
   assert.equal(fn(), 'one');
 });
 
-// ── locale region subtag handling ──────────────────────────────────
+// ── BCP 47 locale tag (full tag, not language-only) ───────────────
 
-test('pluralCategory() strips region from locale (en-US uses en rules)', () => {
+test('pluralCategory() uses full tag where region matches language rules (en-US)', () => {
   const engine = new FormEngine(minDef());
   const fn = engine.compileExpression("pluralCategory(1, 'en-US')");
   assert.equal(fn(), 'one');
 });
 
-test('pluralCategory() strips region from locale (fr-CA uses fr rules)', () => {
+test('pluralCategory() uses full tag for region-specific CLDR (fr-CA 0 is other, bare fr is one)', () => {
   const engine = new FormEngine(minDef());
-  const fn = engine.compileExpression("pluralCategory(0, 'fr-CA')");
-  assert.equal(fn(), 'one');
+  const frCa = engine.compileExpression("pluralCategory(0, 'fr-CA')");
+  assert.equal(frCa(), 'other');
+  const fr = engine.compileExpression("pluralCategory(0, 'fr')");
+  assert.equal(fr(), 'one');
 });
