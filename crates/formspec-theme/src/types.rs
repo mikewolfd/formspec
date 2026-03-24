@@ -71,6 +71,9 @@ pub enum LabelPosition {
     Top,
     Start,
     Hidden,
+    /// The `"none"` sentinel suppresses inherited label position (SS5.6).
+    #[serde(rename = "none")]
+    LabelNone,
 }
 
 /// CSS class merge strategy.

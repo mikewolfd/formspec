@@ -835,3 +835,24 @@ impl PlanContext {
         }
     }
 }
+
+/// Recursively search definition items for an item matching the given key.
+/// Walks into `items` (group children) to find nested items.
+pub fn find_item_recursive(items: &[Value], key: &str) -> Option<Value> {
+    for item in items {
+        let item_key = item
+            .get("key")
+            .or_else(|| item.get("path"))
+            .and_then(|v| v.as_str());
+        if item_key == Some(key) {
+            return Some(item.clone());
+        }
+        // Recurse into group children
+        if let Some(children) = item.get("items").and_then(|v| v.as_array()) {
+            if let Some(found) = find_item_recursive(children, key) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}

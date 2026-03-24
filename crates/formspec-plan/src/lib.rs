@@ -13,7 +13,7 @@ pub use params::interpolate_params;
 pub use planner::{
     plan_component_tree, plan_definition_fallback, reset_node_id_counter,
     classify_component, extract_props, resolve_style_tokens_map,
-    build_field_item_snapshot, build_tier1_hints,
+    build_field_item_snapshot, build_tier1_hints, find_item_recursive,
 };
 
 #[cfg(feature = "eval-merge")]

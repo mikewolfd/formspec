@@ -10,8 +10,10 @@ formspec-plan = { path = "../formspec-plan", features = ["eval-merge"] }
 formspec-theme = { path = "../formspec-theme" }
 formspec-eval = { path = "../formspec-eval" }
 pdf-writer = "0.14"
-subsetter = "0.2"
-flate2 = "1"
+# subsetter and flate2 will be needed for font subsetting and stream compression.
+# Uncomment when those features are implemented.
+# subsetter = "0.2"
+# flate2 = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

@@ -895,6 +895,60 @@ fn resolve_widget_fallback_uses_spec_vocabulary() {
     assert_eq!(result, Some("Select".to_string()));
 }
 
+// ── LabelPosition "none" ──
+
+#[test]
+fn label_position_none_deserializes() {
+    let json_str = r#"{"labelPosition": "none"}"#;
+    let block: PresentationBlock = serde_json::from_str(json_str).unwrap();
+    assert_eq!(block.label_position, Some(LabelPosition::LabelNone));
+}
+
+#[test]
+fn label_position_none_serializes_to_none_string() {
+    let block = PresentationBlock {
+        label_position: Some(LabelPosition::LabelNone),
+        ..Default::default()
+    };
+    let json_str = serde_json::to_string(&block).unwrap();
+    assert!(json_str.contains(r#""labelPosition":"none""#));
+}
+
+#[test]
+fn none_sentinel_suppresses_label_position() {
+    let theme = make_theme(Some(PresentationBlock {
+        label_position: Some(LabelPosition::Top),
+        ..Default::default()
+    }));
+
+    let tier1 = Tier1Hints {
+        form_presentation: None,
+        item_presentation: None,
+    };
+
+    // Selector applies labelPosition: "none" at higher priority
+    let mut theme_with_selector = theme;
+    theme_with_selector.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Field),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            label_position: Some(LabelPosition::LabelNone),
+            ..Default::default()
+        },
+    }]);
+
+    let result = resolve_presentation(
+        Some(&theme_with_selector),
+        &field_item("name", None),
+        Some(&tier1),
+        None,
+    );
+    // "none" should suppress the inherited label position
+    assert_eq!(result.label_position, None);
+}
+
 // ── Serde Round-trip ──
 
 #[test]

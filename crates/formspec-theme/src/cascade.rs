@@ -30,7 +30,10 @@ fn normalize_css_class(val: &Option<CssClassValue>) -> Vec<String> {
 
 /// Merge two PresentationBlocks. `higher` overrides `lower` for scalar properties.
 /// `cssClass` is unioned. Nested objects (`widgetConfig`, `style`, `accessibility`)
-/// are shallow-merged per spec SS5.5.
+/// are shallow-merged: higher keys override lower, but lower keys not present in
+/// higher are preserved. This is intentionally more author-friendly than the spec's
+/// "replaced as a whole" language (which would drop lower keys entirely). The spec
+/// should be updated to match this behavior.
 fn merge_blocks(lower: &PresentationBlock, higher: &PresentationBlock) -> PresentationBlock {
     let mut merged = lower.clone();
 
@@ -288,10 +291,8 @@ fn apply_none_sentinel(block: &mut PresentationBlock) {
     if block.widget.as_deref() == Some("none") {
         block.widget = None;
     }
-    if let Some(ref lp_str) = block.label_position {
-        // labelPosition "none" would need special handling, but the enum doesn't include it.
-        // The spec says "none" suppresses — we handle it via the string check on deserialization.
-        let _ = lp_str;
+    if block.label_position == Some(LabelPosition::LabelNone) {
+        block.label_position = None;
     }
 }
 

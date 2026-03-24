@@ -724,6 +724,66 @@ fn field_item_snapshot_uses_path_fallback() {
 }
 
 // ---------------------------------------------------------------------------
+// find_item_recursive
+// ---------------------------------------------------------------------------
+
+#[test]
+fn find_item_recursive_top_level() {
+    use crate::planner::find_item_recursive;
+
+    let items = vec![
+        json!({"key": "name", "dataType": "string"}),
+        json!({"key": "age", "dataType": "integer"}),
+    ];
+    let found = find_item_recursive(&items, "age");
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().get("key").unwrap().as_str(), Some("age"));
+}
+
+#[test]
+fn find_item_recursive_nested_in_group() {
+    use crate::planner::find_item_recursive;
+
+    let items = vec![json!({
+        "key": "address",
+        "type": "group",
+        "items": [
+            {"key": "street", "dataType": "string"},
+            {"key": "city", "dataType": "string"}
+        ]
+    })];
+    let found = find_item_recursive(&items, "city");
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().get("key").unwrap().as_str(), Some("city"));
+}
+
+#[test]
+fn find_item_recursive_deeply_nested() {
+    use crate::planner::find_item_recursive;
+
+    let items = vec![json!({
+        "key": "outer",
+        "type": "group",
+        "items": [{
+            "key": "inner",
+            "type": "group",
+            "items": [{"key": "deep", "dataType": "string"}]
+        }]
+    })];
+    let found = find_item_recursive(&items, "deep");
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().get("key").unwrap().as_str(), Some("deep"));
+}
+
+#[test]
+fn find_item_recursive_not_found() {
+    use crate::planner::find_item_recursive;
+
+    let items = vec![json!({"key": "name", "dataType": "string"})];
+    assert!(find_item_recursive(&items, "missing").is_none());
+}
+
+// ---------------------------------------------------------------------------
 // build_tier1_hints
 // ---------------------------------------------------------------------------
 

@@ -45,24 +45,30 @@ pub fn render_pdf(
         serde_json::from_str(component_document_json).ok()
     };
 
-    // Build item lookup
+    // Build item lookup (recursive — finds items nested inside groups)
     let items_clone = items.clone();
     let ctx = formspec_plan::PlanContext {
         items: items.clone(),
         form_presentation,
-        component_document,
+        component_document: component_document.clone(),
         theme,
         viewport_width: None,
         find_item: Box::new(move |key: &str| {
-            items_clone.iter().find(|i| {
-                i.get("key").and_then(|v| v.as_str()) == Some(key)
-            }).cloned()
+            formspec_plan::find_item_recursive(&items_clone, key)
         }),
         is_component_available: None,
     };
 
-    // Plan
-    let layout_nodes = formspec_plan::plan_definition_fallback(&items, &ctx);
+    // Plan: use component tree when available, otherwise fallback to definition items
+    let layout_nodes = if let Some(ref comp_doc) = component_document {
+        if let Some(tree) = comp_doc.get("tree") {
+            vec![formspec_plan::plan_component_tree(tree, &ctx)]
+        } else {
+            formspec_plan::plan_definition_fallback(&items, &ctx)
+        }
+    } else {
+        formspec_plan::plan_definition_fallback(&items, &ctx)
+    };
 
     // Evaluate
     let response: HashMap<String, serde_json::Value> = if response_json == "null" || response_json == "{}" || response_json.is_empty() {
