@@ -17,10 +17,11 @@ const METADATA_PROPERTIES = new Set(['name', 'title', 'description', 'version', 
 
 /** Resolve the target locale from state, using explicit localeId or selectedLocaleId. */
 function getLocale(state: ProjectState, localeId?: string): LocaleState {
-  const id = localeId || state.selectedLocaleId;
-  if (!id) throw new Error('No locale specified and no locale is selected');
+  const raw = localeId ?? state.selectedLocaleId;
+  if (!raw) throw new Error('No locale specified and no locale is selected');
+  const id = normalizeBcp47(raw);
   const locale = state.locales[id];
-  if (!locale) throw new Error(`Locale not found: ${id}`);
+  if (!locale) throw new Error(`Locale not found: ${raw}`);
   return locale;
 }
 
@@ -54,8 +55,12 @@ export const localeHandlers: Record<string, CommandHandler> = {
 
   'locale.remove': (state, payload) => {
     const { localeId } = payload as { localeId: string };
-    delete state.locales[localeId];
-    if (state.selectedLocaleId === localeId) {
+    const id = normalizeBcp47(localeId);
+    delete state.locales[id];
+    if (
+      state.selectedLocaleId !== undefined &&
+      normalizeBcp47(state.selectedLocaleId) === id
+    ) {
       state.selectedLocaleId = undefined;
     }
     return { rebuildComponentTree: false };
@@ -63,10 +68,11 @@ export const localeHandlers: Record<string, CommandHandler> = {
 
   'locale.select': (state, payload) => {
     const { localeId } = payload as { localeId: string };
-    if (!state.locales[localeId]) {
+    const id = normalizeBcp47(localeId);
+    if (!state.locales[id]) {
       throw new Error(`Locale not found: ${localeId}`);
     }
-    state.selectedLocaleId = localeId;
+    state.selectedLocaleId = id;
     return { rebuildComponentTree: false };
   },
 

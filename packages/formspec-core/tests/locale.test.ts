@@ -62,6 +62,42 @@ describe('locale.load', () => {
   });
 });
 
+describe('locale commands normalize localeId for lookup (matches locale.load keys)', () => {
+  it('locale.select accepts non-canonical code when locale was loaded normalized', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'locale.load', payload: { document: localeDoc('zh-hant-tw') } });
+    project.dispatch({ type: 'locale.select', payload: { localeId: 'zh-hant-tw' } });
+    expect((project.state as any).selectedLocaleId).toBe('zh-Hant-TW');
+  });
+
+  it('locale.remove deletes by non-canonical localeId', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'locale.load', payload: { document: localeDoc('zh-hant-tw') } });
+    project.dispatch({ type: 'locale.remove', payload: { localeId: 'zh-hant-tw' } });
+    expect((project.state as any).locales['zh-Hant-TW']).toBeUndefined();
+  });
+
+  it('locale.remove clears selectedLocaleId when selection used canonical key', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'locale.load', payload: { document: localeDoc('zh-hant-tw') } });
+    project.dispatch({ type: 'locale.select', payload: { localeId: 'zh-Hant-TW' } });
+    project.dispatch({ type: 'locale.remove', payload: { localeId: 'zh-hant-tw' } });
+    expect((project.state as any).selectedLocaleId).toBeUndefined();
+  });
+
+  it('getLocale-backed handlers accept non-canonical localeId', () => {
+    const project = createRawProject();
+    project.dispatch({ type: 'locale.load', payload: { document: localeDoc('zh-hant-tw', { a: '1' }) } });
+    project.dispatch({
+      type: 'locale.setString',
+      payload: { localeId: 'zh-hant-tw', key: 'b', value: '2' },
+    });
+    const strings = (project.state as any).locales['zh-Hant-TW'].strings;
+    expect(strings.a).toBe('1');
+    expect(strings.b).toBe('2');
+  });
+});
+
 describe('locale.remove', () => {
   it('deletes a locale from state', () => {
     const project = createRawProject();
