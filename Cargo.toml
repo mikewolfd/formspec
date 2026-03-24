@@ -6,6 +6,9 @@ members = [
     "crates/formspec-lint",
     "crates/formspec-py",
     "crates/formspec-wasm",
+    "crates/formspec-theme",
+    "crates/formspec-plan",
+    "crates/formspec-pdf",
 ]
 resolver = "2"
 

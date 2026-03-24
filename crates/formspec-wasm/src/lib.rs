@@ -30,5 +30,12 @@ mod registry;
 mod split_abi;
 mod value_coerce;
 
+#[cfg(feature = "theme-api")]
+mod theme;
+#[cfg(feature = "plan-api")]
+mod plan;
+#[cfg(feature = "pdf-api")]
+mod pdf;
+
 #[cfg(test)]
 mod wasm_tests;

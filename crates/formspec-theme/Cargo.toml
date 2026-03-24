@@ -1,0 +1,10 @@
+[package]
+name = "formspec-theme"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Formspec theme cascade resolver: 6-level merge, token resolution, widget fallback chains"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
