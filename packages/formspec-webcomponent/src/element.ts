@@ -20,7 +20,16 @@ import {
 import defaultThemeJson from './default-theme.json';
 
 // Extracted modules
-import { hasActiveScreener, renderScreener, type ScreenerHost } from './rendering/screener';
+import {
+    hasActiveScreener,
+    renderScreener,
+    buildInitialScreenerAnswers,
+    screenerAnswersSatisfyRequired,
+    extractScreenerSeedFromData,
+    omitScreenerKeysFromData,
+    type ScreenerHost,
+} from './rendering/screener';
+import { applyResponseDataToEngine } from './hydrate-response-data';
 import { setupBreakpoints as setupBreakpointsFn, cleanupBreakpoints, createBreakpointState, type BreakpointState } from './rendering/breakpoints';
 import { emitNode as emitNodeFn } from './rendering/emit-node';
 import {
@@ -102,6 +111,13 @@ export class FormspecRender extends HTMLElement {
     /** @internal */ _screenerCompleted = false;
     /** The route selected by the screener, if any. */
     /** @internal */ _screenerRoute: ScreenerRoute | null = null;
+    /** Backing store for the `screenerSeedAnswers` property. */
+    private _screenerSeedAnswers: Record<string, any> | null = null;
+    /**
+     * Full response `data` to apply on the next {@link definition} load (screener keys + main form).
+     * Prefer this over separate engine hydration — consumed once when the engine is created.
+     */
+    private _initialData: Record<string, any> | null = null;
     /** Shared pending state for submit flows (e.g. async host submits). */
     private _submitPendingSignal = signal(false);
     /** Latest submit detail payload (`{ response, validationReport }`). */
@@ -164,6 +180,63 @@ export class FormspecRender extends HTMLElement {
         }));
     }
 
+    /**
+     * Optional: only screener keys when you have no full `data` blob. Prefer {@link initialData}
+     * with the same shape as `response.data` so screener + main form hydrate in one step.
+     */
+    set screenerSeedAnswers(val: Record<string, any> | null | undefined) {
+        if (val != null && typeof val === 'object' && !Array.isArray(val)) {
+            this._screenerSeedAnswers = { ...val };
+        } else {
+            this._screenerSeedAnswers = null;
+        }
+    }
+
+    get screenerSeedAnswers(): Record<string, any> | null {
+        return this._screenerSeedAnswers;
+    }
+
+    /**
+     * Full Formspec response `data` (same object you would pass to engine hydration). Set **before**
+     * {@link definition} on a new element. On engine boot, screener fields are split out for the gate;
+     * the rest is applied to the engine so one assignment replaces manual `extractScreenerSeedFromData` +
+     * `applyResponseDataToEngine` calls.
+     */
+    set initialData(val: Record<string, any> | null | undefined) {
+        if (val != null && typeof val === 'object' && !Array.isArray(val)) {
+            this._initialData = { ...val };
+        } else {
+            this._initialData = null;
+        }
+    }
+
+    get initialData(): Record<string, any> | null {
+        return this._initialData;
+    }
+
+    private tryAutoCompleteScreenerFromSeed(): void {
+        if (!this.engine || !this._screenerSeedAnswers) return;
+        const screener = this._definition?.screener;
+        if (!screener?.items?.length) return;
+
+        const defaultCurrency = this._definition.formPresentation?.defaultCurrency || 'USD';
+        const answers = buildInitialScreenerAnswers(screener, this._screenerSeedAnswers, defaultCurrency);
+        if (!screenerAnswersSatisfyRequired(screener, answers)) return;
+
+        let route: ScreenerRoute | null;
+        try {
+            route = this.engine.evaluateScreener(answers);
+        } catch {
+            return;
+        }
+        if (this.classifyScreenerRoute(route) === 'internal') {
+            this._screenerRoute = route;
+            this._screenerCompleted = true;
+            this._screenerSeedAnswers = null;
+            this.emitScreenerStateChange('seed-auto-internal', answers);
+        }
+    }
+
     private scheduleRender() {
         if (this._renderPending) return;
         this._renderPending = true;
@@ -189,6 +262,17 @@ export class FormspecRender extends HTMLElement {
                 return;
             }
             this.engine = createFormEngine(val, undefined, Array.from(this._registryEntries.values()));
+
+            if (this._initialData) {
+                const seed = extractScreenerSeedFromData(val, this._initialData);
+                if (seed) {
+                    this._screenerSeedAnswers = seed;
+                }
+                const rest = omitScreenerKeysFromData(val, this._initialData);
+                applyResponseDataToEngine(this.engine, rest);
+                this._initialData = null;
+            }
+
             this.emitScreenerStateChange('definition-set');
             this.scheduleRender();
         };
@@ -406,6 +490,10 @@ export class FormspecRender extends HTMLElement {
         container.replaceChildren();
 
         emitTokenPropertiesFn(this._stylingHost, container);
+
+        if (hasActiveScreener(this._definition) && !this._screenerCompleted) {
+            this.tryAutoCompleteScreenerFromSeed();
+        }
 
         if (hasActiveScreener(this._definition) && !this._screenerCompleted) {
             renderScreener(this as any as ScreenerHost, container);

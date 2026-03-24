@@ -244,6 +244,12 @@ Theme documents may declare a `stylesheets` array of CSS URLs. The renderer inje
 
 Each input component receives a fully wired field wrapper with label, hint, error display, ARIA attributes, and touch tracking driven by signals from the engine.
 
+### Hydrating from saved or external `data`
+
+Use **`element.initialData = response.data`** (same shape as a Formspec response payload) **before** **`element.definition = …`**. On engine creation the element splits out screener keys, applies the rest with `applyResponseDataToEngine`, and pre-fills or auto-skips the screener—one assignment, same as the old “walk `data` + setValue” flow, without separate screener plumbing.
+
+For hydration **after** the element already has a definition, call **`applyResponseDataToEngine(engine, data)`** from this package. Optional: **`extractScreenerSeedFromData`** / **`omitScreenerKeysFromData`** / **`element.screenerSeedAnswers`** only if you need fine-grained control.
+
 ## Exports
 
 ```ts
@@ -255,7 +261,14 @@ export { ComponentRegistry, globalRegistry } from './registry';
 
 // Utilities
 export { formatMoney } from './format';
-export { defaultTheme } from './default-theme.json';
+export { applyResponseDataToEngine } from './hydrate-response-data';
+export {
+  extractScreenerSeedFromData,
+  omitScreenerKeysFromData,
+  normalizeScreenerSeedForItem,
+  screenerAnswersSatisfyRequired,
+  buildInitialScreenerAnswers,
+} from './rendering/screener';
 
 // Re-exports from formspec-layout
 export { resolvePresentation, resolveWidget, interpolateParams, resolveResponsiveProps, resolveToken, getDefaultComponent };
@@ -264,12 +277,16 @@ export { resolvePresentation, resolveWidget, interpolateParams, resolveResponsiv
 export type { RenderContext, ComponentPlugin, ValidationTargetMetadata, ScreenerRoute, ScreenerRouteType, ScreenerStateSnapshot };
 export type { ThemeDocument, PresentationBlock, ItemDescriptor, AccessibilityBlock, ThemeSelector, SelectorMatch, Tier1Hints, FormspecDataType, Page, Region, LayoutHints, StyleHints };
 
+// Default theme
+import defaultThemeJson from './default-theme.json';
+export { defaultThemeJson as defaultTheme };
+
 // Headless adapter public API
 export type { RenderAdapter, AdapterRenderFn, AdapterContext };
 export type { FieldBehavior, FieldRefs, ResolvedPresentationBlock, BehaviorContext };
 export type { TextInputBehavior, NumberInputBehavior, RadioGroupBehavior, CheckboxGroupBehavior, SelectBehavior, ToggleBehavior };
 export type { DatePickerBehavior, MoneyInputBehavior, SliderBehavior, RatingBehavior, FileUploadBehavior, SignatureBehavior };
-export type { WizardBehavior, WizardRefs, TabsBehavior, TabsRefs };
+export type { WizardBehavior, WizardRefs, WizardSidenavItemRefs, WizardProgressItemRefs, TabsBehavior, TabsRefs };
 ```
 
 ## Development

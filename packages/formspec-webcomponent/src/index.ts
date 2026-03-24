@@ -19,6 +19,14 @@ export { ComponentRegistry, globalRegistry } from './registry';
 
 // Utilities
 export { formatMoney } from './format';
+export { applyResponseDataToEngine } from './hydrate-response-data';
+export {
+    extractScreenerSeedFromData,
+    omitScreenerKeysFromData,
+    normalizeScreenerSeedForItem,
+    screenerAnswersSatisfyRequired,
+    buildInitialScreenerAnswers,
+} from './rendering/screener';
 
 // Re-exports from formspec-layout
 export { resolvePresentation, resolveWidget, interpolateParams, resolveResponsiveProps, resolveToken, getDefaultComponent } from 'formspec-layout';

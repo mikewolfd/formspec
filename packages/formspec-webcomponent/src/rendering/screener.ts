@@ -7,10 +7,132 @@ export interface ScreenerHost {
     engine: IFormEngine;
     _screenerCompleted: boolean;
     _screenerRoute: ScreenerRoute | null;
+    /** Initial answers when the screener mounts — from {@link extractScreenerSeedFromData} / host integration. */
+    screenerSeedAnswers: Record<string, any> | null;
     classifyScreenerRoute(route: ScreenerRoute | null | undefined): 'none' | 'internal' | 'external';
     emitScreenerStateChange(reason: string, answers?: Record<string, any>): void;
     dispatchEvent(event: Event): boolean;
     render(): void;
+}
+
+/**
+ * True when `answers` satisfies the same required / “at least one answer” rules as the Continue button.
+ */
+export function screenerAnswersSatisfyRequired(screener: any, answers: Record<string, any>): boolean {
+    const binds: any[] = screener.binds || [];
+    const requiredPaths = new Set(
+        binds.filter((b: any) => b.required === 'true' || b.required === true).map((b: any) => b.path),
+    );
+    if (requiredPaths.size > 0) {
+        for (const item of screener.items) {
+            if (!requiredPaths.has(item.key)) continue;
+            const val = answers[item.key];
+            if (val == null || val === '') return false;
+        }
+        return true;
+    }
+    return screener.items.some((it: any) => {
+        const val = answers[it.key];
+        return val != null && val !== '';
+    });
+}
+
+function normalizeMoneySeed(raw: any, defaultCurrency: string): { amount: number; currency: string } | null {
+    if (raw == null) return null;
+    if (typeof raw === 'number' && !Number.isNaN(raw)) {
+        return { amount: raw, currency: defaultCurrency };
+    }
+    if (typeof raw === 'object' && raw.amount != null) {
+        const n = typeof raw.amount === 'string' ? parseFloat(raw.amount) : Number(raw.amount);
+        if (Number.isNaN(n)) return null;
+        return {
+            amount: n,
+            currency: typeof raw.currency === 'string' ? raw.currency : defaultCurrency,
+        };
+    }
+    return null;
+}
+
+/**
+ * Coerce values from external systems (saved responses, REST/GraphQL, auth claims, etc.) into
+ * shapes the screener DOM and `evaluateScreener` expect.
+ */
+export function normalizeScreenerSeedForItem(item: any, raw: any, defaultCurrency: string): any {
+    if (raw === undefined) return undefined;
+    if (item.dataType === 'boolean') return !!raw;
+    if (item.dataType === 'money') return normalizeMoneySeed(raw, defaultCurrency);
+    if (item.dataType === 'integer') {
+        if (raw === null || raw === '') return null;
+        const n = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+        return Number.isNaN(n) ? null : n;
+    }
+    if (item.dataType === 'decimal' || item.dataType === 'number') {
+        if (raw === null || raw === '') return null;
+        const n = typeof raw === 'string' ? parseFloat(raw) : Number(raw);
+        return Number.isNaN(n) ? null : n;
+    }
+    return raw === null ? null : raw;
+}
+
+/**
+ * Build the in-memory answer map for the screener from optional seed data (same keys as screener items).
+ */
+export function buildInitialScreenerAnswers(screener: any, seed: Record<string, any> | null, defaultCurrency: string): Record<string, any> {
+    const answers: Record<string, any> = {};
+    for (const item of screener.items) {
+        if (item.dataType === 'boolean') {
+            answers[item.key] =
+                seed && Object.prototype.hasOwnProperty.call(seed, item.key)
+                    ? !!seed[item.key]
+                    : false;
+            continue;
+        }
+        if (seed && Object.prototype.hasOwnProperty.call(seed, item.key)) {
+            const norm = normalizeScreenerSeedForItem(item, seed[item.key], defaultCurrency);
+            if (norm !== undefined) answers[item.key] = norm;
+        }
+    }
+    return answers;
+}
+
+/**
+ * From any plain object, select only entries whose keys match `definition.screener` item keys.
+ * Use when hydrating from saved response `data`, a REST/GraphQL payload, identity claims, CRM or
+ * eligibility service output, etc. Assign the return value to `screenerSeedAnswers` on
+ * `FormspecRender` before setting `definition` so the first paint can pre-fill or skip the gate.
+ */
+export function extractScreenerSeedFromData(
+    definition: any,
+    data: Record<string, any> | null | undefined,
+): Record<string, any> | null {
+    const items = definition?.screener?.items;
+    if (!Array.isArray(items) || !items.length || !data || typeof data !== 'object') {
+        return null;
+    }
+    const seed: Record<string, any> = {};
+    for (const item of items) {
+        const k = item?.key;
+        if (k && Object.prototype.hasOwnProperty.call(data, k)) {
+            seed[k] = data[k];
+        }
+    }
+    return Object.keys(seed).length ? seed : null;
+}
+
+/** Shallow copy of `data` without top-level keys that belong to `definition.screener` items. */
+export function omitScreenerKeysFromData(definition: any, data: Record<string, any>): Record<string, any> {
+    const items = definition?.screener?.items;
+    if (!Array.isArray(items) || !items.length) {
+        return { ...data };
+    }
+    const drop = new Set(items.map((i: any) => i?.key).filter(Boolean));
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(data)) {
+        if (!drop.has(k)) {
+            out[k] = v;
+        }
+    }
+    return out;
 }
 
 export function hasActiveScreener(definition: any): boolean {
@@ -40,7 +162,8 @@ export function renderScreener(host: ScreenerHost, container: HTMLElement): void
     fieldsContainer.className = 'formspec-screener-fields';
     panel.appendChild(fieldsContainer);
 
-    const answers: Record<string, any> = {};
+    const defaultCurrency = host._definition.formPresentation?.defaultCurrency || 'USD';
+    const answers = buildInitialScreenerAnswers(screener, host.screenerSeedAnswers, defaultCurrency);
 
     for (const item of screener.items) {
         const fieldWrapper = document.createElement('div');
@@ -81,19 +204,22 @@ export function renderScreener(host: ScreenerHost, container: HTMLElement): void
                 option.textContent = opt.label || opt.value;
                 select.appendChild(option);
             }
+            const seededChoice = answers[item.key];
+            if (seededChoice != null && seededChoice !== '') {
+                select.value = String(seededChoice);
+            }
             select.addEventListener('change', () => {
                 answers[item.key] = select.value || null;
                 clearFieldError();
             });
             fieldWrapper.appendChild(select);
         } else if (item.dataType === 'boolean') {
-            // Boolean checkboxes default to false (unchecked = "no", a valid answer).
-            answers[item.key] = false;
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.className = 'formspec-input';
             checkbox.id = fieldId;
             if (item.hint) checkbox.setAttribute('aria-describedby', hintId);
+            checkbox.checked = !!answers[item.key];
             checkbox.addEventListener('change', () => {
                 answers[item.key] = checkbox.checked;
                 clearFieldError();
@@ -106,6 +232,10 @@ export function renderScreener(host: ScreenerHost, container: HTMLElement): void
             input.id = fieldId;
             input.placeholder = 'Amount';
             if (item.hint) input.setAttribute('aria-describedby', hintId);
+            const moneySeed = answers[item.key];
+            if (moneySeed && typeof moneySeed.amount === 'number' && !Number.isNaN(moneySeed.amount)) {
+                input.value = String(moneySeed.amount);
+            }
             input.addEventListener('input', () => {
                 const val = parseFloat(input.value);
                 answers[item.key] = isNaN(val) ? null : { amount: val, currency: host._definition.formPresentation?.defaultCurrency || 'USD' };
@@ -118,6 +248,10 @@ export function renderScreener(host: ScreenerHost, container: HTMLElement): void
             input.className = 'formspec-input';
             input.id = fieldId;
             if (item.hint) input.setAttribute('aria-describedby', hintId);
+            const v = answers[item.key];
+            if (v != null && v !== '') {
+                input.value = String(v);
+            }
             input.addEventListener('input', () => {
                 const val = input.value;
                 if (item.dataType === 'integer') {
