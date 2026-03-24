@@ -398,7 +398,7 @@ OptionSet-level keys.
 #### 3.1.4 Validation Messages
 
 Validation messages are addressable at two granularities: per
-constraint kind (coarse) and per Bind (fine-grained).
+constraint code (coarse) and per Bind (fine-grained).
 
 ##### Per constraint code
 
@@ -590,10 +590,12 @@ The following component properties are localizable:
 | SubmitButton | `label`, `pendingLabel` |
 | DataTable | `columns[N].header` |
 | Panel | `title` |
-| Modal | `triggerLabel` |
+| Modal | `title`, `triggerLabel` |
+| Popover | `triggerLabel` |
 | Badge | `text` |
 | ProgressBar | `label` |
-| Summary | `columns[N].label` |
+| Summary | `items[N].label` |
+| Select | `placeholder` |
 | TextInput | `placeholder`, `prefix`, `suffix` |
 
 ##### Repeat template nodes
@@ -1210,7 +1212,19 @@ demonstrating all key patterns defined in this specification.
     // Repeat group with @index (§8.4)
     "lineItems.label": "Poste budgétaire {{@index}}",
     "lineItems.amount.label": "Montant",
-    "lineItems.description.label": "Description du poste"
+    "lineItems.description.label": "Description du poste",
+
+    // Page titles (§3.1.7)
+    "$page.info.title": "Informations du projet",
+    "$page.review.title": "Révision et soumission",
+
+    // OptionSet labels (§3.1.3)
+    "$optionSet.yesNoNA.yes.label": "Oui",
+    "$optionSet.yesNoNA.no.label": "Non",
+
+    // Component node strings (§3.1.8)
+    "$component.submitBtn.label": "Soumettre la demande",
+    "$component.mainTabs.tabLabels[0]": "Personnel"
   }
 }
 ```
