@@ -407,7 +407,7 @@ test.describe('Focus Mode', () => {
 
     // Should be in Focus Mode with Dormant badge
     await expect(page.getByLabel('Page title')).toHaveValue('Dormant Page');
-    await expect(page.locator('[data-testid="workspace-Pages"]').getByText('Dormant')).toBeVisible();
+    await expect(page.locator('[data-testid="workspace-Layout"]').getByText('Dormant')).toBeVisible();
 
     // Grid should show the placed item
     await expect(page.locator('[data-grid-item]')).toHaveCount(1);

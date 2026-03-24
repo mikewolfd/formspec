@@ -70,7 +70,7 @@ test.describe('Pages Workspace', () => {
     await importProject(page, SINGLE_PAGE_SEED);
     await switchTab(page, 'Layout');
 
-    const workspace = page.locator('[data-testid="workspace-Pages"]');
+    const workspace = page.locator('[data-testid="workspace-Layout"]');
     await expect(workspace.getByText(/switch to wizard or tabs/i)).toBeVisible();
   });
 
@@ -78,7 +78,7 @@ test.describe('Pages Workspace', () => {
     await importProject(page, PAGEMODE_MISMATCH_SEED);
     await switchTab(page, 'Layout');
 
-    const workspace = page.locator('[data-testid="workspace-Pages"]');
+    const workspace = page.locator('[data-testid="workspace-Layout"]');
     await expect(workspace.getByText(/preserved but not active/i)).toBeVisible();
     await expect(workspace.getByText('Orphan')).toBeVisible();
   });
@@ -89,7 +89,7 @@ test.describe('Pages Workspace', () => {
     await importProject(page, WIZARD_THEME_SEED);
     await switchTab(page, 'Layout');
 
-    const workspace = page.locator('[data-testid="workspace-Pages"]');
+    const workspace = page.locator('[data-testid="workspace-Layout"]');
     await expect(workspace.getByRole('button', { name: 'Single' })).toBeVisible();
     await expect(workspace.getByRole('button', { name: 'Wizard' })).toBeVisible();
     await expect(workspace.getByRole('button', { name: 'Tabs' })).toBeVisible();
@@ -100,7 +100,7 @@ test.describe('Pages Workspace', () => {
     await importProject(page, SINGLE_PAGE_SEED);
     await switchTab(page, 'Layout');
 
-    const workspace = page.locator('[data-testid="workspace-Pages"]');
+    const workspace = page.locator('[data-testid="workspace-Layout"]');
     await expect(workspace.getByText(/switch to wizard or tabs/i)).toBeVisible();
     await expect(workspace.getByRole('button', { name: /add page/i })).not.toBeVisible();
 
@@ -113,7 +113,7 @@ test.describe('Pages Workspace', () => {
     await importProject(page, WIZARD_THEME_SEED);
     await switchTab(page, 'Layout');
 
-    const workspace = page.locator('[data-testid="workspace-Pages"]');
+    const workspace = page.locator('[data-testid="workspace-Layout"]');
     await expect(workspace.locator('[data-testid="page-card-p1"]')).toBeVisible();
     await expect(workspace.locator('[data-testid="page-card-p2"]')).toBeVisible();
     await expect(workspace.locator('text=/\\d+ items?/')).toHaveCount(2);
@@ -123,7 +123,7 @@ test.describe('Pages Workspace', () => {
     await importProject(page, WIZARD_THEME_SEED);
     await switchTab(page, 'Layout');
 
-    const workspace = page.locator('[data-testid="workspace-Pages"]');
+    const workspace = page.locator('[data-testid="workspace-Layout"]');
     await workspace.getByRole('button', { name: /add page/i }).click();
     await expect(workspace.locator('[data-testid^="page-card-"]').last()).toBeVisible({ timeout: 2000 });
   });
@@ -132,7 +132,7 @@ test.describe('Pages Workspace', () => {
     await importProject(page, WIZARD_THEME_SEED);
     await switchTab(page, 'Layout');
 
-    const workspace = page.locator('[data-testid="workspace-Pages"]');
+    const workspace = page.locator('[data-testid="workspace-Layout"]');
     const expandButtons = workspace.getByRole('button', { expanded: false });
 
     // Expand first card
@@ -151,7 +151,7 @@ test.describe('Pages Workspace', () => {
   test('can navigate to Pages and back to Editor', async ({ page }) => {
     await importProject(page, SINGLE_PAGE_SEED);
     await switchTab(page, 'Layout');
-    await expect(page.locator('[data-testid="workspace-Pages"]')).toBeVisible();
+    await expect(page.locator('[data-testid="workspace-Layout"]')).toBeVisible();
 
     await switchTab(page, 'Editor');
     await expect(page.locator('[data-testid="tab-Editor"]')).toHaveAttribute(

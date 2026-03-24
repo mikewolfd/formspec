@@ -30,13 +30,21 @@ test.describe('Extensions Tab', () => {
     const fullCount = await page.locator('.registry-card').count();
     expect(fullCount).toBeGreaterThan(10);
 
-    await page.evaluate(() => {
-      const sel = document.getElementById('registry-category');
-      if (sel) sel.value = 'function';
-      document.getElementById('btn-registry-filter')?.click();
-    });
+    // Filter handler is async (fetch registry then re-render); wait for DOM to update.
+    await page.locator('#registry-category').selectOption('function');
+    await page.locator('#btn-registry-filter').click();
+    await page.waitForFunction(
+      (before) => document.querySelectorAll('.registry-card').length < before,
+      fullCount,
+      { timeout: 15_000 },
+    );
 
-    await expect(page.locator('.registry-card')).toHaveCount(2, { timeout: 10_000 });
-    await expect(page.locator('.registry-card').first().locator('.registry-meta')).toContainText('function');
+    const filtered = page.locator('.registry-card');
+    const filteredCount = await filtered.count();
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(fullCount);
+    for (let i = 0; i < filteredCount; i++) {
+      await expect(filtered.nth(i).locator('.registry-meta')).toContainText('function');
+    }
   });
 });

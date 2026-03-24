@@ -194,7 +194,7 @@ const RESPONSIVE_SEED = {
 // ── Helpers ──────────────────────────────────────────────────────────
 
 const ws = (page: import('@playwright/test').Page) =>
-  page.locator('[data-testid="workspace-Pages"]');
+  page.locator('[data-testid="workspace-Layout"]');
 
 const card = (page: import('@playwright/test').Page, id: string) =>
   page.locator(`[data-testid="page-card-${id}"]`);
