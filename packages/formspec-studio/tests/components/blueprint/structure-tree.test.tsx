@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider, useSelection } from '../../../src/state/useSelection';
-import { ActivePageProvider } from '../../../src/state/useActivePage';
+import { ActiveGroupProvider } from '../../../src/state/useActiveGroup';
 import { CanvasTargetsProvider, useCanvasTargets } from '../../../src/state/useCanvasTargets';
 import { StructureTree } from '../../../src/components/blueprint/StructureTree';
 
@@ -26,11 +26,11 @@ function renderTree() {
   return render(
     <ProjectProvider project={project}>
       <SelectionProvider>
-        <ActivePageProvider>
+        <ActiveGroupProvider>
           <CanvasTargetsProvider>
             <StructureTree />
           </CanvasTargetsProvider>
-        </ActivePageProvider>
+        </ActiveGroupProvider>
       </SelectionProvider>
     </ProjectProvider>
   );
@@ -95,14 +95,14 @@ describe('StructureTree', () => {
       render(
         <ProjectProvider project={project}>
           <SelectionProvider>
-            <ActivePageProvider>
+            <ActiveGroupProvider>
               <CanvasTargetsProvider>
                 <>
                   <CanvasTarget path="name" />
                   <StructureTree />
                 </>
               </CanvasTargetsProvider>
-            </ActivePageProvider>
+            </ActiveGroupProvider>
           </SelectionProvider>
         </ProjectProvider>
       );
@@ -141,11 +141,11 @@ describe('StructureTree', () => {
       render(
         <ProjectProvider project={project}>
           <SelectionProvider>
-            <ActivePageProvider>
+            <ActiveGroupProvider>
               <CanvasTargetsProvider>
                 <StructureTree />
               </CanvasTargetsProvider>
-            </ActivePageProvider>
+            </ActiveGroupProvider>
           </SelectionProvider>
         </ProjectProvider>
       );
@@ -199,12 +199,12 @@ describe('StructureTree', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <CanvasTargetsProvider>
               <StructureTree />
               <SelectionCapture />
             </CanvasTargetsProvider>
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     );
@@ -242,11 +242,11 @@ describe('StructureTree', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <CanvasTargetsProvider>
               <StructureTree />
             </CanvasTargetsProvider>
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     );
@@ -280,12 +280,12 @@ describe('StructureTree', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <CanvasTargetsProvider>
               <StructureTree />
               <SelectionCapture />
             </CanvasTargetsProvider>
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     );

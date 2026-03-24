@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
-import { ActivePageProvider } from '../../src/state/useActivePage';
+import { ActiveGroupProvider } from '../../src/state/useActiveGroup';
 import { EditorCanvas } from '../../src/workspaces/editor/EditorCanvas';
 
 function renderWithProject() {
@@ -12,9 +12,9 @@ function renderWithProject() {
     ...render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     ),

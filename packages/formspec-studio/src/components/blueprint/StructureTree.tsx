@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
-import { useActivePage } from '../../state/useActivePage';
+import { useActiveGroup } from '../../state/useActiveGroup';
 import { useProject } from '../../state/useProject';
 import { useCanvasTargets } from '../../state/useCanvasTargets';
 import { FieldIcon } from '../ui/FieldIcon';
@@ -122,7 +122,7 @@ export function StructureTree() {
   const project = useProject();
   const { select } = useSelection();
   const { scrollToTarget } = useCanvasTargets();
-  const { activePageKey, setActivePageKey } = useActivePage();
+  const { activeGroupKey, setActiveGroupKey } = useActiveGroup();
   const items = (definition.items ?? []) as ItemNode[];
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -137,38 +137,38 @@ export function StructureTree() {
   useEffect(() => {
     if (hasPages) {
       // Keep current selection if it's still valid
-      if (activePageKey && pages.some((p) => p.key === activePageKey)) return;
-      setActivePageKey(pages[0].key);
+      if (activeGroupKey && pages.some((p) => p.key === activeGroupKey)) return;
+      setActiveGroupKey(pages[0].key);
     } else {
-      setActivePageKey(null);
+      setActiveGroupKey(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPages, pages.map((p) => p.key).join(',')]);
 
-  const activePage = pages.find((p) => p.key === activePageKey) ?? null;
+  const activeGroup = pages.find((p) => p.key === activeGroupKey) ?? null;
   const visibleItems = hasPages
-    ? (activePage?.children ?? []) as ItemNode[]
+    ? (activeGroup?.children ?? []) as ItemNode[]
     : items;
 
   // Selecting a wizard page: set local active page AND sync editor selection
   const handleSelectPage = useCallback(
     (key: string) => {
-      setActivePageKey(key);
+      setActiveGroupKey(key);
       select(key, 'group');
       requestAnimationFrame(() => {
         scrollToTarget(key);
       });
     },
-    [scrollToTarget, select, setActivePageKey],
+    [scrollToTarget, select, setActiveGroupKey],
   );
 
   const handleActivatePath = useCallback((path: string) => {
     if (!hasPages) return;
     const [pageKey] = path.split('.');
-    if (pageKey && pageKey !== activePageKey) {
-      setActivePageKey(pageKey);
+    if (pageKey && pageKey !== activeGroupKey) {
+      setActiveGroupKey(pageKey);
     }
-  }, [activePageKey, hasPages, setActivePageKey]);
+  }, [activeGroupKey, hasPages, setActiveGroupKey]);
 
   // Adding a wizard page
   const handleAddPage = useCallback(() => {
@@ -176,16 +176,16 @@ export function StructureTree() {
     const insertedPageKey = result.affectedPaths[0] ?? 'new_page';
     // Switch to the new page once it exists
     requestAnimationFrame(() => {
-      setActivePageKey(insertedPageKey);
+      setActiveGroupKey(insertedPageKey);
       select(insertedPageKey, 'group');
     });
-  }, [project, select, setActivePageKey]);
+  }, [project, select, setActiveGroupKey]);
 
   // Adding an item from the palette
   const handleAddFromPalette = useCallback(
     (opt: FieldTypeOption) => {
       const key = uniqueKey(opt.dataType ?? opt.itemType);
-      const parentPath = hasPages && activePageKey ? activePageKey : undefined;
+      const parentPath = hasPages && activeGroupKey ? activeGroupKey : undefined;
       const fullPath = parentPath ? `${parentPath}.${key}` : key;
       let insertedPath = fullPath;
 
@@ -212,12 +212,12 @@ export function StructureTree() {
 
       select(insertedPath, opt.itemType);
     },
-    [project, hasPages, activePageKey, select],
+    [project, hasPages, activeGroupKey, select],
   );
 
   // Items section label
-  const itemsSectionLabel = hasPages && activePage
-    ? `${activePage.label || activePage.key}`
+  const itemsSectionLabel = hasPages && activeGroup
+    ? `${activeGroup.label || activeGroup.key}`
     : 'Items';
 
   return (
@@ -243,7 +243,7 @@ export function StructureTree() {
               <div className="px-2 py-1 text-[12px] text-muted italic">No pages defined</div>
             ) : (
               pages.map((p, i) => {
-                const isActive = activePageKey === p.key;
+                const isActive = activeGroupKey === p.key;
                 return (
                   <button
                     key={p.key}
@@ -285,7 +285,7 @@ export function StructureTree() {
             </h3>
             <AddButton
               onClick={() => setPaletteOpen(true)}
-              title={hasPages ? `Add item to ${activePage?.label || activePage?.key}` : 'Add item'}
+              title={hasPages ? `Add item to ${activeGroup?.label || activeGroup?.key}` : 'Add item'}
             />
           </div>
 
@@ -300,7 +300,7 @@ export function StructureTree() {
                   key={item.key}
                   item={item}
                   depth={0}
-                  pathPrefix={hasPages && activePageKey ? activePageKey : ''}
+                  pathPrefix={hasPages && activeGroupKey ? activeGroupKey : ''}
                   onActivatePath={handleActivatePath}
                 />
               ))

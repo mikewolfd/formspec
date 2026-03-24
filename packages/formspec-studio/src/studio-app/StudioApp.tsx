@@ -3,7 +3,7 @@ import { useState, type ReactElement } from 'react';
 import { createProject, type Project, type FormDefinition } from 'formspec-studio-core';
 import { ProjectProvider } from '../state/ProjectContext';
 import { SelectionProvider } from '../state/useSelection';
-import { ActivePageProvider } from '../state/useActivePage';
+import { ActiveGroupProvider } from '../state/useActiveGroup';
 import { Shell } from '../components/Shell';
 import { exampleDefinition } from '../fixtures/example-definition';
 
@@ -65,9 +65,9 @@ export function StudioApp({ project }: StudioAppProps = {}): ReactElement {
   return (
     <ProjectProvider project={activeProject}>
       <SelectionProvider>
-        <ActivePageProvider>
+        <ActiveGroupProvider>
           <Shell />
-        </ActivePageProvider>
+        </ActiveGroupProvider>
       </SelectionProvider>
     </ProjectProvider>
   );

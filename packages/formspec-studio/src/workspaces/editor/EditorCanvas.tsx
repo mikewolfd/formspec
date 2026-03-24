@@ -5,11 +5,11 @@ import { PointerSensor, KeyboardSensor, PointerActivationConstraints } from '@dn
 import { useDefinition } from '../../state/useDefinition';
 import { useComponent } from '../../state/useComponent';
 import { useSelection } from '../../state/useSelection';
-import { useActivePage } from '../../state/useActivePage';
+import { useActiveGroup } from '../../state/useActiveGroup';
 import { useProject } from '../../state/useProject';
 import { useCanvasTargets } from '../../state/useCanvasTargets';
 import { flattenComponentTree, buildDefLookup, buildBindKeyMap, type FlatEntry } from '../../lib/tree-helpers';
-import { PageTabs } from './PageTabs';
+import { GroupTabs } from './GroupTabs';
 import { AddItemPalette, type FieldTypeOption } from '../../components/AddItemPalette';
 import { EditorContextMenu } from './EditorContextMenu';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
@@ -50,7 +50,7 @@ export function EditorCanvas() {
     select, toggleSelect, rangeSelect,
     selectAndFocusInspector, deselect,
   } = useSelection();
-  const { activePageKey, setActivePageKey } = useActivePage();
+  const { activeGroupKey, setActiveGroupKey } = useActiveGroup();
   const project = useProject();
   const { registerTarget } = useCanvasTargets();
   const [showPicker, setShowPicker] = useState(false);
@@ -70,21 +70,21 @@ export function EditorCanvas() {
 
   useEffect(() => {
     if (!hasPaged) {
-      if (activePageKey !== null) setActivePageKey(null);
+      if (activeGroupKey !== null) setActiveGroupKey(null);
       return;
     }
-    const hasActivePage = topLevelGroups.some((group) => group.key === activePageKey);
-    if (!hasActivePage) {
-      setActivePageKey(topLevelGroups[0]?.key ?? null);
+    const hasActiveGroup = topLevelGroups.some((group) => group.key === activeGroupKey);
+    if (!hasActiveGroup) {
+      setActiveGroupKey(topLevelGroups[0]?.key ?? null);
     }
-  }, [activePageKey, hasPaged, setActivePageKey, topLevelGroups]);
+  }, [activeGroupKey, hasPaged, setActiveGroupKey, topLevelGroups]);
 
-  // Derive numeric index from shared activePageKey
-  const activePageIndex = hasPaged
-    ? Math.max(0, topLevelGroups.findIndex((g) => g.key === activePageKey))
+  // Derive numeric index from shared activeGroupKey
+  const activeGroupIndex = hasPaged
+    ? Math.max(0, topLevelGroups.findIndex((g) => g.key === activeGroupKey))
     : 0;
   const displayItems = hasPaged
-    ? [...rootItems, topLevelGroups[activePageIndex]].filter(Boolean)
+    ? [...rootItems, topLevelGroups[activeGroupIndex]].filter(Boolean)
     : items;
 
   // Build definition lookup for the component tree renderer
@@ -124,7 +124,7 @@ export function EditorCanvas() {
 
     if (!hasPaged) return flatChildren;
     // In paged mode, show root items (non-groups) + the active page group
-    const activeGroup = topLevelGroups[activePageIndex];
+    const activeGroup = topLevelGroups[activeGroupIndex];
     return flatChildren.filter((node: CompNode) => {
       if (node._layout) return true; // always show layout wrappers
       if (node.bind) {
@@ -137,7 +137,7 @@ export function EditorCanvas() {
       if (node.nodeId) return true; // display nodes
       return false;
     });
-  }, [tree, hasPaged, topLevelGroups, activePageIndex, defLookup]);
+  }, [tree, hasPaged, topLevelGroups, activeGroupIndex, defLookup]);
 
   // Flat ordering from component tree for range-select and DnD
   const treeFlatEntries: FlatEntry[] = useMemo(
@@ -194,7 +194,7 @@ export function EditorCanvas() {
     }
 
     const key = uniqueKey(opt.dataType ?? opt.itemType);
-    const activeGroup = hasPaged ? topLevelGroups[activePageIndex] : null;
+    const activeGroup = hasPaged ? topLevelGroups[activeGroupIndex] : null;
     const parentPath = activeGroup ? activeGroup.key : undefined;
     const fullPath = parentPath ? `${parentPath}.${key}` : key;
 
@@ -319,10 +319,10 @@ export function EditorCanvas() {
         </div>
       )}
 
-      {/* Page tabs — full width, no wrapping */}
+      {/* Group tabs — full width, no wrapping */}
       {hasPaged && (
         <div className="px-7 border-b border-border bg-surface">
-          <PageTabs activePageKey={activePageKey} onPageChange={setActivePageKey} />
+          <GroupTabs activeGroupKey={activeGroupKey} onGroupChange={setActiveGroupKey} />
         </div>
       )}
 

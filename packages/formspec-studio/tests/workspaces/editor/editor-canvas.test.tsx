@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider, useSelection } from '../../../src/state/useSelection';
-import { ActivePageProvider } from '../../../src/state/useActivePage';
+import { ActiveGroupProvider } from '../../../src/state/useActiveGroup';
 import { EditorCanvas } from '../../../src/workspaces/editor/EditorCanvas';
 import { ItemProperties } from '../../../src/workspaces/editor/ItemProperties';
 import { editorFixtures, renderEditorCanvas } from './test-utils';
@@ -173,10 +173,10 @@ describe('EditorCanvas', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
             <SelectionCapture />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     );
@@ -218,10 +218,10 @@ describe('EditorCanvas', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
             <ItemProperties />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     );
@@ -276,10 +276,10 @@ describe('EditorCanvas', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
             <SelectionCapture />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     );
@@ -322,10 +322,10 @@ describe('EditorCanvas', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
             <SelectionCapture />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     );
@@ -368,10 +368,10 @@ describe('EditorCanvas', () => {
       const result = render(
         <ProjectProvider project={project}>
           <SelectionProvider>
-            <ActivePageProvider>
+            <ActiveGroupProvider>
               <EditorCanvas />
               <SelectionCapture />
-            </ActivePageProvider>
+            </ActiveGroupProvider>
           </SelectionProvider>
         </ProjectProvider>,
       );
@@ -565,9 +565,9 @@ describe('EditorCanvas', () => {
       render(
         <ProjectProvider project={project}>
           <SelectionProvider>
-            <ActivePageProvider>
+            <ActiveGroupProvider>
               <EditorCanvas />
-            </ActivePageProvider>
+            </ActiveGroupProvider>
           </SelectionProvider>
         </ProjectProvider>,
       );
@@ -593,10 +593,10 @@ describe('EditorCanvas', () => {
       render(
         <ProjectProvider project={project}>
           <SelectionProvider>
-            <ActivePageProvider>
+            <ActiveGroupProvider>
               <EditorCanvas />
               <SelectionCapture />
-            </ActivePageProvider>
+            </ActiveGroupProvider>
           </SelectionProvider>
         </ProjectProvider>,
       );
@@ -615,9 +615,9 @@ describe('EditorCanvas', () => {
       render(
         <ProjectProvider project={project}>
           <SelectionProvider>
-            <ActivePageProvider>
+            <ActiveGroupProvider>
               <EditorCanvas />
-            </ActivePageProvider>
+            </ActiveGroupProvider>
           </SelectionProvider>
         </ProjectProvider>,
       );
@@ -649,9 +649,9 @@ describe('EditorCanvas', () => {
       render(
         <ProjectProvider project={project}>
           <SelectionProvider>
-            <ActivePageProvider>
+            <ActiveGroupProvider>
               <EditorCanvas />
-            </ActivePageProvider>
+            </ActiveGroupProvider>
           </SelectionProvider>
         </ProjectProvider>,
       );

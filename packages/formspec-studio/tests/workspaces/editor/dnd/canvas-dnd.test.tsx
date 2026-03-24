@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../../src/state/useSelection';
-import { ActivePageProvider } from '../../../../src/state/useActivePage';
+import { ActiveGroupProvider } from '../../../../src/state/useActiveGroup';
 import { EditorCanvas } from '../../../../src/workspaces/editor/EditorCanvas';
 import { editorFixtures, renderEditorCanvas } from '../test-utils';
 
@@ -151,9 +151,9 @@ describe('Canvas DnD Integration', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>,
     );
@@ -203,9 +203,9 @@ describe('Canvas DnD Integration', () => {
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>,
     );

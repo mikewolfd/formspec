@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { createProject, type Project } from 'formspec-studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
-import { ActivePageProvider } from '../../../src/state/useActivePage';
+import { ActiveGroupProvider } from '../../../src/state/useActiveGroup';
 import { EditorCanvas } from '../../../src/workspaces/editor/EditorCanvas';
 
 export const editorFixtures = {
@@ -74,9 +74,9 @@ export function renderEditorCanvas(
     ...render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <EditorCanvas />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>,
     ),

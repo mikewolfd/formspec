@@ -81,7 +81,7 @@ const PAGED_DEF = {
 };
 
 // BUG #10 — Inactive tabs hide labels
-// PageTabs renders a label span only when `isActive`. Inactive tabs show
+// GroupTabs renders a label span only when `isActive`. Inactive tabs show
 // nothing but a numbered circle; clicking them is difficult and the labels
 // are completely hidden from the user.
 test.describe('Bug #10 — inactive page tabs show label text', () => {
@@ -153,7 +153,7 @@ test.describe('Bug #11 — root-level non-group items visible in paged editor', 
 });
 
 // BUG #44 — Page tabs cannot be renamed via double-click
-// PageTabs renders simple <button> elements with no double-click handler.
+// GroupTabs renders simple <button> elements with no double-click handler.
 // Double-clicking a tab should put the label into an inline edit mode, but
 // the current implementation has no such affordance.
 test.describe('Bug #44 — double-click page tab opens inline label editor', () => {
@@ -169,7 +169,7 @@ test.describe('Bug #44 — double-click page tab opens inline label editor', () 
     const firstTab = tablist.locator('[role="tab"]').first();
 
     // Double-click the active tab to enter rename mode.
-    // BUG: PageTabs has no onDoubleClick handler — the tab stays as a plain button.
+    // BUG: GroupTabs has no onDoubleClick handler — the tab stays as a plain button.
     await firstTab.dblclick();
 
     // After double-click, an <input> element should appear inside or near the tab.
@@ -229,14 +229,14 @@ test.describe('Bug #73 — adding first item to empty paged definition does not 
   });
 });
 
-// BUG #74 — Added page selects wrong activePageKey after key collision rename
+// BUG #74 — Added page selects wrong activeGroupKey after key collision rename
 // StructureTree.handleAddPage generates key = `page${n}` (e.g. "page1"), then
 // dispatches definition.addItem. When "page1" already exists, the handler
 // renames it to "page1_1". But handleAddPage schedules
-// `setActivePageKey("page1")` via requestAnimationFrame — pointing to the
+// `setActiveGroupKey("page1")` via requestAnimationFrame — pointing to the
 // ORIGINAL (colliding) key that was renamed, not the actual inserted key.
 test.describe('Bug #74 — new page tab is selected after key collision rename', () => {
-  test('activePageKey follows the actual inserted key when a collision rename occurs [BUG-074]', async ({ page }) => {
+  test('activeGroupKey follows the actual inserted key when a collision rename occurs [BUG-074]', async ({ page }) => {
     await waitForApp(page);
     // Seed a definition that already has "page1" so the next "Add Page" click
     // will produce a collision and the handler will rename it to "page1_1".
@@ -260,8 +260,8 @@ test.describe('Bug #74 — new page tab is selected after key collision rename',
     await sidebar.getByTitle('Add page').click();
 
     // After insertion, the newly added page should be the active one.
-    // BUG: setActivePageKey is called with "page1" (the pre-rename key), but
-    // the actual inserted key is "page1_1", so activePageKey stays at the OLD
+    // BUG: setActiveGroupKey is called with "page1" (the pre-rename key), but
+    // the actual inserted key is "page1_1", so activeGroupKey stays at the OLD
     // page rather than jumping to the new one.
 
     // Wait for the new tab to appear
@@ -280,7 +280,7 @@ test.describe('Bug #74 — new page tab is selected after key collision rename',
 // When the user is on a blueprint sidebar section other than "Structure" (e.g.
 // "Settings"), StructureTree is not mounted, so its useEffect never fires.
 // Loading a paged definition with the Settings sidebar open leaves
-// activePageKey as null, causing the editor to show no page content.
+// activeGroupKey as null, causing the editor to show no page content.
 test.describe('Bug #75 — first page tab auto-selected even when StructureTree not mounted', () => {
   test('first page is active when a paged definition is loaded with Settings sidebar open [BUG-075]', async ({ page }) => {
     await waitForApp(page);
@@ -301,7 +301,7 @@ test.describe('Bug #75 — first page tab auto-selected even when StructureTree 
     await expect(canvas.locator('[role="tablist"]')).toBeVisible({ timeout: 5000 });
 
     // The first page tab should be auto-selected
-    // BUG: activePageKey is null because StructureTree's useEffect never ran.
+    // BUG: activeGroupKey is null because StructureTree's useEffect never ran.
     // The tablist shows, but no tab has aria-selected="true", and the canvas
     // shows no items for the "current" page.
     const firstTab = canvas.locator('[role="tab"]').first();

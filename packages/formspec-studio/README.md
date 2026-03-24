@@ -36,7 +36,7 @@ Vite aliases `formspec-studio-core`, `formspec-engine`, and `formspec-layout` to
 StudioApp
  └─ ProjectProvider          formspec-studio-core Project instance
     └─ SelectionProvider      pure React state, persists across tab switches
-       └─ ActivePageProvider  active page in multi-page forms
+       └─ ActiveGroupProvider  active page in multi-page forms
           └─ Shell
              ├─ Header        workspace tabs, undo/redo, import/export
              ├─ Blueprint      sidebar — 9 navigable sections with count badges
@@ -132,7 +132,7 @@ src/
 │   ├── useProject.ts         Stable Project ref
 │   ├── useProjectState.ts    useSyncExternalStore subscription
 │   ├── useSelection.tsx      UI selection state (key + type)
-│   ├── useActivePage.tsx     Active page context for multi-page forms
+│   ├── useActiveGroup.tsx    Active group context for multi-page forms
 │   ├── useDefinition.ts      Definition slice
 │   ├── useComponent.ts       Component slice
 │   ├── useTheme.ts           Theme slice
