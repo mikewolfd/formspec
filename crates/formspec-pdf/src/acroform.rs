@@ -24,15 +24,12 @@ pub struct FieldInfo {
 /// Accumulates fields for later writing to the Pdf.
 pub struct AcroFormBuilder {
     pub fields: Vec<FieldInfo>,
-    /// Appearance XObject refs and bytes to write, deferred until write_fields.
-    appearances: Vec<(Ref, Vec<u8>, f32, f32)>,
 }
 
 impl AcroFormBuilder {
     pub fn new() -> Self {
         Self {
             fields: Vec::new(),
-            appearances: Vec::new(),
         }
     }
 
@@ -110,11 +107,6 @@ impl AcroFormBuilder {
         }
     }
 
-    /// Get all field refs (for /AcroForm /Fields array).
-    pub fn field_refs(&self) -> Vec<Ref> {
-        self.fields.iter().map(|f| f.field_ref).collect()
-    }
-
     /// Get annotation refs for a given page index.
     pub fn annot_refs_for_page(&self, page_index: usize) -> Vec<Ref> {
         self.fields
@@ -178,10 +170,10 @@ fn write_text_field(
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
     // Merged field entries
-    annot.insert(Name(b"FT")).name(Name(b"Tx"));
-    annot.insert(Name(b"T")).text_str(TextStr(&info.name));
+    annot.insert(Name(b"FT")).primitive(Name(b"Tx"));
+    annot.insert(Name(b"T")).primitive(TextStr(&info.name));
     if !value.is_empty() {
-        annot.insert(Name(b"V")).text_str(TextStr(value));
+        annot.insert(Name(b"V")).primitive(TextStr(value));
     }
     // Field flags
     let mut ff = 0_i32;
@@ -228,12 +220,12 @@ fn write_checkbox_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
-    annot.insert(Name(b"FT")).name(Name(b"Btn"));
-    annot.insert(Name(b"T")).text_str(TextStr(&info.name));
+    annot.insert(Name(b"FT")).primitive(Name(b"Btn"));
+    annot.insert(Name(b"T")).primitive(TextStr(&info.name));
     if checked {
-        annot.insert(Name(b"V")).name(Name(b"Yes"));
+        annot.insert(Name(b"V")).primitive(Name(b"Yes"));
     } else {
-        annot.insert(Name(b"V")).name(Name(b"Off"));
+        annot.insert(Name(b"V")).primitive(Name(b"Off"));
     }
     if readonly {
         annot.insert(Name(b"Ff")).primitive(1_i32);

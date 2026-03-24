@@ -5,14 +5,12 @@ use formspec_plan::{EvaluatedNode, NodeCategory};
 use crate::fonts::{self, HELVETICA_BOLD_WIDTHS, HELVETICA_WIDTHS};
 use crate::options::PdfConfig;
 
-/// A measured layout node carrying its computed height and child measurements.
+/// A measured layout node carrying its computed height.
 pub struct MeasuredNode {
     /// Total height of this node in PDF points.
     pub height: f32,
     /// Index into the original node slice.
     pub node_index: usize,
-    /// Measured children.
-    pub children: Vec<MeasuredNode>,
 }
 
 /// Measure the height of a single node given the available column width.
@@ -30,35 +28,16 @@ pub fn measure_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f32)
     }
 }
 
-/// Measure a vec of top-level nodes, returning MeasuredNode trees.
+/// Measure a vec of top-level nodes, returning MeasuredNodes.
 pub fn measure_trees(nodes: &[EvaluatedNode], config: &PdfConfig) -> Vec<MeasuredNode> {
     nodes
         .iter()
         .enumerate()
         .map(|(i, node)| {
-            let children = measure_children(node, config);
             let height = measure_node(node, config, config.content_width);
             MeasuredNode {
                 height,
                 node_index: i,
-                children,
-            }
-        })
-        .collect()
-}
-
-fn measure_children(node: &EvaluatedNode, config: &PdfConfig) -> Vec<MeasuredNode> {
-    node.children
-        .iter()
-        .enumerate()
-        .map(|(i, child)| {
-            let col_width = child_column_width(child, config);
-            let children = measure_children(child, config);
-            let height = measure_node(child, config, col_width);
-            MeasuredNode {
-                height,
-                node_index: i,
-                children,
             }
         })
         .collect()

@@ -14,7 +14,7 @@ mod widgets;
 
 pub use types::*;
 pub use cascade::resolve_presentation;
-pub use tokens::resolve_token;
+pub use tokens::{resolve_token, resolve_style_tokens};
 pub use widgets::{
     resolve_widget, widget_token_to_component, KNOWN_COMPONENT_TYPES,
     SPEC_WIDGET_TO_COMPONENT, COMPONENT_TO_HINT, COMPATIBILITY_MATRIX,

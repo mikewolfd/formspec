@@ -1,6 +1,6 @@
 //! Unit tests for formspec-theme.
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Map};
 
 use crate::cascade::resolve_presentation;
 use crate::tokens::resolve_token;
@@ -50,7 +50,7 @@ fn empty_block_no_theme() {
 
 #[test]
 fn theme_defaults_applied() {
-    let mut theme = make_theme(Some(PresentationBlock {
+    let theme = make_theme(Some(PresentationBlock {
         widget: Some("TextInput".to_string()),
         label_position: Some(LabelPosition::Top),
         ..Default::default()
@@ -219,7 +219,7 @@ fn css_class_replace_stripped_from_output() {
 
 #[test]
 fn none_sentinel_suppresses_widget() {
-    let mut theme = make_theme(Some(PresentationBlock {
+    let theme = make_theme(Some(PresentationBlock {
         widget: Some("none".to_string()),
         ..Default::default()
     }));

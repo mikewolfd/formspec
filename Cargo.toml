@@ -8,7 +8,7 @@ members = [
     "crates/formspec-wasm",
     "crates/formspec-theme",
     "crates/formspec-plan",
-    # "crates/formspec-pdf",  # Excluded until pdf-writer API is verified locally
+    "crates/formspec-pdf",
 ]
 resolver = "2"
 

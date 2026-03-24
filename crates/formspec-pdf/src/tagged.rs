@@ -1,4 +1,10 @@
 //! PDF/UA structure tree — tagging context for marked content and struct elements.
+//!
+//! Scaffolding for Phase 4c (tagged PDF / PDF/UA structure).
+//! Not yet wired into the render pipeline; will be activated when
+//! Matterhorn Protocol compliance is implemented.
+
+#![allow(dead_code)]
 
 use pdf_writer::Ref;
 

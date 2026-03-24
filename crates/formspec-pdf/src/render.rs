@@ -54,7 +54,7 @@ pub fn render_document(
         .pair(Name(b"Marked"), true);
     catalog
         .insert(Name(b"Lang"))
-        .text_str(TextStr(&config.language));
+        .primitive(TextStr(&config.language));
     catalog.finish();
 
     // Page tree
@@ -84,7 +84,7 @@ pub fn render_document(
     if pages.is_empty() {
         // At least one empty page
         let content = Content::new();
-        let content_bytes = content.finish();
+        let content_bytes = content.finish().into_vec();
         write_page(
             &mut pdf,
             page_refs[0],
@@ -199,7 +199,7 @@ fn render_page_content(
         }
     }
 
-    content.finish()
+    content.finish().into_vec()
 }
 
 /// Render a header as a PDF artifact (not part of structure tree).

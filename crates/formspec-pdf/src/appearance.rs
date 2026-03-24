@@ -37,7 +37,7 @@ pub fn build_text_field_appearance(value: &str, width: f32, height: f32, font_si
         content.restore_state();
     }
 
-    content.finish()
+    content.finish().into_vec()
 }
 
 /// Build the normal appearance stream for a multiline text field.
@@ -84,7 +84,7 @@ pub fn build_multiline_text_appearance(
         content.restore_state();
     }
 
-    content.finish()
+    content.finish().into_vec()
 }
 
 /// Build the "on" appearance for a checkbox (checkmark).
@@ -116,7 +116,7 @@ pub fn build_checkmark_appearance(width: f32, height: f32) -> Vec<u8> {
     content.end_text();
     content.restore_state();
 
-    content.finish()
+    content.finish().into_vec()
 }
 
 /// Build the "off" appearance for a checkbox (empty box).
@@ -138,10 +138,12 @@ pub fn build_empty_box_appearance(width: f32, height: f32) -> Vec<u8> {
     content.stroke();
     content.restore_state();
 
-    content.finish()
+    content.finish().into_vec()
 }
 
 /// Build the "on" appearance for a radio button (filled circle).
+/// Used when radio button AcroForm support is added.
+#[allow(dead_code)]
 pub fn build_radio_on_appearance(width: f32, height: f32) -> Vec<u8> {
     let mut content = Content::new();
     let cx = width / 2.0;
@@ -164,10 +166,12 @@ pub fn build_radio_on_appearance(width: f32, height: f32) -> Vec<u8> {
     content.fill_nonzero();
     content.restore_state();
 
-    content.finish()
+    content.finish().into_vec()
 }
 
 /// Build the "off" appearance for a radio button (empty circle).
+/// Used when radio button AcroForm support is added.
+#[allow(dead_code)]
 pub fn build_radio_off_appearance(width: f32, height: f32) -> Vec<u8> {
     let mut content = Content::new();
     let cx = width / 2.0;
@@ -182,11 +186,13 @@ pub fn build_radio_off_appearance(width: f32, height: f32) -> Vec<u8> {
     content.stroke();
     content.restore_state();
 
-    content.finish()
+    content.finish().into_vec()
 }
 
 /// Draw a circle approximation using four cubic bezier curves.
 /// Uses the kappa constant (4/3)(sqrt(2)-1) ~= 0.5523 for the best cubic approximation.
+/// Used by radio button appearance builders.
+#[allow(dead_code)]
 fn draw_circle(content: &mut Content, cx: f32, cy: f32, r: f32) {
     let k: f32 = 0.5523;
     let kr = k * r;

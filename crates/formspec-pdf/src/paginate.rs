@@ -10,8 +10,6 @@ pub struct PageItem {
     pub node_index: usize,
     /// Vertical offset from the top of the content area on this page, in points.
     pub y_offset: f32,
-    /// Height of this item.
-    pub height: f32,
 }
 
 /// Paginate measured nodes into pages.
@@ -53,7 +51,6 @@ pub fn paginate(measured: &[MeasuredNode], config: &PdfConfig) -> Vec<Vec<PageIt
         pages.last_mut().unwrap().push(PageItem {
             node_index: node.node_index,
             y_offset: cursor,
-            height: node.height,
         });
 
         cursor += node.height;

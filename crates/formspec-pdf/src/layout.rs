@@ -17,6 +17,8 @@ pub struct Rect {
 /// `start` is the 0-based column start position.
 /// `y_offset` is the content-relative Y offset from the top of the content area (increases downward).
 /// `height` is the height of the element in points.
+// Not yet wired into the render pipeline; tested and ready for Phase 4d.
+#[allow(dead_code)]
 pub fn grid_to_rect(span: u32, start: u32, y_offset: f32, height: f32, config: &PdfConfig) -> Rect {
     let col_width = (config.content_width - config.column_gap * 11.0) / 12.0;
     let x = config.margin_left + start as f32 * (col_width + config.column_gap);
