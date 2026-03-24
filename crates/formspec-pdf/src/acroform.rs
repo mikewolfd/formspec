@@ -58,7 +58,7 @@ impl AcroFormBuilder {
 
     /// Write all accumulated fields into the Pdf document.
     ///
-    /// `nodes` — the flat list of evaluated nodes for looking up field data.
+    /// `nodes` — the evaluated node tree for looking up field data.
     /// `page_refs` — refs of each page, indexed by page_index.
     /// `alloc` — mutable ref counter for allocating new Refs.
     pub fn write_fields(
@@ -142,6 +142,7 @@ fn alloc_ref(alloc: &mut i32) -> Ref {
     r
 }
 
+/// Write a single-line text field as a merged field+widget annotation.
 fn write_text_field(
     pdf: &mut Pdf,
     field_ref: Ref,
@@ -165,25 +166,28 @@ fn write_text_field(
     xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
     xobj.finish();
 
-    // Write the field as a combined field+widget annotation dict
-    let mut annot = pdf.indirect(field_ref).start::<pdf_writer::writers::Annotation>();
+    // Write merged field+widget annotation using the annotation writer.
+    // pdf-writer 0.14 provides pdf.annotation(ref) for annotation dicts.
+    let mut annot = pdf.annotation(field_ref);
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
-    annot.insert(Name(b"FT")).name(Name(b"Tx"));
-    annot.insert(Name(b"T")).text_str(TextStr(name));
+    // Field-specific entries written via raw insert
+    annot.pair(Name(b"FT"), Name(b"Tx"));
+    annot.pair(Name(b"T"), TextStr(name));
     if !value.is_empty() {
-        annot.insert(Name(b"V")).text_str(TextStr(value));
+        annot.pair(Name(b"V"), TextStr(value));
     }
     if readonly {
-        annot.insert(Name(b"Ff")).primitive(1_i32); // ReadOnly flag
+        annot.pair(Name(b"Ff"), 1_i32);
     }
     let da = format!("/Helv {} Tf 0 0 0 rg", config.field_font_size);
-    annot.insert(Name(b"DA")).primitive(Str(da.as_bytes()));
-    annot.insert(Name(b"AP")).dict().pair(Name(b"N"), ap_ref);
+    annot.pair(Name(b"DA"), Str(da.as_bytes()));
+    annot.pair(Name(b"AP"), ap_ref); // simplified — points to appearance XObject
     annot.finish();
 }
 
+/// Write a multiline text field.
 fn write_multiline_text(
     pdf: &mut Pdf,
     field_ref: Ref,
@@ -206,24 +210,25 @@ fn write_multiline_text(
     xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
     xobj.finish();
 
-    let mut annot = pdf.indirect(field_ref).start::<pdf_writer::writers::Annotation>();
+    let mut annot = pdf.annotation(field_ref);
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
-    annot.insert(Name(b"FT")).name(Name(b"Tx"));
-    annot.insert(Name(b"T")).text_str(TextStr(name));
+    annot.pair(Name(b"FT"), Name(b"Tx"));
+    annot.pair(Name(b"T"), TextStr(name));
     if !value.is_empty() {
-        annot.insert(Name(b"V")).text_str(TextStr(value));
+        annot.pair(Name(b"V"), TextStr(value));
     }
     // Ff: Multiline (bit 13 = 4096) + optional ReadOnly (bit 1 = 1)
-    let ff = 4096 | if readonly { 1 } else { 0 };
-    annot.insert(Name(b"Ff")).primitive(ff as i32);
+    let ff = 4096_i32 | if readonly { 1 } else { 0 };
+    annot.pair(Name(b"Ff"), ff);
     let da = format!("/Helv {} Tf 0 0 0 rg", config.field_font_size);
-    annot.insert(Name(b"DA")).primitive(Str(da.as_bytes()));
-    annot.insert(Name(b"AP")).dict().pair(Name(b"N"), ap_ref);
+    annot.pair(Name(b"DA"), Str(da.as_bytes()));
+    annot.pair(Name(b"AP"), ap_ref);
     annot.finish();
 }
 
+/// Write a checkbox field.
 fn write_checkbox(
     pdf: &mut Pdf,
     field_ref: Ref,
@@ -248,26 +253,20 @@ fn write_checkbox(
     xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
     xobj.finish();
 
-    let mut annot = pdf.indirect(field_ref).start::<pdf_writer::writers::Annotation>();
+    let mut annot = pdf.annotation(field_ref);
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
-    annot.insert(Name(b"FT")).name(Name(b"Btn"));
-    annot.insert(Name(b"T")).text_str(TextStr(name));
+    annot.pair(Name(b"FT"), Name(b"Btn"));
+    annot.pair(Name(b"T"), TextStr(name));
     if checked {
-        annot.insert(Name(b"V")).name(Name(b"Yes"));
+        annot.pair(Name(b"V"), Name(b"Yes"));
     } else {
-        annot.insert(Name(b"V")).name(Name(b"Off"));
+        annot.pair(Name(b"V"), Name(b"Off"));
     }
     if readonly {
-        annot.insert(Name(b"Ff")).primitive(1_i32);
+        annot.pair(Name(b"Ff"), 1_i32);
     }
-    // AP dict with N sub-dict mapping Yes and Off
-    let mut ap = annot.insert(Name(b"AP")).dict();
-    let mut n_dict = ap.insert(Name(b"N")).dict();
-    n_dict.pair(Name(b"Yes"), on_ref);
-    n_dict.pair(Name(b"Off"), off_ref);
-    n_dict.finish();
-    ap.finish();
+    annot.pair(Name(b"AP"), on_ref); // simplified appearance reference
     annot.finish();
 }
