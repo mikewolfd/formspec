@@ -103,6 +103,10 @@ export interface WasmFelContext {
     };
     instances?: Record<string, any>;
     nowIso?: string;
+    /** Active locale code (BCP 47) — backs `locale()` and default for `pluralCategory()`. */
+    locale?: string;
+    /** Runtime metadata bag — backs `runtimeMeta(key)`. */
+    meta?: Record<string, string | number | boolean>;
 }
 
 /** Evaluate a FEL expression with full FormspecEnvironment context. */

@@ -70,6 +70,33 @@ export interface MappingState {
   [key: string]: unknown;
 }
 
+// ── Locale state ─────────────────────────────────────────────────────
+
+/**
+ * Working state for a single locale document.
+ * Keyed by BCP 47 code in ProjectState.locales.
+ */
+export interface LocaleState {
+  /** BCP 47 locale code (e.g. "fr", "fr-CA"). */
+  locale: string;
+  /** Locale document version. */
+  version: string;
+  /** BCP 47 code of the fallback locale (optional). */
+  fallback?: string;
+  /** Target definition this locale was authored for. */
+  targetDefinition: { url: string; compatibleVersions?: string };
+  /** Locale string key-value pairs. */
+  strings: Record<string, string>;
+  /** Human-readable name of the locale (e.g. "Français"). */
+  name?: string;
+  /** Display title for the locale. */
+  title?: string;
+  /** Description of the locale document. */
+  description?: string;
+  /** URL of the locale document source. */
+  url?: string;
+}
+
 // ── Extension state ──────────────────────────────────────────────────
 
 /**
@@ -150,6 +177,10 @@ export interface ProjectState {
   mappings: Record<string, MappingState>;
   /** ID of the mapping currently being edited in the UI. */
   selectedMappingId?: string;
+  /** Loaded locale documents keyed by BCP 47 code. */
+  locales: Record<string, LocaleState>;
+  /** BCP 47 code of the active locale in the editor. */
+  selectedLocaleId?: string;
   /** Loaded extension registries providing custom types, functions, and constraints. */
   extensions: ExtensionsState;
   /** Baseline snapshot and release history for changelog generation. */
@@ -336,6 +367,8 @@ export interface ProjectBundle {
   theme: ThemeDocument;
   /** Named collection of mapping (data transform) artifacts. */
   mappings: Record<string, MappingDocument>;
+  /** Locale documents keyed by BCP 47 code (present only when locales are loaded). */
+  locales?: Record<string, unknown>;
 }
 
 // ── Search & filter types ───────────────────────────────────────────

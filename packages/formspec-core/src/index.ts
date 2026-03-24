@@ -32,6 +32,7 @@ export type {
   GeneratedLayoutState,
   ThemeState,
   MappingState,
+  LocaleState,
   ProjectState,
   ProjectOptions,
   Command,

@@ -23,6 +23,9 @@ import type {
 } from '../interfaces.js';
 import { preactReactiveRuntime } from '../reactivity/preact-runtime.js';
 import type { EngineReactiveRuntime, EngineSignal } from '../reactivity/types.js';
+import { LocaleStore, type LocaleDocument } from '../locale.js';
+import { createFieldViewModel, type FieldViewModel } from '../field-view-model.js';
+import { createFormViewModel, type FormViewModel } from '../form-view-model.js';
 import {
     wasmEvaluateDefinition,
     wasmEvalFELWithContext,
@@ -118,6 +121,11 @@ export class FormEngine implements IFormEngine {
     private readonly _variableSignalKeys = new Map<string, string[]>();
     private readonly _externalValidation: ValidationResult[] = [];
 
+    private readonly _localeStore: LocaleStore;
+    private readonly _fieldViewModels: Record<string, FieldViewModel> = {};
+    private _formViewModel!: FormViewModel;
+    private readonly _labelContextSignal: EngineSignal<string | null>;
+
     private _data: Record<string, any> = {};
     private _previousEvalResult: EvalResult | null = null;
     private _fullResult: EvalResult | null = null;
@@ -127,6 +135,7 @@ export class FormEngine implements IFormEngine {
         locale?: string;
         timeZone?: string;
         seed?: string | number;
+        meta?: Record<string, string | number | boolean>;
     } = {
         nowProvider: () => new Date(),
     };
@@ -141,7 +150,12 @@ export class FormEngine implements IFormEngine {
         this.instanceVersion = this._rx.signal(0);
         this.structureVersion = this._rx.signal(0);
         this._evaluationVersion = this._rx.signal(0);
+        this._labelContextSignal = this._rx.signal(null);
         this.definition = cloneValue(definition);
+
+        // Locale store — direction mode from formPresentation.direction or 'ltr'
+        const directionMode = (definition.formPresentation as any)?.direction ?? 'ltr';
+        this._localeStore = new LocaleStore(this._rx, directionMode);
         this._variableDefs = [...(this.definition.variables ?? [])];
 
         if (runtimeContext) {
@@ -167,6 +181,29 @@ export class FormEngine implements IFormEngine {
         this.registerItems(this.definition.items);
         this.initializeRemoteOptions();
         this._evaluate();
+
+        // Create form-level view model (after first evaluate so validation is available)
+        this._formViewModel = createFormViewModel({
+            rx: this._rx,
+            localeStore: this._localeStore,
+            getDefinitionTitle: () => this.definition.title ?? '',
+            getDefinitionDescription: () => (this.definition as any).description,
+            getPageTitle: () => undefined,
+            getPageDescription: () => undefined,
+            evalFEL: (expr) => {
+                try { return wasmEvalFELWithContext(expr, this._buildLocaleFELContext()); }
+                catch { return null; }
+            },
+            getValidationCounts: () => {
+                const report = this.getValidationReport();
+                return {
+                    errors: report.counts?.error ?? 0,
+                    warnings: report.counts?.warning ?? 0,
+                    infos: report.counts?.info ?? 0,
+                };
+            },
+            getIsValid: () => this.getValidationReport().valid,
+        });
     }
 
     public static resolvePinnedDefinition<T extends { url?: string; version?: string }>(
@@ -184,14 +221,18 @@ export class FormEngine implements IFormEngine {
         if (Object.prototype.hasOwnProperty.call(context, 'now')) {
             this._runtimeContext.nowProvider = resolveNowProvider(context.now);
         }
-        if (Object.prototype.hasOwnProperty.call(context, 'locale')) {
+        if (Object.prototype.hasOwnProperty.call(context, 'locale') && context.locale) {
             this._runtimeContext.locale = context.locale;
+            this._localeStore.setLocale(context.locale);
         }
         if (Object.prototype.hasOwnProperty.call(context, 'timeZone')) {
             this._runtimeContext.timeZone = context.timeZone;
         }
         if (Object.prototype.hasOwnProperty.call(context, 'seed')) {
             this._runtimeContext.seed = context.seed;
+        }
+        if (Object.prototype.hasOwnProperty.call(context, 'meta')) {
+            this._runtimeContext.meta = context.meta;
         }
         if (this._fullResult) {
             this._evaluate();
@@ -328,6 +369,8 @@ export class FormEngine implements IFormEngine {
                     variableSignals: this.variableSignals,
                     instanceData: this.instanceData,
                     nowIso: this.nowISO(),
+                    locale: this._runtimeContext.locale,
+                    meta: this._runtimeContext.meta,
                 }),
             );
         };
@@ -561,6 +604,7 @@ export class FormEngine implements IFormEngine {
 
     public setLabelContext(context: string | null): void {
         this._labelContext = context;
+        this._labelContextSignal.value = context;
     }
 
     public getLabel(item: FormItem): string {
@@ -568,6 +612,34 @@ export class FormEngine implements IFormEngine {
             return item.labels[this._labelContext];
         }
         return item.label;
+    }
+
+    public loadLocale(doc: LocaleDocument): void {
+        this._localeStore.loadLocale(doc);
+    }
+
+    public setLocale(code: string): void {
+        this._localeStore.setLocale(code);
+    }
+
+    public getActiveLocale(): string {
+        return this._localeStore.activeLocale.value;
+    }
+
+    public getAvailableLocales(): string[] {
+        return this._localeStore.getAvailableLocales();
+    }
+
+    public getLocaleDirection(): 'ltr' | 'rtl' {
+        return this._localeStore.direction.value;
+    }
+
+    public getFieldVM(path: string): FieldViewModel | undefined {
+        return this._fieldViewModels[path];
+    }
+
+    public getFormVM(): FormViewModel {
+        return this._formViewModel;
     }
 
     public injectExternalValidation(
@@ -785,6 +857,7 @@ export class FormEngine implements IFormEngine {
             if (item.type === 'field') {
                 this._fieldItems.set(path, item);
                 this.initializeFieldSignal(path, item);
+                this._createFieldVM(path, item);
                 if (item.children) {
                     this.registerItemChildren(item.children, path);
                 }
@@ -824,6 +897,7 @@ export class FormEngine implements IFormEngine {
             if (item.type === 'field') {
                 this._fieldItems.set(toBasePath(path), item);
                 this.initializeFieldSignal(path, item);
+                this._createFieldVM(path, item);
                 if (item.children) {
                     this.registerItemChildren(item.children, path);
                 }
@@ -986,6 +1060,8 @@ export class FormEngine implements IFormEngine {
                 variableSignals: this.variableSignals,
                 instanceData: this.instanceData,
                 nowIso: this.nowISO(),
+                locale: this._runtimeContext.locale,
+                meta: this._runtimeContext.meta,
             }),
         );
     }
@@ -1128,6 +1204,66 @@ export class FormEngine implements IFormEngine {
             optionStateSignals: this.optionStateSignals,
             repeats: this.repeats,
             data: this._data,
+        });
+    }
+
+    private _createFieldVM(path: string, item: FormItem): void {
+        const basePath = toBasePath(path);
+        const vm = createFieldViewModel({
+            rx: this._rx,
+            localeStore: this._localeStore,
+            templatePath: basePath,
+            instancePath: path,
+            id: `field-${path.replace(/[\.\[\]]/g, '-')}`,
+            itemKey: item.key,
+            dataType: item.dataType ?? 'string',
+            getItemLabel: () => item.label,
+            getItemHint: () => item.hint ?? null,
+            getItemDescription: () => (item as any).description ?? null,
+            getItemLabels: () => item.labels,
+            getLabelContext: () => this._labelContextSignal.value,
+            getFieldValue: () => this.signals[path] ?? this._rx.signal(null),
+            getRequired: () => this.requiredSignals[path] ?? this._rx.signal(false),
+            getVisible: () => this.relevantSignals[path] ?? this._rx.signal(true),
+            getReadonly: () => this.readonlySignals[path] ?? this._rx.signal(false),
+            getDisabledDisplay: () => this.getDisabledDisplay(path),
+            getErrors: () => this.validationResults[basePath] ?? this._rx.signal([]),
+            getOptions: () => this.optionSignals[basePath] ?? this._rx.signal([]),
+            getOptionsState: () => this.optionStateSignals[basePath] ?? this._rx.signal({ loading: false, error: null }),
+            getOptionSetName: () => {
+                const bindConfig = this._bindConfigs[basePath];
+                return (bindConfig as any)?.optionSet ?? undefined;
+            },
+            setFieldValue: (value) => this.setValue(path, value),
+            evalFEL: (expr) => {
+                try {
+                    return wasmEvalFELWithContext(expr, this._buildLocaleFELContext(path));
+                } catch {
+                    return null;
+                }
+            },
+        });
+        this._fieldViewModels[path] = vm;
+    }
+
+    private _buildLocaleFELContext(currentItemPath = ''): any {
+        return buildWasmFelExpressionContext({
+            currentItemPath,
+            data: this._data,
+            fullResult: this._fullResult,
+            fieldSignals: this.signals,
+            validationResults: this.validationResults,
+            relevantSignals: this.relevantSignals,
+            readonlySignals: this.readonlySignals,
+            requiredSignals: this.requiredSignals,
+            repeats: this.repeats,
+            bindConfigs: this._bindConfigs,
+            variableDefs: this._variableDefs,
+            variableSignals: this.variableSignals,
+            instanceData: this.instanceData,
+            nowIso: this.nowISO(),
+            locale: this._runtimeContext.locale,
+            meta: this._runtimeContext.meta,
         });
     }
 }

@@ -7,7 +7,7 @@
  *
  * @module handlers/project
  */
-import type { CommandHandler } from '../types.js';
+import type { CommandHandler, LocaleState } from '../types.js';
 import type { FormItem } from 'formspec-types';
 import { splitComponentState, hasAuthoredComponentTree } from '../component-documents.js';
 import { normalizeDefinition } from '../normalization.js';
@@ -58,6 +58,14 @@ export const projectHandlers: Record<string, CommandHandler> = {
     } else if (p.mapping) {
       // Backward compat: old single-mapping bundles migrate to named collection
       state.mappings = { default: p.mapping };
+    }
+
+    // Import locale documents
+    if (p.locales && typeof p.locales === 'object') {
+      state.locales = {};
+      for (const [code, localeData] of Object.entries(p.locales)) {
+        state.locales[code] = localeData as LocaleState;
+      }
     }
 
     // Sync targetDefinition URLs

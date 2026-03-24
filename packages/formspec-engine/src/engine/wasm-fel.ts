@@ -194,6 +194,8 @@ export interface WasmFelContextBuildInput {
     variableSignals: Record<string, EngineSignal<any>>;
     instanceData: Record<string, unknown>;
     nowIso: string;
+    locale?: string;
+    meta?: Record<string, string | number | boolean>;
 }
 
 export function buildWasmFelExpressionContext(options: WasmFelContextBuildInput): WasmFelContext {
@@ -271,5 +273,7 @@ export function buildWasmFelExpressionContext(options: WasmFelContextBuildInput)
         }),
         instances: cloneValue(options.instanceData),
         nowIso: options.nowIso,
+        locale: options.locale,
+        meta: options.meta,
     };
 }

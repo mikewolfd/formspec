@@ -1,6 +1,6 @@
 /** @filedesc The <formspec-render> custom element that orchestrates form rendering. */
 import { signal } from '@preact/signals-core';
-import { createFormEngine, type FormEngine, type IFormEngine } from 'formspec-engine/render';
+import { createFormEngine, type FormEngine, type IFormEngine, type LocaleDocument } from 'formspec-engine/render';
 import { initFormspecEngine, isFormspecEngineInitialized } from 'formspec-engine/init-formspec-engine';
 import { globalRegistry } from './registry';
 import {
@@ -96,6 +96,8 @@ export class FormspecRender extends HTMLElement {
     /** @internal */ stylesheetHrefs: string[] = [];
     private rootContainer: HTMLDivElement | null = null;
     private _renderPending = false;
+    private _locale = '';
+    private _pendingLocaleDocuments: LocaleDocument[] = [];
 
     constructor() {
         super();
@@ -263,6 +265,15 @@ export class FormspecRender extends HTMLElement {
             }
             this.engine = createFormEngine(val, undefined, Array.from(this._registryEntries.values()));
 
+            // Replay buffered locale documents and active locale
+            for (const doc of this._pendingLocaleDocuments) {
+                this.engine.loadLocale(doc);
+            }
+            if (this._locale) {
+                this.engine.setLocale(this._locale);
+                this.setAttribute('dir', this.engine.getLocaleDirection());
+            }
+
             if (this._initialData) {
                 const seed = extractScreenerSeedFromData(val, this._initialData);
                 if (seed) {
@@ -352,6 +363,45 @@ export class FormspecRender extends HTMLElement {
     /** The current registry entry lookup (extension name → entry). */
     get registryEntries(): Map<string, any> {
         return this._registryEntries;
+    }
+
+    /**
+     * Load one or more locale documents into the engine. If the engine
+     * hasn't been created yet (no definition set), the documents are
+     * buffered and applied when the engine boots.
+     *
+     * Set **after** `definition` for immediate loading, or before if
+     * pre-loading locale bundles before the form definition arrives.
+     */
+    set localeDocuments(docs: LocaleDocument | LocaleDocument[]) {
+        const arr = Array.isArray(docs) ? docs : [docs];
+        this._pendingLocaleDocuments = arr;
+        if (this.engine) {
+            for (const doc of arr) {
+                this.engine.loadLocale(doc);
+            }
+        }
+    }
+
+    /**
+     * Set the active locale code. Updates the engine locale if available,
+     * and sets `lang` and `dir` attributes for accessibility and RTL support.
+     *
+     * If the engine hasn't been created yet, the locale code is buffered
+     * and applied when the engine boots.
+     */
+    set locale(code: string) {
+        this._locale = code;
+        this.setAttribute('lang', code);
+        if (this.engine) {
+            this.engine.setLocale(code);
+            this.setAttribute('dir', this.engine.getLocaleDirection());
+        }
+    }
+
+    /** The currently active locale code, or empty string if none set. */
+    get locale(): string {
+        return this._locale;
     }
 
     /**

@@ -1,7 +1,7 @@
 /** @filedesc Project class: high-level form authoring facade over formspec-core. */
 import { createRawProject } from 'formspec-core';
 // Internal-only core types — never appear in public method signatures
-import type { IProjectCore, AnyCommand, CommandResult, FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry, FieldDependents, ItemFilter, ItemSearchResult, Change, FormspecChangelog } from 'formspec-core';
+import type { IProjectCore, AnyCommand, CommandResult, FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry, FieldDependents, ItemFilter, ItemSearchResult, Change, FormspecChangelog, LocaleState } from 'formspec-core';
 // Studio-core's own type vocabulary for the public API
 import type {
   FormItem, FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
@@ -66,6 +66,9 @@ export class Project {
   get theme(): Readonly<ThemeDocument> { return this.core.theme; }
   get mapping(): Readonly<MappingDocument> { return this.core.mapping; }
   get mappings(): Readonly<Record<string, MappingDocument>> { return this.core.mappings; }
+  get locales(): Readonly<Record<string, LocaleState>> { return this.core.locales; }
+  localeAt(code: string): LocaleState | undefined { return this.core.localeAt(code); }
+  activeLocaleCode(): string | undefined { return this.core.activeLocaleCode(); }
 
   /** Returns the effective component document — authored if it has a tree, otherwise merged with generated. */
   get effectiveComponent(): Readonly<ComponentDocument> {

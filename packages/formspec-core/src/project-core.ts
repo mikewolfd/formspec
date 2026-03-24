@@ -4,6 +4,7 @@ import type {
 } from 'formspec-types';
 import type {
   ProjectState,
+  LocaleState,
   AnyCommand,
   CommandResult,
   ChangeListener,
@@ -43,6 +44,8 @@ export interface IProjectCore {
   readonly theme: Readonly<ThemeDocument>;
   readonly mapping: Readonly<MappingDocument>;
   readonly mappings: Readonly<Record<string, MappingDocument>>;
+  /** Read-only view of all loaded locale states, keyed by BCP 47 code. */
+  readonly locales: Readonly<Record<string, LocaleState>>;
 
   // ── Command dispatch ─────────────────────────────────────────
   dispatch(command: AnyCommand): CommandResult;
@@ -91,5 +94,9 @@ export interface IProjectCore {
   previewChangelog(): FormspecChangelog;
   diagnose(): Diagnostics;
   previewMapping(params: import('./types.js').MappingPreviewParams): import('./types.js').MappingPreviewResult;
+  /** Get a specific locale state by BCP 47 code. */
+  localeAt(code: string): LocaleState | undefined;
+  /** Get the currently selected locale code in the editor. */
+  activeLocaleCode(): string | undefined;
   export(): ProjectBundle;
 }

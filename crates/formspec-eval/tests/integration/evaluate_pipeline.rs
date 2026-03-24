@@ -3573,3 +3573,101 @@ fn expression_default_in_repeat_group() {
         "expression default should fire in repeat group on relevance transition"
     );
 }
+
+/// Spec §5.3: shape message `{{expression}}` sequences MUST be resolved before surfacing.
+#[test]
+fn shape_message_interpolates_expressions() {
+    let def = json!({
+        "items": [
+            { "key": "budget", "dataType": "integer" },
+            { "key": "limit", "dataType": "integer" }
+        ],
+        "shapes": [{
+            "target": "budget",
+            "constraint": "$budget <= $limit",
+            "severity": "error",
+            "message": "Budget {{$budget}} exceeds limit {{$limit}}"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("budget".to_string(), json!(1000));
+    data.insert("limit".to_string(), json!(500));
+
+    let result = evaluate_definition(&def, &data);
+    assert_eq!(result.validations.len(), 1);
+    assert_eq!(
+        result.validations[0].message,
+        "Budget 1000 exceeds limit 500",
+        "shape message must resolve {{expr}} interpolation"
+    );
+}
+
+/// Spec §5.3: shape message without interpolation passes through unchanged.
+#[test]
+fn shape_message_plain_text_unchanged() {
+    let def = json!({
+        "items": [
+            { "key": "a", "dataType": "integer" }
+        ],
+        "shapes": [{
+            "target": "a",
+            "constraint": "$a > 10",
+            "severity": "error",
+            "message": "Value too low"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("a".to_string(), json!(5));
+
+    let result = evaluate_definition(&def, &data);
+    assert_eq!(result.validations.len(), 1);
+    assert_eq!(result.validations[0].message, "Value too low");
+}
+
+/// Spec §5.3: `{{{{` escapes to literal `{{` in shape messages.
+#[test]
+fn shape_message_escape_braces() {
+    let def = json!({
+        "items": [
+            { "key": "x", "dataType": "integer" }
+        ],
+        "shapes": [{
+            "target": "x",
+            "constraint": "$x > 0",
+            "severity": "error",
+            "message": "Use {{{{ for templates"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("x".to_string(), json!(-1));
+
+    let result = evaluate_definition(&def, &data);
+    assert_eq!(result.validations.len(), 1);
+    assert_eq!(result.validations[0].message, "Use {{ for templates");
+}
+
+/// Spec §5.3: failed parse in `{{expr}}` preserves the literal.
+#[test]
+fn shape_message_bad_expr_preserved() {
+    let def = json!({
+        "items": [
+            { "key": "x", "dataType": "integer" }
+        ],
+        "shapes": [{
+            "target": "x",
+            "constraint": "$x > 0",
+            "severity": "error",
+            "message": "Error: {{!!!bad}}"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("x".to_string(), json!(-1));
+
+    let result = evaluate_definition(&def, &data);
+    assert_eq!(result.validations.len(), 1);
+    assert_eq!(result.validations[0].message, "Error: {{!!!bad}}");
+}

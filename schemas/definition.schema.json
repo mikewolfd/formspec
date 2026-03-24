@@ -375,6 +375,16 @@
             "critical": true,
             "intent": "Prevents authors from repeating the currency code in every money() FEL expression and every MoneyInput component."
           }
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "ltr",
+            "rtl",
+            "auto"
+          ],
+          "default": "ltr",
+          "description": "Base text direction. 'auto' derives direction from the active locale code (RTL for ar, he, fa, ur, ps, sd, yi)."
         }
       }
     }

@@ -463,8 +463,27 @@
         "x-formspec-url",
         "x-formspec-luhn",
         "x-formspec-age",
-        "x-formspec-mask"
+        "x-formspec-mask",
+        "x-formspec-plural-category"
       ]
+    },
+    {
+      "name": "x-formspec-plural-category",
+      "category": "function",
+      "version": "1.0.0",
+      "status": "stable",
+      "description": "CLDR cardinal plural category function. Returns 'zero', 'one', 'two', 'few', 'many', or 'other' based on CLDR plural rules for the given count and locale. Required for languages with non-trivial plural forms (Arabic, Polish, Czech, etc.).",
+      "compatibility": { "formspecVersion": ">=1.0.0 <2.0.0" },
+      "license": "Apache-2.0",
+      "parameters": [
+        { "name": "count", "type": "number", "description": "The numeric value to classify into a plural category." },
+        { "name": "locale", "type": "string", "description": "Optional BCP 47 locale code. When omitted, uses the active locale." }
+      ],
+      "returns": "string",
+      "metadata": {
+        "displayName": "Plural Category",
+        "categories": ["zero", "one", "two", "few", "many", "other"]
+      }
     }
   ]
 }

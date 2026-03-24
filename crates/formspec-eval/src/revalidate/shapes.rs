@@ -17,7 +17,7 @@ use super::env::{
     bind_repeat_group_arrays, bind_sibling_aliases, restore_repeat_group_arrays,
     restore_sibling_aliases,
 };
-use super::expr::{constraint_passes, evaluate_shape_expression};
+use super::expr::{constraint_passes, evaluate_shape_expression, interpolate_message};
 
 pub(super) fn validate_shape(
     shape: &Value,
@@ -89,7 +89,7 @@ pub(super) fn validate_shape(
             severity: severity.to_string(),
             constraint_kind: "shape".to_string(),
             code: scode.to_string(),
-            message: message.to_string(),
+            message: interpolate_message(message, env),
             constraint: shape
                 .get("constraint")
                 .and_then(|v| v.as_str())
@@ -202,7 +202,7 @@ fn validate_wildcard_shape(
                 severity: severity.to_string(),
                 constraint_kind: "shape".to_string(),
                 code: scode.to_string(),
-                message: message.to_string(),
+                message: interpolate_message(message, env),
                 constraint: constraint_expr.clone(),
                 source: "shape".to_string(),
                 shape_id: sid.clone(),

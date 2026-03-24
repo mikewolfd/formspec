@@ -15,6 +15,7 @@ import { componentTreeHandlers } from './component-tree.js';
 import { componentPropertiesHandlers } from './component-properties.js';
 import { themeHandlers } from './theme.js';
 import { mappingHandlers } from './mapping.js';
+import { localeHandlers } from './locale.js';
 import { pagesHandlers } from './pages.js';
 import { projectHandlers } from './project.js';
 
@@ -35,6 +36,7 @@ export const builtinHandlers: Readonly<Record<string, CommandHandler>> = Object.
   ...componentPropertiesHandlers,
   ...themeHandlers,
   ...mappingHandlers,
+  ...localeHandlers,
   ...pagesHandlers,
   ...projectHandlers,
 });

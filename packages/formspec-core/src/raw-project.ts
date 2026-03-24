@@ -8,6 +8,7 @@ import type {
   ProjectOptions,
   ThemeState,
   MappingState,
+  LocaleState,
   AnyCommand,
   CommandResult,
   ChangeListener,
@@ -180,6 +181,8 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
     theme,
     mappings,
     selectedMappingId,
+    locales: options?.seed?.locales ?? {},
+    selectedLocaleId: options?.seed?.selectedLocaleId,
     extensions: options?.seed?.extensions ?? { registries: [] },
     versioning: options?.seed?.versioning ?? {
       baseline: structuredClone(definition),
@@ -269,6 +272,18 @@ export class RawProject implements IProjectCore {
     return (this._state.mappings[id] || {}) as unknown as Readonly<MappingDocument>;
   }
 
+  get locales(): Readonly<Record<string, LocaleState>> {
+    return this._state.locales;
+  }
+
+  localeAt(code: string): LocaleState | undefined {
+    return this._state.locales[code];
+  }
+
+  activeLocaleCode(): string | undefined {
+    return this._state.selectedLocaleId;
+  }
+
   // ── Query wrappers ──────────────────────────────────────────────
 
   fieldPaths(): string[] { return _fieldPaths(this._state); }
@@ -336,7 +351,7 @@ export class RawProject implements IProjectCore {
       } as MappingDocument;
     }
 
-    return structuredClone({
+    const bundle: ProjectBundle = {
       definition: this._state.definition as unknown as FormDefinition,
       component: {
         $formspecComponent: '1.0',
@@ -352,7 +367,28 @@ export class RawProject implements IProjectCore {
         targetDefinition: themeTarget ?? { url },
       } as ThemeDocument,
       mappings: exportMappings,
-    });
+    };
+
+    // Export locale documents with $formspecLocale envelope
+    if (Object.keys(this._state.locales).length > 0) {
+      bundle.locales = {};
+      for (const [code, ls] of Object.entries(this._state.locales)) {
+        bundle.locales[code] = {
+          $formspecLocale: '1.0',
+          locale: ls.locale,
+          version: ls.version,
+          targetDefinition: ls.targetDefinition,
+          strings: ls.strings,
+          ...(ls.fallback ? { fallback: ls.fallback } : {}),
+          ...(ls.name ? { name: ls.name } : {}),
+          ...(ls.title ? { title: ls.title } : {}),
+          ...(ls.description ? { description: ls.description } : {}),
+          ...(ls.url ? { url: ls.url } : {}),
+        };
+      }
+    }
+
+    return structuredClone(bundle);
   }
 
   // ── History ──────────────────────────────────────────────────────

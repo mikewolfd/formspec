@@ -13,3 +13,169 @@ pub(super) fn evaluate_shape_expression(expr: &str, env: &FormspecEnvironment) -
         Err(_) => FelValue::Null,
     }
 }
+
+/// Resolve `{{expression}}` interpolation sequences in a message string.
+///
+/// Rules (per core spec §5.3 and locale spec §3.3.1):
+/// 1. `{{{{` -> literal `{{` (escape handling)
+/// 2. Failed parse/eval -> literal `{{original expr}}` (error recovery, MUST not crash)
+/// 3. null -> "", booleans -> "true"/"false", numbers -> default string
+/// 4. Non-recursive: replacement text is not re-scanned
+pub(super) fn interpolate_message(template: &str, env: &FormspecEnvironment) -> String {
+    // No {{ at all — fast path
+    if !template.contains("{{") {
+        return template.to_string();
+    }
+
+    let mut result = String::with_capacity(template.len());
+    let bytes = template.as_bytes();
+    let len = bytes.len();
+    let mut i = 0;
+
+    while i < len {
+        if i + 1 < len && bytes[i] == b'{' && bytes[i + 1] == b'{' {
+            // Escaped: {{{{ -> literal {{
+            if i + 3 < len && bytes[i + 2] == b'{' && bytes[i + 3] == b'{' {
+                result.push_str("{{");
+                i += 4;
+                continue;
+            }
+
+            // Find closing }}
+            if let Some(close) = find_closing_braces(template, i + 2) {
+                let expr = &template[i + 2..close];
+                let evaluated = match parse(expr) {
+                    Ok(parsed) => fel_value_to_display(&evaluate(&parsed, env).value),
+                    Err(_) => format!("{{{{{expr}}}}}"),
+                };
+                result.push_str(&evaluated);
+                i = close + 2;
+            } else {
+                // No closing }} found — emit literal
+                result.push_str("{{");
+                i += 2;
+            }
+        } else {
+            result.push(bytes[i] as char);
+            i += 1;
+        }
+    }
+
+    result
+}
+
+/// Find the position of the closing `}}` starting from `start`.
+/// Returns the index of the first `}` in the `}}` pair.
+fn find_closing_braces(s: &str, start: usize) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut i = start;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'}' && bytes[i + 1] == b'}' {
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Coerce a FelValue to its display string for message interpolation.
+fn fel_value_to_display(value: &FelValue) -> String {
+    match value {
+        FelValue::Null => String::new(),
+        FelValue::Boolean(b) => if *b { "true" } else { "false" }.to_string(),
+        FelValue::Number(n) => fel_core::types::format_number(*n),
+        FelValue::String(s) => s.clone(),
+        FelValue::Date(d) => d.format_iso(),
+        FelValue::Money(m) => format!("{} {}", fel_core::types::format_number(m.amount), m.currency),
+        FelValue::Array(_) | FelValue::Object(_) => String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::Decimal;
+
+    fn make_env() -> FormspecEnvironment {
+        let mut env = FormspecEnvironment::new();
+        env.set_field("budget", FelValue::Number(Decimal::from(1000)));
+        env.set_field("limit", FelValue::Number(Decimal::from(500)));
+        env.set_field("name", FelValue::String("Alice".to_string()));
+        env.set_field("empty", FelValue::Null);
+        env.set_field("flag", FelValue::Boolean(true));
+        env
+    }
+
+    #[test]
+    fn basic_interpolation() {
+        let env = make_env();
+        let result = interpolate_message("Budget {{$budget}} exceeds {{$limit}}", &env);
+        assert_eq!(result, "Budget 1000 exceeds 500");
+    }
+
+    #[test]
+    fn escape_double_braces() {
+        let env = make_env();
+        let result = interpolate_message("Use {{{{ for templates", &env);
+        assert_eq!(result, "Use {{ for templates");
+    }
+
+    #[test]
+    fn error_recovery_bad_expr() {
+        let env = make_env();
+        let result = interpolate_message("{{badExpr!!!}}", &env);
+        assert_eq!(result, "{{badExpr!!!}}");
+    }
+
+    #[test]
+    fn null_coercion() {
+        let env = make_env();
+        let result = interpolate_message("Value is '{{$empty}}'", &env);
+        assert_eq!(result, "Value is ''");
+    }
+
+    #[test]
+    fn no_expressions_passthrough() {
+        let env = make_env();
+        let result = interpolate_message("Plain text", &env);
+        assert_eq!(result, "Plain text");
+    }
+
+    #[test]
+    fn non_recursive() {
+        let mut env = FormspecEnvironment::new();
+        env.set_field("trick", FelValue::String("{{$budget}}".to_string()));
+        env.set_field("budget", FelValue::Number(Decimal::from(999)));
+        let result = interpolate_message("Got {{$trick}}", &env);
+        assert_eq!(result, "Got {{$budget}}");
+    }
+
+    #[test]
+    fn boolean_coercion() {
+        let env = make_env();
+        let result = interpolate_message("Flag is {{$flag}}", &env);
+        assert_eq!(result, "Flag is true");
+    }
+
+    #[test]
+    fn string_interpolation() {
+        let env = make_env();
+        let result = interpolate_message("Hello {{$name}}", &env);
+        assert_eq!(result, "Hello Alice");
+    }
+
+    #[test]
+    fn mixed_text_and_expressions() {
+        let env = make_env();
+        let result =
+            interpolate_message("{{$name}} spent {{$budget}} of {{$limit}} allowed", &env);
+        assert_eq!(result, "Alice spent 1000 of 500 allowed");
+    }
+
+    #[test]
+    fn unclosed_braces_literal() {
+        let env = make_env();
+        let result = interpolate_message("Unclosed {{expr here", &env);
+        assert_eq!(result, "Unclosed {{expr here");
+    }
+}

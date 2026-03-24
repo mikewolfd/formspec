@@ -8,6 +8,9 @@ import type {
     ValidationReport,
     OptionEntry,
 } from 'formspec-types';
+import type { LocaleDocument } from './locale.js';
+import type { FieldViewModel } from './field-view-model.js';
+import type { FormViewModel } from './form-view-model.js';
 
 // ── FEL catalog types ────────────────────────────────────────────────
 
@@ -56,7 +59,8 @@ export type DocumentType =
     | 'validation_result'
     | 'registry'
     | 'changelog'
-    | 'fel_functions';
+    | 'fel_functions'
+    | 'locale';
 
 export interface SchemaValidationError {
     path: string;
@@ -80,6 +84,7 @@ export interface SchemaValidatorSchemas {
     registry?: object;
     changelog?: object;
     fel_functions?: object;
+    locale?: object;
 }
 
 export interface SchemaValidator {
@@ -168,6 +173,7 @@ export interface FormEngineRuntimeContext {
     locale?: string;
     timeZone?: string;
     seed?: string | number;
+    meta?: Record<string, string | number | boolean>;
 }
 
 export interface RegistryEntry {
@@ -284,6 +290,14 @@ export interface IFormEngine {
     getDefinition(): FormDefinition;
     setLabelContext(context: string | null): void;
     getLabel(item: FormItem): string;
+
+    loadLocale(doc: LocaleDocument): void;
+    setLocale(code: string): void;
+    getActiveLocale(): string;
+    getAvailableLocales(): string[];
+    getLocaleDirection(): 'ltr' | 'rtl';
+    getFieldVM(path: string): FieldViewModel | undefined;
+    getFormVM(): FormViewModel;
 
     dispose(): void;
 

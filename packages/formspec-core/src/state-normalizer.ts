@@ -20,6 +20,14 @@ export function normalizeState(state: ProjectState): void {
     state.theme.targetDefinition.url = url;
   }
 
+  // Sync locale targetDefinition.url with definition URL
+  state.locales ??= {};
+  for (const locale of Object.values(state.locales)) {
+    if (locale.targetDefinition) {
+      locale.targetDefinition.url = url;
+    }
+  }
+
   // Sort theme breakpoints by minWidth ascending
   const themeBp = state.theme.breakpoints;
   if (themeBp) {

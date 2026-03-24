@@ -55,7 +55,7 @@ export type FormspecOption = OptionEntry;
 export type ValidationResult = FormspecValidationResult;
 export type ValidationReport = FormspecValidationReport;
 
-export type { EngineReactiveRuntime, EngineSignal } from './reactivity/types.js';
+export type { EngineReactiveRuntime, EngineSignal, ReadonlyEngineSignal } from './reactivity/types.js';
 export { preactReactiveRuntime } from './reactivity/preact-runtime.js';
 
 export {
@@ -106,6 +106,18 @@ export { toValidationResults } from './engine/helpers.js';
 export type { EvalValidation } from './diff.js';
 
 export { assembleDefinition, assembleDefinitionSync } from './assembly/assembleDefinition.js';
+
+export { interpolateMessage } from './interpolate-message.js';
+export type { InterpolateResult, InterpolationWarning } from './interpolate-message.js';
+
+export { LocaleStore } from './locale.js';
+export type { LocaleDocument, LookupResult } from './locale.js';
+
+export { createFieldViewModel } from './field-view-model.js';
+export type { FieldViewModel, FieldViewModelDeps, ResolvedValidationResult, ResolvedOption } from './field-view-model.js';
+
+export { createFormViewModel } from './form-view-model.js';
+export type { FormViewModel, FormViewModelDeps } from './form-view-model.js';
 
 export { FormEngine } from './engine/FormEngine.js';
 export { createFormEngine } from './engine/init.js';

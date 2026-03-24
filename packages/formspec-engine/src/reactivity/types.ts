@@ -9,9 +9,19 @@ export interface EngineSignal<T> {
 }
 
 /**
+ * Read-only reactive cell — the consumer can observe but not mutate.
+ * Returned by `computed()` and exposed on FieldViewModel properties.
+ */
+export interface ReadonlyEngineSignal<T> {
+    get value(): T;
+}
+
+/**
  * Pluggable batching + signal factory so FormEngine does not import `@preact/signals-core` directly.
  */
 export interface EngineReactiveRuntime {
     signal<T>(initial: T): EngineSignal<T>;
+    computed<T>(fn: () => T): ReadonlyEngineSignal<T>;
+    effect(fn: () => void): () => void;
     batch<T>(fn: () => T): T;
 }
