@@ -184,31 +184,29 @@ describe('addGroup', () => {
 });
 
 describe('addGroup in paged mode', () => {
-  it('creates a paired theme page when project is in wizard mode', () => {
+  it('does NOT create a paired theme page in wizard mode — page assignment is separate', () => {
     const project = createProject();
     project.addPage('Existing Page'); // puts project into wizard mode
     project.addGroup('section_a', 'Section A');
 
     const pages = project.theme.pages ?? [];
-    expect(pages.length).toBe(2);
-    const newPage = pages.find((p: any) => p.title === 'Section A');
-    expect(newPage).toBeDefined();
-    const groupKey = 'section_a';
-    expect(newPage?.regions?.some((r: any) => r.key === groupKey)).toBe(true);
-    expect(project.itemAt(groupKey)?.type).toBe('group');
+    // Only the one page from addPage — addGroup creates only response structure
+    expect(pages.length).toBe(1);
+    expect(pages.find((p: any) => p.title === 'Section A')).toBeUndefined();
+    // But the group exists in the definition
+    expect(project.itemAt('section_a')?.type).toBe('group');
   });
 
-  it('creates a paired theme page when project is in tabs mode', () => {
+  it('does NOT create a paired theme page in tabs mode', () => {
     const project = createProject();
     project.setFlow('tabs');
     project.addPage('First Tab');
     project.addGroup('tab_two', 'Tab Two');
 
     const pages = project.theme.pages ?? [];
-    expect(pages.length).toBe(2);
-    const newPage = pages.find((p: any) => p.title === 'Tab Two');
-    expect(newPage).toBeDefined();
-    expect(newPage?.regions?.some((r: any) => r.key === 'tab_two')).toBe(true);
+    expect(pages.length).toBe(1);
+    expect(pages.find((p: any) => p.title === 'Tab Two')).toBeUndefined();
+    expect(project.itemAt('tab_two')?.type).toBe('group');
   });
 
   it('does NOT create a theme page in single (non-paged) mode', () => {
@@ -1207,7 +1205,7 @@ describe('removePage', () => {
     expect(pages.find((p: any) => p.id === createdId)).toBeUndefined();
   });
 
-  it('removes the definition group created by addPage', () => {
+  it('preserves the definition group when page is deleted', () => {
     const project = createProject();
     const r1 = project.addPage('Page 1');
     project.addPage('Page 2');
@@ -1215,10 +1213,11 @@ describe('removePage', () => {
     expect(project.itemAt(groupKey)).toBeDefined();
 
     project.removePage(r1.createdId!);
-    expect(project.itemAt(groupKey)).toBeUndefined();
+    // Group survives — deleting a presentation surface does not destroy response structure
+    expect(project.itemAt(groupKey)).toBeDefined();
   });
 
-  it('removes children of the definition group', () => {
+  it('preserves children of the definition group when page is deleted', () => {
     const project = createProject();
     const r1 = project.addPage('Page 1');
     project.addPage('Page 2');
@@ -1227,26 +1226,22 @@ describe('removePage', () => {
     expect(project.itemAt(`${groupKey}.name`)).toBeDefined();
 
     project.removePage(r1.createdId!);
-    expect(project.itemAt(`${groupKey}.name`)).toBeUndefined();
+    // Fields survive — presentation changes must not destroy data
+    expect(project.itemAt(`${groupKey}.name`)).toBeDefined();
   });
 
-  it('is atomic — single undo restores page, group, and children', () => {
+  it('is atomic — single undo restores just the page', () => {
     const project = createProject();
     const r1 = project.addPage('Page 1');
     project.addPage('Page 2');
-    const groupKey = r1.affectedPaths[0];
-    project.addField(`${groupKey}.name`, 'Name', 'text');
 
     project.removePage(r1.createdId!);
 
-    // Everything gone
-    expect(project.itemAt(groupKey)).toBeUndefined();
+    // Page gone
     expect((project.theme.pages ?? []).find((p: any) => p.id === r1.createdId)).toBeUndefined();
 
-    // Single undo restores everything
+    // Single undo restores the page
     project.undo();
-    expect(project.itemAt(groupKey)).toBeDefined();
-    expect(project.itemAt(`${groupKey}.name`)).toBeDefined();
     expect((project.theme.pages ?? []).find((p: any) => p.id === r1.createdId)).toBeDefined();
   });
 
@@ -1263,6 +1258,25 @@ describe('removePage', () => {
     project.removePage('orphan-page');
     // Original items unchanged
     expect(project.definition.items.length).toBe(pagesBefore);
+  });
+
+  it('removes only the theme page and regions, groups become unassigned', () => {
+    const project = createProject();
+    const r1 = project.addPage('Page 1');
+    project.addPage('Page 2');
+    const groupKey = r1.affectedPaths[0];
+    project.addField(`${groupKey}.name`, 'Name', 'text');
+
+    const itemsBefore = project.definition.items.length;
+    project.removePage(r1.createdId!);
+
+    // Theme page is gone
+    expect((project.theme.pages ?? []).find((p: any) => p.id === r1.createdId)).toBeUndefined();
+    // Definition items are intact — same count
+    expect(project.definition.items.length).toBe(itemsBefore);
+    // Group and its field still exist
+    expect(project.itemAt(groupKey)?.type).toBe('group');
+    expect(project.itemAt(`${groupKey}.name`)).toBeDefined();
   });
 });
 
@@ -1746,6 +1760,39 @@ describe('updateItem edge cases', () => {
     project.updateItem('items', { minRepeat: 1, maxRepeat: 5 });
     expect((project.itemAt('items') as any)?.minRepeat).toBe(1);
     expect((project.itemAt('items') as any)?.maxRepeat).toBe(5);
+  });
+});
+
+describe('addPage standalone option', () => {
+  it('creates only a theme page when standalone is true — no paired group', () => {
+    const project = createProject();
+    const result = project.addPage('Empty Page', undefined, undefined, { standalone: true });
+    expect(result.createdId).toBeDefined();
+
+    // Theme page exists
+    const pages = project.theme.pages ?? [];
+    expect(pages.length).toBe(1);
+    expect(pages[0].title).toBe('Empty Page');
+
+    // No definition group created
+    expect(project.definition.items.length).toBe(0);
+    expect(result.groupKey).toBeUndefined();
+  });
+
+  it('standalone page has no regions', () => {
+    const project = createProject();
+    const result = project.addPage('Standalone', undefined, undefined, { standalone: true });
+    const page = (project.theme.pages ?? []).find((p: any) => p.id === result.createdId);
+    expect(page?.regions ?? []).toHaveLength(0);
+  });
+
+  it('default addPage still creates paired group + region', () => {
+    const project = createProject();
+    const result = project.addPage('Step 1');
+    expect(result.groupKey).toBeDefined();
+    expect(project.itemAt(result.groupKey!)).toBeDefined();
+    const page = (project.theme.pages ?? []).find((p: any) => p.id === result.createdId);
+    expect(page?.regions?.some((r: any) => r.key === result.groupKey)).toBe(true);
   });
 });
 

@@ -26,6 +26,7 @@ export interface PageItemView {
   itemType: 'field' | 'group' | 'display';
   childCount?: number;       // only set for groups
   repeatable?: boolean;      // only set for repeatable groups
+  widgetHint?: string;       // only set when item has presentation.widgetHint
 }
 
 export interface PlaceableItem {
@@ -53,6 +54,7 @@ function buildItemMaps(items: FormItem[]) {
   const typeMap = new Map<string, 'field' | 'group' | 'display'>();
   const childCountMap = new Map<string, number>();
   const repeatableMap = new Map<string, boolean>();
+  const widgetHintMap = new Map<string, string>();
 
   function walk(nodes: FormItem[]) {
     for (const item of nodes) {
@@ -65,13 +67,16 @@ function buildItemMaps(items: FormItem[]) {
       if (item.repeatable) {
         repeatableMap.set(item.key, true);
       }
+      if (item.presentation?.widgetHint) {
+        widgetHintMap.set(item.key, item.presentation.widgetHint);
+      }
     }
   }
   walk(items);
-  return { labelMap, typeMap, childCountMap, repeatableMap };
+  return { labelMap, typeMap, childCountMap, repeatableMap, widgetHintMap };
 }
 
-/** Collect all top-level item keys (non-recursive — same set resolvePageStructure uses). */
+/** Collect all item keys (recursive — walks the full item tree including nested children). */
 function collectAllKeys(items: FormItem[]): string[] {
   const keys: string[] = [];
   function walk(nodes: FormItem[]) {
@@ -119,7 +124,7 @@ export type PageViewInput = {
 export function resolvePageView(state: PageViewInput): PageStructureView {
   const defItems: FormItem[] = (state.definition.items ?? []) as FormItem[];
   const allKeys = collectAllKeys(defItems);
-  const { labelMap, typeMap, childCountMap, repeatableMap } = buildItemMaps(defItems);
+  const { labelMap, typeMap, childCountMap, repeatableMap, widgetHintMap } = buildItemMaps(defItems);
 
   const resolved = resolvePageStructure(
     { theme: state.theme as any, definition: state.definition },
@@ -140,6 +145,7 @@ export function resolvePageView(state: PageViewInput): PageStructureView {
       itemType: typeMap.get(r.key) ?? 'field',
       ...(childCountMap.has(r.key) && { childCount: childCountMap.get(r.key) }),
       ...(repeatableMap.get(r.key) && { repeatable: true }),
+      ...(widgetHintMap.has(r.key) && { widgetHint: widgetHintMap.get(r.key) }),
     })),
   }));
 

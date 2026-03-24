@@ -341,6 +341,10 @@ export interface FormDefinition {
      * Default ISO 4217 currency code applied to all money fields that do not declare their own currency. When set, the currency input on MoneyInput widgets is pre-filled and locked to this value.
      */
     defaultCurrency?: string;
+    /**
+     * Base text direction. 'auto' derives direction from the active locale code (RTL for ar, he, fa, ur, ps, sd, yi).
+     */
+    direction?: 'ltr' | 'rtl' | 'auto';
   };
 }
 /**

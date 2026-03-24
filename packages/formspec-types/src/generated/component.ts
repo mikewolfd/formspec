@@ -1068,6 +1068,10 @@ export interface ResponsiveOverrides {
  */
 export interface ComponentBase {
   /**
+   * Optional unique identifier for this node within the component tree. Used for locale string addressing ($component.<id>.prop), test selectors, and accessibility anchoring. When present, MUST be unique across the entire component tree document. Inside repeat templates (DataTable, Accordion), the id identifies the template node — all rendered instances share the same id.
+   */
+  id?: string;
+  /**
    * Component type name. MUST be a built-in name or a key in the components registry.
    */
   component: string;

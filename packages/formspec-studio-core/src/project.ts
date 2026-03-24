@@ -510,29 +510,9 @@ export class Project {
     if (parentPath) addItemPayload.parentPath = parentPath;
     if (props?.insertIndex !== undefined) addItemPayload.insertIndex = props.insertIndex;
 
-    // When adding a root-level group in paged mode, create a paired theme page
-    // so that theme.pages and definition.items stay in sync (same invariant as addPage).
-    const pageMode = this.core.state.definition.formPresentation?.pageMode;
-    const isRootLevel = !parentPath;
-    const shouldCreatePage = isRootLevel && (pageMode === 'wizard' || pageMode === 'tabs');
-
-    if (shouldCreatePage) {
-      const pageId = `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const pageCommands = [
-        { type: 'definition.addItem', payload: addItemPayload },
-        { type: 'pages.addPage', payload: { id: pageId, title: label } },
-        { type: 'pages.assignItem', payload: { pageId, key } },
-      ] as AnyCommand[];
-
-      if (props?.display) {
-        this.core.batchWithRebuild(
-          pageCommands,
-          [{ type: 'component.setGroupDisplayMode', payload: { groupKey: key, mode: props.display } }],
-        );
-      } else {
-        this.core.dispatch(pageCommands);
-      }
-    } else if (props?.display) {
+    // addGroup creates only the definition group (response structure).
+    // Page assignment is a separate action via the Pages tab.
+    if (props?.display) {
       // Two-phase: addItem triggers rebuild, then setGroupDisplayMode on rebuilt tree
       this.core.batchWithRebuild(
         [{ type: 'definition.addItem', payload: addItemPayload }],
@@ -1825,11 +1805,10 @@ export class Project {
   // ── Page Helpers ──
 
   /**
-   * Add a page — creates both a definition group (logical container) and a
-   * theme page (rendering slot), wired together via regions.
-   * Promotes to wizard mode if not already paged.
+   * Add a page. By default creates a paired definition group + theme page + region (the 80% case).
+   * With `opts.standalone`, creates only the theme page with no paired group.
    */
-  addPage(title: string, description?: string, id?: string): HelperResult {
+  addPage(title: string, description?: string, id?: string, opts?: { standalone?: boolean }): HelperResult {
     // Validate custom ID format
     if (id !== undefined) {
       if (!/^[a-zA-Z][a-zA-Z0-9_\-]*$/.test(id)) {
@@ -1842,7 +1821,25 @@ export class Project {
       }
     }
 
-    // Derive group key from page_id (when provided) or title
+    // Pre-generate page ID
+    const pageId = id ?? `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const pagePayload: Record<string, unknown> = { id: pageId, title };
+    if (description) pagePayload.description = description;
+
+    if (opts?.standalone) {
+      // Standalone: only a theme page, no paired group
+      this.core.dispatch({ type: 'pages.addPage', payload: pagePayload } as AnyCommand);
+
+      return {
+        summary: `Added page '${title}'`,
+        action: { helper: 'addPage', params: { title, description, standalone: true } },
+        affectedPaths: [pageId],
+        createdId: pageId,
+      };
+    }
+
+    // Convenience path: group + page + region
     const rawKey = id ?? title;
     const key = rawKey.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `page_${Date.now()}`;
 
@@ -1852,12 +1849,6 @@ export class Project {
     while (this.core.itemAt(finalKey)) {
       finalKey = `${key}_${counter++}`;
     }
-
-    // Pre-generate page ID so all three commands can be batched atomically
-    const pageId = id ?? `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const pagePayload: Record<string, unknown> = { id: pageId, title };
-    if (description) pagePayload.description = description;
 
     // All three commands in one dispatch = one undo step
     this.core.dispatch([
@@ -1875,37 +1866,14 @@ export class Project {
     };
   }
 
-  /** Remove a page and its associated definition group (if created by addPage). */
+  /** Remove a page — deletes only the theme page and its regions. Groups and fields remain intact as unassigned items. */
   removePage(pageId: string): HelperResult {
-    // Find the page and check if it has a region pointing to a root-level group
-    const pages = (this.core.state.theme as any).pages ?? [];
-    const page = pages.find((p: any) => p.id === pageId);
-    const affectedPaths: string[] = [pageId];
-    const commands: AnyCommand[] = [];
-
-    // If the page has regions, check if any point to a root-level definition group
-    if (page?.regions?.length) {
-      for (const region of page.regions) {
-        if (region.key) {
-          const item = this.core.itemAt(region.key);
-          if (item?.type === 'group') {
-            // This is a root-level group — delete it (and its children)
-            commands.push({ type: 'definition.deleteItem', payload: { path: region.key } });
-            affectedPaths.push(region.key);
-          }
-        }
-      }
-    }
-
-    commands.push({ type: 'pages.deletePage', payload: { id: pageId } });
-
-    // All commands in one dispatch = one undo step
-    this.core.dispatch(commands);
+    this.core.dispatch({ type: 'pages.deletePage', payload: { id: pageId } });
 
     return {
       summary: `Removed page '${pageId}'`,
       action: { helper: 'removePage', params: { pageId } },
-      affectedPaths,
+      affectedPaths: [pageId],
     };
   }
 
@@ -2482,6 +2450,26 @@ export class Project {
       summary: `Removed '${itemKey}' from page '${pageId}'`,
       action: { helper: 'removeItemFromPage', params: { pageId, itemKey } },
       affectedPaths: [pageId],
+    };
+  }
+
+  /**
+   * Move an item from one page to another as a single atomic undo step.
+   * Batches the unassign + assign into one history entry so undo/redo is coherent.
+   */
+  moveItemToPage(sourcePageId: string, itemKey: string, targetPageId: string, opts?: PlacementOptions): HelperResult {
+    this._regionIndexOf(sourcePageId, itemKey);
+    const leafKey = itemKey.split('.').pop()!;
+    const assignPayload: Record<string, unknown> = { pageId: targetPageId, key: leafKey };
+    if (opts?.span) assignPayload.span = opts.span;
+    this.core.batch([
+      { type: 'pages.unassignItem', payload: { pageId: sourcePageId, key: leafKey } },
+      { type: 'pages.assignItem', payload: assignPayload },
+    ] as AnyCommand[]);
+    return {
+      summary: `Moved '${itemKey}' from page '${sourcePageId}' to page '${targetPageId}'`,
+      action: { helper: 'moveItemToPage', params: { sourcePageId, itemKey, targetPageId } },
+      affectedPaths: [sourcePageId, targetPageId],
     };
   }
 

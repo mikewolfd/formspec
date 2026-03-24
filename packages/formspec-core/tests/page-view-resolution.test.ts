@@ -487,6 +487,55 @@ describe('resolvePageView', () => {
     expect(result.pages[0].items[0].itemType).toBe('display');
   });
 
+  it('returns widgetHint for display items with presentation.widgetHint', () => {
+    const state = makeState({
+      definition: {
+        items: [
+          { key: 'intro', type: 'display', label: 'Introduction', presentation: { widgetHint: 'paragraph' } },
+          { key: 'title', type: 'display', label: 'Title', presentation: { widgetHint: 'heading' } },
+          { key: 'sep', type: 'display', label: 'Separator', presentation: { widgetHint: 'divider' } },
+        ],
+        formPresentation: { pageMode: 'wizard' },
+      },
+      theme: {
+        pages: [{ id: 'p1', title: 'A', regions: [
+          { key: 'intro', span: 12 },
+          { key: 'title', span: 12 },
+          { key: 'sep', span: 12 },
+        ] }],
+      },
+    });
+
+    const result = resolvePageView(state);
+
+    expect(result.pages[0].items[0].widgetHint).toBe('paragraph');
+    expect(result.pages[0].items[1].widgetHint).toBe('heading');
+    expect(result.pages[0].items[2].widgetHint).toBe('divider');
+  });
+
+  it('omits widgetHint for items without presentation.widgetHint', () => {
+    const state = makeState({
+      definition: {
+        items: [
+          { key: 'name', type: 'field', label: 'Name' },
+          { key: 'intro', type: 'display', label: 'Intro' },
+        ],
+        formPresentation: { pageMode: 'wizard' },
+      },
+      theme: {
+        pages: [{ id: 'p1', title: 'A', regions: [
+          { key: 'name', span: 12 },
+          { key: 'intro', span: 12 },
+        ] }],
+      },
+    });
+
+    const result = resolvePageView(state);
+
+    expect(result.pages[0].items[0].widgetHint).toBeUndefined();
+    expect(result.pages[0].items[1].widgetHint).toBeUndefined();
+  });
+
   it('returns childCount for groups', () => {
     const state = makeState({
       definition: {
