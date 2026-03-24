@@ -101,6 +101,10 @@ fn classify_layout_components() {
     assert_eq!(classify_component("Card"), NodeCategory::Layout);
     assert_eq!(classify_component("Accordion"), NodeCategory::Layout);
     assert_eq!(classify_component("Page"), NodeCategory::Layout);
+    assert_eq!(classify_component("Grid"), NodeCategory::Layout);
+    assert_eq!(classify_component("Row"), NodeCategory::Layout);
+    assert_eq!(classify_component("Column"), NodeCategory::Layout);
+    assert_eq!(classify_component("Collapsible"), NodeCategory::Layout);
 }
 
 #[test]
@@ -118,6 +122,8 @@ fn classify_field_components() {
     assert_eq!(classify_component("FileUpload"), NodeCategory::Field);
     assert_eq!(classify_component("Signature"), NodeCategory::Field);
     assert_eq!(classify_component("MoneyInput"), NodeCategory::Field);
+    assert_eq!(classify_component("Textarea"), NodeCategory::Field);
+    assert_eq!(classify_component("RichText"), NodeCategory::Field);
 }
 
 #[test]
@@ -126,6 +132,8 @@ fn classify_display_components() {
     assert_eq!(classify_component("Text"), NodeCategory::Display);
     assert_eq!(classify_component("Divider"), NodeCategory::Display);
     assert_eq!(classify_component("Alert"), NodeCategory::Display);
+    assert_eq!(classify_component("Image"), NodeCategory::Display);
+    assert_eq!(classify_component("Html"), NodeCategory::Display);
 }
 
 #[test]
@@ -410,6 +418,22 @@ fn fallback_wizard_page_mode() {
     assert_eq!(nodes[0].component, "Wizard");
     assert_eq!(nodes[0].category, NodeCategory::Interactive);
     assert_eq!(nodes[0].children.len(), 2);
+}
+
+#[test]
+fn fallback_money_field_uses_money_input() {
+    reset_node_id_counter();
+    let items = vec![json!({
+        "key": "amount",
+        "label": "Total Amount",
+        "dataType": "money"
+    })];
+    let ctx = make_simple_ctx(items.clone());
+    let nodes = plan_definition_fallback(&items, &ctx);
+
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0].component, "MoneyInput");
+    assert_eq!(nodes[0].category, NodeCategory::Field);
 }
 
 #[test]
@@ -846,6 +870,37 @@ fn tier1_hints_empty() {
     let hints = build_tier1_hints(&item, None);
     assert!(hints.item_presentation.is_none());
     assert!(hints.form_presentation.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// PlanContextJson conversion
+// ---------------------------------------------------------------------------
+
+#[test]
+fn plan_context_json_items_by_path_lookup() {
+    use crate::types::PlanContextJson;
+    use serde_json::Map;
+
+    let mut items_by_path = Map::new();
+    items_by_path.insert("name".to_string(), json!({"key": "name", "dataType": "string"}));
+    items_by_path.insert("age".to_string(), json!({"key": "age", "dataType": "integer"}));
+
+    let ctx_json = PlanContextJson {
+        items_by_path,
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        available_components: vec![],
+    };
+
+    let ctx: crate::types::PlanContext = ctx_json.into();
+    let found = (ctx.find_item)("name");
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().get("key").unwrap().as_str(), Some("name"));
+
+    let not_found = (ctx.find_item)("missing");
+    assert!(not_found.is_none());
 }
 
 // ---------------------------------------------------------------------------
