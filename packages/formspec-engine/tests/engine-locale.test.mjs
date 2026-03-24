@@ -294,6 +294,30 @@ test('getFieldVM returns VMs for repeat group instances', () => {
   assert.equal(vm1.templatePath, 'contacts.email');
 });
 
+test('getFieldVM returns undefined for removed repeat instance path', () => {
+  const engine = new FormEngine(minDef({
+    items: [
+      {
+        key: 'contacts',
+        type: 'group',
+        label: 'Contacts',
+        repeatable: true,
+        minRepeat: 2,
+        children: [
+          { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+        ],
+      },
+    ],
+  }));
+
+  assert.ok(engine.getFieldVM('contacts[1].email'));
+  engine.removeRepeatInstance('contacts', 0);
+
+  // After removing index 0 from 2 rows, only contacts[0] should exist.
+  assert.equal(engine.getFieldVM('contacts[1].email'), undefined);
+  assert.ok(engine.getFieldVM('contacts[0].email'));
+});
+
 // ── Edge cases: FieldVM required/visible/readonly reflect engine signals ──
 
 test('getFieldVM required reflects bind required expression', () => {

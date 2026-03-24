@@ -1189,6 +1189,13 @@ export class FormEngine implements IFormEngine {
     }
 
     private clearRepeatSubtree(rootRepeatPath: string): void {
+        const repeatPrefix = `${rootRepeatPath}[`;
+        for (const path of Object.keys(this._fieldViewModels)) {
+            if (path.startsWith(repeatPrefix)) {
+                delete this._fieldViewModels[path];
+            }
+        }
+
         clearRepeatIndexedSubtree({
             rootRepeatPath,
             signals: this.signals,
