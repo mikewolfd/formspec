@@ -1,7 +1,7 @@
 //! Unit tests for formspec-pdf.
 
 use crate::fonts::{text_width, wrap_text, text_height, HELVETICA_WIDTHS, HELVETICA_BOLD_WIDTHS};
-use crate::options::{PdfConfig, PdfOptions};
+use crate::options::PdfOptions;
 use crate::layout::{grid_to_rect, content_y_to_pdf_y};
 
 // ── Font Metrics ──

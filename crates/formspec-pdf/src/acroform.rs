@@ -1,4 +1,6 @@
 //! AcroForm field creation — map formspec component types to PDF interactive fields.
+//!
+//! Uses pdf-writer typed dict API to emit merged field+widget annotation dicts.
 
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
 use formspec_plan::EvaluatedNode;
@@ -22,16 +24,19 @@ pub struct FieldInfo {
 /// Accumulates fields for later writing to the Pdf.
 pub struct AcroFormBuilder {
     pub fields: Vec<FieldInfo>,
+    /// Appearance XObject refs and bytes to write, deferred until write_fields.
+    appearances: Vec<(Ref, Vec<u8>, f32, f32)>,
 }
 
 impl AcroFormBuilder {
     pub fn new() -> Self {
         Self {
             fields: Vec::new(),
+            appearances: Vec::new(),
         }
     }
 
-    /// Record a field to be written later. Returns the FieldInfo.
+    /// Record a field to be written later.
     pub fn add_field(
         &mut self,
         node: &EvaluatedNode,
@@ -57,10 +62,6 @@ impl AcroFormBuilder {
     }
 
     /// Write all accumulated fields into the Pdf document.
-    ///
-    /// `nodes` — the evaluated node tree for looking up field data.
-    /// `page_refs` — refs of each page, indexed by page_index.
-    /// `alloc` — mutable ref counter for allocating new Refs.
     pub fn write_fields(
         &self,
         pdf: &mut Pdf,
@@ -88,21 +89,21 @@ impl AcroFormBuilder {
                         .and_then(|n| n.value.as_ref())
                         .and_then(|v| v.as_bool())
                         .unwrap_or(false);
-                    write_checkbox(
-                        pdf, info.field_ref, page_ref, &info.name, &info.rect,
-                        checked, is_readonly, width, height, alloc,
+                    write_checkbox_field(
+                        pdf, info, page_ref, checked, is_readonly,
+                        width, height, alloc,
                     );
                 }
                 "textArea" | "textarea" => {
-                    write_multiline_text(
-                        pdf, info.field_ref, page_ref, &info.name, &info.rect,
-                        value_str, is_readonly, width, height, config, alloc,
+                    write_text_field(
+                        pdf, info, page_ref, value_str, is_readonly,
+                        width, height, config, alloc, true,
                     );
                 }
                 _ => {
                     write_text_field(
-                        pdf, info.field_ref, page_ref, &info.name, &info.rect,
-                        value_str, is_readonly, width, height, config, alloc,
+                        pdf, info, page_ref, value_str, is_readonly,
+                        width, height, config, alloc, false,
                     );
                 }
             }
@@ -142,23 +143,25 @@ fn alloc_ref(alloc: &mut i32) -> Ref {
     r
 }
 
-/// Write a single-line text field as a merged field+widget annotation.
+/// Write a text field (single-line or multiline) as a merged Widget annotation.
 fn write_text_field(
     pdf: &mut Pdf,
-    field_ref: Ref,
+    info: &FieldInfo,
     page_ref: Ref,
-    name: &str,
-    rect: &[f32; 4],
     value: &str,
     readonly: bool,
     width: f32,
     height: f32,
     config: &PdfConfig,
     alloc: &mut i32,
+    multiline: bool,
 ) {
-    let ap_bytes = appearance::build_text_field_appearance(
-        value, width, height, config.field_font_size,
-    );
+    // Build appearance stream
+    let ap_bytes = if multiline {
+        appearance::build_multiline_text_appearance(value, width, height, config.field_font_size)
+    } else {
+        appearance::build_text_field_appearance(value, width, height, config.field_font_size)
+    };
     let ap_ref = alloc_ref(alloc);
 
     // Write appearance XObject
@@ -166,75 +169,42 @@ fn write_text_field(
     xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
     xobj.finish();
 
-    // Write merged field+widget annotation using the annotation writer.
-    // pdf-writer 0.14 provides pdf.annotation(ref) for annotation dicts.
-    let mut annot = pdf.annotation(field_ref);
+    // Write the field as a widget annotation with field keys merged in.
+    // In pdf-writer 0.14, we use the page writer to reference annotations,
+    // and write the annotation object separately.
+    let rect = &info.rect;
+    let mut annot = pdf.annotation(info.field_ref);
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
-    // Field-specific entries written via raw insert
-    annot.pair(Name(b"FT"), Name(b"Tx"));
-    annot.pair(Name(b"T"), TextStr(name));
+    // Merged field entries
+    annot.insert(Name(b"FT")).name(Name(b"Tx"));
+    annot.insert(Name(b"T")).text_str(TextStr(&info.name));
     if !value.is_empty() {
-        annot.pair(Name(b"V"), TextStr(value));
+        annot.insert(Name(b"V")).text_str(TextStr(value));
+    }
+    // Field flags
+    let mut ff = 0_i32;
+    if multiline {
+        ff |= 1 << 12; // bit 13 = Multiline
     }
     if readonly {
-        annot.pair(Name(b"Ff"), 1_i32);
+        ff |= 1; // bit 1 = ReadOnly
+    }
+    if ff != 0 {
+        annot.insert(Name(b"Ff")).primitive(ff);
     }
     let da = format!("/Helv {} Tf 0 0 0 rg", config.field_font_size);
-    annot.pair(Name(b"DA"), Str(da.as_bytes()));
-    annot.pair(Name(b"AP"), ap_ref); // simplified — points to appearance XObject
+    annot.insert(Name(b"DA")).primitive(Str(da.as_bytes()));
+    annot.insert(Name(b"AP")).dict().pair(Name(b"N"), ap_ref);
     annot.finish();
 }
 
-/// Write a multiline text field.
-fn write_multiline_text(
+/// Write a checkbox field as a merged Widget annotation.
+fn write_checkbox_field(
     pdf: &mut Pdf,
-    field_ref: Ref,
+    info: &FieldInfo,
     page_ref: Ref,
-    name: &str,
-    rect: &[f32; 4],
-    value: &str,
-    readonly: bool,
-    width: f32,
-    height: f32,
-    config: &PdfConfig,
-    alloc: &mut i32,
-) {
-    let ap_bytes = appearance::build_multiline_text_appearance(
-        value, width, height, config.field_font_size,
-    );
-    let ap_ref = alloc_ref(alloc);
-
-    let mut xobj = pdf.form_xobject(ap_ref, &ap_bytes);
-    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
-    xobj.finish();
-
-    let mut annot = pdf.annotation(field_ref);
-    annot.subtype(pdf_writer::types::AnnotationType::Widget);
-    annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
-    annot.page(page_ref);
-    annot.pair(Name(b"FT"), Name(b"Tx"));
-    annot.pair(Name(b"T"), TextStr(name));
-    if !value.is_empty() {
-        annot.pair(Name(b"V"), TextStr(value));
-    }
-    // Ff: Multiline (bit 13 = 4096) + optional ReadOnly (bit 1 = 1)
-    let ff = 4096_i32 | if readonly { 1 } else { 0 };
-    annot.pair(Name(b"Ff"), ff);
-    let da = format!("/Helv {} Tf 0 0 0 rg", config.field_font_size);
-    annot.pair(Name(b"DA"), Str(da.as_bytes()));
-    annot.pair(Name(b"AP"), ap_ref);
-    annot.finish();
-}
-
-/// Write a checkbox field.
-fn write_checkbox(
-    pdf: &mut Pdf,
-    field_ref: Ref,
-    page_ref: Ref,
-    name: &str,
-    rect: &[f32; 4],
     checked: bool,
     readonly: bool,
     width: f32,
@@ -253,20 +223,27 @@ fn write_checkbox(
     xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
     xobj.finish();
 
-    let mut annot = pdf.annotation(field_ref);
+    let rect = &info.rect;
+    let mut annot = pdf.annotation(info.field_ref);
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
-    annot.pair(Name(b"FT"), Name(b"Btn"));
-    annot.pair(Name(b"T"), TextStr(name));
+    annot.insert(Name(b"FT")).name(Name(b"Btn"));
+    annot.insert(Name(b"T")).text_str(TextStr(&info.name));
     if checked {
-        annot.pair(Name(b"V"), Name(b"Yes"));
+        annot.insert(Name(b"V")).name(Name(b"Yes"));
     } else {
-        annot.pair(Name(b"V"), Name(b"Off"));
+        annot.insert(Name(b"V")).name(Name(b"Off"));
     }
     if readonly {
-        annot.pair(Name(b"Ff"), 1_i32);
+        annot.insert(Name(b"Ff")).primitive(1_i32);
     }
-    annot.pair(Name(b"AP"), on_ref); // simplified appearance reference
+    // Appearance dict: /AP << /N << /Yes ref /Off ref >> >>
+    let mut ap = annot.insert(Name(b"AP")).dict();
+    let mut n_dict = ap.insert(Name(b"N")).dict();
+    n_dict.pair(Name(b"Yes"), on_ref);
+    n_dict.pair(Name(b"Off"), off_ref);
+    n_dict.finish();
+    ap.finish();
     annot.finish();
 }
