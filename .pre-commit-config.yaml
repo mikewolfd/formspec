@@ -13,3 +13,9 @@ repos:
         language: system
         pass_filenames: false
         files: ^(specs/.*\.md|docs/template\.html)$
+      - id: build-and-test
+        name: build and test
+        entry: bash -c 'make build && make test'
+        language: system
+        pass_filenames: false
+        always_run: true
