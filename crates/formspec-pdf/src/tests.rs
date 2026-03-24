@@ -1,8 +1,80 @@
 //! Unit tests for formspec-pdf.
 
+use std::collections::HashMap;
+use serde_json::{json, Map};
+
+use formspec_plan::{EvaluatedNode, NodeCategory, FieldItemSnapshot};
+
 use crate::fonts::{text_width, wrap_text, text_height, HELVETICA_WIDTHS, HELVETICA_BOLD_WIDTHS};
-use crate::options::PdfOptions;
+use crate::options::{PdfOptions, PdfConfig};
 use crate::layout::{grid_to_rect, content_y_to_pdf_y};
+use crate::measure::{measure_node, measure_trees};
+use crate::paginate::paginate;
+
+// ── Helpers ──
+
+fn default_config() -> PdfConfig {
+    PdfOptions::default().to_pdf_config()
+}
+
+fn make_field_node(component: &str, bind: &str, label: &str) -> EvaluatedNode {
+    EvaluatedNode {
+        id: bind.to_string(),
+        component: component.to_string(),
+        category: NodeCategory::Field,
+        props: Map::new(),
+        style: None,
+        css_classes: Vec::new(),
+        accessibility: None,
+        presentation: None,
+        label_position: None,
+        bind_path: Some(bind.to_string()),
+        field_item: Some(FieldItemSnapshot {
+            key: bind.to_string(),
+            label: Some(label.to_string()),
+            hint: None,
+            data_type: Some("string".to_string()),
+            options: Vec::new(),
+            option_set: None,
+        }),
+        value: None,
+        relevant: true,
+        required: false,
+        readonly: false,
+        validations: Vec::new(),
+        span: 12,
+        col_start: 0,
+        children: Vec::new(),
+        repeat_group: None,
+    }
+}
+
+fn make_group_node(label: &str, children: Vec<EvaluatedNode>) -> EvaluatedNode {
+    let mut props = Map::new();
+    props.insert("label".to_string(), json!(label));
+    EvaluatedNode {
+        id: format!("group-{}", label),
+        component: "group".to_string(),
+        category: NodeCategory::Layout,
+        props,
+        style: None,
+        css_classes: Vec::new(),
+        accessibility: None,
+        presentation: None,
+        label_position: None,
+        bind_path: None,
+        field_item: None,
+        value: None,
+        relevant: true,
+        required: false,
+        readonly: false,
+        validations: Vec::new(),
+        span: 12,
+        col_start: 0,
+        children,
+        repeat_group: None,
+    }
+}
 
 // ── Font Metrics ──
 
@@ -29,6 +101,21 @@ fn text_width_bold_differs() {
 }
 
 #[test]
+fn text_width_non_ascii_uses_space() {
+    // Non-ASCII characters should use space width as fallback
+    let w_space = text_width(" ", &HELVETICA_WIDTHS, 10.0);
+    let w_emoji = text_width("\u{263A}", &HELVETICA_WIDTHS, 10.0); // smiley
+    assert!((w_emoji - w_space).abs() < 0.01, "Non-ASCII should use space width");
+}
+
+#[test]
+fn text_width_scales_with_font_size() {
+    let w10 = text_width("A", &HELVETICA_WIDTHS, 10.0);
+    let w20 = text_width("A", &HELVETICA_WIDTHS, 20.0);
+    assert!((w20 - w10 * 2.0).abs() < 0.01, "Width should scale linearly with size");
+}
+
+#[test]
 fn wrap_text_single_word() {
     let lines = wrap_text("Hello", &HELVETICA_WIDTHS, 10.0, 100.0);
     assert_eq!(lines, 1);
@@ -42,9 +129,29 @@ fn wrap_text_empty() {
 
 #[test]
 fn wrap_text_multiple_lines() {
-    // "The quick brown fox" at 10pt should wrap at narrow width
-    let lines = wrap_text("The quick brown fox jumps over the lazy dog", &HELVETICA_WIDTHS, 10.0, 100.0);
+    let lines = wrap_text(
+        "The quick brown fox jumps over the lazy dog",
+        &HELVETICA_WIDTHS,
+        10.0,
+        100.0,
+    );
     assert!(lines > 1, "Expected multiple lines, got {}", lines);
+}
+
+#[test]
+fn wrap_text_exact_fit_no_wrap() {
+    // A single word that fits exactly should be 1 line
+    let w = text_width("Hello", &HELVETICA_WIDTHS, 10.0);
+    let lines = wrap_text("Hello", &HELVETICA_WIDTHS, 10.0, w + 1.0);
+    assert_eq!(lines, 1);
+}
+
+#[test]
+fn wrap_text_long_word_never_split() {
+    // A single very long "word" that exceeds max_width should still be 1 line
+    // (greedy wrapping doesn't break within words)
+    let lines = wrap_text("superlongword", &HELVETICA_WIDTHS, 10.0, 5.0);
+    assert_eq!(lines, 1);
 }
 
 #[test]
@@ -52,6 +159,22 @@ fn text_height_returns_lines_times_leading() {
     let h = text_height("Hello World", &HELVETICA_WIDTHS, 10.0, 500.0);
     // Single line at 10pt with 1.2 leading = 12.0
     assert!((h - 12.0).abs() < 0.01, "Expected 12.0, got {}", h);
+}
+
+#[test]
+fn text_height_empty_is_zero() {
+    let h = text_height("", &HELVETICA_WIDTHS, 10.0, 500.0);
+    assert!((h - 0.0).abs() < 0.01, "Empty text height should be 0");
+}
+
+#[test]
+fn text_height_multi_line() {
+    // Force 2 lines by using a very narrow width
+    let lines = wrap_text("Hello World", &HELVETICA_WIDTHS, 10.0, 30.0);
+    assert!(lines >= 2, "Expected at least 2 lines, got {}", lines);
+    let h = text_height("Hello World", &HELVETICA_WIDTHS, 10.0, 30.0);
+    let expected = lines as f32 * 10.0 * 1.2;
+    assert!((h - expected).abs() < 0.01, "Expected {}, got {}", expected, h);
 }
 
 // ── PdfConfig ──
@@ -81,6 +204,24 @@ fn pdf_config_custom_margins() {
     assert!((config.content_width - 540.0).abs() < 0.01);
 }
 
+#[test]
+fn pdf_config_custom_language() {
+    let opts = PdfOptions {
+        language: Some("de-DE".to_string()),
+        ..Default::default()
+    };
+    let config = opts.to_pdf_config();
+    assert_eq!(config.language, "de-DE");
+}
+
+#[test]
+fn pdf_config_serde_roundtrip() {
+    let json_str = r#"{"paperWidth":595.0,"paperHeight":842.0,"marginTop":50.0,"marginBottom":50.0,"marginLeft":50.0,"marginRight":50.0,"headerHeight":30.0,"footerHeight":20.0,"fontSize":11.0}"#;
+    let opts: PdfOptions = serde_json::from_str(json_str).unwrap();
+    assert!((opts.paper_width - 595.0).abs() < 0.01, "A4 width");
+    assert!((opts.paper_height - 842.0).abs() < 0.01, "A4 height");
+}
+
 // ── Layout Coordinates ──
 
 #[test]
@@ -95,10 +236,30 @@ fn grid_span_full_width() {
 fn grid_half_width() {
     let config = PdfOptions::default().to_pdf_config();
     let rect = grid_to_rect(6, 0, 0.0, 22.0, &config);
-    // 6 columns out of 12: half the content width minus half the inter-column gaps
     let col_w = (config.content_width - config.column_gap * 11.0) / 12.0;
     let expected_width = 6.0 * col_w + 5.0 * config.column_gap;
-    assert!((rect.width - expected_width).abs() < 0.5, "Expected ~{}, got {}", expected_width, rect.width);
+    assert!(
+        (rect.width - expected_width).abs() < 0.5,
+        "Expected ~{}, got {}",
+        expected_width,
+        rect.width
+    );
+}
+
+#[test]
+fn grid_single_column() {
+    let config = default_config();
+    let rect = grid_to_rect(1, 0, 0.0, 22.0, &config);
+    let col_w = (config.content_width - config.column_gap * 11.0) / 12.0;
+    assert!((rect.width - col_w).abs() < 0.5);
+}
+
+#[test]
+fn grid_offset_start_position() {
+    let config = default_config();
+    let rect0 = grid_to_rect(6, 0, 0.0, 22.0, &config);
+    let rect6 = grid_to_rect(6, 6, 0.0, 22.0, &config);
+    assert!(rect6.x > rect0.x, "offset column should be further right");
 }
 
 #[test]
@@ -107,6 +268,15 @@ fn content_y_flips_axis() {
     let pdf_y = content_y_to_pdf_y(0.0, &config);
     let expected = config.page_height - config.margin_top - config.header_height;
     assert!((pdf_y - expected).abs() < 0.01);
+}
+
+#[test]
+fn content_y_increases_downward_decreases_pdf_y() {
+    let config = default_config();
+    let y0 = content_y_to_pdf_y(0.0, &config);
+    let y100 = content_y_to_pdf_y(100.0, &config);
+    assert!(y0 > y100, "moving down in content should decrease PDF y");
+    assert!((y0 - y100 - 100.0).abs() < 0.01);
 }
 
 // ── Appearance Streams ──
@@ -118,11 +288,31 @@ fn text_field_appearance_nonempty() {
 }
 
 #[test]
+fn text_field_appearance_empty_value() {
+    let bytes = crate::appearance::build_text_field_appearance("", 200.0, 22.0, 10.0);
+    // Should still produce background+border even without text
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn multiline_appearance_nonempty() {
+    let bytes = crate::appearance::build_multiline_text_appearance(
+        "Line one\nLine two\nLine three",
+        200.0,
+        60.0,
+        10.0,
+    );
+    assert!(!bytes.is_empty());
+}
+
+#[test]
 fn checkbox_appearances_nonempty() {
     let on = crate::appearance::build_checkmark_appearance(14.0, 14.0);
     let off = crate::appearance::build_empty_box_appearance(14.0, 14.0);
     assert!(!on.is_empty());
     assert!(!off.is_empty());
+    // On state should be longer (has checkmark drawing in addition to box)
+    assert!(on.len() > off.len(), "checkmark should produce more bytes than empty box");
 }
 
 #[test]
@@ -131,4 +321,280 @@ fn radio_appearances_nonempty() {
     let off = crate::appearance::build_radio_off_appearance(14.0, 14.0);
     assert!(!on.is_empty());
     assert!(!off.is_empty());
+    assert!(on.len() > off.len(), "filled circle should produce more bytes than empty circle");
+}
+
+// ── Measurement ──
+
+#[test]
+fn measure_field_node_positive_height() {
+    let config = default_config();
+    let node = make_field_node("TextInput", "name", "Full Name");
+    let h = measure_node(&node, &config, config.content_width);
+    assert!(h > 0.0, "Field node should have positive height");
+    // Should include label + field + padding
+    assert!(
+        h >= config.field_height + config.field_padding,
+        "Should be at least field_height + padding"
+    );
+}
+
+#[test]
+fn measure_textarea_taller_than_text_input() {
+    let config = default_config();
+    let text_node = make_field_node("TextInput", "name", "Name");
+    let textarea_node = make_field_node("textArea", "notes", "Notes");
+
+    let h_text = measure_node(&text_node, &config, config.content_width);
+    let h_textarea = measure_node(&textarea_node, &config, config.content_width);
+    assert!(
+        h_textarea > h_text,
+        "Textarea ({}) should be taller than TextInput ({})",
+        h_textarea,
+        h_text
+    );
+}
+
+#[test]
+fn measure_non_relevant_node_zero_height() {
+    let config = default_config();
+    let mut node = make_field_node("TextInput", "name", "Name");
+    node.relevant = false;
+    let h = measure_node(&node, &config, config.content_width);
+    assert!((h - 0.0).abs() < 0.01, "Non-relevant nodes should have zero height");
+}
+
+#[test]
+fn measure_group_includes_children() {
+    let config = default_config();
+    let child1 = make_field_node("TextInput", "name", "Name");
+    let child2 = make_field_node("NumberInput", "age", "Age");
+    let h1 = measure_node(&child1, &config, config.content_width);
+    let h2 = measure_node(&child2, &config, config.content_width);
+
+    let group = make_group_node("Personal Info", vec![child1, child2]);
+    let h_group = measure_node(&group, &config, config.content_width);
+
+    // Group height should be >= sum of children
+    assert!(
+        h_group >= h1 + h2,
+        "Group ({}) should be >= children sum ({} + {} = {})",
+        h_group,
+        h1,
+        h2,
+        h1 + h2
+    );
+}
+
+#[test]
+fn measure_trees_produces_one_per_node() {
+    let config = default_config();
+    let nodes = vec![
+        make_field_node("TextInput", "a", "A"),
+        make_field_node("TextInput", "b", "B"),
+        make_field_node("TextInput", "c", "C"),
+    ];
+    let measured = measure_trees(&nodes, &config);
+    assert_eq!(measured.len(), 3);
+    for m in &measured {
+        assert!(m.height > 0.0);
+    }
+}
+
+// ── Pagination ──
+
+#[test]
+fn paginate_empty_input() {
+    let config = default_config();
+    let pages = paginate(&[], &config);
+    assert!(pages.is_empty());
+}
+
+#[test]
+fn paginate_single_node_fits_on_one_page() {
+    let config = default_config();
+    let nodes = vec![make_field_node("TextInput", "name", "Name")];
+    let measured = measure_trees(&nodes, &config);
+    let pages = paginate(&measured, &config);
+
+    assert_eq!(pages.len(), 1);
+    assert_eq!(pages[0].len(), 1);
+    assert!((pages[0][0].y_offset - 0.0).abs() < 0.01);
+}
+
+#[test]
+fn paginate_multiple_nodes_fit_on_one_page() {
+    let config = default_config();
+    let nodes: Vec<EvaluatedNode> = (0..5)
+        .map(|i| make_field_node("TextInput", &format!("f{}", i), &format!("Field {}", i)))
+        .collect();
+    let measured = measure_trees(&nodes, &config);
+    let pages = paginate(&measured, &config);
+
+    // 5 fields should easily fit on one page (each is ~30-40pt, page is ~588pt)
+    assert_eq!(pages.len(), 1);
+    assert_eq!(pages[0].len(), 5);
+
+    // Y offsets should be monotonically increasing
+    for i in 1..pages[0].len() {
+        assert!(
+            pages[0][i].y_offset > pages[0][i - 1].y_offset,
+            "y_offset should increase"
+        );
+    }
+}
+
+#[test]
+fn paginate_overflows_to_second_page() {
+    let config = default_config();
+    // Create enough fields to overflow one page (~588pt content height)
+    // Each field is roughly 30-40pt, so 20+ should overflow
+    let nodes: Vec<EvaluatedNode> = (0..25)
+        .map(|i| make_field_node("TextInput", &format!("f{}", i), &format!("Field {}", i)))
+        .collect();
+    let measured = measure_trees(&nodes, &config);
+    let pages = paginate(&measured, &config);
+
+    assert!(pages.len() >= 2, "25 fields should need at least 2 pages, got {}", pages.len());
+    // First page should have items
+    assert!(!pages[0].is_empty());
+    // Second page should have items
+    assert!(!pages[1].is_empty());
+    // Second page starts at y_offset 0
+    assert!((pages[1][0].y_offset - 0.0).abs() < 0.01);
+}
+
+// ── PDF Generation Smoke Test ──
+
+#[test]
+fn render_pdf_produces_valid_header() {
+    let nodes = vec![
+        make_field_node("TextInput", "name", "Full Name"),
+        make_field_node("NumberInput", "age", "Age"),
+    ];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    assert!(!pdf_bytes.is_empty(), "PDF output should not be empty");
+    // Valid PDF starts with %PDF-
+    let header = std::str::from_utf8(&pdf_bytes[..5]).unwrap();
+    assert_eq!(header, "%PDF-", "Should start with PDF header");
+}
+
+#[test]
+fn render_pdf_empty_form() {
+    let nodes: Vec<EvaluatedNode> = vec![];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    // Even an empty form should produce a valid PDF with at least one page
+    assert!(!pdf_bytes.is_empty());
+    let header = std::str::from_utf8(&pdf_bytes[..5]).unwrap();
+    assert_eq!(header, "%PDF-");
+}
+
+#[test]
+fn render_pdf_with_header_and_footer() {
+    let nodes = vec![make_field_node("TextInput", "name", "Name")];
+    let opts = PdfOptions {
+        header_text: Some("My Form".to_string()),
+        footer_text: Some("Page {page}".to_string()),
+        ..Default::default()
+    };
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    assert!(!pdf_bytes.is_empty());
+    let header = std::str::from_utf8(&pdf_bytes[..5]).unwrap();
+    assert_eq!(header, "%PDF-");
+}
+
+#[test]
+fn render_pdf_with_readonly_and_values() {
+    let mut node = make_field_node("TextInput", "name", "Full Name");
+    node.value = Some(json!("John Doe"));
+    node.readonly = true;
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    assert!(!pdf_bytes.is_empty());
+    let header = std::str::from_utf8(&pdf_bytes[..5]).unwrap();
+    assert_eq!(header, "%PDF-");
+}
+
+#[test]
+fn render_pdf_with_checkbox() {
+    let mut node = make_field_node("checkbox", "agree", "I agree");
+    node.value = Some(json!(true));
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    assert!(!pdf_bytes.is_empty());
+    let header = std::str::from_utf8(&pdf_bytes[..5]).unwrap();
+    assert_eq!(header, "%PDF-");
+}
+
+#[test]
+fn render_pdf_with_group_and_children() {
+    let child1 = make_field_node("TextInput", "name", "Name");
+    let child2 = make_field_node("TextInput", "email", "Email");
+    let group = make_group_node("Contact Info", vec![child1, child2]);
+    let nodes = vec![group];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    assert!(!pdf_bytes.is_empty());
+    let header = std::str::from_utf8(&pdf_bytes[..5]).unwrap();
+    assert_eq!(header, "%PDF-");
+}
+
+// ── XFDF Round-trip (re-exported from xfdf module) ──
+
+#[test]
+fn xfdf_roundtrip_basic() {
+    use crate::xfdf::{generate_xfdf, parse_xfdf};
+
+    let mut fields = HashMap::new();
+    fields.insert("name".to_string(), json!("Alice"));
+    fields.insert("age".to_string(), json!(30));
+    fields.insert("active".to_string(), json!(true));
+
+    let xml = generate_xfdf(&fields);
+    let parsed = parse_xfdf(&xml).unwrap();
+
+    assert_eq!(parsed.get("name"), Some(&json!("Alice")));
+    assert_eq!(parsed.get("age"), Some(&json!(30)));
+    assert_eq!(parsed.get("active"), Some(&json!(true)));
+}
+
+#[test]
+fn xfdf_roundtrip_xml_special_chars() {
+    use crate::xfdf::{generate_xfdf, parse_xfdf};
+
+    let mut fields = HashMap::new();
+    fields.insert("org".to_string(), json!("A & B <Corp>"));
+
+    let xml = generate_xfdf(&fields);
+    assert!(xml.contains("A &amp; B &lt;Corp&gt;"));
+
+    let parsed = parse_xfdf(&xml).unwrap();
+    assert_eq!(parsed.get("org"), Some(&json!("A & B <Corp>")));
+}
+
+#[test]
+fn xfdf_deterministic_key_order() {
+    use crate::xfdf::generate_xfdf;
+
+    let mut fields = HashMap::new();
+    fields.insert("z_field".to_string(), json!("last"));
+    fields.insert("a_field".to_string(), json!("first"));
+    fields.insert("m_field".to_string(), json!("middle"));
+
+    let xml = generate_xfdf(&fields);
+    let a_pos = xml.find("a_field").unwrap();
+    let m_pos = xml.find("m_field").unwrap();
+    let z_pos = xml.find("z_field").unwrap();
+    assert!(a_pos < m_pos, "keys should be sorted alphabetically");
+    assert!(m_pos < z_pos, "keys should be sorted alphabetically");
 }

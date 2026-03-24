@@ -432,6 +432,469 @@ fn resolve_widget_no_preference() {
     assert_eq!(result, None);
 }
 
+// ── Cascade: Nested Object Replacement ──
+
+#[test]
+fn widget_config_replaced_as_whole_by_higher_level() {
+    // Per SS5.5: nested objects are replaced, not deep-merged
+    let mut lower_cfg = Map::new();
+    lower_cfg.insert("maxLength".to_string(), json!(100));
+    lower_cfg.insert("placeholder".to_string(), json!("Enter..."));
+
+    let mut higher_cfg = Map::new();
+    higher_cfg.insert("maxLength".to_string(), json!(50));
+    // Note: higher does NOT have "placeholder"
+
+    let mut theme = make_theme(Some(PresentationBlock {
+        widget_config: Some(lower_cfg),
+        ..Default::default()
+    }));
+    // Selector overrides widgetConfig
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Field),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            widget_config: Some(higher_cfg),
+            ..Default::default()
+        },
+    }]);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        None,
+        None,
+    );
+
+    let wc = result.widget_config.unwrap();
+    assert_eq!(wc.get("maxLength"), Some(&json!(50)));
+    // The cascade does shallow-merge on widgetConfig (higher keys override lower)
+    // but lower keys not in higher are preserved
+    assert_eq!(wc.get("placeholder"), Some(&json!("Enter...")));
+}
+
+#[test]
+fn style_shallow_merged_higher_overrides_lower() {
+    let mut lower_style = Map::new();
+    lower_style.insert("color".to_string(), json!("red"));
+    lower_style.insert("fontSize".to_string(), json!("12px"));
+
+    let mut higher_style = Map::new();
+    higher_style.insert("color".to_string(), json!("blue"));
+
+    let mut theme = make_theme(Some(PresentationBlock {
+        style: Some(lower_style),
+        ..Default::default()
+    }));
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Field),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            style: Some(higher_style),
+            ..Default::default()
+        },
+    }]);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        None,
+        None,
+    );
+
+    let s = result.style.unwrap();
+    assert_eq!(s.get("color"), Some(&json!("blue")), "higher overrides lower");
+    assert_eq!(s.get("fontSize"), Some(&json!("12px")), "lower preserved when not in higher");
+}
+
+#[test]
+fn accessibility_shallow_merged() {
+    let mut theme = make_theme(Some(PresentationBlock {
+        accessibility: Some(AccessibilityBlock {
+            role: Some("textbox".to_string()),
+            description: Some("Enter your name".to_string()),
+            live_region: None,
+        }),
+        ..Default::default()
+    }));
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Field),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            accessibility: Some(AccessibilityBlock {
+                role: None,
+                description: Some("Updated description".to_string()),
+                live_region: Some("polite".to_string()),
+            }),
+            ..Default::default()
+        },
+    }]);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        None,
+        None,
+    );
+
+    let acc = result.accessibility.unwrap();
+    assert_eq!(acc.role, Some("textbox".to_string()), "lower role preserved");
+    assert_eq!(acc.description, Some("Updated description".to_string()), "higher description wins");
+    assert_eq!(acc.live_region, Some("polite".to_string()), "higher adds new field");
+}
+
+// ── Cascade: Full 6-Level Priority ──
+
+#[test]
+fn full_six_level_cascade_priority() {
+    // Set different properties at each level to verify priority order
+    let renderer_defaults = PresentationBlock {
+        widget: Some("renderer-widget".to_string()),
+        label_position: Some(LabelPosition::Top),
+        fallback: Some(vec!["RendererFallback".to_string()]),
+        ..Default::default()
+    };
+
+    let tier1 = Tier1Hints {
+        form_presentation: Some(FormPresentation {
+            label_position: Some(LabelPosition::Start),
+            ..Default::default()
+        }),
+        item_presentation: Some(ItemPresentation {
+            widget_hint: Some("tier1-widget".to_string()),
+        }),
+    };
+
+    let mut theme = make_theme(Some(PresentationBlock {
+        fallback: Some(vec!["DefaultFallback".to_string()]),
+        ..Default::default()
+    }));
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Field),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            label_position: Some(LabelPosition::Hidden),
+            ..Default::default()
+        },
+    }]);
+    let mut items = Map::new();
+    items.insert(
+        "name".to_string(),
+        serde_json::to_value(PresentationBlock {
+            widget: Some("items-widget".to_string()),
+            ..Default::default()
+        })
+        .unwrap(),
+    );
+    theme.items = Some(items);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        Some(&tier1),
+        Some(&renderer_defaults),
+    );
+
+    // Level 3 (items) overrides all lower levels for widget
+    assert_eq!(result.widget, Some("items-widget".to_string()));
+    // Level 2 (selectors) overrides level -1 (formPresentation) for labelPosition
+    assert_eq!(result.label_position, Some(LabelPosition::Hidden));
+    // Level 1 (defaults) overrides level -2 (renderer defaults) for fallback
+    assert_eq!(result.fallback, Some(vec!["DefaultFallback".to_string()]));
+}
+
+// ── Cascade: Selector Document Order ──
+
+#[test]
+fn selector_document_order_last_wins() {
+    let mut theme = make_theme(None);
+    theme.selectors = Some(vec![
+        ThemeSelector {
+            r#match: SelectorMatch {
+                r#type: Some(ItemType::Field),
+                data_type: None,
+            },
+            apply: PresentationBlock {
+                widget: Some("First".to_string()),
+                ..Default::default()
+            },
+        },
+        ThemeSelector {
+            r#match: SelectorMatch {
+                r#type: Some(ItemType::Field),
+                data_type: None,
+            },
+            apply: PresentationBlock {
+                widget: Some("Second".to_string()),
+                ..Default::default()
+            },
+        },
+    ]);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        None,
+        None,
+    );
+    // Both selectors match; since they're applied in order, last one wins
+    assert_eq!(result.widget, Some("Second".to_string()));
+}
+
+// ── Cascade: CSS Class Deduplication ──
+
+#[test]
+fn css_class_deduplication() {
+    let mut theme = make_theme(Some(PresentationBlock {
+        css_class: Some(CssClassValue::Multiple(vec![
+            "shared".to_string(),
+            "base".to_string(),
+        ])),
+        ..Default::default()
+    }));
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Field),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            css_class: Some(CssClassValue::Multiple(vec![
+                "shared".to_string(),
+                "extra".to_string(),
+            ])),
+            ..Default::default()
+        },
+    }]);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        None,
+        None,
+    );
+
+    let classes = result.css_class.unwrap().to_vec();
+    // "shared" should appear only once (deduplication)
+    assert_eq!(
+        classes.iter().filter(|c| *c == "shared").count(),
+        1,
+        "duplicate classes should be removed"
+    );
+    assert!(classes.contains(&"base".to_string()));
+    assert!(classes.contains(&"extra".to_string()));
+}
+
+// ── Cascade: Group Item Type ──
+
+#[test]
+fn selector_matches_group_type() {
+    let mut theme = make_theme(None);
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Group),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            widget: Some("Stack".to_string()),
+            ..Default::default()
+        },
+    }]);
+
+    let group_item = ItemDescriptor {
+        key: "address".to_string(),
+        item_type: ItemType::Group,
+        data_type: None,
+    };
+
+    let result = resolve_presentation(Some(&theme), &group_item, None, None);
+    assert_eq!(result.widget, Some("Stack".to_string()));
+}
+
+// ── Cascade: Selector with Empty Match ──
+
+#[test]
+fn selector_empty_match_does_not_apply() {
+    let mut theme = make_theme(None);
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: None,
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            widget: Some("ShouldNotMatch".to_string()),
+            ..Default::default()
+        },
+    }]);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        None,
+        None,
+    );
+    // Empty match should not match any item
+    assert_eq!(result.widget, None);
+}
+
+// ── Cascade: x-classes Additive Merge ──
+
+#[test]
+fn widget_config_x_classes_additive_merge() {
+    let mut lower_cfg = Map::new();
+    let mut lower_slots = Map::new();
+    lower_slots.insert("root".to_string(), json!("p-4"));
+    lower_slots.insert("label".to_string(), json!("text-sm"));
+    lower_cfg.insert("x-classes".to_string(), serde_json::Value::Object(lower_slots));
+
+    let mut higher_cfg = Map::new();
+    let mut higher_slots = Map::new();
+    higher_slots.insert("root".to_string(), json!("p-8")); // override
+    higher_slots.insert("input".to_string(), json!("border")); // new slot
+    higher_cfg.insert("x-classes".to_string(), serde_json::Value::Object(higher_slots));
+
+    let mut theme = make_theme(Some(PresentationBlock {
+        widget_config: Some(lower_cfg),
+        ..Default::default()
+    }));
+    theme.selectors = Some(vec![ThemeSelector {
+        r#match: SelectorMatch {
+            r#type: Some(ItemType::Field),
+            data_type: None,
+        },
+        apply: PresentationBlock {
+            widget_config: Some(higher_cfg),
+            ..Default::default()
+        },
+    }]);
+
+    let result = resolve_presentation(
+        Some(&theme),
+        &field_item("name", None),
+        None,
+        None,
+    );
+
+    let wc = result.widget_config.unwrap();
+    let x_classes = wc.get("x-classes").unwrap().as_object().unwrap();
+    assert_eq!(x_classes.get("root"), Some(&json!("p-8")), "higher overrides root slot");
+    assert_eq!(x_classes.get("label"), Some(&json!("text-sm")), "lower label preserved");
+    assert_eq!(x_classes.get("input"), Some(&json!("border")), "higher adds new slot");
+}
+
+// ── Token Tests: Edge Cases ──
+
+#[test]
+fn token_empty_key_returns_none() {
+    let result = resolve_token("$token.", None, None);
+    assert_eq!(result, None);
+}
+
+#[test]
+fn token_unresolved_returns_none() {
+    let mut ct = Map::new();
+    ct.insert("gap".to_string(), json!(16));
+    let result = resolve_token("$token.missing", Some(&ct), None);
+    assert_eq!(result, None);
+}
+
+#[test]
+fn token_recursive_in_theme_layer() {
+    let mut tt = Map::new();
+    tt.insert("gap".to_string(), json!("$token.gap"));
+    let result = resolve_token("$token.gap", None, Some(&tt));
+    assert_eq!(result, None, "self-referencing token should be detected");
+}
+
+#[test]
+fn resolve_style_tokens_replaces_token_refs() {
+    use crate::tokens::resolve_style_tokens;
+
+    let mut style = Map::new();
+    style.insert("gap".to_string(), json!("$token.spacing"));
+    style.insert("color".to_string(), json!("red")); // not a token
+
+    let mut tt = Map::new();
+    tt.insert("spacing".to_string(), json!(16));
+
+    let resolved = resolve_style_tokens(&style, None, Some(&tt));
+    assert_eq!(resolved.get("gap"), Some(&json!(16)));
+    assert_eq!(resolved.get("color"), Some(&json!("red")));
+}
+
+#[test]
+fn resolve_style_tokens_leaves_unresolved() {
+    use crate::tokens::resolve_style_tokens;
+
+    let mut style = Map::new();
+    style.insert("gap".to_string(), json!("$token.missing"));
+
+    let resolved = resolve_style_tokens(&style, None, None);
+    assert_eq!(resolved.get("gap"), Some(&json!("$token.missing")), "unresolved left as-is");
+}
+
+// ── Widget Tests: Edge Cases ──
+
+#[test]
+fn widget_token_empty_returns_none() {
+    assert_eq!(widget_token_to_component(""), None);
+}
+
+#[test]
+fn widget_token_extension_returns_none() {
+    assert_eq!(widget_token_to_component("x-custom"), None);
+}
+
+#[test]
+fn resolve_widget_extension_component_available() {
+    let pres = PresentationBlock {
+        widget: Some("x-custom-slider".to_string()),
+        ..Default::default()
+    };
+    let result = resolve_widget(&pres, &|t| t == "x-custom-slider");
+    assert_eq!(result, Some("x-custom-slider".to_string()));
+}
+
+#[test]
+fn resolve_widget_extension_fallback() {
+    let pres = PresentationBlock {
+        widget: Some("x-unavailable".to_string()),
+        fallback: Some(vec!["TextInput".to_string()]),
+        ..Default::default()
+    };
+    let result = resolve_widget(&pres, &|t| t == "TextInput");
+    assert_eq!(result, Some("TextInput".to_string()));
+}
+
+#[test]
+fn resolve_widget_via_spec_vocabulary() {
+    // "radio" is spec vocabulary, resolves to "RadioGroup"
+    let pres = PresentationBlock {
+        widget: Some("radio".to_string()),
+        ..Default::default()
+    };
+    let result = resolve_widget(&pres, &|t| t == "RadioGroup");
+    assert_eq!(result, Some("RadioGroup".to_string()));
+}
+
+#[test]
+fn resolve_widget_fallback_uses_spec_vocabulary() {
+    let pres = PresentationBlock {
+        widget: Some("Slider".to_string()),
+        fallback: Some(vec!["dropdown".to_string()]), // spec vocab for Select
+        ..Default::default()
+    };
+    let result = resolve_widget(&pres, &|t| t == "Select");
+    assert_eq!(result, Some("Select".to_string()));
+}
+
 // ── Serde Round-trip ──
 
 #[test]
