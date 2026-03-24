@@ -119,6 +119,29 @@ field represents.
 > WHO, etc.), and this specification neither redefines nor extends those
 > definitions.
 
+### 1.0.1 Relationship to Registry Concept and Vocabulary Entries
+
+Shared, reusable concept identity and vocabulary metadata MAY also be published
+as `concept` and `vocabulary` entries in Extension Registry documents (see the
+Extension Registry specification §3.2). Registry-published concepts are
+org-level: any form whose field declares a matching `semanticType` gains concept
+metadata automatically, without requiring an Ontology Document.
+
+The Ontology Document remains the definitive place for:
+
+- **Per-form concept bindings** — path-based assignment of concepts to specific
+  fields in a specific Definition, including concepts not published in any
+  shared registry.
+- **Alignments** — typed cross-system field relationships that are inherently
+  per-form (e.g., "field `mrn` in this form maps to FHIR `Patient.identifier`").
+- **JSON-LD context** — export-pipeline-specific linked data context fragments.
+- **Bespoke vocabulary bindings** — per-form `valueMap` overrides and vocabulary
+  metadata for option sets not covered by a shared registry entry.
+
+When both a registry concept entry and an Ontology Document binding apply to the
+same field, the Ontology Document binding takes precedence. See §3.4 for the
+full resolution cascade.
+
 ### 1.1 Design Principles
 
 1. **Binding, not definition.** This document references concepts defined in
@@ -294,13 +317,28 @@ Custom relationship types MUST be prefixed with `x-`.
 }
 ```
 
-### 3.4 Interaction with `semanticType`
+### 3.4 Resolution Cascade
 
-If a field in the Definition declares a `semanticType` (string or structured)
-AND the Ontology Document contains a concept binding for the same path, the
-Ontology Document binding takes precedence for tooling that consumes both.
-The Definition's `semanticType` remains the authoritative annotation for
-processors that do not load ontology documents.
+Concept identity for a field may come from up to three sources. When multiple
+sources apply to the same field, the following cascade determines precedence
+(highest to lowest):
+
+1. **Ontology Document binding** — a concept binding in the `concepts` map
+   for this field's path. Provides the authoritative concept URI, equivalents,
+   and metadata for tooling that loads ontology documents.
+2. **Registry concept entry** — when the field's `semanticType` matches the
+   `name` of a loaded registry entry with `category: "concept"`. Provides
+   shared concept metadata for tooling that loads registries but not ontology
+   documents.
+3. **`semanticType` literal** — the raw `semanticType` string value, treated
+   as a freeform domain annotation. Authoritative for processors that load
+   neither registries nor ontology documents.
+
+All three MAY coexist on the same field. No warning is needed — this is the
+expected pattern for definitions designed to work across multiple tooling
+contexts. A field with `"semanticType": "x-onto-ein"` and an Ontology Document
+binding for the same path is well-formed; the ontology binding provides richer
+metadata while the registry entry provides a shared baseline.
 
 ---
 
@@ -489,21 +527,39 @@ Explicitly authored `context` entries override auto-generated ones.
 
 ## 7. Relationship to Existing Properties
 
-Ontology bindings complement but do not replace existing Definition properties:
+Ontology bindings complement but do not replace existing Definition and Registry
+properties. The following table shows the full layering from structural typing
+through semantic identity:
 
 | Property | Source | Purpose |
 |---|---|---|
 | `dataType` | Definition | Structural type (string, date, money, etc.) |
-| `semanticType` | Definition | Lightweight domain meaning annotation (free-text or structured) |
+| `semanticType` | Definition | Domain annotation — freeform string, URI, or registry concept key |
 | Extension (`x-formspec-ein`) | Registry | Type refinement with validation constraints and presentation metadata |
-| **Concept Binding** | **Ontology Document** | **Formal concept identity with cross-system equivalences** |
-| **Vocabulary Binding** | **Ontology Document** | **Terminology system binding with version tracking** |
-| **Alignment** | **Ontology Document** | **Typed cross-system field relationships** |
+| **Concept entry** (`x-onto-ein`) | **Registry** | **Shared concept identity with cross-system equivalences** |
+| **Vocabulary entry** (`x-vocab-icd10-cm`) | **Registry** | **Shared terminology binding with version tracking** |
+| **Concept Binding** | **Ontology Document** | **Per-form concept binding by path** |
+| **Vocabulary Binding** | **Ontology Document** | **Per-form vocabulary binding with valueMap** |
+| **Alignment** | **Ontology Document** | **Per-form typed cross-system field relationships** |
 
-- `dataType` and extensions remain the right place for structural typing and validation constraints.
-- `semanticType` remains the right place for lightweight, inline domain annotations that travel with the Definition.
-- Ontology Document bindings are for formal semantic identity, cross-form alignment, and integration engineering — richer metadata authored and versioned independently.
-- When a field has both a `semanticType` and a concept binding for the same path, the Ontology Document binding provides richer metadata. Tooling that consumes both SHOULD use the concept binding's structured data (concept URI, system, equivalents). The Definition's `semanticType` remains authoritative for processors that do not load ontology documents. No warning is needed when both are present — this is the expected pattern for definitions designed to work with and without ontology overlays.
+- `dataType` and extensions remain the right place for structural typing and
+  validation constraints.
+- `semanticType` is the inline entry point for concept identity. When its value
+  matches a loaded `concept` registry entry, processors resolve it to the
+  entry's concept URI and equivalences. When it does not match, it remains a
+  freeform domain annotation.
+- Registry `concept` and `vocabulary` entries provide shared, org-level semantic
+  metadata — concept URIs, SKOS equivalences, terminology systems. They are
+  reusable across forms and maintained centrally by a data governance team or
+  standards body.
+- Ontology Document bindings provide per-form metadata — path-based concept
+  assignment, cross-system alignments, JSON-LD context, and bespoke vocabulary
+  bindings with `valueMap` overrides.
+- When a field has a `semanticType` that resolves to a registry concept entry
+  AND an Ontology Document binding for the same path, the Ontology Document
+  binding takes precedence (see §3.4). The registry entry MAY still provide
+  supplementary metadata (equivalents, display) that the ontology binding does
+  not override.
 
 ---
 
@@ -528,6 +584,8 @@ This specification defines conformance requirements for Ontology Document handli
 - Load order of multiple Ontology Documents is implementation-defined. When multiple documents bind the same path, the last-loaded document's binding takes precedence. Vocabulary bindings merge additively (last-loaded overrides for the same option set name). Alignments concatenate.
 - An Extended processor that encounters an unrecognized, non-`x-`-prefixed relationship `type` SHOULD emit a warning and treat it as `"related"`.
 - An Extended processor MUST preserve unrecognized `x-`-prefixed properties on round-trip.
+- When a concept binding's path targets a field whose `semanticType` matches a loaded concept registry entry, the ontology binding takes precedence for concept identity. The registry entry MAY still provide supplementary metadata (equivalents, display) that the ontology binding does not include.
+- When a vocabulary binding references an option set name that also matches a loaded vocabulary registry entry, the ontology binding takes precedence. The `vocabularyVersion` from the ontology binding overrides the registry entry's version.
 
 ---
 

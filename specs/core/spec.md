@@ -1989,7 +1989,7 @@ Field-specific properties:
 | `options` | array \| string (URI) | **0..1** (OPTIONAL) | Applicable when `dataType` is `"choice"` or `"multiChoice"`. If an array, each element MUST be an object with at least `value` (string, REQUIRED) and `label` (string, REQUIRED) properties. If a string, it MUST be a URI referencing an external option set. |
 | `optionSet` | string | **0..1** (OPTIONAL) | Name of a top-level option set declared in `optionSets` (§4.6). Applicable when `dataType` is `"choice"` or `"multiChoice"`. When both `options` and `optionSet` are present, `optionSet` takes precedence. |
 | `initialValue` | any \| string | **0..1** (OPTIONAL) | Initial value assigned when a new Response is created or a new repeat instance is added. May be a **literal value** (any JSON value conforming to the field's `dataType`) or an **expression string** prefixed with `=` (e.g., `"=today()"`, `"=@instance('entity').name"`). An expression-based `initialValue` is evaluated **once** at creation time and is NOT re-evaluated when dependencies change (use `calculate` on a Bind for continuous recalculation). Distinct from the Bind `default` property (see §4.3). |
-| `semanticType` | string | **0..1** (OPTIONAL) | Domain meaning annotation (e.g., `"us-gov:ein"`, `"ietf:email"`, `"iso:phone-e164"`). Purely metadata — MUST NOT affect validation, calculation, or any behavioral semantics. Supports intelligent widget selection, data classification, and interoperability mapping. Implementations SHOULD use URIs or namespaced identifiers to avoid collisions. |
+| `semanticType` | string | **0..1** (OPTIONAL) | Domain meaning annotation. Purely metadata — MUST NOT affect validation, calculation, or any behavioral semantics. The value MAY be a freeform namespaced identifier (e.g., `"us-gov:ein"`), a URI (e.g., `"https://schema.org/birthDate"`), or the name of a loaded registry entry with `category: "concept"` (e.g., `"x-onto-ein"`). When the value matches a loaded concept registry entry, processors SHOULD resolve it to the entry's concept metadata (URI, equivalents, display name). Unresolved values are not errors — `semanticType` remains a freeform string for processors that do not support concept resolution. Supports intelligent widget selection, data classification, cross-form alignment, and interoperability mapping. |
 | `prePopulate` | object | **0..1** (OPTIONAL) | Pre-population declaration. Contains `instance` (string, name of a secondary instance), `path` (string, dot-notation path within the instance), and `editable` (boolean, default `true`; when `false`, the field is locked after pre-population). Syntactic sugar: a processor MUST treat `prePopulate` as equivalent to an `initialValue` expression plus a `readonly` bind. When both `prePopulate` and `initialValue` are present, `prePopulate` takes precedence. |
 | `children` | array of Item | **0..1** (OPTIONAL) | Child items. Fields MAY contain children to model dependent sub-questions. When present, the children are contextually tied to the Field's value. |
 
@@ -4228,6 +4228,33 @@ general requirements apply:
 
 5. Custom constraints MUST NOT produce false-positive validation
    results when unsupported — processors MUST fail rather than skip.
+
+***
+
+### 8.1.1 Concept and Vocabulary Registry Entries
+
+In addition to the five extension categories defined in §8.1, the Extension
+Registry specification defines two metadata categories — `concept` and
+`vocabulary` — for publishing shared concept identity and terminology system
+bindings.
+
+**Concept entries** associate a registry name with an external concept URI
+(IRI) and cross-system equivalences using SKOS relationship types (`exact`,
+`broader`, `narrower`, `related`, `close`). A field's `semanticType` may
+reference a concept entry by name (e.g., `"semanticType": "x-onto-ein"`),
+enabling processors to resolve the entry and access its concept URI,
+equivalents, and display metadata.
+
+**Vocabulary entries** associate a registry name with a terminology system
+URI, version, and optional subset filter. Vocabulary entries complement
+Ontology Document vocabulary bindings (see the Ontology specification) by
+providing shared, reusable terminology metadata at the registry level.
+
+Unlike extension categories, concept and vocabulary entries MUST NOT affect
+the processing model defined in §2.4. They are pure metadata consumed by
+ontology-aware tooling, data science pipelines, and interoperability layers.
+A processor that does not understand concept or vocabulary entries MUST
+ignore them without error.
 
 ***
 

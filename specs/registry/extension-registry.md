@@ -10,16 +10,17 @@
 ## Abstract
 
 The Formspec Extension Registry specification defines a JSON document format
-for publishing, discovering, and validating Formspec extensions. A Registry
-Document enumerates a set of named extensions — custom data types, custom
-functions, custom constraints, extension properties, and extension namespaces —
-together with their metadata, version history, compatibility bounds, and
-machine-readable schemas. This specification does not define a runtime service;
-it defines a static document format that MAY be served over HTTPS, bundled in a
-package, or checked into a repository. By standardizing how extensions are
-described and located, the Registry format enables tool vendors, form authors,
-and validation engines to interoperate across organizational boundaries without
-out-of-band coordination.
+for publishing, discovering, and validating Formspec extensions and semantic
+metadata. A Registry Document enumerates a set of named entries — custom data
+types, custom functions, custom constraints, extension properties, extension
+namespaces, concept identities, and vocabulary bindings — together with their
+metadata, version history, compatibility bounds, and machine-readable schemas.
+This specification does not define a runtime service; it defines a static
+document format that MAY be served over HTTPS, bundled in a package, or checked
+into a repository. By standardizing how extensions and concepts are described
+and located, the Registry format enables tool vendors, form authors, data
+governance teams, and validation engines to interoperate across organizational
+boundaries without out-of-band coordination.
 
 ## Status of This Document
 
@@ -178,6 +179,38 @@ No additional required properties. The `schemaUrl` is RECOMMENDED.
 |---|---|---|---|
 | `members` | array | OPTIONAL | Array of `x-`-prefixed extension names grouped under this namespace. |
 
+**`concept`** — Concept identity (Ontology specification):
+
+| Property | Type | Req | Description |
+|---|---|---|---|
+| `conceptUri` | string (URI) | REQUIRED | The concept IRI in the external ontology or standard. Globally unique identifier for the concept this entry represents. |
+| `conceptSystem` | string (URI) | RECOMMENDED | The ontology or concept system URI (e.g., `https://schema.org`, `https://www.irs.gov/terms`). |
+| `conceptCode` | string | OPTIONAL | Short code within the system (e.g., `"EIN"`, `"MR"`). |
+| `equivalents` | array | OPTIONAL | Cross-system equivalences. Each element declares `system` (URI, REQUIRED), `code` (string, REQUIRED), `display` (string, OPTIONAL), and `type` (string, OPTIONAL — defaults to `"exact"`). Relationship types follow SKOS semantics: `exact`, `close`, `broader`, `narrower`, `related`. Custom types MUST be `x-`-prefixed. |
+| `metadata` | object | OPTIONAL | Descriptive metadata (e.g., `displayName`). |
+
+A field's `semanticType` may reference a concept entry by name. When a
+processor encounters a `semanticType` value matching a loaded concept entry's
+`name`, it SHOULD resolve the entry and make its concept metadata available
+to downstream tooling.
+
+**`vocabulary`** — Vocabulary/terminology binding (Ontology specification):
+
+| Property | Type | Req | Description |
+|---|---|---|---|
+| `vocabularySystem` | string (URI) | REQUIRED | The terminology system URI (e.g., `http://hl7.org/fhir/sid/icd-10`). |
+| `vocabularyVersion` | string | RECOMMENDED | Version of the terminology (e.g., `"2024"`). |
+| `filter` | object | OPTIONAL | Subset constraints: `ancestor` (root code), `maxDepth` (integer), `include` (array of codes), `exclude` (array of codes). |
+| `metadata` | object | OPTIONAL | Descriptive metadata (e.g., `displayName`). |
+
+Vocabulary entries complement Ontology Document vocabulary bindings by
+providing shared, reusable terminology metadata at the registry level.
+
+> **Note:** Unlike extension categories, concept and vocabulary entries MUST
+> NOT affect the processing model (§2.4 of Formspec v1.0). They are pure
+> metadata consumed by ontology-aware tooling, data science pipelines, and
+> interoperability layers.
+
 ---
 
 ## 4. Naming Rules
@@ -207,6 +240,12 @@ All rules in this section are **normative**.
 5. Across independently published registries, naming conflicts are resolved by
    publisher authority. Organizations SHOULD use the `x-{org}-{domain}` pattern
    (§8.5) to minimize collision risk.
+
+6. Concept entries SHOULD use the prefix `x-onto-` (e.g., `x-onto-ein`,
+   `x-onto-birthdate`) and vocabulary entries SHOULD use `x-vocab-` (e.g.,
+   `x-vocab-icd10-cm`, `x-vocab-admin-gender`) to distinguish them from
+   extension entries by convention. This is advisory; the naming regex is
+   unchanged.
 
 ---
 
@@ -291,6 +330,21 @@ in Formspec v1.0 §1) that additionally implements the following behaviors:
    intended category, because without the registry entry the processor
    cannot determine the extension's semantics. Disabled extensions
    (`"x-example": false`) MUST NOT trigger this error.
+
+7. **Concept resolution.** When a Definition field's `semanticType` matches
+   the `name` of a loaded registry entry with `category: "concept"`, the
+   processor SHOULD resolve the entry and make its concept metadata (URI,
+   equivalents, display) available to downstream tooling. An unresolved
+   `semanticType` that does not match any loaded concept entry is NOT an
+   error — `semanticType` remains a freeform string for processors that do
+   not support concept resolution.
+
+8. **Vocabulary resolution.** Vocabulary entries provide shared terminology
+   metadata that complements Ontology Document vocabulary bindings. When an
+   Ontology Document vocabulary binding references a `system` that matches a
+   loaded vocabulary registry entry's `vocabularySystem`, the registry entry
+   MAY provide default version and filter metadata. The Ontology Document's
+   values take precedence when both are present.
 
 ---
 

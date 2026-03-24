@@ -648,11 +648,12 @@
               },
               "semanticType": {
                 "type": "string",
-                "description": "Domain meaning annotation (e.g., 'us-gov:ein', 'ietf:email', 'iso:phone-e164'). Purely metadata — MUST NOT affect validation or behavior. Supports intelligent widget selection, data classification, and interoperability mapping. Use URIs or namespaced identifiers to avoid collisions.",
+                "description": "Domain meaning annotation. Purely metadata — MUST NOT affect validation or behavior. The value may be a freeform namespaced identifier (e.g., 'us-gov:ein'), a URI (e.g., 'https://schema.org/birthDate'), or the name of a loaded registry entry with category 'concept' (e.g., 'x-onto-ein'). When the value matches a loaded concept registry entry, processors SHOULD resolve it to the entry's concept metadata. Supports intelligent widget selection, data classification, cross-form alignment, and interoperability mapping.",
                 "examples": [
                   "us-gov:ein",
-                  "ietf:email",
-                  "iso:phone-e164"
+                  "x-onto-ein",
+                  "https://schema.org/birthDate",
+                  "ietf:email"
                 ]
               },
               "prePopulate": {

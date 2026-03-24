@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://formspec.org/schemas/registry/v1.0/registry.json",
   "title": "Formspec Registry Document",
-  "description": "A static JSON document format for publishing, discovering, and validating Formspec extensions. A Registry Document enumerates named extensions — custom data types, functions, constraints, properties, and namespaces — with metadata, version history, compatibility bounds, and machine-readable schemas. Any organization MAY publish its own Registry Document. Interoperability is achieved through the common format, not centralized authority.",
+  "description": "A static JSON document format for publishing, discovering, and validating Formspec extensions and semantic metadata. A Registry Document enumerates named entries — custom data types, functions, constraints, properties, namespaces, concept identities, and vocabulary bindings — with metadata, version history, compatibility bounds, and machine-readable schemas. Any organization MAY publish its own Registry Document. Interoperability is achieved through the common format, not centralized authority.",
   "type": "object",
   "required": [
     "$formspecRegistry",
@@ -105,6 +105,34 @@
               "x-acme-fiscal-year",
               "x-acme-duns-check"
             ]
+          },
+          {
+            "name": "x-onto-ein",
+            "category": "concept",
+            "version": "1.0.0",
+            "status": "stable",
+            "description": "IRS Employer Identification Number — a 9-digit tax identifier assigned to business entities.",
+            "compatibility": { "formspecVersion": ">=1.0.0" },
+            "conceptUri": "https://www.irs.gov/terms/employer-identification-number",
+            "conceptSystem": "https://www.irs.gov/terms",
+            "conceptCode": "EIN",
+            "metadata": { "displayName": "Employer Identification Number" },
+            "equivalents": [
+              { "system": "https://schema.org", "code": "taxID", "type": "broader" },
+              { "system": "urn:fhir:r4", "code": "Organization.identifier", "type": "exact" }
+            ]
+          },
+          {
+            "name": "x-vocab-icd10-mental-health",
+            "category": "vocabulary",
+            "version": "1.0.0",
+            "status": "stable",
+            "description": "ICD-10-CM mental and behavioural disorders chapter (F00-F99), depth-limited to 3 levels.",
+            "compatibility": { "formspecVersion": ">=1.0.0" },
+            "vocabularySystem": "http://hl7.org/fhir/sid/icd-10",
+            "vocabularyVersion": "2024",
+            "metadata": { "displayName": "ICD-10-CM Mental Health Codes" },
+            "filter": { "ancestor": "F00-F99", "maxDepth": 3 }
           }
         ]
       ],
@@ -160,7 +188,7 @@
     },
     "RegistryEntry": {
       "type": "object",
-      "description": "A single extension record. Describes one Formspec extension — its identity, category, lifecycle status, compatibility bounds, and category-specific metadata (signatures, base types, members). Category-specific properties become required based on the category value: dataType requires baseType; function requires parameters and returns; constraint requires parameters.",
+      "description": "A single registry entry. Describes one Formspec extension or semantic metadata entry — its identity, category, lifecycle status, compatibility bounds, and category-specific metadata. Category-specific properties become required based on the category value: dataType requires baseType; function requires parameters and returns; constraint requires parameters; concept requires conceptUri; vocabulary requires vocabularySystem.",
       "required": [
         "name",
         "category",
@@ -174,7 +202,7 @@
           "type": "string",
           "pattern": "^x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$",
           "description": "The x-prefixed extension identifier. Must be lowercase ASCII with hyphen-separated segments, each starting with a letter. The prefix x-formspec- is reserved for future core promotion.",
-          "examples": ["x-acme-currency", "x-gov-grants-fiscal-year", "x-health-icd10"],
+          "examples": ["x-acme-currency", "x-gov-grants-fiscal-year", "x-health-icd10", "x-onto-ein", "x-vocab-icd10-cm"],
           "x-lm": {
             "critical": true,
             "intent": "Globally unique extension identifier used for resolution and collision avoidance."
@@ -187,10 +215,12 @@
             "function",
             "constraint",
             "property",
-            "namespace"
+            "namespace",
+            "concept",
+            "vocabulary"
           ],
-          "description": "The extension mechanism this entry represents. Determines which category-specific properties are required: dataType requires baseType; function requires parameters and returns; constraint requires parameters; property and namespace have no additional required properties.",
-          "examples": ["dataType", "function", "constraint", "namespace"],
+          "description": "The entry category. Determines which category-specific properties are required: dataType requires baseType; function requires parameters and returns; constraint requires parameters; concept requires conceptUri; vocabulary requires vocabularySystem; property and namespace have no additional required properties.",
+          "examples": ["dataType", "function", "constraint", "namespace", "concept", "vocabulary"],
           "x-lm": {
             "critical": true,
             "intent": "Discriminator that drives conditional required properties and tells processors how to consume the extension."
@@ -330,7 +360,7 @@
         },
         "metadata": {
           "type": "object",
-          "description": "Presentation-layer metadata for this custom dataType. Provides rendering hints such as prefix symbols, precision, and formatting options. Only meaningful when category is 'dataType'.",
+          "description": "Presentation and descriptive metadata for this entry. For dataType entries, provides rendering hints (prefix, precision, formatting). For concept and vocabulary entries, provides display metadata (displayName). Open object — keys are not restricted.",
           "examples": [
             { "prefix": "$", "precision": 2, "thousandsSeparator": true },
             { "prefix": "EUR ", "precision": 2 }
@@ -394,6 +424,70 @@
           "examples": [
             ["x-acme-currency", "x-acme-fiscal-year", "x-acme-duns-check"]
           ]
+        },
+        "conceptUri": {
+          "type": "string",
+          "format": "uri",
+          "description": "The concept IRI in the external ontology or standard. REQUIRED when category is 'concept'. This is the globally unique identifier for the concept this entry represents.",
+          "examples": [
+            "https://www.irs.gov/terms/employer-identification-number",
+            "https://schema.org/birthDate",
+            "http://terminology.hl7.org/CodeSystem/v2-0203#MR"
+          ],
+          "x-lm": {
+            "critical": true,
+            "intent": "The globally unique IRI for the concept this registry entry represents."
+          }
+        },
+        "conceptSystem": {
+          "type": "string",
+          "format": "uri",
+          "description": "The ontology or concept system URI. RECOMMENDED when category is 'concept'. Identifies which ontology or standard the concept belongs to.",
+          "examples": [
+            "https://www.irs.gov/terms",
+            "https://schema.org",
+            "http://terminology.hl7.org/CodeSystem/v2-0203"
+          ]
+        },
+        "conceptCode": {
+          "type": "string",
+          "description": "Short code within the concept system (e.g., 'EIN', 'MR'). Only meaningful when category is 'concept'.",
+          "examples": ["EIN", "MR", "SSN"]
+        },
+        "equivalents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConceptEquivalent"
+          },
+          "description": "Cross-system equivalences for this concept. Each element declares that the concept is equivalent to a concept in another system, with a SKOS-inspired relationship type. Only meaningful when category is 'concept'.",
+          "examples": [
+            [
+              { "system": "https://schema.org", "code": "taxID", "type": "broader" },
+              { "system": "urn:fhir:r4", "code": "Organization.identifier", "type": "exact" }
+            ]
+          ]
+        },
+        "vocabularySystem": {
+          "type": "string",
+          "format": "uri",
+          "description": "The terminology system URI. REQUIRED when category is 'vocabulary'. Identifies the external terminology system this entry represents.",
+          "examples": [
+            "http://hl7.org/fhir/sid/icd-10",
+            "http://hl7.org/fhir/ValueSet/administrative-gender"
+          ],
+          "x-lm": {
+            "critical": true,
+            "intent": "Identifies which external terminology system this vocabulary entry represents."
+          }
+        },
+        "vocabularyVersion": {
+          "type": "string",
+          "description": "Version of the external terminology. Only meaningful when category is 'vocabulary'.",
+          "examples": ["2024", "5.0.0"]
+        },
+        "filter": {
+          "$ref": "#/$defs/VocabularyFilter",
+          "description": "Subset constraints limiting which portion of the vocabulary is in scope. Only meaningful when category is 'vocabulary'."
         }
       },
       "additionalProperties": false,
@@ -444,6 +538,34 @@
         {
           "if": {
             "properties": {
+              "category": {
+                "const": "concept"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "conceptUri"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "category": {
+                "const": "vocabulary"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "vocabularySystem"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "status": {
                 "const": "deprecated"
               }
@@ -456,6 +578,69 @@
             ]
           }
         }
+      ]
+    },
+    "ConceptEquivalent": {
+      "type": "object",
+      "required": ["system", "code"],
+      "additionalProperties": false,
+      "description": "Declares that the bound concept is equivalent to a concept in another system. Relationship types follow SKOS (Simple Knowledge Organization System) semantics.",
+      "properties": {
+        "system": {
+          "type": "string",
+          "format": "uri",
+          "description": "The target system URI.",
+          "examples": ["https://schema.org", "urn:fhir:r4"]
+        },
+        "code": {
+          "type": "string",
+          "description": "The concept code within the target system.",
+          "examples": ["taxID", "Patient.identifier"]
+        },
+        "display": {
+          "type": "string",
+          "description": "Human-readable name in the target system."
+        },
+        "type": {
+          "type": "string",
+          "description": "Relationship type (SKOS-inspired). When absent, processors MUST treat as 'exact'. Standard values: 'exact' (identical concept), 'close' (very similar), 'broader' (source is more specific), 'narrower' (source is more general), 'related' (associatively related). Custom types MUST be x-prefixed.",
+          "examples": ["exact", "broader", "narrower", "related", "close"]
+        }
+      },
+      "examples": [
+        { "system": "https://schema.org", "code": "taxID", "type": "broader" }
+      ]
+    },
+    "VocabularyFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Constrains which portion of a terminology is in scope for this vocabulary entry.",
+      "properties": {
+        "ancestor": {
+          "type": "string",
+          "description": "Root code for hierarchical filtering. Only descendants of this code are included.",
+          "examples": ["F00-F99", "11"]
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum depth from the ancestor code."
+        },
+        "include": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Explicit list of codes to include."
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Explicit list of codes to exclude."
+        }
+      },
+      "examples": [
+        { "ancestor": "F00-F99", "maxDepth": 3 }
       ]
     }
   }

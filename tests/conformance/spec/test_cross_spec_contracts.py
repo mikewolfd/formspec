@@ -868,7 +868,8 @@ class TestRegistrySchema:
     def test_er3__category_enum(self):
         entry = _def(REG_S, "RegistryEntry")
         assert entry["properties"]["category"]["enum"] == [
-            "dataType", "function", "constraint", "property", "namespace"
+            "dataType", "function", "constraint", "property", "namespace",
+            "concept", "vocabulary"
         ]
 
     def test_er3__status_enum(self):
