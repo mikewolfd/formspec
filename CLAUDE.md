@@ -297,12 +297,17 @@ This applies to every bug found during review — correctness issues, safety pro
 
 **What NOT to test:** Trivial getters/setters, framework glue, type-system-enforced invariants, or implementation details that would break on any reasonable refactor. If a test only passes because it knows about internal structure, it's testing the wrong thing.
 
+**Check all layers on every change.** Before implementing any feature or fix, identify which test files cover the affected code at **each** layer (unit, integration, E2E). Run them to establish a baseline. Write new failing tests at the appropriate layers BEFORE implementing. After implementation, verify all layers pass. If a layer has no tests for the affected code, that's a gap — fill it. Red-green-refactor applies at every layer, not just one.
+
 **Test locations:**
 
 - `tests/` — Python conformance suite (schema, FEL, cross-spec contracts, hypothesis)
 - `tests/e2e/playwright/` — Browser E2E tests (fixtures in `tests/e2e/fixtures/`)
+- `packages/formspec-studio/tests/e2e/playwright/` — Studio E2E tests
 - `form-builder/src/__tests__/` — Form builder unit/integration tests (Vitest)
 - `packages/formspec-engine/tests/` — Engine unit/integration tests
+- `packages/formspec-core/tests/` — Core handler unit/integration tests
+- `packages/formspec-studio-core/tests/` — Studio-core helper tests
 
 ## Commit Convention
 
