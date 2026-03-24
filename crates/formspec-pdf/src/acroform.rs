@@ -3,7 +3,7 @@
 //! Uses pdf-writer typed dict API to emit merged field+widget annotation dicts.
 
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use formspec_plan::EvaluatedNode;
+use formspec_plan::{EvaluatedNode, FieldOption};
 
 use crate::appearance;
 use crate::layout::Rect;
@@ -81,7 +81,7 @@ impl AcroFormBuilder {
             let is_readonly = node.map(|n| n.readonly).unwrap_or(false);
 
             match comp {
-                "checkbox" | "toggle" => {
+                "checkbox" | "toggle" | "Checkbox" | "Toggle" => {
                     let checked = node
                         .and_then(|n| n.value.as_ref())
                         .and_then(|v| v.as_bool())
@@ -91,7 +91,29 @@ impl AcroFormBuilder {
                         width, height, alloc,
                     );
                 }
-                "textArea" | "textarea" => {
+                "Select" | "select" | "dropdown" => {
+                    let options = node
+                        .and_then(|n| n.field_item.as_ref())
+                        .map(|fi| &fi.options)
+                        .cloned()
+                        .unwrap_or_default();
+                    write_choice_field(
+                        pdf, info, page_ref, &value_str, is_readonly,
+                        width, height, config, alloc, &options, true,
+                    );
+                }
+                "RadioGroup" | "radio" | "CheckboxGroup" | "checkboxGroup" => {
+                    let options = node
+                        .and_then(|n| n.field_item.as_ref())
+                        .map(|fi| &fi.options)
+                        .cloned()
+                        .unwrap_or_default();
+                    write_choice_field(
+                        pdf, info, page_ref, &value_str, is_readonly,
+                        width, height, config, alloc, &options, false,
+                    );
+                }
+                "textArea" | "textarea" | "Textarea" => {
                     write_text_field(
                         pdf, info, page_ref, &value_str, is_readonly,
                         width, height, config, alloc, true,
@@ -255,5 +277,75 @@ fn write_checkbox_field(
     n_dict.pair(Name(b"Off"), off_ref);
     n_dict.finish();
     ap.finish();
+    annot.finish();
+}
+
+/// Write a choice (combo/list) field as a merged Widget annotation.
+/// `is_combo` = true for Select/dropdown (combo box), false for list display.
+fn write_choice_field(
+    pdf: &mut Pdf,
+    info: &FieldInfo,
+    page_ref: Ref,
+    value: &str,
+    readonly: bool,
+    width: f32,
+    height: f32,
+    config: &PdfConfig,
+    alloc: &mut i32,
+    options: &[FieldOption],
+    is_combo: bool,
+) {
+    // Build appearance stream showing the selected value
+    let ap_bytes = appearance::build_text_field_appearance(value, width, height, config.field_font_size);
+    let ap_ref = alloc_ref(alloc);
+
+    let mut xobj = pdf.form_xobject(ap_ref, &ap_bytes);
+    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
+    xobj.finish();
+
+    let rect = &info.rect;
+    let mut annot = pdf.annotation(info.field_ref);
+    annot.subtype(pdf_writer::types::AnnotationType::Widget);
+    annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
+    annot.page(page_ref);
+    // /FT = Ch (choice field)
+    annot.insert(Name(b"FT")).primitive(Name(b"Ch"));
+    annot.insert(Name(b"T")).primitive(TextStr(&info.name));
+
+    // /V = selected value
+    if !value.is_empty() {
+        annot.insert(Name(b"V")).primitive(TextStr(value));
+    }
+
+    // /Opt array: list of option values/labels
+    if !options.is_empty() {
+        let mut opt_array = annot.insert(Name(b"Opt")).array();
+        for option in options {
+            let opt_value = option.value.as_str().unwrap_or("");
+            let opt_label = option.label.as_deref().unwrap_or(opt_value);
+            // Two-element array: [export_value, display_label]
+            let mut pair = opt_array.push().array();
+            pair.push().primitive(TextStr(opt_value));
+            pair.push().primitive(TextStr(opt_label));
+            pair.finish();
+        }
+        opt_array.finish();
+    }
+
+    // Field flags
+    let mut ff = 0_i32;
+    if is_combo {
+        ff |= 1 << 17; // bit 18 = Combo
+    }
+    if readonly {
+        ff |= 1; // bit 1 = ReadOnly
+    }
+    if ff != 0 {
+        annot.insert(Name(b"Ff")).primitive(ff);
+    }
+
+    let da = format!("/Helv {} Tf 0 0 0 rg", config.field_font_size);
+    annot.insert(Name(b"DA")).primitive(Str(da.as_bytes()));
+    annot.insert(Name(b"AP")).dict().pair(Name(b"N"), ap_ref);
     annot.finish();
 }

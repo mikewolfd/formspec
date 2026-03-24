@@ -194,6 +194,32 @@ fn responsive_below_all_breakpoints() {
     assert_eq!(result.get("columns").unwrap().as_u64().unwrap(), 1);
 }
 
+#[test]
+fn responsive_drops_forbidden_structural_keys() {
+    let comp = json!({
+        "component": "Stack",
+        "columns": 1,
+        "responsive": {
+            "md": {
+                "minWidth": 768,
+                "columns": 2,
+                "component": "Grid",
+                "children": [{"x": 1}],
+                "bind": "foo",
+                "when": "true"
+            }
+        }
+    });
+    let result = resolve_responsive_props(&comp, 1000, None);
+    // Allowed key should be applied
+    assert_eq!(result.get("columns").unwrap().as_u64().unwrap(), 2);
+    // Forbidden keys should be dropped (original preserved)
+    assert_eq!(result.get("component").unwrap().as_str().unwrap(), "Stack");
+    assert!(result.get("children").is_none(), "children is forbidden in responsive overrides");
+    assert!(result.get("bind").is_none(), "bind is forbidden in responsive overrides");
+    assert!(result.get("when").is_none(), "when is forbidden in responsive overrides");
+}
+
 // ---------------------------------------------------------------------------
 // interpolate_params
 // ---------------------------------------------------------------------------

@@ -549,6 +549,35 @@ fn render_pdf_with_group_and_children() {
     assert_eq!(header, "%PDF-");
 }
 
+// ── AcroForm Select/ComboBox Fields ──
+
+#[test]
+fn render_pdf_with_select_field() {
+    let mut node = make_field_node("Select", "color", "Favorite Color");
+    node.field_item = Some(FieldItemSnapshot {
+        key: "color".to_string(),
+        label: Some("Favorite Color".to_string()),
+        hint: None,
+        data_type: Some("choice".to_string()),
+        options: vec![
+            formspec_plan::FieldOption { value: json!("red"), label: Some("Red".to_string()) },
+            formspec_plan::FieldOption { value: json!("blue"), label: Some("Blue".to_string()) },
+            formspec_plan::FieldOption { value: json!("green"), label: Some("Green".to_string()) },
+        ],
+        option_set: None,
+    });
+    node.value = Some(json!("blue"));
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Should contain /Ch (choice field type) for select fields
+    assert!(pdf_str.contains("/Ch"), "Select fields should be /Ch type");
+    // Should contain the selected value
+    assert!(pdf_str.contains("blue"), "Selected value should appear in PDF");
+}
+
 // ── AcroForm Catalog Entry ──
 
 #[test]
