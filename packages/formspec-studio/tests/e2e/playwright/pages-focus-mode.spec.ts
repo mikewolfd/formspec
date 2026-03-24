@@ -77,10 +77,6 @@ async function enterFocusMode(page: import('@playwright/test').Page, pageCardTes
   await switchTab(page, 'Layout');
   const card = page.locator(`[data-testid="${pageCardTestId}"]`);
 
-  // Expand the card
-  await card.getByRole('button', { expanded: false }).click();
-
-  // Click Edit Layout and wait for Focus Mode to render
   await card.getByRole('button', { name: /edit layout/i }).click();
   await page.getByLabel('Page title').waitFor();
 }
@@ -399,9 +395,7 @@ test.describe('Focus Mode', () => {
     // Should see dormant info
     await expect(page.getByText(/preserved but not active/i)).toBeVisible();
 
-    // Expand the dormant card and enter Focus Mode
     const card = page.locator('[data-testid="page-card-dp1"]');
-    await card.getByRole('button', { expanded: false }).click();
     await card.getByRole('button', { name: /edit layout/i }).click();
     await page.getByLabel('Page title').waitFor();
 

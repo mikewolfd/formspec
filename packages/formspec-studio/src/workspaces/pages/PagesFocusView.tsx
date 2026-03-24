@@ -132,6 +132,7 @@ export function PagesFocusView({ pageId, onBack, onNavigate }: PagesFocusViewPro
       onSetOffset={(key, offset) => project.setItemOffset(pageId, key, offset)}
       onSetResponsive={(key, bp, overrides) => project.setItemResponsive(pageId, key, bp, overrides)}
       onMoveItem={(key, targetIndex) => project.moveItemOnPageToIndex(pageId, key, targetIndex)}
+      pageId={pageId}
     />
   );
 

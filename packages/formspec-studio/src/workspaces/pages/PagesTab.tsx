@@ -15,6 +15,7 @@ import { useProject } from '../../state/useProject';
 import { ActiveGroupContext } from '../../state/useActiveGroup';
 import { DragHandle } from '../editor/DragHandle';
 import { GridCanvas } from './GridCanvas';
+import { PagesFocusView } from './PagesFocusView';
 import type { PageItemView, PageView, PlaceableItem } from 'formspec-studio-core';
 
 type FlowMode = 'single' | 'wizard' | 'tabs';
@@ -102,6 +103,7 @@ interface PageActions {
   onDeletePage: () => void;
   onMoveItemToPage: (itemKey: string, targetPageId: string) => void;
   onUnassignItem: (itemKey: string) => void;
+  onOpenFocusMode: () => void;
 }
 
 function PageCard({
@@ -289,6 +291,16 @@ function PageCard({
                   + Add description
                 </button>
               )}
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={actions.onOpenFocusMode}
+                  className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted transition-colors hover:border-accent/40 hover:text-ink"
+                >
+                  Edit layout
+                </button>
+              </div>
 
               <div className="pt-1">
                 <GridCanvas
@@ -489,6 +501,17 @@ export function PagesTab() {
 
   // Single-toast: rapid deletions overwrite the previous toast (latest wins). Intentional.
   const [deleteToast, setDeleteToast] = useState<{ title: string } | null>(null);
+  const [focusPageId, setFocusPageId] = useState<string | null>(null);
+
+  if (focusPageId) {
+    return (
+      <PagesFocusView
+        pageId={focusPageId}
+        onBack={() => setFocusPageId(null)}
+        onNavigate={setFocusPageId}
+      />
+    );
+  }
 
   const handleAddPage = useCallback(() => {
     const result = project.addPage(`Page ${structure.pages.length + 1}`);
@@ -640,6 +663,7 @@ export function PagesTab() {
                     onUnassignItem: (itemKey) => {
                       project.removeItemFromPage(page.id, itemKey);
                     },
+                    onOpenFocusMode: () => setFocusPageId(page.id),
                   }}
                 />
               ))}

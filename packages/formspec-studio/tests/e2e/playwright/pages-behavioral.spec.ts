@@ -135,6 +135,34 @@ const BROKEN_REGION_SEED = {
   },
 };
 
+/** Two pages: first has content, second is empty (deletable). */
+const TWO_PAGE_WITH_EMPTY = {
+  definition: {
+    $formspec: '1.0',
+    url: 'urn:two-one-empty',
+    version: '1.0.0',
+    title: 'Delete Page Test',
+    formPresentation: { pageMode: 'wizard' },
+    items: [
+      {
+        key: 'personal',
+        type: 'group',
+        label: 'Personal Info',
+        children: [
+          { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+          { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+        ],
+      },
+    ],
+  },
+  theme: {
+    pages: [
+      { id: 'p-personal', title: 'Personal Info', regions: [{ key: 'personal', span: 12 }] },
+      { id: 'p-extra', title: 'Extra', regions: [] },
+    ],
+  },
+};
+
 /** Three-page wizard for reordering tests. */
 const THREE_PAGE_WIZARD = {
   definition: {
@@ -199,12 +227,9 @@ const ws = (page: import('@playwright/test').Page) =>
 const card = (page: import('@playwright/test').Page, id: string) =>
   page.locator(`[data-testid="page-card-${id}"]`);
 
-/** Expand a page card via the chevron control (aria-expanded), not a specific Unicode glyph. */
+/** Page cards no longer use accordion collapse — wait for the inline grid canvas. */
 async function expandCard(page: import('@playwright/test').Page, cardId: string) {
-  const c = card(page, cardId);
-  const toggle = c.getByRole('button', { expanded: false });
-  await toggle.click();
-  await c.locator('.border-t').first().waitFor({ timeout: 3000 });
+  await card(page, cardId).locator('[data-grid-canvas]').waitFor({ timeout: 5000 });
 }
 
 // ── Story 1: Unassigned field shows on Pages tab ────────────────────
@@ -217,7 +242,9 @@ test.describe('Story 1: Unassigned field appears on Pages tab', () => {
 
     // "Phone Number" is a top-level field not on any page
     const workspace = ws(page);
-    await expect(workspace.getByText(/unassigned/i)).toBeVisible({ timeout: 3000 });
+    await expect(workspace.getByRole('region', { name: /unassigned items/i })).toBeVisible({
+      timeout: 3000,
+    });
     // Unassigned row label; avoid strict-mode clash with "+ Phone Number" quick-add chip.
     await expect(workspace.getByText('Phone Number', { exact: true }).first()).toBeVisible();
   });
@@ -232,13 +259,10 @@ test.describe('Story 2: Grid preview shows different widths', () => {
     await switchTab(page, 'Layout');
   });
 
-  test('collapsed card shows mini grid with three segments', async ({ page }) => {
+  test('page card shows three grid segments for three regions', async ({ page }) => {
     const c = card(page, 'p-layout');
     await expect(c).toBeVisible();
-    // Mini grid bar (h-4) shows segments in collapsed state
-    const miniGrid = c.locator('.h-4.grid-cols-12');
-    const segments = miniGrid.locator('> div');
-    await expect(segments).toHaveCount(3);
+    await expect(c.locator('[data-grid-item]')).toHaveCount(3);
   });
 
   test('expanded card lists fields with width summaries', async ({ page }) => {
@@ -248,8 +272,8 @@ test.describe('Story 2: Grid preview shows different widths', () => {
     await expect(c.getByText('Field A').first()).toBeVisible();
     await expect(c.getByText('Field B').first()).toBeVisible();
     await expect(c.getByText('Field C').first()).toBeVisible();
-    await expect(c.getByText('Full').first()).toBeVisible();
-    await expect(c.getByText('Half').first()).toBeVisible();
+    await expect(c.getByText('12/12').first()).toBeVisible();
+    await expect(c.getByText('6/12').first()).toBeVisible();
   });
 });
 
@@ -258,22 +282,20 @@ test.describe('Story 2: Grid preview shows different widths', () => {
 test.describe('Story 3: Deleting a page', () => {
   test('deleting a page removes the card and reduces page count', async ({ page }) => {
     await waitForApp(page);
-    await importProject(page, TWO_PAGE_WIZARD);
+    await importProject(page, TWO_PAGE_WITH_EMPTY);
     await switchTab(page, 'Layout');
 
     const workspace = ws(page);
     await expect(card(page, 'p-personal')).toBeVisible();
-    await expect(card(page, 'p-address')).toBeVisible();
+    await expect(card(page, 'p-extra')).toBeVisible();
     await expect(workspace.locator('[data-testid^="page-card-"]')).toHaveCount(2);
 
-    // Expand Address card — first Delete opens confirm strip, second confirms.
-    await expandCard(page, 'p-address');
-    const addr = card(page, 'p-address');
-    await addr.getByRole('button', { name: 'Delete' }).click();
-    await addr.getByRole('button', { name: 'Delete' }).click();
+    await expandCard(page, 'p-extra');
+    const extra = card(page, 'p-extra');
+    await extra.getByRole('button', { name: /delete page/i }).click();
+    await extra.getByRole('button', { name: /confirm delete/i }).click();
 
-    // Address card gone, only one page remains
-    await expect(card(page, 'p-address')).not.toBeVisible({ timeout: 2000 });
+    await expect(card(page, 'p-extra')).not.toBeVisible({ timeout: 2000 });
     await expect(workspace.locator('[data-testid^="page-card-"]')).toHaveCount(1);
   });
 });
@@ -375,11 +397,10 @@ test.describe('Story 7: Creating a new page', () => {
 
   test('renaming a page updates the card title', async ({ page }) => {
     const workspace = ws(page);
-    await workspace.getByRole('button', { name: /add page/i }).click();
-    // The new card auto-expands. Find the title and click to edit.
+    await workspace.getByRole('button', { name: /add page/i }).first().click();
+    // addPage seeds title "Page N" (see handleAddPage in PagesTab).
     const newCard = workspace.locator('[data-testid^="page-card-"]').last();
-    // Click the title button (contains "New Page ✎")
-    await newCard.getByRole('button', { name: /^New Page/ }).first().click();
+    await newCard.getByRole('button', { name: /Edit title: Page / }).click();
 
     // Fill the editable input
     const titleInput = newCard.locator('input[type="text"]').first();
@@ -468,7 +489,8 @@ test.describe('Story 10: Broken field indicator', () => {
 
     await expect(c.getByText('old_field').first()).toBeVisible();
 
-    await c.getByRole('button', { name: 'Remove old_field' }).click();
+    const brokenRow = c.locator('[data-grid-item]').filter({ hasText: 'old_field' });
+    await brokenRow.locator('button[aria-label="remove"]').click({ force: true });
 
     await expect(c.getByText('old_field')).not.toBeVisible();
     await expect(c.getByText('Name').first()).toBeVisible();

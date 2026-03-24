@@ -106,7 +106,9 @@ test.describe('Pages Workspace', () => {
 
     await workspace.getByRole('button', { name: 'Wizard' }).click();
 
-    await expect(workspace.getByRole('button', { name: /add page/i })).toBeVisible({ timeout: 2000 });
+    await expect(workspace.getByRole('button', { name: /add page/i }).first()).toBeVisible({
+      timeout: 2000,
+    });
   });
 
   test('wizard mode shows page cards with titles and item counts', async ({ page }) => {
@@ -128,24 +130,12 @@ test.describe('Pages Workspace', () => {
     await expect(workspace.locator('[data-testid^="page-card-"]').last()).toBeVisible({ timeout: 2000 });
   });
 
-  test('accordion: only one card expanded at a time', async ({ page }) => {
+  test('each page card shows an inline layout grid', async ({ page }) => {
     await importProject(page, WIZARD_THEME_SEED);
     await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Layout"]');
-    const expandButtons = workspace.getByRole('button', { expanded: false });
-
-    // Expand first card
-    await expandButtons.first().click();
-    const firstExpanded = workspace.getByRole('button', { expanded: true });
-    await expect(firstExpanded).toHaveCount(1);
-
-    // Expand second card — first should collapse
-    const stillCollapsed = workspace.getByRole('button', { expanded: false });
-    await stillCollapsed.first().click();
-
-    // Still only one expanded
-    await expect(workspace.getByRole('button', { expanded: true })).toHaveCount(1);
+    await expect(workspace.locator('[data-grid-canvas]')).toHaveCount(2);
   });
 
   test('can navigate to Pages and back to Editor', async ({ page }) => {
