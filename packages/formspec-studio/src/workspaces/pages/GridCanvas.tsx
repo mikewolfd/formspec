@@ -16,6 +16,27 @@ export interface GridCanvasProps {
   onSetOffset: (key: string, offset: number | undefined) => void;
   onSetResponsive: (key: string, bp: string, overrides: { width?: number; offset?: number; hidden?: boolean }) => void;
   onMoveItem: (key: string, targetIndex: number) => void;
+  /** Other pages the selected item can be moved to. */
+  otherPages?: Array<{ id: string; title: string }>;
+  /** Called when the user moves the selected item to another page. */
+  onMoveToPage?: (itemKey: string, targetPageId: string) => void;
+  /** Called when the user unassigns the selected item back to the unassigned pool. */
+  onUnassignItem?: (itemKey: string) => void;
+  /**
+   * When true the canvas is non-interactive (pointer-events disabled, reduced opacity).
+   * Used when the page is dormant (single mode).
+   */
+  disabled?: boolean;
+  /**
+   * When true the canvas uses a reduced min-height (100px instead of 200px).
+   * Useful when embedded inline in a card.
+   */
+  compact?: boolean;
+  /**
+   * Unique identifier for the page this canvas belongs to.
+   * Used to generate a unique droppable ID when multiple canvases share a DragDropProvider.
+   */
+  pageId?: string;
 }
 
 /** Resolve effective width for a breakpoint. */
@@ -68,78 +89,112 @@ export function GridCanvas({
   onSetOffset,
   onSetResponsive,
   onMoveItem,
+  otherPages,
+  onMoveToPage,
+  onUnassignItem,
+  disabled = false,
+  compact = false,
+  pageId,
 }: GridCanvasProps) {
   const selectedItem = selectedItemKey ? items.find(i => i.key === selectedItemKey) : null;
   const isBrokenSelected = selectedItem?.status === 'broken';
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ── D1: Drag-to-resize state ──────────────────────────────────────
-  const [resizing, setResizing] = useState<{
+  // Clear selection when the selected item is no longer in the items array (removed, moved, or unassigned).
+  useEffect(() => {
+    if (selectedItemKey && !items.some(i => i.key === selectedItemKey)) {
+      onSelectItem(null);
+    }
+  }, [items, selectedItemKey, onSelectItem]);
+
+  // ── D1: Drag-to-resize ───────────────────────────────────────────
+  // Mutable ref holds drag state so pointermove/pointerup listeners
+  // are registered once (on down) and removed once (on up) — no
+  // re-registration on every frame.
+  const dragRef = useRef<{
     key: string;
     startX: number;
     startWidth: number;
     columnWidth: number;
     currentWidth: number;
   } | null>(null);
+  // Render-facing state: only the key (to know which item is resizing)
+  // and the live column width (for the visual badge).
+  const [resizingDisplay, setResizingDisplay] = useState<{
+    key: string;
+    width: number;
+  } | null>(null);
+
+  // Stable refs for the callbacks so the closure in pointermove/up
+  // always reads the latest values without re-registering listeners.
+  const callbacksRef = useRef({ onSetWidth, onSetResponsive, activeBreakpoint });
+  callbacksRef.current = { onSetWidth, onSetResponsive, activeBreakpoint };
 
   const handleResizeStart = useCallback((itemKey: string, currentWidth: number, e: React.PointerEvent) => {
+    if (disabled) return;
     const containerRect = containerRef.current?.getBoundingClientRect();
     if (!containerRect) return;
     const columnWidth = containerRect.width / 12;
-    setResizing({
+
+    dragRef.current = {
       key: itemKey,
       startX: e.clientX,
       startWidth: currentWidth,
       columnWidth,
       currentWidth,
-    });
+    };
+    setResizingDisplay({ key: itemKey, width: currentWidth });
+
     document.body.style.pointerEvents = 'none';
     document.body.style.userSelect = 'none';
-  }, []);
 
-  useEffect(() => {
-    if (!resizing) return;
-
-    function onPointerMove(e: PointerEvent) {
-      if (!resizing) return;
-      const deltaColumns = Math.round((e.clientX - resizing.startX) / resizing.columnWidth);
-      const newWidth = Math.max(1, Math.min(12, resizing.startWidth + deltaColumns));
-      if (newWidth !== resizing.currentWidth) {
-        setResizing(prev => prev ? { ...prev, currentWidth: newWidth } : null);
+    function onPointerMove(ev: PointerEvent) {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const deltaColumns = Math.round((ev.clientX - drag.startX) / drag.columnWidth);
+      const newWidth = Math.max(1, Math.min(12, drag.startWidth + deltaColumns));
+      if (newWidth !== drag.currentWidth) {
+        drag.currentWidth = newWidth;
+        setResizingDisplay({ key: drag.key, width: newWidth });
       }
     }
 
     function onPointerUp() {
-      if (!resizing) return;
-      const finalWidth = resizing.currentWidth;
-      const key = resizing.key;
+      const drag = dragRef.current;
+      if (!drag) return;
       document.body.style.pointerEvents = '';
       document.body.style.userSelect = '';
-      setResizing(null);
-      // Commit the width change
-      if (finalWidth !== resizing.startWidth) {
-        if (activeBreakpoint === 'base') {
-          onSetWidth(key, finalWidth);
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+
+      const { key, currentWidth: finalWidth, startWidth } = drag;
+      dragRef.current = null;
+      setResizingDisplay(null);
+
+      if (finalWidth !== startWidth) {
+        const { activeBreakpoint: bp, onSetWidth: setW, onSetResponsive: setR } = callbacksRef.current;
+        if (bp === 'base') {
+          setW(key, finalWidth);
         } else {
-          onSetResponsive(key, activeBreakpoint, { width: finalWidth });
+          setR(key, bp, { width: finalWidth });
         }
       }
     }
 
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
-    return () => {
-      document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('pointerup', onPointerUp);
-    };
-  }, [resizing, activeBreakpoint, onSetWidth, onSetResponsive]);
+  }, [disabled]);
 
   // ── Droppable: canvas itself is a fallback drop target ────────────
+  // Use a page-scoped ID so multiple canvases sharing a DragDropProvider get unique droppable IDs.
   const { ref: dropRef } = useDroppable({
-    id: 'grid-canvas-drop',
+    id: pageId ? `grid-canvas-drop-${pageId}` : 'grid-canvas-drop',
     data: { type: 'grid-canvas' },
   });
+
+  const minHeightClass = compact ? 'min-h-[100px]' : 'min-h-[200px]';
+  const disabledClass = disabled ? 'pointer-events-none opacity-50' : '';
 
   return (
     <div
@@ -148,16 +203,20 @@ export function GridCanvas({
         dropRef(el);
       }}
       data-grid-canvas
-      className="relative min-h-[200px] p-4 bg-subtle/5 rounded-lg"
+      role="region"
+      aria-label="Page layout grid"
+      className={`relative ${minHeightClass} p-4 bg-subtle/30 rounded-xl border border-border/50 ${disabledClass}`}
       style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '8px' }}
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
       onKeyDown={(e) => {
+        if (disabled) return;
         if (e.key === 'Escape' && selectedItemKey) {
           e.stopPropagation();
           onSelectItem(null);
         }
       }}
       onClick={(e) => {
+        if (disabled) return;
         if (e.target === e.currentTarget && selectedItemKey) {
           onSelectItem(null);
         }
@@ -182,8 +241,8 @@ export function GridCanvas({
       ) : (
         items.map((item, index) => {
           const isSelected = item.key === selectedItemKey;
-          const width = resizing?.key === item.key
-            ? resizing.currentWidth
+          const width = resizingDisplay?.key === item.key
+            ? resizingDisplay.width
             : effectiveWidth(item, activeBreakpoint);
 
           return (
@@ -197,18 +256,20 @@ export function GridCanvas({
                 item={item}
                 isSelected={isSelected}
                 activeBreakpoint={activeBreakpoint}
-                onSelect={() => onSelectItem(item.key)}
+                onSelect={() => {
+                  if (!disabled) onSelectItem(item.key);
+                }}
                 onRemove={() => onRemoveItem(item.key)}
                 onResizeStart={(e) => handleResizeStart(
                   item.key,
                   effectiveWidth(item, activeBreakpoint),
                   e,
                 )}
-                resizingWidth={resizing?.key === item.key ? resizing.currentWidth : undefined}
+                resizingWidth={resizingDisplay?.key === item.key ? resizingDisplay.width : undefined}
               />
 
               {/* SelectionToolbar for valid selected items */}
-              {isSelected && !isBrokenSelected && (
+              {isSelected && !isBrokenSelected && !disabled && (
                 <div className="absolute left-0 right-0 z-10 mt-1" style={{ top: '100%' }}>
                   <SelectionToolbar
                     item={item}
@@ -216,6 +277,9 @@ export function GridCanvas({
                     onSetWidth={(w) => onSetWidth(item.key, w)}
                     onSetOffset={(o) => onSetOffset(item.key, o)}
                     onSetResponsive={(bp, overrides) => onSetResponsive(item.key, bp, overrides)}
+                    otherPages={otherPages}
+                    onMoveToPage={onMoveToPage}
+                    onUnassignItem={onUnassignItem}
                   />
                 </div>
               )}

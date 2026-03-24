@@ -34,7 +34,7 @@ test.describe('Workspace Navigation — Tab Switching', () => {
   });
 
   test('Pages tab renders pages workspace', async ({ page }) => {
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     await expect(workspace.getByRole('button', { name: 'Tabs' })).toBeVisible();
     await expect(workspace.getByRole('button', { name: 'Single' })).toBeVisible();

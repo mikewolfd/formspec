@@ -213,7 +213,7 @@ test.describe('Story 1: Unassigned field appears on Pages tab', () => {
   test('a top-level field not placed on any page shows in Unassigned', async ({ page }) => {
     await waitForApp(page);
     await importProject(page, WIZARD_WITH_UNASSIGNED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     // "Phone Number" is a top-level field not on any page
     const workspace = ws(page);
@@ -229,7 +229,7 @@ test.describe('Story 2: Grid preview shows different widths', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
     await importProject(page, WIDTH_LAYOUT_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
   });
 
   test('collapsed card shows mini grid with three segments', async ({ page }) => {
@@ -259,7 +259,7 @@ test.describe('Story 3: Deleting a page', () => {
   test('deleting a page removes the card and reduces page count', async ({ page }) => {
     await waitForApp(page);
     await importProject(page, TWO_PAGE_WIZARD);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = ws(page);
     await expect(card(page, 'p-personal')).toBeVisible();
@@ -284,7 +284,7 @@ test.describe('Story 4: Mode switching', () => {
   test('switching to Single shows dormant pages, switching back restores', async ({ page }) => {
     await waitForApp(page);
     await importProject(page, TWO_PAGE_WIZARD);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = ws(page);
     await expect(card(page, 'p-personal')).toBeVisible();
@@ -309,7 +309,7 @@ test.describe('Story 5: Sidebar and Pages tab expand sync', () => {
   test('clicking a page entry in the sidebar expands its page card', async ({ page }) => {
     await waitForApp(page);
     await importProject(page, TWO_PAGE_WIZARD);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     // The sidebar page list has numbered buttons like "2 Address"
     const sidebar = page.getByRole('complementary').first();
@@ -328,7 +328,7 @@ test.describe('Story 6: Responsive breakpoint overrides', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
     await importProject(page, RESPONSIVE_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
   });
 
   test('Focus Mode shows breakpoint bar (sm / md / lg)', async ({ page }) => {
@@ -360,7 +360,7 @@ test.describe('Story 7: Creating a new page', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
     await importProject(page, TWO_PAGE_WIZARD);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
   });
 
   test('clicking Add Page creates a new card', async ({ page }) => {
@@ -397,7 +397,7 @@ test.describe('Story 8: Reordering pages with drag handle', () => {
     test.skip(true, '@dnd-kit DOM sortable: Playwright dragTo does not reliably fire dnd-kit sensors');
     await waitForApp(page);
     await importProject(page, THREE_PAGE_WIZARD);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const cards = ws(page).locator('[data-testid^="page-card-"]');
     await expect(cards).toHaveCount(3);
@@ -419,7 +419,7 @@ test.describe('Story 9: Wizard to Tabs mode switch', () => {
   test('switching to Tabs keeps page cards and changes preview layout', async ({ page }) => {
     await waitForApp(page);
     await importProject(page, TWO_PAGE_WIZARD);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     // Switch to Tabs
     await ws(page).getByRole('button', { name: 'Tabs' }).click();
@@ -448,7 +448,7 @@ test.describe('Story 10: Broken field indicator', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
     await importProject(page, BROKEN_REGION_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
   });
 
   test('collapsed card shows amber segment for nonexistent field', async ({ page }) => {

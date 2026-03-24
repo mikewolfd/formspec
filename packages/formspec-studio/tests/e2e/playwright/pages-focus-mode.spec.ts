@@ -74,7 +74,7 @@ const RESPONSIVE_SEED = {
 
 /** Navigate to Pages tab and enter Focus Mode on a page card. */
 async function enterFocusMode(page: import('@playwright/test').Page, pageCardTestId: string) {
-  await switchTab(page, 'Pages');
+  await switchTab(page, 'Layout');
   const card = page.locator(`[data-testid="${pageCardTestId}"]`);
 
   // Expand the card
@@ -394,7 +394,7 @@ test.describe('Focus Mode', () => {
 
   test('15. dormant page in single mode is fully editable with Dormant badge', async ({ page }) => {
     await importProject(page, DORMANT_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     // Should see dormant info
     await expect(page.getByText(/preserved but not active/i)).toBeVisible();

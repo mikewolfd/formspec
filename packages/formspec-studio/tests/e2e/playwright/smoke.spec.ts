@@ -9,7 +9,7 @@ test.describe('Smoke — App Bootstrap', () => {
     await expect(page.locator('[data-testid="header"]')).toContainText('The Stack');
 
     // 7 workspace tabs
-    const tabs = ['Editor', 'Logic', 'Data', 'Pages', 'Theme', 'Mapping', 'Preview'];
+    const tabs = ['Editor', 'Logic', 'Data', 'Layout', 'Theme', 'Mapping', 'Preview'];
     for (const tab of tabs) {
       await expect(page.locator(`[data-testid="tab-${tab}"]`)).toBeVisible();
     }

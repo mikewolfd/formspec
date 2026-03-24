@@ -39,7 +39,7 @@ const WORKSPACES: Record<string, React.FC> = {
   Editor: EditorCanvas,
   Logic: LogicTab,
   Data: DataTab,
-  Pages: PagesTab,
+  Layout: PagesTab,
   Theme: ThemeTab,
   Mapping: MappingTab,
   Preview: PreviewTab,

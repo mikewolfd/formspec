@@ -1,5 +1,5 @@
-/** @filedesc Pages workspace tab for planning page flow and entering page layout edit mode. */
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+/** @filedesc Layout workspace tab for page flow planning and grid layout editing. */
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
@@ -8,7 +8,7 @@ import { usePageStructure } from './usePageStructure';
 import { useProject } from '../../state/useProject';
 import { ActiveGroupContext } from '../../state/useActiveGroup';
 import { DragHandle } from '../editor/DragHandle';
-import { PagesFocusView } from './PagesFocusView';
+import { GridCanvas } from './GridCanvas';
 import type { PageItemView, PageView, PlaceableItem } from 'formspec-studio-core';
 
 type FlowMode = 'single' | 'wizard' | 'tabs';
@@ -64,159 +64,34 @@ function isEffectivelyEmpty(page: PageView): boolean {
   return page.items.every(isDeletableItem);
 }
 
-function itemTypeLabel(item: PageItemView): string {
-  if (item.status === 'broken') return 'Broken region';
-  if (item.itemType === 'group') {
-    const childCount = item.childCount ?? 0;
-    return childCount === 1 ? 'Group, 1 field' : `Group, ${childCount} fields`;
-  }
-  if (item.itemType === 'display') return 'Display item';
-  return 'Field';
-}
-
 function pageSummary(page: PageView): string {
   if (isEffectivelyEmpty(page)) return 'Empty';
   const count = page.items.length;
   return `${count} item${count === 1 ? '' : 's'}`;
 }
 
-function LayoutPreviewGrid({ items, height }: { items: PageItemView[]; height: string }) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Layout preview</p>
-      <div className={`grid ${height} grid-cols-12 gap-1`}>
-        {items.map((item) => (
-          <div
-            key={item.key}
-            className={`rounded-sm border ${
-              item.status === 'broken'
-                ? 'border-amber-400/30 bg-amber-300/30'
-                : 'border-accent/30 bg-accent/35'
-            }`}
-            style={{ gridColumn: `span ${Math.min(item.width, 12)}` }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PageItemRow({
-  pageId,
-  item,
-  index,
-  total,
-  otherPages,
-  disabled,
-  onReorder,
-  onMove,
-  onUnassign,
-}: {
-  pageId: string;
-  item: PageItemView;
-  index: number;
-  total: number;
-  otherPages: Array<{ id: string; title: string }>;
-  disabled: boolean;
-  onReorder: (direction: 'up' | 'down') => void;
-  onMove: (targetPageId: string) => void;
-  onUnassign: () => void;
-}) {
-  const [destination, setDestination] = useState('');
-  const selectId = `${pageId}-${item.key}-move`;
-
-  return (
-    <div
-      className={`grid gap-3 border-t border-border/60 px-3 py-3 md:grid-cols-[minmax(0,1fr)_88px_auto_180px] ${
-        item.status === 'broken' ? 'bg-amber-50' : 'bg-surface'
-      }`}
-    >
-      <div className="min-w-0 space-y-1">
-        <p className={`truncate text-[13px] font-medium ${item.status === 'broken' ? 'text-amber-800' : 'text-ink'}`}>
-          {item.label}
-        </p>
-        <p className="text-[11px] text-muted">{itemTypeLabel(item)}</p>
-      </div>
-
-      <div className="text-[11px] font-mono text-muted">
-        {item.width}/12
-      </div>
-
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          aria-label={`Move ${item.label} up`}
-          disabled={disabled || index === 0}
-          onClick={() => onReorder('up')}
-          className="rounded border border-border px-2 py-1 text-[11px] text-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          aria-label={`Move ${item.label} down`}
-          disabled={disabled || index === total - 1}
-          onClick={() => onReorder('down')}
-          className="rounded border border-border px-2 py-1 text-[11px] text-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          ↓
-        </button>
-      </div>
-
-      <div className="space-y-2">
-        <label htmlFor={selectId} className="sr-only">{`Move ${item.label} to page`}</label>
-        <select
-          id={selectId}
-          aria-label={`Move ${item.label} to page`}
-          value={destination}
-          disabled={disabled || otherPages.length === 0}
-          onChange={(event) => {
-            const next = event.target.value;
-            setDestination(next);
-            if (!next) return;
-            if (next === '__unassigned') {
-              onUnassign();
-            } else {
-              onMove(next);
-            }
-            setDestination('');
-          }}
-          className="w-full rounded border border-border bg-surface px-2.5 py-2 text-[12px] text-ink disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <option value="">Move to…</option>
-          {otherPages.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {candidate.title || candidate.id}
-            </option>
-          ))}
-          <option value="__unassigned">Unassigned</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
 interface PageActions {
   onUpdateTitle: (title: string) => void;
   onUpdateDescription: (description: string | undefined) => void;
   onMovePage: (direction: 'up' | 'down') => void;
-  onReorderItem: (itemKey: string, direction: 'up' | 'down') => void;
-  onMoveItem: (itemKey: string, targetPageId: string, width: number) => void;
-  onUnassignItem: (itemKey: string) => void;
+  onRemoveItem: (itemKey: string) => void;
+  onSetWidth: (itemKey: string, width: number) => void;
+  onSetOffset: (itemKey: string, offset: number | undefined) => void;
+  onSetResponsive: (itemKey: string, bp: string, overrides: { width?: number; offset?: number; hidden?: boolean }) => void;
+  onMoveItemToIndex: (itemKey: string, targetIndex: number) => void;
   onAddItem: (itemKey: string) => void;
-  onEnterEditMode: () => void;
   onDeletePage: () => void;
+  onMoveItemToPage: (itemKey: string, targetPageId: string) => void;
+  onUnassignItem: (itemKey: string) => void;
 }
 
 function PageCard({
   page,
   index,
   totalPages,
-  pages,
+  allPages,
   unassigned,
-  isExpanded,
   isDormant,
-  onToggle,
   actions,
   sortableRef,
   dragHandleRef,
@@ -225,11 +100,9 @@ function PageCard({
   page: PageView;
   index: number;
   totalPages: number;
-  pages: PageView[];
+  allPages: Array<{ id: string; title: string }>;
   unassigned: PlaceableItem[];
-  isExpanded: boolean;
   isDormant: boolean;
-  onToggle: () => void;
   actions: PageActions;
   sortableRef?: (element: Element | null) => void;
   dragHandleRef?: (element: Element | null) => void;
@@ -241,17 +114,17 @@ function PageCard({
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);
+
+  // Pages the selected item can be moved to (every page except the current one)
+  const otherPages = allPages.filter((p) => p.id !== page.id);
+
   const canDelete = !isDormant && totalPages > 1 && isEffectivelyEmpty(page);
   const deleteBlockedReason = isDormant
     ? 'Switch to Wizard or Tabs before deleting pages.'
     : totalPages <= 1
       ? 'Keep at least one page in the flow.'
       : 'Move every assigned item off this page before deleting it.';
-
-  const otherPages = useMemo(
-    () => pages.filter((p) => p.id !== page.id).map((p) => ({ id: p.id, title: p.title || p.id })),
-    [pages, page.id],
-  );
 
   useEffect(() => {
     if (!isEditingTitle) return;
@@ -264,10 +137,6 @@ function PageCard({
     descriptionInputRef.current?.focus();
     descriptionInputRef.current?.select();
   }, [isEditingDescription]);
-
-  useEffect(() => {
-    if (!isExpanded) setIsConfirmingDelete(false);
-  }, [isExpanded]);
 
   const commitTitle = useCallback(() => {
     if (!titleInputRef.current) return;
@@ -289,9 +158,9 @@ function PageCard({
     <div
       ref={sortableRef}
       data-testid={`page-card-${page.id}`}
-      className={`overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-opacity ${
-        isExpanded ? 'ring-1 ring-accent/25' : ''
-      }${isDragging ? ' opacity-40' : ''}`}
+      className={`overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-opacity${
+        isDragging ? ' opacity-40' : ''
+      }`}
     >
       <div className="flex items-start gap-3 px-4 py-4">
         <div
@@ -365,28 +234,10 @@ function PageCard({
               >
                 ↓
               </button>
-              <button
-                type="button"
-                aria-expanded={isExpanded}
-                aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${pageLabel}`}
-                onClick={onToggle}
-                className="rounded border border-border px-2.5 py-1 text-[11px] text-muted transition-colors hover:text-ink"
-              >
-                {isExpanded ? 'Collapse' : 'Expand'}
-              </button>
             </div>
           </div>
 
-          {!isExpanded && page.items.length > 0 && (
-            <LayoutPreviewGrid items={page.items} height="h-4" />
-          )}
-
-          {isExpanded && (
-            <div className="space-y-4 border-t border-border/70 pt-4">
-              {page.items.length > 0 && (
-                <LayoutPreviewGrid items={page.items} height="h-7" />
-              )}
-
+          <div className="space-y-4 border-t border-border/70 pt-4">
               {page.description && !isEditingDescription ? (
                 <button
                   type="button"
@@ -420,33 +271,24 @@ function PageCard({
                 </button>
               )}
 
-              <div className="rounded-xl border border-border/70 overflow-hidden">
-                <div className="grid gap-3 bg-subtle/50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted md:grid-cols-[minmax(0,1fr)_88px_auto_180px]">
-                  <span>Assigned items</span>
-                  <span>Width</span>
-                  <span>Order</span>
-                  <span>Destination</span>
-                </div>
-                {page.items.length > 0 ? (
-                  page.items.map((item, itemIndex) => (
-                    <PageItemRow
-                      key={item.key}
-                      pageId={page.id}
-                      item={item}
-                      index={itemIndex}
-                      total={page.items.length}
-                      otherPages={otherPages}
-                      disabled={isDormant}
-                      onReorder={(direction) => actions.onReorderItem(item.key, direction)}
-                      onMove={(targetPageId) => actions.onMoveItem(item.key, targetPageId, item.width)}
-                      onUnassign={() => actions.onUnassignItem(item.key)}
-                    />
-                  ))
-                ) : (
-                  <div className="px-3 py-4 text-[12px] text-muted">
-                    This page is empty. Assign items here or delete it.
-                  </div>
-                )}
+              <div className="pt-1">
+                <GridCanvas
+                  items={page.items}
+                  activeBreakpoint="base"
+                  selectedItemKey={selectedItemKey}
+                  onSelectItem={setSelectedItemKey}
+                  onRemoveItem={(key) => actions.onRemoveItem(key)}
+                  onSetWidth={(key, width) => actions.onSetWidth(key, width)}
+                  onSetOffset={(key, offset) => actions.onSetOffset(key, offset)}
+                  onSetResponsive={(key, bp, overrides) => actions.onSetResponsive(key, bp, overrides)}
+                  onMoveItem={(key, targetIndex) => actions.onMoveItemToIndex(key, targetIndex)}
+                  otherPages={otherPages}
+                  onMoveToPage={(itemKey, targetPageId) => actions.onMoveItemToPage(itemKey, targetPageId)}
+                  onUnassignItem={(itemKey) => actions.onUnassignItem(itemKey)}
+                  disabled={isDormant}
+                  compact
+                  pageId={page.id}
+                />
               </div>
 
               {isDormant ? (
@@ -456,7 +298,7 @@ function PageCard({
               ) : unassigned.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Add from unassigned</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto">
                     {unassigned.map((item) => (
                       <button
                         key={item.key}
@@ -472,17 +314,7 @@ function PageCard({
                 </div>
               ) : null}
 
-              <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border/70 pt-3">
-                <button
-                  type="button"
-                  aria-label="Edit mode"
-                  onClick={actions.onEnterEditMode}
-                  disabled={isDormant}
-                  className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white transition-colors hover:bg-ink/90 disabled:cursor-not-allowed disabled:bg-subtle disabled:text-muted"
-                >
-                  Edit mode
-                </button>
-
+              <div className="flex items-start justify-end gap-3 border-t border-border/70 pt-4">
                 <div className="space-y-2 text-right">
                   {!canDelete && (
                     <p className="max-w-[260px] text-[11px] leading-4 text-muted">
@@ -528,7 +360,6 @@ function PageCard({
                 </div>
               </div>
             </div>
-          )}
         </div>
       </div>
     </div>
@@ -633,68 +464,19 @@ export function PagesTab() {
   const project = useProject();
   const structure = usePageStructure();
   const activeGroupCtx = useContext(ActiveGroupContext);
-  const [expandedPageId, setExpandedPageId] = useState<string | null>(null);
-  const [focusedPageId, setFocusedPageId] = useState<string | null>(null);
 
   const isSingle = structure.mode === 'single';
   const hasPages = structure.pages.length > 0;
 
-  useEffect(() => {
-    if (focusedPageId) return;
-    if (!hasPages) {
-      setExpandedPageId(null);
-      return;
-    }
-    if (!expandedPageId || !structure.pages.some((page) => page.id === expandedPageId)) {
-      setExpandedPageId(structure.pages[0].id);
-    }
-  }, [expandedPageId, focusedPageId, hasPages, structure.pages]);
-
-  useEffect(() => {
-    if (!activeGroupCtx?.activeGroupKey) return;
-    const matchingPage = structure.pages.find((page) =>
-      page.items.some((item) => item.key === activeGroupCtx.activeGroupKey),
-    );
-    if (matchingPage) setExpandedPageId(matchingPage.id);
-  }, [activeGroupCtx?.activeGroupKey, structure.pages]);
+  // Single-toast: rapid deletions overwrite the previous toast (latest wins). Intentional.
+  const [deleteToast, setDeleteToast] = useState<{ title: string } | null>(null);
 
   const handleAddPage = useCallback(() => {
     const result = project.addPage(`Page ${structure.pages.length + 1}`);
-    if (result.createdId) {
-      setExpandedPageId(result.createdId);
-      if (result.groupKey && activeGroupCtx) activeGroupCtx.setActiveGroupKey(result.groupKey);
+    if (result.createdId && result.groupKey && activeGroupCtx) {
+      activeGroupCtx.setActiveGroupKey(result.groupKey);
     }
   }, [activeGroupCtx, project, structure.pages.length]);
-
-  const handleTogglePage = useCallback((pageId: string) => {
-    const nextExpandedPageId = expandedPageId === pageId ? null : pageId;
-    setExpandedPageId(nextExpandedPageId);
-    if (!nextExpandedPageId || !activeGroupCtx) return;
-    const page = structure.pages.find((p) => p.id === nextExpandedPageId);
-    const firstItem = page?.items[0];
-    if (firstItem) activeGroupCtx.setActiveGroupKey(firstItem.key);
-  }, [activeGroupCtx, expandedPageId, structure.pages]);
-
-  const handleMoveItem = useCallback((itemKey: string, targetPageId: string, width: number) => {
-    project.placeOnPage(itemKey, targetPageId, { span: width });
-    setExpandedPageId(targetPageId);
-    activeGroupCtx?.setActiveGroupKey(itemKey);
-  }, [activeGroupCtx, project]);
-
-  const handleUnassignItem = useCallback((pageId: string, itemKey: string) => {
-    project.unplaceFromPage(itemKey, pageId);
-    activeGroupCtx?.setActiveGroupKey(itemKey);
-  }, [activeGroupCtx, project]);
-
-  if (focusedPageId) {
-    return (
-      <PagesFocusView
-        pageId={focusedPageId}
-        onBack={() => setFocusedPageId(null)}
-        onNavigate={(pageId) => setFocusedPageId(pageId)}
-      />
-    );
-  }
 
   return (
     <WorkspacePage maxWidth="max-w-[980px]" className="overflow-y-auto">
@@ -704,18 +486,13 @@ export function PagesTab() {
       >
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-4">
-            <div className="space-y-2">
-              <span className="inline-flex items-center rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-accent">
-                View mode
-              </span>
-              <div className="space-y-1">
-                <p className="max-w-[560px] text-[20px] font-semibold leading-tight text-ink">
-                  Plan the user journey before you touch the grid.
-                </p>
-                <p className="max-w-[620px] text-[13px] leading-5 text-muted">
-                  Reorder pages, move fields between them, and decide when a page needs precise layout editing.
-                </p>
-              </div>
+            <div className="space-y-1">
+              <p className="max-w-[560px] text-[20px] font-semibold leading-tight text-ink">
+                Layout
+              </p>
+              <p className="max-w-[620px] text-[13px] leading-5 text-muted">
+                Organize the user journey — reorder pages, assign fields, and edit grid layouts.
+              </p>
             </div>
             <ModeSelector mode={structure.mode} onSetMode={(mode) => project.setFlow(mode)} />
           </div>
@@ -764,10 +541,7 @@ export function PagesTab() {
             <div className="flex flex-wrap justify-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  project.autoGeneratePages();
-                  setExpandedPageId(null);
-                }}
+                onClick={() => project.autoGeneratePages()}
                 className="rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted transition-colors hover:text-ink"
               >
                 Auto-generate from groups
@@ -792,7 +566,6 @@ export function PagesTab() {
 
               if (sourceData.type === 'item' && targetData.type === 'page-drop') {
                 project.placeOnPage(sourceData.key, targetData.pageId);
-                setExpandedPageId(targetData.pageId);
                 activeGroupCtx?.setActiveGroupKey(sourceData.key);
                 return;
               }
@@ -820,24 +593,33 @@ export function PagesTab() {
                   page={page}
                   index={index}
                   totalPages={structure.pages.length}
-                  pages={structure.pages}
+                  allPages={structure.pages.map((p) => ({ id: p.id, title: p.title || p.id }))}
                   unassigned={structure.unassigned}
-                  isExpanded={expandedPageId === page.id}
                   isDormant={isSingle}
-                  onToggle={() => handleTogglePage(page.id)}
                   actions={{
                     onUpdateTitle: (title) => project.updatePage(page.id, { title }),
                     onUpdateDescription: (description) => project.updatePage(page.id, { description }),
                     onMovePage: (direction) => project.reorderPage(page.id, direction),
-                    onReorderItem: (itemKey, direction) => project.reorderItemOnPage(page.id, itemKey, direction),
-                    onMoveItem: (itemKey, targetPageId, width) => handleMoveItem(itemKey, targetPageId, width),
-                    onUnassignItem: (itemKey) => handleUnassignItem(page.id, itemKey),
+                    onRemoveItem: (key) => project.removeItemFromPage(page.id, key),
+                    onSetWidth: (key, width) => project.setItemWidth(page.id, key, width),
+                    onSetOffset: (key, offset) => project.setItemOffset(page.id, key, offset),
+                    onSetResponsive: (key, bp, overrides) => project.setItemResponsive(page.id, key, bp, overrides),
+                    onMoveItemToIndex: (key, targetIndex) => project.moveItemOnPageToIndex(page.id, key, targetIndex),
                     onAddItem: (itemKey) => {
                       project.placeOnPage(itemKey, page.id, { span: 12 });
                       activeGroupCtx?.setActiveGroupKey(itemKey);
                     },
-                    onEnterEditMode: () => setFocusedPageId(page.id),
-                    onDeletePage: () => project.removePage(page.id),
+                    onDeletePage: () => {
+                      const title = page.title || page.id;
+                      project.removePage(page.id);
+                      setDeleteToast({ title });
+                    },
+                    onMoveItemToPage: (itemKey, targetPageId) => {
+                      project.moveItemToPage(page.id, itemKey, targetPageId, { span: 12 });
+                    },
+                    onUnassignItem: (itemKey) => {
+                      project.removeItemFromPage(page.id, itemKey);
+                    },
                   }}
                 />
               ))}
@@ -865,6 +647,34 @@ export function PagesTab() {
           </DragDropProvider>
         )}
       </WorkspacePageSection>
+
+      {deleteToast && (
+        <div
+          style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 50 }}
+          className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-lg"
+        >
+          <p className="text-[13px] text-ink">{deleteToast.title} deleted</p>
+          <button
+            type="button"
+            aria-label="Undo"
+            onClick={() => {
+              project.undo();
+              setDeleteToast(null);
+            }}
+            className="rounded-full bg-ink px-3 py-1 text-[12px] font-semibold text-white transition-colors hover:bg-ink/90"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setDeleteToast(null)}
+            className="text-[12px] text-muted transition-colors hover:text-ink"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
     </WorkspacePage>
   );
 }

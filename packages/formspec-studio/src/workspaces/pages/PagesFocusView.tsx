@@ -159,12 +159,17 @@ export function PagesFocusView({ pageId, onBack, onNavigate }: PagesFocusViewPro
         {/* Back button */}
         <button
           type="button"
-          aria-label="Back"
+          aria-label="Back to pages"
           onClick={onBack}
-          className="text-[14px] text-muted hover:text-ink transition-colors p-1"
+          className="inline-flex items-center gap-1 text-[12px] font-semibold text-muted hover:text-ink transition-colors px-2 py-1 rounded"
         >
-          &#8592;
+          <span aria-hidden="true">&#8592;</span>
+          <span>Back to pages</span>
         </button>
+
+        <span className="text-[11px] font-semibold tracking-wide text-accent bg-accent/10 border border-accent/20 px-2.5 py-1 rounded-full shrink-0">
+          Edit mode
+        </span>
 
         {/* Editable page title */}
         <input

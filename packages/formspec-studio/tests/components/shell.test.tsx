@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import { createProject } from 'formspec-studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
-import { ActivePageProvider } from '../../src/state/useActivePage';
+import { ActiveGroupProvider } from '../../src/state/useActiveGroup';
 import { Shell } from '../../src/components/Shell';
 
 const seededDefinition = {
@@ -25,9 +25,9 @@ function renderShell(definition?: typeof seededDefinition, width = 1440) {
     ...render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ActivePageProvider>
+          <ActiveGroupProvider>
             <Shell />
-          </ActivePageProvider>
+          </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
     ),
@@ -43,7 +43,7 @@ describe('Shell', () => {
 
   it('shows 7 workspace tabs', () => {
     renderShell();
-    for (const tab of ['Editor', 'Logic', 'Data', 'Pages', 'Theme', 'Mapping', 'Preview']) {
+    for (const tab of ['Editor', 'Logic', 'Data', 'Layout', 'Theme', 'Mapping', 'Preview']) {
       expect(screen.getByRole('tab', { name: tab })).toBeInTheDocument();
     }
   });

@@ -8,7 +8,7 @@ const TABS: { name: string; help: string }[] = [
   { name: 'Editor', help: 'Visual form builder canvas for adding and arranging items' },
   { name: 'Logic', help: 'Binds, shapes, and variables — all form logic lives here' },
   { name: 'Data', help: 'Response schema, data sources, option sets, and test data' },
-  { name: 'Pages', help: 'Multi-page form structure — wizard, tabs, and page assignments' },
+  { name: 'Layout', help: 'Multi-page form structure — wizard, tabs, and page grid layouts' },
   { name: 'Theme', help: 'Visual tokens, defaults, selectors, and page layouts' },
   { name: 'Mapping', help: 'Bidirectional data transforms for import/export formats' },
   { name: 'Preview', help: 'Live form preview and JSON document view' },

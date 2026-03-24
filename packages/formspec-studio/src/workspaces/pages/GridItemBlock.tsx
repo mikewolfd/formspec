@@ -66,6 +66,7 @@ export function GridItemBlock({ item, isSelected, activeBreakpoint, onSelect, on
       className={`relative border rounded-md px-2 py-1.5 text-[11px] cursor-pointer group transition-all select-none ${bgClass} ${selectedClass}`}
       onClick={onSelect}
       role="button"
+      aria-pressed={isSelected}
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -77,7 +78,7 @@ export function GridItemBlock({ item, isSelected, activeBreakpoint, onSelect, on
       {/* Content row */}
       <div className="flex items-center gap-1.5 min-w-0 pr-6">
         <TypeIcon itemType={item.itemType} />
-        <span className="truncate font-medium text-ink">{item.label}</span>
+        <span className="truncate font-medium text-ink" title={item.label}>{item.label}</span>
 
         {/* Group-specific indicators */}
         {isGroup && item.childCount !== undefined && (
@@ -124,10 +125,11 @@ export function GridItemBlock({ item, isSelected, activeBreakpoint, onSelect, on
         &times;
       </button>
 
-      {/* Resize handle — right 8px zone */}
+      {/* Resize handle — right 12px zone */}
       <div
         data-resize-handle
-        className="absolute top-0 right-0 w-2 h-full cursor-col-resize"
+        aria-label="Resize width"
+        className="absolute top-0 right-0 w-3 h-full cursor-col-resize"
         onPointerDown={(e) => {
           e.stopPropagation();
           e.preventDefault();

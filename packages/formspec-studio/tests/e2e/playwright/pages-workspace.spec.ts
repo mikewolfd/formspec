@@ -68,7 +68,7 @@ test.describe('Pages Workspace', () => {
 
   test('single mode with no pages shows empty state', async ({ page }) => {
     await importProject(page, SINGLE_PAGE_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     await expect(workspace.getByText(/switch to wizard or tabs/i)).toBeVisible();
@@ -76,7 +76,7 @@ test.describe('Pages Workspace', () => {
 
   test('single mode with existing pages shows dormant info bar', async ({ page }) => {
     await importProject(page, PAGEMODE_MISMATCH_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     await expect(workspace.getByText(/preserved but not active/i)).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('Pages Workspace', () => {
     page,
   }) => {
     await importProject(page, WIZARD_THEME_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     await expect(workspace.getByRole('button', { name: 'Single' })).toBeVisible();
@@ -98,7 +98,7 @@ test.describe('Pages Workspace', () => {
 
   test('clicking Wizard from single mode shows Add Page button', async ({ page }) => {
     await importProject(page, SINGLE_PAGE_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     await expect(workspace.getByText(/switch to wizard or tabs/i)).toBeVisible();
@@ -111,7 +111,7 @@ test.describe('Pages Workspace', () => {
 
   test('wizard mode shows page cards with titles and item counts', async ({ page }) => {
     await importProject(page, WIZARD_THEME_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     await expect(workspace.locator('[data-testid="page-card-p1"]')).toBeVisible();
@@ -121,7 +121,7 @@ test.describe('Pages Workspace', () => {
 
   test('add page creates card with default title', async ({ page }) => {
     await importProject(page, WIZARD_THEME_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     await workspace.getByRole('button', { name: /add page/i }).click();
@@ -130,7 +130,7 @@ test.describe('Pages Workspace', () => {
 
   test('accordion: only one card expanded at a time', async ({ page }) => {
     await importProject(page, WIZARD_THEME_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const workspace = page.locator('[data-testid="workspace-Pages"]');
     const expandButtons = workspace.getByRole('button', { expanded: false });
@@ -150,7 +150,7 @@ test.describe('Pages Workspace', () => {
 
   test('can navigate to Pages and back to Editor', async ({ page }) => {
     await importProject(page, SINGLE_PAGE_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
     await expect(page.locator('[data-testid="workspace-Pages"]')).toBeVisible();
 
     await switchTab(page, 'Editor');
@@ -163,7 +163,7 @@ test.describe('Pages Workspace', () => {
 
   test('Pages wizard config is reflected in Preview', async ({ page }) => {
     await importProject(page, WIZARD_THEME_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
     await expect(page.locator('[data-testid="page-card-p1"]')).toBeVisible();
 
     await switchTab(page, 'Preview');
@@ -183,7 +183,7 @@ test.describe('Pages Workspace — export validation', () => {
   test('exported project bundle passes Node diagnose', async ({ page }) => {
     await waitForAppWithExport(page);
     await importProject(page, WIZARD_THEME_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
     await expect(page.locator('[data-testid="page-card-p1"]')).toBeVisible();
 
     const bundle = await page.evaluate(() => {
@@ -205,7 +205,7 @@ test.describe('Pages Workspace — export validation', () => {
 
     await waitForAppWithExport(page);
     await importProject(page, WIZARD_THEME_SEED);
-    await switchTab(page, 'Pages');
+    await switchTab(page, 'Layout');
 
     const bundle = await page.evaluate(() => {
       const fn = (window as unknown as { __FORMSPEC_TEST_EXPORT?: () => unknown }).__FORMSPEC_TEST_EXPORT;
