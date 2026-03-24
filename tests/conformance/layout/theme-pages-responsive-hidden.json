@@ -1,0 +1,55 @@
+{
+  "id": "layout.theme_pages_responsive_hidden",
+  "kind": "LAYOUT_PLAN",
+  "description": "Responsive region override hides a region at a small viewport (SS6.4)",
+  "input": {
+    "items": [
+      {"key": "sidebar", "dataType": "string"},
+      {"key": "main", "dataType": "string"}
+    ],
+    "formPresentation": null,
+    "componentDocument": null,
+    "theme": {
+      "$formspecTheme": "1.0",
+      "version": "1.0.0",
+      "targetDefinition": {"url": "test"},
+      "breakpoints": {"sm": 576, "md": 768},
+      "pages": [
+        {
+          "id": "p1",
+          "title": "Page 1",
+          "regions": [
+            {
+              "key": "sidebar",
+              "span": 3,
+              "responsive": {"sm": {"hidden": true}}
+            },
+            {"key": "main", "span": 9}
+          ]
+        }
+      ]
+    },
+    "viewportWidth": 700
+  },
+  "expected": {
+    "nodeCount": 1,
+    "nodes": [
+      {
+        "component": "Page",
+        "children": [
+          {
+            "component": "Grid",
+            "childCount": 1,
+            "children": [
+              {
+                "component": "Column",
+                "props": {"span": 9},
+                "children": [{"bindPath": "main"}]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

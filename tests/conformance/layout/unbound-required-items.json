@@ -1,0 +1,33 @@
+{
+  "id": "layout.unbound_required_items",
+  "kind": "LAYOUT_PLAN",
+  "description": "Unbound required items produce fallback nodes in definition order (Component SS4.5)",
+  "input": {
+    "items": [
+      {"key": "name", "dataType": "string", "bind": {"required": "true()"}},
+      {"key": "email", "dataType": "string", "bind": {"required": "true()"}},
+      {"key": "age", "dataType": "integer"}
+    ],
+    "formPresentation": null,
+    "componentDocument": {
+      "tree": {
+        "component": "Stack",
+        "children": [
+          {"component": "TextInput", "bind": "name"}
+        ]
+      }
+    },
+    "theme": null,
+    "viewportWidth": null
+  },
+  "expected": {
+    "unboundRequired": [
+      {
+        "component": "TextInput",
+        "category": "field",
+        "bindPath": "email",
+        "fieldItem": {"key": "email", "dataType": "string"}
+      }
+    ]
+  }
+}

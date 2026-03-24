@@ -1,0 +1,29 @@
+{
+  "id": "layout.definition_fallback_wizard",
+  "kind": "LAYOUT_PLAN",
+  "description": "Wizard page mode wraps items in a Wizard interactive node",
+  "input": {
+    "items": [
+      {"key": "step1", "dataType": "string"},
+      {"key": "step2", "dataType": "string"}
+    ],
+    "formPresentation": {"pageMode": "wizard"},
+    "componentDocument": null,
+    "theme": null,
+    "viewportWidth": null
+  },
+  "expected": {
+    "nodeCount": 1,
+    "nodes": [
+      {
+        "component": "Wizard",
+        "category": "interactive",
+        "childCount": 2,
+        "children": [
+          {"component": "TextInput", "bindPath": "step1"},
+          {"component": "TextInput", "bindPath": "step2"}
+        ]
+      }
+    ]
+  }
+}

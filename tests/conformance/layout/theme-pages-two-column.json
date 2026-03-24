@@ -1,0 +1,71 @@
+{
+  "id": "layout.theme_pages_two_column",
+  "kind": "LAYOUT_PLAN",
+  "description": "Theme pages: two-column layout with span=6 regions on a 12-column grid",
+  "input": {
+    "items": [
+      {"key": "firstName", "dataType": "string", "label": "First Name"},
+      {"key": "lastName", "dataType": "string", "label": "Last Name"},
+      {"key": "email", "dataType": "string", "label": "Email"}
+    ],
+    "formPresentation": null,
+    "componentDocument": null,
+    "theme": {
+      "$formspecTheme": "1.0",
+      "version": "1.0.0",
+      "targetDefinition": {"url": "test"},
+      "pages": [
+        {
+          "id": "info",
+          "title": "Information",
+          "description": "Enter your details.",
+          "regions": [
+            {"key": "firstName", "span": 6},
+            {"key": "lastName", "span": 6},
+            {"key": "email", "span": 12}
+          ]
+        }
+      ]
+    },
+    "viewportWidth": null
+  },
+  "expected": {
+    "nodeCount": 1,
+    "nodes": [
+      {
+        "component": "Page",
+        "category": "layout",
+        "props": {
+          "pageId": "info",
+          "title": "Information",
+          "description": "Enter your details."
+        },
+        "childCount": 1,
+        "children": [
+          {
+            "component": "Grid",
+            "props": {"columns": 12},
+            "childCount": 3,
+            "children": [
+              {
+                "component": "Column",
+                "props": {"span": 6},
+                "children": [{"component": "TextInput", "bindPath": "firstName"}]
+              },
+              {
+                "component": "Column",
+                "props": {"span": 6},
+                "children": [{"component": "TextInput", "bindPath": "lastName"}]
+              },
+              {
+                "component": "Column",
+                "props": {"span": 12},
+                "children": [{"component": "TextInput", "bindPath": "email"}]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

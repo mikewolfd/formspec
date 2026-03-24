@@ -59,15 +59,15 @@ pub fn render_pdf(
         is_component_available: None,
     };
 
-    // Plan: use component tree when available, otherwise fallback to definition items
+    // Plan: use component tree when available, then theme pages, then definition fallback
     let layout_nodes = if let Some(ref comp_doc) = component_document {
         if let Some(tree) = comp_doc.get("tree") {
             vec![formspec_plan::plan_component_tree(tree, &ctx)]
         } else {
-            formspec_plan::plan_definition_fallback(&items, &ctx)
+            formspec_plan::plan_theme_pages(&items, &ctx)
         }
     } else {
-        formspec_plan::plan_definition_fallback(&items, &ctx)
+        formspec_plan::plan_theme_pages(&items, &ctx)
     };
 
     // Evaluate

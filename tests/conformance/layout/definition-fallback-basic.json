@@ -1,0 +1,32 @@
+{
+  "id": "layout.definition_fallback_basic",
+  "kind": "LAYOUT_PLAN",
+  "description": "Basic definition fallback: string fields produce TextInput nodes",
+  "input": {
+    "items": [
+      {"key": "name", "dataType": "string", "label": "Full Name"},
+      {"key": "age", "dataType": "integer", "label": "Age"}
+    ],
+    "formPresentation": null,
+    "componentDocument": null,
+    "theme": null,
+    "viewportWidth": null
+  },
+  "expected": {
+    "nodeCount": 2,
+    "nodes": [
+      {
+        "component": "TextInput",
+        "category": "field",
+        "bindPath": "name",
+        "fieldItem": {"key": "name", "label": "Full Name", "dataType": "string"}
+      },
+      {
+        "component": "NumberInput",
+        "category": "field",
+        "bindPath": "age",
+        "fieldItem": {"key": "age", "label": "Age", "dataType": "integer"}
+      }
+    ]
+  }
+}

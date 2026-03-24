@@ -11,7 +11,8 @@ pub use defaults::get_default_component;
 pub use responsive::resolve_responsive_props;
 pub use params::interpolate_params;
 pub use planner::{
-    plan_component_tree, plan_definition_fallback, reset_node_id_counter,
+    plan_component_tree, plan_definition_fallback, plan_theme_pages,
+    plan_unbound_required, reset_node_id_counter,
     classify_component, extract_props, resolve_style_tokens_map,
     build_field_item_snapshot, build_tier1_hints, find_item_recursive,
 };

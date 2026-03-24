@@ -6,7 +6,8 @@ use crate::defaults::get_default_component;
 use crate::params::interpolate_params;
 use crate::planner::{
     build_field_item_snapshot, build_tier1_hints, classify_component,
-    plan_component_tree, plan_definition_fallback, reset_node_id_counter,
+    plan_component_tree, plan_definition_fallback, plan_theme_pages,
+    plan_unbound_required, reset_node_id_counter,
 };
 use crate::responsive::resolve_responsive_props;
 use crate::types::*;
@@ -940,4 +941,1077 @@ fn responsive_multiple_props_merged() {
     let result = resolve_responsive_props(&comp, 800, None);
     assert_eq!(result.get("columns").unwrap().as_u64().unwrap(), 2);
     assert_eq!(result.get("gap").unwrap().as_u64().unwrap(), 8);
+}
+
+// ---------------------------------------------------------------------------
+// Helper: make a ThemeDocument with pages
+// ---------------------------------------------------------------------------
+
+use formspec_theme::{Page, Region, TargetDefinition, ThemeDocument};
+
+fn make_theme_with_pages(pages: Vec<Page>) -> ThemeDocument {
+    ThemeDocument {
+        formspec_theme: "1.0".to_string(),
+        version: "1.0.0".to_string(),
+        target_definition: TargetDefinition {
+            url: "test".to_string(),
+            compatible_versions: None,
+        },
+        url: None,
+        name: None,
+        title: None,
+        description: None,
+        platform: None,
+        tokens: None,
+        defaults: None,
+        selectors: None,
+        items: None,
+        pages: Some(pages),
+        breakpoints: None,
+        stylesheets: None,
+        extensions: None,
+        class_strategy: None,
+    }
+}
+
+fn make_ctx_with_theme(items: Vec<Value>, theme: ThemeDocument) -> PlanContext {
+    let items_clone = items.clone();
+    PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: Some(theme),
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// plan_theme_pages — SS6.1-6.3
+// ---------------------------------------------------------------------------
+
+#[test]
+fn theme_pages_single_page_two_regions() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "firstName", "dataType": "string", "label": "First Name"}),
+        json!({"key": "lastName", "dataType": "string", "label": "Last Name"}),
+    ];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "info".to_string(),
+        title: "Info".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "firstName".to_string(), span: Some(6), start: None, responsive: None },
+            Region { key: "lastName".to_string(), span: Some(6), start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // Should produce one Page node
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0].component, "Page");
+    assert_eq!(nodes[0].props.get("title").and_then(|v| v.as_str()), Some("Info"));
+    assert_eq!(nodes[0].props.get("pageId").and_then(|v| v.as_str()), Some("info"));
+
+    // Page should contain a Grid with two children (regions)
+    assert_eq!(nodes[0].children.len(), 1);
+    let grid = &nodes[0].children[0];
+    assert_eq!(grid.component, "Grid");
+    assert_eq!(grid.props.get("columns").and_then(|v| v.as_u64()), Some(12));
+
+    // Each region wraps its item
+    assert_eq!(grid.children.len(), 2);
+    assert_eq!(grid.children[0].component, "Column");
+    assert_eq!(grid.children[0].props.get("span").and_then(|v| v.as_u64()), Some(6));
+    assert_eq!(grid.children[0].children.len(), 1);
+    assert_eq!(grid.children[0].children[0].bind_path.as_deref(), Some("firstName"));
+
+    assert_eq!(grid.children[1].component, "Column");
+    assert_eq!(grid.children[1].props.get("span").and_then(|v| v.as_u64()), Some(6));
+    assert_eq!(grid.children[1].children.len(), 1);
+    assert_eq!(grid.children[1].children[0].bind_path.as_deref(), Some("lastName"));
+}
+
+#[test]
+fn theme_pages_region_default_span_is_12() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "email", "dataType": "string"})];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "email".to_string(), span: None, start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let grid = &nodes[0].children[0];
+    assert_eq!(grid.children[0].props.get("span").and_then(|v| v.as_u64()), Some(12));
+}
+
+#[test]
+fn theme_pages_region_with_start_position() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "sidebar", "dataType": "string"})];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "sidebar".to_string(), span: Some(3), start: Some(10), responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let col = &nodes[0].children[0].children[0];
+    assert_eq!(col.props.get("span").and_then(|v| v.as_u64()), Some(3));
+    assert_eq!(col.props.get("start").and_then(|v| v.as_u64()), Some(10));
+}
+
+#[test]
+fn theme_pages_group_key_includes_subtree() {
+    reset_node_id_counter();
+    let items = vec![json!({
+        "key": "address",
+        "type": "group",
+        "label": "Address",
+        "items": [
+            {"key": "street", "dataType": "string"},
+            {"key": "city", "dataType": "string"}
+        ]
+    })];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "address".to_string(), span: Some(12), start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // The group region should contain the full group node with its children
+    let col = &nodes[0].children[0].children[0];
+    assert_eq!(col.children.len(), 1);
+    let group_node = &col.children[0];
+    assert_eq!(group_node.component, "Stack");
+    assert_eq!(group_node.bind_path.as_deref(), Some("address"));
+    assert_eq!(group_node.children.len(), 2);
+}
+
+#[test]
+fn theme_pages_unknown_region_key_skipped_gracefully() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "name", "dataType": "string"})];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "nonexistent".to_string(), span: Some(6), start: None, responsive: None },
+            Region { key: "name".to_string(), span: Some(6), start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // Unknown region should be skipped, only the valid region produces output
+    let grid = &nodes[0].children[0];
+    assert_eq!(grid.children.len(), 1);
+    assert_eq!(grid.children[0].children[0].bind_path.as_deref(), Some("name"));
+}
+
+#[test]
+fn theme_pages_multiple_pages() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "name", "dataType": "string"}),
+        json!({"key": "email", "dataType": "string"}),
+        json!({"key": "age", "dataType": "integer"}),
+    ];
+    let theme = make_theme_with_pages(vec![
+        Page {
+            id: "basic".to_string(),
+            title: "Basic Info".to_string(),
+            description: Some("Enter your name and email.".to_string()),
+            regions: Some(vec![
+                Region { key: "name".to_string(), span: Some(6), start: None, responsive: None },
+                Region { key: "email".to_string(), span: Some(6), start: None, responsive: None },
+            ]),
+        },
+        Page {
+            id: "details".to_string(),
+            title: "Details".to_string(),
+            description: None,
+            regions: Some(vec![
+                Region { key: "age".to_string(), span: Some(12), start: None, responsive: None },
+            ]),
+        },
+    ]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes[0].props.get("title").and_then(|v| v.as_str()), Some("Basic Info"));
+    assert_eq!(nodes[0].props.get("description").and_then(|v| v.as_str()), Some("Enter your name and email."));
+    assert_eq!(nodes[0].children[0].children.len(), 2);
+
+    assert_eq!(nodes[1].props.get("title").and_then(|v| v.as_str()), Some("Details"));
+    assert_eq!(nodes[1].children[0].children.len(), 1);
+}
+
+// ---------------------------------------------------------------------------
+// Unassigned items after all pages — SS6.3
+// ---------------------------------------------------------------------------
+
+#[test]
+fn theme_pages_unassigned_items_appended_after_pages() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "name", "dataType": "string"}),
+        json!({"key": "email", "dataType": "string"}),
+        json!({"key": "notes", "dataType": "text"}),
+    ];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "name".to_string(), span: Some(12), start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // Page + unassigned items container
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes[0].component, "Page");
+
+    // The second node is a Stack containing the unassigned items in definition order
+    assert_eq!(nodes[1].component, "Stack");
+    assert_eq!(nodes[1].children.len(), 2);
+    assert_eq!(nodes[1].children[0].bind_path.as_deref(), Some("email"));
+    assert_eq!(nodes[1].children[1].bind_path.as_deref(), Some("notes"));
+}
+
+#[test]
+fn theme_pages_all_items_assigned_no_extra_node() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "name", "dataType": "string"}),
+        json!({"key": "email", "dataType": "string"}),
+    ];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "name".to_string(), span: Some(6), start: None, responsive: None },
+            Region { key: "email".to_string(), span: Some(6), start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // Only the page, no unassigned items node
+    assert_eq!(nodes.len(), 1);
+}
+
+#[test]
+fn theme_pages_nested_items_in_group_counted_as_assigned() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({
+            "key": "address",
+            "type": "group",
+            "items": [
+                {"key": "street", "dataType": "string"},
+                {"key": "city", "dataType": "string"}
+            ]
+        }),
+        json!({"key": "notes", "dataType": "text"}),
+    ];
+    // Only reference the group key — the nested items should count as assigned
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "address".to_string(), span: Some(12), start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // Page + unassigned "notes"
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes[1].children.len(), 1);
+    assert_eq!(nodes[1].children[0].bind_path.as_deref(), Some("notes"));
+}
+
+// ---------------------------------------------------------------------------
+// Responsive region overrides — SS6.4
+// ---------------------------------------------------------------------------
+
+#[test]
+fn theme_pages_responsive_region_span_override() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "sidebar", "dataType": "string"})];
+
+    let mut responsive = Map::new();
+    responsive.insert("md".to_string(), json!({"span": 4}));
+    responsive.insert("lg".to_string(), json!({"span": 3}));
+
+    let mut breakpoints = Map::new();
+    breakpoints.insert("md".to_string(), json!(768));
+    breakpoints.insert("lg".to_string(), json!(1024));
+
+    let mut theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![Region {
+            key: "sidebar".to_string(),
+            span: Some(12),
+            start: None,
+            responsive: Some(responsive),
+        }]),
+    }]);
+    theme.breakpoints = Some(breakpoints);
+
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: Some(theme),
+        viewport_width: Some(900),
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // At viewport 900: md (768) applies, lg (1024) doesn't
+    let col = &nodes[0].children[0].children[0];
+    assert_eq!(col.props.get("span").and_then(|v| v.as_u64()), Some(4));
+}
+
+#[test]
+fn theme_pages_responsive_region_hidden() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "sidebar", "dataType": "string"}),
+        json!({"key": "main", "dataType": "string"}),
+    ];
+
+    let mut responsive = Map::new();
+    responsive.insert("sm".to_string(), json!({"hidden": true}));
+
+    let mut breakpoints = Map::new();
+    breakpoints.insert("sm".to_string(), json!(576));
+
+    let mut theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region {
+                key: "sidebar".to_string(),
+                span: Some(3),
+                start: None,
+                responsive: Some(responsive),
+            },
+            Region { key: "main".to_string(), span: Some(9), start: None, responsive: None },
+        ]),
+    }]);
+    theme.breakpoints = Some(breakpoints);
+
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: Some(theme),
+        viewport_width: Some(700),
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // At viewport 700: sm (576) applies, sidebar should be hidden
+    let grid = &nodes[0].children[0];
+    assert_eq!(grid.children.len(), 1);
+    assert_eq!(grid.children[0].children[0].bind_path.as_deref(), Some("main"));
+}
+
+// ---------------------------------------------------------------------------
+// plan_unbound_required — Component SS4.5
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unbound_required_items_appended_after_tree() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "name", "dataType": "string", "bind": {"required": "true()"}}),
+        json!({"key": "email", "dataType": "string", "bind": {"required": "true()"}}),
+        json!({"key": "age", "dataType": "integer"}),
+    ];
+    // Component tree only binds "name"
+    let tree = json!({
+        "component": "Stack",
+        "children": [{"component": "TextInput", "bind": "name"}]
+    });
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let tree_node = plan_component_tree(&tree, &ctx);
+    let unbound = plan_unbound_required(&tree_node, &items, &ctx);
+
+    // "email" is required and unbound — should be in fallback
+    // "age" is not required — should NOT be in fallback
+    assert_eq!(unbound.len(), 1);
+    assert_eq!(unbound[0].bind_path.as_deref(), Some("email"));
+}
+
+#[test]
+fn unbound_required_all_bound_returns_empty() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "name", "dataType": "string", "bind": {"required": "true()"}}),
+    ];
+    let tree = json!({
+        "component": "Stack",
+        "children": [{"component": "TextInput", "bind": "name"}]
+    });
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let tree_node = plan_component_tree(&tree, &ctx);
+    let unbound = plan_unbound_required(&tree_node, &items, &ctx);
+
+    assert!(unbound.is_empty());
+}
+
+#[test]
+fn unbound_required_in_definition_order() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "c", "dataType": "string", "bind": {"required": "true()"}}),
+        json!({"key": "a", "dataType": "string", "bind": {"required": "true()"}}),
+        json!({"key": "b", "dataType": "string", "bind": {"required": "true()"}}),
+    ];
+    let tree = json!({"component": "Stack", "children": []});
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let tree_node = plan_component_tree(&tree, &ctx);
+    let unbound = plan_unbound_required(&tree_node, &items, &ctx);
+
+    // Should be in definition order: c, a, b
+    assert_eq!(unbound.len(), 3);
+    assert_eq!(unbound[0].bind_path.as_deref(), Some("c"));
+    assert_eq!(unbound[1].bind_path.as_deref(), Some("a"));
+    assert_eq!(unbound[2].bind_path.as_deref(), Some("b"));
+}
+
+#[test]
+fn theme_pages_page_with_no_regions_produces_empty_page() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "name", "dataType": "string"})];
+    let theme = make_theme_with_pages(vec![Page {
+        id: "empty".to_string(),
+        title: "Empty Page".to_string(),
+        description: None,
+        regions: None,
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // Page node still appears, grid has no children
+    // Plus unassigned items
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes[0].component, "Page");
+    assert_eq!(nodes[0].children[0].children.len(), 0);
+
+    // "name" is unassigned
+    assert_eq!(nodes[1].children.len(), 1);
+    assert_eq!(nodes[1].children[0].bind_path.as_deref(), Some("name"));
+}
+
+#[test]
+fn theme_pages_no_pages_falls_back_to_definition() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "name", "dataType": "string"}),
+    ];
+    // Theme with no pages array
+    let mut theme = make_theme_with_pages(vec![]);
+    theme.pages = None;
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    // Falls back to plan_definition_fallback
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0].component, "TextInput");
+    assert_eq!(nodes[0].bind_path.as_deref(), Some("name"));
+}
+
+#[test]
+fn theme_pages_empty_pages_array_falls_back() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "x", "dataType": "string"})];
+    let theme = make_theme_with_pages(vec![]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0].component, "TextInput");
+}
+
+#[test]
+fn theme_pages_responsive_cumulative_ascending() {
+    // When multiple breakpoints match, later (higher) ones override earlier ones
+    reset_node_id_counter();
+    let items = vec![json!({"key": "field", "dataType": "string"})];
+
+    let mut responsive = Map::new();
+    responsive.insert("sm".to_string(), json!({"span": 6}));
+    responsive.insert("md".to_string(), json!({"span": 4}));
+    responsive.insert("lg".to_string(), json!({"span": 3}));
+
+    let mut breakpoints = Map::new();
+    breakpoints.insert("sm".to_string(), json!(576));
+    breakpoints.insert("md".to_string(), json!(768));
+    breakpoints.insert("lg".to_string(), json!(1024));
+
+    let mut theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![Region {
+            key: "field".to_string(),
+            span: Some(12),
+            start: None,
+            responsive: Some(responsive),
+        }]),
+    }]);
+    theme.breakpoints = Some(breakpoints);
+
+    // At viewport 1200: all three apply, lg (span=3) is the final winner
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: Some(theme),
+        viewport_width: Some(1200),
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let col = &nodes[0].children[0].children[0];
+    assert_eq!(col.props.get("span").and_then(|v| v.as_u64()), Some(3));
+}
+
+#[test]
+fn theme_pages_responsive_hidden_then_shown_at_higher_breakpoint() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "sidebar", "dataType": "string"})];
+
+    let mut responsive = Map::new();
+    responsive.insert("sm".to_string(), json!({"hidden": true}));
+    responsive.insert("lg".to_string(), json!({"hidden": false, "span": 3}));
+
+    let mut breakpoints = Map::new();
+    breakpoints.insert("sm".to_string(), json!(576));
+    breakpoints.insert("lg".to_string(), json!(1024));
+
+    let mut theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![Region {
+            key: "sidebar".to_string(),
+            span: Some(4),
+            start: None,
+            responsive: Some(responsive),
+        }]),
+    }]);
+    theme.breakpoints = Some(breakpoints);
+
+    // At viewport 1200: sm hides, then lg un-hides with span=3
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: Some(theme),
+        viewport_width: Some(1200),
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let grid = &nodes[0].children[0];
+    assert_eq!(grid.children.len(), 1); // sidebar is visible
+    assert_eq!(grid.children[0].props.get("span").and_then(|v| v.as_u64()), Some(3));
+}
+
+#[test]
+fn theme_pages_no_viewport_uses_base_values() {
+    reset_node_id_counter();
+    let items = vec![json!({"key": "field", "dataType": "string"})];
+
+    let mut responsive = Map::new();
+    responsive.insert("sm".to_string(), json!({"span": 6}));
+
+    let mut breakpoints = Map::new();
+    breakpoints.insert("sm".to_string(), json!(576));
+
+    let mut theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![Region {
+            key: "field".to_string(),
+            span: Some(8),
+            start: Some(3),
+            responsive: Some(responsive),
+        }]),
+    }]);
+    theme.breakpoints = Some(breakpoints);
+
+    // No viewport width → base values should be used
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let col = &nodes[0].children[0].children[0];
+    assert_eq!(col.props.get("span").and_then(|v| v.as_u64()), Some(8));
+    assert_eq!(col.props.get("start").and_then(|v| v.as_u64()), Some(3));
+}
+
+#[test]
+fn theme_pages_nested_item_referenced_directly() {
+    // A region can reference a nested item key — it renders standalone at grid position
+    reset_node_id_counter();
+    let items = vec![json!({
+        "key": "address",
+        "type": "group",
+        "items": [
+            {"key": "street", "dataType": "string", "label": "Street"},
+            {"key": "city", "dataType": "string", "label": "City"}
+        ]
+    })];
+
+    let theme = make_theme_with_pages(vec![Page {
+        id: "p1".to_string(),
+        title: "Page 1".to_string(),
+        description: None,
+        regions: Some(vec![
+            Region { key: "street".to_string(), span: Some(8), start: None, responsive: None },
+            Region { key: "city".to_string(), span: Some(4), start: None, responsive: None },
+        ]),
+    }]);
+    let ctx = make_ctx_with_theme(items.clone(), theme);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let grid = &nodes[0].children[0];
+    assert_eq!(grid.children.len(), 2);
+    // street and city are rendered standalone, not inside a group
+    assert_eq!(grid.children[0].children[0].bind_path.as_deref(), Some("street"));
+    assert_eq!(grid.children[1].children[0].bind_path.as_deref(), Some("city"));
+
+    // The "address" group itself is unassigned (only its children were referenced)
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes[1].children[0].bind_path.as_deref(), Some("address"));
+}
+
+#[test]
+fn unbound_required_nested_items_detected() {
+    reset_node_id_counter();
+    let items = vec![json!({
+        "key": "contact",
+        "type": "group",
+        "items": [
+            {"key": "phone", "dataType": "string", "bind": {"required": "true()"}},
+            {"key": "fax", "dataType": "string"}
+        ]
+    })];
+    let tree = json!({"component": "Stack", "children": []});
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let tree_node = plan_component_tree(&tree, &ctx);
+    let unbound = plan_unbound_required(&tree_node, &items, &ctx);
+
+    // phone is required+unbound, fax is not required
+    assert_eq!(unbound.len(), 1);
+    assert_eq!(unbound[0].bind_path.as_deref(), Some("phone"));
+}
+
+#[test]
+fn unbound_required_deeply_nested_in_tree_still_detected_as_bound() {
+    reset_node_id_counter();
+    let items = vec![
+        json!({"key": "name", "dataType": "string", "bind": {"required": "true()"}}),
+    ];
+    // name is bound deep in the tree
+    let tree = json!({
+        "component": "Stack",
+        "children": [{
+            "component": "Card",
+            "children": [{
+                "component": "TextInput",
+                "bind": "name"
+            }]
+        }]
+    });
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let tree_node = plan_component_tree(&tree, &ctx);
+    let unbound = plan_unbound_required(&tree_node, &items, &ctx);
+
+    assert!(unbound.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Cross-planner conformance fixtures
+// ---------------------------------------------------------------------------
+
+/// Validate a planned node against an expected fixture node.
+/// Checks component, category, bindPath, childCount, props, fieldItem, and recurses on children.
+fn assert_node_matches(actual: &LayoutNode, expected: &Value, path: &str) {
+    if let Some(comp) = expected.get("component").and_then(|v| v.as_str()) {
+        assert_eq!(
+            actual.component, comp,
+            "{}: component mismatch: got '{}', expected '{}'",
+            path, actual.component, comp
+        );
+    }
+    if let Some(cat) = expected.get("category").and_then(|v| v.as_str()) {
+        let actual_cat = serde_json::to_value(&actual.category).unwrap();
+        assert_eq!(
+            actual_cat.as_str().unwrap(),
+            cat,
+            "{}: category mismatch",
+            path
+        );
+    }
+    if let Some(bp) = expected.get("bindPath").and_then(|v| v.as_str()) {
+        assert_eq!(
+            actual.bind_path.as_deref(),
+            Some(bp),
+            "{}: bindPath mismatch",
+            path
+        );
+    }
+    if let Some(cc) = expected.get("childCount").and_then(|v| v.as_u64()) {
+        assert_eq!(
+            actual.children.len() as u64,
+            cc,
+            "{}: childCount mismatch (got {}, expected {})",
+            path,
+            actual.children.len(),
+            cc
+        );
+    }
+    if let Some(props) = expected.get("props").and_then(|v| v.as_object()) {
+        for (k, v) in props {
+            let actual_val = actual.props.get(k);
+            assert_eq!(
+                actual_val,
+                Some(v),
+                "{}: props.{} mismatch (got {:?}, expected {:?})",
+                path,
+                k,
+                actual_val,
+                v
+            );
+        }
+    }
+    if let Some(fi_expected) = expected.get("fieldItem").and_then(|v| v.as_object()) {
+        let fi = actual
+            .field_item
+            .as_ref()
+            .unwrap_or_else(|| panic!("{}: expected fieldItem", path));
+        if let Some(key) = fi_expected.get("key").and_then(|v| v.as_str()) {
+            assert_eq!(fi.key, key, "{}: fieldItem.key mismatch", path);
+        }
+        if let Some(label) = fi_expected.get("label").and_then(|v| v.as_str()) {
+            assert_eq!(
+                fi.label.as_deref(),
+                Some(label),
+                "{}: fieldItem.label mismatch",
+                path
+            );
+        }
+        if let Some(dt) = fi_expected.get("dataType").and_then(|v| v.as_str()) {
+            assert_eq!(
+                fi.data_type.as_deref(),
+                Some(dt),
+                "{}: fieldItem.dataType mismatch",
+                path
+            );
+        }
+    }
+    if let Some(children) = expected.get("children").and_then(|v| v.as_array()) {
+        for (i, child_expected) in children.iter().enumerate() {
+            assert!(
+                i < actual.children.len(),
+                "{}: expected child {} but only {} children",
+                path,
+                i,
+                actual.children.len()
+            );
+            assert_node_matches(
+                &actual.children[i],
+                child_expected,
+                &format!("{}.children[{}]", path, i),
+            );
+        }
+    }
+}
+
+fn load_fixture(name: &str) -> Value {
+    let path = format!(
+        "{}/tests/conformance/layout/{}",
+        env!("CARGO_MANIFEST_DIR").replace("/crates/formspec-plan", ""),
+        name
+    );
+    let content = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("Failed to read fixture {}: {}", path, e));
+    serde_json::from_str(&content).unwrap_or_else(|e| panic!("Failed to parse {}: {}", path, e))
+}
+
+fn ctx_from_fixture(fixture: &Value) -> (Vec<Value>, PlanContext) {
+    let input = &fixture["input"];
+    let items: Vec<Value> = input["items"].as_array().cloned().unwrap_or_default();
+
+    let form_presentation = if input["formPresentation"].is_null() {
+        None
+    } else {
+        Some(input["formPresentation"].clone())
+    };
+
+    let component_document = if input["componentDocument"].is_null() {
+        None
+    } else {
+        Some(input["componentDocument"].clone())
+    };
+
+    let theme: Option<formspec_theme::ThemeDocument> = if input["theme"].is_null() {
+        None
+    } else {
+        serde_json::from_value(input["theme"].clone()).ok()
+    };
+
+    let viewport_width = input["viewportWidth"].as_u64().map(|v| v as u32);
+
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation,
+        component_document,
+        theme,
+        viewport_width,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+
+    (items, ctx)
+}
+
+#[test]
+fn conformance_definition_fallback_basic() {
+    reset_node_id_counter();
+    let fixture = load_fixture("definition-fallback-basic.json");
+    let (items, ctx) = ctx_from_fixture(&fixture);
+    let nodes = plan_definition_fallback(&items, &ctx);
+
+    let expected = &fixture["expected"];
+    assert_eq!(nodes.len(), expected["nodeCount"].as_u64().unwrap() as usize);
+
+    for (i, exp) in expected["nodes"].as_array().unwrap().iter().enumerate() {
+        assert_node_matches(&nodes[i], exp, &format!("nodes[{}]", i));
+    }
+}
+
+#[test]
+fn conformance_definition_fallback_wizard() {
+    reset_node_id_counter();
+    let fixture = load_fixture("definition-fallback-wizard.json");
+    let (items, ctx) = ctx_from_fixture(&fixture);
+    let nodes = plan_definition_fallback(&items, &ctx);
+
+    let expected = &fixture["expected"];
+    assert_eq!(nodes.len(), expected["nodeCount"].as_u64().unwrap() as usize);
+
+    for (i, exp) in expected["nodes"].as_array().unwrap().iter().enumerate() {
+        assert_node_matches(&nodes[i], exp, &format!("nodes[{}]", i));
+    }
+}
+
+#[test]
+fn conformance_theme_pages_two_column() {
+    reset_node_id_counter();
+    let fixture = load_fixture("theme-pages-two-column.json");
+    let (items, ctx) = ctx_from_fixture(&fixture);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let expected = &fixture["expected"];
+    assert_eq!(nodes.len(), expected["nodeCount"].as_u64().unwrap() as usize);
+
+    for (i, exp) in expected["nodes"].as_array().unwrap().iter().enumerate() {
+        assert_node_matches(&nodes[i], exp, &format!("nodes[{}]", i));
+    }
+}
+
+#[test]
+fn conformance_theme_pages_unassigned() {
+    reset_node_id_counter();
+    let fixture = load_fixture("theme-pages-unassigned.json");
+    let (items, ctx) = ctx_from_fixture(&fixture);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let expected = &fixture["expected"];
+    assert_eq!(nodes.len(), expected["nodeCount"].as_u64().unwrap() as usize);
+
+    for (i, exp) in expected["nodes"].as_array().unwrap().iter().enumerate() {
+        assert_node_matches(&nodes[i], exp, &format!("nodes[{}]", i));
+    }
+}
+
+#[test]
+fn conformance_theme_pages_responsive_hidden() {
+    reset_node_id_counter();
+    let fixture = load_fixture("theme-pages-responsive-hidden.json");
+    let (items, ctx) = ctx_from_fixture(&fixture);
+    let nodes = plan_theme_pages(&items, &ctx);
+
+    let expected = &fixture["expected"];
+    assert_eq!(nodes.len(), expected["nodeCount"].as_u64().unwrap() as usize);
+
+    for (i, exp) in expected["nodes"].as_array().unwrap().iter().enumerate() {
+        assert_node_matches(&nodes[i], exp, &format!("nodes[{}]", i));
+    }
+}
+
+#[test]
+fn conformance_component_tree_basic() {
+    reset_node_id_counter();
+    let fixture = load_fixture("component-tree-basic.json");
+    let input = &fixture["input"];
+    let items: Vec<Value> = input["items"].as_array().cloned().unwrap_or_default();
+    let tree = &input["componentDocument"]["tree"];
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let node = plan_component_tree(tree, &ctx);
+
+    let expected = &fixture["expected"]["root"];
+    assert_node_matches(&node, expected, "root");
+}
+
+#[test]
+fn conformance_unbound_required() {
+    reset_node_id_counter();
+    let fixture = load_fixture("unbound-required-items.json");
+    let input = &fixture["input"];
+    let items: Vec<Value> = input["items"].as_array().cloned().unwrap_or_default();
+    let tree_val = &input["componentDocument"]["tree"];
+    let items_clone = items.clone();
+    let ctx = PlanContext {
+        items: items.clone(),
+        form_presentation: None,
+        component_document: None,
+        theme: None,
+        viewport_width: None,
+        find_item: Box::new(move |key: &str| {
+            crate::planner::find_item_recursive(&items_clone, key)
+        }),
+        is_component_available: None,
+    };
+    let tree_node = plan_component_tree(tree_val, &ctx);
+    let unbound = plan_unbound_required(&tree_node, &items, &ctx);
+
+    let expected = fixture["expected"]["unboundRequired"].as_array().unwrap();
+    assert_eq!(unbound.len(), expected.len());
+    for (i, exp) in expected.iter().enumerate() {
+        assert_node_matches(&unbound[i], exp, &format!("unboundRequired[{}]", i));
+    }
 }

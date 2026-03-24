@@ -1,0 +1,57 @@
+{
+  "id": "layout.theme_pages_unassigned",
+  "kind": "LAYOUT_PLAN",
+  "description": "Items not assigned to any page region are appended after all pages (SS6.3)",
+  "input": {
+    "items": [
+      {"key": "name", "dataType": "string", "label": "Name"},
+      {"key": "email", "dataType": "string", "label": "Email"},
+      {"key": "notes", "dataType": "text", "label": "Notes"}
+    ],
+    "formPresentation": null,
+    "componentDocument": null,
+    "theme": {
+      "$formspecTheme": "1.0",
+      "version": "1.0.0",
+      "targetDefinition": {"url": "test"},
+      "pages": [
+        {
+          "id": "main",
+          "title": "Main",
+          "regions": [
+            {"key": "name", "span": 12}
+          ]
+        }
+      ]
+    },
+    "viewportWidth": null
+  },
+  "expected": {
+    "nodeCount": 2,
+    "nodes": [
+      {
+        "component": "Page",
+        "props": {"pageId": "main", "title": "Main"},
+        "children": [
+          {
+            "component": "Grid",
+            "children": [
+              {
+                "component": "Column",
+                "children": [{"bindPath": "name"}]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Stack",
+        "childCount": 2,
+        "children": [
+          {"bindPath": "email"},
+          {"bindPath": "notes"}
+        ]
+      }
+    ]
+  }
+}

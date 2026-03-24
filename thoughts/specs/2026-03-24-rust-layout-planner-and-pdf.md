@@ -1,9 +1,150 @@
 # Rust Layout Planner + PDF Renderer
 
 **Date:** 2026-03-24
-**Status:** Design
+**Status:** In Progress
 **Depends on:** ADR 0050 (WASM runtime/tools split), ADR 0051 (PDF AcroForm generation)
 **Supersedes:** ADR 0051 Section 7 (library choice — shifts from `@cantoo/pdf-lib` to Rust-native pdf-writer + subsetter)
+**Branch:** `claude/rust-layout-planner-pdf-c2BTe`
+**Last updated:** 2026-03-24
+
+## Implementation Status
+
+All three crates compile, 1,528 workspace tests pass (including 197 new tests across the three crates). CI green.
+
+### Phase 1: `formspec-theme` — COMPLETE
+
+- [x] Types with serde serialization (`#[serde(rename_all = "camelCase")]`)
+- [x] 6-level cascade resolver (`resolve_presentation`)
+- [x] Replace-as-whole for nested objects (widgetConfig, style, accessibility) per SS5.5
+- [x] Token resolution — 3-tier cascade (component > theme > renderer), recursive detection
+- [x] Widget fallback chain (`resolve_widget` with `isAvailable` predicate)
+- [x] Widget vocabulary — token → component mapping, compatibility matrix
+- [x] `cssClass` union semantics + `cssClassReplace` + tailwind-merge (prefix dedup)
+- [x] `"none"` sentinel — suppresses inherited `widget` and `labelPosition` (SS5.6)
+- [x] `LabelPosition::LabelNone` variant with serde roundtrip
+- [x] 50 unit tests
+
+### Phase 2: `formspec-plan` — COMPLETE
+
+- [x] LayoutNode / EvaluatedNode types with serde serialization
+- [x] `plan_definition_fallback` — items → LayoutNode trees
+- [x] `plan_component_tree` — component document tree → LayoutNode tree
+- [x] Custom component expansion + cycle detection + depth limits (max 3 nesting, max 20 total)
+- [x] Responsive resolution — cumulative ascending merge (SS9.3)
+- [x] Responsive structural constraints — SS9.4 forbidden keys silently dropped
+- [x] Page mode wrapping (wizard/tabs)
+- [x] Parameter interpolation (`{param}` references)
+- [x] Default component mapping (all data types including `money` → `MoneyInput`)
+- [x] `evaluate_and_merge()` behind `eval-merge` feature flag
+- [x] `find_item_recursive()` for nested item lookup
+- [x] Cascade-resolved widget correctly applied to component_type
+- [x] `PlanContextJson` → `PlanContext` conversion for WASM boundary
+- [x] **Theme page layout** — `plan_theme_pages()`: 12-column grid, regions, group subtree inclusion (SS6.1–6.3)
+- [x] **Unassigned items** rendered after all pages in definition order (SS6.3)
+- [x] **Responsive region overrides** — cumulative ascending span, start, hidden (SS6.4)
+- [x] **Unbound required items fallback** — `plan_unbound_required()` (Component SS4.5)
+- [x] **Cross-planner conformance fixtures** — 7 fixtures in `tests/conformance/layout/`
+- [x] WASM exports: `planThemePages`, `planUnboundRequired`
+- [x] PDF renderer uses `plan_theme_pages` when theme has pages
+- [x] 90 unit + conformance tests
+
+### Phase 3: WASM Bridge + TS Migration — WASM DONE, TS MIGRATION NOT STARTED
+
+- [x] `theme-api` and `plan-api` feature flags in `formspec-wasm`
+- [x] `pdf-api` feature flag (compiles, currently excluded from `full-wasm` pending TS bridge)
+- [x] WASM exports: `resolvePresentation`, `resolveToken` (`theme.rs`)
+- [x] WASM exports: `planComponentTree`, `planDefinitionFallback`, `resetNodeIdCounter` (`plan.rs`)
+- [x] WASM exports: `renderPDF`, `generateXFDF`, `parseXFDF` (`pdf.rs`)
+- [x] Component tree routing in PDF WASM — uses `plan_component_tree` when component doc present
+- [ ] **`wasm-bridge-layout.ts`** in formspec-engine
+- [ ] **Migrate `formspec-layout`** to WASM bridge (delete TS planner/theme-resolver/tokens/responsive/defaults/params)
+- [ ] **Cross-planner conformance run** — Rust generates expected output, TS runs same fixtures
+- [ ] **E2E regression testing** — Playwright tests catch rendering changes from spec-correct behavior
+
+### Phase 4: `formspec-pdf` — FOUNDATION DONE, GAPS REMAIN
+
+#### Phase 4a: Font Metrics + Pagination — COMPLETE
+
+- [x] Standard 14 AFM-derived glyph widths (Helvetica, Helvetica-Bold as `[u16; 95]`)
+- [x] `text_width()`, `wrap_text()`, `text_height()` in `fonts.rs`
+- [x] `measure_node()` for Field, Layout, Display categories
+- [x] `PdfConfig` with US Letter defaults (72pt margins, standard font sizes)
+- [x] Greedy page break algorithm with keep constraints
+- [x] 57 tests (fonts, measurement, pagination)
+
+#### Phase 4b: Appearance Streams + AcroForm — MOSTLY COMPLETE
+
+- [x] Text field appearances (single-line + multiline word-wrap)
+- [x] Checkbox on/off — path-drawn checkmark, empty box
+- [x] Radio on/off — Bezier circle approximation (built, not yet wired to AcroForm dispatch)
+- [x] Select/combo `/Ch` fields with `/Opt` arrays
+- [x] Non-string value display (`value_to_display_string` for numbers, booleans)
+- [x] AcroForm catalog entry (`/AcroForm` dict with `/Fields`, `/DA`, `/DR`)
+- [x] Default Appearance strings per field type
+- [ ] **RadioGroup as `/Btn` radio** — currently dispatched as `/Ch` list (design choice for print, not PDF-native)
+- [ ] **Hierarchical field naming** for repeat groups (dotted partial names, `/Parent` chain)
+- [ ] **Signature field placeholders** (`/Sig` type, unsigned)
+- [ ] **FileUpload static placeholder** ("File upload not available in PDF")
+
+#### Phase 4c: Tagged PDF / PDF/UA — SCAFFOLDED, NOT IMPLEMENTED
+
+- [x] `TaggingContext` struct with MCID allocation, StructParent keys, page maps
+- [x] All bookkeeping methods implemented (behind `#[allow(dead_code)]`)
+- [x] `/MarkInfo /Marked true` and `/Lang` on catalog
+- [ ] **StructTreeRoot** → Document → Sect → P / Form hierarchy
+- [ ] **OBJR children** for widget annotations
+- [ ] **MCR children** for labeled text content
+- [ ] **ParentTree** (NumberTree) with page arrays + annotation entries
+- [ ] **Artifact marking** with ArtifactType/Subtype for headers/footers
+- [ ] **Matterhorn Protocol** checkpoints (28-005, 28-008, 28-009, 28-010)
+- [ ] **`/Tabs /S`** on all pages with widgets
+- [ ] **`/TU` tooltip** on every field annotation
+
+#### Phase 4d: Content Rendering — MOSTLY COMPLETE
+
+- [x] 12-column grid → point coordinate mapping
+- [x] PDF coordinate translation (top-down → bottom-left origin)
+- [x] Page content streams — text labels, group headers, display content
+- [x] Header/footer rendering (artifact-marked)
+- [x] Multi-column child layout with row packing
+- [ ] **Section backgrounds** / decorative elements
+- [ ] **Divider rendering** (Divider component → horizontal rule)
+
+#### Phase 4e: Round-trip + Integration — PARTIALLY COMPLETE
+
+- [x] XFDF generation (`generate_xfdf`) and parsing (`parse_xfdf`)
+- [x] XFDF special character escaping + round-trip tested
+- [x] WASM exposure (`pdf-api` feature flag)
+- [ ] **Response assembly** — unflatten dotted paths, handle repeat indices, type coercion
+- [ ] **Custom fonts** via `subsetter` (dependency removed until needed; `skrifa` for metrics)
+- [ ] **PyO3 bindings** in `formspec-py` (`render_pdf`, `generate_xfdf`, `parse_xfdf`)
+
+### Not Started
+
+- [ ] **Phase 3 TS migration** — highest integration risk, requires conformance fixtures first
+- [ ] **Cross-planner conformance fixtures** — JSON fixture files in `tests/conformance/layout/`
+- [ ] **PyO3 bindings** for theme/plan/pdf modules
+- [ ] **`subsetter`/`flate2` integration** — font subsetting + stream compression (deps removed for now)
+
+### Known Issues Resolved
+
+| Issue | Resolution | Commit |
+|-------|-----------|--------|
+| pdf-writer 0.14 `Content::finish()` returns `Buf` not `Vec<u8>` | Use `.finish().into_vec()` | `cfbf2b8` |
+| `Obj::name()`/`text_str()` don't exist | Use `Obj::primitive(Name(...))` / `primitive(TextStr(...))` | `cfbf2b8` |
+| Missing `/AcroForm` catalog entry | Added AcroForm dict with `/Fields`, `/DA`, `/DR` | `93291a4` |
+| Cascade-resolved widget silently discarded | Fixed `let _ = &resolved_component` → actual assignment | `93291a4` |
+| Flat item lookup in WASM — nested items invisible | Added `find_item_recursive()` | `93291a4` |
+| Non-string values → empty PDF fields | Added `value_to_display_string()` | `93291a4` |
+| `money` → `NumberInput` (wrong) | Changed to `MoneyInput` | `93291a4` |
+| Nested object shallow-merge violated spec SS5.5 | Changed to replace-as-whole | `b3aa015` |
+| Non-string option values dropped in `/Opt` arrays | Use `value_to_display_string()` | `b3aa015` |
+
+### Biggest Remaining Items by Value
+
+1. **Tagged PDF/PDF/UA** (Phase 4c) — accessibility compliance
+2. **TS migration** (Phase 3) — makes Rust the actual planner used by the web renderer
+3. **Hierarchical field naming** (Phase 4b) — repeat groups produce flat field names today
 
 ## Overview
 

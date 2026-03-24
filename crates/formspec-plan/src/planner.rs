@@ -826,6 +826,329 @@ fn plan_display_item(item: &Value, key: &str, _ctx: &PlanContext) -> LayoutNode 
     }
 }
 
+// ---------------------------------------------------------------------------
+// Theme page layout planning — SS6.1–6.4
+// ---------------------------------------------------------------------------
+
+/// Plan layout using the theme's pages array (SS6.1–6.3).
+/// Each page becomes a Page node containing a 12-column Grid with Column children for regions.
+/// Items not assigned to any region are appended after all pages (SS6.3).
+pub fn plan_theme_pages(items: &[Value], ctx: &PlanContext) -> Vec<LayoutNode> {
+    let pages = match ctx.theme.as_ref().and_then(|t| t.pages.as_ref()) {
+        Some(p) => p,
+        None => return plan_definition_fallback(items, ctx),
+    };
+    if pages.is_empty() {
+        return plan_definition_fallback(items, ctx);
+    }
+
+    let breakpoints = ctx.theme.as_ref().and_then(|t| t.breakpoints.as_ref());
+
+    // Track which item keys are assigned to a region
+    let mut assigned_keys: HashSet<String> = HashSet::new();
+
+    let mut page_nodes: Vec<LayoutNode> = Vec::new();
+
+    for page in pages {
+        let regions = page.regions.as_deref().unwrap_or(&[]);
+        let mut column_nodes: Vec<LayoutNode> = Vec::new();
+
+        for region in regions {
+            // Resolve responsive overrides for this region
+            let (span, start, hidden) =
+                resolve_region_responsive(region, ctx.viewport_width, breakpoints);
+
+            if hidden {
+                // Still track as assigned so it doesn't appear in unassigned list
+                assigned_keys.insert(region.key.clone());
+                collect_group_keys(&region.key, items, &mut assigned_keys);
+                continue;
+            }
+
+            // Find the item for this region's key
+            let item = find_item_recursive(items, &region.key);
+            if item.is_none() {
+                // Unknown key — skip gracefully (SS6.3: SHOULD warn, MUST NOT fail)
+                continue;
+            }
+            let item = item.unwrap();
+
+            // Mark this key (and child keys for groups) as assigned
+            assigned_keys.insert(region.key.clone());
+            collect_group_keys(&region.key, items, &mut assigned_keys);
+
+            // Plan the item as a LayoutNode
+            let item_node = plan_single_item(&item, ctx);
+
+            // Wrap in a Column node with grid positioning
+            let mut col_props = Map::new();
+            col_props.insert("span".to_string(), json!(span));
+            if let Some(s) = start {
+                col_props.insert("start".to_string(), json!(s));
+            }
+
+            let col_node = LayoutNode {
+                id: next_id("col"),
+                component: "Column".to_string(),
+                category: NodeCategory::Layout,
+                props: col_props,
+                style: None,
+                css_classes: Vec::new(),
+                accessibility: None,
+                children: vec![item_node],
+                bind_path: None,
+                field_item: None,
+                presentation: None,
+                label_position: None,
+                when: None,
+                when_prefix: None,
+                fallback: None,
+                repeat_group: None,
+                repeat_path: None,
+                is_repeat_template: None,
+                scope_change: None,
+            };
+            column_nodes.push(col_node);
+        }
+
+        // Wrap columns in a 12-column Grid
+        let mut grid_props = Map::new();
+        grid_props.insert("columns".to_string(), json!(12));
+
+        let grid_node = LayoutNode {
+            id: next_id("grid"),
+            component: "Grid".to_string(),
+            category: NodeCategory::Layout,
+            props: grid_props,
+            style: None,
+            css_classes: Vec::new(),
+            accessibility: None,
+            children: column_nodes,
+            bind_path: None,
+            field_item: None,
+            presentation: None,
+            label_position: None,
+            when: None,
+            when_prefix: None,
+            fallback: None,
+            repeat_group: None,
+            repeat_path: None,
+            is_repeat_template: None,
+            scope_change: None,
+        };
+
+        // Build the Page node
+        let mut page_props = Map::new();
+        page_props.insert("pageId".to_string(), json!(page.id));
+        page_props.insert("title".to_string(), json!(page.title));
+        if let Some(ref desc) = page.description {
+            page_props.insert("description".to_string(), json!(desc));
+        }
+
+        let page_node = LayoutNode {
+            id: next_id("page"),
+            component: "Page".to_string(),
+            category: NodeCategory::Layout,
+            props: page_props,
+            style: None,
+            css_classes: Vec::new(),
+            accessibility: None,
+            children: vec![grid_node],
+            bind_path: None,
+            field_item: None,
+            presentation: None,
+            label_position: None,
+            when: None,
+            when_prefix: None,
+            fallback: None,
+            repeat_group: None,
+            repeat_path: None,
+            is_repeat_template: None,
+            scope_change: None,
+        };
+        page_nodes.push(page_node);
+    }
+
+    // Collect unassigned items in definition order (SS6.3)
+    let unassigned = collect_unassigned_items(items, &assigned_keys);
+    if !unassigned.is_empty() {
+        let unassigned_nodes: Vec<LayoutNode> = unassigned
+            .iter()
+            .map(|item| plan_single_item(item, ctx))
+            .collect();
+        let container = LayoutNode {
+            id: next_id("unassigned"),
+            component: "Stack".to_string(),
+            category: NodeCategory::Layout,
+            props: Map::new(),
+            style: None,
+            css_classes: Vec::new(),
+            accessibility: None,
+            children: unassigned_nodes,
+            bind_path: None,
+            field_item: None,
+            presentation: None,
+            label_position: None,
+            when: None,
+            when_prefix: None,
+            fallback: None,
+            repeat_group: None,
+            repeat_path: None,
+            is_repeat_template: None,
+            scope_change: None,
+        };
+        page_nodes.push(container);
+    }
+
+    page_nodes
+}
+
+/// Resolve responsive overrides for a region. Returns (span, start, hidden).
+fn resolve_region_responsive(
+    region: &formspec_theme::Region,
+    viewport_width: Option<u32>,
+    breakpoints: Option<&Map<String, Value>>,
+) -> (u32, Option<u32>, bool) {
+    let base_span = region.span.unwrap_or(12);
+    let base_start = region.start;
+
+    let viewport = match viewport_width {
+        Some(vw) => vw,
+        None => return (base_span, base_start, false),
+    };
+
+    let responsive = match &region.responsive {
+        Some(r) => r,
+        None => return (base_span, base_start, false),
+    };
+
+    let bp_map = match breakpoints {
+        Some(b) => b,
+        None => return (base_span, base_start, false),
+    };
+
+    // Collect breakpoints that apply, sorted ascending by min-width
+    let mut applicable: Vec<(u32, &Value)> = Vec::new();
+    for (bp_name, override_val) in responsive {
+        if let Some(min_width) = bp_map.get(bp_name).and_then(|v| v.as_u64()) {
+            if viewport >= min_width as u32 {
+                applicable.push((min_width as u32, override_val));
+            }
+        }
+    }
+    applicable.sort_by_key(|(mw, _)| *mw);
+
+    let mut span = base_span;
+    let mut start = base_start;
+    let mut hidden = false;
+
+    for (_, ov) in &applicable {
+        if let Some(s) = ov.get("span").and_then(|v| v.as_u64()) {
+            span = s as u32;
+        }
+        if let Some(s) = ov.get("start").and_then(|v| v.as_u64()) {
+            start = Some(s as u32);
+        }
+        if let Some(h) = ov.get("hidden").and_then(|v| v.as_bool()) {
+            hidden = h;
+        }
+    }
+
+    (span, start, hidden)
+}
+
+/// Collect all item keys within a group's subtree, marking them as assigned.
+fn collect_group_keys(key: &str, items: &[Value], assigned: &mut HashSet<String>) {
+    if let Some(item) = find_item_recursive(items, key) {
+        if let Some(children) = item.get("items").and_then(|v| v.as_array()) {
+            for child in children {
+                if let Some(child_key) = child.get("key").and_then(|v| v.as_str()) {
+                    assigned.insert(child_key.to_string());
+                    collect_group_keys(child_key, items, assigned);
+                }
+            }
+        }
+    }
+}
+
+/// Collect top-level items that are not assigned to any region, in definition order.
+fn collect_unassigned_items(items: &[Value], assigned: &HashSet<String>) -> Vec<Value> {
+    items
+        .iter()
+        .filter(|item| {
+            let key = item
+                .get("key")
+                .or_else(|| item.get("path"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            !key.is_empty() && !assigned.contains(key)
+        })
+        .cloned()
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Unbound required items fallback — Component SS4.5
+// ---------------------------------------------------------------------------
+
+/// Identify required items not bound in the component tree and produce fallback nodes.
+/// Returns LayoutNodes for unbound required items in definition order.
+pub fn plan_unbound_required(
+    tree: &LayoutNode,
+    items: &[Value],
+    ctx: &PlanContext,
+) -> Vec<LayoutNode> {
+    // Collect all bound paths from the tree
+    let mut bound_paths: HashSet<String> = HashSet::new();
+    collect_bound_paths(tree, &mut bound_paths);
+
+    // Walk all items (flattened) to find required ones not bound
+    let mut unbound: Vec<LayoutNode> = Vec::new();
+    collect_unbound_required(items, &bound_paths, ctx, &mut unbound);
+    unbound
+}
+
+/// Recursively collect all bind_path values from a LayoutNode tree.
+fn collect_bound_paths(node: &LayoutNode, paths: &mut HashSet<String>) {
+    if let Some(ref path) = node.bind_path {
+        paths.insert(path.clone());
+    }
+    for child in &node.children {
+        collect_bound_paths(child, paths);
+    }
+}
+
+/// Walk definition items, finding required ones not in the bound set.
+fn collect_unbound_required(
+    items: &[Value],
+    bound: &HashSet<String>,
+    ctx: &PlanContext,
+    out: &mut Vec<LayoutNode>,
+) {
+    for item in items {
+        let key = item
+            .get("key")
+            .or_else(|| item.get("path"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        // Check if this item has required bind
+        let is_required = item
+            .get("bind")
+            .and_then(|b| b.get("required"))
+            .is_some();
+
+        if is_required && !key.is_empty() && !bound.contains(key) {
+            out.push(plan_single_item(item, ctx));
+        }
+
+        // Recurse into groups
+        if let Some(children) = item.get("items").and_then(|v| v.as_array()) {
+            collect_unbound_required(children, bound, ctx, out);
+        }
+    }
+}
+
 impl PlanContext {
     /// Default `is_component_available` — returns true for all components.
     pub fn component_available(&self, component: &str) -> bool {

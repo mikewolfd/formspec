@@ -1,0 +1,44 @@
+{
+  "id": "layout.component_tree_basic",
+  "kind": "LAYOUT_PLAN",
+  "description": "Component tree planning: Stack with bound field nodes",
+  "input": {
+    "items": [
+      {"key": "name", "dataType": "string", "label": "Name"},
+      {"key": "age", "dataType": "integer", "label": "Age"}
+    ],
+    "formPresentation": null,
+    "componentDocument": {
+      "tree": {
+        "component": "Stack",
+        "children": [
+          {"component": "TextInput", "bind": "name"},
+          {"component": "NumberInput", "bind": "age"}
+        ]
+      }
+    },
+    "theme": null,
+    "viewportWidth": null
+  },
+  "expected": {
+    "root": {
+      "component": "Stack",
+      "category": "layout",
+      "childCount": 2,
+      "children": [
+        {
+          "component": "TextInput",
+          "category": "field",
+          "bindPath": "name",
+          "fieldItem": {"key": "name", "label": "Name", "dataType": "string"}
+        },
+        {
+          "component": "NumberInput",
+          "category": "field",
+          "bindPath": "age",
+          "fieldItem": {"key": "age", "label": "Age", "dataType": "integer"}
+        }
+      ]
+    }
+  }
+}
