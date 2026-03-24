@@ -549,6 +549,114 @@ fn render_pdf_with_group_and_children() {
     assert_eq!(header, "%PDF-");
 }
 
+// ── AcroForm Catalog Entry ──
+
+#[test]
+fn render_pdf_contains_acroform_entry() {
+    let mut node = make_field_node("TextInput", "name", "Full Name");
+    node.value = Some(json!("Alice"));
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // The PDF must contain /AcroForm with a /Fields array
+    assert!(
+        pdf_str.contains("/AcroForm"),
+        "PDF must contain /AcroForm catalog entry for interactive fields"
+    );
+    assert!(
+        pdf_str.contains("/Fields"),
+        "AcroForm must contain /Fields array"
+    );
+}
+
+#[test]
+fn render_pdf_no_acroform_when_no_fields() {
+    // A display-only node should not produce an AcroForm entry
+    let mut props = Map::new();
+    props.insert("content".to_string(), json!("Hello World"));
+    let node = EvaluatedNode {
+        id: "display-1".to_string(),
+        component: "Text".to_string(),
+        category: NodeCategory::Display,
+        props,
+        style: None,
+        css_classes: Vec::new(),
+        accessibility: None,
+        presentation: None,
+        label_position: None,
+        bind_path: None,
+        field_item: None,
+        value: None,
+        relevant: true,
+        required: false,
+        readonly: false,
+        validations: Vec::new(),
+        span: 12,
+        col_start: 0,
+        children: Vec::new(),
+        repeat_group: None,
+    };
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        !pdf_str.contains("/AcroForm"),
+        "PDF without fields should not contain /AcroForm"
+    );
+}
+
+// ── AcroForm Value Display ──
+
+#[test]
+fn value_to_display_string_handles_numbers() {
+    use crate::acroform::value_to_display_string;
+
+    assert_eq!(value_to_display_string(&json!(42)), "42");
+    assert_eq!(value_to_display_string(&json!(3.14)), "3.14");
+}
+
+#[test]
+fn value_to_display_string_handles_booleans() {
+    use crate::acroform::value_to_display_string;
+
+    assert_eq!(value_to_display_string(&json!(true)), "true");
+    assert_eq!(value_to_display_string(&json!(false)), "false");
+}
+
+#[test]
+fn value_to_display_string_handles_strings() {
+    use crate::acroform::value_to_display_string;
+
+    assert_eq!(value_to_display_string(&json!("hello")), "hello");
+}
+
+#[test]
+fn value_to_display_string_handles_null() {
+    use crate::acroform::value_to_display_string;
+
+    assert_eq!(value_to_display_string(&json!(null)), "");
+}
+
+#[test]
+fn render_pdf_with_numeric_value_produces_valid_pdf() {
+    let mut node = make_field_node("NumberInput", "age", "Age");
+    node.value = Some(json!(42));
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    assert!(!pdf_bytes.is_empty());
+    let header = std::str::from_utf8(&pdf_bytes[..5]).unwrap();
+    assert_eq!(header, "%PDF-");
+    // The value "42" should appear in the PDF bytes (as part of the /V entry)
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(pdf_str.contains("42"), "Numeric value should appear in PDF output");
+}
+
 // ── XFDF Round-trip (re-exported from xfdf module) ──
 
 #[test]

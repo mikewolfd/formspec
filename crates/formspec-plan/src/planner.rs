@@ -344,7 +344,7 @@ fn plan_component_tree_inner(
     let obj = resolved_tree.as_object().unwrap();
 
     // 2. Get component type
-    let component_type = obj
+    let mut component_type = obj
         .get("component")
         .and_then(|v| v.as_str())
         .unwrap_or("Stack")
@@ -382,9 +382,6 @@ fn plan_component_tree_inner(
             }
         }
     }
-
-    // 4. Classify component
-    let category = classify_component(&component_type);
 
     // 5. Extract props (non-structural keys)
     let mut props = extract_props(&resolved_tree);
@@ -436,16 +433,16 @@ fn plan_component_tree_inner(
             field_item = Some(build_field_item_snapshot(&item));
             presentation = Some(pres);
 
-            // Override component type if cascade resolved a different widget
-            // Only if the tree didn't explicitly specify a component
-            if !obj.contains_key("component")
-                || obj.get("component").and_then(|v| v.as_str()) == Some(&component_type)
-            {
-                // Use cascade-resolved component
-                let _ = &resolved_component;
+            // Override component type if cascade resolved a different widget.
+            // Only if the tree didn't explicitly specify a component.
+            if !obj.contains_key("component") {
+                component_type = resolved_component;
             }
         }
     }
+
+    // 4. Classify component (after cascade may have changed component_type)
+    let category = classify_component(&component_type);
 
     // 7. Copy when, style, cssClass, accessibility
     let when = obj.get("when").and_then(|v| v.as_str()).map(String::from);

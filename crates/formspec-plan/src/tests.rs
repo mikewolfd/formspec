@@ -82,7 +82,7 @@ fn default_component_attachment() {
 
 #[test]
 fn default_component_money() {
-    assert_eq!(get_default_component("money"), "NumberInput");
+    assert_eq!(get_default_component("money"), "MoneyInput");
 }
 
 #[test]
@@ -653,6 +653,27 @@ fn plan_component_tree_repeat_detected() {
 
     assert_eq!(node.repeat_group.as_deref(), Some("contacts"));
     assert_eq!(node.is_repeat_template, Some(true));
+}
+
+#[test]
+fn plan_component_tree_cascade_resolves_widget_for_unspecified_component() {
+    reset_node_id_counter();
+    // A tree node with bind but NO explicit "component" key.
+    // The cascade should resolve the widget from the item's dataType.
+    let tree = json!({"bind": "color"});
+    let items = vec![json!({
+        "key": "color",
+        "dataType": "choice",
+        "label": "Color",
+        "options": [{"value": "red", "label": "Red"}]
+    })];
+    let ctx = make_tree_ctx(items, None);
+    let node = plan_component_tree(&tree, &ctx);
+
+    // Without the fix, this would remain "Stack" (the default when component is absent).
+    // With the fix, the cascade resolves the default for "choice" → "Select".
+    assert_eq!(node.component, "Select");
+    assert_eq!(node.category, NodeCategory::Field);
 }
 
 // ---------------------------------------------------------------------------

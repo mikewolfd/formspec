@@ -76,8 +76,8 @@ impl AcroFormBuilder {
             let comp = node.map(|n| n.component.as_str()).unwrap_or("text");
             let value_str = node
                 .and_then(|n| n.value.as_ref())
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+                .map(value_to_display_string)
+                .unwrap_or_default();
             let is_readonly = node.map(|n| n.readonly).unwrap_or(false);
 
             match comp {
@@ -93,18 +93,23 @@ impl AcroFormBuilder {
                 }
                 "textArea" | "textarea" => {
                     write_text_field(
-                        pdf, info, page_ref, value_str, is_readonly,
+                        pdf, info, page_ref, &value_str, is_readonly,
                         width, height, config, alloc, true,
                     );
                 }
                 _ => {
                     write_text_field(
-                        pdf, info, page_ref, value_str, is_readonly,
+                        pdf, info, page_ref, &value_str, is_readonly,
                         width, height, config, alloc, false,
                     );
                 }
             }
         }
+    }
+
+    /// Get all field refs (for the /AcroForm /Fields array).
+    pub fn field_refs(&self) -> Vec<Ref> {
+        self.fields.iter().map(|f| f.field_ref).collect()
     }
 
     /// Get annotation refs for a given page index.
@@ -114,6 +119,19 @@ impl AcroFormBuilder {
             .filter(|f| f.page_index == page_index)
             .map(|f| f.field_ref)
             .collect()
+    }
+}
+
+/// Convert a JSON value to a display string suitable for PDF text fields.
+/// Handles strings, numbers, booleans; null and complex types → empty string.
+pub fn value_to_display_string(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Null => String::new(),
+        // Arrays/objects: not representable as a single text field
+        _ => String::new(),
     }
 }
 

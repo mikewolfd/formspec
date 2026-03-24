@@ -19,13 +19,14 @@ pub fn render_document(
 ) -> Vec<u8> {
     let mut pdf = Pdf::new();
 
-    // Reserve refs: catalog, page tree, font resources
+    // Reserve refs: catalog, page tree, font resources, acroform
     let catalog_ref = Ref::new(1);
     let page_tree_ref = Ref::new(2);
     let helvetica_ref = Ref::new(3);
     let helvetica_bold_ref = Ref::new(4);
     let zapf_ref = Ref::new(5);
-    let mut next_ref = 6i32;
+    let acroform_ref = Ref::new(6);
+    let mut next_ref = 7i32;
 
     // Pre-allocate page refs
     let page_count = pages.len().max(1);
@@ -44,20 +45,7 @@ pub fn render_document(
         })
         .collect();
 
-    // Document catalog
-    let mut catalog = pdf.catalog(catalog_ref);
-    catalog.pages(page_tree_ref);
-    // Tagged PDF markers
-    catalog
-        .insert(Name(b"MarkInfo"))
-        .dict()
-        .pair(Name(b"Marked"), true);
-    catalog
-        .insert(Name(b"Lang"))
-        .primitive(TextStr(&config.language));
-    catalog.finish();
-
-    // Page tree
+    // Page tree (written first; catalog is deferred until we know field refs)
     let mut page_tree = pdf.pages(page_tree_ref);
     page_tree.count(page_count as i32);
     page_tree.kids(page_refs.iter().copied());
@@ -124,6 +112,39 @@ pub fn render_document(
 
     // Write AcroForm field objects into the PDF
     acroform.write_fields(&mut pdf, nodes, &page_refs, config, &mut next_ref);
+
+    // Write AcroForm dictionary if there are interactive fields
+    let field_refs = acroform.field_refs();
+    if !field_refs.is_empty() {
+        let mut acroform_dict = pdf.indirect(acroform_ref).dict();
+        acroform_dict.insert(Name(b"Fields")).array().items(field_refs.iter().copied());
+        // Default appearance for fields without their own /DA
+        let da = format!("/Helv {} Tf 0 0 0 rg", config.field_font_size);
+        acroform_dict.insert(Name(b"DA")).primitive(Str(da.as_bytes()));
+        // /DR (default resources) — reference the same fonts as pages
+        let mut dr = acroform_dict.insert(Name(b"DR")).dict();
+        dr.insert(Name(b"Font")).dict()
+            .pair(Name(b"Helv"), helvetica_ref)
+            .pair(Name(b"HeBo"), helvetica_bold_ref)
+            .pair(Name(b"ZaDb"), zapf_ref);
+        dr.finish();
+        acroform_dict.finish();
+    }
+
+    // Document catalog (written last so we know whether to include /AcroForm)
+    let mut catalog = pdf.catalog(catalog_ref);
+    catalog.pages(page_tree_ref);
+    catalog
+        .insert(Name(b"MarkInfo"))
+        .dict()
+        .pair(Name(b"Marked"), true);
+    catalog
+        .insert(Name(b"Lang"))
+        .primitive(TextStr(&config.language));
+    if !field_refs.is_empty() {
+        catalog.insert(Name(b"AcroForm")).primitive(acroform_ref);
+    }
+    catalog.finish();
 
     pdf.finish()
 }

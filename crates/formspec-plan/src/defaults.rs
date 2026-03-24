@@ -11,7 +11,7 @@ pub fn get_default_component(data_type: &str) -> &'static str {
         "choice" => "Select",
         "multiChoice" => "CheckboxGroup",
         "attachment" => "FileUpload",
-        "money" => "NumberInput",
+        "money" => "MoneyInput",
         _ => "TextInput",
     }
 }
