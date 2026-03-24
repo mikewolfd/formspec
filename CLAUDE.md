@@ -10,10 +10,13 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
 
 ## Development Philosophy — READ THIS FIRST
 
-**All code is ephemeral.** This is a greenfield, unreleased project. There are ZERO users, ZERO backwards compatibility constraints, ZERO production deployments. Nothing is precious. Any file, module, or subsystem can and should be thrown away the moment it stops serving us well.
+**Code is cheap. Time is cheap. Good architecture is invaluable.** This is a greenfield, unreleased project with zero users and zero backwards compatibility constraints. Code and time are both abundant — don't hesitate to throw away code or spend time exploring. But architecture decisions compound: a good abstraction boundary pays dividends across every future feature; a bad one taxes every change. Always prioritize by value added — ask "what moves the project forward the most?" before spending effort on anything.
 
-**Prefer starting over to refactoring.** When something isn't working — wrong abstraction, tangled logic, accumulated cruft — don't try to surgically fix it. Take the lessons learned and rewrite it from scratch. A clean rewrite with hindsight is almost always faster and better than a careful refactor of something that grew wrong. Refactoring for its own sake is wasted motion; if the code works and isn't blocking you, leave it alone.
+**Prioritize by value added.** Not all work is equal. Before starting a task, ask: does this improve the architecture, unlock future capabilities, or directly serve the spec? If the answer is "it's a nice cleanup" or "it might be useful someday," deprioritize it. Spend time on the things that create the most leverage — clean seams, correct abstractions, spec compliance, and well-tested behavior at the boundaries that matter.
 
+**All code is ephemeral.** Nothing is precious. Any file, module, or subsystem can and should be thrown away the moment it stops serving us well. Prefer starting over to refactoring — when something isn't working, take the lessons learned and rewrite it from scratch. A clean rewrite with hindsight is almost always faster and better than a careful refactor of something that grew wrong.
+
+- **Architecture over code** — spend your thinking time on where the seams go, what the interfaces look like, and how data flows. The implementation within those boundaries is cheap to redo; the boundaries themselves are expensive to move.
 - **Delete, don't preserve** — do not work around problems. Do not add layers to avoid touching existing code. Do not band-aid. If it's wrong, throw it away and build it right. There is no legacy to protect, no users to migrate.
 - **Learn then rebuild** — when you hit a wall, the answer is often "start over with what we now know." Prior code is a learning artifact, not an asset to protect.
 - **Don't refactor for fun** — if code is ugly but functional and not in your way, leave it. Only restructure when it's actively blocking the current task or making things harder to understand. Sometimes three messy files that work are better than one elegant abstraction that took an hour to extract.
@@ -55,7 +58,7 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
   - `packages/formspec-mcp/API.llm.md` — TypeScript MCP server API reference (tool declarations, server setup).
   - `packages/formspec-studio-core/API.llm.md` — TypeScript studio-core API reference (Project, helpers, evaluation).
 - **`thoughts/`** — All plans, ADRs, research, and design artifacts. **Never put plans in `docs/`.** See `thoughts/README.md` for full index.
-  - `thoughts/adr/` — Architecture decision records (decisions with Status). `NNNN-short-name.md`. Next: **0050**.
+  - `thoughts/adr/` — Architecture decision records (decisions with Status). `NNNN-short-name.md`. Next: **0052**.
   - `thoughts/plans/` — Implementation and execution plans. `YYYY-MM-DD-short-name.md`.
   - `thoughts/specs/` — Design specifications and PRDs. `YYYY-MM-DD-short-name.md`.
   - `thoughts/reviews/` — Code reviews, audits, post-mortems. `YYYY-MM-DD-short-name.md`.
