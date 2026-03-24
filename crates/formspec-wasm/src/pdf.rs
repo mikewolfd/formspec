@@ -59,10 +59,15 @@ pub fn render_pdf(
         is_component_available: None,
     };
 
-    // Plan: use component tree when available, then theme pages, then definition fallback
+    // Plan: use component tree when available, then theme pages, then definition fallback.
+    // Per SS4.5/SS11.4, when using a component tree, append unbound required items.
     let layout_nodes = if let Some(ref comp_doc) = component_document {
         if let Some(tree) = comp_doc.get("tree") {
-            vec![formspec_plan::plan_component_tree(tree, &ctx)]
+            let tree_node = formspec_plan::plan_component_tree(tree, &ctx);
+            let unbound = formspec_plan::plan_unbound_required(&tree_node, &items, &ctx);
+            let mut nodes = vec![tree_node];
+            nodes.extend(unbound);
+            nodes
         } else {
             formspec_plan::plan_theme_pages(&items, &ctx)
         }
