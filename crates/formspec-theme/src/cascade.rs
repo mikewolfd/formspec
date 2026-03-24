@@ -1,6 +1,6 @@
 //! 6-level theme cascade resolver per Theme spec SS5.5.
 
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use crate::types::*;
 
@@ -295,7 +295,3 @@ fn apply_none_sentinel(block: &mut PresentationBlock) {
     }
 }
 
-/// Deserialize a PresentationBlock from a theme items map entry.
-pub fn parse_items_map(items: &Map<String, Value>) -> Map<String, Value> {
-    items.clone()
-}

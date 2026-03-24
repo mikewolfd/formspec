@@ -33,7 +33,6 @@ full-wasm = [
     "fel-authoring",
     "theme-api",
     "plan-api",
-    "pdf-api",
 ]
 default = ["full-wasm"]
 # Lint pulls `formspec-lint` + schema/jsonschema stack — omit from the **runtime** WASM artifact (ADR 0050).
@@ -55,7 +54,8 @@ theme-api = ["dep:formspec-theme"]
 # Layout planning (planComponentTree, planDefinitionFallback). Depends on theme.
 plan-api = ["theme-api", "dep:formspec-plan"]
 # PDF rendering (renderPDF, generateXFDF, parseXFDF). Depends on plan.
-pdf-api = ["plan-api", "dep:formspec-pdf"]
+# Excluded until pdf-writer API is verified.
+# pdf-api = ["plan-api", "dep:formspec-pdf"]
 
 [dependencies]
 fel-core = { path = "../fel-core" }
@@ -64,7 +64,7 @@ formspec-eval = { path = "../formspec-eval" }
 formspec-lint = { path = "../formspec-lint", optional = true }
 formspec-theme = { path = "../formspec-theme", optional = true }
 formspec-plan = { path = "../formspec-plan", features = ["eval-merge"], optional = true }
-formspec-pdf = { path = "../formspec-pdf", optional = true }
+# formspec-pdf = { path = "../formspec-pdf", optional = true }
 rust_decimal = "1"
 serde = "1"
 serde_json = "1"
