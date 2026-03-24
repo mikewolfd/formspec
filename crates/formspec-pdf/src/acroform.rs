@@ -321,11 +321,11 @@ fn write_choice_field(
     if !options.is_empty() {
         let mut opt_array = annot.insert(Name(b"Opt")).array();
         for option in options {
-            let opt_value = option.value.as_str().unwrap_or("");
-            let opt_label = option.label.as_deref().unwrap_or(opt_value);
+            let opt_value = value_to_display_string(&option.value);
+            let opt_label = option.label.as_deref().unwrap_or(&opt_value);
             // Two-element array: [export_value, display_label]
             let mut pair = opt_array.push().array();
-            pair.push().primitive(TextStr(opt_value));
+            pair.push().primitive(TextStr(&opt_value));
             pair.push().primitive(TextStr(opt_label));
             pair.finish();
         }

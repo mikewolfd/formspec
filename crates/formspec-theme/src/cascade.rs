@@ -107,59 +107,19 @@ fn merge_blocks(lower: &PresentationBlock, higher: &PresentationBlock) -> Presen
         merged.css_class = Some(CssClassValue::Multiple(union));
     }
 
-    // Shallow-merge objects: widgetConfig
-    if let Some(ref higher_cfg) = higher.widget_config {
-        let mut combined = merged.widget_config.clone().unwrap_or_default();
-
-        // Additive merge for x-classes slot mappings
-        let lower_slots = combined
-            .get("x-classes")
-            .and_then(|v| v.as_object())
-            .cloned();
-        let higher_slots = higher_cfg
-            .get("x-classes")
-            .and_then(|v| v.as_object())
-            .cloned();
-
-        for (k, v) in higher_cfg {
-            combined.insert(k.clone(), v.clone());
-        }
-
-        if lower_slots.is_some() || higher_slots.is_some() {
-            let mut slots = lower_slots.unwrap_or_default();
-            if let Some(hs) = higher_slots {
-                for (k, v) in hs {
-                    slots.insert(k, v);
-                }
-            }
-            combined.insert("x-classes".to_string(), Value::Object(slots));
-        }
-
-        merged.widget_config = Some(combined);
+    // Replace-as-whole for nested objects per spec SS5.5:
+    // "Nested objects (widgetConfig, style, accessibility) are replaced as a whole,
+    // not deep-merged. This avoids the complexity of recursive merge semantics."
+    if higher.widget_config.is_some() {
+        merged.widget_config = higher.widget_config.clone();
     }
 
-    // Shallow-merge style
-    if let Some(ref higher_style) = higher.style {
-        let mut combined = merged.style.clone().unwrap_or_default();
-        for (k, v) in higher_style {
-            combined.insert(k.clone(), v.clone());
-        }
-        merged.style = Some(combined);
+    if higher.style.is_some() {
+        merged.style = higher.style.clone();
     }
 
-    // Shallow-merge accessibility
-    if let Some(ref higher_acc) = higher.accessibility {
-        let mut combined = merged.accessibility.clone().unwrap_or_default();
-        if higher_acc.role.is_some() {
-            combined.role = higher_acc.role.clone();
-        }
-        if higher_acc.description.is_some() {
-            combined.description = higher_acc.description.clone();
-        }
-        if higher_acc.live_region.is_some() {
-            combined.live_region = higher_acc.live_region.clone();
-        }
-        merged.accessibility = Some(combined);
+    if higher.accessibility.is_some() {
+        merged.accessibility = higher.accessibility.clone();
     }
 
     merged

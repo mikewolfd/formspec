@@ -436,7 +436,7 @@ fn resolve_widget_no_preference() {
 
 #[test]
 fn widget_config_replaced_as_whole_by_higher_level() {
-    // Per SS5.5: nested objects are replaced, not deep-merged
+    // Per SS5.5: nested objects are replaced as a whole, not deep-merged.
     let mut lower_cfg = Map::new();
     lower_cfg.insert("maxLength".to_string(), json!(100));
     lower_cfg.insert("placeholder".to_string(), json!("Enter..."));
@@ -470,13 +470,13 @@ fn widget_config_replaced_as_whole_by_higher_level() {
 
     let wc = result.widget_config.unwrap();
     assert_eq!(wc.get("maxLength"), Some(&json!(50)));
-    // The cascade does shallow-merge on widgetConfig (higher keys override lower)
-    // but lower keys not in higher are preserved
-    assert_eq!(wc.get("placeholder"), Some(&json!("Enter...")));
+    // Replace-as-whole: lower "placeholder" is NOT preserved — entire widgetConfig replaced
+    assert_eq!(wc.get("placeholder"), None);
 }
 
 #[test]
-fn style_shallow_merged_higher_overrides_lower() {
+fn style_replaced_as_whole_by_higher_level() {
+    // Per SS5.5: style is replaced as a whole, not deep-merged.
     let mut lower_style = Map::new();
     lower_style.insert("color".to_string(), json!("red"));
     lower_style.insert("fontSize".to_string(), json!("12px"));
@@ -508,11 +508,13 @@ fn style_shallow_merged_higher_overrides_lower() {
 
     let s = result.style.unwrap();
     assert_eq!(s.get("color"), Some(&json!("blue")), "higher overrides lower");
-    assert_eq!(s.get("fontSize"), Some(&json!("12px")), "lower preserved when not in higher");
+    // Replace-as-whole: lower "fontSize" is NOT preserved
+    assert_eq!(s.get("fontSize"), None, "lower fontSize dropped — style replaced as whole");
 }
 
 #[test]
-fn accessibility_shallow_merged() {
+fn accessibility_replaced_as_whole_by_higher_level() {
+    // Per SS5.5: accessibility is replaced as a whole, not deep-merged.
     let mut theme = make_theme(Some(PresentationBlock {
         accessibility: Some(AccessibilityBlock {
             role: Some("textbox".to_string()),
@@ -544,9 +546,10 @@ fn accessibility_shallow_merged() {
     );
 
     let acc = result.accessibility.unwrap();
-    assert_eq!(acc.role, Some("textbox".to_string()), "lower role preserved");
-    assert_eq!(acc.description, Some("Updated description".to_string()), "higher description wins");
-    assert_eq!(acc.live_region, Some("polite".to_string()), "higher adds new field");
+    // Replace-as-whole: lower "role" is NOT preserved — entire accessibility block replaced
+    assert_eq!(acc.role, None, "lower role dropped — accessibility replaced as whole");
+    assert_eq!(acc.description, Some("Updated description".to_string()), "higher description");
+    assert_eq!(acc.live_region, Some("polite".to_string()), "higher live_region");
 }
 
 // ── Cascade: Full 6-Level Priority ──
@@ -747,7 +750,10 @@ fn selector_empty_match_does_not_apply() {
 // ── Cascade: x-classes Additive Merge ──
 
 #[test]
-fn widget_config_x_classes_additive_merge() {
+fn widget_config_x_classes_replaced_as_whole() {
+    // Per SS5.5: widgetConfig is replaced as a whole. x-classes within it
+    // are NOT additively merged — the entire widgetConfig from the higher
+    // cascade level replaces the lower one.
     let mut lower_cfg = Map::new();
     let mut lower_slots = Map::new();
     lower_slots.insert("root".to_string(), json!("p-4"));
@@ -784,9 +790,10 @@ fn widget_config_x_classes_additive_merge() {
 
     let wc = result.widget_config.unwrap();
     let x_classes = wc.get("x-classes").unwrap().as_object().unwrap();
-    assert_eq!(x_classes.get("root"), Some(&json!("p-8")), "higher overrides root slot");
-    assert_eq!(x_classes.get("label"), Some(&json!("text-sm")), "lower label preserved");
-    assert_eq!(x_classes.get("input"), Some(&json!("border")), "higher adds new slot");
+    assert_eq!(x_classes.get("root"), Some(&json!("p-8")), "higher root slot");
+    // Replace-as-whole: lower "label" is NOT preserved
+    assert_eq!(x_classes.get("label"), None, "lower label dropped — widgetConfig replaced as whole");
+    assert_eq!(x_classes.get("input"), Some(&json!("border")), "higher input slot");
 }
 
 // ── Token Tests: Edge Cases ──
