@@ -514,8 +514,6 @@ default behaviour is preserved.
 
 ### 3.6 Localizable String Properties
 
-##### Localizable String Properties
-
 The following table lists component properties that contain
 human-readable text addressable by Locale Documents via
 `$component.<id>.<prop>` keys. Only components with an `id`
@@ -536,10 +534,12 @@ property are addressable.
 | SubmitButton | `label`, `pendingLabel` |
 | DataTable | `columns[N].header` |
 | Panel | `title` |
-| Modal | `triggerLabel` |
+| Modal | `title`, `triggerLabel` |
+| Popover | `triggerLabel` |
 | Badge | `text` |
 | ProgressBar | `label` |
-| Summary | `columns[N].label` |
+| Summary | `items[N].label` |
+| Select | `placeholder` |
 | TextInput | `placeholder`, `prefix`, `suffix` |
 
 Array-valued properties use bracket indexing with numeric indices

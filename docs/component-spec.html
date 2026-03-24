@@ -1172,8 +1172,6 @@ properties to the component’s root DOM element. If a property is absent,
 the renderer’s default behaviour is preserved.</p>
 <h3 id="localizable-string-properties">3.6 Localizable String
 Properties</h3>
-<h5 id="localizable-string-properties-1">Localizable String
-Properties</h5>
 <p>The following table lists component properties that contain
 human-readable text addressable by Locale Documents via
 <code>$component.&lt;id&gt;.&lt;prop&gt;</code> keys. Only components
@@ -1240,6 +1238,10 @@ with an <code>id</code> property are addressable.</p>
 </tr>
 <tr>
 <td>Modal</td>
+<td><code>title</code>, <code>triggerLabel</code></td>
+</tr>
+<tr>
+<td>Popover</td>
 <td><code>triggerLabel</code></td>
 </tr>
 <tr>
@@ -1252,7 +1254,11 @@ with an <code>id</code> property are addressable.</p>
 </tr>
 <tr>
 <td>Summary</td>
-<td><code>columns[N].label</code></td>
+<td><code>items[N].label</code></td>
+</tr>
+<tr>
+<td>Select</td>
+<td><code>placeholder</code></td>
 </tr>
 <tr>
 <td>TextInput</td>
