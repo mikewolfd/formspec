@@ -138,6 +138,7 @@ describe('a11y attributes — group heading levels', () => {
     });
 
     it('renders top-level group title as h3', () => {
+        // Rust spec-normative: use Stack (not Group) for scope-change nodes
         const el = renderWith(
             [
                 { key: 'address', type: 'group', label: 'Address', children: [
@@ -148,7 +149,7 @@ describe('a11y attributes — group heading levels', () => {
             {
                 component: 'Page',
                 children: [
-                    { component: 'Group', bind: 'address', title: 'Address', children: [
+                    { component: 'Stack', bind: 'address', title: 'Address', children: [
                         { component: 'TextInput', bind: 'street' },
                     ] },
                 ],
@@ -162,6 +163,7 @@ describe('a11y attributes — group heading levels', () => {
     });
 
     it('renders nested group title as h4', () => {
+        // Rust spec-normative: use Stack (not Group) for scope-change nodes
         const el = renderWith(
             [
                 { key: 'outer', type: 'group', label: 'Outer', children: [
@@ -174,8 +176,8 @@ describe('a11y attributes — group heading levels', () => {
             {
                 component: 'Page',
                 children: [
-                    { component: 'Group', bind: 'outer', title: 'Outer', children: [
-                        { component: 'Group', bind: 'inner', title: 'Inner', children: [
+                    { component: 'Stack', bind: 'outer', title: 'Outer', children: [
+                        { component: 'Stack', bind: 'inner', title: 'Inner', children: [
                             { component: 'TextInput', bind: 'val' },
                         ] },
                     ] },

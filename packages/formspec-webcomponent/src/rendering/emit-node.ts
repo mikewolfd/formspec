@@ -78,8 +78,11 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         target = wrapper;
     }
 
-    if (node.isRepeatTemplate && node.props.bind) {
-        const bindKey = node.props.bind as string;
+    // Rust spec-normative: bind is in bindPath, not props.bind
+    const nodeBind = node.bindPath || node.props?.bind as string | undefined;
+
+    if (node.isRepeatTemplate && nodeBind) {
+        const bindKey = nodeBind;
         const fullRepeatPath = prefix ? `${prefix}.${bindKey}` : bindKey;
         const container = document.createElement('div');
         container.className = 'formspec-repeat';
@@ -108,7 +111,7 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
                 container.appendChild(instanceWrapper);
 
                 const instancePrefix = `${fullRepeatPath}[${idx}]`;
-                for (const child of node.children) {
+                for (const child of (node.children || [])) {
                     emitNode(repeatHost, child, instanceWrapper, instancePrefix, headingLevel);
                 }
 
@@ -139,8 +142,8 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         return;
     }
 
-    if (node.scopeChange && !node.isRepeatTemplate && node.props.bind) {
-        const bindKey = node.props.bind as string;
+    if (node.scopeChange && !node.isRepeatTemplate && nodeBind) {
+        const bindKey = nodeBind;
         const nextPrefix = prefix ? `${prefix}.${bindKey}` : bindKey;
         const el = document.createElement('div');
         el.className = 'formspec-group';
@@ -158,7 +161,7 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         }
         target.appendChild(el);
 
-        for (const child of node.children) {
+        for (const child of (node.children || [])) {
             emitNode(host, child, el, nextPrefix, Math.min(headingLevel + 1, 6));
         }
         return;
@@ -168,10 +171,18 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         component: node.component,
         ...node.props,
     };
+    // Rust spec-normative: bind is in node.bindPath, ensure it's available as comp.bind
+    // for field component plugins that read comp.bind for path-based operations.
+    if (node.bindPath && !comp.bind) comp.bind = node.bindPath;
+    // Propagate fieldItem and presentation for component plugins
+    if (node.fieldItem) comp.fieldItem = node.fieldItem;
+    if (node.presentation) comp.presentation = node.presentation;
+    // Component-level labelPosition (from tree node) takes priority over cascade
+    if (node.labelPosition && !comp.labelPosition) comp.labelPosition = node.labelPosition;
     if (node.style) comp.style = node.style;
-    if (node.cssClasses.length > 0) comp.cssClass = node.cssClasses;
+    if (node.cssClasses && node.cssClasses.length > 0) comp.cssClass = node.cssClasses;
     if (node.accessibility) comp.accessibility = node.accessibility;
-    comp.children = node.children;
+    comp.children = node.children || [];
 
     renderActualComponent(host, comp, target, prefix);
 }

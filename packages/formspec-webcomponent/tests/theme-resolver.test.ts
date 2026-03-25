@@ -148,27 +148,34 @@ describe('resolvePresentation', () => {
         expect(result.cssClass).toEqual(expect.arrayContaining(['a', 'b', 'c', 'd']));
     });
 
-    // ── Shallow merge for objects ────────────────────────────
+    // ── Replace-as-whole for nested objects (Rust spec-normative: SS5.5) ────
 
-    it('shallow-merges style across levels', () => {
+    it('replaces style as whole at higher cascade level', () => {
+        // Rust spec-normative: SS5.5 — nested objects (style, widgetConfig, accessibility)
+        // are replaced as a whole, not shallow-merged.
         const theme = minimalTheme({
             defaults: { style: { color: 'red', fontSize: '14px' } },
             items: { f1: { style: { color: 'blue' } } },
         });
         const result = resolvePresentation(theme, field('f1'));
-        expect(result.style).toEqual({ color: 'blue', fontSize: '14px' });
+        // Rust spec-normative: items[f1].style replaces defaults.style entirely
+        expect(result.style).toEqual({ color: 'blue' });
     });
 
-    it('shallow-merges widgetConfig', () => {
+    it('replaces widgetConfig as whole at higher cascade level', () => {
+        // Rust spec-normative: SS5.5 replace-as-whole
         const theme = minimalTheme({
             defaults: { widgetConfig: { rows: 3 } },
             items: { f1: { widgetConfig: { placeholder: 'hi' } } },
         });
         const result = resolvePresentation(theme, field('f1'));
-        expect(result.widgetConfig).toEqual({ rows: 3, placeholder: 'hi' });
+        // Rust spec-normative: items[f1].widgetConfig replaces defaults.widgetConfig entirely
+        expect(result.widgetConfig).toEqual({ placeholder: 'hi' });
     });
 
-    it('merges widgetConfig x-classes maps across cascade levels', () => {
+    it('replaces widgetConfig x-classes as whole at each cascade level', () => {
+        // Rust spec-normative: SS5.5 replace-as-whole — each cascade level's widgetConfig
+        // replaces the previous one entirely; no deep merge of nested x-classes.
         const theme = minimalTheme({
             defaults: {
                 widgetConfig: {
@@ -194,22 +201,23 @@ describe('resolvePresentation', () => {
             },
         });
         const result = resolvePresentation(theme, field('f1'));
+        // Rust spec-normative: items[f1].widgetConfig is the final value
         expect(result.widgetConfig).toEqual({
             'x-classes': {
-                root: 'base-root',
-                label: 'sel-label',
                 control: 'item-control',
             },
         });
     });
 
-    it('shallow-merges accessibility', () => {
+    it('replaces accessibility as whole at higher cascade level', () => {
+        // Rust spec-normative: SS5.5 replace-as-whole
         const theme = minimalTheme({
             defaults: { accessibility: { liveRegion: 'off' } },
             items: { f1: { accessibility: { role: 'textbox' } } },
         });
         const result = resolvePresentation(theme, field('f1'));
-        expect(result.accessibility).toEqual({ liveRegion: 'off', role: 'textbox' });
+        // Rust spec-normative: items[f1].accessibility replaces defaults.accessibility entirely
+        expect(result.accessibility).toEqual({ role: 'textbox' });
     });
 
     // ── Scalar replacement ───────────────────────────────────

@@ -23,13 +23,16 @@ export interface LayoutNode {
     /** Resolved inline styles (tokens resolved). */
     style?: Record<string, string | number>;
 
-    /** Merged CSS class list from theme cascade + component doc. */
-    cssClasses: string[];
+    /** Merged CSS class list from theme cascade + component doc.
+     *  Rust omits this field when empty (skip_serializing_if = "Vec::is_empty"). */
+    cssClasses?: string[];
 
     /** Accessibility attributes. */
     accessibility?: { role?: string; description?: string; liveRegion?: string };
 
-    /** Ordered child nodes. */
+    /** Ordered child nodes.
+     *  Rust omits this field when empty (skip_serializing_if = "Vec::is_empty").
+     *  Code should default to [] when undefined. */
     children: LayoutNode[];
 
     // ── Field binding ──
@@ -40,7 +43,7 @@ export interface LayoutNode {
     /** Snapshot of the definition item this field maps to. */
     fieldItem?: {
         key: string;
-        label: string;
+        label?: string;
         hint?: string;
         dataType?: string;
         options?: Array<{ value: string; label: string }>;
@@ -77,9 +80,10 @@ export interface LayoutNode {
 
     // ── Scope markers ──
 
-    /** If true, this node's bind path creates a new scope (prefix) for child rendering.
-     *  Used by definition-fallback groups where item keys are relative. */
-    scopeChange?: boolean;
+    /** Scope change marker. If set, this node's bind path creates a new scope (prefix)
+     *  for child rendering. Rust uses the bind path string; TS legacy used boolean `true`.
+     *  Renderers should treat any truthy value as "scope changes here". */
+    scopeChange?: string | boolean;
 }
 
 /**
