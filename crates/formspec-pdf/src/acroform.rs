@@ -4,6 +4,8 @@
 //! Supports hierarchical field naming for repeat group paths (e.g. `items[0].name`).
 //! Integrates with TaggingContext for PDF/UA structure tree (/StructParent, /TU).
 
+use std::collections::HashMap;
+
 use formspec_plan::{EvaluatedNode, FieldOption};
 use pdf_writer::{Filter, Finish, Name, Pdf, Ref, Str, TextStr};
 
@@ -23,16 +25,24 @@ pub struct FieldInfo {
     pub rect: [f32; 4],
     /// The page this field appears on.
     pub page_index: usize,
+    /// Pre-assigned StructParent key (assigned at render time for correct tag order).
+    pub struct_parent_key: Option<i32>,
 }
 
 /// Accumulates fields for later writing to the Pdf.
 pub struct AcroFormBuilder {
     pub fields: Vec<FieldInfo>,
+    /// Extra annotation refs created by radio/checkbox-group writers
+    /// that need to appear in page /Annots arrays. Each entry is (ref, page_index).
+    extra_annot_refs: Vec<(Ref, usize)>,
 }
 
 impl AcroFormBuilder {
     pub fn new() -> Self {
-        Self { fields: Vec::new() }
+        Self {
+            fields: Vec::new(),
+            extra_annot_refs: Vec::new(),
+        }
     }
 
     /// Record a field to be written later.
@@ -52,24 +62,52 @@ impl AcroFormBuilder {
             name,
             rect: pdf_rect,
             page_index,
+            struct_parent_key: None,
         });
 
         self.fields.last().unwrap()
+    }
+
+    /// Build a map from terminal widget field_ref (as i32) to its immediate
+    /// parent_ref for hierarchical paths. Call before `write_fields` so
+    /// terminal annotations can include `/Parent`.
+    pub fn build_parent_map(&self, alloc: &mut i32) -> HashMap<i32, Ref> {
+        let has_hierarchy = self.fields.iter().any(|f| is_hierarchical_path(&f.name));
+        if !has_hierarchy {
+            return HashMap::new();
+        }
+
+        let mut root = HierarchyNode::new_root();
+        for info in &self.fields {
+            let segments = parse_path_segments(&info.name);
+            if segments.len() > 1 {
+                root.insert(&segments, info.field_ref);
+            }
+        }
+
+        let mut parent_map = HashMap::new();
+        collect_parent_refs(&root, None, &mut parent_map, alloc);
+        parent_map
     }
 
     /// Write all accumulated fields into the Pdf document.
     ///
     /// For each field, registers it with the TaggingContext to create <Form> struct
     /// elements and sets /StructParent and /TU on the annotation.
+    /// `parent_map` maps terminal field_ref.get() -> parent_ref for hierarchical paths.
     pub fn write_fields(
-        &self,
+        &mut self,
         pdf: &mut Pdf,
         nodes: &[EvaluatedNode],
         page_refs: &[Ref],
         config: &PdfConfig,
         alloc: &mut i32,
         tag_ctx: &mut TaggingContext,
+        parent_map: &HashMap<i32, Ref>,
     ) {
+        // Collect extra widget refs to add after the loop (avoids borrow conflict).
+        let mut new_extra_refs: Vec<(Ref, usize)> = Vec::new();
+
         for info in &self.fields {
             let node = find_node_by_path(nodes, &info.name);
             let page_ref = page_refs[info.page_index];
@@ -89,9 +127,16 @@ impl AcroFormBuilder {
                 .and_then(|fi| fi.hint.as_deref().or(fi.label.as_deref()))
                 .unwrap_or("");
 
-            // Register with tagging context for structure tree
+            // Use pre-assigned StructParent key (set at render time for correct tag order),
+            // or register with tagging context now as a fallback.
             let sect_ref = tag_ctx.default_sect_ref;
-            let struct_parent_key = tag_ctx.tag_field(info.field_ref, sect_ref, tooltip);
+            let struct_parent_key = match info.struct_parent_key {
+                Some(key) => key,
+                None => tag_ctx.tag_field(info.field_ref, sect_ref, tooltip),
+            };
+
+            // Look up parent ref for hierarchical paths
+            let hier_parent = parent_map.get(&info.field_ref.get()).copied();
 
             match comp {
                 "checkbox" | "toggle" | "Checkbox" | "Toggle" => {
@@ -110,6 +155,7 @@ impl AcroFormBuilder {
                         alloc,
                         struct_parent_key,
                         tooltip,
+                        hier_parent,
                     );
                 }
                 "Select" | "select" | "dropdown" => {
@@ -119,28 +165,17 @@ impl AcroFormBuilder {
                         .cloned()
                         .unwrap_or_default();
                     write_choice_field(
-                        pdf,
-                        info,
-                        page_ref,
-                        &value_str,
-                        is_readonly,
-                        width,
-                        height,
-                        config,
-                        alloc,
-                        &options,
-                        true,
-                        struct_parent_key,
-                        tooltip,
+                        pdf, info, page_ref, &value_str, is_readonly, width, height, config, alloc,
+                        &options, true, struct_parent_key, tooltip, hier_parent,
                     );
                 }
-                "RadioGroup" | "radio" | "CheckboxGroup" | "checkboxGroup" => {
+                "RadioGroup" | "radio" => {
                     let options = node
                         .and_then(|n| n.field_item.as_ref())
                         .map(|fi| &fi.options)
                         .cloned()
                         .unwrap_or_default();
-                    write_radio_field(
+                    let widget_refs = write_radio_field(
                         pdf,
                         info,
                         page_ref,
@@ -153,6 +188,32 @@ impl AcroFormBuilder {
                         struct_parent_key,
                         tooltip,
                     );
+                    for wr in widget_refs {
+                        new_extra_refs.push((wr, info.page_index));
+                    }
+                }
+                "CheckboxGroup" | "checkboxGroup" => {
+                    let options = node
+                        .and_then(|n| n.field_item.as_ref())
+                        .map(|fi| &fi.options)
+                        .cloned()
+                        .unwrap_or_default();
+                    let widget_refs = write_checkbox_group_field(
+                        pdf,
+                        info,
+                        page_ref,
+                        &value_str,
+                        is_readonly,
+                        height,
+                        config,
+                        alloc,
+                        &options,
+                        struct_parent_key,
+                        tooltip,
+                    );
+                    for wr in widget_refs {
+                        new_extra_refs.push((wr, info.page_index));
+                    }
                 }
                 "Signature" | "signature" => {
                     write_signature_field(
@@ -165,42 +226,25 @@ impl AcroFormBuilder {
                         alloc,
                         struct_parent_key,
                         tooltip,
+                        hier_parent,
                     );
                 }
                 "textArea" | "textarea" | "Textarea" => {
                     write_text_field(
-                        pdf,
-                        info,
-                        page_ref,
-                        &value_str,
-                        is_readonly,
-                        width,
-                        height,
-                        config,
-                        alloc,
-                        true,
-                        struct_parent_key,
-                        tooltip,
+                        pdf, info, page_ref, &value_str, is_readonly, width, height, config, alloc,
+                        true, struct_parent_key, tooltip, hier_parent,
                     );
                 }
                 _ => {
                     write_text_field(
-                        pdf,
-                        info,
-                        page_ref,
-                        &value_str,
-                        is_readonly,
-                        width,
-                        height,
-                        config,
-                        alloc,
-                        false,
-                        struct_parent_key,
-                        tooltip,
+                        pdf, info, page_ref, &value_str, is_readonly, width, height, config, alloc,
+                        false, struct_parent_key, tooltip, hier_parent,
                     );
                 }
             }
         }
+
+        self.extra_annot_refs.extend(new_extra_refs);
     }
 
     /// Get the top-level field refs for the `/AcroForm /Fields` array.
@@ -210,24 +254,20 @@ impl AcroFormBuilder {
         let has_hierarchy = self.fields.iter().any(|f| is_hierarchical_path(&f.name));
 
         if !has_hierarchy {
-            // Simple case: all fields are flat, return them directly
             return self.fields.iter().map(|f| f.field_ref).collect();
         }
 
-        // Build hierarchy tree
         let mut root = HierarchyNode::new_root();
 
         for info in &self.fields {
             let segments = parse_path_segments(&info.name);
             if segments.len() <= 1 {
-                // Flat field — goes directly in /Fields
                 root.flat_refs.push(info.field_ref);
             } else {
                 root.insert(&segments, info.field_ref);
             }
         }
 
-        // Write parent field dicts and collect root refs
         let mut top_refs = root.flat_refs.clone();
         for (name, child) in &root.children {
             let parent_ref = alloc_ref(alloc);
@@ -240,40 +280,37 @@ impl AcroFormBuilder {
 
     /// Get annotation refs for a given page index.
     pub fn annot_refs_for_page(&self, page_index: usize) -> Vec<Ref> {
-        self.fields
+        let mut refs: Vec<Ref> = self
+            .fields
             .iter()
             .filter(|f| f.page_index == page_index)
             .map(|f| f.field_ref)
-            .collect()
+            .collect();
+        refs.extend(
+            self.extra_annot_refs
+                .iter()
+                .filter(|(_, pi)| *pi == page_index)
+                .map(|(r, _)| *r),
+        );
+        refs
     }
 }
 
 // ── Hierarchical field naming ──
 
-/// Whether a field path contains hierarchy (dots or brackets).
 fn is_hierarchical_path(path: &str) -> bool {
     path.contains('.') || path.contains('[')
 }
 
 /// Parse a dotted/bracketed path into segments.
-/// `"items[0].name"` → `["items", "0", "name"]`
+/// `"items[0].name"` -> `["items", "0", "name"]`
 fn parse_path_segments(path: &str) -> Vec<String> {
     let mut segments = Vec::new();
     let mut current = String::new();
 
     for ch in path.chars() {
         match ch {
-            '.' => {
-                if !current.is_empty() {
-                    segments.push(std::mem::take(&mut current));
-                }
-            }
-            '[' => {
-                if !current.is_empty() {
-                    segments.push(std::mem::take(&mut current));
-                }
-            }
-            ']' => {
+            '.' | '[' | ']' => {
                 if !current.is_empty() {
                     segments.push(std::mem::take(&mut current));
                 }
@@ -289,12 +326,9 @@ fn parse_path_segments(path: &str) -> Vec<String> {
     segments
 }
 
-/// Intermediate tree for building hierarchical parent field dicts.
 struct HierarchyNode {
     children: Vec<(String, HierarchyNode)>,
-    /// Terminal widget refs at this level.
     terminal_refs: Vec<Ref>,
-    /// Flat (non-hierarchical) field refs collected at root level.
     flat_refs: Vec<Ref>,
 }
 
@@ -320,14 +354,11 @@ impl HierarchyNode {
             return;
         }
         if segments.len() == 1 {
-            // Terminal: this segment is the widget's partial name
             let name = &segments[0];
-            // Find or create child
             let child = self.find_or_create_child(name);
             child.terminal_refs.push(widget_ref);
             return;
         }
-        // Non-terminal: descend
         let name = &segments[0];
         let child = self.find_or_create_child(name);
         child.insert(&segments[1..], widget_ref);
@@ -346,7 +377,25 @@ impl HierarchyNode {
     }
 }
 
-/// Recursively write non-terminal parent field dicts with `/T`, `/Kids`.
+/// Recursively collect terminal field_ref -> parent_ref mappings,
+/// pre-allocating parent refs for each non-terminal node.
+fn collect_parent_refs(
+    node: &HierarchyNode,
+    parent_ref: Option<Ref>,
+    map: &mut HashMap<i32, Ref>,
+    alloc: &mut i32,
+) {
+    if let Some(pref) = parent_ref {
+        for tref in &node.terminal_refs {
+            map.insert(tref.get(), pref);
+        }
+    }
+    for (_name, child) in &node.children {
+        let child_ref = alloc_ref(alloc);
+        collect_parent_refs(child, Some(child_ref), map, alloc);
+    }
+}
+
 fn write_parent_field_dict(
     pdf: &mut Pdf,
     parent_ref: Ref,
@@ -354,7 +403,6 @@ fn write_parent_field_dict(
     node: &HierarchyNode,
     alloc: &mut i32,
 ) {
-    // Collect kid refs: terminal widgets + child parent dicts
     let mut kid_refs: Vec<Ref> = node.terminal_refs.clone();
 
     for (child_name, child_node) in &node.children {
@@ -363,7 +411,6 @@ fn write_parent_field_dict(
         kid_refs.push(child_ref);
     }
 
-    // Write the parent field dict
     let mut dict = pdf.indirect(parent_ref).dict();
     dict.insert(Name(b"T")).primitive(TextStr(name));
     if !kid_refs.is_empty() {
@@ -377,14 +424,12 @@ fn write_parent_field_dict(
 // ── Value display ──
 
 /// Convert a JSON value to a display string suitable for PDF text fields.
-/// Handles strings, numbers, booleans; null and complex types → empty string.
 pub fn value_to_display_string(v: &serde_json::Value) -> String {
     match v {
         serde_json::Value::String(s) => s.clone(),
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::Bool(b) => b.to_string(),
         serde_json::Value::Null => String::new(),
-        // Arrays/objects: not representable as a single text field
         _ => String::new(),
     }
 }
@@ -407,7 +452,6 @@ fn alloc_ref(alloc: &mut i32) -> Ref {
     r
 }
 
-/// Write a form XObject with zlib compression for the appearance stream bytes.
 fn write_compressed_xobject(
     pdf: &mut Pdf,
     xobj_ref: Ref,
@@ -424,8 +468,6 @@ fn write_compressed_xobject(
     xobj.finish();
 }
 
-/// Write /StructParent and /TU on an annotation dict.
-/// Called by each field writer after the annotation is created.
 fn write_tagging_attrs(
     annot: &mut pdf_writer::writers::Annotation<'_>,
     struct_parent_key: i32,
@@ -437,9 +479,14 @@ fn write_tagging_attrs(
     }
 }
 
+fn write_parent_attr(annot: &mut pdf_writer::writers::Annotation<'_>, parent_ref: Option<Ref>) {
+    if let Some(pref) = parent_ref {
+        annot.insert(Name(b"Parent")).primitive(pref);
+    }
+}
+
 // ── Field writers ──
 
-/// Write a text field (single-line or multiline) as a merged Widget annotation.
 fn write_text_field(
     pdf: &mut Pdf,
     info: &FieldInfo,
@@ -453,6 +500,7 @@ fn write_text_field(
     multiline: bool,
     struct_parent_key: i32,
     tooltip: &str,
+    hier_parent: Option<Ref>,
 ) {
     let ap_bytes = if multiline {
         appearance::build_multiline_text_appearance(value, width, height, config.field_font_size)
@@ -468,7 +516,9 @@ fn write_text_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
+    annot.flags(pdf_writer::types::AnnotationFlags::PRINT);
     write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
+    write_parent_attr(&mut annot, hier_parent);
     annot.insert(Name(b"FT")).primitive(Name(b"Tx"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
     if !value.is_empty() {
@@ -476,10 +526,10 @@ fn write_text_field(
     }
     let mut ff = 0_i32;
     if multiline {
-        ff |= 1 << 12; // bit 13 = Multiline
+        ff |= 1 << 12;
     }
     if readonly {
-        ff |= 1; // bit 1 = ReadOnly
+        ff |= 1;
     }
     if ff != 0 {
         annot.insert(Name(b"Ff")).primitive(ff);
@@ -490,7 +540,6 @@ fn write_text_field(
     annot.finish();
 }
 
-/// Write a checkbox field as a merged Widget annotation.
 fn write_checkbox_field(
     pdf: &mut Pdf,
     info: &FieldInfo,
@@ -502,6 +551,7 @@ fn write_checkbox_field(
     alloc: &mut i32,
     struct_parent_key: i32,
     tooltip: &str,
+    hier_parent: Option<Ref>,
 ) {
     let on_bytes = appearance::build_checkmark_appearance(width, height);
     let off_bytes = appearance::build_empty_box_appearance(width, height);
@@ -516,7 +566,9 @@ fn write_checkbox_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
+    annot.flags(pdf_writer::types::AnnotationFlags::PRINT);
     write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
+    write_parent_attr(&mut annot, hier_parent);
     annot.insert(Name(b"FT")).primitive(Name(b"Btn"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
     if checked {
@@ -536,8 +588,6 @@ fn write_checkbox_field(
     annot.finish();
 }
 
-/// Write a choice (combo/list) field as a merged Widget annotation.
-/// `is_combo` = true for Select/dropdown (combo box), false for list display.
 fn write_choice_field(
     pdf: &mut Pdf,
     info: &FieldInfo,
@@ -552,6 +602,7 @@ fn write_choice_field(
     is_combo: bool,
     struct_parent_key: i32,
     tooltip: &str,
+    hier_parent: Option<Ref>,
 ) {
     let ap_bytes =
         appearance::build_text_field_appearance(value, width, height, config.field_font_size);
@@ -564,7 +615,9 @@ fn write_choice_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
+    annot.flags(pdf_writer::types::AnnotationFlags::PRINT);
     write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
+    write_parent_attr(&mut annot, hier_parent);
     annot.insert(Name(b"FT")).primitive(Name(b"Ch"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
 
@@ -587,10 +640,10 @@ fn write_choice_field(
 
     let mut ff = 0_i32;
     if is_combo {
-        ff |= 1 << 17; // bit 18 = Combo
+        ff |= 1 << 17;
     }
     if readonly {
-        ff |= 1; // bit 1 = ReadOnly
+        ff |= 1;
     }
     if ff != 0 {
         annot.insert(Name(b"Ff")).primitive(ff);
@@ -602,11 +655,7 @@ fn write_choice_field(
     annot.finish();
 }
 
-/// Write a radio group as a `/Btn` field with individual widget annotations per option.
-///
-/// PDF radio buttons use a non-terminal parent field (`/FT /Btn`) whose `/Kids` array
-/// holds one widget annotation per option. Each widget has an `/AP` dict with the option's
-/// export name as the "on" key and `/Off` as the off key.
+/// Returns the per-option widget refs (for page /Annots tracking).
 fn write_radio_field(
     pdf: &mut Pdf,
     info: &FieldInfo,
@@ -619,18 +668,14 @@ fn write_radio_field(
     options: &[FieldOption],
     struct_parent_key: i32,
     tooltip: &str,
-) {
+) -> Vec<Ref> {
     let option_count = options.len().max(1);
-    // Per-option height within the allocated field rect
     let opt_h = height / option_count as f32;
-    // Radio circle size
     let circle_size = opt_h.min(config.option_height).min(14.0);
 
-    // Build shared on/off appearance streams
     let on_bytes = appearance::build_radio_on_appearance(circle_size, circle_size);
     let off_bytes = appearance::build_radio_off_appearance(circle_size, circle_size);
 
-    // Pre-allocate widget refs for each option
     let widget_infos: Vec<(Ref, String, bool)> = options
         .iter()
         .enumerate()
@@ -643,7 +688,6 @@ fn write_radio_field(
         })
         .collect();
 
-    // Write each option as a widget annotation
     for (i, (widget_ref, export_name, is_selected)) in widget_infos.iter().enumerate() {
         let on_ref = alloc_ref(alloc);
         let off_ref = alloc_ref(alloc);
@@ -660,16 +704,14 @@ fn write_radio_field(
             opt_y + circle_size,
         ));
         annot.page(page_ref);
-        // Widget's parent is the group field
+        annot.flags(pdf_writer::types::AnnotationFlags::PRINT);
         annot.insert(Name(b"Parent")).primitive(info.field_ref);
-        // Appearance dict: /AP << /N << /optN on_ref /Off off_ref >> >>
         let mut ap = annot.insert(Name(b"AP")).dict();
         let mut n_dict = ap.insert(Name(b"N")).dict();
         n_dict.pair(Name(export_name.as_bytes()), on_ref);
         n_dict.pair(Name(b"Off"), off_ref);
         n_dict.finish();
         ap.finish();
-        // If selected, current appearance state = this option's export name
         if *is_selected {
             annot
                 .insert(Name(b"AS"))
@@ -680,18 +722,14 @@ fn write_radio_field(
         annot.finish();
     }
 
-    // Write the parent (non-terminal) field dict at info.field_ref
-    // The parent dict gets /StructParent and /TU for the radio group as a whole
     let partial_name = terminal_name(&info.name);
     let kid_refs: Vec<Ref> = widget_infos.iter().map(|(r, _, _)| *r).collect();
 
-    // PDF spec: bit 15 = Radio (1 << 14 = 16384), bit 16 = NoToggleToOff (1 << 15 = 32768)
-    let mut ff: i32 = (1 << 14) | (1 << 15); // 49152
+    let mut ff: i32 = (1 << 14) | (1 << 15); // Radio + NoToggleToOff = 49152
     if readonly {
-        ff |= 1; // bit 1 = ReadOnly
+        ff |= 1;
     }
 
-    // Determine /V = export name of selected option, or /Off
     let selected_export = widget_infos
         .iter()
         .find(|(_, _, sel)| *sel)
@@ -716,9 +754,104 @@ fn write_radio_field(
         .array()
         .items(kid_refs.iter().copied());
     dict.finish();
+
+    kid_refs
 }
 
-/// Write a signature placeholder field (`/FT /Sig`, unsigned, no `/V`).
+/// Write a checkbox group as independent checkboxes (multi-select).
+/// Returns the per-option widget refs (for page /Annots tracking).
+fn write_checkbox_group_field(
+    pdf: &mut Pdf,
+    info: &FieldInfo,
+    page_ref: Ref,
+    selected_value: &str,
+    readonly: bool,
+    height: f32,
+    config: &PdfConfig,
+    alloc: &mut i32,
+    options: &[FieldOption],
+    struct_parent_key: i32,
+    tooltip: &str,
+) -> Vec<Ref> {
+    let option_count = options.len().max(1);
+    let opt_h = height / option_count as f32;
+    let box_size = opt_h.min(config.option_height).min(14.0);
+
+    let on_bytes = appearance::build_checkmark_appearance(box_size, box_size);
+    let off_bytes = appearance::build_empty_box_appearance(box_size, box_size);
+
+    let selected_set: Vec<&str> = selected_value.split(',').map(|s| s.trim()).collect();
+
+    let mut widget_refs = Vec::new();
+
+    for (i, opt) in options.iter().enumerate() {
+        let widget_ref = alloc_ref(alloc);
+        widget_refs.push(widget_ref);
+
+        let on_ref = alloc_ref(alloc);
+        let off_ref = alloc_ref(alloc);
+        write_compressed_xobject(pdf, on_ref, &on_bytes, box_size, box_size);
+        write_compressed_xobject(pdf, off_ref, &off_bytes, box_size, box_size);
+
+        let opt_value = value_to_display_string(&opt.value);
+        let is_checked = selected_set.contains(&opt_value.as_str());
+        let opt_y = info.rect[1] + (height - (i as f32 + 1.0) * opt_h);
+
+        let mut annot = pdf.annotation(widget_ref);
+        annot.subtype(pdf_writer::types::AnnotationType::Widget);
+        annot.rect(pdf_writer::Rect::new(
+            info.rect[0],
+            opt_y,
+            info.rect[0] + box_size,
+            opt_y + box_size,
+        ));
+        annot.page(page_ref);
+        annot.flags(pdf_writer::types::AnnotationFlags::PRINT);
+        annot.insert(Name(b"FT")).primitive(Name(b"Btn"));
+        annot
+            .insert(Name(b"T"))
+            .primitive(TextStr(&opt_value));
+        if is_checked {
+            annot.insert(Name(b"V")).primitive(Name(b"Yes"));
+        } else {
+            annot.insert(Name(b"V")).primitive(Name(b"Off"));
+        }
+        let mut ff = 0_i32;
+        if readonly {
+            ff |= 1;
+        }
+        if ff != 0 {
+            annot.insert(Name(b"Ff")).primitive(ff);
+        }
+        let mut ap = annot.insert(Name(b"AP")).dict();
+        let mut n_dict = ap.insert(Name(b"N")).dict();
+        n_dict.pair(Name(b"Yes"), on_ref);
+        n_dict.pair(Name(b"Off"), off_ref);
+        n_dict.finish();
+        ap.finish();
+        if is_checked {
+            annot.insert(Name(b"AS")).primitive(Name(b"Yes"));
+        } else {
+            annot.insert(Name(b"AS")).primitive(Name(b"Off"));
+        }
+        annot.finish();
+    }
+
+    let partial_name = terminal_name(&info.name);
+    let mut dict = pdf.indirect(info.field_ref).dict();
+    dict.insert(Name(b"T")).primitive(TextStr(partial_name));
+    dict.pair(Name(b"StructParent"), struct_parent_key);
+    if !tooltip.is_empty() {
+        dict.insert(Name(b"TU")).primitive(TextStr(tooltip));
+    }
+    dict.insert(Name(b"Kids"))
+        .array()
+        .items(widget_refs.iter().copied());
+    dict.finish();
+
+    widget_refs
+}
+
 fn write_signature_field(
     pdf: &mut Pdf,
     info: &FieldInfo,
@@ -729,6 +862,7 @@ fn write_signature_field(
     alloc: &mut i32,
     struct_parent_key: i32,
     tooltip: &str,
+    hier_parent: Option<Ref>,
 ) {
     let ap_bytes = appearance::build_signature_placeholder_appearance(width, height);
     let ap_ref = alloc_ref(alloc);
@@ -740,12 +874,11 @@ fn write_signature_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
-    // AnnotationFlags::PRINT = 4 (bit 3)
     annot.flags(pdf_writer::types::AnnotationFlags::PRINT);
     write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
+    write_parent_attr(&mut annot, hier_parent);
     annot.insert(Name(b"FT")).primitive(Name(b"Sig"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
-    // No /V — this is an unsigned placeholder
     if readonly {
         annot.insert(Name(b"Ff")).primitive(1_i32);
     }
@@ -753,15 +886,11 @@ fn write_signature_field(
     annot.finish();
 }
 
-/// Extract the terminal (last) segment from a dotted/bracketed path for use as `/T`.
-/// For flat paths, returns the full name. For `items[0].name`, returns `"name"`.
 fn terminal_name(path: &str) -> &str {
     let segments = parse_path_segments(path);
     if segments.len() <= 1 {
         return path;
     }
-    // Return the last segment — but we need to return a &str with static lifetime...
-    // Since parse_path_segments allocates, we fall back to string slicing.
     if let Some(dot_pos) = path.rfind('.') {
         &path[dot_pos + 1..]
     } else {

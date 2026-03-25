@@ -69,33 +69,25 @@ pub fn render_document(
     // to avoid collisions with AcroForm field refs allocated during rendering.
     let mut tag_ctx = TaggingContext::new(Ref::new(next_ref + 50000));
 
+    // Offset annotation StructParent keys so they don't collide with
+    // page entries (0..page_count-1) in the ParentTree.
+    tag_ctx.set_annotation_key_offset(page_count);
+
     // Render each page
     let mut acroform = AcroFormBuilder::new();
 
+    // Phase 1: Generate content streams and register fields (but don't write pages yet,
+    // because radio/checkbox-group widget refs aren't known until write_fields).
+    let mut page_content_bytes: Vec<Vec<u8>> = Vec::new();
+
     if pages.is_empty() {
-        // At least one empty page
         let content = Content::new();
-        let content_bytes = content.finish().into_vec();
-        write_page(
-            &mut pdf,
-            page_refs[0],
-            page_tree_ref,
-            content_refs[0],
-            &content_bytes,
-            config,
-            &[],
-            false,
-            false,
-            0,
-        );
+        page_content_bytes.push(content.finish().into_vec());
     } else {
         for (page_idx, page_items) in pages.iter().enumerate() {
             if page_idx > 0 {
                 tag_ctx.new_page();
             }
-
-            let page_ref = page_refs[page_idx];
-            let content_ref = content_refs[page_idx];
 
             let content_bytes = render_page_content(
                 page_items,
@@ -107,26 +99,12 @@ pub fn render_document(
                 &mut next_ref,
                 &mut tag_ctx,
             );
-
-            let annot_refs = acroform.annot_refs_for_page(page_idx);
-            let has_widgets = !annot_refs.is_empty();
-            let has_tags = !tag_ctx.page_mcid_maps()[page_idx].is_empty();
-            write_page(
-                &mut pdf,
-                page_ref,
-                page_tree_ref,
-                content_ref,
-                &content_bytes,
-                config,
-                &annot_refs,
-                has_widgets,
-                has_tags,
-                page_idx as i32,
-            );
+            page_content_bytes.push(content_bytes);
         }
     }
 
-    // Write AcroForm field objects into the PDF, passing tag_ctx for /StructParent and /TU
+    // Phase 2: Build parent map and write field annotations (populates extra_annot_refs).
+    let parent_map = acroform.build_parent_map(&mut next_ref);
     acroform.write_fields(
         &mut pdf,
         nodes,
@@ -134,7 +112,28 @@ pub fn render_document(
         config,
         &mut next_ref,
         &mut tag_ctx,
+        &parent_map,
     );
+
+    // Phase 3: Write page objects (now annot_refs_for_page includes radio widget refs).
+    for (page_idx, content_bytes) in page_content_bytes.iter().enumerate() {
+        let annot_refs = acroform.annot_refs_for_page(page_idx);
+        let has_widgets = !annot_refs.is_empty();
+        let has_tags = page_idx < tag_ctx.page_mcid_maps().len()
+            && !tag_ctx.page_mcid_maps()[page_idx].is_empty();
+        write_page(
+            &mut pdf,
+            page_refs[page_idx],
+            page_tree_ref,
+            content_refs[page_idx],
+            content_bytes,
+            config,
+            &annot_refs,
+            has_widgets,
+            has_tags,
+            page_idx as i32,
+        );
+    }
 
     // Write AcroForm dictionary if there are interactive fields.
     // Use hierarchical refs to build proper /Parent chains for repeat group paths.
@@ -285,7 +284,8 @@ fn render_header(content: &mut Content, text: &str, config: &PdfConfig) {
     content
         .begin_marked_content_with_properties(Name(b"Artifact"))
         .properties()
-        .pair(Name(b"Type"), Name(b"Pagination"));
+        .pair(Name(b"Type"), Name(b"Pagination"))
+        .pair(Name(b"Subtype"), Name(b"Header"));
     content.begin_text();
     content.set_font(Name(b"HeBo"), 9.0);
     content.set_fill_rgb(0.3, 0.3, 0.3);
@@ -305,7 +305,8 @@ fn render_footer(content: &mut Content, text: &str, config: &PdfConfig, page_num
     content
         .begin_marked_content_with_properties(Name(b"Artifact"))
         .properties()
-        .pair(Name(b"Type"), Name(b"Pagination"));
+        .pair(Name(b"Type"), Name(b"Pagination"))
+        .pair(Name(b"Subtype"), Name(b"Footer"));
     content.begin_text();
     content.set_font(Name(b"Helv"), 8.0);
     content.set_fill_rgb(0.4, 0.4, 0.4);
@@ -441,6 +442,17 @@ fn render_field_node(
         height: field_h,
     };
     acroform.add_field(node, field_ref, &rect, page_idx);
+
+    // Tag the field immediately after the label so structure tree order is interleaved
+    // (label, field, label, field) rather than grouped (all labels, then all fields).
+    let tooltip = node
+        .field_item
+        .as_ref()
+        .and_then(|fi| fi.hint.as_deref().or(fi.label.as_deref()))
+        .unwrap_or("");
+    let sp_key = tag_ctx.tag_field(field_ref, tag_ctx.default_sect_ref, tooltip);
+    // Store on FieldInfo so write_fields uses this pre-assigned key.
+    acroform.fields.last_mut().unwrap().struct_parent_key = Some(sp_key);
 
     cursor_y += field_h;
 

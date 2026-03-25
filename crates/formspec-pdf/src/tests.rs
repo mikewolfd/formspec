@@ -1540,6 +1540,334 @@ fn assemble_response_sparse_indices_fill_gaps_with_null() {
     assert_eq!(items[2].get("name"), Some(&json!("Charlie")));
 }
 
+// ── Bug Fix: StructParent key collision (Bug 1) ──
+
+#[test]
+fn struct_parent_keys_no_collision_with_page_keys() {
+    // With 2 pages and 3 fields, annotation /StructParent values must not
+    // overlap with page /StructParents values (0 and 1).
+    // Generate enough fields to span 2 pages.
+    let nodes: Vec<EvaluatedNode> = (0..25)
+        .map(|i| make_field_node("TextInput", &format!("f{}", i), &format!("Field {}", i)))
+        .collect();
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // Pages get /StructParents 0 and /StructParents 1
+    // Annotations must NOT get /StructParent 0 or /StructParent 1
+    // They should start at page_count (2) or higher.
+    //
+    // Count occurrences of /StructParent followed by a space and a number.
+    // /StructParents (plural) is for pages; /StructParent (singular) is for annotations.
+    // We need to distinguish them carefully.
+
+    // Collect all annotation /StructParent values (singular, not plural)
+    let mut annot_keys: Vec<i32> = Vec::new();
+    for cap in pdf_str.split("/StructParent ").skip(1) {
+        // Skip /StructParents (plural) — those are page entries
+        if cap.starts_with('s') || cap.starts_with('S') {
+            continue; // This was actually /StructParents
+        }
+        // Parse the integer
+        let num_str: String = cap.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(n) = num_str.parse::<i32>() {
+            annot_keys.push(n);
+        }
+    }
+
+    // We should have at least some annotation keys
+    assert!(
+        !annot_keys.is_empty(),
+        "Should have annotation /StructParent entries"
+    );
+
+    // No annotation key should be 0 or 1 (those are page keys)
+    for key in &annot_keys {
+        assert!(
+            *key >= 2,
+            "Annotation /StructParent {} collides with page /StructParents range 0..1",
+            key
+        );
+    }
+}
+
+// ── Bug Fix: Radio widget annotations in page /Annots (Bug 2) ──
+
+fn make_radio_node_with_options(bind: &str, options: Vec<(&str, &str)>) -> EvaluatedNode {
+    let field_options: Vec<formspec_plan::FieldOption> = options
+        .iter()
+        .map(|(val, label)| formspec_plan::FieldOption {
+            value: json!(val),
+            label: Some(label.to_string()),
+        })
+        .collect();
+    let mut node = make_field_node("RadioGroup", bind, "Choose");
+    node.field_item = Some(FieldItemSnapshot {
+        key: bind.to_string(),
+        label: Some("Choose".to_string()),
+        hint: None,
+        data_type: Some("choice".to_string()),
+        options: field_options,
+        option_set: None,
+    });
+    node
+}
+
+#[test]
+fn radio_widget_annotations_in_page_annots() {
+    // Radio group with 3 options: the page /Annots array must include
+    // the parent field ref plus all 3 per-option widget refs (>= 4 total).
+    let node = make_radio_node_with_options("color", vec![
+        ("red", "Red"),
+        ("blue", "Blue"),
+        ("green", "Green"),
+    ]);
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // Count /Subtype /Widget entries — each option creates one plus the parent
+    // may or may not be a Widget. At minimum we need 3 widget annotations for
+    // the options, and all must be in /Annots.
+    let widget_count = pdf_str.matches("/Subtype /Widget").count();
+    assert!(
+        widget_count >= 3,
+        "Radio group with 3 options needs >= 3 widget annotations, got {}",
+        widget_count
+    );
+
+    // The page's /Annots array should reference all widget refs.
+    // Count refs in /Annots array — look for /Annots [ ... ]
+    // We count entries by looking at R references in the Annots array.
+    assert!(
+        pdf_str.contains("/Annots"),
+        "Page must have /Annots array"
+    );
+
+    // Parse /Annots array to count entries
+    if let Some(annots_pos) = pdf_str.find("/Annots [") {
+        let after = &pdf_str[annots_pos + 9..];
+        if let Some(close) = after.find(']') {
+            let annots_content = &after[..close];
+            let ref_count = annots_content.matches(" R").count();
+            assert!(
+                ref_count >= 4,
+                "Radio /Annots should have >= 4 refs (parent + 3 widgets), got {}",
+                ref_count
+            );
+        }
+    }
+}
+
+// ── Bug Fix: Missing /Parent on hierarchical terminal widgets (Bug 3) ──
+
+#[test]
+fn hierarchical_terminal_widgets_have_parent_ref() {
+    // For path "items[0].name", the terminal widget annotation must
+    // contain /Parent pointing to its parent field dict.
+    let mut node = make_field_node("TextInput", "items[0].name", "Name");
+    node.bind_path = Some("items[0].name".to_string());
+
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // The terminal widget should have /Parent in its annotation dict.
+    // Text fields with hierarchical paths need /Parent — that's the bug.
+    // We need to find /Parent specifically on the Widget annotation (which has /FT /Tx),
+    // not on some other object. Find the Widget annotation object and check it.
+    //
+    // Look for an object that contains both /FT /Tx and /Parent.
+    // Split by "obj" boundaries and look for one that has both.
+    let has_parent_on_text_widget = pdf_str
+        .split("endobj")
+        .any(|obj| obj.contains("/FT /Tx") && obj.contains("/Parent"));
+
+    assert!(
+        has_parent_on_text_widget,
+        "Hierarchical text widget annotation must have /Parent ref in same object as /FT /Tx"
+    );
+}
+
+// ── Bug Fix: CheckboxGroup uses radio semantics (Bug 4) ──
+
+fn make_checkbox_group_node(bind: &str, options: Vec<(&str, &str)>) -> EvaluatedNode {
+    let field_options: Vec<formspec_plan::FieldOption> = options
+        .iter()
+        .map(|(val, label)| formspec_plan::FieldOption {
+            value: json!(val),
+            label: Some(label.to_string()),
+        })
+        .collect();
+    let mut node = make_field_node("CheckboxGroup", bind, "Select many");
+    node.field_item = Some(FieldItemSnapshot {
+        key: bind.to_string(),
+        label: Some("Select many".to_string()),
+        hint: None,
+        data_type: Some("choice".to_string()),
+        options: field_options,
+        option_set: None,
+    });
+    node
+}
+
+#[test]
+fn checkbox_group_no_radio_bits() {
+    // CheckboxGroup must NOT have Radio/NoToggleToOff bits (49152).
+    // Each option should be an independent checkbox.
+    let node = make_checkbox_group_node("toppings", vec![
+        ("cheese", "Cheese"),
+        ("peppers", "Peppers"),
+        ("olives", "Olives"),
+    ]);
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // Should have /Btn fields (checkboxes are buttons)
+    assert!(
+        pdf_str.contains("/Btn"),
+        "CheckboxGroup options should be /Btn type"
+    );
+
+    // Must NOT have radio /Ff bits (49152)
+    assert!(
+        !pdf_str.contains("/Ff 49152"),
+        "CheckboxGroup must NOT have Radio+NoToggleToOff /Ff bits"
+    );
+}
+
+// ── Bug Fix: Missing PRINT flag on non-signature annotations (Bug 6) ──
+
+#[test]
+fn text_field_has_print_flag() {
+    // Non-signature annotations must have the PRINT flag (bit 3 = 4)
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // The PRINT flag is AnnotationFlags::PRINT which has bit value 4.
+    // pdf-writer writes it as /F 4 on the annotation.
+    assert!(
+        pdf_str.contains("/F 4"),
+        "Text field annotation must have PRINT flag (/F 4)"
+    );
+}
+
+// ── Bug Fix: Artifact subtypes not written (Bug 7) ──
+
+#[test]
+fn header_artifact_has_subtype() {
+    let nodes = vec![make_field_node("TextInput", "name", "Name")];
+    let opts = PdfOptions {
+        header_text: Some("My Form Header".to_string()),
+        ..Default::default()
+    };
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let streams = extract_streams(&pdf_bytes);
+    assert!(
+        streams.contains("/Subtype /Header"),
+        "Header artifact must have /Subtype /Header, got streams:\n{}",
+        streams
+    );
+}
+
+#[test]
+fn footer_artifact_has_subtype() {
+    let nodes = vec![make_field_node("TextInput", "name", "Name")];
+    let opts = PdfOptions {
+        footer_text: Some("Page {page}".to_string()),
+        ..Default::default()
+    };
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let streams = extract_streams(&pdf_bytes);
+    assert!(
+        streams.contains("/Subtype /Footer"),
+        "Footer artifact must have /Subtype /Footer, got streams:\n{}",
+        streams
+    );
+}
+
+// ── Bug Fix: Structure tree reading order not interleaved (Bug 5) ──
+
+#[test]
+fn structure_tree_interleaved_label_field_order() {
+    // With 2 fields, the structure tree should interleave:
+    // /S /P (label1), /S /Form (field1), /S /P (label2), /S /Form (field2)
+    // NOT: /S /P, /S /P, /S /Form, /S /Form
+    let nodes = vec![
+        make_field_node("TextInput", "first", "First Name"),
+        make_field_node("TextInput", "last", "Last Name"),
+    ];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // Find the Sect element's children array. In the PDF bytes, the Sect
+    // element writes children as struct element refs. We need to verify
+    // the ORDER of /S /P and /S /Form in the output.
+    //
+    // The struct elements are written in order. Find all occurrences and
+    // verify interleaving.
+    let mut tag_order: Vec<&str> = Vec::new();
+    let mut pos = 0;
+    let bytes = pdf_str.as_ref();
+    while pos < bytes.len() {
+        if let Some(p_pos) = bytes[pos..].find("/S /P\n") {
+            if let Some(f_pos) = bytes[pos..].find("/S /Form\n") {
+                if p_pos < f_pos {
+                    tag_order.push("P");
+                    pos += p_pos + 5;
+                } else {
+                    tag_order.push("Form");
+                    pos += f_pos + 8;
+                }
+            } else {
+                tag_order.push("P");
+                pos += p_pos + 5;
+            }
+        } else if let Some(f_pos) = bytes[pos..].find("/S /Form\n") {
+            tag_order.push("Form");
+            pos += f_pos + 8;
+        } else {
+            break;
+        }
+    }
+
+    // We expect: P, Form, P, Form (interleaved)
+    // Bug would give: P, P, Form, Form (grouped)
+    assert!(
+        tag_order.len() >= 4,
+        "Expected at least 4 struct elements (2 P + 2 Form), got {:?}",
+        tag_order
+    );
+    // The first Form must come before the second P
+    // i.e. tag_order should be [P, Form, P, Form] not [P, P, Form, Form]
+    assert_eq!(
+        tag_order[0], "P",
+        "First element should be P (label), got {:?}",
+        tag_order
+    );
+    assert_eq!(
+        tag_order[1], "Form",
+        "Second element should be Form (field after its label), got {:?}",
+        tag_order
+    );
+}
+
 // ── Stream Compression ──
 
 #[test]
