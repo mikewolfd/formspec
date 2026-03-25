@@ -32,7 +32,7 @@ else
 fi
 if command -v cargo &>/dev/null; then
   echo "==> Generating Rust API docs"
-  (cd "$ROOT" && cargo doc --workspace --no-deps && rm -rf docs/api/rust && cp -r target/doc docs/api/rust)
+  (cd "$ROOT" && cargo doc --workspace --no-deps && mkdir -p docs/api && rm -rf docs/api/rust && cp -r target/doc docs/api/rust)
 else
   echo "==> Skipping Rust API docs (cargo not found)"
 fi
