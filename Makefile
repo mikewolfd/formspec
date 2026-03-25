@@ -67,6 +67,9 @@ html-docs: \
       $(DOCS_DIR)/extension-registry.html \
       $(DOCS_DIR)/theme-spec.html \
       $(DOCS_DIR)/component-spec.html \
+      $(DOCS_DIR)/references-spec.html \
+      $(DOCS_DIR)/ontology-spec.html \
+      $(DOCS_DIR)/locale-spec.html \
       $(DOCS_DIR)/grant-application.html
 
 docs: html-docs api-docs
@@ -92,6 +95,15 @@ $(DOCS_DIR)/theme-spec.html: $(SPECS_DIR)/theme/theme-spec.md $(TEMPLATE)
 $(DOCS_DIR)/component-spec.html: $(SPECS_DIR)/component/component-spec.md $(TEMPLATE)
 	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Formspec Component Specification" -o $@ $<
 
+$(DOCS_DIR)/references-spec.html: $(SPECS_DIR)/core/references-spec.md $(TEMPLATE)
+	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Formspec References Specification" -o $@ $<
+
+$(DOCS_DIR)/ontology-spec.html: $(SPECS_DIR)/ontology/ontology-spec.md $(TEMPLATE)
+	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Formspec Ontology Specification" -o $@ $<
+
+$(DOCS_DIR)/locale-spec.html: $(SPECS_DIR)/locale/locale-spec.md $(TEMPLATE)
+	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Formspec Locale Specification" -o $@ $<
+
 $(DOCS_DIR)/grant-application.html: docs/grant-application-guide.md $(TEMPLATE)
 	$(PANDOC) -s --toc --template=$(TEMPLATE) --metadata title="Grant Application — Formspec Walkthrough" -o $@ $<
 
@@ -111,6 +123,9 @@ clean:
 	      $(DOCS_DIR)/extension-registry.html \
 	      $(DOCS_DIR)/theme-spec.html \
 	      $(DOCS_DIR)/component-spec.html \
+	      $(DOCS_DIR)/references-spec.html \
+	      $(DOCS_DIR)/ontology-spec.html \
+	      $(DOCS_DIR)/locale-spec.html \
 	      $(DOCS_DIR)/grant-application.html
 	rm -rf $(DOCS_DIR)/api
 	rm -f src/formspec/API.llm.md \

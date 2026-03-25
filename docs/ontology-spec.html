@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formspec Ontology Specification</title>
+<style>
+  body { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #1f2328; line-height: 1.6; font-size: 16px; }
+  #TOC { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 1rem 1.5rem; margin-bottom: 2rem; }
+  #TOC > ul { list-style: none; padding-left: 0; }
+  #TOC ul { padding-left: 1.5rem; }
+  #TOC li { margin: 0.15rem 0; font-size: 14px; }
+  #TOC a { text-decoration: none; color: #0969da; }
+  #TOC a:hover { text-decoration: underline; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 0.3rem; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 0.3rem; margin-top: 2.5rem; }
+  h3 { margin-top: 1.5rem; }
+  h4 { margin-top: 1.2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 14px; }
+  th, td { border: 1px solid #d0d7de; padding: 6px 13px; text-align: left; }
+  th { background: #f6f8fa; font-weight: 600; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 13px; }
+  code { font-size: 0.9em; background: #f0f2f5; padding: 0.2em 0.4em; border-radius: 3px; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 4px solid #d0d7de; margin: 0; padding: 0 1rem; color: #57606a; }
+  strong { color: #1f2328; }
+  a { color: #0969da; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<nav id="TOC">
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#formspec-ontology-specification-v1.0"
+id="toc-formspec-ontology-specification-v1.0">Formspec Ontology
+Specification v1.0</a>
+<ul>
+<li><a href="#abstract" id="toc-abstract">Abstract</a></li>
+<li><a href="#status-of-this-document"
+id="toc-status-of-this-document">Status of This Document</a></li>
+<li><a href="#conventions-and-terminology"
+id="toc-conventions-and-terminology">Conventions and
+Terminology</a></li>
+<li><a href="#bottom-line-up-front" id="toc-bottom-line-up-front">Bottom
+Line Up Front</a></li>
+<li><a href="#purpose-and-scope" id="toc-purpose-and-scope">1. Purpose
+and Scope</a>
+<ul>
+<li><a href="#relationship-to-registry-concept-and-vocabulary-entries"
+id="toc-relationship-to-registry-concept-and-vocabulary-entries">1.0.1
+Relationship to Registry Concept and Vocabulary Entries</a></li>
+<li><a href="#design-principles" id="toc-design-principles">1.1 Design
+Principles</a></li>
+<li><a href="#relationship-to-owl-and-the-semantic-web"
+id="toc-relationship-to-owl-and-the-semantic-web">1.2 Relationship to
+OWL and the Semantic Web</a></li>
+</ul></li>
+<li><a href="#ontology-document-format"
+id="toc-ontology-document-format">2. Ontology Document Format</a>
+<ul>
+<li><a href="#target-definition" id="toc-target-definition">2.1 Target
+Definition</a></li>
+<li><a href="#publisher-object" id="toc-publisher-object">2.2 Publisher
+Object</a></li>
+<li><a href="#validation-rules" id="toc-validation-rules">2.3 Validation
+Rules</a></li>
+</ul></li>
+<li><a href="#concept-bindings" id="toc-concept-bindings">3. Concept
+Bindings</a>
+<ul>
+<li><a href="#equivalents" id="toc-equivalents">3.1 Equivalents</a></li>
+<li><a href="#relationship-types-skos-inspired"
+id="toc-relationship-types-skos-inspired">3.2 Relationship Types
+(SKOS-Inspired)</a></li>
+<li><a href="#example" id="toc-example">3.3 Example</a></li>
+<li><a href="#resolution-cascade" id="toc-resolution-cascade">3.4
+Resolution Cascade</a></li>
+</ul></li>
+<li><a href="#vocabulary-bindings" id="toc-vocabulary-bindings">4.
+Vocabulary Bindings</a>
+<ul>
+<li><a href="#filter-object" id="toc-filter-object">4.1 Filter
+Object</a></li>
+<li><a href="#example-1" id="toc-example-1">4.2 Example</a></li>
+<li><a href="#interaction-with-option-sets"
+id="toc-interaction-with-option-sets">4.3 Interaction with Option
+Sets</a></li>
+<li><a href="#dynamic-option-sources"
+id="toc-dynamic-option-sources">4.4 Dynamic Option Sources</a></li>
+</ul></li>
+<li><a href="#alignments" id="toc-alignments">5. Alignments</a>
+<ul>
+<li><a href="#example-2" id="toc-example-2">5.1 Example</a></li>
+<li><a href="#alignment-vs.-concept-equivalents"
+id="toc-alignment-vs.-concept-equivalents">5.2 Alignment vs. Concept
+Equivalents</a></li>
+</ul></li>
+<li><a href="#json-ld-context-fragment"
+id="toc-json-ld-context-fragment">6. JSON-LD Context Fragment</a>
+<ul>
+<li><a href="#example-3" id="toc-example-3">6.1 Example</a></li>
+<li><a href="#auto-generation" id="toc-auto-generation">6.2
+Auto-Generation</a></li>
+</ul></li>
+<li><a href="#relationship-to-existing-properties"
+id="toc-relationship-to-existing-properties">7. Relationship to Existing
+Properties</a></li>
+<li><a href="#conformance" id="toc-conformance">8. Conformance</a>
+<ul>
+<li><a href="#core-processor-requirements"
+id="toc-core-processor-requirements">8.1 Core Processor
+Requirements</a></li>
+<li><a href="#extended-processor-requirements"
+id="toc-extended-processor-requirements">8.2 Extended Processor
+Requirements</a></li>
+</ul></li>
+<li><a href="#schema" id="toc-schema">9. Schema</a></li>
+<li><a href="#security-considerations"
+id="toc-security-considerations">10. Security Considerations</a></li>
+<li><a href="#complete-example" id="toc-complete-example">11. Complete
+Example</a></li>
+<li><a href="#appendix-a-references"
+id="toc-appendix-a-references">Appendix A — References</a></li>
+<li><a href="#appendix-b-relationship-to-owl-and-the-semantic-web"
+id="toc-appendix-b-relationship-to-owl-and-the-semantic-web">Appendix B
+— Relationship to OWL and the Semantic Web</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="formspec-ontology-specification-v1.0">Formspec Ontology
+Specification v1.0</h1>
+<p><strong>Version:</strong> 1.0.0-draft.1 <strong>Date:</strong>
+2026-03-23 <strong>Editors:</strong> Formspec Working Group
+<strong>Companion to:</strong> Formspec v1.0 — A JSON-Native Declarative
+Form Standard</p>
+<hr />
+<h2 id="abstract">Abstract</h2>
+<p>The Formspec Ontology Specification defines a standalone sidecar
+document for <em>binding</em> form fields to concepts defined in
+external ontologies and standards (schema.org, FHIR, ICD-10, Dublin
+Core, etc.). An Ontology Document does not define new concepts — it
+references existing ones by IRI, connecting Formspec’s data collection
+model to the broader ecosystem of domain ontologies, controlled
+vocabularies, and data standards.</p>
+<p>An Ontology Document lives alongside the Definition (like Theme,
+Component, and References documents) and binds semantic metadata to
+specific fields and option sets by path. Multiple Ontology Documents MAY
+target the same Definition — for different domains, standards bodies, or
+interoperability contexts.</p>
+<p>This specification enables data scientists, integration engineers,
+and automated tooling to understand what form data <em>means</em>, not
+just what it <em>looks like</em> — and to mechanically align data across
+independently authored forms that collect the same real-world
+concepts.</p>
+<h2 id="status-of-this-document">Status of This Document</h2>
+<p>This document is a <strong>draft specification</strong>. It is a
+companion to the Formspec v1.0 core specification and does not modify or
+extend the core processing model. Implementors are encouraged to
+experiment with this specification and provide feedback, but MUST NOT
+treat it as stable for production use until a 1.0.0 release is
+published.</p>
+<h2 id="conventions-and-terminology">Conventions and Terminology</h2>
+<p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
+“SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “NOT RECOMMENDED”, “MAY”, and
+“OPTIONAL” in this document are to be interpreted as described in <a
+href="https://www.rfc-editor.org/rfc/rfc2119">BCP 14</a> [RFC 2119] [RFC
+8174] when, and only when, they appear in ALL CAPITALS, as shown
+here.</p>
+<p>JSON syntax and data types are as defined in [RFC 8259]. URI syntax
+is as defined in [RFC 3986]. IRI syntax is as defined in [RFC 3987].</p>
+<p>Terms defined in Formspec v1.0 — <em>conformant processor</em>,
+<em>Definition document</em>, <em>extension</em>, <em>FEL
+expression</em>, <em>semanticType</em> — retain their meanings here.</p>
+<p>Additional terms:</p>
+<ul>
+<li><strong>Ontology Document</strong> — A JSON document conforming to
+this specification.</li>
+<li><strong>Concept Binding</strong> — An entry in the
+<code>concepts</code> map that associates a Definition item path with a
+concept IRI.</li>
+<li><strong>Vocabulary Binding</strong> — An entry in the
+<code>vocabularies</code> map that associates a named option set with an
+external terminology system.</li>
+<li><strong>Alignment</strong> — A declared relationship between a
+Definition field and a concept in an external system, with a typed
+relationship qualifier.</li>
+<li><strong>Ontology-aware processor</strong> — A conformant Formspec
+processor that additionally understands the Ontology Document format and
+uses it for semantic annotation, cross-form alignment, or data export
+enrichment.</li>
+</ul>
+<h2 id="bottom-line-up-front">Bottom Line Up Front</h2>
+<!-- bluf:start file=ontology-spec.bluf.md -->
+<ul>
+<li>Ontology Documents are standalone JSON sidecars that
+<strong>bind</strong> form fields to concepts defined in external
+ontologies (schema.org, FHIR, ICD-10, etc.) — they reference existing
+concepts by URI, they do not define new ones. Like Theme, Component, and
+References documents, they live alongside the Definition.</li>
+<li>Each Concept Binding declares a <code>concept</code> URI linking a
+Definition field to an external ontology (FHIR, schema.org, ICD-10,
+etc.), with optional cross-system <code>equivalents</code> using SKOS
+relationship types (exact, broader, narrower, related, close).</li>
+<li>Vocabulary Bindings associate named option sets with external
+terminology systems, enabling terminology version tracking,
+cross-vocabulary alignment, and code normalization via
+<code>valueMap</code>.</li>
+<li>Alignments declare typed relationships between Definition fields and
+concepts in other systems, enabling cross-form data science — two
+independently authored forms that align to the same concept can have
+their data mechanically merged.</li>
+<li>Multiple Ontology Documents MAY target the same Definition — for
+different domains, standards bodies, or interoperability contexts.
+Bindings merge additively; last-loaded document wins for the same
+path.</li>
+<li>Ontology metadata is pure metadata — it MUST NOT affect data
+capture, validation, or the processing model. Ontology property values
+are static; FEL expressions MUST NOT appear.</li>
+<li>The specification is OWL-integrative, not OWL-compatible: it uses
+IRIs for concept identity and SKOS for alignment types, but does not
+implement OWL formal semantics, open-world reasoning, or class
+hierarchies. JSON-LD context fragments bridge to the semantic web when
+needed.</li>
+<li>This BLUF is governed by <code>schemas/ontology.schema.json</code>;
+generated references are the structural contract. <!-- bluf:end --></li>
+</ul>
+<hr />
+<h2 id="purpose-and-scope">1. Purpose and Scope</h2>
+<p>Formspec v1.0 defines a <code>semanticType</code> property on Field
+items as a “domain meaning annotation” that is “purely metadata” and
+“MUST NOT affect validation, calculation, or any behavioral semantics.”
+The core specification deliberately leaves semantic
+<em>publication</em>, <em>alignment</em>, and <em>vocabulary
+binding</em> out of scope.</p>
+<p>This companion specification fills that gap by defining:</p>
+<ol type="1">
+<li>A <strong>Concept Binding</strong> format for associating Definition
+items with concept IRIs from external ontologies and standards.</li>
+<li>A <strong>Vocabulary Binding</strong> format for associating named
+option sets with external terminology systems.</li>
+<li>An <strong>Alignment</strong> format for declaring typed
+relationships between Definition fields and concepts in other systems
+(SKOS-inspired).</li>
+<li>A <strong>JSON-LD Context</strong> generation mechanism for
+producing self-describing linked data from form responses.</li>
+<li><strong>Conformance requirements</strong> for ontology-aware
+processors.</li>
+</ol>
+<p>This specification does NOT define an ontology, an ontology language,
+a reasoning engine, or a terminology service. It defines a
+<strong>binding document</strong> — a metadata layer that references
+concepts defined elsewhere and attaches them to form fields. External
+ontologies (schema.org, FHIR, OWL vocabularies) define what concepts
+mean. This specification declares which of those concepts each form
+field represents.</p>
+<blockquote>
+<p><strong>Clarification on naming:</strong> Despite the name “Ontology
+Document,” this specification does not create a new ontology or define
+new concepts. The name reflects the document’s <em>purpose</em>
+(connecting forms to ontologies) rather than its <em>nature</em> (it is
+a binding/annotation document, not an ontology itself). The relationship
+to external ontologies is strictly referential — concept URIs point to
+definitions maintained by their respective authorities (W3C, HL7, WHO,
+etc.), and this specification neither redefines nor extends those
+definitions.</p>
+</blockquote>
+<h3 id="relationship-to-registry-concept-and-vocabulary-entries">1.0.1
+Relationship to Registry Concept and Vocabulary Entries</h3>
+<p>Shared, reusable concept identity and vocabulary metadata MAY also be
+published as <code>concept</code> and <code>vocabulary</code> entries in
+Extension Registry documents (see the Extension Registry specification
+§3.2). Registry-published concepts are org-level: any form whose field
+declares a matching <code>semanticType</code> gains concept metadata
+automatically, without requiring an Ontology Document.</p>
+<p>The Ontology Document remains the definitive place for:</p>
+<ul>
+<li><strong>Per-form concept bindings</strong> — path-based assignment
+of concepts to specific fields in a specific Definition, including
+concepts not published in any shared registry.</li>
+<li><strong>Alignments</strong> — typed cross-system field relationships
+that are inherently per-form (e.g., “field <code>mrn</code> in this form
+maps to FHIR <code>Patient.identifier</code>”).</li>
+<li><strong>JSON-LD context</strong> — export-pipeline-specific linked
+data context fragments.</li>
+<li><strong>Bespoke vocabulary bindings</strong> — per-form
+<code>valueMap</code> overrides and vocabulary metadata for option sets
+not covered by a shared registry entry.</li>
+</ul>
+<p>When both a registry concept entry and an Ontology Document binding
+apply to the same field, the Ontology Document binding takes precedence.
+See §3.4 for the full resolution cascade.</p>
+<h3 id="design-principles">1.1 Design Principles</h3>
+<ol type="1">
+<li><p><strong>Binding, not definition.</strong> This document
+references concepts defined in external ontologies — it does not define
+new concepts. schema.org defines what <code>birthDate</code> means. FHIR
+defines what <code>Patient.identifier</code> means. This document says
+“field <code>dob</code> in this form represents
+<code>schema.org/birthDate</code>.”</p></li>
+<li><p><strong>Sidecar, not embedded.</strong> Ontological metadata is
+authored and versioned independently of the Definition. The same form
+can have multiple ontology overlays for different contexts (healthcare,
+research, government).</p></li>
+<li><p><strong>Different authority.</strong> The ontology overlay may be
+authored by a different party than the form author — a standards body, a
+data governance team, or a domain expert.</p></li>
+<li><p><strong>Different cadence.</strong> Terminology systems (ICD-10,
+SNOMED, NAICS) update on their own schedules. Vocabulary bindings must
+version independently of both the Definition and the extension
+registry.</p></li>
+<li><p><strong>Pure metadata.</strong> Like References, an Ontology
+Document MUST NOT affect data capture, validation, or the processing
+model. A processor that does not understand ontology documents MUST
+ignore them without error.</p></li>
+<li><p><strong>Graceful degradation.</strong> Every property is optional
+except the structural minimum. A document with only concept bindings is
+valid. A document with only vocabulary bindings is valid. Tooling
+extracts whatever is present.</p></li>
+</ol>
+<h3 id="relationship-to-owl-and-the-semantic-web">1.2 Relationship to
+OWL and the Semantic Web</h3>
+<p>This specification is OWL-integrative, not OWL-compatible. It uses
+IRIs for concept identity and SKOS for alignment vocabulary, but does
+not implement OWL formal semantics, open-world reasoning, or class
+hierarchies. See Appendix B for a detailed discussion.</p>
+<hr />
+<h2 id="ontology-document-format">2. Ontology Document Format</h2>
+<p>An Ontology Document is a JSON object at the top level with the
+following properties:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$schema</code></td>
+<td>string (URI)</td>
+<td>OPTIONAL</td>
+<td>JSON Schema URI for validation tooling (e.g.,
+<code>"schemas/ontology.schema.json"</code>).</td>
+</tr>
+<tr>
+<td><code>$formspecOntology</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Specification version. MUST be <code>"1.0"</code>.</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string (URI)</td>
+<td>OPTIONAL</td>
+<td>Canonical URL for this Ontology Document.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Machine-readable identifier for this Ontology Document (e.g.,
+<code>"clinical-intake-fhir-r4"</code>).</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Version of this Ontology Document.</td>
+</tr>
+<tr>
+<td><code>targetDefinition</code></td>
+<td>object</td>
+<td>REQUIRED</td>
+<td>Binding to the target Definition. See §2.1.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>string</td>
+<td>RECOMMENDED</td>
+<td>Human-readable name for this document.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Purpose and scope of this ontology overlay.</td>
+</tr>
+<tr>
+<td><code>publisher</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Organization publishing this document. See §2.2.</td>
+</tr>
+<tr>
+<td><code>published</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>ISO 8601 timestamp of publication.</td>
+</tr>
+<tr>
+<td><code>defaultSystem</code></td>
+<td>string (URI)</td>
+<td>OPTIONAL</td>
+<td>Default concept system URI applied when a concept binding omits
+<code>system</code>.</td>
+</tr>
+<tr>
+<td><code>concepts</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Map of item paths to Concept Bindings. See §3.</td>
+</tr>
+<tr>
+<td><code>vocabularies</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Map of option set names to Vocabulary Bindings. See §4.</td>
+</tr>
+<tr>
+<td><code>alignments</code></td>
+<td>array</td>
+<td>OPTIONAL</td>
+<td>Array of cross-system Alignment declarations. See §5.</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>JSON-LD <code>@context</code> fragment for response export. See
+§6.</td>
+</tr>
+<tr>
+<td><code>extensions</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Extension properties (all keys <code>x-</code>-prefixed).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="target-definition">2.1 Target Definition</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>string (URI)</td>
+<td>REQUIRED</td>
+<td>Canonical URL of the target Definition.</td>
+</tr>
+<tr>
+<td><code>compatibleVersions</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Semver range of compatible Definition versions (e.g.,
+<code>"&gt;=1.0.0 &lt;2.0.0"</code>).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="publisher-object">2.2 Publisher Object</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Human-readable organization name.</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string (URI)</td>
+<td>REQUIRED</td>
+<td>Organization home page.</td>
+</tr>
+<tr>
+<td><code>contact</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Contact email or URI.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="validation-rules">2.3 Validation Rules</h3>
+<ul>
+<li>Concept binding keys MUST use the same path syntax as
+<code>Bind.path</code> in Core §4.3.3. Paths that reference nonexistent
+items produce a warning, not a hard error.</li>
+<li>Vocabulary binding keys MUST match names in the Definition’s
+<code>optionSets</code>. Keys that do not match a defined option set
+produce a warning.</li>
+<li>Alignment <code>field</code> values MUST use the same path syntax as
+<code>Bind.path</code>.</li>
+<li>Ontology property values are <strong>static</strong>. FEL
+expressions MUST NOT appear in any Ontology Document property.</li>
+<li>As with other Formspec sidecar documents, an Ontology Document MAY
+include additional properties prefixed with <code>x-</code> at the
+document root. Unrecognized <code>x-</code>-prefixed properties MUST be
+preserved on round-trip.</li>
+<li>An empty <code>concepts</code> object, empty
+<code>vocabularies</code> object, or empty <code>alignments</code> array
+is valid.</li>
+<li>The <code>context.@context</code> value MUST be a string (URI), an
+object, or an array — per the JSON-LD specification.</li>
+</ul>
+<hr />
+<h2 id="concept-bindings">3. Concept Bindings</h2>
+<p>The <code>concepts</code> property is an object whose keys are item
+paths (using the same path syntax as <code>Bind.path</code> in Core
+§4.3.3) and whose values are Concept Binding objects.</p>
+<p>A Concept Binding associates a Definition item with a concept in an
+external ontology or standard.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Path</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mrn</code></td>
+<td>Top-level field</td>
+</tr>
+<tr>
+<td><code>demographics.dob</code></td>
+<td>Nested field within a group</td>
+</tr>
+<tr>
+<td><code>lineItems[*].amount</code></td>
+<td>Every instance of <code>amount</code> within the repeatable group
+<code>lineItems</code></td>
+</tr>
+<tr>
+<td><code>#</code></td>
+<td>The form itself (form-level concept binding)</td>
+</tr>
+</tbody>
+</table>
+<p>A concept binding on a repeatable group path (e.g.,
+<code>lineItems[*].amount</code>) means that every instance of that
+field represents the bound concept.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>concept</code></td>
+<td>string (IRI)</td>
+<td>REQUIRED</td>
+<td>The concept IRI in the external system.</td>
+</tr>
+<tr>
+<td><code>system</code></td>
+<td>string (URI)</td>
+<td>RECOMMENDED</td>
+<td>The concept system or ontology URI. Falls back to
+<code>defaultSystem</code> if omitted.</td>
+</tr>
+<tr>
+<td><code>display</code></td>
+<td>string</td>
+<td>RECOMMENDED</td>
+<td>Human-readable name of the concept.</td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Short code within the system (e.g., <code>"MR"</code> for Medical
+Record Number).</td>
+</tr>
+<tr>
+<td><code>equivalents</code></td>
+<td>array</td>
+<td>OPTIONAL</td>
+<td>Cross-system equivalences. See §3.1.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="equivalents">3.1 Equivalents</h3>
+<p>Each element of the <code>equivalents</code> array declares that the
+bound concept is equivalent to a concept in another system:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>system</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>The target system identifier.</td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>The concept code within the target system.</td>
+</tr>
+<tr>
+<td><code>display</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Human-readable name in the target system.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Relationship type. When <code>type</code> is absent, processors MUST
+treat the relationship as <code>exact</code> (this is a processing-model
+default, not a schema <code>default</code>). See §3.2.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="relationship-types-skos-inspired">3.2 Relationship Types
+(SKOS-Inspired)</h3>
+<p>Relationship types follow SKOS (Simple Knowledge Organization System)
+semantics:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>exact</code></td>
+<td>Identical concept (SKOS <code>exactMatch</code>). Default.</td>
+</tr>
+<tr>
+<td><code>close</code></td>
+<td>Very similar but not identical (SKOS <code>closeMatch</code>).</td>
+</tr>
+<tr>
+<td><code>broader</code></td>
+<td>Source concept is more specific than target (SKOS
+<code>broadMatch</code>).</td>
+</tr>
+<tr>
+<td><code>narrower</code></td>
+<td>Source concept is more general than target (SKOS
+<code>narrowMatch</code>).</td>
+</tr>
+<tr>
+<td><code>related</code></td>
+<td>Associatively related (SKOS <code>relatedMatch</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>Custom relationship types MUST be prefixed with <code>x-</code>.</p>
+<h3 id="example">3.3 Example</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;concepts&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;mrn&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;concept&quot;</span><span class="fu">:</span> <span class="st">&quot;http://terminology.hl7.org/CodeSystem/v2-0203#MR&quot;</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;http://terminology.hl7.org/CodeSystem/v2-0203&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Medical Record Number&quot;</span><span class="fu">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;MR&quot;</span><span class="fu">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;equivalents&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org&quot;</span><span class="fu">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;MedicalRecord.identifier&quot;</span><span class="fu">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;related&quot;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;dob&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;concept&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org/birthDate&quot;</span><span class="fu">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org&quot;</span><span class="fu">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Date of Birth&quot;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;demographics.ssn&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;concept&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.irs.gov/terms/social-security-number&quot;</span><span class="fu">,</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.irs.gov/terms&quot;</span><span class="fu">,</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Social Security Number&quot;</span><span class="fu">,</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;equivalents&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org&quot;</span><span class="fu">,</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;taxID&quot;</span><span class="fu">,</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;broader&quot;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="resolution-cascade">3.4 Resolution Cascade</h3>
+<p>Concept identity for a field may come from up to three sources. When
+multiple sources apply to the same field, the following cascade
+determines precedence (highest to lowest):</p>
+<ol type="1">
+<li><strong>Ontology Document binding</strong> — a concept binding in
+the <code>concepts</code> map for this field’s path. Provides the
+authoritative concept URI, equivalents, and metadata for tooling that
+loads ontology documents.</li>
+<li><strong>Registry concept entry</strong> — when the field’s
+<code>semanticType</code> matches the <code>name</code> of a loaded
+registry entry with <code>category: "concept"</code>. Provides shared
+concept metadata for tooling that loads registries but not ontology
+documents.</li>
+<li><strong><code>semanticType</code> literal</strong> — the raw
+<code>semanticType</code> string value, treated as a freeform domain
+annotation. Authoritative for processors that load neither registries
+nor ontology documents.</li>
+</ol>
+<p>All three MAY coexist on the same field. No warning is needed — this
+is the expected pattern for definitions designed to work across multiple
+tooling contexts. A field with <code>"semanticType": "x-onto-ein"</code>
+and an Ontology Document binding for the same path is well-formed; the
+ontology binding provides richer metadata while the registry entry
+provides a shared baseline.</p>
+<hr />
+<h2 id="vocabulary-bindings">4. Vocabulary Bindings</h2>
+<p>The <code>vocabularies</code> property is an object whose keys are
+option set names (matching keys in the Definition’s
+<code>optionSets</code>) and whose values are Vocabulary Binding
+objects.</p>
+<p>A Vocabulary Binding associates a named option set with an external
+terminology system, enabling cross-vocabulary alignment and terminology
+version tracking.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>system</code></td>
+<td>string (URI)</td>
+<td>REQUIRED</td>
+<td>The terminology system URI (e.g.,
+<code>"http://hl7.org/fhir/sid/icd-10"</code>).</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>string</td>
+<td>RECOMMENDED</td>
+<td>Version of the terminology (e.g., <code>"2024"</code>).</td>
+</tr>
+<tr>
+<td><code>display</code></td>
+<td>string</td>
+<td>RECOMMENDED</td>
+<td>Human-readable name (e.g., <code>"ICD-10-CM"</code>).</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Subset constraints on the vocabulary. See §4.1.</td>
+</tr>
+<tr>
+<td><code>valueMap</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Map from option set <code>value</code> strings to terminology codes,
+when they differ. Keys are the Definition’s option values; values are
+the external terminology codes.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="filter-object">4.1 Filter Object</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ancestor</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Root code for hierarchical filtering (only descendants
+included).</td>
+</tr>
+<tr>
+<td><code>maxDepth</code></td>
+<td>integer</td>
+<td>OPTIONAL</td>
+<td>Maximum depth from the ancestor code.</td>
+</tr>
+<tr>
+<td><code>include</code></td>
+<td>array</td>
+<td>OPTIONAL</td>
+<td>Explicit list of codes to include.</td>
+</tr>
+<tr>
+<td><code>exclude</code></td>
+<td>array</td>
+<td>OPTIONAL</td>
+<td>Explicit list of codes to exclude.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-1">4.2 Example</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;vocabularies&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;diagnosisCodes&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir/sid/icd-10&quot;</span><span class="fu">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;2024&quot;</span><span class="fu">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;ICD-10-CM&quot;</span><span class="fu">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filter&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;ancestor&quot;</span><span class="fu">:</span> <span class="st">&quot;F00-F99&quot;</span><span class="fu">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;maxDepth&quot;</span><span class="fu">:</span> <span class="dv">3</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;genderOptions&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir/ValueSet/administrative-gender&quot;</span><span class="fu">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;5.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Administrative Gender&quot;</span><span class="fu">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;valueMap&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;m&quot;</span><span class="fu">:</span> <span class="st">&quot;male&quot;</span><span class="fu">,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;f&quot;</span><span class="fu">:</span> <span class="st">&quot;female&quot;</span><span class="fu">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;o&quot;</span><span class="fu">:</span> <span class="st">&quot;other&quot;</span><span class="fu">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;u&quot;</span><span class="fu">:</span> <span class="st">&quot;unknown&quot;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="interaction-with-option-sets">4.3 Interaction with Option
+Sets</h3>
+<p>Vocabulary Bindings do not replace or override the Definition’s
+option set values. They provide additional metadata that enables:</p>
+<ol type="1">
+<li><strong>Terminology version tracking</strong> — which version of
+ICD-10 these codes come from.</li>
+<li><strong>Cross-vocabulary alignment</strong> — tooling can look up
+equivalent codes in other terminology systems using the
+<code>system</code> + code combination.</li>
+<li><strong>Hierarchical context</strong> — the <code>filter</code>
+clarifies which subset of a large vocabulary is in scope.</li>
+<li><strong>Code normalization</strong> — the <code>valueMap</code>
+translates between the Definition’s option values and the external
+terminology’s codes when they differ.</li>
+</ol>
+<h3 id="dynamic-option-sources">4.4 Dynamic Option Sources</h3>
+<p>Vocabulary Bindings target named option sets declared in the
+Definition’s <code>optionSets</code>. Fields that use
+<code>choicesFrom</code> for dynamic option sources are outside the
+scope of static Vocabulary Bindings. Dynamic vocabulary resolution, if
+needed, MUST be handled by the host environment.</p>
+<hr />
+<h2 id="alignments">5. Alignments</h2>
+<p>The <code>alignments</code> array declares explicit relationships
+between Definition fields and concepts in external systems. While
+concept bindings (§3) declare “this field represents this concept,”
+alignments declare “this field’s concept relates to that system’s
+concept in this way.”</p>
+<p>Alignments enable cross-form data science: two independently authored
+forms that align to the same external concept can have their data
+mechanically merged.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>field</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Item path in the Definition.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>object</td>
+<td>REQUIRED</td>
+<td>External system concept reference.</td>
+</tr>
+<tr>
+<td><code>target.system</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>External system identifier.</td>
+</tr>
+<tr>
+<td><code>target.code</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Concept code in the external system.</td>
+</tr>
+<tr>
+<td><code>target.display</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Human-readable name in the external system.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Relationship type (§3.2).</td>
+</tr>
+<tr>
+<td><code>bidirectional</code></td>
+<td>boolean</td>
+<td>OPTIONAL</td>
+<td>Whether the alignment applies in both directions. Default
+<code>false</code>.</td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Human-readable explanation of the alignment rationale.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-2">5.1 Example</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;alignments&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;mrn&quot;</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;urn:fhir:r4&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;Patient.identifier&quot;</span> <span class="fu">},</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;exact&quot;</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;bidirectional&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;demographics.dob&quot;</span><span class="fu">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;urn:fhir:r4&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;Patient.birthDate&quot;</span> <span class="fu">},</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;exact&quot;</span><span class="fu">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;bidirectional&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;demographics.gender&quot;</span><span class="fu">,</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;urn:fhir:r4&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;Patient.gender&quot;</span> <span class="fu">},</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;exact&quot;</span><span class="fu">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;bidirectional&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;demographics.gender&quot;</span><span class="fu">,</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;gender&quot;</span> <span class="fu">},</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;broader&quot;</span><span class="fu">,</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;notes&quot;</span><span class="fu">:</span> <span class="st">&quot;schema.org gender includes gender identity; FHIR administrative-gender is narrower.&quot;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="alignment-vs.-concept-equivalents">5.2 Alignment vs. Concept
+Equivalents</h3>
+<p>Concept bindings (§3) with <code>equivalents</code> declare
+equivalences from the concept’s perspective — “an EIN is also known as a
+taxID.” Alignments (§5) declare equivalences from the field’s
+perspective — “this field maps to that system’s field.” The distinction
+matters when:</p>
+<ul>
+<li>A concept has many equivalences but only some are relevant to a
+specific form’s integration context.</li>
+<li>An alignment needs notes, directionality, or custom relationship
+types.</li>
+<li>The alignment involves fields that have no concept binding (pure
+structural alignment).</li>
+</ul>
+<p>Both mechanisms are valid. Concept equivalents are simpler for common
+cases. Alignments provide richer metadata for integration
+engineering.</p>
+<hr />
+<h2 id="json-ld-context-fragment">6. JSON-LD Context Fragment</h2>
+<p>The <code>context</code> property MAY contain a JSON-LD
+<code>@context</code> fragment that, when applied to a response
+document, makes the response a valid JSON-LD document. This enables form
+responses to participate in linked data ecosystems.</p>
+<h3 id="example-3">6.1 Example</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;@context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;@vocab&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.gov/forms/clinical-intake#&quot;</span><span class="fu">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;mrn&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;@id&quot;</span><span class="fu">:</span> <span class="st">&quot;http://terminology.hl7.org/CodeSystem/v2-0203#MR&quot;</span><span class="fu">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;@type&quot;</span><span class="fu">:</span> <span class="st">&quot;xsd:string&quot;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">},</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dob&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;@id&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org/birthDate&quot;</span><span class="fu">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;@type&quot;</span><span class="fu">:</span> <span class="st">&quot;xsd:date&quot;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">},</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;gender&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;@id&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir/administrative-gender&quot;</span><span class="fu">,</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;@type&quot;</span><span class="fu">:</span> <span class="st">&quot;@vocab&quot;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="auto-generation">6.2 Auto-Generation</h3>
+<p>Ontology-aware tooling SHOULD be capable of generating a JSON-LD
+context fragment from the concept bindings and vocabulary bindings in
+the document. Explicitly authored <code>context</code> entries override
+auto-generated ones.</p>
+<hr />
+<h2 id="relationship-to-existing-properties">7. Relationship to Existing
+Properties</h2>
+<p>Ontology bindings complement but do not replace existing Definition
+and Registry properties. The following table shows the full layering
+from structural typing through semantic identity:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Source</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dataType</code></td>
+<td>Definition</td>
+<td>Structural type (string, date, money, etc.)</td>
+</tr>
+<tr>
+<td><code>semanticType</code></td>
+<td>Definition</td>
+<td>Domain annotation — freeform string, URI, or registry concept
+key</td>
+</tr>
+<tr>
+<td>Extension (<code>x-formspec-ein</code>)</td>
+<td>Registry</td>
+<td>Type refinement with validation constraints and presentation
+metadata</td>
+</tr>
+<tr>
+<td><strong>Concept entry</strong> (<code>x-onto-ein</code>)</td>
+<td><strong>Registry</strong></td>
+<td><strong>Shared concept identity with cross-system
+equivalences</strong></td>
+</tr>
+<tr>
+<td><strong>Vocabulary entry</strong>
+(<code>x-vocab-icd10-cm</code>)</td>
+<td><strong>Registry</strong></td>
+<td><strong>Shared terminology binding with version
+tracking</strong></td>
+</tr>
+<tr>
+<td><strong>Concept Binding</strong></td>
+<td><strong>Ontology Document</strong></td>
+<td><strong>Per-form concept binding by path</strong></td>
+</tr>
+<tr>
+<td><strong>Vocabulary Binding</strong></td>
+<td><strong>Ontology Document</strong></td>
+<td><strong>Per-form vocabulary binding with valueMap</strong></td>
+</tr>
+<tr>
+<td><strong>Alignment</strong></td>
+<td><strong>Ontology Document</strong></td>
+<td><strong>Per-form typed cross-system field
+relationships</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>dataType</code> and extensions remain the right place for
+structural typing and validation constraints.</li>
+<li><code>semanticType</code> is the inline entry point for concept
+identity. When its value matches a loaded <code>concept</code> registry
+entry, processors resolve it to the entry’s concept URI and
+equivalences. When it does not match, it remains a freeform domain
+annotation.</li>
+<li>Registry <code>concept</code> and <code>vocabulary</code> entries
+provide shared, org-level semantic metadata — concept URIs, SKOS
+equivalences, terminology systems. They are reusable across forms and
+maintained centrally by a data governance team or standards body.</li>
+<li>Ontology Document bindings provide per-form metadata — path-based
+concept assignment, cross-system alignments, JSON-LD context, and
+bespoke vocabulary bindings with <code>valueMap</code> overrides.</li>
+<li>When a field has a <code>semanticType</code> that resolves to a
+registry concept entry AND an Ontology Document binding for the same
+path, the Ontology Document binding takes precedence (see §3.4). The
+registry entry MAY still provide supplementary metadata (equivalents,
+display) that the ontology binding does not override.</li>
+</ul>
+<hr />
+<h2 id="conformance">8. Conformance</h2>
+<p>This specification defines conformance requirements for Ontology
+Document handling.</p>
+<h3 id="core-processor-requirements">8.1 Core Processor
+Requirements</h3>
+<ul>
+<li>A conformant Core processor MAY ignore Ontology Documents entirely —
+they are an additive metadata layer.</li>
+<li>A conformant Core processor MUST NOT use ontology bindings to alter
+data capture, validation, or the processing model.</li>
+<li>Ontology metadata MUST NOT appear in Response data.</li>
+</ul>
+<h3 id="extended-processor-requirements">8.2 Extended Processor
+Requirements</h3>
+<ul>
+<li>An Extended processor that supports ontology documents MUST load and
+validate Ontology Documents against the schema in §9.</li>
+<li>An Extended processor MUST verify that
+<code>targetDefinition.url</code> matches the loaded Definition’s
+<code>url</code>. On mismatch, the processor MUST NOT apply the ontology
+bindings and SHOULD emit an error.</li>
+<li>An Extended processor SHOULD verify
+<code>targetDefinition.compatibleVersions</code> and emit a warning on
+version mismatch. The processor MAY still apply the ontology bindings
+(warn-and-continue).</li>
+<li>An Extended processor MUST resolve <code>defaultSystem</code> as the
+fallback for concept bindings that omit <code>system</code>.</li>
+<li>When a concept binding references a Definition item path that does
+not exist in the loaded Definition, the processor MUST emit a warning
+but MUST NOT reject the document.</li>
+<li>When a vocabulary binding references an option set name that does
+not exist in the loaded Definition, the processor MUST emit a warning
+but MUST NOT reject the document.</li>
+<li>Load order of multiple Ontology Documents is implementation-defined.
+When multiple documents bind the same path, the last-loaded document’s
+binding takes precedence. Vocabulary bindings merge additively
+(last-loaded overrides for the same option set name). Alignments
+concatenate.</li>
+<li>An Extended processor that encounters an unrecognized,
+non-<code>x-</code>-prefixed relationship <code>type</code> SHOULD emit
+a warning and treat it as <code>"related"</code>.</li>
+<li>An Extended processor MUST preserve unrecognized
+<code>x-</code>-prefixed properties on round-trip.</li>
+<li>When a concept binding’s path targets a field whose
+<code>semanticType</code> matches a loaded concept registry entry, the
+ontology binding takes precedence for concept identity. The registry
+entry MAY still provide supplementary metadata (equivalents, display)
+that the ontology binding does not include.</li>
+<li>When a vocabulary binding references an option set name that also
+matches a loaded vocabulary registry entry, the ontology binding takes
+precedence. The <code>vocabularyVersion</code> from the ontology binding
+overrides the registry entry’s version.</li>
+</ul>
+<hr />
+<h2 id="schema">9. Schema</h2>
+<!-- schema-ref:start id=ontology-top-level schema=schemas/ontology.schema.json pointers=# -->
+<!-- generated:schema-ref id=ontology-top-level -->
+<p><em>(Table will be generated by
+<code>npm run docs:generate</code>.)</em> <!-- schema-ref:end --></p>
+<hr />
+<h2 id="security-considerations">10. Security Considerations</h2>
+<ul>
+<li><strong>URI resolution</strong>: Processors and tooling MUST NOT
+blindly dereference concept URIs, system URIs, or alignment target URIs
+from ontology documents. Concept URIs are identifiers, not fetch
+targets. Implementations that resolve URIs for metadata enrichment
+SHOULD maintain an allowlist of trusted domains.</li>
+<li><strong>JSON-LD context injection</strong>: The
+<code>context.@context</code> property could inject unexpected
+<code>@type</code> or <code>@id</code> mappings into response exports.
+Implementations that apply JSON-LD contexts to response data MUST
+validate the context structure and SHOULD restrict <code>@context</code>
+values to known, trusted patterns.</li>
+<li><strong>Alignment target trust</strong>: Alignment
+<code>target.system</code> values identify external systems but do not
+authenticate them. An attacker who publishes a malicious Ontology
+Document could declare false alignments (e.g., claiming a field aligns
+to a system it does not). Implementations SHOULD verify the provenance
+of loaded Ontology Documents.</li>
+<li><strong>Document provenance</strong>: Since Ontology Documents are
+separate files that bind to a Definition by URL, loading ontology
+documents from untrusted sources could inject misleading semantic
+metadata. Implementations SHOULD verify document provenance before
+applying bindings.</li>
+<li><strong>Information disclosure</strong>: Concept URIs and alignment
+targets may reveal information about the form’s domain and data model.
+Organizations that require data model confidentiality SHOULD restrict
+distribution of Ontology Documents.</li>
+</ul>
+<hr />
+<h2 id="complete-example">11. Complete Example</h2>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$formspecOntology&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Clinical Intake — FHIR R4 Ontology Overlay&quot;</span><span class="fu">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Binds the clinical intake form to FHIR R4 concepts and terminology systems for healthcare data interoperability.&quot;</span><span class="fu">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;targetDefinition&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.org/forms/clinical-intake&quot;</span><span class="fu">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;compatibleVersions&quot;</span><span class="fu">:</span> <span class="st">&quot;&gt;=1.0.0 &lt;2.0.0&quot;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;publisher&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;Health Data Standards Board&quot;</span><span class="fu">,</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://hdsb.example.org&quot;</span><span class="fu">,</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;contact&quot;</span><span class="fu">:</span> <span class="st">&quot;standards@hdsb.example.org&quot;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;published&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-03-23T00:00:00Z&quot;</span><span class="fu">,</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;defaultSystem&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir&quot;</span><span class="fu">,</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;concepts&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;mrn&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;concept&quot;</span><span class="fu">:</span> <span class="st">&quot;http://terminology.hl7.org/CodeSystem/v2-0203#MR&quot;</span><span class="fu">,</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;http://terminology.hl7.org/CodeSystem/v2-0203&quot;</span><span class="fu">,</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Medical Record Number&quot;</span><span class="fu">,</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;MR&quot;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;demographics.dob&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;concept&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org/birthDate&quot;</span><span class="fu">,</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org&quot;</span><span class="fu">,</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Date of Birth&quot;</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;demographics.gender&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;concept&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir/administrative-gender&quot;</span><span class="fu">,</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Administrative Gender&quot;</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;demographics.ssn&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;concept&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.irs.gov/terms/social-security-number&quot;</span><span class="fu">,</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.irs.gov/terms&quot;</span><span class="fu">,</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Social Security Number&quot;</span><span class="fu">,</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;equivalents&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;taxID&quot;</span><span class="fu">,</span> <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;broader&quot;</span> <span class="fu">}</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;vocabularies&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;diagnosisCodes&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir/sid/icd-10&quot;</span><span class="fu">,</span></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;2024&quot;</span><span class="fu">,</span></span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;ICD-10-CM&quot;</span><span class="fu">,</span></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filter&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;ancestor&quot;</span><span class="fu">:</span> <span class="st">&quot;F00-F99&quot;</span><span class="fu">,</span> <span class="dt">&quot;maxDepth&quot;</span><span class="fu">:</span> <span class="dv">3</span> <span class="fu">}</span></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;genderOptions&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir/ValueSet/administrative-gender&quot;</span><span class="fu">,</span></span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;5.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;Administrative Gender&quot;</span></span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;alignments&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;mrn&quot;</span><span class="fu">,</span></span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;urn:fhir:r4&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;Patient.identifier&quot;</span> <span class="fu">},</span></span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;exact&quot;</span><span class="fu">,</span></span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;bidirectional&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;demographics.dob&quot;</span><span class="fu">,</span></span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;urn:fhir:r4&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;Patient.birthDate&quot;</span> <span class="fu">},</span></span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;exact&quot;</span><span class="fu">,</span></span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;bidirectional&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;demographics.gender&quot;</span><span class="fu">,</span></span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;urn:fhir:r4&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;Patient.gender&quot;</span> <span class="fu">},</span></span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;exact&quot;</span><span class="fu">,</span></span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;bidirectional&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;demographics.gender&quot;</span><span class="fu">,</span></span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;gender&quot;</span> <span class="fu">},</span></span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;broader&quot;</span><span class="fu">,</span></span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;notes&quot;</span><span class="fu">:</span> <span class="st">&quot;schema.org gender includes gender identity; FHIR administrative-gender is narrower.&quot;</span></span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;demographics.ein&quot;</span><span class="fu">,</span></span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;system&quot;</span><span class="fu">:</span> <span class="st">&quot;urn:salesforce&quot;</span><span class="fu">,</span> <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;Account.TaxId__c&quot;</span> <span class="fu">},</span></span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;exact&quot;</span><span class="fu">,</span></span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;bidirectional&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;@context&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;@vocab&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.org/forms/clinical-intake#&quot;</span><span class="fu">,</span></span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;mrn&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;@id&quot;</span><span class="fu">:</span> <span class="st">&quot;http://terminology.hl7.org/CodeSystem/v2-0203#MR&quot;</span><span class="fu">,</span> <span class="dt">&quot;@type&quot;</span><span class="fu">:</span> <span class="st">&quot;xsd:string&quot;</span> <span class="fu">},</span></span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dob&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;@id&quot;</span><span class="fu">:</span> <span class="st">&quot;https://schema.org/birthDate&quot;</span><span class="fu">,</span> <span class="dt">&quot;@type&quot;</span><span class="fu">:</span> <span class="st">&quot;xsd:date&quot;</span> <span class="fu">},</span></span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;gender&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;@id&quot;</span><span class="fu">:</span> <span class="st">&quot;http://hl7.org/fhir/administrative-gender&quot;</span><span class="fu">,</span> <span class="dt">&quot;@type&quot;</span><span class="fu">:</span> <span class="st">&quot;@vocab&quot;</span> <span class="fu">}</span></span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<hr />
+<h2 id="appendix-a-references">Appendix A — References</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://www.rfc-editor.org/rfc/rfc2119">rfc2119</a></td>
+<td>Bradner, S., “Key words for use in RFCs to Indicate Requirement
+Levels”, BCP 14, RFC 2119, March 1997.</td>
+</tr>
+<tr>
+<td>[RFC 8174]</td>
+<td>Leiba, B., “Ambiguity of Uppercase vs Lowercase in RFC 2119 Key
+Words”, BCP 14, RFC 8174, May 2017.</td>
+</tr>
+<tr>
+<td>[RFC 8259]</td>
+<td>Bray, T., Ed., “The JavaScript Object Notation (JSON) Data
+Interchange Format”, STD 90, RFC 8259, December 2017.</td>
+</tr>
+<tr>
+<td>[RFC 3986]</td>
+<td>Berners-Lee, T., Fielding, R., and L. Masinter, “Uniform Resource
+Identifier (URI): Generic Syntax”, STD 66, RFC 3986, January 2005.</td>
+</tr>
+<tr>
+<td>[RFC 3987]</td>
+<td>Duerst, M. and M. Suignard, “Internationalized Resource Identifiers
+(IRIs)”, RFC 3987, January 2005.</td>
+</tr>
+<tr>
+<td>[SKOS]</td>
+<td>Miles, A. and S. Bechhofer, “SKOS Simple Knowledge Organization
+System Reference”, W3C Recommendation, August 2009.</td>
+</tr>
+<tr>
+<td>[JSON-LD]</td>
+<td>Sporny, M., et al., “JSON-LD 1.1”, W3C Recommendation, July
+2020.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="appendix-b-relationship-to-owl-and-the-semantic-web">Appendix B
+— Relationship to OWL and the Semantic Web</h2>
+<p>This specification is <strong>OWL-integrative, not
+OWL-compatible</strong>. It is designed to interoperate with OWL-based
+systems, not to replace them.</p>
+<p><strong>What this specification shares with OWL:</strong></p>
+<ul>
+<li><p><strong>IRI-based concept identity.</strong> Concept bindings use
+IRIs (Internationalized Resource Identifiers) to identify concepts — the
+same addressing scheme used by OWL, RDF, and the broader semantic web.
+Two systems that agree on an IRI are talking about the same thing,
+regardless of their native format.</p></li>
+<li><p><strong>SKOS alignment vocabulary.</strong> The
+<code>equivalents</code> and alignment <code>type</code> values
+(<code>exact</code>, <code>close</code>, <code>broader</code>,
+<code>narrower</code>, <code>related</code>) are drawn from SKOS (Simple
+Knowledge Organization System), a W3C standard that sits alongside OWL
+in the semantic web stack. SKOS is purpose-built for concept alignment
+between systems that do not share a full ontology.</p></li>
+<li><p><strong>JSON-LD bridge.</strong> The <code>context</code>
+property (§6) produces a JSON-LD <code>@context</code> fragment that,
+when applied to a response document, makes it a valid JSON-LD document.
+This enables form responses to be ingested by triple stores, queried
+with SPARQL, and merged with RDF datasets.</p></li>
+</ul>
+<p><strong>What this specification does NOT do:</strong></p>
+<ul>
+<li><p><strong>No open-world assumption.</strong> OWL operates under
+open-world semantics: the absence of a statement does not imply its
+negation. Formspec operates under closed-world semantics: a field not in
+the Definition is an error, not an unknown. This specification inherits
+Formspec’s closed-world model.</p></li>
+<li><p><strong>No logical reasoning.</strong> OWL axioms enable
+inference — a reasoner can derive new facts from declared class
+relationships, property restrictions, and equivalence axioms. Alignments
+in this specification are flat assertions. They support matching and
+merging but not logical deduction.</p></li>
+<li><p><strong>No class hierarchy.</strong> This specification does not
+model <code>rdfs:subClassOf</code> relationships between groups. Groups
+in a Definition are structural containers with compositional semantics,
+not ontological classes with subsumption chains. The
+<code>broader</code>/<code>narrower</code> SKOS types on equivalents
+express concept-level relationships but do not constitute formal class
+axioms.</p></li>
+<li><p><strong>No property restrictions.</strong> OWL uses
+<code>owl:Restriction</code> to declare domain, range, and cardinality
+constraints on properties. This information exists in the Definition
+(field <code>dataType</code>,
+<code>minRepeat</code>/<code>maxRepeat</code>, binds) but is not
+duplicated in the Ontology Document.</p></li>
+</ul>
+<p><strong>Derived OWL output.</strong> Tooling MAY generate OWL/RDFS
+vocabularies from Ontology Documents combined with Definition structure
+— mapping groups to <code>owl:Class</code>, fields to
+<code>owl:DatatypeProperty</code>, cardinality to
+<code>owl:Restriction</code>, and option sets to <code>owl:oneOf</code>
+enumerations. Such output is a derived artifact, not a canonical
+representation. Round-trip fidelity is not guaranteed. The generated OWL
+is suitable for integration with semantic web infrastructure but does
+not capture the full behavioral semantics of the Definition (conditional
+relevance, calculated fields, validation shapes).</p>
+</body>
+</html>

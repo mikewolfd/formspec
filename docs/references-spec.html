@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formspec References Specification</title>
+<style>
+  body { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #1f2328; line-height: 1.6; font-size: 16px; }
+  #TOC { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 1rem 1.5rem; margin-bottom: 2rem; }
+  #TOC > ul { list-style: none; padding-left: 0; }
+  #TOC ul { padding-left: 1.5rem; }
+  #TOC li { margin: 0.15rem 0; font-size: 14px; }
+  #TOC a { text-decoration: none; color: #0969da; }
+  #TOC a:hover { text-decoration: underline; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 0.3rem; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 0.3rem; margin-top: 2.5rem; }
+  h3 { margin-top: 1.5rem; }
+  h4 { margin-top: 1.2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 14px; }
+  th, td { border: 1px solid #d0d7de; padding: 6px 13px; text-align: left; }
+  th { background: #f6f8fa; font-weight: 600; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 13px; }
+  code { font-size: 0.9em; background: #f0f2f5; padding: 0.2em 0.4em; border-radius: 3px; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 4px solid #d0d7de; margin: 0; padding: 0 1rem; color: #57606a; }
+  strong { color: #1f2328; }
+  a { color: #0969da; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<nav id="TOC">
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#formspec-references-specification-v1.0"
+id="toc-formspec-references-specification-v1.0">Formspec References
+Specification v1.0</a>
+<ul>
+<li><a href="#abstract" id="toc-abstract">Abstract</a></li>
+<li><a href="#status-of-this-document"
+id="toc-status-of-this-document">Status of This Document</a></li>
+<li><a href="#conventions-and-terminology"
+id="toc-conventions-and-terminology">Conventions and
+Terminology</a></li>
+<li><a href="#bottom-line-up-front" id="toc-bottom-line-up-front">Bottom
+Line Up Front</a></li>
+<li><a href="#introduction" id="toc-introduction">1. Introduction</a>
+<ul>
+<li><a href="#design-principles" id="toc-design-principles">1.1 Design
+Principles</a></li>
+</ul></li>
+<li><a href="#reference-object" id="toc-reference-object">2. Reference
+Object</a>
+<ul>
+<li><a href="#properties" id="toc-properties">2.1 Properties</a></li>
+<li><a href="#reference-types" id="toc-reference-types">2.2 Reference
+Types</a></li>
+<li><a href="#validation-rules" id="toc-validation-rules">2.3 Validation
+Rules</a></li>
+<li><a href="#array-ordering" id="toc-array-ordering">2.4 Array
+Ordering</a></li>
+<li><a href="#reference-relationships"
+id="toc-reference-relationships">2.5 Reference Relationships</a></li>
+</ul></li>
+<li><a href="#uri-schemes-for-agent-data-stores"
+id="toc-uri-schemes-for-agent-data-stores">3. URI Schemes for Agent Data
+Stores</a>
+<ul>
+<li><a href="#vector-store-references"
+id="toc-vector-store-references">3.1 Vector Store References</a></li>
+<li><a href="#knowledge-base-references"
+id="toc-knowledge-base-references">3.2 Knowledge Base
+References</a></li>
+<li><a href="#retrieval-endpoints" id="toc-retrieval-endpoints">3.3
+Retrieval Endpoints</a></li>
+<li><a href="#host-provided-data-sources"
+id="toc-host-provided-data-sources">3.4 Host-Provided Data
+Sources</a></li>
+<li><a href="#opaque-identifiers" id="toc-opaque-identifiers">3.5 Opaque
+Identifiers</a></li>
+<li><a href="#fragment-targeting" id="toc-fragment-targeting">3.6
+Fragment Targeting</a></li>
+</ul></li>
+<li><a href="#references-document" id="toc-references-document">4.
+References Document</a>
+<ul>
+<li><a href="#document-structure" id="toc-document-structure">4.1
+Document Structure</a></li>
+<li><a href="#bound-references" id="toc-bound-references">4.2 Bound
+References</a></li>
+<li><a href="#target-definition-binding"
+id="toc-target-definition-binding">4.3 Target Definition
+Binding</a></li>
+<li><a href="#multiple-references-documents"
+id="toc-multiple-references-documents">4.4 Multiple References
+Documents</a></li>
+<li><a href="#scoping-and-non-inheritance"
+id="toc-scoping-and-non-inheritance">4.5 Scoping and
+Non-Inheritance</a></li>
+<li><a href="#reuse-via-referencedefs"
+id="toc-reuse-via-referencedefs">4.6 Reuse via
+<code>referenceDefs</code></a></li>
+<li><a href="#uri-stability-and-versioning"
+id="toc-uri-stability-and-versioning">4.7 URI Stability and
+Versioning</a></li>
+<li><a href="#modular-composition" id="toc-modular-composition">4.8
+Modular Composition</a></li>
+</ul></li>
+<li><a href="#agent-integration-patterns"
+id="toc-agent-integration-patterns">5. Agent Integration Patterns</a>
+<ul>
+<li><a href="#context-assembly" id="toc-context-assembly">5.1 Context
+Assembly</a></li>
+<li><a href="#vector-store-query-pattern"
+id="toc-vector-store-query-pattern">5.2 Vector Store Query
+Pattern</a></li>
+<li><a href="#tool-references" id="toc-tool-references">5.3 Tool
+References</a></li>
+<li><a href="#grounding-documents" id="toc-grounding-documents">5.4
+Grounding Documents</a></li>
+</ul></li>
+<li><a href="#relationship-to-existing-properties"
+id="toc-relationship-to-existing-properties">6. Relationship to Existing
+Properties</a></li>
+<li><a href="#rendering-guidance" id="toc-rendering-guidance">7.
+Rendering Guidance</a></li>
+<li><a href="#conformance" id="toc-conformance">8. Conformance</a>
+<ul>
+<li><a href="#core-processor-requirements"
+id="toc-core-processor-requirements">8.1 Core Processor
+Requirements</a></li>
+<li><a href="#extended-processor-requirements"
+id="toc-extended-processor-requirements">8.2 Extended Processor
+Requirements</a></li>
+</ul></li>
+<li><a href="#schema" id="toc-schema">9. Schema</a></li>
+<li><a href="#security-considerations"
+id="toc-security-considerations">10. Security Considerations</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="formspec-references-specification-v1.0">Formspec References
+Specification v1.0</h1>
+<p><strong>Version:</strong> 1.0.0-draft.1 <strong>Date:</strong>
+2026-03-19 <strong>Editors:</strong> Formspec Working Group
+<strong>Companion to:</strong> Formspec v1.0 — A JSON-Native Declarative
+Form Standard</p>
+<hr />
+<h2 id="abstract">Abstract</h2>
+<p>The Formspec References Specification is a companion to Formspec v1.0
+that defines a standalone sidecar document for attaching external
+documentation, knowledge sources, and AI agent data stores to any level
+of a Formspec definition — the form itself, a group or section, or an
+individual field. A References Document lives alongside the Definition
+(like Theme and Component documents) and binds references to specific
+items by path. Multiple References Documents MAY target the same
+Definition — for different audiences, languages, or domains. A Reference
+is a JSON object that points to contextual information (regulatory
+guidance, help articles, vector store collections, tool schemas) and
+declares its intended audience (human, agent, or both). References are
+pure metadata: they MUST NOT affect data capture, validation, or the
+processing model.</p>
+<h2 id="status-of-this-document">Status of This Document</h2>
+<p>This document is a <strong>draft specification</strong>. It is a
+companion to the Formspec v1.0 core specification and does not modify or
+extend the core processing model. Implementors are encouraged to
+experiment with this specification and provide feedback, but MUST NOT
+treat it as stable for production use until a 1.0.0 release is
+published.</p>
+<h2 id="conventions-and-terminology">Conventions and Terminology</h2>
+<p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
+“SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “NOT RECOMMENDED”, “MAY”, and
+“OPTIONAL” in this document are to be interpreted as described in <a
+href="https://www.rfc-editor.org/rfc/rfc2119">BCP 14</a> [RFC 2119] [RFC
+8174] when, and only when, they appear in ALL CAPITALS, as shown
+here.</p>
+<p>JSON syntax and data types are as defined in [RFC 8259]. URI syntax
+is as defined in [RFC 3986]. JSON Pointer syntax is as defined in [RFC
+6901].</p>
+<p>Terms defined in the Formspec v1.0 core specification — including
+<em>Definition</em>, <em>Item</em>, <em>Bind</em>, <em>FEL</em>, and
+<em>conformant processor</em> — retain their core-specification meanings
+throughout this document unless explicitly redefined.</p>
+<hr />
+<h2 id="bottom-line-up-front">Bottom Line Up Front</h2>
+<!-- bluf:start file=references-spec.bluf.md -->
+<ul>
+<li>References Documents are standalone JSON sidecars that bind external
+resources to specific Definition items by path — like Theme and
+Component documents, they live alongside the Definition.</li>
+<li>Each Bound Reference declares a <code>target</code> (item path or
+<code>"#"</code> for form-level), a <code>type</code> (documentation,
+regulation, vector-store, tool, context, etc.), and an
+<code>audience</code> (human, agent, both).</li>
+<li>Content is provided via <code>uri</code> (external pointer) and/or
+inline <code>content</code>. URI schemes support vector stores
+(<code>vectorstore:</code>), knowledge bases (<code>kb:</code>), and
+host-provided sources (<code>formspec-fn:</code>).</li>
+<li>Multiple References Documents MAY target the same Definition — for
+audience separation, locale variants, or domain overlays. References
+merge additively.</li>
+<li>References are pure metadata — they MUST NOT affect data capture,
+validation, or the processing model.</li>
+<li>The <code>type</code> and <code>rel</code> properties are open
+strings for forward compatibility — processors SHOULD warn on
+unrecognized values but MUST NOT reject the document.</li>
+<li>References do NOT inherit from parent to child; consumers walk the
+tree to collect context.</li>
+<li><code>referenceDefs</code> enables DRY reuse of shared reference
+objects across bindings via <code>$ref</code> pointers with optional
+overrides. <!-- bluf:end --></li>
+</ul>
+<h2 id="introduction">1. Introduction</h2>
+<p>Forms exist in context. A tax form references regulatory guidance. A
+clinical intake form references diagnostic criteria. A grant application
+references federal reporting standards. Today, that context lives
+outside the form — in separate documents, institutional knowledge, or
+the heads of trained staff.</p>
+<p>The References specification defines a standalone sidecar document
+that binds reference documentation, knowledge sources, and assistive
+data stores to specific items within a Formspec definition. Like Theme
+(Tier 2) and Component (Tier 3) documents, a References Document lives
+alongside the Definition rather than embedded within it. References
+serve two audiences:</p>
+<ol type="1">
+<li><strong>Human users</strong> — contextual help, regulatory guidance,
+policy documents, instructional material.</li>
+<li><strong>AI companion agents</strong> — retrieval-augmented
+generation (RAG) endpoints, vector store collections, knowledge base
+articles, tool schemas, and structured context that agents can query at
+runtime to assist users.</li>
+</ol>
+<p>References are <strong>metadata</strong> — they MUST NOT affect data
+capture, validation, or the processing model. A conformant processor
+that does not understand references MUST ignore them without error. This
+makes references a safe, additive layer that enhances the form
+experience without altering its behavior.</p>
+<h3 id="design-principles">1.1 Design Principles</h3>
+<ol type="1">
+<li><strong>Additive, not invasive</strong> — References live in a
+separate document. Removing or ignoring the References Document produces
+an identical form from a data/behavior perspective. The Definition is
+never modified.</li>
+<li><strong>Audience-aware</strong> — Each reference declares its
+intended audience (<code>human</code>, <code>agent</code>, or
+<code>both</code>), enabling renderers and agents to filter
+appropriately.</li>
+<li><strong>Transport-agnostic</strong> — References can point to static
+documents (URLs), structured data endpoints (APIs), or abstract resource
+identifiers (vector store collection IDs). The spec defines the pointer;
+the consumer resolves it.</li>
+<li><strong>Composable</strong> — Multiple References Documents MAY
+target the same Definition, enabling audience separation, locale
+variants, and domain overlays without coordination between authors.</li>
+<li><strong>Scoped</strong> — Each reference declares its target item by
+path. A form-level reference (<code>"#"</code>) provides global context;
+an item-targeted reference provides guidance for that specific
+input.</li>
+</ol>
+<h2 id="reference-object">2. Reference Object</h2>
+<p>A Reference is a JSON object that points to an external (or inline)
+source of contextual information.</p>
+<h3 id="properties">2.1 Properties</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>RECOMMENDED</td>
+<td>Stable identifier for this reference, unique within the document.
+Enables deduplication and cross-referencing. Pattern:
+<code>[a-zA-Z][a-zA-Z0-9_-]*</code></td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>The kind of reference. See §2.2.</td>
+</tr>
+<tr>
+<td><code>audience</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Who this reference is for: <code>"human"</code>,
+<code>"agent"</code>, or <code>"both"</code>.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>string</td>
+<td>RECOMMENDED</td>
+<td>Human-readable title or short description of the reference.</td>
+</tr>
+<tr>
+<td><code>uri</code></td>
+<td>string</td>
+<td>Conditional</td>
+<td>URI pointing to the reference content. REQUIRED unless
+<code>content</code> is provided. May be an HTTP(S) URL, a URN, or a
+scheme-prefixed identifier (see §3).</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>string or object</td>
+<td>Conditional</td>
+<td>Inline reference content. REQUIRED unless <code>uri</code> is
+provided. String for plain text or markdown. Object for structured data
+— no structural constraints are imposed by the base Reference schema;
+specific <code>type</code> values MAY define expected
+<code>content</code> shapes (e.g., <code>type: "tool"</code> expects a
+tool-schema-shaped object per §5.3). Authors SHOULD keep inline content
+concise (under 50 KB); for larger documents, prefer
+<code>uri</code>.</td>
+</tr>
+<tr>
+<td><code>mediaType</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>MIME type of the referenced content (e.g., <code>"text/html"</code>,
+<code>"application/pdf"</code>, <code>"text/markdown"</code>,
+<code>"application/json"</code>). Helps consumers decide how to fetch
+and render.</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>BCP 47 language tag (e.g., <code>"en"</code>, <code>"es"</code>,
+<code>"fr-CA"</code>). Enables locale-aware reference selection.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Longer explanation of what this reference contains and when to
+consult it.</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>array of string</td>
+<td>OPTIONAL</td>
+<td>Categorization tags for filtering and discovery (e.g.,
+<code>["regulation", "2-cfr-200"]</code>,
+<code>["rag", "embeddings"]</code>).</td>
+</tr>
+<tr>
+<td><code>priority</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td><code>"primary"</code>, <code>"supplementary"</code>, or
+<code>"background"</code>. Indicates how prominently the reference
+should be surfaced. When absent, processors MUST treat the reference as
+<code>"supplementary"</code> (this is a processing-model default, not a
+schema <code>default</code>).</td>
+</tr>
+<tr>
+<td><code>rel</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Relationship of this reference to the target. See §2.5 for defined
+values. When absent, the relationship is <code>"see-also"</code>.</td>
+</tr>
+<tr>
+<td><code>selector</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>Advisory hint identifying the relevant portion of the referenced
+resource when URI fragments are insufficient. See §3.6.</td>
+</tr>
+<tr>
+<td><code>extensions</code></td>
+<td>object</td>
+<td>OPTIONAL</td>
+<td>Extension data. All keys MUST be prefixed with <code>x-</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="reference-types">2.2 Reference Types</h3>
+<p>Types are grouped by intended interface pattern — the distinction is
+about <strong>how the consumer interacts with the reference</strong>,
+not the underlying technology.</p>
+<p><strong>Human-oriented types</strong> — typically consumed by
+renderers for display:</p>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 48%" />
+<col style="width: 35%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>Typical Audience</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"documentation"</code></td>
+<td>human</td>
+<td>Help articles, user guides, instructional content.</td>
+</tr>
+<tr>
+<td><code>"example"</code></td>
+<td>human</td>
+<td>Worked examples, sample responses, templates.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Shared types</strong> — typically useful to both humans and
+agents:</p>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 48%" />
+<col style="width: 35%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>Typical Audience</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"regulation"</code></td>
+<td>both</td>
+<td>Laws, regulations, compliance standards (e.g., 2 CFR 200,
+HIPAA).</td>
+</tr>
+<tr>
+<td><code>"policy"</code></td>
+<td>both</td>
+<td>Organizational policies, SOPs, internal guidelines.</td>
+</tr>
+<tr>
+<td><code>"glossary"</code></td>
+<td>both</td>
+<td>Term definitions, abbreviations, domain vocabulary.</td>
+</tr>
+<tr>
+<td><code>"schema"</code></td>
+<td>both</td>
+<td>JSON Schema, data dictionary, or structural specification for the
+data being collected.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> The audience column indicates the typical
+usage. The actual <code>audience</code> property on each reference is
+set independently — a <code>"documentation"</code> reference could have
+<code>audience: "agent"</code> if it contains agent-consumable
+guidance.</p>
+</blockquote>
+<p><strong>Agent-oriented types</strong> — consumed programmatically by
+AI companion agents. The type indicates the <strong>query interface
+pattern</strong>:</p>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 50%" />
+<col style="width: 34%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>Interface Pattern</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"vector-store"</code></td>
+<td>Semantic similarity search</td>
+<td>The agent sends a natural-language query and receives ranked
+document chunks. Use <code>vectorstore:</code> URIs (§3.1).</td>
+</tr>
+<tr>
+<td><code>"knowledge-base"</code></td>
+<td>Structured lookup</td>
+<td>The agent queries by key, category, or structured filter. Returns
+articles, FAQ entries, or structured records. Use <code>kb:</code> URIs
+(§3.2).</td>
+</tr>
+<tr>
+<td><code>"retrieval"</code></td>
+<td>Request/response API</td>
+<td>The agent sends a query to an HTTP endpoint and receives results.
+Catch-all for RAG systems that don’t fit the above patterns. Use HTTPS
+URIs with <code>extensions</code> for query details (§3.3).</td>
+</tr>
+<tr>
+<td><code>"tool"</code></td>
+<td>Function invocation</td>
+<td>The agent invokes a tool/function to compute or look up information.
+<code>content</code> SHOULD contain the tool schema (§5.3).</td>
+</tr>
+<tr>
+<td><code>"api"</code></td>
+<td>REST/GraphQL endpoint</td>
+<td>The agent calls a structured API for reference data (e.g., code
+lookups, entity resolution).</td>
+</tr>
+<tr>
+<td><code>"context"</code></td>
+<td>Direct inclusion</td>
+<td>Static text or structured data included directly in the agent’s
+context window. No external query needed.</td>
+</tr>
+</tbody>
+</table>
+<p>Custom types MUST be prefixed with <code>x-</code> (e.g.,
+<code>"x-org-training-video"</code>).</p>
+<p>The <code>type</code> property is an open string — the schema does
+not reject unrecognized values. Processors encountering an unrecognized,
+non-<code>x-</code>-prefixed type SHOULD emit a warning and MAY skip the
+reference, but MUST NOT reject the document. This ensures forward
+compatibility when new standard types are added in future versions.</p>
+<h3 id="validation-rules">2.3 Validation Rules</h3>
+<ul>
+<li>At least one of <code>uri</code> or <code>content</code> MUST be
+present.</li>
+<li>If both <code>uri</code> and <code>content</code> are present,
+<code>content</code> is treated as a cached/fallback representation of
+the URI target.</li>
+<li><code>id</code>, when present, MUST be unique within the References
+Document. IDs SHOULD be unique across all loaded References Documents
+targeting the same Definition to enable unambiguous cross-referencing,
+but this is not a hard requirement.</li>
+<li><code>audience</code> MUST be one of: <code>"human"</code>,
+<code>"agent"</code>, <code>"both"</code>.</li>
+<li><code>type</code> MUST be a recognized type from §2.2 or an
+<code>x-</code>-prefixed custom type. A processor encountering an
+unrecognized, non-<code>x-</code>-prefixed type SHOULD emit a warning
+and MAY skip the reference, but MUST NOT reject the document.</li>
+<li><code>priority</code> when present MUST be one of:
+<code>"primary"</code>, <code>"supplementary"</code>,
+<code>"background"</code>.</li>
+<li><code>rel</code> when present SHOULD be a recognized relationship
+type from §2.5 or an <code>x-</code>-prefixed custom type. A processor
+encountering an unrecognized, non-<code>x-</code>-prefixed
+<code>rel</code> value MUST treat it as <code>"see-also"</code> and
+SHOULD emit a warning. The <code>rel</code> property is an open string —
+the schema does not reject unrecognized values.</li>
+<li>An empty <code>references</code> array
+(<code>"references": []</code>) is valid and semantically equivalent to
+a document with no bindings.</li>
+<li>Multiple references MAY share the same <code>uri</code> value (e.g.,
+the same document serving as both a human <code>"regulation"</code> and
+an agent <code>"context"</code> reference with different
+<code>audience</code> values).</li>
+<li>Reference property values are <strong>static</strong>. FEL
+expressions MUST NOT appear in any reference property (<code>uri</code>,
+<code>content</code>, <code>title</code>, etc.). Dynamic reference
+resolution, if needed, MUST be handled by the host environment or via
+<code>formspec-fn:</code> URIs (§3.4).</li>
+</ul>
+<h3 id="array-ordering">2.4 Array Ordering</h3>
+<p>References within the <code>references</code> array are
+<strong>ordered</strong>. The first reference in the array is the most
+relevant; subsequent references are progressively less central.
+Processors that present references to humans or agents SHOULD preserve
+this authoring order.</p>
+<p>References are grouped by their effective priority tier (primary,
+supplementary, background — see §2.1 for the default). All primary
+references are surfaced before supplementary, regardless of array
+position. Within a tier, array order determines presentation
+sequence.</p>
+<blockquote>
+<p><strong>Rationale:</strong> Leaving order undefined would force
+divergent implementations — some treating order as significant, others
+not — with no way to reconcile them later. Defining it now costs nothing
+and prevents a class of interoperability bugs.</p>
+</blockquote>
+<h3 id="reference-relationships">2.5 Reference Relationships</h3>
+<p>A Reference MAY declare a <code>rel</code> property that describes
+its relationship to the target item (the field, group, or form it is
+bound to). This enables consumers to understand not just <em>what</em> a
+reference points to, but <em>how</em> it relates to the thing being
+filled out.</p>
+<p><strong>Defined relationship types:</strong></p>
+<table>
+<colgroup>
+<col style="width: 59%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr>
+<th><code>rel</code> value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"authorizes"</code></td>
+<td>The referenced document authorizes or permits the action described
+by the target (e.g., a regulation authorizing a particular cost
+category).</td>
+</tr>
+<tr>
+<td><code>"constrains"</code></td>
+<td>The referenced document imposes constraints or limits on valid
+values (e.g., a rate ceiling, an enumeration of permitted codes).</td>
+</tr>
+<tr>
+<td><code>"defines"</code></td>
+<td>The referenced document defines the term or concept represented by
+the target (e.g., a glossary entry).</td>
+</tr>
+<tr>
+<td><code>"exemplifies"</code></td>
+<td>The referenced document provides an example or template for the
+target.</td>
+</tr>
+<tr>
+<td><code>"supersedes"</code></td>
+<td>The referenced document replaces a prior version of an earlier
+reference at the same target.</td>
+</tr>
+<tr>
+<td><code>"superseded-by"</code></td>
+<td>The referenced document has been replaced by a newer version.
+Typically paired with a sibling reference carrying
+<code>rel: "supersedes"</code>.</td>
+</tr>
+<tr>
+<td><code>"derived-from"</code></td>
+<td>The target’s value or structure is derived from the referenced
+source (e.g., a pre-populated field drawn from an external record).</td>
+</tr>
+<tr>
+<td><code>"see-also"</code></td>
+<td>General association — the reference provides related but
+non-essential context. This is the implicit relationship when
+<code>rel</code> is absent.</td>
+</tr>
+</tbody>
+</table>
+<p>Custom relationship types MUST be prefixed with <code>x-</code>
+(e.g., <code>"x-org-audit-trail"</code>).</p>
+<p>When <code>rel</code> is absent, processors MUST treat the
+relationship as <code>"see-also"</code>. A processor encountering an
+unrecognized, non-<code>x-</code>-prefixed <code>rel</code> value MUST
+treat it as <code>"see-also"</code> and SHOULD emit a warning. Like
+<code>type</code>, the <code>rel</code> property is an open string — the
+schema does not reject unrecognized values, ensuring forward
+compatibility.</p>
+<blockquote>
+<p><strong>Design note:</strong> Relationship types are modeled after <a
+href="https://www.iana.org/assignments/link-relations/">IANA Link
+Relations</a> and HTML’s <code>rel</code> attribute. The set is
+intentionally small and focused on the reference–target relationship,
+not reference-to-reference relationships. References do not link to each
+other; if two references are related, that relationship is expressed in
+the documents they point to, not in the References Document.</p>
+</blockquote>
+<p><strong>Example:</strong></p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;indirectCostRate&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;regulation&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;both&quot;</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;rel&quot;</span><span class="fu">:</span> <span class="st">&quot;constrains&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;2 CFR §200.414 — Indirect (F&amp;A) Costs&quot;</span><span class="fu">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.ecfr.gov/current/title-2/section-200.414&quot;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h2 id="uri-schemes-for-agent-data-stores">3. URI Schemes for Agent Data
+Stores</h2>
+<p>References use URIs to point to external resources. Beyond standard
+<code>https://</code> URLs, this spec defines well-known URI scheme
+conventions for common AI infrastructure.</p>
+<blockquote>
+<p><strong>Note:</strong> The <code>vectorstore:</code> and
+<code>kb:</code> schemes below are Formspec-defined conventions, not
+IANA-registered URI schemes. For environments that require
+standards-compliant URIs, use the <code>urn:x-{org}:</code> pattern
+(§3.5) or <code>formspec-fn:</code> host delegation (§3.4) instead.</p>
+</blockquote>
+<h3 id="vector-store-references">3.1 Vector Store References</h3>
+<pre><code>vectorstore:{provider}/{collection-id}</code></pre>
+<p>Examples: - <code>vectorstore:pinecone/grant-guidance-v2</code> -
+<code>vectorstore:chromadb/policy-docs</code> -
+<code>vectorstore:weaviate/tax-regulations</code></p>
+<p>The vector store URI identifies the collection. Query parameters and
+authentication are runtime concerns handled by the consuming agent or
+host environment.</p>
+<h3 id="knowledge-base-references">3.2 Knowledge Base References</h3>
+<pre><code>kb:{provider}/{base-id}</code></pre>
+<p>Examples: - <code>kb:aws-bedrock/ABCDEF1234</code> -
+<code>kb:confluence/space-key/page-id</code></p>
+<h3 id="retrieval-endpoints">3.3 Retrieval Endpoints</h3>
+<p>Standard HTTPS URIs are used for retrieval APIs. The
+<code>type: "retrieval"</code> plus optional <code>extensions</code>
+provide the agent with enough context to query them:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;#&quot;</span><span class="fu">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;retrieval&quot;</span><span class="fu">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;agent&quot;</span><span class="fu">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://rag.example.gov/query&quot;</span><span class="fu">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Federal grant guidance RAG endpoint&quot;</span><span class="fu">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;extensions&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;x-retrieval&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;method&quot;</span><span class="fu">:</span> <span class="st">&quot;POST&quot;</span><span class="fu">,</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;topK&quot;</span><span class="fu">:</span> <span class="dv">5</span><span class="fu">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;queryField&quot;</span><span class="fu">:</span> <span class="st">&quot;question&quot;</span><span class="fu">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;authScheme&quot;</span><span class="fu">:</span> <span class="st">&quot;bearer&quot;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="host-provided-data-sources">3.4 Host-Provided Data Sources</h3>
+<p>Following the existing <code>formspec-fn:</code> convention from Data
+Sources (core §2.1.7):</p>
+<pre><code>formspec-fn:{function-name}</code></pre>
+<p>This delegates resolution to the host environment, which maps the
+function name to an actual data source, vector store, or API call. This
+is the recommended approach when the definition should remain
+environment-independent.</p>
+<p>Example:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;#&quot;</span><span class="fu">,</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;vector-store&quot;</span><span class="fu">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;agent&quot;</span><span class="fu">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;formspec-fn:searchGuidance&quot;</span><span class="fu">,</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Search grant guidance knowledge base&quot;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="opaque-identifiers">3.5 Opaque Identifiers</h3>
+<p>When a URI scheme doesn’t fit, use a URN:</p>
+<pre><code>urn:x-{org}:{type}:{id}</code></pre>
+<p>Example: <code>urn:x-acme:vectordb:collection-42</code></p>
+<h3 id="fragment-targeting">3.6 Fragment Targeting</h3>
+<p>Reference URIs MAY include a <strong>fragment</strong> (the portion
+after <code>#</code> per <a
+href="https://www.rfc-editor.org/rfc/rfc3986#section-3.5">RFC 3986
+§3.5</a>) to identify a specific part of the referenced resource.
+Fragment semantics are defined by the media type of the target
+resource:</p>
+<ul>
+<li><strong>HTML</strong>: Fragment identifies an element by
+<code>id</code> (e.g.,
+<code>https://ecfr.gov/title-2/section-200.414#p-200.414(f)</code>).</li>
+<li><strong>PDF</strong>: Fragment follows the open parameters
+convention (e.g., <code>guide.pdf#page=12</code>).</li>
+<li><strong>JSON</strong>: Fragment uses JSON Pointer (<a
+href="https://www.rfc-editor.org/rfc/rfc6901">RFC 6901</a>) (e.g.,
+<code>schema.json#/definitions/CostCategory</code>).</li>
+<li><strong>Plain text / Markdown</strong>: No standard fragment
+semantics. Use <code>selector</code> (below) instead.</li>
+</ul>
+<p>When a URI includes a fragment, authors SHOULD include
+<code>mediaType</code> to enable consumers to interpret the fragment
+correctly.</p>
+<p>For URI schemes that do not support fragments natively (e.g.,
+<code>vectorstore:</code>, <code>kb:</code>), or when the target media
+type lacks fragment semantics, a Reference MAY include a
+<code>selector</code> property:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>selector</code></td>
+<td>string</td>
+<td>OPTIONAL</td>
+<td>A human- and agent-readable hint identifying the relevant portion of
+the referenced resource. Not a formal addressing mechanism — it is
+advisory context that helps consumers locate the relevant content.</td>
+</tr>
+</tbody>
+</table>
+<p><code>selector</code> is intentionally unstructured. Examples:</p>
+<ul>
+<li><code>"Section 200.414(f) — De minimis rate"</code> — points to a
+regulation subsection</li>
+<li><code>"Chapter 3: Budget Justification"</code> — points to a
+document chapter</li>
+<li><code>"rows where category = 'indirect'"</code> — hints at relevant
+data within a dataset</li>
+</ul>
+<p>When both a URI fragment and <code>selector</code> are present, the
+URI fragment is the machine-actionable locator and <code>selector</code>
+provides supplementary human-readable context.</p>
+<blockquote>
+<p><strong>Rationale:</strong> Without fragment or selector support,
+authors are forced to duplicate relevant excerpts into
+<code>content</code>, creating a second copy that drifts from the
+source. Fragments are already part of the URI spec — this section simply
+blesses their use and fills the gap for schemes that lack them.</p>
+</blockquote>
+<p><strong>Example:</strong></p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;regulation&quot;</span><span class="fu">,</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;both&quot;</span><span class="fu">,</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;rel&quot;</span><span class="fu">:</span> <span class="st">&quot;constrains&quot;</span><span class="fu">,</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;De minimis indirect cost rate&quot;</span><span class="fu">,</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.ecfr.gov/current/title-2/section-200.414#p-200.414(f)&quot;</span><span class="fu">,</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;selector&quot;</span><span class="fu">:</span> <span class="st">&quot;Section 200.414(f) — De minimis rate of 10%&quot;</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h2 id="references-document">4. References Document</h2>
+<p>A <strong>References Document</strong> is a standalone JSON sidecar
+that binds references to a target Definition. Like Theme (Tier 2) and
+Component (Tier 3) documents, it lives alongside the Definition rather
+than embedded within it. This separation enables multiple References
+Documents to target the same Definition — for different audiences,
+languages, domains, or deployment contexts — without modifying the
+Definition itself.</p>
+<h3 id="document-structure">4.1 Document Structure</h3>
+<p>A References Document MUST contain:</p>
+<ul>
+<li><strong><code>$formspecReferences</code></strong> — Version pin.
+MUST be <code>"1.0"</code>.</li>
+<li><strong><code>version</code></strong> — Version of this References
+Document (independently versioned from the target Definition).</li>
+<li><strong><code>targetDefinition</code></strong> — Binding to the
+target Definition by canonical URL, with an optional
+<code>compatibleVersions</code> semver range.</li>
+<li><strong><code>references</code></strong> — Ordered array of Bound
+References (§4.2).</li>
+</ul>
+<p>A References Document MAY also contain:</p>
+<ul>
+<li><strong><code>url</code></strong> — Canonical URI identifier for
+this document.</li>
+<li><strong><code>name</code></strong> — Machine-readable short name.
+Pattern: <code>[a-zA-Z][a-zA-Z0-9_-]*</code> (letters, digits, hyphens,
+underscores; must start with a letter).</li>
+<li><strong><code>title</code></strong> — Human-readable name.</li>
+<li><strong><code>description</code></strong> — Human-readable
+description of purpose and scope.</li>
+<li><strong><code>referenceDefs</code></strong> — Registry of reusable
+Reference objects (§4.6).</li>
+</ul>
+<p>As with other Formspec sidecar documents, a References Document MAY
+include additional properties prefixed with <code>x-</code> at the
+document root (e.g., <code>"x-org-metadata": {...}</code>). Unrecognized
+<code>x-</code>-prefixed properties MUST be preserved on round-trip.</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$formspecReferences&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;SF-425 Federal Guidance References&quot;</span><span class="fu">,</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;targetDefinition&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.gov/forms/sf-425&quot;</span><span class="fu">,</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;compatibleVersions&quot;</span><span class="fu">:</span> <span class="st">&quot;&gt;=2025.1.0&quot;</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;referenceDefs&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;cfr-200-414&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;regulation&quot;</span><span class="fu">,</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;both&quot;</span><span class="fu">,</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;rel&quot;</span><span class="fu">:</span> <span class="st">&quot;constrains&quot;</span><span class="fu">,</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;2 CFR §200.414 — Indirect (F&amp;A) Costs&quot;</span><span class="fu">,</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.ecfr.gov/current/title-2/section-200.414&quot;</span><span class="fu">,</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;priority&quot;</span><span class="fu">:</span> <span class="st">&quot;primary&quot;</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;grant-kb&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;vector-store&quot;</span><span class="fu">,</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;agent&quot;</span><span class="fu">,</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Federal grants guidance knowledge base&quot;</span><span class="fu">,</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;vectorstore:pinecone/federal-grants-v3&quot;</span><span class="fu">,</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;tags&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;rag&quot;</span><span class="ot">,</span> <span class="st">&quot;grants&quot;</span><span class="ot">,</span> <span class="st">&quot;2-cfr-200&quot;</span><span class="ot">]</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;references&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;#&quot;</span><span class="fu">,</span></span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;cfr-guidance&quot;</span><span class="fu">,</span></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;regulation&quot;</span><span class="fu">,</span></span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;both&quot;</span><span class="fu">,</span></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;2 CFR Part 200 — Uniform Administrative Requirements&quot;</span><span class="fu">,</span></span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://www.ecfr.gov/current/title-2/subtitle-A/chapter-II/part-200&quot;</span><span class="fu">,</span></span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;priority&quot;</span><span class="fu">:</span> <span class="st">&quot;primary&quot;</span></span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;#&quot;</span><span class="fu">,</span></span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;completion-guide&quot;</span><span class="fu">,</span></span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;documentation&quot;</span><span class="fu">,</span></span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;human&quot;</span><span class="fu">,</span></span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;SF-425 Line-by-Line Completion Guide&quot;</span><span class="fu">,</span></span>
+<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.gov/help/sf425-guide.pdf&quot;</span><span class="fu">,</span></span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;mediaType&quot;</span><span class="fu">:</span> <span class="st">&quot;application/pdf&quot;</span></span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;#&quot;</span><span class="fu">,</span></span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;grant-kb&quot;</span><span class="fu">,</span></span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;vector-store&quot;</span><span class="fu">,</span></span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;agent&quot;</span><span class="fu">,</span></span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Federal grants guidance knowledge base&quot;</span><span class="fu">,</span></span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;vectorstore:pinecone/federal-grants-v3&quot;</span><span class="fu">,</span></span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Embeddings of all OMB circulars, 2 CFR 200 subparts, and agency-specific grant guidance. Query with field-level questions for contextual help.&quot;</span><span class="fu">,</span></span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;tags&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;rag&quot;</span><span class="ot">,</span> <span class="st">&quot;grants&quot;</span><span class="ot">,</span> <span class="st">&quot;2-cfr-200&quot;</span><span class="ot">]</span></span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;indirectCostRate&quot;</span><span class="fu">,</span></span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;$ref&quot;</span><span class="fu">:</span> <span class="st">&quot;#/referenceDefs/cfr-200-414&quot;</span><span class="fu">,</span></span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;selector&quot;</span><span class="fu">:</span> <span class="st">&quot;Section 200.414(f) — De minimis rate of 10%&quot;</span></span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;indirectCostRate&quot;</span><span class="fu">,</span></span>
+<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;context&quot;</span><span class="fu">,</span></span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;agent&quot;</span><span class="fu">,</span></span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;rel&quot;</span><span class="fu">:</span> <span class="st">&quot;defines&quot;</span><span class="fu">,</span></span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Indirect cost rate guidance&quot;</span><span class="fu">,</span></span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="st">&quot;The indirect cost rate is a percentage negotiated between the grantee organization and its cognizant federal agency. It represents overhead costs (facilities, administration) that cannot be directly attributed to a specific grant. Common values range from 10% to 65%. Organizations without a negotiated rate may use the de minimis rate of 10% per 2 CFR §200.414(f). The rate entered here should match the organization&#39;s current Negotiated Indirect Cost Rate Agreement (NICRA).&quot;</span><span class="fu">,</span></span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;priority&quot;</span><span class="fu">:</span> <span class="st">&quot;primary&quot;</span></span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;indirectCostRate&quot;</span><span class="fu">,</span></span>
+<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;example&quot;</span><span class="fu">,</span></span>
+<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;human&quot;</span><span class="fu">,</span></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;How to find your indirect cost rate&quot;</span><span class="fu">,</span></span>
+<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.gov/help/indirect-cost-rate-examples&quot;</span></span>
+<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="bound-references">4.2 Bound References</h3>
+<p>Each entry in the <code>references</code> array is a <strong>Bound
+Reference</strong> — a Reference object (§2) with an additional required
+<code>target</code> property that binds it to a specific location in the
+target Definition.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td>REQUIRED</td>
+<td>Path identifying which Definition item(s) this reference applies to.
+Uses the same dot-notation path syntax as Bind paths (core §4.3.3). The
+special value <code>"#"</code> means form-level (applies to the entire
+form). Multiple references MAY target the same path.</td>
+</tr>
+</tbody>
+</table>
+<p>In addition to <code>target</code>, a Bound Reference contains all
+Reference properties from §2.1, or a <code>$ref</code> pointer to a
+<code>referenceDefs</code> entry (§4.6).</p>
+<p><strong>Target path examples:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"#"</code></td>
+<td>Form-level — applies to the entire form</td>
+</tr>
+<tr>
+<td><code>"indirectCostRate"</code></td>
+<td>A specific field</td>
+</tr>
+<tr>
+<td><code>"budget.lineItems"</code></td>
+<td>A nested group</td>
+</tr>
+<tr>
+<td><code>"lineItems[*].amount"</code></td>
+<td>All instances of a field within a repeat</td>
+</tr>
+</tbody>
+</table>
+<h3 id="target-definition-binding">4.3 Target Definition Binding</h3>
+<p>The <code>targetDefinition</code> object declares which Definition
+this References Document is designed for:</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.gov/forms/sf-425&quot;</span><span class="fu">,</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;compatibleVersions&quot;</span><span class="fu">:</span> <span class="st">&quot;&gt;=2025.1.0 &lt;3.0.0&quot;</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<ul>
+<li><code>url</code> (REQUIRED) — Canonical URL of the target Definition
+(its <code>url</code> property). A processor loading a References
+Document MUST verify that the <code>url</code> matches the loaded
+Definition’s <code>url</code>. If the URLs do not match, the processor
+MUST NOT apply the references and SHOULD emit an error.</li>
+<li><code>compatibleVersions</code> (OPTIONAL) — Semver range expression
+describing which Definition versions this document supports. When
+absent, the document is compatible with any version at that URL.</li>
+</ul>
+<p>A processor loading a References Document SHOULD verify that the
+Definition’s version satisfies <code>compatibleVersions</code> before
+applying references. On version mismatch, the processor SHOULD emit a
+warning but MAY still apply the references (warn-and-continue).</p>
+<h3 id="multiple-references-documents">4.4 Multiple References
+Documents</h3>
+<p>Multiple References Documents MAY target the same Definition. This
+enables:</p>
+<ul>
+<li><strong>Audience separation</strong> — one document for human-facing
+help, another for agent context.</li>
+<li><strong>Locale variants</strong> — one document per language, each
+with <code>language</code>-tagged references.</li>
+<li><strong>Domain overlays</strong> — a base references document plus a
+domain-specific overlay (e.g., agency-specific regulatory guidance on
+top of a shared form).</li>
+</ul>
+<p>When multiple documents target the same Definition, a processor MUST
+merge their references by collecting all Bound References into a single
+ordered list. Within each document, array order is preserved (§2.4).
+Across documents, the processor determines load order
+(implementation-defined).</p>
+<p>References from different documents that target the same path are
+<strong>additive</strong> — they do not replace each other.</p>
+<h3 id="scoping-and-non-inheritance">4.5 Scoping and
+Non-Inheritance</h3>
+<p>References target specific items by path. A reference targeting a
+group does NOT automatically apply to the group’s children — each item
+must be targeted explicitly.</p>
+<p><strong>Rationale</strong>: Automatic inheritance would create
+ambiguity about which references apply to a specific field vs. its
+container. Explicit targeting keeps the model simple and predictable.
+Consumers (particularly agents) that want hierarchical context may
+collect references from ancestor paths — see the recommended context
+assembly pattern in §5.1.</p>
+<p><strong>Non-relevant items</strong>: References targeting
+non-relevant items persist in the References Document (they are
+structural metadata). However, agents and renderers SHOULD NOT surface
+references for items that are currently non-relevant, since the user
+cannot interact with those items.</p>
+<h3 id="reuse-via-referencedefs">4.6 Reuse via
+<code>referenceDefs</code></h3>
+<p>A References Document MAY declare a <code>referenceDefs</code> object
+— a registry of reusable Reference objects. Entries in the
+<code>references</code> array may use <code>$ref</code> pointers instead
+of duplicating reference objects inline.</p>
+<h4 id="declaring-shared-references">4.6.1 Declaring Shared
+References</h4>
+<p><code>referenceDefs</code> is an object whose keys are reference
+identifiers (matching <code>[a-zA-Z][a-zA-Z0-9_-]*</code>) and whose
+values are Reference objects. The key becomes the reference’s
+<code>id</code> — if the Reference object also declares an
+<code>id</code>, it MUST match the key. This constraint cannot be
+expressed in JSON Schema and MUST be enforced at processing time.</p>
+<h4 id="referencing-shared-definitions">4.6.2 Referencing Shared
+Definitions</h4>
+<p>Within the <code>references</code> array, a Bound Reference MAY use
+<code>{ "$ref": "#/referenceDefs/{key}" }</code> instead of inline
+Reference properties. The <code>$ref</code> value MUST be a JSON Pointer
+(<a href="https://www.rfc-editor.org/rfc/rfc6901">RFC 6901</a>) relative
+to the References Document root.</p>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;indirectCostRate&quot;</span><span class="fu">,</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$ref&quot;</span><span class="fu">:</span> <span class="st">&quot;#/referenceDefs/cfr-200-414&quot;</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>A <code>$ref</code> entry MAY include additional properties alongside
+<code>$ref</code>. These properties <strong>override</strong> the
+corresponding properties from the referenced definition (shallow merge —
+top-level keys only). This allows site-specific customization without
+duplicating the entire reference:</p>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;indirectCostRate&quot;</span><span class="fu">,</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$ref&quot;</span><span class="fu">:</span> <span class="st">&quot;#/referenceDefs/cfr-200-414&quot;</span><span class="fu">,</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;selector&quot;</span><span class="fu">:</span> <span class="st">&quot;Section 200.414(f) — De minimis rate of 10%&quot;</span><span class="fu">,</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;priority&quot;</span><span class="fu">:</span> <span class="st">&quot;primary&quot;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="resolution-rules">4.6.3 Resolution Rules</h4>
+<ol type="1">
+<li><code>$ref</code> resolution is performed at <strong>load
+time</strong>, before any processing. After resolution, the document
+behaves as if all references were declared inline.</li>
+<li>A <code>$ref</code> pointing to a nonexistent key in
+<code>referenceDefs</code> is a document error. Processors MUST report
+it and MUST NOT silently ignore the broken reference.</li>
+<li><code>$ref</code> values MUST NOT be recursive — a
+<code>referenceDefs</code> entry MUST NOT use the <code>$ref</code>
+resolution mechanism defined in this section.</li>
+<li><code>referenceDefs</code> entries that are never referenced are
+inert — they impose no processing cost and MUST NOT cause warnings.</li>
+<li>After resolution, the <code>id</code> of the resolved reference is
+the <code>referenceDefs</code> key. An override entry MUST NOT include
+<code>id</code> — the identity of a <code>$ref</code>-resolved reference
+is always the key it points to.</li>
+<li>The result of merging overrides with the base reference MUST satisfy
+all validation rules in §2.3. Processors MUST validate the merged
+result, not the base and overrides independently.</li>
+</ol>
+<blockquote>
+<p><strong>Rationale:</strong> This is the same pattern used by JSON
+Schema’s <code>$defs</code> and Formspec’s own <code>$ref</code> for
+modular composition (core §6.6). Without a reuse mechanism, documents
+with many items citing the same regulation will contain dozens of
+identical reference objects — a maintenance hazard where updating one
+copy but not the others creates silent inconsistency.
+<code>referenceDefs</code> makes the single-source-of-truth pattern
+expressible.</p>
+</blockquote>
+<h3 id="uri-stability-and-versioning">4.7 URI Stability and
+Versioning</h3>
+<p>Reference URIs are <strong>not versioned</strong> alongside the
+References Document or the target Definition. A reference URI may point
+to content that changes independently. This is by design — references
+point to living external resources.</p>
+<p>Authors who need pinned references SHOULD: - Use <code>content</code>
+for inline snapshots that are immutable with the document version. -
+Include version information in URIs where the external system supports
+it (e.g.,
+<code>https://www.ecfr.gov/current/title-2/section-200.414?version=2025-01-01</code>).
+- Use <code>description</code> to note the expected version or date of
+the referenced content.</p>
+<h3 id="modular-composition">4.8 Modular Composition</h3>
+<p>When a Group uses <code>$ref</code> to include items from another
+definition (core §6.6), references in a sidecar References Document
+targeting the source definition do NOT automatically transfer to the
+assembled definition. The host definition’s References Document(s) must
+explicitly bind references to any imported items using the assembled
+paths (which include the <code>keyPrefix</code> from the import).</p>
+<blockquote>
+<p><strong>Rationale:</strong> Since References Documents are separate
+from the Definition, there is no mechanism for the assembler to “carry”
+them. The host authors are responsible for providing reference context
+for imported items. This is consistent with the sidecar model — the
+Definition is assembled independently of its references.</p>
+</blockquote>
+<h2 id="agent-integration-patterns">5. Agent Integration Patterns</h2>
+<p>This section describes how AI companion agents are expected to
+consume references. These patterns are advisory — implementations may
+vary.</p>
+<h3 id="context-assembly">5.1 Context Assembly</h3>
+<p>When an agent assists a user with a specific field, the recommended
+approach is to:</p>
+<ol type="1">
+<li>Collect all loaded References Documents targeting the active
+Definition.</li>
+<li>Filter to Bound References whose <code>target</code> matches the
+field’s path.</li>
+<li>Additionally collect Bound References targeting ancestor groups
+(walking up the item tree by path segments) and form-level references
+(<code>target: "#"</code>).</li>
+<li>Filter by <code>audience</code> (<code>"agent"</code> or
+<code>"both"</code>).</li>
+<li>Sort by <code>priority</code> (<code>"primary"</code> first, then
+<code>"supplementary"</code>, then <code>"background"</code>).</li>
+<li>Use <code>rel</code> to weight references appropriately —
+<code>"constrains"</code> and <code>"defines"</code> references are
+authoritative context for the target and SHOULD be consulted before
+<code>"see-also"</code> references, which provide background.</li>
+<li>Use inline <code>content</code> references directly as context.</li>
+<li>Resolve <code>uri</code> references as appropriate (fetch documents,
+query vector stores, call APIs).</li>
+</ol>
+<h3 id="vector-store-query-pattern">5.2 Vector Store Query Pattern</h3>
+<p>For <code>type: "vector-store"</code> references, the agent
+constructs a query using:</p>
+<ul>
+<li>The field’s <code>label</code>, <code>description</code>, and
+<code>hint</code> as natural-language query context.</li>
+<li>The user’s current question or input as the primary query.</li>
+<li>The <code>tags</code> on the reference for namespace/filter
+scoping.</li>
+</ul>
+<pre><code>User asks: &quot;What rate should I enter for indirect costs?&quot;
+
+Agent context assembly:
+  1. Field: indirectCostRate (label: &quot;Indirect Cost Rate&quot;)
+  2. Inline context reference → immediate grounding
+  3. Vector store reference → query &quot;indirect cost rate guidance for federal grants&quot;
+  4. Regulation reference → deep-link for citation</code></pre>
+<h3 id="tool-references">5.3 Tool References</h3>
+<p><code>type: "tool"</code> references point to tool schemas (e.g.,
+OpenAPI operations, MCP tool definitions) that an agent can invoke to
+help the user. The <code>uri</code> points to the tool definition;
+<code>content</code> may contain the tool’s JSON schema inline.</p>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;indirectCostRate&quot;</span><span class="fu">,</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;tool&quot;</span><span class="fu">,</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;audience&quot;</span><span class="fu">:</span> <span class="st">&quot;agent&quot;</span><span class="fu">,</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;NICRA Lookup&quot;</span><span class="fu">,</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://api.example.gov/tools/nicra-lookup&quot;</span><span class="fu">,</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;lookupNICRA&quot;</span><span class="fu">,</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Look up an organization&#39;s Negotiated Indirect Cost Rate Agreement by UEI or EIN.&quot;</span><span class="fu">,</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;parameters&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;object&quot;</span><span class="fu">,</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;properties&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;uei&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span> <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Unique Entity Identifier&quot;</span> <span class="fu">},</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;ein&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span> <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Employer Identification Number&quot;</span> <span class="fu">}</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;mediaType&quot;</span><span class="fu">:</span> <span class="st">&quot;application/json&quot;</span></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="grounding-documents">5.4 Grounding Documents</h3>
+<p><code>type: "context"</code> references with inline
+<code>content</code> provide pre-written grounding text optimized for
+agent consumption. These are particularly useful for:</p>
+<ul>
+<li>Field-specific instructions that go beyond the
+<code>description</code>/<code>hint</code> (which are optimized for
+human display).</li>
+<li>Domain rules and edge cases an agent should know about.</li>
+<li>Disambiguation guidance (e.g., “This field asks for the
+<em>federal</em> fiscal year, not the organization’s fiscal year”).</li>
+</ul>
+<h2 id="relationship-to-existing-properties">6. Relationship to Existing
+Properties</h2>
+<p>References complement but do not replace existing Item
+properties:</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 26%" />
+<col style="width: 23%" />
+<col style="width: 26%" />
+<col style="width: 23%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Purpose</th>
+<th>Audience</th>
+<th>Display</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>label</code></td>
+<td>Primary display name</td>
+<td>Human</td>
+<td>Always visible</td>
+</tr>
+<tr>
+<td><code>hint</code></td>
+<td>Short instructional text</td>
+<td>Human</td>
+<td>Inline with input</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Help text</td>
+<td>Human</td>
+<td>On-demand (tooltip/help)</td>
+</tr>
+<tr>
+<td><strong><code>references</code></strong></td>
+<td><strong>External context, knowledge sources, agent
+data</strong></td>
+<td><strong>Human + Agent</strong></td>
+<td><strong>Implementation-defined</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>description</code> and <code>hint</code> remain the right
+place for concise, inline human guidance.</li>
+<li><code>references</code> (in the sidecar document) are for deeper
+context: full documents, knowledge bases, regulatory citations, and
+agent-consumable data sources.</li>
+<li>An agent SHOULD use <code>label</code>, <code>hint</code>, and
+<code>description</code> as lightweight context before consulting
+references for deeper information.</li>
+</ul>
+<h2 id="rendering-guidance">7. Rendering Guidance</h2>
+<p>References are metadata and renderers are free to present them
+however they choose (or not at all). Recommended patterns:</p>
+<ul>
+<li><strong>Human
+<code>documentation</code>/<code>regulation</code>/<code>policy</code>
+references</strong>: render as links in a help panel, sidebar, or
+expandable section. <code>priority: "primary"</code> references may
+warrant a visible help icon on the field.</li>
+<li><strong>Human <code>example</code> references</strong>: render
+inline or in a popover when the user focuses the field.</li>
+<li><strong>Agent references</strong>: not rendered in the UI. Consumed
+programmatically by companion agents.</li>
+<li><strong><code>audience: "both"</code> references</strong>: available
+to both rendering and agent pipelines. A <code>regulation</code>
+reference might render as a citation link for humans while also being
+queryable context for an agent.</li>
+<li><strong>Relationship-aware rendering</strong>: Renderers MAY use
+<code>rel</code> to differentiate presentation. For example,
+<code>rel: "constrains"</code> references could display with a
+“Requirements” heading or a distinct icon, while
+<code>rel: "exemplifies"</code> references could render as expandable
+example panels. <code>rel: "superseded-by"</code> references SHOULD be
+visually de-emphasized or annotated as outdated.</li>
+</ul>
+<h2 id="conformance">8. Conformance</h2>
+<p>This specification defines conformance requirements for References
+Document handling.</p>
+<h3 id="core-processor-requirements">8.1 Core Processor
+Requirements</h3>
+<ul>
+<li>A conformant Core processor MAY ignore References Documents entirely
+— they are an additive layer.</li>
+<li>A conformant Core processor MUST NOT use references to alter data
+capture, validation, or the processing model.</li>
+<li>References MUST NOT appear in Response data.</li>
+</ul>
+<h3 id="extended-processor-requirements">8.2 Extended Processor
+Requirements</h3>
+<ul>
+<li>An Extended processor that supports references MUST load and
+validate References Documents against the schema in §9.</li>
+<li>An Extended processor that supports references MUST resolve
+<code>$ref</code> pointers within the document at load time
+(§4.6.3).</li>
+<li>An Extended processor MUST verify that
+<code>targetDefinition.url</code> matches the loaded Definition’s
+<code>url</code>. On mismatch, the processor MUST NOT apply the
+references and SHOULD emit an error (§4.3).</li>
+<li>An Extended processor SHOULD verify
+<code>targetDefinition.compatibleVersions</code> and emit a warning on
+version mismatch (§4.3).</li>
+<li>An Extended processor MUST validate that <code>referenceDefs</code>
+entries with an explicit <code>id</code> have that <code>id</code> match
+the entry’s key (§4.6.1). A mismatch is a document error.</li>
+<li>An Extended processor SHOULD validate that <code>target</code> paths
+in Bound References correspond to items that exist in the target
+Definition. A <code>target</code> pointing to a nonexistent item SHOULD
+emit a warning but MUST NOT cause document rejection.</li>
+<li>An Extended processor that supports references SHOULD surface
+human-audience references in the UI.</li>
+<li>An Extended processor that supports agent integration SHOULD make
+agent-audience references available to companion agents via a documented
+API.</li>
+<li>An Extended processor that encounters a reference with an
+unrecognized <code>type</code> (non-<code>x-</code>-prefixed) SHOULD
+emit a warning and MAY skip the reference, but MUST NOT reject the
+document.</li>
+</ul>
+<h2 id="schema">9. Schema</h2>
+<p>The normative JSON Schema for References Documents is defined in
+<code>schemas/references.schema.json</code>. This is a standalone schema
+(not embedded in the definition schema) consistent with the sidecar
+document model. The <code>TargetDefinition</code> type is shared with
+the Component schema via <code>$ref</code>.</p>
+<!-- schema-ref:start schema=schemas/references.schema.json pointers=#/properties/$formspecReferences,#/properties/targetDefinition,#/properties/references,#/$defs/BoundReference,#/$defs/Reference,#/$defs/ReferenceOrRef,#/$defs/ReferenceDefs -->
+<!-- generated:schema-ref id= -->
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Pointer</th>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#/properties/$formspecReferences</code></td>
+<td><code>(self)</code></td>
+<td><code>string</code></td>
+<td>—</td>
+<td>const: <code>“1.0”</code>; critical</td>
+<td>References specification version. MUST be ‘1.0’.</td>
+</tr>
+<tr>
+<td><code>#/properties/targetDefinition</code></td>
+<td><code>(self)</code></td>
+<td><code>$ref</code></td>
+<td>—</td>
+<td><code>$ref</code>:
+<code>https://formspec.org/schemas/component/1.0#/$defs/TargetDefinition</code>;
+critical</td>
+<td>Binding to the target Formspec Definition and optional compatibility
+range.</td>
+</tr>
+<tr>
+<td><code>#/properties/references</code></td>
+<td><code>(self)</code></td>
+<td><code>array</code></td>
+<td>—</td>
+<td>critical</td>
+<td>Ordered list of references bound to the target Definition. Each
+entry specifies a target path (item key or ‘#’ for form-level) and a
+reference or <span class="math inline">$ref pointer. References are
+static and resolved at load time. |
+|
+`#/$</span>defs/BoundReference/properties/target<code>|</code>target<code>| &lt;code&gt;string&lt;/code&gt; | yes | critical | Path identifying which Definition item(s) this reference applies to. Uses dot notation for nesting and [*] for all instances of a repeatable group. The special value '#' means form-level (applies to the entire form). Multiple references may target the same path. | |</code>#/<span
+class="math inline">$defs/Reference/properties/audience` | `audience` |
+&lt;code&gt;string&lt;/code&gt; | yes | enum:
+&lt;code&gt;"human"&lt;/code&gt;, &lt;code&gt;"agent"&lt;/code&gt;,
+&lt;code&gt;"both"&lt;/code&gt;; critical | Who consumes this reference.
+'human': rendered in the UI (help panels, links, tooltips). 'agent':
+consumed programmatically by AI agents (not rendered). 'both': available
+to both rendering and agent pipelines. |
+|
+`#/$</span>defs/Reference/properties/content<code>|</code>content<code>| &lt;code&gt;composite&lt;/code&gt; | no | — | Inline content of the reference. REQUIRED unless 'uri' is provided. May be a plain text string, markdown, or structured JSON object. | |</code>#/<span
+class="math inline">$defs/Reference/properties/description` |
+`description` | &lt;code&gt;string&lt;/code&gt; | no | — | Longer
+explanation of what this reference provides and why it is relevant. |
+|
+`#/$</span>defs/Reference/properties/extensions<code>|</code>extensions<code>| &lt;code&gt;object&lt;/code&gt; | no | — | Reference-level extension data. All keys MUST be prefixed with 'x-'. | |</code>#/<span
+class="math inline">$defs/Reference/properties/id` | `id` |
+&lt;code&gt;string&lt;/code&gt; | no | pattern:
+&lt;code&gt;^[a-zA-Z][a-zA-Z0-9_-]*&amp;#36;&lt;/code&gt; | Identifier
+for this reference. RECOMMENDED. When present, MUST be unique within
+this References Document. When used as a referenceDefs key, the key and
+id MUST match (processing-time validation). |
+|
+`#/$</span>defs/Reference/properties/language<code>|</code>language<code>| &lt;code&gt;string&lt;/code&gt; | no | — | BCP 47 language tag for the referenced content. | |</code>#/<span
+class="math inline">$defs/Reference/properties/mediaType` | `mediaType`
+| &lt;code&gt;string&lt;/code&gt; | no | — | MIME type of the referenced
+resource (RFC 2045). |
+|
+`#/$</span>defs/Reference/properties/priority<code>|</code>priority<code>| &lt;code&gt;string&lt;/code&gt; | no | enum: &lt;code&gt;"primary"&lt;/code&gt;, &lt;code&gt;"supplementary"&lt;/code&gt;, &lt;code&gt;"background"&lt;/code&gt; | Relative importance. 'primary': surfaced first. 'supplementary' (implicit default): normal. 'background': contextual. | |</code>#/<span
+class="math inline">$defs/Reference/properties/rel` | `rel` |
+&lt;code&gt;string&lt;/code&gt; | no | — | Semantic relationship to the
+target. Known values: 'authorizes', 'constrains', 'defines',
+'exemplifies', 'supersedes', 'superseded-by', 'derived-from', 'see-also'
+(implicit default). Custom types MUST be prefixed with 'x-'.
+Unrecognized non-'x-' values: processor SHOULD warn and treat as
+'see-also'. |
+|
+`#/$</span>defs/Reference/properties/selector<code>|</code>selector<code>| &lt;code&gt;string&lt;/code&gt; | no | — | Fragment-targeting hint for resources without native fragment semantics. | |</code>#/<span
+class="math inline">$defs/Reference/properties/tags` | `tags` |
+&lt;code&gt;array&lt;/code&gt; | no | — | Categorization tags for
+filtering and grouping references. |
+|
+`#/$</span>defs/Reference/properties/title<code>|</code>title<code>| &lt;code&gt;string&lt;/code&gt; | no | — | Human-readable label for this reference. RECOMMENDED. | |</code>#/<span
+class="math inline">$defs/Reference/properties/type` | `type` |
+&lt;code&gt;string&lt;/code&gt; | yes | critical | Classification of the
+referenced resource. Human-oriented: 'documentation', 'example'. Shared:
+'regulation', 'policy', 'glossary', 'schema'. Agent-oriented:
+'vector-store', 'knowledge-base', 'retrieval', 'tool', 'api', 'context'.
+Custom types MUST be prefixed with 'x-'. Unrecognized non-'x-' types:
+processor SHOULD warn and MAY skip. |
+|
+`#/$</span>defs/Reference/properties/uri<code>|</code>uri<code>| &lt;code&gt;string&lt;/code&gt; | no | — | URI of the referenced resource. REQUIRED unless 'content' is provided. Supports https:, vectorstore:, kb:, formspec-fn:, and urn: schemes. | |</code>#/$defs/ReferenceOrRef<code>|</code>(self)<code>| &lt;code&gt;composite&lt;/code&gt; | — | — | Either a full inline Reference object, or a $ref pointer to a referenceDefs entry with optional property overrides. When $ref is present, the base object is shallow-merged with sibling properties (overrides win). The 'id' property MUST NOT appear alongside $ref — the referenceDefs key becomes the resolved id. MAINTENANCE NOTE: The $ref branch explicitly lists override properties — if a property is added to Reference, it must also be added to the $ref branch or overrides for that property will be silently rejected. | |</code>#/$defs/ReferenceDefs<code>|</code>(self)`</td>
+</tr>
+</tbody>
+</table>
+<!-- schema-ref:end -->
+<h2 id="security-considerations">10. Security Considerations</h2>
+<ul>
+<li><strong>URI resolution</strong>: Agents and renderers MUST NOT
+blindly fetch arbitrary URIs from references. Implementations SHOULD
+maintain an allowlist of trusted domains or delegate URI resolution to
+the host environment.</li>
+<li><strong>Inline content</strong>: <code>content</code> values
+(especially objects) MUST be treated as untrusted data. Renderers MUST
+sanitize HTML/markdown content before display. Agents SHOULD treat
+inline content as context, not as executable instructions.</li>
+<li><strong>Credential exposure</strong>: Reference URIs MUST NOT
+contain credentials (API keys, tokens). Authentication for protected
+resources MUST be handled by the host environment or agent runtime, not
+embedded in the document.</li>
+<li><strong>Prompt injection</strong>: Agent implementations MUST be
+aware that <code>content</code> fields and fetched reference documents
+could contain adversarial text. Standard prompt injection mitigations
+apply.</li>
+<li><strong>Circular resolution</strong>: A reference URI could point
+back to the definition itself or to another reference that creates a
+loop. Implementations that recursively resolve reference URIs MUST guard
+against circular resolution (e.g., via a visited-set or depth
+limit).</li>
+<li><strong>Browser security</strong>: Web implementations that fetch
+reference URIs for display (human-audience references) are subject to
+CORS and Content Security Policy restrictions. Implementations SHOULD
+proxy external reference content through a trusted backend rather than
+fetching directly from the browser.</li>
+<li><strong>Document provenance</strong>: Since References Documents are
+separate files that bind to a Definition by URL, implementations SHOULD
+verify the provenance of loaded References Documents. Loading references
+from untrusted sources could inject misleading context into agent
+pipelines.</li>
+</ul>
+</body>
+</html>

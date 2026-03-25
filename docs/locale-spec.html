@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formspec Locale Specification</title>
+<style>
+  body { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #1f2328; line-height: 1.6; font-size: 16px; }
+  #TOC { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 1rem 1.5rem; margin-bottom: 2rem; }
+  #TOC > ul { list-style: none; padding-left: 0; }
+  #TOC ul { padding-left: 1.5rem; }
+  #TOC li { margin: 0.15rem 0; font-size: 14px; }
+  #TOC a { text-decoration: none; color: #0969da; }
+  #TOC a:hover { text-decoration: underline; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 0.3rem; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 0.3rem; margin-top: 2.5rem; }
+  h3 { margin-top: 1.5rem; }
+  h4 { margin-top: 1.2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 14px; }
+  th, td { border: 1px solid #d0d7de; padding: 6px 13px; text-align: left; }
+  th { background: #f6f8fa; font-weight: 600; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 13px; }
+  code { font-size: 0.9em; background: #f0f2f5; padding: 0.2em 0.4em; border-radius: 3px; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 4px solid #d0d7de; margin: 0; padding: 0 1rem; color: #57606a; }
+  strong { color: #1f2328; }
+  a { color: #0969da; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<nav id="TOC">
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#formspec-locale-specification-v1.0"
+id="toc-formspec-locale-specification-v1.0">Formspec Locale
+Specification v1.0</a>
+<ul>
+<li><a href="#status-of-this-document"
+id="toc-status-of-this-document">Status of This Document</a></li>
+<li><a href="#conventions-and-terminology"
+id="toc-conventions-and-terminology">Conventions and
+Terminology</a></li>
+<li><a href="#bottom-line-up-front" id="toc-bottom-line-up-front">Bottom
+Line Up Front</a></li>
+<li><a href="#introduction" id="toc-introduction">1. Introduction</a>
+<ul>
+<li><a href="#purpose" id="toc-purpose">1.1 Purpose</a></li>
+<li><a href="#scope" id="toc-scope">1.2 Scope</a></li>
+<li><a href="#relationship-to-other-specifications"
+id="toc-relationship-to-other-specifications">1.3 Relationship to Other
+Specifications</a></li>
+<li><a href="#terminology" id="toc-terminology">1.4 Terminology</a></li>
+<li><a href="#notational-conventions"
+id="toc-notational-conventions">1.5 Notational Conventions</a></li>
+</ul></li>
+<li><a href="#locale-document-structure"
+id="toc-locale-document-structure">2. Locale Document Structure</a>
+<ul>
+<li><a href="#top-level-properties" id="toc-top-level-properties">2.1
+Top-Level Properties</a></li>
+<li><a href="#target-definition-binding"
+id="toc-target-definition-binding">2.2 Target Definition
+Binding</a></li>
+<li><a href="#locale-code" id="toc-locale-code">2.3 Locale Code</a></li>
+</ul></li>
+<li><a href="#string-keys-and-values" id="toc-string-keys-and-values">3.
+String Keys and Values</a>
+<ul>
+<li><a href="#string-key-format" id="toc-string-key-format">3.1 String
+Key Format</a></li>
+<li><a href="#key-resolution-rules" id="toc-key-resolution-rules">3.2
+Key Resolution Rules</a></li>
+<li><a href="#fel-interpolation" id="toc-fel-interpolation">3.3 FEL
+Interpolation</a></li>
+</ul></li>
+<li><a href="#fallback-cascade" id="toc-fallback-cascade">4. Fallback
+Cascade</a>
+<ul>
+<li><a href="#cascade-order" id="toc-cascade-order">4.1 Cascade
+Order</a></li>
+<li><a href="#cascade-examples" id="toc-cascade-examples">4.2 Cascade
+Examples</a></li>
+<li><a href="#circular-fallback-detection"
+id="toc-circular-fallback-detection">4.3 Circular Fallback
+Detection</a></li>
+<li><a href="#multiple-locale-documents"
+id="toc-multiple-locale-documents">4.4 Multiple Locale
+Documents</a></li>
+</ul></li>
+<li><a href="#fel-functions" id="toc-fel-functions">5. FEL Functions</a>
+<ul>
+<li><a href="#locale" id="toc-locale">5.1 <code>locale()</code></a></li>
+<li><a href="#pluralcount-singular-plural"
+id="toc-pluralcount-singular-plural">5.2
+<code>plural(count, singular, plural)</code></a></li>
+<li><a href="#formatnumbervalue-locale"
+id="toc-formatnumbervalue-locale">5.3
+<code>formatNumber(value, locale?)</code></a></li>
+<li><a href="#formatdatevalue-pattern-locale"
+id="toc-formatdatevalue-pattern-locale">5.4
+<code>formatDate(value, pattern?, locale?)</code></a></li>
+</ul></li>
+<li><a href="#processor-capabilities" id="toc-processor-capabilities">6.
+Processor Capabilities</a>
+<ul>
+<li><a href="#load-a-locale-document"
+id="toc-load-a-locale-document">6.1 Load a Locale Document</a></li>
+<li><a href="#set-the-active-locale" id="toc-set-the-active-locale">6.2
+Set the Active Locale</a></li>
+<li><a href="#resolve-a-localized-string"
+id="toc-resolve-a-localized-string">6.3 Resolve a Localized
+String</a></li>
+<li><a href="#query-the-active-locale"
+id="toc-query-the-active-locale">6.4 Query the Active Locale</a></li>
+</ul></li>
+<li><a href="#validation-and-linting" id="toc-validation-and-linting">7.
+Validation and Linting</a>
+<ul>
+<li><a href="#schema-validation" id="toc-schema-validation">7.1 Schema
+Validation</a></li>
+<li><a href="#cross-reference-validation"
+id="toc-cross-reference-validation">7.2 Cross-Reference
+Validation</a></li>
+<li><a href="#linter-rules" id="toc-linter-rules">7.3 Linter
+Rules</a></li>
+</ul></li>
+<li><a href="#processing-model" id="toc-processing-model">8. Processing
+Model</a>
+<ul>
+<li><a href="#integration-with-the-four-phase-cycle"
+id="toc-integration-with-the-four-phase-cycle">8.1 Integration with the
+Four-Phase Cycle</a></li>
+<li><a href="#validation-message-localization"
+id="toc-validation-message-localization">8.2 Validation Message
+Localization</a></li>
+<li><a href="#reactivity" id="toc-reactivity">8.3 Reactivity</a></li>
+<li><a href="#repeat-group-paths" id="toc-repeat-group-paths">8.4 Repeat
+Group Paths</a></li>
+</ul></li>
+<li><a href="#security-considerations"
+id="toc-security-considerations">9. Security Considerations</a>
+<ul>
+<li><a href="#content-injection" id="toc-content-injection">9.1 Content
+Injection</a></li>
+<li><a href="#expression-evaluation" id="toc-expression-evaluation">9.2
+Expression Evaluation</a></li>
+<li><a href="#locale-document-provenance"
+id="toc-locale-document-provenance">9.3 Locale Document
+Provenance</a></li>
+</ul></li>
+<li><a href="#conformance" id="toc-conformance">10. Conformance</a>
+<ul>
+<li><a href="#conformance-levels" id="toc-conformance-levels">10.1
+Conformance Levels</a></li>
+<li><a href="#locale-core-conformance"
+id="toc-locale-core-conformance">10.2 Locale Core Conformance</a></li>
+<li><a href="#locale-extended-conformance"
+id="toc-locale-extended-conformance">10.3 Locale Extended
+Conformance</a></li>
+<li><a href="#authoring-conformance" id="toc-authoring-conformance">10.4
+Authoring Conformance</a></li>
+</ul></li>
+<li><a href="#appendix-a-complete-locale-document-example"
+id="toc-appendix-a-complete-locale-document-example">Appendix A:
+Complete Locale Document Example</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="formspec-locale-specification-v1.0">Formspec Locale
+Specification v1.0</h1>
+<p><strong>Version:</strong> 1.0.0-draft.1 <strong>Date:</strong>
+2026-03-20 <strong>Editors:</strong> Formspec Working Group
+<strong>Companion to:</strong> Formspec v1.0 — A JSON-Native Declarative
+Form Standard</p>
+<hr />
+<h2 id="status-of-this-document">Status of This Document</h2>
+<p>This document is a <strong>Draft</strong> companion specification to
+the <a href="../core/spec.md">Formspec v1.0 Core Specification</a>. It
+defines the Formspec Locale Document format — a sidecar JSON document
+that provides internationalized strings for a Formspec Definition.</p>
+<h2 id="conventions-and-terminology">Conventions and Terminology</h2>
+<p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
+“SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “NOT RECOMMENDED”, “MAY”, and
+“OPTIONAL” in this document are to be interpreted as described in <a
+href="https://www.rfc-editor.org/rfc/rfc2119">BCP 14</a> [RFC 2119] [RFC
+8174] when, and only when, they appear in ALL CAPITALS, as shown
+here.</p>
+<p>JSON syntax and data types are as defined in [RFC 8259]. URI syntax
+is as defined in [RFC 3986].</p>
+<p>Terms defined in the Formspec v1.0 core specification — including
+<em>Definition</em>, <em>Item</em>, <em>Response</em>, <em>Bind</em>,
+<em>FEL</em>, and <em>conformant processor</em> — retain their
+core-specification meanings throughout this document unless explicitly
+redefined.</p>
+<hr />
+<h2 id="bottom-line-up-front">Bottom Line Up Front</h2>
+<!-- bluf:start file=locale-spec.bluf.md -->
+<ul>
+<li>This document defines the Locale Document — a sidecar JSON artifact
+for internationalizing Formspec Definitions.</li>
+<li>A valid locale requires <code>$formspecLocale</code>,
+<code>version</code>, <code>locale</code>,
+<code>targetDefinition</code>, and a non-empty <code>strings</code>
+object.</li>
+<li>String resolution uses a fallback cascade (regional → base → inline
+defaults) with FEL interpolation via <code>{{expression}}</code>
+syntax.</li>
+<li>This BLUF is governed by <code>schemas/locale.schema.json</code>;
+generated schema references are the canonical structural contract.
+<!-- bluf:end --></li>
+</ul>
+<h2 id="introduction">1. Introduction</h2>
+<h3 id="purpose">1.1 Purpose</h3>
+<p>Formspec v1.0 defines form structure, behavior, and validation in a
+single Definition document. Every Item has a <code>label</code>,
+optional <code>description</code> and <code>hint</code> properties, and
+choice options with display text. These inline strings serve as the
+default presentation language.</p>
+<p>Real-world forms must be presented in multiple languages. A federal
+grant application may need English, Spanish, and French versions. A
+multinational survey may require dozens of locales with regional
+variants. Without a standard localization mechanism, implementors must
+either embed all translations inside the Definition (bloating it and
+coupling translation to structural authoring) or build bespoke
+translation infrastructure outside the spec.</p>
+<p>This specification defines a <strong>Locale Document</strong> — a
+standalone JSON artifact that provides localized strings for a Formspec
+Definition. A Locale Document:</p>
+<ul>
+<li>References a Definition by URL and declares compatible
+versions.</li>
+<li>Maps item paths to localized strings via a flat key-value
+structure.</li>
+<li>Supports FEL interpolation for dynamic string content.</li>
+<li>Composes via a fallback cascade (regional → base → inline).</li>
+<li>Supports contextual variants (short, accessibility, pdf).</li>
+</ul>
+<p>Authors who do not need internationalization change nothing. The
+Definition’s inline strings serve as the default locale.</p>
+<h3 id="scope">1.2 Scope</h3>
+<p>This specification defines:</p>
+<ul>
+<li>The JSON structure for <strong>Locale Documents</strong> —
+standalone JSON documents that provide localized strings for a Formspec
+Definition.</li>
+<li>The <strong>string key format</strong> for addressing localizable
+properties of Items, choice options, and validation messages.</li>
+<li>The <strong>FEL interpolation</strong> syntax for embedding dynamic
+values in localized strings.</li>
+<li>The <strong>fallback cascade</strong> governing how string
+resolution walks the locale chain from regional to base to inline
+defaults.</li>
+<li>The <strong><code>locale()</code> FEL function</strong> that exposes
+the active locale code to FEL expressions in the Definition.</li>
+<li>The <strong><code>plural()</code> FEL function</strong> for
+expressing common pluralization patterns without ICU/CLDR data
+dependencies.</li>
+</ul>
+<p>This specification does NOT define:</p>
+<ul>
+<li>Locale negotiation or <code>Accept-Language</code> parsing — this is
+a host application concern.</li>
+<li>Right-to-left layout or text direction — this is a Theme concern.
+Use a locale-specific Theme Document.</li>
+<li>Translation memory, machine translation, or translator tooling —
+these are external tooling concerns.</li>
+<li>Built-in plural tables, gender agreement tables, or number/date
+formatting patterns from CLDR — FEL expressions authored by the
+translator handle these cases.</li>
+<li>Locale Documents address all human-readable strings across all
+tiers. Theme-tier page layout strings (<code>PageLayout.title</code>,
+<code>PageLayout.description</code>) are addressable via the
+<code>$page.&lt;pageId&gt;</code> key prefix (§3.1.7). Component-tier
+text props (<code>Heading.text</code>, <code>Alert.text</code>,
+<code>Card.title</code>, etc.) are addressable via the
+<code>$component.&lt;nodeId&gt;.&lt;prop&gt;</code> key prefix (§3.1.8),
+where <code>&lt;nodeId&gt;</code> is the optional <code>id</code>
+property on the component node. OptionSet option labels shared across
+fields are addressable via the <code>$optionSet.&lt;setName&gt;</code>
+key prefix (§3.1.3). Locale Documents MUST NOT alter non-string
+properties (layout, styling, widget configuration, behavioral
+expressions) — those remain Theme/Component concerns.</li>
+</ul>
+<h3 id="relationship-to-other-specifications">1.3 Relationship to Other
+Specifications</h3>
+<p>The Formspec architecture defines concerns as composable sidecar
+artifacts:</p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 38%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Inline (Tier 1)</th>
+<th>Sidecar artifact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Structure &amp; behavior</td>
+<td>Items, Binds, Shapes</td>
+<td>Core Definition</td>
+</tr>
+<tr>
+<td>Presentation</td>
+<td><code>presentation</code> hints</td>
+<td>Theme Document</td>
+</tr>
+<tr>
+<td>Interaction</td>
+<td><code>widgetHint</code></td>
+<td>Component Document</td>
+</tr>
+<tr>
+<td>Data transform</td>
+<td><code>fieldMap</code></td>
+<td>Mapping Document</td>
+</tr>
+<tr>
+<td><strong>Localization</strong></td>
+<td>Inline string properties</td>
+<td><strong>Locale Document</strong> (this spec)</td>
+</tr>
+</tbody>
+</table>
+<p>The Locale Document follows the same sidecar pattern: the Definition
+provides sensible defaults inline; the Locale Document overrides them
+for a specific language. Multiple Locale Documents MAY target the same
+Definition.</p>
+<h3 id="terminology">1.4 Terminology</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 66%" />
+</colgroup>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Definition</strong></td>
+<td>A Formspec Definition document (core spec §4).</td>
+</tr>
+<tr>
+<td><strong>Locale Document</strong></td>
+<td>A JSON document conforming to this specification.</td>
+</tr>
+<tr>
+<td><strong>Locale code</strong></td>
+<td>A BCP 47 language tag (e.g., <code>en</code>, <code>fr-CA</code>,
+<code>zh-Hans</code>).</td>
+</tr>
+<tr>
+<td><strong>String key</strong></td>
+<td>A dot-delimited path identifying a localizable string (§3.1).</td>
+</tr>
+<tr>
+<td><strong>Cascade</strong></td>
+<td>The fallback chain that determines the resolved string for a given
+key (§4).</td>
+</tr>
+<tr>
+<td><strong>Interpolation</strong></td>
+<td>Embedding FEL expressions in string values via
+<code>{{expression}}</code> syntax (§3.3).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="notational-conventions">1.5 Notational Conventions</h3>
+<p>JSON examples use <code>//</code> comments for annotation; comments
+are not valid JSON. Property names in monospace (<code>locale</code>)
+refer to JSON keys. Section references (§N) refer to this document
+unless prefixed with “core” (e.g., “core §4.2.5”).</p>
+<h2 id="locale-document-structure">2. Locale Document Structure</h2>
+<p>A Formspec Locale Document is a JSON object. Conforming
+implementations MUST recognize the following top-level properties and
+MUST reject any Locale Document that omits a REQUIRED property.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$formspecLocale&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://agency.gov/forms/budget/locales/fr-CA&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;budget-fr-CA&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget Form — Canadian French&quot;</span><span class="fu">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;French-Canadian localization for the annual budget form.&quot;</span><span class="fu">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;locale&quot;</span><span class="fu">:</span> <span class="st">&quot;fr-CA&quot;</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;fallback&quot;</span><span class="fu">:</span> <span class="st">&quot;fr&quot;</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;targetDefinition&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://agency.gov/forms/budget&quot;</span><span class="fu">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;compatibleVersions&quot;</span><span class="fu">:</span> <span class="st">&quot;&gt;=1.0.0 &lt;2.0.0&quot;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;strings&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;projectName.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Nom du projet&quot;</span><span class="fu">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;projectName.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Entrez le nom officiel du projet&quot;</span><span class="fu">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budget.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget&quot;</span><span class="fu">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budget.description&quot;</span><span class="fu">:</span> <span class="st">&quot;Section des informations budgétaires&quot;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="top-level-properties">2.1 Top-Level Properties</h3>
+<blockquote>
+<p><strong>Note:</strong> The hand-authored table below is a
+placeholder. Once <code>schemas/locale.schema.json</code> is authored,
+this section will be replaced by a
+<code>&lt;!-- schema-ref:start ... --&gt;</code> generated table that
+serves as the canonical structural contract.</p>
+</blockquote>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$formspecLocale</code></td>
+<td>string</td>
+<td><strong>Yes</strong></td>
+<td>Locale specification version. MUST be <code>"1.0"</code>.</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string (URI)</td>
+<td>No</td>
+<td>Canonical URI identifier for this Locale Document. Stable across
+versions — the tuple (<code>url</code>, <code>version</code>) SHOULD be
+globally unique.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>string</td>
+<td><strong>Yes</strong></td>
+<td>Version of this Locale Document. SemVer is RECOMMENDED.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>No</td>
+<td>Machine-friendly short identifier.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>string</td>
+<td>No</td>
+<td>Human-readable display name.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>No</td>
+<td>Human-readable description of the locale’s purpose.</td>
+</tr>
+<tr>
+<td><code>locale</code></td>
+<td>string</td>
+<td><strong>Yes</strong></td>
+<td>BCP 47 language tag identifying the locale this document provides
+strings for.</td>
+</tr>
+<tr>
+<td><code>fallback</code></td>
+<td>string</td>
+<td>No</td>
+<td>BCP 47 language tag of the locale to consult when a key is not found
+in this document’s <code>strings</code>. See §4 for cascade rules.</td>
+</tr>
+<tr>
+<td><code>targetDefinition</code></td>
+<td>object</td>
+<td><strong>Yes</strong></td>
+<td>Binding to the target Definition. Same structure as Theme’s
+<code>targetDefinition</code> (§2.2).</td>
+</tr>
+<tr>
+<td><code>strings</code></td>
+<td>object</td>
+<td><strong>Yes</strong></td>
+<td>Map of string keys to localized values. Keys follow the format
+defined in §3.1. Values are strings, optionally containing FEL
+interpolation (§3.3). SHOULD contain at least one entry; an empty
+<code>strings</code> object is a valid no-op (all strings fall through
+to inline defaults).</td>
+</tr>
+<tr>
+<td><code>extensions</code></td>
+<td>object</td>
+<td>No</td>
+<td>Extension namespace. All keys MUST be <code>x-</code> prefixed.
+Processors MUST ignore unrecognized extensions.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="target-definition-binding">2.2 Target Definition Binding</h3>
+<p>The <code>targetDefinition</code> object binds this Locale Document
+to a specific Definition.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Cardinality</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>string (URI)</td>
+<td><strong>1..1</strong> (REQUIRED)</td>
+<td>Canonical URL of the target Definition (<code>url</code> property
+from the Definition).</td>
+</tr>
+<tr>
+<td><code>compatibleVersions</code></td>
+<td>string</td>
+<td><strong>0..1</strong> (OPTIONAL)</td>
+<td>Semver range expression (e.g., <code>"&gt;=1.0.0 &lt;2.0.0"</code>)
+describing which Definition versions this locale supports. When absent,
+the locale is assumed compatible with any version.</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>compatibleVersions</code> is present, a processor SHOULD
+verify that the Definition’s <code>version</code> satisfies the range
+before applying the Locale Document. A processor MUST NOT fail if the
+range is unsatisfied; it SHOULD warn and MAY fall back to inline
+strings.</p>
+<h3 id="locale-code">2.3 Locale Code</h3>
+<p>The <code>locale</code> property MUST be a syntactically valid BCP 47
+language tag. Processors SHOULD validate subtags against the IANA
+Language Subtag Registry when available, but MUST NOT fail on
+unrecognized subtags.</p>
+<p>Well-known examples:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Language</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>en</code></td>
+<td>English</td>
+</tr>
+<tr>
+<td><code>en-US</code></td>
+<td>American English</td>
+</tr>
+<tr>
+<td><code>fr</code></td>
+<td>French</td>
+</tr>
+<tr>
+<td><code>fr-CA</code></td>
+<td>Canadian French</td>
+</tr>
+<tr>
+<td><code>es</code></td>
+<td>Spanish</td>
+</tr>
+<tr>
+<td><code>zh-Hans</code></td>
+<td>Simplified Chinese</td>
+</tr>
+<tr>
+<td><code>ar</code></td>
+<td>Arabic</td>
+</tr>
+</tbody>
+</table>
+<p>Processors MUST perform case-insensitive comparison of locale codes
+(BCP 47 tags are case-insensitive). Processors SHOULD normalize locale
+codes to lowercase language with title-case region (e.g.,
+<code>fr-CA</code>, not <code>FR-CA</code> or <code>fr-ca</code>).</p>
+<h2 id="string-keys-and-values">3. String Keys and Values</h2>
+<h3 id="string-key-format">3.1 String Key Format</h3>
+<p>String keys use dot-delimited paths that address localizable
+properties of Items in the target Definition. The general format is:</p>
+<pre><code>&lt;itemKey&gt;.&lt;property&gt;</code></pre>
+<p>Where <code>&lt;itemKey&gt;</code> is the <code>key</code> of an Item
+in the Definition, and <code>&lt;property&gt;</code> identifies which
+string property to localize.</p>
+<p>When a Definition uses modular composition via <code>$ref</code> with
+<code>keyPrefix</code> (core spec §6.6), string keys MUST use the
+<strong>post-assembly</strong> key (i.e., after the prefix has been
+prepended). For example, if a Definition imports items with
+<code>keyPrefix: "section1_"</code>, an imported item with key
+<code>name</code> becomes <code>section1_name</code>, and the Locale
+Document must use <code>section1_name.label</code>.</p>
+<h4 id="item-properties">3.1.1 Item Properties</h4>
+<p>The following Item properties are localizable:</p>
+<table>
+<thead>
+<tr>
+<th>Key pattern</th>
+<th>Target property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;key&gt;.label</code></td>
+<td><code>Item.label</code></td>
+<td>Primary display label.</td>
+</tr>
+<tr>
+<td><code>&lt;key&gt;.description</code></td>
+<td><code>Item.description</code></td>
+<td>Help text / tooltip.</td>
+</tr>
+<tr>
+<td><code>&lt;key&gt;.hint</code></td>
+<td><code>Item.hint</code></td>
+<td>Instructional text alongside input.</td>
+</tr>
+</tbody>
+</table>
+<p>Examples:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;projectName.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Nom du projet&quot;</span><span class="fu">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;projectName.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Entrez le nom officiel&quot;</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budgetSection.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Section budgétaire&quot;</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budgetSection.description&quot;</span><span class="fu">:</span> <span class="st">&quot;Détails du budget annuel&quot;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="context-labels">3.1.2 Context Labels</h4>
+<p>The Definition’s <code>labels</code> object provides alternative
+display labels keyed by context name (e.g., <code>short</code>,
+<code>pdf</code>, <code>accessibility</code>). Locale Documents override
+these with a <code>@context</code> suffix:</p>
+<pre><code>&lt;itemKey&gt;.label@&lt;context&gt;</code></pre>
+<p>Examples:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budgetSection.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Section budgétaire&quot;</span><span class="fu">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budgetSection.label@short&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget&quot;</span><span class="fu">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budgetSection.label@pdf&quot;</span><span class="fu">:</span> <span class="st">&quot;Section III : Informations budgétaires&quot;</span><span class="fu">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budgetSection.label@accessibility&quot;</span><span class="fu">:</span> <span class="st">&quot;Section du budget annuel détaillé&quot;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>When resolving a context label, the cascade is:</p>
+<ol type="1">
+<li>Locale Document key <code>&lt;key&gt;.label@&lt;context&gt;</code>
+(if present)</li>
+<li>Locale Document key <code>&lt;key&gt;.label</code> (general
+label)</li>
+<li>Definition <code>labels[context]</code> (inline context label)</li>
+<li>Definition <code>label</code> (inline default)</li>
+</ol>
+<h5 id="context-on-other-properties">Context on other properties</h5>
+<p>The <code>@context</code> suffix MAY be used with any localizable
+property, not only <code>label</code>. For properties without a
+Definition-side context equivalent (i.e., properties other than
+<code>label</code>), the cascade omits the inline context step:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th><code>label@context</code></th>
+<th><code>hint@context</code> / <code>description@context</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Locale <code>key.label@context</code></td>
+<td>Locale <code>key.hint@context</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Locale <code>key.label</code></td>
+<td>Locale <code>key.hint</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Definition <code>labels[context]</code></td>
+<td><em>(no equivalent — skip)</em></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Definition <code>label</code></td>
+<td>Definition <code>hint</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example: providing a screen-reader-specific hint:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;email.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Courriel professionnel&quot;</span><span class="fu">,</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;email.hint@accessibility&quot;</span><span class="fu">:</span> <span class="st">&quot;Saisissez votre adresse courriel professionnelle. Ce champ est obligatoire.&quot;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="choice-option-labels">3.1.3 Choice Option Labels</h4>
+<p>Fields with <code>choices</code> have option display text that must
+be localized. Options are addressed by their <code>value</code>:</p>
+<pre><code>&lt;fieldKey&gt;.options.&lt;optionValue&gt;.label</code></pre>
+<p>Only the <code>label</code> property of choice options is
+localizable. The core Definition schema defines option objects with
+<code>value</code> and <code>label</code> only; <code>value</code> is a
+data key and is not subject to localization.</p>
+<p>Examples:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;fundingStatus.options.yes.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Oui&quot;</span><span class="fu">,</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;fundingStatus.options.no.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Non&quot;</span><span class="fu">,</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;fundingStatus.options.na.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Sans objet&quot;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>When an option <code>value</code> contains characters that are not
+valid in a dot-delimited key (<code>.</code>, <code>\</code>), those
+characters MUST be escaped with a backslash: <code>\.</code> for a
+literal dot, <code>\\</code> for a literal backslash.</p>
+<h5 id="optionset-level-keys">OptionSet-Level Keys</h5>
+<p>When multiple fields share an OptionSet (core §4.6), translators MAY
+provide a single set of option translations using the
+<code>$optionSet</code> prefix:</p>
+<pre><code>$optionSet.&lt;setName&gt;.&lt;optionValue&gt;.label</code></pre>
+<p>The resolution cascade for option labels is:</p>
+<ol type="1">
+<li>Field-level Locale key:
+<code>&lt;fieldKey&gt;.options.&lt;value&gt;.label</code></li>
+<li>OptionSet-level Locale key:
+<code>$optionSet.&lt;setName&gt;.&lt;value&gt;.label</code></li>
+<li>Inline option <code>label</code> from the Definition</li>
+</ol>
+<p>Field-level keys override OptionSet-level keys, enabling
+context-specific translations when the same value set needs different
+display text in different fields (e.g., “Yes/No” vs. “Approved/Rejected”
+for the same underlying <code>yesNoNA</code> set).</p>
+<p>Examples:</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$optionSet.yesNoNA.yes.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Oui&quot;</span><span class="fu">,</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$optionSet.yesNoNA.no.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Non&quot;</span><span class="fu">,</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$optionSet.yesNoNA.na.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Sans objet&quot;</span><span class="fu">,</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;approvalStatus.options.yes.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Approuvé&quot;</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The <code>$optionSet</code> prefix is reserved and cannot collide
+with item keys (item keys exclude the <code>$</code> character).
+Escaping rules for option values containing dots or backslashes (§3.1.3)
+apply identically to OptionSet-level keys.</p>
+<h4 id="validation-messages">3.1.4 Validation Messages</h4>
+<p>Validation messages are addressable at two granularities: per
+constraint code (coarse) and per Bind (fine-grained).</p>
+<h5 id="per-constraint-code">Per constraint code</h5>
+<pre><code>&lt;itemKey&gt;.errors.&lt;code&gt;</code></pre>
+<p>Where <code>&lt;code&gt;</code> matches the <code>code</code>
+property of the ValidationResult. The <code>code</code> property
+provides machine-readable identifiers designed for localization key
+lookups. Seven codes are reserved for built-in constraints:
+<code>REQUIRED</code>, <code>TYPE_MISMATCH</code>,
+<code>MIN_REPEAT</code>, <code>MAX_REPEAT</code>,
+<code>CONSTRAINT_FAILED</code>, <code>SHAPE_FAILED</code>,
+<code>EXTERNAL_FAILED</code>. Shape rules MAY define custom codes (e.g.,
+<code>BUDGET_SUM_MISMATCH</code>). This replaces the message for all
+validation results with that code targeting the item.</p>
+<h5 id="per-bind-constraintmessage-and-requiredmessage">Per Bind
+(<code>constraintMessage</code> and <code>requiredMessage</code>)</h5>
+<p>Individual Binds may define a <code>constraintMessage</code> (core
+spec §4.3.1) or use the item-level required message. To localize a
+specific Bind’s constraint message, use:</p>
+<pre><code>&lt;itemKey&gt;.constraintMessage</code></pre>
+<p>When a field has a single Bind with <code>constraint</code>, this key
+localizes that Bind’s <code>constraintMessage</code>. When a field is
+targeted by multiple Binds, the key applies to the first Bind whose
+<code>constraint</code> fires.</p>
+<p>To localize the required-field message for an item:</p>
+<pre><code>&lt;itemKey&gt;.requiredMessage</code></pre>
+<h5 id="resolution-precedence">Resolution precedence</h5>
+<p>When resolving a validation message, the cascade is:</p>
+<ol type="1">
+<li>Per-code Locale key (<code>&lt;key&gt;.errors.&lt;code&gt;</code>) —
+if present, wins.</li>
+<li>Per-Bind Locale key (<code>&lt;key&gt;.constraintMessage</code> or
+<code>&lt;key&gt;.requiredMessage</code>) — if present.</li>
+<li>Inline <code>constraintMessage</code> on the Bind (Definition).</li>
+<li>Processor-generated default message.</li>
+</ol>
+<p>Examples:</p>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;email.errors.REQUIRED&quot;</span><span class="fu">:</span> <span class="st">&quot;L&#39;adresse courriel est obligatoire&quot;</span><span class="fu">,</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;email.errors.CONSTRAINT_FAILED&quot;</span><span class="fu">:</span> <span class="st">&quot;Veuillez entrer une adresse courriel valide&quot;</span><span class="fu">,</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;ssn.constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;Le NAS doit être au format 000-000-000&quot;</span><span class="fu">,</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budget.errors.TYPE_MISMATCH&quot;</span><span class="fu">:</span> <span class="st">&quot;Le budget doit être un nombre&quot;</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h5 id="code-synthesis">Code synthesis</h5>
+<p>The <code>code</code> property is optional on
+<code>ValidationResult</code>. When a result lacks an explicit
+<code>code</code>, processors MUST synthesize it from the
+<code>constraintKind</code> property using the reserved code
+mapping:</p>
+<table>
+<thead>
+<tr>
+<th><code>constraintKind</code></th>
+<th>Synthesized <code>code</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>required</code></td>
+<td><code>REQUIRED</code></td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td><code>TYPE_MISMATCH</code></td>
+</tr>
+<tr>
+<td><code>cardinality</code></td>
+<td><code>MIN_REPEAT</code> or <code>MAX_REPEAT</code> (based on
+violation)</td>
+</tr>
+<tr>
+<td><code>constraint</code></td>
+<td><code>CONSTRAINT_FAILED</code></td>
+</tr>
+<tr>
+<td><code>shape</code></td>
+<td><code>SHAPE_FAILED</code></td>
+</tr>
+<tr>
+<td><code>external</code></td>
+<td><code>EXTERNAL_FAILED</code></td>
+</tr>
+</tbody>
+</table>
+<p>This ensures locale keys are always resolvable regardless of whether
+the processor explicitly sets the <code>code</code> property.</p>
+<h4 id="form-level-strings">3.1.5 Form-Level Strings</h4>
+<p>Top-level Definition properties (<code>title</code>,
+<code>description</code>) use the reserved key prefix
+<code>$form</code>:</p>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$form.title&quot;</span><span class="fu">:</span> <span class="st">&quot;Rapport annuel sur les subventions&quot;</span><span class="fu">,</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$form.description&quot;</span><span class="fu">:</span> <span class="st">&quot;Formulaire de rapport pour les bénéficiaires&quot;</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The <code>$form</code> and <code>$shape</code> prefixes are reserved
+for form-level and shape-level keys respectively. These prefixes cannot
+collide with item keys because the core Definition schema restricts item
+keys to the pattern <code>[a-zA-Z][a-zA-Z0-9_]*</code>, which excludes
+the <code>$</code> character.</p>
+<h4 id="shape-rule-messages">3.1.6 Shape Rule Messages</h4>
+<p>Shape rules (cross-field validations) are addressed by the shape’s
+<code>id</code>:</p>
+<pre><code>$shape.&lt;shapeId&gt;.message</code></pre>
+<p>Example:</p>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$shape.budget-balance.message&quot;</span><span class="fu">:</span> <span class="st">&quot;Le total du budget doit correspondre au financement demandé&quot;</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="page-layout-strings">3.1.7 Page Layout Strings</h4>
+<p>Theme Documents define pages via <code>PageLayout</code> objects with
+<code>id</code>, <code>title</code>, and <code>description</code>
+properties. These user-visible strings are addressable via the
+<code>$page</code> prefix:</p>
+<pre><code>$page.&lt;pageId&gt;.title
+$page.&lt;pageId&gt;.description</code></pre>
+<p>Where <code>&lt;pageId&gt;</code> is the <code>id</code> property of
+a <code>PageLayout</code> in the Theme Document (theme spec §6.1).</p>
+<p>Examples:</p>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$page.info.title&quot;</span><span class="fu">:</span> <span class="st">&quot;Informations du projet&quot;</span><span class="fu">,</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$page.info.description&quot;</span><span class="fu">:</span> <span class="st">&quot;Entrez les détails de base du projet&quot;</span><span class="fu">,</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$page.review.title&quot;</span><span class="fu">:</span> <span class="st">&quot;Révision et soumission&quot;</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Page IDs are unique within a Theme Document and follow the pattern
+<code>^[a-zA-Z][a-zA-Z0-9_\-]*$</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> <code>$page.</code> keys address Theme-tier
+constructs. A Locale Document using <code>$page.</code> keys depends on
+both the target Definition and the associated Theme Document. Validators
+SHOULD warn when a <code>$page.</code> key references a page ID not
+present in any loaded Theme Document (§7.2).</p>
+</blockquote>
+<h4 id="component-node-strings">3.1.8 Component Node Strings</h4>
+<p>Component tree nodes with an <code>id</code> property (component spec
+§3.1) are addressable via the <code>$component</code> prefix:</p>
+<pre><code>$component.&lt;nodeId&gt;.&lt;property&gt;
+$component.&lt;nodeId&gt;.&lt;property&gt;[&lt;index&gt;]
+$component.&lt;nodeId&gt;.&lt;arrayProp&gt;[&lt;index&gt;].&lt;subProp&gt;</code></pre>
+<p>Where <code>&lt;nodeId&gt;</code> is the <code>id</code> property of
+a component node in the Component Document. Only string-typed props (and
+string elements of array props) are addressable. Bracket indexing with
+numeric indices is used for array-valued properties.</p>
+<p>Examples:</p>
+<div class="sourceCode" id="cb21"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.budgetHeading.text&quot;</span><span class="fu">:</span> <span class="st">&quot;Détails du budget&quot;</span><span class="fu">,</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.contactCard.title&quot;</span><span class="fu">:</span> <span class="st">&quot;Coordonnées&quot;</span><span class="fu">,</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.contactCard.subtitle&quot;</span><span class="fu">:</span> <span class="st">&quot;Adresse courriel et téléphone&quot;</span><span class="fu">,</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.submitBtn.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Soumettre la demande&quot;</span><span class="fu">,</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.submitBtn.pendingLabel&quot;</span><span class="fu">:</span> <span class="st">&quot;Soumission en cours...&quot;</span><span class="fu">,</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.mainTabs.tabLabels[0]&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel&quot;</span><span class="fu">,</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.mainTabs.tabLabels[1]&quot;</span><span class="fu">:</span> <span class="st">&quot;Emploi&quot;</span><span class="fu">,</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.lineItemTable.columns[0].header&quot;</span><span class="fu">:</span> <span class="st">&quot;Description&quot;</span><span class="fu">,</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$component.lineItemTable.columns[1].header&quot;</span><span class="fu">:</span> <span class="st">&quot;Montant&quot;</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The following component properties are localizable:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Localizable Props</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Page</td>
+<td><code>title</code>, <code>description</code></td>
+</tr>
+<tr>
+<td>Heading</td>
+<td><code>text</code></td>
+</tr>
+<tr>
+<td>Text</td>
+<td><code>text</code></td>
+</tr>
+<tr>
+<td>Alert</td>
+<td><code>text</code></td>
+</tr>
+<tr>
+<td>Divider</td>
+<td><code>label</code></td>
+</tr>
+<tr>
+<td>Card</td>
+<td><code>title</code>, <code>subtitle</code></td>
+</tr>
+<tr>
+<td>Collapsible</td>
+<td><code>title</code></td>
+</tr>
+<tr>
+<td>ConditionalGroup</td>
+<td><code>fallback</code></td>
+</tr>
+<tr>
+<td>Tabs</td>
+<td><code>tabLabels[N]</code></td>
+</tr>
+<tr>
+<td>Accordion</td>
+<td><code>labels[N]</code></td>
+</tr>
+<tr>
+<td>SubmitButton</td>
+<td><code>label</code>, <code>pendingLabel</code></td>
+</tr>
+<tr>
+<td>DataTable</td>
+<td><code>columns[N].header</code></td>
+</tr>
+<tr>
+<td>Panel</td>
+<td><code>title</code></td>
+</tr>
+<tr>
+<td>Modal</td>
+<td><code>title</code>, <code>triggerLabel</code></td>
+</tr>
+<tr>
+<td>Popover</td>
+<td><code>triggerLabel</code></td>
+</tr>
+<tr>
+<td>Badge</td>
+<td><code>text</code></td>
+</tr>
+<tr>
+<td>ProgressBar</td>
+<td><code>label</code></td>
+</tr>
+<tr>
+<td>Summary</td>
+<td><code>items[N].label</code></td>
+</tr>
+<tr>
+<td>Select</td>
+<td><code>placeholder</code></td>
+</tr>
+<tr>
+<td>TextInput</td>
+<td><code>placeholder</code>, <code>prefix</code>,
+<code>suffix</code></td>
+</tr>
+</tbody>
+</table>
+<h5 id="repeat-template-nodes">Repeat template nodes</h5>
+<p>When a component node with <code>id</code> appears inside a repeat
+template (e.g., as a child of a DataTable or Accordion bound to a
+repeatable group), the <code>id</code> identifies the <strong>template
+node</strong>, not individual rendered instances. All instances share
+the same locale resolution — the key
+<code>$component.&lt;id&gt;.&lt;prop&gt;</code> resolves to the same
+string template, but <code>{{expression}}</code> sequences within that
+string are evaluated in each repeat instance’s binding scope, giving
+access to <code>@index</code> and <code>@count</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> <code>$component.</code> keys address
+Component-tier constructs. A Locale Document using
+<code>$component.</code> keys depends on both the target Definition and
+the associated Component Document. Validators SHOULD warn when a
+<code>$component.</code> key references a node ID not present in any
+loaded Component Document (§7.2).</p>
+</blockquote>
+<h3 id="key-resolution-rules">3.2 Key Resolution Rules</h3>
+<p>Processors MUST apply the following rules when resolving string
+keys:</p>
+<ol type="1">
+<li>Keys are <strong>case-sensitive</strong>.
+<code>projectName.label</code> and <code>ProjectName.label</code> are
+different keys.</li>
+<li>A key that does not correspond to any Item, option, or shape in the
+target Definition SHOULD produce a <strong>warning</strong> but MUST NOT
+cause failure. This allows forward-compatible Locale Documents that
+include keys for items not yet present in older Definition
+versions.</li>
+<li>A Locale Document MAY contain keys for a subset of localizable
+strings. Missing keys fall through the cascade (§4).</li>
+<li>Duplicate keys within a single <code>strings</code> object are
+governed by JSON parsing rules (last value wins per RFC 8259 §4).
+Authoring tools SHOULD warn on duplicates.</li>
+</ol>
+<h3 id="fel-interpolation">3.3 FEL Interpolation</h3>
+<p>String values MAY contain FEL expressions delimited by double curly
+braces:</p>
+<pre><code>{{&lt;FEL expression&gt;}}</code></pre>
+<p>The expression is evaluated in the binding context of the Item
+identified by the string key’s <code>&lt;itemKey&gt;</code> prefix. This
+gives the expression access to:</p>
+<ul>
+<li>Field values via <code>$</code> references (e.g.,
+<code>$budget</code>, <code>$projectName</code>)</li>
+<li>All FEL stdlib functions</li>
+<li>The <code>locale()</code> function (§5.1)</li>
+<li>The <code>plural()</code> function (§5.2)</li>
+</ul>
+<p>Examples:</p>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;itemCount.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Nombre d&#39;articles : {{$itemCount}}&quot;</span><span class="fu">,</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;budget.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Maximum autorisé : {{formatNumber($maxBudget)}} $&quot;</span><span class="fu">,</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lineItems.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Poste{{plural($count, &#39;&#39;, &#39;s&#39;)}}&quot;</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="interpolation-processing">3.3.1 Interpolation Processing</h4>
+<p>Processors MUST apply the following rules:</p>
+<ol type="1">
+<li>To include a literal <code>{{</code> in a string value without
+triggering interpolation, authors MUST double the opening braces:
+<code>{{{{</code>. Processors MUST treat <code>{{{{</code> as a literal
+<code>{{</code> in the output. (In JSON source, this is simply
+<code>"{{{{"</code>.)</li>
+<li>An expression that fails to parse or evaluate MUST NOT cause the
+entire string resolution to fail. Processors MUST replace the failed
+expression with the literal text
+<code>{{&lt;original expression&gt;}}</code> and SHOULD emit a
+warning.</li>
+<li>Expression results are coerced to strings. <code>null</code> becomes
+the empty string <code>""</code>. Booleans become <code>"true"</code> or
+<code>"false"</code>. Numbers use their default string
+representation.</li>
+<li>Expressions MUST NOT have side effects. They are evaluated in the
+same read-only context as <code>calculate</code> expressions.</li>
+<li>Interpolation is <strong>not recursive</strong> — the result of
+evaluating an expression is not scanned for further <code>{{...}}</code>
+sequences.</li>
+</ol>
+<h4 id="interpolation-binding-context">3.3.2 Interpolation Binding
+Context</h4>
+<p>The FEL evaluation context for <code>{{expression}}</code> sequences
+depends on the string key’s prefix:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Key prefix</th>
+<th>Binding context</th>
+<th><code>@index</code>/<code>@count</code></th>
+<th>Available references</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;itemKey&gt;.*</code></td>
+<td>Item’s binding scope</td>
+<td>Yes, if item is inside a repeat group</td>
+<td><code>$fieldRef</code> relative to scope</td>
+</tr>
+<tr>
+<td><code>$form.*</code></td>
+<td>Global form context</td>
+<td>No</td>
+<td>All top-level <code>$fieldRef</code></td>
+</tr>
+<tr>
+<td><code>$shape.&lt;id&gt;.*</code></td>
+<td>Shape’s target scope</td>
+<td>Depends on shape target</td>
+<td>Per shape definition</td>
+</tr>
+<tr>
+<td><code>$page.&lt;id&gt;.*</code></td>
+<td>Global form context</td>
+<td>No</td>
+<td>All top-level <code>$fieldRef</code></td>
+</tr>
+<tr>
+<td><code>$optionSet.*</code></td>
+<td>Global form context</td>
+<td>No</td>
+<td>All top-level <code>$fieldRef</code></td>
+</tr>
+<tr>
+<td><code>$component.&lt;id&gt;.*</code> (outside repeat)</td>
+<td>Global form context</td>
+<td>No</td>
+<td>All top-level <code>$fieldRef</code></td>
+</tr>
+<tr>
+<td><code>$component.&lt;id&gt;.*</code> (inside repeat template)</td>
+<td>Repeat instance scope</td>
+<td>Yes</td>
+<td><code>$fieldRef</code> within repeat scope + parent scopes</td>
+</tr>
+</tbody>
+</table>
+<p>For item-level keys inside repeat groups, the locale key uses the
+<strong>template path</strong> (indices stripped), but
+<code>{{expression}}</code> is evaluated in the <strong>instance
+context</strong> — <code>@index</code> resolves to the actual instance
+index. This enables per-instance labels:</p>
+<div class="sourceCode" id="cb24"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lineItems.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Poste budgétaire {{@index + 1}}&quot;</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h2 id="fallback-cascade">4. Fallback Cascade</h2>
+<p>When the engine resolves a localized string, it walks a fallback
+chain from most-specific to least-specific:</p>
+<h3 id="cascade-order">4.1 Cascade Order</h3>
+<p>For a requested locale code (e.g., <code>fr-CA</code>) and string key
+(e.g., <code>projectName.label</code>):</p>
+<ol type="1">
+<li><strong>Regional Locale Document</strong> — Look up the key in the
+Locale Document whose <code>locale</code> matches
+<code>fr-CA</code>.</li>
+<li><strong>Explicit fallback</strong> — If not found and the Locale
+Document declares a <code>fallback</code> (e.g., <code>"fr"</code>),
+look up the key in the Locale Document whose <code>locale</code> matches
+the fallback code. If the fallback Locale Document itself declares a
+<code>fallback</code>, continue walking the explicit chain (subject to
+circular detection, §4.3).</li>
+<li><strong>Implicit language fallback</strong> — If not found after
+exhausting the explicit fallback chain, and the <em>original</em>
+requested locale code contains a region subtag, strip the region and
+look up the base language (e.g., <code>fr</code> from
+<code>fr-CA</code>). This step is skipped if any step in the explicit
+fallback chain already consulted a Locale Document with that base
+language code.</li>
+<li><strong>Inline default</strong> — Use the Definition’s inline string
+property (<code>label</code>, <code>description</code>,
+<code>hint</code>, etc.).</li>
+</ol>
+<p>A processor MUST walk the cascade in this order and MUST return the
+first non-null result. If all steps produce no result, the processor
+MUST return the empty string <code>""</code>.</p>
+<blockquote>
+<p><strong>Example of explicit fallback to a different
+language:</strong> If <code>fr-CA</code> declares
+<code>fallback: "pt"</code>, the cascade is: (1) <code>fr-CA</code>, (2)
+<code>pt</code> (explicit), (3) <code>fr</code> (implicit — strip region
+from original <code>fr-CA</code>), (4) inline. Both explicit and
+implicit fallback steps are consulted because <code>pt</code> is a
+different language from the base <code>fr</code>.</p>
+</blockquote>
+<h3 id="cascade-examples">4.2 Cascade Examples</h3>
+<p>Given these documents:</p>
+<p><strong>Definition</strong> (inline defaults):</p>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;items&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;name&quot;</span><span class="fu">,</span> <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;field&quot;</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Name&quot;</span><span class="fu">,</span> <span class="dt">&quot;hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Enter your full name&quot;</span> <span class="fu">}</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p><strong>Locale Document (<code>fr</code>)</strong>:</p>
+<div class="sourceCode" id="cb26"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;locale&quot;</span><span class="fu">:</span> <span class="st">&quot;fr&quot;</span><span class="fu">,</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;strings&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;name.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Nom&quot;</span><span class="fu">,</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;name.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Entrez votre nom complet&quot;</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p><strong>Locale Document (<code>fr-CA</code>)</strong>:</p>
+<div class="sourceCode" id="cb27"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;locale&quot;</span><span class="fu">:</span> <span class="st">&quot;fr-CA&quot;</span><span class="fu">,</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;fallback&quot;</span><span class="fu">:</span> <span class="st">&quot;fr&quot;</span><span class="fu">,</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;strings&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;name.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Entrez votre nom au complet&quot;</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Resolution for locale <code>fr-CA</code>:</p>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 21%" />
+<col style="width: 14%" />
+<col style="width: 19%" />
+<col style="width: 31%" />
+</colgroup>
+<thead>
+<tr>
+<th>Key</th>
+<th><code>fr-CA</code></th>
+<th><code>fr</code></th>
+<th>Inline</th>
+<th><strong>Resolved</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name.label</code></td>
+<td>—</td>
+<td><code>"Nom"</code></td>
+<td><code>"Name"</code></td>
+<td><strong>“Nom”</strong></td>
+</tr>
+<tr>
+<td><code>name.hint</code></td>
+<td><code>"Entrez votre nom au complet"</code></td>
+<td><code>"Entrez votre nom complet"</code></td>
+<td><code>"Enter your full name"</code></td>
+<td><strong>“Entrez votre nom au complet”</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="circular-fallback-detection">4.3 Circular Fallback
+Detection</h3>
+<p>A processor MUST detect circular fallback chains (e.g.,
+<code>fr-CA</code> → <code>fr</code> → <code>fr-CA</code>) and MUST
+terminate the cascade, falling through to inline defaults. Processors
+SHOULD emit a warning when a circular fallback is detected.</p>
+<h3 id="multiple-locale-documents">4.4 Multiple Locale Documents</h3>
+<p>An engine MAY have multiple Locale Documents loaded simultaneously.
+The engine maintains a locale cascade — an ordered list of Locale
+Documents consulted during string resolution. The
+<code>setLocale()</code> call (§6.2) determines which cascade is
+active.</p>
+<h2 id="fel-functions">5. FEL Functions</h2>
+<p>This specification introduces four FEL functions.
+<code>locale()</code> and <code>plural()</code> are part of the
+<strong>Locale Core</strong> conformance level (§10) and MUST be
+implemented by all conformant locale processors.
+<code>formatNumber()</code> and <code>formatDate()</code> are part of
+the <strong>Locale Extended</strong> conformance level and are
+OPTIONAL.</p>
+<p>These functions are registered as locale-tier extensions to the FEL
+stdlib. They MUST NOT collide with core FEL built-in function names.
+Processors that do not support locale functionality MUST NOT register
+these functions.</p>
+<h3 id="locale">5.1 <code>locale()</code></h3>
+<p>Returns the active locale code as a string.</p>
+<p><strong>Signature:</strong> <code>locale() → string</code></p>
+<p>Returns the BCP 47 language tag of the currently active locale. If no
+locale is active (no Locale Document loaded), returns the empty string
+<code>""</code>.</p>
+<p>Like <code>now()</code> (core spec §3.1), <code>locale()</code> is
+<strong>non-deterministic</strong> — its return value changes when
+<code>setLocale()</code> is called. Processors SHOULD document their
+<code>locale()</code> resolution behavior, consistent with the core
+spec’s treatment of <code>now()</code>.</p>
+<p>This function is available in all FEL evaluation contexts —
+<code>calculate</code>, <code>relevant</code>, <code>constraint</code>,
+and <code>readonly</code> expressions. This enables locale-aware logic
+in the Definition itself:</p>
+<div class="sourceCode" id="cb28"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;instructions&quot;</span><span class="fu">,</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;display&quot;</span><span class="fu">,</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Instructions&quot;</span><span class="fu">,</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;bind&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;relevant&quot;</span><span class="fu">:</span> <span class="st">&quot;locale() = &#39;en&#39; or locale() = &#39;&#39;&quot;</span></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="pluralcount-singular-plural">5.2
+<code>plural(count, singular, plural)</code></h3>
+<p>Returns <code>singular</code> or <code>plural</code> based on
+<code>count</code>.</p>
+<p><strong>Signature:</strong>
+<code>plural(count: number, singular: string, plural: string) → string</code></p>
+<ul>
+<li>If <code>count</code> is <code>null</code>, returns
+<code>null</code> (standard FEL null propagation, core spec §3.8).</li>
+<li>If <code>count</code> equals 1 (integer) or 1.0 (decimal), returns
+<code>singular</code>.</li>
+<li>Otherwise (including 0, negative numbers, and non-integer values
+like 1.5), returns <code>plural</code>.</li>
+</ul>
+<p>This covers the common two-form pluralization pattern used by
+English, French, Spanish, Portuguese, German, and many other
+languages.</p>
+<div class="sourceCode" id="cb29"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lineItems.label&quot;</span><span class="fu">:</span> <span class="st">&quot;{{$count}} ligne{{plural($count, &#39;&#39;, &#39;s&#39;)}}&quot;</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>For languages with more than two plural forms (e.g., Arabic with six
+forms, or Polish with three), authors MUST use FEL conditional
+expressions:</p>
+<div class="sourceCode" id="cb30"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;items.label&quot;</span><span class="fu">:</span> <span class="st">&quot;{{$count}} {{$count = 0 ? &#39;elementów&#39; : $count = 1 ? &#39;element&#39; : ($count % 10 &gt;= 2 and $count % 10 &lt;= 4 and ($count % 100 &lt; 10 or $count % 100 &gt;= 20)) ? &#39;elementy&#39; : &#39;elementów&#39;}}&quot;</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="formatnumbervalue-locale">5.3
+<code>formatNumber(value, locale?)</code></h3>
+<p>Formats a number according to locale conventions.</p>
+<p><strong>Signature:</strong>
+<code>formatNumber(value: number, locale?: string) → string</code></p>
+<ul>
+<li>If <code>value</code> is <code>null</code>, returns
+<code>null</code>.</li>
+<li>If <code>locale</code> is omitted, uses the active locale.</li>
+<li>Returns a locale-formatted string (e.g., <code>1234.5</code> →
+<code>"1 234,5"</code> for <code>fr</code>).</li>
+<li>Implementations SHOULD use the host platform’s number formatting
+capabilities (e.g., <code>Intl.NumberFormat</code> in JavaScript,
+<code>locale.format_string</code> in Python).</li>
+<li>If the host platform does not support the requested locale, the
+implementation MUST fall back to the <code>"en"</code> format.</li>
+</ul>
+<h3 id="formatdatevalue-pattern-locale">5.4
+<code>formatDate(value, pattern?, locale?)</code></h3>
+<p>Formats a date string according to locale conventions.</p>
+<p><strong>Signature:</strong>
+<code>formatDate(value: string, pattern?: string, locale?: string) → string</code></p>
+<ul>
+<li><code>value</code> is an ISO 8601 date string. If <code>null</code>,
+returns <code>null</code>.</li>
+<li><code>pattern</code> is one of: <code>"short"</code>,
+<code>"medium"</code>, <code>"long"</code>, <code>"full"</code>.
+Defaults to <code>"medium"</code>.</li>
+<li>If <code>locale</code> is omitted, uses the active locale.</li>
+<li>Implementations SHOULD use the host platform’s date formatting
+capabilities.</li>
+</ul>
+<h2 id="processor-capabilities">6. Processor Capabilities</h2>
+<p>A conformant locale processor MUST provide the following
+capabilities. The method names below are illustrative; implementations
+MAY use different API shapes provided the semantics are equivalent.</p>
+<h3 id="load-a-locale-document">6.1 Load a Locale Document</h3>
+<p>Register a Locale Document in the engine’s locale store.</p>
+<ul>
+<li>The input is a parsed Locale Document object conforming to this
+specification.</li>
+<li>Processors MUST validate the <code>$formspecLocale</code> version
+and <code>targetDefinition</code> binding before accepting the
+document.</li>
+<li>If a Locale Document with the same <code>locale</code> code is
+already loaded, the new document MUST replace it.</li>
+<li>Loading a Locale Document MUST NOT trigger reactive updates until
+the active locale is set.</li>
+</ul>
+<h3 id="set-the-active-locale">6.2 Set the Active Locale</h3>
+<p>Activate a locale, triggering reactive string resolution.</p>
+<ul>
+<li>The input is a BCP 47 language tag.</li>
+<li>The engine MUST build the fallback cascade (§4.1) and resolve all
+localized strings.</li>
+<li>If the requested locale code does not match any loaded Locale
+Document, the engine MUST fall back to inline defaults and SHOULD emit a
+warning.</li>
+<li>Changing the active locale MUST trigger reactive updates for all
+resolved strings. Implementations using reactive primitives (e.g.,
+signals) SHOULD propagate locale changes through the same notification
+mechanism as field value changes.</li>
+</ul>
+<h3 id="resolve-a-localized-string">6.3 Resolve a Localized String</h3>
+<p>Resolve a single localized string for a given item, property, and
+optional context.</p>
+<ul>
+<li><code>path</code> — the item path (e.g., <code>"projectName"</code>,
+<code>"budget[0].amount"</code>).</li>
+<li><code>property</code> — the string property (e.g.,
+<code>"label"</code>, <code>"hint"</code>,
+<code>"description"</code>).</li>
+<li><code>context</code> — optional context name for alternative labels
+(e.g., <code>"short"</code>, <code>"pdf"</code>).</li>
+<li>Returns the resolved string after cascade lookup and FEL
+interpolation.</li>
+<li>Returns the empty string <code>""</code> if no string is found at
+any cascade level.</li>
+</ul>
+<h3 id="query-the-active-locale">6.4 Query the Active Locale</h3>
+<p>Return the currently active BCP 47 locale code, or the empty string
+<code>""</code> if no locale is active.</p>
+<h2 id="validation-and-linting">7. Validation and Linting</h2>
+<h3 id="schema-validation">7.1 Schema Validation</h3>
+<p>Locale Documents MUST validate against
+<code>schemas/locale.schema.json</code>. The schema enforces:</p>
+<ul>
+<li>Required properties: <code>$formspecLocale</code>,
+<code>version</code>, <code>locale</code>,
+<code>targetDefinition</code>, <code>strings</code>.</li>
+<li><code>strings</code> MUST be an object with string values.</li>
+<li><code>locale</code> MUST be a syntactically valid BCP 47 language
+tag.</li>
+<li><code>targetDefinition.url</code> MUST be a URI.</li>
+</ul>
+<h3 id="cross-reference-validation">7.2 Cross-Reference Validation</h3>
+<p>A validator that has access to both a Locale Document and its target
+Definition SHOULD perform the following cross-reference checks:</p>
+<table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 33%" />
+<col style="width: 43%" />
+</colgroup>
+<thead>
+<tr>
+<th>Check</th>
+<th>Severity</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Orphaned key</td>
+<td>Warning</td>
+<td>String key references an item key not present in the
+Definition.</td>
+</tr>
+<tr>
+<td>Missing translation</td>
+<td>Info</td>
+<td>A localizable property in the Definition has no corresponding key in
+the Locale Document.</td>
+</tr>
+<tr>
+<td>Invalid option reference</td>
+<td>Warning</td>
+<td>An <code>options.&lt;value&gt;</code> key references a choice value
+not present in the field’s <code>choices</code>.</td>
+</tr>
+<tr>
+<td>Invalid shape reference</td>
+<td>Warning</td>
+<td>A <code>$shape.&lt;id&gt;</code> key references a shape ID not
+present in the Definition.</td>
+</tr>
+<tr>
+<td>Invalid property</td>
+<td>Error</td>
+<td>The property segment of a key is not a recognized localizable
+property.</td>
+</tr>
+<tr>
+<td>Interpolation parse error</td>
+<td>Warning</td>
+<td>A <code>{{...}}</code> expression fails to parse as valid FEL.</td>
+</tr>
+<tr>
+<td>Version mismatch</td>
+<td>Warning</td>
+<td>The Definition’s version does not satisfy
+<code>compatibleVersions</code>.</td>
+</tr>
+<tr>
+<td>Orphaned <code>$page</code> key</td>
+<td>Warning</td>
+<td><code>$page.&lt;id&gt;</code> references a page ID not present in
+the Theme Document.</td>
+</tr>
+<tr>
+<td>Orphaned <code>$component</code> key</td>
+<td>Warning</td>
+<td><code>$component.&lt;id&gt;</code> references a node ID not present
+in the Component Document.</td>
+</tr>
+<tr>
+<td>Orphaned <code>$optionSet</code> key</td>
+<td>Warning</td>
+<td><code>$optionSet.&lt;setName&gt;</code> references an OptionSet name
+not declared in the Definition.</td>
+</tr>
+<tr>
+<td>Brackets in item key</td>
+<td>Warning</td>
+<td>A non-<code>$component</code> key contains <code>[index]</code>
+bracket notation. Item-level keys MUST use template paths.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="linter-rules">7.3 Linter Rules</h3>
+<p>The Python validator (<code>src/formspec/validator/</code>) SHOULD
+implement the following locale-specific lint rules:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L100</td>
+<td>Missing required top-level property.</td>
+</tr>
+<tr>
+<td>L101</td>
+<td>Invalid BCP 47 locale code.</td>
+</tr>
+<tr>
+<td>L200</td>
+<td>Orphaned string key — item not found in Definition.</td>
+</tr>
+<tr>
+<td>L201</td>
+<td>Missing translation — localizable property has no key.</td>
+</tr>
+<tr>
+<td>L202</td>
+<td>Invalid option value reference.</td>
+</tr>
+<tr>
+<td>L203</td>
+<td>Invalid shape ID reference.</td>
+</tr>
+<tr>
+<td>L300</td>
+<td>FEL interpolation parse error.</td>
+</tr>
+<tr>
+<td>L301</td>
+<td>FEL interpolation references undefined variable.</td>
+</tr>
+<tr>
+<td>L400</td>
+<td>Circular fallback chain detected.</td>
+</tr>
+<tr>
+<td>L401</td>
+<td>Fallback locale not loaded.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="processing-model">8. Processing Model</h2>
+<h3 id="integration-with-the-four-phase-cycle">8.1 Integration with the
+Four-Phase Cycle</h3>
+<p>Locale string resolution is NOT part of the core four-phase
+processing cycle (Rebuild → Recalculate → Revalidate → Notify). String
+resolution is a <strong>presentation concern</strong>.</p>
+<p>Conceptually, the processing layers are:</p>
+<ol type="1">
+<li><strong>Core cycle</strong> — Rebuild, Recalculate, Revalidate,
+Notify.</li>
+<li><strong>String resolution</strong> — For each Item, resolve
+localized strings using the active locale cascade. FEL interpolation
+expressions are evaluated against the current (post-Recalculate) binding
+context.</li>
+<li><strong>Theme cascade</strong> — Apply the Theme Document’s
+presentation overrides. Theme resolution is independent of string
+content — changing a widget type does not affect resolved strings.</li>
+<li><strong>Render</strong> — The renderer uses resolved strings and
+themed presentation to produce the UI.</li>
+</ol>
+<p>String resolution and theme cascade are orthogonal presentation
+concerns. In practice, both can run in parallel or in either order; the
+numbered list above represents conceptual layering, not a mandatory
+execution sequence.</p>
+<h3 id="validation-message-localization">8.2 Validation Message
+Localization</h3>
+<p>Localized validation messages are resolved <strong>at render
+time</strong>, not during the Revalidate phase. The core Revalidate
+phase produces <code>ValidationResult</code> objects with
+<code>constraintKind</code> and the inline (or processor-default)
+<code>message</code>. The renderer (or a locale-aware presentation
+layer) resolves the localized message by:</p>
+<ol type="1">
+<li>Looking up <code>&lt;itemKey&gt;.errors.&lt;code&gt;</code> in the
+active locale cascade (synthesizing <code>code</code> from
+<code>constraintKind</code> if absent — see §3.1.4).</li>
+<li>If not found, looking up
+<code>&lt;itemKey&gt;.constraintMessage</code> or
+<code>&lt;itemKey&gt;.requiredMessage</code> as appropriate.</li>
+<li>If not found, using the <code>ValidationResult.message</code>
+as-is.</li>
+</ol>
+<p>This design means <code>ValidationResult.message</code> always
+contains the inline/default-locale message. Localized messages are a
+presentation overlay, not a mutation of the validation result.</p>
+<h3 id="reactivity">8.3 Reactivity</h3>
+<p>String resolution is reactive. When any of the following change, all
+affected resolved strings MUST be re-evaluated:</p>
+<ul>
+<li>The active locale (via the “set active locale” capability,
+§6.2).</li>
+<li>A field value referenced by an interpolation expression.</li>
+<li>The loaded Locale Documents (via the “load” capability, §6.1).</li>
+</ul>
+<p>String resolution changes are propagated through the implementation’s
+reactive notification mechanism (e.g., signals). These notifications are
+separate from the core Phase 4 Notify set — locale changes are
+presentation-layer events, not core data events.</p>
+<p>Implementations using signals SHOULD create a computed signal for
+each resolved string that depends on the active locale signal and any
+field value signals referenced by interpolation expressions.</p>
+<h3 id="repeat-group-paths">8.4 Repeat Group Paths</h3>
+<p>For items inside repeat groups, the string key uses the
+<strong>template path</strong> (without instance indices):</p>
+<div class="sourceCode" id="cb31"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lineItems.amount.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Montant&quot;</span><span class="fu">,</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lineItems.description.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Description du poste&quot;</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The same localized string applies to all instances of the repeated
+item. Per-instance string customization is not supported — use FEL
+interpolation with the <code>@index</code> repeat context variable (core
+spec §3.2.2) if instance-specific text is needed:</p>
+<div class="sourceCode" id="cb32"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lineItems.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Poste {{@index}}&quot;</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The <code>@index</code> variable is 1-based, so the above produces
+“Poste 1”, “Poste 2”, etc.</p>
+<h2 id="security-considerations">9. Security Considerations</h2>
+<h3 id="content-injection">9.1 Content Injection</h3>
+<p>Localized strings are rendered as text content. Renderers MUST
+sanitize string values before inserting them into HTML or other markup
+contexts. FEL interpolation results MUST be treated as untrusted text,
+not markup.</p>
+<h3 id="expression-evaluation">9.2 Expression Evaluation</h3>
+<p>FEL expressions in interpolated strings are evaluated in a read-only
+context with the same security model as <code>calculate</code>
+expressions. They MUST NOT have side effects and MUST NOT access host
+platform APIs beyond those exposed by the FEL stdlib.</p>
+<h3 id="locale-document-provenance">9.3 Locale Document Provenance</h3>
+<p>When loading Locale Documents from external sources, the host
+application SHOULD verify document integrity and provenance using the
+same mechanisms applied to other sidecar artifacts (Theme, Mapping,
+Component Documents).</p>
+<h2 id="conformance">10. Conformance</h2>
+<h3 id="conformance-levels">10.1 Conformance Levels</h3>
+<p>This specification defines two conformance levels:</p>
+<table>
+<colgroup>
+<col style="width: 26%" />
+<col style="width: 23%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Level</th>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Locale Core</strong></td>
+<td>Minimum viable locale support: cascade resolution, interpolation,
+<code>locale()</code>, <code>plural()</code>.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Locale Extended</strong></td>
+<td>Full locale support: adds <code>formatNumber()</code>,
+<code>formatDate()</code>, cross-reference validation, reactive
+resolution.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="locale-core-conformance">10.2 Locale Core Conformance</h3>
+<p>A <strong>Locale Core</strong> conformant processor MUST:</p>
+<ol type="1">
+<li>Parse and validate Locale Documents against the schema.</li>
+<li>Implement the fallback cascade as defined in §4.</li>
+<li>Evaluate FEL interpolation expressions as defined in §3.3.</li>
+<li>Implement the <code>locale()</code> FEL function (§5.1).</li>
+<li>Implement the <code>plural()</code> FEL function (§5.2).</li>
+<li>Provide the capabilities defined in §6 (load, set active locale,
+resolve string, query active locale).</li>
+</ol>
+<h3 id="locale-extended-conformance">10.3 Locale Extended
+Conformance</h3>
+<p>A <strong>Locale Extended</strong> conformant processor MUST satisfy
+all Locale Core requirements and additionally MUST:</p>
+<ol type="1">
+<li>Implement <code>formatNumber()</code> (§5.3) and
+<code>formatDate()</code> (§5.4).</li>
+<li>Implement cross-reference validation (§7.2).</li>
+<li>Provide reactive string resolution (§8.3).</li>
+</ol>
+<h3 id="authoring-conformance">10.4 Authoring Conformance</h3>
+<p>A conformant Locale Document MUST:</p>
+<ol type="1">
+<li>Include all REQUIRED top-level properties (§2.1).</li>
+<li>Use syntactically valid BCP 47 locale codes.</li>
+<li>Use valid string key formats (§3.1).</li>
+<li>Use valid FEL syntax in interpolation expressions.</li>
+</ol>
+<h2 id="appendix-a-complete-locale-document-example">Appendix A:
+Complete Locale Document Example</h2>
+<p>The following is a complete Locale Document for a grant report form,
+demonstrating all key patterns defined in this specification.</p>
+<div class="sourceCode" id="cb33"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;$formspecLocale&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0&quot;</span><span class="fu">,</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://agency.gov/forms/grant-report/locales/fr-CA&quot;</span><span class="fu">,</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;grant-report-fr-CA&quot;</span><span class="fu">,</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Rapport de subvention — Français canadien&quot;</span><span class="fu">,</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;Localisation française canadienne du formulaire de rapport de subvention.&quot;</span><span class="fu">,</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;locale&quot;</span><span class="fu">:</span> <span class="st">&quot;fr-CA&quot;</span><span class="fu">,</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;fallback&quot;</span><span class="fu">:</span> <span class="st">&quot;fr&quot;</span><span class="fu">,</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;targetDefinition&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://agency.gov/forms/grant-report&quot;</span><span class="fu">,</span></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;compatibleVersions&quot;</span><span class="fu">:</span> <span class="st">&quot;&gt;=1.0.0 &lt;2.0.0&quot;</span></span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;strings&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Form-level</span> <span class="er">strings</span> <span class="er">(§3.1.5)</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$form.title&quot;</span><span class="fu">:</span> <span class="st">&quot;Rapport annuel sur les subventions&quot;</span><span class="fu">,</span></span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$form.description&quot;</span><span class="fu">:</span> <span class="st">&quot;Formulaire de rapport pour les organismes bénéficiaires&quot;</span><span class="fu">,</span></span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Item</span> <span class="er">labels,</span> <span class="er">descriptions,</span> <span class="er">hints</span> <span class="er">(§3.1.1)</span></span>
+<span id="cb33-20"><a href="#cb33-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;projectName.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Nom du projet&quot;</span><span class="fu">,</span></span>
+<span id="cb33-21"><a href="#cb33-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;projectName.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Entrez le nom officiel tel qu&#39;il apparaît dans l&#39;entente&quot;</span><span class="fu">,</span></span>
+<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;projectName.description&quot;</span><span class="fu">:</span> <span class="st">&quot;Le nom complet du projet subventionné&quot;</span><span class="fu">,</span></span>
+<span id="cb33-23"><a href="#cb33-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-24"><a href="#cb33-24" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Context</span> <span class="er">labels</span> <span class="er">(§3.1.2)</span></span>
+<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budgetSection.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Section budgétaire&quot;</span><span class="fu">,</span></span>
+<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budgetSection.label@short&quot;</span><span class="fu">:</span> <span class="st">&quot;Budget&quot;</span><span class="fu">,</span></span>
+<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budgetSection.label@pdf&quot;</span><span class="fu">:</span> <span class="st">&quot;Section III : Informations budgétaires détaillées&quot;</span><span class="fu">,</span></span>
+<span id="cb33-28"><a href="#cb33-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-29"><a href="#cb33-29" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Choice</span> <span class="er">option</span> <span class="er">labels</span> <span class="er">(§3.1.3)</span></span>
+<span id="cb33-30"><a href="#cb33-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;fundingStatus.options.yes.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Oui&quot;</span><span class="fu">,</span></span>
+<span id="cb33-31"><a href="#cb33-31" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;fundingStatus.options.no.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Non&quot;</span><span class="fu">,</span></span>
+<span id="cb33-32"><a href="#cb33-32" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;fundingStatus.options.na.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Sans objet&quot;</span><span class="fu">,</span></span>
+<span id="cb33-33"><a href="#cb33-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-34"><a href="#cb33-34" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Validation</span> <span class="er">messages</span> <span class="er">—</span> <span class="er">per</span> <span class="er">constraint</span> <span class="er">code</span> <span class="er">(§3.1.4)</span></span>
+<span id="cb33-35"><a href="#cb33-35" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;email.errors.REQUIRED&quot;</span><span class="fu">:</span> <span class="st">&quot;L&#39;adresse courriel est obligatoire&quot;</span><span class="fu">,</span></span>
+<span id="cb33-36"><a href="#cb33-36" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;email.errors.CONSTRAINT_FAILED&quot;</span><span class="fu">:</span> <span class="st">&quot;Veuillez entrer une adresse courriel valide&quot;</span><span class="fu">,</span></span>
+<span id="cb33-37"><a href="#cb33-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-38"><a href="#cb33-38" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Validation</span> <span class="er">messages</span> <span class="er">—</span> <span class="er">per</span> <span class="er">Bind</span> <span class="er">(§3.1.4)</span></span>
+<span id="cb33-39"><a href="#cb33-39" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ssn.constraintMessage&quot;</span><span class="fu">:</span> <span class="st">&quot;Le NAS doit être au format 000-000-000&quot;</span><span class="fu">,</span></span>
+<span id="cb33-40"><a href="#cb33-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-41"><a href="#cb33-41" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Shape</span> <span class="er">rule</span> <span class="er">messages</span> <span class="er">(§3.1.6)</span></span>
+<span id="cb33-42"><a href="#cb33-42" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$shape.budget-balance.message&quot;</span><span class="fu">:</span> <span class="st">&quot;Le total du budget doit correspondre au financement demandé&quot;</span><span class="fu">,</span></span>
+<span id="cb33-43"><a href="#cb33-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-44"><a href="#cb33-44" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">FEL</span> <span class="er">interpolation</span> <span class="er">(§3.3)</span></span>
+<span id="cb33-45"><a href="#cb33-45" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;totalItems.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Total : {{$itemCount}} article{{plural($itemCount, &#39;&#39;, &#39;s&#39;)}}&quot;</span><span class="fu">,</span></span>
+<span id="cb33-46"><a href="#cb33-46" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;budgetRemaining.hint&quot;</span><span class="fu">:</span> <span class="st">&quot;Il vous reste {{formatNumber($remaining)}} $&quot;</span><span class="fu">,</span></span>
+<span id="cb33-47"><a href="#cb33-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-48"><a href="#cb33-48" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Repeat</span> <span class="er">group</span> <span class="er">with</span> <span class="er">@index</span> <span class="er">(§8.4)</span></span>
+<span id="cb33-49"><a href="#cb33-49" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;lineItems.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Poste budgétaire {{@index}}&quot;</span><span class="fu">,</span></span>
+<span id="cb33-50"><a href="#cb33-50" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;lineItems.amount.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Montant&quot;</span><span class="fu">,</span></span>
+<span id="cb33-51"><a href="#cb33-51" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;lineItems.description.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Description du poste&quot;</span><span class="fu">,</span></span>
+<span id="cb33-52"><a href="#cb33-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-53"><a href="#cb33-53" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Page</span> <span class="er">titles</span> <span class="er">(§3.1.7)</span></span>
+<span id="cb33-54"><a href="#cb33-54" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$page.info.title&quot;</span><span class="fu">:</span> <span class="st">&quot;Informations du projet&quot;</span><span class="fu">,</span></span>
+<span id="cb33-55"><a href="#cb33-55" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$page.review.title&quot;</span><span class="fu">:</span> <span class="st">&quot;Révision et soumission&quot;</span><span class="fu">,</span></span>
+<span id="cb33-56"><a href="#cb33-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-57"><a href="#cb33-57" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">OptionSet</span> <span class="er">labels</span> <span class="er">(§3.1.3)</span></span>
+<span id="cb33-58"><a href="#cb33-58" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$optionSet.yesNoNA.yes.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Oui&quot;</span><span class="fu">,</span></span>
+<span id="cb33-59"><a href="#cb33-59" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$optionSet.yesNoNA.no.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Non&quot;</span><span class="fu">,</span></span>
+<span id="cb33-60"><a href="#cb33-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-61"><a href="#cb33-61" aria-hidden="true" tabindex="-1"></a>    <span class="er">//</span> <span class="er">Component</span> <span class="er">node</span> <span class="er">strings</span> <span class="er">(§3.1.8)</span></span>
+<span id="cb33-62"><a href="#cb33-62" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$component.submitBtn.label&quot;</span><span class="fu">:</span> <span class="st">&quot;Soumettre la demande&quot;</span><span class="fu">,</span></span>
+<span id="cb33-63"><a href="#cb33-63" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;$component.mainTabs.tabLabels[0]&quot;</span><span class="fu">:</span> <span class="st">&quot;Personnel&quot;</span></span>
+<span id="cb33-64"><a href="#cb33-64" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb33-65"><a href="#cb33-65" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+</body>
+</html>
