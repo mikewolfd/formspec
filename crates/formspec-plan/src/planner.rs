@@ -208,6 +208,8 @@ fn parse_data_type(s: &str) -> Option<FormspecDataType> {
         "string" => Some(FormspecDataType::String),
         "text" => Some(FormspecDataType::Text),
         "integer" => Some(FormspecDataType::Integer),
+        // JSON Schema-style name used in some definitions; aligns with NumberInput defaults.
+        "number" => Some(FormspecDataType::Decimal),
         "decimal" => Some(FormspecDataType::Decimal),
         "boolean" => Some(FormspecDataType::Boolean),
         "date" => Some(FormspecDataType::Date),

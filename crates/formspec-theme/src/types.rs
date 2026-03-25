@@ -100,6 +100,8 @@ pub enum FormspecDataType {
     String,
     Text,
     Integer,
+    /// JSON Schema-style `number` and legacy definitions map here (same as `decimal`).
+    #[serde(alias = "number")]
     Decimal,
     Boolean,
     Date,

@@ -20,6 +20,13 @@ import type {
 
 // ── Theme normalization ──────────────────────────────────────────────
 
+/** Map legacy / JSON-Schema-style names to Rust `FormspecDataType` strings. */
+function normalizeDataTypeForRust(dataType: string | undefined): string | undefined {
+    if (dataType == null || dataType === '') return undefined;
+    if (dataType === 'number') return 'decimal';
+    return dataType;
+}
+
 /**
  * Normalize a TS theme object for the Rust side.
  * The Rust ThemeDocument requires `$formspecTheme`, `version`, and
@@ -261,7 +268,7 @@ export function resolvePresentation(
     const rustItem = {
         key: item.key,
         itemType: item.type,
-        dataType: item.dataType,
+        dataType: normalizeDataTypeForRust(item.dataType),
     };
 
     // Rust Tier1Hints expects `itemPresentation` and `formPresentation` with

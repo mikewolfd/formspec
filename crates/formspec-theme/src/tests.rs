@@ -998,3 +998,16 @@ fn presentation_block_serde() {
     let classes = block.css_class.unwrap().to_vec();
     assert_eq!(classes, vec!["a", "b"]);
 }
+
+#[test]
+fn formspec_data_type_deserializes_number_as_decimal_alias() {
+    let v: FormspecDataType = serde_json::from_value(json!("number")).unwrap();
+    assert_eq!(v, FormspecDataType::Decimal);
+}
+
+#[test]
+fn item_descriptor_json_accepts_number_data_type() {
+    let j = json!({"key": "k", "itemType": "field", "dataType": "number"});
+    let d: ItemDescriptor = serde_json::from_value(j).unwrap();
+    assert_eq!(d.data_type, Some(FormspecDataType::Decimal));
+}
