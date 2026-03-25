@@ -508,3 +508,18 @@ export function wasmAssembleResponse(fields: Record<string, unknown>): Record<st
     const resultJson = wasmTools().assembleResponse(JSON.stringify(fields));
     return JSON.parse(resultJson);
 }
+
+/**
+ * Render a Formspec definition to PDF bytes via the Rust pdf renderer.
+ * All JSON arguments are stringified before passing to WASM.
+ */
+export function wasmRenderPDF(
+    definitionJson: string,
+    themeJson: string,
+    componentDocumentJson: string,
+    responseJson: string,
+    optionsJson: string,
+): Uint8Array {
+    assertWasmToolsReadySync();
+    return wasmTools().renderPDF(definitionJson, themeJson, componentDocumentJson, responseJson, optionsJson);
+}

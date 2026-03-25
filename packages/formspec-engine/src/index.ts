@@ -89,6 +89,7 @@ export {
     validateExtensionUsage,
     createSchemaValidator,
     rewriteFEL,
+    renderPDF,
 } from './fel/fel-api.js';
 
 export type { TreeItemLike, ItemLocation } from './fel/fel-api.js';

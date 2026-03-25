@@ -14,15 +14,23 @@ pub fn render_pdf(
     response_json: &str,
     options_json: &str,
 ) -> Result<Vec<u8>, JsError> {
-    let definition: serde_json::Value = serde_json::from_str(definition_json)
+    let mut definition: serde_json::Value = serde_json::from_str(definition_json)
         .map_err(|e| JsError::new(&format!("Invalid definition: {}", e)))?;
 
-    let options: formspec_pdf::PdfOptions = if options_json == "null" || options_json == "{}" || options_json.is_empty() {
+    // Resolve optionSet references so fields carry inline options for PDF rendering
+    formspec_core::resolve_option_sets_on_definition(&mut definition);
+
+    let mut options: formspec_pdf::PdfOptions = if options_json == "null" || options_json == "{}" || options_json.is_empty() {
         formspec_pdf::PdfOptions::default()
     } else {
         serde_json::from_str(options_json)
             .map_err(|e| JsError::new(&format!("Invalid options: {}", e)))?
     };
+
+    // Default footer with page numbers if not set
+    if options.footer_text.is_none() {
+        options.footer_text = Some("Page {page}".to_string());
+    }
 
     // Build plan context
     let items = definition

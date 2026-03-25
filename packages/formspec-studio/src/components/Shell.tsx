@@ -1,6 +1,7 @@
 /** @filedesc Main studio shell; composes the header, blueprint sidebar, workspace tabs, and status bar. */
 import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
+import { renderPDF } from 'formspec-engine';
 import { createProject, type Project } from 'formspec-studio-core';
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
@@ -231,6 +232,36 @@ export function Shell() {
     URL.revokeObjectURL(href);
   };
 
+  const handleDownloadPDF = () => {
+    try {
+      const bundle = project.export();
+      const defJson = JSON.stringify(bundle.definition);
+      const themeJson = JSON.stringify(bundle.theme ?? null);
+      const compJson = JSON.stringify(bundle.component ?? null);
+      const responseJson = '{}';
+      const optionsJson = JSON.stringify({
+        headerText: bundle.definition.title ?? 'Formspec',
+      });
+
+      const pdfBytes = renderPDF(defJson, themeJson, compJson, responseJson, optionsJson);
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      const baseName = bundle.definition.title?.trim()
+        ? bundle.definition.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        : 'formspec';
+      anchor.download = `${baseName}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(href);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert(`PDF generation failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   return (
     <div data-testid="shell" className="relative h-screen flex flex-col overflow-x-hidden bg-bg-default text-ink font-ui">
       <Header
@@ -238,6 +269,7 @@ export function Shell() {
         onTabChange={setActiveTab}
         onNew={handleNewForm}
         onExport={handleExport}
+        onDownloadPDF={handleDownloadPDF}
         onImport={() => setShowImport(true)}
         onSearch={() => setShowPalette(true)}
         onHome={() => setShowSettings(true)}

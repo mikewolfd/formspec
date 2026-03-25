@@ -55,25 +55,10 @@ const STRUCTURAL_KEYS: &[&str] = &[
     "params",
 ];
 
-/// Tree `fallback` for ConditionalGroup (string or array of strings). Theme cascade
-/// may also set fallback on bound fields; an explicit tree value wins.
-fn parse_tree_fallback(v: &Value) -> Option<Vec<String>> {
-    match v {
-        Value::String(s) => Some(vec![s.clone()]),
-        Value::Array(arr) => {
-            let mut out = Vec::new();
-            for x in arr {
-                let s = x.as_str()?;
-                out.push(s.to_string());
-            }
-            if out.is_empty() {
-                None
-            } else {
-                Some(out)
-            }
-        }
-        _ => None,
-    }
+/// Parse ConditionalGroup `fallback` text from the component tree.
+/// Spec defines fallback as a single string; accepts string only.
+fn parse_tree_fallback_text(v: &Value) -> Option<String> {
+    v.as_str().map(String::from)
 }
 
 /// Binds to a repeatable group but renders instances inside the component plugin
@@ -225,7 +210,7 @@ fn parse_data_type(s: &str) -> Option<FormspecDataType> {
 }
 
 fn classify_item_type(item: &Value) -> ItemType {
-    if item.get("items").is_some() {
+    if item.get("items").is_some() || item.get("children").is_some() {
         return ItemType::Group;
     }
     let item_type_str = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
@@ -334,7 +319,8 @@ fn wrap_planned_root_for_page_mode(node: LayoutNode, ctx: &PlanContext) -> Layou
                 label_position: None,
                 when: None,
                 when_prefix: None,
-                fallback: None,
+                fallback_text: None,
+                widget_fallback: None,
                 repeat_group: None,
                 repeat_path: None,
                 is_repeat_template: None,
@@ -362,7 +348,8 @@ fn wrap_planned_root_for_page_mode(node: LayoutNode, ctx: &PlanContext) -> Layou
                 label_position: None,
                 when: None,
                 when_prefix: None,
-                fallback: None,
+                fallback_text: None,
+                widget_fallback: None,
                 repeat_group: None,
                 repeat_path: None,
                 is_repeat_template: None,
@@ -400,7 +387,8 @@ fn plan_component_tree_inner(
             label_position: None,
             when: None,
             when_prefix: None,
-            fallback: None,
+            fallback_text: None,
+            widget_fallback: None,
             repeat_group: None,
             repeat_path: None,
             is_repeat_template: None,
@@ -426,7 +414,8 @@ fn plan_component_tree_inner(
                 label_position: None,
                 when: None,
                 when_prefix: None,
-                fallback: None,
+                fallback_text: None,
+                widget_fallback: None,
                 repeat_group: None,
                 repeat_path: None,
                 is_repeat_template: None,
@@ -495,7 +484,7 @@ fn plan_component_tree_inner(
     let mut field_item = None;
     let mut presentation = None;
     let mut label_position = None;
-    let mut fallback = None;
+    let mut widget_fallback = None;
 
     if let Some(ref path) = bind_path {
         if let Some(item) = (ctx.find_item)(path) {
@@ -532,7 +521,7 @@ fn plan_component_tree_inner(
             }
 
             label_position = pres.label_position;
-            fallback = pres.fallback.clone();
+            widget_fallback = pres.fallback.clone();
 
             field_item = Some(build_field_item_snapshot(&item));
             presentation = Some(pres);
@@ -545,11 +534,8 @@ fn plan_component_tree_inner(
         }
     }
 
-    if let Some(fb) = obj.get("fallback") {
-        if let Some(parsed) = parse_tree_fallback(fb) {
-            fallback = Some(parsed);
-        }
-    }
+    // ConditionalGroup fallback text (separate from theme cascade widget fallback)
+    let fallback_text = obj.get("fallback").and_then(parse_tree_fallback_text);
 
     // 4. Classify component (after cascade may have changed component_type)
     let category = classify_component(&component_type);
@@ -643,7 +629,8 @@ fn plan_component_tree_inner(
         label_position,
         when,
         when_prefix,
-        fallback,
+        fallback_text,
+        widget_fallback,
         repeat_group,
         repeat_path: None,
         is_repeat_template,
@@ -688,7 +675,8 @@ pub fn plan_definition_fallback(items: &[Value], ctx: &PlanContext) -> Vec<Layou
                 label_position: None,
                 when: None,
                 when_prefix: None,
-                fallback: None,
+                fallback_text: None,
+                widget_fallback: None,
                 repeat_group: None,
                 repeat_path: None,
                 is_repeat_template: None,
@@ -712,7 +700,8 @@ pub fn plan_definition_fallback(items: &[Value], ctx: &PlanContext) -> Vec<Layou
                 label_position: None,
                 when: None,
                 when_prefix: None,
-                fallback: None,
+                fallback_text: None,
+                widget_fallback: None,
                 repeat_group: None,
                 repeat_path: None,
                 is_repeat_template: None,
@@ -775,7 +764,7 @@ fn plan_field_item(item: &Value, key: &str, ctx: &PlanContext) -> LayoutNode {
     let field_snapshot = build_field_item_snapshot(item);
 
     let label_position = pres.label_position;
-    let fallback = pres.fallback.clone();
+    let widget_fallback = pres.fallback.clone();
 
     // Build props from widgetConfig
     let mut props = Map::new();
@@ -829,7 +818,8 @@ fn plan_field_item(item: &Value, key: &str, ctx: &PlanContext) -> LayoutNode {
         label_position,
         when,
         when_prefix: None,
-        fallback,
+        fallback_text: None,
+        widget_fallback,
         repeat_group,
         repeat_path: None,
         is_repeat_template,
@@ -840,6 +830,7 @@ fn plan_field_item(item: &Value, key: &str, ctx: &PlanContext) -> LayoutNode {
 fn plan_group_item(item: &Value, key: &str, ctx: &PlanContext) -> LayoutNode {
     let sub_items = item
         .get("items")
+        .or_else(|| item.get("children"))
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
@@ -887,7 +878,8 @@ fn plan_group_item(item: &Value, key: &str, ctx: &PlanContext) -> LayoutNode {
         label_position: None,
         when,
         when_prefix: None,
-        fallback: None,
+        fallback_text: None,
+        widget_fallback: None,
         repeat_group,
         repeat_path: None,
         is_repeat_template,
@@ -931,7 +923,8 @@ fn plan_display_item(item: &Value, key: &str, _ctx: &PlanContext) -> LayoutNode 
         label_position: None,
         when: None,
         when_prefix: None,
-        fallback: None,
+        fallback_text: None,
+        widget_fallback: None,
         repeat_group: None,
         repeat_path: None,
         is_repeat_template: None,
@@ -1015,7 +1008,8 @@ pub fn plan_theme_pages(items: &[Value], ctx: &PlanContext) -> Vec<LayoutNode> {
                 label_position: None,
                 when: None,
                 when_prefix: None,
-                fallback: None,
+                fallback_text: None,
+                widget_fallback: None,
                 repeat_group: None,
                 repeat_path: None,
                 is_repeat_template: None,
@@ -1043,7 +1037,8 @@ pub fn plan_theme_pages(items: &[Value], ctx: &PlanContext) -> Vec<LayoutNode> {
             label_position: None,
             when: None,
             when_prefix: None,
-            fallback: None,
+            fallback_text: None,
+            widget_fallback: None,
             repeat_group: None,
             repeat_path: None,
             is_repeat_template: None,
@@ -1073,7 +1068,8 @@ pub fn plan_theme_pages(items: &[Value], ctx: &PlanContext) -> Vec<LayoutNode> {
             label_position: None,
             when: None,
             when_prefix: None,
-            fallback: None,
+            fallback_text: None,
+            widget_fallback: None,
             repeat_group: None,
             repeat_path: None,
             is_repeat_template: None,
@@ -1104,7 +1100,8 @@ pub fn plan_theme_pages(items: &[Value], ctx: &PlanContext) -> Vec<LayoutNode> {
             label_position: None,
             when: None,
             when_prefix: None,
-            fallback: None,
+            fallback_text: None,
+            widget_fallback: None,
             repeat_group: None,
             repeat_path: None,
             is_repeat_template: None,
@@ -1173,7 +1170,8 @@ fn resolve_region_responsive(
 /// Collect all item keys within a group's subtree, marking them as assigned.
 fn collect_group_keys(key: &str, items: &[Value], assigned: &mut HashSet<String>) {
     if let Some(item) = find_item_recursive(items, key) {
-        if let Some(children) = item.get("items").and_then(|v| v.as_array()) {
+        let nested = item.get("items").or_else(|| item.get("children")).and_then(|v| v.as_array());
+        if let Some(children) = nested {
             for child in children {
                 if let Some(child_key) = child.get("key").and_then(|v| v.as_str()) {
                     assigned.insert(child_key.to_string());
@@ -1255,8 +1253,12 @@ fn collect_unbound_required(
             out.push(plan_single_item(item, ctx));
         }
 
-        // Recurse into groups
-        if let Some(children) = item.get("items").and_then(|v| v.as_array()) {
+        // Recurse into groups — definitions may use "items" or "children"
+        let nested = item
+            .get("items")
+            .or_else(|| item.get("children"))
+            .and_then(|v| v.as_array());
+        if let Some(children) = nested {
             collect_unbound_required(children, bound, ctx, out);
         }
     }
@@ -1272,19 +1274,29 @@ impl PlanContext {
     }
 }
 
-/// Recursively search definition items for an item matching the given key.
-/// Walks into `items` (group children) to find nested items.
+/// Recursively search definition items for an item matching the given key or bind path.
+///
+/// Matches on exact `key` or on the last segment of a dotted path (e.g.,
+/// `"applicantInfo.orgName"` matches an item with `key: "orgName"` inside group
+/// `"applicantInfo"`). Walks into both `items` and `children` on groups.
 pub fn find_item_recursive(items: &[Value], key: &str) -> Option<Value> {
+    // Try the last segment for dotted paths (e.g., "applicantInfo.orgName" → "orgName")
+    let leaf = key.rsplit('.').next().unwrap_or(key);
+
     for item in items {
         let item_key = item
             .get("key")
             .or_else(|| item.get("path"))
             .and_then(|v| v.as_str());
-        if item_key == Some(key) {
+        if item_key == Some(key) || item_key == Some(leaf) {
             return Some(item.clone());
         }
-        // Recurse into group children
-        if let Some(children) = item.get("items").and_then(|v| v.as_array()) {
+        // Recurse into group children — definitions may use "items" or "children"
+        let nested = item
+            .get("items")
+            .or_else(|| item.get("children"))
+            .and_then(|v| v.as_array());
+        if let Some(children) = nested {
             if let Some(found) = find_item_recursive(children, key) {
                 return Some(found);
             }

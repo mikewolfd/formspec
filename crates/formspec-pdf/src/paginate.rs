@@ -34,15 +34,8 @@ pub fn paginate(measured: &[MeasuredNode], config: &PdfConfig) -> Vec<Vec<PageIt
             continue;
         }
 
-        // Rule 2 & 5: if the node fits on a fresh page, keep it together.
-        if cursor + node.height > max_h {
-            // Start a new page.
-            pages.push(vec![]);
-            cursor = 0.0;
-        }
-
-        // Rule 1: if very little space remains and next node is large, break early.
-        // (Simplified: if less than field_padding remains, break.)
+        // Break to a new page if the node won't fit — but only if the
+        // current page already has content (don't leave empty pages).
         if cursor > 0.0 && cursor + node.height > max_h {
             pages.push(vec![]);
             cursor = 0.0;

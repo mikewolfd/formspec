@@ -366,9 +366,15 @@ fn render_node(
             render_display_node(content, node, y_offset, available_width, config);
         }
         NodeCategory::Interactive | NodeCategory::Special => {
-            // FileUpload renders as a static placeholder — no AcroForm field
             if node.component == "FileUpload" {
+                // FileUpload renders as a static placeholder — no AcroForm field
                 render_file_upload_placeholder(content, node, y_offset, available_width, config);
+            } else if !node.children.is_empty() {
+                // Containers (Wizard, Tabs, Columns, ConditionalGroup) — recurse like layout
+                render_layout_node(
+                    content, node, y_offset, available_width, config,
+                    acroform, page_idx, page_refs, alloc, tag_ctx,
+                );
             } else {
                 render_display_node(content, node, y_offset, available_width, config);
             }
@@ -424,48 +430,107 @@ fn render_field_node(
         ) + 2.0;
     }
 
-    // Determine field height by component type
+    // Determine field height and render by component type
     let comp = node.component.as_str();
-    let field_h = match comp {
-        "textArea" | "textarea" => config.textarea_height,
-        _ => config.field_height,
-    };
+    let is_choice = matches!(
+        comp,
+        "choice" | "multiChoice" | "radio" | "radioGroup"
+            | "RadioGroup" | "checkboxGroup" | "CheckboxGroup"
+            | "Select" | "select"
+    );
 
-    // Register AcroForm field
-    let field_ref = Ref::new(*alloc);
-    *alloc += 1;
+    if is_choice {
+        // Render option labels inline — AcroForm radio/checkbox widgets are handled separately
+        let options = node
+            .field_item
+            .as_ref()
+            .map(|fi| &fi.options[..])
+            .unwrap_or(&[]);
 
-    let rect = crate::layout::Rect {
-        x,
-        y: layout::content_y_to_pdf_y(cursor_y + field_h, config),
-        width: available_width,
-        height: field_h,
-    };
-    acroform.add_field(node, field_ref, &rect, page_idx);
+        let field_ref = Ref::new(*alloc);
+        *alloc += 1;
 
-    // Tag the field immediately after the label so structure tree order is interleaved
-    // (label, field, label, field) rather than grouped (all labels, then all fields).
-    let tooltip = node
-        .field_item
-        .as_ref()
-        .and_then(|fi| fi.hint.as_deref().or(fi.label.as_deref()))
-        .unwrap_or("");
-    let sp_key = tag_ctx.tag_field(field_ref, tag_ctx.default_sect_ref, tooltip);
-    // Store on FieldInfo so write_fields uses this pre-assigned key.
-    acroform.fields.last_mut().unwrap().struct_parent_key = Some(sp_key);
+        let total_h = options.len().max(1) as f32 * config.option_height;
+        let rect = crate::layout::Rect {
+            x,
+            y: layout::content_y_to_pdf_y(cursor_y + total_h, config),
+            width: available_width,
+            height: total_h,
+        };
+        acroform.add_field(node, field_ref, &rect, page_idx);
 
-    cursor_y += field_h;
+        let tooltip = node
+            .field_item
+            .as_ref()
+            .and_then(|fi| fi.hint.as_deref().or(fi.label.as_deref()))
+            .unwrap_or("");
+        let sp_key = tag_ctx.tag_field(field_ref, tag_ctx.default_sect_ref, tooltip);
+        acroform.fields.last_mut().unwrap().struct_parent_key = Some(sp_key);
 
-    // Render hint if present
+        // Draw each option label with a small indicator
+        let is_multi = matches!(comp, "multiChoice" | "checkboxGroup" | "CheckboxGroup");
+        for opt in options {
+            let value_str = opt.value.to_string();
+            let opt_label = opt.label.as_deref().unwrap_or(&value_str);
+            let indicator = if is_multi { "\u{25A1} " } else { "\u{25CB} " }; // □ or ○
+            let display = format!("{}{}", indicator, opt_label);
+            let pdf_y = layout::content_y_to_pdf_y(cursor_y + config.field_font_size, config);
+            content.save_state();
+            content.begin_text();
+            content.set_font(Name(b"Helv"), config.field_font_size);
+            content.set_fill_rgb(0.15, 0.15, 0.15);
+            content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x + 4.0, pdf_y]);
+            content.show(Str(display.as_bytes()));
+            content.end_text();
+            content.restore_state();
+            cursor_y += config.option_height;
+        }
+        if options.is_empty() {
+            cursor_y += config.option_height;
+        }
+    } else {
+        // Standard text input / textarea
+        let field_h = match comp {
+            "textArea" | "textarea" | "TextArea" => config.textarea_height,
+            _ => config.field_height,
+        };
+
+        let field_ref = Ref::new(*alloc);
+        *alloc += 1;
+
+        let rect = crate::layout::Rect {
+            x,
+            y: layout::content_y_to_pdf_y(cursor_y + field_h, config),
+            width: available_width,
+            height: field_h,
+        };
+        acroform.add_field(node, field_ref, &rect, page_idx);
+
+        let tooltip = node
+            .field_item
+            .as_ref()
+            .and_then(|fi| fi.hint.as_deref().or(fi.label.as_deref()))
+            .unwrap_or("");
+        let sp_key = tag_ctx.tag_field(field_ref, tag_ctx.default_sect_ref, tooltip);
+        acroform.fields.last_mut().unwrap().struct_parent_key = Some(sp_key);
+
+        cursor_y += field_h;
+    }
+
+    // Render hint if present (with word wrapping)
     if let Some(ref fi) = node.field_item {
         if let Some(ref hint) = fi.hint {
-            let pdf_y = layout::content_y_to_pdf_y(cursor_y + config.hint_font_size, config);
+            let lines = fonts::wrap_lines(hint, &HELVETICA_WIDTHS, config.hint_font_size, available_width);
+            let line_height = config.hint_font_size * 1.2;
             content.save_state();
             content.begin_text();
             content.set_font(Name(b"Helv"), config.hint_font_size);
             content.set_fill_rgb(0.5, 0.5, 0.5);
-            content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
-            content.show(Str(hint.as_bytes()));
+            for (i, line) in lines.iter().enumerate() {
+                let pdf_y = layout::content_y_to_pdf_y(cursor_y + config.hint_font_size + i as f32 * line_height, config);
+                content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
+                content.show(Str(line.as_bytes()));
+            }
             content.end_text();
             content.restore_state();
         }
@@ -506,7 +571,7 @@ fn render_layout_node(
             .identify(mcid);
         content.begin_text();
         content.set_font(Name(b"HeBo"), config.heading_font_size);
-        content.set_fill_rgb(0.1, 0.1, 0.1);
+        content.set_fill_rgb(0.118, 0.251, 0.686);
         content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
         content.show(Str(title.as_bytes()));
         content.end_text();
@@ -516,7 +581,7 @@ fn render_layout_node(
         // Underline
         let line_y = pdf_y - 3.0;
         content.save_state();
-        content.set_stroke_rgb(0.7, 0.7, 0.7);
+        content.set_stroke_rgb(0.75, 0.8, 0.9);
         content.set_line_width(0.5);
         content.move_to(x, line_y);
         content.line_to(x + config.content_width, line_y);
@@ -584,20 +649,41 @@ fn render_display_node(
     }
 
     let x = config.margin_left + node.col_start as f32 * (available_width / 12.0);
-    let (font_name, font_size) = match node.component.as_str() {
-        "heading" | "Heading" => (Name(b"HeBo"), config.heading_font_size),
-        _ => (Name(b"Helv"), config.field_font_size),
+    let (font_name, widths, font_size): (Name, &[u16; 95], f32) = match node.component.as_str() {
+        "heading" | "Heading" => (Name(b"HeBo"), &HELVETICA_BOLD_WIDTHS, config.heading_font_size),
+        _ => (Name(b"Helv"), &HELVETICA_WIDTHS, config.field_font_size),
     };
 
-    let pdf_y = layout::content_y_to_pdf_y(y_offset + font_size, config);
+    let lines = fonts::wrap_lines(text, widths, font_size, available_width);
+    let line_height = font_size * 1.2;
+
+    let is_heading = matches!(node.component.as_str(), "heading" | "Heading");
 
     content.save_state();
     content.begin_text();
     content.set_font(font_name, font_size);
-    content.set_fill_rgb(0.0, 0.0, 0.0);
-    content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
-    content.show(Str(text.as_bytes()));
+    if is_heading {
+        content.set_fill_rgb(0.118, 0.251, 0.686); // Blue accent for headings
+    } else {
+        content.set_fill_rgb(0.15, 0.15, 0.15);
+    }
+    for (i, line) in lines.iter().enumerate() {
+        let pdf_y = layout::content_y_to_pdf_y(y_offset + font_size + i as f32 * line_height, config);
+        content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
+        content.show(Str(line.as_bytes()));
+    }
     content.end_text();
+
+    // Draw underline for headings
+    if is_heading {
+        let underline_y = layout::content_y_to_pdf_y(y_offset + font_size, config) - 3.0;
+        content.set_stroke_rgb(0.75, 0.8, 0.9);
+        content.set_line_width(0.5);
+        content.move_to(x, underline_y);
+        content.line_to(x + available_width, underline_y);
+        content.stroke();
+    }
+
     content.restore_state();
 }
 

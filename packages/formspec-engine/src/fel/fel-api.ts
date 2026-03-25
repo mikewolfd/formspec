@@ -29,4 +29,5 @@ export {
     validateExtensionUsage,
     validateLifecycleTransition,
     wellKnownRegistryUrl,
+    wasmRenderPDF as renderPDF,
 } from './fel-api-tools.js';

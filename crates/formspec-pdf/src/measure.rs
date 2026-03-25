@@ -55,10 +55,13 @@ fn measure_layout_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f
 
     // Heading height for groups/sections
     let heading_h = match comp {
-        "page" | "group" | "section" => {
+        "page" | "group" | "section" | "Page" | "Group" | "Section"
+        | "Wizard" | "Tabs" | "Accordion" | "Collapsible" | "Card"
+        | "Stack" | "Grid" | "Panel" | "Columns" | "ConditionalGroup" => {
             let label = node
                 .props
                 .get("label")
+                .or_else(|| node.props.get("title"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             if label.is_empty() {
@@ -131,8 +134,9 @@ fn measure_field_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f3
     // Field widget
     let comp = node.component.as_str();
     h += match comp {
-        "textArea" | "textarea" => config.textarea_height,
-        "choice" | "multiChoice" | "radio" | "checkboxGroup" => {
+        "textArea" | "textarea" | "TextArea" => config.textarea_height,
+        "choice" | "multiChoice" | "radio" | "radioGroup" | "checkboxGroup"
+        | "RadioGroup" | "CheckboxGroup" | "Select" | "select" => {
             let option_count = node
                 .field_item
                 .as_ref()
@@ -168,6 +172,7 @@ fn measure_display_node(node: &EvaluatedNode, config: &PdfConfig, column_width: 
     let text = node
         .props
         .get("text")
+        .or_else(|| node.props.get("content"))
         .or_else(|| node.props.get("label"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
@@ -185,12 +190,24 @@ fn measure_display_node(node: &EvaluatedNode, config: &PdfConfig, column_width: 
     }
 }
 
-/// Interactive nodes (buttons, etc.) get a fixed field height.
-fn measure_interactive_node(_node: &EvaluatedNode, config: &PdfConfig, _column_width: f32) -> f32 {
-    config.field_height + config.field_padding
+/// Interactive nodes — containers (Wizard, Tabs) recurse into children;
+/// leaf interactive nodes (SubmitButton) get a fixed height.
+fn measure_interactive_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f32) -> f32 {
+    if !node.children.is_empty() {
+        // Wizard, Tabs, etc. — flatten into their children for PDF
+        measure_layout_node(node, config, column_width)
+    } else {
+        config.field_height + config.field_padding
+    }
 }
 
-/// Special nodes: fallback to field height.
-fn measure_special_node(_node: &EvaluatedNode, config: &PdfConfig, _column_width: f32) -> f32 {
-    config.field_height + config.field_padding
+/// Special nodes — containers (Columns, ConditionalGroup) recurse;
+/// leaf nodes (DataTable, ProgressBar, ValidationSummary) get a fixed height.
+fn measure_special_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f32) -> f32 {
+    if !node.children.is_empty() {
+        // Columns, ConditionalGroup, etc. — recurse into children
+        measure_layout_node(node, config, column_width)
+    } else {
+        config.field_height + config.field_padding
+    }
 }

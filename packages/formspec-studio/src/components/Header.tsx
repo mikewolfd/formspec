@@ -19,6 +19,7 @@ interface HeaderProps {
   onTabChange: (tab: string) => void;
   onNew?: () => void;
   onExport?: () => void;
+  onDownloadPDF?: () => void;
   onImport: () => void;
   onSearch: () => void;
   onHome?: () => void;
@@ -33,6 +34,7 @@ export function Header({
   onTabChange,
   onNew,
   onExport,
+  onDownloadPDF,
   onImport,
   onSearch,
   onHome,
@@ -110,6 +112,14 @@ export function Header({
             onClick={() => { setMenuOpen(false); onExport?.(); }}
           >
             Export
+          </button>
+          <button
+            type="button"
+            data-testid="download-pdf-btn"
+            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            onClick={() => { setMenuOpen(false); onDownloadPDF?.(); }}
+          >
+            Download PDF
           </button>
           <div className="border-t border-border my-1" />
           {isCompact && (

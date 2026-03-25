@@ -65,6 +65,36 @@ pub fn wrap_text(text: &str, widths: &[u16; 95], font_size: f32, max_width: f32)
     lines
 }
 
+/// Split text into wrapped lines for rendering.
+///
+/// Returns a Vec of string slices, each representing one visual line.
+pub fn wrap_lines<'a>(text: &'a str, widths: &[u16; 95], font_size: f32, max_width: f32) -> Vec<String> {
+    if text.is_empty() {
+        return vec![];
+    }
+
+    let mut lines: Vec<String> = Vec::new();
+    let mut current_line = String::new();
+    let space_w = widths[0] as f32 * font_size / 1000.0;
+
+    for word in text.split_whitespace() {
+        let word_w = text_width(word, widths, font_size);
+        if current_line.is_empty() {
+            current_line.push_str(word);
+        } else if text_width(&current_line, widths, font_size) + space_w + word_w > max_width {
+            lines.push(std::mem::take(&mut current_line));
+            current_line.push_str(word);
+        } else {
+            current_line.push(' ');
+            current_line.push_str(word);
+        }
+    }
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+    lines
+}
+
 /// Compute the total height (in PDF points) of `text` when wrapped to `max_width`.
 ///
 /// Uses a line height of 1.2x the font size.
