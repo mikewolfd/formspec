@@ -166,7 +166,18 @@ impl AcroFormBuilder {
                         .unwrap_or_default();
                     write_choice_field(
                         pdf, info, page_ref, &value_str, is_readonly, width, height, config, alloc,
-                        &options, true, struct_parent_key, tooltip, hier_parent,
+                        &options, true, false, struct_parent_key, tooltip, hier_parent,
+                    );
+                }
+                "MultiChoice" | "multiChoice" | "multi-choice" => {
+                    let options = node
+                        .and_then(|n| n.field_item.as_ref())
+                        .map(|fi| &fi.options)
+                        .cloned()
+                        .unwrap_or_default();
+                    write_choice_field(
+                        pdf, info, page_ref, &value_str, is_readonly, width, height, config, alloc,
+                        &options, false, true, struct_parent_key, tooltip, hier_parent,
                     );
                 }
                 "RadioGroup" | "radio" => {
@@ -600,6 +611,7 @@ fn write_choice_field(
     alloc: &mut i32,
     options: &[FieldOption],
     is_combo: bool,
+    multi_select: bool,
     struct_parent_key: i32,
     tooltip: &str,
     hier_parent: Option<Ref>,
@@ -640,10 +652,13 @@ fn write_choice_field(
 
     let mut ff = 0_i32;
     if is_combo {
-        ff |= 1 << 17;
+        ff |= 1 << 17; // bit 18: Combo (dropdown vs scrollable list)
+    }
+    if multi_select {
+        ff |= 1 << 21; // bit 22: MultiSelect (allow multiple selections)
     }
     if readonly {
-        ff |= 1;
+        ff |= 1; // bit 1: ReadOnly
     }
     if ff != 0 {
         annot.insert(Name(b"Ff")).primitive(ff);

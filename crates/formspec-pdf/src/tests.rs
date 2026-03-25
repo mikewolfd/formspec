@@ -1745,6 +1745,68 @@ fn checkbox_group_no_radio_bits() {
     );
 }
 
+// ── MultiChoice List Field ──
+
+#[test]
+fn multi_choice_list_is_ch_with_multi_select_bit() {
+    // multiChoice data type should produce /Ch list with MultiSelect bit (bit 22 = 1<<21 = 2097152)
+    let mut node = make_field_node("Select", "colors", "Favorite Colors");
+    node.field_item = Some(FieldItemSnapshot {
+        key: "colors".to_string(),
+        label: Some("Favorite Colors".to_string()),
+        hint: None,
+        data_type: Some("multiChoice".to_string()),
+        options: vec![
+            formspec_plan::FieldOption { value: json!("red"), label: Some("Red".to_string()) },
+            formspec_plan::FieldOption { value: json!("blue"), label: Some("Blue".to_string()) },
+            formspec_plan::FieldOption { value: json!("green"), label: Some("Green".to_string()) },
+        ],
+        option_set: None,
+    });
+    node.component = "MultiChoice".to_string();
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Must be /Ch (choice field)
+    assert!(pdf_str.contains("/Ch"), "MultiChoice should be /Ch field type");
+    // Must have MultiSelect bit (1 << 21 = 2097152) and NOT Combo bit
+    // MultiSelect only (no Combo, no ReadOnly) = 2097152
+    assert!(
+        pdf_str.contains("/Ff 2097152"),
+        "MultiChoice must have MultiSelect /Ff bit (2097152), PDF contains: {}",
+        pdf_str.matches("/Ff").collect::<Vec<_>>().len()
+    );
+}
+
+#[test]
+fn multi_choice_list_not_combo() {
+    // MultiChoice should be a scrollable list, not a dropdown combo
+    let mut node = make_field_node("MultiChoice", "tags", "Tags");
+    node.field_item = Some(FieldItemSnapshot {
+        key: "tags".to_string(),
+        label: Some("Tags".to_string()),
+        hint: None,
+        data_type: Some("multiChoice".to_string()),
+        options: vec![
+            formspec_plan::FieldOption { value: json!("a"), label: Some("A".to_string()) },
+            formspec_plan::FieldOption { value: json!("b"), label: Some("B".to_string()) },
+        ],
+        option_set: None,
+    });
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Combo bit is 1 << 17 = 131072. MultiChoice must NOT have it.
+    assert!(
+        !pdf_str.contains("/Ff 131072"),
+        "MultiChoice must not have Combo bit"
+    );
+}
+
 // ── Bug Fix: Missing PRINT flag on non-signature annotations (Bug 6) ──
 
 #[test]
