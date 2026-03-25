@@ -1,7 +1,7 @@
 //! Changeset dependency analysis — key extraction and connected-component grouping.
 //!
 //! Analyzes recorded changeset entries to determine which entries are coupled
-//! by shared field keys (creates/references relationships) and groups them
+//! by shared field keys (creates/references/targets relationships) and groups them
 //! into dependency components that must be accepted or rejected together.
 
 pub mod extract;

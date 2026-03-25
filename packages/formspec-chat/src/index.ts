@@ -44,7 +44,7 @@ export { GeminiAdapter } from './gemini-adapter.js';
 export { MockAdapter } from './mock-adapter.js';
 export { SessionStore } from './session-store.js';
 export { diff, type DefinitionDiff } from './form-scaffolder.js';
-export { buildBundleFromDefinition } from './bundle-builder.js';
 export { ChatSession } from './chat-session.js';
+export type { ChatSessionOptions } from './chat-session.js';
 export { extractRegistryHints } from './registry-hints.js';
 export type { RegistryDocument, RegistryHintEntry } from './registry-hints.js';
