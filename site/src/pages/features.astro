@@ -136,15 +136,27 @@ import CallToAction from "../components/CallToAction.astro";
             </tr>
             <tr>
               <td>Design control (tokens, widgets, layout)</td>
-              <td>Full design control: color tokens, typography, spacing, and layout. 37 built-in components. Apply a theme without changing the form itself.</td>
+              <td>Full design control: color tokens, typography, spacing, and layout. 36 built-in components. Apply a theme without changing the form itself.</td>
             </tr>
             <tr>
               <td>Build forms with AI</td>
-              <td>Describe what you need in plain language. An AI chat builder creates the form live. Also integrates with AI coding assistants via 28 structured tool actions.</td>
+              <td>Describe what you need in plain language. An AI chat builder creates the form live. Also integrates with AI coding assistants via 28 structured tool actions. References and Ontology sidecars give AI agents domain-specific grounding — answers cite regulations, not training data.</td>
             </tr>
             <tr>
               <td>Extend forms with custom types and rules</td>
               <td>Declare new data types, validation constraints, and functions as JSON extensions. Publish them in a shareable registry. Enable on any field with one property — no code changes needed.</td>
+            </tr>
+            <tr>
+              <td>Contextual help and regulatory guidance per field</td>
+              <td>Attach documentation, compliance references, knowledge base articles, and AI agent data stores to any field or section. Multiple reference documents for different audiences, languages, or domains — all additive, none modify the form.</td>
+            </tr>
+            <tr>
+              <td>Semantic interoperability with external standards</td>
+              <td>Bind form fields to external ontologies — FHIR, schema.org, ICD-10, Dublin Core, and more. Two independently authored forms that align to the same concept can have their data mechanically merged. No guesswork, no column-name matching.</td>
+            </tr>
+            <tr>
+              <td>Multi-language forms</td>
+              <td>Provide translated labels, help text, error messages, and option labels via locale sidecar documents. Multiple locales per form, independently versioned. Add a language without touching the form definition.</td>
             </tr>
             <tr>
               <td>No vendor lock-in</td>
@@ -268,7 +280,7 @@ import CallToAction from "../components/CallToAction.astro";
         </div>
         <div class="feature-card">
           <h3>Common library included</h3>
-          <p>16 production-ready extensions ship out of the box: email, phone (international and North American), ZIP code, SSN, EIN, credit card, percentage, US currency, URL, hex color code, and more — each with validation built in, plus input hints, display masking, and formatting where appropriate.</p>
+          <p>18 production-ready extensions ship out of the box: email, phone (international and North American), ZIP code, SSN, EIN, credit card, percentage, US currency, URL, hex color code, and more — each with validation built in, plus input hints, display masking, and formatting where appropriate.</p>
         </div>
         <div class="feature-card">
           <h3>Portable by design</h3>
@@ -353,7 +365,7 @@ import CallToAction from "../components/CallToAction.astro";
     <!-- ─── Section: Pages & Components ─── -->
     <section class="features-section reveal">
       <div class="section-eyebrow">Pages & Components</div>
-      <h2>Multi-step wizards, tabbed forms, and 37 built-in components.</h2>
+      <h2>Multi-step wizards, tabbed forms, and 36 built-in components.</h2>
       <p class="section-lead">
         Full control over navigation and layout — without touching your form logic.
       </p>
@@ -370,8 +382,8 @@ import CallToAction from "../components/CallToAction.astro";
           <p>Click-based switching with configurable labels, top or bottom tab bar, and programmatic control.</p>
         </div>
         <div class="feature-card">
-          <h3>37 built-in components</h3>
-          <p>37 components across five categories: layout, inputs, display, interactive, and special-purpose — including grids, modals, accordions, data tables, alerts, and more.</p>
+          <h3>36 built-in components</h3>
+          <p>36 components across five categories: layout, inputs, display, interactive, and special-purpose — including grids, modals, accordions, data tables, alerts, and more.</p>
         </div>
         <div class="feature-card">
           <h3>Theme files</h3>
@@ -443,6 +455,56 @@ import CallToAction from "../components/CallToAction.astro";
         <div class="feature-card">
           <h3>Reversibility guarantees</h3>
           <p>Mappings track whether each transformation is reversible. Lossless transforms round-trip automatically; lossy ones require you to define the reverse explicitly.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Section: References & Contextual Help ─── -->
+    <section class="features-section reveal">
+      <div class="section-eyebrow">References</div>
+      <h2>Every field can carry its own documentation, regulations, and AI data sources.</h2>
+      <p class="section-lead">
+        Forms exist in context — regulatory guidance, help articles, institutional knowledge. The References specification makes that context machine-readable and field-specific.
+      </p>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>Human-facing help</h3>
+          <p>Link documentation, worked examples, and regulatory guidance to specific fields. Renderers surface the right help at the right time.</p>
+        </div>
+        <div class="feature-card">
+          <h3>AI agent data stores</h3>
+          <p>Point AI agents to vector stores, knowledge bases, retrieval endpoints, and tool schemas — per field. Agents query authoritative sources instead of guessing from training data.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Audience-aware</h3>
+          <p>Each reference declares its audience: human, agent, or both. Renderers show help links; agents query data stores. Same document serves both.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Composable overlays</h3>
+          <p>Multiple reference documents per form — one for regulatory guidance, one for AI context, one per locale. All merge additively.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Section: Semantic Interoperability ─── -->
+    <section class="features-section reveal">
+      <div class="section-eyebrow">Ontology</div>
+      <h2>Form fields that carry their own meaning — not just labels.</h2>
+      <p class="section-lead">
+        Bind fields to concepts in schema.org, FHIR, ICD-10, or any ontology. Data carries its own context from collection through analysis.
+      </p>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>Concept bindings</h3>
+          <p>Tag any field with a concept URI from an external standard. A field isn't just 'EIN' — it's formally identified as an IRS Employer Identification Number, related to FHIR's Organization.identifier.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Vocabulary alignment</h3>
+          <p>Connect option sets to external terminology systems with version tracking. When ICD-10 releases a new version, update one vocabulary binding.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Cross-form data science</h3>
+          <p>Two independently authored forms that align to the same ontology concept can have their data mechanically merged. No column-name guessing, no manual mapping.</p>
         </div>
       </div>
     </section>

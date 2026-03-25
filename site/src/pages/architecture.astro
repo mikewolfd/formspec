@@ -29,7 +29,7 @@ const gh = "https://github.com/focusconsulting/formspec";
         Presentation layers (Theme, Components) never affect data collection, validation, or behavioral semantics — they are swappable overlays on an unchanging behavioral core.
       </p>
 
-      <div class="tier-stack" role="img" aria-label="Three-tier document model: Definition, Theme, Components, and Companion Specs">
+      <div class="tier-stack" role="img" aria-label="Document model: Definition, Theme, Components, Sidecar Specs, and Companion Specs">
         <div class="tier-box tier-box--primary">
           <div class="tier-label">Definition <span class="tier-tag">Core</span></div>
           <div class="tier-details">
@@ -50,7 +50,7 @@ const gh = "https://github.com/focusconsulting/formspec";
           <div class="tier-label">Component Sidecar <span class="tier-tag">Interaction</span></div>
           <div class="tier-details">
             <span>Explicit component tree, slot binding, responsive breakpoints</span>
-            <span>33 built-in components + custom templates</span>
+            <span>36 built-in components + custom templates</span>
           </div>
         </div>
         <div class="tier-box tier-box--muted">
@@ -60,6 +60,9 @@ const gh = "https://github.com/focusconsulting/formspec";
             <span>Extension Registry</span>
             <span>Changelog Format</span>
             <span>FEL Grammar</span>
+            <span>References</span>
+            <span>Ontology</span>
+            <span>Locale</span>
           </div>
         </div>
       </div>
@@ -140,7 +143,7 @@ const gh = "https://github.com/focusconsulting/formspec";
         A small, deterministic expression language embedded in bind and shape declarations.
         FEL handles calculated fields, conditional visibility, cross-field constraints, and aggregation — no custom code required.
         Defined once as a <a href={`${gh}/blob/main/specs/fel/fel-grammar.md`} target="_blank" rel="noopener noreferrer">formal grammar</a>
-        with 40+ stdlib functions, implemented identically in both runtimes.
+        with 61 stdlib functions, implemented identically in both runtimes.
       </p>
 
       <div class="code-window">
@@ -161,7 +164,7 @@ const gh = "https://github.com/focusconsulting/formspec";
 <span class="tok-prop">"constraint"</span>: <span class="tok-str">"sum($line_items) &lt;= $award_amount"</span>
 
 <span class="tok-comment">// Aggregation with filtering</span>
-<span class="tok-prop">"calculate"</span>: <span class="tok-str">"count-if($items, $status = 'approved')"</span></pre>
+<span class="tok-prop">"calculate"</span>: <span class="tok-str">"countWhere($items, $status = 'approved')"</span></pre>
         </div>
       </div>
 
@@ -228,6 +231,15 @@ const gh = "https://github.com/focusconsulting/formspec";
               <td><code>registry</code>, <code>changelog</code></td>
             </tr>
             <tr>
+              <td>Sidecars</td>
+              <td>
+                <a href={`${gh}/blob/main/specs/core/references-spec.md`} target="_blank" rel="noopener noreferrer">References</a>,
+                <a href={`${gh}/blob/main/specs/ontology/ontology-spec.md`} target="_blank" rel="noopener noreferrer">Ontology</a>,
+                <a href={`${gh}/blob/main/specs/locale/locale-spec.md`} target="_blank" rel="noopener noreferrer">Locale</a>
+              </td>
+              <td><code>references</code>, <code>ontology</code>, <code>locale</code></td>
+            </tr>
+            <tr>
               <td>Catalogs</td>
               <td>—</td>
               <td><code>fel-functions</code>, <code>core-commands</code>, <code>conformance-suite</code></td>
@@ -270,7 +282,7 @@ const gh = "https://github.com/focusconsulting/formspec";
             <tr>
               <td><a href={`${gh}/tree/main/packages/formspec-webcomponent`} target="_blank" rel="noopener noreferrer"><code>formspec-webcomponent</code></a></td>
               <td class="role-label">Rendering</td>
-              <td><code>&lt;formspec-render&gt;</code> — built-in browser renderer, component registry, 33 plugins</td>
+              <td><code>&lt;formspec-render&gt;</code> — built-in browser renderer, component registry, 36 built-in components</td>
             </tr>
             <tr>
               <td><a href={`${gh}/tree/main/packages/formspec-adapters`} target="_blank" rel="noopener noreferrer"><code>formspec-adapters</code></a></td>
