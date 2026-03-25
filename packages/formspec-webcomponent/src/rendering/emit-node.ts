@@ -149,9 +149,10 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         const nextPrefix = prefix ? `${prefix}.${bindKey}` : bindKey;
         const el = document.createElement('div');
         el.className = 'formspec-group';
-        if (node.props.title) {
+        const groupProps = node.props ?? {};
+        if (groupProps.title) {
             const heading = document.createElement(`h${Math.min(headingLevel, 6)}`);
-            heading.textContent = node.props.title as string;
+            heading.textContent = groupProps.title as string;
             el.appendChild(heading);
         }
         const groupFullPath = nextPrefix;
@@ -171,7 +172,7 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
 
     const comp: any = {
         component: node.component,
-        ...node.props,
+        ...(node.props ?? {}),
     };
     // Rust spec-normative: bind is in node.bindPath, ensure it's available as comp.bind
     // for field component plugins that read comp.bind for path-based operations.

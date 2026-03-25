@@ -585,6 +585,25 @@ fn plan_component_tree_with_when() {
 }
 
 #[test]
+fn plan_component_tree_conditional_group_fallback() {
+    reset_node_id_counter();
+    let tree = json!({
+        "component": "ConditionalGroup",
+        "when": "$budget.usesSubcontractors",
+        "fallback": "No subcontractors are needed.",
+        "children": [{"component": "Text", "text": "List them"}]
+    });
+    let ctx = make_tree_ctx(vec![], None);
+    let node = plan_component_tree(&tree, &ctx);
+
+    assert_eq!(node.when.as_deref(), Some("$budget.usesSubcontractors"));
+    assert_eq!(
+        node.fallback,
+        Some(vec!["No subcontractors are needed.".to_string()])
+    );
+}
+
+#[test]
 fn plan_component_tree_field_binding_resolves_snapshot() {
     reset_node_id_counter();
     let tree = json!({"component": "Select", "bind": "color"});

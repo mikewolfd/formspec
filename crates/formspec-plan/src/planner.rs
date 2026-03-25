@@ -46,6 +46,7 @@ const STRUCTURAL_KEYS: &[&str] = &[
     "component",
     "children",
     "when",
+    "fallback",
     "responsive",
     "bind",
     "style",
@@ -53,6 +54,27 @@ const STRUCTURAL_KEYS: &[&str] = &[
     "accessibility",
     "params",
 ];
+
+/// Tree `fallback` for ConditionalGroup (string or array of strings). Theme cascade
+/// may also set fallback on bound fields; an explicit tree value wins.
+fn parse_tree_fallback(v: &Value) -> Option<Vec<String>> {
+    match v {
+        Value::String(s) => Some(vec![s.clone()]),
+        Value::Array(arr) => {
+            let mut out = Vec::new();
+            for x in arr {
+                let s = x.as_str()?;
+                out.push(s.to_string());
+            }
+            if out.is_empty() {
+                None
+            } else {
+                Some(out)
+            }
+        }
+        _ => None,
+    }
+}
 
 /// Binds to a repeatable group but renders instances inside the component plugin
 /// (`DataTable` rows, `Accordion` sections). The DOM emitter must not wrap these
@@ -447,6 +469,12 @@ fn plan_component_tree_inner(
             if !obj.contains_key("component") {
                 component_type = resolved_component;
             }
+        }
+    }
+
+    if let Some(fb) = obj.get("fallback") {
+        if let Some(parsed) = parse_tree_fallback(fb) {
+            fallback = Some(parsed);
         }
     }
 
