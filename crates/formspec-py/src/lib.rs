@@ -10,7 +10,7 @@
 //! - `mapping` — mapping document parse + `execute_mapping_doc`
 //! - `theme` — `resolve_presentation`, `resolve_token`
 //! - `plan` — `plan_component_tree`, `plan_definition_fallback`
-//! - `pdf` — `render_pdf`, `generate_xfdf`, `parse_xfdf`
+//! - `pdf` — `render_pdf`, `generate_xfdf`, `parse_xfdf`, `assemble_response`
 //! - `native_tests` — Rust unit tests (mapping parse, string helpers; `#[cfg(test)]` only)
 
 pub(crate) const PY_API_VERSION: u32 = 1;
@@ -80,5 +80,6 @@ fn formspec_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pdf::render_pdf_py, m)?)?;
     m.add_function(wrap_pyfunction!(pdf::generate_xfdf_py, m)?)?;
     m.add_function(wrap_pyfunction!(pdf::parse_xfdf_py, m)?)?;
+    m.add_function(wrap_pyfunction!(pdf::assemble_response_py, m)?)?;
     Ok(())
 }

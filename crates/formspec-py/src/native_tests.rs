@@ -1335,4 +1335,50 @@ mod tests {
         assert!(json.get("colStart").is_some());
         assert!(json.get("repeatGroup").is_none()); // None → skipped
     }
+
+    // ── assemble_response ──────────────────────────────────────
+
+    /// Flat fields (no dots or brackets) stay as top-level keys.
+    #[test]
+    fn assemble_response_flat_fields() {
+        let mut fields = std::collections::HashMap::new();
+        fields.insert("name".to_string(), json!("Alice"));
+        fields.insert("age".to_string(), json!(30));
+
+        let result = formspec_pdf::assemble_response(&fields);
+
+        assert_eq!(result.get("name"), Some(&json!("Alice")));
+        assert_eq!(result.get("age"), Some(&json!(30)));
+    }
+
+    /// Dotted paths unflatten into nested objects.
+    #[test]
+    fn assemble_response_nested_paths() {
+        let mut fields = std::collections::HashMap::new();
+        fields.insert("address.street".to_string(), json!("123 Main St"));
+        fields.insert("address.city".to_string(), json!("Springfield"));
+
+        let result = formspec_pdf::assemble_response(&fields);
+
+        let address = result.get("address").expect("missing 'address'");
+        assert_eq!(address.get("street"), Some(&json!("123 Main St")));
+        assert_eq!(address.get("city"), Some(&json!("Springfield")));
+    }
+
+    /// Bracket indices create arrays; sparse indices are gap-filled.
+    #[test]
+    fn assemble_response_repeat_groups() {
+        let mut fields = std::collections::HashMap::new();
+        fields.insert("items[0].name".to_string(), json!("Widget"));
+        fields.insert("items[0].qty".to_string(), json!(5));
+        fields.insert("items[1].name".to_string(), json!("Gadget"));
+
+        let result = formspec_pdf::assemble_response(&fields);
+
+        let items = result.get("items").expect("missing 'items'").as_array().expect("not array");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].get("name"), Some(&json!("Widget")));
+        assert_eq!(items[0].get("qty"), Some(&json!(5)));
+        assert_eq!(items[1].get("name"), Some(&json!("Gadget")));
+    }
 }

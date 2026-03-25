@@ -497,3 +497,14 @@ export function wasmResetNodeIdCounter(): void {
     assertWasmToolsReadySync();
     wasmTools().resetNodeIdCounter();
 }
+
+// ---------------------------------------------------------------------------
+// PDF — XFDF response assembly
+// ---------------------------------------------------------------------------
+
+/** Assemble a nested Formspec response from flat XFDF field name-value pairs. */
+export function wasmAssembleResponse(fields: Record<string, unknown>): Record<string, unknown> {
+    assertWasmToolsReadySync();
+    const resultJson = wasmTools().assembleResponse(JSON.stringify(fields));
+    return JSON.parse(resultJson);
+}

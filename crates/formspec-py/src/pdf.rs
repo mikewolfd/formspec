@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use serde_json::Value;
 
-use formspec_pdf::{PdfOptions, generate_xfdf, parse_xfdf, render_pdf};
+use formspec_pdf::{PdfOptions, assemble_response, generate_xfdf, parse_xfdf, render_pdf};
 use formspec_plan::EvaluatedNode;
 
 use crate::PyObject;
@@ -78,4 +78,29 @@ pub fn parse_xfdf_py(py: Python, xfdf_xml: &str) -> PyResult<PyObject> {
         pyo3::exceptions::PyRuntimeError::new_err(format!("serialization failed: {e}"))
     })?;
     json_to_python(py, &json)
+}
+
+/// Assemble a Formspec response from flat XFDF field name-value pairs.
+///
+/// Unflattens dotted paths and bracket indices into nested JSON:
+/// `{"address.street": "123 Main"}` → `{"address": {"street": "123 Main"}}`.
+///
+/// Args:
+///     fields: Dict of flat field path → value
+///
+/// Returns:
+///     Nested dict representing the assembled response.
+#[pyfunction(name = "assemble_response")]
+pub fn assemble_response_py(py: Python<'_>, fields: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let val: Value = depythonize_json(fields)?;
+    let map: HashMap<String, Value> = match val {
+        Value::Object(obj) => obj.into_iter().collect(),
+        _ => {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "fields must be a dict",
+            ));
+        }
+    };
+    let result = assemble_response(&map);
+    json_to_python(py, &result)
 }

@@ -44,6 +44,7 @@ import {
     wasmPlanThemePages,
     wasmPlanUnboundRequired,
     wasmResetNodeIdCounter,
+    wasmAssembleResponse,
 } from '../wasm-bridge-tools.js';
 
 export const tokenizeFEL = wasmTokenizeFEL;
@@ -180,4 +181,5 @@ export {
     wasmPlanThemePages,
     wasmPlanUnboundRequired,
     wasmResetNodeIdCounter,
+    wasmAssembleResponse,
 };

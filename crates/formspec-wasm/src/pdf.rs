@@ -136,3 +136,25 @@ pub fn parse_xfdf(xfdf_xml: &str) -> Result<String, JsError> {
 
     serde_json::to_string(&fields).map_err(|e| JsError::new(&e.to_string()))
 }
+
+/// Testable inner function for `assemble_response_wasm`.
+pub(crate) fn assemble_response_inner(fields_json: &str) -> Result<String, String> {
+    let fields_value: serde_json::Value =
+        serde_json::from_str(fields_json).map_err(|e| format!("invalid fields JSON: {e}"))?;
+    let fields_map = match fields_value {
+        serde_json::Value::Object(map) => map.into_iter().collect::<HashMap<String, serde_json::Value>>(),
+        _ => return Err("fields must be a JSON object".to_string()),
+    };
+    let result = formspec_pdf::assemble_response(&fields_map);
+    serde_json::to_string(&result).map_err(|e| format!("serialization error: {e}"))
+}
+
+/// Assemble a Formspec response from flat XFDF field name-value pairs.
+///
+/// Unflattens dotted paths and bracket indices into nested JSON.
+/// Input: JSON string of `{fieldPath: value}` map.
+/// Output: JSON string of the nested response object.
+#[wasm_bindgen(js_name = "assembleResponse")]
+pub fn assemble_response_wasm(fields_json: &str) -> Result<String, JsError> {
+    assemble_response_inner(fields_json).map_err(|e| JsError::new(&e))
+}

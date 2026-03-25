@@ -53,4 +53,5 @@ export {
     wasmPlanThemePages,
     wasmPlanUnboundRequired,
     wasmResetNodeIdCounter,
+    wasmAssembleResponse,
 } from './wasm-bridge-tools.js';

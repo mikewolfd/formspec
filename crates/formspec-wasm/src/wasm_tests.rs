@@ -920,4 +920,53 @@ mod tests {
             "should not have UNRESOLVED_EXTENSION when registry is loaded, got: {validations:?}"
         );
     }
+
+    // ── assemble_response (pdf-api) ────────────────────────────
+
+    #[cfg(feature = "pdf-api")]
+    #[test]
+    fn assemble_response_wasm_flat() {
+        let input = r#"{"name":"Alice","age":30}"#;
+        let result = crate::pdf::assemble_response_inner(input).unwrap();
+        let val: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(val.get("name"), Some(&json!("Alice")));
+        assert_eq!(val.get("age"), Some(&json!(30)));
+    }
+
+    #[cfg(feature = "pdf-api")]
+    #[test]
+    fn assemble_response_wasm_nested() {
+        let input = r#"{"address.street":"123 Main","address.city":"Springfield"}"#;
+        let result = crate::pdf::assemble_response_inner(input).unwrap();
+        let val: Value = serde_json::from_str(&result).unwrap();
+        let addr = val.get("address").expect("missing address");
+        assert_eq!(addr.get("street"), Some(&json!("123 Main")));
+        assert_eq!(addr.get("city"), Some(&json!("Springfield")));
+    }
+
+    #[cfg(feature = "pdf-api")]
+    #[test]
+    fn assemble_response_wasm_repeat_groups() {
+        let input = r#"{"items[0].name":"Widget","items[1].name":"Gadget"}"#;
+        let result = crate::pdf::assemble_response_inner(input).unwrap();
+        let val: Value = serde_json::from_str(&result).unwrap();
+        let items = val.get("items").unwrap().as_array().unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].get("name"), Some(&json!("Widget")));
+        assert_eq!(items[1].get("name"), Some(&json!("Gadget")));
+    }
+
+    #[cfg(feature = "pdf-api")]
+    #[test]
+    fn assemble_response_wasm_invalid_json() {
+        let result = crate::pdf::assemble_response_inner("not json");
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "pdf-api")]
+    #[test]
+    fn assemble_response_wasm_non_object() {
+        let result = crate::pdf::assemble_response_inner("[1,2,3]");
+        assert!(result.is_err());
+    }
 }

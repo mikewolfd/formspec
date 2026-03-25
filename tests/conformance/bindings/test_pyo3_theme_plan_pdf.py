@@ -198,3 +198,39 @@ def test_render_pdf_invalid_tree():
     """Non-array evaluated tree raises ValueError."""
     with pytest.raises((TypeError, ValueError)):
         formspec_rust.render_pdf_py({"not": "an array"})
+
+
+# -- assemble_response -------------------------------------------------------
+
+
+def test_assemble_response_flat():
+    """Flat fields stay as top-level keys."""
+    result = formspec_rust.assemble_response({"name": "Alice", "age": 30})
+    assert result["name"] == "Alice"
+    assert result["age"] == 30
+
+
+def test_assemble_response_nested():
+    """Dotted paths unflatten into nested objects."""
+    result = formspec_rust.assemble_response(
+        {"address.street": "123 Main", "address.city": "Springfield"}
+    )
+    assert result["address"]["street"] == "123 Main"
+    assert result["address"]["city"] == "Springfield"
+
+
+def test_assemble_response_repeat_groups():
+    """Bracket indices create arrays."""
+    result = formspec_rust.assemble_response(
+        {"items[0].name": "Widget", "items[1].name": "Gadget"}
+    )
+    assert isinstance(result["items"], list)
+    assert len(result["items"]) == 2
+    assert result["items"][0]["name"] == "Widget"
+    assert result["items"][1]["name"] == "Gadget"
+
+
+def test_assemble_response_non_dict():
+    """Non-dict input raises TypeError."""
+    with pytest.raises(TypeError):
+        formspec_rust.assemble_response([1, 2, 3])
