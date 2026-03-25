@@ -24,14 +24,18 @@ document.getElementById('app')?.appendChild(renderer);
 (window as any).FormEngine = FormEngine;
 (window as any).assembleDefinitionSync = assembleDefinitionSync;
 
-// Initialize WASM eagerly so browser tests can assert the Rust runtime is available.
-initFormspecEngine().then(() => {
-    console.log('[formspec] Engine initialized successfully');
-    (window as any).__wasmReady = true;
-}).catch((err) => {
-    console.warn('[formspec] Engine initialization failed:', err);
-    (window as any).__wasmReady = false;
-});
+// Initialize runtime + tools WASM before marking ready — layout planning (component tree
+// and definition fallback) lives in tools WASM; render() would otherwise throw with an empty DOM.
+initFormspecEngine()
+    .then(() => initFormspecEngineTools())
+    .then(() => {
+        console.log('[formspec] Engine initialized successfully');
+        (window as any).__wasmReady = true;
+    })
+    .catch((err) => {
+        console.warn('[formspec] Engine initialization failed:', err);
+        (window as any).__wasmReady = false;
+    });
 
 // Expose readiness check and factory for tests
 (window as any).isFormspecEngineInitialized = isFormspecEngineInitialized;

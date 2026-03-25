@@ -1,15 +1,17 @@
 /** @filedesc Package entry point: registers components and re-exports public API. */
 // Structural layout CSS only. Import `formspec-webcomponent/formspec-default.css` in the host when using built-in field styling.
 import './formspec-layout.css';
-import { initFormspecEngine } from 'formspec-engine/init-formspec-engine';
+import { initFormspecEngine, initFormspecEngineTools } from 'formspec-engine/init-formspec-engine';
 import { registerDefaultComponents } from './components';
 
-/** Start WASM load as soon as the package is imported (FormEngine needs it before construction). */
-void initFormspecEngine();
+/** Start runtime + tools WASM load on import — layout planning needs tools WASM before render. */
+void initFormspecEngine()
+    .then(() => initFormspecEngineTools())
+    .catch((err) => console.warn('[formspec-webcomponent] WASM init failed:', err));
 registerDefaultComponents();
 
 /** Await before setting `definition` if you need the engine to exist synchronously (e.g. immediate `getEngine()` / `setValue`). */
-export { initFormspecEngine } from 'formspec-engine/init-formspec-engine';
+export { initFormspecEngine, initFormspecEngineTools } from 'formspec-engine/init-formspec-engine';
 
 // Main class
 export { FormspecRender } from './element';
