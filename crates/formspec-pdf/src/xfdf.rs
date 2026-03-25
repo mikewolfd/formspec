@@ -127,6 +127,146 @@ fn unescape_xml(s: &str) -> String {
         .replace("&apos;", "'")
 }
 
+/// Assemble a Formspec response from flat XFDF field name-value pairs.
+///
+/// Unflattens dotted paths and repeat-group indices into a nested JSON structure:
+/// - `"address.street"` becomes `{"address": {"street": ...}}`
+/// - `"items[0].name"` becomes `{"items": [{"name": ...}]}`
+///
+/// Sparse array indices are gap-filled with empty objects.
+pub fn assemble_response(xfdf_fields: &HashMap<String, Value>) -> Value {
+    let mut root = Value::Object(serde_json::Map::new());
+
+    for (path, value) in xfdf_fields {
+        let segments = parse_segments(path);
+        insert_at_path(&mut root, &segments, value.clone());
+    }
+
+    root
+}
+
+/// A segment of a field path — either a named key or a numeric array index.
+enum PathSegment {
+    Key(String),
+    Index(usize),
+}
+
+/// Parse a dotted/bracketed path into typed segments.
+///
+/// `"items[0].name"` becomes `[Key("items"), Index(0), Key("name")]`.
+/// `"address.street"` becomes `[Key("address"), Key("street")]`.
+fn parse_segments(path: &str) -> Vec<PathSegment> {
+    let mut segments = Vec::new();
+    let mut current = String::new();
+
+    for ch in path.chars() {
+        match ch {
+            '.' => {
+                if !current.is_empty() {
+                    segments.push(classify_segment(&current));
+                    current.clear();
+                }
+            }
+            '[' => {
+                if !current.is_empty() {
+                    segments.push(classify_segment(&current));
+                    current.clear();
+                }
+            }
+            ']' => {
+                if !current.is_empty() {
+                    // Content inside brackets is always an array index
+                    if let Ok(idx) = current.parse::<usize>() {
+                        segments.push(PathSegment::Index(idx));
+                    } else {
+                        segments.push(PathSegment::Key(current.clone()));
+                    }
+                    current.clear();
+                }
+            }
+            _ => {
+                current.push(ch);
+            }
+        }
+    }
+    if !current.is_empty() {
+        segments.push(classify_segment(&current));
+    }
+
+    segments
+}
+
+/// Classify a bare segment string as an index (if all digits) or a key.
+fn classify_segment(s: &str) -> PathSegment {
+    if let Ok(idx) = s.parse::<usize>() {
+        PathSegment::Index(idx)
+    } else {
+        PathSegment::Key(s.to_string())
+    }
+}
+
+/// Walk into `target` along `segments`, creating objects/arrays as needed,
+/// then set the leaf to `value`.
+fn insert_at_path(target: &mut Value, segments: &[PathSegment], value: Value) {
+    if segments.is_empty() {
+        *target = value;
+        return;
+    }
+
+    let (current, rest) = (&segments[0], &segments[1..]);
+
+    match current {
+        PathSegment::Key(key) => {
+            // Ensure target is an object
+            if !target.is_object() {
+                *target = Value::Object(serde_json::Map::new());
+            }
+            let obj = target.as_object_mut().unwrap();
+
+            if rest.is_empty() {
+                obj.insert(key.clone(), value);
+            } else {
+                // Look ahead to decide whether next level is array or object
+                let child = obj
+                    .entry(key.clone())
+                    .or_insert_with(|| default_for_segment(&rest[0]));
+                insert_at_path(child, rest, value);
+            }
+        }
+        PathSegment::Index(idx) => {
+            // Ensure target is an array
+            if !target.is_array() {
+                *target = Value::Array(Vec::new());
+            }
+            let arr = target.as_array_mut().unwrap();
+
+            // Gap-fill with empty objects up to the needed index
+            while arr.len() <= *idx {
+                arr.push(Value::Object(serde_json::Map::new()));
+            }
+
+            if rest.is_empty() {
+                arr[*idx] = value;
+            } else {
+                let child = &mut arr[*idx];
+                // Ensure child is the right container type
+                if child.is_null() || (child.is_object() && child.as_object().unwrap().is_empty()) {
+                    *child = default_for_segment(&rest[0]);
+                }
+                insert_at_path(child, rest, value);
+            }
+        }
+    }
+}
+
+/// Create the appropriate default container for the next segment.
+fn default_for_segment(seg: &PathSegment) -> Value {
+    match seg {
+        PathSegment::Index(_) => Value::Array(Vec::new()),
+        PathSegment::Key(_) => Value::Object(serde_json::Map::new()),
+    }
+}
+
 #[cfg(test)]
 mod xfdf_tests {
     use super::*;

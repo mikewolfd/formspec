@@ -1,11 +1,12 @@
 //! Main PDF rendering pipeline — wires measurement, pagination, layout, AcroForm, and tagging.
 
 use pdf_writer::types::TabOrder;
-use pdf_writer::{Content, Finish, Name, Pdf, Ref, Str, TextStr};
+use pdf_writer::{Content, Filter, Finish, Name, Pdf, Ref, Str, TextStr};
 
 use formspec_plan::{EvaluatedNode, NodeCategory};
 
 use crate::acroform::AcroFormBuilder;
+use crate::compress::zlib_compress;
 use crate::fonts::{self, HELVETICA_BOLD_WIDTHS, HELVETICA_WIDTHS};
 use crate::layout;
 use crate::options::PdfConfig;
@@ -223,8 +224,13 @@ fn write_page(
     }
     page.finish();
 
-    // Write content stream
-    pdf.stream(content_ref, content_bytes);
+    // Write content stream with compression
+    let result = zlib_compress(content_bytes);
+    let mut stream = pdf.stream(content_ref, result.as_bytes());
+    if result.is_compressed() {
+        stream.filter(Filter::FlateDecode);
+    }
+    stream.finish();
 }
 
 /// Render the content stream for a single page.
@@ -584,12 +590,7 @@ fn render_display_node(
 }
 
 /// Render a horizontal divider line centered vertically in the divider's 12pt height.
-fn render_divider(
-    content: &mut Content,
-    y_offset: f32,
-    available_width: f32,
-    config: &PdfConfig,
-) {
+fn render_divider(content: &mut Content, y_offset: f32, available_width: f32, config: &PdfConfig) {
     let x = config.margin_left;
     // Center the line vertically within the 12pt divider height
     let line_y = layout::content_y_to_pdf_y(y_offset + 6.0, config);

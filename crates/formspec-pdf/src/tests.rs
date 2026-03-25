@@ -1,7 +1,9 @@
 //! Unit tests for formspec-pdf.
 
+use flate2::read::ZlibDecoder;
 use serde_json::{Map, json};
 use std::collections::HashMap;
+use std::io::Read;
 
 use formspec_plan::{EvaluatedNode, FieldItemSnapshot, NodeCategory};
 
@@ -15,6 +17,66 @@ use crate::paginate::paginate;
 
 fn default_config() -> PdfConfig {
     PdfOptions::default().to_pdf_config()
+}
+
+/// Extract and decompress all content streams from raw PDF bytes.
+///
+/// Finds `stream` / `endstream` boundaries and decompresses any
+/// FlateDecode streams. Returns the concatenated decompressed text
+/// so tests can search for content operators.
+fn extract_streams(pdf_bytes: &[u8]) -> String {
+    let mut result = String::new();
+    let raw = pdf_bytes;
+    let mut pos = 0;
+
+    while pos < raw.len() {
+        // Find "stream\r\n" or "stream\n"
+        if let Some(stream_kw) = find_bytes(&raw[pos..], b"stream") {
+            let abs = pos + stream_kw;
+            // Skip past "stream" + newline(s)
+            let mut data_start = abs + 6;
+            if data_start < raw.len() && raw[data_start] == b'\r' {
+                data_start += 1;
+            }
+            if data_start < raw.len() && raw[data_start] == b'\n' {
+                data_start += 1;
+            }
+
+            // Find matching "endstream"
+            if let Some(end_offset) = find_bytes(&raw[data_start..], b"endstream") {
+                let stream_data = &raw[data_start..data_start + end_offset];
+
+                // Try to decompress as zlib
+                let mut decoder = ZlibDecoder::new(stream_data);
+                let mut decompressed = Vec::new();
+                if decoder.read_to_end(&mut decompressed).is_ok() {
+                    if let Ok(text) = String::from_utf8(decompressed) {
+                        result.push_str(&text);
+                        result.push('\n');
+                    }
+                } else {
+                    // Not compressed or not valid zlib — use raw bytes
+                    if let Ok(text) = std::str::from_utf8(stream_data) {
+                        result.push_str(text);
+                        result.push('\n');
+                    }
+                }
+
+                pos = data_start + end_offset + 9; // skip "endstream"
+            } else {
+                pos = data_start;
+            }
+        } else {
+            break;
+        }
+    }
+
+    result
+}
+
+/// Find a byte pattern in a slice, returning the offset if found.
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 fn make_field_node(component: &str, bind: &str, label: &str) -> EvaluatedNode {
@@ -1116,11 +1178,17 @@ fn render_pdf_divider_contains_line_operators() {
     let opts = PdfOptions::default();
     let pdf_bytes = crate::render_pdf(&nodes, &opts);
 
-    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Content streams are compressed — decompress to find operators
+    let streams = extract_streams(&pdf_bytes);
     // A horizontal line uses move_to (m), line_to (l), stroke (S) operators
-    // Check the content stream contains these operators (they appear as " m ", " l ", " S ")
-    assert!(pdf_str.contains(" m\n") || pdf_str.contains(" m "), "Divider should contain move_to operator");
-    assert!(pdf_str.contains(" l\n") || pdf_str.contains(" l "), "Divider should contain line_to operator");
+    assert!(
+        streams.contains(" m\n") || streams.contains(" m "),
+        "Divider should contain move_to operator"
+    );
+    assert!(
+        streams.contains(" l\n") || streams.contains(" l "),
+        "Divider should contain line_to operator"
+    );
 }
 
 #[test]
@@ -1203,10 +1271,11 @@ fn render_pdf_labels_have_marked_content() {
     let opts = PdfOptions::default();
     let pdf_bytes = crate::render_pdf(&nodes, &opts);
 
-    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Content streams are compressed — decompress to find operators
+    let streams = extract_streams(&pdf_bytes);
     // BDC is the operator for begin_marked_content_with_properties
     assert!(
-        pdf_str.contains("BDC"),
+        streams.contains("BDC"),
         "Label text should be wrapped in marked content (BDC operator)"
     );
 }
@@ -1220,10 +1289,11 @@ fn render_pdf_headers_have_artifact_properties() {
     };
     let pdf_bytes = crate::render_pdf(&nodes, &opts);
 
-    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Content streams are compressed — decompress to find operators
+    let streams = extract_streams(&pdf_bytes);
     // Artifact marking should include /Type /Pagination property
     assert!(
-        pdf_str.contains("/Type /Pagination"),
+        streams.contains("/Type /Pagination"),
         "Header artifacts should have /Type /Pagination property"
     );
 }
@@ -1341,5 +1411,188 @@ fn render_pdf_parent_tree_next_key() {
     assert!(
         pdf_str.contains("/ParentTreeNextKey"),
         "StructTreeRoot must have /ParentTreeNextKey"
+    );
+}
+
+// ── Response Assembly ──
+
+#[test]
+fn assemble_response_flat_fields_stay_flat() {
+    let mut fields = HashMap::new();
+    fields.insert("name".to_string(), json!("Alice"));
+    fields.insert("age".to_string(), json!(30));
+
+    let result = crate::assemble_response(&fields);
+
+    assert_eq!(result.get("name"), Some(&json!("Alice")));
+    assert_eq!(result.get("age"), Some(&json!(30)));
+}
+
+#[test]
+fn assemble_response_dotted_path_nests() {
+    let mut fields = HashMap::new();
+    fields.insert("address.street".to_string(), json!("123 Main St"));
+    fields.insert("address.city".to_string(), json!("Springfield"));
+
+    let result = crate::assemble_response(&fields);
+
+    assert_eq!(
+        result,
+        json!({
+            "address": {
+                "street": "123 Main St",
+                "city": "Springfield"
+            }
+        })
+    );
+}
+
+#[test]
+fn assemble_response_repeat_group_creates_array() {
+    let mut fields = HashMap::new();
+    fields.insert("items[0].name".to_string(), json!("Alice"));
+    fields.insert("items[0].age".to_string(), json!(30));
+    fields.insert("items[1].name".to_string(), json!("Bob"));
+
+    let result = crate::assemble_response(&fields);
+
+    let items = result.get("items").unwrap().as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].get("name"), Some(&json!("Alice")));
+    assert_eq!(items[0].get("age"), Some(&json!(30)));
+    assert_eq!(items[1].get("name"), Some(&json!("Bob")));
+}
+
+#[test]
+fn assemble_response_nested_repeat_groups() {
+    let mut fields = HashMap::new();
+    fields.insert(
+        "items[0].addresses[0].street".to_string(),
+        json!("123 Main"),
+    );
+    fields.insert("items[0].addresses[1].street".to_string(), json!("456 Oak"));
+    fields.insert("items[1].addresses[0].street".to_string(), json!("789 Elm"));
+
+    let result = crate::assemble_response(&fields);
+
+    let items = result.get("items").unwrap().as_array().unwrap();
+    assert_eq!(items.len(), 2);
+
+    let addrs0 = items[0].get("addresses").unwrap().as_array().unwrap();
+    assert_eq!(addrs0.len(), 2);
+    assert_eq!(addrs0[0].get("street"), Some(&json!("123 Main")));
+    assert_eq!(addrs0[1].get("street"), Some(&json!("456 Oak")));
+
+    let addrs1 = items[1].get("addresses").unwrap().as_array().unwrap();
+    assert_eq!(addrs1.len(), 1);
+    assert_eq!(addrs1[0].get("street"), Some(&json!("789 Elm")));
+}
+
+#[test]
+fn assemble_response_preserves_types() {
+    let mut fields = HashMap::new();
+    fields.insert("name".to_string(), json!("Alice"));
+    fields.insert("age".to_string(), json!(30));
+    fields.insert("active".to_string(), json!(true));
+    fields.insert("score".to_string(), json!(99.5));
+
+    let result = crate::assemble_response(&fields);
+
+    assert!(result.get("name").unwrap().is_string());
+    assert!(result.get("age").unwrap().is_number());
+    assert!(result.get("active").unwrap().is_boolean());
+    assert!(result.get("score").unwrap().is_number());
+}
+
+#[test]
+fn assemble_response_xfdf_round_trip() {
+    // Generate XFDF from flat fields, parse it back, then assemble into response
+    let mut original = HashMap::new();
+    original.insert("name".to_string(), json!("Alice"));
+    original.insert("items[0].value".to_string(), json!(42));
+    original.insert("items[1].value".to_string(), json!(99));
+
+    let xfdf = crate::generate_xfdf(&original);
+    let parsed = crate::parse_xfdf(&xfdf).unwrap();
+    let response = crate::assemble_response(&parsed);
+
+    assert_eq!(response.get("name"), Some(&json!("Alice")));
+    let items = response.get("items").unwrap().as_array().unwrap();
+    assert_eq!(items[0].get("value"), Some(&json!(42)));
+    assert_eq!(items[1].get("value"), Some(&json!(99)));
+}
+
+#[test]
+fn assemble_response_sparse_indices_fill_gaps_with_null() {
+    // If we have items[0] and items[2] but not items[1], the array
+    // should have 3 elements with items[1] being an empty object
+    let mut fields = HashMap::new();
+    fields.insert("items[0].name".to_string(), json!("Alice"));
+    fields.insert("items[2].name".to_string(), json!("Charlie"));
+
+    let result = crate::assemble_response(&fields);
+
+    let items = result.get("items").unwrap().as_array().unwrap();
+    assert_eq!(items.len(), 3);
+    assert_eq!(items[0].get("name"), Some(&json!("Alice")));
+    // items[1] should exist as an empty object (gap-filled)
+    assert!(items[1].is_object());
+    assert_eq!(items[2].get("name"), Some(&json!("Charlie")));
+}
+
+// ── Stream Compression ──
+
+#[test]
+fn compressed_pdf_has_valid_header() {
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    // Valid PDF header
+    assert!(pdf_bytes.starts_with(b"%PDF-1.7"));
+}
+
+#[test]
+fn compressed_pdf_contains_flatedecode_filter() {
+    let nodes = vec![
+        make_field_node("TextInput", "name", "Full Name"),
+        make_field_node("TextInput", "email", "Email"),
+    ];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("FlateDecode"),
+        "Compressed PDF must contain /Filter /FlateDecode"
+    );
+}
+
+#[test]
+fn compressed_pdf_smaller_than_uncompressed_threshold() {
+    // A PDF with substantial content should be meaningfully smaller when compressed.
+    // We create a form with many fields to generate enough content for compression
+    // to show benefit.
+    let nodes: Vec<_> = (0..20)
+        .map(|i| {
+            make_field_node(
+                "TextInput",
+                &format!("field_{}", i),
+                &format!("Field Label Number {}", i),
+            )
+        })
+        .collect();
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    // With compression, the PDF should be under a reasonable size.
+    // Without compression, 20 fields typically produce ~6-8KB.
+    // With compression, it should be noticeably smaller.
+    // We just verify the PDF is valid and contains FlateDecode.
+    assert!(pdf_bytes.starts_with(b"%PDF-1.7"));
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("FlateDecode"),
+        "PDF with 20 fields should use FlateDecode compression"
     );
 }

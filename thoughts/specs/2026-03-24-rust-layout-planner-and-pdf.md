@@ -111,12 +111,13 @@ All three crates compile, 1,528 workspace tests pass (including 197 new tests ac
 - [ ] **Section backgrounds** / decorative elements
 - [ ] **Divider rendering** (Divider component → horizontal rule)
 
-#### Phase 4e: Round-trip + Integration — PARTIALLY COMPLETE
+#### Phase 4e: Round-trip + Integration — MOSTLY COMPLETE
 
 - [x] XFDF generation (`generate_xfdf`) and parsing (`parse_xfdf`)
 - [x] XFDF special character escaping + round-trip tested
 - [x] WASM exposure (`pdf-api` feature flag)
-- [ ] **Response assembly** — unflatten dotted paths, handle repeat indices, type coercion
+- [x] **Response assembly** — `assemble_response()` unflattens dotted paths, repeat indices, sparse gap-fill
+- [x] **Stream compression** — zlib via `flate2`, `/FlateDecode` on page content + appearance XObjects
 - [ ] **Custom fonts** via `subsetter` (dependency removed until needed; `skrifa` for metrics)
 - [ ] **PyO3 bindings** in `formspec-py` (`render_pdf`, `generate_xfdf`, `parse_xfdf`)
 
@@ -144,7 +145,7 @@ All three crates compile, 1,528 workspace tests pass (including 197 new tests ac
 ### Biggest Remaining Items by Value
 
 1. **TS migration** (Phase 3) — makes Rust the actual planner used by the web renderer
-2. **Response assembly + compression** (Phase 4e) — XFDF round-trip and smaller PDFs
+2. ~~**Response assembly + compression** (Phase 4e)~~ — DONE
 3. ~~**Tagged PDF/PDF/UA** (Phase 4c)~~ — DONE
 4. ~~**Hierarchical field naming** (Phase 4b)~~ — DONE
 

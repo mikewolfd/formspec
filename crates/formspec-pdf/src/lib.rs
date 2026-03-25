@@ -2,6 +2,7 @@
 
 mod acroform;
 mod appearance;
+mod compress;
 mod fonts;
 mod layout;
 mod measure;
@@ -12,7 +13,7 @@ mod tagged;
 mod xfdf;
 
 pub use options::PdfOptions;
-pub use xfdf::{generate_xfdf, parse_xfdf};
+pub use xfdf::{assemble_response, generate_xfdf, parse_xfdf};
 
 use formspec_plan::EvaluatedNode;
 

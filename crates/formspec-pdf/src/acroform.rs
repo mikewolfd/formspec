@@ -5,9 +5,10 @@
 //! Integrates with TaggingContext for PDF/UA structure tree (/StructParent, /TU).
 
 use formspec_plan::{EvaluatedNode, FieldOption};
-use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
+use pdf_writer::{Filter, Finish, Name, Pdf, Ref, Str, TextStr};
 
 use crate::appearance;
+use crate::compress::zlib_compress;
 use crate::layout::Rect;
 use crate::options::PdfConfig;
 use crate::tagged::TaggingContext;
@@ -406,6 +407,23 @@ fn alloc_ref(alloc: &mut i32) -> Ref {
     r
 }
 
+/// Write a form XObject with zlib compression for the appearance stream bytes.
+fn write_compressed_xobject(
+    pdf: &mut Pdf,
+    xobj_ref: Ref,
+    ap_bytes: &[u8],
+    width: f32,
+    height: f32,
+) {
+    let result = zlib_compress(ap_bytes);
+    let mut xobj = pdf.form_xobject(xobj_ref, result.as_bytes());
+    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
+    if result.is_compressed() {
+        xobj.filter(Filter::FlateDecode);
+    }
+    xobj.finish();
+}
+
 /// Write /StructParent and /TU on an annotation dict.
 /// Called by each field writer after the annotation is created.
 fn write_tagging_attrs(
@@ -442,10 +460,7 @@ fn write_text_field(
         appearance::build_text_field_appearance(value, width, height, config.field_font_size)
     };
     let ap_ref = alloc_ref(alloc);
-
-    let mut xobj = pdf.form_xobject(ap_ref, &ap_bytes);
-    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
-    xobj.finish();
+    write_compressed_xobject(pdf, ap_ref, &ap_bytes, width, height);
 
     let rect = &info.rect;
     let partial_name = terminal_name(&info.name);
@@ -492,13 +507,8 @@ fn write_checkbox_field(
     let off_bytes = appearance::build_empty_box_appearance(width, height);
     let on_ref = alloc_ref(alloc);
     let off_ref = alloc_ref(alloc);
-
-    let mut xobj = pdf.form_xobject(on_ref, &on_bytes);
-    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
-    xobj.finish();
-    let mut xobj = pdf.form_xobject(off_ref, &off_bytes);
-    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
-    xobj.finish();
+    write_compressed_xobject(pdf, on_ref, &on_bytes, width, height);
+    write_compressed_xobject(pdf, off_ref, &off_bytes, width, height);
 
     let rect = &info.rect;
     let partial_name = terminal_name(&info.name);
@@ -546,10 +556,7 @@ fn write_choice_field(
     let ap_bytes =
         appearance::build_text_field_appearance(value, width, height, config.field_font_size);
     let ap_ref = alloc_ref(alloc);
-
-    let mut xobj = pdf.form_xobject(ap_ref, &ap_bytes);
-    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
-    xobj.finish();
+    write_compressed_xobject(pdf, ap_ref, &ap_bytes, width, height);
 
     let rect = &info.rect;
     let partial_name = terminal_name(&info.name);
@@ -640,13 +647,8 @@ fn write_radio_field(
     for (i, (widget_ref, export_name, is_selected)) in widget_infos.iter().enumerate() {
         let on_ref = alloc_ref(alloc);
         let off_ref = alloc_ref(alloc);
-
-        let mut xobj = pdf.form_xobject(on_ref, &on_bytes);
-        xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, circle_size, circle_size));
-        xobj.finish();
-        let mut xobj = pdf.form_xobject(off_ref, &off_bytes);
-        xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, circle_size, circle_size));
-        xobj.finish();
+        write_compressed_xobject(pdf, on_ref, &on_bytes, circle_size, circle_size);
+        write_compressed_xobject(pdf, off_ref, &off_bytes, circle_size, circle_size);
 
         let opt_y = info.rect[1] + (height - (i as f32 + 1.0) * opt_h);
         let mut annot = pdf.annotation(*widget_ref);
@@ -730,10 +732,7 @@ fn write_signature_field(
 ) {
     let ap_bytes = appearance::build_signature_placeholder_appearance(width, height);
     let ap_ref = alloc_ref(alloc);
-
-    let mut xobj = pdf.form_xobject(ap_ref, &ap_bytes);
-    xobj.bbox(pdf_writer::Rect::new(0.0, 0.0, width, height));
-    xobj.finish();
+    write_compressed_xobject(pdf, ap_ref, &ap_bytes, width, height);
 
     let rect = &info.rect;
     let partial_name = terminal_name(&info.name);
