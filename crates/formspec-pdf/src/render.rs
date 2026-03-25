@@ -13,6 +13,31 @@ use crate::options::PdfConfig;
 use crate::paginate::PageItem;
 use crate::tagged::TaggingContext;
 
+/// Replace non-ASCII characters with safe equivalents for PDF Standard 14 fonts.
+/// Standard fonts only support WinAnsiEncoding (Latin-1 subset).
+fn sanitize_for_pdf(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            // Common Unicode → ASCII replacements
+            '\u{2013}' => out.push('-'),        // en-dash → hyphen
+            '\u{2014}' | '\u{2015}' => out.push_str(" - "), // em-dash → spaced hyphen
+            '\u{2018}' | '\u{2019}' => out.push('\''),      // smart quotes
+            '\u{201C}' | '\u{201D}' => out.push('"'),       // smart double quotes
+            '\u{2026}' => out.push_str("..."),  // ellipsis
+            '\u{00A0}' => out.push(' '),        // non-breaking space
+            '\u{2022}' => out.push_str("* "),   // bullet
+            '\u{00D7}' => out.push('x'),        // multiplication sign
+            '\u{2264}' => out.push_str("<="),   // ≤
+            '\u{2265}' => out.push_str(">="),   // ≥
+            '\u{00B0}' => out.push('o'),        // degree sign
+            c if c.is_ascii() || (c as u32) < 256 => out.push(c), // Latin-1 safe
+            _ => out.push('?'),                 // unknown → ?
+        }
+    }
+    out
+}
+
 /// Render a complete PDF document from paginated content.
 pub fn render_document(
     pages: &[Vec<PageItem>],
@@ -290,7 +315,8 @@ fn render_header(content: &mut Content, text: &str, config: &PdfConfig) {
     content.set_font(Name(b"HeBo"), 9.0);
     content.set_fill_rgb(0.3, 0.3, 0.3);
     content.set_text_matrix([1.0, 0.0, 0.0, 1.0, config.margin_left, y]);
-    content.show(Str(text.as_bytes()));
+    let safe = sanitize_for_pdf(text);
+    content.show(Str(safe.as_bytes()));
     content.end_text();
     content.end_marked_content();
     content.restore_state();
@@ -311,7 +337,8 @@ fn render_footer(content: &mut Content, text: &str, config: &PdfConfig, page_num
     content.set_font(Name(b"Helv"), 8.0);
     content.set_fill_rgb(0.4, 0.4, 0.4);
     content.set_text_matrix([1.0, 0.0, 0.0, 1.0, config.margin_left, y]);
-    content.show(Str(footer_text.as_bytes()));
+    let safe = sanitize_for_pdf(&footer_text);
+    content.show(Str(safe.as_bytes()));
     content.end_text();
     content.end_marked_content();
     content.restore_state();
@@ -417,7 +444,8 @@ fn render_field_node(
         content.set_font(Name(b"Helv"), config.label_font_size);
         content.set_fill_rgb(0.2, 0.2, 0.2);
         content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
-        content.show(Str(label.as_bytes()));
+        let safe_label = sanitize_for_pdf(label);
+        content.show(Str(safe_label.as_bytes()));
         content.end_text();
         content.end_marked_content();
         content.restore_state();
@@ -472,8 +500,8 @@ fn render_field_node(
         for opt in options {
             let value_str = opt.value.to_string();
             let opt_label = opt.label.as_deref().unwrap_or(&value_str);
-            let indicator = if is_multi { "\u{25A1} " } else { "\u{25CB} " }; // □ or ○
-            let display = format!("{}{}", indicator, opt_label);
+            let indicator = if is_multi { "[ ] " } else { "( ) " };
+            let display = format!("{}{}", indicator, sanitize_for_pdf(opt_label));
             let pdf_y = layout::content_y_to_pdf_y(cursor_y + config.field_font_size, config);
             content.save_state();
             content.begin_text();
@@ -520,7 +548,8 @@ fn render_field_node(
     // Render hint if present (with word wrapping)
     if let Some(ref fi) = node.field_item {
         if let Some(ref hint) = fi.hint {
-            let lines = fonts::wrap_lines(hint, &HELVETICA_WIDTHS, config.hint_font_size, available_width);
+            let safe_hint = sanitize_for_pdf(hint);
+            let lines = fonts::wrap_lines(&safe_hint, &HELVETICA_WIDTHS, config.hint_font_size, available_width);
             let line_height = config.hint_font_size * 1.2;
             content.save_state();
             content.begin_text();
@@ -573,7 +602,8 @@ fn render_layout_node(
         content.set_font(Name(b"HeBo"), config.heading_font_size);
         content.set_fill_rgb(0.118, 0.251, 0.686);
         content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
-        content.show(Str(title.as_bytes()));
+        let safe_title = sanitize_for_pdf(title);
+        content.show(Str(safe_title.as_bytes()));
         content.end_text();
         content.end_marked_content();
         content.restore_state();
@@ -654,7 +684,8 @@ fn render_display_node(
         _ => (Name(b"Helv"), &HELVETICA_WIDTHS, config.field_font_size),
     };
 
-    let lines = fonts::wrap_lines(text, widths, font_size, available_width);
+    let safe_text = sanitize_for_pdf(text);
+    let lines = fonts::wrap_lines(&safe_text, widths, font_size, available_width);
     let line_height = font_size * 1.2;
 
     let is_heading = matches!(node.component.as_str(), "heading" | "Heading");
