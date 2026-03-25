@@ -250,6 +250,10 @@ function LayoutNodePreview({
   tracesByPath: Map<string, SourceTrace[]>;
   diffKeys: DiffKeySet | null;
 }) {
+  // Rust planner omits empty `props` / `children` in JSON; normalize for preview.
+  const props = node.props ?? {};
+  const children = node.children ?? [];
+
   const bindPath = node.bindPath;
   const traces = bindPath ? tracesByPath.get(bindPath) ?? [] : [];
   const diffStatus = bindPath ? getDiffStatus(bindPath, diffKeys) : null;
@@ -257,7 +261,7 @@ function LayoutNodePreview({
   // ── Layout Components ──
 
   if (node.component === 'Stack' || node.component === 'Page') {
-    const title = node.props.title as string | undefined;
+    const title = props.title as string | undefined;
     return (
       <div className="space-y-3" data-diff={diffStatus ?? undefined}>
         {title && (
@@ -273,7 +277,7 @@ function LayoutNodePreview({
         )}
         {traces.map((t, i) => <TraceTag key={i} trace={t} />)}
         <div className="space-y-4">
-          {node.children.map(child => (
+          {children.map(child => (
             <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />
           ))}
         </div>
@@ -282,13 +286,13 @@ function LayoutNodePreview({
   }
 
   if (node.component === 'Grid') {
-    const cols = (node.props.columns as number) || 12;
+    const cols = (props.columns as number) || 12;
     return (
       <div 
         className="grid gap-4" 
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
-        {node.children.map(child => (
+        {children.map(child => (
           <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />
         ))}
       </div>
@@ -303,7 +307,7 @@ function LayoutNodePreview({
           <div className="text-[10px] text-muted font-medium italic">Logic-controlled pagination</div>
         </div>
         <div className="space-y-6">
-          {node.children.map((child, i) => (
+          {children.map((child, i) => (
             <div key={child.id} className="space-y-4">
                {i > 0 && <div className="h-px bg-border/20 border-dashed border-b" />}
                <LayoutNodePreview node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />
@@ -319,7 +323,7 @@ function LayoutNodePreview({
   if (node.category === 'field' && node.fieldItem) {
     const item = node.fieldItem;
     const presentation = node.presentation;
-    const colSpan = (node.props.colSpan as number) || (node.style?.gridColumn as string)?.match(/span (\d+)/)?.[1];
+    const colSpan = (props.colSpan as number) || (node.style?.gridColumn as string)?.match(/span (\d+)/)?.[1];
 
     return (
       <div
@@ -345,10 +349,10 @@ function LayoutNodePreview({
         
         {traces.map((t, i) => <TraceTag key={i} trace={t} />)}
 
-        {node.children.length > 0 && (
+        {children.length > 0 && (
           <div className="mt-3 pt-3 border-t border-border/40 space-y-3 bg-subtle/20 -mx-3.5 px-3.5 pb-2 rounded-b-md">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted/50 mb-2">Dependent Fields</div>
-            {node.children.map(child => (
+            {children.map(child => (
               <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />
             ))}
           </div>
@@ -360,7 +364,7 @@ function LayoutNodePreview({
   // ── Display Components ──
 
   if (node.category === 'display') {
-    const text = (node.props.text as string) || '';
+    const text = (props.text as string) || '';
     if (node.component === 'Heading') {
       return (
         <div className="pt-4 pb-1 border-b border-border/60">
@@ -387,10 +391,10 @@ function LayoutNodePreview({
   }
 
   // Fallback for generic containers
-  if (node.children.length > 0) {
+  if (children.length > 0) {
     return (
       <div className="space-y-2">
-        {node.children.map(child => (
+        {children.map(child => (
           <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />
         ))}
       </div>

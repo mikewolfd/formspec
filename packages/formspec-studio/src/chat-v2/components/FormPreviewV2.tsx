@@ -224,12 +224,15 @@ function LayoutNodePreview({ node, tracesByPath, diffKeys }: {
   tracesByPath: Map<string, SourceTrace[]>;
   diffKeys: DiffKeySet | null;
 }) {
+  const props = node.props ?? {};
+  const children = node.children ?? [];
+
   const bindPath = node.bindPath;
   const traces = bindPath ? tracesByPath.get(bindPath) ?? [] : [];
   const diffStatus = bindPath ? getDiffStatus(bindPath, diffKeys) : null;
 
   if (node.component === 'Stack' || node.component === 'Page') {
-    const title = node.props.title as string | undefined;
+    const title = props.title as string | undefined;
     return (
       <div className="space-y-3">
         {title && (
@@ -242,16 +245,16 @@ function LayoutNodePreview({ node, tracesByPath, diffKeys }: {
           </div>
         )}
         {traces.map((t, i) => <TraceTag key={i} trace={t} />)}
-        <div className="space-y-4">{node.children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}</div>
+        <div className="space-y-4">{children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}</div>
       </div>
     );
   }
 
   if (node.component === 'Grid') {
-    const cols = (node.props.columns as number) || 12;
+    const cols = (props.columns as number) || 12;
     return (
       <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        {node.children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}
+        {children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}
       </div>
     );
   }
@@ -264,7 +267,7 @@ function LayoutNodePreview({ node, tracesByPath, diffKeys }: {
           <div className="text-[10px] v2-text-tertiary font-medium italic">Logic-controlled pagination</div>
         </div>
         <div className="space-y-6">
-          {node.children.map((child, i) => (
+          {children.map((child, i) => (
             <div key={child.id} className="space-y-4">
               {i > 0 && <div className="h-px v2-divider" />}
               <LayoutNodePreview node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />
@@ -279,7 +282,7 @@ function LayoutNodePreview({ node, tracesByPath, diffKeys }: {
   if (node.category === 'field' && node.fieldItem) {
     const item = node.fieldItem;
     const presentation = node.presentation;
-    const colSpan = (node.props.colSpan as number) || (node.style?.gridColumn as string)?.match(/span (\d+)/)?.[1];
+    const colSpan = (props.colSpan as number) || (node.style?.gridColumn as string)?.match(/span (\d+)/)?.[1];
 
     return (
       <div
@@ -300,10 +303,10 @@ function LayoutNodePreview({ node, tracesByPath, diffKeys }: {
         </div>
         <FieldMockup item={{ ...item, presentation } as any} />
         {traces.map((t, i) => <TraceTag key={i} trace={t} />)}
-        {node.children.length > 0 && (
+        {children.length > 0 && (
           <div className="v2-dependent-fields mt-3 pt-3 space-y-3 -mx-4 px-4 pb-2 rounded-b-xl">
             <div className="v2-text-tertiary text-[10px] font-bold uppercase tracking-wider mb-2">Dependent Fields</div>
-            {node.children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}
+            {children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}
           </div>
         )}
       </div>
@@ -312,7 +315,7 @@ function LayoutNodePreview({ node, tracesByPath, diffKeys }: {
 
   // Display components
   if (node.category === 'display') {
-    const text = (node.props.text as string) || '';
+    const text = (props.text as string) || '';
     if (node.component === 'Heading') {
       return (
         <div className="pt-4 pb-1 border-b v2-border">
@@ -332,8 +335,8 @@ function LayoutNodePreview({ node, tracesByPath, diffKeys }: {
     );
   }
 
-  if (node.children.length > 0) {
-    return <div className="space-y-2">{node.children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}</div>;
+  if (children.length > 0) {
+    return <div className="space-y-2">{children.map(child => <LayoutNodePreview key={child.id} node={child} tracesByPath={tracesByPath} diffKeys={diffKeys} />)}</div>;
   }
 
   return null;

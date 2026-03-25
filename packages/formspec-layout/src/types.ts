@@ -17,8 +17,9 @@ export interface LayoutNode {
     /** Node classification for renderer dispatch. */
     category: 'layout' | 'field' | 'display' | 'interactive' | 'special';
 
-    /** All resolved component props (tokens resolved, responsive merged). JSON-serializable. */
-    props: Record<string, unknown>;
+    /** All resolved component props (tokens resolved, responsive merged). JSON-serializable.
+     *  Omitted in JSON when empty (Rust `skip_serializing_if`); treat as `{}` when absent. */
+    props?: Record<string, unknown>;
 
     /** Resolved inline styles (tokens resolved). */
     style?: Record<string, string | number>;
@@ -33,7 +34,7 @@ export interface LayoutNode {
     /** Ordered child nodes.
      *  Rust omits this field when empty (skip_serializing_if = "Vec::is_empty").
      *  Code should default to [] when undefined. */
-    children: LayoutNode[];
+    children?: LayoutNode[];
 
     // ── Field binding ──
 
