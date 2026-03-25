@@ -1,14 +1,14 @@
 //! Unit tests for formspec-pdf.
 
+use serde_json::{Map, json};
 use std::collections::HashMap;
-use serde_json::{json, Map};
 
-use formspec_plan::{EvaluatedNode, NodeCategory, FieldItemSnapshot};
+use formspec_plan::{EvaluatedNode, FieldItemSnapshot, NodeCategory};
 
-use crate::fonts::{text_width, wrap_text, text_height, HELVETICA_WIDTHS, HELVETICA_BOLD_WIDTHS};
-use crate::options::{PdfOptions, PdfConfig};
-use crate::layout::{grid_to_rect, content_y_to_pdf_y};
+use crate::fonts::{HELVETICA_BOLD_WIDTHS, HELVETICA_WIDTHS, text_height, text_width, wrap_text};
+use crate::layout::{content_y_to_pdf_y, grid_to_rect};
 use crate::measure::{measure_node, measure_trees};
+use crate::options::{PdfConfig, PdfOptions};
 use crate::paginate::paginate;
 
 // ── Helpers ──
@@ -105,14 +105,20 @@ fn text_width_non_ascii_uses_space() {
     // Non-ASCII characters should use space width as fallback
     let w_space = text_width(" ", &HELVETICA_WIDTHS, 10.0);
     let w_emoji = text_width("\u{263A}", &HELVETICA_WIDTHS, 10.0); // smiley
-    assert!((w_emoji - w_space).abs() < 0.01, "Non-ASCII should use space width");
+    assert!(
+        (w_emoji - w_space).abs() < 0.01,
+        "Non-ASCII should use space width"
+    );
 }
 
 #[test]
 fn text_width_scales_with_font_size() {
     let w10 = text_width("A", &HELVETICA_WIDTHS, 10.0);
     let w20 = text_width("A", &HELVETICA_WIDTHS, 20.0);
-    assert!((w20 - w10 * 2.0).abs() < 0.01, "Width should scale linearly with size");
+    assert!(
+        (w20 - w10 * 2.0).abs() < 0.01,
+        "Width should scale linearly with size"
+    );
 }
 
 #[test]
@@ -174,7 +180,12 @@ fn text_height_multi_line() {
     assert!(lines >= 2, "Expected at least 2 lines, got {}", lines);
     let h = text_height("Hello World", &HELVETICA_WIDTHS, 10.0, 30.0);
     let expected = lines as f32 * 10.0 * 1.2;
-    assert!((h - expected).abs() < 0.01, "Expected {}, got {}", expected, h);
+    assert!(
+        (h - expected).abs() < 0.01,
+        "Expected {}, got {}",
+        expected,
+        h
+    );
 }
 
 // ── PdfConfig ──
@@ -312,7 +323,10 @@ fn checkbox_appearances_nonempty() {
     assert!(!on.is_empty());
     assert!(!off.is_empty());
     // On state should be longer (has checkmark drawing in addition to box)
-    assert!(on.len() > off.len(), "checkmark should produce more bytes than empty box");
+    assert!(
+        on.len() > off.len(),
+        "checkmark should produce more bytes than empty box"
+    );
 }
 
 #[test]
@@ -321,7 +335,10 @@ fn radio_appearances_nonempty() {
     let off = crate::appearance::build_radio_off_appearance(14.0, 14.0);
     assert!(!on.is_empty());
     assert!(!off.is_empty());
-    assert!(on.len() > off.len(), "filled circle should produce more bytes than empty circle");
+    assert!(
+        on.len() > off.len(),
+        "filled circle should produce more bytes than empty circle"
+    );
 }
 
 // ── Measurement ──
@@ -361,7 +378,10 @@ fn measure_non_relevant_node_zero_height() {
     let mut node = make_field_node("TextInput", "name", "Name");
     node.relevant = false;
     let h = measure_node(&node, &config, config.content_width);
-    assert!((h - 0.0).abs() < 0.01, "Non-relevant nodes should have zero height");
+    assert!(
+        (h - 0.0).abs() < 0.01,
+        "Non-relevant nodes should have zero height"
+    );
 }
 
 #[test]
@@ -455,7 +475,11 @@ fn paginate_overflows_to_second_page() {
     let measured = measure_trees(&nodes, &config);
     let pages = paginate(&measured, &config);
 
-    assert!(pages.len() >= 2, "25 fields should need at least 2 pages, got {}", pages.len());
+    assert!(
+        pages.len() >= 2,
+        "25 fields should need at least 2 pages, got {}",
+        pages.len()
+    );
     // First page should have items
     assert!(!pages[0].is_empty());
     // Second page should have items
@@ -560,9 +584,18 @@ fn render_pdf_with_select_field() {
         hint: None,
         data_type: Some("choice".to_string()),
         options: vec![
-            formspec_plan::FieldOption { value: json!("red"), label: Some("Red".to_string()) },
-            formspec_plan::FieldOption { value: json!("blue"), label: Some("Blue".to_string()) },
-            formspec_plan::FieldOption { value: json!("green"), label: Some("Green".to_string()) },
+            formspec_plan::FieldOption {
+                value: json!("red"),
+                label: Some("Red".to_string()),
+            },
+            formspec_plan::FieldOption {
+                value: json!("blue"),
+                label: Some("Blue".to_string()),
+            },
+            formspec_plan::FieldOption {
+                value: json!("green"),
+                label: Some("Green".to_string()),
+            },
         ],
         option_set: None,
     });
@@ -575,7 +608,10 @@ fn render_pdf_with_select_field() {
     // Should contain /Ch (choice field type) for select fields
     assert!(pdf_str.contains("/Ch"), "Select fields should be /Ch type");
     // Should contain the selected value
-    assert!(pdf_str.contains("blue"), "Selected value should appear in PDF");
+    assert!(
+        pdf_str.contains("blue"),
+        "Selected value should appear in PDF"
+    );
 }
 
 // ── AcroForm Catalog Entry ──
@@ -683,7 +719,10 @@ fn render_pdf_with_numeric_value_produces_valid_pdf() {
     assert_eq!(header, "%PDF-");
     // The value "42" should appear in the PDF bytes (as part of the /V entry)
     let pdf_str = String::from_utf8_lossy(&pdf_bytes);
-    assert!(pdf_str.contains("42"), "Numeric value should appear in PDF output");
+    assert!(
+        pdf_str.contains("42"),
+        "Numeric value should appear in PDF output"
+    );
 }
 
 // ── XFDF Round-trip (re-exported from xfdf module) ──
@@ -734,4 +773,295 @@ fn xfdf_deterministic_key_order() {
     let z_pos = xml.find("z_field").unwrap();
     assert!(a_pos < m_pos, "keys should be sorted alphabetically");
     assert!(m_pos < z_pos, "keys should be sorted alphabetically");
+}
+
+// ── Radio Group AcroForm Fields ──
+
+#[test]
+fn render_pdf_radio_group_produces_btn_type() {
+    let mut node = make_field_node("RadioGroup", "color", "Favorite Color");
+    node.field_item = Some(FieldItemSnapshot {
+        key: "color".to_string(),
+        label: Some("Favorite Color".to_string()),
+        hint: None,
+        data_type: Some("choice".to_string()),
+        options: vec![
+            formspec_plan::FieldOption {
+                value: json!("red"),
+                label: Some("Red".to_string()),
+            },
+            formspec_plan::FieldOption {
+                value: json!("blue"),
+                label: Some("Blue".to_string()),
+            },
+            formspec_plan::FieldOption {
+                value: json!("green"),
+                label: Some("Green".to_string()),
+            },
+        ],
+        option_set: None,
+    });
+    node.value = Some(json!("blue"));
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Radio groups must be /Btn (button), NOT /Ch (choice)
+    assert!(
+        pdf_str.contains("/Btn"),
+        "Radio group must use /Btn field type, not /Ch"
+    );
+}
+
+#[test]
+fn render_pdf_radio_group_has_three_annotations() {
+    let mut node = make_field_node("RadioGroup", "color", "Favorite Color");
+    node.field_item = Some(FieldItemSnapshot {
+        key: "color".to_string(),
+        label: Some("Favorite Color".to_string()),
+        hint: None,
+        data_type: Some("choice".to_string()),
+        options: vec![
+            formspec_plan::FieldOption {
+                value: json!("red"),
+                label: Some("Red".to_string()),
+            },
+            formspec_plan::FieldOption {
+                value: json!("blue"),
+                label: Some("Blue".to_string()),
+            },
+            formspec_plan::FieldOption {
+                value: json!("green"),
+                label: Some("Green".to_string()),
+            },
+        ],
+        option_set: None,
+    });
+    node.value = Some(json!("blue"));
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Each option gets its own widget annotation — 3 options = 3 Widget subtypes
+    let widget_count = pdf_str.matches("/Subtype /Widget").count();
+    assert!(
+        widget_count >= 3,
+        "Radio group with 3 options should produce at least 3 widget annotations, got {}",
+        widget_count
+    );
+}
+
+#[test]
+fn render_pdf_radio_group_has_radio_ff_bits() {
+    let mut node = make_field_node("RadioGroup", "color", "Favorite Color");
+    node.field_item = Some(FieldItemSnapshot {
+        key: "color".to_string(),
+        label: Some("Favorite Color".to_string()),
+        hint: None,
+        data_type: Some("choice".to_string()),
+        options: vec![
+            formspec_plan::FieldOption {
+                value: json!("red"),
+                label: Some("Red".to_string()),
+            },
+            formspec_plan::FieldOption {
+                value: json!("blue"),
+                label: Some("Blue".to_string()),
+            },
+        ],
+        option_set: None,
+    });
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // /Ff bits 15 (Radio=1<<14=16384) + 16 (NoToggleToOff=1<<15=32768) = 49152
+    assert!(
+        pdf_str.contains("/Ff 49152"),
+        "Radio group must have /Ff with Radio+NoToggleToOff bits (49152), PDF:\n{}",
+        &pdf_str[..pdf_str.len().min(2000)]
+    );
+}
+
+// ── Signature Field ──
+
+fn make_signature_node(bind: &str) -> EvaluatedNode {
+    EvaluatedNode {
+        id: bind.to_string(),
+        component: "Signature".to_string(),
+        category: NodeCategory::Field,
+        props: Map::new(),
+        style: None,
+        css_classes: Vec::new(),
+        accessibility: None,
+        presentation: None,
+        label_position: None,
+        bind_path: Some(bind.to_string()),
+        field_item: Some(FieldItemSnapshot {
+            key: bind.to_string(),
+            label: Some("Signature".to_string()),
+            hint: None,
+            data_type: Some("string".to_string()),
+            options: Vec::new(),
+            option_set: None,
+        }),
+        value: None,
+        relevant: true,
+        required: false,
+        readonly: false,
+        validations: Vec::new(),
+        span: 12,
+        col_start: 0,
+        children: Vec::new(),
+        repeat_group: None,
+    }
+}
+
+#[test]
+fn render_pdf_signature_field_is_sig_type() {
+    let nodes = vec![make_signature_node("applicant_sig")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("/Sig"),
+        "Signature field must use /FT /Sig"
+    );
+}
+
+#[test]
+fn render_pdf_signature_field_has_no_value() {
+    let nodes = vec![make_signature_node("applicant_sig")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Signature placeholders should not have /V (unsigned)
+    // Search for /V after /Sig to make sure the sig field specifically has no value
+    let sig_pos = pdf_str.find("/Sig").expect("/Sig must exist");
+    // Find the end of this object (next "endobj" or similar boundary)
+    let after_sig = &pdf_str[sig_pos..];
+    assert!(
+        !after_sig.starts_with("/Sig\n/V") && !after_sig.contains("/V "),
+        "Signature placeholder should not have /V entry"
+    );
+}
+
+// ── FileUpload Placeholder ──
+
+fn make_file_upload_node(bind: &str) -> EvaluatedNode {
+    EvaluatedNode {
+        id: bind.to_string(),
+        component: "FileUpload".to_string(),
+        category: NodeCategory::Interactive,
+        props: Map::new(),
+        style: None,
+        css_classes: Vec::new(),
+        accessibility: None,
+        presentation: None,
+        label_position: None,
+        bind_path: Some(bind.to_string()),
+        field_item: Some(FieldItemSnapshot {
+            key: bind.to_string(),
+            label: Some("Upload Document".to_string()),
+            hint: None,
+            data_type: Some("binary".to_string()),
+            options: Vec::new(),
+            option_set: None,
+        }),
+        value: None,
+        relevant: true,
+        required: false,
+        readonly: false,
+        validations: Vec::new(),
+        span: 12,
+        col_start: 0,
+        children: Vec::new(),
+        repeat_group: None,
+    }
+}
+
+#[test]
+fn render_pdf_file_upload_no_acroform_annotation() {
+    let nodes = vec![make_file_upload_node("resume")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // FileUpload should NOT produce any AcroForm field
+    assert!(
+        !pdf_str.contains("/AcroForm"),
+        "FileUpload should not create any AcroForm entry"
+    );
+}
+
+#[test]
+fn render_pdf_file_upload_has_placeholder_text() {
+    let nodes = vec![make_file_upload_node("resume")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("File upload not available in PDF"),
+        "FileUpload should render placeholder text"
+    );
+}
+
+// ── Hierarchical Field Naming (Repeat Groups) ──
+
+#[test]
+fn render_pdf_hierarchical_naming_top_level_fields() {
+    // For repeat group paths like "items[0].name", the /Fields array
+    // should contain only the top-level parent "items", not individual widgets
+    let mut node0 = make_field_node("TextInput", "items[0].name", "Name");
+    node0.bind_path = Some("items[0].name".to_string());
+    let mut node1 = make_field_node("TextInput", "items[1].name", "Name");
+    node1.bind_path = Some("items[1].name".to_string());
+
+    let nodes = vec![node0, node1];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // Should have hierarchical /T entries — the segments "items", "[0]"/"[1]", "name"
+    assert!(pdf_str.contains("/AcroForm"), "Should have AcroForm dict");
+
+    // The terminal widget fields should have /T (name) — just the last segment
+    // Count terminal /T entries for "name"
+    let name_count = pdf_str.matches("(name)").count();
+    assert!(
+        name_count >= 2,
+        "Should have at least 2 terminal fields named 'name', got {}",
+        name_count
+    );
+}
+
+#[test]
+fn render_pdf_hierarchical_parent_chain() {
+    // items[0].name → parent chain: items → [0] → name (terminal widget)
+    let mut node = make_field_node("TextInput", "items[0].name", "Name");
+    node.bind_path = Some("items[0].name".to_string());
+
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+
+    // Parent non-terminal fields should exist with /T for each segment
+    assert!(
+        pdf_str.contains("(items)"),
+        "Should have parent field 'items'"
+    );
+    // The index segment as a partial name
+    assert!(
+        pdf_str.contains("(0)") || pdf_str.contains("([0])"),
+        "Should have index segment in parent chain"
+    );
 }

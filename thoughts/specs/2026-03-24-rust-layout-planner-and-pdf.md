@@ -72,19 +72,19 @@ All three crates compile, 1,528 workspace tests pass (including 197 new tests ac
 - [x] Greedy page break algorithm with keep constraints
 - [x] 57 tests (fonts, measurement, pagination)
 
-#### Phase 4b: Appearance Streams + AcroForm — MOSTLY COMPLETE
+#### Phase 4b: Appearance Streams + AcroForm — COMPLETE
 
 - [x] Text field appearances (single-line + multiline word-wrap)
 - [x] Checkbox on/off — path-drawn checkmark, empty box
-- [x] Radio on/off — Bezier circle approximation (built, not yet wired to AcroForm dispatch)
+- [x] Radio on/off — Bezier circle approximation, wired to AcroForm dispatch
 - [x] Select/combo `/Ch` fields with `/Opt` arrays
 - [x] Non-string value display (`value_to_display_string` for numbers, booleans)
 - [x] AcroForm catalog entry (`/AcroForm` dict with `/Fields`, `/DA`, `/DR`)
 - [x] Default Appearance strings per field type
-- [ ] **RadioGroup as `/Btn` radio** — currently dispatched as `/Ch` list (design choice for print, not PDF-native)
-- [ ] **Hierarchical field naming** for repeat groups (dotted partial names, `/Parent` chain)
-- [ ] **Signature field placeholders** (`/Sig` type, unsigned)
-- [ ] **FileUpload static placeholder** ("File upload not available in PDF")
+- [x] **RadioGroup as `/Btn` radio** — per-option widget annotations, `/Ff` Radio+NoToggleToOff bits
+- [x] **Hierarchical field naming** for repeat groups (dotted partial names, `/Parent` chain via `field_refs_hierarchical`)
+- [x] **Signature field placeholders** (`/FT /Sig`, unsigned, dashed border appearance, `AnnotationFlags::PRINT`)
+- [x] **FileUpload static placeholder** ("File upload not available in PDF" — no AcroForm field)
 
 #### Phase 4c: Tagged PDF / PDF/UA — SCAFFOLDED, NOT IMPLEMENTED
 

@@ -64,8 +64,12 @@ fn measure_layout_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f
             if label.is_empty() {
                 0.0
             } else {
-                fonts::text_height(label, &HELVETICA_BOLD_WIDTHS, config.heading_font_size, column_width)
-                    + config.field_padding
+                fonts::text_height(
+                    label,
+                    &HELVETICA_BOLD_WIDTHS,
+                    config.heading_font_size,
+                    column_width,
+                ) + config.field_padding
             }
         }
         _ => 0.0,
@@ -115,7 +119,12 @@ fn measure_field_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f3
         .and_then(|fi| fi.label.as_deref())
         .unwrap_or("");
     if !label.is_empty() {
-        h += fonts::text_height(label, &HELVETICA_WIDTHS, config.label_font_size, column_width);
+        h += fonts::text_height(
+            label,
+            &HELVETICA_WIDTHS,
+            config.label_font_size,
+            column_width,
+        );
         h += 2.0; // gap between label and field
     }
 

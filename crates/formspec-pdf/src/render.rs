@@ -113,17 +113,24 @@ pub fn render_document(
     // Write AcroForm field objects into the PDF
     acroform.write_fields(&mut pdf, nodes, &page_refs, config, &mut next_ref);
 
-    // Write AcroForm dictionary if there are interactive fields
-    let field_refs = acroform.field_refs();
+    // Write AcroForm dictionary if there are interactive fields.
+    // Use hierarchical refs to build proper /Parent chains for repeat group paths.
+    let field_refs = acroform.field_refs_hierarchical(&mut pdf, &mut next_ref);
     if !field_refs.is_empty() {
         let mut acroform_dict = pdf.indirect(acroform_ref).dict();
-        acroform_dict.insert(Name(b"Fields")).array().items(field_refs.iter().copied());
+        acroform_dict
+            .insert(Name(b"Fields"))
+            .array()
+            .items(field_refs.iter().copied());
         // Default appearance for fields without their own /DA
         let da = format!("/Helv {} Tf 0 0 0 rg", config.field_font_size);
-        acroform_dict.insert(Name(b"DA")).primitive(Str(da.as_bytes()));
+        acroform_dict
+            .insert(Name(b"DA"))
+            .primitive(Str(da.as_bytes()));
         // /DR (default resources) — reference the same fonts as pages
         let mut dr = acroform_dict.insert(Name(b"DR")).dict();
-        dr.insert(Name(b"Font")).dict()
+        dr.insert(Name(b"Font"))
+            .dict()
             .pair(Name(b"Helv"), helvetica_ref)
             .pair(Name(b"HeBo"), helvetica_bold_ref)
             .pair(Name(b"ZaDb"), zapf_ref);
@@ -273,17 +280,40 @@ fn render_node(
 
     match node.category {
         NodeCategory::Field => {
-            render_field_node(content, node, y_offset, available_width, config, acroform, page_idx, alloc);
+            render_field_node(
+                content,
+                node,
+                y_offset,
+                available_width,
+                config,
+                acroform,
+                page_idx,
+                alloc,
+            );
         }
         NodeCategory::Layout => {
-            render_layout_node(content, node, y_offset, available_width, config, acroform, page_idx, page_refs, alloc);
+            render_layout_node(
+                content,
+                node,
+                y_offset,
+                available_width,
+                config,
+                acroform,
+                page_idx,
+                page_refs,
+                alloc,
+            );
         }
         NodeCategory::Display => {
             render_display_node(content, node, y_offset, available_width, config);
         }
         NodeCategory::Interactive | NodeCategory::Special => {
-            // Render interactive/special as static display in PDF output
-            render_display_node(content, node, y_offset, available_width, config);
+            // FileUpload renders as a static placeholder — no AcroForm field
+            if node.component == "FileUpload" {
+                render_file_upload_placeholder(content, node, y_offset, available_width, config);
+            } else {
+                render_display_node(content, node, y_offset, available_width, config);
+            }
         }
     }
 }
@@ -435,15 +465,7 @@ fn render_layout_node(
         let col_width = child_column_width(child, config);
         let child_h = crate::measure::measure_node(child, config, col_width);
         render_node(
-            content,
-            child,
-            row_y,
-            col_width,
-            config,
-            acroform,
-            page_idx,
-            page_refs,
-            alloc,
+            content, child, row_y, col_width, config, acroform, page_idx, page_refs, alloc,
         );
         row_cols += span;
         row_max_h = row_max_h.max(child_h);
@@ -484,6 +506,29 @@ fn render_display_node(
     content.set_fill_rgb(0.0, 0.0, 0.0);
     content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
     content.show(Str(text.as_bytes()));
+    content.end_text();
+    content.restore_state();
+}
+
+/// Render a FileUpload component as static placeholder text.
+/// No AcroForm field is created — file upload is not supported in PDF.
+fn render_file_upload_placeholder(
+    content: &mut Content,
+    node: &EvaluatedNode,
+    y_offset: f32,
+    available_width: f32,
+    config: &PdfConfig,
+) {
+    let x = config.margin_left + node.col_start as f32 * (available_width / 12.0);
+    let font_size = config.field_font_size;
+    let pdf_y = layout::content_y_to_pdf_y(y_offset + font_size, config);
+
+    content.save_state();
+    content.begin_text();
+    content.set_font(Name(b"Helv"), font_size);
+    content.set_fill_rgb(0.5, 0.5, 0.5);
+    content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
+    content.show(Str(b"(File upload not available in PDF)"));
     content.end_text();
     content.restore_state();
 }

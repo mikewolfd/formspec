@@ -6,7 +6,12 @@
 use pdf_writer::{Content, Name, Str};
 
 /// Build the normal appearance stream for a single-line text field.
-pub fn build_text_field_appearance(value: &str, width: f32, height: f32, font_size: f32) -> Vec<u8> {
+pub fn build_text_field_appearance(
+    value: &str,
+    width: f32,
+    height: f32,
+    font_size: f32,
+) -> Vec<u8> {
     let mut content = Content::new();
 
     // Background
@@ -142,8 +147,6 @@ pub fn build_empty_box_appearance(width: f32, height: f32) -> Vec<u8> {
 }
 
 /// Build the "on" appearance for a radio button (filled circle).
-/// Used when radio button AcroForm support is added.
-#[allow(dead_code)]
 pub fn build_radio_on_appearance(width: f32, height: f32) -> Vec<u8> {
     let mut content = Content::new();
     let cx = width / 2.0;
@@ -170,8 +173,6 @@ pub fn build_radio_on_appearance(width: f32, height: f32) -> Vec<u8> {
 }
 
 /// Build the "off" appearance for a radio button (empty circle).
-/// Used when radio button AcroForm support is added.
-#[allow(dead_code)]
 pub fn build_radio_off_appearance(width: f32, height: f32) -> Vec<u8> {
     let mut content = Content::new();
     let cx = width / 2.0;
@@ -189,10 +190,42 @@ pub fn build_radio_off_appearance(width: f32, height: f32) -> Vec<u8> {
     content.finish().into_vec()
 }
 
+/// Build the appearance for a signature placeholder — dashed border rectangle.
+pub fn build_signature_placeholder_appearance(width: f32, height: f32) -> Vec<u8> {
+    let mut content = Content::new();
+
+    // Light gray background
+    content.save_state();
+    content.set_fill_rgb(0.97, 0.97, 0.97);
+    content.rect(0.0, 0.0, width, height);
+    content.fill_nonzero();
+    content.restore_state();
+
+    // Dashed border: 4pt dash, 2pt gap
+    content.save_state();
+    content.set_stroke_rgb(0.5, 0.5, 0.5);
+    content.set_line_width(1.0);
+    content.set_dash_pattern([4.0, 2.0], 0.0);
+    content.rect(1.0, 1.0, width - 2.0, height - 2.0);
+    content.stroke();
+    content.restore_state();
+
+    // "Sign here" label
+    content.save_state();
+    content.begin_text();
+    content.set_font(Name(b"Helv"), 8.0);
+    content.set_fill_rgb(0.5, 0.5, 0.5);
+    content.set_text_matrix([1.0, 0.0, 0.0, 1.0, 4.0, 4.0]);
+    content.show(Str(b"Sign here"));
+    content.end_text();
+    content.restore_state();
+
+    content.finish().into_vec()
+}
+
 /// Draw a circle approximation using four cubic bezier curves.
 /// Uses the kappa constant (4/3)(sqrt(2)-1) ~= 0.5523 for the best cubic approximation.
 /// Used by radio button appearance builders.
-#[allow(dead_code)]
 fn draw_circle(content: &mut Content, cx: f32, cy: f32, r: f32) {
     let k: f32 = 0.5523;
     let kr = k * r;

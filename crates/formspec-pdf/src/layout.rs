@@ -25,7 +25,12 @@ pub fn grid_to_rect(span: u32, start: u32, y_offset: f32, height: f32, config: &
     let width = span as f32 * col_width + (span.saturating_sub(1)) as f32 * config.column_gap;
     let y = content_y_to_pdf_y(y_offset + height, config);
 
-    Rect { x, y, width, height }
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
 }
 
 /// Convert a content-area Y offset (top-down, 0 = top of content area) to PDF Y coordinate

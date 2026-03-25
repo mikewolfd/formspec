@@ -1,7 +1,7 @@
 //! XFDF round-trip — generate and parse XFDF XML for form data exchange.
 
-use std::collections::HashMap;
 use serde_json::Value;
+use std::collections::HashMap;
 
 /// Generate XFDF XML from field name→value pairs.
 ///
@@ -141,7 +141,10 @@ mod xfdf_tests {
         let xml = generate_xfdf(&fields);
         let parsed = parse_xfdf(&xml).unwrap();
 
-        assert_eq!(parsed.get("name"), Some(&Value::String("John Doe".to_string())));
+        assert_eq!(
+            parsed.get("name"),
+            Some(&Value::String("John Doe".to_string()))
+        );
         assert_eq!(parsed.get("age"), Some(&Value::Number(30.into())));
         assert_eq!(parsed.get("active"), Some(&Value::Bool(true)));
     }
