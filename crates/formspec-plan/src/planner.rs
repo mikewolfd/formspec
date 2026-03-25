@@ -297,7 +297,78 @@ const MAX_TOTAL_DEPTH: usize = 20;
 
 /// Plan a single component tree node into a LayoutNode, recursing on children.
 pub fn plan_component_tree(tree: &Value, ctx: &PlanContext) -> LayoutNode {
-    plan_component_tree_inner(tree, ctx, &mut HashSet::new(), 0, 0)
+    let planned = plan_component_tree_inner(tree, ctx, &mut HashSet::new(), 0, 0);
+    wrap_planned_root_for_page_mode(planned, ctx)
+}
+
+/// Apply `formPresentation.pageMode` to a planned component-tree root, matching
+/// `plan_definition_fallback` (wizard/tabs wrap top-level steps).
+fn wrap_planned_root_for_page_mode(node: LayoutNode, ctx: &PlanContext) -> LayoutNode {
+    let page_mode = ctx
+        .form_presentation
+        .as_ref()
+        .and_then(|fp| fp.get("pageMode"))
+        .and_then(|v| v.as_str());
+
+    match page_mode {
+        Some("wizard") if node.component != "Wizard" => {
+            let children = if node.component == "Stack" {
+                node.children
+            } else {
+                vec![node]
+            };
+            LayoutNode {
+                id: next_id("wizard"),
+                component: "Wizard".to_string(),
+                category: NodeCategory::Interactive,
+                props: Map::new(),
+                style: None,
+                css_classes: Vec::new(),
+                accessibility: None,
+                children,
+                bind_path: None,
+                field_item: None,
+                presentation: None,
+                label_position: None,
+                when: None,
+                when_prefix: None,
+                fallback: None,
+                repeat_group: None,
+                repeat_path: None,
+                is_repeat_template: None,
+                scope_change: None,
+            }
+        }
+        Some("tabs") if node.component != "Tabs" => {
+            let children = if node.component == "Stack" {
+                node.children
+            } else {
+                vec![node]
+            };
+            LayoutNode {
+                id: next_id("tabs"),
+                component: "Tabs".to_string(),
+                category: NodeCategory::Interactive,
+                props: Map::new(),
+                style: None,
+                css_classes: Vec::new(),
+                accessibility: None,
+                children,
+                bind_path: None,
+                field_item: None,
+                presentation: None,
+                label_position: None,
+                when: None,
+                when_prefix: None,
+                fallback: None,
+                repeat_group: None,
+                repeat_path: None,
+                is_repeat_template: None,
+                scope_change: None,
+            }
+        }
+        _ => node,
+    }
 }
 
 fn plan_component_tree_inner(

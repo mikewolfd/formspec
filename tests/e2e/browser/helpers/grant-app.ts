@@ -30,7 +30,9 @@ export async function mountGrantApplication(page: Page): Promise<void> {
     el.componentDocument = comp;
     el.themeDocument     = thm;
   }, { def: definition, comp: component, thm: theme, reg: registry });
-  await page.waitForTimeout(200);
+  // Layout planning uses tools WASM; first paint may be deferred until initFormspecEngineTools()
+  // finishes. Wait for wizard chrome instead of a fixed sleep so E2E stays deterministic.
+  await page.locator('button.formspec-wizard-next').first().waitFor({ state: 'visible', timeout: 15000 });
 }
 
 /** Navigate wizard to a named page (by visible h2 text). */

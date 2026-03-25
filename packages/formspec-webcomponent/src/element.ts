@@ -1,7 +1,12 @@
 /** @filedesc The <formspec-render> custom element that orchestrates form rendering. */
 import { signal } from '@preact/signals-core';
 import { createFormEngine, type FormEngine, type IFormEngine, type LocaleDocument } from 'formspec-engine/render';
-import { initFormspecEngine, isFormspecEngineInitialized } from 'formspec-engine/init-formspec-engine';
+import {
+    initFormspecEngine,
+    initFormspecEngineTools,
+    isFormspecEngineInitialized,
+    isFormspecEngineToolsInitialized,
+} from 'formspec-engine/init-formspec-engine';
 import { globalRegistry } from './registry';
 import {
     ValidationTargetMetadata,
@@ -87,45 +92,39 @@ export class FormspecRender extends HTMLElement {
     // ── Internal state ────────────────────────────────────────────────
     /** @internal */ _definition: any;
     /** @internal */ _componentDocument: any;
-    /** @internal */ _themeDocument: ThemeDocument | null = null;
-    /** @internal */ _registryEntries: Map<string, any> = new Map();
-    /** @internal */ engine: IFormEngine | null = null;
-    /** @internal */ cleanupFns: Array<() => void> = [];
-    private _breakpoints: BreakpointState = createBreakpointState();
+    /** @internal */ _themeDocument: ThemeDocument | null;
+    /** @internal */ _registryEntries: Map<string, any>;
+    /** @internal */ engine: IFormEngine | null;
+    /** @internal */ cleanupFns: Array<() => void>;
+    private _breakpoints: BreakpointState;
     private get activeBreakpoint(): string | null { return this._breakpoints.activeBreakpointSignal.value ?? null; }
-    /** @internal */ stylesheetHrefs: string[] = [];
-    private rootContainer: HTMLDivElement | null = null;
-    private _renderPending = false;
+    /** @internal */ stylesheetHrefs: string[];
+    private rootContainer: HTMLDivElement | null;
+    private _renderPending: boolean;
     /** When true, at least one {@link scheduleRender} was dropped while a render was queued — run again. */
-    private _renderAgain = false;
-    private _locale = '';
-    private _pendingLocaleDocuments: LocaleDocument[] = [];
-
-    constructor() {
-        super();
-        const shadow = this.attachShadow({ mode: 'open' });
-        shadow.appendChild(document.createElement('slot'));
-    }
+    private _renderAgain: boolean;
+    private _locale: string;
+    private _pendingLocaleDocuments: LocaleDocument[];
 
     /** Fields the user has interacted with (blur). Validation errors are hidden until touched. */
-    /** @internal */ touchedFields: Set<string> = new Set();
+    /** @internal */ touchedFields: Set<string>;
     /** Incremented when touched state changes so error-display effects can react. */
-    /** @internal */ touchedVersion = signal(0);
+    /** @internal */ touchedVersion: ReturnType<typeof signal<number>>;
     /** Whether the screener has been completed (route selected). */
-    /** @internal */ _screenerCompleted = false;
+    /** @internal */ _screenerCompleted: boolean;
     /** The route selected by the screener, if any. */
-    /** @internal */ _screenerRoute: ScreenerRoute | null = null;
+    /** @internal */ _screenerRoute: ScreenerRoute | null;
     /** Backing store for the `screenerSeedAnswers` property. */
-    private _screenerSeedAnswers: Record<string, any> | null = null;
+    private _screenerSeedAnswers: Record<string, any> | null;
     /**
      * Full response `data` to apply on the next {@link definition} load (screener keys + main form).
      * Prefer this over separate engine hydration — consumed once when the engine is created.
      */
-    private _initialData: Record<string, any> | null = null;
+    private _initialData: Record<string, any> | null;
     /** Shared pending state for submit flows (e.g. async host submits). */
-    private _submitPendingSignal = signal(false);
+    private _submitPendingSignal: ReturnType<typeof signal<boolean>>;
     /** Latest submit detail payload (`{ response, validationReport }`). */
-    private _latestSubmitDetailSignal = signal<{
+    private _latestSubmitDetailSignal: ReturnType<typeof signal<{
         response: any;
         validationReport: {
             valid: boolean;
@@ -133,18 +132,90 @@ export class FormspecRender extends HTMLElement {
             counts: { error: number; warning: number; info: number };
             timestamp: string;
         };
-    } | null>(null);
+    } | null>>;
+
+    constructor() {
+        super();
+        // Custom elements: attach shadow before any other instance state (browser upgrade rules).
+        const shadow = this.attachShadow({ mode: 'open' });
+        shadow.appendChild(document.createElement('slot'));
+
+        this._themeDocument = null;
+        this._registryEntries = new Map();
+        this.engine = null;
+        this.cleanupFns = [];
+        this._breakpoints = createBreakpointState();
+        this.stylesheetHrefs = [];
+        this.rootContainer = null;
+        this._renderPending = false;
+        this._renderAgain = false;
+        this._locale = '';
+        this._pendingLocaleDocuments = [];
+        this.touchedFields = new Set();
+        this.touchedVersion = signal(0);
+        this._screenerCompleted = false;
+        this._screenerRoute = null;
+        this._screenerSeedAnswers = null;
+        this._initialData = null;
+        this._submitPendingSignal = signal(false);
+        this._latestSubmitDetailSignal = signal(null);
+
+        this.resolveToken = (val: any): any => resolveTokenFn(this._stylingHost, val);
+        this.resolveItemPresentation = (itemDesc: ItemDescriptor): PresentationBlock =>
+            resolveItemPresentationFn(this._stylingHost, itemDesc);
+        this.applyStyle = (el: HTMLElement, style: any): void => applyStyleFn(this._stylingHost, el, style);
+        this.applyCssClass = (el: HTMLElement, comp: any): void => applyCssClassFn(this._stylingHost, el, comp);
+        this.applyClassValue = (el: HTMLElement, classValue: unknown): void =>
+            applyClassValueFn(this._stylingHost, el, classValue);
+        this.resolveWidgetClassSlots = (presentation: PresentationBlock) =>
+            resolveWidgetClassSlotsFn(this._stylingHost, presentation);
+        this.applyAccessibility = (el: HTMLElement, comp: any): void =>
+            applyAccessibilityFn(this._stylingHost, el, comp);
+        this.findItemByKey = (key: string, items: any[] = this._definition.items): any | null => {
+            const dot = key.indexOf('.');
+            if (dot !== -1) {
+                const head = key.slice(0, dot);
+                const rest = key.slice(dot + 1);
+                for (const item of items) {
+                    if (item.key === head && item.children) {
+                        return this.findItemByKey(rest, item.children);
+                    }
+                }
+                return null;
+            }
+            for (const item of items) {
+                if (item.key === key) return item;
+                if (item.children) {
+                    const found = this.findItemByKey(key, item.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+    }
+
+    connectedCallback() {
+        if (this.style.display !== 'block') this.style.display = 'block';
+        if (this.style.width !== '100%') this.style.width = '100%';
+    }
 
     // ── Styling delegators ────────────────────────────────────────────
     private get _stylingHost(): StylingHost { return this as any; }
 
-    /** @internal */ resolveToken = (val: any): any => resolveTokenFn(this._stylingHost, val);
-    /** @internal */ resolveItemPresentation = (itemDesc: ItemDescriptor): PresentationBlock => resolveItemPresentationFn(this._stylingHost, itemDesc);
-    /** @internal */ applyStyle = (el: HTMLElement, style: any): void => applyStyleFn(this._stylingHost, el, style);
-    /** @internal */ applyCssClass = (el: HTMLElement, comp: any): void => applyCssClassFn(this._stylingHost, el, comp);
-    /** @internal */ applyClassValue = (el: HTMLElement, classValue: unknown): void => applyClassValueFn(this._stylingHost, el, classValue);
-    /** @internal */ resolveWidgetClassSlots = (presentation: PresentationBlock) => resolveWidgetClassSlotsFn(this._stylingHost, presentation);
-    /** @internal */ applyAccessibility = (el: HTMLElement, comp: any): void => applyAccessibilityFn(this._stylingHost, el, comp);
+    /** @internal */ resolveToken: (val: any) => any;
+    /** @internal */ resolveItemPresentation: (itemDesc: ItemDescriptor) => PresentationBlock;
+    /** @internal */ applyStyle: (el: HTMLElement, style: any) => void;
+    /** @internal */ applyCssClass: (el: HTMLElement, comp: any) => void;
+    /** @internal */ applyClassValue: (el: HTMLElement, classValue: unknown) => void;
+    /** @internal */ resolveWidgetClassSlots: (presentation: PresentationBlock) => {
+        root?: unknown;
+        label?: unknown;
+        control?: unknown;
+        hint?: unknown;
+        error?: unknown;
+    };
+    /** @internal */ applyAccessibility: (el: HTMLElement, comp: any) => void;
+    /** @internal */ findItemByKey: (key: string, items?: any[]) => any | null;
 
     // ── Navigation delegators ─────────────────────────────────────────
     private get _navHost(): NavigationHost { return this as any; }
@@ -521,8 +592,20 @@ export class FormspecRender extends HTMLElement {
      * Perform a full synchronous render of the form.
      */
     render() {
-        this.cleanup();
         if (!this.engine || !this._definition) return;
+
+        // Layout planning (`planComponentTree` / `planDefinitionFallback`) lives in tools WASM.
+        // `initFormspecEngineTools()` is started asynchronously from the webcomponent package entry;
+        // the first render can run before it finishes, which would throw after `replaceChildren()`
+        // and leave an empty preview. Defer until tools are ready.
+        if (!isFormspecEngineToolsInitialized()) {
+            void initFormspecEngineTools().then(() => {
+                this.scheduleRender();
+            });
+            return;
+        }
+
+        this.cleanup();
         setupBreakpointsFn(this as any, this._breakpoints);
 
         if (this._componentDocument) {
@@ -599,28 +682,6 @@ export class FormspecRender extends HTMLElement {
         this._screenerRoute = null;
         this.emitScreenerStateChange('restart');
         this.scheduleRender();
-    }
-
-    /** @internal */ findItemByKey = (key: string, items: any[] = this._definition.items): any | null => {
-        const dot = key.indexOf('.');
-        if (dot !== -1) {
-            const head = key.slice(0, dot);
-            const rest = key.slice(dot + 1);
-            for (const item of items) {
-                if (item.key === head && item.children) {
-                    return this.findItemByKey(rest, item.children);
-                }
-            }
-            return null;
-        }
-        for (const item of items) {
-            if (item.key === key) return item;
-            if (item.children) {
-                const found = this.findItemByKey(key, item.children);
-                if (found) return found;
-            }
-        }
-        return null;
     }
 
     /**

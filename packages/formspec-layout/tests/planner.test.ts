@@ -349,9 +349,8 @@ describe('planComponentTree', () => {
     });
 
     it('handles wizard mode from studio-generated component doc', () => {
-        // Rust spec-normative: wizard page mode wrapping is handled at the definition
-        // fallback level, not in planComponentTree. The component tree planner returns
-        // the tree structure as-is without applying pageMode transformations.
+        // With pageMode wizard, the planned component-tree root is wrapped in Wizard
+        // (same as definition fallback) so runtime preview matches authored steps.
         const items = [
             {
                 key: 'basics', type: 'group', label: 'Basics',
@@ -389,9 +388,7 @@ describe('planComponentTree', () => {
 
         const node = planComponentTree(tree, ctx);
 
-        // Rust spec-normative: planComponentTree does not apply wizard wrapping.
-        // The root Stack is preserved with its children.
-        expect(node.component).toBe('Stack');
+        expect(node.component).toBe('Wizard');
         expect(node.children).toHaveLength(3);
 
         // Each child is a group Stack with its own children
@@ -441,9 +438,7 @@ describe('planComponentTree', () => {
         expect(node.children[1].props.title).toBe('Details');
     });
 
-    it('does not apply wizard wrapping in planComponentTree', () => {
-        // Rust spec-normative: wizard wrapping only happens in definition fallback,
-        // not in planComponentTree. The component tree is planned as-is.
+    it('wraps component tree root in Wizard when formPresentation.pageMode is wizard', () => {
         const items = [
             { key: 'intro', type: 'field', dataType: 'string', label: 'Intro' },
             {
@@ -473,8 +468,7 @@ describe('planComponentTree', () => {
 
         const node = planComponentTree(tree, ctx);
 
-        // Rust spec-normative: no wizard wrapping in component tree planning
-        expect(node.component).toBe('Stack');
+        expect(node.component).toBe('Wizard');
         expect(node.children[0].component).toBe('TextInput');
         expect(node.children[0].bindPath).toBe('intro');
         expect(node.children[1].component).toBe('Stack');

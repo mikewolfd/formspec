@@ -27,11 +27,17 @@ import type {
  */
 function normalizeTheme(theme: any): any {
     if (!theme || typeof theme !== 'object') return theme;
+    const { targetDefinition: tdIn, ...rest } = theme as Record<string, unknown>;
+    const rawTd = tdIn && typeof tdIn === 'object' ? (tdIn as Record<string, unknown>) : {};
+    const targetDefinition: Record<string, unknown> = { url: '', ...rawTd };
+    if (typeof targetDefinition.url !== 'string') {
+        targetDefinition.url = '';
+    }
     return {
         $formspecTheme: '1.0',
         version: '1.0.0',
-        targetDefinition: { url: '' },
-        ...theme,
+        targetDefinition,
+        ...rest,
     };
 }
 
