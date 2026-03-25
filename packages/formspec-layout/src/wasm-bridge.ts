@@ -20,13 +20,6 @@ import type {
 
 // ── Theme normalization ──────────────────────────────────────────────
 
-/** Map legacy / JSON-Schema-style names to Rust `FormspecDataType` strings. */
-function normalizeDataTypeForRust(dataType: string | undefined): string | undefined {
-    if (dataType == null || dataType === '') return undefined;
-    if (dataType === 'number') return 'decimal';
-    return dataType;
-}
-
 /**
  * Normalize a TS theme object for the Rust side.
  * The Rust ThemeDocument requires `$formspecTheme`, `version`, and
@@ -85,39 +78,31 @@ function buildItemsByPath(items: any[], prefix = ''): Record<string, unknown> {
 }
 
 /**
- * Theme-derived width when `activeBreakpoint` maps to a numeric token (px).
+ * Resolve viewport width for the Rust planner's cumulative `responsive.minWidth` merges.
+ *
+ * Priority:
+ * 1. Explicit `ctx.viewportWidth` (SSR, PDF, testing — caller knows best)
+ * 2. `window.innerWidth` (browser runtime)
+ * 3. Named `activeBreakpoint` lookup in theme/component breakpoints (legacy/compat)
+ * 4. null (no responsive resolution)
  */
 function resolveViewportWidth(ctx: PlanContext): number | null {
+    // 1. Explicit override
+    if (ctx.viewportWidth != null && ctx.viewportWidth > 0) {
+        return Math.round(ctx.viewportWidth);
+    }
+    // 2. Browser window
     if (typeof globalThis !== 'undefined') {
         const w = (globalThis as unknown as { innerWidth?: number }).innerWidth;
         if (typeof w === 'number' && Number.isFinite(w) && w > 0) {
             return Math.round(w);
         }
     }
-    if (ctx.activeBreakpoint != null && ctx.theme?.breakpoints) {
-        const bp = ctx.theme.breakpoints[ctx.activeBreakpoint];
+    // 3. Named breakpoint lookup
+    if (ctx.activeBreakpoint != null) {
+        const bp = ctx.theme?.breakpoints?.[ctx.activeBreakpoint]
+            ?? ctx.componentDocument?.breakpoints?.[ctx.activeBreakpoint];
         if (typeof bp === 'number') return bp;
-    }
-    if (ctx.activeBreakpoint != null && ctx.componentDocument?.breakpoints) {
-        const bp = ctx.componentDocument.breakpoints[ctx.activeBreakpoint];
-        if (typeof bp === 'number') return bp;
-    }
-    return null;
-}
-
-/**
- * Pixel width passed to the Rust planner for cumulative `responsive.minWidth` merges.
- * Uses theme lookup when available; otherwise `window.innerWidth` in the browser so
- * component documents with media-query breakpoints still plan correctly.
- */
-function effectiveViewportWidth(ctx: PlanContext): number | null {
-    const fromTheme = resolveViewportWidth(ctx);
-    if (fromTheme != null) return fromTheme;
-    if (typeof globalThis === 'object' && globalThis != null) {
-        const w = (globalThis as { innerWidth?: unknown }).innerWidth;
-        if (typeof w === 'number' && Number.isFinite(w) && w >= 0) {
-            return Math.floor(w);
-        }
     }
     return null;
 }
@@ -227,7 +212,7 @@ function toPlanContextJson(ctx: PlanContext): PlanContextJson {
         formPresentation: ctx.formPresentation ?? undefined,
         componentDocument: ctx.componentDocument ? normalizeComponentDocument(ctx.componentDocument) : undefined,
         theme: ctx.theme ? normalizeTheme(ctx.theme) : undefined,
-        viewportWidth: effectiveViewportWidth(ctx),
+        viewportWidth: resolveViewportWidth(ctx),
         availableComponents: collectAvailableComponents(ctx),
     };
 }
@@ -268,7 +253,7 @@ export function resolvePresentation(
     const rustItem = {
         key: item.key,
         itemType: item.type,
-        dataType: normalizeDataTypeForRust(item.dataType),
+        dataType: item.dataType,
     };
 
     // Rust Tier1Hints expects `itemPresentation` and `formPresentation` with

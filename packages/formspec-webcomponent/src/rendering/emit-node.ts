@@ -63,12 +63,10 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         wrapper.className = 'formspec-when';
         target.appendChild(wrapper);
         let fallbackEl: HTMLElement | null = null;
-        if (node.fallback) {
+        if (node.fallbackText) {
             fallbackEl = document.createElement('p');
             fallbackEl.className = 'formspec-conditional-fallback';
-            fallbackEl.textContent = Array.isArray(node.fallback)
-                ? node.fallback.join(', ')
-                : String(node.fallback);
+            fallbackEl.textContent = node.fallbackText;
             target.appendChild(fallbackEl);
         }
         const exprFn = host.engine.compileExpression(node.when, prefix);

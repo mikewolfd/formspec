@@ -598,9 +598,10 @@ fn plan_component_tree_conditional_group_fallback() {
 
     assert_eq!(node.when.as_deref(), Some("$budget.usesSubcontractors"));
     assert_eq!(
-        node.fallback,
-        Some(vec!["No subcontractors are needed.".to_string()])
+        node.fallback_text.as_deref(),
+        Some("No subcontractors are needed.")
     );
+    assert_eq!(node.widget_fallback, None);
 }
 
 #[test]

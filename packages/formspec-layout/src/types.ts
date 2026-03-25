@@ -65,8 +65,11 @@ export interface LayoutNode {
     /** Path prefix for evaluating the when expression. */
     whenPrefix?: string;
 
-    /** Fallback widget chain when the preferred widget is unavailable (matches Rust `Option<Vec<String>>`). */
-    fallback?: string[];
+    /** ConditionalGroup display text when the condition is false. */
+    fallbackText?: string;
+
+    /** Theme cascade widget fallback chain (list of widget type names). */
+    widgetFallback?: string[];
 
     // ── Repeat groups (deferred to renderer) ──
 
@@ -104,7 +107,10 @@ export interface PlanContext {
     /** The loaded theme document. */
     theme?: any;
 
-    /** Currently active breakpoint name, or null. */
+    /** Explicit viewport width in px (for SSR, PDF, testing). Takes priority over window.innerWidth. */
+    viewportWidth?: number;
+
+    /** Currently active breakpoint name, or null (legacy; prefer viewportWidth). */
     activeBreakpoint?: string | null;
 
     /** Lookup a definition item by key (supports dotted paths). */

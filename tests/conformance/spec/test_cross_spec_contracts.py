@@ -246,11 +246,11 @@ class TestDefinitionItem:
         branch = _find_allof_branch(self.ITEM["allOf"], "type", "field")
         assert "dataType" in branch["then"]["required"]
 
-    def test_s4_2_3__datatype_enum_13_values(self):
+    def test_s4_2_3__datatype_enum_14_values(self):
         branch = _find_allof_branch(self.ITEM["allOf"], "type", "field")
         dt = branch["then"]["properties"]["dataType"]
         expected = [
-            "string", "text", "integer", "decimal", "boolean",
+            "string", "text", "integer", "number", "decimal", "boolean",
             "date", "dateTime", "time", "uri", "attachment",
             "choice", "multiChoice", "money",
         ]

@@ -152,8 +152,8 @@ describe('planComponentTree', () => {
         expect(node.when).toBe("$orgType = 'nonprofit'");
         // Rust spec-normative: whenPrefix only set when explicitly present in tree node
         expect(node.whenPrefix).toBeUndefined();
-        // Tree `fallback` is structural — planner copies it to LayoutNode.fallback (not props).
-        expect(node.fallback).toEqual(['N/A']);
+        // Tree `fallback` is structural — planner copies it to LayoutNode.fallbackText (not props).
+        expect(node.fallbackText).toBe('N/A');
         expect(node.props.fallback).toBeUndefined();
     });
 

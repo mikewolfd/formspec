@@ -563,11 +563,12 @@
               "extensions": true,
               "dataType": {
                 "type": "string",
-                "description": "The value type of this Field. Determines JSON representation, FEL type, valid operations, and default widget. 'string': single-line text. 'text': multi-line text. 'integer': whole number (no fraction). 'decimal': number with optional fractional part (use 'precision' to control decimal places). 'boolean': true/false. 'date': ISO 8601 YYYY-MM-DD. 'dateTime': ISO 8601 date-time. 'time': ISO 8601 HH:MM:SS. 'uri': valid URI per RFC 3986. 'attachment': file reference object {contentType, url/data}. 'choice': single selection (stored as string value key). 'multiChoice': multiple selections (stored as array of string value keys). 'money': monetary value {amount: string, currency: string} — use money() FEL function to produce values.",
+                "description": "The value type of this Field. Determines JSON representation, FEL type, valid operations, and default widget. 'string': single-line text. 'text': multi-line text. 'integer': whole number (no fraction). 'number': number with optional fractional part (preferred name; 'decimal' is an accepted alias). 'decimal': alias for 'number'. 'boolean': true/false. 'date': ISO 8601 YYYY-MM-DD. 'dateTime': ISO 8601 date-time. 'time': ISO 8601 HH:MM:SS. 'uri': valid URI per RFC 3986. 'attachment': file reference object {contentType, url/data}. 'choice': single selection (stored as string value key). 'multiChoice': multiple selections (stored as array of string value keys). 'money': monetary value {amount: string, currency: string} — use money() FEL function to produce values.",
                 "enum": [
                   "string",
                   "text",
                   "integer",
+                  "number",
                   "decimal",
                   "boolean",
                   "date",
@@ -581,7 +582,7 @@
                 ],
                 "examples": [
                   "string",
-                  "decimal",
+                  "number",
                   "choice"
                 ],
                 "x-lm": {
@@ -727,7 +728,7 @@
               {
                 "if": {
                   "not": {
-                    "properties": { "dataType": { "enum": ["decimal", "money"] } },
+                    "properties": { "dataType": { "enum": ["number", "decimal", "money"] } },
                     "required": ["dataType"]
                   }
                 },

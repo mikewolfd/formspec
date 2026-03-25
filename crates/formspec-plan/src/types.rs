@@ -85,8 +85,13 @@ pub struct LayoutNode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub when_prefix: Option<String>,
 
+    /// ConditionalGroup display text when the condition is false.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub fallback: Option<Vec<String>>,
+    pub fallback_text: Option<String>,
+
+    /// Theme cascade widget fallback chain (list of widget type names).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub widget_fallback: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repeat_group: Option<String>,
