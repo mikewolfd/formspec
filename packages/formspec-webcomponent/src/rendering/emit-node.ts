@@ -66,7 +66,9 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         if (node.fallback) {
             fallbackEl = document.createElement('p');
             fallbackEl.className = 'formspec-conditional-fallback';
-            fallbackEl.textContent = node.fallback;
+            fallbackEl.textContent = Array.isArray(node.fallback)
+                ? node.fallback.join(', ')
+                : String(node.fallback);
             target.appendChild(fallbackEl);
         }
         const exprFn = host.engine.compileExpression(node.when, prefix);

@@ -64,8 +64,8 @@ export interface LayoutNode {
     /** Path prefix for evaluating the when expression. */
     whenPrefix?: string;
 
-    /** Fallback content when when=false. */
-    fallback?: string;
+    /** Fallback widget chain when the preferred widget is unavailable (matches Rust `Option<Vec<String>>`). */
+    fallback?: string[];
 
     // ── Repeat groups (deferred to renderer) ──
 

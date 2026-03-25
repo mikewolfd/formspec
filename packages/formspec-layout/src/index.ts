@@ -55,7 +55,13 @@ export {
 } from './widget-vocabulary.js';
 
 // Layout planner — WASM bridge (Rust formspec-plan)
-export { planComponentTree, planDefinitionFallback, resetNodeIdCounter } from './wasm-bridge.js';
+export {
+    planComponentTree,
+    planDefinitionFallback,
+    planThemePages,
+    planUnboundRequired,
+    resetNodeIdCounter,
+} from './wasm-bridge.js';
 
 // Types
 export type { LayoutNode, PlanContext } from './types.js';

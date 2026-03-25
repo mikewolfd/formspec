@@ -355,6 +355,45 @@ function normalizeDefinitionItems(items: any[]): any[] {
     });
 }
 
+/**
+ * Plan layout using theme pages (SS6.1–6.3).
+ *
+ * Delegates to Rust `formspec_plan::plan_theme_pages` via WASM.
+ */
+export function planThemePages(
+    items: any[],
+    ctx: PlanContext,
+): LayoutNode[] {
+    const contextJson = toPlanContextJson(ctx);
+    const normalizedItems = normalizeDefinitionItems(items);
+    const resultJson = wasmPlanThemePages(
+        JSON.stringify(normalizedItems),
+        JSON.stringify(contextJson),
+    );
+    return JSON.parse(resultJson);
+}
+
+/**
+ * Identify unbound required items and produce fallback nodes (Component SS4.5).
+ *
+ * Takes a planned component tree, the definition items, and context.
+ * Returns LayoutNode[] for required items that are not bound in the tree.
+ */
+export function planUnboundRequired(
+    tree: LayoutNode,
+    items: any[],
+    ctx: PlanContext,
+): LayoutNode[] {
+    const contextJson = toPlanContextJson(ctx);
+    const normalizedItems = normalizeDefinitionItems(items);
+    const resultJson = wasmPlanUnboundRequired(
+        JSON.stringify(tree),
+        JSON.stringify(normalizedItems),
+        JSON.stringify(contextJson),
+    );
+    return JSON.parse(resultJson);
+}
+
 /** Reset the node ID counter (for deterministic testing). */
 export function resetNodeIdCounter(): void {
     wasmResetNodeIdCounter();
