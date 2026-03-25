@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useProject } from '../state/useProject';
 import { useProjectState } from '../state/useProjectState';
+import { type ColorScheme, type ThemePreference } from '../hooks/useColorScheme';
 
 const TABS: { name: string; help: string }[] = [
   { name: 'Editor', help: 'Visual form builder canvas for adding and arranging items' },
@@ -26,6 +27,49 @@ interface HeaderProps {
   onToggleAccountMenu?: () => void;
   onToggleMenu?: () => void;
   isCompact?: boolean;
+  colorScheme?: ColorScheme;
+}
+
+/** Cycle order: system → light → dark → system */
+const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark'];
+
+function nextTheme(current: ThemePreference): ThemePreference {
+  const idx = THEME_CYCLE.indexOf(current);
+  return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+}
+
+function ThemeToggleIcon({ theme, resolved }: { theme: ThemePreference; resolved: 'light' | 'dark' }) {
+  if (theme === 'system') {
+    // Monitor icon for "system"
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <path d="M8 21h8M12 17v4"/>
+      </svg>
+    );
+  }
+  if (resolved === 'dark') {
+    // Moon icon
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    );
+  }
+  // Sun icon
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  );
 }
 
 export function Header({
@@ -40,6 +84,7 @@ export function Header({
   onToggleAccountMenu,
   onToggleMenu,
   isCompact = false,
+  colorScheme,
 }: HeaderProps) {
   const project = useProject();
   const state = useProjectState();
@@ -188,6 +233,18 @@ export function Header({
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
       </button>
+
+      {colorScheme && (
+        <button
+          type="button"
+          aria-label={`Switch to ${nextTheme(colorScheme.theme)} theme`}
+          title={`Theme: ${colorScheme.theme} (click to switch to ${nextTheme(colorScheme.theme)})`}
+          className="p-1.5 rounded hover:bg-subtle transition-colors"
+          onClick={() => colorScheme.setTheme(nextTheme(colorScheme.theme))}
+        >
+          <ThemeToggleIcon theme={colorScheme.theme} resolved={colorScheme.resolvedTheme} />
+        </button>
+      )}
 
       {profileMenu}
     </div>

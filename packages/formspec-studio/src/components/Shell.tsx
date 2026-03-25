@@ -1,5 +1,6 @@
 /** @filedesc Main studio shell; composes the header, blueprint sidebar, workspace tabs, and status bar. */
 import { useState, useEffect } from 'react';
+import { type ColorScheme } from '../hooks/useColorScheme';
 import JSZip from 'jszip';
 import { createProject, type Project } from 'formspec-studio-core';
 import { Header } from './Header';
@@ -57,7 +58,11 @@ const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
   'Theme': ThemeOverview,
 };
 
-export function Shell() {
+interface ShellProps {
+  colorScheme?: ColorScheme;
+}
+
+export function Shell({ colorScheme }: ShellProps = {}) {
   const [activeTab, setActiveTab] = useState<string>('Editor');
   const [activeSection, setActiveSection] = useState<string>('Structure');
   const [showPalette, setShowPalette] = useState(false);
@@ -245,6 +250,7 @@ export function Shell() {
         onToggleAccountMenu={() => setShowSettings(true)}
         onToggleMenu={compactLayout ? () => setShowBlueprintDrawer(true) : undefined}
         isCompact={compactLayout}
+        colorScheme={colorScheme}
       />
       <CanvasTargetsProvider>
         <div className="flex flex-1 overflow-hidden">
