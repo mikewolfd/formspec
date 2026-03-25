@@ -106,7 +106,8 @@ jobs:
       - name: Build all packages
         id: build
         run: npm run build 2>&1 | tee /tmp/build-output.txt
-      - run: npx playwright install --with-deps chromium
+      - if: steps.build.outcome == 'success'
+        run: npx playwright install --with-deps chromium
       - name: Run E2E tests
         if: steps.build.outcome == 'success'
         run: npm run test:e2e 2>&1 | tee /tmp/e2e-output.txt
@@ -173,7 +174,8 @@ jobs:
       - name: Build all packages
         id: build
         run: npm run build 2>&1 | tee /tmp/build-output.txt
-      - run: npx playwright install --with-deps chromium
+      - if: steps.build.outcome == 'success'
+        run: npx playwright install --with-deps chromium
       - name: Run Studio E2E tests
         if: steps.build.outcome == 'success'
         run: npm run test:studio:e2e 2>&1 | tee /tmp/studio-e2e-output.txt
