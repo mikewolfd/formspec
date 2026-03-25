@@ -56,6 +56,8 @@ api-docs:
 	npx typedoc --entryPoints packages/formspec-chat/src/index.ts --tsconfig packages/formspec-chat/tsconfig.json --out $(DOCS_DIR)/api/formspec-chat
 	npx typedoc --entryPoints packages/formspec-mcp/src/index.ts --tsconfig packages/formspec-mcp/tsconfig.json --out $(DOCS_DIR)/api/formspec-mcp
 	npm run --workspace=formspec-studio-core build || true
+	cargo doc --workspace --no-deps
+	rm -rf $(DOCS_DIR)/api/rust && cp -r target/doc $(DOCS_DIR)/api/rust
 	PYTHONPATH=src python3 scripts/generate-api-markdown.py src/formspec/API.llm.md
 	node scripts/generate-ts-api-markdown.mjs
 
