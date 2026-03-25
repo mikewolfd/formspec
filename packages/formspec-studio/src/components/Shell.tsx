@@ -72,6 +72,7 @@ export function Shell() {
   const [showBlueprintDrawer, setShowBlueprintDrawer] = useState(false);
   const [showPropertiesModal, setShowPropertiesModal] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
+  const [chatPrompt, setChatPrompt] = useState<string | null>(null);
   const [isTabletLayout, setIsTabletLayout] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1024);
   const SidebarComponent = SIDEBAR_COMPONENTS[activeSection];
   const project = useProject();
@@ -185,6 +186,18 @@ export function Shell() {
     const onOpenSettings = () => setShowSettings(true);
     window.addEventListener('formspec:open-settings', onOpenSettings);
     return () => window.removeEventListener('formspec:open-settings', onOpenSettings);
+  }, []);
+
+  useEffect(() => {
+    const onAIAction = (event: Event) => {
+      const { prompt } = (event as CustomEvent<{ prompt: string }>).detail ?? {};
+      if (prompt) {
+        setChatPrompt(prompt);
+        setShowChatPanel(true);
+      }
+    };
+    window.addEventListener('formspec:ai-action', onAIAction);
+    return () => window.removeEventListener('formspec:ai-action', onAIAction);
   }, []);
 
   const handleNewForm = () => {
@@ -342,7 +355,8 @@ export function Shell() {
             <aside className="w-[360px] shrink-0" data-testid="chat-panel-container">
               <ChatPanel
                 project={project}
-                onClose={() => setShowChatPanel(false)}
+                onClose={() => { setShowChatPanel(false); setChatPrompt(null); }}
+                initialPrompt={chatPrompt}
               />
             </aside>
           )}
