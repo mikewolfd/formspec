@@ -15,6 +15,9 @@ fel-core = { path = "../fel-core" }
 formspec-core = { path = "../formspec-core" }
 formspec-eval = { path = "../formspec-eval" }
 formspec-lint = { path = "../formspec-lint" }
+formspec-theme = { path = "../formspec-theme" }
+formspec-plan = { path = "../formspec-plan", features = ["eval-merge"] }
+formspec-pdf = { path = "../formspec-pdf" }
 pyo3 = { version = "0.28" }
 pythonize = "0.28"
 rust_decimal = "1"

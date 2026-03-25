@@ -4,11 +4,11 @@ mod tests {
     use formspec_core::changelog::{
         Change, ChangeImpact, ChangeTarget, ChangeType, Changelog, SemverImpact,
     };
-    use formspec_core::{JsonWireStyle, changelog_to_json_value};
     use formspec_core::extension_analysis::RegistryEntryStatus;
     use formspec_core::registry_client;
-    use formspec_core::runtime_mapping;
     use formspec_core::registry_client::registry_entry_count_from_raw;
+    use formspec_core::runtime_mapping;
+    use formspec_core::{JsonWireStyle, changelog_to_json_value};
     use formspec_core::{
         MappingDirection, parse_coerce_type, parse_mapping_direction_wire,
         parse_mapping_document_from_value as parse_mapping_document_inner,
@@ -1019,5 +1019,320 @@ mod tests {
             result[0].transform,
             runtime_mapping::TransformType::Coerce(runtime_mapping::CoerceType::String)
         ));
+    }
+
+    // ── Theme cascade resolution ────────────────────────────────
+
+    /// Spec: theme-spec SS5.5 — resolve_presentation with no theme returns default block.
+    #[test]
+    fn resolve_presentation_no_theme_returns_default() {
+        use formspec_theme::{ItemDescriptor, ItemType, resolve_presentation};
+
+        let item = ItemDescriptor {
+            key: "name".to_string(),
+            item_type: ItemType::Field,
+            data_type: None,
+        };
+        let result = resolve_presentation(None, &item, None, None);
+        // Default PresentationBlock has no widget
+        assert!(result.widget.is_none());
+    }
+
+    /// Spec: theme-spec SS5.5 — theme defaults propagate when no selectors/items match.
+    #[test]
+    fn resolve_presentation_theme_defaults_apply() {
+        use formspec_theme::{
+            ItemDescriptor, ItemType, PresentationBlock, TargetDefinition, ThemeDocument,
+            resolve_presentation,
+        };
+
+        let theme = ThemeDocument {
+            formspec_theme: "1.0".to_string(),
+            version: "1.0.0".to_string(),
+            target_definition: TargetDefinition {
+                url: "test".to_string(),
+                compatible_versions: None,
+            },
+            url: None,
+            name: None,
+            title: None,
+            description: None,
+            platform: None,
+            tokens: None,
+            defaults: Some(PresentationBlock {
+                widget: Some("custom-input".to_string()),
+                ..Default::default()
+            }),
+            selectors: None,
+            items: None,
+            pages: None,
+            breakpoints: None,
+            stylesheets: None,
+            extensions: None,
+            class_strategy: None,
+        };
+
+        let item = ItemDescriptor {
+            key: "email".to_string(),
+            item_type: ItemType::Field,
+            data_type: None,
+        };
+
+        let result = resolve_presentation(Some(&theme), &item, None, None);
+        assert_eq!(result.widget.as_deref(), Some("custom-input"));
+    }
+
+    /// Spec: theme-spec SS3.3 — resolve_token resolves component tokens first.
+    #[test]
+    fn resolve_token_component_wins() {
+        use formspec_theme::resolve_token;
+        use serde_json::Map;
+
+        let mut comp = Map::new();
+        comp.insert("primary".to_string(), json!("#ff0000"));
+        let mut theme = Map::new();
+        theme.insert("primary".to_string(), json!("#0000ff"));
+
+        let result = resolve_token("$token.primary", Some(&comp), Some(&theme));
+        assert_eq!(result, Some(json!("#ff0000")));
+    }
+
+    /// Spec: theme-spec SS3.3 — resolve_token falls back to theme tokens.
+    #[test]
+    fn resolve_token_theme_fallback() {
+        use formspec_theme::resolve_token;
+        use serde_json::Map;
+
+        let mut theme = Map::new();
+        theme.insert("secondary".to_string(), json!("#00ff00"));
+
+        let result = resolve_token("$token.secondary", None, Some(&theme));
+        assert_eq!(result, Some(json!("#00ff00")));
+    }
+
+    /// Spec: theme-spec SS3.3 — resolve_token returns None for non-token strings.
+    #[test]
+    fn resolve_token_non_token_returns_none() {
+        use formspec_theme::resolve_token;
+
+        let result = resolve_token("not-a-token", None, None);
+        assert!(result.is_none());
+    }
+
+    /// Spec: theme-spec SS3.3 — resolve_token returns None for unknown keys.
+    #[test]
+    fn resolve_token_unknown_key_returns_none() {
+        use formspec_theme::resolve_token;
+        use serde_json::Map;
+
+        let comp = Map::new();
+        let result = resolve_token("$token.missing", Some(&comp), None);
+        assert!(result.is_none());
+    }
+
+    // ── Layout planner ──────────────────────────────────────────
+
+    /// Spec: plan_component_tree produces a LayoutNode with correct component type.
+    #[test]
+    fn plan_component_tree_simple_stack() {
+        use formspec_plan::{
+            NodeCategory, PlanContext, plan_component_tree, reset_node_id_counter,
+        };
+
+        reset_node_id_counter();
+
+        let tree = json!({
+            "component": "Stack",
+            "children": []
+        });
+
+        let ctx = PlanContext {
+            items: vec![],
+            form_presentation: None,
+            component_document: None,
+            theme: None,
+            viewport_width: None,
+            find_item: Box::new(|_| None),
+            is_component_available: None,
+        };
+
+        let result = plan_component_tree(&tree, &ctx);
+        assert_eq!(result.component, "Stack");
+        assert_eq!(result.category, NodeCategory::Layout);
+        assert!(result.children.is_empty());
+    }
+
+    /// Spec: plan_definition_fallback wraps items into layout nodes.
+    #[test]
+    fn plan_definition_fallback_produces_nodes() {
+        use formspec_plan::{PlanContext, plan_definition_fallback, reset_node_id_counter};
+
+        reset_node_id_counter();
+
+        let items = vec![
+            json!({ "key": "name", "dataType": "string", "label": "Name" }),
+            json!({ "key": "age", "dataType": "integer", "label": "Age" }),
+        ];
+
+        let items_clone = items.clone();
+        let ctx = PlanContext {
+            items: items.clone(),
+            form_presentation: None,
+            component_document: None,
+            theme: None,
+            viewport_width: None,
+            find_item: Box::new(move |key: &str| {
+                items_clone
+                    .iter()
+                    .find(|i| i.get("key").and_then(|k| k.as_str()) == Some(key))
+                    .cloned()
+            }),
+            is_component_available: None,
+        };
+
+        let result = plan_definition_fallback(&items, &ctx);
+        assert_eq!(result.len(), 2);
+        // Each item becomes a field node
+        assert!(result[0].bind_path.is_some());
+        assert!(result[1].bind_path.is_some());
+    }
+
+    /// Spec: PlanContextJson deserializes and converts to PlanContext.
+    #[test]
+    fn plan_context_json_round_trip() {
+        use formspec_plan::PlanContextJson;
+
+        let ctx_json = json!({
+            "itemsByPath": {
+                "name": { "key": "name", "dataType": "string" }
+            },
+            "formPresentation": null,
+            "componentDocument": null,
+            "theme": null,
+            "viewportWidth": 1024,
+            "availableComponents": ["TextInput", "Stack"]
+        });
+
+        let parsed: PlanContextJson = serde_json::from_value(ctx_json).unwrap();
+        assert_eq!(parsed.items_by_path.len(), 1);
+        assert_eq!(parsed.viewport_width, Some(1024));
+        assert_eq!(parsed.available_components.len(), 2);
+    }
+
+    // ── PDF / XFDF ─────────────────────────────────────────────
+
+    /// Spec: generate_xfdf produces valid XML with sorted keys.
+    #[test]
+    fn generate_xfdf_sorted_keys() {
+        use formspec_pdf::generate_xfdf;
+        use std::collections::HashMap;
+
+        let mut fields = HashMap::new();
+        fields.insert("zeta".to_string(), json!("last"));
+        fields.insert("alpha".to_string(), json!("first"));
+
+        let xml = generate_xfdf(&fields);
+        let alpha_pos = xml.find("alpha").unwrap();
+        let zeta_pos = xml.find("zeta").unwrap();
+        assert!(alpha_pos < zeta_pos, "keys should be sorted alphabetically");
+    }
+
+    /// Spec: parse_xfdf round-trips with generate_xfdf.
+    #[test]
+    fn xfdf_round_trip() {
+        use formspec_pdf::{generate_xfdf, parse_xfdf};
+        use std::collections::HashMap;
+
+        let mut fields = HashMap::new();
+        fields.insert("name".to_string(), json!("Alice"));
+        fields.insert("score".to_string(), json!(42));
+        fields.insert("active".to_string(), json!(true));
+
+        let xml = generate_xfdf(&fields);
+        let parsed = parse_xfdf(&xml).unwrap();
+
+        assert_eq!(parsed.get("name"), Some(&json!("Alice")));
+        assert_eq!(parsed.get("score"), Some(&json!(42)));
+        assert_eq!(parsed.get("active"), Some(&json!(true)));
+    }
+
+    /// Spec: parse_xfdf returns error for malformed input gracefully.
+    #[test]
+    fn parse_xfdf_empty_is_ok() {
+        use formspec_pdf::parse_xfdf;
+
+        let result = parse_xfdf("<xfdf><fields></fields></xfdf>");
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    /// Spec: render_pdf produces non-empty bytes with PDF header.
+    #[test]
+    fn render_pdf_produces_valid_header() {
+        use formspec_pdf::{PdfOptions, render_pdf};
+        use formspec_plan::EvaluatedNode;
+
+        // Render with an empty tree — should still produce a valid PDF structure.
+        let nodes: Vec<EvaluatedNode> = vec![];
+        let options = PdfOptions::default();
+        let bytes = render_pdf(&nodes, &options);
+
+        assert!(!bytes.is_empty(), "PDF output should not be empty");
+        assert!(
+            bytes.starts_with(b"%PDF"),
+            "PDF output should start with %PDF header"
+        );
+    }
+
+    /// Spec: PdfOptions default values match US Letter (612x792 pt).
+    #[test]
+    fn pdf_options_default_values() {
+        use formspec_pdf::PdfOptions;
+
+        let opts = PdfOptions::default();
+        // US Letter dimensions in points
+        assert_eq!(opts.paper_width, 612.0);
+        assert_eq!(opts.paper_height, 792.0);
+        // 1-inch margins
+        assert_eq!(opts.margin_top, 72.0);
+        assert_eq!(opts.margin_bottom, 72.0);
+        assert_eq!(opts.margin_left, 72.0);
+        assert_eq!(opts.margin_right, 72.0);
+    }
+
+    /// Spec: EvaluatedNode serializes with camelCase field names.
+    #[test]
+    fn evaluated_node_camel_case_serialization() {
+        use formspec_plan::{EvaluatedNode, NodeCategory};
+        use serde_json::Map;
+
+        let node = EvaluatedNode {
+            id: "field-0".to_string(),
+            component: "TextInput".to_string(),
+            category: NodeCategory::Field,
+            props: Map::new(),
+            style: None,
+            css_classes: vec![],
+            accessibility: None,
+            presentation: None,
+            label_position: None,
+            bind_path: Some("name".to_string()),
+            field_item: None,
+            value: Some(json!("test")),
+            relevant: true,
+            required: false,
+            readonly: false,
+            validations: vec![],
+            span: 12,
+            col_start: 0,
+            children: vec![],
+            repeat_group: None,
+        };
+
+        let json = serde_json::to_value(&node).unwrap();
+        // camelCase keys
+        assert!(json.get("bindPath").is_some());
+        assert!(json.get("colStart").is_some());
+        assert!(json.get("repeatGroup").is_none()); // None → skipped
     }
 }

@@ -119,8 +119,7 @@ pub fn evaluate_def(
 
     let data = json_object_to_string_map(&data_val);
 
-    let eval_trigger =
-        formspec_eval::EvalTrigger::from_python_eval_def_option(trigger);
+    let eval_trigger = formspec_eval::EvalTrigger::from_python_eval_def_option(trigger);
 
     let constraints = match registry_documents {
         Some(docs) => {
@@ -142,12 +141,11 @@ pub fn evaluate_def(
         None => EvalContext::default(),
         Some(ctx_any) => {
             let ctx_val: Value = depythonize_json(ctx_any)?;
-            let map = ctx_val.as_object().ok_or_else(|| {
-                pyo3::exceptions::PyTypeError::new_err("context must be a dict")
-            })?;
-            eval_context_from_json_object(map).map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(e)
-            })?
+            let map = ctx_val
+                .as_object()
+                .ok_or_else(|| pyo3::exceptions::PyTypeError::new_err("context must be a dict"))?;
+            eval_context_from_json_object(map)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?
         }
     };
 
@@ -189,11 +187,7 @@ pub fn coerce_field_value(
         None => None,
         Some(b) => {
             let v: Value = depythonize_json(b)?;
-            if v.is_null() {
-                None
-            } else {
-                Some(v)
-            }
+            if v.is_null() { None } else { Some(v) }
         }
     };
     let out = coerce_field_value_core(&item_v, bind_v.as_ref(), &def_v, val_v);
