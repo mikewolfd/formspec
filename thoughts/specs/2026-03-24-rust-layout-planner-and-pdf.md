@@ -86,19 +86,20 @@ All three crates compile, 1,528 workspace tests pass (including 197 new tests ac
 - [x] **Signature field placeholders** (`/FT /Sig`, unsigned, dashed border appearance, `AnnotationFlags::PRINT`)
 - [x] **FileUpload static placeholder** ("File upload not available in PDF" — no AcroForm field)
 
-#### Phase 4c: Tagged PDF / PDF/UA — SCAFFOLDED, NOT IMPLEMENTED
+#### Phase 4c: Tagged PDF / PDF/UA — COMPLETE
 
 - [x] `TaggingContext` struct with MCID allocation, StructParent keys, page maps
-- [x] All bookkeeping methods implemented (behind `#[allow(dead_code)]`)
+- [x] All bookkeeping methods wired into render pipeline (no more `#[allow(dead_code)]`)
 - [x] `/MarkInfo /Marked true` and `/Lang` on catalog
-- [ ] **StructTreeRoot** → Document → Sect → P / Form hierarchy
-- [ ] **OBJR children** for widget annotations
-- [ ] **MCR children** for labeled text content
-- [ ] **ParentTree** (NumberTree) with page arrays + annotation entries
-- [ ] **Artifact marking** with ArtifactType/Subtype for headers/footers
-- [ ] **Matterhorn Protocol** checkpoints (28-005, 28-008, 28-009, 28-010)
-- [ ] **`/Tabs /S`** on all pages with widgets
-- [ ] **`/TU` tooltip** on every field annotation
+- [x] **StructTreeRoot** → Document → Sect → P / Form hierarchy
+- [x] **OBJR children** for widget annotations (`<Form>` struct elements with ObjectRef)
+- [x] **MCR children** for labeled text content (`<P>` struct elements with MarkedRef)
+- [x] **ParentTree** (NumberTree) with page arrays + annotation entries
+- [x] **Artifact marking** with `/Type /Pagination` for headers/footers
+- [x] **Matterhorn Protocol** checkpoints: `/StructParent` on annotations, `/StructParents` on pages
+- [x] **`/Tabs /S`** on all pages with widgets
+- [x] **`/TU` tooltip** on every field annotation (from hint or label)
+- [x] 13 tagged PDF tests (structure tree, parent tree, struct parent, tabs, marked content, artifacts, tooltips)
 
 #### Phase 4d: Content Rendering — MOSTLY COMPLETE
 
@@ -142,9 +143,10 @@ All three crates compile, 1,528 workspace tests pass (including 197 new tests ac
 
 ### Biggest Remaining Items by Value
 
-1. **Tagged PDF/PDF/UA** (Phase 4c) — accessibility compliance
-2. **TS migration** (Phase 3) — makes Rust the actual planner used by the web renderer
-3. **Hierarchical field naming** (Phase 4b) — repeat groups produce flat field names today
+1. **TS migration** (Phase 3) — makes Rust the actual planner used by the web renderer
+2. **Response assembly + compression** (Phase 4e) — XFDF round-trip and smaller PDFs
+3. ~~**Tagged PDF/PDF/UA** (Phase 4c)~~ — DONE
+4. ~~**Hierarchical field naming** (Phase 4b)~~ — DONE
 
 ## Overview
 

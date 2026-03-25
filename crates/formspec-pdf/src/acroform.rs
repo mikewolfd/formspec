@@ -2,6 +2,7 @@
 //!
 //! Uses pdf-writer typed dict API to emit merged field+widget annotation dicts.
 //! Supports hierarchical field naming for repeat group paths (e.g. `items[0].name`).
+//! Integrates with TaggingContext for PDF/UA structure tree (/StructParent, /TU).
 
 use formspec_plan::{EvaluatedNode, FieldOption};
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
@@ -9,6 +10,7 @@ use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
 use crate::appearance;
 use crate::layout::Rect;
 use crate::options::PdfConfig;
+use crate::tagged::TaggingContext;
 
 /// Information about a single AcroForm field placed on a page.
 pub struct FieldInfo {
@@ -55,6 +57,9 @@ impl AcroFormBuilder {
     }
 
     /// Write all accumulated fields into the Pdf document.
+    ///
+    /// For each field, registers it with the TaggingContext to create <Form> struct
+    /// elements and sets /StructParent and /TU on the annotation.
     pub fn write_fields(
         &self,
         pdf: &mut Pdf,
@@ -62,6 +67,7 @@ impl AcroFormBuilder {
         page_refs: &[Ref],
         config: &PdfConfig,
         alloc: &mut i32,
+        tag_ctx: &mut TaggingContext,
     ) {
         for info in &self.fields {
             let node = find_node_by_path(nodes, &info.name);
@@ -75,6 +81,16 @@ impl AcroFormBuilder {
                 .map(value_to_display_string)
                 .unwrap_or_default();
             let is_readonly = node.map(|n| n.readonly).unwrap_or(false);
+
+            // Build tooltip from hint (preferred) or label
+            let tooltip = node
+                .and_then(|n| n.field_item.as_ref())
+                .and_then(|fi| fi.hint.as_deref().or(fi.label.as_deref()))
+                .unwrap_or("");
+
+            // Register with tagging context for structure tree
+            let sect_ref = tag_ctx.default_sect_ref;
+            let struct_parent_key = tag_ctx.tag_field(info.field_ref, sect_ref, tooltip);
 
             match comp {
                 "checkbox" | "toggle" | "Checkbox" | "Toggle" => {
@@ -91,6 +107,8 @@ impl AcroFormBuilder {
                         width,
                         height,
                         alloc,
+                        struct_parent_key,
+                        tooltip,
                     );
                 }
                 "Select" | "select" | "dropdown" => {
@@ -111,6 +129,8 @@ impl AcroFormBuilder {
                         alloc,
                         &options,
                         true,
+                        struct_parent_key,
+                        tooltip,
                     );
                 }
                 "RadioGroup" | "radio" | "CheckboxGroup" | "checkboxGroup" => {
@@ -129,10 +149,22 @@ impl AcroFormBuilder {
                         config,
                         alloc,
                         &options,
+                        struct_parent_key,
+                        tooltip,
                     );
                 }
                 "Signature" | "signature" => {
-                    write_signature_field(pdf, info, page_ref, is_readonly, width, height, alloc);
+                    write_signature_field(
+                        pdf,
+                        info,
+                        page_ref,
+                        is_readonly,
+                        width,
+                        height,
+                        alloc,
+                        struct_parent_key,
+                        tooltip,
+                    );
                 }
                 "textArea" | "textarea" | "Textarea" => {
                     write_text_field(
@@ -146,6 +178,8 @@ impl AcroFormBuilder {
                         config,
                         alloc,
                         true,
+                        struct_parent_key,
+                        tooltip,
                     );
                 }
                 _ => {
@@ -160,6 +194,8 @@ impl AcroFormBuilder {
                         config,
                         alloc,
                         false,
+                        struct_parent_key,
+                        tooltip,
                     );
                 }
             }
@@ -370,6 +406,19 @@ fn alloc_ref(alloc: &mut i32) -> Ref {
     r
 }
 
+/// Write /StructParent and /TU on an annotation dict.
+/// Called by each field writer after the annotation is created.
+fn write_tagging_attrs(
+    annot: &mut pdf_writer::writers::Annotation<'_>,
+    struct_parent_key: i32,
+    tooltip: &str,
+) {
+    annot.struct_parent(struct_parent_key);
+    if !tooltip.is_empty() {
+        annot.insert(Name(b"TU")).primitive(TextStr(tooltip));
+    }
+}
+
 // ── Field writers ──
 
 /// Write a text field (single-line or multiline) as a merged Widget annotation.
@@ -384,6 +433,8 @@ fn write_text_field(
     config: &PdfConfig,
     alloc: &mut i32,
     multiline: bool,
+    struct_parent_key: i32,
+    tooltip: &str,
 ) {
     let ap_bytes = if multiline {
         appearance::build_multiline_text_appearance(value, width, height, config.field_font_size)
@@ -402,6 +453,7 @@ fn write_text_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
+    write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
     annot.insert(Name(b"FT")).primitive(Name(b"Tx"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
     if !value.is_empty() {
@@ -433,6 +485,8 @@ fn write_checkbox_field(
     width: f32,
     height: f32,
     alloc: &mut i32,
+    struct_parent_key: i32,
+    tooltip: &str,
 ) {
     let on_bytes = appearance::build_checkmark_appearance(width, height);
     let off_bytes = appearance::build_empty_box_appearance(width, height);
@@ -452,6 +506,7 @@ fn write_checkbox_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
+    write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
     annot.insert(Name(b"FT")).primitive(Name(b"Btn"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
     if checked {
@@ -485,6 +540,8 @@ fn write_choice_field(
     alloc: &mut i32,
     options: &[FieldOption],
     is_combo: bool,
+    struct_parent_key: i32,
+    tooltip: &str,
 ) {
     let ap_bytes =
         appearance::build_text_field_appearance(value, width, height, config.field_font_size);
@@ -500,6 +557,7 @@ fn write_choice_field(
     annot.subtype(pdf_writer::types::AnnotationType::Widget);
     annot.rect(pdf_writer::Rect::new(rect[0], rect[1], rect[2], rect[3]));
     annot.page(page_ref);
+    write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
     annot.insert(Name(b"FT")).primitive(Name(b"Ch"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
 
@@ -552,6 +610,8 @@ fn write_radio_field(
     config: &PdfConfig,
     alloc: &mut i32,
     options: &[FieldOption],
+    struct_parent_key: i32,
+    tooltip: &str,
 ) {
     let option_count = options.len().max(1);
     // Per-option height within the allocated field rect
@@ -619,6 +679,7 @@ fn write_radio_field(
     }
 
     // Write the parent (non-terminal) field dict at info.field_ref
+    // The parent dict gets /StructParent and /TU for the radio group as a whole
     let partial_name = terminal_name(&info.name);
     let kid_refs: Vec<Ref> = widget_infos.iter().map(|(r, _, _)| *r).collect();
 
@@ -638,6 +699,10 @@ fn write_radio_field(
     dict.insert(Name(b"FT")).primitive(Name(b"Btn"));
     dict.insert(Name(b"T")).primitive(TextStr(partial_name));
     dict.insert(Name(b"Ff")).primitive(ff);
+    dict.pair(Name(b"StructParent"), struct_parent_key);
+    if !tooltip.is_empty() {
+        dict.insert(Name(b"TU")).primitive(TextStr(tooltip));
+    }
     if let Some(export) = selected_export {
         dict.insert(Name(b"V")).primitive(Name(export.as_bytes()));
     } else {
@@ -660,6 +725,8 @@ fn write_signature_field(
     width: f32,
     height: f32,
     alloc: &mut i32,
+    struct_parent_key: i32,
+    tooltip: &str,
 ) {
     let ap_bytes = appearance::build_signature_placeholder_appearance(width, height);
     let ap_ref = alloc_ref(alloc);
@@ -676,6 +743,7 @@ fn write_signature_field(
     annot.page(page_ref);
     // AnnotationFlags::PRINT = 4 (bit 3)
     annot.flags(pdf_writer::types::AnnotationFlags::PRINT);
+    write_tagging_attrs(&mut annot, struct_parent_key, tooltip);
     annot.insert(Name(b"FT")).primitive(Name(b"Sig"));
     annot.insert(Name(b"T")).primitive(TextStr(partial_name));
     // No /V — this is an unsigned placeholder

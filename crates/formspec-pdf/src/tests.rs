@@ -1065,3 +1065,211 @@ fn render_pdf_hierarchical_parent_chain() {
         "Should have index segment in parent chain"
     );
 }
+
+// ── Tagged PDF / PDF/UA Structure Tree ──
+
+#[test]
+fn render_pdf_contains_struct_tree_root() {
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("/StructTreeRoot"),
+        "Tagged PDF must contain /StructTreeRoot in the catalog"
+    );
+}
+
+#[test]
+fn render_pdf_contains_parent_tree() {
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("/ParentTree"),
+        "Tagged PDF must contain /ParentTree in the structure tree"
+    );
+}
+
+#[test]
+fn render_pdf_field_annotations_have_struct_parent() {
+    let nodes = vec![
+        make_field_node("TextInput", "name", "Full Name"),
+        make_field_node("NumberInput", "age", "Age"),
+    ];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Every field annotation should have a /StructParent entry
+    let struct_parent_count = pdf_str.matches("/StructParent ").count();
+    assert!(
+        struct_parent_count >= 2,
+        "Each field annotation needs /StructParent, expected >= 2, got {}",
+        struct_parent_count
+    );
+}
+
+#[test]
+fn render_pdf_pages_with_widgets_have_tabs_s() {
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("/Tabs /S"),
+        "Pages with widget annotations must have /Tabs /S for structure tab order"
+    );
+}
+
+#[test]
+fn render_pdf_labels_have_marked_content() {
+    // Labels should be wrapped in BDC (begin marked content with properties)
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // BDC is the operator for begin_marked_content_with_properties
+    assert!(
+        pdf_str.contains("BDC"),
+        "Label text should be wrapped in marked content (BDC operator)"
+    );
+}
+
+#[test]
+fn render_pdf_headers_have_artifact_properties() {
+    let nodes = vec![make_field_node("TextInput", "name", "Name")];
+    let opts = PdfOptions {
+        header_text: Some("My Form".to_string()),
+        ..Default::default()
+    };
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Artifact marking should include /Type /Pagination property
+    assert!(
+        pdf_str.contains("/Type /Pagination"),
+        "Header artifacts should have /Type /Pagination property"
+    );
+}
+
+#[test]
+fn render_pdf_field_annotations_have_tooltip() {
+    let mut node = make_field_node("TextInput", "name", "Full Name");
+    node.field_item = Some(FieldItemSnapshot {
+        key: "name".to_string(),
+        label: Some("Full Name".to_string()),
+        hint: Some("Enter your full legal name".to_string()),
+        data_type: Some("string".to_string()),
+        options: Vec::new(),
+        option_set: None,
+    });
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // /TU is the tooltip entry on form field annotations
+    assert!(
+        pdf_str.contains("/TU"),
+        "Field annotations must have /TU (tooltip) for accessibility"
+    );
+}
+
+#[test]
+fn render_pdf_struct_tree_has_document_element() {
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Structure tree should contain a Document role
+    assert!(
+        pdf_str.contains("/S /Document"),
+        "Structure tree must have a Document element"
+    );
+}
+
+#[test]
+fn render_pdf_struct_tree_has_form_elements() {
+    let nodes = vec![
+        make_field_node("TextInput", "name", "Full Name"),
+        make_field_node("NumberInput", "age", "Age"),
+    ];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Each field should get a Form struct element
+    let form_count = pdf_str.matches("/S /Form").count();
+    assert!(
+        form_count >= 2,
+        "Expected at least 2 Form struct elements, got {}",
+        form_count
+    );
+}
+
+#[test]
+fn render_pdf_struct_tree_has_p_elements_for_labels() {
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // Labels should get P (paragraph) struct elements
+    assert!(
+        pdf_str.contains("/S /P"),
+        "Labels should have /P struct elements"
+    );
+}
+
+#[test]
+fn render_pdf_pages_with_mcids_have_struct_parents() {
+    // Pages containing tagged content must have /StructParents (plural, for pages)
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("/StructParents"),
+        "Pages with tagged content must have /StructParents"
+    );
+}
+
+#[test]
+fn render_pdf_checkbox_has_struct_parent_and_tooltip() {
+    let mut node = make_field_node("checkbox", "agree", "I agree to the terms");
+    node.value = Some(json!(true));
+    let nodes = vec![node];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("/StructParent"),
+        "Checkbox annotation must have /StructParent"
+    );
+    assert!(
+        pdf_str.contains("/TU"),
+        "Checkbox annotation must have /TU tooltip"
+    );
+}
+
+#[test]
+fn render_pdf_parent_tree_next_key() {
+    let nodes = vec![make_field_node("TextInput", "name", "Full Name")];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        pdf_str.contains("/ParentTreeNextKey"),
+        "StructTreeRoot must have /ParentTreeNextKey"
+    );
+}
