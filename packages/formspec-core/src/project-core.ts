@@ -66,6 +66,7 @@ export interface IProjectCore {
 
   // ── Queries ───────────────────────────────────────────────────
   fieldPaths(): string[];
+  itemPaths(): string[];
   itemAt(path: string): FormItem | undefined;
   responseSchemaRows(): ResponseSchemaRow[];
   statistics(): ProjectStatistics;
