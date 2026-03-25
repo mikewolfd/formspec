@@ -17,7 +17,10 @@ export {
   unboundItems,
   resolveToken,
   allDataTypes,
+  shapesForPath,
+  normalizeBinds,
 } from './field-queries.js';
+export type { NormalizedBinds } from './field-queries.js';
 
 export {
   parseFEL,
