@@ -29,16 +29,32 @@ pub fn paginate(measured: &[MeasuredNode], config: &PdfConfig) -> Vec<Vec<PageIt
     let mut pages: Vec<Vec<PageItem>> = vec![vec![]];
     let mut cursor: f32 = 0.0;
 
-    for node in measured {
-        if node.height <= 0.0 {
-            continue;
-        }
+    // Filter to non-zero-height nodes for lookahead.
+    let nodes: Vec<&MeasuredNode> = measured.iter().filter(|n| n.height > 0.0).collect();
 
-        // Break to a new page if the node won't fit — but only if the
-        // current page already has content (don't leave empty pages).
-        if cursor > 0.0 && cursor + node.height > max_h {
-            pages.push(vec![]);
-            cursor = 0.0;
+    for (i, node) in nodes.iter().enumerate() {
+        // Keep-with-next: if this is a small node (heading/label) and
+        // placing it here would orphan it (the next node forces a break),
+        // break BEFORE this node so it starts the next page with its content.
+        if cursor > 0.0 {
+            let is_small = node.height < max_h * 0.08;
+            if is_small {
+                if let Some(next) = nodes.get(i + 1) {
+                    // Would the next node need a new page after this one?
+                    let after = cursor + node.height;
+                    if after + next.height > max_h && after > max_h * 0.5 {
+                        // Heading would be stranded in the bottom half — break now.
+                        pages.push(vec![]);
+                        cursor = 0.0;
+                    }
+                }
+            }
+
+            // Normal break: node won't fit on current page.
+            if cursor + node.height > max_h {
+                pages.push(vec![]);
+                cursor = 0.0;
+            }
         }
 
         pages.last_mut().unwrap().push(PageItem {
