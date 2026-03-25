@@ -29,8 +29,42 @@ jobs:
       - run: pip install -e ".[test]"
       - run: pip install --no-build-isolation ./crates/formspec-py
       - run: npm ci
-      - run: npm run build
-      - run: npm run test:unit
+      - name: Build all packages
+        id: build
+        run: npm run build 2>&1 | tee /tmp/build-output.txt
+      - name: Run unit tests
+        id: tests
+        if: steps.build.outcome == 'success'
+        run: npm run test:unit 2>&1 | tee /tmp/test-output.txt
+        env:
+          FORCE_COLOR: 0
+      - name: Comment failure on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let buildOut = '', testOut = '';
+            try { buildOut = fs.readFileSync('/tmp/build-output.txt', 'utf8'); } catch {}
+            try { testOut = fs.readFileSync('/tmp/test-output.txt', 'utf8'); } catch {}
+            const buildLines = buildOut.split('\n').slice(-100).join('\n');
+            const testLines = testOut.split('\n').slice(-150).join('\n');
+            let body = '## Unit Tests (TS) CI Failure\n\n';
+            if ('${{ steps.build.outcome }}' === 'failure') {
+              body += '<details><summary>Build output (last 100 lines)</summary>\n\n```\n' + buildLines + '\n```\n\n</details>\n\n';
+            }
+            if (testOut) {
+              body += '<details><summary>Test output (last 150 lines)</summary>\n\n```\n' + testLines + '\n```\n\n</details>';
+            }
+            if (!buildOut && !testOut) {
+              body += 'No output captured — failure may be in an earlier step.';
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
 
   python-tests:
     name: Python Tests
