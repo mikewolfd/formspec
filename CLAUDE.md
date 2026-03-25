@@ -178,10 +178,10 @@ Internal package dependencies must flow strictly downward through defined layers
 | Layer | Packages |
 |-------|----------|
 | 0 | `formspec-types` |
-| 1 | `formspec-engine`, `formspec-layout` |
-| 2 | `formspec-webcomponent`, `formspec-core` |
-| 3 | `formspec-adapters`, `formspec-studio-core` |
-| 4 | `formspec-mcp` |
+| 1 | `formspec-engine` |
+| 2 | `formspec-layout`, `formspec-core` |
+| 3 | `formspec-webcomponent`, `formspec-studio-core` |
+| 4 | `formspec-adapters`, `formspec-mcp` |
 | 5 | `formspec-chat` |
 | 6 | `formspec-studio` |
 

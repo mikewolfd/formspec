@@ -46,4 +46,11 @@ export {
     wasmValidateExtensionUsage,
     wasmValidateLifecycleTransition,
     wasmWellKnownRegistryUrl,
+    wasmResolvePresentation,
+    wasmResolveToken,
+    wasmPlanComponentTree,
+    wasmPlanDefinitionFallback,
+    wasmPlanThemePages,
+    wasmPlanUnboundRequired,
+    wasmResetNodeIdCounter,
 } from './wasm-bridge-tools.js';

@@ -48,7 +48,7 @@ All three crates compile, 1,528 workspace tests pass (including 197 new tests ac
 - [x] PDF renderer uses `plan_theme_pages` when theme has pages
 - [x] 90 unit + conformance tests
 
-### Phase 3: WASM Bridge + TS Migration — WASM DONE, TS MIGRATION NOT STARTED
+### Phase 3: WASM Bridge + TS Migration — BRIDGE DONE, CONFORMANCE/CLEANUP PENDING
 
 - [x] `theme-api` and `plan-api` feature flags in `formspec-wasm`
 - [x] `pdf-api` feature flag (compiles, currently excluded from `full-wasm` pending TS bridge)
@@ -56,10 +56,14 @@ All three crates compile, 1,528 workspace tests pass (including 197 new tests ac
 - [x] WASM exports: `planComponentTree`, `planDefinitionFallback`, `resetNodeIdCounter` (`plan.rs`)
 - [x] WASM exports: `renderPDF`, `generateXFDF`, `parseXFDF` (`pdf.rs`)
 - [x] Component tree routing in PDF WASM — uses `plan_component_tree` when component doc present
-- [ ] **`wasm-bridge-layout.ts`** in formspec-engine
-- [ ] **Migrate `formspec-layout`** to WASM bridge (delete TS planner/theme-resolver/tokens/responsive/defaults/params)
-- [ ] **Cross-planner conformance run** — Rust generates expected output, TS runs same fixtures
-- [ ] **E2E regression testing** — Playwright tests catch rendering changes from spec-correct behavior
+- [x] **TS wrappers in `formspec-engine/src/wasm-bridge-tools.ts`** — `wasmResolvePresentation`, `wasmResolveToken`, `wasmPlanComponentTree`, `wasmPlanDefinitionFallback`, `wasmPlanThemePages`, `wasmPlanUnboundRequired`, `wasmResetNodeIdCounter`
+- [x] **`wasm-bridge.ts`** in formspec-layout — delegates resolvePresentation, resolveToken, planComponentTree, planDefinitionFallback, resetNodeIdCounter to Rust via formspec-engine/fel-tools
+- [x] **`index.ts` updated** — re-exports from wasm-bridge.ts; keeps resolveWidget, setTailwindMerge, resolveResponsiveProps, interpolateParams, getDefaultComponent in TS
+- [x] **Package dependency fences updated** — formspec-layout moved to Layer 2 (depends on formspec-engine Layer 1)
+- [x] **formspec-webcomponent test setup** — updated to init tools WASM + added Vite aliases for engine subpaths
+- [ ] **Cross-planner conformance run** — Rust generates expected output, TS runs same fixtures (Step 7)
+- [ ] **E2E regression testing** — Playwright tests catch rendering changes from spec-correct behavior (Step 7)
+- [ ] **Delete TS planner files** — planner.ts, theme-resolver.ts, tokens.ts, responsive.ts, defaults.ts, params.ts (after Step 7)
 
 ### Phase 4: `formspec-pdf` — FOUNDATION DONE, GAPS REMAIN
 

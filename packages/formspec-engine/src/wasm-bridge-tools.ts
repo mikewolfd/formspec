@@ -426,3 +426,74 @@ export function wasmValidateExtensionUsage(
     );
     return JSON.parse(resultJson);
 }
+
+// ---------------------------------------------------------------------------
+// Theme cascade — `formspec-theme` via tools WASM (`theme-api` feature)
+// ---------------------------------------------------------------------------
+
+/** Resolve the effective PresentationBlock for a single item via the 6-level cascade. */
+export function wasmResolvePresentation(
+    themeJson: string,
+    itemJson: string,
+    tier1Json: string,
+): string {
+    assertWasmToolsReadySync();
+    return wasmTools().resolvePresentation(themeJson, itemJson, tier1Json);
+}
+
+/** Resolve a $token.key reference against component tokens and theme tokens. */
+export function wasmResolveToken(
+    value: string,
+    componentTokensJson: string,
+    themeTokensJson: string,
+): string {
+    assertWasmToolsReadySync();
+    return wasmTools().resolveToken(value, componentTokensJson, themeTokensJson);
+}
+
+// ---------------------------------------------------------------------------
+// Layout planner — `formspec-plan` via tools WASM (`plan-api` feature)
+// ---------------------------------------------------------------------------
+
+/** Plan a component tree node into a LayoutNode tree. */
+export function wasmPlanComponentTree(
+    treeJson: string,
+    contextJson: string,
+): string {
+    assertWasmToolsReadySync();
+    return wasmTools().planComponentTree(treeJson, contextJson);
+}
+
+/** Plan definition items into LayoutNode trees (fallback when no component document). */
+export function wasmPlanDefinitionFallback(
+    itemsJson: string,
+    contextJson: string,
+): string {
+    assertWasmToolsReadySync();
+    return wasmTools().planDefinitionFallback(itemsJson, contextJson);
+}
+
+/** Plan layout using theme pages (SS6.1–6.3). */
+export function wasmPlanThemePages(
+    itemsJson: string,
+    contextJson: string,
+): string {
+    assertWasmToolsReadySync();
+    return wasmTools().planThemePages(itemsJson, contextJson);
+}
+
+/** Identify unbound required items and produce fallback nodes (Component SS4.5). */
+export function wasmPlanUnboundRequired(
+    treeJson: string,
+    itemsJson: string,
+    contextJson: string,
+): string {
+    assertWasmToolsReadySync();
+    return wasmTools().planUnboundRequired(treeJson, itemsJson, contextJson);
+}
+
+/** Reset the node ID counter (for deterministic testing). */
+export function wasmResetNodeIdCounter(): void {
+    assertWasmToolsReadySync();
+    wasmTools().resetNodeIdCounter();
+}

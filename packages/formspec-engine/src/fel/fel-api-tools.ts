@@ -37,6 +37,13 @@ import {
     wasmValidateExtensionUsage,
     wasmValidateLifecycleTransition,
     wasmWellKnownRegistryUrl,
+    wasmResolvePresentation,
+    wasmResolveToken,
+    wasmPlanComponentTree,
+    wasmPlanDefinitionFallback,
+    wasmPlanThemePages,
+    wasmPlanUnboundRequired,
+    wasmResetNodeIdCounter,
 } from '../wasm-bridge-tools.js';
 
 export const tokenizeFEL = wasmTokenizeFEL;
@@ -160,3 +167,17 @@ function collectExtensionNames(items: unknown[], names: Set<string>): void {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Theme cascade + layout planner — re-exports for formspec-layout bridge
+// ---------------------------------------------------------------------------
+
+export {
+    wasmResolvePresentation,
+    wasmResolveToken,
+    wasmPlanComponentTree,
+    wasmPlanDefinitionFallback,
+    wasmPlanThemePages,
+    wasmPlanUnboundRequired,
+    wasmResetNodeIdCounter,
+};
