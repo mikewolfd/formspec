@@ -2,4 +2,4 @@
 
 export { uswdsAdapter } from './uswds/index';
 export { tailwindAdapter } from './tailwind/index';
-export { shadcnAdapter } from './shadcn/index';
+export { shadcnAdapter } from './react/index';
