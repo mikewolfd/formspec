@@ -96,6 +96,8 @@ export class FormspecRender extends HTMLElement {
     /** @internal */ stylesheetHrefs: string[] = [];
     private rootContainer: HTMLDivElement | null = null;
     private _renderPending = false;
+    /** When true, at least one {@link scheduleRender} was dropped while a render was queued — run again. */
+    private _renderAgain = false;
     private _locale = '';
     private _pendingLocaleDocuments: LocaleDocument[] = [];
 
@@ -240,11 +242,18 @@ export class FormspecRender extends HTMLElement {
     }
 
     private scheduleRender() {
-        if (this._renderPending) return;
+        if (this._renderPending) {
+            this._renderAgain = true;
+            return;
+        }
         this._renderPending = true;
         Promise.resolve().then(() => {
             this._renderPending = false;
             this.render();
+            if (this._renderAgain) {
+                this._renderAgain = false;
+                this.scheduleRender();
+            }
         });
     }
 

@@ -81,8 +81,9 @@ test.describe('Components: Accessibility and Responsive Overrides', () => {
                     "component": "Grid",
                     "columns": 4,
                     "responsive": {
-                        "mobile": { "columns": 1 },
-                        "tablet": { "columns": 2 }
+                        "mobile": { "minWidth": 0, "columns": 1 },
+                        "tablet": { "minWidth": 601, "columns": 2 },
+                        "desktop": { "minWidth": 901, "columns": 4 }
                     },
                     "children": [
                         { "component": "Text", "text": "A" },
@@ -94,16 +95,18 @@ test.describe('Components: Accessibility and Responsive Overrides', () => {
             };
         });
 
-        // At 1200px width, desktop breakpoint -> should use base columns=4
-        const grid = page.locator('.formspec-grid').first();
-        let colCount = await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+        // At 1200px width, cumulative minWidth merges -> desktop columns=4
+        const gridWide = page.locator('.formspec-grid').first();
+        await expect(gridWide).toHaveAttribute('data-columns', '4');
+        let colCount = await gridWide.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
         expect(colCount).toBe(4);
 
-        // Resize to tablet
+        // Resize to tablet — full re-render replaces the grid node; must not reuse a stale locator.
         await page.setViewportSize({ width: 800, height: 800 });
-        await page.waitForTimeout(200); // wait for matchMedia to fire
+        const gridNarrow = page.locator('.formspec-grid').first();
+        await expect(gridNarrow).toHaveAttribute('data-columns', '2', { timeout: 5000 });
 
-        colCount = await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+        colCount = await gridNarrow.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
         expect(colCount).toBe(2);
     });
 });

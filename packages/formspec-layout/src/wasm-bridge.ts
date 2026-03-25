@@ -72,13 +72,39 @@ function buildItemsByPath(items: any[], prefix = ''): Record<string, unknown> {
 }
 
 /**
- * Compute the active breakpoint name from viewport width and theme breakpoints.
- * Returns the largest breakpoint whose value is <= viewportWidth, or null.
+ * Theme-derived width when `activeBreakpoint` maps to a numeric token (px).
  */
 function resolveViewportWidth(ctx: PlanContext): number | null {
+    if (typeof globalThis !== 'undefined') {
+        const w = (globalThis as unknown as { innerWidth?: number }).innerWidth;
+        if (typeof w === 'number' && Number.isFinite(w) && w > 0) {
+            return Math.round(w);
+        }
+    }
     if (ctx.activeBreakpoint != null && ctx.theme?.breakpoints) {
         const bp = ctx.theme.breakpoints[ctx.activeBreakpoint];
         if (typeof bp === 'number') return bp;
+    }
+    if (ctx.activeBreakpoint != null && ctx.componentDocument?.breakpoints) {
+        const bp = ctx.componentDocument.breakpoints[ctx.activeBreakpoint];
+        if (typeof bp === 'number') return bp;
+    }
+    return null;
+}
+
+/**
+ * Pixel width passed to the Rust planner for cumulative `responsive.minWidth` merges.
+ * Uses theme lookup when available; otherwise `window.innerWidth` in the browser so
+ * component documents with media-query breakpoints still plan correctly.
+ */
+function effectiveViewportWidth(ctx: PlanContext): number | null {
+    const fromTheme = resolveViewportWidth(ctx);
+    if (fromTheme != null) return fromTheme;
+    if (typeof globalThis === 'object' && globalThis != null) {
+        const w = (globalThis as { innerWidth?: unknown }).innerWidth;
+        if (typeof w === 'number' && Number.isFinite(w) && w >= 0) {
+            return Math.floor(w);
+        }
     }
     return null;
 }
@@ -90,7 +116,7 @@ function resolveViewportWidth(ctx: PlanContext): number | null {
  * they could be custom params and are handled by the Rust planner's extract_props().
  */
 const TREE_STRUCTURAL_KEYS = new Set([
-    'component', 'children', 'when', 'responsive', 'bind', 'style',
+    'component', 'children', 'when', 'fallback', 'responsive', 'bind', 'style',
     'cssClass', 'accessibility', 'params',
 ]);
 
@@ -188,7 +214,7 @@ function toPlanContextJson(ctx: PlanContext): PlanContextJson {
         formPresentation: ctx.formPresentation ?? undefined,
         componentDocument: ctx.componentDocument ? normalizeComponentDocument(ctx.componentDocument) : undefined,
         theme: ctx.theme ? normalizeTheme(ctx.theme) : undefined,
-        viewportWidth: resolveViewportWidth(ctx),
+        viewportWidth: effectiveViewportWidth(ctx),
         availableComponents: collectAvailableComponents(ctx),
     };
 }
