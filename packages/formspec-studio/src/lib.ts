@@ -7,6 +7,9 @@ export { StudioApp } from './studio-app/StudioApp';
 // Re-export project creation utilities
 export { createProject, type Project } from 'formspec-studio-core';
 
+// Re-export WASM init functions for embedders that need FEL tools
+export { initFormspecEngine, initFormspecEngineTools } from 'formspec-engine';
+
 // Re-export types consumers need
 export type { ProjectSnapshot, CreateProjectOptions } from 'formspec-studio-core';
 
