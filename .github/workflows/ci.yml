@@ -105,7 +105,24 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Run E2E tests
+        id: e2e
+        run: npm run test:e2e 2>&1 | tee /tmp/e2e-output.txt
+      - name: Comment E2E failure on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('/tmp/e2e-output.txt', 'utf8'); } catch {}
+            const lines = output.split('\n').slice(-150).join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '## E2E Tests Failure\n\n<details><summary>Last 150 lines</summary>\n\n```\n' + lines + '\n```\n\n</details>'
+            });
 
   rust-tests:
     name: Rust Tests
@@ -143,4 +160,21 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:studio:e2e
+      - name: Run Studio E2E tests
+        id: studio-e2e
+        run: npm run test:studio:e2e 2>&1 | tee /tmp/studio-e2e-output.txt
+      - name: Comment Studio E2E failure on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('/tmp/studio-e2e-output.txt', 'utf8'); } catch {}
+            const lines = output.split('\n').slice(-150).join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '## Studio E2E Tests Failure\n\n<details><summary>Last 150 lines</summary>\n\n```\n' + lines + '\n```\n\n</details>'
+            });
