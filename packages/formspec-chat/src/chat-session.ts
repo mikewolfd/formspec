@@ -4,17 +4,28 @@ import type {
   ScaffoldRequest, SourceTrace, Issue, DebugEntry,
   ToolContext,
 } from './types.js';
-import type { FormDefinition } from 'formspec-types';
-import type { ProjectBundle } from 'formspec-core';
+import type { FormDefinition, ProjectBundle } from 'formspec-types';
 import { SourceTraceManager } from './source-trace.js';
 import { IssueQueue } from './issue-queue.js';
 import { diff, type DefinitionDiff } from './form-scaffolder.js';
-import { buildBundleFromDefinition } from './bundle-builder.js';
 
 let sessionCounter = 0;
 
 function nextSessionId(): string {
   return `chat-${++sessionCounter}-${Date.now()}`;
+}
+
+/** Options for constructing a ChatSession. */
+export interface ChatSessionOptions {
+  adapter: AIAdapter;
+  id?: string;
+  /**
+   * Converts a bare FormDefinition into a full ProjectBundle.
+   * Injected by the host (e.g. Studio) so chat does not depend on
+   * project-creation logic. When omitted, the session stores only
+   * the definition — getBundle() returns null.
+   */
+  buildBundle?: (definition: FormDefinition) => ProjectBundle;
 }
 
 /**
@@ -31,6 +42,7 @@ function nextSessionId(): string {
 export class ChatSession {
   readonly id: string;
   private adapter: AIAdapter;
+  private _buildBundle: ((def: FormDefinition) => ProjectBundle) | null;
   private messages: ChatMessage[] = [];
   private traces: SourceTraceManager = new SourceTraceManager();
   private issues: IssueQueue = new IssueQueue();
@@ -47,9 +59,10 @@ export class ChatSession {
   private debugLog: DebugEntry[] = [];
   private scaffoldingText: string | null = null;
 
-  constructor(options: { adapter: AIAdapter; id?: string }) {
+  constructor(options: ChatSessionOptions) {
     this.adapter = options.adapter;
     this.id = options.id ?? nextSessionId();
+    this._buildBundle = options.buildBundle ?? null;
     this.createdAt = Date.now();
     this.updatedAt = this.createdAt;
   }
@@ -144,6 +157,11 @@ export class ChatSession {
 
   private log(direction: DebugEntry['direction'], label: string, data: unknown): void {
     this.debugLog.push({ timestamp: Date.now(), direction, label, data });
+  }
+
+  /** Build a bundle from a definition using the injected builder, or null if none provided. */
+  private tryBuildBundle(def: FormDefinition): ProjectBundle | null {
+    return this._buildBundle ? this._buildBundle(def) : null;
   }
 
   /**
@@ -249,7 +267,7 @@ export class ChatSession {
       this.log('received', 'scaffold', { title: result.definition.title, itemCount: result.definition.items.length, issueCount: result.issues.length });
 
       this.definition = result.definition;
-      this.bundle = buildBundleFromDefinition(result.definition);
+      this.bundle = this.tryBuildBundle(result.definition);
       this.lastDiff = null;
       this.traces.addTraces(result.traces);
       this.addIssuesFromResult(result.issues);
@@ -298,7 +316,7 @@ export class ChatSession {
     });
 
     this.definition = result.definition;
-    this.bundle = buildBundleFromDefinition(result.definition);
+    this.bundle = this.tryBuildBundle(result.definition);
     this.templateId = templateId;
     this.traces.addTraces(result.traces);
     this.addIssuesFromResult(result.issues);
@@ -327,7 +345,7 @@ export class ChatSession {
     });
 
     this.definition = result.definition;
-    this.bundle = buildBundleFromDefinition(result.definition);
+    this.bundle = this.tryBuildBundle(result.definition);
     this.traces.addTraces(result.traces);
     this.addIssuesFromResult(result.issues);
 
@@ -360,7 +378,7 @@ export class ChatSession {
       this.log('received', 'regenerate', { title: result.definition.title, itemCount: result.definition.items.length });
 
       this.definition = result.definition;
-      this.bundle = buildBundleFromDefinition(result.definition);
+      this.bundle = this.tryBuildBundle(result.definition);
       this.lastDiff = null;
       this.traces = new SourceTraceManager();
       this.traces.addTraces(result.traces);
@@ -446,11 +464,11 @@ export class ChatSession {
    * Note: The restored session has no ToolContext. The host must call
    * `setToolContext()` before refinement can proceed.
    */
-  static async fromState(state: ChatSessionState, adapter: AIAdapter): Promise<ChatSession> {
-    const session = new ChatSession({ adapter, id: state.id });
+  static async fromState(state: ChatSessionState, adapter: AIAdapter, buildBundle?: (def: FormDefinition) => ProjectBundle): Promise<ChatSession> {
+    const session = new ChatSession({ adapter, id: state.id, buildBundle });
     session.messages = [...state.messages];
     session.definition = state.projectSnapshot.definition;
-    session.bundle = session.definition ? buildBundleFromDefinition(session.definition) : null;
+    session.bundle = session.definition && session._buildBundle ? session._buildBundle(session.definition) : null;
     session.traces = SourceTraceManager.fromJSON(state.traces);
     session.issues = IssueQueue.fromJSON(state.issues);
     session.createdAt = state.createdAt;
@@ -475,7 +493,7 @@ export class ChatSession {
       const snapshot = await this.toolContext.getProjectSnapshot();
       if (snapshot) {
         this.definition = snapshot.definition;
-        this.bundle = buildBundleFromDefinition(snapshot.definition);
+        this.bundle = this.tryBuildBundle(snapshot.definition);
       }
       return;
     }
@@ -487,7 +505,7 @@ export class ChatSession {
         const parsed = JSON.parse(result.content);
         if (parsed.definition) {
           this.definition = parsed.definition;
-          this.bundle = buildBundleFromDefinition(parsed.definition);
+          this.bundle = this.tryBuildBundle(parsed.definition);
         }
       }
     } catch {
