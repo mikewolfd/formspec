@@ -54,6 +54,15 @@ const STRUCTURAL_KEYS: &[&str] = &[
     "params",
 ];
 
+/// Binds to a repeatable group but renders instances inside the component plugin
+/// (`DataTable` rows, `Accordion` sections). The DOM emitter must not wrap these
+/// in the generic repeat template or layout scope-change group.
+const SELF_MANAGED_REPEAT_COMPONENTS: &[&str] = &["DataTable", "Accordion"];
+
+fn self_managed_repeat_component(component: &str) -> bool {
+    SELF_MANAGED_REPEAT_COMPONENTS.contains(&component)
+}
+
 /// Classify a component type string into a NodeCategory.
 pub fn classify_component(component: &str) -> NodeCategory {
     match component {
@@ -503,13 +512,16 @@ fn plan_component_tree_inner(
         if let Some(item) = (ctx.find_item)(path) {
             if item.get("repeatable").and_then(|v| v.as_bool()) == Some(true) {
                 repeat_group = Some(path.clone());
-                is_repeat_template = Some(true);
+                if !self_managed_repeat_component(&component_type) {
+                    is_repeat_template = Some(true);
+                }
             }
         }
     }
 
     // 10. Detect scope change for groups
-    let scope_change = if category == NodeCategory::Layout {
+    let scope_change = if category == NodeCategory::Layout && !self_managed_repeat_component(&component_type)
+    {
         bind_path.clone()
     } else {
         None

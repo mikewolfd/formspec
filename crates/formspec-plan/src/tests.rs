@@ -707,6 +707,59 @@ fn plan_component_tree_repeat_detected() {
 }
 
 #[test]
+fn plan_component_tree_datatable_repeatable_not_repeat_template() {
+    reset_node_id_counter();
+    let tree = json!({
+        "component": "DataTable",
+        "bind": "lineItems",
+        "columns": [
+            {"header": "Description", "bind": "desc"}
+        ]
+    });
+    let items = vec![json!({
+        "key": "lineItems",
+        "type": "group",
+        "repeatable": true,
+        "items": [
+            {"key": "desc", "dataType": "string", "label": "Description"}
+        ]
+    })];
+    let ctx = make_tree_ctx(items, None);
+    let node = plan_component_tree(&tree, &ctx);
+
+    assert_eq!(node.component, "DataTable");
+    assert_eq!(node.repeat_group.as_deref(), Some("lineItems"));
+    assert_eq!(node.is_repeat_template, None);
+    assert!(node.props.get("columns").is_some());
+}
+
+#[test]
+fn plan_component_tree_accordion_repeatable_not_repeat_template_or_scope() {
+    reset_node_id_counter();
+    let tree = json!({
+        "component": "Accordion",
+        "bind": "members",
+        "children": [{"component": "TextInput", "bind": "memberName"}]
+    });
+    let items = vec![json!({
+        "key": "members",
+        "type": "group",
+        "repeatable": true,
+        "items": [
+            {"key": "memberName", "dataType": "string", "label": "Member Name"}
+        ]
+    })];
+    let ctx = make_tree_ctx(items, None);
+    let node = plan_component_tree(&tree, &ctx);
+
+    assert_eq!(node.component, "Accordion");
+    assert_eq!(node.repeat_group.as_deref(), Some("members"));
+    assert_eq!(node.is_repeat_template, None);
+    assert_eq!(node.scope_change, None);
+    assert_eq!(node.children.len(), 1);
+}
+
+#[test]
 fn plan_component_tree_cascade_resolves_widget_for_unspecified_component() {
     reset_node_id_counter();
     // A tree node with bind but NO explicit "component" key.
