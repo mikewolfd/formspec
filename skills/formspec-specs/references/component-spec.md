@@ -1,6 +1,6 @@
 # Component Specification Reference Map
 
-> specs/component/component-spec.md -- 3335 lines, ~114K -- Tier 3: Component Tree, Slot Binding, 34 Built-in Components
+> specs/component/component-spec.md -- 3424 lines, ~121K -- Tier 3: Component Tree, Slot Binding, 34 Built-in Components
 
 ## Overview
 
@@ -34,7 +34,7 @@ The Component Specification defines **Tier 3** of Formspec's three-tier presenta
 | S4.1 | The bind Property | `bind` is a flat item `key` string (not a path, pointer, or FEL expression). MUST correspond to an item key in the target Definition. If key missing, processor MUST warn and SHOULD hide. | bind, flat key, item key | Authoring bind values or debugging "key not found" errors |
 | S4.2 | Bind Resolution Rules | Per-category rules: Input=REQUIRED (reads/writes value, propagates required/readOnly/relevant/validation); Display=OPTIONAL (read-only display); Layout=FORBIDDEN; Container=FORBIDDEN (except DataTable). Six renderer MUSTs for bound Input components. | Input bind, Display bind, Layout/Container forbidden, label, hint, required indicator, readonly, relevant, validation | Implementing bind behavior in a renderer |
 | S4.3 | Editable Binding Uniqueness | At most ONE editable Input per item key. Multiple read-only Display components MAY bind same key. Duplicate editable binds: reject or warn+use first. | Editable uniqueness, read-only display binding | Fixing duplicate bind validation errors |
-| S4.4 | Repeatable Group Binding | Components binding to repeatable groups act as repeat templates. Renderer MUST render per-instance, resolve child binds within repeat context, provide add/remove affordances. DataTable (S6.13) and Accordion (S6.3) support this. Other layout/container components MUST NOT bind repeatable groups. | Repeatable group, repeat template, DataTable, Accordion, minRepeat, maxRepeat | Implementing or authoring repeatable group rendering |
+| S4.4 | Repeatable Group Binding | Components binding to repeatable groups act as repeat templates. Renderer MUST render per-instance, resolve child binds within repeat context, provide add/remove affordances. Only DataTable (S6.13) supports this. Other layout/container components MUST NOT bind repeatable groups. | Repeatable group, repeat template, DataTable, minRepeat, maxRepeat | Implementing or authoring repeatable group rendering |
 | S4.5 | Unbound Required Items | Component Document need not bind every item. Required unbound items MUST get fallback rendering (Tier 2 then Tier 1 then defaults), appended after tree output, in Definition order. Non-required unbound items MAY be omitted. | Fallback rendering, unbound required items, partial tree | Handling items not in the component tree |
 | S4.6 | Bind/dataType Compatibility Matrix | 10-row matrix mapping each dataType to compatible Input components. Processors MUST validate compatibility and MUST reject/warn on mismatches. | dataType compatibility, validation error | Checking if a component can bind a given dataType |
 | S5 | Built-In Components -- Core (18) | Section header introducing the 18 Core components. All conforming processors MUST support these. Grouped by category. | Core components | Starting point for Core component catalog |
@@ -200,7 +200,7 @@ These are the non-obvious rules that frequently trip up implementers:
 
 7. **`bind` is a flat item key, NOT a path.** Not a dotted path, JSON Pointer, or FEL expression. It matches the item's `key` property exactly (S4.1).
 
-8. **Only DataTable and Accordion may bind repeatable groups.** Other layout/container components MUST NOT bind to repeatable groups. This is enforced as a rejection (S4.4).
+8. **Only DataTable may bind repeatable groups.** Other layout/container components MUST NOT bind to repeatable groups. This is enforced as a rejection (S4.4).
 
 9. **Wizard children MUST ALL be Page components.** Non-Page children MUST cause a validation error (S3.4, S5.4).
 

@@ -1,6 +1,6 @@
 # Mapping Specification Reference Map
 
-> specs/mapping/mapping-spec.md -- 2014 lines, ~90K -- Companion: Bidirectional Transforms, Format Adapters (JSON, XML, CSV)
+> specs/mapping/mapping-spec.md -- 2023 lines, ~94K -- Companion: Bidirectional Transforms, Format Adapters (JSON, XML, CSV)
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Core Specification Reference Map
 
-> specs/core/spec.md -- 4631 lines, ~218K -- Tier 1: Definition, FEL, Validation, Versioning
+> specs/core/spec.md -- 4665 lines, ~228K -- Tier 1: Definition, FEL, Validation, Versioning
 
 ## Overview
 

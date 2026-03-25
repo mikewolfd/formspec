@@ -1,6 +1,6 @@
 # Changelog Specification Reference Map
 
-> specs/registry/changelog-spec.md -- 259 lines, 11K -- Companion: Version Changelog Format, Impact Classification
+> specs/registry/changelog-spec.md -- 260 lines, ~12K -- Companion: Version Changelog Format, Impact Classification
 
 ## Overview
 

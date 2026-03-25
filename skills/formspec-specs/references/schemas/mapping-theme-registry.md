@@ -1,6 +1,6 @@
 # Mapping Schema Reference Map
 
-> schemas/mapping.schema.json -- 807 lines -- Bidirectional data transformation DSL between Formspec Responses and external schemas
+> schemas/mapping.schema.json -- 817 lines -- Bidirectional data transformation DSL between Formspec Responses and external schemas
 
 ## Overview
 
@@ -263,7 +263,7 @@ A Formspec Theme document is a sidecar JSON file that controls the visual presen
 
 # Registry Schema Reference Map
 
-> schemas/registry.schema.json -- 462 lines -- Extension publishing, discovery, and validation catalog
+> schemas/registry.schema.json -- 647 lines -- Extension publishing, discovery, and validation catalog (incl. concept/vocabulary categories)
 
 ## Overview
 

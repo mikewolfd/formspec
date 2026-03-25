@@ -1,6 +1,6 @@
 # Response Schema Reference Map
 
-> schemas/response.schema.json -- 203 lines -- Captures a completed or in-progress form submission pinned to a specific Definition version.
+> schemas/response.schema.json -- 214 lines -- Captures a completed or in-progress form submission pinned to a specific Definition version.
 
 ## Overview
 
@@ -67,7 +67,7 @@ Within `subject`: `id` is required.
 
 # Changelog Schema Reference Map
 
-> schemas/changelog.schema.json -- 194 lines -- Enumerates differences between two versions of a Formspec Definition for migration and governance.
+> schemas/changelog.schema.json -- 204 lines -- Enumerates differences between two versions of a Formspec Definition for migration and governance.
 
 ## Overview
 
@@ -137,7 +137,7 @@ None -- the Changelog schema is self-contained. The `Change` type is defined in 
 
 # Validation Result Schema Reference Map
 
-> schemas/validationResult.schema.json -- 168 lines -- A single structured validation finding produced during constraint evaluation.
+> schemas/validationResult.schema.json -- 178 lines -- A single structured validation finding produced during constraint evaluation.
 
 ## Overview
 
@@ -211,7 +211,7 @@ None -- the ValidationResult schema is self-contained. It is referenced by both 
 
 # Validation Report Schema Reference Map
 
-> schemas/validationReport.schema.json -- 159 lines -- Aggregates all validation results for a Response at a point in time.
+> schemas/validationReport.schema.json -- 169 lines -- Aggregates all validation results for a Response at a point in time.
 
 ## Overview
 
@@ -280,7 +280,7 @@ This schema defines no enumerations directly. Enumerations are inherited from th
 
 # Conformance Suite Schema Reference Map
 
-> schemas/conformance-suite.schema.json -- 136 lines -- Defines shared conformance test cases executed by both Python and TypeScript runners.
+> schemas/conformance-suite.schema.json -- 158 lines -- Defines shared conformance test cases executed by both Python and TypeScript runners.
 
 ## Overview
 

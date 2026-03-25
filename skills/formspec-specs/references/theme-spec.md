@@ -1,6 +1,6 @@
 # Theme Specification Reference Map
 
-> specs/theme/theme-spec.md -- 1161 lines, ~44K -- Tier 2: Design Tokens, Widget Catalog, Selector Cascade, Page Layout
+> specs/theme/theme-spec.md -- 1167 lines, ~45K -- Tier 2: Design Tokens, Widget Catalog, Selector Cascade, Page Layout
 
 ## Overview
 

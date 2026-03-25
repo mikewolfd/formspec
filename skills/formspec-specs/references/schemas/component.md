@@ -1,6 +1,6 @@
 # Component Schema Reference Map
 
-> schemas/component.schema.json -- 1511 lines -- Tier 3 component tree document
+> schemas/component.schema.json -- 1516 lines -- Tier 3 component tree document
 
 ## Overview
 

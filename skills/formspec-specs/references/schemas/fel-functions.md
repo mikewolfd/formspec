@@ -1,6 +1,6 @@
 # FEL Functions Schema Reference Map
 
-> schemas/fel-functions.schema.json -- 983 lines -- FEL standard library function catalog
+> schemas/fel-functions.schema.json -- 994 lines -- FEL standard library function catalog
 
 ## Overview
 
