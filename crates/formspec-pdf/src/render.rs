@@ -539,7 +539,7 @@ fn render_layout_node(
     }
 }
 
-/// Render a display node — text content.
+/// Render a display node — text content or divider line.
 fn render_display_node(
     content: &mut Content,
     node: &EvaluatedNode,
@@ -547,6 +547,12 @@ fn render_display_node(
     available_width: f32,
     config: &PdfConfig,
 ) {
+    // Divider: horizontal line across the content width
+    if node.component == "Divider" || node.component == "divider" {
+        render_divider(content, y_offset, available_width, config);
+        return;
+    }
+
     let text = node
         .props
         .get("text")
@@ -574,6 +580,26 @@ fn render_display_node(
     content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, pdf_y]);
     content.show(Str(text.as_bytes()));
     content.end_text();
+    content.restore_state();
+}
+
+/// Render a horizontal divider line centered vertically in the divider's 12pt height.
+fn render_divider(
+    content: &mut Content,
+    y_offset: f32,
+    available_width: f32,
+    config: &PdfConfig,
+) {
+    let x = config.margin_left;
+    // Center the line vertically within the 12pt divider height
+    let line_y = layout::content_y_to_pdf_y(y_offset + 6.0, config);
+
+    content.save_state();
+    content.set_stroke_rgb(0.75, 0.75, 0.75);
+    content.set_line_width(0.5);
+    content.move_to(x, line_y);
+    content.line_to(x + available_width, line_y);
+    content.stroke();
     content.restore_state();
 }
 

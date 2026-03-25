@@ -156,8 +156,15 @@ fn measure_field_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f3
     h + config.field_padding
 }
 
-/// Display nodes: headings, help text, static output.
+/// Fixed height for divider components: line (1pt) + surrounding padding.
+const DIVIDER_HEIGHT: f32 = 12.0;
+
+/// Display nodes: headings, help text, dividers, static output.
 fn measure_display_node(node: &EvaluatedNode, config: &PdfConfig, column_width: f32) -> f32 {
+    if node.component == "Divider" || node.component == "divider" {
+        return DIVIDER_HEIGHT + config.field_padding;
+    }
+
     let text = node
         .props
         .get("text")

@@ -1066,6 +1066,76 @@ fn render_pdf_hierarchical_parent_chain() {
     );
 }
 
+// ── Divider Rendering ──
+
+fn make_divider_node() -> EvaluatedNode {
+    EvaluatedNode {
+        id: "divider-1".to_string(),
+        component: "Divider".to_string(),
+        category: NodeCategory::Display,
+        props: Map::new(),
+        style: None,
+        css_classes: Vec::new(),
+        accessibility: None,
+        presentation: None,
+        label_position: None,
+        bind_path: None,
+        field_item: None,
+        value: None,
+        relevant: true,
+        required: false,
+        readonly: false,
+        validations: Vec::new(),
+        span: 12,
+        col_start: 0,
+        children: Vec::new(),
+        repeat_group: None,
+    }
+}
+
+#[test]
+fn measure_divider_node_returns_fixed_height() {
+    let config = default_config();
+    let node = make_divider_node();
+    let h = measure_node(&node, &config, config.content_width);
+    // Divider = 12pt (DIVIDER_HEIGHT) + field_padding
+    assert!(
+        (h - (12.0 + config.field_padding)).abs() < 0.01,
+        "Divider should be 12pt + padding, got {}",
+        h
+    );
+}
+
+#[test]
+fn render_pdf_divider_contains_line_operators() {
+    let nodes = vec![
+        make_field_node("TextInput", "name", "Name"),
+        make_divider_node(),
+        make_field_node("TextInput", "email", "Email"),
+    ];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    // A horizontal line uses move_to (m), line_to (l), stroke (S) operators
+    // Check the content stream contains these operators (they appear as " m ", " l ", " S ")
+    assert!(pdf_str.contains(" m\n") || pdf_str.contains(" m "), "Divider should contain move_to operator");
+    assert!(pdf_str.contains(" l\n") || pdf_str.contains(" l "), "Divider should contain line_to operator");
+}
+
+#[test]
+fn render_pdf_divider_no_acroform() {
+    let nodes = vec![make_divider_node()];
+    let opts = PdfOptions::default();
+    let pdf_bytes = crate::render_pdf(&nodes, &opts);
+
+    let pdf_str = String::from_utf8_lossy(&pdf_bytes);
+    assert!(
+        !pdf_str.contains("/AcroForm"),
+        "Divider should not create any AcroForm entry"
+    );
+}
+
 // ── Tagged PDF / PDF/UA Structure Tree ──
 
 #[test]
