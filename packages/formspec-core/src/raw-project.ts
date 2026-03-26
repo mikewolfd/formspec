@@ -2,7 +2,7 @@
 import type { IProjectCore } from './project-core.js';
 import type {
   ComponentDocument, ThemeDocument, MappingDocument, FormDefinition, FormItem,
-} from 'formspec-types';
+} from '@formspec/types';
 import type {
   ProjectState,
   ProjectOptions,
@@ -78,7 +78,7 @@ import {
   browseExtensions as _browseExtensions,
   resolveExtension as _resolveExtension,
 } from './queries/index.js';
-import { itemAtPath } from 'formspec-engine/fel-runtime';
+import { itemAtPath } from '@formspec/engine/fel-runtime';
 
 /** Components that manage their own group path binding and MUST keep their bind on export. */
 const SELF_MANAGED_GROUP_BINDS = new Set(['Accordion', 'DataTable']);

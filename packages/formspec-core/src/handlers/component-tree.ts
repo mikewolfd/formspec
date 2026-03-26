@@ -24,7 +24,7 @@
  * @module handlers/component-tree
  */
 import type { CommandHandler } from '../types.js';
-import { normalizeIndexedPath } from 'formspec-engine/fel-runtime';
+import { normalizeIndexedPath } from '@formspec/engine/fel-runtime';
 import { type TreeNode, ensureTree } from './tree-utils.js';
 
 /** Auto-incrementing counter for generating unique node IDs within a session. */

@@ -6,8 +6,8 @@ import {
   componentForWidgetHint,
   propertyHelp,
 } from '../../../lib/field-helpers';
-import type { Project } from 'formspec-studio-core';
-import type { FormItem } from 'formspec-types';
+import type { Project } from '@formspec/studio-core';
+import type { FormItem } from '@formspec/types';
 
 export function WidgetHintSection({
   path,

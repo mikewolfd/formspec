@@ -1,8 +1,8 @@
 /** @filedesc MCP tool for component tree management: list, add, set property, remove nodes. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
-import type { Project } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
+import type { Project } from '@formspec/studio-core';
 
 type ComponentAction = 'list_nodes' | 'set_node_property' | 'add_node' | 'remove_node';
 

@@ -1,5 +1,5 @@
 /** @filedesc Utilities for FEL editor autocomplete triggers, syntax highlighting, and token parsing. */
-import { analyzeFEL, tokenizeFEL, type FormspecInstance } from 'formspec-engine';
+import { analyzeFEL, tokenizeFEL, type FormspecInstance } from '@formspec/engine';
 
 export interface FELEditorFieldOption {
   path: string;

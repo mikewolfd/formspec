@@ -4,7 +4,7 @@
  * These manage project creation, persistence, and history operations.
  */
 
-import { createProject, HelperError, type ProjectBundle } from 'formspec-studio-core';
+import { createProject, HelperError, type ProjectBundle } from '@formspec/studio-core';
 import { ProjectRegistry } from '../registry.js';
 import { errorResponse, successResponse, formatToolError } from '../errors.js';
 import {

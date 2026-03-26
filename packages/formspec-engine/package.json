@@ -1,8 +1,17 @@
 {
-  "name": "formspec-engine",
+  "name": "@formspec/engine",
   "description": "Client-side form state engine with FEL expression language, reactive signals, and validation",
   "version": "1.0.0",
   "type": "module",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Formspec-org/formspec.git",
+    "directory": "packages/formspec-engine"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -49,7 +58,7 @@
   },
   "dependencies": {
     "@preact/signals-core": "^1.6.0",
-    "formspec-types": "*"
+    "@formspec/types": "*"
   },
   "devDependencies": {
     "fast-check": "^4.6.0",

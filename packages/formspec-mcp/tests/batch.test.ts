@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { executeBatch, type BatchItem, type BatchResult } from '../src/batch.js';
 import { wrapBatchCall } from '../src/errors.js';
-import { HelperError, type HelperResult } from 'formspec-studio-core';
+import { HelperError, type HelperResult } from '@formspec/studio-core';
 
 /** Fake HelperResult for testing */
 function fakeResult(path: string): HelperResult {

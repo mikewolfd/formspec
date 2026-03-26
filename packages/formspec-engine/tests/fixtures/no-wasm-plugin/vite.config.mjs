@@ -8,7 +8,7 @@ export default defineConfig({
   root: here,
   resolve: {
     alias: {
-      'formspec-engine': resolve(here, '../../../src/index.ts'),
+      '@formspec/engine': resolve(here, '../../../src/index.ts'),
     },
   },
   build: {

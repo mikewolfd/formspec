@@ -1,8 +1,8 @@
 /** @filedesc React context and hooks that expose ChatSession state and session actions to chat components. */
 import React, { createContext, useContext, useCallback, useRef, useSyncExternalStore } from 'react';
-import type { ChatSession, ChatMessage, SourceTrace, Issue, DefinitionDiff, DebugEntry } from 'formspec-chat';
-import type { ProjectBundle } from 'formspec-studio-core';
-import type { FormDefinition } from 'formspec-types';
+import type { ChatSession, ChatMessage, SourceTrace, Issue, DefinitionDiff, DebugEntry } from '@formspec/chat';
+import type { ProjectBundle } from '@formspec/studio-core';
+import type { FormDefinition } from '@formspec/types';
 
 // ── State snapshot ───────────────────────────────────────────────────
 

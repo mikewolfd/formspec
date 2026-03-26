@@ -1,9 +1,9 @@
 /** @filedesc Entry point for the references example: registers formspec-render and loads forms. */
-import 'formspec-webcomponent/formspec-layout.css';
-import 'formspec-webcomponent/formspec-default.css';
-import { FormspecRender, globalRegistry } from 'formspec-webcomponent';
-import { uswdsAdapter } from 'formspec-adapters';
-import { initFormspecEngine } from 'formspec-engine';
+import '@formspec/webcomponent/formspec-layout.css';
+import '@formspec/webcomponent/formspec-default.css';
+import { FormspecRender, globalRegistry } from '@formspec/webcomponent';
+import { uswdsAdapter } from '@formspec/adapters';
+import { initFormspecEngine } from '@formspec/engine';
 
 await initFormspecEngine();
 document.documentElement.dataset.formspecWasmReady = '1';

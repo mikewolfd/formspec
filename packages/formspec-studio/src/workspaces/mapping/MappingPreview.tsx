@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { faker } from '@faker-js/faker';
-import { createFormEngine } from 'formspec-engine';
+import { createFormEngine } from '@formspec/engine';
 import { useProject } from '../../state/useProject';
 import { useMapping } from '../../state/useMapping';
 import { serializeMappedData } from './adapters';

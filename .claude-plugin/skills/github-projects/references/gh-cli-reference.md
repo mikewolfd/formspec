@@ -2,34 +2,34 @@
 
 ## gh CLI — Project Commands
 
-All project commands use `--owner focusconsulting` and project number `8`.
+All project commands use `--owner Formspec-org` and project number `8`.
 
 ### Listing and Viewing
 
 ```bash
 # List all projects in the org
-gh project list --owner focusconsulting --format json
+gh project list --owner Formspec-org --format json
 
 # View project details
-gh project view 8 --owner focusconsulting
+gh project view 8 --owner Formspec-org
 
 # List project fields and their IDs/options
-gh project field-list 8 --owner focusconsulting --format json
+gh project field-list 8 --owner Formspec-org --format json
 
 # List all items in the project
-gh project item-list 8 --owner focusconsulting --format json
+gh project item-list 8 --owner Formspec-org --format json
 ```
 
 ### Adding Items
 
 ```bash
 # Add an existing issue to the project (returns item ID)
-gh project item-add 8 --owner focusconsulting \
-  --url https://github.com/focusconsulting/formspec/issues/NUMBER \
+gh project item-add 8 --owner Formspec-org \
+  --url https://github.com/Formspec-org/formspec/issues/NUMBER \
   --format json
 
 # Create a draft item directly in the project
-gh project item-create 8 --owner focusconsulting \
+gh project item-create 8 --owner Formspec-org \
   --title "Draft item title" --body "Description"
 ```
 
@@ -75,52 +75,52 @@ gh project item-edit \
 
 ```bash
 # Archive an item
-gh project item-archive 8 --owner focusconsulting --id ITEM_NODE_ID
+gh project item-archive 8 --owner Formspec-org --id ITEM_NODE_ID
 
 # Delete an item from the project
-gh project item-delete 8 --owner focusconsulting --id ITEM_NODE_ID
+gh project item-delete 8 --owner Formspec-org --id ITEM_NODE_ID
 
 # Create a new custom field
-gh project field-create 8 --owner focusconsulting \
+gh project field-create 8 --owner Formspec-org \
   --name "Sprint" --data-type "SINGLE_SELECT"
 
 # Delete a custom field
 gh project field-delete --id FIELD_ID
 
 # Link a repo to the project
-gh project link 8 --owner focusconsulting --repo focusconsulting/formspec
+gh project link 8 --owner Formspec-org --repo Formspec-org/formspec
 
 # Close/reopen project
-gh project close 8 --owner focusconsulting
+gh project close 8 --owner Formspec-org
 ```
 
 ## gh CLI — Issue Commands
 
-Always use `--repo focusconsulting/formspec` for issue operations.
+Always use `--repo Formspec-org/formspec` for issue operations.
 
 ```bash
 # Create an issue
-gh issue create --repo focusconsulting/formspec \
+gh issue create --repo Formspec-org/formspec \
   --title "Issue title" \
   --body "Issue body with markdown"
 
 # List issues
-gh issue list --repo focusconsulting/formspec --json number,title,state
+gh issue list --repo Formspec-org/formspec --json number,title,state
 
 # View an issue
-gh issue view NUMBER --repo focusconsulting/formspec
+gh issue view NUMBER --repo Formspec-org/formspec
 
 # Edit an issue
-gh issue edit NUMBER --repo focusconsulting/formspec \
+gh issue edit NUMBER --repo Formspec-org/formspec \
   --title "New title" --add-label "enhancement"
 
 # Comment on an issue
-gh issue comment NUMBER --repo focusconsulting/formspec \
+gh issue comment NUMBER --repo Formspec-org/formspec \
   --body "Comment text"
 
 # Close/reopen
-gh issue close NUMBER --repo focusconsulting/formspec
-gh issue reopen NUMBER --repo focusconsulting/formspec
+gh issue close NUMBER --repo Formspec-org/formspec
+gh issue reopen NUMBER --repo Formspec-org/formspec
 ```
 
 ## GraphQL API — Sub-Issues
@@ -132,7 +132,7 @@ The `gh` CLI does not support `--add-parent` or `--add-child` flags for issues. 
 ```bash
 gh api graphql -f query='
 {
-  repository(owner: "focusconsulting", name: "formspec") {
+  repository(owner: "Formspec-org", name: "formspec") {
     parent: issue(number: PARENT_NUMBER) { id }
     child: issue(number: CHILD_NUMBER) { id }
   }
@@ -174,7 +174,7 @@ mutation {
 ```bash
 gh api graphql -f query='
 {
-  repository(owner: "focusconsulting", name: "formspec") {
+  repository(owner: "Formspec-org", name: "formspec") {
     issue(number: PARENT_NUMBER) {
       title
       subIssues(first: 50) {

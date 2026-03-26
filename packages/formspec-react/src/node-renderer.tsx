@@ -1,7 +1,7 @@
 /** @filedesc Recursive LayoutNode renderer — dispatches to field or layout components. */
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { signal as createSignal } from '@preact/signals-core';
-import type { LayoutNode } from 'formspec-layout';
+import type { LayoutNode } from '@formspec/layout';
 import { useFormspecContext } from './context';
 import { useSignal } from './use-signal';
 import { useField } from './use-field';

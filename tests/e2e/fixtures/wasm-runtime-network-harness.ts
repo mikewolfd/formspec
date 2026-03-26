@@ -1,7 +1,7 @@
 /** @filedesc Slim E2E entry: webcomponent + engine init/render subpaths only (no `formspec-engine` main / fel-api). */
 import { FormspecRender } from '../../../packages/formspec-webcomponent/src/index';
 import '../../../packages/formspec-webcomponent/src/formspec-default.css';
-import { isFormspecEngineInitialized } from 'formspec-engine/init-formspec-engine';
+import { isFormspecEngineInitialized } from '@formspec/engine/init-formspec-engine';
 
 customElements.define('formspec-render', FormspecRender);
 

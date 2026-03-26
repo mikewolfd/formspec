@@ -7,7 +7,7 @@ export const nodeModuleModuleName = 'node:module';
 
 /**
  * Resolve a sibling `.wasm` path for Node `readFileSync`.
- * Vitest/vite-node can rewrite `import.meta.url` to a non-`file:` URL; fall back to the `formspec-engine` package root.
+ * Vitest/vite-node can rewrite `import.meta.url` to a non-`file:` URL; fall back to the `@formspec/engine` package root.
  */
 export async function resolveWasmAssetPathForNode(relativeToThisModule: string): Promise<string> {
     const { fileURLToPath } = await import(/* @vite-ignore */ nodeUrlModuleName);
@@ -21,7 +21,7 @@ export async function resolveWasmAssetPathForNode(relativeToThisModule: string):
 
     try {
         const require = createRequire(join(process.cwd(), 'package.json'));
-        const engineRoot = dirname(require.resolve('formspec-engine/package.json'));
+        const engineRoot = dirname(require.resolve('@formspec/engine/package.json'));
         const tail = relativeToThisModule.replace(/^\.\.\//, '');
         return join(engineRoot, tail);
     } catch {

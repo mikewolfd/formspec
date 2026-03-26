@@ -2,7 +2,7 @@
  * Designed to be theme-agnostic. Colors should come from CSS variables, theme cssClass,
  * or host Tailwind config. Includes tailwind-merge support.
  */
-import type { FieldBehavior } from 'formspec-webcomponent';
+import type { FieldBehavior } from '@formspec/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 
 // ── Semantic Tailwind utility groups — clean and maintainable ──

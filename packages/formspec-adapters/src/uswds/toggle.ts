@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for Toggle — USWDS has no toggle; uses usa-checkbox with label. */
-import type { ToggleBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { ToggleBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 import { createUSWDSError } from './shared';
 

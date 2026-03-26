@@ -17,7 +17,7 @@
  * @module definition-optionsets
  */
 import type { CommandHandler } from '../types.js';
-import type { FormItem } from 'formspec-types';
+import type { FormItem } from '@formspec/types';
 
 export const definitionOptionsetsHandlers: Record<string, CommandHandler> = {
 

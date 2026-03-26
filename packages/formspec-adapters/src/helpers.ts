@@ -1,5 +1,5 @@
 /** @filedesc Shared utilities for adapter implementations. */
-import type { FieldBehavior, AdapterContext, ResolvedPresentationBlock } from 'formspec-webcomponent';
+import type { FieldBehavior, AdapterContext, ResolvedPresentationBlock } from '@formspec/webcomponent';
 
 /**
  * Create an HTML element with attributes in one call.

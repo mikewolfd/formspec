@@ -77,6 +77,7 @@ The Editor currently shows the form structure. The Context Layer overlays it wit
 ```
 
 **Badge legend on each field:**
+
 - 🏷 = has concept binding (Ontology)
 - 🔗 = has references attached
 - 📖 = has glossary entry
@@ -137,6 +138,7 @@ What does this field represent in the real world?
 ```
 
 **How search works:**
+
 - User types a natural-language description: "medical record number", "date of birth", "employer ID"
 - System searches known ontology registries (FHIR, schema.org, ICD-10, Dublin Core, etc.) — this can be a local index, a web search, or an AI-assisted lookup
 - Results show: display name, system, code, URI
@@ -361,6 +363,7 @@ This is accessible from a toggle in the Context mode — switch between "Canvas"
 ### 1. Auto-Suggest Concept Bindings
 
 When a field is selected and has no concept binding, the system suggests one based on:
+
 - Field name (`mrn` → "Medical Record Number")
 - Field label ("Date of Birth" → schema.org/birthDate)
 - Field type (date → temporal concepts, choice → coded concepts)
@@ -430,6 +433,7 @@ Multiple References and Ontology documents are supported per definition (differe
 ### New Handlers in formspec-core
 
 **References handlers:**
+
 - `references.load` — register a References Document
 - `references.remove` — remove a references document
 - `references.select` — set active references document
@@ -441,6 +445,7 @@ Multiple References and Ontology documents are supported per definition (differe
 - `references.setMetadata` — update document metadata
 
 **Ontology handlers:**
+
 - `ontology.load` — register an Ontology Document
 - `ontology.remove` — remove an ontology document
 - `ontology.select` — set active ontology document
@@ -511,6 +516,7 @@ Build the bulk annotation table view, AI auto-suggest for concepts, AI context g
 ### Phase 4: Concept Search Infrastructure
 
 Build or integrate a concept search backend. Options:
+
 - **Bundled index**: ship a local index of common ontologies (FHIR R4, schema.org, Dublin Core, ICD-10 top-level) — no network required
 - **Web search**: query FHIR terminology server, BioPortal, Linked Open Vocabularies — richer but requires connectivity
 - **AI-mediated**: ask the LLM to suggest concept URIs — works offline with the model, but URIs need validation

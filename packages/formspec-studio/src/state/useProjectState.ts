@@ -1,6 +1,6 @@
 /** @filedesc Hook that subscribes to the project store and returns a reactive ProjectSnapshot. */
 import { useSyncExternalStore, useCallback } from 'react';
-import type { ProjectSnapshot } from 'formspec-studio-core';
+import type { ProjectSnapshot } from '@formspec/studio-core';
 import { useProject } from './useProject';
 
 export function useProjectState(): Readonly<ProjectSnapshot> {

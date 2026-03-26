@@ -3,7 +3,7 @@ import { Section } from '../../../components/ui/Section';
 import { PropertyRow } from '../../../components/ui/PropertyRow';
 import { nodeIdFromLayoutId } from '../../../lib/field-helpers';
 import { useComponent } from '../../../state/useComponent';
-import type { Project } from 'formspec-studio-core';
+import type { Project } from '@formspec/studio-core';
 
 function findNode(root: any, nodeId: string): any {
   if (root?.nodeId === nodeId) return root;

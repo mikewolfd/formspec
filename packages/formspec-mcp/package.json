@@ -1,12 +1,24 @@
 {
-  "name": "formspec-mcp",
+  "name": "@formspec/mcp",
   "description": "Model Context Protocol server for AI-driven Formspec form authoring",
   "version": "0.2.0",
   "type": "module",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Formspec-org/formspec.git",
+    "directory": "packages/formspec-mcp"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./server": {
       "types": "./dist/create-server.d.ts",
       "default": "./dist/create-server.js"
@@ -20,6 +32,7 @@
       "default": "./dist/dispatch.js"
     }
   },
+  "files": ["dist"],
   "bin": {
     "formspec-mcp": "./dist/index.js"
   },
@@ -34,8 +47,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
-    "formspec-engine": "*",
-    "formspec-studio-core": "*",
+    "@formspec/engine": "*",
+    "@formspec/studio-core": "*",
     "uuid": "^11.1.0",
     "zod": "^3.24.0"
   },

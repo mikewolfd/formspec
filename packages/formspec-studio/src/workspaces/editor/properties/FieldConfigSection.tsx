@@ -5,8 +5,8 @@ import { PropInput } from './shared';
 import { AddBehaviorMenu } from '../../../components/ui/AddBehaviorMenu';
 import { BindCard } from '../../../components/ui/BindCard';
 import { PrePopulateCard } from '../../../components/ui/PrePopulateCard';
-import type { Project } from 'formspec-studio-core';
-import type { FormItem } from 'formspec-types';
+import type { Project } from '@formspec/studio-core';
+import type { FormItem } from '@formspec/types';
 
 export function FieldConfigSection({
   path,

@@ -1,7 +1,7 @@
 /** @filedesc Generic Preact-signal → React bridge via useSyncExternalStore. */
 import { useSyncExternalStore, useRef, useCallback } from 'react';
 import { effect } from '@preact/signals-core';
-import type { ReadonlyEngineSignal } from 'formspec-engine';
+import type { ReadonlyEngineSignal } from '@formspec/engine';
 
 /**
  * Subscribe to a Preact `ReadonlyEngineSignal` from React.

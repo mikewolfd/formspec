@@ -5,7 +5,7 @@ import {
     ItemDescriptor,
     Tier1Hints,
     resolvePresentation,
-} from 'formspec-layout';
+} from '@formspec/layout';
 
 export interface StylingHost {
     _componentDocument: any;

@@ -1,5 +1,5 @@
 /** @filedesc Presentational block for a single item on the 12-column grid canvas. */
-import type { PageItemView } from 'formspec-studio-core';
+import type { PageItemView } from '@formspec/studio-core';
 
 export interface GridItemBlockProps {
   item: PageItemView;

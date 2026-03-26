@@ -1,7 +1,7 @@
 /** @filedesc Modal dialog for app-level settings (AI provider API key). */
 import { useState, useEffect, useId } from 'react';
-import type { ProviderConfig, ProviderType } from 'formspec-chat';
-import { validateProviderConfig } from 'formspec-chat';
+import type { ProviderConfig, ProviderType } from '@formspec/chat';
+import { validateProviderConfig } from '@formspec/chat';
 
 const STORAGE_KEY = 'formspec-studio:provider-config';
 

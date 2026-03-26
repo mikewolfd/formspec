@@ -1,7 +1,7 @@
 /**
  * Pure query functions for versioning diff and changelog preview.
  */
-import type { FormDefinition, FormItem } from 'formspec-types';
+import type { FormDefinition, FormItem } from '@formspec/types';
 import type { ProjectState, Change, FormspecChangelog } from '../types.js';
 
 /** Deterministic JSON stringification for comparing item payloads independent of property order. */

@@ -1,7 +1,7 @@
 ---
 // Hero section — the value proposition above the fold.
 // Light, clean, confident. Typography does the heavy lifting.
-import 'formspec-webcomponent/formspec-default.css';
+import '@formspec/webcomponent/formspec-default.css';
 ---
 
 <section class="hero" aria-label="Introduction">
@@ -9,7 +9,7 @@ import 'formspec-webcomponent/formspec-default.css';
 
     <div class="hero-badge" aria-label="Project status">
       <span class="badge-dot" aria-hidden="true"></span>
-      <span>Open source · MIT License</span>
+      <span>Open source · AGPL-3.0 License</span>
     </div>
 
     <p class="hero-descriptor">An open-source form specification for high-stakes environments</p>
@@ -34,7 +34,7 @@ import 'formspec-webcomponent/formspec-default.css';
         </svg>
       </a>
       <a
-        href="https://github.com/focusconsulting/formspec"
+        href="https://github.com/Formspec-org/formspec"
         class="btn-ghost"
         target="_blank"
         rel="noopener noreferrer"
@@ -470,7 +470,7 @@ import 'formspec-webcomponent/formspec-default.css';
 </style>
 
 <script>
-  import { FormspecRender, initFormspecEngine } from 'formspec-webcomponent';
+  import { FormspecRender, initFormspecEngine } from '@formspec/webcomponent';
   import registry from '../../../registries/formspec-common.registry.json';
   import { track } from '../lib/analytics';
 

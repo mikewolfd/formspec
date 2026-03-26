@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { createProject } from 'formspec-studio-core';
+import { createProject } from '@formspec/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
 import { DataTab } from '../../src/workspaces/data/DataTab';

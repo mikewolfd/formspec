@@ -1,14 +1,27 @@
 {
-  "name": "formspec-adapters",
-  "description": "Render adapter library for formspec-webcomponent — design-system-specific DOM implementations",
+  "name": "@formspec/adapters",
+  "description": "Render adapter library — design-system-specific DOM implementations for formspec-webcomponent",
   "version": "0.1.0",
   "type": "module",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Formspec-org/formspec.git",
+    "directory": "packages/formspec-adapters"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./tailwind-formspec-core.css": "./dist/tailwind-formspec-core.css"
   },
+  "files": ["dist"],
   "scripts": {
     "build:css": "node scripts/build-css.mjs",
     "build:integration-css": "node scripts/generate-integration-css.mjs",
@@ -18,11 +31,11 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "formspec-webcomponent": "*"
+    "@formspec/webcomponent": "*"
   },
   "devDependencies": {
     "@uswds/uswds": "^3.11.0",
-    "formspec-webcomponent": "*",
+    "@formspec/webcomponent": "*",
     "happy-dom": "^17.6.1",
     "sass": "^1.86.0",
     "typescript": "^5.0.0",

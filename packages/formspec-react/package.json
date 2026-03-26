@@ -1,8 +1,17 @@
 {
-  "name": "formspec-react",
+  "name": "@formspec/react",
   "description": "React hooks and auto-renderer for Formspec — use any component library with FormEngine",
   "version": "0.1.0",
   "type": "module",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Formspec-org/formspec.git",
+    "directory": "packages/formspec-react"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -15,6 +24,7 @@
       "default": "./dist/hooks.js"
     }
   },
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -22,14 +32,14 @@
   },
   "peerDependencies": {
     "@preact/signals-core": "^1.8.0",
-    "formspec-engine": "*",
-    "formspec-layout": "*",
+    "@formspec/engine": "*",
+    "@formspec/layout": "*",
     "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
-    "formspec-engine": "*",
-    "formspec-layout": "*",
+    "@formspec/engine": "*",
+    "@formspec/layout": "*",
     "happy-dom": "^17.6.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

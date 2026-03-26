@@ -5,7 +5,7 @@
  * Continues on failure — partial success is reported, no rollback.
  */
 
-import { HelperError, type HelperResult } from 'formspec-studio-core';
+import { HelperError, type HelperResult } from '@formspec/studio-core';
 
 /** A single item in a batch — shape varies per tool */
 export type BatchItem = Record<string, unknown>;

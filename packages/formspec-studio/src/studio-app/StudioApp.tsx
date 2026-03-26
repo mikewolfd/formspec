@@ -1,6 +1,6 @@
 /** @filedesc Bootstraps a Studio project and wires context providers around the Shell. */
 import { useState, type ReactElement } from 'react';
-import { createProject, type Project, type FormDefinition } from 'formspec-studio-core';
+import { createProject, type Project, type FormDefinition } from '@formspec/studio-core';
 import { ProjectProvider } from '../state/ProjectContext';
 import { SelectionProvider } from '../state/useSelection';
 import { ActiveGroupProvider } from '../state/useActiveGroup';

@@ -1,7 +1,7 @@
 /** @filedesc Modern provider setup modal with glassmorphism styling — v2. */
 import React, { useState, useEffect, useId } from 'react';
-import type { ProviderConfig, ProviderType } from 'formspec-chat';
-import { validateProviderConfig } from 'formspec-chat';
+import type { ProviderConfig, ProviderType } from '@formspec/chat';
+import { validateProviderConfig } from '@formspec/chat';
 
 interface ProviderSetupProps {
   open: boolean;

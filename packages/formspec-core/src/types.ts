@@ -1,15 +1,15 @@
 /** @filedesc Core type definitions for project state, commands, queries, and diagnostics. */
-import type { SchemaValidator } from 'formspec-engine/fel-tools';
+import type { SchemaValidator } from '@formspec/engine/fel-tools';
 import type {
   FormItem, FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
-} from 'formspec-types';
+} from '@formspec/types';
 
 // ── Schema-derived types (re-exported from formspec-types) ──────────
 // These are the canonical schema types shared across all packages.
 export type {
   FormItem, FormBind, FormShape, FormVariable, FormInstance, FormOption,
   FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
-} from 'formspec-types';
+} from '@formspec/types';
 
 // ── Internal content types ──────────────────────────────────────────
 // Working state for the four artifacts. Envelope metadata ($formspec*,
@@ -355,7 +355,7 @@ export interface ProjectStatistics {
 }
 
 // ProjectBundle is now canonical in formspec-types.
-export type { ProjectBundle } from 'formspec-types';
+export type { ProjectBundle } from '@formspec/types';
 
 // ── Search & filter types ───────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 /** @filedesc Modern issue queue panel with severity badges and resolve/defer actions — v2. */
 import React from 'react';
 import { useChatSession, useChatState } from '../state/ChatContext.js';
-import type { Issue } from 'formspec-chat';
+import type { Issue } from '@formspec/chat';
 
 export function IssuePanelV2() {
   const session = useChatSession();

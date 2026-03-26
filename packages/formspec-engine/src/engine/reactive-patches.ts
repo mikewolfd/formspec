@@ -2,8 +2,8 @@
 
 import type { EvalDelta } from '../diff.js';
 import type { EngineReactiveRuntime, EngineSignal } from '../reactivity/types.js';
-import type { ValidationResult } from 'formspec-types';
-import type { FormItem } from 'formspec-types';
+import type { ValidationResult } from '@formspec/types';
+import type { FormItem } from '@formspec/types';
 import type { EngineBindConfig } from './helpers.js';
 import {
     cloneValue,

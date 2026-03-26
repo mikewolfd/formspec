@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { useDroppable } from '@dnd-kit/react';
-import type { PageItemView } from 'formspec-studio-core';
+import type { PageItemView } from '@formspec/studio-core';
 import { GridItemBlock } from './GridItemBlock';
 import { SelectionToolbar } from './SelectionToolbar';
 

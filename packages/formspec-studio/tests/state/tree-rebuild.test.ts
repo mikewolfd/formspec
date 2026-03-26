@@ -4,7 +4,7 @@
  * layout containers a stable editing feature.
  */
 import { describe, it, expect } from 'vitest';
-import { createProject } from 'formspec-studio-core';
+import { createProject } from '@formspec/studio-core';
 
 type TreeNode = {
   component: string;

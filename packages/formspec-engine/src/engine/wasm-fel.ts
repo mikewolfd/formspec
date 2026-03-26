@@ -1,7 +1,7 @@
 /** @filedesc WASM definition-eval payload, EvalResult shaping, FEL normalization, and WasmFelContext assembly. */
 
-import type { FormVariable } from 'formspec-types';
-import type { ValidationResult } from 'formspec-types';
+import type { FormVariable } from '@formspec/types';
+import type { ValidationResult } from '@formspec/types';
 import type { EvalResult, EvalValidation } from '../diff.js';
 import type { WasmFelContext } from '../wasm-bridge-runtime.js';
 import type { EngineSignal } from '../reactivity/types.js';

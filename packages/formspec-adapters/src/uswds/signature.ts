@@ -1,6 +1,6 @@
 /** @filedesc USWDS v3 adapter for Signature — canvas drawing with USWDS button for clear. */
-import type { SignatureBehavior, AdapterRenderFn } from 'formspec-webcomponent';
-import { createSignatureCanvas } from 'formspec-webcomponent';
+import type { SignatureBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import { createSignatureCanvas } from '@formspec/webcomponent';
 import { el } from '../helpers';
 import { createUSWDSFieldDOM } from './shared';
 

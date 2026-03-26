@@ -1,6 +1,6 @@
 /** @filedesc ProposalManager: changeset lifecycle, actor-tagged recording, and snapshot-and-replay. */
-import type { AnyCommand, CommandResult, ProjectState, IProjectCore } from 'formspec-core';
-import { computeDependencyGroups as wasmComputeDependencyGroups } from 'formspec-engine/fel-runtime';
+import type { AnyCommand, CommandResult, ProjectState, IProjectCore } from '@formspec/core';
+import { computeDependencyGroups as wasmComputeDependencyGroups } from '@formspec/engine/fel-runtime';
 import type { Diagnostics } from './types.js';
 
 // ── Core types ──────────────────────────────────────────────────────

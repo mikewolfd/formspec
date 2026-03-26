@@ -1,5 +1,5 @@
 /** @filedesc Reusable FormEngine fixture factories for webcomponent unit tests. */
-import type { ThemeDocument, PresentationBlock } from 'formspec-layout';
+import type { ThemeDocument, PresentationBlock } from '@formspec/layout';
 
 /**
  * Minimal valid Formspec definition with a single string field.

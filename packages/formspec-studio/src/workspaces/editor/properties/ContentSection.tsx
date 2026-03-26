@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { Section } from '../../../components/ui/Section';
 import { propertyHelp } from '../../../lib/field-helpers';
 import { AddPlaceholder, PropInput } from './shared';
-import type { Project } from 'formspec-studio-core';
-import type { FormItem } from 'formspec-types';
+import type { Project } from '@formspec/studio-core';
+import type { FormItem } from '@formspec/types';
 
 export function ContentSection({
   path,

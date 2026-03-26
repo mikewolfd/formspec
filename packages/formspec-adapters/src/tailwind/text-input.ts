@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for TextInput — renders styled input or textarea. */
-import type { TextInputBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { TextInputBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 import { el } from '../helpers';
 import { createTailwindFieldDOM, TW, toggleInputError, applyErrorStyling } from './shared';
 

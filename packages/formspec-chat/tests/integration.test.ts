@@ -4,7 +4,7 @@ import { MockAdapter } from '../src/mock-adapter.js';
 import { SessionStore } from '../src/session-store.js';
 import { TemplateLibrary } from '../src/template-library.js';
 import type { StorageBackend, ToolContext } from '../src/types.js';
-import type { FormDefinition, ProjectBundle } from 'formspec-types';
+import type { FormDefinition, ProjectBundle } from '@formspec/types';
 
 class MemoryStorage implements StorageBackend {
   private data = new Map<string, string>();

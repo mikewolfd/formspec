@@ -26,7 +26,7 @@ import { handleDraft, handleLoad } from './tools/bootstrap.js';
 import * as lifecycle from './tools/lifecycle.js';
 
 import { createFormspecServer } from './create-server.js';
-import { initFormspecEngine, initFormspecEngineTools } from 'formspec-engine';
+import { initFormspecEngine, initFormspecEngineTools } from '@formspec/engine';
 
 // Re-export for backwards compatibility
 export { createFormspecServer } from './create-server.js';

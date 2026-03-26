@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for FileUpload — drag-drop zone with styled file input. */
-import type { FileUploadBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { FileUploadBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 import { el } from '../helpers';
 import { createTailwindFieldDOM } from './shared';
 

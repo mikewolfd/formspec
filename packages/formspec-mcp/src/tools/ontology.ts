@@ -1,8 +1,8 @@
 /** @filedesc MCP tool for ontology management: concept bindings and vocabulary URLs. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
-import type { FormItem } from 'formspec-types';
+import { HelperError } from '@formspec/studio-core';
+import type { FormItem } from '@formspec/types';
 
 type OntologyAction =
   | 'bind_concept'

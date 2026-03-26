@@ -4,7 +4,7 @@ import type {
   ChatMessage, Attachment, SourceTrace, Issue,
   ConversationResponse, ToolContext, RefinementResult,
 } from './types.js';
-import type { FormDefinition } from 'formspec-types';
+import type { FormDefinition } from '@formspec/types';
 import { TemplateLibrary } from './template-library.js';
 
 const library = new TemplateLibrary();

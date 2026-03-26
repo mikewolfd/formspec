@@ -8,17 +8,17 @@ import { execSync } from 'node:child_process';
  * Rule: a package at layer N may only depend on packages at layer < N.
  */
 const LAYERS = {
-  'formspec-types':        0,
-  'formspec-engine':       1,
-  'formspec-layout':       1,
-  'formspec-webcomponent': 2,
-  'formspec-core':         2,
-  'formspec-react':        2,
-  'formspec-adapters':     3,
-  'formspec-studio-core':  3,
-  'formspec-mcp':          4,
-  'formspec-chat':         5,
-  'formspec-studio':       6,
+  '@formspec/types':        0,
+  '@formspec/engine':       1,
+  '@formspec/layout':       1,
+  '@formspec/webcomponent': 2,
+  '@formspec/core':         2,
+  '@formspec/react':        2,
+  '@formspec/adapters':     3,
+  '@formspec/studio-core':  3,
+  '@formspec/mcp':          4,
+  '@formspec/chat':         5,
+  '@formspec/studio':       6,
 };
 
 const PACKAGES_DIR = new URL('../packages/', import.meta.url).pathname;
@@ -73,7 +73,7 @@ for (const dir of dirs) {
   }
 }
 
-// --- WASM fence: only formspec-engine may import generated WASM glue ---
+// --- WASM fence: only @formspec/engine may import generated WASM glue ---
 
 const WASM_OWNER = 'formspec-engine';
 const WASM_PATTERN = /(?:wasm-pkg(?:-runtime|-tools)?|formspec-wasm|formspec_wasm(?:_runtime|_tools)?)/;

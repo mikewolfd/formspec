@@ -5,7 +5,7 @@ import {
   analyzeFEL,
   getFELDependencies,
   normalizeIndexedPath,
-} from 'formspec-engine/fel-runtime';
+} from '@formspec/engine/fel-runtime';
 import { fieldPaths as getFieldPaths } from './field-queries.js';
 import { allExpressions } from './expression-index.js';
 import type {

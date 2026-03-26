@@ -1,35 +1,35 @@
 ---
 name: github-projects
-description: This skill should be used when the user asks to create, update, list, close, or triage GitHub issues, manage epics and sub-issues, set project fields (priority, status, layer), move items on the board, or perform any GitHub Project board operation. Also triggers on mentions of "focusconsulting", "project #8", "the board", "backlog", "epics", "sub-tasks", "file an issue", "open a bug", "track this work", or issue/project management for this repository.
+description: This skill should be used when the user asks to create, update, list, close, or triage GitHub issues, manage epics and sub-issues, set project fields (priority, status, layer), move items on the board, or perform any GitHub Project board operation. Also triggers on mentions of "Formspec-org", "project #8", "the board", "backlog", "epics", "sub-tasks", "file an issue", "open a bug", "track this work", or issue/project management for this repository.
 ---
 
 # Formspec GitHub Project Board Management
 
-Manage the Formspec project board on the focusconsulting GitHub organization. The project tracks work across three layers (Engine, Management Instance, SaaS Platform) with priority and status fields. Issues live on `focusconsulting/formspec`, not the personal fork.
+Manage the Formspec project board on the Formspec-org GitHub organization. The project tracks work across three layers (Engine, Management Instance, SaaS Platform) with priority and status fields. Issues live on `Formspec-org/formspec`, not the personal fork.
 
 ## Project Location
 
-- **Org:** focusconsulting
-- **Repo:** focusconsulting/formspec
-- **Project:** Formspec (#8) — `https://github.com/orgs/focusconsulting/projects/8`
+- **Org:** Formspec-org
+- **Repo:** Formspec-org/formspec
+- **Project:** Formspec (#8) — `https://github.com/orgs/Formspec-org/projects/8`
 - **Project node ID:** `PVT_kwDOAtpwPs4BSa-P`
 
-Always use `--repo focusconsulting/formspec` for issue commands and `--owner focusconsulting` for project commands.
+Always use `--repo Formspec-org/formspec` for issue commands and `--owner Formspec-org` for project commands.
 
 ## Workflow: Creating an Epic
 
-1. **Create the parent issue** on `focusconsulting/formspec` with a descriptive body containing scope, motivation, and a task-list checklist for sub-phases
-2. **Add to project** with `gh project item-add 8 --owner focusconsulting --url ISSUE_URL --format json` — capture the returned item `id`
+1. **Create the parent issue** on `Formspec-org/formspec` with a descriptive body containing scope, motivation, and a task-list checklist for sub-phases
+2. **Add to project** with `gh project item-add 8 --owner Formspec-org --url ISSUE_URL --format json` — capture the returned item `id`
 3. **Set fields** (Layer, Priority, Status) using `gh project item-edit` with the project node ID, item ID, and field/option IDs from the quick reference below
 4. **Create sub-issues** as separate issues, then link them via the `addSubIssue` GraphQL mutation — see `references/gh-cli-reference.md` for the full mutation syntax
 5. **Add sub-issues to the project** and set their fields
 
 ## Workflow: Creating and Linking a Sub-Issue
 
-1. Create the child issue: `gh issue create --repo focusconsulting/formspec --title "..." --body "..."`
+1. Create the child issue: `gh issue create --repo Formspec-org/formspec --title "..." --body "..."`
 2. Get node IDs for parent and child:
    ```bash
-   gh api graphql -f query='{ repository(owner: "focusconsulting", name: "formspec") {
+   gh api graphql -f query='{ repository(owner: "Formspec-org", name: "formspec") {
      parent: issue(number: PARENT_NUM) { id }
      child: issue(number: CHILD_NUM) { id }
    } }'
@@ -49,7 +49,7 @@ Always use `--repo focusconsulting/formspec` for issue commands and `--owner foc
 
 ```bash
 # List items to find the item ID
-gh project item-list 8 --owner focusconsulting --format json
+gh project item-list 8 --owner Formspec-org --format json
 
 # Set a single-select field (Status, Layer, or Priority)
 gh project item-edit --project-id PVT_kwDOAtpwPs4BSa-P \
@@ -78,11 +78,11 @@ Full field IDs (for copy-paste): Status `PVTSSF_lADOAtpwPs4BSa-Pzg_9eag`, Layer 
 
 - **Sub-issues require GraphQL** — `gh issue edit` has no `--add-parent` flag; use `addSubIssue` mutation
 - **Max 100 sub-issues** per parent, max 8 nesting levels
-- **Always use `--repo focusconsulting/formspec`** — the `origin` fetch remote points to the personal fork; issues and the project board live on the org repo
+- **Always use `--repo Formspec-org/formspec`** — the `origin` fetch remote points to the personal fork; issues and the project board live on the org repo
 - **Capture item IDs** from `gh project item-add --format json` output — needed for all field edits
 - **Use HEREDOC for long bodies:**
   ```bash
-  gh issue create --repo focusconsulting/formspec --title "Title" --body "$(cat <<'EOF'
+  gh issue create --repo Formspec-org/formspec --title "Title" --body "$(cat <<'EOF'
   Body content with **markdown**.
   EOF
   )"

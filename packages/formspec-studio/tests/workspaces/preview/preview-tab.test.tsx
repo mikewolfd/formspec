@@ -1,7 +1,7 @@
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { FormspecRender } from 'formspec-webcomponent';
-import { createProject } from 'formspec-studio-core';
+import { FormspecRender } from '@formspec/webcomponent';
+import { createProject } from '@formspec/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { PreviewTab } from '../../../src/workspaces/preview/PreviewTab';
 

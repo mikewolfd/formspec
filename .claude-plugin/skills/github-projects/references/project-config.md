@@ -8,11 +8,11 @@ The local repo has two remotes pointing to the same upstream:
 
 | Remote | URL | Notes |
 |--------|-----|-------|
-| `origin` (fetch) | `git@github.com:mikewolfd/formspec.git` | Personal fork — SSH |
-| `origin` (push) | `https://github.com/focusconsulting/formspec` | Org repo — HTTPS |
-| `focus` | `https://github.com/focusconsulting/formspec` | Org repo — explicit |
+| `origin` (fetch) | `git@github.com:Formspec-org/formspec.git` | Personal fork — SSH |
+| `origin` (push) | `https://github.com/Formspec-org/formspec` | Org repo — HTTPS |
+| `focus` | `https://github.com/Formspec-org/formspec` | Org repo — explicit |
 
-The push URL for `origin` goes to the org repo, but the fetch URL points to the personal fork. Always use `--repo focusconsulting/formspec` with `gh` commands to target the org repo directly.
+The push URL for `origin` goes to the org repo, but the fetch URL points to the personal fork. Always use `--repo Formspec-org/formspec` with `gh` commands to target the org repo directly.
 
 ## Built-in Project Fields
 
@@ -40,7 +40,7 @@ When using the GraphQL `updateProjectV2ItemFieldValue` mutation, use the full fi
 | Layer | `PVTSSF_lADOAtpwPs4BSa-Pzg_9eeI` |
 | Priority | `PVTSSF_lADOAtpwPs4BSa-Pzg_9eeM` |
 
-## Labels (on focusconsulting/formspec)
+## Labels (on Formspec-org/formspec)
 
 Default GitHub labels only — no custom labels defined:
 
@@ -51,5 +51,5 @@ bug, documentation, duplicate, enhancement, good first issue, help wanted, inval
 If project fields change (new options added, fields renamed), regenerate the config:
 
 ```bash
-gh project field-list 8 --owner focusconsulting --format json
+gh project field-list 8 --owner Formspec-org --format json
 ```

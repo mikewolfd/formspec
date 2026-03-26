@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { diff } from '../src/form-scaffolder.js';
-import type { FormDefinition } from 'formspec-types';
+import type { FormDefinition } from '@formspec/types';
 
 describe('diff', () => {
   const baseDef: FormDefinition = {

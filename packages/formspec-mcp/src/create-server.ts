@@ -42,7 +42,7 @@ import {
   bracketMutation,
 } from './tools/changeset.js';
 import { successResponse, errorResponse, formatToolError } from './errors.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 
 // ── Shared Zod fragments ────────────────────────────────────────────
 
@@ -147,7 +147,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     annotations: NON_DESTRUCTIVE,
   }, async () => {
     try {
-      const { createProject } = await import('formspec-studio-core');
+      const { createProject } = await import('@formspec/studio-core');
       const projectId = registry.newProject();
       const project = createProject();
       registry.transitionToAuthoring(projectId, project);

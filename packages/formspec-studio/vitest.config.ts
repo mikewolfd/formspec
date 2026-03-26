@@ -7,21 +7,21 @@ const repoRoot = path.resolve(__dirname, '../..');
 export default defineConfig({
   resolve: {
     alias: {
-      'formspec-chat': path.resolve(repoRoot, 'packages/formspec-chat/src/index.ts'),
-      'formspec-studio-core': path.resolve(repoRoot, 'packages/formspec-studio-core/src/index.ts'),
-      'formspec-engine/init-formspec-engine': path.resolve(
+      '@formspec/chat': path.resolve(repoRoot, 'packages/formspec-chat/src/index.ts'),
+      '@formspec/studio-core': path.resolve(repoRoot, 'packages/formspec-studio-core/src/index.ts'),
+      '@formspec/engine/init-formspec-engine': path.resolve(
         repoRoot,
         'packages/formspec-engine/src/init-formspec-engine.ts',
       ),
-      'formspec-engine/render': path.resolve(repoRoot, 'packages/formspec-engine/src/engine-render-entry.ts'),
-      'formspec-engine/fel-runtime': path.resolve(repoRoot, 'packages/formspec-engine/src/fel/fel-api-runtime.ts'),
-      'formspec-engine/fel-tools': path.resolve(repoRoot, 'packages/formspec-engine/src/fel/fel-api-tools.ts'),
-      'formspec-engine': path.resolve(repoRoot, 'packages/formspec-engine/src/index.ts'),
-      'formspec-webcomponent': path.resolve(repoRoot, 'packages/formspec-webcomponent/dist/index.js'),
-      'formspec-webcomponent/formspec-layout.css': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-layout.css'),
-      'formspec-webcomponent/formspec-layout.css?url': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-layout.css'),
-      'formspec-webcomponent/formspec-default.css': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-default.css'),
-      'formspec-webcomponent/formspec-default.css?url': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-default.css')
+      '@formspec/engine/render': path.resolve(repoRoot, 'packages/formspec-engine/src/engine-render-entry.ts'),
+      '@formspec/engine/fel-runtime': path.resolve(repoRoot, 'packages/formspec-engine/src/fel/fel-api-runtime.ts'),
+      '@formspec/engine/fel-tools': path.resolve(repoRoot, 'packages/formspec-engine/src/fel/fel-api-tools.ts'),
+      '@formspec/engine': path.resolve(repoRoot, 'packages/formspec-engine/src/index.ts'),
+      '@formspec/webcomponent': path.resolve(repoRoot, 'packages/formspec-webcomponent/dist/index.js'),
+      '@formspec/webcomponent/formspec-layout.css': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-layout.css'),
+      '@formspec/webcomponent/formspec-layout.css?url': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-layout.css'),
+      '@formspec/webcomponent/formspec-default.css': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-default.css'),
+      '@formspec/webcomponent/formspec-default.css?url': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/formspec-default.css')
     }
   },
   test: {

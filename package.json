@@ -3,6 +3,10 @@
   "description": "Formspec monorepo — a JSON-native declarative form specification with dual TypeScript/Python reference implementations",
   "private": true,
   "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Formspec-org/formspec.git"
+  },
   "workspaces": [
     "packages/*",
     "packages/formspec-webcomponent/stories",
@@ -10,19 +14,19 @@
     "site"
   ],
   "scripts": {
-    "build": "npm run build --workspace=formspec-types && npm run build --workspace=formspec-layout && npm run build --workspace=formspec-engine && npm run build --workspace=formspec-core && npm run build --workspace=formspec-webcomponent && npm run build --workspace=formspec-adapters && npm run build --workspace=formspec-studio-core && npm run build --workspace=formspec-mcp && npm run build --workspace=formspec-studio",
+    "build": "npm run build --workspace=@formspec/types && npm run build --workspace=@formspec/layout && npm run build --workspace=@formspec/engine && npm run build --workspace=@formspec/core && npm run build --workspace=@formspec/webcomponent && npm run build --workspace=@formspec/adapters && npm run build --workspace=@formspec/studio-core && npm run build --workspace=@formspec/mcp && npm run build --workspace=@formspec/studio",
     "test:serve": "vite --port 8080 --host 127.0.0.1",
     "start:site": "npm run dev --workspace=formspec-site",
     "start:stories": "npm run dev --workspace=formspec-stories",
-    "start:studio": "npm run build --workspace=formspec-engine && npm run build --workspace=formspec-layout && npm run build --workspace=formspec-webcomponent &&  npm run dev --workspace=formspec-studio",
+    "start:studio": "npm run build --workspace=@formspec/engine && npm run build --workspace=@formspec/layout && npm run build --workspace=@formspec/webcomponent && npm run dev --workspace=@formspec/studio",
     "test": "npm run test:e2e",
     "test:e2e": "playwright test",
-    "test:studio:unit": "npm run --workspace=formspec-studio test",
-    "test:studio:integration": "npm run --workspace=formspec-studio test",
-    "test:studio:e2e": "npm run --workspace=formspec-studio test:e2e",
-    "docs:api:studio": "npm run --workspace=formspec-studio build",
-    "build:types": "npm run --workspace formspec-types build",
-    "test:unit": "npm run build:types && npm run --workspace formspec-engine test && npm run --workspace formspec-webcomponent test && npm run --workspace formspec-adapters test && npm run --workspace formspec-layout test && npm run --workspace formspec-core test && npm run --workspace formspec-studio-core test && npm run --workspace formspec-mcp test && npm run --workspace formspec-studio test",
+    "test:studio:unit": "npm run --workspace=@formspec/studio test",
+    "test:studio:integration": "npm run --workspace=@formspec/studio test",
+    "test:studio:e2e": "npm run --workspace=@formspec/studio test:e2e",
+    "docs:api:studio": "npm run --workspace=@formspec/studio build",
+    "build:types": "npm run --workspace @formspec/types build",
+    "test:unit": "npm run build:types && npm run --workspace @formspec/engine test && npm run --workspace @formspec/webcomponent test && npm run --workspace @formspec/adapters test && npm run --workspace @formspec/layout test && npm run --workspace @formspec/core test && npm run --workspace @formspec/studio-core test && npm run --workspace @formspec/mcp test && npm run --workspace @formspec/studio test",
     "test:all": "npm run test:unit && npm run test:e2e && npm run test:studio:e2e",
     "docs:generate": "node scripts/generate-spec-artifacts.mjs && node scripts/generate-filemap.mjs",
     "docs:filemap": "node scripts/generate-filemap.mjs",
@@ -34,12 +38,16 @@
     "docs:formspec-core": "cargo doc-md -p formspec-core --no-deps -o target/doc-md-formspec-core && node scripts/bundle-rustdoc-md.mjs formspec-core doc-md-formspec-core formspec_core crates/formspec-core/docs/rustdoc-md/API.md && cargo doc -p formspec-core --no-deps",
     "docs:formspec-lint": "cargo doc-md -p formspec-lint --no-deps -o target/doc-md-formspec-lint && node scripts/bundle-rustdoc-md.mjs formspec-lint doc-md-formspec-lint formspec_lint crates/formspec-lint/docs/rustdoc-md/API.md && cargo doc -p formspec-lint --no-deps",
     "docs:formspec-eval": "cargo doc-md -p formspec-eval --no-deps -o target/doc-md-formspec-eval && node scripts/bundle-rustdoc-md.mjs formspec-eval doc-md-formspec-eval formspec_eval crates/formspec-eval/docs/rustdoc-md/API.md && cargo doc -p formspec-eval --no-deps",
-    "start:references": "npm run build --workspace=formspec-engine && npm run build --workspace=formspec-layout && npm run build --workspace=formspec-webcomponent && npm run dev --workspace=formspec-references",
+    "start:references": "npm run build --workspace=@formspec/engine && npm run build --workspace=@formspec/layout && npm run build --workspace=@formspec/webcomponent && npm run dev --workspace=formspec-references",
     "build:hosting": "bash scripts/build-hosting.sh",
     "deploy": "npm run build:hosting && npx -y firebase-tools@latest deploy --only hosting",
-    "deploy:preview": "npm run build:hosting && npx -y firebase-tools@latest hosting:channel:deploy preview"
+    "deploy:preview": "npm run build:hosting && npx -y firebase-tools@latest hosting:channel:deploy preview",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@playwright/test": "^1.42.0",
     "@types/node": "^20.0.0",
     "@uswds/uswds": "^3.13.0",

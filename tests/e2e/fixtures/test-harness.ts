@@ -12,7 +12,7 @@ import {
     isFormspecEngineInitialized,
     createFormEngine,
     tokenizeFEL,
-} from 'formspec-engine';
+} from '@formspec/engine';
 
 customElements.define('formspec-render', FormspecRender);
 

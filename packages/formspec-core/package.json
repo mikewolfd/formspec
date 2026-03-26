@@ -1,10 +1,20 @@
 {
-  "name": "formspec-core",
+  "name": "@formspec/core",
   "description": "Core project model, handlers, and normalization layer for Formspec documents",
   "version": "0.1.0",
   "type": "module",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Formspec-org/formspec.git",
+    "directory": "packages/formspec-core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -12,8 +22,8 @@
   },
   "dependencies": {
     "ajv": "^8.18.0",
-    "formspec-engine": "*",
-    "formspec-types": "*"
+    "@formspec/engine": "*",
+    "@formspec/types": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

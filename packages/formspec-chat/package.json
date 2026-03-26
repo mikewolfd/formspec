@@ -1,10 +1,20 @@
 {
-  "name": "formspec-chat",
+  "name": "@formspec/chat",
   "description": "Conversational form-filling interface that drives Formspec forms via chat",
   "version": "0.1.0",
   "type": "module",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Formspec-org/formspec.git",
+    "directory": "packages/formspec-chat"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -12,7 +22,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.0.0",
-    "formspec-types": "*"
+    "@formspec/types": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

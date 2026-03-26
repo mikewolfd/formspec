@@ -7,7 +7,7 @@ import {
   type SchemaValidationResult,
   type SchemaValidator,
   lintDocument,
-} from 'formspec-engine';
+} from '@formspec/engine';
 
 let validator: SchemaValidator | null = null;
 

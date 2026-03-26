@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for CheckboxGroup — renders usa-checkbox markup inside a fieldset. */
-import type { CheckboxGroupBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { CheckboxGroupBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 import { createUSWDSError } from './shared';
 

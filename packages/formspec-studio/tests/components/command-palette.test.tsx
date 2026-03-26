@@ -1,6 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { createProject } from 'formspec-studio-core';
+import { createProject } from '@formspec/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider, useSelection } from '../../src/state/useSelection';
 import { CommandPalette } from '../../src/components/CommandPalette';

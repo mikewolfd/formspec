@@ -1,8 +1,8 @@
 /** @filedesc Repeat-row subtree clearing and snapshot/restore of nested group field values. */
 
-import type { FormItem } from 'formspec-types';
-import type { ValidationResult } from 'formspec-types';
-import type { OptionEntry } from 'formspec-types';
+import type { FormItem } from '@formspec/types';
+import type { ValidationResult } from '@formspec/types';
+import type { OptionEntry } from '@formspec/types';
 import type { EngineSignal } from '../reactivity/types.js';
 import type { RemoteOptionsState } from '../interfaces.js';
 

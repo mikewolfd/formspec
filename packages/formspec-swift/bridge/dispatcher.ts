@@ -1,6 +1,6 @@
 /** @filedesc JS bridge dispatcher — runs in WKWebView, translates EngineCommand JSON to FormEngine calls and posts EngineEvent batches back to Swift. */
 
-import { createFormEngine, initFormspecEngine } from 'formspec-engine/render';
+import { createFormEngine, initFormspecEngine } from '@formspec/engine/render';
 import { effect } from '@preact/signals-core';
 
 // ---------------------------------------------------------------------------

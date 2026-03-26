@@ -5,7 +5,7 @@
 
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall } from '../errors.js';
-import type { BranchPath, FlowProps } from 'formspec-studio-core';
+import type { BranchPath, FlowProps } from '@formspec/studio-core';
 
 type FlowAction = 'set_mode' | 'branch';
 

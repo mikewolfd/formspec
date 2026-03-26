@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for DatePicker — renders native date input with Tailwind styling. */
-import type { DatePickerBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { DatePickerBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 import { createTailwindFieldDOM, TW, toggleInputError } from './shared';
 
 export const renderDatePicker: AdapterRenderFn<DatePickerBehavior> = (

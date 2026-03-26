@@ -1,8 +1,8 @@
 /** @filedesc MCP tool for migration rule CRUD: add_rule, remove_rule, list_rules. */
 import type { ProjectRegistry } from '../registry.js';
-import type { Project } from 'formspec-studio-core';
+import type { Project } from '@formspec/studio-core';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 
 type MigrationAction = 'add_rule' | 'remove_rule' | 'list_rules';
 

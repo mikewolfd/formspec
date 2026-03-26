@@ -1,5 +1,5 @@
 /** @filedesc Mapping-specific state queries: bidirectional transform evaluation. */
-import { createMappingEngine } from 'formspec-engine';
+import { createMappingEngine } from '@formspec/engine';
 import type { ProjectState, MappingPreviewParams, MappingPreviewResult } from '../types.js';
 
 /**

@@ -5,7 +5,7 @@ import type {
     CheckboxGroupBehavior, SelectBehavior, DatePickerBehavior, ToggleBehavior,
     MoneyInputBehavior, SliderBehavior, RatingBehavior, FileUploadBehavior,
     SignatureBehavior, WizardBehavior, TabsBehavior, AdapterContext, FieldRefs,
-} from 'formspec-webcomponent';
+} from '@formspec/webcomponent';
 
 // ── Base defaults ──────────────────────────────────────────────────
 

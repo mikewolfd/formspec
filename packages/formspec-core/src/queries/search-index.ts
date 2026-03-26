@@ -1,5 +1,5 @@
 /** @filedesc Build a flat search index of all definition items. */
-import type { FormItem } from 'formspec-types';
+import type { FormItem } from '@formspec/types';
 import type { ProjectState } from '../types.js';
 
 /**

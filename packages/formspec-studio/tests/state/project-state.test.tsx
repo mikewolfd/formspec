@@ -1,6 +1,6 @@
 import { render, screen, act, cleanup } from '@testing-library/react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { createProject, type Project } from 'formspec-studio-core';
+import { createProject, type Project } from '@formspec/studio-core';
 
 afterEach(cleanup);
 import { ProjectProvider } from '../../src/state/ProjectContext';

@@ -9,7 +9,7 @@ echo "Building formspec-swift bridge bundle..."
 # Ensure formspec-engine is built
 if [ ! -d "$REPO_ROOT/packages/formspec-engine/dist" ]; then
     echo "Building formspec-engine first..."
-    npm run build --workspace=formspec-engine --prefix="$REPO_ROOT"
+    npm run build --workspace=@formspec/engine --prefix="$REPO_ROOT"
 fi
 
 cd "$PACKAGE_DIR"

@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for NumberInput — renders usa-input with type="number". */
-import type { NumberInputBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { NumberInputBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 import { createUSWDSFieldDOM } from './shared';
 
 export const renderNumberInput: AdapterRenderFn<NumberInputBehavior> = (

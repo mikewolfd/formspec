@@ -1,12 +1,12 @@
 /** @filedesc Helpers for flattening item trees, resolving binds/shapes, widget compatibility, and editor-canvas utilities. */
 
-import type { FormItem, FormBind } from 'formspec-types';
+import type { FormItem, FormBind } from '@formspec/types';
 import {
   COMPATIBILITY_MATRIX,
   COMPONENT_TO_HINT,
   SPEC_WIDGET_TO_COMPONENT,
   KNOWN_COMPONENT_TYPES,
-} from 'formspec-layout';
+} from '@formspec/layout';
 
 export interface FlatItem {
   path: string;

@@ -1,6 +1,6 @@
 /** @filedesc Draggable tray showing definition items not assigned to any page. */
 import { useDraggable } from '@dnd-kit/react';
-import type { PlaceableItem } from 'formspec-studio-core';
+import type { PlaceableItem } from '@formspec/studio-core';
 
 function DraggableUnassignedItem({
   itemKey,

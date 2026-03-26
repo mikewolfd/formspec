@@ -3,7 +3,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import { createRawProject } from '../src/index.js';
-import { lintDocument, type SchemaValidator } from 'formspec-engine/fel-tools';
+import { lintDocument, type SchemaValidator } from '@formspec/engine/fel-tools';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMAS_DIR = path.resolve(__dirname, '../../../schemas');

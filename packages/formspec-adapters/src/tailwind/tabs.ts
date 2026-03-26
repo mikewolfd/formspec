@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for Tabs — styled tab bar with panel switching. */
-import type { TabsBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { TabsBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 
 export const renderTabs: AdapterRenderFn<TabsBehavior> = (
     behavior, parent, actx

@@ -1,5 +1,5 @@
 /** @filedesc Walk a Formspec response `data` tree and apply values to a FormEngine (repeats + leaf paths). */
-import type { IFormEngine } from 'formspec-engine/render';
+import type { IFormEngine } from '@formspec/engine/render';
 
 /**
  * Apply a response `data` object to the engine after `definition` is loaded. Skips paths with no

@@ -1,6 +1,6 @@
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createProject } from 'formspec-studio-core';
+import { createProject } from '@formspec/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider, useSelection } from '../../src/state/useSelection';
 import { LogicTab } from '../../src/workspaces/logic/LogicTab';

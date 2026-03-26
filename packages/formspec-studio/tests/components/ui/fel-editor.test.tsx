@@ -2,7 +2,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FELEditor } from '../../../src/components/ui/FELEditor';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
-import { createProject } from 'formspec-studio-core';
+import { createProject } from '@formspec/studio-core';
 
 // Mock scrollHeight for autoResize
 Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, value: 50 });

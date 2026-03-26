@@ -26,7 +26,7 @@ test-python:
 	pytest
 
 build-wasm:
-	npm run build:wasm --workspace=formspec-engine
+	npm run build:wasm --workspace=@formspec/engine
 
 # Full compile: Rust workspace + npm workspaces (WASM via formspec-engine) + formspec_rust into active Python.
 build: build-rust build-js build-python
@@ -55,7 +55,7 @@ api-docs:
 	npx typedoc --entryPoints packages/formspec-core/src/index.ts --tsconfig packages/formspec-core/tsconfig.json --out $(DOCS_DIR)/api/formspec-core
 	npx typedoc --entryPoints packages/formspec-chat/src/index.ts --tsconfig packages/formspec-chat/tsconfig.json --out $(DOCS_DIR)/api/formspec-chat
 	npx typedoc --entryPoints packages/formspec-mcp/src/index.ts --tsconfig packages/formspec-mcp/tsconfig.json --out $(DOCS_DIR)/api/formspec-mcp
-	npm run --workspace=formspec-studio-core build || true
+	npm run --workspace=@formspec/studio-core build || true
 	cargo doc --workspace --no-deps
 	rm -rf $(DOCS_DIR)/api/rust && cp -r target/doc $(DOCS_DIR)/api/rust
 	PYTHONPATH=src python3 scripts/generate-api-markdown.py src/formspec/API.llm.md

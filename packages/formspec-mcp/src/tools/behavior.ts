@@ -4,8 +4,8 @@
  *   Batch-enabled via items[] array.
  */
 
-import { HelperError } from 'formspec-studio-core';
-import type { Project, ValidationOptions } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
+import type { Project, ValidationOptions } from '@formspec/studio-core';
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall, wrapBatchCall, errorResponse, formatToolError } from '../errors.js';
 import type { BatchItem } from '../batch.js';

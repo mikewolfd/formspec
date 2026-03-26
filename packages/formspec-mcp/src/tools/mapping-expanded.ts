@@ -1,8 +1,8 @@
 /** @filedesc MCP tool for mapping rule CRUD: add_mapping, remove_mapping, list_mappings, auto_map. */
 import type { ProjectRegistry } from '../registry.js';
-import type { Project } from 'formspec-studio-core';
+import type { Project } from '@formspec/studio-core';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 
 type MappingAction = 'add_mapping' | 'remove_mapping' | 'list_mappings' | 'auto_map';
 

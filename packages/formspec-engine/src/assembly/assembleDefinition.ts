@@ -1,6 +1,6 @@
 /** @filedesc Resolve $ref fragments and assemble a FormDefinition via WASM. */
 
-import type { FormDefinition } from 'formspec-types';
+import type { FormDefinition } from '@formspec/types';
 import type { AssemblyResult, DefinitionResolver } from '../interfaces.js';
 import { cloneValue } from '../engine/helpers.js';
 import { initWasmTools, isWasmToolsReady, wasmAssembleDefinition } from '../wasm-bridge-tools.js';

@@ -1,7 +1,7 @@
 /** @filedesc Token resolution and CSS custom property emission for theme/component tokens. */
 import {
     resolveToken as resolveTokenBase,
-} from 'formspec-layout';
+} from '@formspec/layout';
 import type { StylingHost } from './index';
 
 export function resolveToken(host: StylingHost, val: any): any {

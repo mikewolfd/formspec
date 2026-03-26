@@ -10,10 +10,10 @@
 export type {
   FormItem, FormBind, FormShape, FormVariable, FormInstance, FormOption,
   FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
-} from 'formspec-types';
+} from '@formspec/types';
 import type {
   FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
-} from 'formspec-types';
+} from '@formspec/types';
 
 // ── Shared operational types (re-exported from formspec-core) ────────
 export type {
@@ -24,8 +24,8 @@ export type {
   ProjectBundle,
   MappingPreviewParams,
   MappingPreviewResult,
-} from 'formspec-core';
-import type { ProjectBundle } from 'formspec-core';
+} from '@formspec/core';
+import type { ProjectBundle } from '@formspec/core';
 
 /**
  * Read-only snapshot of the project's authored artifacts.

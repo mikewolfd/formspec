@@ -17,7 +17,7 @@
 
 import type { CommandHandler } from '../types.js';
 import { resolveItemLocation } from './helpers.js';
-import type { FormBind, FormItem } from 'formspec-types';
+import type { FormBind, FormItem } from '@formspec/types';
 
 // ── setBind helpers ──────────────────────────────────────────────────
 

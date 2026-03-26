@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for Checkbox — single boolean as a compact selectable card. */
-import type { FieldBehavior, AdapterRenderFn } from 'formspec-webcomponent';
+import type { FieldBehavior, AdapterRenderFn } from '@formspec/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 import { createTailwindError, TW, TW_CARD_OPTION, createCardOption, applyErrorStyling } from './shared';
 

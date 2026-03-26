@@ -1,5 +1,5 @@
 /** @filedesc Compute valid drop targets for drag-and-drop of definition items. */
-import type { FormItem } from 'formspec-types';
+import type { FormItem } from '@formspec/types';
 import type { ProjectState } from '../types.js';
 
 /**

@@ -1,5 +1,5 @@
 /** @filedesc Shared DOM construction for USWDS field adapters — root, label, hint, error, describedBy. */
-import type { FieldBehavior } from 'formspec-webcomponent';
+import type { FieldBehavior } from '@formspec/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 
 export interface USWDSFieldDOM {

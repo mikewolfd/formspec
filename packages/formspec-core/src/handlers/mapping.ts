@@ -10,7 +10,7 @@
  * @module handlers/mapping
  */
 import type { CommandHandler, ProjectState, MappingState } from '../types.js';
-import type { FormItem } from 'formspec-types';
+import type { FormItem } from '@formspec/types';
 
 /** Helper to resolve the target mapping record from state and payload. */
 function getMapping(state: ProjectState, mappingId?: string): MappingState {

@@ -2,11 +2,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import React from 'react';
-import { createProject, type Project } from 'formspec-studio-core';
+import { createProject, type Project } from '@formspec/studio-core';
 
 // Replace GeminiAdapter with MockAdapter so tests don't hit real APIs
-vi.mock('formspec-chat', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('formspec-chat')>();
+vi.mock('@formspec/chat', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@formspec/chat')>();
   return {
     ...actual,
     GeminiAdapter: actual.MockAdapter,

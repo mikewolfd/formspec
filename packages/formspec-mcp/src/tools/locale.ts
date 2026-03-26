@@ -1,7 +1,7 @@
 /** @filedesc MCP tool for locale management: strings, form-level strings, listing. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 
 type LocaleAction =
   | 'set_string'

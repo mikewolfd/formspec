@@ -4,7 +4,7 @@ import {
   KNOWN_COMPONENT_TYPES,
   SPEC_WIDGET_TO_COMPONENT,
   COMPONENT_TO_HINT,
-} from 'formspec-types';
+} from '@formspec/types';
 
 export interface ResolvedFieldType {
   dataType: string;

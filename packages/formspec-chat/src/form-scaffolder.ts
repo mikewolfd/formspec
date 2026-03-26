@@ -1,5 +1,5 @@
 /** @filedesc Structural diff between two FormDefinitions (added/removed/modified items). */
-import type { FormDefinition } from 'formspec-types';
+import type { FormDefinition } from '@formspec/types';
 
 export interface DefinitionDiff {
   added: string[];

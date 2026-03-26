@@ -4,7 +4,7 @@ import { useSortable } from '@dnd-kit/react/sortable';
 import { useDroppable } from '@dnd-kit/react';
 import { DragHandle } from '../editor/DragHandle';
 import { GridCanvas } from './GridCanvas';
-import type { PageItemView, PageView, PlaceableItem } from 'formspec-studio-core';
+import type { PageItemView, PageView, PlaceableItem } from '@formspec/studio-core';
 import type { PageActions } from './mode-renderer-props';
 
 function isDeletableItem(item: PageItemView): boolean {

@@ -2,8 +2,8 @@
 import { Section } from '../../../components/ui/Section';
 import { HelpTip } from '../../../components/ui/HelpTip';
 import { propertyHelp } from '../../../lib/field-helpers';
-import type { Project } from 'formspec-studio-core';
-import type { FormItem } from 'formspec-types';
+import type { Project } from '@formspec/studio-core';
+import type { FormItem } from '@formspec/types';
 
 function parseRepeatValue(value: string): number | null {
   const trimmed = value.trim();

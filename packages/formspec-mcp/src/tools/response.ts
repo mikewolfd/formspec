@@ -1,7 +1,7 @@
 /** @filedesc MCP tool for response testing: set_test_response, get_test_response, clear_test_responses, validate_response. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError, validateResponse } from 'formspec-studio-core';
+import { HelperError, validateResponse } from '@formspec/studio-core';
 
 type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_responses' | 'validate_response';
 

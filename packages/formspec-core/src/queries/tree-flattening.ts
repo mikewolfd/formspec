@@ -1,5 +1,5 @@
 /** @filedesc Flatten the definition item tree into a depth-first list with path and depth info. */
-import type { FormItem } from 'formspec-types';
+import type { FormItem } from '@formspec/types';
 import type { ProjectState } from '../types.js';
 
 /**

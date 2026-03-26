@@ -1,9 +1,9 @@
 /** @filedesc Full-screen generated form preview with field list, data-type badges, source traces, diff highlights, and JSON document inspector. */
 import React, { useMemo, useState, useCallback } from 'react';
 import { useChatState, useChatSession } from '../state/ChatContext.js';
-import type { SourceTrace, DefinitionDiff } from 'formspec-chat';
-import { planDefinitionFallback } from 'formspec-layout';
-import type { LayoutNode } from 'formspec-layout';
+import type { SourceTrace, DefinitionDiff } from '@formspec/chat';
+import { planDefinitionFallback } from '@formspec/layout';
+import type { LayoutNode } from '@formspec/layout';
 
 interface OptionLike {
   value: string;
@@ -405,7 +405,7 @@ function LayoutNodePreview({
 const BUNDLE_DOC_IDS = ['Definition', 'Component', 'Theme', 'Mappings'] as const;
 type BundleDocId = (typeof BUNDLE_DOC_IDS)[number];
 
-function BundleJsonView({ bundle }: { bundle: import('formspec-studio-core').ProjectBundle | null }) {
+function BundleJsonView({ bundle }: { bundle: import('@formspec/studio-core').ProjectBundle | null }) {
   const [active, setActive] = useState<BundleDocId>('Definition');
   const [activeMapping, setActiveMapping] = useState<string | null>(null);
 

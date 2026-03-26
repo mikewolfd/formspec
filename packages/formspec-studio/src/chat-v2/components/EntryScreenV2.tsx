@@ -1,7 +1,7 @@
 /** @filedesc Modern landing screen with gradient hero, action cards, and recent sessions — v2. */
 import React, { useState } from 'react';
-import type { SessionSummary, ProviderConfig } from 'formspec-chat';
-import { TemplateLibrary } from 'formspec-chat';
+import type { SessionSummary, ProviderConfig } from '@formspec/chat';
+import { TemplateLibrary } from '@formspec/chat';
 
 const library = new TemplateLibrary();
 const templates = library.getAll();

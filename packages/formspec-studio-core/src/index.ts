@@ -78,19 +78,19 @@ export type { ResolvedFieldType } from './field-type-aliases.js';
 export type {
   FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry,
   FieldDependents, ItemFilter, ItemSearchResult,
-} from 'formspec-core';
+} from '@formspec/core';
 
 // ── Theme utilities (re-exported from formspec-core for consumers) ───
-export { resolveThemeCascade } from 'formspec-core';
-export type { ResolvedProperty } from 'formspec-core';
+export { resolveThemeCascade } from '@formspec/core';
+export type { ResolvedProperty } from '@formspec/core';
 
 // ── Page resolution utilities (re-exported from formspec-core) ───────
-export { resolvePageStructure } from 'formspec-core';
-export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic } from 'formspec-core';
+export { resolvePageStructure } from '@formspec/core';
+export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic } from '@formspec/core';
 
 // ── Behavioral page view (re-exported from formspec-core) ────────────
-export { resolvePageView } from 'formspec-core';
-export type { PageView, PageItemView, PlaceableItem, PageStructureView } from 'formspec-core';
+export { resolvePageView } from '@formspec/core';
+export type { PageView, PageItemView, PlaceableItem, PageStructureView } from '@formspec/core';
 
 // ── Evaluation helpers ──────────────────────────────────────────────
 export { previewForm, validateResponse } from './evaluation-helpers.js';

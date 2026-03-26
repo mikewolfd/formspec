@@ -1,8 +1,8 @@
 /** @filedesc Live form preview panel that runs the FormEngine with scenario data and renders at a given viewport. */
 import { useMemo, useState } from 'react';
-import { createFormEngine, type FormspecItem } from 'formspec-engine';
-import type { IFormEngine } from 'formspec-engine';
-import type { FormDefinition } from 'formspec-types';
+import { createFormEngine, type FormspecItem } from '@formspec/engine';
+import type { IFormEngine } from '@formspec/engine';
+import type { FormDefinition } from '@formspec/types';
 import { useProjectState } from '../../state/useProjectState';
 import { normalizeDefinitionDoc } from '../../workspaces/preview/preview-documents';
 import { FormspecPreviewHost } from '../../workspaces/preview/FormspecPreviewHost';

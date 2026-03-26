@@ -1,6 +1,6 @@
 /** @filedesc Rebuilds the component tree to mirror the definition item hierarchy. */
-import type { FormDefinition, FormItem } from 'formspec-types';
-import { widgetTokenToComponent } from 'formspec-types';
+import type { FormDefinition, FormItem } from '@formspec/types';
+import { widgetTokenToComponent } from '@formspec/types';
 
 /** Component tree node shape used in generated layout documents. */
 type TreeNode = {

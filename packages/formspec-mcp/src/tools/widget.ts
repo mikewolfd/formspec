@@ -1,7 +1,7 @@
 /** @filedesc Widget vocabulary query tool — list widgets, compatible widgets, field type catalog. */
 
 import type { ProjectRegistry } from '../registry.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 import { errorResponse, successResponse, formatToolError } from '../errors.js';
 
 type WidgetAction = 'list_widgets' | 'compatible' | 'field_types';

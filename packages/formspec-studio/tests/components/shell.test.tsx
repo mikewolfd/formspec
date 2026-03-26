@@ -1,7 +1,7 @@
 import { render, screen, act, fireEvent, within, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import JSZip from 'jszip';
-import { createProject } from 'formspec-studio-core';
+import { createProject } from '@formspec/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
 import { ActiveGroupProvider } from '../../src/state/useActiveGroup';

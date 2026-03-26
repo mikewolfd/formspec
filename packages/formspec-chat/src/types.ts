@@ -5,7 +5,7 @@
  * adapters, templates, and session persistence.
  */
 
-import type { FormDefinition } from 'formspec-types';
+import type { FormDefinition } from '@formspec/types';
 
 // ── Chat Messages ────────────────────────────────────────────────────
 

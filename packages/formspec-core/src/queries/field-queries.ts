@@ -5,8 +5,8 @@
  * Every function receives `state: ProjectState` as its first parameter
  * and returns a result with no side effects.
  */
-import type { FormItem, FormShape } from 'formspec-types';
-import { itemAtPath, normalizeIndexedPath } from 'formspec-engine/fel-runtime';
+import type { FormItem, FormShape } from '@formspec/types';
+import { itemAtPath, normalizeIndexedPath } from '@formspec/engine/fel-runtime';
 import { getCurrentComponentDocument, getEditableComponentDocument } from '../component-documents.js';
 import type {
   ProjectState,

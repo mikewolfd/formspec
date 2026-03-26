@@ -12,7 +12,7 @@ import type {
   ChatMessage, Attachment, SourceTrace,
   ConversationResponse, ToolContext, RefinementResult, ToolCallRecord,
 } from './types.js';
-import type { FormDefinition } from 'formspec-types';
+import type { FormDefinition } from '@formspec/types';
 import { TemplateLibrary } from './template-library.js';
 
 const library = new TemplateLibrary();

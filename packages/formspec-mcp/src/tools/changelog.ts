@@ -1,7 +1,7 @@
 /** @filedesc MCP tool for changelog: list_changes, diff_from_baseline. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 
 type ChangelogAction = 'list_changes' | 'diff_from_baseline';
 

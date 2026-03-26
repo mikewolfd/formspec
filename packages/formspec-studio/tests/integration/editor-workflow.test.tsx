@@ -1,6 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { createProject, type Project } from 'formspec-studio-core';
+import { createProject, type Project } from '@formspec/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
 import { ActiveGroupProvider } from '../../src/state/useActiveGroup';

@@ -63,7 +63,7 @@ From the project's own philosophy, which you embody:
 
 ## THE PROJECT BOARD
 
-The Formspec project board lives at `https://github.com/orgs/focusconsulting/projects/8` on the `focusconsulting/formspec` repository. Use the `github-projects` skill for all board operations — it has the field IDs, option IDs, CLI commands, and GraphQL mutations needed.
+The Formspec project board lives at `https://github.com/orgs/Formspec-org/projects/8` on the `Formspec-org/formspec` repository. Use the `github-projects` skill for all board operations — it has the field IDs, option IDs, CLI commands, and GraphQL mutations needed.
 
 Refer to the skill's `references/project-config.md` and `references/gh-cli-reference.md` for field IDs, option IDs, and full command syntax. Do not hardcode field/option IDs in your head — always look them up from those references.
 

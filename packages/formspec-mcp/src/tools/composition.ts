@@ -1,8 +1,8 @@
 /** @filedesc MCP tool for $ref composition on groups: add_ref, remove_ref, list_refs. */
 import type { ProjectRegistry } from '../registry.js';
-import type { Project } from 'formspec-studio-core';
+import type { Project } from '@formspec/studio-core';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 
 type CompositionAction = 'add_ref' | 'remove_ref' | 'list_refs';
 

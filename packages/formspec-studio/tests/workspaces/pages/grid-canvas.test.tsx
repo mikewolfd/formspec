@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GridCanvas } from '../../../src/workspaces/pages/GridCanvas';
-import type { PageItemView } from 'formspec-studio-core';
+import type { PageItemView } from '@formspec/studio-core';
 
 function makeItem(overrides: Partial<PageItemView> = {}): PageItemView {
   return {

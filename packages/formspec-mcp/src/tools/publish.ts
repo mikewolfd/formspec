@@ -1,7 +1,7 @@
 /** @filedesc MCP tool for publish lifecycle: set_version, set_status, validate_transition, get_version_info. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError, wrapHelperCall } from '../errors.js';
-import { HelperError } from 'formspec-studio-core';
+import { HelperError } from '@formspec/studio-core';
 
 type PublishAction = 'set_version' | 'set_status' | 'validate_transition' | 'get_version_info';
 

@@ -1,7 +1,7 @@
 /** @filedesc Response envelope, validation report, changelog migration, and pinned-definition resolution. */
 
-import type { FormDefinition } from 'formspec-types';
-import type { ValidationReport, ValidationResult } from 'formspec-types';
+import type { FormDefinition } from '@formspec/types';
+import type { ValidationReport, ValidationResult } from '@formspec/types';
 import type { EvalResult } from '../diff.js';
 import type { PinnedResponseReference } from '../interfaces.js';
 import { wasmApplyMigrationsToResponseData } from '../wasm-bridge-runtime.js';

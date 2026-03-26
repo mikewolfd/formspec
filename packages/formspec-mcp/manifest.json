@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "formspec-mcp",
+  "name": "@formspec/mcp",
   "display_name": "Formspec Authoring Assistant",
   "version": "0.2.0",
   "description": "28 consolidated tools for AI-driven Formspec form authoring. Build complex forms through structured tool calls.",

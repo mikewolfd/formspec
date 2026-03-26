@@ -1,11 +1,11 @@
 /** @filedesc FormspecProvider — React context wrapping a FormEngine + optional layout plan. */
 import React, { createContext, useContext, useMemo, useEffect, useRef, useCallback, useState } from 'react';
 import { signal } from '@preact/signals-core';
-import type { ReadonlyEngineSignal } from 'formspec-engine';
-import type { IFormEngine } from 'formspec-engine';
-import { createFormEngine } from 'formspec-engine';
-import type { LayoutNode, PlanContext } from 'formspec-layout';
-import { planDefinitionFallback, planComponentTree } from 'formspec-layout';
+import type { ReadonlyEngineSignal } from '@formspec/engine';
+import type { IFormEngine } from '@formspec/engine';
+import { createFormEngine } from '@formspec/engine';
+import type { LayoutNode, PlanContext } from '@formspec/layout';
+import { planDefinitionFallback, planComponentTree } from '@formspec/layout';
 import type { ComponentMap } from './component-map';
 
 export interface SubmitResult {

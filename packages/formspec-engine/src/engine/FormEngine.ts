@@ -8,7 +8,7 @@ import type {
     OptionEntry,
     ValidationReport,
     ValidationResult,
-} from 'formspec-types';
+} from '@formspec/types';
 import { diffEvalResults, type EvalResult, type EvalValidation } from '../diff.js';
 import type {
     EngineReplayApplyResult,

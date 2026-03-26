@@ -1,7 +1,7 @@
 /** @filedesc Core behavior contract types for the headless component architecture. */
 import type { Signal } from '@preact/signals-core';
-import type { IFormEngine } from 'formspec-engine/render';
-import type { PresentationBlock, ItemDescriptor } from 'formspec-layout';
+import type { IFormEngine } from '@formspec/engine/render';
+import type { PresentationBlock, ItemDescriptor } from '@formspec/layout';
 
 /**
  * Pre-resolved PresentationBlock — all $token. references already

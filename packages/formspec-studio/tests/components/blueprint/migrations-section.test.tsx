@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { createProject } from 'formspec-studio-core';
+import { createProject } from '@formspec/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { MigrationsSection } from '../../../src/components/blueprint/MigrationsSection';
 

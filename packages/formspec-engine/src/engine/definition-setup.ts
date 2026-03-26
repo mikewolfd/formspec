@@ -1,7 +1,7 @@
 /** @filedesc Definition constructor helpers: option-set inlining and static FEL cycle detection. */
 
-import type { FormVariable } from 'formspec-types';
-import type { FormDefinition } from 'formspec-types';
+import type { FormVariable } from '@formspec/types';
+import type { FormDefinition } from '@formspec/types';
 import {
     wasmAnalyzeFEL,
     wasmGetFELDependencies,

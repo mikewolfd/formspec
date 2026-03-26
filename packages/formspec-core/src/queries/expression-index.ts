@@ -1,14 +1,14 @@
 /**
  * Pure query functions for FEL expression indexing, parsing, and reference resolution.
  */
-import type { FormItem } from 'formspec-types';
+import type { FormItem } from '@formspec/types';
 import {
   analyzeFEL,
   getFELDependencies,
   normalizeIndexedPath,
   type FELAnalysis,
-} from 'formspec-engine/fel-runtime';
-import { getBuiltinFELFunctionCatalog } from 'formspec-engine/fel-tools';
+} from '@formspec/engine/fel-runtime';
+import { getBuiltinFELFunctionCatalog } from '@formspec/engine/fel-tools';
 import { getCurrentComponentDocument } from '../component-documents.js';
 import { itemAt, fieldPaths as getFieldPaths } from './field-queries.js';
 import type {
