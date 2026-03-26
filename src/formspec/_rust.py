@@ -7,7 +7,7 @@ import inspect
 import sys
 
 import msgspec
-import formspec_rust
+from formspec import _native as formspec_rust  # noqa: E402 — maturin-built extension
 
 # Direct leaf imports — bypass fel/__init__.py to avoid circular import
 # (formspec.__init__ → _rust → fel.__init__ → _rust would deadlock)

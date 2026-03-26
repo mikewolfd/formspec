@@ -1,10 +1,10 @@
 /** @filedesc Firebase Function — Resend newsletter subscribe endpoint. */
 import { onRequest } from "firebase-functions/v2/https";
-import { defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import { Resend } from "resend";
 
-const resendApiKey = defineString("RESEND_API_KEY");
-const resendAudienceId = defineString("RESEND_AUDIENCE_ID");
+const resendApiKey = defineSecret("RESEND_API_KEY");
+const resendAudienceId = defineSecret("RESEND_AUDIENCE_ID");
 
 const ALLOWED_ORIGINS = [
   "https://formspec.org",
@@ -23,7 +23,7 @@ function corsHeaders(origin) {
   };
 }
 
-export const subscribe = onRequest({ cors: false }, async (req, res) => {
+export const subscribe = onRequest({ cors: false, secrets: [resendApiKey, resendAudienceId] }, async (req, res) => {
   const origin = req.headers.origin || "";
   const headers = corsHeaders(origin);
 

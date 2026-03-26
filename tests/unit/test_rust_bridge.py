@@ -3,7 +3,7 @@
 import inspect
 
 import pytest
-import formspec_rust
+from formspec import _native as formspec_rust
 from formspec._rust import (
     parse,
     ParsedExpression,
