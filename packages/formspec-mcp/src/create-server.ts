@@ -21,6 +21,11 @@ import { handleData } from './tools/data.js';
 import { handleScreener } from './tools/screener.js';
 import { handleDescribe, handleSearch, handleTrace, handlePreview } from './tools/query.js';
 import { handleFel } from './tools/fel.js';
+import {
+  handleChangesetOpen, handleChangesetClose, handleChangesetList,
+  handleChangesetAccept, handleChangesetReject,
+  bracketMutation,
+} from './tools/changeset.js';
 import { successResponse, errorResponse, formatToolError } from './errors.js';
 import { HelperError } from 'formspec-studio-core';
 
@@ -195,8 +200,10 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, path, label, type, props, items }) => {
-    if (items) return structure.handleField(registry, project_id, { items });
-    return structure.handleField(registry, project_id, { path: path!, label: label!, type: type!, props });
+    return bracketMutation(registry, project_id, 'formspec_field', () => {
+      if (items) return structure.handleField(registry, project_id, { items });
+      return structure.handleField(registry, project_id, { path: path!, label: label!, type: type!, props });
+    });
   });
 
   server.registerTool('formspec_content', {
@@ -212,8 +219,10 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, path, body, kind, props, items }) => {
-    if (items) return structure.handleContent(registry, project_id, { items });
-    return structure.handleContent(registry, project_id, { path: path!, body: body!, kind, props });
+    return bracketMutation(registry, project_id, 'formspec_content', () => {
+      if (items) return structure.handleContent(registry, project_id, { items });
+      return structure.handleContent(registry, project_id, { path: path!, body: body!, kind, props });
+    });
   });
 
   server.registerTool('formspec_group', {
@@ -228,8 +237,10 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, path, label, props, items }) => {
-    if (items) return structure.handleGroup(registry, project_id, { items });
-    return structure.handleGroup(registry, project_id, { path: path!, label: label!, props });
+    return bracketMutation(registry, project_id, 'formspec_group', () => {
+      if (items) return structure.handleGroup(registry, project_id, { items });
+      return structure.handleGroup(registry, project_id, { path: path!, label: label!, props });
+    });
   });
 
   server.registerTool('formspec_submit_button', {
@@ -242,7 +253,9 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, label, page_id }) => {
-    return structure.handleSubmitButton(registry, project_id, label, page_id);
+    return bracketMutation(registry, project_id, 'formspec_submit_button', () =>
+      structure.handleSubmitButton(registry, project_id, label, page_id),
+    );
   });
 
   // ── Structure — Modify ────────────────────────────────────────────
@@ -258,7 +271,9 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, target, path, changes }) => {
-    return structure.handleUpdate(registry, project_id, target, { path, changes });
+    return bracketMutation(registry, project_id, 'formspec_update', () =>
+      structure.handleUpdate(registry, project_id, target, { path, changes }),
+    );
   });
 
   server.registerTool('formspec_edit', {
@@ -283,9 +298,11 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: DESTRUCTIVE,
   }, async ({ project_id, action, path, target_path, index, new_key, deep, items }) => {
-    if (items) return structure.handleEdit(registry, project_id, action ?? 'remove', { items });
-    if (!action) return structure.editMissingAction();
-    return structure.handleEdit(registry, project_id, action, { path: path!, target_path, index, new_key, deep });
+    return bracketMutation(registry, project_id, 'formspec_edit', () => {
+      if (items) return structure.handleEdit(registry, project_id, action ?? 'remove', { items });
+      if (!action) return structure.editMissingAction();
+      return structure.handleEdit(registry, project_id, action, { path: path!, target_path, index, new_key, deep });
+    });
   });
 
   // ── Pages ─────────────────────────────────────────────────────────
@@ -303,7 +320,9 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: DESTRUCTIVE,
   }, async ({ project_id, action, title, description, page_id, direction }) => {
-    return structure.handlePage(registry, project_id, action, { title, description, page_id, direction });
+    return bracketMutation(registry, project_id, 'formspec_page', () =>
+      structure.handlePage(registry, project_id, action, { title, description, page_id, direction }),
+    );
   });
 
   server.registerTool('formspec_place', {
@@ -324,8 +343,10 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, action, target, page_id, options, items }) => {
-    if (items) return structure.handlePlace(registry, project_id, { items });
-    return structure.handlePlace(registry, project_id, { action: action!, target: target!, page_id: page_id!, options });
+    return bracketMutation(registry, project_id, 'formspec_place', () => {
+      if (items) return structure.handlePlace(registry, project_id, { items });
+      return structure.handlePlace(registry, project_id, { action: action!, target: target!, page_id: page_id!, options });
+    });
   });
 
   // ── Behavior ──────────────────────────────────────────────────────
@@ -351,8 +372,10 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, action, target, condition, expression, rule, message, options, items }) => {
-    if (items) return handleBehavior(registry, project_id, { items });
-    return handleBehavior(registry, project_id, { action: action!, target: target!, condition, expression, rule, message, options });
+    return bracketMutation(registry, project_id, 'formspec_behavior', () => {
+      if (items) return handleBehavior(registry, project_id, { items });
+      return handleBehavior(registry, project_id, { action: action!, target: target!, condition, expression, rule, message, options });
+    });
   });
 
   // ── Flow ──────────────────────────────────────────────────────────
@@ -375,7 +398,9 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, action, mode, props, on, paths, otherwise }) => {
-    return handleFlow(registry, project_id, { action, mode, props, on, paths, otherwise });
+    return bracketMutation(registry, project_id, 'formspec_flow', () =>
+      handleFlow(registry, project_id, { action, mode, props, on, paths, otherwise }),
+    );
   });
 
   // ── Style ─────────────────────────────────────────────────────────
@@ -395,7 +420,9 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: NON_DESTRUCTIVE,
   }, async ({ project_id, action, target, arrangement, path, properties, target_type, target_data_type }) => {
-    return handleStyle(registry, project_id, { action, target, arrangement, path, properties, target_type, target_data_type });
+    return bracketMutation(registry, project_id, 'formspec_style', () =>
+      handleStyle(registry, project_id, { action, target, arrangement, path, properties, target_type, target_data_type }),
+    );
   });
 
   // ── Data ──────────────────────────────────────────────────────────
@@ -417,7 +444,9 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: DESTRUCTIVE,
   }, async ({ project_id, resource, action, name, options, expression, scope, props, changes, new_name }) => {
-    return handleData(registry, project_id, { resource, action, name, options, expression, scope, props, changes, new_name });
+    return bracketMutation(registry, project_id, 'formspec_data', () =>
+      handleData(registry, project_id, { resource, action, name, options, expression, scope, props, changes, new_name }),
+    );
   });
 
   // ── Screener ──────────────────────────────────────────────────────
@@ -442,7 +471,9 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     },
     annotations: DESTRUCTIVE,
   }, async ({ project_id, action, enabled, key, label, type, props, condition, target, message, route_index, changes, direction }) => {
-    return handleScreener(registry, project_id, { action, enabled, key, label, type, props, condition, target, message, route_index, changes, direction });
+    return bracketMutation(registry, project_id, 'formspec_screener', () =>
+      handleScreener(registry, project_id, { action, enabled, key, label, type, props, condition, target, message, route_index, changes, direction }),
+    );
   });
 
   // ── Query ─────────────────────────────────────────────────────────
@@ -515,6 +546,66 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     annotations: READ_ONLY,
   }, async ({ project_id, action, path, expression, context_path }) => {
     return handleFel(registry, project_id, { action, path, expression, context_path });
+  });
+
+  // ── Changeset Management ─────────────────────────────────────────
+
+  server.registerTool('formspec_changeset_open', {
+    title: 'Open Changeset',
+    description: 'Start a new changeset. All subsequent mutations are recorded as proposals for review. The user can continue editing the canvas freely while the changeset is open.',
+    inputSchema: {
+      project_id: z.string(),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id }) => {
+    return handleChangesetOpen(registry, project_id);
+  });
+
+  server.registerTool('formspec_changeset_close', {
+    title: 'Close Changeset',
+    description: 'Seal the current changeset. Computes dependency groups for review. Status transitions to "pending".',
+    inputSchema: {
+      project_id: z.string(),
+      label: z.string().describe('Human-readable summary of the changeset (e.g. "Added 3 fields, set validation on email")'),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id, label }) => {
+    return handleChangesetClose(registry, project_id, label);
+  });
+
+  server.registerTool('formspec_changeset_list', {
+    title: 'List Changesets',
+    description: 'List changesets with status, summaries, and dependency groups.',
+    inputSchema: {
+      project_id: z.string(),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id }) => {
+    return handleChangesetList(registry, project_id);
+  });
+
+  server.registerTool('formspec_changeset_accept', {
+    title: 'Accept Changeset',
+    description: 'Accept a pending changeset. Pass group_indices to accept specific dependency groups (partial merge), or omit to accept all.',
+    inputSchema: {
+      project_id: z.string(),
+      group_indices: z.array(z.number()).optional().describe('Dependency group indices to accept. Omit to accept all.'),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id, group_indices }) => {
+    return handleChangesetAccept(registry, project_id, group_indices);
+  });
+
+  server.registerTool('formspec_changeset_reject', {
+    title: 'Reject Changeset',
+    description: 'Reject a pending changeset. Pass group_indices to reject specific dependency groups (the complement is accepted), or omit to reject all.',
+    inputSchema: {
+      project_id: z.string(),
+      group_indices: z.array(z.number()).optional().describe('Dependency group indices to reject. Omit to reject all.'),
+    },
+    annotations: DESTRUCTIVE,
+  }, async ({ project_id, group_indices }) => {
+    return handleChangesetReject(registry, project_id, group_indices);
   });
 
   return server;
