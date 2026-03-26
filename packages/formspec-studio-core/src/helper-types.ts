@@ -115,6 +115,36 @@ export interface InstanceProps {
   description?: string;
 }
 
+/** FEL expression validation result — returned by validateFELExpression() */
+export interface FELValidationResult {
+  valid: boolean;
+  errors: Array<{ message: string; line?: number; column?: number }>;
+  references: string[];
+  functions: string[];
+}
+
+/** FEL autocomplete suggestion — returned by felAutocompleteSuggestions() */
+export interface FELSuggestion {
+  label: string;
+  kind: 'field' | 'function' | 'variable' | 'instance' | 'keyword';
+  detail?: string;
+  insertText: string;
+}
+
+/** Widget info — returned by listWidgets() */
+export interface WidgetInfo {
+  name: string;
+  component: string;
+  compatibleDataTypes: string[];
+}
+
+/** Field type catalog entry — returned by fieldTypeCatalog() */
+export interface FieldTypeCatalogEntry {
+  alias: string;
+  dataType: string;
+  defaultWidget: string;
+}
+
 /** Metadata changes for setMetadata — split between title, presentation, and definition handlers */
 export interface MetadataChanges {
   title?: string | null;

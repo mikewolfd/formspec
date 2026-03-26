@@ -27,8 +27,13 @@ import {
   type InstanceProps,
   type ItemChanges,
   type MetadataChanges,
+  type WidgetInfo,
+  type FieldTypeCatalogEntry,
+  type FELValidationResult,
+  type FELSuggestion,
 } from './helper-types.js';
-import { resolveFieldType, resolveWidget, widgetHintFor, isTextareaWidget } from './field-type-aliases.js';
+import { resolveFieldType, resolveWidget, widgetHintFor, isTextareaWidget, _FIELD_TYPE_MAP } from './field-type-aliases.js';
+import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from 'formspec-types';
 import { analyzeFEL } from 'formspec-engine/fel-runtime';
 import { rewriteFELReferences } from 'formspec-engine/fel-tools';
 
@@ -124,6 +129,152 @@ export class Project {
   fieldDependents(fieldPath: string): FieldDependents { return this.core.fieldDependents(fieldPath); }
   diffFromBaseline(fromVersion?: string): Change[] { return this.core.diffFromBaseline(fromVersion); }
   previewChangelog(): FormspecChangelog { return this.core.previewChangelog(); }
+
+  // ── FEL editing helpers ───────────────────────────────────────
+
+  /** Validate a FEL expression and return detailed diagnostics. */
+  validateFELExpression(expression: string, contextPath?: string): FELValidationResult {
+    const context: FELParseContext | undefined = contextPath ? { targetPath: contextPath } : undefined;
+    const parseResult = this.core.parseFEL(expression, context);
+    return {
+      valid: parseResult.valid,
+      errors: parseResult.errors.map(d => ({
+        message: d.message,
+        line: (d as any).line,
+        column: (d as any).column,
+      })),
+      references: parseResult.references,
+      functions: parseResult.functions,
+    };
+  }
+
+  /** Return autocomplete suggestions for a partial FEL expression. */
+  felAutocompleteSuggestions(partial: string, contextPath?: string): FELSuggestion[] {
+    const context: FELParseContext | undefined = contextPath ? { targetPath: contextPath } : undefined;
+    const refs = this.core.availableReferences(context);
+    const catalog = this.core.felFunctionCatalog();
+
+    // Extract the token being typed — strip leading $ or @ if present
+    const stripped = partial.replace(/^\$/, '').replace(/^@/, '');
+    const isFieldPrefix = partial.startsWith('$');
+    const isVarPrefix = partial.startsWith('@');
+    const lowerStripped = stripped.toLowerCase();
+
+    const suggestions: FELSuggestion[] = [];
+
+    // Field suggestions
+    if (!isVarPrefix) {
+      for (const field of refs.fields) {
+        if (lowerStripped && !field.path.toLowerCase().startsWith(lowerStripped)) continue;
+        suggestions.push({
+          label: field.path,
+          kind: 'field',
+          detail: field.label ? `${field.label} (${field.dataType})` : field.dataType,
+          insertText: `$${field.path}`,
+        });
+      }
+    }
+
+    // Function suggestions
+    if (!isFieldPrefix && !isVarPrefix) {
+      for (const fn of catalog) {
+        if (lowerStripped && !fn.name.toLowerCase().startsWith(lowerStripped)) continue;
+        suggestions.push({
+          label: fn.name,
+          kind: 'function',
+          detail: fn.description ?? fn.signature ?? fn.category,
+          insertText: `${fn.name}(`,
+        });
+      }
+    }
+
+    // Variable suggestions
+    if (!isFieldPrefix) {
+      for (const v of refs.variables) {
+        if (lowerStripped && !v.name.toLowerCase().startsWith(lowerStripped)) continue;
+        suggestions.push({
+          label: v.name,
+          kind: 'variable',
+          detail: v.expression ? `= ${v.expression}` : undefined,
+          insertText: `@${v.name}`,
+        });
+      }
+    }
+
+    // Instance suggestions
+    if (!isFieldPrefix && !isVarPrefix) {
+      for (const inst of refs.instances) {
+        if (lowerStripped && !inst.name.toLowerCase().startsWith(lowerStripped)) continue;
+        suggestions.push({
+          label: inst.name,
+          kind: 'instance',
+          detail: inst.source,
+          insertText: `instance('${inst.name}')`,
+        });
+      }
+    }
+
+    // Context-specific keyword suggestions (e.g. @current, @index, @count)
+    if (!isFieldPrefix) {
+      for (const ref of refs.contextRefs) {
+        const name = ref.startsWith('@') ? ref.slice(1) : ref;
+        if (lowerStripped && !name.toLowerCase().startsWith(lowerStripped)) continue;
+        suggestions.push({
+          label: ref,
+          kind: 'keyword',
+          detail: 'context reference',
+          insertText: ref.startsWith('@') ? ref : `@${name}`,
+        });
+      }
+    }
+
+    return suggestions;
+  }
+
+  /** Convert a FEL expression to a human-readable English string. */
+  humanizeFELExpression(expression: string): string {
+    return humanizeFEL(expression);
+  }
+
+  // ── Widget / type vocabulary queries ──────────────────────────
+
+  /** Returns all known widgets with their compatible data types. */
+  listWidgets(): WidgetInfo[] {
+    // Build a reverse map: component → set of compatible data types
+    const componentTypes = new Map<string, Set<string>>();
+    for (const [dataType, components] of Object.entries(COMPATIBILITY_MATRIX)) {
+      for (const comp of components) {
+        if (!componentTypes.has(comp)) componentTypes.set(comp, new Set());
+        componentTypes.get(comp)!.add(dataType);
+      }
+    }
+
+    const result: WidgetInfo[] = [];
+    for (const [component, dataTypes] of componentTypes) {
+      // Use the canonical hint as the user-facing name
+      const name = COMPONENT_TO_HINT[component] ?? component.toLowerCase();
+      result.push({
+        name,
+        component,
+        compatibleDataTypes: [...dataTypes],
+      });
+    }
+    return result;
+  }
+
+  /** Returns widget names (component types) compatible with a given data type. */
+  compatibleWidgets(dataType: string): string[] {
+    return COMPATIBILITY_MATRIX[dataType] ?? [];
+  }
+
+  /** Returns the field type alias table (all types the user can specify in addField). */
+  fieldTypeCatalog(): FieldTypeCatalogEntry[] {
+    return Object.entries(_FIELD_TYPE_MAP).map(([alias, entry]) => ({
+      alias,
+      dataType: entry.dataType,
+      defaultWidget: entry.defaultWidget,
+    }));
+  }
 
   /** Returns raw registry documents for passing to rendering consumers (e.g. <formspec-render>). */
   registryDocuments(): unknown[] {
@@ -1672,8 +1823,12 @@ export class Project {
 
   // ── Wrap Items In Group ──
 
-  /** Wrap existing items in a new group container. */
-  wrapItemsInGroup(paths: string[], label?: string): HelperResult {
+  /**
+   * Wrap existing items in a new group container.
+   * When groupPath is provided, uses it as the group key (must not already exist).
+   * When omitted, auto-generates a unique key.
+   */
+  wrapItemsInGroup(paths: string[], groupPathOrLabel?: string, groupLabel?: string): HelperResult {
     // Pre-validation
     for (const p of paths) {
       if (!this.core.itemAt(p)) {
@@ -1686,9 +1841,28 @@ export class Project {
       !paths.some(other => other !== p && p.startsWith(`${other}.`)),
     );
 
-    // Generate group key
-    const groupKey = `group_${Date.now()}`;
-    const groupLabel = label ?? 'Group';
+    // Determine groupKey and label from arguments
+    let explicitGroupPath: string | undefined;
+    let label: string;
+    if (groupLabel !== undefined) {
+      // Called as wrapItemsInGroup(paths, groupPath, groupLabel)
+      explicitGroupPath = groupPathOrLabel;
+      label = groupLabel;
+    } else {
+      // Called as wrapItemsInGroup(paths, label?)
+      label = groupPathOrLabel ?? 'Group';
+    }
+
+    // When an explicit group path is given, pre-validate it
+    if (explicitGroupPath !== undefined) {
+      if (this.core.itemAt(explicitGroupPath)) {
+        throw new HelperError('DUPLICATE_KEY', `An item with key "${explicitGroupPath}" already exists`, {
+          path: explicitGroupPath,
+        });
+      }
+    }
+
+    const groupKey = explicitGroupPath ?? `group_${Date.now()}`;
 
     // Find first item's position for the new group
     const firstPath = pruned[0];
@@ -1703,16 +1877,16 @@ export class Project {
     const insertIndex = parentItems.findIndex((i: any) => i.key === firstItemKey);
 
     const addPayload: Record<string, unknown> = {
-      type: 'group', key: groupKey, label: groupLabel,
+      type: 'group', key: groupKey, label,
     };
     if (parentPath) addPayload.parentPath = parentPath;
     if (insertIndex >= 0) addPayload.insertIndex = insertIndex;
 
-    const groupPath = parentPath ? `${parentPath}.${groupKey}` : groupKey;
+    const resolvedGroupPath = parentPath ? `${parentPath}.${groupKey}` : groupKey;
 
     const phase2 = pruned.map((p, i) => ({
       type: 'definition.moveItem' as const,
-      payload: { sourcePath: p, targetParentPath: groupPath, targetIndex: i },
+      payload: { sourcePath: p, targetParentPath: resolvedGroupPath, targetIndex: i },
     }));
 
     this.core.batchWithRebuild(
@@ -1722,13 +1896,13 @@ export class Project {
 
     const movedPaths = pruned.map(p => {
       const leaf = p.split('.').pop()!;
-      return `${groupPath}.${leaf}`;
+      return `${resolvedGroupPath}.${leaf}`;
     });
 
     return {
       summary: `Wrapped ${pruned.length} item(s) in group '${groupKey}'`,
-      action: { helper: 'wrapItemsInGroup', params: { paths: pruned, label: groupLabel } },
-      affectedPaths: [groupPath, ...movedPaths],
+      action: { helper: 'wrapItemsInGroup', params: { paths: pruned, groupPath: resolvedGroupPath, label } },
+      affectedPaths: [resolvedGroupPath, ...movedPaths],
     };
   }
 
@@ -1757,13 +1931,32 @@ export class Project {
 
   // ── Batch Operations ──
 
-  /** Batch delete multiple items atomically. */
+  /**
+   * Batch delete multiple items atomically. Pre-validates all paths exist,
+   * collects cleanup commands for dependent binds/shapes/variables, then
+   * dispatches everything in a single atomic operation.
+   */
   batchDeleteItems(paths: string[]): HelperResult {
+    if (paths.length === 0) {
+      return {
+        summary: 'No items to delete',
+        action: { helper: 'batchDeleteItems', params: { paths } },
+        affectedPaths: [],
+      };
+    }
+
+    // Pre-validate: all paths must exist
+    for (const p of paths) {
+      if (!this.core.itemAt(p)) {
+        this._throwPathNotFound(p);
+      }
+    }
+
     // Descendant deduplication
     const pruned = paths.filter(p =>
       !paths.some(other => other !== p && p.startsWith(`${other}.`)),
     );
-    // Sort deepest-first
+    // Sort deepest-first so child deletions don't invalidate parent paths
     const sorted = [...pruned].sort((a, b) => b.split('.').length - a.split('.').length);
 
     this.core.dispatch(
@@ -1777,21 +1970,28 @@ export class Project {
     };
   }
 
-  /** Batch duplicate multiple items atomically. */
+  /**
+   * Batch duplicate multiple items using copyItem for full bind/shape handling.
+   */
   batchDuplicateItems(paths: string[]): HelperResult {
+    if (paths.length === 0) {
+      return {
+        summary: 'No items to duplicate',
+        action: { helper: 'batchDuplicateItems', params: { paths } },
+        affectedPaths: [],
+      };
+    }
+
     // Descendant deduplication
     const pruned = paths.filter(p =>
       !paths.some(other => other !== p && p.startsWith(`${other}.`)),
     );
 
-    const results = this.core.dispatch(
-      pruned.map(p => ({ type: 'definition.duplicateItem' as const, payload: { path: p } })),
-    );
-
-    // Extract inserted paths from results
-    const affectedPaths = (Array.isArray(results) ? results : [results]).map(
-      (r: any, i) => r?.insertedPath ?? `${pruned[i]}_copy`,
-    );
+    const affectedPaths: string[] = [];
+    for (const p of pruned) {
+      const result = this.copyItem(p);
+      affectedPaths.push(...result.affectedPaths);
+    }
 
     return {
       summary: `Duplicated ${pruned.length} item(s)`,
@@ -3144,6 +3344,95 @@ export class Project {
       affectedPaths: [],
     };
   }
+
+  // ── Preview / Query Methods ──
+
+  /** Default sample values by data type. */
+  private static readonly _SAMPLE_VALUES: Record<string, unknown> = {
+    string: 'Sample text',
+    text: 'Sample paragraph text',
+    integer: 42,
+    decimal: 3.14,
+    boolean: true,
+    date: '2024-01-15',
+    time: '09:00:00',
+    dateTime: '2024-01-15T09:00:00Z',
+    uri: 'https://example.com',
+    attachment: 'sample-file.pdf',
+    money: { amount: 100, currency: 'USD' },
+    multiChoice: ['option1'],
+  };
+
+  /**
+   * Generate plausible sample data for each field based on its data type.
+   */
+  generateSampleData(): Record<string, unknown> {
+    const data: Record<string, unknown> = {};
+    const items = this.core.state.definition.items ?? [];
+
+    const walkItems = (itemList: any[], prefix: string) => {
+      for (const item of itemList) {
+        const path = prefix ? `${prefix}.${item.key}` : item.key;
+        if (item.type === 'group') {
+          // Recurse into children
+          if (item.children?.length) {
+            walkItems(item.children, path);
+          }
+          continue;
+        }
+        if (item.type !== 'field') continue;
+
+        const dt = item.dataType as string;
+        if (dt === 'choice' || dt === 'multiChoice') {
+          // Use first option if available
+          const options = item.options as Array<{ value: string }> | undefined;
+          if (options?.length) {
+            data[path] = dt === 'multiChoice' ? [options[0].value] : options[0].value;
+          } else {
+            data[path] = dt === 'multiChoice' ? ['option1'] : 'option1';
+          }
+        } else {
+          data[path] = Project._SAMPLE_VALUES[dt] ?? 'Sample text';
+        }
+      }
+    };
+
+    walkItems(items as any[], '');
+    return data;
+  }
+
+  /**
+   * Return a cleaned-up deep clone of the definition.
+   * Strips null values, empty arrays, and undefined keys.
+   */
+  normalizeDefinition(): Record<string, unknown> {
+    const def = this.core.state.definition;
+    const clone = JSON.parse(JSON.stringify(def));
+    return Project._pruneObject(clone) as Record<string, unknown>;
+  }
+
+  /** Recursively prune null values, empty arrays, and empty objects from a value. */
+  private static _pruneObject(value: unknown): unknown {
+    if (value === null || value === undefined) return undefined;
+    if (Array.isArray(value)) {
+      if (value.length === 0) return undefined;
+      const pruned = value.map(v => Project._pruneObject(v)).filter(v => v !== undefined);
+      return pruned.length === 0 ? undefined : pruned;
+    }
+    if (typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      let hasKeys = false;
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        const pruned = Project._pruneObject(v);
+        if (pruned !== undefined) {
+          result[k] = pruned;
+          hasKeys = true;
+        }
+      }
+      return hasKeys ? result : undefined;
+    }
+    return value;
+  }
 }
 
 export function createProject(options?: CreateProjectOptions): Project {
@@ -3168,4 +3457,44 @@ export function createProject(options?: CreateProjectOptions): Project {
 
   // Bridge studio-core options → core options at the package boundary
   return new Project(createRawProject(coreOptions), recorderControl);
+}
+
+// ── humanizeFEL (string-level FEL→English transform) ──────────────
+
+const OP_MAP: Record<string, string> = {
+  '=': 'is',
+  '!=': 'is not',
+  '>': 'is greater than',
+  '>=': 'is at least',
+  '<': 'is less than',
+  '<=': 'is at most',
+};
+
+function humanizeRef(ref: string): string {
+  const name = ref.replace(/^\$/, '');
+  return name
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, c => c.toUpperCase())
+    .trim();
+}
+
+function humanizeValue(val: string): string {
+  if (val === 'true') return 'Yes';
+  if (val === 'false') return 'No';
+  return val;
+}
+
+/**
+ * Attempt to convert a FEL expression to a human-readable string.
+ * Only handles simple `$ref op value` patterns. Returns the raw expression
+ * for anything more complex.
+ */
+function humanizeFEL(expression: string): string {
+  const trimmed = expression.trim();
+  const match = trimmed.match(/^(\$\w+)\s*(!=|>=|<=|=|>|<)\s*(.+)$/);
+  if (!match) return trimmed;
+  const [, ref, op, value] = match;
+  const humanOp = OP_MAP[op];
+  if (!humanOp) return trimmed;
+  return `${humanizeRef(ref)} ${humanOp} ${humanizeValue(value.trim())}`;
 }
