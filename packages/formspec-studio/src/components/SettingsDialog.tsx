@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useDefinition } from '../state/useDefinition';
 import { useProject } from '../state/useProject';
-import type { MetadataChanges } from '@formspec/studio-core';
+import type { MetadataChanges } from '@formspec-org/studio-core';
 import { HelpTip } from './ui/HelpTip';
 
 interface SettingsDialogProps {

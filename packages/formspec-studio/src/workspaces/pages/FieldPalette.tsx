@@ -4,7 +4,7 @@ import { useDraggable } from '@dnd-kit/react';
 import { usePageStructure } from './usePageStructure';
 import { useProjectState } from '../../state/useProjectState';
 import { useProject } from '../../state/useProject';
-import type { FormItem } from '@formspec/types';
+import type { FormItem } from '@formspec-org/types';
 
 interface FieldPaletteProps {
   pageId: string;

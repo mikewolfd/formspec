@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 render adapter — CSS-only, no USWDS JavaScript required. */
-import type { RenderAdapter } from '@formspec/webcomponent';
+import type { RenderAdapter } from '@formspec-org/webcomponent';
 import { renderTextInput } from './text-input';
 import { renderNumberInput } from './number-input';
 import { renderRadioGroup } from './radio-group';

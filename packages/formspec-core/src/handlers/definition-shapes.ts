@@ -19,7 +19,7 @@
  * @module definition-shapes
  */
 import type { CommandHandler } from '../types.js';
-import type { FormShape } from '@formspec/types';
+import type { FormShape } from '@formspec-org/types';
 
 /** Auto-incrementing counter used to generate default shape IDs when none is provided. */
 let shapeCounter = 0;

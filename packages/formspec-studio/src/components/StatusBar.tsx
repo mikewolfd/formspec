@@ -1,5 +1,5 @@
 /** @filedesc Bottom status bar showing formspec version, form status, field count, and bind/shape counts. */
-import type { FormItem } from '@formspec/types';
+import type { FormItem } from '@formspec-org/types';
 import { useDefinition } from '../state/useDefinition';
 
 function countFields(items: FormItem[]): number {

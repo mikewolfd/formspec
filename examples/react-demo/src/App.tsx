@@ -1,7 +1,7 @@
 /** @filedesc Demo app showcasing formspec-react with zero component overrides. */
 import React, { useState } from 'react';
-import { FormspecForm } from '@formspec/react';
-import type { SubmitResult } from '@formspec/react';
+import { FormspecForm } from '@formspec-org/react';
+import type { SubmitResult } from '@formspec-org/react';
 import definition from './definition.json';
 import registry from '../../../registries/formspec-common.registry.json';
 

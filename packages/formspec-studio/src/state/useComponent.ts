@@ -1,6 +1,6 @@
 /** @filedesc Hook that subscribes to the project's ComponentDocument and returns live snapshots. */
 import { useSyncExternalStore, useCallback } from 'react';
-import type { ComponentDocument } from '@formspec/studio-core';
+import type { ComponentDocument } from '@formspec-org/studio-core';
 import { useProject } from './useProject';
 
 export function useComponent(): Readonly<ComponentDocument> {

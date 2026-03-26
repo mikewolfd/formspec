@@ -4,8 +4,8 @@ import { describe, it, expect, beforeAll, vi, beforeEach, afterEach } from 'vite
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { initFormspecEngine, createFormEngine } from '@formspec/engine';
-import type { LayoutNode } from '@formspec/layout';
+import { initFormspecEngine, createFormEngine } from '@formspec-org/engine';
+import type { LayoutNode } from '@formspec-org/layout';
 import { FormspecNode } from '../src/node-renderer';
 import { FormspecProvider } from '../src/context';
 import { FormspecForm } from '../src/renderer';

@@ -1,6 +1,6 @@
 /** @filedesc Shared props interface for the three page-mode renderers. */
-import type { PageStructureView, PlaceableItem } from '@formspec/studio-core';
-import type { Project } from '@formspec/studio-core';
+import type { PageStructureView, PlaceableItem } from '@formspec-org/studio-core';
+import type { Project } from '@formspec-org/studio-core';
 
 export interface PageActions {
   onUpdateTitle: (title: string) => void;

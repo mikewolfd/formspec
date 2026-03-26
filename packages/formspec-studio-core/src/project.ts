@@ -1,8 +1,8 @@
 /** @filedesc Project class: high-level form authoring facade over formspec-core. */
-import { createRawProject, createChangesetMiddleware } from '@formspec/core';
-import type { ChangesetRecorderControl } from '@formspec/core';
+import { createRawProject, createChangesetMiddleware } from '@formspec-org/core';
+import type { ChangesetRecorderControl } from '@formspec-org/core';
 // Internal-only core types — never appear in public method signatures
-import type { IProjectCore, AnyCommand, CommandResult, FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry, FieldDependents, ItemFilter, ItemSearchResult, Change, FormspecChangelog, LocaleState } from '@formspec/core';
+import type { IProjectCore, AnyCommand, CommandResult, FELParseContext, FELParseResult, FELReferenceSet, FELFunctionEntry, FieldDependents, ItemFilter, ItemSearchResult, Change, FormspecChangelog, LocaleState } from '@formspec-org/core';
 import { ProposalManager } from './proposal-manager.js';
 // Studio-core's own type vocabulary for the public API
 import type {
@@ -33,9 +33,9 @@ import {
   type FELSuggestion,
 } from './helper-types.js';
 import { resolveFieldType, resolveWidget, widgetHintFor, isTextareaWidget, _FIELD_TYPE_MAP } from './field-type-aliases.js';
-import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from '@formspec/types';
-import { analyzeFEL } from '@formspec/engine/fel-runtime';
-import { rewriteFELReferences } from '@formspec/engine/fel-tools';
+import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from '@formspec-org/types';
+import { analyzeFEL } from '@formspec-org/engine/fel-runtime';
+import { rewriteFELReferences } from '@formspec-org/engine/fel-tools';
 
 /**
  * Behavior-driven authoring API for Formspec.
@@ -3559,7 +3559,7 @@ export class Project {
 export function createProject(options?: CreateProjectOptions): Project {
   // Set up changeset recording middleware if requested
   let recorderControl: ChangesetRecorderControl | undefined;
-  const coreMiddleware: import('@formspec/core').Middleware[] = [];
+  const coreMiddleware: import('@formspec-org/core').Middleware[] = [];
 
   if (options?.enableChangesets !== false) {
     // Default: enable changeset support

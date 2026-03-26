@@ -1,7 +1,7 @@
 /** @filedesc Panel that runs FormEngine against the current definition and displays the response and validation report. */
 import { useState } from 'react';
-import { createFormEngine, type FormspecItem } from '@formspec/engine';
-import type { IFormEngine } from '@formspec/engine';
+import { createFormEngine, type FormspecItem } from '@formspec-org/engine';
+import type { IFormEngine } from '@formspec-org/engine';
 import { useDefinition } from '../../state/useDefinition';
 
 function seedInitialValues(engine: IFormEngine, items: FormspecItem[], prefix = ''): void {

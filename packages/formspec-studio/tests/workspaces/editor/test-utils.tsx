@@ -1,6 +1,6 @@
 /** @filedesc Test utilities for the editor workspace: fixtures and a render helper with providers. */
 import { render } from '@testing-library/react';
-import { createProject, type Project } from '@formspec/studio-core';
+import { createProject, type Project } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
 import { ActiveGroupProvider } from '../../../src/state/useActiveGroup';

@@ -5,7 +5,7 @@ import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { test, expect } from '@playwright/test';
 import { waitForApp, waitForAppWithExport, switchTab, importProject } from './helpers';
-import { createProject, type ProjectBundle } from '@formspec/studio-core';
+import { createProject, type ProjectBundle } from '@formspec-org/studio-core';
 // Must match the same wasm-bridge instance formspec-core (dist) loads — avoids duplicate module graphs under Playwright.
 import {
     initFormspecEngine,

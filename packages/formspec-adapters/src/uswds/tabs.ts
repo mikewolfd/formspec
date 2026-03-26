@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for Tabs — usa-button-group segmented tab bar. */
-import type { TabsBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { TabsBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 
 export const renderTabs: AdapterRenderFn<TabsBehavior> = (
     behavior, parent, actx

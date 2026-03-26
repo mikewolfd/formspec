@@ -11,7 +11,7 @@
  *
  * @module normalization
  */
-import type { FormDefinition } from '@formspec/types';
+import type { FormDefinition } from '@formspec-org/types';
 
 /**
  * Normalize a definition by converting legacy shape forms to canonical forms.

@@ -1,6 +1,6 @@
 /** @filedesc Shared utilities for behavior hooks: path resolution, ID generation, token stripping, shared bind helpers. */
 import { effect, Signal } from '@preact/signals-core';
-import { type PresentationBlock, COMPATIBILITY_MATRIX } from '@formspec/layout';
+import { type PresentationBlock, COMPATIBILITY_MATRIX } from '@formspec-org/layout';
 import type { ResolvedPresentationBlock, FieldRefs, BehaviorContext } from './types';
 
 /** Build full field path from bind key and prefix. */

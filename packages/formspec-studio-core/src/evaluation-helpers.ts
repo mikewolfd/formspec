@@ -4,7 +4,7 @@ import {
     type FormspecDefinition,
     type ValidationReport,
     type IFormEngine,
-} from '@formspec/engine/render';
+} from '@formspec-org/engine/render';
 import type { Project } from './project.js';
 
 /**

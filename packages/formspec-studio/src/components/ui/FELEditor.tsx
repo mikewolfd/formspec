@@ -25,7 +25,7 @@ import {
 } from '../../lib/fel-editor-utils';
 import { flatItems, dataTypeInfo } from '../../lib/field-helpers';
 import { useOptionalDefinition } from '../../state/useDefinition';
-import { getBuiltinFELFunctionCatalog } from '@formspec/engine';
+import { getBuiltinFELFunctionCatalog } from '@formspec-org/engine';
 import { formatCategoryName } from './FELReferencePopup';
 
 interface FELEditorProps {

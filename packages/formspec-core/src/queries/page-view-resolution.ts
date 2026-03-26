@@ -1,5 +1,5 @@
 /** @filedesc Behavioral page-view query — translates page structure to UI vocabulary. */
-import type { FormItem, FormDefinition } from '@formspec/types';
+import type { FormItem, FormDefinition } from '@formspec-org/types';
 import type { ComponentState } from '../types.js';
 import { resolvePageStructure } from '../page-resolution.js';
 

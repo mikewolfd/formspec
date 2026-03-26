@@ -1,8 +1,8 @@
 /** @filedesc MCP tool for form audit: item classification and bind summaries. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from '@formspec/studio-core';
-import type { Project } from '@formspec/studio-core';
+import { HelperError } from '@formspec-org/studio-core';
+import type { Project } from '@formspec-org/studio-core';
 
 // ── Types ────────────────────────────────────────────────────────────
 

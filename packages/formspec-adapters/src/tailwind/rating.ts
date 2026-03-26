@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for Rating — star-rating with ARIA slider pattern. */
-import type { RatingBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { RatingBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createTailwindFieldDOM, TW } from './shared';
 

@@ -3,8 +3,8 @@ import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 import { FormPreview } from '../../src/chat/components/FormPreview.js';
 import { ChatProvider } from '../../src/chat/state/ChatContext.js';
-import { ChatSession, MockAdapter } from '@formspec/chat';
-import type { DefinitionDiff } from '@formspec/chat';
+import { ChatSession, MockAdapter } from '@formspec-org/chat';
+import type { DefinitionDiff } from '@formspec-org/chat';
 
 function renderPreview(session: ChatSession) {
   return render(

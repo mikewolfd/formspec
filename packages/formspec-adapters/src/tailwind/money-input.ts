@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for MoneyInput — input group with currency prefix. */
-import type { MoneyInputBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { MoneyInputBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createTailwindFieldDOM, TW, toggleInputError } from './shared';
 

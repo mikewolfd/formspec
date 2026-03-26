@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/chat",
+  "name": "@formspec-org/chat",
   "description": "Conversational form-filling interface that drives Formspec forms via chat",
   "version": "0.1.0",
   "type": "module",
@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.0.0",
-    "@formspec/types": "*"
+    "@formspec-org/types": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

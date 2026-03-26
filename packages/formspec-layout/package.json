@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/layout",
+  "name": "@formspec-org/layout",
   "description": "Layout algorithm for resolving Formspec theme pages, grids, and component arrangements",
   "version": "1.0.0",
   "type": "module",
@@ -26,7 +26,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@formspec/types": "*"
+    "@formspec-org/types": "*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

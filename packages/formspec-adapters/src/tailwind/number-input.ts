@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for NumberInput — renders styled number input. */
-import type { NumberInputBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { NumberInputBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { createTailwindFieldDOM, TW, toggleInputError } from './shared';
 
 export const renderNumberInput: AdapterRenderFn<NumberInputBehavior> = (

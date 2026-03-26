@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for Slider — range input with optional value display and ticks. */
-import type { SliderBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { SliderBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createTailwindFieldDOM } from './shared';
 

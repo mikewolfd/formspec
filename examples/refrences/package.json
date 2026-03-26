@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@preact/signals-core": "*",
-    "@formspec/engine": "*",
-    "@formspec/webcomponent": "*",
-    "@formspec/adapters": "*"
+    "@formspec-org/engine": "*",
+    "@formspec-org/webcomponent": "*",
+    "@formspec-org/adapters": "*"
   }
 }

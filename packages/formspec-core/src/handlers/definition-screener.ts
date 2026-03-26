@@ -21,7 +21,7 @@
  * @module definition-screener
  */
 import type { CommandHandler } from '../types.js';
-import type { FormDefinition, FormItem } from '@formspec/types';
+import type { FormDefinition, FormItem } from '@formspec-org/types';
 
 function getEnabledScreener(state: { definition: FormDefinition }) {
   const screener = state.definition.screener;

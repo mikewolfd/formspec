@@ -1,9 +1,9 @@
 /** @filedesc Top-level chat UI shell; manages AI adapter wiring, file uploads, and panel layout. */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
-import { ChatSession, GeminiAdapter, MockAdapter, SessionStore, validateProviderConfig, extractRegistryHints } from '@formspec/chat';
-import type { AIAdapter, Attachment, ProviderConfig, StorageBackend } from '@formspec/chat';
-import { buildBundleFromDefinition } from '@formspec/studio-core';
+import { ChatSession, GeminiAdapter, MockAdapter, SessionStore, validateProviderConfig, extractRegistryHints } from '@formspec-org/chat';
+import type { AIAdapter, Attachment, ProviderConfig, StorageBackend } from '@formspec-org/chat';
+import { buildBundleFromDefinition } from '@formspec-org/studio-core';
 import commonRegistry from '../../../../../registries/formspec-common.registry.json';
 import { ChatProvider, useChatState, useChatSession } from '../state/ChatContext.js';
 import { EntryScreen } from './EntryScreen.js';
@@ -459,7 +459,7 @@ function ActiveSessionView({ onBack, onUpload, onOpenSettings }: { onBack: () =>
 
 // ── Debug Log ──────────────────────────────────────────────────────
 
-function DebugLog({ entries }: { entries: import('@formspec/chat').DebugEntry[] }) {
+function DebugLog({ entries }: { entries: import('@formspec-org/chat').DebugEntry[] }) {
   if (entries.length === 0) {
     return (
       <div className="flex items-center justify-center h-full px-4">
@@ -477,7 +477,7 @@ function DebugLog({ entries }: { entries: import('@formspec/chat').DebugEntry[] 
   );
 }
 
-function DebugLogEntry({ entry }: { entry: import('@formspec/chat').DebugEntry }) {
+function DebugLogEntry({ entry }: { entry: import('@formspec-org/chat').DebugEntry }) {
   const [expanded, setExpanded] = useState(false);
   const time = new Date(entry.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 

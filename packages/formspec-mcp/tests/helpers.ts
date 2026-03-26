@@ -1,5 +1,5 @@
 /** @filedesc Test helpers for formspec-mcp: factory functions for ProjectRegistry states. */
-import { createProject, type Project } from '@formspec/studio-core';
+import { createProject, type Project } from '@formspec-org/studio-core';
 import { ProjectRegistry } from '../src/registry.js';
 
 /** Create a registry with a project already in authoring phase */

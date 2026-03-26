@@ -1,7 +1,7 @@
 /** @filedesc MCP tools for changeset lifecycle management. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import type { Project, ProposalManager, Changeset, MergeResult } from '@formspec/studio-core';
+import type { Project, ProposalManager, Changeset, MergeResult } from '@formspec-org/studio-core';
 
 /**
  * Handle formspec_changeset_open: start a new changeset.

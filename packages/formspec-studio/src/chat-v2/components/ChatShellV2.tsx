@@ -1,9 +1,9 @@
 /** @filedesc Top-level v2 chat shell — manages sessions, file uploads, panel layout with modern design. */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
-import { ChatSession, GeminiAdapter, MockAdapter, SessionStore, validateProviderConfig, extractRegistryHints } from '@formspec/chat';
-import type { AIAdapter, Attachment, ProviderConfig, StorageBackend } from '@formspec/chat';
-import { buildBundleFromDefinition } from '@formspec/studio-core';
+import { ChatSession, GeminiAdapter, MockAdapter, SessionStore, validateProviderConfig, extractRegistryHints } from '@formspec-org/chat';
+import type { AIAdapter, Attachment, ProviderConfig, StorageBackend } from '@formspec-org/chat';
+import { buildBundleFromDefinition } from '@formspec-org/studio-core';
 import commonRegistry from '../../../../../registries/formspec-common.registry.json';
 import { ChatProvider, useChatState, useChatSession } from '../state/ChatContext.js';
 import { EntryScreenV2 } from './EntryScreenV2.js';
@@ -337,7 +337,7 @@ function ActiveSessionV2({ onBack, onUpload, onOpenSettings }: { onBack: () => v
 
 // ── Debug Log (kept simple) ──────────────────────────────────────────
 
-export function DebugLogV2({ entries }: { entries: import('@formspec/chat').DebugEntry[] }) {
+export function DebugLogV2({ entries }: { entries: import('@formspec-org/chat').DebugEntry[] }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   if (entries.length === 0) {

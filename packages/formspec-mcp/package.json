@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/mcp",
+  "name": "@formspec-org/mcp",
   "description": "Model Context Protocol server for AI-driven Formspec form authoring",
   "version": "0.2.0",
   "type": "module",
@@ -47,8 +47,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
-    "@formspec/engine": "*",
-    "@formspec/studio-core": "*",
+    "@formspec-org/engine": "*",
+    "@formspec-org/studio-core": "*",
     "uuid": "^11.1.0",
     "zod": "^3.24.0"
   },

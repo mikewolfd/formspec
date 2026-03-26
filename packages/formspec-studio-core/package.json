@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/studio-core",
+  "name": "@formspec-org/studio-core",
   "description": "High-level authoring helpers and evaluation layer built on formspec-core",
   "version": "0.1.0",
   "type": "module",
@@ -21,9 +21,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@formspec/core": "*",
-    "@formspec/engine": "*",
-    "@formspec/types": "*"
+    "@formspec-org/core": "*",
+    "@formspec-org/engine": "*",
+    "@formspec-org/types": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

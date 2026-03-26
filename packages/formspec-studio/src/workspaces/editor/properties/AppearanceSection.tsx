@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Section } from '../../../components/ui/Section';
 import { useTheme } from '../../../state/useTheme';
 import { useProject } from '../../../state/useProject';
-import { resolveThemeCascade, type ResolvedProperty } from '@formspec/studio-core';
+import { resolveThemeCascade, type ResolvedProperty } from '@formspec-org/studio-core';
 
 const PROVENANCE_LABELS: Record<string, string> = {
   'default': 'from: Default',

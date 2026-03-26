@@ -1,6 +1,6 @@
 /** @filedesc Structure batch tool: wrap_group, batch_delete, batch_duplicate. */
 
-import { HelperError } from '@formspec/studio-core';
+import { HelperError } from '@formspec-org/studio-core';
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall, errorResponse, formatToolError } from '../errors.js';
 

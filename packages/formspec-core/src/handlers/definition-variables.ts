@@ -14,7 +14,7 @@
  * @module definition-variables
  */
 import type { CommandHandler } from '../types.js';
-import type { FormVariable } from '@formspec/types';
+import type { FormVariable } from '@formspec-org/types';
 
 /** Auto-incrementing counter used to generate default variable names when none is provided. */
 let varCounter = 0;

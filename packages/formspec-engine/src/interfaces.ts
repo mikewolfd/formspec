@@ -7,7 +7,7 @@ import type {
     ValidationResult,
     ValidationReport,
     OptionEntry,
-} from '@formspec/types';
+} from '@formspec-org/types';
 import type { LocaleDocument } from './locale.js';
 import type { FieldViewModel } from './field-view-model.js';
 import type { FormViewModel } from './form-view-model.js';

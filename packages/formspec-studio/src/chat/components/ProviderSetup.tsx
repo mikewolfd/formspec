@@ -1,7 +1,7 @@
 /** @filedesc Modal dialog for configuring the AI provider (Anthropic/Google) and API key. */
 import React, { useState, useEffect, useId } from 'react';
-import type { ProviderConfig, ProviderType } from '@formspec/chat';
-import { validateProviderConfig } from '@formspec/chat';
+import type { ProviderConfig, ProviderType } from '@formspec-org/chat';
+import { validateProviderConfig } from '@formspec-org/chat';
 
 interface ProviderSetupProps {
   open: boolean;

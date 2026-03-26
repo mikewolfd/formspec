@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/engine",
+  "name": "@formspec-org/engine",
   "description": "Client-side form state engine with FEL expression language, reactive signals, and validation",
   "version": "1.0.0",
   "type": "module",
@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@preact/signals-core": "^1.6.0",
-    "@formspec/types": "*"
+    "@formspec-org/types": "*"
   },
   "devDependencies": {
     "fast-check": "^4.6.0",

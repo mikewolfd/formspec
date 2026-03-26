@@ -7,7 +7,7 @@
  */
 
 import type { ProjectRegistry } from '../registry.js';
-import { previewForm, validateResponse, HelperError, type ItemFilter } from '@formspec/studio-core';
+import { previewForm, validateResponse, HelperError, type ItemFilter } from '@formspec-org/studio-core';
 import { errorResponse, successResponse, formatToolError } from '../errors.js';
 
 /** Common error handler for query tools (which return non-HelperResult types) */

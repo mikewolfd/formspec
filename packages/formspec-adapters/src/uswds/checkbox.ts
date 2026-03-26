@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for Checkbox — renders a single boolean usa-checkbox. */
-import type { FieldBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { FieldBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 import { createUSWDSError } from './shared';
 

@@ -4,7 +4,7 @@ import type {
   ScaffoldRequest, SourceTrace, Issue, DebugEntry,
   ToolContext,
 } from './types.js';
-import type { FormDefinition, ProjectBundle } from '@formspec/types';
+import type { FormDefinition, ProjectBundle } from '@formspec-org/types';
 import { SourceTraceManager } from './source-trace.js';
 import { IssueQueue } from './issue-queue.js';
 import { diff, type DefinitionDiff } from './form-scaffolder.js';

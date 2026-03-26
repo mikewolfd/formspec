@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ProjectRegistry } from '../src/registry.js';
-import { Project, createProject } from '@formspec/studio-core';
-import { HelperError } from '@formspec/studio-core';
+import { Project, createProject } from '@formspec-org/studio-core';
+import { HelperError } from '@formspec-org/studio-core';
 
 function makeProject(): Project {
   return createProject({ title: 'Test Form' });

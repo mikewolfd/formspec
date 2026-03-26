@@ -5,15 +5,15 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     alias: {
-      '@formspec/engine/fel-runtime': path.resolve(__dirname, '../formspec-engine/src/fel/fel-api-runtime.ts'),
-      '@formspec/engine/fel-tools': path.resolve(__dirname, '../formspec-engine/src/fel/fel-api-tools.ts'),
-      '@formspec/engine/init-formspec-engine': path.resolve(
+      '@formspec-org/engine/fel-runtime': path.resolve(__dirname, '../formspec-engine/src/fel/fel-api-runtime.ts'),
+      '@formspec-org/engine/fel-tools': path.resolve(__dirname, '../formspec-engine/src/fel/fel-api-tools.ts'),
+      '@formspec-org/engine/init-formspec-engine': path.resolve(
         __dirname,
         '../formspec-engine/src/init-formspec-engine.ts',
       ),
-      '@formspec/engine/render': path.resolve(__dirname, '../formspec-engine/src/engine-render-entry.ts'),
-      '@formspec/engine': path.resolve(__dirname, '../formspec-engine/src/index.ts'),
-      '@formspec/core': path.resolve(__dirname, '../formspec-core/src/index.ts'),
+      '@formspec-org/engine/render': path.resolve(__dirname, '../formspec-engine/src/engine-render-entry.ts'),
+      '@formspec-org/engine': path.resolve(__dirname, '../formspec-engine/src/index.ts'),
+      '@formspec-org/core': path.resolve(__dirname, '../formspec-core/src/index.ts'),
     },
   },
   test: {

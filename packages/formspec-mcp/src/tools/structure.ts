@@ -3,7 +3,7 @@
  * Plus: page CRUD, update, submit.
  */
 
-import { HelperError } from '@formspec/studio-core';
+import { HelperError } from '@formspec-org/studio-core';
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall, wrapBatchCall, errorResponse, formatToolError } from '../errors.js';
 import type { BatchItem } from '../batch.js';
@@ -28,7 +28,7 @@ import type {
   PlacementOptions,
   ItemChanges,
   MetadataChanges,
-} from '@formspec/studio-core';
+} from '@formspec-org/studio-core';
 
 /**
  * Merge top-level parentPath into props when props.parentPath is absent.
@@ -332,7 +332,7 @@ interface EditParams {
  * then return the parent path and the computed insertion index.
  */
 function resolveMovePosition(
-  project: import('@formspec/studio-core').Project,
+  project: import('@formspec-org/studio-core').Project,
   sourcePath: string,
   targetPath: string | undefined,
   position: MovePosition | undefined,

@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for RadioGroup — card-style option grid. */
-import type { RadioGroupBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { RadioGroupBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 import { createTailwindError, TW, TW_CARD_OPTION, applyErrorStyling } from './shared';
 

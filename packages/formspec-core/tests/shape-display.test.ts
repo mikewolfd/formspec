@@ -1,7 +1,7 @@
 /** @filedesc Tests for shape-display query module. */
 import { describe, it, expect } from 'vitest';
 import { describeShapeConstraint } from '../src/queries/shape-display.js';
-import type { FormShape } from '@formspec/types';
+import type { FormShape } from '@formspec-org/types';
 
 describe('describeShapeConstraint', () => {
   it('describes a simple constraint shape', () => {

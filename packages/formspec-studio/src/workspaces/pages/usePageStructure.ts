@@ -1,6 +1,6 @@
 /** @filedesc Hook that resolves the current page structure via the behavioral page-view query. */
 import { useMemo } from 'react';
-import { resolvePageView, type PageStructureView } from '@formspec/studio-core';
+import { resolvePageView, type PageStructureView } from '@formspec-org/studio-core';
 import { useProjectState } from '../../state/useProjectState';
 
 export function usePageStructure(): PageStructureView {

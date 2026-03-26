@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { createProject } from '@formspec/studio-core';
+import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { MappingPreview } from '../../../src/workspaces/mapping/MappingPreview';
 

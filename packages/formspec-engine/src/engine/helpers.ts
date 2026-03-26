@@ -7,7 +7,7 @@ import type {
     FormItem,
     OptionEntry,
     ValidationResult,
-} from '@formspec/types';
+} from '@formspec-org/types';
 import type { EvalValidation } from '../diff.js';
 import type {
     FormEngineRuntimeContext,

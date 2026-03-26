@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for TextInput — renders usa-input or usa-textarea markup. */
-import type { TextInputBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { TextInputBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createUSWDSFieldDOM } from './shared';
 

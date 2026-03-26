@@ -5,7 +5,7 @@
 
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall } from '../errors.js';
-import type { FieldProps } from '@formspec/studio-core';
+import type { FieldProps } from '@formspec-org/studio-core';
 
 type ScreenerAction = 'enable' | 'add_field' | 'remove_field' | 'add_route' | 'update_route' | 'reorder_route' | 'remove_route';
 

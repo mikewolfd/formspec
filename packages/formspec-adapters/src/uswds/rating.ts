@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for Rating — star-rating with USWDS form-group wrapper and ARIA slider. */
-import type { RatingBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { RatingBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createUSWDSFieldDOM } from './shared';
 

@@ -1,6 +1,6 @@
 /** @filedesc useField — full reactive field state from FieldViewModel. */
 import { useMemo } from 'react';
-import type { FieldViewModel, ResolvedOption, ResolvedValidationResult } from '@formspec/engine';
+import type { FieldViewModel, ResolvedOption, ResolvedValidationResult } from '@formspec-org/engine';
 import { useFormspecContext } from './context';
 import { useSignal } from './use-signal';
 

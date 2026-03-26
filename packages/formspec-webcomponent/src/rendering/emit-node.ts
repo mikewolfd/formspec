@@ -1,6 +1,6 @@
 /** @filedesc Walks a LayoutNode tree and emits DOM via component plugin dispatch. */
 import { effect, Signal } from '@preact/signals-core';
-import type { IFormEngine } from '@formspec/engine/render';
+import type { IFormEngine } from '@formspec-org/engine/render';
 import { globalRegistry } from '../registry';
 import {
     RenderContext,
@@ -12,7 +12,7 @@ import {
     PresentationBlock,
     ItemDescriptor,
     type LayoutNode,
-} from '@formspec/layout';
+} from '@formspec-org/layout';
 import { useWizard } from '../behaviors/wizard';
 import { useTabs } from '../behaviors/tabs';
 

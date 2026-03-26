@@ -4,7 +4,7 @@
  */
 
 import type { ProjectRegistry } from '../registry.js';
-import { HelperError } from '@formspec/studio-core';
+import { HelperError } from '@formspec-org/studio-core';
 import { errorResponse, successResponse, formatToolError } from '../errors.js';
 
 type FelAction = 'context' | 'functions' | 'check' | 'validate' | 'autocomplete' | 'humanize';

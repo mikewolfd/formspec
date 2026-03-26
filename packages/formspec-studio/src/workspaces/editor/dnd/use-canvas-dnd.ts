@@ -1,6 +1,6 @@
 /** @filedesc Hook wiring dnd-kit drag events to canvas drop-target computation and project moves. */
 import { useState, useCallback } from 'react';
-import type { Project } from '@formspec/studio-core';
+import type { Project } from '@formspec-org/studio-core';
 import {
   computeDropTarget,
   buildSequentialMoves,

@@ -9,7 +9,7 @@ import {
   _FIELD_TYPE_MAP as FIELD_TYPE_MAP,
 } from '../src/field-type-aliases.js';
 import { createProject } from '../src/project.js';
-import { analyzeFEL } from '@formspec/engine/fel-runtime';
+import { analyzeFEL } from '@formspec-org/engine/fel-runtime';
 
 // ── resolveWidget: spec widgetHint coverage ─────────────────────────
 

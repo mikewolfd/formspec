@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for Slider — usa-range input with optional value display and ticks. */
-import type { SliderBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { SliderBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createUSWDSFieldDOM } from './shared';
 

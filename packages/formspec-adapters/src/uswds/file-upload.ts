@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for FileUpload — usa-file-input with drag-drop target. */
-import type { FileUploadBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { FileUploadBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createUSWDSFieldDOM } from './shared';
 

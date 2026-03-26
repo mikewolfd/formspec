@@ -5,4 +5,4 @@ export {
     COMPONENT_TO_HINT,
     COMPATIBILITY_MATRIX,
     widgetTokenToComponent,
-} from '@formspec/types';
+} from '@formspec-org/types';

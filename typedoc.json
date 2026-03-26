@@ -20,7 +20,7 @@
     "@internal"
   ],
   "externalSymbolLinkMappings": {
-    "@formspec/engine": {
+    "@formspec-org/engine": {
       "FormEngine": "api/formspec-engine/classes/FormEngine.html"
     }
   },

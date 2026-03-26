@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for Select — renders styled dropdown. */
-import type { SelectBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { SelectBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { createTailwindFieldDOM, TW, toggleInputError } from './shared';
 
 export const renderSelect: AdapterRenderFn<SelectBehavior> = (

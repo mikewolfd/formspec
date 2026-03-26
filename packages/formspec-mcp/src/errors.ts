@@ -1,5 +1,5 @@
 /** @filedesc MCP response helpers: error/success formatting and helper-call wrappers. */
-import { HelperError, type HelperResult } from '@formspec/studio-core';
+import { HelperError, type HelperResult } from '@formspec-org/studio-core';
 import { executeBatch, type BatchItem, type BatchResult } from './batch.js';
 
 export type ToolError = {

@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for DatePicker — renders native date input with USWDS styling. */
-import type { DatePickerBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { DatePickerBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { createUSWDSFieldDOM } from './shared';
 
 export const renderDatePicker: AdapterRenderFn<DatePickerBehavior> = (

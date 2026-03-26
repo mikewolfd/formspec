@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/webcomponent",
+  "name": "@formspec-org/webcomponent",
   "description": "Web component renderer (<formspec-render>) with pluggable component registry",
   "version": "1.0.0",
   "type": "module",
@@ -29,8 +29,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@formspec/engine": "*",
-    "@formspec/layout": "*"
+    "@formspec-org/engine": "*",
+    "@formspec-org/layout": "*"
   },
   "devDependencies": {
     "happy-dom": "^17.6.1",

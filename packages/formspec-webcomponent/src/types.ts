@@ -1,7 +1,7 @@
 /** @filedesc Shared type definitions: RenderContext, ComponentPlugin, and screener types. */
-import type { IFormEngine } from '@formspec/engine/render';
+import type { IFormEngine } from '@formspec-org/engine/render';
 import type { Signal } from '@preact/signals-core';
-import { ThemeDocument, PresentationBlock, ItemDescriptor } from '@formspec/layout';
+import { ThemeDocument, PresentationBlock, ItemDescriptor } from '@formspec-org/layout';
 import type { BehaviorContext } from './behaviors/types';
 import type { AdapterContext } from './adapters/types';
 

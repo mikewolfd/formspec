@@ -1,7 +1,7 @@
 /** @filedesc Properties panel section for editing inline choice options (value/label pairs) on a field. */
 import { Section } from '../../../components/ui/Section';
-import type { Project } from '@formspec/studio-core';
-import type { FormItem } from '@formspec/types';
+import type { Project } from '@formspec-org/studio-core';
+import type { FormItem } from '@formspec-org/types';
 
 export function OptionsSection({
   path,

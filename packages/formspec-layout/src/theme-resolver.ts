@@ -183,7 +183,7 @@ let twMergeFn: ((classes: string) => string) | null = null;
  *
  * ```ts
  * import { twMerge } from 'tailwind-merge';
- * import { setTailwindMerge } from '@formspec/layout';
+ * import { setTailwindMerge } from '@formspec-org/layout';
  * setTailwindMerge(twMerge);
  * ```
  */

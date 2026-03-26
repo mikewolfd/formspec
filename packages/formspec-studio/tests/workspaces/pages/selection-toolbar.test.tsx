@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SelectionToolbar } from '../../../src/workspaces/pages/SelectionToolbar';
-import type { PageItemView } from '@formspec/studio-core';
+import type { PageItemView } from '@formspec-org/studio-core';
 
 function makeItem(overrides: Partial<PageItemView> = {}): PageItemView {
   return {

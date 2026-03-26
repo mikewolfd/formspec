@@ -1,7 +1,7 @@
 /**
  * Pure query function for project complexity metrics.
  */
-import type { FormItem } from '@formspec/types';
+import type { FormItem } from '@formspec-org/types';
 import { getCurrentComponentDocument } from '../component-documents.js';
 import { allExpressions } from './expression-index.js';
 import type { ProjectState, ProjectStatistics } from '../types.js';

@@ -1,8 +1,8 @@
 /** @filedesc Entry point for the formspec-react demo app. */
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { initFormspecEngine } from '@formspec/engine';
-import { emitThemeTokens } from '@formspec/react';
+import { initFormspecEngine } from '@formspec-org/engine';
+import { emitThemeTokens } from '@formspec-org/react';
 
 // 1. Library CSS — standalone form styling with --formspec-* variables
 import '../../../packages/formspec-react/src/formspec.css';

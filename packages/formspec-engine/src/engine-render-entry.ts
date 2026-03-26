@@ -10,7 +10,7 @@ import type {
     OptionEntry,
     ValidationReport as FormspecValidationReport,
     ValidationResult as FormspecValidationResult,
-} from '@formspec/types';
+} from '@formspec-org/types';
 
 export type {
     AssemblyProvenance,

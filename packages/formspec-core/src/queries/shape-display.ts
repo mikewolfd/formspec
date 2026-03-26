@@ -1,5 +1,5 @@
 /** @filedesc Produce human-readable descriptions of shape constraints. */
-import type { FormShape } from '@formspec/types';
+import type { FormShape } from '@formspec-org/types';
 
 /**
  * Produce a human-readable description of a shape constraint.

@@ -16,7 +16,7 @@ report = validate_response(evaluator, submitted_data)
     <span class="tok-kw">return</span> {<span class="tok-str">"errors"</span>: report.results}`;
 
 const codeTypeScript = `<span class="tok-comment">// Browser — reactive signals, live validation</span>
-<span class="tok-kw">import</span> { FormEngine } <span class="tok-kw">from</span> <span class="tok-str">"@formspec/engine"</span>;
+<span class="tok-kw">import</span> { FormEngine } <span class="tok-kw">from</span> <span class="tok-str">"@formspec-org/engine"</span>;
 
 <span class="tok-kw">const</span> engine = <span class="tok-kw">new</span> FormEngine();
 engine.setDefinition(definition);
@@ -28,7 +28,7 @@ engine.setValue(<span class="tok-str">"org_type"</span>, <span class="tok-str">"
 
 const codeHTML = `<span class="tok-comment">&lt;!-- Drop-in web component. No framework required. --&gt;</span>
 <span class="tok-kw">&lt;script</span> type=<span class="tok-str">"module"</span><span class="tok-kw">&gt;</span>
-  <span class="tok-kw">import</span> <span class="tok-str">"@formspec/webcomponent"</span>;
+  <span class="tok-kw">import</span> <span class="tok-str">"@formspec-org/webcomponent"</span>;
 <span class="tok-kw">&lt;/scr</span><span class="tok-kw">ipt&gt;</span>
 
 <span class="tok-kw">&lt;formspec-render&gt;&lt;/formspec-render&gt;</span>
@@ -39,7 +39,7 @@ const codeHTML = `<span class="tok-comment">&lt;!-- Drop-in web component. No fr
 <span class="tok-kw">&lt;/scr</span><span class="tok-kw">ipt&gt;</span>`;
 
 const codeReact = `<span class="tok-comment">// React — hooks + auto-renderer with custom components</span>
-<span class="tok-kw">import</span> { FormspecForm } <span class="tok-kw">from</span> <span class="tok-str">"@formspec/react"</span>;
+<span class="tok-kw">import</span> { FormspecForm } <span class="tok-kw">from</span> <span class="tok-str">"@formspec-org/react"</span>;
 
 <span class="tok-comment">// Drop in with defaults — semantic HTML, zero opinions</span>
 &lt;<span class="tok-kw">FormspecForm</span> <span class="tok-prop">definition</span>={definition} /&gt;

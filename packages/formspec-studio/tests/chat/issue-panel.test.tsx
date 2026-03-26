@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { IssuePanel } from '../../src/chat/components/IssuePanel.js';
 import { ChatProvider } from '../../src/chat/state/ChatContext.js';
-import { ChatSession, MockAdapter } from '@formspec/chat';
+import { ChatSession, MockAdapter } from '@formspec-org/chat';
 
 async function renderIssuePanelWithIssues() {
   const session = new ChatSession({ adapter: new MockAdapter() });

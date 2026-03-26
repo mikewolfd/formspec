@@ -1,9 +1,9 @@
 /** @filedesc Integrated studio chat panel — shares the studio Project, routes AI through MCP, shows changeset review. */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { ChatSession, GeminiAdapter, type ChatMessage, type ToolContext } from '@formspec/chat';
-import { type Project, type Changeset, type MergeResult, type ProposalManager } from '@formspec/studio-core';
-import { ProjectRegistry } from '@formspec/mcp/registry';
-import { createToolDispatch } from '@formspec/mcp/dispatch';
+import { ChatSession, GeminiAdapter, type ChatMessage, type ToolContext } from '@formspec-org/chat';
+import { type Project, type Changeset, type MergeResult, type ProposalManager } from '@formspec-org/studio-core';
+import { ProjectRegistry } from '@formspec-org/mcp/registry';
+import { createToolDispatch } from '@formspec-org/mcp/dispatch';
 import { ChangesetReview, type ChangesetReviewData } from './ChangesetReview.js';
 import { getSavedProviderConfig } from './AppSettingsDialog.js';
 

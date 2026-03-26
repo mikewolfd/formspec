@@ -1,8 +1,8 @@
 /** @filedesc MCP tool for theme management: tokens, defaults, and selectors. */
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall, successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from '@formspec/studio-core';
-import type { Project, HelperResult } from '@formspec/studio-core';
+import { HelperError } from '@formspec-org/studio-core';
+import type { Project, HelperResult } from '@formspec-org/studio-core';
 
 type ThemeAction =
   | 'set_token'

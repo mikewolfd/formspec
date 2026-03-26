@@ -1,7 +1,7 @@
 /** @filedesc The <formspec-render> custom element that orchestrates form rendering. */
 import { signal } from '@preact/signals-core';
-import { createFormEngine, type FormEngine, type IFormEngine, type LocaleDocument } from '@formspec/engine/render';
-import { initFormspecEngine, isFormspecEngineInitialized } from '@formspec/engine/init-formspec-engine';
+import { createFormEngine, type FormEngine, type IFormEngine, type LocaleDocument } from '@formspec-org/engine/render';
+import { initFormspecEngine, isFormspecEngineInitialized } from '@formspec-org/engine/init-formspec-engine';
 import { globalRegistry } from './registry';
 import {
     ValidationTargetMetadata,
@@ -16,7 +16,7 @@ import {
     planComponentTree,
     planDefinitionFallback,
     type PlanContext,
-} from '@formspec/layout';
+} from '@formspec-org/layout';
 import defaultThemeJson from './default-theme.json';
 
 // Extracted modules
@@ -571,7 +571,7 @@ export class FormspecRender extends HTMLElement {
 
             if (hasPages) {
                 // Wrap in a synthetic Stack so renderActualComponent detects pageMode
-                const wrapperNode: import('@formspec/layout').LayoutNode = {
+                const wrapperNode: import('@formspec-org/layout').LayoutNode = {
                     id: '_root-stack',
                     component: 'Stack',
                     category: 'layout',

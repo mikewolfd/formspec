@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/adapters",
+  "name": "@formspec-org/adapters",
   "description": "Render adapter library — design-system-specific DOM implementations for formspec-webcomponent",
   "version": "0.1.0",
   "type": "module",
@@ -31,11 +31,11 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@formspec/webcomponent": "*"
+    "@formspec-org/webcomponent": "*"
   },
   "devDependencies": {
     "@uswds/uswds": "^3.11.0",
-    "@formspec/webcomponent": "*",
+    "@formspec-org/webcomponent": "*",
     "happy-dom": "^17.6.1",
     "sass": "^1.86.0",
     "typescript": "^5.0.0",

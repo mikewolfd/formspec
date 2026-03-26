@@ -18,8 +18,8 @@
  * @module definition-instances
  */
 import type { CommandHandler } from '../types.js';
-import { rewriteFELReferences } from '@formspec/engine/fel-tools';
-import type { FormItem } from '@formspec/types';
+import { rewriteFELReferences } from '@formspec-org/engine/fel-tools';
+import type { FormItem } from '@formspec-org/types';
 
 /**
  * Monotonically increasing counter for auto-generating instance names when the

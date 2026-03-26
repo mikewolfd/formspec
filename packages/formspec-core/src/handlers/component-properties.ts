@@ -9,7 +9,7 @@
  * @module handlers/component-properties
  */
 import type { CommandHandler } from '../types.js';
-import { normalizeIndexedPath } from '@formspec/engine/fel-runtime';
+import { normalizeIndexedPath } from '@formspec-org/engine/fel-runtime';
 import { type TreeNode, ensureTree } from './tree-utils.js';
 
 /**

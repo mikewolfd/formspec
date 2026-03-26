@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for Select — renders usa-select dropdown markup. */
-import type { SelectBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { SelectBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { createUSWDSFieldDOM } from './shared';
 
 export const renderSelect: AdapterRenderFn<SelectBehavior> = (

@@ -4,7 +4,7 @@
  * has Page children and formPresentation.pageMode is "wizard". The "Wizard"
  * adapter key is a rendering concept — the Wizard schema component type was
  * removed; all page navigation is now driven by formPresentation. */
-import type { WizardBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { WizardBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { TW } from './shared';
 
 export const renderWizard: AdapterRenderFn<WizardBehavior> = (

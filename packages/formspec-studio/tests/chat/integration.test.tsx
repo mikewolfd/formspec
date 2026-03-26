@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { ChatShell } from '../../src/chat/components/ChatShell.js';
-import { SessionStore } from '@formspec/chat';
-import type { StorageBackend } from '@formspec/chat';
+import { SessionStore } from '@formspec-org/chat';
+import type { StorageBackend } from '@formspec-org/chat';
 
 function makeMemoryStorage(): StorageBackend {
   const data = new Map<string, string>();

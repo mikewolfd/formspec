@@ -107,7 +107,7 @@ async function build() {
         sourcemap: false,
         plugins: [wasmBridgePatchPlugin],
         alias: {
-            '@formspec/engine/render': resolve(ENGINE_DIR, 'dist/engine-render-entry.js'),
+            '@formspec-org/engine/render': resolve(ENGINE_DIR, 'dist/engine-render-entry.js'),
             '@preact/signals-core': resolve(REPO_ROOT, 'node_modules/@preact/signals-core/dist/signals-core.module.js'),
         },
     });

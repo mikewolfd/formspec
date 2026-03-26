@@ -1,6 +1,6 @@
 /** @filedesc Toolbar for the selected grid item — width presets, custom width, offset, breakpoint-aware. */
 import { useRef, useState } from 'react';
-import type { PageItemView } from '@formspec/studio-core';
+import type { PageItemView } from '@formspec-org/studio-core';
 
 export interface SelectionToolbarProps {
   item: PageItemView;

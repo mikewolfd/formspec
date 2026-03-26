@@ -1,6 +1,6 @@
 /** @filedesc Tailwind adapter for Signature — canvas drawing with styled clear button. */
-import type { SignatureBehavior, AdapterRenderFn } from '@formspec/webcomponent';
-import { createSignatureCanvas } from '@formspec/webcomponent';
+import type { SignatureBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
+import { createSignatureCanvas } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createTailwindFieldDOM, TW } from './shared';
 

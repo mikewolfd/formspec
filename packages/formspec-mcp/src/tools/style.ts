@@ -5,7 +5,7 @@
 
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall, errorResponse, formatToolError } from '../errors.js';
-import type { LayoutArrangement } from '@formspec/studio-core';
+import type { LayoutArrangement } from '@formspec-org/studio-core';
 
 type StyleAction = 'layout' | 'style' | 'style_all';
 

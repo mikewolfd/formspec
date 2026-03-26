@@ -8,13 +8,13 @@ export default defineConfig({
     plugins: [preact()],
     resolve: {
         alias: {
-            '@formspec/engine': path.resolve(repoRoot, 'packages/formspec-engine/src/index.ts'),
-            '@formspec/engine/init-formspec-engine': path.resolve(
+            '@formspec-org/engine': path.resolve(repoRoot, 'packages/formspec-engine/src/index.ts'),
+            '@formspec-org/engine/init-formspec-engine': path.resolve(
                 repoRoot,
                 'packages/formspec-engine/src/init-formspec-engine.ts',
             ),
-            '@formspec/engine/render': path.resolve(repoRoot, 'packages/formspec-engine/src/engine-render-entry.ts'),
-            '@formspec/webcomponent': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/index.ts'),
+            '@formspec-org/engine/render': path.resolve(repoRoot, 'packages/formspec-engine/src/engine-render-entry.ts'),
+            '@formspec-org/webcomponent': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/index.ts'),
         },
     },
     server: {

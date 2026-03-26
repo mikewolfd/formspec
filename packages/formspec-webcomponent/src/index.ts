@@ -1,7 +1,7 @@
 /** @filedesc Package entry point: registers components and re-exports public API. */
 // Structural layout CSS only. Import `formspec-webcomponent/formspec-default.css` in the host when using built-in field styling.
 import './formspec-layout.css';
-import { initFormspecEngine } from '@formspec/engine/init-formspec-engine';
+import { initFormspecEngine } from '@formspec-org/engine/init-formspec-engine';
 import { registerDefaultComponents } from './components';
 
 /** Start WASM load as soon as the package is imported (FormEngine needs it before construction). */
@@ -9,7 +9,7 @@ void initFormspecEngine();
 registerDefaultComponents();
 
 /** Await before setting `definition` if you need the engine to exist synchronously (e.g. immediate `getEngine()` / `setValue`). */
-export { initFormspecEngine } from '@formspec/engine/init-formspec-engine';
+export { initFormspecEngine } from '@formspec-org/engine/init-formspec-engine';
 
 // Main class
 export { FormspecRender } from './element';
@@ -29,8 +29,8 @@ export {
 } from './rendering/screener';
 
 // Re-exports from formspec-layout
-export { resolvePresentation, resolveWidget, interpolateParams, resolveResponsiveProps, resolveToken, getDefaultComponent } from '@formspec/layout';
-export type { ThemeDocument, PresentationBlock, ItemDescriptor, AccessibilityBlock, ThemeSelector, SelectorMatch, Tier1Hints, FormspecDataType, Page, Region, LayoutHints, StyleHints } from '@formspec/layout';
+export { resolvePresentation, resolveWidget, interpolateParams, resolveResponsiveProps, resolveToken, getDefaultComponent } from '@formspec-org/layout';
+export type { ThemeDocument, PresentationBlock, ItemDescriptor, AccessibilityBlock, ThemeSelector, SelectorMatch, Tier1Hints, FormspecDataType, Page, Region, LayoutHints, StyleHints } from '@formspec-org/layout';
 
 // Types
 export type { RenderContext, ComponentPlugin, ValidationTargetMetadata, ScreenerRoute, ScreenerRouteType, ScreenerStateSnapshot } from './types';

@@ -4,7 +4,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { signal, computed } from '@preact/signals-core';
-import { createFormEngine, initFormspecEngine } from '@formspec/engine';
+import { createFormEngine, initFormspecEngine } from '@formspec-org/engine';
 import { useSignal } from '../src/use-signal';
 import { FormspecProvider, useFormspecContext, findItemByKey } from '../src/context';
 import { useField } from '../src/use-field';

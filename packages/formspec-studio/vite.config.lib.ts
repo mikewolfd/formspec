@@ -11,13 +11,13 @@ export default defineConfig({
   define: { 'process.env': JSON.stringify({}) },
   resolve: {
     // Only alias packages WITHOUT subpath exports.
-    // @formspec/engine and @formspec/core have subpath exports (e.g. @formspec/engine/render)
+    // @formspec-org/engine and @formspec-org/core have subpath exports (e.g. @formspec-org/engine/render)
     // and must resolve through node_modules → dist/ (built by npm run build).
     alias: {
-      '@formspec/studio-core': path.resolve(packagesRoot, 'formspec-studio-core/src/index.ts'),
-      '@formspec/types': path.resolve(packagesRoot, 'formspec-types/src/index.ts'),
-      '@formspec/layout': path.resolve(packagesRoot, 'formspec-layout/src/index.ts'),
-      '@formspec/chat': path.resolve(packagesRoot, 'formspec-chat/src/index.ts'),
+      '@formspec-org/studio-core': path.resolve(packagesRoot, 'formspec-studio-core/src/index.ts'),
+      '@formspec-org/types': path.resolve(packagesRoot, 'formspec-types/src/index.ts'),
+      '@formspec-org/layout': path.resolve(packagesRoot, 'formspec-layout/src/index.ts'),
+      '@formspec-org/chat': path.resolve(packagesRoot, 'formspec-chat/src/index.ts'),
     },
     dedupe: ['react', 'react-dom'],
   },

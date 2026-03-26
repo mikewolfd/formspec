@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 import { ChatProvider, useChatSession, useChatState } from '../../src/chat/state/ChatContext.js';
-import { ChatSession, MockAdapter } from '@formspec/chat';
-import type { DefinitionDiff } from '@formspec/chat';
-import { buildBundleFromDefinition } from '@formspec/studio-core';
+import { ChatSession, MockAdapter } from '@formspec-org/chat';
+import type { DefinitionDiff } from '@formspec-org/chat';
+import { buildBundleFromDefinition } from '@formspec-org/studio-core';
 
 function makeSession() {
   return new ChatSession({ adapter: new MockAdapter(), buildBundle: buildBundleFromDefinition });

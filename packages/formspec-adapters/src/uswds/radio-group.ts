@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for RadioGroup — renders usa-radio markup inside a fieldset. */
-import type { RadioGroupBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { RadioGroupBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 import { createUSWDSError } from './shared';
 

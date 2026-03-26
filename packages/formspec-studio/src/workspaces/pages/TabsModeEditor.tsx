@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GridCanvas } from './GridCanvas';
 import { UnassignedItemsTray } from './UnassignedItemsTray';
 import { buildPageActions, type ModeRendererProps } from './mode-renderer-props';
-import type { PageView, PlaceableItem } from '@formspec/studio-core';
+import type { PageView, PlaceableItem } from '@formspec-org/studio-core';
 
 function TabPanel({
   page,

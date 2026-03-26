@@ -8,8 +8,8 @@
  *   Replaces the old validate_draft + load_draft pair.
  */
 
-import { HelperError, createProject } from '@formspec/studio-core';
-import type { DocumentType } from '@formspec/engine';
+import { HelperError, createProject } from '@formspec-org/studio-core';
+import type { DocumentType } from '@formspec-org/engine';
 import { ProjectRegistry } from '../registry.js';
 import { getValidator } from '../schemas.js';
 import { errorResponse, successResponse, formatToolError } from '../errors.js';

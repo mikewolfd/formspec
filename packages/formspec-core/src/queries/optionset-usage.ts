@@ -1,5 +1,5 @@
 /** @filedesc Count fields referencing a named option set. */
-import type { FormItem } from '@formspec/types';
+import type { FormItem } from '@formspec-org/types';
 import type { ProjectState } from '../types.js';
 
 /**

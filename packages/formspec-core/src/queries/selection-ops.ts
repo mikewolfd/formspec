@@ -1,5 +1,5 @@
 /** @filedesc Pure selection operations over dot-paths: ancestor finding, overlap check, expansion. */
-import type { FormItem } from '@formspec/types';
+import type { FormItem } from '@formspec-org/types';
 import type { ProjectState } from '../types.js';
 
 /**

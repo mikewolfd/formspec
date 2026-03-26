@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { type ColorScheme } from '../hooks/useColorScheme';
 import JSZip from 'jszip';
-import { createProject, type Project } from '@formspec/studio-core';
+import { createProject, type Project } from '@formspec-org/studio-core';
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
 import { Blueprint } from './Blueprint';

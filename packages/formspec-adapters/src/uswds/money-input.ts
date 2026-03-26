@@ -1,5 +1,5 @@
 /** @filedesc USWDS v3 adapter for MoneyInput — usa-input-group with currency prefix. */
-import type { MoneyInputBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { MoneyInputBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el } from '../helpers';
 import { createUSWDSFieldDOM } from './shared';
 

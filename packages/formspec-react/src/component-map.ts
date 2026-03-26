@@ -1,6 +1,6 @@
 /** @filedesc Component map types for the auto-renderer. */
 import type React from 'react';
-import type { LayoutNode } from '@formspec/layout';
+import type { LayoutNode } from '@formspec-org/layout';
 import type { UseFieldResult } from './use-field';
 
 /** Props passed to field components by the renderer. */

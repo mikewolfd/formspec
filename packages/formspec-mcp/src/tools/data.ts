@@ -6,7 +6,7 @@
 
 import type { ProjectRegistry } from '../registry.js';
 import { wrapHelperCall } from '../errors.js';
-import type { ChoiceOption, InstanceProps } from '@formspec/studio-core';
+import type { ChoiceOption, InstanceProps } from '@formspec-org/studio-core';
 
 type DataResource = 'choices' | 'variable' | 'instance';
 type DataAction = 'add' | 'update' | 'remove' | 'rename';

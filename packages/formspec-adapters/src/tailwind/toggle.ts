@@ -1,5 +1,5 @@
 /** @filedesc Tailwind adapter for Toggle — switch with correct peer ordering for knob motion. */
-import type { ToggleBehavior, AdapterRenderFn } from '@formspec/webcomponent';
+import type { ToggleBehavior, AdapterRenderFn } from '@formspec-org/webcomponent';
 import { el, applyCascadeClasses, applyCascadeAccessibility } from '../helpers';
 import { createTailwindError, TW, applyErrorStyling } from './shared';
 

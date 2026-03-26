@@ -16,7 +16,7 @@
  * @module definition-migrations
  */
 import type { CommandHandler } from '../types.js';
-import type { MigrationDescriptor } from '@formspec/types';
+import type { MigrationDescriptor } from '@formspec-org/types';
 
 /**
  * Locate a migration descriptor by its source version key.

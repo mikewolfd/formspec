@@ -4,8 +4,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { act } from 'react';
-import { initFormspecEngine, createFormEngine } from '@formspec/engine';
-import type { LayoutNode } from '@formspec/layout';
+import { initFormspecEngine, createFormEngine } from '@formspec-org/engine';
+import type { LayoutNode } from '@formspec-org/layout';
 import { FormspecNode } from '../src/node-renderer';
 import { FormspecProvider } from '../src/context';
 

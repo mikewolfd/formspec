@@ -1,5 +1,5 @@
 {
-  "name": "@formspec/types",
+  "name": "@formspec-org/types",
   "description": "TypeScript type definitions generated from Formspec JSON schemas",
   "version": "0.1.0",
   "type": "module",

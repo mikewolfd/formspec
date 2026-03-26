@@ -1,7 +1,7 @@
 /** @filedesc MCP tool for reference management: bound references on fields. */
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from '@formspec/studio-core';
+import { HelperError } from '@formspec-org/studio-core';
 
 type ReferenceAction =
   | 'add_reference'

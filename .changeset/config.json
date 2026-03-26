@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@formspec/studio"]
+  "ignore": ["@formspec-org/studio"]
 }

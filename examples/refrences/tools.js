@@ -12,7 +12,7 @@ import {
   createMappingEngine,
   generateChangelog,
   getFELDependencies,
-} from '@formspec/engine';
+} from '@formspec-org/engine';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 

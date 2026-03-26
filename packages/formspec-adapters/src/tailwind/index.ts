@@ -5,7 +5,7 @@
  * they use `formspec-*` classes. Import **`formspec-adapters/tailwind-formspec-core.css`** in your
  * app (before host overrides) for sensible defaults, or supply your own styles.
  */
-import type { RenderAdapter } from '@formspec/webcomponent';
+import type { RenderAdapter } from '@formspec-org/webcomponent';
 import { renderTextInput } from './text-input';
 import { renderNumberInput } from './number-input';
 import { renderRadioGroup } from './radio-group';

@@ -1,7 +1,7 @@
 /** @filedesc Landing screen for starting a new chat session, picking a template, uploading, or resuming. */
 import React, { useState } from 'react';
-import type { SessionSummary, ProviderConfig } from '@formspec/chat';
-import { TemplateLibrary } from '@formspec/chat';
+import type { SessionSummary, ProviderConfig } from '@formspec-org/chat';
+import { TemplateLibrary } from '@formspec-org/chat';
 
 const library = new TemplateLibrary();
 const templates = library.getAll();

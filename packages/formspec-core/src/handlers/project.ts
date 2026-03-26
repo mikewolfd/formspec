@@ -8,7 +8,7 @@
  * @module handlers/project
  */
 import type { CommandHandler, LocaleState } from '../types.js';
-import type { FormItem } from '@formspec/types';
+import type { FormItem } from '@formspec-org/types';
 import { splitComponentState, hasAuthoredComponentTree } from '../component-documents.js';
 import { normalizeBcp47 } from '../locale-utils.js';
 import { normalizeDefinition } from '../normalization.js';
