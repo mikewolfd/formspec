@@ -337,6 +337,34 @@ mod tests {
     }
 
     #[test]
+    fn form_presentation_showprogress_valid() {
+        let def = json!({
+            "$formspec": "1.0",
+            "url": "https://example.com/forms/x",
+            "version": "1.0.0",
+            "status": "draft",
+            "title": "X",
+            "items": [{"key": "f1", "type": "field", "label": "F1", "dataType": "string"}],
+            "formPresentation": {
+                "pageMode": "wizard",
+                "showProgress": true,
+                "allowSkip": false,
+                "defaultTab": 0,
+                "tabPosition": "top"
+            }
+        });
+        let diags = validate_schema(&def, DocumentType::Definition);
+        assert!(
+            diags.is_empty(),
+            "formPresentation with wizard/tabs properties should produce no E101, got: {:?}",
+            diags
+                .iter()
+                .map(|d| (&d.code, &d.path, &d.message))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn e101_path_uses_jsonpath() {
         let def = json!({
             "$formspec": "1.0",
