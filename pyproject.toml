@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "formspec"
+name = "formspec-py"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = "Formspec Python package — server-side FEL evaluation, validation, linting, and mapping"
