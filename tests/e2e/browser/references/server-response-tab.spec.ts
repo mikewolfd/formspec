@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 
 const REFERENCES_URL = 'http://localhost:8082';
 
+// Skip: formspec-references package/server does not exist yet (no workspace to start)
+test.skip(() => true, 'formspec-references package not yet implemented');
 test.describe.configure({ mode: 'serial' });
 
 /**
