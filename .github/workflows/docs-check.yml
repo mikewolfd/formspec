@@ -54,7 +54,7 @@ jobs:
           pip install --no-build-isolation ./crates/formspec-py
 
       - name: Install Node dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run schema/spec gate checks
         run: npm run docs:check

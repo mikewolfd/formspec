@@ -29,7 +29,7 @@ jobs:
       - run: pip install maturin
       - run: pip install -e ".[test]"
       - run: pip install --no-build-isolation ./crates/formspec-py
-      - run: npm ci
+      - run: npm install
       - run: npm run build
       - run: npm run test:unit
 
@@ -70,7 +70,7 @@ jobs:
       - run: pip install maturin
       - run: pip install -e ".[test]" fastapi "uvicorn[standard]" pydantic
       - run: pip install --no-build-isolation ./crates/formspec-py
-      - run: npm ci
+      - run: npm install
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
@@ -109,7 +109,7 @@ jobs:
       - run: pip install maturin
       - run: pip install -e ".[test]"
       - run: pip install --no-build-isolation ./crates/formspec-py
-      - run: npm ci
+      - run: npm install
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:studio:e2e
