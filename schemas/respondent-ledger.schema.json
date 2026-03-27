@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://formspec.org/schemas/respondent-ledger.schema.json",
+  "title": "Formspec Respondent Ledger",
+  "description": "A top-level append-only respondent-side audit ledger layered on top of a canonical Formspec Response. The ledger provides material history for drafts, resumes, attachments, submissions, amendments, stops, migrations, and validation snapshots without changing core Response semantics.",
+  "type": "object",
+  "required": [
+    "$formspecRespondentLedger",
+    "ledgerId",
+    "responseId",
+    "definitionUrl",
+    "definitionVersion",
+    "status",
+    "createdAt",
+    "lastEventAt",
+    "eventCount"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$formspecRespondentLedger": {
+      "type": "string",
+      "const": "0.1",
+      "description": "Respondent Ledger add-on specification version. MUST be '0.1'."
+    },
+    "ledgerId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this ledger document."
+    },
+    "responseId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the current canonical Formspec Response described by this ledger."
+    },
+    "definitionUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical URL of the pinned Definition currently associated with the response."
+    },
+    "definitionVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact pinned Definition version currently associated with the response."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["in-progress", "completed", "amended", "stopped"],
+      "description": "Current lifecycle status of the response/ledger pair."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the first recorded event in the ledger."
+    },
+    "lastEventAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the most recent recorded event in the ledger."
+    },
+    "eventCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of retained events in the ledger."
+    },
+    "organizationId": {
+      "type": "string",
+      "description": "Organization or tenant identifier when the implementation is multi-tenant."
+    },
+    "environment": {
+      "type": "string",
+      "description": "Environment label such as production, staging, or sandbox."
+    },
+    "currentResponseHash": {
+      "$ref": "#/$defs/HashString"
+    },
+    "currentResponseAuthored": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Most recent Response.authored timestamp known to the ledger."
+    },
+    "headEventId": {
+      "type": "string",
+      "description": "Identifier of the newest retained event in the ledger."
+    },
+    "identityRefs": {
+      "type": "array",
+      "description": "Identifiers for identity, DID, or proof-of-personhood attestations materially associated with this ledger.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "currentIdentityAttestation": {
+      "$ref": "respondent-ledger-event.schema.json#/$defs/IdentityAttestation"
+    },
+    "sessionRefs": {
+      "type": "array",
+      "description": "Identifiers for known session segments that contributed events to this ledger.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "checkpointRefs": {
+      "type": "array",
+      "description": "Identifiers for checkpoints covering contiguous ranges of ledger events.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "events": {
+      "type": "array",
+      "description": "Optional embedded event stream retained with the ledger document.",
+      "items": {
+        "$ref": "respondent-ledger-event.schema.json"
+      }
+    },
+    "checkpoints": {
+      "type": "array",
+      "description": "Optional embedded integrity checkpoints for contiguous event ranges.",
+      "items": {
+        "$ref": "#/$defs/LedgerCheckpoint"
+      }
+    },
+    "extensions": {
+      "$ref": "#/$defs/Extensions"
+    }
+  },
+  "$defs": {
+    "LedgerCheckpoint": {
+      "type": "object",
+      "required": ["checkpointId", "ledgerId", "fromSequence", "toSequence", "batchHash", "signedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "checkpointId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier for the checkpoint object."
+        },
+        "ledgerId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identifier of the ledger sealed by this checkpoint."
+        },
+        "fromSequence": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "First event sequence included in the sealed contiguous range."
+        },
+        "toSequence": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Last event sequence included in the sealed contiguous range."
+        },
+        "batchHash": {
+          "$ref": "#/$defs/HashString"
+        },
+        "signedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the checkpoint was signed or otherwise sealed."
+        },
+        "previousCheckpointHash": {
+          "$ref": "#/$defs/HashString"
+        },
+        "signature": {
+          "type": "string",
+          "description": "Opaque signature or detached proof blob for the checkpoint."
+        },
+        "keyId": {
+          "type": "string",
+          "description": "Identifier of the signing key used for this checkpoint."
+        },
+        "anchorRef": {
+          "type": "string",
+          "description": "External anchor reference, such as an organizational audit ledger record or transparency log entry."
+        },
+        "algorithm": {
+          "type": "string",
+          "description": "Signature or hashing algorithm identifier used to produce the checkpoint material."
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        }
+      }
+    },
+    "HashString": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:+-]+:.+$",
+      "description": "Algorithm-prefixed digest or integrity token, such as 'sha256:...'."
+    },
+    "Extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^x-"
+      },
+      "additionalProperties": true,
+      "description": "Implementation-specific extension data. Keys must be namespaced with an 'x-' prefix."
+    }
+  }
+}

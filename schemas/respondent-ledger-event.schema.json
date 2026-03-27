@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://formspec.org/schemas/respondent-ledger-event.schema.json",
+  "title": "Formspec Respondent Ledger Event",
+  "description": "A single append-only respondent-side audit event for the optional Respondent Ledger add-on. Events capture material draft, submission, amendment, attachment, prepopulation, and validation milestones without redefining a Formspec Response as an event stream.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "sequence",
+    "eventType",
+    "occurredAt",
+    "recordedAt",
+    "responseId",
+    "definitionUrl",
+    "definitionVersion",
+    "actor",
+    "source"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this event within the ledger.",
+      "examples": ["evt-0004"]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic sequence number within the ledger.",
+      "examples": [4]
+    },
+    "eventType": {
+      "$ref": "#/$defs/EventType"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the underlying material action occurred."
+    },
+    "recordedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the processor durably recorded the event."
+    },
+    "responseId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the Formspec Response this event belongs to."
+    },
+    "definitionUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical URL of the pinned Definition in force for this event."
+    },
+    "definitionVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact pinned Definition version in force for this event."
+    },
+    "actor": {
+      "$ref": "#/$defs/Actor"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "changes": {
+      "type": "array",
+      "description": "Ordered set of atomic material changes associated with this event.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ChangeSetEntry"
+      }
+    },
+    "validationSnapshot": {
+      "$ref": "#/$defs/ValidationSnapshot"
+    },
+    "identityAttestation": {
+      "$ref": "#/$defs/IdentityAttestation"
+    },
+    "sessionRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Implementation-specific identifier for the respondent session segment associated with the event."
+    },
+    "amendmentRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier for the amendment cycle this event belongs to, when applicable."
+    },
+    "priorEventHash": {
+      "$ref": "#/$defs/HashString"
+    },
+    "eventHash": {
+      "$ref": "#/$defs/HashString"
+    },
+    "extensions": {
+      "$ref": "#/$defs/Extensions"
+    }
+  },
+  "$defs": {
+    "EventType": {
+      "type": "string",
+      "enum": [
+        "session.started",
+        "draft.saved",
+        "draft.resumed",
+        "response.completed",
+        "response.amendment-opened",
+        "response.amended",
+        "response.stopped",
+        "attachment.added",
+        "attachment.replaced",
+        "attachment.removed",
+        "prepopulation.applied",
+        "system.merge-resolved",
+        "validation.snapshot-recorded",
+        "calculation.material-change",
+        "nonrelevant.pruned",
+        "autosave.coalesced",
+        "device-linked",
+        "identity-verified",
+        "attestation.captured",
+        "response.submit-attempted",
+        "response.migrated"
+      ],
+      "description": "Canonical event classifications defined by the Respondent Ledger add-on. The first thirteen values are required event types; the remaining values are optional but standardized extension points."
+    },
+    "Actor": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["respondent", "delegate", "system", "support-agent", "unknown"],
+          "description": "Who initiated or is attributed with the event."
+        },
+        "id": {
+          "type": "string",
+          "description": "Stable actor identifier when available."
+        },
+        "display": {
+          "type": "string",
+          "description": "Human-readable actor label for timeline and support views."
+        },
+        "assuranceLevel": {
+          "type": "string",
+          "description": "Authentication or identity assurance tier associated with the actor for this event."
+        },
+        "privacyTier": {
+          "$ref": "#/$defs/PrivacyTier"
+        },
+        "did": {
+          "$ref": "#/$defs/DidString"
+        },
+        "identityProviderRef": {
+          "type": "string",
+          "description": "Reference to the normalized identity provider, verifier, or adapter used for this actor context."
+        },
+        "subjectRef": {
+          "type": "string",
+          "description": "Stable pseudonymous subject or continuity identifier used by the ledger independent of any specific identity provider or proofing implementation."
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        }
+      }
+    },
+    "Source": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["web", "mobile", "api", "import", "system-job", "unknown"],
+          "description": "Capture channel or subsystem that produced the event."
+        },
+        "channelId": {
+          "type": "string",
+          "description": "Implementation-specific channel identifier."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Stable or session-local device identifier when tracked."
+        },
+        "ipAddressRef": {
+          "type": "string",
+          "description": "Protected derivative or reference for network address metadata."
+        },
+        "userAgentRef": {
+          "type": "string",
+          "description": "Protected derivative or reference for user-agent metadata."
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        }
+      }
+    },
+    "ChangeSetEntry": {
+      "type": "object",
+      "required": ["op", "path", "valueClass"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": ["set", "unset", "add", "remove", "replace", "reorder", "status-transition"],
+          "description": "Atomic operation represented by this material change entry."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Logical Formspec response path identifying the changed node."
+        },
+        "valueClass": {
+          "type": "string",
+          "enum": ["user-input", "prepopulated", "calculated", "imported", "attachment", "system-derived", "migration-derived"],
+          "description": "Origin class of the changed value."
+        },
+        "itemKey": {
+          "type": "string",
+          "description": "Stable Formspec item key when the path maps directly to one."
+        },
+        "before": {
+          "description": "Prior value when retained under the implementation's privacy policy."
+        },
+        "after": {
+          "description": "Resulting value when retained under the implementation's privacy policy."
+        },
+        "beforeHash": {
+          "$ref": "#/$defs/HashString"
+        },
+        "afterHash": {
+          "$ref": "#/$defs/HashString"
+        },
+        "displayBefore": {
+          "type": "string",
+          "description": "Human-readable prior value summary safe for timeline display."
+        },
+        "displayAfter": {
+          "type": "string",
+          "description": "Human-readable resulting value summary safe for timeline display."
+        },
+        "reasonCode": {
+          "type": "string",
+          "description": "Machine-readable explanation for why the change happened."
+        },
+        "dataPointer": {
+          "type": "string",
+          "description": "Optional JSON Pointer or equivalent row discriminator for precise targeting in repeated structures."
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        }
+      }
+    },
+    "IdentityAttestation": {
+      "type": "object",
+      "required": ["provider", "credentialType"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Provider or issuer identifier, such as idme, login.gov, an internal proofing service, or a DID issuer."
+        },
+        "adapter": {
+          "type": "string",
+          "description": "Implementation adapter/interface identifier used to normalize a provider-specific identity flow into the canonical ledger shape."
+        },
+        "subjectRef": {
+          "type": "string",
+          "description": "Stable pseudonymous subject or continuity identifier bound to this attestation without requiring disclosure of a real-world identity in the ledger itself."
+        },
+        "did": {
+          "$ref": "#/$defs/DidString"
+        },
+        "verificationMethod": {
+          "type": "string",
+          "description": "DID URL, key identifier, or equivalent verification-method reference used to validate the attestation."
+        },
+        "credentialType": {
+          "type": "string",
+          "enum": ["oidc-token", "verifiable-credential", "proof-of-personhood", "delegation-assertion", "provider-assertion", "other"],
+          "description": "High-level credential or attestation category captured by the event."
+        },
+        "credentialRef": {
+          "type": "string",
+          "description": "Reference to an encrypted token, credential, presentation, or provider-response envelope rather than the raw secret itself."
+        },
+        "personhoodCheck": {
+          "type": "string",
+          "enum": ["passed", "failed", "inconclusive", "not-performed"],
+          "description": "Outcome of proof-of-personhood, liveness, or uniqueness checks when applicable."
+        },
+        "subjectBinding": {
+          "type": "string",
+          "enum": ["respondent", "subject", "delegate", "other", "unknown"],
+          "description": "Which party in the workflow the attestation is about."
+        },
+        "assuranceLevel": {
+          "type": "string",
+          "description": "Assurance tier or policy profile satisfied by the attestation."
+        },
+        "privacyTier": {
+          "$ref": "#/$defs/PrivacyTier"
+        },
+        "selectiveDisclosureProfile": {
+          "type": "string",
+          "description": "Named policy profile controlling what portions of the attestation may be revealed in support, review, export, or dispute contexts."
+        },
+        "evidenceRef": {
+          "type": "string",
+          "description": "Reference to encrypted reveal material, redacted export evidence, or provider-response evidence."
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        }
+      }
+    },
+    "PrivacyTier": {
+      "type": "string",
+      "enum": ["anonymous", "pseudonymous", "identified", "public"],
+      "description": "Disclosure tier describing how linkable or revealed the subject identity is for the actor or attestation at this event boundary."
+    },
+    "ValidationSnapshot": {
+      "type": "object",
+      "required": ["errors", "warnings", "infos"],
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of error-severity validation findings at the event boundary."
+        },
+        "warnings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of warning-severity validation findings at the event boundary."
+        },
+        "infos": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of info-severity validation findings at the event boundary."
+        },
+        "results": {
+          "type": "array",
+          "description": "Optional detailed ValidationResult snapshot captured alongside the summary counts.",
+          "items": {
+            "$ref": "https://formspec.org/schemas/validationResult/1.0"
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        }
+      }
+    },
+    "DidString": {
+      "type": "string",
+      "pattern": "^did:[A-Za-z0-9._:%-]+:.+$",
+      "description": "Decentralized identifier string in DID syntax."
+    },
+    "HashString": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:+-]+:.+$",
+      "description": "Algorithm-prefixed digest or integrity token, such as 'sha256:...'."
+    },
+    "Extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^x-"
+      },
+      "additionalProperties": true,
+      "description": "Implementation-specific extension data. Keys must be namespaced with an 'x-' prefix."
+    }
+  }
+}
