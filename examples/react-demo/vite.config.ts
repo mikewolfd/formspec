@@ -6,7 +6,10 @@ import path from 'path';
 const repoRoot = path.resolve(__dirname, '../..');
 const pkg = (name: string) => path.resolve(repoRoot, 'packages', name, 'src');
 
+const basePath = process.env.FORMSPEC_BASE_PATH || '/';
+
 export default defineConfig({
+    base: basePath,
     plugins: [react(), tailwindcss()],
     resolve: {
         alias: [
