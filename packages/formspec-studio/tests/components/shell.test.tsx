@@ -53,6 +53,15 @@ describe('Shell', () => {
     expect(screen.getByTestId('workspace-Editor')).toHaveAttribute('data-workspace', 'Editor');
   });
 
+  it('exposes the active workspace as a tabpanel linked to the selected tab', () => {
+    renderShell();
+    const workspace = screen.getByTestId('workspace-Editor');
+
+    expect(workspace).toHaveAttribute('role', 'tabpanel');
+    expect(workspace).toHaveAttribute('id', 'studio-panel-editor');
+    expect(workspace).toHaveAttribute('aria-labelledby', 'studio-tab-editor');
+  });
+
   it('clicking a tab switches workspace', async () => {
     renderShell();
     await act(async () => {
@@ -318,5 +327,29 @@ describe('Shell', () => {
     // diagnostic text. The class must be replaced with at least text-[11px].
     expect(statusBar.className).not.toMatch(/text-\[9px\]/);
     expect(statusBar.className).not.toMatch(/text-\[10px\]/);
+  });
+
+  it('renders the compact blueprint overlay as a modal dialog with a labelled close action', async () => {
+    renderShell(seededDefinition, 768);
+    fireEvent(window, new Event('resize'));
+
+    await act(async () => {
+      screen.getByRole('button', { name: /toggle blueprint menu/i }).click();
+    });
+
+    expect(screen.getByRole('dialog', { name: /blueprint/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /close blueprint drawer/i })).toBeInTheDocument();
+  });
+
+  it('renders compact item properties as a modal dialog when a field is selected', async () => {
+    renderShell(seededDefinition, 768);
+    fireEvent(window, new Event('resize'));
+
+    await act(async () => {
+      screen.getByTestId('field-name').click();
+    });
+
+    expect(screen.getByRole('dialog', { name: /name/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /close properties panel/i })).toBeInTheDocument();
   });
 });

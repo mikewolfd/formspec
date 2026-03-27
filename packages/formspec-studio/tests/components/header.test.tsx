@@ -101,4 +101,16 @@ describe('Header', () => {
     expect(onNew).toHaveBeenCalledTimes(1);
     expect(onExport).toHaveBeenCalledTimes(1);
   });
+
+  it('links each workspace tab to a tabpanel and only keeps the active tab in the tab order', () => {
+    renderHeader();
+
+    const editorTab = screen.getByRole('tab', { name: 'Editor' });
+    const logicTab = screen.getByRole('tab', { name: 'Logic' });
+
+    expect(editorTab).toHaveAttribute('id', 'studio-tab-editor');
+    expect(editorTab).toHaveAttribute('aria-controls', 'studio-panel-editor');
+    expect(editorTab).toHaveAttribute('tabindex', '0');
+    expect(logicTab).toHaveAttribute('tabindex', '-1');
+  });
 });
