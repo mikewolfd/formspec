@@ -21,9 +21,9 @@ describe('Studio theme token usage', () => {
 
   it('defines every referenced text color token in the studio theme', () => {
     const indexCss = readStudioFile('src/index.css');
-    const displayBlock = readStudioFile('src/workspaces/editor/DisplayBlock.tsx');
+    const itemRow = readStudioFile('src/workspaces/editor/ItemRow.tsx');
 
-    expect(displayBlock).toContain('text-foreground');
-    expect(indexCss).toContain('--color-foreground:');
+    expect(itemRow).toContain('text-ink');
+    expect(indexCss).toContain('--color-ink:');
   });
 });

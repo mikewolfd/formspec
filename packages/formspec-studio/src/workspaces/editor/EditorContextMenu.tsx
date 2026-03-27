@@ -1,5 +1,5 @@
 /** @filedesc Right-click context menu for canvas items with duplicate, delete, move, wrap, and AI actions. */
-import type { ContextMenuItem } from './canvas-operations';
+import type { ContextMenuItem } from '../../components/ui/context-menu-utils';
 
 interface EditorContextMenuProps {
   itemPath?: string;

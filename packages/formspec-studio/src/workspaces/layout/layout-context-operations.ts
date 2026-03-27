@@ -78,21 +78,25 @@ export function executeLayoutAction({
     case 'wrapInStack':
     case 'wrapInGrid':
     case 'wrapInPanel': {
-      const componentMap: Record<string, 'Card' | 'Stack' | 'Grid' | 'Panel'> = {
+      const componentMap: Record<string, string> = {
         wrapInCard: 'Card',
         wrapInStack: 'Stack',
         wrapInGrid: 'Grid',
         wrapInPanel: 'Panel',
       };
-      if (ref.bind) {
-        project.wrapInLayoutComponent(ref.bind, componentMap[action]);
-      } else if (ref.nodeId) {
-        // Wrap a layout node — dispatch raw command
+      const component = componentMap[action];
+      // wrapInLayoutComponent only accepts Card/Stack/Collapsible; Grid/Panel
+      // go through the raw dispatch path.
+      const supportedByHelper = component === 'Card' || component === 'Stack' || component === 'Collapsible';
+      if (ref.bind && supportedByHelper) {
+        project.wrapInLayoutComponent(ref.bind, component as 'Card' | 'Stack' | 'Collapsible');
+      } else {
+        // Raw dispatch for Grid, Panel, or when wrapping a layout nodeId
         (project as any).core.dispatch({
           type: 'component.wrapNode',
           payload: {
-            node: { nodeId: ref.nodeId },
-            wrapper: { component: componentMap[action] },
+            node: ref.bind ? { bind: ref.bind } : { nodeId: ref.nodeId },
+            wrapper: { component },
           },
         });
       }

@@ -11,7 +11,7 @@ import { ItemRow } from './ItemRow';
 import { GroupNode } from './GroupNode';
 import { EditorDndProvider } from './EditorDndProvider';
 import { SortableItemWrapper } from './dnd/SortableItemWrapper';
-import { clampContextMenuPosition, type ContextMenuState, type ContextMenuItem } from './canvas-operations';
+import { clampContextMenuPosition, type ContextMenuState, type ContextMenuItem } from '../../components/ui/context-menu-utils';
 
 import type { FormItem, FormBind } from '@formspec-org/types';
 

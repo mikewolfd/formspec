@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
-import { ItemProperties } from '../../../src/workspaces/editor/ItemProperties';
+import { EditorPropertiesPanel } from '../../../src/workspaces/editor/properties/EditorPropertiesPanel';
 
 const testDef = {
   $formspec: '1.0',
@@ -20,7 +20,7 @@ function renderDefinitionProperties() {
     ...render(
       <ProjectProvider project={project}>
         <SelectionProvider>
-          <ItemProperties />
+          <EditorPropertiesPanel />
         </SelectionProvider>
       </ProjectProvider>
     ),

@@ -6,7 +6,7 @@ import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
 import { DataTab } from '../../src/workspaces/data/DataTab';
-import { DisplayBlock } from '../../src/workspaces/editor/DisplayBlock';
+import { ItemRow } from '../../src/workspaces/editor/ItemRow';
 
 const cssPath = resolve(process.cwd(), 'src/index.css');
 const css = readFileSync(cssPath, 'utf8');
@@ -21,21 +21,19 @@ const dataDef = {
 };
 
 describe('Studio theme tokens', () => {
-  it('defines a foreground token when components use text-foreground utilities', () => {
+  it('defines an ink token when components use text-ink utilities', () => {
     render(
-      <DisplayBlock
+      <ItemRow
         itemKey="notice"
-        itemPath="notice"
-        registerTarget={() => {}}
+        itemType="display"
         label="Important Notice"
+        binds={{}}
         depth={0}
-        selected={false}
-        onSelect={() => {}}
       />
     );
 
-    expect(screen.getByText('Important Notice')).toHaveClass('text-foreground');
-    expect(css).toMatch(/--color-foreground\s*:/);
+    expect(screen.getByText('Important Notice')).toHaveClass('text-ink');
+    expect(css).toMatch(/--color-ink\s*:/);
   });
 
   it('keeps the Data workspace on the light shell token palette instead of neutral dark-theme borders', () => {

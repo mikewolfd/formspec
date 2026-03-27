@@ -4,7 +4,7 @@ import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider, useSelection } from '../../src/state/useSelection';
 import { LogicTab } from '../../src/workspaces/logic/LogicTab';
-import { ItemProperties } from '../../src/workspaces/editor/ItemProperties';
+import { EditorPropertiesPanel } from '../../src/workspaces/editor/properties/EditorPropertiesPanel';
 
 const testDef = {
   $formspec: '1.0', url: 'urn:test', version: '1.0.0',
@@ -125,7 +125,7 @@ describe('Behavior Flow Integration', () => {
 
   describe('Properties Panel - Behavior Rules', () => {
     it('shows "Add behavior rule" button and allows adding rules', async () => {
-      renderApp(<ItemProperties />);
+      renderApp(<EditorPropertiesPanel />);
       
       await act(async () => {
         screen.getByTestId('select-age').click();
@@ -154,7 +154,7 @@ describe('Behavior Flow Integration', () => {
     });
 
     it('allows removing a behavior rule', async () => {
-      renderApp(<ItemProperties />);
+      renderApp(<EditorPropertiesPanel />);
       
       await act(async () => {
         screen.getByTestId('select-name').click();
@@ -183,7 +183,7 @@ describe('Behavior Flow Integration', () => {
 
   describe('Pre-population Flow', () => {
     it('allows adding pre-population from the behaviors menu', async () => {
-      renderApp(<ItemProperties />);
+      renderApp(<EditorPropertiesPanel />);
       
       await act(async () => {
         screen.getByTestId('select-age').click();
@@ -216,7 +216,7 @@ describe('Behavior Flow Integration', () => {
       } as any } });
       updateItemSpy = vi.spyOn(project, 'updateItem');
       
-      renderApp(<ItemProperties />);
+      renderApp(<EditorPropertiesPanel />);
       
       await act(async () => {
         screen.getByTestId('select-age').click();

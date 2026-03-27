@@ -4,7 +4,7 @@ import { useDefinition } from '../../state/useDefinition';
 import { useComponent } from '../../state/useComponent';
 import { useProject } from '../../state/useProject';
 import { useSelection } from '../../state/useSelection';
-import { usePageStructure } from '../pages/usePageStructure';
+import { usePageStructure } from './usePageStructure';
 import { buildDefLookup, buildBindKeyMap } from '../../lib/field-helpers';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
 import { ModeSelector } from './ModeSelector';
@@ -17,7 +17,7 @@ import {
   executeLayoutAction,
   type LayoutContextMenuState,
 } from './layout-context-operations';
-import { clampContextMenuPosition } from '../editor/canvas-operations';
+import { clampContextMenuPosition } from '../../components/ui/context-menu-utils';
 
 interface CompNode {
   component: string;
