@@ -7,7 +7,8 @@ import { initFormspecEngine, createFormEngine } from '@formspec-org/engine';
 import type { LayoutNode } from '@formspec-org/layout';
 import { FormspecNode } from '../src/node-renderer';
 import { FormspecProvider, useFormspecContext } from '../src/context';
-import { FormspecForm, planContainsWizard } from '../src/renderer';
+import { FormspecForm } from '../src/renderer';
+import { planContains } from '@formspec-org/layout';
 import type { DisplayComponentProps, ComponentMap } from '../src/component-map';
 
 /** Local copy of planContainsWizard for test isolation — mirrors what renderer.tsx exports. */
@@ -608,11 +609,11 @@ describe('Item 31: FormspecForm does not render second submit when Wizard presen
         expect(container.querySelector('.formspec-submit')).toBeTruthy();
     });
 
-    it('planContainsWizard detects Wizard in tree', () => {
-        expect(planContainsWizard(wizardLayoutNode)).toBe(true);
+    it('planContains detects Wizard in tree', () => {
+        expect(planContains(wizardLayoutNode, 'Wizard')).toBe(true);
     });
 
-    it('planContainsWizard returns false for tree without Wizard', () => {
+    it('planContains returns false for tree without Wizard', () => {
         const plainNode: LayoutNode = {
             id: 'r', component: 'Stack', category: 'layout' as const,
             props: {}, cssClasses: [],
@@ -620,7 +621,7 @@ describe('Item 31: FormspecForm does not render second submit when Wizard presen
                 { id: 'c', component: 'Page', category: 'layout' as const, props: {}, cssClasses: [], children: [] },
             ],
         };
-        expect(planContainsWizard(plainNode)).toBe(false);
+        expect(planContains(plainNode, 'Wizard')).toBe(false);
     });
 
     it('FormspecFormInner does not render .formspec-submit when Wizard is in the layout', () => {

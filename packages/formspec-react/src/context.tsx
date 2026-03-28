@@ -5,7 +5,7 @@ import type { ReadonlyEngineSignal } from '@formspec-org/engine';
 import type { IFormEngine } from '@formspec-org/engine';
 import { createFormEngine } from '@formspec-org/engine';
 import type { LayoutNode, PlanContext } from '@formspec-org/layout';
-import { planDefinitionFallback, planComponentTree } from '@formspec-org/layout';
+import { planDefinitionFallback, planComponentTree, ensureSubmitButton } from '@formspec-org/layout';
 import type { ComponentMap } from './component-map';
 
 export interface SubmitResult {
@@ -27,6 +27,8 @@ export interface FormspecContextValue {
     touchedVersion: ReadonlyEngineSignal<number>;
     /** Check if a field has been touched. Read touchedVersion.value first for reactivity. */
     isTouched: (path: string) => boolean;
+    /** Registry entries for extension resolution. */
+    registryEntries: Map<string, any>;
 }
 
 const FormspecContext = createContext<FormspecContextValue | null>(null);
@@ -80,6 +82,20 @@ export function FormspecProvider({
         return eng;
     }, [externalEngine, definition, registryEntries, runtimeContext, initialData]);
 
+    // Build registry entry map for extension resolution
+    const registryMap = useMemo(() => {
+        const map = new Map<string, any>();
+        if (registryEntries) {
+            for (const doc of (Array.isArray(registryEntries) ? registryEntries : [registryEntries])) {
+                if (!doc?.entries) continue;
+                for (const entry of doc.entries) {
+                    if (entry.name) map.set(entry.name, entry);
+                }
+            }
+        }
+        return map;
+    }, [registryEntries]);
+
     // Responsive breakpoint detection — match component document breakpoints via matchMedia
     const [activeBreakpoint, setActiveBreakpoint] = useState<string | null>(() => {
         if (typeof window === 'undefined' || !componentDocument?.breakpoints) return null;
@@ -122,20 +138,29 @@ export function FormspecProvider({
             findItem: (key: string) => findItemByKey(items, key),
         };
 
+        let root: LayoutNode;
         if (componentDocument?.tree) {
-            return planComponentTree(componentDocument.tree, planCtx);
+            root = planComponentTree(componentDocument.tree, planCtx);
+            // Ensure formspec-container is on the root for font/color inheritance
+            if (!root.cssClasses.includes('formspec-container')) {
+                root.cssClasses = ['formspec-container', ...root.cssClasses];
+            }
+        } else {
+            // planDefinitionFallback returns an array — wrap in a root Stack node
+            const nodes = planDefinitionFallback(items, planCtx);
+            root = {
+                id: 'root',
+                component: 'Stack',
+                category: 'layout' as const,
+                props: {},
+                cssClasses: ['formspec-container'],
+                children: nodes,
+            };
         }
-        // planDefinitionFallback returns an array — wrap in a root Stack node
-        const nodes = planDefinitionFallback(items, planCtx);
-        return {
-            id: 'root',
-            component: 'Stack',
-            category: 'layout' as const,
-            props: {},
-            cssClasses: ['formspec-container'],
-            children: nodes,
-        };
-    }, [engine, componentDocument, themeDocument, activeBreakpoint]);
+
+        if (onSubmit) ensureSubmitButton(root);
+        return root;
+    }, [engine, componentDocument, themeDocument, activeBreakpoint, onSubmit]);
 
     // Touched tracking — stable across re-renders
     const touchedFieldsRef = useRef(new Set<string>());
@@ -178,8 +203,8 @@ export function FormspecProvider({
     }, [engine, externalEngine]);
 
     const value = useMemo<FormspecContextValue>(
-        () => ({ engine, layoutPlan, components, onSubmit, touchField, touchAllFields, touchedVersion: touchedVersionSignal, isTouched }),
-        [engine, layoutPlan, components, onSubmit, touchField, touchAllFields, touchedVersionSignal, isTouched],
+        () => ({ engine, layoutPlan, components, onSubmit, touchField, touchAllFields, touchedVersion: touchedVersionSignal, isTouched, registryEntries: registryMap }),
+        [engine, layoutPlan, components, onSubmit, touchField, touchAllFields, touchedVersionSignal, isTouched, registryMap],
     );
 
     return (

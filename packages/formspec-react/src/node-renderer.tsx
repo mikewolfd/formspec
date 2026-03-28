@@ -5,6 +5,7 @@ import type { LayoutNode } from '@formspec-org/layout';
 import { useFormspecContext } from './context';
 import { useSignal } from './use-signal';
 import { useField } from './use-field';
+import { useForm } from './use-form';
 import { useWhen } from './use-when';
 import { useRepeatCount } from './use-repeat-count';
 import type { FieldComponentProps, LayoutComponentProps } from './component-map';
@@ -92,8 +93,40 @@ export function FormspecNode({ node }: { node: LayoutNode }) {
         return <DisplayNode node={node} />;
     }
 
+    // DataTable is classified as 'interactive' by the planner but renders
+    // through DisplayNode which contains the editable table implementation.
+    if (node.component === 'DataTable') {
+        return <DisplayNode node={node} />;
+    }
+
+    if (node.component === 'SubmitButton') {
+        return <SubmitButtonNode node={node} />;
+    }
+
     // container, interactive, special, and layout all route through LayoutNodeRenderer
     return <LayoutNodeRenderer node={node} />;
+}
+
+/** Renders a SubmitButton plan node — dispatches onSubmit from context. */
+function SubmitButtonNode({ node }: { node: LayoutNode }) {
+    const { onSubmit } = useFormspecContext();
+    const form = useForm();
+    const label = (node.props?.label as string) || 'Submit';
+
+    const handleClick = useCallback(() => {
+        if (!onSubmit) return;
+        onSubmit(form.submit({ mode: 'submit' }));
+    }, [form, onSubmit]);
+
+    return (
+        <button
+            type="submit"
+            className={node.cssClasses?.join(' ') || 'formspec-submit'}
+            onClick={handleClick}
+        >
+            {label}
+        </button>
+    );
 }
 
 /** Evaluates a `when` FEL expression and conditionally renders the node. */
@@ -213,6 +246,7 @@ function DisplayNode({ node }: { node: LayoutNode }) {
         case 'Heading': {
             const level = (node.props?.level as number) || 2;
             const Tag = `h${Math.min(6, Math.max(1, level))}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+            // Spec: Heading MUST NOT accept a bind property — purely presentational
             return <Tag className={cssClass || 'formspec-heading'} style={style}>{text}</Tag>;
         }
 
@@ -221,20 +255,25 @@ function DisplayNode({ node }: { node: LayoutNode }) {
 
         case 'Alert': {
             const severity = (node.props?.severity as string) || 'info';
-            const alertRole = severity === 'error' ? 'alert' : 'status';
+            // Spec: role="alert" for error AND warning, role="status" for info/success
+            const alertRole = severity === 'error' || severity === 'warning' ? 'alert' : 'status';
+            const dismissible = node.props?.dismissible === true;
+            // Spec: Alert MUST NOT accept a bind property
             return (
-                <div
-                    role={alertRole}
-                    className={`formspec-alert formspec-alert--${severity}${cssClass ? ' ' + cssClass : ''}`}
+                <DismissibleAlert
+                    severity={severity}
+                    alertRole={alertRole}
+                    dismissible={dismissible}
+                    text={text}
+                    cssClass={cssClass}
                     style={style}
-                >
-                    {text}
-                </div>
+                />
             );
         }
 
         case 'Badge': {
             const variant = (node.props?.variant as string) || 'default';
+            // Spec: Badge MUST NOT accept a bind property
             return (
                 <span
                     className={`formspec-badge formspec-badge--${variant}${cssClass ? ' ' + cssClass : ''}`}
@@ -256,11 +295,24 @@ function DisplayNode({ node }: { node: LayoutNode }) {
         }
 
         case 'ProgressBar': {
-            const value = (node.props?.value as number) ?? 0;
+            const bindPath = node.props?.bind as string | undefined;
             const max = (node.props?.max as number) ?? 100;
             const showPercent = node.props?.showPercent === true;
-            const pct = Math.round((value / max) * 100);
             const progressLabel = (node.props?.label as string) || 'Progress';
+            if (bindPath) {
+                return (
+                    <BoundProgressBar
+                        bind={bindPath}
+                        max={max}
+                        showPercent={showPercent}
+                        progressLabel={progressLabel}
+                        cssClass={cssClass}
+                        style={style}
+                    />
+                );
+            }
+            const value = (node.props?.value as number) ?? 0;
+            const pct = Math.round((value / max) * 100);
             return (
                 <div className={`formspec-progress-bar${cssClass ? ' ' + cssClass : ''}`} style={style}>
                     <progress value={value} max={max} aria-label={progressLabel} />
@@ -287,7 +339,8 @@ function DisplayNode({ node }: { node: LayoutNode }) {
         case 'Text':
         default: {
             const format = node.props?.format as string | undefined;
-            if (format === 'markdown') {
+            const bindPath = node.props?.bind as string | undefined;
+            if (format === 'markdown' && !bindPath) {
                 return (
                     <p
                         className={cssClass}
@@ -296,7 +349,11 @@ function DisplayNode({ node }: { node: LayoutNode }) {
                     />
                 );
             }
-            return <p className={cssClass} style={style}>{text}</p>;
+            return (
+                <p className={cssClass} style={style}>
+                    {bindPath ? <BoundText bind={bindPath} /> : text}
+                </p>
+            );
         }
     }
 }
@@ -324,11 +381,93 @@ function SummaryDisplay({
 
 const NO_VALUE = createSignal(null);
 
+/** Subscribes to a bind signal for reactive display node text. */
+function BoundText({ bind }: { bind: string }) {
+    const { engine } = useFormspecContext();
+    const sig = engine.signals[bind] ?? NO_VALUE;
+    const rawValue = useSignal(sig);
+    return <>{rawValue != null ? String(rawValue) : ''}</>;
+}
+
+/** ProgressBar that subscribes to a bind signal for reactive value updates. */
+function BoundProgressBar({ bind, max, showPercent, progressLabel, cssClass, style }: {
+    bind: string;
+    max: number;
+    showPercent: boolean;
+    progressLabel: string;
+    cssClass?: string;
+    style?: React.CSSProperties;
+}) {
+    const { engine } = useFormspecContext();
+    const sig = engine.signals[bind] ?? NO_VALUE;
+    const rawValue = useSignal(sig);
+    const value = typeof rawValue === 'number' ? rawValue : 0;
+    const pct = Math.round((value / max) * 100);
+    return (
+        <div className={`formspec-progress-bar${cssClass ? ' ' + cssClass : ''}`} style={style}>
+            <progress value={value} max={max} aria-label={progressLabel} />
+            {showPercent && (
+                <span className="formspec-progress-percent">{pct}%</span>
+            )}
+        </div>
+    );
+}
+
+/** Dismissible alert component — needs useState for dismissed state. */
+function DismissibleAlert({ severity, alertRole, dismissible, text, cssClass, style }: {
+    severity: string;
+    alertRole: string;
+    dismissible: boolean;
+    text: string;
+    cssClass?: string;
+    style?: React.CSSProperties;
+}) {
+    const [dismissed, setDismissed] = useState(false);
+    if (dismissed) return null;
+    return (
+        <div
+            role={alertRole}
+            className={`formspec-alert formspec-alert--${severity}${cssClass ? ' ' + cssClass : ''}`}
+            style={style}
+        >
+            {text}
+            {dismissible && (
+                <button
+                    type="button"
+                    className="formspec-alert-dismiss"
+                    aria-label="Dismiss"
+                    onClick={() => setDismissed(true)}
+                >
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            )}
+        </div>
+    );
+}
+
+/** Format a money value ({ amount, currency }) using Intl.NumberFormat. */
+function formatMoney(value: any, locale = 'en-US'): string {
+    if (value == null) return '\u2014';
+    if (typeof value === 'object' && 'amount' in value) {
+        try {
+            return new Intl.NumberFormat(locale, {
+                style: 'currency',
+                currency: value.currency || 'USD',
+            }).format(Number(value.amount));
+        } catch { return String(value.amount); }
+    }
+    return String(value);
+}
+
 /** A single summary row — subscribes to its own field signal for targeted re-renders. */
 function SummaryItem({ label, bind }: { label: string; bind?: string }) {
     const { engine } = useFormspecContext();
     const rawValue = useSignal(bind ? (engine.signals[bind] ?? NO_VALUE) : NO_VALUE);
-    const displayValue = rawValue != null ? String(rawValue) : '\u2014';
+    const displayValue = rawValue != null
+        ? (typeof rawValue === 'object' && rawValue !== null && 'amount' in (rawValue as object)
+            ? formatMoney(rawValue)
+            : String(rawValue))
+        : '\u2014';
 
     return (
         <>
@@ -338,12 +477,104 @@ function SummaryItem({ label, bind }: { label: string; bind?: string }) {
     );
 }
 
-/** A single DataTable cell — subscribes to its own signal for targeted re-renders. */
-function DataTableCell({ signalPath }: { signalPath: string }) {
+/** An editable DataTable cell — renders input or select based on column config. */
+function DataTableCell({ signalPath, column }: { signalPath: string; column: { header: string; bind: string; type?: string; choices?: Array<{ value: string; label: string }>; editable?: boolean; currency?: string } }) {
     const { engine } = useFormspecContext();
     const rawValue = useSignal(engine.signals[signalPath] ?? NO_VALUE);
-    const displayValue = rawValue != null ? String(rawValue) : '';
-    return <td>{displayValue}</td>;
+
+    const isEditable = column.editable !== false;
+
+    if (!isEditable) {
+        // Read-only display with money formatting
+        let displayValue = rawValue != null ? String(rawValue) : '';
+        if (column.type === 'money' && rawValue != null) {
+            try {
+                displayValue = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: column.currency || 'USD',
+                }).format(Number(rawValue));
+            } catch { /* fall through to string */ }
+        } else if (column.type === 'choice' && column.choices) {
+            const match = column.choices.find(c => c.value === rawValue);
+            if (match) displayValue = match.label;
+        }
+        return <td>{displayValue}</td>;
+    }
+
+    // Editable cells — all get aria-label from column header
+    if (column.type === 'boolean') {
+        return (
+            <td>
+                <input
+                    className="formspec-datatable-input"
+                    type="checkbox"
+                    checked={!!rawValue}
+                    aria-label={column.header}
+                    onChange={(e) => engine.setValue(signalPath, e.target.checked)}
+                />
+            </td>
+        );
+    }
+
+    if (column.type === 'choice' && column.choices) {
+        return (
+            <td>
+                <select
+                    className="formspec-datatable-input"
+                    value={rawValue ?? ''}
+                    aria-label={column.header}
+                    onChange={(e) => engine.setValue(signalPath, e.target.value)}
+                >
+                    <option value="">-</option>
+                    {column.choices.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                </select>
+            </td>
+        );
+    }
+
+    if (column.type === 'number' || column.type === 'integer' || column.type === 'decimal' || column.type === 'money') {
+        return (
+            <td>
+                <input
+                    className="formspec-datatable-input"
+                    type="number"
+                    step={column.type === 'integer' ? '1' : 'any'}
+                    value={rawValue ?? ''}
+                    aria-label={column.header}
+                    onChange={(e) => engine.setValue(signalPath, e.target.value === '' ? null : Number(e.target.value))}
+                />
+            </td>
+        );
+    }
+
+    if (column.type === 'date') {
+        return (
+            <td>
+                <input
+                    className="formspec-datatable-input"
+                    type="date"
+                    value={rawValue ?? ''}
+                    aria-label={column.header}
+                    onChange={(e) => engine.setValue(signalPath, e.target.value)}
+                />
+            </td>
+        );
+    }
+
+    // Default: text input
+    return (
+        <td>
+            <input
+                className="formspec-datatable-input"
+                type="text"
+                value={rawValue ?? ''}
+                aria-label={column.header}
+                onChange={(e) => engine.setValue(signalPath, e.target.value)}
+            />
+        </td>
+    );
 }
 
 /** Renders a DataTable display node as an HTML table. */
@@ -358,7 +589,7 @@ function DataTableDisplay({
 }) {
     const { engine } = useFormspecContext();
     const bindKey = node.props?.bind as string | undefined;
-    const columns = (node.props?.columns as Array<{ header: string; bind: string }>) || [];
+    const columns = (node.props?.columns as Array<{ header: string; bind: string; type?: string; choices?: Array<{ value: string; label: string }>; editable?: boolean; currency?: string }>) || [];
     const allowAdd = node.props?.allowAdd === true;
     const allowRemove = node.props?.allowRemove === true;
 
@@ -401,7 +632,7 @@ function DataTableDisplay({
                     {Array.from({ length: count }, (_, i) => (
                         <tr key={i}>
                             {columns.map((col, ci) => (
-                                <DataTableCell key={ci} signalPath={`${bindKey}[${i}].${col.bind}`} />
+                                <DataTableCell key={ci} signalPath={`${bindKey}[${i}].${col.bind}`} column={col} />
                             ))}
                             {allowRemove && (
                                 <td>

@@ -307,7 +307,7 @@ describe('Signature', () => {
         expect(btn!.textContent).toContain('Clear');
     });
 
-    it('applies node.props.height to the canvas', () => {
+    it('applies node.props.height to the canvas via CSS style', () => {
         const def = baseDef([{ key: 'sig', type: 'field', dataType: 'string', label: 'Signature' }]);
         const node: LayoutNode = {
             id: 'sig-field', component: 'Signature', category: 'field',
@@ -316,7 +316,8 @@ describe('Signature', () => {
         const container = renderField(def, node);
         const canvas = container.querySelector('canvas') as HTMLCanvasElement;
         expect(canvas).toBeTruthy();
-        expect(canvas.height).toBe(300);
+        // DPR-aware canvas uses CSS style for sizing instead of HTML attributes
+        expect(canvas.style.height).toBe('300px');
     });
 
     // Item 1 — WCAG 2.1.1 / 4.1.2: canvas accessibility

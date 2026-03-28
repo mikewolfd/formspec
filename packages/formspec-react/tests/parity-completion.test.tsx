@@ -175,17 +175,20 @@ describe('DataTable reactivity', () => {
         const root = createRoot(container);
         flushSync(() => { root.render(<Wrapper />); });
 
-        // Initial value should be rendered
+        // Initial value should be rendered (editable cells use <input>)
         const cells = container.querySelectorAll('td');
         expect(cells.length).toBeGreaterThanOrEqual(1);
-        expect(cells[0].textContent).toBe('Alice');
+        const input = cells[0].querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        expect(input.value).toBe('Alice');
 
         // Change the value — DataTable should reactively update via signal subscription
         engine.setValue('rows[0].name', 'Bob');
         flushSync(() => { triggerUpdate!(); });
 
         const updatedCells = container.querySelectorAll('td');
-        expect(updatedCells[0].textContent).toBe('Bob');
+        const updatedInput = updatedCells[0].querySelector('input') as HTMLInputElement;
+        expect(updatedInput.value).toBe('Bob');
     });
 });
 

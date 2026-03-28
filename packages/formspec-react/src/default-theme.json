@@ -1,0 +1,22 @@
+{
+    "tokens": {
+        "color.primary": "#2d6a7a",
+        "color.primaryForeground": "#ffffff",
+        "color.foreground": "#1a1f25",
+        "color.border": "#a0a4a8",
+        "color.card": "#ffffff",
+        "color.muted": "#636970",
+        "color.mutedForeground": "#6b7280",
+        "color.error": "#d93025",
+        "color.warning": "#e6a700",
+        "color.ring": "#2d6a7a",
+        "color.input": "#767a7e",
+        "color.surface": "#f8f9fa",
+        "spacing.sm": "0.5rem",
+        "spacing.md": "1rem",
+        "spacing.lg": "1.5rem",
+        "radius.sm": "0.5rem",
+        "radius.md": "0.75rem",
+        "font.family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    }
+}

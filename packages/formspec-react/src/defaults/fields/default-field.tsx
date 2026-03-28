@@ -1,6 +1,7 @@
 /** @filedesc Default field component — semantic HTML with ARIA, touch-gated errors, and CSS class structure. */
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import type { FieldComponentProps } from '../../component-map';
+import { useFormspecContext } from '../../context';
 
 /**
  * Default field renderer — works for any field type.
@@ -13,6 +14,26 @@ export function DefaultField({ field, node }: FieldComponentProps) {
     const isReadonly = field.readonly || isProtected;
     const showError = !!(field.error && field.touched);
     const themeClass = node.cssClasses?.join(' ') || '';
+
+    // Resolve registry extension attributes for the field
+    const { registryEntries } = useFormspecContext();
+    const extensionAttrs = useMemo(() => {
+        const extensions = node.fieldItem?.extensions as Record<string, boolean> | undefined;
+        if (!extensions || registryEntries.size === 0) return {};
+        const attrs: Record<string, any> = {};
+        for (const [extName, enabled] of Object.entries(extensions)) {
+            if (!enabled) continue;
+            const entry = registryEntries.get(extName);
+            if (!entry) continue;
+            if (entry.metadata?.inputMode) attrs.inputMode = entry.metadata.inputMode;
+            if (entry.metadata?.autocomplete) attrs.autoComplete = entry.metadata.autocomplete;
+            if (entry.constraints?.maxLength != null) attrs.maxLength = entry.constraints.maxLength;
+            if (entry.constraints?.pattern) attrs.pattern = entry.constraints.pattern;
+            if (entry.metadata?.placeholder) attrs.placeholder = entry.metadata.placeholder;
+            if (entry.metadata?.inputType) attrs.type = entry.metadata.inputType;
+        }
+        return attrs;
+    }, [node.fieldItem?.extensions, registryEntries]);
 
     const describedBy = [
         field.hint ? `${field.id}-hint` : '',
@@ -112,7 +133,7 @@ export function DefaultField({ field, node }: FieldComponentProps) {
                 <p id={`${field.id}-hint`} className="formspec-hint">{field.hint}</p>
             )}
 
-            {renderControl(field, node, describedBy, isProtected)}
+            {renderControl(field, node, describedBy, isProtected, extensionAttrs)}
 
             <p id={`${field.id}-error`} className="formspec-error" aria-live="polite">
                 {showError ? field.error : ''}
@@ -205,6 +226,7 @@ function renderControl(
     node: FieldComponentProps['node'],
     describedBy: string | undefined,
     isProtected = false,
+    extensionAttrs: Record<string, any> = {},
 ) {
     const { dataType, id, path, value } = field;
     const isReadonly = field.readonly || isProtected;
@@ -382,19 +404,23 @@ function renderControl(
                 <textarea
                     {...controlProps}
                     rows={maxLines}
-                    placeholder={placeholder}
+                    placeholder={extensionAttrs.placeholder || placeholder}
                     value={value ?? ''}
                     readOnly={isReadonly}
+                    maxLength={extensionAttrs.maxLength}
                     onChange={(e) => field.setValue(e.target.value)}
                 />
             ) : (
                 <input
                     {...controlProps}
-                    type="text"
+                    type={extensionAttrs.type || 'text'}
                     value={value ?? ''}
                     readOnly={isReadonly}
-                    placeholder={placeholder}
-                    inputMode={inputMode as React.HTMLAttributes<HTMLInputElement>['inputMode']}
+                    placeholder={extensionAttrs.placeholder || placeholder}
+                    inputMode={(extensionAttrs.inputMode || inputMode) as React.HTMLAttributes<HTMLInputElement>['inputMode']}
+                    maxLength={extensionAttrs.maxLength}
+                    pattern={extensionAttrs.pattern}
+                    autoComplete={extensionAttrs.autoComplete || autoComplete}
                     onChange={(e) => field.setValue(e.target.value)}
                 />
             );
@@ -571,7 +597,9 @@ function SliderControl({ field, node, common, isReadonly }: CommonInputProps) {
     const min = node.props?.min != null ? String(node.props.min) : undefined;
     const max = node.props?.max != null ? String(node.props.max) : undefined;
     const step = node.props?.step != null ? String(node.props.step) : undefined;
+    const ticks = node.props?.ticks as Array<{ value: number; label?: string }> | boolean | undefined;
     const displayValue = field.value != null ? String(field.value) : (min ?? '0');
+    const listId = ticks ? `${field.id}-ticks` : undefined;
 
     return (
         <div className="formspec-slider">
@@ -583,11 +611,19 @@ function SliderControl({ field, node, common, isReadonly }: CommonInputProps) {
                 min={min}
                 max={max}
                 step={step}
+                list={listId}
                 // Item 14: announce formatted value to screen readers
                 aria-valuetext={displayValue}
                 onChange={isReadonly ? undefined : (e) => field.setValue(Number(e.target.value))}
             />
             <span className="formspec-slider-value">{displayValue}</span>
+            {listId && (
+                <datalist id={listId}>
+                    {Array.isArray(ticks)
+                        ? ticks.map(t => <option key={t.value} value={t.value} label={t.label} />)
+                        : null /* boolean true = browser default ticks via step */}
+                </datalist>
+            )}
         </div>
     );
 }
@@ -677,6 +713,13 @@ function SignatureControl({ field, node }: { field: FieldComponentProps['field']
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
+        // DPR-aware canvas sizing — use setTransform (absolute) not scale (cumulative)
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
         ctx.strokeStyle = penColor;
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
@@ -743,13 +786,11 @@ function SignatureControl({ field, node }: { field: FieldComponentProps['field']
             <canvas
                 ref={canvasRef}
                 id={field.id}
-                width={400}
-                height={height}
                 // Item 1: WCAG 2.1.1 / 4.1.2 — canvas needs role, label, and keyboard focus
                 role="img"
                 aria-label={`Signature pad for ${field.label}`}
                 tabIndex={0}
-                style={{ border: '1px solid #ccc', touchAction: 'none', cursor: 'crosshair' }}
+                style={{ width: 400, height, border: '1px solid #ccc', touchAction: 'none', cursor: 'crosshair' }}
             />
             <button
                 type="button"
