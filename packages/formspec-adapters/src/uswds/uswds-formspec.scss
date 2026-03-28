@@ -51,10 +51,66 @@
 .formspec-grid .usa-form-group,
 .formspec-stack .usa-form-group { margin-top: 0; }
 
+// Bottom-align inputs across grid rows when labels wrap to different heights
+.formspec-grid .usa-form-group { flex: 1; display: flex; flex-direction: column; }
+.formspec-grid .usa-form-group > .usa-label { flex: 1; }
+
 // Reset fieldset/label/hint margins that USWDS applies
 .formspec-container .usa-fieldset { border: 0; padding: 0; margin: 0; }
+
+// USWDS applies margin-left: -1.25rem at >=64em to pull the error border
+// into the page margin. Inside grid cells there IS no margin — the negative
+// margin just overflows into the neighboring cell. Zero it out.
+.formspec-grid .usa-form-group--error {
+  margin-left: 0;
+}
+
+// Visually group checkbox/radio options with a left border so they're
+// clearly separated from standalone boolean checkboxes below.
+.formspec-container .usa-fieldset:has(.usa-checkbox, .usa-radio) {
+  border-left: 3px solid var(--formspec-color-border, #a9aeb1);
+  padding-left: 0.75rem;
+  margin-top: 0.25rem;
+}
+
 .formspec-container .usa-label { margin-top: 0; }
 .formspec-container .usa-hint { margin-top: 0; }
+
+// Standalone boolean checkboxes: text on left, native checkbox on right.
+// Bypasses USWDS's ::before/::after custom checkbox — uses the real input.
+.formspec-trailing-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.formspec-trailing-checkbox-label {
+  flex: 1;
+  cursor: pointer;
+  line-height: 1.4;
+  font: inherit;
+}
+
+// Prevent the required asterisk from orphaning to a new line.
+// The shared behavior inserts " *" with a regular space — replace it
+// with a non-breaking space via ::before so it sticks to the last word.
+.formspec-trailing-checkbox-label > .formspec-required {
+  font-size: 0;   // hide original " *" text
+}
+.formspec-trailing-checkbox-label > .formspec-required::before {
+  content: '\00a0*'; // non-breaking space + asterisk
+  font-size: 1rem;
+  color: var(--formspec-color-error, #b50909);
+}
+
+.formspec-trailing-checkbox > input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+  cursor: pointer;
+  accent-color: var(--formspec-color-primary, #005ea2);
+}
 
 // Scale step indicator to formspec wizard proportions
 .formspec-wizard .usa-step-indicator__heading { font-size: 1rem; }

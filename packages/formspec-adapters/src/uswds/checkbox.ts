@@ -15,7 +15,8 @@ export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
     const wrapper = el('div', { class: 'usa-checkbox' });
 
     const input = document.createElement('input') as HTMLInputElement;
-    input.className = 'usa-checkbox__input';
+    // No usa-checkbox__input class — that hides the native input via USWDS CSS.
+    // We show the native checkbox directly in our trailing layout.
     input.id = behavior.id;
     input.type = 'checkbox';
     input.name = behavior.fieldPath;
@@ -26,13 +27,17 @@ export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
     ].filter(Boolean).join(' ');
     input.setAttribute('aria-describedby', describedBy);
 
-    // USWDS checkbox: label follows input, always visible (label text IS the checkbox label)
-    const label = el('label', { class: 'usa-checkbox__label', for: behavior.id });
+    // Standalone boolean: label text on the left, checkbox on the right.
+    // We use a plain <label> instead of usa-checkbox__label to avoid USWDS's
+    // ::before/::after pseudo-element checkbox rendering — the native checkbox
+    // input is shown directly on the right via flex ordering.
+    const label = el('label', { class: 'formspec-trailing-checkbox-label', for: behavior.id });
     label.textContent = behavior.label;
     if (p.labelPosition === 'hidden') label.classList.add('usa-sr-only');
 
-    wrapper.appendChild(input);
+    wrapper.classList.add('formspec-trailing-checkbox');
     wrapper.appendChild(label);
+    wrapper.appendChild(input);
     root.appendChild(wrapper);
 
     let hint: HTMLElement | undefined;
