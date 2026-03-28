@@ -27,7 +27,7 @@ export function JsonDocumentsView() {
   const normalizedDef = normalizeDefinitionDoc(state.definition);
   const doc = {
     Definition: normalizedDef,
-    Component: normalizeComponentDoc(project.effectiveComponent, normalizedDef),
+    Component: normalizeComponentDoc(project.component, normalizedDef),
     Theme: normalizeThemeDoc(state.theme, state.definition),
     Mapping: state.mappings,
   }[active];

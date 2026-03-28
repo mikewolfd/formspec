@@ -1,6 +1,6 @@
-/** @filedesc Recursive component tree renderer for the Layout canvas — pages as sections, layout containers as wrappers. */
+/** @filedesc Recursive Layout canvas renderer for authored Page sections, layout containers, and bound nodes. */
 import type { DefLookupEntry } from '../../lib/field-helpers';
-import { PageSection } from './PageSection';
+import { LayoutPageSection } from './LayoutPageSection';
 import { LayoutContainer } from './LayoutContainer';
 import { FieldBlock } from './FieldBlock';
 import { DisplayBlock } from './DisplayBlock';
@@ -25,6 +25,10 @@ interface Item {
 export interface LayoutRenderContext {
   defLookup: Map<string, DefLookupEntry>;
   bindKeyMap: Map<string, string>;
+  selectedKey: string | null;
+  onSelect: (key: string, type: 'field' | 'group' | 'display' | 'layout') => void;
+  activePageId: string | null;
+  onSelectPage: (pageId: string) => void;
 }
 
 function resolveDefPath(
@@ -45,19 +49,21 @@ export function renderLayoutTree(
   const result: React.ReactNode[] = [];
 
   for (const node of nodes) {
-    // Page node — render as titled section
+    // Authored Page node — render as a titled section in the Layout workspace.
     if (node._layout && node.component === 'Page') {
       const children = node.children
         ? renderLayoutTree(node.children, ctx, defPathPrefix)
         : null;
       result.push(
-        <PageSection
+        <LayoutPageSection
           key={node.nodeId ?? node.title ?? 'page'}
           title={(node.title as string) || 'Untitled Page'}
           pageId={node.nodeId ?? 'page'}
+          active={ctx.activePageId === (node.nodeId ?? 'page')}
+          onSelect={ctx.onSelectPage}
         >
           {children}
-        </PageSection>,
+        </LayoutPageSection>,
       );
       continue;
     }
@@ -71,7 +77,10 @@ export function renderLayoutTree(
         <LayoutContainer
           key={`node:${node.nodeId}`}
           component={node.component}
+          nodeType="layout"
           nodeId={node.nodeId!}
+          selected={ctx.selectedKey === `__node:${node.nodeId!}`}
+          onSelect={() => ctx.onSelect(`__node:${node.nodeId!}`, 'layout')}
         >
           {children}
         </LayoutContainer>,
@@ -93,13 +102,17 @@ export function renderLayoutTree(
           ? renderLayoutTree(node.children, ctx, defPath)
           : null;
         result.push(
-          <LayoutContainer
-            key={defPath}
-            component={item.label || item.key}
-            nodeId={item.key}
-          >
-            {children}
-          </LayoutContainer>,
+        <LayoutContainer
+          key={defPath}
+          component={item.label || item.key}
+          nodeType="group"
+          bind={item.key}
+          bindPath={defPath}
+          selected={ctx.selectedKey === defPath}
+          onSelect={() => ctx.onSelect(defPath, 'group')}
+        >
+          {children}
+        </LayoutContainer>,
         );
         continue;
       }
@@ -108,8 +121,12 @@ export function renderLayoutTree(
         <FieldBlock
           key={defPath}
           itemKey={item.key}
+          bindPath={defPath}
+          selectionKey={defPath}
           label={item.label}
           dataType={item.dataType}
+          selected={ctx.selectedKey === defPath}
+          onSelect={(selectionKey) => ctx.onSelect(selectionKey, 'field')}
         />,
       );
       continue;
@@ -126,8 +143,11 @@ export function renderLayoutTree(
         <DisplayBlock
           key={defPath || node.nodeId}
           itemKey={node.nodeId}
+          selectionKey={defPath || node.nodeId}
           label={label}
           widgetHint={node.component !== 'Text' ? node.component : undefined}
+          selected={ctx.selectedKey === (defPath || node.nodeId)}
+          onSelect={(selectionKey) => ctx.onSelect(selectionKey, 'display')}
         />,
       );
     }

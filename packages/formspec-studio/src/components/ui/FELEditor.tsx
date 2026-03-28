@@ -343,10 +343,13 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
             onKeyDown={handleKeyDown}
             onBlur={() => {
               setTimeout(() => {
-                if (!autocomplete) onSave(draft);
-              }, 200);
+                setAutocomplete(null);
+                setAutocompleteKind(null);
+                onSave(draft);
+              }, 150);
             }}
-            className="w-full font-mono text-[11px] text-transparent caret-ink bg-subtle/30 border border-border/80 rounded-[4px] px-2 py-1.5 resize-none outline-none focus:border-accent/40 focus:bg-surface transition-all leading-relaxed relative z-10 block min-h-[28px]"
+            style={{ caretColor: 'var(--studio-color-ink)' }}
+            className="w-full font-mono text-[11px] text-transparent bg-subtle/30 border border-border/80 rounded-[4px] px-2 py-1.5 resize-none overflow-hidden outline-none focus:border-accent/40 focus:bg-surface transition-all leading-relaxed relative z-10 block min-h-[28px]"
             rows={1}
           />
         </div>

@@ -1,8 +1,9 @@
 import { render, screen, act, fireEvent } from '@testing-library/react';
+import { useEffect } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
-import { SelectionProvider } from '../../../src/state/useSelection';
+import { SelectionProvider, useSelection } from '../../../src/state/useSelection';
 import { EditorPropertiesPanel } from '../../../src/workspaces/editor/properties/EditorPropertiesPanel';
 
 const testDef = {
@@ -20,6 +21,30 @@ function renderDefinitionProperties() {
     ...render(
       <ProjectProvider project={project}>
         <SelectionProvider>
+          <EditorPropertiesPanel />
+        </SelectionProvider>
+      </ProjectProvider>
+    ),
+    project,
+  };
+}
+
+function renderSelectedProperties(definition: any, path: string, type: string) {
+  const project = createProject({ seed: { definition } });
+
+  function SelectOnMount() {
+    const { select } = useSelection();
+    useEffect(() => {
+      select(path, type);
+    }, [select]);
+    return null;
+  }
+
+  return {
+    ...render(
+      <ProjectProvider project={project}>
+        <SelectionProvider>
+          <SelectOnMount />
           <EditorPropertiesPanel />
         </SelectionProvider>
       </ProjectProvider>
@@ -72,5 +97,21 @@ describe('DefinitionProperties', () => {
 
     // State should have changed if the correct command was dispatched
     expect(project.definition.title).toBe('Updated Form Title');
+  });
+
+  it('shows the selected item path in the inspector header', () => {
+    renderSelectedProperties({
+      ...testDef,
+      items: [{
+        key: 'applicant',
+        type: 'group',
+        label: 'Applicant',
+        children: [
+          { key: 'fullName', type: 'field', dataType: 'string', label: 'Full Name' },
+        ],
+      }],
+    }, 'applicant.fullName', 'field');
+
+    expect(screen.getByTestId('properties-selection-path')).toHaveTextContent('applicant / fullName');
   });
 });

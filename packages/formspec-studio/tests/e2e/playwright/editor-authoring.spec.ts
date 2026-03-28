@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addFromPalette, importDefinition, waitForApp } from './helpers';
+import { addFromPalette, editorFieldRows, editorGroupRows, importDefinition, propertiesPanel, waitForApp } from './helpers';
 
 test.describe('Editor Authoring', () => {
   test.beforeEach(async ({ page }) => {
@@ -47,21 +47,21 @@ test.describe('Editor Authoring', () => {
     await addFromPalette(page, 'Text');
 
     // The newly added field should be auto-selected in the inspector
-    const fields = page.locator('[data-testid="workspace-Editor"] [data-testid^="field-"]');
-    // marital is inside pageOne group, new field is at root — find the last field
+    const fields = editorFieldRows(page);
+    // marital is inside pageOne group, new field is at root — find the last editor field row
     const allFields = await fields.all();
     const lastField = allFields[allFields.length - 1];
     const newFieldTestId = await lastField.getAttribute('data-testid');
     const newFieldKey = newFieldTestId?.replace('field-', '');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(properties.locator('input[type="text"]').first()).toHaveValue(newFieldKey || '');
   });
 
   test('adding a Single Choice field immediately focuses the key input for renaming', async ({ page }) => {
     await addFromPalette(page, 'Single Choice');
 
-    const keyInput = page.locator('[data-testid="properties"] input[type="text"]').first();
+    const keyInput = propertiesPanel(page).locator('input[type="text"]').first();
     await expect(keyInput).toBeFocused();
   });
 
@@ -73,7 +73,7 @@ test.describe('Editor Authoring', () => {
 
     await page.click('[data-testid="field-myField"]');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(properties.locator('input[type="text"]').first()).toHaveValue('myField');
     await expect(properties).toContainText('String');
   });
@@ -86,7 +86,7 @@ test.describe('Editor Authoring', () => {
 
     await page.click('[data-testid="field-oldName"]');
 
-    const keyInput = page.locator('[data-testid="properties"] input[type="text"]').first();
+    const keyInput = propertiesPanel(page).locator('input[type="text"]').first();
     await keyInput.fill('firstName');
     await page.click('[data-testid="workspace-Editor"]');
 
@@ -101,10 +101,9 @@ test.describe('Editor Authoring', () => {
     });
 
     await page.click('[data-testid="field-myField"]');
-    await page.locator('[data-testid="properties"]').getByRole('button', { name: 'Duplicate' }).click();
+    await propertiesPanel(page).getByRole('button', { name: 'Duplicate' }).click();
 
-    const canvas = page.locator('[data-testid="workspace-Editor"]');
-    const fieldBlocks = canvas.locator('[data-testid^="field-"]');
+    const fieldBlocks = editorFieldRows(page);
     await expect(fieldBlocks).toHaveCount(2);
   });
 
@@ -115,7 +114,7 @@ test.describe('Editor Authoring', () => {
     });
 
     await page.click('[data-testid="field-toDelete"]');
-    await page.locator('[data-testid="properties"]').getByRole('button', { name: 'Delete' }).click();
+    await propertiesPanel(page).getByRole('button', { name: 'Delete' }).click();
 
     await expect(page.locator('[data-testid="field-toDelete"]')).not.toBeVisible();
   });
@@ -151,14 +150,13 @@ test.describe('Editor Authoring', () => {
   test('add a group, then add another item with the group selected', async ({ page }) => {
     await addFromPalette(page, 'Group');
 
-    const canvas = page.locator('[data-testid="workspace-Editor"]');
-    const groupBlock = canvas.locator('[data-testid^="group-"]').first();
+    const groupBlock = editorGroupRows(page).first();
     await expect(groupBlock).toBeVisible();
 
     await groupBlock.click();
     await addFromPalette(page, 'Text');
 
-    await expect(canvas.locator('[data-testid^="group-"]')).toHaveCount(1);
-    await expect(canvas.locator('[data-testid^="field-"]')).toHaveCount(1);
+    await expect(editorGroupRows(page)).toHaveCount(1);
+    await expect(editorFieldRows(page)).toHaveCount(1);
   });
 });

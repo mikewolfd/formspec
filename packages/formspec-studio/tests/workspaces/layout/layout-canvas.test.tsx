@@ -1,11 +1,12 @@
-/** @filedesc Tests for the Layout workspace canvas — page sections, layout containers, mode selector. */
-import { render, screen, act } from '@testing-library/react';
+/** @filedesc Tests for the Layout workspace canvas — authored Page sections, layout containers, and mode selector. */
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { createProject, type Project } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
 import { ActiveGroupProvider } from '../../../src/state/useActiveGroup';
 import { LayoutCanvas } from '../../../src/workspaces/layout/LayoutCanvas';
+import { ComponentProperties } from '../../../src/workspaces/layout/properties/ComponentProperties';
 
 function renderLayout(project: Project) {
   return {
@@ -27,7 +28,7 @@ function makeProject(definition: any): Project {
 }
 
 describe('LayoutCanvas', () => {
-  it('renders Page nodes as titled sections', () => {
+  it('renders authored Page nodes as titled sections', () => {
     const project = makeProject({
       $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
       items: [
@@ -37,7 +38,7 @@ describe('LayoutCanvas', () => {
     project.addPage('Step 1');
 
     renderLayout(project);
-    // Page section has the title inside its titled header area
+    // The authored Page section exposes its title in the section header.
     const pageSection = screen.getByTestId(/^layout-page-/);
     expect(pageSection).toBeInTheDocument();
     expect(pageSection).toHaveTextContent('Step 1');
@@ -95,6 +96,32 @@ describe('LayoutCanvas', () => {
     expect(screen.getByText('Tabs')).toBeInTheDocument();
   });
 
+  it('adds a layout container from the header toolbar', () => {
+    const project = makeProject({
+      $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
+      items: [],
+    });
+
+    renderLayout(project);
+    fireEvent.click(screen.getByTestId('layout-add-card'));
+
+    expect(screen.getByText('Card')).toBeInTheDocument();
+  });
+
+  it('adds a new item from the layout palette', () => {
+    const project = makeProject({
+      $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
+      items: [],
+    });
+
+    renderLayout(project);
+    fireEvent.click(screen.getByTestId('layout-add-item'));
+    fireEvent.click(screen.getByRole('button', { name: /^Text Short text/i }));
+
+    expect(project.itemAt('text')?.type).toBe('field');
+    expect(screen.getByTestId('layout-field-text')).toBeInTheDocument();
+  });
+
   it('renders nested children inside layout containers', () => {
     const project = makeProject({
       $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
@@ -112,7 +139,7 @@ describe('LayoutCanvas', () => {
     expect(screen.getByText('Phone Number')).toBeInTheDocument();
   });
 
-  it('shows page navigation when in wizard mode', () => {
+  it('shows layout step navigation when in wizard mode', () => {
     const project = makeProject({
       $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
       items: [
@@ -123,7 +150,61 @@ describe('LayoutCanvas', () => {
     project.addPage('Details');
 
     renderLayout(project);
-    // PageNav should render page titles as navigation elements
+    // LayoutCanvas should expose wizard step navigation for authored Page nodes.
     expect(screen.getByTestId('page-nav')).toBeInTheDocument();
+  });
+
+  it('selects a field from the canvas and shows component properties', async () => {
+    const project = makeProject({
+      $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+      ],
+    });
+
+    render(
+      <ProjectProvider project={project}>
+        <SelectionProvider>
+          <ActiveGroupProvider>
+            <>
+              <LayoutCanvas />
+              <ComponentProperties />
+            </>
+          </ActiveGroupProvider>
+        </SelectionProvider>
+      </ProjectProvider>,
+    );
+
+    expect(screen.getByText(/select a component/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('layout-field-name'));
+
+    expect(screen.getByText('Component')).toBeInTheDocument();
+    expect(screen.getAllByText(/full name/i).length).toBeGreaterThan(1);
+  });
+
+  it('changes the visible page when selecting a different page in wizard mode', () => {
+    const project = makeProject({
+      $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
+      formPresentation: { pageMode: 'wizard' },
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+        { key: 'email', type: 'field', dataType: 'string', label: 'Email Address' },
+      ],
+    });
+    const introPageId = project.addPage('Intro').createdId!;
+    const detailsPageId = project.addPage('Details').createdId!;
+    project.placeOnPage('name', introPageId);
+    project.placeOnPage('email', detailsPageId);
+
+    renderLayout(project);
+
+    expect(screen.getByTestId(/^layout-page-/)).toHaveTextContent('Intro');
+    expect(screen.queryByText('Email Address')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /details/i }));
+
+    expect(screen.getByTestId(/^layout-page-/)).toHaveTextContent('Details');
+    expect(screen.getByTestId('layout-field-email')).toBeInTheDocument();
+    expect(screen.queryByText('Full Name')).not.toBeInTheDocument();
   });
 });

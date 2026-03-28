@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForApp, switchTab, importDefinition } from './helpers';
+import { waitForApp, switchTab, importDefinition, propertiesPanel } from './helpers';
 
 const LOGIC_DEFINITION = {
   $formspec: '1.0',
@@ -110,7 +110,8 @@ test.describe('Logic Workspace', () => {
     const workspace = page.locator('[data-testid="workspace-Logic"]');
     await workspace.getByText('income', { exact: true }).click();
 
-    const properties = page.locator('[data-testid="properties"]');
+    await switchTab(page, 'Editor');
+    const properties = propertiesPanel(page);
     await expect(properties.locator('input[type="text"]').first()).toHaveValue('income');
   });
 });
@@ -229,4 +230,3 @@ test.describe('Logic Workspace — FEL reference popup function click (#55)', ()
     expect(anyVisible).toBe(true);
   });
 });
-

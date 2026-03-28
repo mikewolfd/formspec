@@ -1,5 +1,5 @@
 /** @filedesc Tests for the Layout properties panel — Tier 2/3 only, no definition-tier properties. */
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { createProject, type Project } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../../src/state/ProjectContext';
@@ -147,5 +147,35 @@ describe('ComponentProperties', () => {
     await act(async () => { screen.getByText('Select').click(); });
     expect(screen.getByText(/email/i)).toBeInTheDocument();
     expect(screen.getByText(/accessibility/i)).toBeInTheDocument();
+  });
+
+  it('saves component when expressions through the layout inspector', async () => {
+    const { project } = renderProperties(testDef, 'name', 'field');
+    await act(async () => { screen.getByText('Select').click(); });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Always visible'));
+    });
+
+    const editor = screen.getByPlaceholderText('Always visible');
+    await act(async () => {
+      fireEvent.change(editor, { target: { value: '$name != ""', selectionStart: 11 } });
+      fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true });
+    });
+
+    expect((project.componentFor('name') as any)?.when).toBe('$name != ""');
+  });
+
+  it('saves accessibility overrides through the layout inspector', async () => {
+    const { project } = renderProperties(testDef, 'name', 'field');
+    await act(async () => { screen.getByText('Select').click(); });
+
+    const input = screen.getByLabelText('ARIA Label');
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Applicant full name' } });
+      fireEvent.blur(input);
+    });
+
+    expect((project.componentFor('name') as any)?.accessibility?.description).toBe('Applicant full name');
   });
 });

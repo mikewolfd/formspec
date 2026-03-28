@@ -6,6 +6,7 @@ import { Pill } from './ui/Pill';
 interface BlueprintProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
+  sections?: readonly string[];
 }
 
 interface SectionDef {
@@ -25,7 +26,7 @@ const SECTIONS: SectionDef[] = [
   { name: 'Structure', countFn: (s) => s.definition.items?.length ?? 0, help: 'Item tree defining fields, groups, and display elements' },
   {
     name: 'Component Tree',
-    countFn: null, // computed from effectiveComponent below
+    countFn: null, // computed from authored component below
     help: 'UI component hierarchy generated from the item tree',
   },
   { name: 'Theme', countFn: (s) => Object.keys(s.theme.tokens ?? {}).length, help: 'Visual tokens, selectors, and presentation defaults', link: { tab: 'Theme', subTab: 'tokens' } },
@@ -41,20 +42,25 @@ const SECTIONS: SectionDef[] = [
  * Blueprint sidebar navigation.
  * Lists all functional areas of the project with entity counts.
  */
-export function Blueprint({ activeSection, onSectionChange }: BlueprintProps) {
+export function Blueprint({ activeSection, onSectionChange, sections }: BlueprintProps) {
   const state = useProjectState();
   const project = useProject();
-  const componentTreeCount = countComponentNodes((project.effectiveComponent as any)?.tree);
+  const componentTreeCount = countComponentNodes((project.component as any)?.tree);
+  const visibleSections = sections ? new Set(sections) : null;
 
   return (
     <div className="flex flex-col shrink-0">
-      <div className="px-3 pt-3 pb-2 border-b border-border">
-        <h2 className="font-mono text-[11px] font-bold tracking-[0.15em] uppercase text-muted/70 mb-1.5 px-1">
+      <div className="border-b border-border/70 px-3 pt-4 pb-3">
+        <h2 className="mb-3 px-1 text-[11px] font-mono font-semibold tracking-[0.18em] uppercase text-muted/75">
           Blueprint
         </h2>
 
-        <nav data-testid="blueprint" className="flex flex-col gap-px">
-          {SECTIONS.map(({ name, countFn, help, link }) => {
+        <nav
+          data-testid="blueprint"
+          aria-label="Blueprint sections"
+          className="flex flex-col gap-0.5"
+        >
+          {SECTIONS.filter(({ name }) => !visibleSections || visibleSections.has(name)).map(({ name, countFn, help, link }) => {
             const isActive = activeSection === name;
             const count = name === 'Component Tree' ? componentTreeCount : countFn ? countFn(state) : null;
             const hasData = count !== null && count > 0;
@@ -64,14 +70,15 @@ export function Blueprint({ activeSection, onSectionChange }: BlueprintProps) {
                 key={name}
                 data-testid={`blueprint-section-${name}`}
                 title={help}
-                className={`flex items-center justify-between px-2 py-1 text-[12.5px] text-left transition-all rounded-[3px] group ${
+                className={`group flex items-center justify-between rounded-[10px] px-2 py-2 text-[12.5px] text-left transition-all focus-within:ring-2 focus-within:ring-accent/35 focus-within:ring-offset-2 focus-within:ring-offset-surface ${
                   isActive
-                    ? 'bg-subtle text-ink font-semibold'
-                    : 'text-muted hover:text-ink hover:bg-subtle/60'
+                    ? 'bg-bg-default/90 text-ink shadow-[inset_0_0_0_1px_rgba(90,76,56,0.08)]'
+                    : 'text-muted hover:text-ink hover:bg-bg-default/50'
                 }`}
               >
                 <button
-                  className="flex-1 truncate text-left cursor-pointer"
+                  aria-current={isActive ? 'page' : undefined}
+                  className="min-w-0 flex-1 truncate rounded-[6px] text-left cursor-pointer focus-visible:outline-none"
                   onClick={() => onSectionChange(name)}
                 >
                   {name}
@@ -81,7 +88,7 @@ export function Blueprint({ activeSection, onSectionChange }: BlueprintProps) {
                     type="button"
                     data-testid="settings-edit-btn"
                     aria-label="Edit settings"
-                    className="p-0.5 rounded shrink-0 text-muted/40 hover:text-accent transition-colors"
+                    className="rounded p-0.5 shrink-0 text-muted/40 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                     onClick={(e) => {
                       e.stopPropagation();
                       window.dispatchEvent(new CustomEvent('formspec:open-settings'));
@@ -97,7 +104,7 @@ export function Blueprint({ activeSection, onSectionChange }: BlueprintProps) {
                   <button
                     type="button"
                     aria-label={`Open ${name} tab`}
-                    className="p-0.5 rounded shrink-0 opacity-0 group-hover:opacity-100 text-muted/40 hover:text-accent transition-all"
+                    className="rounded p-0.5 shrink-0 opacity-0 text-muted/40 transition-all group-hover:opacity-100 group-focus-within:opacity-100 hover:text-accent focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                     onClick={(e) => {
                       e.stopPropagation();
                       window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: link }));
@@ -109,10 +116,10 @@ export function Blueprint({ activeSection, onSectionChange }: BlueprintProps) {
                   </button>
                 )}
                 {count !== null && hasData && (
-                  <span className={`font-mono text-[11px] tabular-nums shrink-0 px-1 rounded-[2px] transition-colors ${
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[11px] tabular-nums transition-colors ${
                     isActive
                       ? 'bg-accent/10 text-accent/80'
-                      : 'bg-border text-muted/70'
+                      : 'bg-border/55 text-muted/78'
                   }`}>
                     {count}
                   </span>

@@ -9,7 +9,7 @@
  *  #47 Collapse arrow frozen     — Section ▶ button arrow does not rotate on expand/collapse
  */
 import { test, expect } from '@playwright/test';
-import { importDefinition, waitForApp } from './helpers';
+import { importDefinition, switchTab, waitForApp } from './helpers';
 
 // ─── Shared seed definitions ────────────────────────────────────────────────
 
@@ -68,6 +68,7 @@ test.describe('Bug #14 — Component Tree count badge is always 0', () => {
     await waitForApp(page);
     await importDefinition(page, COMPONENT_TREE_DEFINITION);
     await page.waitForSelector('[data-testid="field-firstName"]', { timeout: 5000 });
+    await switchTab(page, 'Layout');
 
     const sectionBtn = page.locator('[data-testid="blueprint-section-Component Tree"]');
     await expect(sectionBtn).toBeVisible();

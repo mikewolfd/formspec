@@ -40,6 +40,7 @@ export function ContentSection({
               value={(item.description as string) ?? ''}
               project={project}
               help={propertyHelp.description}
+              onCleared={() => setShowDescription(false)}
             />
           )}
           {hintPlaceholder ? (
@@ -52,6 +53,7 @@ export function ContentSection({
               value={(item.hint as string) ?? ''}
               project={project}
               help={propertyHelp.hint}
+              onCleared={() => setShowHint(false)}
             />
           )}
         </>

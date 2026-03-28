@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForApp, importDefinition } from './helpers';
+import { waitForApp, importDefinition, propertiesPanel } from './helpers';
 
 const SEED_DEFINITION = {
   $formspec: '1.0',
@@ -80,7 +80,7 @@ test.describe('Command Palette', () => {
     await expect(page.locator('[data-testid="command-palette"]')).not.toBeVisible();
 
     // Properties panel should show "firstName" (item is selected)
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
   });
 
@@ -93,7 +93,7 @@ test.describe('Command Palette', () => {
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(page.locator('[data-testid="command-palette"]')).not.toBeVisible();
     await expect(properties.locator('input[type="text"]').first()).toHaveValue('lastName');
   });

@@ -160,7 +160,7 @@ describe('Behavior Flow Integration', () => {
         screen.getByTestId('select-name').click();
       });
 
-      const behaviorSection = screen.getByText(/Behavior Rules/i).closest('div.space-y-1') as HTMLElement;
+      const behaviorSection = screen.getByRole('button', { name: /Behavior Rules/i }).closest('div[class*="rounded-"]') as HTMLElement;
       
       // DOM Check: 'required' bind card
       const requiredCard = within(behaviorSection).getByText(/required/i).closest('div[class*="border-l-accent"]') as HTMLElement;

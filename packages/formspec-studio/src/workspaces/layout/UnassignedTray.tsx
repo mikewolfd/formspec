@@ -1,6 +1,10 @@
 /** @filedesc Tray showing definition items not bound in the component tree. */
 import { useMemo } from 'react';
 import type { FormItem } from '@formspec-org/types';
+import {
+  computeUnassignedItems,
+  type UnassignedItem,
+} from '../../lib/field-helpers';
 
 interface CompNode {
   component: string;
@@ -10,54 +14,14 @@ interface CompNode {
   [key: string]: unknown;
 }
 
-export interface UnassignedItem {
-  key: string;
-  label: string;
-  itemType: 'field' | 'group' | 'display';
-}
-
-/** Collect all bound keys (bind or nodeId) from the component tree. */
-function collectBoundKeys(nodes: CompNode[]): Set<string> {
-  const keys = new Set<string>();
-  for (const node of nodes) {
-    if (node.bind) keys.add(node.bind);
-    else if (node.nodeId && !node._layout) keys.add(node.nodeId);
-    if (node.children) {
-      for (const k of collectBoundKeys(node.children)) {
-        keys.add(k);
-      }
-    }
-  }
-  return keys;
-}
-
-/** Collect top-level definition items not present in the component tree. */
-export function computeUnassignedItems(
-  items: FormItem[],
-  treeChildren: CompNode[],
-): UnassignedItem[] {
-  const bound = collectBoundKeys(treeChildren);
-  const unassigned: UnassignedItem[] = [];
-
-  for (const item of items) {
-    if (!bound.has(item.key)) {
-      unassigned.push({
-        key: item.key,
-        label: item.label ?? item.key,
-        itemType: item.type as 'field' | 'group' | 'display',
-      });
-    }
-  }
-
-  return unassigned;
-}
-
 interface UnassignedTrayProps {
   items: FormItem[];
   treeChildren: CompNode[];
+  activePageId?: string | null;
+  onPlaceItem?: (item: UnassignedItem) => void;
 }
 
-export function UnassignedTray({ items, treeChildren }: UnassignedTrayProps) {
+export function UnassignedTray({ items, treeChildren, activePageId, onPlaceItem }: UnassignedTrayProps) {
   const unassigned = useMemo(
     () => computeUnassignedItems(items, treeChildren),
     [items, treeChildren],
@@ -87,6 +51,16 @@ export function UnassignedTray({ items, treeChildren }: UnassignedTrayProps) {
           >
             <span className="truncate">{item.label}</span>
             <span className="text-[10px] font-mono text-muted/60">{item.itemType}</span>
+            {activePageId && onPlaceItem && (
+              <button
+                type="button"
+                aria-label={`Add ${item.label} to current page`}
+                onClick={() => onPlaceItem(item)}
+                className="rounded-full border border-border/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+              >
+                Add
+              </button>
+            )}
           </div>
         ))}
       </div>

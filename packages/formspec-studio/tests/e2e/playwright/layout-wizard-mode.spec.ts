@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { importDefinition, waitForApp } from './helpers';
+import { importProject, switchTab, waitForApp } from './helpers';
 
 /*
  * Editor/Layout workspace split:
@@ -9,32 +9,52 @@ import { importDefinition, waitForApp } from './helpers';
  * layout awareness. Layout operations live in the Layout tab with different
  * selectors (layout-field-*, layout-container-*, layout-ctx-*).
  *
- * All tests are skipped until the Layout tab's add-container and wrap-in-layout
- * affordances are fully wired for wizard mode.
+ * Rewrite these against the real Layout workspace affordances rather than the
+ * old Editor-side layout model.
  */
 
-const WIZARD_SEED = {
-  $formspec: '1.0',
-  url: 'urn:wizard-layout',
-  version: '1.0.0',
-  formPresentation: { pageMode: 'wizard' },
-  items: [
-    {
-      key: 'page1',
-      type: 'group',
-      label: 'Page One',
+const WIZARD_PROJECT = {
+  definition: {
+    $formspec: '1.0',
+    url: 'urn:wizard-layout',
+    version: '1.0.0',
+    formPresentation: { pageMode: 'wizard' },
+    items: [
+      {
+        key: 'page1',
+        type: 'group',
+        label: 'Page One',
+        children: [
+          { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+          { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+        ],
+      },
+    ],
+  },
+  component: {
+    $formspecComponent: '0.1',
+    tree: {
+      component: 'Form',
       children: [
-        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
-        { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+        {
+          component: 'Page',
+          nodeId: 'page-one',
+          title: 'Page One',
+          _layout: true,
+          children: [
+            { component: 'TextInput', bind: 'name' },
+            { component: 'TextInput', bind: 'email' },
+          ],
+        },
       ],
     },
-  ],
+  },
 };
 
 test.describe('Layout Components in Wizard Mode', () => {
   test.beforeEach(async ({ page }) => {
     await waitForApp(page);
-    await importDefinition(page, WIZARD_SEED);
+    await importProject(page, WIZARD_PROJECT);
     await page.waitForSelector('[data-testid="field-name"]', { timeout: 5000 });
   });
 
@@ -44,23 +64,53 @@ test.describe('Layout Components in Wizard Mode', () => {
     await expect(page.locator('[data-testid="field-email"]')).toBeVisible();
   });
 
-  test.skip('adding a Card in wizard mode preserves page fields', async () => {
-    // Needs rewrite: layout containers are added via Layout tab
+  test('adding a Card in wizard mode preserves page fields', async ({ page }) => {
+    await switchTab(page, 'Layout');
+    await page.click('[data-testid="layout-add-card"]');
+
+    await expect(page.locator('[data-testid^="layout-container-"]').filter({ hasText: 'Card' })).toHaveCount(1);
+    await expect(page.locator('[data-testid="layout-container-page1"]')).toBeVisible();
   });
 
-  test.skip('wrapping a field in Card via context menu keeps it visible in wizard mode', async () => {
-    // Needs rewrite: wrap actions are in Layout tab context menu
+  test('wrapping a field in Card via context menu keeps it visible in wizard mode', async ({ page }) => {
+    await switchTab(page, 'Layout');
+    await page.locator('[data-testid="layout-container-page1"]').getByRole('button', { name: /page one/i }).click({ button: 'right' });
+    await page.click('[data-testid="layout-ctx-wrapInCard"]');
+
+    await expect(page.getByRole('button', { name: /^Card$/ })).toHaveCount(1);
+    await expect(page.locator('[data-testid="layout-container-page1"]')).toBeVisible();
   });
 
-  test.skip('wrap and unwrap preserves field in wizard mode', async () => {
-    // Needs rewrite for Layout tab
+  test('wrap and unwrap preserves field in wizard mode', async ({ page }) => {
+    await switchTab(page, 'Layout');
+    await page.locator('[data-testid="layout-container-page1"]').getByRole('button', { name: /page one/i }).click({ button: 'right' });
+    await page.click('[data-testid="layout-ctx-wrapInCard"]');
+
+    const card = page.locator('[data-testid^="layout-container-"]').filter({ hasText: 'Card' });
+    await card.getByRole('button', { name: /card/i }).click({ button: 'right' });
+    await page.click('[data-testid="layout-ctx-unwrap"]');
+
+    await expect(page.locator('[data-testid^="layout-container-"]').filter({ hasText: 'Card' })).toHaveCount(0);
+    await expect(page.locator('[data-testid="layout-container-page1"]')).toBeVisible();
   });
 
-  test.skip('adding a new field after wrapping preserves the Card in wizard mode', async () => {
-    // Needs rewrite for Layout tab
+  test('adding a new layout item after wrapping preserves the Card in wizard mode', async ({ page }) => {
+    await switchTab(page, 'Layout');
+    await page.locator('[data-testid="layout-container-page1"]').getByRole('button', { name: /page one/i }).click({ button: 'right' });
+    await page.click('[data-testid="layout-ctx-wrapInCard"]');
+
+    await page.click('[data-testid="layout-add-item"]');
+    await page.getByRole('button', { name: 'Text Short text — names,' }).click();
+
+    await expect(page.getByRole('button', { name: /^Card$/ })).toHaveCount(1);
   });
 
-  test.skip('multiple layout types can coexist in wizard mode', async () => {
-    // Needs rewrite for Layout tab
+  test('multiple layout types can coexist in wizard mode', async ({ page }) => {
+    await switchTab(page, 'Layout');
+    await page.click('[data-testid="layout-add-card"]');
+    await page.click('[data-testid="layout-add-stack"]');
+
+    await expect(page.locator('[data-testid^="layout-container-"]').filter({ hasText: 'Card' })).toHaveCount(1);
+    await expect(page.locator('[data-testid^="layout-container-"]').filter({ hasText: 'Stack' })).toHaveCount(1);
   });
 });

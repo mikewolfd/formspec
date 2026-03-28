@@ -5,7 +5,7 @@ const WIZARD_DEF = {
   $formspec: '1.0',
   url: 'urn:wizard-preview',
   version: '1.0.0',
-  presentation: { pageMode: 'wizard' },
+  formPresentation: { pageMode: 'wizard' },
   items: [
     {
       key: 'page1',
@@ -82,15 +82,28 @@ const PAGED_DEF = {
 
 // BUG #10 — Inactive tabs hide labels
 // RESOLVED by Editor/Layout split: The Editor no longer has page tabs.
-// Page navigation is now in the Layout tab (PageNav component).
+// Wizard step navigation is now in the Layout tab (LayoutStepNav component).
 // The old GroupTabs component that had this bug has been removed.
 test.describe('Bug #10 — inactive page tabs show label text', () => {
-  test.skip('every page tab shows its label text, not just the active one [BUG-010]', async () => {
-    // Editor no longer has page tabs after workspace split
+  test('every page tab shows its label text, not just the active one [BUG-010]', async ({ page }) => {
+    await waitForApp(page);
+    await importDefinition(page, PAGED_DEF);
+    await switchTab(page, 'Layout');
+
+    const nav = page.locator('[data-testid="page-nav"]');
+    await expect(nav.getByRole('button', { name: /Applicant Info/i })).toBeVisible();
+    await expect(nav.getByRole('button', { name: /Household Details/i })).toBeVisible();
+    await expect(nav.getByRole('button', { name: /Review/i })).toBeVisible();
   });
 
-  test.skip('inactive tab label is visible before clicking it [BUG-010]', async () => {
-    // Editor no longer has page tabs after workspace split
+  test('inactive tab label is visible before clicking it [BUG-010]', async ({ page }) => {
+    await waitForApp(page);
+    await importDefinition(page, PAGED_DEF);
+    await switchTab(page, 'Layout');
+
+    const inactiveTab = page.locator('[data-testid="page-nav"]').getByRole('button', { name: /Household Details/i });
+    await expect(inactiveTab).toBeVisible();
+    await expect(inactiveTab).not.toHaveAttribute('aria-current', 'page');
   });
 });
 
@@ -128,13 +141,29 @@ test.describe('Bug #11 — root-level non-group items visible in paged editor', 
 // RESOLVED by Editor/Layout split: The Editor no longer has page tabs.
 // Page renaming is now done in the Layout tab via the page card title editor.
 test.describe('Bug #44 — double-click page tab opens inline label editor', () => {
-  test.skip('double-clicking active tab label opens an inline text input [BUG-044]', async () => {
-    // Editor no longer has page tabs after workspace split.
-    // Page rename is done in Layout tab page cards.
+  test('double-clicking active tab label opens an inline text input [BUG-044]', async ({ page }) => {
+    await waitForApp(page);
+    await importDefinition(page, PAGED_DEF);
+    await switchTab(page, 'Layout');
+
+    await page.locator('[data-testid="page-nav"]').getByRole('button', { name: /Applicant Info/i }).dblclick();
+    await expect(page.locator('[data-testid="page-nav-rename-input"]')).toBeVisible();
   });
 
-  test.skip('editing the label in the inline input renames the page group [BUG-044]', async () => {
-    // Editor no longer has page tabs after workspace split.
+  test('editing the label in the inline input renames the page group [BUG-044]', async ({ page }) => {
+    await waitForApp(page);
+    await importDefinition(page, PAGED_DEF);
+    await switchTab(page, 'Layout');
+
+    await page.locator('[data-testid="page-nav"]').getByRole('button', { name: /Applicant Info/i }).dblclick();
+    const renameInput = page.locator('[data-testid="page-nav-rename-input"]');
+    await renameInput.fill('Applicant Basics');
+    await renameInput.press('Enter');
+
+    await expect(page.locator('[data-testid="page-nav"]').getByRole('button', { name: /Applicant Basics/i })).toBeVisible();
+
+    await switchTab(page, 'Editor');
+    await expect(page.locator('[data-testid="group-page1"]')).toContainText('Applicant Basics');
   });
 });
 
@@ -158,7 +187,7 @@ test.describe('Bug #73 — adding first item to empty paged definition does not 
     await page.waitForSelector('[data-testid="add-item"]', { timeout: 5000 });
     await page.click('[data-testid="add-item"]');
 
-    const searchInput = page.locator('input[placeholder="Search types..."]');
+    const searchInput = page.locator('input[placeholder="Search inputs and groups..."]');
     await searchInput.fill('text');
 
     // BUG: clicking "Text" dispatches definition.addItem with no parentPath
@@ -176,8 +205,40 @@ test.describe('Bug #73 — adding first item to empty paged definition does not 
 // RESOLVED by Editor/Layout split: The Editor no longer has page tabs or
 // activeGroupKey. Page management is handled in the Layout tab.
 test.describe('Bug #74 — new page tab is selected after key collision rename', () => {
-  test.skip('activeGroupKey follows the actual inserted key when a collision rename occurs [BUG-074]', async () => {
-    // Editor no longer has page tabs after workspace split
+  test('new Layout page becomes active even when its generated group key collides [BUG-074]', async ({ page }) => {
+    await waitForApp(page);
+    await importDefinition(page, {
+      $formspec: '1.0',
+      formPresentation: { pageMode: 'wizard' },
+      items: [
+        {
+          key: 'page_1',
+          type: 'group',
+          label: 'Page 1',
+          children: [{ key: 'first', type: 'field', dataType: 'string', label: 'First' }],
+        },
+        {
+          key: 'page_3',
+          type: 'group',
+          label: 'Page 3',
+          children: [{ key: 'third', type: 'field', dataType: 'string', label: 'Third' }],
+        },
+      ],
+    });
+    await switchTab(page, 'Layout');
+
+    await page.click('[data-testid="layout-add-page"]');
+
+    const pageTabs = page.locator('[data-testid^="page-nav-tab-"]');
+    await expect(pageTabs).toHaveCount(3);
+    await expect(pageTabs.nth(2)).toHaveAttribute('aria-current', 'page');
+
+    await page.click('[data-testid="layout-add-item"]');
+    await page.getByRole('button', { name: 'Text Short text — names,' }).click();
+    await expect(page.locator('[data-testid="layout-field-text"]')).toBeVisible();
+
+    await pageTabs.nth(0).click();
+    await expect(page.locator('[data-testid="layout-field-text"]')).toHaveCount(0);
   });
 });
 

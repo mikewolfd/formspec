@@ -1,5 +1,6 @@
 /** @filedesc Panel for viewing and editing inline data sources attached to the form definition. */
 import { useState } from 'react';
+import { sanitizeIdentifier } from '../../lib/field-helpers';
 import { useProject } from '../../state/useProject';
 import { useDefinition } from '../../state/useDefinition';
 import { InlineExpression } from '../../components/ui/InlineExpression';
@@ -105,8 +106,6 @@ export function DataSources() {
     }
   };
 
-  const sanitizeName = (raw: string) => raw.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/_+$/, '');
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-1">
@@ -132,7 +131,7 @@ export function DataSources() {
               type="text"
               placeholder="patient_record"
               value={newName}
-              onChange={(e) => setNewName(sanitizeName(e.target.value))}
+              onChange={(e) => setNewName(sanitizeIdentifier(e.target.value))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleAdd();
                 if (e.key === 'Escape') { setIsAdding(false); setNewName(''); }

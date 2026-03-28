@@ -9,7 +9,7 @@ const TABS: { name: string; help: string }[] = [
   { name: 'Logic', help: 'Binds, shapes, and variables — all form logic lives here' },
   { name: 'Data', help: 'Response schema, data sources, option sets, and test data' },
   { name: 'Layout', help: 'Visual form builder — pages, layout containers, and widget selection' },
-  { name: 'Theme', help: 'Visual tokens, defaults, selectors, and page layouts' },
+  { name: 'Theme', help: 'Visual tokens, defaults, selectors, and widget policy' },
   { name: 'Mapping', help: 'Bidirectional data transforms for import/export formats' },
   { name: 'Preview', help: 'Live form preview and JSON document view' },
 ];
@@ -340,7 +340,7 @@ export function Header({
             </div>
             <div className="">
               <div className="font-bold text-[14px] tracking-tight leading-none whitespace-nowrap">The Stack</div>
-              <div className="font-mono text-[9px] text-muted tracking-wide uppercase whitespace-nowrap">
+              <div className="font-mono text-[11px] text-muted/85 tracking-wide uppercase whitespace-nowrap">
                 FORMSPEC {definition.$formspec} · {definition.status || 'DRAFT'}
               </div>
             </div>

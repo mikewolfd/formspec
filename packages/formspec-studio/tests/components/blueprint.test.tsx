@@ -31,6 +31,7 @@ describe('Blueprint', () => {
     for (const name of sections) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
+    expect(screen.getByRole('navigation', { name: 'Blueprint sections' })).toBeInTheDocument();
   });
 
   it('shows entity count badges only when count > 0', () => {

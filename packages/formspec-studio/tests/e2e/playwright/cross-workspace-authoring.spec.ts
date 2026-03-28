@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addFromPalette, importDefinition, importProject, switchTab, waitForApp } from './helpers';
+import { addFromPalette, editorFieldRows, importDefinition, importProject, switchTab, waitForApp } from './helpers';
 
 test.describe('Cross-Workspace Authoring', () => {
   test.beforeEach(async ({ page }) => {
@@ -129,7 +129,7 @@ test.describe('Cross-Workspace Authoring', () => {
     await expect(previewWorkspace.getByLabel('Email')).toBeVisible();
 
     await switchTab(page, 'Editor');
-    const fields = page.locator('[data-testid="workspace-Editor"] [data-testid^="field-"]');
+    const fields = editorFieldRows(page);
     const fieldCountBefore = await fields.count();
 
     await addFromPalette(page, 'Text');

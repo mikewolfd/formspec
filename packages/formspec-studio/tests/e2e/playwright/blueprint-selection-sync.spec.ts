@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForApp, importDefinition, switchTab } from './helpers';
+import { waitForApp, importDefinition, propertiesPanel, switchTab } from './helpers';
 
 const SEED_DEFINITION = {
   $formspec: '1.0',
@@ -47,7 +47,7 @@ test.describe('Blueprint Selection Sync', () => {
     await page.click('[data-testid="tree-item-firstName"]');
 
     // Properties panel should show "firstName" in the key input
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
 
     // Properties panel should show data type info (String)
@@ -71,7 +71,7 @@ test.describe('Blueprint Selection Sync', () => {
     await page.click('[data-testid="field-firstName"]');
 
     // Verify it is selected before switching
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
 
     // Switch to Logic tab
@@ -90,7 +90,7 @@ test.describe('Blueprint Selection Sync', () => {
   test('Clicking canvas background deselects the item', async ({ page }) => {
     // Select firstName first
     await page.click('[data-testid="field-firstName"]');
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
 
     // Click on the canvas container background (outside any field block)
@@ -102,10 +102,10 @@ test.describe('Blueprint Selection Sync', () => {
     await expect(properties).toContainText('Identity');
   });
 
-  test('Clicking a structure item on another page switches page and selects the field', async ({ page }) => {
-    // Editor/Layout split: The Editor tree is flat, but the StructureTree
-    // sidebar still filters by active page in paged mode. Switch to the
-    // second page in the sidebar to reveal its children.
+  test('Clicking a structure item in another layout step activates that step and selects the field', async ({ page }) => {
+    // Editor/Layout split: the Editor tree is flat, but the StructureTree
+    // sidebar still scopes authored Page content by the active layout step.
+    // Switch to the second step in the sidebar to reveal its children.
     await importDefinition(page, PAGED_BLUEPRINT_DEFINITION);
 
     // Wait for the sidebar page buttons to appear
@@ -119,6 +119,6 @@ test.describe('Blueprint Selection Sync', () => {
     await page.click('[data-testid="tree-item-pageTwo.email"]');
 
     // Properties panel should show the email field
-    await expect(page.locator('[data-testid="properties"] input[type="text"]').first()).toHaveValue('email');
+    await expect(propertiesPanel(page).locator('input[type="text"]').first()).toHaveValue('email');
   });
 });

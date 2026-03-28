@@ -33,12 +33,12 @@ test.describe('Workspace Navigation — Tab Switching', () => {
     await expect(workspace.getByRole('button', { name: 'Brand & Colors' })).toBeVisible();
   });
 
-  test('Pages tab renders pages workspace', async ({ page }) => {
+  test('Layout tab renders layout workspace', async ({ page }) => {
     await switchTab(page, 'Layout');
     const workspace = page.locator('[data-testid="workspace-Layout"]');
-    await expect(workspace.getByRole('button', { name: 'Tabs' })).toBeVisible();
-    await expect(workspace.getByRole('button', { name: 'Single' })).toBeVisible();
-    await expect(workspace.getByRole('button', { name: 'Wizard' })).toBeVisible();
+    await expect(workspace.getByRole('tab', { name: 'Single' })).toBeVisible();
+    await expect(workspace.getByRole('tab', { name: 'Wizard' })).toBeVisible();
+    await expect(workspace.getByRole('tab', { name: 'Tabs' })).toBeVisible();
   });
 
   test('Mapping tab renders mapping workspace', async ({ page }) => {

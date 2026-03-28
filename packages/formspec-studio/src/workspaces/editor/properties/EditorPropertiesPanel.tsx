@@ -19,15 +19,17 @@ import type { FormItem } from '@formspec-org/types';
 
 export function EditorPropertiesPanel({ showActions = true }: { showActions?: boolean }) {
   const {
-    selectedKey,
-    selectedType,
     selectedKeys,
     selectionCount,
+    selectedKeyForTab,
+    selectedTypeForTab,
     select,
     deselect,
     shouldFocusInspector,
     consumeFocusInspector,
   } = useSelection();
+  const selectedKey = selectedKeyForTab('editor');
+  const selectedType = selectedTypeForTab('editor');
   const definition = useDefinition();
   const project = useProject();
   const keyInputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +46,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
       project.renameItem(originalPath, nextKey);
       const parentPath = originalPath.split('.').slice(0, -1).join('.');
       const nextPath = parentPath ? `${parentPath}.${nextKey}` : nextKey;
-      select(nextPath, selectedType ?? 'field');
+      select(nextPath, selectedType ?? 'field', { tab: 'editor' });
     }
   }, [project, select, selectedType]);
 
@@ -94,8 +96,8 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
   if (isLayoutId(selectedKey)) {
     return (
       <div className="h-full flex flex-col bg-surface overflow-hidden">
-        <div className="px-3.5 py-2.5 border-b border-border bg-surface shrink-0">
-          <h2 className="text-[15px] font-bold text-ink tracking-tight font-ui">Layout Node</h2>
+        <div className="border-b border-border/80 bg-surface px-5 py-4 shrink-0">
+          <h2 className="text-[17px] font-semibold text-ink tracking-tight font-ui">Layout Node</h2>
         </div>
         <div className="flex-1 flex items-center justify-center px-4 text-center">
           <p className="text-[13px] text-muted font-ui">
@@ -119,6 +121,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
   const path = found.path;
   const binds = bindsFor(definition.binds, path);
   const currentKey = path.split('.').pop() || path;
+  const selectionPath = path.split('.').join(' / ');
   const isField = item.type === 'field';
   const isGroup = item.type === 'group';
   const dataType = item.dataType as string | undefined;
@@ -134,24 +137,30 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
 
   return (
     <div className="h-full flex flex-col bg-surface overflow-hidden">
-      <div className="px-3.5 py-2.5 border-b border-border bg-surface shrink-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
+      <div className="border-b border-border/80 bg-surface px-5 py-4 shrink-0">
+        <div className="flex items-center gap-2 mb-1">
           {info && (
-            <div className={`w-5.5 h-5.5 rounded-[3px] bg-subtle flex items-center justify-center font-mono font-bold text-[10px] ${info.color}`}>
+            <div className={`flex h-8 w-8 items-center justify-center rounded-[10px] bg-bg-default font-mono font-bold text-[10px] ${info.color}`}>
               {info.icon}
             </div>
           )}
-          <h2 className="text-[15px] font-bold text-ink tracking-tight font-ui">Properties</h2>
+          <h2 className="text-[17px] font-semibold text-ink tracking-tight font-ui">Advanced Details</h2>
         </div>
-        <div className="font-mono text-[12px] text-muted truncate">
+        <div className="text-[13px] text-muted truncate">
           {(item.label as string) || currentKey}
         </div>
+        <div data-testid="properties-selection-path" className="mt-2 font-mono text-[10px] tracking-[0.08em] text-muted/80">
+          {selectionPath}
+        </div>
+        <p className="mt-2 max-w-[28rem] text-[12px] leading-5 text-muted">
+          Use the rows for fast edits. This rail is for deeper configuration and advanced behavior.
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3.5 py-2 space-y-1">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 md:px-5">
         <Section title="Identity">
-          <div className="space-y-1.5 mb-2">
-            <label className="font-mono text-[10px] text-muted uppercase tracking-wider block">
+          <div className="mb-3 space-y-2">
+            <label className="block text-[12px] font-medium text-muted">
               <HelpTip text={propertyHelp.key}>Key</HelpTip>
             </label>
             <input
@@ -159,19 +168,19 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
               ref={keyInputRef}
               type="text"
               aria-label="Key"
-              className="w-full px-2 py-1 text-[13px] font-mono border border-border rounded-[4px] bg-surface outline-none focus:border-accent transition-colors"
+              className="w-full rounded-[12px] border border-border/80 bg-surface px-3 py-2 text-[13px] font-mono outline-none transition-colors focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25"
               defaultValue={currentKey}
             />
           </div>
-          <div className="space-y-1.5 mb-2">
-            <label className="font-mono text-[10px] text-muted uppercase tracking-wider block">
+          <div className="mb-3 space-y-2">
+            <label className="block text-[12px] font-medium text-muted">
               <HelpTip text={propertyHelp.label}>Label</HelpTip>
             </label>
             <input
               key={`${path}-label`}
               type="text"
               aria-label="Label"
-              className="w-full px-2 py-1 text-[13px] border border-border rounded-[4px] bg-surface outline-none focus:border-accent transition-colors"
+              className="w-full rounded-[12px] border border-border/80 bg-surface px-3 py-2 text-[13px] outline-none transition-colors focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25"
               defaultValue={(item.label as string) || ''}
               onBlur={(event) => {
                 project.updateItem(path, { label: event.currentTarget.value || null });
@@ -218,21 +227,23 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
       </div>
 
       {showActions && (
-        <div className="p-3 pb-6 sm:p-3.5 border-t-2 border-border bg-subtle/30 shrink-0 flex gap-2">
+        <div className="shrink-0 border-t border-border/80 bg-bg-default/65 p-4 pb-6 sm:p-4">
+          <div className="flex gap-2">
           <button
             type="button"
-            className="flex-1 py-1.5 bg-surface border border-border rounded-[4px] font-mono text-[11px] font-bold uppercase tracking-widest hover:bg-surface-hover hover:border-muted/30 transition-all cursor-pointer shadow-sm active:translate-y-px"
+            className="flex-1 rounded-[12px] border border-border/80 bg-surface px-3 py-2 text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-ink transition-all cursor-pointer hover:bg-surface-hover hover:border-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/25"
             onClick={() => handleDuplicate(path)}
           >
             Duplicate
           </button>
           <button
             type="button"
-            className="flex-1 py-1.5 bg-surface border border-error/20 rounded-[4px] font-mono text-[11px] font-bold uppercase tracking-widest text-error hover:bg-error/5 hover:border-error/40 transition-all cursor-pointer shadow-sm active:translate-y-px"
+            className="rounded-[12px] border border-border/70 bg-surface px-3 py-2 text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-muted transition-all cursor-pointer hover:border-error/35 hover:bg-error/5 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/20"
             onClick={() => handleDelete(path)}
           >
             Delete
           </button>
+          </div>
         </div>
       )}
     </div>

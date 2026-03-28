@@ -53,7 +53,7 @@ export function FormspecPreviewHost({ width }: FormspecPreviewHostProps) {
       el.registryDocuments = registryDocs.length > 0 ? plain(registryDocs) : (undefined as unknown);
 
       el.definition = plain(normalizeDefinitionDoc(s.definition));
-      el.componentDocument = plain(normalizeComponentDoc(p.effectiveComponent, s.definition));
+      el.componentDocument = plain(normalizeComponentDoc(p.component, s.definition));
       el.themeDocument = plain(normalizeThemeDoc(s.theme, s.definition));
     } catch (err) {
       console.error('[FormspecPreviewHost] Sync failed', err);

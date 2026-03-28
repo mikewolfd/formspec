@@ -1,5 +1,5 @@
 /** @filedesc Integration tests verifying cross-tab behavioral guarantees of the Editor/Layout workspace split. */
-import { render, screen, act, within } from '@testing-library/react';
+import { render, screen, act, within, fireEvent } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { createProject, type Project } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
@@ -319,5 +319,22 @@ describe('Layout properties shows only component props', () => {
     expect(screen.queryByText(/behavior rules/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^constraint$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^required$/i)).not.toBeInTheDocument();
+  });
+
+  it('selecting from LayoutCanvas updates the layout-scoped inspector', () => {
+    render(
+      <Providers project={makeProject(BOUND_DEF)}>
+        <>
+          <LayoutCanvas />
+          <ComponentProperties />
+        </>
+      </Providers>,
+    );
+
+    fireEvent.click(screen.getByTestId('layout-field-name'));
+
+    expect(screen.getByText('Component')).toBeInTheDocument();
+    expect(screen.getAllByText(/full name/i).length).toBeGreaterThan(1);
+    expect(screen.getByText(/appearance/i)).toBeInTheDocument();
   });
 });

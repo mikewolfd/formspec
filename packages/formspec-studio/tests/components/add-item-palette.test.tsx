@@ -24,6 +24,41 @@ describe('AddItemPalette', () => {
     expect(screen.getByRole('button', { name: /^Stack\b/i })).toBeInTheDocument();
   });
 
+  it('hides only layout components in editor scope', () => {
+    render(
+      <AddItemPalette open={true} onClose={vi.fn()} onAdd={vi.fn()} scope="editor" />
+    );
+
+    expect(screen.queryByRole('button', { name: /^Card\b/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Columns\b/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Collapsible\b/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Stack\b/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Group\b/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Text Short text\b/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Heading\b/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Divider\b/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Spacer\b/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Text Block\b/i })).toBeInTheDocument();
+  });
+
+  it('uses a scoped search prompt in editor scope', () => {
+    render(
+      <AddItemPalette open={true} onClose={vi.fn()} onAdd={vi.fn()} scope="editor" />
+    );
+
+    expect(screen.getByPlaceholderText('Search inputs and groups...')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search types...')).not.toBeInTheDocument();
+  });
+
+  it('uses a plain search row without wrapper focus effects', () => {
+    render(
+      <AddItemPalette open={true} onClose={vi.fn()} onAdd={vi.fn()} scope="editor" />
+    );
+
+    expect(screen.getByTestId('add-item-search')).not.toHaveClass('focus-within:ring-4');
+    expect(screen.getByTestId('add-item-search')).not.toHaveClass('focus-within:border-accent/70');
+  });
+
   it('shows Content sub-types: Heading, Divider, Spacer', () => {
     render(
       <AddItemPalette open={true} onClose={vi.fn()} onAdd={vi.fn()} />
@@ -91,6 +126,17 @@ describe('AddItemPalette', () => {
       expect(screen.getByRole('button', { name: /^Inputs$/ })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /^Layout$/ })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /^Display$/ })).toBeInTheDocument();
+    });
+
+    it('omits the tab bar entirely in editor scope', () => {
+      render(
+        <AddItemPalette open={true} onClose={vi.fn()} onAdd={vi.fn()} scope="editor" />
+      );
+
+      expect(screen.queryByRole('button', { name: /^All$/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Inputs$/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Layout$/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Display$/ })).not.toBeInTheDocument();
     });
 
     it('filters items when clicking Layout tab', () => {

@@ -1,5 +1,5 @@
 /** @filedesc Tests for EditorPropertiesPanel — the Tier 1 (definition-only) properties panel for the Editor tab. */
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../../src/state/ProjectContext';
@@ -55,6 +55,8 @@ describe('EditorPropertiesPanel', () => {
   it('shows field identity when a field is selected', async () => {
     renderPanel(baseDef, 'name', 'field');
     await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByText('Advanced Details')).toBeInTheDocument();
+    expect(screen.getByText(/use the rows for fast edits/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('name')).toBeInTheDocument();
   });
 
@@ -83,10 +85,44 @@ describe('EditorPropertiesPanel', () => {
     expect(screen.getByText(/group config/i)).toBeInTheDocument();
   });
 
+  it('uses stronger contrast styling for group config labels', async () => {
+    renderPanel({
+      ...baseDef,
+      items: [
+        { key: 'group1', type: 'group', label: 'Section', repeatable: true, minRepeat: 1, maxRepeat: 3, children: [] },
+      ],
+    }, 'group1', 'group');
+    await act(async () => { screen.getByText('Select').click(); });
+    expect(screen.getByText('Repeatable').closest('label')).toHaveClass('text-ink');
+    expect(screen.getByText('Min Repeat').closest('label')).toHaveClass('text-ink');
+    expect(screen.getByText('Max Repeat').closest('label')).toHaveClass('text-ink');
+  });
+
   it('shows content section when a display item is selected', async () => {
     renderPanel(baseDef, 'notes', 'display');
     await act(async () => { screen.getByText('Select').click(); });
     expect(screen.getByText(/content/i)).toBeInTheDocument();
+  });
+
+  it('restores the add placeholder when an optional description is cleared', async () => {
+    const withDescription = {
+      ...baseDef,
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Name', description: 'Existing description' },
+      ],
+      binds: [],
+    };
+    const { project } = renderPanel(withDescription, 'name', 'field');
+    await act(async () => { screen.getByText('Select').click(); });
+
+    const descriptionInput = screen.getByLabelText(/^description$/i);
+    await act(async () => {
+      fireEvent.change(descriptionInput, { target: { value: '' } });
+      fireEvent.blur(descriptionInput);
+    });
+
+    expect(project.definition.items[0].description).toBeUndefined();
+    expect(screen.getByRole('button', { name: /\+ add description/i })).toBeInTheDocument();
   });
 
   it('shows "select in layout tab" for layout node keys', async () => {

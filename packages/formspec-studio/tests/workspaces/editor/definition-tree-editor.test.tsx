@@ -1,9 +1,9 @@
 /** @filedesc Tests for the DefinitionTreeEditor — pure definition-tier tree view. */
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent, within } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
-import { SelectionProvider } from '../../../src/state/useSelection';
+import { SelectionProvider, useSelection } from '../../../src/state/useSelection';
 import { DefinitionTreeEditor } from '../../../src/workspaces/editor/DefinitionTreeEditor';
 
 function renderTree(definition: any) {
@@ -32,7 +32,241 @@ describe('DefinitionTreeEditor', () => {
     expect(screen.getByTestId('field-name')).toBeInTheDocument();
     expect(screen.getByTestId('field-age')).toBeInTheDocument();
     expect(screen.getByText('Full Name')).toBeInTheDocument();
+    expect(screen.getByText('name')).toBeInTheDocument();
     expect(screen.getByText('string')).toBeInTheDocument();
+  });
+
+  it('uses an explicit drag handle instead of making the whole row draggable', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-drag-handle', version: '1.0.0',
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+      ],
+    });
+
+    const row = screen.getByTestId('field-name');
+    expect(row.parentElement).not.toHaveAttribute('role', 'button');
+    expect(within(row).getByRole('button', { name: 'Reorder Full Name' })).toBeInTheDocument();
+  });
+
+  it('shows description and hint text in the field row when present', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-row-meta', version: '1.0.0',
+      items: [
+        {
+          key: 'email',
+          type: 'field',
+          dataType: 'string',
+          label: 'Email',
+          description: 'Used for account updates.',
+          hint: 'We never share your address.',
+        },
+      ],
+    });
+
+    expect(screen.getByText('Description')).toBeInTheDocument();
+    expect(screen.getByText('Hint')).toBeInTheDocument();
+    expect(screen.getByText('Used for account updates.')).toBeInTheDocument();
+    expect(screen.getByText('We never share your address.')).toBeInTheDocument();
+  });
+
+  it('shows empty description and hint slots in the row and moves behavior entry to the lower editor', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-row-add-missing', version: '1.0.0',
+      items: [
+        {
+          key: 'email',
+          type: 'field',
+          dataType: 'string',
+          label: 'Email',
+        },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-email'));
+    expect(row.queryByRole('button', { name: 'Add behavior to Email' })).toBeNull();
+
+    fireEvent.click(row.getByRole('button', { name: 'Select Email' }));
+
+    expect(row.getByText('Description')).toBeInTheDocument();
+    expect(row.getByText('Hint')).toBeInTheDocument();
+    expect(row.getByText('Click to add description')).toBeInTheDocument();
+    expect(row.getByText('Click to add hint')).toBeInTheDocument();
+    expect(row.getByRole('region', { name: 'Field details' })).toBeInTheDocument();
+    expect(row.getByRole('button', { name: 'Add behavior to Email' })).toBeInTheDocument();
+  });
+
+  it('hides empty description and hint rows when unselected', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-row-collapse-empty', version: '1.0.0',
+      items: [
+        {
+          key: 'email',
+          type: 'field',
+          dataType: 'string',
+          label: 'Email',
+        },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-email'));
+
+    // Unselected: empty Description/Hint should NOT appear
+    expect(row.queryByText('Description')).toBeNull();
+    expect(row.queryByText('Hint')).toBeNull();
+
+    // Select the row
+    fireEvent.click(row.getByRole('button', { name: 'Select Email' }));
+
+    // Selected: empty Description/Hint slots should appear with placeholders
+    expect(row.getByText('Description')).toBeInTheDocument();
+    expect(row.getByText('Hint')).toBeInTheDocument();
+    expect(row.getByText('Click to add description')).toBeInTheDocument();
+    expect(row.getByText('Click to add hint')).toBeInTheDocument();
+  });
+
+  it('shows populated description and hides empty hint row when unselected (partial metadata)', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-row-partial-metadata', version: '1.0.0',
+      items: [
+        {
+          key: 'name',
+          type: 'field',
+          dataType: 'string',
+          label: 'Name',
+          description: 'Your full legal name.',
+        },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-name'));
+
+    // Unselected: only populated Description shows; empty Hint must not appear
+    expect(row.getByText('Description')).toBeInTheDocument();
+    expect(row.getByText('Your full legal name.')).toBeInTheDocument();
+    expect(row.queryByText('Hint')).toBeNull();
+
+    // Select the row: now Hint slot appears too with a placeholder
+    fireEvent.click(row.getByRole('button', { name: 'Select Name' }));
+    expect(row.getByText('Hint')).toBeInTheDocument();
+    expect(row.getByText('Click to add hint')).toBeInTheDocument();
+  });
+
+  it('shows populated description and hint slots and hides behavior entry once a field already has them', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-row-add-hidden', version: '1.0.0',
+      items: [
+        {
+          key: 'email',
+          type: 'field',
+          dataType: 'string',
+          label: 'Email',
+          description: 'Used for account updates.',
+          hint: 'We never share your address.',
+        },
+      ],
+      binds: [
+        { path: 'email', required: 'true' },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-email'));
+    expect(row.getByText('Used for account updates.')).toBeInTheDocument();
+    expect(row.getByText('We never share your address.')).toBeInTheDocument();
+    expect(row.queryByRole('button', { name: 'Add behavior to Email' })).toBeNull();
+  });
+
+  it('surfaces field config and behavior details in the row summary', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-field-summary', version: '1.0.0',
+      items: [
+        {
+          key: 'amount',
+          type: 'field',
+          dataType: 'money',
+          label: 'Amount',
+          initialValue: '25',
+          precision: 2,
+          currency: 'USD',
+          prefix: '$',
+          suffix: 'monthly',
+          semanticType: 'finance:amount',
+        },
+        {
+          key: 'status',
+          type: 'field',
+          dataType: 'choice',
+          label: 'Status',
+          options: [
+            { value: 'new', label: 'New' },
+            { value: 'open', label: 'Open' },
+          ],
+          prePopulate: { instance: 'profile', path: 'status' },
+        },
+      ],
+      binds: [
+        { path: 'amount', relevant: '$enabled = true', required: 'true', readonly: '$locked = true', constraint: '. > 0', constraintMessage: 'Must be positive' },
+        { path: 'status', calculate: '$source.status' },
+      ],
+    });
+
+    const amountRow = within(screen.getByTestId('field-amount'));
+    const statusRow = within(screen.getByTestId('field-status'));
+    expect(amountRow.getByTestId('field-amount-summary')).toBeInTheDocument();
+    expect(amountRow.getByTestId('field-amount-status')).toBeInTheDocument();
+    expect(statusRow.getByTestId('field-status-summary')).toBeInTheDocument();
+    expect(statusRow.getByTestId('field-status-status')).toBeInTheDocument();
+
+    expect(amountRow.getByText('Initial')).toBeInTheDocument();
+    expect(amountRow.getByText('25')).toBeInTheDocument();
+    expect(amountRow.getByText('Relevant')).toBeInTheDocument();
+    expect(amountRow.getByText('Enabled is Yes')).toBeInTheDocument();
+    expect(amountRow.getByText('req')).toBeInTheDocument();
+    expect(amountRow.getByText('rel')).toBeInTheDocument();
+    expect(amountRow.getByText('rule')).toBeInTheDocument();
+    expect(amountRow.getByText('ro')).toBeInTheDocument();
+
+    expect(statusRow.getByText('Options')).toBeInTheDocument();
+    expect(statusRow.getByText('2 choices')).toBeInTheDocument();
+    expect(statusRow.getByText('Calculate')).toBeInTheDocument();
+    expect(statusRow.getByText('$source.status')).toBeInTheDocument();
+    expect(statusRow.getByText('ƒx')).toBeInTheDocument();
+    expect(statusRow.getByText('pre')).toBeInTheDocument();
+  });
+
+  it('caps field summaries to the highest-priority facts', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-summary-cap', version: '1.0.0',
+      items: [
+        {
+          key: 'amount',
+          type: 'field',
+          dataType: 'money',
+          label: 'Amount',
+          description: 'Monthly amount for review.',
+          hint: 'Use gross income before deductions.',
+          initialValue: '25',
+          precision: 2,
+          currency: 'USD',
+          prefix: '$',
+          semanticType: 'finance:amount',
+          prePopulate: { instance: 'profile', path: 'income.amount' },
+        },
+      ],
+      binds: [
+        { path: 'amount', relevant: '$enabled = true', constraint: '. > 0' },
+      ],
+    });
+
+    const summary = within(screen.getByTestId('field-amount-summary'));
+    expect(summary.getAllByRole('term')).toHaveLength(4);
+    expect(summary.getByText('Description')).toBeInTheDocument();
+    expect(summary.getByText('Hint')).toBeInTheDocument();
+    expect(summary.getByText('Pre-fill')).toBeInTheDocument();
+    expect(summary.getByText('Relevant')).toBeInTheDocument();
+    expect(summary.queryByText('Precision')).toBeNull();
+    expect(summary.queryByText('Prefix')).toBeNull();
+    expect(summary.queryByText('Constraint')).toBeNull();
   });
 
   it('renders group items as collapsible nodes with children', () => {
@@ -47,7 +281,52 @@ describe('DefinitionTreeEditor', () => {
     });
     expect(screen.getByTestId('group-contact')).toBeInTheDocument();
     expect(screen.getByText('Contact')).toBeInTheDocument();
+    expect(screen.getByText('contact')).toBeInTheDocument();
     expect(screen.getByText('Email')).toBeInTheDocument();
+  });
+
+  it('shows group description and hint text in the group row when present', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-group-meta', version: '1.0.0',
+      items: [{
+        key: 'contact',
+        type: 'group',
+        label: 'Contact',
+        description: 'Organize the applicant contact block.',
+        hint: 'Collect the primary point of contact.',
+        children: [],
+      }],
+    });
+
+    const contactGroup = within(screen.getByTestId('group-contact'));
+    expect(contactGroup.getByTestId('group-contact-summary')).toBeInTheDocument();
+    expect(contactGroup.getByText('Description')).toBeInTheDocument();
+    expect(contactGroup.getByText('Organize the applicant contact block.')).toBeInTheDocument();
+    expect(contactGroup.getByText('Hint')).toBeInTheDocument();
+    expect(contactGroup.getByText('Collect the primary point of contact.')).toBeInTheDocument();
+  });
+
+  it('shows missing optional group actions when the group is selected', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-group-add-missing', version: '1.0.0',
+      items: [{
+        key: 'contact',
+        type: 'group',
+        label: 'Contact',
+        children: [],
+      }],
+    });
+
+    const group = within(screen.getByTestId('group-contact'));
+    expect(group.queryByRole('button', { name: 'Add description to Contact' })).toBeNull();
+    expect(group.queryByRole('button', { name: 'Add hint to Contact' })).toBeNull();
+    expect(group.queryByRole('button', { name: 'Add behavior to Contact' })).toBeNull();
+
+    fireEvent.click(group.getByRole('button', { name: 'Select group Contact' }));
+
+    expect(group.getByRole('button', { name: 'Add description to Contact' })).toBeInTheDocument();
+    expect(group.getByRole('button', { name: 'Add hint to Contact' })).toBeInTheDocument();
+    expect(group.getByRole('button', { name: 'Add behavior to Contact' })).toBeInTheDocument();
   });
 
   it('renders display items with widgetHint badge', () => {
@@ -97,6 +376,34 @@ describe('DefinitionTreeEditor', () => {
     expect(screen.getByTestId('add-item')).toBeInTheDocument();
   });
 
+  it('shows an empty-state editor canvas when no items exist', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-test', version: '1.0.0',
+      items: [],
+    });
+
+    expect(screen.getByTestId('editor-empty-state')).toBeInTheDocument();
+    expect(screen.getByText(/start building your form/i)).toBeInTheDocument();
+  });
+
+  it('surfaces the active selection in the editor header while keeping editing inline', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-active-header', version: '1.0.0',
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+      ],
+    });
+
+    expect(screen.getByRole('heading', { name: 'Form structure' })).toBeInTheDocument();
+    expect(screen.getByText('Select a group or field to edit it inline, or add new structure below.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Full Name' }));
+
+    expect(screen.getByRole('heading', { name: 'Full Name' })).toBeInTheDocument();
+    expect(screen.getByText('Field key name in Root. Edit details inline below.')).toBeInTheDocument();
+    expect(screen.getByText('Active selection')).toBeInTheDocument();
+  });
+
   it('renders nested groups with deeply nested fields', () => {
     renderTree({
       $formspec: '1.0', url: 'urn:tree-test', version: '1.0.0',
@@ -115,6 +422,26 @@ describe('DefinitionTreeEditor', () => {
     expect(screen.getByTestId('field-deep')).toBeInTheDocument();
   });
 
+  it('offsets nested group contents inside a visible child rail', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-nested-offset', version: '1.0.0',
+      items: [{
+        key: 'outer', type: 'group', label: 'Outer',
+        children: [{
+          key: 'inner', type: 'group', label: 'Inner',
+          children: [
+            { key: 'deep', type: 'field', dataType: 'string', label: 'Deep Field' },
+          ],
+        }],
+      }],
+    });
+
+    const outerChildren = screen.getByTestId('group-outer-children');
+    expect(outerChildren.className).toContain('ml-5');
+    expect(outerChildren.className).toContain('border-l');
+    expect(outerChildren.className).toContain('pl-4');
+  });
+
   it('falls back to itemKey when label is missing', () => {
     renderTree({
       $formspec: '1.0', url: 'urn:tree-test', version: '1.0.0',
@@ -122,7 +449,7 @@ describe('DefinitionTreeEditor', () => {
         { key: 'unlabeled', type: 'field', dataType: 'string' },
       ],
     });
-    expect(screen.getByText('unlabeled')).toBeInTheDocument();
+    expect(screen.getByTestId('field-unlabeled')).toBeInTheDocument();
   });
 
   it('shows calculate and readonly pills', () => {
@@ -212,5 +539,558 @@ describe('DefinitionTreeEditor', () => {
     // Click again to expand
     fireEvent.click(screen.getByTestId('toggle-section'));
     expect(screen.getByText('Child Field')).toBeInTheDocument();
+  });
+
+  it('renders group toggles as visible button controls', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-test', version: '1.0.0',
+      items: [{
+        key: 'section', type: 'group', label: 'Section',
+        children: [
+          { key: 'child', type: 'field', dataType: 'string', label: 'Child Field' },
+        ],
+      }],
+    });
+
+    expect(screen.getByTestId('toggle-section')).toHaveClass('border-border/80');
+    expect(screen.getByTestId('toggle-section')).toHaveClass('bg-surface');
+  });
+
+  it('updates aria-expanded on group toggles as groups open and close', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-group-expanded', version: '1.0.0',
+      items: [{
+        key: 'section', type: 'group', label: 'Section',
+        children: [
+          { key: 'child', type: 'field', dataType: 'string', label: 'Child Field' },
+        ],
+      }],
+    });
+
+    const toggle = screen.getByRole('button', { name: 'Collapse Section' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Expand Section' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('renders an add button on each group row', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-test', version: '1.0.0',
+      items: [{
+        key: 'section', type: 'group', label: 'Section',
+        children: [],
+      }],
+    });
+
+    expect(screen.getByTestId('add-to-section')).toBeInTheDocument();
+    expect(screen.getByLabelText('Add item to Section')).toBeInTheDocument();
+  });
+
+  it('adds a new item inside the targeted group from the inline add button', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-add', version: '1.0.0',
+      items: [{
+        key: 'section', type: 'group', label: 'Section',
+        children: [],
+      }],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(screen.getByTestId('add-to-section'));
+    expect(screen.getByText('Add Item to Section')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Text Short text\b/i }));
+
+    const section = project.definition.items[0] as any;
+    expect(section.children).toHaveLength(1);
+    expect(section.children[0].type).toBe('field');
+    expect(screen.getByTestId(`field-${section.children[0].key}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`field-${section.children[0].key}`).className).toContain('border-accent/30');
+  });
+
+  it('edits the label inline without opening the key editor and saves on blur', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-identity', version: '1.0.0',
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-name')).getByRole('button', { name: 'Select Full Name' }));
+    fireEvent.click(within(screen.getByTestId('field-name')).getByText('Full Name'));
+
+    const labelInput = within(screen.getByTestId('field-name')).getByLabelText('Inline label');
+    expect(within(screen.getByTestId('field-name')).queryByLabelText('Inline key')).toBeNull();
+    fireEvent.change(labelInput, { target: { value: 'Legal Name' } });
+    fireEvent.blur(labelInput);
+
+    expect((project.definition.items[0] as any)?.label).toBe('Legal Name');
+    expect(project.definition.items[0]?.key).toBe('name');
+    expect(within(screen.getByTestId('field-name')).queryByLabelText('Inline label')).toBeNull();
+  });
+
+  it('edits the key inline without opening the label editor and saves on blur', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-key', version: '1.0.0',
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-name')).getByRole('button', { name: 'Select Full Name' }));
+    fireEvent.click(within(screen.getByTestId('field-name')).getByText('name'));
+
+    const keyInput = within(screen.getByTestId('field-name')).getByLabelText('Inline key');
+    expect(within(screen.getByTestId('field-name')).queryByLabelText('Inline label')).toBeNull();
+    fireEvent.change(keyInput, { target: { value: 'legalName' } });
+    fireEvent.blur(keyInput);
+
+    expect(project.definition.items[0]?.key).toBe('legalName');
+    expect((project.definition.items[0] as any)?.label).toBe('Full Name');
+    expect(screen.getByTestId('field-legalName')).toBeInTheDocument();
+  });
+
+  it('replaces the old selected-row pill strip with calmer inline entry points', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-calm-actions', version: '1.0.0',
+      items: [
+        {
+          key: 'name',
+          type: 'field',
+          dataType: 'string',
+          label: 'Full Name',
+          description: 'Primary legal name.',
+          hint: 'Enter first and last name.',
+        },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-name'));
+    fireEvent.click(row.getByRole('button', { name: 'Select Full Name' }));
+
+    expect(row.queryByRole('button', { name: 'Edit content for Full Name' })).toBeNull();
+    expect(row.queryByRole('button', { name: 'Edit field config for Full Name' })).toBeNull();
+    expect(row.queryByRole('button', { name: 'Edit behavior for Full Name' })).toBeNull();
+    expect(row.queryByRole('button', { name: 'Edit identity for Full Name' })).toBeNull();
+    expect(row.queryByRole('button', { name: 'Edit Description for Full Name' })).toBeNull();
+    expect(row.queryByRole('button', { name: 'Edit Hint for Full Name' })).toBeNull();
+
+    fireEvent.click(row.getByText('Primary legal name.'));
+    expect(row.getByLabelText('Inline description')).toBeInTheDocument();
+  });
+
+  it('supports inline repeat settings on selected group headers', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-repeat', version: '1.0.0',
+      items: [{
+        key: 'members', type: 'group', label: 'Members',
+        children: [],
+      }],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('group-members')).getByRole('button', { name: 'Select group Members' }));
+    fireEvent.click(within(screen.getByTestId('group-members')).getByRole('button', { name: 'Edit repeats for Members' }));
+
+    fireEvent.click(within(screen.getByTestId('group-members')).getByLabelText('Repeatable'));
+    fireEvent.change(within(screen.getByTestId('group-members')).getByLabelText('Minimum repeats'), { target: { value: '1' } });
+    fireEvent.change(within(screen.getByTestId('group-members')).getByLabelText('Maximum repeats'), { target: { value: '4' } });
+
+    expect((project.definition.items[0] as any)?.repeatable).toBe(true);
+    expect((project.definition.items[0] as any)?.minRepeat).toBe(1);
+    expect((project.definition.items[0] as any)?.maxRepeat).toBe(4);
+    expect(within(screen.getByTestId('group-members')).getByText(/1.*4/)).toBeInTheDocument();
+  });
+
+  it('edits the group label inline without opening the key editor and saves on blur', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-group-label', version: '1.0.0',
+      items: [
+        { key: 'household', type: 'group', label: 'Household', children: [] },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('group-household')).getByRole('button', { name: 'Select group Household' }));
+    fireEvent.click(within(screen.getByTestId('group-household')).getByText('Household'));
+
+    const labelInput = within(screen.getByTestId('group-household')).getByLabelText('Inline label');
+    expect(within(screen.getByTestId('group-household')).queryByLabelText('Inline key')).toBeNull();
+    fireEvent.change(labelInput, { target: { value: 'Primary Household' } });
+    fireEvent.blur(labelInput);
+
+    expect((project.definition.items[0] as any)?.label).toBe('Primary Household');
+    expect(project.definition.items[0]?.key).toBe('household');
+  });
+
+  it('edits the group key inline without opening the label editor and saves on blur', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-group-key', version: '1.0.0',
+      items: [
+        { key: 'household', type: 'group', label: 'Household', children: [] },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('group-household')).getByRole('button', { name: 'Select group Household' }));
+    fireEvent.click(within(screen.getByTestId('group-household')).getByText('household'));
+
+    const keyInput = within(screen.getByTestId('group-household')).getByLabelText('Inline key');
+    expect(within(screen.getByTestId('group-household')).queryByLabelText('Inline label')).toBeNull();
+    fireEvent.change(keyInput, { target: { value: 'primaryHousehold' } });
+    fireEvent.blur(keyInput);
+
+    expect(project.definition.items[0]?.key).toBe('primaryHousehold');
+    expect((project.definition.items[0] as any)?.label).toBe('Household');
+  });
+
+  it('supports inline content editing for a selected field row', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-content', version: '1.0.0',
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-name')).getByRole('button', { name: 'Select Full Name' }));
+    fireEvent.click(within(screen.getByTestId('field-name')).getByText('Click to add description'));
+
+    fireEvent.change(within(screen.getByTestId('field-name')).getByLabelText('Inline description'), { target: { value: 'Used for household identity.' } });
+    fireEvent.blur(within(screen.getByTestId('field-name')).getByLabelText('Inline description'));
+    fireEvent.click(within(screen.getByTestId('field-name')).getByText('Click to add hint'));
+    fireEvent.change(within(screen.getByTestId('field-name')).getByLabelText('Inline hint'), { target: { value: 'First middle last' } });
+    fireEvent.blur(within(screen.getByTestId('field-name')).getByLabelText('Inline hint'));
+
+    expect((project.definition.items[0] as any)?.description).toBe('Used for household identity.');
+    expect((project.definition.items[0] as any)?.hint).toBe('First middle last');
+    expect(within(screen.getByTestId('field-name')).getByText('Description')).toBeInTheDocument();
+    expect(within(screen.getByTestId('field-name')).getByText('Used for household identity.')).toBeInTheDocument();
+  });
+
+  it('keeps only one inline editor open at a time within a row', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-inline-single-editor', version: '1.0.0',
+      items: [
+        {
+          key: 'name',
+          type: 'field',
+          dataType: 'string',
+          label: 'Full Name',
+          description: 'Primary legal name.',
+          hint: 'Enter first and last name.',
+        },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-name'));
+    fireEvent.click(row.getByRole('button', { name: 'Select Full Name' }));
+    fireEvent.click(row.getByText('Primary legal name.'));
+    expect(row.getByLabelText('Inline description')).toBeInTheDocument();
+
+    fireEvent.click(row.getByText('Enter first and last name.'));
+    expect(row.queryByLabelText('Inline description')).toBeNull();
+    expect(row.getByLabelText('Inline hint')).toBeInTheDocument();
+  });
+
+  it('supports inline field config editing for selected field rows', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-config', version: '1.0.0',
+      items: [
+        { key: 'amount', type: 'field', dataType: 'money', label: 'Amount' },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-amount')).getByRole('button', { name: 'Select Amount' }));
+    fireEvent.change(within(screen.getByTestId('field-amount')).getByLabelText('Inline initial value'), { target: { value: '25' } });
+    fireEvent.change(within(screen.getByTestId('field-amount')).getByLabelText('Inline currency'), { target: { value: 'USD' } });
+    fireEvent.change(within(screen.getByTestId('field-amount')).getByLabelText('Inline precision'), { target: { value: '2' } });
+    fireEvent.change(within(screen.getByTestId('field-amount')).getByLabelText('Inline prefix'), { target: { value: '$' } });
+
+    expect((project.definition.items[0] as any)?.initialValue).toBe('25');
+    expect((project.definition.items[0] as any)?.currency).toBe('USD');
+    expect((project.definition.items[0] as any)?.precision).toBe(2);
+    expect((project.definition.items[0] as any)?.prefix).toBe('$');
+  });
+
+  it('uses stronger lower-editor label contrast in the selected field editor', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-editor-label-contrast', version: '1.0.0',
+      items: [
+        { key: 'amount', type: 'field', dataType: 'money', label: 'Amount' },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-amount'));
+    fireEvent.click(row.getByRole('button', { name: 'Select Amount' }));
+    const lowerEditor = row.getByTestId('field-amount-lower-editor');
+
+    expect(row.getByText('Initial value').closest('label')).toHaveClass('text-ink/95');
+    expect(row.getByText('Initial value').closest('label')).toHaveClass('text-[13px]');
+    expect(row.getByText('Initial value').closest('label')).not.toHaveClass('font-mono');
+    expect(row.getByText('Semantic type').closest('label')).toHaveClass('text-ink/95');
+    expect(row.getByText('Semantic type').closest('label')).toHaveClass('text-[13px]');
+    expect(row.getByText('Semantic type').closest('label')).not.toHaveClass('font-mono');
+    expect(lowerEditor).toHaveClass('bg-surface/72');
+    expect(row.getByLabelText('Inline initial value')).toHaveClass('bg-transparent');
+    expect(row.getByLabelText('Inline semantic type')).toHaveClass('bg-transparent');
+    expect(row.getByLabelText('Inline initial value')).toHaveClass('appearance-none');
+    expect(row.getByLabelText('Inline initial value')).toHaveClass('dark:[color-scheme:dark]');
+  });
+
+  it('edits visible summary cards with single-line inline inputs', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-summary-inputs', version: '1.0.0',
+      items: [
+        {
+          key: 'ssn',
+          type: 'field',
+          dataType: 'string',
+          label: 'SSN',
+          hint: 'XXX-XX-XXXX',
+          semanticType: 'us-gov:ssn',
+        },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    const row = within(screen.getByTestId('field-ssn'));
+    fireEvent.click(row.getByRole('button', { name: 'Select SSN' }));
+
+    expect(row.getByText('Key')).toBeInTheDocument();
+    expect(row.getByTestId('field-ssn-label-edit')).toBeInTheDocument();
+    expect(row.getByTestId('field-ssn-key-edit')).toBeInTheDocument();
+    expect(row.getByTestId('field-ssn-summary-edit-Hint')).toBeInTheDocument();
+    expect(row.getByTestId('field-ssn-summary-edit-Semantic')).toBeInTheDocument();
+
+    fireEvent.click(row.getByText('XXX-XX-XXXX'));
+    const hintInput = row.getByLabelText('Inline hint');
+    expect(hintInput.tagName).toBe('INPUT');
+    expect(hintInput).toHaveFocus();
+    fireEvent.change(hintInput, { target: { value: '999-99-9999' } });
+    fireEvent.blur(hintInput);
+
+    fireEvent.click(row.getByText('us-gov:ssn'));
+    const semanticInput = row.getByLabelText('Inline semantic');
+    expect(semanticInput.tagName).toBe('INPUT');
+    expect(semanticInput).toHaveFocus();
+    fireEvent.change(semanticInput, { target: { value: 'us-gov:tin' } });
+    fireEvent.blur(semanticInput);
+
+    expect((project.definition.items[0] as any)?.hint).toBe('999-99-9999');
+    expect((project.definition.items[0] as any)?.semanticType).toBe('us-gov:tin');
+  });
+
+  it('keeps the field type token in the title band instead of the key line', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-title-type-band', version: '1.0.0',
+      items: [
+        { key: 'birthDate', type: 'field', dataType: 'date', label: 'Birth Date' },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-birthDate'));
+    const titleText = row.getByText('Birth Date');
+    const typeToken = row.getByText('date');
+    const keyText = row.getByText('birthDate');
+    const titleBand = titleText.parentElement?.parentElement;
+
+    expect(titleBand).toContainElement(typeToken);
+    expect(keyText.parentElement).not.toContainElement(typeToken);
+  });
+
+  it('supports inline behavior editing for selected rows', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-behavior', version: '1.0.0',
+      items: [
+        { key: 'dob', type: 'field', dataType: 'date', label: 'Date of Birth' },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-dob')).getByRole('button', { name: 'Select Date of Birth' }));
+    fireEvent.click(within(screen.getByTestId('field-dob')).getByRole('button', { name: 'Add behavior to Date of Birth' }));
+
+    fireEvent.click(within(screen.getByTestId('field-dob')).getByLabelText('Required behavior'));
+    fireEvent.change(within(screen.getByTestId('field-dob')).getByLabelText('Constraint behavior'), { target: { value: '. < today()' } });
+    fireEvent.change(within(screen.getByTestId('field-dob')).getByLabelText('Constraint message behavior'), { target: { value: 'Must be in the past' } });
+
+    const binds = (project.definition as any).binds ?? [];
+    expect(binds).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'dob', required: 'true', constraint: '. < today()', constraintMessage: 'Must be in the past' }),
+    ]));
+  });
+
+  it('supports inline option editing for selected choice fields', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-options', version: '1.0.0',
+      items: [
+        { key: 'status', type: 'field', dataType: 'choice', label: 'Status', options: [{ value: 'new', label: 'New' }] },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Select Status' }));
+    fireEvent.click(within(screen.getByTestId('field-status')).getByText('1 choice'));
+
+    fireEvent.change(within(screen.getByTestId('field-status')).getByLabelText('Inline option 1 value'), { target: { value: 'open' } });
+    fireEvent.change(within(screen.getByTestId('field-status')).getByLabelText('Inline option 1 label'), { target: { value: 'Open' } });
+    fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Add option to Status' }));
+
+    expect((project.definition.items[0] as any)?.options).toEqual([
+      { value: 'open', label: 'Open' },
+      { value: '', label: '' },
+    ]);
+  });
+
+  it('supports removing options from selected choice fields inline', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-option-removal', version: '1.0.0',
+      items: [
+        {
+          key: 'status',
+          type: 'field',
+          dataType: 'choice',
+          label: 'Status',
+          options: [
+            { value: 'new', label: 'New' },
+            { value: 'open', label: 'Open' },
+          ],
+        },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Select Status' }));
+    fireEvent.click(within(screen.getByTestId('field-status')).getByText('2 choices'));
+    fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Remove option 1 from Status' }));
+
+    expect((project.definition.items[0] as any)?.options).toEqual([
+      { value: 'open', label: 'Open' },
+    ]);
+  });
+
+  it('supports inline pre-populate editing for selected field rows', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-prepopulate', version: '1.0.0',
+      items: [
+        { key: 'accountNumber', type: 'field', dataType: 'string', label: 'Account Number' },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('field-accountNumber')).getByRole('button', { name: 'Select Account Number' }));
+    fireEvent.click(within(screen.getByTestId('field-accountNumber')).getByRole('button', { name: 'Add pre-populate to Account Number' }));
+
+    fireEvent.change(within(screen.getByTestId('field-accountNumber')).getByLabelText('Inline pre-populate instance'), { target: { value: 'applicant' } });
+    fireEvent.change(within(screen.getByTestId('field-accountNumber')).getByLabelText('Inline pre-populate path'), { target: { value: 'crm.account_number' } });
+    fireEvent.click(within(screen.getByTestId('field-accountNumber')).getByLabelText('Inline pre-populate editable'));
+
+    expect((project.definition.items[0] as any)?.prePopulate).toEqual({
+      instance: 'applicant',
+      path: 'crm.account_number',
+      editable: false,
+    });
+  });
+
+  it('supports inline content editing for selected group rows', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-group-content', version: '1.0.0',
+      items: [
+        { key: 'contact', type: 'group', label: 'Contact', children: [] },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('group-contact')).getByRole('button', { name: 'Select group Contact' }));
+    fireEvent.click(within(screen.getByTestId('group-contact')).getByRole('button', { name: 'Add description to Contact' }));
+
+    fireEvent.change(within(screen.getByTestId('group-contact')).getByLabelText('Inline group description'), { target: { value: 'Primary household contact details.' } });
+    fireEvent.click(within(screen.getByTestId('group-contact')).getByRole('button', { name: 'Add hint to Contact' }));
+    fireEvent.change(within(screen.getByTestId('group-contact')).getByLabelText('Inline group hint'), { target: { value: 'Use the person we should call first.' } });
+    fireEvent.blur(within(screen.getByTestId('group-contact')).getByLabelText('Inline group hint'));
+
+    expect((project.definition.items[0] as any)?.description).toBe('Primary household contact details.');
+    expect((project.definition.items[0] as any)?.hint).toBe('Use the person we should call first.');
+  });
+
+  it('supports inline behavior editing for selected group rows', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-inline-group-behavior', version: '1.0.0',
+      items: [
+        { key: 'eligibility', type: 'group', label: 'Eligibility', children: [] },
+      ],
+    };
+    const { project } = renderTree(definition);
+
+    fireEvent.click(within(screen.getByTestId('group-eligibility')).getByRole('button', { name: 'Select group Eligibility' }));
+    fireEvent.click(within(screen.getByTestId('group-eligibility')).getByRole('button', { name: 'Add behavior to Eligibility' }));
+
+    fireEvent.click(within(screen.getByTestId('group-eligibility')).getByLabelText('Group required behavior'));
+    fireEvent.change(within(screen.getByTestId('group-eligibility')).getByLabelText('Group relevant behavior'), { target: { value: '../age >= 18' } });
+
+    const binds = (project.definition as any).binds ?? [];
+    expect(binds).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'eligibility', required: 'true', relevant: '../age >= 18' }),
+    ]));
+  });
+
+  it('scrolls the selected group or field into view when selection changes externally', () => {
+    const definition = {
+      $formspec: '1.0', url: 'urn:tree-scroll-test', version: '1.0.0',
+      items: [{
+        key: 'contact', type: 'group', label: 'Contact',
+        children: [
+          { key: 'email', type: 'field', dataType: 'string', label: 'Email' },
+        ],
+      }],
+    };
+    const project = createProject({ seed: { definition } });
+    const scrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollCalls: string[] = [];
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+      });
+
+    HTMLElement.prototype.scrollIntoView = function scrollIntoViewSpy() {
+      const path = this.getAttribute('data-editor-path');
+      if (path) scrollCalls.push(path);
+    };
+
+    function SelectButton({ path, type }: { path: string; type: string }) {
+      const { select } = useSelection();
+      return (
+        <button type="button" data-testid={`select-${path}`} onClick={() => select(path, type)}>
+          Select
+        </button>
+      );
+    }
+
+    try {
+      render(
+        <ProjectProvider project={project}>
+          <SelectionProvider>
+            <DefinitionTreeEditor />
+            <SelectButton path="contact" type="group" />
+            <SelectButton path="contact.email" type="field" />
+          </SelectionProvider>
+        </ProjectProvider>,
+      );
+
+      fireEvent.click(screen.getByTestId('select-contact'));
+      fireEvent.click(screen.getByTestId('select-contact.email'));
+
+      expect(scrollCalls).toContain('contact');
+      expect(scrollCalls).toContain('contact.email');
+    } finally {
+      HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      requestAnimationFrameSpy.mockRestore();
+    }
   });
 });

@@ -1,5 +1,6 @@
 /** @filedesc Panel for creating and editing named option sets (static choices or data-sourced) on a form. */
 import { useState } from 'react';
+import { sanitizeIdentifier } from '../../lib/field-helpers';
 import { useDefinition } from '../../state/useDefinition';
 import { useProject } from '../../state/useProject';
 import { flatItems } from '../../lib/field-helpers';
@@ -46,8 +47,6 @@ export function OptionSets() {
     }
   };
 
-  const sanitizeName = (raw: string) => raw.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/_+$/, '');
-
   // Count how many fields reference each option set
   const flat = flatItems(items);
   const usageCounts: Record<string, number> = {};
@@ -84,7 +83,7 @@ export function OptionSets() {
               type="text"
               placeholder="state_codes"
               value={newName}
-              onChange={(e) => setNewName(sanitizeName(e.target.value))}
+              onChange={(e) => setNewName(sanitizeIdentifier(e.target.value))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleAdd();
                 if (e.key === 'Escape') { setIsAdding(false); setNewName(''); }

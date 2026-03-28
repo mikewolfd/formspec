@@ -57,8 +57,22 @@ describe('Editor context menu', () => {
     const { project } = renderTree(SIMPLE);
     fireEvent.contextMenu(screen.getByTestId('field-name'));
     fireEvent.click(screen.getByText('Delete'));
+    expect(screen.getByRole('dialog', { name: /delete name/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /confirm delete/i }));
     expect(project.definition.items).toHaveLength(1);
     expect(project.definition.items[0].key).toBe('age');
+  });
+
+  it('Delete can be cancelled from the warning modal', () => {
+    const { project } = renderTree(SIMPLE);
+    fireEvent.contextMenu(screen.getByTestId('field-name'));
+    fireEvent.click(screen.getByText('Delete'));
+
+    expect(screen.getByRole('dialog', { name: /delete name/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /cancel delete/i }));
+
+    expect(project.definition.items).toHaveLength(2);
+    expect(screen.queryByRole('dialog', { name: /delete name/i })).not.toBeInTheDocument();
   });
 
   it('Duplicate copies the item', () => {
@@ -68,12 +82,54 @@ describe('Editor context menu', () => {
     expect(project.definition.items).toHaveLength(3);
   });
 
+  it('keeps menu item actions working for a real mouse press sequence', () => {
+    const { project } = renderTree(SIMPLE);
+    fireEvent.contextMenu(screen.getByTestId('field-name'));
+
+    const duplicate = screen.getByText('Duplicate');
+    fireEvent.mouseDown(duplicate);
+    fireEvent.click(duplicate);
+
+    expect(project.definition.items).toHaveLength(3);
+  });
+
   it('Move Down reorders the item', () => {
     const { project } = renderTree(SIMPLE);
     fireEvent.contextMenu(screen.getByTestId('field-name'));
     fireEvent.click(screen.getByText('Move Down'));
     expect(project.definition.items[0].key).toBe('age');
     expect(project.definition.items[1].key).toBe('name');
+  });
+
+  it('Wrap in Group prompts for key and label before wrapping', () => {
+    const { project } = renderTree(SIMPLE);
+    fireEvent.contextMenu(screen.getByTestId('field-name'));
+    fireEvent.click(screen.getByText('Wrap in Group'));
+
+    expect(screen.getByRole('dialog', { name: /wrap name in group/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^group key$/i)).toHaveValue('');
+    expect(screen.getByLabelText(/^group label$/i)).toHaveValue('');
+    fireEvent.change(screen.getByLabelText(/^group key$/i), { target: { value: 'identity' } });
+    fireEvent.change(screen.getByLabelText(/^group label$/i), { target: { value: 'Identity' } });
+    fireEvent.click(screen.getByRole('button', { name: /create group/i }));
+
+    expect(project.definition.items).toHaveLength(2);
+    expect(project.definition.items[0].key).toBe('identity');
+    expect((project.definition.items[0] as any).label).toBe('Identity');
+    expect((project.definition.items[0] as any).children[0].key).toBe('name');
+  });
+
+  it('Wrap in Group can be cancelled without mutating the tree', () => {
+    const { project } = renderTree(SIMPLE);
+    fireEvent.contextMenu(screen.getByTestId('field-name'));
+    fireEvent.click(screen.getByText('Wrap in Group'));
+
+    expect(screen.getByRole('dialog', { name: /wrap name in group/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /cancel wrap/i }));
+
+    expect(project.definition.items).toHaveLength(2);
+    expect(project.definition.items[0].key).toBe('name');
+    expect(screen.queryByRole('dialog', { name: /wrap name in group/i })).not.toBeInTheDocument();
   });
 
   it('context menu also works on groups', () => {

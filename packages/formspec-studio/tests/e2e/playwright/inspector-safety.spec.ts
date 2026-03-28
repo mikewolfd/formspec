@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForApp, importDefinition, switchTab } from './helpers';
+import { waitForApp, importDefinition, propertiesPanel, switchTab } from './helpers';
 
 test.describe('Inspector Safety', () => {
   test.beforeEach(async ({ page }) => {
@@ -17,14 +17,13 @@ test.describe('Inspector Safety', () => {
   test('non-Editor workspaces do not expose Duplicate and Delete inspector actions for the last Editor selection', async ({ page }) => {
     await page.click('[data-testid="field-name"]');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     await expect(properties.getByRole('button', { name: 'Duplicate' })).toBeVisible();
     await expect(properties.getByRole('button', { name: 'Delete' })).toBeVisible();
 
     await switchTab(page, 'Data');
 
-    await expect(properties.getByRole('button', { name: 'Duplicate' })).toBeHidden();
-    await expect(properties.getByRole('button', { name: 'Delete' })).toBeHidden();
+    await expect(propertiesPanel(page)).toBeHidden();
   });
 });
 
@@ -47,7 +46,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
 
     // Select field A first
     await page.click('[data-testid="field-fieldA"]');
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
     const keyInput = properties.locator('input[type="text"]').first();
     await expect(keyInput).toHaveValue('fieldA');
 
@@ -74,7 +73,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
 
     // Select the field
     await page.click('[data-testid="field-oldKey"]');
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
 
     // Edit the KEY input and commit with Tab
     const keyInput = properties.locator('input[type="text"]').first();
@@ -111,7 +110,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
     // Select the field that has binds
     await page.click('[data-testid="field-income"]');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
 
     // BUG #32: "Behavior Rules" section never appears even though income has binds.
     await expect(properties).toContainText('Behavior Rules');
@@ -140,7 +139,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
     // Select the field to reveal Behavior Rules
     await page.click('[data-testid="field-age"]');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
 
     // Wait for the Behavior Rules section to be present
     await expect(properties).toContainText('Behavior Rules');
@@ -181,7 +180,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
     // Click the repeatable group header to select it
     await page.click('[data-testid="group-medications"]');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
 
     // BUG #52: The inspector shows only the Identity section — no cardinality
     // controls for min/max repeat appear.
@@ -223,7 +222,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
     // Select the choice field
     await page.click('[data-testid="field-status"]');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
 
     // BUG #53: No "Choices" or "Options" section renders for select1 fields.
     // The inspector should surface a section listing the choice options with the
@@ -249,7 +248,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
     // Select the field
     await page.click('[data-testid="field-firstName"]');
 
-    const properties = page.locator('[data-testid="properties"]');
+    const properties = propertiesPanel(page);
 
     // BUG #57: There is no Label/Title input in the inspector at all. Only the
     // Key input is present. The inspector should show a Label input that allows

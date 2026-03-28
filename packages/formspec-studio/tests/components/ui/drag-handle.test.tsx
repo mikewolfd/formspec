@@ -17,6 +17,6 @@ describe('DragHandle', () => {
   it('forwards ref to the root element', () => {
     const ref = { current: null } as React.MutableRefObject<Element | null>;
     render(<DragHandle ref={ref} />);
-    expect(ref.current).toBeInstanceOf(HTMLDivElement);
+    expect(ref.current).toBeInstanceOf(HTMLButtonElement);
   });
 });

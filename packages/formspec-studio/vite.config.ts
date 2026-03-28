@@ -33,7 +33,8 @@ export default defineConfig({
       '@formspec-org/mcp/dispatch': path.resolve(repoRoot, 'packages/formspec-mcp/src/dispatch.ts'),
       '@formspec-org/mcp/registry': path.resolve(repoRoot, 'packages/formspec-mcp/src/registry.ts'),
       '@formspec-org/mcp/server': path.resolve(repoRoot, 'packages/formspec-mcp/src/create-server.ts'),
-      // @formspec-org/webcomponent: use workspace dep from node_modules so formspec-base.css?url resolves correctly
+      // Subpath must precede any future root alias for webcomponent
+      '@formspec-org/webcomponent/default-theme': path.resolve(repoRoot, 'packages/formspec-webcomponent/src/default-theme.json'),
     },
     dedupe: ['react', 'react-dom']
   },

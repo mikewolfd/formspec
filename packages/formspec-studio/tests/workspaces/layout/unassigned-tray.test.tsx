@@ -6,7 +6,6 @@ import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
 import { ActiveGroupProvider } from '../../../src/state/useActiveGroup';
 import { LayoutCanvas } from '../../../src/workspaces/layout/LayoutCanvas';
-import { computeUnassignedItems } from '../../../src/workspaces/layout/UnassignedTray';
 
 function renderLayout(project: Project) {
   return {
@@ -102,77 +101,5 @@ describe('UnassignedTray (integration)', () => {
     renderLayout(project);
     expect(screen.getByText(/unassigned/i)).toBeInTheDocument();
     expect(screen.getByText('Important Notice')).toBeInTheDocument();
-  });
-});
-
-describe('computeUnassignedItems (unit)', () => {
-  it('returns empty when all items are bound', () => {
-    const items = [
-      { key: 'a', type: 'field', dataType: 'string', label: 'A' },
-      { key: 'b', type: 'field', dataType: 'string', label: 'B' },
-    ] as any[];
-    const tree = [
-      { component: 'TextInput', bind: 'a' },
-      { component: 'TextInput', bind: 'b' },
-    ];
-    expect(computeUnassignedItems(items, tree)).toEqual([]);
-  });
-
-  it('returns items not in the tree', () => {
-    const items = [
-      { key: 'a', type: 'field', dataType: 'string', label: 'A' },
-      { key: 'b', type: 'field', dataType: 'string', label: 'B' },
-      { key: 'c', type: 'field', dataType: 'integer', label: 'C' },
-    ] as any[];
-    const tree = [{ component: 'TextInput', bind: 'a' }];
-    const result = computeUnassignedItems(items, tree);
-    expect(result).toHaveLength(2);
-    expect(result.map(i => i.key)).toEqual(['b', 'c']);
-  });
-
-  it('uses item key as label fallback', () => {
-    const items = [{ key: 'noLabel', type: 'field', dataType: 'string' }] as any[];
-    const result = computeUnassignedItems(items, []);
-    expect(result[0].label).toBe('noLabel');
-  });
-
-  it('detects display items bound via nodeId', () => {
-    const items = [
-      { key: 'notice', type: 'display', label: 'Notice' },
-    ] as any[];
-    const tree = [{ component: 'Text', nodeId: 'notice' }];
-    expect(computeUnassignedItems(items, tree)).toEqual([]);
-  });
-
-  it('ignores layout nodes (_layout) when collecting bound keys', () => {
-    const items = [
-      { key: 'a', type: 'field', dataType: 'string', label: 'A' },
-    ] as any[];
-    // Layout node with a nodeId that happens to match an item key
-    // should NOT count as "bound"
-    const tree = [{ component: 'Card', nodeId: 'a', _layout: true }];
-    const result = computeUnassignedItems(items, tree);
-    expect(result).toHaveLength(1);
-    expect(result[0].key).toBe('a');
-  });
-
-  it('finds items nested in layout containers', () => {
-    const items = [
-      { key: 'a', type: 'field', dataType: 'string', label: 'A' },
-      { key: 'b', type: 'field', dataType: 'string', label: 'B' },
-    ] as any[];
-    const tree = [
-      {
-        component: 'Card', nodeId: 'card1', _layout: true,
-        children: [{ component: 'TextInput', bind: 'a' }],
-      },
-    ];
-    const result = computeUnassignedItems(items, tree);
-    expect(result).toHaveLength(1);
-    expect(result[0].key).toBe('b');
-  });
-
-  it('returns empty for empty definition', () => {
-    expect(computeUnassignedItems([], [])).toEqual([]);
   });
 });

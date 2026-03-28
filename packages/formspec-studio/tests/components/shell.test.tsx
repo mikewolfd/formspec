@@ -36,6 +36,33 @@ function renderShell(definition?: typeof seededDefinition, width = 1440) {
 }
 
 describe('Shell', () => {
+  it('renders the unwired editor row demo when ?demo=editor-row-redo is present', () => {
+    const originalUrl = window.location.href;
+    window.history.pushState({}, '', '/?demo=editor-row-redo');
+
+    try {
+      renderShell(seededDefinition, 1440);
+
+      expect(screen.getByTestId('editor-row-redo-demo')).toBeInTheDocument();
+      expect(screen.getByText(/row redesign study/i)).toBeInTheDocument();
+      expect(screen.getByText('Applicant Name')).toBeInTheDocument();
+      expect(screen.getByTestId('editor-row-redo-group-applicant')).toBeInTheDocument();
+      expect(screen.getByTestId('editor-row-redo-row-fullName')).toBeInTheDocument();
+      expect(screen.getByTestId('editor-row-redo-row-dob')).toBeInTheDocument();
+      expect(screen.getByTestId('editor-row-redo-row-maritalStatus')).toBeInTheDocument();
+      expect(screen.getAllByText('Group')).toHaveLength(2);
+      expect(screen.getByText('+ Add description')).toBeInTheDocument();
+      expect(screen.getAllByText('+ Add behavior').length).toBeGreaterThan(0);
+      expect(screen.getByText('Selected')).toBeInTheDocument();
+      expect(screen.getAllByText('Inline edit').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Add missing').length).toBeGreaterThan(0);
+      expect(screen.getByDisplayValue('Must be in the past')).toBeInTheDocument();
+      expect(screen.getAllByText('Behavior menu').length).toBeGreaterThan(0);
+    } finally {
+      window.history.pushState({}, '', originalUrl);
+    }
+  });
+
   it('renders header with app title', () => {
     renderShell();
     expect(screen.getByRole('button', { name: /the stack home/i })).toBeInTheDocument();
@@ -156,6 +183,47 @@ describe('Shell', () => {
     expect(screen.getByTestId('field-name')).toBeInTheDocument();
   });
 
+  it('shows the editor workspace with a desktop definition properties rail', async () => {
+    renderShell(seededDefinition, 1440);
+
+    expect(screen.getByTestId('blueprint-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('editor-canvas-shell')).toBeInTheDocument();
+
+    await act(async () => {
+      screen.getByTestId('field-name').click();
+    });
+
+    expect(screen.getByTestId('properties-panel')).toBeInTheDocument();
+    expect(screen.getByText('Field')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('name')).toBeInTheDocument();
+  });
+
+  it('hides the Component Tree blueprint section while Editor is active', () => {
+    renderShell(seededDefinition, 1440);
+
+    expect(screen.queryByTestId('blueprint-section-Component Tree')).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Layout' }));
+    expect(screen.getByTestId('blueprint-section-Component Tree')).toBeInTheDocument();
+  });
+
+  it('uses the same row-first editor surface on compact screens without a separate properties mode', async () => {
+    renderShell({
+      ...seededDefinition,
+      items: [
+        { key: 'app', type: 'group' as const, label: 'Applicant Information', children: [
+          { key: 'name', type: 'field' as const, dataType: 'string' as const, label: 'Full Legal Name' },
+        ] },
+      ],
+    }, 390);
+    fireEvent(window, new Event('resize'));
+
+    expect(screen.queryByTestId('mobile-editor-switcher')).toBeNull();
+    expect(screen.getByTestId('mobile-editor-structure')).toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-editor-properties')).toBeNull();
+    expect(screen.getByTestId('mobile-selection-context')).toBeInTheDocument();
+  });
+
   // DataTab uses internal section filter state (useState). When the user
   // navigates away and back, React unmounts/remounts the component, resetting
   // the filter to "All Data". This is expected — the Data workspace is now
@@ -273,7 +341,7 @@ describe('Shell', () => {
     // The concrete failure signal: both sidebars are always visible at full
     // width (230px + 270px = 500px) without any responsive hiding mechanism.
     const leftSidebar = shell.querySelector('aside:first-of-type');
-    const rightSidebar = shell.querySelector('aside[data-testid="properties"]');
+    const rightSidebar = shell.querySelector('aside[data-testid="properties-panel"]');
 
     // At tablet width at least one sidebar should be hidden or collapsed to
     // prevent the total rendered width from exceeding the viewport.
@@ -341,15 +409,31 @@ describe('Shell', () => {
     expect(screen.getByRole('button', { name: /close blueprint drawer/i })).toBeInTheDocument();
   });
 
-  it('renders compact item properties as a modal dialog when a field is selected', async () => {
+  it('shows the selected item label in compact editor context without a separate properties mode', async () => {
     renderShell(seededDefinition, 768);
     fireEvent(window, new Event('resize'));
 
     await act(async () => {
-      screen.getByTestId('field-name').click();
+      within(screen.getByTestId('field-name')).getByRole('button', { name: 'Select Full Name' }).click();
     });
 
-    expect(screen.getByRole('dialog', { name: /name/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /close properties panel/i })).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-selection-context')).toHaveTextContent('Full Name');
+    expect(screen.getByTestId('mobile-selection-context')).not.toHaveTextContent('app.name');
+    expect(screen.getByTestId('mobile-editor-structure')).toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-editor-properties')).toBeNull();
+    expect(screen.queryByText('app.name')).toBeNull();
+  });
+
+  it('keeps compact editor selection context while staying on the single structure surface', async () => {
+    renderShell(seededDefinition, 768);
+    fireEvent(window, new Event('resize'));
+
+    await act(async () => {
+      within(screen.getByTestId('field-name')).getByRole('button', { name: 'Select Full Name' }).click();
+    });
+
+    expect(screen.getByTestId('mobile-editor-structure')).toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-editor-properties')).toBeNull();
+    expect(screen.getByTestId('mobile-selection-context')).toHaveTextContent('Full Name');
   });
 });

@@ -17,12 +17,16 @@ export function ModeSelector({ mode, onSetMode }: ModeSelectorProps) {
   return (
     <div
       data-testid="mode-selector"
+      role="tablist"
+      aria-label="Layout mode"
       className="inline-flex items-center gap-1 rounded-[14px] border border-border bg-surface p-1 shadow-sm"
     >
       {modes.map((entry) => (
         <button
           key={entry.id}
           type="button"
+          role="tab"
+          aria-selected={mode === entry.id}
           onClick={() => onSetMode(entry.id)}
           className={`rounded-[10px] px-3.5 py-1.5 text-[12px] font-semibold tracking-wide transition-colors ${
             mode === entry.id

@@ -34,7 +34,7 @@ export function GroupConfigSection({
             project.updateItem(path, { repeatable: event.currentTarget.checked });
           }}
         />
-        <label htmlFor={`${path}-repeatable`} className="font-mono text-[10px] text-muted uppercase tracking-wider">
+        <label htmlFor={`${path}-repeatable`} className="font-mono text-[10px] uppercase tracking-wider text-ink">
           <HelpTip text={propertyHelp.repeatable}>Repeatable</HelpTip>
         </label>
       </div>
@@ -42,7 +42,7 @@ export function GroupConfigSection({
       {item.repeatable && (
         <div className="space-y-2">
           <div className="space-y-1.5">
-            <label className="font-mono text-[10px] text-muted uppercase tracking-wider block" htmlFor={`${path}-min-repeat`}>
+            <label className="font-mono text-[10px] uppercase tracking-wider block text-ink" htmlFor={`${path}-min-repeat`}>
               <HelpTip text={propertyHelp.minRepeat}>Min Repeat</HelpTip>
             </label>
             <input
@@ -58,7 +58,7 @@ export function GroupConfigSection({
             />
           </div>
           <div className="space-y-1.5">
-            <label className="font-mono text-[10px] text-muted uppercase tracking-wider block" htmlFor={`${path}-max-repeat`}>
+            <label className="font-mono text-[10px] uppercase tracking-wider block text-ink" htmlFor={`${path}-max-repeat`}>
               <HelpTip text={propertyHelp.maxRepeat}>Max Repeat</HelpTip>
             </label>
             <input

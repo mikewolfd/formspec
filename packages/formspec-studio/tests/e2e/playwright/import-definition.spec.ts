@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addFromPalette, importDefinition, switchTab, waitForApp } from './helpers';
+import { addFromPalette, editorFieldRows, importDefinition, switchTab, waitForApp } from './helpers';
 
 const IMPORT_DEFINITION = JSON.stringify({
   $formspec: '1.0',
@@ -65,7 +65,7 @@ test.describe('Import Definition', () => {
 
     await page.locator('[data-testid="import-dialog"]').getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('[data-testid="import-dialog"]')).not.toBeVisible();
-    await expect(page.locator('[data-testid="workspace-Editor"]').locator('[data-testid^="field-"]')).toHaveCount(0);
+    await expect(editorFieldRows(page)).toHaveCount(0);
   });
 
   test('Escape closes the import dialog', async ({ page }) => {
@@ -80,7 +80,7 @@ test.describe('Import Definition', () => {
 
   test('import does not clear undo history (bug #18)', async ({ page }) => {
     await addFromPalette(page, 'Text');
-    await expect(page.locator('[data-testid^="field-"]')).toHaveCount(1);
+    await expect(editorFieldRows(page)).toHaveCount(1);
     await expect(page.locator('[data-testid="undo-btn"]')).not.toBeDisabled();
 
     await page.click('button[aria-label="Account menu"]');
@@ -93,7 +93,7 @@ test.describe('Import Definition', () => {
     await expect(page.locator('[data-testid="undo-btn"]')).not.toBeDisabled();
 
     await page.click('[data-testid="undo-btn"]');
-    await expect(page.locator('[data-testid^="field-"]')).toHaveCount(1);
+    await expect(editorFieldRows(page)).toHaveCount(1);
   });
 
   test('reopening the import dialog resets previous text and artifact type', async ({ page }) => {

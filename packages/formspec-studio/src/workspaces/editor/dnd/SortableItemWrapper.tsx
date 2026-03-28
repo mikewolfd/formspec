@@ -1,16 +1,16 @@
 /** @filedesc Wrapper that makes a canvas item sortable via dnd-kit, fading the source during drag. */
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, type ReactElement } from 'react';
 import { useSortable } from '@dnd-kit/react/sortable';
 
 interface SortableItemWrapperProps {
   id: string;
   index: number;
   group?: string;
-  children: ReactNode;
+  children: ReactElement;
 }
 
 export function SortableItemWrapper({ id, index, group, children }: SortableItemWrapperProps) {
-  const { ref, isDragSource } = useSortable({
+  const { ref, handleRef, isDragSource } = useSortable({
     id,
     index,
     group,
@@ -18,9 +18,15 @@ export function SortableItemWrapper({ id, index, group, children }: SortableItem
     transition: null,
   });
 
+  const child = isValidElement(children)
+    ? cloneElement(children, {
+      dragHandleRef: handleRef,
+    } as Record<string, unknown>)
+    : children;
+
   return (
     <div ref={ref} style={{ opacity: isDragSource ? 0.4 : 1 }}>
-      {children}
+      {child}
     </div>
   );
 }

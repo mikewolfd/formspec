@@ -19,6 +19,26 @@ export async function switchTab(page: Page, tabName: string) {
   await page.waitForSelector(`[data-testid="workspace-${tabName}"]`);
 }
 
+/** Canonical desktop properties rail locator. */
+export function propertiesPanel(page: Page) {
+  return page.locator('[data-testid="properties-panel"]');
+}
+
+/** Top-level editor field rows, excluding nested summary/detail elements. */
+export function editorFieldRows(page: Page) {
+  return page.locator('[data-testid="workspace-Editor"] [data-editor-path][data-testid^="field-"]');
+}
+
+/** Top-level editor group rows, excluding nested summary/detail elements. */
+export function editorGroupRows(page: Page) {
+  return page.locator('[data-testid="workspace-Editor"] [data-editor-path][data-testid^="group-"]');
+}
+
+/** Top-level editor display rows, excluding nested summary/detail elements. */
+export function editorDisplayRows(page: Page) {
+  return page.locator('[data-testid="workspace-Editor"] [data-editor-path][data-testid^="display-"]');
+}
+
 /**
  * Import a definition via the Import Dialog UI.
  * The import remains in undo history.
