@@ -52,14 +52,24 @@ test('escape: standalone {{{{ without closing', () => {
 
 // --- Coercion (Rule 3) ---
 
-test('coercion: null → empty string', () => {
-  const { text } = interpolateMessage('val={{x}}', () => null);
+test('coercion: null → empty string when expression binds $ or @', () => {
+  const { text } = interpolateMessage('val={{$x}}', () => null);
   assert.equal(text, 'val=');
 });
 
-test('coercion: undefined → empty string', () => {
-  const { text } = interpolateMessage('val={{x}}', () => undefined);
+test('coercion: undefined → empty string when expression binds $', () => {
+  const { text } = interpolateMessage('val={{$x}}', () => undefined);
   assert.equal(text, 'val=');
+});
+
+test('locale §3.3.1 rule 3a: null without $/@ preserves non-static literal', () => {
+  const { text } = interpolateMessage('x {{!!!bad}} y', () => null);
+  assert.equal(text, 'x {{!!!bad}} y');
+});
+
+test('locale §3.3.1: null for static literal still becomes empty', () => {
+  const { text } = interpolateMessage('v={{null}}', () => null);
+  assert.equal(text, 'v=');
 });
 
 test('coercion: true → "true"', () => {

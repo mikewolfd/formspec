@@ -2,7 +2,9 @@
 #![allow(clippy::missing_docs_in_private_items)]
 
 use fel_core::error::{Diagnostic, Severity};
-use fel_core::{EvalResult, FelValue, FormspecEnvironment, evaluate, parse};
+use fel_core::{
+    EvalResult, FelValue, FormspecEnvironment, evaluate, expr_is_interpolation_static_literal, parse,
+};
 
 /// Check whether a constraint evaluation result means "passes."
 ///
@@ -48,10 +50,10 @@ pub(super) fn evaluate_shape_expression(expr: &str, env: &FormspecEnvironment) -
 
 /// Resolve `{{expression}}` interpolation sequences in a message string.
 ///
-/// Rules (per core spec §5.3 and locale spec §3.3.1):
+/// Rules (per locale spec §3.3.1):
 /// 1. `{{{{` -> literal `{{` (escape handling)
-/// 2. Failed parse/eval -> literal `{{original expr}}` (error recovery, MUST not crash)
-/// 3. null -> "", booleans -> "true"/"false", numbers -> default string
+/// 2. Failed parse, eval error diagnostics, or rule 3a -> literal `{{original expr}}`
+/// 3. Otherwise coerce value to display string (null -> "" when allowed)
 /// 4. Non-recursive: replacement text is not re-scanned
 pub(super) fn interpolate_message(template: &str, env: &FormspecEnvironment) -> String {
     // No {{ at all — fast path
@@ -77,7 +79,25 @@ pub(super) fn interpolate_message(template: &str, env: &FormspecEnvironment) -> 
             if let Some(close) = find_closing_braces(template, i + 2) {
                 let expr = &template[i + 2..close];
                 let evaluated = match parse(expr) {
-                    Ok(parsed) => fel_value_to_display(&evaluate(&parsed, env).value),
+                    Ok(parsed) => {
+                        let er = evaluate(&parsed, env);
+                        let trim = expr.trim();
+                        let has_binding_sigil = trim.contains('$') || trim.contains('@');
+                        if er
+                            .diagnostics
+                            .iter()
+                            .any(|d| d.severity == Severity::Error)
+                        {
+                            format!("{{{{{expr}}}}}")
+                        } else if er.value.is_null()
+                            && !has_binding_sigil
+                            && !expr_is_interpolation_static_literal(&parsed)
+                        {
+                            format!("{{{{{expr}}}}}")
+                        } else {
+                            fel_value_to_display(&er.value)
+                        }
+                    }
                     Err(_) => format!("{{{{{expr}}}}}"),
                 };
                 result.push_str(&evaluated);
@@ -214,6 +234,34 @@ mod tests {
         let env = make_env();
         let result = interpolate_message("{{badExpr!!!}}", &env);
         assert_eq!(result, "{{badExpr!!!}}");
+    }
+
+    #[test]
+    fn interpolation_preserves_null_without_sigil_or_static_literal() {
+        let env = make_env();
+        assert_eq!(
+            interpolate_message("x {{!!!bad}} y", &env),
+            "x {{!!!bad}} y"
+        );
+    }
+
+    #[test]
+    fn interpolation_null_literal_still_empty() {
+        let env = make_env();
+        assert_eq!(interpolate_message("{{null}}", &env), "");
+    }
+
+    #[test]
+    fn interpolation_not_null_still_empty() {
+        let env = make_env();
+        assert_eq!(interpolate_message("{{not null}}", &env), "");
+    }
+
+    #[test]
+    fn interpolation_eval_error_preserves_literal() {
+        let env = make_env();
+        let result = interpolate_message("{{noSuchFn()}}", &env);
+        assert_eq!(result, "{{noSuchFn()}}");
     }
 
     #[test]

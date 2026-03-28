@@ -1001,14 +1001,20 @@ fn malformed_fel_in_constraint_degrades_gracefully() {
     data.insert("x".to_string(), json!(5));
 
     let result = evaluate_definition(&def, &data);
-    let constraint_errors: Vec<_> = result
+    assert_eq!(
+        result.values.get("x"),
+        Some(&json!(5)),
+        "field value should still be present when bind constraint FEL is malformed"
+    );
+    let parse_errors: Vec<_> = result
         .validations
         .iter()
-        .filter(|v| v.message.contains("Constraint"))
+        .filter(|v| v.code == "CONSTRAINT_PARSE_ERROR")
         .collect();
-    assert!(
-        constraint_errors.is_empty(),
-        "malformed constraint expression should not produce a validation error"
+    assert_eq!(
+        parse_errors.len(),
+        1,
+        "malformed constraint FEL must surface CONSTRAINT_PARSE_ERROR (must not silently pass)"
     );
 }
 

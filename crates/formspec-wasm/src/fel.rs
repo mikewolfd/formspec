@@ -1,8 +1,9 @@
 //! FEL evaluation, analysis, and path utilities (`wasm_bindgen`). `fel-authoring` adds parse/tokenize/print/rewrites/catalog.
 
 use fel_core::{
-    evaluate, fel_to_json, field_map_from_json_str, formspec_environment_from_json_map, parse,
-    prepare_fel_expression_owned, prepare_fel_host_options_from_json_map, reject_undefined_functions,
+    evaluate, expr_is_interpolation_static_literal, fel_to_json, field_map_from_json_str,
+    formspec_environment_from_json_map, parse, prepare_fel_expression_owned,
+    prepare_fel_host_options_from_json_map, reject_undefined_functions,
 };
 #[cfg(feature = "fel-authoring")]
 use fel_core::{
@@ -26,6 +27,14 @@ use crate::json_host::{parse_json_as, parse_value_str, to_json_string};
 
 fn parse_fel_source(expression: &str) -> Result<fel_core::Expr, String> {
     parse(expression).map_err(|e| e.to_string())
+}
+
+/// Whether the expression is an interpolation static literal (locale spec §3.3.1).
+#[wasm_bindgen(js_name = "felExprIsInterpolationStaticLiteral")]
+pub fn fel_expr_is_interpolation_static_literal(expression: &str) -> bool {
+    parse(expression)
+        .map(|ast| expr_is_interpolation_static_literal(&ast))
+        .unwrap_or(false)
 }
 
 // ── FEL Evaluation ──────────────────────────────────────────────

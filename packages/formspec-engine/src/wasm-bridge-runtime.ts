@@ -115,6 +115,11 @@ export function wasmEvalFELWithContext(expression: string, context: WasmFelConte
     return JSON.parse(resultJson);
 }
 
+/** Locale §3.3.1 — true if the expression AST is only literals and unary `not` / `!` / `-`. */
+export function wasmFelExprIsInterpolationStaticLiteral(expression: string): boolean {
+    return wasm().felExprIsInterpolationStaticLiteral(expression);
+}
+
 /** Normalize FEL source before evaluation (bare `$`, repeat qualifiers, repeat aliases). */
 export function wasmPrepareFelExpression(optionsJson: string): string {
     return wasm().prepareFelExpression(optionsJson);
