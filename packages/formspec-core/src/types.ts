@@ -31,11 +31,6 @@ export interface ComponentState {
   [key: string]: unknown;
 }
 
-/** Studio-generated layout state with marker property. */
-export interface GeneratedLayoutState extends ComponentState {
-  'x-studio-generated': true;
-}
-
 /**
  * Theme working state — content without required envelope metadata.
  * Handlers read/write defaults, selectors, items, pages, etc.
@@ -167,10 +162,8 @@ export interface VersionRelease {
 export interface ProjectState {
   /** The form's structure and behavior: items, binds, shapes, variables, etc. */
   definition: FormDefinition;
-  /** The authored Tier 3 component content. */
+  /** The form's component document and layout structure. */
   component: ComponentState;
-  /** Studio-generated layout content for editor interactions and preview synthesis. */
-  generatedComponent: GeneratedLayoutState;
   /** Visual presentation content: tokens, defaults, selectors, page layout. */
   theme: ThemeState;
   /** Named mapping collection: rules, targetSchema, adapters, etc. keyed by unique ID. */

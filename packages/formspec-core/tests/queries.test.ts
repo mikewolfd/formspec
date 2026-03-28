@@ -1255,19 +1255,17 @@ describe('export', () => {
     const bundle = project.export();
 
     expect(bundle.component.tree).toBeDefined();
-    expect((bundle.component.tree as any).type).toBe('Stack');
+    expect((bundle.component.tree as any).component).toBe('Stack');
   });
 
-  it('strips x-studio-generated marker from exported component', () => {
+  it('exports a clean component document envelope', () => {
     const project = createRawProject();
     project.dispatch({ type: 'definition.addItem', payload: { item: { type: 'string', name: 'email', label: 'Email' } } });
 
-    // Confirm generated component has the marker internally
-    expect((project.generatedComponent as any)['x-studio-generated']).toBe(true);
-
     const bundle = project.export();
 
-    // Exported bundle should not leak internal marker
     expect((bundle.component as any)['x-studio-generated']).toBeUndefined();
+    expect((bundle.component as any).$formspecComponent).toBe('1.0');
+    expect((bundle.component as any).version).toBe('0.1.0');
   });
 });

@@ -36,10 +36,9 @@ import { builtinHandlers } from './handlers/index.js';
 import type { CommandHandler } from './types.js';
 import { CommandPipeline } from './pipeline.js';
 import {
-  createGeneratedLayoutDocument,
+  createComponentArtifact,
   getCurrentComponentDocument,
-  hasAuthoredComponentTree,
-  splitComponentState,
+  normalizeComponentState,
 } from './component-documents.js';
 import { normalizeDefinition } from './normalization.js';
 import { HistoryManager } from './history.js';
@@ -161,24 +160,14 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
   const rawDefinition = options?.seed?.definition ?? createDefaultDefinition();
   const definition = normalizeDefinition(rawDefinition);
   const url = definition.url;
-  const componentState = splitComponentState(options?.seed?.component, url);
+  const componentState = normalizeComponentState(options?.seed?.component, url);
 
   // Migrate deprecated Wizard/Tabs root to Stack, promoting props to formPresentation.
-  const authoredTree = componentState.component.tree;
+  const authoredTree = componentState.tree;
   if (authoredTree) {
     const migration = migrateWizardRoot(authoredTree as Record<string, unknown>);
     if (migration) {
-      componentState.component.tree = migration.tree;
-      if (!definition.formPresentation) (definition as Record<string, unknown>).formPresentation = {};
-      Object.assign((definition as Record<string, unknown>).formPresentation as object, migration.migratedProps);
-    }
-  }
-
-  const generatedTree = componentState.generatedComponent.tree;
-  if (generatedTree) {
-    const migration = migrateWizardRoot(generatedTree as Record<string, unknown>);
-    if (migration) {
-      componentState.generatedComponent.tree = migration.tree;
+      componentState.tree = migration.tree;
       if (!definition.formPresentation) (definition as Record<string, unknown>).formPresentation = {};
       Object.assign((definition as Record<string, unknown>).formPresentation as object, migration.migratedProps);
     }
@@ -197,10 +186,7 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
 
   return {
     definition,
-    component: componentState.component,
-    generatedComponent: options?.seed?.generatedComponent
-      ? createGeneratedLayoutDocument(url, options.seed.generatedComponent)
-      : componentState.generatedComponent,
+    component: componentState ?? createComponentArtifact(url),
     theme,
     mappings,
     selectedMappingId,
@@ -243,16 +229,26 @@ export class RawProject implements IProjectCore {
       options?.middleware ?? [],
     );
 
-    if (
-      this._state.definition.items.length > 0 &&
-      !hasAuthoredComponentTree(this._state.component) &&
-      !this._state.generatedComponent.tree
-    ) {
-      this._state.generatedComponent.tree = reconcileComponentTree(
-        this._state.definition,
-        this._state.generatedComponent.tree,
+    this._syncComponentTree(this._state);
+  }
+
+  private _syncComponentTree(state: ProjectState): void {
+    if (typeof (state.component as Record<string, unknown>).$formspecComponent !== 'string') {
+      (state.component as Record<string, unknown>).$formspecComponent = '1.0';
+    }
+    if (typeof (state.component as Record<string, unknown>).version !== 'string') {
+      (state.component as Record<string, unknown>).version = '0.1.0';
+    }
+    if (!state.component.targetDefinition) {
+      state.component.targetDefinition = { url: state.definition.url };
+    } else {
+      state.component.targetDefinition.url = state.definition.url;
+    }
+    if (state.component.tree || state.definition.items.length > 0) {
+      state.component.tree = reconcileComponentTree(
+        state.definition,
+        state.component.tree,
       ) as any;
-      (this._state.generatedComponent as Record<string, unknown>)['x-studio-generated'] = true;
     }
   }
 
@@ -266,18 +262,10 @@ export class RawProject implements IProjectCore {
 
   get component(): Readonly<ComponentDocument> {
     if (this._cachedComponentForState !== this._state) {
-      this._cachedComponent = getCurrentComponentDocument(this._state) as unknown as ComponentDocument;
+      this._cachedComponent = this._state.component as unknown as ComponentDocument;
       this._cachedComponentForState = this._state;
     }
     return this._cachedComponent as Readonly<ComponentDocument>;
-  }
-
-  get artifactComponent(): Readonly<ComponentDocument> {
-    return this._state.component as unknown as Readonly<ComponentDocument>;
-  }
-
-  get generatedComponent(): Readonly<ComponentDocument> {
-    return this._state.generatedComponent as unknown as Readonly<ComponentDocument>;
   }
 
   get theme(): Readonly<ThemeDocument> {
@@ -356,8 +344,7 @@ export class RawProject implements IProjectCore {
 
   export(): ProjectBundle {
     const url = this._state.definition.url;
-    const effectiveComponent = getCurrentComponentDocument(this._state);
-    const { tree, 'x-studio-generated': _, ...restComponent } = effectiveComponent as Record<string, unknown>;
+    const { tree, ...restComponent } = this._state.component as Record<string, unknown>;
     const cleanedTree = tree ? cleanTreeForExport(tree as Record<string, unknown>, this._state.definition, '') : null;
     const { targetDefinition: themeTarget, ...restTheme } = this._state.theme;
 
@@ -429,16 +416,7 @@ export class RawProject implements IProjectCore {
     this._cachedComponent = null;
     this._cachedComponentForState = null;
     // Reconcile generated component tree if needed
-    if (
-      !hasAuthoredComponentTree(this._state.component) &&
-      this._state.definition.items.length > 0
-    ) {
-      this._state.generatedComponent.tree = reconcileComponentTree(
-        this._state.definition,
-        this._state.generatedComponent.tree,
-      ) as any;
-      (this._state.generatedComponent as Record<string, unknown>)['x-studio-generated'] = true;
-    }
+    this._syncComponentTree(this._state);
     this._notify(
       { type: 'restoreState', payload: {} },
       { rebuildComponentTree: true },
@@ -504,13 +482,7 @@ export class RawProject implements IProjectCore {
       this._state,
       phases,
       (clone) => {
-        if (!hasAuthoredComponentTree(clone.component)) {
-          clone.generatedComponent.tree = reconcileComponentTree(
-            clone.definition,
-            clone.generatedComponent.tree,
-          ) as any;
-          (clone.generatedComponent as Record<string, unknown>)['x-studio-generated'] = true;
-        }
+      this._syncComponentTree(clone);
       },
     );
 
@@ -525,12 +497,8 @@ export class RawProject implements IProjectCore {
 
     this._state = newState;
 
-    if (results.some(r => r.rebuildComponentTree) && !hasAuthoredComponentTree(this._state.component)) {
-      this._state.generatedComponent.tree = reconcileComponentTree(
-        this._state.definition,
-        this._state.generatedComponent.tree,
-      ) as any;
-      (this._state.generatedComponent as Record<string, unknown>)['x-studio-generated'] = true;
+    if (results.some(r => r.rebuildComponentTree)) {
+      this._syncComponentTree(this._state);
     }
 
     const allCommands = phases.flat();
