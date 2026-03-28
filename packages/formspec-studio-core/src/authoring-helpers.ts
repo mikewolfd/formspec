@@ -70,6 +70,7 @@ const ITEM_TYPE_WIDGETS: Record<string, string[]> = {
 
 const FIELD_TYPE_CATALOG: FieldTypeCatalogEntry[] = [
   { label: 'Text', description: 'Short text — names, identifiers, free input', icon: 'Aa', color: 'text-accent', itemType: 'field', dataType: 'string', category: 'Text', keywords: ['string', 'text', 'name', 'label', 'input'] },
+  { label: 'Long Text', description: 'Multi-line text — paragraphs, comments, narratives', icon: '¶', color: 'text-accent', itemType: 'field', dataType: 'text', category: 'Text', keywords: ['textarea', 'long', 'multiline', 'paragraph', 'comment', 'narrative'] },
   { label: 'Integer', description: 'Whole numbers — counts, ages, quantities', icon: '#', color: 'text-green', itemType: 'field', dataType: 'integer', category: 'Number', keywords: ['int', 'number', 'whole', 'count', 'quantity'] },
   { label: 'Decimal', description: 'Numbers with decimal places — rates, percentages', icon: '#.#', color: 'text-green', itemType: 'field', dataType: 'decimal', category: 'Number', keywords: ['float', 'decimal', 'number', 'percent', 'rate'] },
   { label: 'Money', description: 'Currency amounts with formatting', icon: '$', color: 'text-amber', itemType: 'field', dataType: 'money', category: 'Number', keywords: ['currency', 'amount', 'price', 'cost', 'money'] },

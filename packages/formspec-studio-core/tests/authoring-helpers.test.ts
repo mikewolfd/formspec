@@ -163,7 +163,7 @@ describe('authoring-helpers', () => {
     );
   });
 
-  it('uses only spec-normative dataType values in the field type catalog', () => {
+  it('uses only spec-normative dataType values and covers all 13 spec types', () => {
     const SPEC_DATA_TYPES = new Set([
       'string', 'text', 'integer', 'decimal', 'boolean',
       'date', 'dateTime', 'time', 'uri', 'attachment',
@@ -173,6 +173,10 @@ describe('authoring-helpers', () => {
     const fieldEntries = catalog.filter((e) => e.dataType);
     for (const entry of fieldEntries) {
       expect(SPEC_DATA_TYPES.has(entry.dataType!), `'${entry.label}' uses non-spec dataType '${entry.dataType}'`).toBe(true);
+    }
+    const coveredDataTypes = new Set(fieldEntries.map((e) => e.dataType));
+    for (const specType of SPEC_DATA_TYPES) {
+      expect(coveredDataTypes.has(specType), `spec dataType '${specType}' missing from catalog`).toBe(true);
     }
   });
 
