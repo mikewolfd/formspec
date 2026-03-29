@@ -1,7 +1,8 @@
-/** Side-by-side React and Web Component rendering for visual parity comparison. */
+/** Side-by-side React and Web Component rendering for visual parity comparison.
+ * Both sides render inside shadow DOM for complete CSS isolation. */
 import React from 'react';
-import { FormStory } from './FormStory';
-import { WebComponentStory } from './WebComponentStory';
+import { IsolatedFormStory } from './IsolatedFormStory';
+import { IsolatedWebComponentStory } from './IsolatedWebComponentStory';
 
 export interface SideBySideStoryProps {
     /** The Formspec definition JSON. */
@@ -62,7 +63,7 @@ export function SideBySideStory({
             <div>
                 <div style={labelStyle}>{leftLabel}</div>
                 {leftPane ?? (
-                    <FormStory
+                    <IsolatedFormStory
                         definition={definition}
                         theme={theme}
                         componentDocument={componentDocument}
@@ -74,11 +75,12 @@ export function SideBySideStory({
             <div>
                 <div style={labelStyle}>{rightLabel}</div>
                 {rightPane ?? (
-                    <WebComponentStory
+                    <IsolatedWebComponentStory
                         definition={definition}
                         theme={theme}
                         componentDocument={componentDocument}
                         showSubmit={showSubmit}
+                        maxWidth={9999}
                     />
                 )}
             </div>

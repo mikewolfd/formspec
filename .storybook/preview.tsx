@@ -1,12 +1,8 @@
 import type { Preview } from '@storybook/react';
 import { initFormspecEngine } from '@formspec-org/engine';
 
-// Default component styles (React stories)
-import '../packages/formspec-react/src/formspec.css';
-// Webcomponent CSS (formspec-default.css) is loaded from WebComponentStory.tsx
-// rather than globally. Both CSS files share .formspec-* class names;
-// the last-loaded wins for conflicting properties, but both provide
-// matching system font stacks and similar visual treatment.
+// CSS is loaded inside shadow DOM by IsolatedFormStory / IsolatedWebComponentStory
+// to prevent cross-renderer style collisions. No global CSS imports needed.
 
 let engineReady = false;
 

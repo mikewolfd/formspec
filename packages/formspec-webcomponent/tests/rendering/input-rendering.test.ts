@@ -317,7 +317,7 @@ describe('input rendering — money display rounding', () => {
         const engine = el.getEngine();
         engine.setValue('name', { amount: 8333.333333333334, currency: 'USD' });
         el.render();
-        const amountInput = el.querySelector('.formspec-money input[type="number"]') as HTMLInputElement;
+        const amountInput = el.querySelector('.formspec-money input.formspec-money-amount') as HTMLInputElement;
         expect(amountInput).not.toBeNull();
         expect(amountInput.value).toBe('8333.33');
     });
@@ -328,7 +328,7 @@ describe('input rendering — money display rounding', () => {
         const engine = el.getEngine();
         engine.setValue('name', { amount: 100.50, currency: 'USD' });
         el.render();
-        const amountInput = el.querySelector('.formspec-money input[type="number"]') as HTMLInputElement;
+        const amountInput = el.querySelector('.formspec-money input.formspec-money-amount') as HTMLInputElement;
         expect(amountInput.value).toBe('100.5');
     });
 
@@ -338,7 +338,7 @@ describe('input rendering — money display rounding', () => {
         const engine = el.getEngine();
         engine.setValue('name', { amount: 5000, currency: 'USD' });
         el.render();
-        const amountInput = el.querySelector('.formspec-money input[type="number"]') as HTMLInputElement;
+        const amountInput = el.querySelector('.formspec-money input.formspec-money-amount') as HTMLInputElement;
         expect(amountInput.value).toBe('5000');
     });
 });

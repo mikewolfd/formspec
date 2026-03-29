@@ -35,8 +35,9 @@ export default meta;
 
 type Story = StoryObj<typeof USWDSSideBySideStory>;
 
-const withComparison = (definition: any) => ({
+const withComparison = (definition: any, showSubmit = false) => ({
     definition,
+    showSubmit,
     maxWidth: 1400,
 });
 
@@ -105,7 +106,11 @@ export const Conditional: Story = {
 };
 
 export const Validation: Story = {
-    args: withComparison(validationDef),
+    args: {
+        ...withComparison(validationDef, true),
+        initialData: { username: 'ab', password: 'short' },
+        touchAll: true,
+    },
 };
 
 export const Slider: Story = {

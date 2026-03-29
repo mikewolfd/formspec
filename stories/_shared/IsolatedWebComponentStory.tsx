@@ -18,6 +18,10 @@ export interface IsolatedWebComponentStoryProps {
     adapter?: RenderAdapter;
     showSubmit?: boolean;
     maxWidth?: number;
+    /** Optional initial field values to hydrate the engine before rendering. Must be set before definition. */
+    initialData?: Record<string, any>;
+    /** When true, all fields are touched on mount so validation errors display immediately. */
+    touchAll?: boolean;
 }
 
 function useShadowRoot(stylesheets: string[], inlineStyles: string[]) {
@@ -64,6 +68,8 @@ export function IsolatedWebComponentStory({
     adapter,
     showSubmit = true,
     maxWidth = 640,
+    initialData,
+    touchAll = false,
 }: IsolatedWebComponentStoryProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const elementRef = useRef<FormspecRender | null>(null);
@@ -122,8 +128,13 @@ export function IsolatedWebComponentStory({
         }
         if (theme) el.themeDocument = theme;
         if (componentDocument) el.componentDocument = componentDocument;
+        if (initialData) el.initialData = initialData;
         el.showSubmit = showSubmit;
         el.definition = definition;
+        if (touchAll) {
+            // Defer by one tick so the engine finishes rendering before we touch all fields
+            queueMicrotask(() => el.touchAllFields?.());
+        }
 
         return () => {
             globalRegistry.setAdapter('default');
@@ -132,7 +143,7 @@ export function IsolatedWebComponentStory({
                 elementRef.current = null;
             }
         };
-    }, [definition, theme, componentDocument, adapter, showSubmit, mountNode]);
+    }, [definition, theme, componentDocument, adapter, showSubmit, mountNode, initialData, touchAll]);
 
     return (
         <div style={{ maxWidth, margin: '0 auto' }}>

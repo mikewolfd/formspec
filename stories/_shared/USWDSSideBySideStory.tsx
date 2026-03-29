@@ -11,6 +11,10 @@ export interface USWDSSideBySideStoryProps {
     componentDocument?: any;
     showSubmit?: boolean;
     maxWidth?: number;
+    /** Optional initial field values to show pre-filled (and trigger validation). */
+    initialData?: Record<string, any>;
+    /** When true, all fields are touched on mount so validation errors display immediately. */
+    touchAll?: boolean;
 }
 
 export function USWDSSideBySideStory({
@@ -19,6 +23,8 @@ export function USWDSSideBySideStory({
     componentDocument,
     showSubmit = true,
     maxWidth = 1400,
+    initialData,
+    touchAll,
 }: USWDSSideBySideStoryProps) {
     return (
         <SideBySideStory
@@ -37,6 +43,8 @@ export function USWDSSideBySideStory({
                     adapter={uswdsAdapter}
                     showSubmit={showSubmit}
                     maxWidth={640}
+                    initialData={initialData}
+                    touchAll={touchAll}
                 />
             )}
             rightPane={(

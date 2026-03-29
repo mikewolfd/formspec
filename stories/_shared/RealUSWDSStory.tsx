@@ -74,6 +74,34 @@ function normalizeWidgetHint(item: FormspecItem) {
     return String(item.presentation?.widgetHint ?? '').trim().toLowerCase();
 }
 
+function toCurrencyDisplay(raw: unknown) {
+    if (typeof raw !== 'string') return '$';
+    const value = raw.trim();
+    if (!value) return '$';
+
+    if (value.length === 3 && /^[A-Z]{3}$/i.test(value)) {
+        try {
+            const parts = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: value.toUpperCase(),
+                currencyDisplay: 'narrowSymbol',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).formatToParts(1);
+            return parts.find((part) => part.type === 'currency')?.value || value.toUpperCase();
+        } catch {
+            return value.toUpperCase();
+        }
+    }
+
+    return value;
+}
+
+function matchesWidgetHint(item: FormspecItem, ...candidates: string[]) {
+    const widgetHint = normalizeWidgetHint(item);
+    return candidates.some((candidate) => widgetHint === candidate.toLowerCase());
+}
+
 function toId(path: string) {
     return `real-uswds-${path.replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
 }
@@ -146,9 +174,9 @@ function renderDisplayItem(item: FormspecItem, path: string) {
     const widgetHint = normalizeWidgetHint(item);
     const key = path;
 
-    if (widgetHint === 'heading') return <h2 key={key}>{item.label}</h2>;
-    if (widgetHint === 'paragraph') return <p key={key}>{item.label}</p>;
-    if (widgetHint === 'banner') return <div key={key}>{renderAlert(item.label ?? '', 'info')}</div>;
+    if (widgetHint === 'heading') return <h2 key={key} style={{ marginBottom: '0.75rem' }}>{item.label}</h2>;
+    if (widgetHint === 'paragraph') return <p key={key} className="usa-intro" style={{ marginTop: 0 }}>{item.label}</p>;
+    if (widgetHint === 'banner') return <div key={key} style={{ margin: '1rem 0' }}>{renderAlert(item.label ?? '', 'info')}</div>;
     if (widgetHint === 'divider') return <hr key={key} style={{ margin: '1.5rem 0' }} />;
 
     return null;
@@ -347,6 +375,7 @@ function renderMoneyInput(item: FormspecItem, id: string, value: any, errorMessa
         item.hint ? `${id}-hint` : '',
         errorMessage ? `${id}-error` : '',
     ].filter(Boolean).join(' ') || undefined;
+    const currency = toCurrencyDisplay(item.presentation?.currency);
     return (
         <div className={errorMessage ? 'usa-form-group usa-form-group--error' : 'usa-form-group'}>
             <label className={errorMessage ? 'usa-label usa-label--error' : 'usa-label'} htmlFor={id}>
@@ -355,10 +384,10 @@ function renderMoneyInput(item: FormspecItem, id: string, value: any, errorMessa
             </label>
             {renderHint(item, id)}
             {errorMessage ? <span className="usa-error-message" id={`${id}-error`} role="alert">{errorMessage}</span> : null}
-            <div className={errorMessage ? 'usa-input-group usa-input--error' : 'usa-input-group'}>
-                <div className="usa-input-prefix" aria-hidden="true">$</div>
+            <div className={errorMessage ? 'formspec-money-field formspec-money-field--error' : 'formspec-money-field'}>
+                <span className="formspec-money-prefix" aria-hidden="true">{currency}</span>
                 <input
-                    className="usa-input"
+                    className="usa-input formspec-money-amount"
                     id={id}
                     name={item.key}
                     type="number"
@@ -445,20 +474,19 @@ function renderFileUpload(item: FormspecItem, id: string) {
 
 function renderField(item: FormspecItem, path: string, preset: RenderPreset) {
     const id = toId(path);
-    const widgetHint = normalizeWidgetHint(item);
     const value = preset.values[path];
     const errorMessage = preset.errors[path];
 
-    if (widgetHint === 'select') return renderSelect(item, id, value, errorMessage);
-    if (widgetHint === 'radiogroup') return renderRadioGroup(item, id, value, errorMessage);
-    if (widgetHint === 'checkbox' || widgetHint === 'toggle') return renderCheckbox(item, id, value);
-    if (widgetHint === 'checkboxgroup') return renderCheckboxGroup(item, id, value);
-    if (widgetHint === 'numberinput') return renderNumberInput(item, id, value, errorMessage);
-    if (widgetHint === 'moneyinput') return renderMoneyInput(item, id, value, errorMessage);
-    if (widgetHint === 'datepicker') return renderDatePicker(item, id, value, errorMessage);
-    if (widgetHint === 'slider') return renderSlider(item, id, value);
-    if (widgetHint === 'fileupload') return renderFileUpload(item, id);
-    if (widgetHint === 'autocomplete') return renderSelect(item, id, value, errorMessage);
+    if (matchesWidgetHint(item, 'select', 'dropdown')) return renderSelect(item, id, value, errorMessage);
+    if (matchesWidgetHint(item, 'radiogroup', 'radio')) return renderRadioGroup(item, id, value, errorMessage);
+    if (matchesWidgetHint(item, 'checkbox', 'toggle')) return renderCheckbox(item, id, value);
+    if (matchesWidgetHint(item, 'checkboxgroup')) return renderCheckboxGroup(item, id, value);
+    if (matchesWidgetHint(item, 'numberinput')) return renderNumberInput(item, id, value, errorMessage);
+    if (matchesWidgetHint(item, 'moneyinput')) return renderMoneyInput(item, id, value, errorMessage);
+    if (matchesWidgetHint(item, 'datepicker')) return renderDatePicker(item, id, value, errorMessage);
+    if (matchesWidgetHint(item, 'slider')) return renderSlider(item, id, value);
+    if (matchesWidgetHint(item, 'fileupload')) return renderFileUpload(item, id);
+    if (matchesWidgetHint(item, 'autocomplete')) return renderSelect(item, id, value, errorMessage);
 
     return renderTextInput(item, id, value, errorMessage);
 }
@@ -600,24 +628,29 @@ function renderGrid(children: React.ReactNode, columns = 2) {
     );
 }
 
-function renderAccordion(items: Array<{ title: string; content: React.ReactNode }>, allowMultiple = false, idBase = 'accordion') {
+function renderAccordion(
+    items: Array<{ title: string; content: React.ReactNode; open?: boolean }>,
+    allowMultiple = false,
+    idBase = 'accordion',
+) {
     return (
-        <div className="usa-accordion" {...(allowMultiple ? { 'data-allow-multiple': '' } : {})}>
+        <div className="usa-accordion" {...(allowMultiple ? { 'data-allow-multiple': 'true' } : {})}>
             {items.map((item, index) => {
                 const contentId = `${idBase}-${index}`;
+                const isOpen = item.open ?? index === 0;
                 return (
                     <React.Fragment key={contentId}>
                         <h4 className="usa-accordion__heading">
                             <button
                                 type="button"
                                 className="usa-accordion__button"
-                                aria-expanded={index === 0 ? 'true' : 'false'}
+                                aria-expanded={isOpen ? 'true' : 'false'}
                                 aria-controls={contentId}
                             >
                                 {item.title}
                             </button>
                         </h4>
-                        <div id={contentId} className="usa-accordion__content usa-prose">
+                        <div id={contentId} className="usa-accordion__content usa-prose" hidden={!isOpen}>
                             {item.content}
                         </div>
                     </React.Fragment>
@@ -630,11 +663,14 @@ function renderAccordion(items: Array<{ title: string; content: React.ReactNode 
 function renderModalDemo() {
     return (
         <div>
-            <a href="#real-uswds-modal" className="usa-button" aria-controls="real-uswds-modal" data-open-modal>
+            <button type="button" className="usa-button" aria-haspopup="dialog" aria-expanded="true" aria-controls="real-uswds-modal">
                 Add More Details
-            </a>
-            <div className="usa-modal" id="real-uswds-modal" aria-labelledby="real-uswds-modal-heading" aria-describedby="real-uswds-modal-description">
-                <div className="usa-modal__content">
+            </button>
+            <div className="usa-modal usa-modal--lg is-visible" id="real-uswds-modal" aria-labelledby="real-uswds-modal-heading" aria-describedby="real-uswds-modal-description">
+                <div className="usa-modal__content" role="dialog" aria-modal="true">
+                    <button type="button" className="usa-button usa-modal__close" aria-label="Close this window">
+                        Close
+                    </button>
                     <div className="usa-modal__main">
                         <h2 className="usa-modal__heading" id="real-uswds-modal-heading">Additional Details</h2>
                         <div className="usa-prose">
@@ -643,14 +679,11 @@ function renderModalDemo() {
                         <div className="usa-modal__footer">
                             <ul className="usa-button-group">
                                 <li className="usa-button-group__item">
-                                    <button type="button" className="usa-button" data-close-modal>Done</button>
+                                    <button type="button" className="usa-button">Done</button>
                                 </li>
                             </ul>
                         </div>
                     </div>
-                    <button type="button" className="usa-button usa-modal__close" aria-label="Close this window" data-close-modal>
-                        Close
-                    </button>
                 </div>
             </div>
         </div>
@@ -680,12 +713,21 @@ function renderWizardDemo(definition: any, preset: RenderPreset) {
                     </h4>
                 </div>
             </div>
-            <div style={groupCardStyle}>
-                {renderBoundField(definition, 'firstName', preset)}
-                {renderBoundField(definition, 'lastName', preset)}
+            <div className="usa-card-group" style={{ paddingLeft: 0, marginTop: '1rem' }}>
+                {renderCard('Step 1: Personal Info', (
+                    <>
+                        {renderBoundField(definition, 'firstName', preset)}
+                        {renderBoundField(definition, 'lastName', preset)}
+                    </>
+                ))}
+                {renderCard('Up Next: Contact', (
+                    <p style={{ margin: 0 }}>
+                        The next step collects your email address and phone number.
+                    </p>
+                ))}
             </div>
             <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-                <button className="usa-button usa-button--outline" type="button">Previous</button>
+                <button className="usa-button usa-button--outline" type="button" disabled>Previous</button>
                 <button className="usa-button" type="button">Next</button>
             </div>
         </div>
@@ -751,6 +793,7 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
         return renderAccordion([
             {
                 title: 'Personal Details',
+                open: true,
                 content: (
                     <>
                         {renderBoundField(definition, 'firstName', preset)}
@@ -760,6 +803,7 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
             },
             {
                 title: 'Contact Information',
+                open: false,
                 content: (
                     <>
                         {renderBoundField(definition, 'email', preset)}
@@ -772,6 +816,7 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
         return renderAccordion([
             {
                 title: 'Personal Details',
+                open: true,
                 content: (
                     <>
                         {renderBoundField(definition, 'firstName', preset)}
@@ -781,6 +826,7 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
             },
             {
                 title: 'Contact Information',
+                open: false,
                 content: (
                     <>
                         {renderBoundField(definition, 'email', preset)}
@@ -793,6 +839,7 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
         return renderAccordion([
             {
                 title: 'Personal Details',
+                open: true,
                 content: (
                     <>
                         {renderBoundField(definition, 'firstName', preset)}
@@ -802,6 +849,7 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
             },
             {
                 title: 'Contact Information',
+                open: true,
                 content: (
                     <>
                         {renderBoundField(definition, 'email', preset)}
@@ -811,6 +859,7 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
             },
             {
                 title: 'Preferences',
+                open: false,
                 content: renderBoundField(definition, 'newsletter', preset, 'Toggle'),
             },
         ], true, 'accordion-multi');
@@ -841,10 +890,20 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
             <>
                 {renderBoundField(definition, 'firstName', preset)}
                 {renderBoundField(definition, 'lastName', preset)}
-                <div style={{ marginTop: '1rem' }}>
-                    <button type="button" className="usa-button usa-tooltip" data-position="right" title="Enter your legal first and last name as they appear on official documents.">
+                <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                    <button
+                        type="button"
+                        className="usa-button usa-button--outline usa-tooltip"
+                        data-position="right"
+                        title="Enter your legal first and last name as they appear on official documents."
+                    >
                         Need help?
                     </button>
+                    <div className="usa-alert usa-alert--info usa-alert--slim" style={{ margin: 0, flex: '1 1 0' }}>
+                        <div className="usa-alert__body">
+                            <p className="usa-alert__text">Enter your legal first and last name as they appear on official documents.</p>
+                        </div>
+                    </div>
                 </div>
             </>
         );
@@ -858,7 +917,6 @@ function renderComponentDocumentUswds(definition: any, componentDocument: any) {
 
     return (
         <>
-            {definition?.title === 'Display Components' ? <h2>{definition.title}</h2> : null}
             {renderValidationSummary(preset)}
             {renderItems(items, '', preset)}
         </>
@@ -884,22 +942,10 @@ function collectBehaviorNames(items: FormspecItem[], names: Set<string>) {
 async function loadBehaviorsForDefinition(definition: any, componentDocument?: any): Promise<USWDSBehavior[]> {
     const names = new Set<string>();
     collectBehaviorNames(Array.isArray(definition?.items) ? definition.items : [], names);
-    if (componentDocument?.name === 'collapsible-demo' || componentDocument?.name === 'accordion-demo' || componentDocument?.name === 'accordion-multi-demo') {
-        names.add('accordion');
-    }
-    if (componentDocument?.name === 'modal-demo') {
-        names.add('modal');
-    }
-    if (componentDocument?.name === 'popover-demo') {
-        names.add('tooltip');
-    }
     const loaders = Array.from(names).map((name) => {
         if (name === 'datePicker') return import('@uswds/uswds/js/usa-date-picker');
         if (name === 'range') return import('@uswds/uswds/js/usa-range');
         if (name === 'fileInput') return import('@uswds/uswds/js/usa-file-input');
-        if (name === 'accordion') return import('@uswds/uswds/js/usa-accordion');
-        if (name === 'modal') return import('@uswds/uswds/js/usa-modal');
-        if (name === 'tooltip') return import('@uswds/uswds/js/usa-tooltip');
         return import('@uswds/uswds/js/usa-combo-box');
     });
     const modules = await Promise.all(loaders);
@@ -933,6 +979,44 @@ function useShadowRoot(stylesheets: string[]) {
                 display: block;
                 padding: 0;
                 color: #1b1b1b;
+            }
+            .formspec-money-field {
+                align-items: stretch;
+                background-color: #fff;
+                border: 1px solid #565c65;
+                border-radius: 0;
+                display: flex;
+                max-width: 20rem;
+                overflow: hidden;
+                width: 100%;
+            }
+            .formspec-money-field--error {
+                border-width: 0.25rem;
+                border-color: #b50909;
+            }
+            .formspec-money-prefix {
+                align-items: center;
+                background-color: #f0f0f0;
+                border-right: 1px solid #565c65;
+                box-sizing: border-box;
+                display: flex;
+                line-height: 1.4;
+                min-height: 2.5rem;
+                padding: 0 0.75rem;
+            }
+            .formspec-money-field > .usa-input {
+                border: 0;
+                flex: 1 1 auto;
+                margin-top: 0;
+                min-width: 0;
+                width: auto;
+            }
+            .formspec-money-currency-input {
+                border-right: 1px solid #565c65;
+                flex: 0 0 4.5rem;
+                max-width: 4.5rem;
+                text-align: center;
+                text-transform: uppercase;
             }
         `;
         shadow.appendChild(style);

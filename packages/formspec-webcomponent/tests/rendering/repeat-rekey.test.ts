@@ -19,6 +19,40 @@ function renderFormspec() {
     return { element: el, engine: el.getEngine() };
 }
 
+describe('repeat instance accessibility and styling parity', () => {
+    afterEach(() => {
+        document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('each repeat instance has role="group" and aria-label with index', () => {
+        const { element, engine } = renderFormspec();
+
+        engine.addRepeatInstance('items');
+        engine.addRepeatInstance('items');
+
+        const instances = element.querySelectorAll('.formspec-repeat-instance');
+        expect(instances).toHaveLength(3);
+
+        // Each instance should have role="group" for accessibility
+        expect(instances[0].getAttribute('role')).toBe('group');
+        expect(instances[1].getAttribute('role')).toBe('group');
+        expect(instances[2].getAttribute('role')).toBe('group');
+
+        // Each instance should have an aria-label like "Items 1 of 3"
+        expect(instances[0].getAttribute('aria-label')).toBe('Items 1 of 3');
+        expect(instances[1].getAttribute('aria-label')).toBe('Items 2 of 3');
+        expect(instances[2].getAttribute('aria-label')).toBe('Items 3 of 3');
+    });
+
+    it('repeat instance is not display:contents (has box model)', () => {
+        const { element } = renderFormspec();
+        const instance = element.querySelector('.formspec-repeat-instance') as HTMLElement;
+        expect(instance).toBeTruthy();
+        // display:contents removes the box — should NOT be used
+        expect(getComputedStyle(instance).display).not.toBe('contents');
+    });
+});
+
 describe('repeat DOM re-keying after non-tail deletion', () => {
     afterEach(() => {
         document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
