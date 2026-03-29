@@ -19,6 +19,7 @@ export const renderSelect: AdapterRenderFn<SelectBehavior> = (
         placeholderOpt.textContent = behavior.placeholder || 'Select\u2026';
         placeholderOpt.disabled = true;
         placeholderOpt.selected = true;
+        placeholderOpt.hidden = true;
         select.appendChild(placeholderOpt);
     }
 

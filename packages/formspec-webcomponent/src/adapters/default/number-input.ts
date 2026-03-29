@@ -1,4 +1,4 @@
-/** @filedesc Default adapter for NumberInput — renders a numeric input element. */
+/** @filedesc Default adapter for NumberInput — renders a numeric input element, with optional stepper buttons. */
 import type { NumberInputBehavior } from '../../behaviors/types';
 import type { AdapterRenderFn } from '../types';
 import { createFieldDOM, finalizeFieldDOM, applyControlSlotClass } from './shared';
@@ -18,15 +18,58 @@ export const renderNumberInput: AdapterRenderFn<NumberInputBehavior> = (
     if (behavior.max != null) input.max = String(behavior.max);
     input.setAttribute('aria-describedby', fieldDOM.describedBy.join(' '));
 
-    fieldDOM.root.appendChild(input);
-    applyControlSlotClass(input, behavior, actx);
+    if (behavior.showStepper) {
+        const stepVal = behavior.step ?? 1;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'formspec-stepper';
+
+        const decBtn = document.createElement('button');
+        decBtn.type = 'button';
+        decBtn.className = 'formspec-stepper-decrement';
+        decBtn.textContent = '\u2212'; // minus sign
+        decBtn.setAttribute('aria-label', `Decrease ${behavior.label}`);
+
+        const incBtn = document.createElement('button');
+        incBtn.type = 'button';
+        incBtn.className = 'formspec-stepper-increment';
+        incBtn.textContent = '+';
+        incBtn.setAttribute('aria-label', `Increase ${behavior.label}`);
+
+        decBtn.addEventListener('click', () => {
+            const current = Number(input.value) || 0;
+            const next = current - stepVal;
+            if (behavior.min != null && next < behavior.min) return;
+            input.value = String(next);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        incBtn.addEventListener('click', () => {
+            const current = Number(input.value) || 0;
+            const next = current + stepVal;
+            if (behavior.max != null && next > behavior.max) return;
+            input.value = String(next);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        wrapper.appendChild(decBtn);
+        wrapper.appendChild(input);
+        wrapper.appendChild(incBtn);
+        fieldDOM.root.appendChild(wrapper);
+        applyControlSlotClass(wrapper, behavior, actx);
+    } else {
+        fieldDOM.root.appendChild(input);
+        applyControlSlotClass(input, behavior, actx);
+    }
+
     finalizeFieldDOM(fieldDOM, behavior, actx);
     parent.appendChild(fieldDOM.root);
 
     const dispose = behavior.bind({
         root: fieldDOM.root,
         label: fieldDOM.label,
-        control: input,
+        control: behavior.showStepper
+            ? fieldDOM.root.querySelector('.formspec-stepper')! as HTMLElement
+            : input,
         hint: fieldDOM.hint,
         error: fieldDOM.error,
     });

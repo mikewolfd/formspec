@@ -112,6 +112,7 @@ export interface NumberInputBehavior extends FieldBehavior {
     min?: number;
     max?: number;
     step?: number;
+    showStepper: boolean;
     dataType: string;
 }
 

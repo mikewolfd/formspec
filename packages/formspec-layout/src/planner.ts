@@ -467,11 +467,12 @@ function planDefinitionItem(item: any, ctx: PlanContext, prefix = ''): LayoutNod
     }
 
     const displayWidget = widgetTokenToComponent(item.presentation?.widgetHint) ?? 'Text';
+    const { widgetHint: _wh, cssClass: _dc, labelPosition: _dl, ...displayPresentationProps } = item.presentation ?? {};
     const displayNode: LayoutNode = {
         id: nextId('display'),
         component: displayWidget,
         category: 'display',
-        props: { text: item.label || '' },
+        props: { text: item.label || '', ...displayPresentationProps },
         cssClasses: normalizeCssClass(presentation.cssClass),
         children: [],
     };

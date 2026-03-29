@@ -104,9 +104,12 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
             const nextInnerCleanupFns: Array<() => void> = [];
             const repeatHost = { ...host, cleanupFns: nextInnerCleanupFns };
 
+            const groupLabel = item?.label || bindKey;
             for (let idx = 0; idx < count; idx++) {
                 const instanceWrapper = document.createElement('div');
                 instanceWrapper.className = 'formspec-repeat-instance';
+                instanceWrapper.setAttribute('role', 'group');
+                instanceWrapper.setAttribute('aria-label', `${groupLabel} ${idx + 1} of ${count}`);
                 container.appendChild(instanceWrapper);
 
                 const instancePrefix = `${fullRepeatPath}[${idx}]`;
@@ -148,6 +151,7 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         el.className = 'formspec-group';
         if (node.props.title) {
             const heading = document.createElement(`h${Math.min(headingLevel, 6)}`);
+            heading.className = 'formspec-group-title';
             heading.textContent = node.props.title as string;
             el.appendChild(heading);
         }

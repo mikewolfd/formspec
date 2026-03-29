@@ -68,12 +68,12 @@ function renderMarkdown(src: string): string {
     return result;
 }
 
-/** Renders an `<h1>`-`<h6>` heading element based on the `level` prop (defaults to h1).
+/** Renders an `<h1>`-`<h6>` heading element based on the `level` prop (defaults to h2).
  *  When `bind` is set, subscribes to the field signal and reactively updates the text. */
 export const HeadingPlugin: ComponentPlugin = {
     type: 'Heading',
     render: (comp, parent, ctx) => {
-        const el = document.createElement(`h${comp.level || 1}`);
+        const el = document.createElement(`h${comp.level || 2}`);
         if (comp.id) el.id = comp.id;
         el.className = 'formspec-heading';
         if (comp.bind) {
