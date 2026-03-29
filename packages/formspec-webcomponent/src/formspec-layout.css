@@ -29,7 +29,14 @@
 .formspec-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--formspec-spacing-field, 0.75rem);
+}
+
+
+
+
+.formspec-badge {
+  align-self: flex-start;
 }
 
 .formspec-stack--horizontal {
@@ -141,7 +148,18 @@
 }
 
 .formspec-repeat-instance {
-  display: contents;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0 1rem;
+  border-bottom: 1px solid var(--formspec-color-border, #a0a4a8);
+}
+
+.formspec-repeat-instance:first-of-type {
+  padding-top: 0;
+}
+
+.formspec-repeat-instance:last-of-type {
+  border-bottom: none;
 }
 
 .formspec-repeat-add {
@@ -152,15 +170,12 @@
   font-size: 0.875rem;
   cursor: pointer;
   border: 1px solid currentColor;
-  border-radius: var(--formspec-radius-sm, 0.25rem);
+  border-radius: var(--formspec-radius-sm, 0.5rem);
   background: transparent;
-  opacity: 0.85;
 }
 
-.formspec-repeat-add:hover,
-.formspec-repeat-remove:hover {
-  opacity: 1;
-}
+
+
 
 .formspec-repeat-remove {
   align-self: flex-start;
@@ -170,7 +185,7 @@
   font-size: 0.875rem;
   cursor: pointer;
   border: 1px solid var(--formspec-color-error, #dc2626);
-  border-radius: var(--formspec-radius-sm, 0.25rem);
+  border-radius: var(--formspec-radius-sm, 0.5rem);
   background: transparent;
   color: var(--formspec-color-error, #dc2626);
   opacity: 0.85;
@@ -180,7 +195,15 @@
 .formspec-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--formspec-spacing-field, 0.75rem);
+}
+
+.formspec-group-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--formspec-color-foreground, #1a1f25);
+  margin: 0 0 0.5rem;
 }
 
 /* ── Wizard structural layout ──────────────────────────────────── */

@@ -12,42 +12,45 @@ textarea,
 select {
   display: block;
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 13px;
-  color: #111827;
-  background: #fff;
-  line-height: 1.4;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--formspec-color-input, #767a7e);
+  border-radius: var(--formspec-radius-sm, 0.5rem);
+  font-size: 0.875rem;
+  color: var(--formspec-color-foreground, #1a1f25);
+  background: var(--formspec-color-card, #ffffff);
+  line-height: 1.5;
   outline: none;
   box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-input:not([hidden]):focus,
+input:not([type="radio"]):not([type="checkbox"]):not([type="range"]):not([hidden]):focus,
 textarea:focus,
 select:focus {
-  border-color: #4f88e8;
-  box-shadow: 0 0 0 3px rgba(79, 136, 232, 0.15);
+  outline: 2px solid var(--formspec-color-ring, #2d6a7a);
+  outline-offset: 1px;
+  border-color: var(--formspec-color-ring, #2d6a7a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--formspec-color-ring, #2d6a7a) 25%, transparent);
 }
 
 input[type="radio"],
 input[type="checkbox"] {
-  accent-color: var(--formspec-color-primary, #2563eb);
+  accent-color: var(--formspec-color-primary, #2d6a7a);
 }
 
 .formspec-field input[aria-invalid="true"],
 .formspec-field select[aria-invalid="true"],
 .formspec-field textarea[aria-invalid="true"] {
-  border-color: #cf222e;
-  box-shadow: 0 0 0 1px #cf222e;
+  border-color: var(--formspec-color-error, #d93025);
 }
 
 label {
   display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--formspec-color-foreground, #1a1f25);
+  margin-bottom: 0.25rem;
 }
 
 button {
@@ -91,7 +94,7 @@ h6 {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
 }
 
 .formspec-field--inline {
@@ -102,6 +105,8 @@ h6 {
 
 .formspec-field--inline>label {
   margin-bottom: 0;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .formspec-label {
@@ -128,34 +133,63 @@ h6 {
 }
 
 .formspec-hint {
-  font-size: 0.85rem;
-  opacity: 0.75;
+  font-size: 0.8125rem;
+  color: var(--formspec-color-muted, #636970);
+  line-height: 1.4;
+  margin-top: 0;
+  margin-bottom: 0.25rem;
 }
 
 .formspec-heading {
-  color: #1f2937;
-  margin-bottom: 0.5rem;
+  color: var(--formspec-color-foreground, #1a1f25);
+}
+
+h1.formspec-heading {
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.5rem;
+}
+
+h2.formspec-heading {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.5rem;
 }
 
 h3.formspec-heading {
-  font-size: 1.1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 1rem 0 0.25rem;
 }
 
-.formspec-error:not(:empty) {
-  font-size: 0.825rem;
-  color: #cf222e;
+h4.formspec-heading {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.25rem;
+}
+
+h5.formspec-heading,
+h6.formspec-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.formspec-error {
+  font-size: 0.8125rem;
   font-weight: 500;
-  background: #fff5f5;
-  border-left: 4px solid #cf222e;
-  border-radius: 4px;
-  padding: 4px 8px;
-  margin: 0;
+  color: var(--formspec-color-error, #d93025);
+  margin-top: 0.25rem;
+  min-height: 1.25rem;
+}
+
+.formspec-error:empty {
+  display: none;
 }
 
 .formspec-required {
-  color: #cf222e;
-  margin-left: 2px;
-  font-weight: bold;
+  color: var(--formspec-color-error, #d93025);
+  margin-left: 0.125rem;
 }
 
 .formspec-input {
@@ -248,7 +282,7 @@ h3.formspec-heading {
 }
 
 .formspec-toggle input[type="checkbox"]:checked {
-  background: var(--formspec-color-primary, #2563eb);
+  background: var(--formspec-color-primary, #2d6a7a);
 }
 
 .formspec-toggle input[type="checkbox"]:checked::after {
@@ -260,18 +294,20 @@ h3.formspec-heading {
 .formspec-radio-group {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
-  padding: 0.5rem 0 0.5rem 0.25rem;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
   border-left: 3px solid var(--formspec-color-border, #cbd5e1);
-  margin-top: 0.25rem;
+  padding-left: 0.75rem;
 }
 
 .formspec-radio-group label,
 .formspec-checkbox-group label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   cursor: pointer;
+  font-weight: 400;
+  margin-bottom: 0;
 }
 
 .formspec-radio-group[data-orientation="horizontal"] {
@@ -300,12 +336,118 @@ h3.formspec-heading {
 /* ── Money ─────────────────────────────────────────────────────── */
 .formspec-money {
   display: flex;
-  gap: 0.5rem;
+  align-items: stretch;
+  border: 1px solid var(--formspec-color-input, #767a7e);
+  border-radius: var(--formspec-radius-sm, 0.5rem);
+  overflow: hidden;
+  background: var(--formspec-color-card, #ffffff);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.formspec-money:focus-within {
+  border-color: var(--formspec-color-ring, #2d6a7a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--formspec-color-ring, #2d6a7a) 25%, transparent);
+}
+
+.formspec-money-currency {
+  display: flex;
   align-items: center;
+  padding: 0 0.75rem;
+  background: var(--formspec-color-surface, #f0f0f0);
+  color: var(--formspec-color-muted, #6b7280);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-right: 1px solid var(--formspec-color-border, #a0a4a8);
+  white-space: nowrap;
 }
 
 .formspec-money .formspec-input {
+  border: none;
   flex: 1;
+  min-width: 0;
+  border-radius: 0;
+}
+
+/* ── Stepper ──────────────────────────────────────────────────── */
+.formspec-stepper {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--formspec-color-input, #767a7e);
+  border-radius: var(--formspec-radius-sm, 0.5rem);
+  overflow: hidden;
+  background: var(--formspec-color-card, #ffffff);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.formspec-stepper:focus-within {
+  border-color: var(--formspec-color-ring, #2d6a7a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--formspec-color-ring, #2d6a7a) 25%, transparent);
+}
+
+.formspec-stepper input[type="number"] {
+  border: none;
+  border-left: 1px solid var(--formspec-color-border, #a0a4a8);
+  border-right: 1px solid var(--formspec-color-border, #a0a4a8);
+  text-align: center;
+  width: 3.5rem;
+  padding: 0.625rem 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--formspec-color-foreground, #1a1f25);
+  background: transparent;
+  -moz-appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+
+.formspec-stepper input[type="number"]::-webkit-inner-spin-button,
+.formspec-stepper input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.formspec-stepper-decrement,
+.formspec-stepper-increment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--formspec-color-foreground, #1a1f25);
+  transition: background-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.formspec-stepper-decrement:hover:not(:disabled),
+.formspec-stepper-increment:hover:not(:disabled) {
+  background: var(--formspec-color-muted, #f0f0f0);
+  color: var(--formspec-color-primary, #2d6a7a);
+}
+
+.formspec-stepper-decrement:active:not(:disabled),
+.formspec-stepper-increment:active:not(:disabled) {
+  background: color-mix(in srgb, var(--formspec-color-primary, #2d6a7a) 12%, transparent);
+}
+
+.formspec-stepper-decrement:focus-visible,
+.formspec-stepper-increment:focus-visible {
+  outline: 2px solid var(--formspec-color-ring, #2d6a7a);
+  outline-offset: -2px;
+}
+
+.formspec-stepper-decrement:disabled,
+.formspec-stepper-increment:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--formspec-color-muted, #636970);
 }
 
 /* ── Divider ───────────────────────────────────────────────────── */
@@ -357,9 +499,12 @@ hr.formspec-divider {
 
 /* ── Card ──────────────────────────────────────────────────────── */
 .formspec-card {
-  border: 1px solid var(--formspec-color-border, #e5e7eb);
-  border-radius: 0.5rem;
-  padding: 1rem;
+  border: 1px solid var(--formspec-color-border, #a0a4a8);
+  border-radius: var(--formspec-radius-md, 0.75rem);
+  padding: var(--formspec-spacing-lg, 1.5rem);
+  background: var(--formspec-color-card, #ffffff);
+  margin-bottom: var(--formspec-spacing-lg, 1.5rem);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .formspec-card[data-elevation="1"] {
@@ -383,11 +528,13 @@ hr.formspec-divider {
 }
 
 .formspec-card-title {
-  margin: -1rem -1rem 0.75rem -1rem;
-  padding: 10px 14px;
-  border-bottom: 1px solid #e0e0e0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--formspec-color-foreground, #1a1f25);
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--formspec-color-border, #a0a4a8);
 }
 
 .formspec-card-subtitle {
@@ -421,7 +568,7 @@ hr.formspec-divider {
 }
 
 .formspec-alert--error {
-  background: #fce4ec;
+  background: color-mix(in srgb, var(--formspec-color-error, #d93025) 8%, white);
   color: #b71c1c;
 }
 
@@ -462,7 +609,7 @@ hr.formspec-divider {
 }
 
 .formspec-badge--primary {
-  background: #4f88e8;
+  background: #2d6a7a;
   color: white;
 }
 
@@ -504,13 +651,13 @@ hr.formspec-divider {
 }
 
 .formspec-progress-bar progress::-webkit-progress-value {
-  background: var(--formspec-color-primary, #2563eb);
+  background: var(--formspec-color-primary, #2d6a7a);
   border-radius: 0.3125rem;
   transition: width 0.3s;
 }
 
 .formspec-progress-bar progress::-moz-progress-bar {
-  background: var(--formspec-color-primary, #2563eb);
+  background: var(--formspec-color-primary, #2d6a7a);
   border-radius: 0.3125rem;
 }
 
@@ -583,7 +730,7 @@ hr.formspec-divider {
   content: '+';
   font-size: 1.1rem;
   font-weight: 400;
-  color: var(--formspec-color-primary, #2563eb);
+  color: var(--formspec-color-primary, #2d6a7a);
 }
 
 .formspec-collapsible[open]>summary::after {
@@ -728,15 +875,15 @@ hr.formspec-divider {
   font-size: 0.875rem;
   font-weight: 500;
   background: transparent;
-  color: var(--formspec-color-primary, #2563eb);
-  border: 1px solid var(--formspec-color-primary, #2563eb);
+  color: var(--formspec-color-primary, #2d6a7a);
+  border: 1px solid var(--formspec-color-primary, #2d6a7a);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .formspec-modal-trigger:hover {
-  background: var(--formspec-color-primary, #2563eb);
+  background: var(--formspec-color-primary, #2d6a7a);
   color: #fff;
 }
 
@@ -757,15 +904,15 @@ hr.formspec-divider {
   font-size: 0.875rem;
   font-weight: 500;
   background: transparent;
-  color: var(--formspec-color-primary, #2563eb);
-  border: 1px solid var(--formspec-color-primary, #2563eb);
+  color: var(--formspec-color-primary, #2d6a7a);
+  border: 1px solid var(--formspec-color-primary, #2d6a7a);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .formspec-popover-trigger:hover {
-  background: var(--formspec-color-primary, #2563eb);
+  background: var(--formspec-color-primary, #2d6a7a);
   color: #fff;
 }
 
@@ -819,8 +966,8 @@ hr.formspec-divider {
 }
 
 .formspec-tab--active {
-  color: #4f88e8;
-  border-bottom-color: #4f88e8;
+  color: #2d6a7a;
+  border-bottom-color: #2d6a7a;
   font-weight: 600;
 }
 
@@ -887,7 +1034,7 @@ hr.formspec-divider {
   font: inherit;
   font-size: 15px;
   font-weight: 600;
-  background: var(--formspec-color-primary, #2563eb);
+  background: var(--formspec-color-primary, #2d6a7a);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -967,7 +1114,7 @@ hr.formspec-divider {
 }
 
 .formspec-wizard-sidenav-item--active {
-  border-left-color: #4f88e8;
+  border-left-color: #2d6a7a;
 }
 
 .formspec-wizard-sidenav-item--active .formspec-wizard-sidenav-btn {
@@ -999,9 +1146,9 @@ hr.formspec-divider {
 }
 
 .formspec-wizard-sidenav-item--active .formspec-wizard-sidenav-step {
-  background: #4f88e8;
+  background: #2d6a7a;
   color: #fff;
-  border-color: #4f88e8;
+  border-color: #2d6a7a;
 }
 
 .formspec-wizard-sidenav-item--completed .formspec-wizard-sidenav-step {
@@ -1050,7 +1197,7 @@ hr.formspec-divider {
 }
 
 .formspec-wizard-step-label--active {
-  color: #4f88e8;
+  color: #2d6a7a;
   font-weight: 600;
 }
 
@@ -1069,9 +1216,9 @@ hr.formspec-divider {
 }
 
 .formspec-wizard-step--active {
-  background: #4f88e8;
+  background: #2d6a7a;
   color: white;
-  border-color: #4f88e8;
+  border-color: #2d6a7a;
 }
 
 .formspec-wizard-step--completed {
@@ -1105,9 +1252,9 @@ hr.formspec-divider {
 }
 
 .formspec-wizard-next {
-  background: #4f88e8;
+  background: #2d6a7a;
   color: white;
-  border-color: #4f88e8;
+  border-color: #2d6a7a;
 }
 
 .formspec-wizard-next:hover {
@@ -1121,24 +1268,56 @@ hr.formspec-divider {
   cursor: default;
 }
 
+/* ── Repeat add / remove buttons ──────────────────────────────── */
+.formspec-repeat-add {
+  background: var(--formspec-color-primary, #2d6a7a);
+  color: var(--formspec-color-primaryForeground, #fff);
+  border-color: var(--formspec-color-primary, #2d6a7a);
+}
+
+.formspec-repeat-add:hover {
+  filter: brightness(0.9);
+}
+
+.formspec-repeat-remove {
+  color: var(--formspec-color-error, #dc2626);
+  border-color: var(--formspec-color-error, #dc2626);
+}
+
+.formspec-repeat-remove:hover {
+  background: color-mix(in srgb, var(--formspec-color-error, #dc2626) 8%, transparent);
+}
+
+.formspec-repeat-add:focus-visible,
+.formspec-repeat-remove:focus-visible {
+  outline: 2px solid var(--formspec-color-ring, #2d6a7a);
+  outline-offset: 2px;
+}
+
 /* ── Submit button ────────────────────────────────────────────── */
 .formspec-submit {
   display: block;
   width: 100%;
   padding: 0.5rem 1.5rem;
-  font: inherit;
+  font-family: inherit;
   font-size: 1rem;
   font-weight: 600;
-  background: var(--formspec-color-primary, #4f88e8);
+  background: var(--formspec-color-primary, #2d6a7a);
   color: var(--formspec-color-primaryForeground, #fff);
   border: none;
-  border-radius: var(--formspec-radius-sm, 0.25rem);
+  border-radius: var(--formspec-radius-sm, 0.5rem);
   cursor: pointer;
   margin-top: 1rem;
+  transition: background-color 0.15s;
 }
 
 .formspec-submit:hover {
-  background: var(--formspec-color-primary-dark, #1d4ed8);
+  background: var(--formspec-color-primary-dark, #4a6fa5);
+}
+
+.formspec-submit:focus-visible {
+  outline: 2px solid var(--formspec-color-ring, #2d6a7a);
+  outline-offset: 2px;
 }
 
 .formspec-submit:disabled {
@@ -1150,19 +1329,21 @@ hr.formspec-divider {
 .formspec-slider-track {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   width: 100%;
 }
 
 .formspec-slider-track input[type="range"] {
   flex: 1;
+  accent-color: var(--formspec-color-primary, #2d6a7a);
 }
 
 .formspec-slider-value {
-  min-width: 2.5rem;
-  text-align: right;
+  min-width: 2rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
-  font-size: 0.9rem;
+  color: var(--formspec-color-foreground, #1a1a1a);
 }
 
 /* ── Rating ────────────────────────────────────────────────────── */
@@ -1175,7 +1356,7 @@ hr.formspec-divider {
 
 .formspec-rating-star {
   display: inline-block;
-  color: #ddd;
+  color: var(--formspec-color-border, #a0a4a8);
   cursor: pointer;
   transition: color 0.15s;
 }
@@ -1229,7 +1410,7 @@ hr.formspec-divider {
 }
 
 .formspec-file-browse-btn:focus-visible {
-  outline: 2px solid #4f88e8;
+  outline: 2px solid #2d6a7a;
   outline-offset: 2px;
 }
 
@@ -1249,7 +1430,7 @@ hr.formspec-divider {
 }
 
 .formspec-file-drop-zone--active {
-  border-color: #4f88e8;
+  border-color: #2d6a7a;
   background: #e8f0fe;
 }
 
@@ -1326,7 +1507,7 @@ hr.formspec-divider {
 }
 
 .formspec-file-list-remove:focus-visible {
-  outline: 2px solid #4f88e8;
+  outline: 2px solid #2d6a7a;
   outline-offset: 1px;
 }
 
@@ -1362,19 +1543,18 @@ hr.formspec-divider {
 .formspec-signature-clear {
   align-self: flex-start;
   margin-top: 6px;
-  padding: 4px 10px;
+  padding: 0.375rem 0.75rem;
   font: inherit;
-  font-size: 0.8rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: #fff;
-  color: #374151;
+  font-size: 0.8125rem;
+  border: 1px solid var(--formspec-color-error, #d93025);
+  border-radius: var(--formspec-radius-sm, 0.5rem);
+  background: transparent;
+  color: var(--formspec-color-error, #d93025);
   cursor: pointer;
 }
 
 .formspec-signature-clear:hover {
-  border-color: #9ca3af;
-  background: #f9fafb;
+  background: color-mix(in srgb, var(--formspec-color-error, #d93025) 8%, transparent);
 }
 
 /* ── Data Table ────────────────────────────────────────────────── */
@@ -1462,14 +1642,14 @@ hr.formspec-divider {
 .formspec-datatable-remove {
   display: block;
   margin: 0 auto;
-  background: #fce4ec;
-  border-color: #f48fb1;
+  background: color-mix(in srgb, var(--formspec-color-error, #d93025) 8%, white);
+  border-color: color-mix(in srgb, var(--formspec-color-error, #d93025) 40%, transparent);
 }
 
 .formspec-datatable-remove:hover {
-  border-color: #ef4444;
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.06);
+  border-color: var(--formspec-color-error, #d93025);
+  color: var(--formspec-color-error, #d93025);
+  background: color-mix(in srgb, var(--formspec-color-error, #d93025) 6%, transparent);
 }
 
 .formspec-row-number {
