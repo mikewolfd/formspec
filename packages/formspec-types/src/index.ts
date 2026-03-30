@@ -34,7 +34,11 @@ export type { OptionEntry as FormOption } from './generated/definition.js';
 // widens it to `unknown` so consumers don't need casts.
 
 import type {
-  Item, Presentation, Route, Bind,
+  Item,
+  OptionEntry,
+  Presentation,
+  Route,
+  Bind,
   FormDefinition as GeneratedFormDefinition,
   Screener as GeneratedScreener,
 } from './generated/definition.js';
@@ -71,7 +75,7 @@ export type FormItem = Item & {
   precision?: number;
   prefix?: string;
   suffix?: string;
-  options?: { value: string; label: string }[];
+  options?: OptionEntry[];
   optionSet?: string;
   initialValue?: unknown;
   semanticType?: string;

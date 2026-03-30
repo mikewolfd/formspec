@@ -107,7 +107,7 @@ export const COMPATIBILITY_MATRIX: Record<string, string[]> = {
     time: ['DatePicker', 'TextInput'],
     uri: ['TextInput'],
     choice: ['Select', 'RadioGroup', 'TextInput'],
-    multiChoice: ['CheckboxGroup'],
+    multiChoice: ['CheckboxGroup', 'Select'],
     attachment: ['FileUpload', 'Signature'],
     money: ['MoneyInput', 'NumberInput', 'TextInput'],
 };

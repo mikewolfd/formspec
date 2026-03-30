@@ -354,6 +354,10 @@ export interface FormDefinition {
      */
     allowSkip?: boolean;
     /**
+     * Wizard mode: render a vertical side navigation listing all steps instead of the default horizontal progress bar.
+     */
+    sidenav?: boolean;
+    /**
      * Tabs mode: zero-based index of the initially selected tab.
      */
     defaultTab?: number;
@@ -484,6 +488,10 @@ export interface OptionEntry {
    * Human-readable text displayed to the user for this option.
    */
   label: string;
+  /**
+   * Extra type-ahead strings for combobox/searchable Select filtering (abbreviations, codes, alternate names). Matched case-insensitively in addition to label and value.
+   */
+  keywords?: string[];
   extensions?: {};
 }
 /**
