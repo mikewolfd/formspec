@@ -396,6 +396,11 @@
           "default": false,
           "description": "Wizard mode: allow navigating forward without validating the current page."
         },
+        "sidenav": {
+          "type": "boolean",
+          "default": false,
+          "description": "Wizard mode: render a vertical side navigation listing all steps instead of the default horizontal progress bar."
+        },
         "defaultTab": {
           "type": "integer",
           "minimum": 0,
@@ -1327,6 +1332,12 @@
             "Personnel",
             "United States"
           ]
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Extra type-ahead strings for combobox/searchable Select filtering (abbreviations, codes, alternate names). Matched case-insensitively in addition to label and value.",
+          "examples": [["US", "USA"], ["UK", "GB", "Britain"]]
         },
         "extensions": {
           "type": "object",

@@ -7,9 +7,9 @@ This document is a **Draft** companion specification to the
 Document format — a sidecar JSON document that describes a **parallel
 presentation tree** of UI components bound to a Formspec Definition's items.
 
-**Status:** Draft Companion Specification 
-**Version:** 1.0.0 
-**Date:** 2025-01-14 
+**Status:** Draft Companion Specification
+**Version:** 1.0.0
+**Date:** 2025-01-14
 **Depends on:** Formspec Core Specification v1.0 (spec.md), Formspec Theme
 Specification v1.0 (theme-spec.md), FEL Normative Grammar v1.0
 (fel-grammar.md)
@@ -692,7 +692,7 @@ compatible with. Binding a component to an item with an incompatible
 | `dateTime` | DatePicker |
 | `time` | DatePicker |
 | `choice` | Select, RadioGroup |
-| `multiChoice` | CheckboxGroup |
+| `multiChoice` | CheckboxGroup, Select |
 | `attachment` | FileUpload, Signature |
 
 Notes:
@@ -702,6 +702,10 @@ Notes:
 - **Slider** and **Rating** are Progressive components; their fallback
   is NumberInput.
 - **RadioGroup** is a Progressive component; its fallback is Select.
+- **Select** on a `multiChoice` item MUST set `multiple` to `true` so the
+  control stores an array of values (same shape as CheckboxGroup). Using
+  Select without `multiple` on `multiChoice` is incompatible with the
+  stored value type.
 - **Signature** is a Progressive component; its fallback is FileUpload.
 - Display components (Text, Heading, etc.) are compatible with any
   `dataType` when used in read-only mode via `bind`.
@@ -729,9 +733,9 @@ For each component, the specification provides:
 
 ### 5.1 Page
 
-**Category:** Layout 
-**Level:** Core 
-**Accepts children:** Yes 
+**Category:** Layout
+**Level:** Core
+**Accepts children:** Yes
 **Bind:** Forbidden
 
 #### Description
@@ -775,9 +779,9 @@ within a Stack for single-page sectioned forms.
 
 ### 5.2 Stack
 
-**Category:** Layout 
-**Level:** Core 
-**Accepts children:** Yes 
+**Category:** Layout
+**Level:** Core
+**Accepts children:** Yes
 **Bind:** Forbidden
 
 #### Description
@@ -821,9 +825,9 @@ primitive and is typically used as the root component.
 
 ### 5.3 Grid
 
-**Category:** Layout 
-**Level:** Core 
-**Accepts children:** Yes 
+**Category:** Layout
+**Level:** Core
+**Accepts children:** Yes
 **Bind:** Forbidden
 
 #### Description
@@ -876,9 +880,9 @@ applied to a Stack of Pages, not a distinct component type.
 
 ### 5.5 Spacer
 
-**Category:** Layout 
-**Level:** Core 
-**Accepts children:** No 
+**Category:** Layout
+**Level:** Core
+**Accepts children:** No
 **Bind:** Forbidden
 
 #### Description
@@ -910,10 +914,10 @@ Spacer is a leaf component with no children and no binding.
 
 ### 5.6 TextInput
 
-**Category:** Input 
-**Level:** Core 
-**Accepts children:** No 
-**Bind:** Required 
+**Category:** Input
+**Level:** Core
+**Accepts children:** No
+**Bind:** Required
 **Compatible dataTypes:** `string`, `number` (as text), `date` (as text), `time` (as text), `dateTime` (as text)
 
 #### Description
@@ -958,10 +962,10 @@ than 1, the input renders as a multi-line textarea.
 
 ### 5.7 NumberInput
 
-**Category:** Input 
-**Level:** Core 
-**Accepts children:** No 
-**Bind:** Required 
+**Category:** Input
+**Level:** Core
+**Accepts children:** No
+**Bind:** Required
 **Compatible dataTypes:** `integer`, `number`
 
 #### Description
@@ -1007,10 +1011,10 @@ integers, decimals, and monetary values (when paired with prefix/suffix).
 
 ### 5.8 DatePicker
 
-**Category:** Input 
-**Level:** Core 
-**Accepts children:** No 
-**Bind:** Required 
+**Category:** Input
+**Level:** Core
+**Accepts children:** No
+**Bind:** Required
 **Compatible dataTypes:** `date`, `dateTime`, `time`
 
 #### Description
@@ -1054,35 +1058,57 @@ automatically determined by the bound item's `dataType`.
 
 ### 5.9 Select
 
-**Category:** Input 
-**Level:** Core 
-**Accepts children:** No 
-**Bind:** Required 
-**Compatible dataTypes:** `choice`
+**Category:** Input
+**Level:** Core
+**Accepts children:** No
+**Bind:** Required
+**Compatible dataTypes:** `choice`, `multiChoice`
 
 #### Description
 
-A dropdown selection control. Options are read from the bound item's
-`options` array or `optionSet` reference in the Definition.
+A single- or multi-select control for choice lists. Options are read from
+the bound item's `options` array or `optionSet` reference in the
+Definition.
+
+By default (when `searchable` and `multiple` are both false or omitted),
+processors SHOULD render a native HTML `<select>` (or platform
+equivalent) for a compact dropdown.
+
+When `searchable` is `true` and/or `multiple` is `true`, processors MUST
+render an accessible **combobox** pattern: a text field (filter and/or
+summary), an associated listbox, and keyboard support consistent with
+WAI-ARIA combobox/listbox guidance. For `multiple`, the listbox MUST
+allow toggling several options (e.g., checkboxes per row) and MUST store
+an array of selected option `value`s in the response data.
 
 #### Props
 
 | Prop | Type | Default | Token-able | Description |
 |------|------|---------|------------|-------------|
-| `searchable` | boolean | `false` | No | Whether to enable type-ahead search/filtering of options. |
-| `placeholder` | string | `"Select…"` | No | Placeholder text when no option is selected. |
-| `clearable` | boolean | `false` | No | Whether the user can clear the selection to null. |
+| `searchable` | boolean | `false` | No | Use a combobox with optional type-ahead filtering of option labels. When `false` and `multiple` is `false`, a native `<select>` is used. |
+| `multiple` | boolean | `false` | No | Allow multiple selections; bind to a `multiChoice` item. Implies a combobox list; combine with `searchable` for filtering. |
+| `placeholder` | string | `"Select…"` | No | Placeholder text when no option is selected (or when the closed combobox shows an empty state). |
+| `clearable` | boolean | `false` | No | Whether the user can clear the selection (`null` for single; empty array for multiple). |
 
 #### Rendering Requirements
 
-- MUST render as a dropdown/select control.
 - MUST read options from the bound item's `options` or `optionSet`.
 - MUST display the option `label` to the user and store the option
-  `value` in the data.
+  `value` in the data (single scalar for `choice`; array of values for
+  `multiChoice` when `multiple` is `true`).
 - MUST propagate `required`, `readOnly`, and `relevant` state.
 - MUST display validation errors.
-- When `searchable` is `true`, MUST provide a filter/search input
-  within the dropdown.
+- When `searchable` is `false` and `multiple` is `false`, MUST render a
+  single-select dropdown (native `<select>` or equivalent).
+- When `searchable` is `true` or `multiple` is `true`, MUST expose a
+  combobox (`role="combobox"`) and listbox (`role="listbox"`) with
+  `aria-expanded`, `aria-controls`, and `aria-activedescendant` (or
+  equivalent) as appropriate; when `multiple` is `true`, the listbox
+  MUST set `aria-multiselectable="true"`.
+- When `searchable` is `true`, MUST filter visible options by the user's
+  typed query using a case-insensitive substring match against each option's
+  `label`, its stored `value`, and any strings in the definition option's
+  optional `keywords` array (for abbreviations and alternate names).
 
 #### Example
 
@@ -1095,14 +1121,26 @@ A dropdown selection control. Options are read from the bound item's
 }
 ```
 
+Multi-select combobox:
+
+```json
+{
+  "component": "Select",
+  "bind": "tags",
+  "multiple": true,
+  "searchable": true,
+  "placeholder": "Select tags"
+}
+```
+
 ---
 
 ### 5.10 CheckboxGroup
 
-**Category:** Input 
-**Level:** Core 
-**Accepts children:** No 
-**Bind:** Required 
+**Category:** Input
+**Level:** Core
+**Accepts children:** No
+**Bind:** Required
 **Compatible dataTypes:** `multiChoice`
 
 #### Description
@@ -1141,10 +1179,10 @@ the bound item's `options` or `optionSet`.
 
 ### 5.11 Toggle
 
-**Category:** Input 
-**Level:** Core 
-**Accepts children:** No 
-**Bind:** Required 
+**Category:** Input
+**Level:** Core
+**Accepts children:** No
+**Bind:** Required
 **Compatible dataTypes:** `boolean`
 
 #### Description
@@ -1183,10 +1221,10 @@ true/false fields.
 
 ### 5.12 FileUpload
 
-**Category:** Input 
-**Level:** Core 
-**Accepts children:** No 
-**Bind:** Required 
+**Category:** Input
+**Level:** Core
+**Accepts children:** No
+**Bind:** Required
 **Compatible dataTypes:** `attachment`
 
 #### Description
@@ -1230,9 +1268,9 @@ multiple file selection with optional type and size constraints.
 
 ### 5.13 Heading
 
-**Category:** Display 
-**Level:** Core 
-**Accepts children:** No 
+**Category:** Display
+**Level:** Core
+**Accepts children:** No
 **Bind:** Forbidden
 
 #### Description
@@ -1264,9 +1302,9 @@ the form. Heading is purely presentational and does not bind to data.
 
 ### 5.14 Text
 
-**Category:** Display 
-**Level:** Core 
-**Accepts children:** No 
+**Category:** Display
+**Level:** Core
+**Accepts children:** No
 **Bind:** Optional
 
 #### Description
@@ -1305,9 +1343,9 @@ absent, displays the static `text` prop.
 
 ### 5.15 Divider
 
-**Category:** Display 
-**Level:** Core 
-**Accepts children:** No 
+**Category:** Display
+**Level:** Core
+**Accepts children:** No
 **Bind:** Forbidden
 
 #### Description
@@ -1337,9 +1375,9 @@ A horizontal rule used to visually separate sections of the form.
 
 ### 5.16 Card
 
-**Category:** Container 
-**Level:** Core 
-**Accepts children:** Yes 
+**Category:** Container
+**Level:** Core
+**Accepts children:** Yes
 **Bind:** Forbidden
 
 #### Description
@@ -1379,9 +1417,9 @@ a visual boundary with optional title and subtitle.
 
 ### 5.17 Collapsible
 
-**Category:** Container 
-**Level:** Core 
-**Accepts children:** Yes 
+**Category:** Container
+**Level:** Core
+**Accepts children:** Yes
 **Bind:** Forbidden
 
 #### Description
@@ -1424,9 +1462,9 @@ the children. Useful for optional sections or advanced options.
 
 ### 5.18 ConditionalGroup
 
-**Category:** Container 
-**Level:** Core 
-**Accepts children:** Yes 
+**Category:** Container
+**Level:** Core
+**Accepts children:** Yes
 **Bind:** Forbidden
 
 #### Description
@@ -1538,10 +1576,10 @@ processors. §6.18 provides a consolidated fallback table.
 
 ### 6.1 Columns
 
-**Category:** Layout 
-**Level:** Progressive 
-**Accepts children:** Yes 
-**Bind:** Forbidden 
+**Category:** Layout
+**Level:** Progressive
+**Accepts children:** Yes
+**Bind:** Forbidden
 **Fallback:** Grid
 
 #### Description
@@ -1587,10 +1625,10 @@ prop equals the number of children. The `gap` prop is preserved.
 
 ### 6.2 Tabs
 
-**Category:** Layout 
-**Level:** Progressive 
-**Accepts children:** Yes 
-**Bind:** Forbidden 
+**Category:** Layout
+**Level:** Progressive
+**Accepts children:** Yes
+**Bind:** Forbidden
 **Fallback:** Stack (each child preceded by a Heading)
 
 #### Description
@@ -1708,11 +1746,11 @@ has `defaultOpen: true`; the rest have `defaultOpen: false`.
 
 ### 6.4 RadioGroup
 
-**Category:** Input 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Required 
-**Compatible dataTypes:** `choice` 
+**Category:** Input
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Required
+**Compatible dataTypes:** `choice`
 **Fallback:** Select
 
 #### Description
@@ -1757,11 +1795,11 @@ discarded.
 
 ### 6.5 MoneyInput
 
-**Category:** Input 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Required 
-**Compatible dataTypes:** `number`, `integer` 
+**Category:** Input
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Required
+**Compatible dataTypes:** `number`, `integer`
 **Fallback:** NumberInput
 
 #### Description
@@ -1809,11 +1847,11 @@ the input if the bound item has a `prefix` presentation hint.
 
 ### 6.6 Slider
 
-**Category:** Input 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Required 
-**Compatible dataTypes:** `integer`, `number` 
+**Category:** Input
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Required
+**Compatible dataTypes:** `integer`, `number`
 **Fallback:** NumberInput
 
 #### Description
@@ -1862,11 +1900,11 @@ Core processors MUST replace Slider with **NumberInput**. The `min`,
 
 ### 6.7 Rating
 
-**Category:** Input 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Required 
-**Compatible dataTypes:** `integer` 
+**Category:** Input
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Required
+**Compatible dataTypes:** `integer`
 **Fallback:** NumberInput
 
 #### Description
@@ -1911,11 +1949,11 @@ Core processors MUST replace Rating with **NumberInput** with
 
 ### 6.8 Signature
 
-**Category:** Input 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Required 
-**Compatible dataTypes:** `attachment` 
+**Category:** Input
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Required
+**Compatible dataTypes:** `attachment`
 **Fallback:** FileUpload
 
 #### Description
@@ -1961,10 +1999,10 @@ Core processors MUST replace Signature with **FileUpload** with
 
 ### 6.9 Alert
 
-**Category:** Display 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Forbidden 
+**Category:** Display
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Forbidden
 **Fallback:** Text (with severity prefix)
 
 #### Description
@@ -1992,7 +2030,7 @@ error summaries, or success messages.
 
 Core processors MUST replace Alert with **Text**. The `text` prop
 is prefixed with the severity in brackets: e.g., `"[Warning] "`
-+ original text.
+- original text.
 
 #### Example
 
@@ -2008,10 +2046,10 @@ is prefixed with the severity in brackets: e.g., `"[Warning] "`
 
 ### 6.10 Badge
 
-**Category:** Display 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Forbidden 
+**Category:** Display
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Forbidden
 **Fallback:** Text
 
 #### Description
@@ -2045,10 +2083,10 @@ same `text` prop.
 
 ### 6.11 ProgressBar
 
-**Category:** Display 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Optional 
+**Category:** Display
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Optional
 **Fallback:** Text (showing "X / Y")
 
 #### Description
@@ -2091,10 +2129,10 @@ the progress as text, e.g., `"75 / 100 (75%)"`.
 
 ### 6.12 Summary
 
-**Category:** Display 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Forbidden 
+**Category:** Display
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Forbidden
 **Fallback:** Stack of Text components
 
 #### Description
@@ -2202,10 +2240,10 @@ finding's severity as the Alert `variant`.
 
 ### 6.14 DataTable
 
-**Category:** Display 
-**Level:** Progressive 
-**Accepts children:** No 
-**Bind:** Optional (binds to a repeatable group) 
+**Category:** Display
+**Level:** Progressive
+**Accepts children:** No
+**Bind:** Optional (binds to a repeatable group)
 **Fallback:** Stack of bound items
 
 #### Description
@@ -2259,10 +2297,10 @@ are rendered as TextInput or appropriate Core components.
 
 ### 6.15 Panel
 
-**Category:** Container 
-**Level:** Progressive 
-**Accepts children:** Yes 
-**Bind:** Forbidden 
+**Category:** Container
+**Level:** Progressive
+**Accepts children:** Yes
+**Bind:** Forbidden
 **Fallback:** Card
 
 #### Description
@@ -2308,10 +2346,10 @@ is preserved. The `position` and `width` props are discarded.
 
 ### 6.16 Modal
 
-**Category:** Container 
-**Level:** Progressive 
-**Accepts children:** Yes 
-**Bind:** Forbidden 
+**Category:** Container
+**Level:** Progressive
+**Accepts children:** Yes
+**Bind:** Forbidden
 **Fallback:** Collapsible
 
 #### Description
@@ -2795,6 +2833,7 @@ function resolveProps(component, viewportWidth, breakpoints):
 
 Example: with breakpoints `{"sm": 576, "md": 768}` and the Grid
 example above, at viewport width 700px:
+
 - Base: `columns: 3, gap: "$token.spacing.md"`
 - After `sm` (576 ≤ 700): `columns: 1, gap: "$token.spacing.sm"`
 - `md` does not apply (768 > 700)
@@ -2858,6 +2897,7 @@ $token.<key>
 ```
 
 Examples:
+
 - `"gap": "$token.spacing.md"` resolves to `"16px"`.
 - `"style": { "borderRadius": "$token.border.radius" }` resolves to
   `"6px"`.
@@ -3410,7 +3450,7 @@ classification and key characteristics.
 | 5 | TextInput | Input | Core | No | Required | Single/multi-line text input. |
 | 6 | NumberInput | Input | Core | No | Required | Numeric input with stepper. |
 | 7 | DatePicker | Input | Core | No | Required | Date/time/datetime picker. |
-| 8 | Select | Input | Core | No | Required | Dropdown single-select. |
+| 8 | Select | Input | Core | No | Required | Native dropdown or combobox; optional multi-select (`multiple`). |
 | 9 | CheckboxGroup | Input | Core | No | Required | Multi-select checkboxes. |
 | 10 | Toggle | Input | Core | No | Required | Boolean switch. |
 | 11 | FileUpload | Input | Core | No | Required | File attachment upload. |
@@ -3462,7 +3502,7 @@ marked (P) are Progressive; all others are Core.
 | `dateTime` | | | ✓ | | | | | | | | | |
 | `time` | | | ✓ | | | | | | | | | |
 | `choice` | | | | ✓ | | | | ✓ | | | | |
-| `multiChoice` | | | | | ✓ | | | | | | | |
+| `multiChoice` | | | | ✓ | ✓ | | | | | | | |
 | `attachment` | | | | | | | ✓ | | | | | ✓ |
 
 Notes:
@@ -3477,3 +3517,5 @@ Notes:
 - **TextInput** MAY be used as a universal fallback for any dataType
   in exceptional cases, but processors SHOULD warn about the type
   mismatch.
+- **Select** on `multiChoice` MUST use `multiple` so the value is an array;
+  otherwise the binding does not match the item's data type.
