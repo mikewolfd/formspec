@@ -28,7 +28,7 @@ el.componentDocument = myComponentDoc;
 el.themeDocument = myTheme;
 ```
 
-Importing `FormspecRender` loads structural `formspec-layout.css` (grid, stack, wizard chrome). Import `formspec-default.css` when you use the built-in renderer’s field styling; omit it for custom adapters (for example Tailwind) so global `input` / `label` rules do not override utility classes.
+Import `formspec-default.css` when you use the built-in renderer’s field styling; it now includes the structural layout rules as well. Import `formspec-layout.css` only when you want structural layout primitives without the default visual skin, such as for a custom adapter or utility-first design system. Both CSS files are canonically owned by `@formspec-org/layout` and re-exported here for compatibility.
 
 The element is exported but not auto-registered. Call `customElements.define()` with your preferred tag name.
 
@@ -278,7 +278,7 @@ export type { RenderContext, ComponentPlugin, ValidationTargetMetadata, Screener
 export type { ThemeDocument, PresentationBlock, ItemDescriptor, AccessibilityBlock, ThemeSelector, SelectorMatch, Tier1Hints, FormspecDataType, Page, Region, LayoutHints, StyleHints };
 
 // Default theme
-import defaultThemeJson from './default-theme.json';
+import defaultThemeJson from '@formspec-org/layout/default-theme';
 export { defaultThemeJson as defaultTheme };
 
 // Headless adapter public API

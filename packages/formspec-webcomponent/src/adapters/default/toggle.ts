@@ -24,7 +24,6 @@ export const renderToggle: AdapterRenderFn<ToggleBehavior> = (
     checkbox.name = behavior.fieldPath;
     checkbox.id = behavior.id;
     checkbox.setAttribute('role', 'switch');
-    checkbox.setAttribute('aria-describedby', fieldDOM.describedBy.join(' '));
     toggleContainer.appendChild(checkbox);
 
     if (behavior.onLabel || behavior.offLabel) {
@@ -42,10 +41,6 @@ export const renderToggle: AdapterRenderFn<ToggleBehavior> = (
         onSpan.setAttribute('aria-hidden', 'true');
         onSpan.textContent = behavior.onLabel || '';
         toggleContainer.appendChild(onSpan);
-
-        // Add toggle label to aria-describedby so screen readers announce on/off text
-        const existing = checkbox.getAttribute('aria-describedby') || '';
-        checkbox.setAttribute('aria-describedby', `${existing} ${onSpan.id}`.trim());
     }
 
     fieldDOM.root.appendChild(toggleContainer);

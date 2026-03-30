@@ -22,7 +22,6 @@ export const renderMoneyInput: AdapterRenderFn<MoneyInputBehavior> = (
     if (behavior.step != null) amountInput.step = String(behavior.step);
     if (behavior.min != null) amountInput.min = String(behavior.min);
     if (behavior.max != null) amountInput.max = String(behavior.max);
-    amountInput.setAttribute('aria-describedby', fieldDOM.describedBy.join(' '));
 
     if (behavior.resolvedCurrency) {
         const currencyId = `${behavior.id}-currency`;
@@ -32,9 +31,8 @@ export const renderMoneyInput: AdapterRenderFn<MoneyInputBehavior> = (
         badge.textContent = behavior.resolvedCurrency;
         badge.setAttribute('aria-label', `Currency: ${behavior.resolvedCurrency}`);
         container.appendChild(badge);
-        // Link currency badge to amount input via aria-describedby
-        const existing = amountInput.getAttribute('aria-describedby') || '';
-        amountInput.setAttribute('aria-describedby', [existing, currencyId].filter(Boolean).join(' '));
+        // Link currency badge to amount input via data-describedby-base for bind() to pick up
+        amountInput.setAttribute('data-describedby-base', currencyId);
     } else {
         const currencyInput = document.createElement('input');
         currencyInput.type = 'text';

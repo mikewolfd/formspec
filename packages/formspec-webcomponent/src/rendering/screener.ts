@@ -271,7 +271,7 @@ export function renderScreener(host: ScreenerHost, container: HTMLElement): void
 
     const continueBtn = document.createElement('button');
     continueBtn.type = 'button';
-    continueBtn.className = 'formspec-screener-continue';
+    continueBtn.className = 'formspec-screener-continue formspec-focus-ring';
     continueBtn.textContent = 'Continue';
     continueBtn.addEventListener('click', () => {
         // Clear prior errors
@@ -386,7 +386,7 @@ function showExternalRouteResult(
 
     const backBtn = document.createElement('button');
     backBtn.type = 'button';
-    backBtn.className = 'formspec-screener-continue';
+    backBtn.className = 'formspec-screener-continue formspec-focus-ring';
     backBtn.textContent = 'Back to screening';
     backBtn.addEventListener('click', () => {
         host._screenerRoute = null;

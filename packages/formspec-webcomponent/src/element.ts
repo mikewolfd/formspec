@@ -16,9 +16,10 @@ import {
     planComponentTree,
     planDefinitionFallback,
     ensureSubmitButton,
+    mergeFormPresentationForPlanning,
     type PlanContext,
 } from '@formspec-org/layout';
-import defaultThemeJson from './default-theme.json';
+import defaultThemeJson from '@formspec-org/layout/default-theme';
 
 // Extracted modules
 import {
@@ -565,7 +566,10 @@ export class FormspecRender extends HTMLElement {
 
         const planCtx: PlanContext = {
             items: this._definition.items,
-            formPresentation: this._definition.formPresentation,
+            formPresentation: mergeFormPresentationForPlanning(
+                this._definition.formPresentation,
+                this._componentDocument?.formPresentation,
+            ),
             componentDocument: this._componentDocument,
             theme: this._themeDocument || this.getEffectiveTheme(),
             activeBreakpoint: this.activeBreakpoint,

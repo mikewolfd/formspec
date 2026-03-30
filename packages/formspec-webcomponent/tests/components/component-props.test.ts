@@ -193,6 +193,25 @@ describe('component props — Select', () => {
         expect((options[0] as HTMLOptionElement).disabled).toBe(true);
         expect((options[1] as HTMLOptionElement).textContent).toBe('— Clear —');
     });
+
+    it('searchable Select wraps combobox input in .formspec-combobox-row', () => {
+        const el = renderWith(
+            [{
+                key: 'dept',
+                type: 'field',
+                dataType: 'choice',
+                label: 'Dept',
+                options: [{ value: 'a', label: 'A' }],
+            }],
+            {
+                component: 'Page',
+                children: [{ component: 'Select', bind: 'dept', searchable: true }],
+            },
+        );
+        const input = el.querySelector('input[role="combobox"]') as HTMLInputElement;
+        expect(input).not.toBeNull();
+        expect(input.closest('.formspec-combobox-row')).not.toBeNull();
+    });
 });
 
 describe('component props — DatePicker', () => {

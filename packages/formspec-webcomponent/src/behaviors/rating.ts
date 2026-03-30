@@ -26,7 +26,7 @@ export function useRating(ctx: BehaviorContext, comp: any): RatingBehavior {
 
     const labelText = comp.labelOverride || item?.label || item?.key || comp.bind;
     const vm = ctx.getFieldVM(fieldPath);
-    const maxRating = comp.max || 5;
+    const maxRating = comp.max ?? comp.maxRating ?? 5;
     const isInteger = item?.dataType === 'integer';
     const allowHalf = comp.allowHalf === true;
     const [selectedIcon, unselectedIcon] = resolveRatingIcons(comp.icon);

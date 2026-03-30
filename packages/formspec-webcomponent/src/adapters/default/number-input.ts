@@ -16,7 +16,6 @@ export const renderNumberInput: AdapterRenderFn<NumberInputBehavior> = (
     if (behavior.step != null) input.step = String(behavior.step);
     if (behavior.min != null) input.min = String(behavior.min);
     if (behavior.max != null) input.max = String(behavior.max);
-    input.setAttribute('aria-describedby', fieldDOM.describedBy.join(' '));
 
     if (behavior.showStepper) {
         const stepVal = behavior.step ?? 1;
@@ -25,13 +24,13 @@ export const renderNumberInput: AdapterRenderFn<NumberInputBehavior> = (
 
         const decBtn = document.createElement('button');
         decBtn.type = 'button';
-        decBtn.className = 'formspec-stepper-decrement';
+        decBtn.className = 'formspec-stepper-decrement formspec-focus-ring';
         decBtn.textContent = '\u2212'; // minus sign
         decBtn.setAttribute('aria-label', `Decrease ${behavior.label}`);
 
         const incBtn = document.createElement('button');
         incBtn.type = 'button';
-        incBtn.className = 'formspec-stepper-increment';
+        incBtn.className = 'formspec-stepper-increment formspec-focus-ring';
         incBtn.textContent = '+';
         incBtn.setAttribute('aria-label', `Increase ${behavior.label}`);
 

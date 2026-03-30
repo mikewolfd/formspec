@@ -42,6 +42,12 @@ describe('repeat instance accessibility and styling parity', () => {
         expect(instances[0].getAttribute('aria-label')).toBe('Items 1 of 3');
         expect(instances[1].getAttribute('aria-label')).toBe('Items 2 of 3');
         expect(instances[2].getAttribute('aria-label')).toBe('Items 3 of 3');
+
+        const repeatContainer = element.querySelector('.formspec-repeat') as HTMLElement;
+        expect(repeatContainer).toBeTruthy();
+        expect(repeatContainer.querySelector('.formspec-repeat-list')).toBeTruthy();
+        expect(repeatContainer.querySelector('.formspec-repeat-add')).toBeTruthy();
+        expect(repeatContainer.querySelector('.formspec-sr-only[aria-live="polite"]')).toBeTruthy();
     });
 
     it('repeat instance is not display:contents (has box model)', () => {
@@ -81,5 +87,12 @@ describe('repeat DOM re-keying after non-tail deletion', () => {
         expect(inputsAfter[1].getAttribute('name')).toContain('items[1].name');
         expect(inputsAfter[0].value).toBe('Alice');
         expect(inputsAfter[1].value).toBe('Charlie');
+    });
+
+    it('adds accessible labels to remove buttons', () => {
+        const { element } = renderFormspec();
+        const removeButton = element.querySelector('.formspec-repeat-remove') as HTMLButtonElement;
+        expect(removeButton).toBeTruthy();
+        expect(removeButton.getAttribute('aria-label')).toBe('Remove Items 1');
     });
 });

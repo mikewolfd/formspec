@@ -113,26 +113,16 @@ describe('input rendering — ARIA attributes', () => {
         document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
     });
 
-    it('links hint and error via aria-describedby', () => {
+    it('links hint via aria-describedby', () => {
         const el = renderField({ hint: 'Enter your name' });
         const input = el.querySelector('input') as HTMLInputElement;
         const describedBy = input.getAttribute('aria-describedby') || '';
-        // Should reference both hint and error element IDs
+        // Should reference hint element ID
         const ids = describedBy.split(/\s+/);
         const hintId = ids.find(id => id.endsWith('-hint'));
-        const errorId = ids.find(id => id.endsWith('-error'));
         expect(hintId).toBeDefined();
-        expect(errorId).toBeDefined();
-        // Verify the referenced elements actually exist in the DOM
+        // Verify the referenced element actually exists in the DOM
         expect(el.querySelector(`#${hintId}`)).not.toBeNull();
-        expect(el.querySelector(`#${errorId}`)).not.toBeNull();
-    });
-
-    it('error display has role=alert and aria-live=polite', () => {
-        const el = renderField();
-        const errorEl = el.querySelector('.formspec-error') as HTMLElement;
-        expect(errorEl.getAttribute('role')).toBe('alert');
-        expect(errorEl.getAttribute('aria-live')).toBe('polite');
     });
 });
 

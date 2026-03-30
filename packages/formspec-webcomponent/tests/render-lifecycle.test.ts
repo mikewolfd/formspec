@@ -293,7 +293,8 @@ describe('render lifecycle', () => {
         expect(el.querySelector('.formspec-field')).not.toBeNull();
     });
 
-    it('does not auto-append a submit button', () => {
+    it('does not append a submit button when showSubmit is false', () => {
+        el.showSubmit = false;
         el.definition = singleFieldDef();
         el.render();
         expect(el.querySelector('.formspec-submit')).toBeNull();

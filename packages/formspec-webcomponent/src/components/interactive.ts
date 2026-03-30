@@ -62,9 +62,9 @@ export const SubmitButtonPlugin: ComponentPlugin = {
         }
 
         const button = document.createElement('button');
-        if (comp.id) button.id = comp.id;
         button.type = 'button';
-        button.className = 'formspec-submit';
+        button.className = 'formspec-submit formspec-focus-ring';
+        if (comp.id) button.id = comp.id;
         const defaultLabel = resolveCompText(ctx, comp, 'label', comp.label || 'Submit');
         const pendingLabel = resolveCompText(ctx, comp, 'pendingLabel', comp.pendingLabel || 'Submitting\u2026');
         const disableWhenPending = comp.disableWhenPending !== false;
