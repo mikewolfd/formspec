@@ -61,21 +61,52 @@ export function planContains(node: LayoutNode, component: string): boolean {
     return node.children.some(child => planContains(child, component));
 }
 
+/** Root components whose `children` are intrinsic sections/panels, not arbitrary layout siblings. */
+const SUBMIT_MUST_BE_SIBLING_ROOTS = new Set(['Accordion']);
+
 /** Append a SubmitButton node to a plan root if one doesn't already exist
  *  and the plan isn't owned by a Wizard (which provides its own submit).
  *  Also skips when the root has direct Page children — pageMode wizard/tabs
- *  synthesizes its own submit via the wizard behavior's Next→Submit button. */
+ *  synthesizes its own submit via the wizard behavior's Next→Submit button.
+ *  For Accordion (and similar), children are sections — wrap in Stack so submit is not a section. */
 export function ensureSubmitButton(root: LayoutNode): void {
     if (planContains(root, 'Wizard') || planContains(root, 'SubmitButton')) return;
     if (root.children.some(c => c.component === 'Page')) return;
-    root.children.push({
+
+    const submitNode: LayoutNode = {
         id: nextId('submit'),
         component: 'SubmitButton',
         category: 'interactive',
         props: {},
         cssClasses: [],
         children: [],
-    });
+    };
+
+    if (SUBMIT_MUST_BE_SIBLING_ROOTS.has(root.component)) {
+        const inner: LayoutNode = { ...root };
+        root.id = nextId('root-stack');
+        root.component = 'Stack';
+        root.category = 'layout';
+        root.props = {};
+        root.cssClasses = [];
+        root.children = [inner, submitNode];
+        delete root.style;
+        delete root.accessibility;
+        delete root.bindPath;
+        delete root.fieldItem;
+        delete root.presentation;
+        delete root.labelPosition;
+        delete root.when;
+        delete root.whenPrefix;
+        delete root.fallback;
+        delete root.repeatGroup;
+        delete root.repeatPath;
+        delete root.isRepeatTemplate;
+        delete root.scopeChange;
+        return;
+    }
+
+    root.children.push(submitNode);
 }
 
 // ── ID generation ────────────────────────────────────────────────────

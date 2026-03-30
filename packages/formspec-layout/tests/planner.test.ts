@@ -1329,4 +1329,14 @@ describe('ensureSubmitButton', () => {
         ensureSubmitButton(root);
         expect(root.children.some(c => c.component === 'SubmitButton')).toBe(false);
     });
+
+    it('wraps a root Accordion in Stack so SubmitButton is not an accordion section', () => {
+        const root = makeNode('Accordion', [makeNode('Text'), makeNode('Text'), makeNode('Text')]);
+        ensureSubmitButton(root);
+        expect(root.component).toBe('Stack');
+        expect(root.children).toHaveLength(2);
+        expect(root.children[0].component).toBe('Accordion');
+        expect(root.children[0].children).toHaveLength(3);
+        expect(root.children[1].component).toBe('SubmitButton');
+    });
 });
