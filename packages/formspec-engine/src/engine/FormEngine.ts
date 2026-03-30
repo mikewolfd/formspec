@@ -765,10 +765,19 @@ export class FormEngine implements IFormEngine {
                 const path = prefix ? `${prefix}.${item.key}` : item.key;
                 if (item.type === 'field') {
                     const options = Array.isArray(item.options)
-                        ? item.options.map((option) => ({
-                            value: String(option.value),
-                            label: String(option.label),
-                        }))
+                        ? item.options.map((option) => {
+                              const base: OptionEntry = {
+                                  value: String(option.value),
+                                  label: String(option.label),
+                              };
+                              if (Array.isArray(option.keywords) && option.keywords.length > 0) {
+                                  const keywords = option.keywords
+                                      .map((k) => String(k))
+                                      .filter((s) => s.length > 0);
+                                  if (keywords.length > 0) return { ...base, keywords };
+                              }
+                              return base;
+                          })
                         : [];
                     this.optionSignals[path] = this._rx.signal(options);
                     this.optionStateSignals[path] = this._rx.signal({ loading: false, error: null });

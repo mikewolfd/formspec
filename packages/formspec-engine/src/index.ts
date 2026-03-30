@@ -124,6 +124,9 @@ export type { LocaleDocument, LookupResult } from './locale.js';
 export { createFieldViewModel } from './field-view-model.js';
 export type { FieldViewModel, FieldViewModelDeps, ResolvedValidationResult, ResolvedOption } from './field-view-model.js';
 
+export { optionMatchesComboboxQuery } from './combobox-option-filter.js';
+export type { ComboboxOptionSearchShape } from './combobox-option-filter.js';
+
 export { createFormViewModel } from './form-view-model.js';
 export type { FormViewModel, FormViewModelDeps } from './form-view-model.js';
 
