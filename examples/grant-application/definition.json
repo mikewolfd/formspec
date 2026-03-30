@@ -23,6 +23,7 @@
   },
   "formPresentation": {
     "pageMode": "wizard",
+    "sidenav": true,
     "labelPosition": "top",
     "density": "comfortable",
     "defaultCurrency": "USD"
