@@ -1,6 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { SideBySideStory } from '../_shared/SideBySideStory';
-import { selectDef, radioGroupDef, checkboxDef, checkboxGroupDef, searchableSelectDef } from './definitions';
+import {
+    selectDef,
+    radioGroupDef,
+    checkboxDef,
+    checkboxGroupDef,
+    searchableSelectDef,
+    searchableSelectComponentDoc,
+} from './definitions';
 
 const meta: Meta<typeof SideBySideStory> = {
     title: 'Fields/Choice',
@@ -28,5 +35,5 @@ export const CheckboxGroup: Story = {
 
 export const SearchableSelect: Story = {
     name: 'Searchable Select',
-    args: { definition: searchableSelectDef },
+    args: { definition: searchableSelectDef, componentDocument: searchableSelectComponentDoc },
 };

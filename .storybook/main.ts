@@ -19,6 +19,13 @@ const config: StorybookConfig = {
     },
     viteFinal: async (config) => {
         config.resolve = config.resolve || {};
+        config.resolve.dedupe = [
+            ...(config.resolve.dedupe ?? []),
+            '@formspec-org/engine',
+            '@formspec-org/layout',
+            '@formspec-org/react',
+            '@formspec-org/webcomponent',
+        ];
         config.resolve.alias = [
             ...(Array.isArray(config.resolve.alias) ? config.resolve.alias : []),
             // Engine subpath exports — specific before general
@@ -27,7 +34,8 @@ const config: StorybookConfig = {
             { find: '@formspec-org/engine/fel-runtime', replacement: `${pkg('formspec-engine')}/fel/fel-api-runtime.ts` },
             { find: '@formspec-org/engine/fel-tools', replacement: `${pkg('formspec-engine')}/fel/fel-api-tools.ts` },
             { find: '@formspec-org/engine', replacement: `${pkg('formspec-engine')}/index.ts` },
-            // Layout
+            // Layout — subpath before package root (otherwise `layout/default-theme` becomes `index.ts/default-theme`)
+            { find: '@formspec-org/layout/default-theme', replacement: `${pkg('formspec-layout')}/default-theme.json` },
             { find: '@formspec-org/layout', replacement: `${pkg('formspec-layout')}/index.ts` },
             // React — subpath before base
             { find: '@formspec-org/react/hooks', replacement: `${pkg('formspec-react')}/hooks.ts` },

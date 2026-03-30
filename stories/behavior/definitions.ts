@@ -68,3 +68,19 @@ export const validationDef = {
         },
     ],
 };
+
+/** Layout doc for Validation Demo — mirrors RealUSWDSStory’s alert + fields (see uswds-comparison-presets). */
+export const validationDemoComponentDoc = {
+    $formspecComponent: '1.0',
+    name: 'validation-demo-layout',
+    title: 'Validation Demo',
+    tree: {
+        component: 'Stack',
+        gap: '16px',
+        children: [
+            { component: 'ValidationSummary', mode: 'continuous', showFieldErrors: true },
+            { component: 'TextInput', bind: 'username' },
+            { component: 'TextInput', bind: 'password' },
+        ],
+    },
+};

@@ -9,6 +9,7 @@ import {
     modalComponentDoc,
     popoverComponentDoc,
     wizardComponentDoc,
+    wizardWithSidenavComponentDoc,
     tabsComponentDoc,
 } from './definitions';
 
@@ -54,6 +55,11 @@ export const Popover: Story = {
 export const Wizard: Story = {
     name: 'Wizard (Multi-step)',
     args: { showSubmit: true, componentDocument: wizardComponentDoc },
+};
+
+export const WizardWithSidenav: Story = {
+    name: 'Wizard (side navigation)',
+    args: { showSubmit: true, componentDocument: wizardWithSidenavComponentDoc },
 };
 
 export const Tabs: Story = {

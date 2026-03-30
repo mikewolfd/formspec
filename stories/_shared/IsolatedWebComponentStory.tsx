@@ -145,13 +145,32 @@ export function IsolatedWebComponentStory({
         };
     }, [definition, theme, componentDocument, adapter, showSubmit, mountNode, initialData, touchAll]);
 
+    const items = Array.isArray(definition?.items) ? definition.items : [];
+    const allDisplayOnly =
+        items.length > 0 && items.every((it: { type?: string }) => it.type === 'display');
+
+    const inner =
+        adapter?.name === 'uswds' ? (
+            <div className="isolated-story-root">
+                {/*
+                  Match RealUSWDSStory: .usa-form sets max-width (20rem at mobile-lg) and resets
+                  control max-width inside the form so field sizing matches official USWDS examples.
+                */}
+                <form className="usa-form">
+                    {definition?.title ? (
+                        <h2 className={allDisplayOnly ? undefined : 'usa-sr-only'}>{definition.title}</h2>
+                    ) : null}
+                    <div ref={containerRef} />
+                </form>
+            </div>
+        ) : (
+            <div className="isolated-story-root" ref={containerRef} />
+        );
+
     return (
         <div style={{ maxWidth, margin: '0 auto' }}>
             <div ref={hostRef} />
-            {mountNode ? createPortal(
-                <div className="isolated-story-root" ref={containerRef} />,
-                mountNode,
-            ) : null}
+            {mountNode ? createPortal(inner, mountNode) : null}
         </div>
     );
 }

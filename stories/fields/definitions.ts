@@ -225,7 +225,7 @@ export const sliderDef = {
             type: "field",
             dataType: "integer",
             label: "Satisfaction",
-            presentation: { widgetHint: "slider", min: 0, max: 10, step: 1 },
+            presentation: { widgetHint: "slider", min: 0, max: 10, step: 1, showValue: false },
         },
     ],
 };
@@ -290,7 +290,7 @@ export const signatureDef = {
     ],
 };
 
-/** Searchable select with autocomplete filtering. */
+/** Same country field as Select, but layout uses `Select` + `searchable` (combobox). */
 export const searchableSelectDef = {
     "$formspec": "1.0",
     title: "Searchable Select",
@@ -300,20 +300,31 @@ export const searchableSelectDef = {
             type: "field",
             dataType: "choice",
             label: "Country",
-            hint: "Type to filter the list",
+            hint: "Filter by country name or shorthand — e.g. US, UK, DE, or “states”.",
             options: [
-                { value: "us", label: "United States" },
-                { value: "ca", label: "Canada" },
-                { value: "mx", label: "Mexico" },
-                { value: "gb", label: "United Kingdom" },
-                { value: "de", label: "Germany" },
-                { value: "fr", label: "France" },
-                { value: "jp", label: "Japan" },
-                { value: "au", label: "Australia" },
-                { value: "br", label: "Brazil" },
-                { value: "in", label: "India" },
+                { value: "us", label: "United States", keywords: ["US", "USA", "America", "U.S."] },
+                { value: "ca", label: "Canada", keywords: ["CA", "CAN"] },
+                { value: "mx", label: "Mexico", keywords: ["MX", "MEX"] },
+                { value: "gb", label: "United Kingdom", keywords: ["UK", "GB", "Britain", "Great Britain", "England"] },
+                { value: "de", label: "Germany", keywords: ["DE", "DEU", "Deutschland"] },
+                { value: "fr", label: "France", keywords: ["FR", "FRA"] },
+                { value: "jp", label: "Japan", keywords: ["JP", "JPN"] },
+                { value: "au", label: "Australia", keywords: ["AU", "AUS"] },
+                { value: "br", label: "Brazil", keywords: ["BR", "BRA"] },
+                { value: "in", label: "India", keywords: ["IN", "IND"] },
             ],
-            presentation: { widgetHint: "autocomplete" },
+            presentation: { widgetHint: "dropdown" },
         },
     ],
+};
+
+/** Renders combobox (`searchable: true`), not native `<select>`. */
+export const searchableSelectComponentDoc = {
+    "$formspecComponent": "1.0",
+    name: "searchable-select-story",
+    title: "Searchable Select",
+    tree: {
+        component: "Stack",
+        children: [{ component: "Select", bind: "country", searchable: true }],
+    },
 };

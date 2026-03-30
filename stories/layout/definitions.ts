@@ -295,6 +295,14 @@ export const wizardComponentDoc = {
     },
 };
 
+/** Same wizard with a collapsible step rail (`formPresentation.sidenav`). */
+export const wizardWithSidenavComponentDoc = {
+    ...wizardComponentDoc,
+    name: 'wizard-sidenav-demo',
+    title: 'Wizard (side navigation)',
+    formPresentation: { ...wizardComponentDoc.formPresentation, sidenav: true },
+};
+
 /** Tabs component document. */
 export const tabsComponentDoc = {
     "$formspecComponent": "1.0",

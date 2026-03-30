@@ -1,5 +1,6 @@
 import type { Preview } from '@storybook/react';
-import { initFormspecEngine } from '@formspec-org/engine';
+// Subpath import matches `formspec-webcomponent` so Vite keeps one wasm-bridge-runtime instance.
+import { initFormspecEngine } from '@formspec-org/engine/init-formspec-engine';
 
 // CSS is loaded inside shadow DOM by IsolatedFormStory / IsolatedWebComponentStory
 // to prevent cross-renderer style collisions. No global CSS imports needed.

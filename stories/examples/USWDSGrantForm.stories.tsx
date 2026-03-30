@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { WebComponentStory } from '../_shared/WebComponentStory';
+import { IsolatedWebComponentStory } from '../_shared/IsolatedWebComponentStory';
 import { uswdsAdapter } from '@formspec-org/adapters';
 import definition from '../../examples/uswds-grant/grant.definition.json';
 import theme from '../../examples/uswds-grant/grant.theme.json';
 
-const meta: Meta<typeof WebComponentStory> = {
+const meta: Meta<typeof IsolatedWebComponentStory> = {
     title: 'Examples/USWDS Grant Form',
-    component: WebComponentStory,
+    component: IsolatedWebComponentStory,
     parameters: {
         docs: {
             story: { inline: false },
@@ -18,7 +18,7 @@ const meta: Meta<typeof WebComponentStory> = {
 };
 export default meta;
 
-type Story = StoryObj<typeof WebComponentStory>;
+type Story = StoryObj<typeof IsolatedWebComponentStory>;
 
 export const WithUSWDSAdapter: Story = {
     name: 'USWDS Adapter',
