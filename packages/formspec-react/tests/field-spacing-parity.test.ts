@@ -1,0 +1,83 @@
+/** @filedesc Verifies canonical field spacing ownership and wrapper imports. */
+import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+const reactCSS = readFileSync(
+    resolve(__dirname, '../src/formspec.css'), 'utf-8'
+);
+const reactAddonCSS = readFileSync(
+    resolve(__dirname, '../src/formspec-react-addon.css'), 'utf-8'
+);
+const wcCSS = readFileSync(
+    resolve(__dirname, '../../formspec-webcomponent/src/formspec-default.css'), 'utf-8'
+);
+const layoutCSS = readFileSync(
+    resolve(__dirname, '../../formspec-layout/src/formspec-default.css'), 'utf-8'
+);
+const layoutStructuralCSS = readFileSync(
+    resolve(__dirname, '../../formspec-layout/src/formspec-layout.css'), 'utf-8'
+);
+const layoutTheme = JSON.parse(readFileSync(
+    resolve(__dirname, '../../formspec-layout/src/default-theme.json'), 'utf-8'
+));
+
+function extractRuleProp(css: string, selector: string, prop: string): string | null {
+    const ruleRe = /([^{}]+)\{([^}]+)\}/g;
+    let match: RegExpExecArray | null;
+    while ((match = ruleRe.exec(css)) !== null) {
+        if (match[1].split(',').some(part => part.includes(selector))) {
+            const propMatch = match[2].match(new RegExp(`${prop}:\\s*([^;]+);`));
+            if (propMatch) return propMatch[1].trim();
+        }
+    }
+    return null;
+}
+
+describe('Field spacing token ownership', () => {
+    it('uses the xs spacing token for .formspec-field gap in the canonical layout CSS', () => {
+        const expected = 'var(--formspec-spacing-xs, 0.25rem)';
+        expect(extractRuleProp(layoutCSS, '.formspec-field', 'gap')).toBe(expected);
+    });
+
+    it('bundles structural layout into the canonical default CSS', () => {
+        expect(layoutCSS).toContain('@import "./formspec-layout.css";');
+        expect(extractRuleProp(layoutStructuralCSS, '.formspec-stack', 'gap')).toBe('var(--formspec-spacing-field, 0.75rem)');
+    });
+
+    it('keeps React and WC source CSS as thin wrappers over the canonical bundled asset', () => {
+        expect(reactCSS).toContain('@import "../../formspec-layout/src/formspec-default.css";');
+        expect(reactCSS).not.toContain('@import "../../formspec-layout/src/formspec-layout.css";');
+        expect(reactCSS).not.toContain('./formspec-react-addon.css');
+        expect(wcCSS).toContain('@import "../../formspec-layout/src/formspec-default.css";');
+    });
+
+    it('defines spacing tokens in the canonical layout-owned theme', () => {
+        expect(layoutTheme.tokens['spacing.xs']).toBe('0.25rem');
+        expect(layoutTheme.tokens['spacing.field']).toBe('0.75rem');
+    });
+
+    it('keeps shared field skin selectors in the canonical layout bundle instead of the React add-on', () => {
+        const sharedSelectors = [
+            '.formspec-file-upload',
+            '.formspec-toggle-label',
+            '.formspec-money',
+            '.formspec-money-field',
+            '.formspec-rating',
+            '.formspec-slider',
+            '.formspec-input-adornment',
+            '.formspec-signature',
+        ];
+
+        for (const selector of sharedSelectors) {
+            expect(layoutCSS).toContain(selector);
+            expect(reactAddonCSS).not.toContain(selector);
+        }
+    });
+
+    it('does not leave renderer-specific selector rules in the React add-on file', () => {
+        expect(layoutCSS).toContain('.formspec-screener');
+        expect(layoutCSS).toContain('.formspec-validation-summary');
+        expect(reactAddonCSS).not.toMatch(/^\s*\.formspec-/m);
+    });
+});

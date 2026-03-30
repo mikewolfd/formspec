@@ -449,10 +449,8 @@ describe('Input prop completeness', () => {
             });
             const group = container.querySelector('.formspec-checkbox-group') as HTMLElement;
             expect(group).toBeTruthy();
-            // Should have grid or column layout applied
-            const style = group.style;
-            const hasColumns = style.gridTemplateColumns || style.columns || style.columnCount;
-            expect(hasColumns).toBeTruthy();
+            expect(group.getAttribute('data-columns')).toBe('2');
+            expect(group.getAttribute('role')).toBe('group');
         });
 
         it('renders selectAll checkbox when selectAll is true', () => {

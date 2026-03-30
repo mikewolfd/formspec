@@ -5,7 +5,12 @@ import type { ReadonlyEngineSignal } from '@formspec-org/engine';
 import type { IFormEngine } from '@formspec-org/engine';
 import { createFormEngine } from '@formspec-org/engine';
 import type { LayoutNode, PlanContext } from '@formspec-org/layout';
-import { planDefinitionFallback, planComponentTree, ensureSubmitButton } from '@formspec-org/layout';
+import {
+    planDefinitionFallback,
+    planComponentTree,
+    ensureSubmitButton,
+    mergeFormPresentationForPlanning,
+} from '@formspec-org/layout';
 import type { ComponentMap } from './component-map';
 
 export interface SubmitResult {
@@ -17,6 +22,10 @@ export interface FormspecContextValue {
     engine: IFormEngine;
     layoutPlan: LayoutNode | null;
     components: ComponentMap;
+    /** Theme document from the provider (used for container token emission). */
+    themeDocument?: any;
+    /** Component document from the provider (used for container token emission). */
+    componentDocument?: any;
     /** Callback invoked on form submission. Absent means no built-in submit button. */
     onSubmit?: (result: SubmitResult) => void;
     /** Mark a field as touched (e.g., on blur). */
@@ -29,6 +38,8 @@ export interface FormspecContextValue {
     isTouched: (path: string) => boolean;
     /** Registry entries for extension resolution. */
     registryEntries: Map<string, any>;
+    /** Effective formPresentation (definition merged with component document). */
+    formPresentation?: Record<string, unknown>;
 }
 
 const FormspecContext = createContext<FormspecContextValue | null>(null);
@@ -124,6 +135,17 @@ export function FormspecProvider({
         return () => { for (const { mql } of queries) mql.removeEventListener('change', update); };
     }, [componentDocument]);
 
+    const mergedFormPresentation = useMemo(
+        () =>
+            engine
+                ? mergeFormPresentationForPlanning(
+                      engine.getDefinition().formPresentation,
+                      componentDocument?.formPresentation,
+                  )
+                : undefined,
+        [engine, componentDocument],
+    );
+
     const layoutPlan = useMemo(() => {
         if (!engine) return null;
         const def = engine.getDefinition();
@@ -131,7 +153,7 @@ export function FormspecProvider({
 
         const planCtx: PlanContext = {
             items,
-            formPresentation: def.formPresentation,
+            formPresentation: mergedFormPresentation,
             componentDocument,
             theme: themeDocument,
             activeBreakpoint,
@@ -141,10 +163,6 @@ export function FormspecProvider({
         let root: LayoutNode;
         if (componentDocument?.tree) {
             root = planComponentTree(componentDocument.tree, planCtx);
-            // Ensure formspec-container is on the root for font/color inheritance
-            if (!root.cssClasses.includes('formspec-container')) {
-                root.cssClasses = ['formspec-container', ...root.cssClasses];
-            }
         } else {
             // planDefinitionFallback returns an array — wrap in a root Stack node
             const nodes = planDefinitionFallback(items, planCtx);
@@ -153,14 +171,14 @@ export function FormspecProvider({
                 component: 'Stack',
                 category: 'layout' as const,
                 props: {},
-                cssClasses: ['formspec-container'],
+                cssClasses: [],
                 children: nodes,
             };
         }
 
         if (onSubmit) ensureSubmitButton(root);
         return root;
-    }, [engine, componentDocument, themeDocument, activeBreakpoint, onSubmit]);
+    }, [engine, componentDocument, themeDocument, activeBreakpoint, onSubmit, mergedFormPresentation]);
 
     // Touched tracking — stable across re-renders
     const touchedFieldsRef = useRef(new Set<string>());
@@ -203,8 +221,21 @@ export function FormspecProvider({
     }, [engine, externalEngine]);
 
     const value = useMemo<FormspecContextValue>(
-        () => ({ engine, layoutPlan, components, onSubmit, touchField, touchAllFields, touchedVersion: touchedVersionSignal, isTouched, registryEntries: registryMap }),
-        [engine, layoutPlan, components, onSubmit, touchField, touchAllFields, touchedVersionSignal, isTouched, registryMap],
+        () => ({
+            engine,
+            layoutPlan,
+            components,
+            themeDocument,
+            componentDocument,
+            onSubmit,
+            touchField,
+            touchAllFields,
+            touchedVersion: touchedVersionSignal,
+            isTouched,
+            registryEntries: registryMap,
+            formPresentation: mergedFormPresentation,
+        }),
+        [engine, layoutPlan, components, themeDocument, componentDocument, onSubmit, touchField, touchAllFields, touchedVersionSignal, isTouched, registryMap, mergedFormPresentation],
     );
 
     return (

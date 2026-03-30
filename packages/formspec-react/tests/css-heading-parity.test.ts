@@ -1,13 +1,10 @@
-/** @filedesc Verifies heading size parity between React and WC default CSS. */
+/** @filedesc Verifies heading scale in the canonical layout-owned default CSS. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const reactCSS = readFileSync(
-    resolve(__dirname, '../src/formspec.css'), 'utf-8'
-);
-const wcCSS = readFileSync(
-    resolve(__dirname, '../../formspec-webcomponent/src/formspec-default.css'), 'utf-8'
+const layoutCSS = readFileSync(
+    resolve(__dirname, '../../formspec-layout/src/formspec-default.css'), 'utf-8'
 );
 
 /**
@@ -30,7 +27,7 @@ function extractHeadingProp(css: string, level: number, prop: string): string | 
     return null;
 }
 
-describe('Heading size parity (React vs WC)', () => {
+describe('Canonical heading scale', () => {
     const expectedScale: Record<number, { size: string; weight: string }> = {
         1: { size: '1.375rem', weight: '700' },
         2: { size: '1.125rem', weight: '700' },
@@ -41,18 +38,14 @@ describe('Heading size parity (React vs WC)', () => {
     };
 
     for (const level of [1, 2, 3, 4, 5, 6]) {
-        it(`h${level} font-size matches between React and WC`, () => {
-            const reactSize = extractHeadingProp(reactCSS, level, 'font-size');
-            const wcSize = extractHeadingProp(wcCSS, level, 'font-size');
-            expect(reactSize).toBe(expectedScale[level].size);
-            expect(wcSize).toBe(expectedScale[level].size);
+        it(`h${level} font-size matches the expected scale`, () => {
+            const size = extractHeadingProp(layoutCSS, level, 'font-size');
+            expect(size).toBe(expectedScale[level].size);
         });
 
-        it(`h${level} font-weight matches between React and WC`, () => {
-            const reactWeight = extractHeadingProp(reactCSS, level, 'font-weight');
-            const wcWeight = extractHeadingProp(wcCSS, level, 'font-weight');
-            expect(reactWeight).toBe(expectedScale[level].weight);
-            expect(wcWeight).toBe(expectedScale[level].weight);
+        it(`h${level} font-weight matches the expected scale`, () => {
+            const weight = extractHeadingProp(layoutCSS, level, 'font-weight');
+            expect(weight).toBe(expectedScale[level].weight);
         });
     }
 });

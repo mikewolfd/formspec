@@ -43,14 +43,14 @@ export function FormspecScreener({
             return <>{renderExternalRoute(screener.routeResult.route)}</>;
         }
         return (
-            <div className={cls('formspec-screener-result', className)}>
-                <h2>{screener.routeResult.route.label || 'Not Eligible'}</h2>
+            <div className={cls('formspec-screener-routed', className)}>
+                <h2 className="formspec-screener-heading">{screener.routeResult.route.label || 'Not Eligible'}</h2>
                 {screener.routeResult.route.target && (
-                    <p>{screener.routeResult.route.target}</p>
+                    <p className="formspec-screener-routed-target">{screener.routeResult.route.target}</p>
                 )}
                 <button
                     type="button"
-                    className="formspec-screener-restart"
+                    className="formspec-screener-continue"
                     onClick={screener.restart}
                 >
                     Start Over
@@ -63,11 +63,12 @@ export function FormspecScreener({
     if (screener.routeResult?.routeType === 'none') {
         if (renderNoMatch) return <>{renderNoMatch()}</>;
         return (
-            <div className={cls('formspec-screener-result', className)}>
-                <p>No matching eligibility route was found.</p>
+            <div className={cls('formspec-screener-routed', className)}>
+                <h2 className="formspec-screener-heading">No matching route</h2>
+                <p className="formspec-screener-routed-target">No matching eligibility route was found.</p>
                 <button
                     type="button"
-                    className="formspec-screener-restart"
+                    className="formspec-screener-continue"
                     onClick={screener.restart}
                 >
                     Start Over
@@ -84,9 +85,9 @@ export function FormspecScreener({
     // Render screener form
     return (
         <div className={cls('formspec-screener', className)}>
-            <h2>{definition.screener.title || 'Eligibility Check'}</h2>
+            <h2 className="formspec-screener-heading">{definition.screener.title || 'Eligibility Check'}</h2>
             {definition.screener.description && (
-                <p className="formspec-screener-description">{definition.screener.description}</p>
+                <p className="formspec-screener-intro">{definition.screener.description}</p>
             )}
             <div className="formspec-screener-fields">
                 {items.map((item: any) => (
@@ -104,7 +105,7 @@ export function FormspecScreener({
             </div>
             <button
                 type="button"
-                className="formspec-screener-submit formspec-submit"
+                className="formspec-screener-continue"
                 onClick={screener.submit}
             >
                 {definition.screener.submitLabel || 'Check Eligibility'}

@@ -81,14 +81,14 @@ export function Tabs({ node, children }: LayoutComponentProps) {
                 return (
                     <button
                         key={idx}
-                        ref={(el) => { buttonRefs.current[idx] = el; }}
                         type="button"
+                        className={isActive ? 'formspec-tab formspec-tab--active' : 'formspec-tab'}
+                        ref={(el: HTMLButtonElement | null) => { buttonRefs.current[idx] = el; }}
                         role="tab"
                         id={`tab-${id}-${idx}`}
                         aria-selected={isActive}
                         aria-controls={`panel-${id}-${idx}`}
                         tabIndex={isActive ? 0 : -1}
-                        className={isActive ? 'formspec-tab formspec-tab--active' : 'formspec-tab'}
                         onClick={() => setActiveTab(idx)}
                     >
                         {label}

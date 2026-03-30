@@ -122,6 +122,13 @@ describe('Stack layout', () => {
         const el = container.querySelector('.formspec-stack') as HTMLElement;
         expect(el.style.gap).toBe('1rem');
     });
+
+    it('renders stack without requiring formspec-container on the same node', () => {
+        const container = renderNode(stackNode());
+        const el = container.querySelector('.formspec-stack') as HTMLElement;
+        expect(el).toBeTruthy();
+        expect(el.classList.contains('formspec-container')).toBe(false);
+    });
 });
 
 // ── Grid ─────────────────────────────────────────────────────────
@@ -393,6 +400,79 @@ describe('Accordion layout', () => {
         const items = container.querySelectorAll('.formspec-accordion-item') as NodeListOf<HTMLDetailsElement>;
         expect(items[0].open).toBe(false);
         expect(items[1].open).toBe(true);
+    });
+
+    it('binds accordion sections to repeat instances', () => {
+        const def = {
+            ...simpleDef,
+            items: [
+                {
+                    key: 'members',
+                    type: 'group',
+                    label: 'Members',
+                    repeatable: true,
+                    children: [
+                        { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+                    ],
+                },
+            ],
+        };
+        const engine = createFormEngine(def);
+        engine.addRepeatInstance('members');
+
+        const node: LayoutNode = {
+            id: 'acc-repeat',
+            component: 'Accordion',
+            category: 'layout',
+            props: { bind: 'members', labels: ['Member A', 'Member B'] },
+            cssClasses: [],
+            children: [
+                {
+                    id: 'member-name',
+                    component: 'TextInput',
+                    category: 'field',
+                    props: {},
+                    cssClasses: [],
+                    children: [],
+                    bindPath: 'members[0].name',
+                },
+            ],
+        };
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        flushSync(() => {
+            root.render(
+                <FormspecProvider engine={engine}>
+                    <FormspecNode node={node} />
+                </FormspecProvider>
+            );
+        });
+
+        const items = container.querySelectorAll<HTMLDetailsElement>('.formspec-accordion-item');
+        expect(items).toHaveLength(2);
+        expect(items[0].querySelector('summary')?.textContent).toBe('Member A');
+        expect(items[1].querySelector('summary')?.textContent).toBe('Member B');
+        const repeatWrapper = container.querySelector('.formspec-repeat.formspec-repeat--accordion') as HTMLElement;
+        expect(repeatWrapper).toBeTruthy();
+        expect(container.querySelector('.formspec-accordion--repeat')).toBeTruthy();
+        expect(container.querySelectorAll('.formspec-accordion-content--repeat')).toHaveLength(2);
+        expect(repeatWrapper.querySelector('.formspec-repeat-add')).toBeTruthy();
+        expect(repeatWrapper.querySelector('.formspec-sr-only[aria-live="polite"]')).toBeTruthy();
+
+        const inputs = container.querySelectorAll<HTMLInputElement>('input[name]');
+        expect(inputs).toHaveLength(2);
+        expect(inputs[0].name).toContain('members[0].name');
+        expect(inputs[1].name).toContain('members[1].name');
+
+        const removeButtons = container.querySelectorAll<HTMLButtonElement>('.formspec-repeat-remove');
+        const addButtons = container.querySelectorAll<HTMLButtonElement>('.formspec-repeat-add');
+        expect(removeButtons).toHaveLength(2);
+        expect(addButtons).toHaveLength(1);
+        expect(removeButtons[0].textContent).toContain('Remove Members');
+        expect(removeButtons[1].textContent).toContain('Remove Members');
+        expect(addButtons[0].textContent).toContain('Add Members');
     });
 });
 

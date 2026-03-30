@@ -80,8 +80,14 @@ export function FormspecNode({ node }: { node: LayoutNode }) {
         return <RepeatGroup node={node} />;
     }
 
-    // Conditional rendering: evaluate `when` FEL expression
-    if (node.when) {
+    if (node.component === 'Accordion' && typeof node.props?.bind === 'string') {
+        return <RepeatAccordion node={node} />;
+    }
+
+    // Conditional rendering: evaluate `when` FEL expression.
+    // Modal with trigger:auto owns `when` for open state (matches web component).
+    const modalAutoSkipsWhenGuard = node.component === 'Modal' && node.props?.trigger === 'auto';
+    if (node.when && !modalAutoSkipsWhenGuard) {
         return <WhenGuard node={node} />;
     }
 
@@ -197,35 +203,183 @@ function RepeatGroup({ node }: { node: LayoutNode }) {
 
     return (
         <div className="formspec-repeat" data-bind={node.repeatGroup} ref={containerRef}>
-            {instances.map((children, idx) => (
-                <div key={idx} className="formspec-repeat-instance"
-                     role="group"
-                     aria-label={`${title} ${idx + 1} of ${count}`}>
-                    {children.map((child) => (
-                        <FormspecNode key={child.id} node={child} />
-                    ))}
-                    <button
-                        type="button"
-                        className="formspec-repeat-remove"
-                        onClick={() => handleRemove(idx)}
-                        aria-label={`Remove ${title} ${idx + 1}`}
-                    >
-                        Remove {title}
-                    </button>
-                </div>
-            ))}
+            <div className="formspec-repeat-list">
+                {instances.map((children, idx) => (
+                    <div key={idx} className="formspec-repeat-instance"
+                         role="group"
+                         aria-label={`${title} ${idx + 1} of ${count}`}>
+                        {children.map((child) => (
+                            <FormspecNode key={child.id} node={child} />
+                        ))}
+                        <button
+                            type="button"
+                            className="formspec-repeat-remove formspec-focus-ring"
+                            aria-label={`Remove ${title} ${idx + 1}`}
+                            onClick={() => handleRemove(idx)}
+                        >
+                            {`Remove ${title}`}
+                        </button>
+                    </div>
+                ))}
+            </div>
             <button
                 type="button"
-                className="formspec-repeat-add"
+                className="formspec-repeat-add formspec-focus-ring"
                 onClick={handleAdd}
                 ref={addBtnRef}
             >
-                Add {title}
+                {`Add ${title}`}
             </button>
             {/* Live region for add/remove announcements */}
             <div aria-live="polite" className="formspec-sr-only">{announcement}</div>
         </div>
     );
+}
+
+function RepeatAccordion({ node }: { node: LayoutNode }) {
+    const { engine } = useFormspecContext();
+    const bindKey = node.props?.bind as string;
+    const count = useRepeatCount(bindKey);
+    const labels = (node.props?.labels as string[] | undefined) ?? [];
+    const allowMultiple = node.props?.allowMultiple === true;
+    const defaultOpen = node.props?.defaultOpen as number | undefined;
+    const groupTitle = node.fieldItem?.label || findItemLabel(engine.getDefinition().items ?? [], bindKey) || bindKey;
+    const [openIndex, setOpenIndex] = useState<number | null>(
+        typeof defaultOpen === 'number' ? defaultOpen : count > 0 ? count - 1 : null,
+    );
+    const [openIndices, setOpenIndices] = useState<Set<number>>(() => {
+        const initial = new Set<number>();
+        if (typeof defaultOpen === 'number') initial.add(defaultOpen);
+        else if (count > 0) initial.add(count - 1);
+        return initial;
+    });
+    const previousCountRef = useRef(count);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const addBtnRef = useRef<HTMLButtonElement>(null);
+    const [announcement, setAnnouncement] = useState('');
+
+    React.useEffect(() => {
+        const previousCount = previousCountRef.current;
+        if (count > previousCount && count > 0) {
+            const lastIndex = count - 1;
+            if (allowMultiple) {
+                setOpenIndices(prev => {
+                    const next = new Set(prev);
+                    next.add(lastIndex);
+                    return next;
+                });
+            } else {
+                setOpenIndex(lastIndex);
+            }
+        }
+        previousCountRef.current = count;
+    }, [allowMultiple, count]);
+
+    const handleToggle = useCallback((idx: number, open: boolean) => {
+        if (allowMultiple) {
+            setOpenIndices(prev => {
+                const next = new Set(prev);
+                if (open) next.add(idx);
+                else next.delete(idx);
+                return next;
+            });
+            return;
+        }
+        setOpenIndex(open ? idx : null);
+    }, [allowMultiple]);
+
+    const handleAdd = useCallback(() => {
+        engine.addRepeatInstance(bindKey);
+        const newCount = count + 1;
+        setAnnouncement(`${groupTitle} ${newCount} added. ${newCount} total.`);
+        setTimeout(() => {
+            const items = containerRef.current?.querySelectorAll<HTMLDetailsElement>('.formspec-accordion-item');
+            const last = items?.[items.length - 1];
+            last?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+        }, 0);
+    }, [bindKey, count, engine, groupTitle]);
+
+    const handleRemove = useCallback((idx: number) => {
+        engine.removeRepeatInstance(bindKey, idx);
+        const newCount = count - 1;
+        setAnnouncement(`${groupTitle} ${idx + 1} removed. ${newCount} remaining.`);
+        setTimeout(() => {
+            if (newCount <= 0) {
+                addBtnRef.current?.focus();
+                return;
+            }
+            const items = containerRef.current?.querySelectorAll<HTMLDetailsElement>('.formspec-accordion-item');
+            const target = items?.[Math.min(idx, newCount - 1)];
+            target?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+        }, 0);
+    }, [bindKey, count, engine, groupTitle]);
+
+    return (
+        <div className="formspec-repeat formspec-repeat--accordion" data-bind={bindKey} ref={containerRef}>
+            <div className="formspec-accordion formspec-accordion--repeat">
+                {Array.from({ length: count }, (_, i) => {
+                    const isOpen = allowMultiple ? openIndices.has(i) : openIndex === i;
+                    return (
+                        <details key={i} className="formspec-accordion-item" open={isOpen}>
+                            <summary
+                                className="formspec-focus-ring"
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    handleToggle(i, !isOpen);
+                                }}
+                            >
+                                {labels[i] || `Section ${i + 1}`}
+                            </summary>
+                            <div className="formspec-accordion-content formspec-accordion-content--repeat">
+                                {node.children.map((child) => (
+                                    <FormspecNode key={`${child.id}-${i}`} node={rewriteBindPaths(child, bindKey, i)} />
+                                ))}
+                                <button
+                                    type="button"
+                                    className="formspec-repeat-remove formspec-focus-ring"
+                                    aria-label={`Remove ${groupTitle} ${i + 1}`}
+                                    onClick={() => handleRemove(i)}
+                                >
+                                    {`Remove ${groupTitle}`}
+                                </button>
+                            </div>
+                        </details>
+                    );
+                })}
+            </div>
+            <button
+                type="button"
+                className="formspec-repeat-add formspec-focus-ring"
+                onClick={handleAdd}
+                ref={addBtnRef}
+            >
+                {`Add ${groupTitle}`}
+            </button>
+            <div aria-live="polite" className="formspec-sr-only">{announcement}</div>
+        </div>
+    );
+}
+
+function findItemLabel(items: Array<any>, key: string): string | undefined {
+    for (const item of items) {
+        if (item?.key === key) return item.label;
+        if (Array.isArray(item?.children)) {
+            const nested = findItemLabel(item.children, key);
+            if (nested) return nested;
+        }
+    }
+    return undefined;
+}
+
+function findItemByKey(items: Array<any>, key: string): any | undefined {
+    for (const item of items) {
+        if (item?.key === key) return item;
+        if (Array.isArray(item?.children)) {
+            const nested = findItemByKey(item.children, key);
+            if (nested) return nested;
+        }
+    }
+    return undefined;
 }
 
 /** Renders a display node — checks for user override before built-in rendering. */
@@ -477,32 +631,65 @@ function SummaryItem({ label, bind }: { label: string; bind?: string }) {
     );
 }
 
+const NO_READONLY = createSignal(false);
+
 /** An editable DataTable cell — renders input or select based on column config. */
-function DataTableCell({ signalPath, column }: { signalPath: string; column: { header: string; bind: string; type?: string; choices?: Array<{ value: string; label: string }>; editable?: boolean; currency?: string } }) {
+function DataTableCell({
+    signalPath,
+    column,
+    fieldDef,
+    defaultCurrency,
+}: {
+    signalPath: string;
+    column: { header: string; bind: string; type?: string; choices?: Array<{ value: string; label: string }>; editable?: boolean; currency?: string; min?: number; max?: number; step?: number };
+    fieldDef?: any;
+    defaultCurrency: string;
+}) {
     const { engine } = useFormspecContext();
     const rawValue = useSignal(engine.signals[signalPath] ?? NO_VALUE);
+    const readonly = useSignal(engine.readonlySignals[signalPath] ?? NO_READONLY);
 
     const isEditable = column.editable !== false;
+    const dataType = fieldDef?.dataType || column.type;
+    const choices = column.choices
+        || (fieldDef?.optionSet
+            ? (((engine.getDefinition()?.optionSets?.[fieldDef.optionSet] as any)?.options)
+                ?? engine.getDefinition()?.optionSets?.[fieldDef.optionSet]
+                ?? [])
+            : fieldDef?.options ?? []);
+    const prefix = fieldDef?.prefix;
+    const suffix = fieldDef?.suffix;
+
+    const wrapControl = (control: React.ReactNode) => {
+        if (!prefix && !suffix) return control;
+        return (
+            <div className="formspec-datatable-cell-wrapper">
+                {prefix ? <span className="formspec-datatable-prefix">{prefix}</span> : null}
+                {control}
+                {suffix ? <span className="formspec-datatable-prefix">{suffix}</span> : null}
+            </div>
+        );
+    };
 
     if (!isEditable) {
         // Read-only display with money formatting
         let displayValue = rawValue != null ? String(rawValue) : '';
-        if (column.type === 'money' && rawValue != null) {
+        if (dataType === 'money' && rawValue != null) {
             try {
                 displayValue = new Intl.NumberFormat('en-US', {
                     style: 'currency',
-                    currency: column.currency || 'USD',
-                }).format(Number(rawValue));
+                    currency: rawValue?.currency || fieldDef?.currency || column.currency || defaultCurrency,
+                }).format(Number(rawValue?.amount ?? rawValue));
             } catch { /* fall through to string */ }
-        } else if ((column.type === 'choice' || column.type === 'select') && column.choices) {
-            const match = column.choices.find(c => c.value === rawValue);
+        } else if ((dataType === 'choice' || dataType === 'select') && choices.length > 0) {
+            const match = choices.find((c: any) => c.value === rawValue);
             if (match) displayValue = match.label;
         }
         return <td>{displayValue}</td>;
     }
 
     // Editable cells — all get aria-label from column header
-    if (column.type === 'boolean') {
+    if (dataType === 'boolean') {
         return (
             <td>
                 <input
@@ -510,70 +697,98 @@ function DataTableCell({ signalPath, column }: { signalPath: string; column: { h
                     type="checkbox"
                     checked={!!rawValue}
                     aria-label={column.header}
+                    disabled={readonly}
                     onChange={(e) => engine.setValue(signalPath, e.target.checked)}
                 />
             </td>
         );
     }
 
-    if ((column.type === 'choice' || column.type === 'select') && column.choices) {
+    if ((dataType === 'choice' || dataType === 'select') && choices.length > 0) {
         return (
-            <td>
+            <td>{wrapControl(
                 <select
                     className="formspec-datatable-input"
+                    name={signalPath}
                     value={rawValue ?? ''}
                     aria-label={column.header}
-                    onChange={(e) => engine.setValue(signalPath, e.target.value)}
+                    disabled={readonly}
+                    onChange={(e) => engine.setValue(signalPath, e.target.value || null)}
                 >
-                    <option value="">-</option>
-                    {column.choices.map(c => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
+                    <option value=""></option>
+                    {choices.map((c: any) => (
+                        <option key={c.value} value={c.value}>{c.label ?? c.value}</option>
                     ))}
-                </select>
-            </td>
+                </select>,
+            )}</td>
         );
     }
 
-    if (column.type === 'number' || column.type === 'integer' || column.type === 'decimal' || column.type === 'money') {
+    if (dataType === 'number' || dataType === 'integer' || dataType === 'decimal' || dataType === 'money') {
         return (
-            <td>
+            <td>{wrapControl(
                 <input
                     className="formspec-datatable-input"
+                    name={signalPath}
                     type="number"
-                    step={column.type === 'integer' ? '1' : 'any'}
-                    value={rawValue ?? ''}
+                    step={column.step != null ? String(column.step) : (dataType === 'integer' ? '1' : 'any')}
+                    min={column.min != null ? String(column.min) : undefined}
+                    max={column.max != null ? String(column.max) : undefined}
+                    value={rawValue?.amount ?? rawValue ?? ''}
                     aria-label={column.header}
-                    onChange={(e) => engine.setValue(signalPath, e.target.value === '' ? null : Number(e.target.value))}
-                />
-            </td>
+                    disabled={readonly}
+                    onChange={(e) => {
+                        const value = e.target.value.trim();
+                        if (!value) {
+                            engine.setValue(signalPath, null);
+                            return;
+                        }
+                        const parsed = dataType === 'integer' ? Number.parseInt(value, 10) : Number.parseFloat(value);
+                        let next = Number.isFinite(parsed) ? parsed : null;
+                        if (typeof next === 'number') {
+                            if (column.min != null && next < column.min) next = column.min;
+                            if (column.max != null && next > column.max) next = column.max;
+                        }
+                        if (dataType === 'money' && next != null) {
+                            engine.setValue(signalPath, { amount: next, currency: fieldDef?.currency || column.currency || defaultCurrency });
+                        } else {
+                            engine.setValue(signalPath, next);
+                        }
+                    }}
+                />,
+            )}</td>
         );
     }
 
-    if (column.type === 'date') {
+    if (dataType === 'date') {
         return (
-            <td>
+            <td>{wrapControl(
                 <input
                     className="formspec-datatable-input"
+                    name={signalPath}
                     type="date"
                     value={rawValue ?? ''}
                     aria-label={column.header}
+                    disabled={readonly}
                     onChange={(e) => engine.setValue(signalPath, e.target.value)}
-                />
-            </td>
+                />,
+            )}</td>
         );
     }
 
     // Default: text input
     return (
-        <td>
+        <td>{wrapControl(
             <input
                 className="formspec-datatable-input"
+                name={signalPath}
                 type="text"
                 value={rawValue ?? ''}
                 aria-label={column.header}
+                disabled={readonly}
                 onChange={(e) => engine.setValue(signalPath, e.target.value)}
-            />
-        </td>
+            />,
+        )}</td>
     );
 }
 
@@ -589,9 +804,18 @@ function DataTableDisplay({
 }) {
     const { engine } = useFormspecContext();
     const bindKey = node.props?.bind as string | undefined;
-    const columns = (node.props?.columns as Array<{ header: string; bind: string; type?: string; choices?: Array<{ value: string; label: string }>; editable?: boolean; currency?: string }>) || [];
+    const columns = (node.props?.columns as Array<{ header: string; bind: string; type?: string; choices?: Array<{ value: string; label: string }>; editable?: boolean; currency?: string; min?: number; max?: number; step?: number }>) || [];
     const allowAdd = node.props?.allowAdd === true;
     const allowRemove = node.props?.allowRemove === true;
+    const showRowNumbers = node.props?.showRowNumbers === true;
+    const groupItem = bindKey ? findItemByKey(engine.getDefinition().items ?? [], bindKey) : null;
+    const fieldByKey = new Map<string, any>();
+    if (groupItem?.type === 'group' && Array.isArray(groupItem.children)) {
+        for (const child of groupItem.children) {
+            if (child?.type === 'field' && child.key) fieldByKey.set(child.key, child);
+        }
+    }
+    const defaultCurrency = engine.getDefinition()?.formPresentation?.defaultCurrency || 'USD';
 
     const repeatPath = bindKey || '';
     const count = useRepeatCount(repeatPath);
@@ -620,6 +844,7 @@ function DataTableDisplay({
                 )}
                 <thead>
                     <tr>
+                        {showRowNumbers && <th scope="col">#</th>}
                         {columns.map((col, ci) => (
                             <th key={ci} scope="col">{col.header}</th>
                         ))}
@@ -631,14 +856,21 @@ function DataTableDisplay({
                 <tbody>
                     {Array.from({ length: count }, (_, i) => (
                         <tr key={i}>
+                            {showRowNumbers && <td className="formspec-row-number">{i + 1}</td>}
                             {columns.map((col, ci) => (
-                                <DataTableCell key={ci} signalPath={`${bindKey}[${i}].${col.bind}`} column={col} />
+                                <DataTableCell
+                                    key={ci}
+                                    signalPath={`${bindKey}[${i}].${col.bind}`}
+                                    column={col}
+                                    fieldDef={fieldByKey.get(col.bind)}
+                                    defaultCurrency={defaultCurrency}
+                                />
                             ))}
                             {allowRemove && (
                                 <td>
                                     <button
                                         type="button"
-                                        className="formspec-datatable-remove"
+                                        className="formspec-datatable-remove formspec-focus-ring"
                                         aria-label={`Remove row ${i + 1}`}
                                         onClick={() => handleRemove(i)}
                                     >
@@ -653,7 +885,7 @@ function DataTableDisplay({
             {allowAdd && (
                 <button
                     type="button"
-                    className="formspec-datatable-add"
+                    className="formspec-datatable-add formspec-focus-ring"
                     onClick={handleAdd}
                 >
                     Add Row
@@ -726,7 +958,73 @@ function RelevanceGatedLayout({ node }: { node: LayoutNode }) {
 
 /** Renders a layout node via the component map or default, recurses into children. */
 function LayoutNodeInner({ node }: { node: LayoutNode }) {
-    const { components } = useFormspecContext();
+    const { components, formPresentation } = useFormspecContext();
+
+    // Match web component: Stack + Page children + pageMode → Wizard / Tabs (not plain Stack).
+    if (node.component === 'Stack' && node.children.length > 0) {
+        const pageMode = formPresentation?.pageMode as string | undefined;
+        const hasPages = node.children.some((c) => c.component === 'Page');
+        if (hasPages && (pageMode === 'wizard' || pageMode === 'tabs')) {
+            const orphans = node.children.filter((c) => c.component !== 'Page');
+            const pages = node.children.filter((c) => c.component === 'Page');
+            const fp = formPresentation ?? {};
+
+            if (pageMode === 'wizard' && pages.length > 0) {
+                const wizardNode: LayoutNode = {
+                    id: `${node.id}-page-mode-wizard`,
+                    component: 'Wizard',
+                    category: 'layout',
+                    props: {
+                        showProgress: fp.showProgress !== false,
+                        allowSkip: !!fp.allowSkip,
+                        sidenav: fp.sidenav,
+                    },
+                    cssClasses: node.cssClasses ?? [],
+                    style: node.style,
+                    accessibility: node.accessibility,
+                    children: pages,
+                };
+                return (
+                    <>
+                        {orphans.map((child) => (
+                            <FormspecNode key={child.id} node={child} />
+                        ))}
+                        <LayoutNodeInner node={wizardNode} />
+                    </>
+                );
+            }
+
+            if (pageMode === 'tabs' && pages.length > 0) {
+                const tabsNode: LayoutNode = {
+                    id: `${node.id}-page-mode-tabs`,
+                    component: 'Tabs',
+                    category: 'layout',
+                    props: {
+                        tabLabels: pages.map(
+                            (p) =>
+                                (p.props?.title as string | undefined)
+                                || (p.props?.label as string | undefined)
+                                || (p.fieldItem?.label as string | undefined),
+                        ),
+                        position: (fp.tabPosition as string | undefined) || 'top',
+                        defaultTab: (fp.defaultTab as number | undefined) ?? 0,
+                    },
+                    cssClasses: node.cssClasses ?? [],
+                    style: node.style,
+                    accessibility: node.accessibility,
+                    children: pages,
+                };
+                return (
+                    <>
+                        {orphans.map((child) => (
+                            <FormspecNode key={child.id} node={child} />
+                        ))}
+                        <LayoutNodeInner node={tabsNode} />
+                    </>
+                );
+            }
+        }
+    }
 
     // Resolve component: user override → built-in → fallback substitution → DefaultLayout
     const componentName = node.component;

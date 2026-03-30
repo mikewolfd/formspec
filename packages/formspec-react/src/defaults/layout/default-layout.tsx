@@ -1,6 +1,13 @@
 /** @filedesc Default layout component — semantic HTML containers with CSS class structure. */
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import {
+    positionPopupNearTrigger,
+    clearPopupFixedPosition,
+    MODAL_FIRST_FOCUSABLE_SELECTOR,
+    type PopupPlacement,
+} from '@formspec-org/layout';
 import type { LayoutComponentProps } from '../../component-map';
+import { useWhen } from '../../use-when';
 
 /**
  * Default layout renderer — dispatches to the correct container component
@@ -57,6 +64,12 @@ interface LayoutProps {
     style?: React.CSSProperties;
 }
 
+function mergeClasses(baseClass: string, extraClasses?: string): string {
+    if (!extraClasses) return baseClass;
+    const parts = `${baseClass} ${extraClasses}`.trim().split(/\s+/);
+    return Array.from(new Set(parts)).join(' ');
+}
+
 // ── Stack ─────────────────────────────────────────────────────────
 
 function StackLayout({ node, children, themeClass, style }: LayoutProps) {
@@ -81,7 +94,7 @@ function StackLayout({ node, children, themeClass, style }: LayoutProps) {
     const title = props.title as string | undefined;
     if (title && node.bindPath) {
         return (
-            <section className={themeClass || 'formspec-group'} style={node.style as React.CSSProperties}>
+            <section className={mergeClasses('formspec-group', themeClass)} style={node.style as React.CSSProperties}>
                 <h3 className="formspec-group-title">{title}</h3>
                 {children}
             </section>
@@ -89,7 +102,7 @@ function StackLayout({ node, children, themeClass, style }: LayoutProps) {
     }
 
     return (
-        <div className={themeClass || 'formspec-stack'} style={stackStyle}>
+        <div className={mergeClasses('formspec-stack', themeClass)} style={stackStyle}>
             {children}
         </div>
     );
@@ -124,7 +137,7 @@ function GridLayout({ node, children, themeClass, style }: LayoutProps) {
     };
 
     return (
-        <div className={themeClass || 'formspec-grid'} style={gridStyle}>
+        <div className={mergeClasses('formspec-grid', themeClass)} style={gridStyle}>
             {children}
         </div>
     );
@@ -142,7 +155,7 @@ function CardLayout({ node, children, themeClass, style }: LayoutProps) {
 
     return (
         <section
-            className={themeClass || 'formspec-card'}
+            className={mergeClasses('formspec-card', themeClass)}
             style={style}
             {...(elevation != null ? { 'data-elevation': String(elevation) } : {})}
         >
@@ -160,7 +173,7 @@ function DividerLayout({ node, themeClass, style }: Omit<LayoutProps, 'children'
 
     if (label) {
         return (
-            <div className={`${themeClass || 'formspec-divider'} formspec-divider--labeled`} style={style}>
+            <div className={mergeClasses('formspec-divider formspec-divider--labeled', themeClass)} style={style}>
                 <hr />
                 <span>{label}</span>
                 <hr />
@@ -168,7 +181,7 @@ function DividerLayout({ node, themeClass, style }: Omit<LayoutProps, 'children'
         );
     }
 
-    return <hr className={themeClass || 'formspec-divider'} style={style} />;
+    return <hr className={mergeClasses('formspec-divider', themeClass)} style={style} />;
 }
 
 // ── Page ─────────────────────────────────────────────────────────
@@ -181,7 +194,7 @@ function PageLayout({ node, children, themeClass, style }: LayoutProps) {
     const Heading = `h${headingLevel}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
     return (
-        <section className={themeClass || 'formspec-page'} style={style}>
+        <section className={mergeClasses('formspec-page', themeClass)} style={style}>
             {title && <Heading>{title}</Heading>}
             {description && <p className="formspec-page-description">{description}</p>}
             {children}
@@ -197,7 +210,7 @@ function CollapsibleLayout({ node, children, themeClass, style }: LayoutProps) {
     const defaultOpen = props.defaultOpen as boolean | undefined;
 
     return (
-        <details className={themeClass || 'formspec-collapsible'} style={style} open={defaultOpen || false}>
+        <details className={mergeClasses('formspec-collapsible', themeClass)} style={style} open={defaultOpen || false}>
             <summary>{title}</summary>
             <div className="formspec-collapsible-content">
                 {children}
@@ -268,7 +281,7 @@ function AccordionLayout({ node, children, themeClass, style }: LayoutProps) {
     return (
         <div
             ref={containerRef}
-            className={themeClass || 'formspec-accordion'}
+            className={mergeClasses('formspec-accordion', themeClass)}
             style={style}
             onKeyDown={handleKeyDown}
         >
@@ -308,7 +321,7 @@ function PanelLayout({ node, children, themeClass, style }: LayoutProps) {
     };
 
     return (
-        <div className={themeClass || 'formspec-panel'} style={panelStyle}>
+        <div className={mergeClasses('formspec-panel', themeClass)} style={panelStyle}>
             {title && <div className="formspec-panel-header">{title}</div>}
             <div className="formspec-panel-body">
                 {children}
@@ -319,6 +332,11 @@ function PanelLayout({ node, children, themeClass, style }: LayoutProps) {
 
 // ── Modal ─────────────────────────────────────────────────────────
 
+function parseModalPlacement(raw: unknown): PopupPlacement | undefined {
+    if (raw === 'top' || raw === 'right' || raw === 'bottom' || raw === 'left') return raw;
+    return undefined;
+}
+
 function ModalLayout({ node, children, themeClass, style }: LayoutProps) {
     const props = node.props ?? {};
     const title = props.title as string | undefined;
@@ -327,56 +345,107 @@ function ModalLayout({ node, children, themeClass, style }: LayoutProps) {
     const size = props.size as string | undefined;
     const headingLevel = Math.min(6, Math.max(1, (props.headingLevel as number | undefined) ?? 2));
     const Heading = `h${headingLevel}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+    const triggerMode = (props.trigger as string | undefined) || 'button';
+    const placement = parseModalPlacement(props.placement);
 
     const dialogRef = useRef<HTMLDialogElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
 
     const titleId = node.id ? `${node.id}-title` : 'modal-title';
 
-    const openModal = useCallback(() => {
-        dialogRef.current?.showModal();
-        // Focus first focusable element inside dialog
+    const felForAuto = triggerMode === 'auto' ? (node.when || 'true') : 'false';
+    const autoOpenDesired = useWhen(felForAuto, node.whenPrefix);
+
+    const focusDialogContent = useCallback(() => {
         requestAnimationFrame(() => {
-            const first = dialogRef.current?.querySelector<HTMLElement>(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            );
+            const d = dialogRef.current;
+            const first = d?.querySelector<HTMLElement>(MODAL_FIRST_FOCUSABLE_SELECTOR);
             first?.focus();
         });
     }, []);
+
+    const openModal = useCallback(() => {
+        const d = dialogRef.current;
+        const t = triggerRef.current;
+        if (!d) return;
+        clearPopupFixedPosition(d);
+        d.showModal();
+        requestAnimationFrame(() => {
+            if (placement && t) {
+                positionPopupNearTrigger(t, d, placement);
+            }
+            const first = d.querySelector<HTMLElement>(MODAL_FIRST_FOCUSABLE_SELECTOR);
+            first?.focus();
+        });
+    }, [placement]);
 
     const closeModal = useCallback(() => {
         dialogRef.current?.close();
     }, []);
 
-    // Backdrop click closes modal
-    const handleDialogClick = useCallback((e: React.MouseEvent<HTMLDialogElement>) => {
-        if (e.target === dialogRef.current) {
-            closeModal();
+    useLayoutEffect(() => {
+        if (triggerMode !== 'auto') return;
+        const d = dialogRef.current;
+        if (!d) return;
+        if (autoOpenDesired && !d.open) {
+            clearPopupFixedPosition(d);
+            d.showModal();
+            focusDialogContent();
+        } else if (!autoOpenDesired && d.open) {
+            d.close();
         }
-    }, [closeModal]);
+    }, [triggerMode, autoOpenDesired, focusDialogContent]);
 
-    // Return focus to trigger on close
+    const handleDialogClick = useCallback(
+        (e: React.MouseEvent<HTMLDialogElement>) => {
+            if (closable && e.target === dialogRef.current) {
+                closeModal();
+            }
+        },
+        [closable, closeModal],
+    );
+
+    useEffect(() => {
+        if (!placement) return;
+        const reposition = () => {
+            const d = dialogRef.current;
+            const t = triggerRef.current;
+            if (d?.open && t) positionPopupNearTrigger(t, d, placement);
+        };
+        window.addEventListener('resize', reposition);
+        window.addEventListener('scroll', reposition, true);
+        return () => {
+            window.removeEventListener('resize', reposition);
+            window.removeEventListener('scroll', reposition, true);
+        };
+    }, [placement]);
+
     useEffect(() => {
         const dialog = dialogRef.current;
         if (!dialog) return;
-        const onClose = () => triggerRef.current?.focus();
+        const onClose = () => {
+            clearPopupFixedPosition(dialog);
+            triggerRef.current?.focus();
+        };
         dialog.addEventListener('close', onClose);
         return () => dialog.removeEventListener('close', onClose);
     }, []);
 
     return (
         <>
-            <button
-                type="button"
-                className="formspec-modal-trigger"
-                ref={triggerRef}
-                onClick={openModal}
-            >
-                {triggerLabel}
-            </button>
+            {triggerMode === 'button' && (
+                <button
+                    type="button"
+                    className="formspec-modal-trigger formspec-focus-ring"
+                    ref={triggerRef}
+                    onClick={openModal}
+                >
+                    {triggerLabel}
+                </button>
+            )}
             <dialog
                 ref={dialogRef}
-                className={themeClass || 'formspec-modal'}
+                className={mergeClasses('formspec-modal', themeClass)}
                 style={style}
                 aria-labelledby={title ? titleId : undefined}
                 aria-label={title ? undefined : triggerLabel}
@@ -386,7 +455,7 @@ function ModalLayout({ node, children, themeClass, style }: LayoutProps) {
                 {closable && (
                     <button
                         type="button"
-                        className="formspec-modal-close"
+                        className="formspec-modal-close formspec-focus-ring"
                         aria-label="Close"
                         onClick={closeModal}
                     >
@@ -489,13 +558,13 @@ function PopoverLayout({ node, children, themeClass, style }: LayoutProps) {
     return (
         <div
             ref={wrapperRef}
-            className={themeClass || 'formspec-popover'}
+            className={mergeClasses('formspec-popover', themeClass)}
             style={style}
         >
             <button
                 type="button"
-                ref={triggerRef}
                 className="formspec-popover-trigger"
+                ref={triggerRef}
                 aria-haspopup="dialog"
                 aria-expanded={open}
                 onClick={toggle}
@@ -522,7 +591,7 @@ function PopoverLayout({ node, children, themeClass, style }: LayoutProps) {
 function DefaultContainer({ node, children, themeClass, style }: LayoutProps) {
     return (
         <div
-            className={themeClass || `formspec-${node.component.toLowerCase()}`}
+            className={mergeClasses(`formspec-${node.component.toLowerCase()}`, themeClass)}
             style={style}
         >
             {children}

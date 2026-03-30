@@ -173,7 +173,8 @@ describe('MoneyInput', () => {
             props: { currency: 'USD' }, cssClasses: [], children: [], bindPath: 'price',
         };
         const container = renderField(def, node);
-        const input = container.querySelector('input[inputmode="decimal"]') as HTMLInputElement;
+        expect(container.querySelector('.formspec-money')).toBeTruthy();
+        const input = container.querySelector('input.formspec-money-amount[inputmode="decimal"]') as HTMLInputElement;
         expect(input).toBeTruthy();
     });
 
@@ -211,14 +212,16 @@ describe('Slider', () => {
             props: { min: 0, max: 100, step: 1 }, cssClasses: [], children: [], bindPath: 'vol',
         };
         const container = renderField(def, node);
-        const input = container.querySelector('input[type="range"]') as HTMLInputElement;
+        expect(container.querySelector('.formspec-field.formspec-slider')).toBeTruthy();
+        expect(container.querySelector('.formspec-slider-track')).toBeTruthy();
+        const input = container.querySelector('input[type="range"].formspec-input') as HTMLInputElement;
         expect(input).toBeTruthy();
         expect(input.min).toBe('0');
         expect(input.max).toBe('100');
         expect(input.step).toBe('1');
     });
 
-    it('shows current value display', () => {
+    it('shows current value display when showValue is not false', () => {
         const def = baseDef([{ key: 'vol', type: 'field', dataType: 'number', label: 'Volume' }]);
         const node: LayoutNode = {
             id: 'vol-field', component: 'Slider', category: 'field',
@@ -226,6 +229,16 @@ describe('Slider', () => {
         };
         const container = renderField(def, node);
         expect(container.querySelector('.formspec-slider-value')).toBeTruthy();
+    });
+
+    it('hides value display when showValue is false', () => {
+        const def = baseDef([{ key: 'vol', type: 'field', dataType: 'number', label: 'Volume' }]);
+        const node: LayoutNode = {
+            id: 'vol-field', component: 'Slider', category: 'field',
+            props: { min: 0, max: 100, showValue: false }, cssClasses: [], children: [], bindPath: 'vol',
+        };
+        const container = renderField(def, node);
+        expect(container.querySelector('.formspec-slider-value')).toBeNull();
     });
 });
 
@@ -578,6 +591,29 @@ describe('Toggle — role switch', () => {
         expect(onLabel).toBeTruthy();
     });
 
+    it('Toggle adds formspec-toggle--on when checked and keeps off/on text on fixed spans', () => {
+        const def = baseDef([{ key: 'active', type: 'field', dataType: 'boolean', label: 'Active' }]);
+        const node: LayoutNode = {
+            id: 'active-field', component: 'Toggle', category: 'field',
+            props: { onLabel: 'On', offLabel: 'Off' }, cssClasses: [], children: [], bindPath: 'active',
+        };
+        const container = renderField(def, node);
+        const toggleWrapper = container.querySelector('.formspec-toggle') as HTMLElement;
+        const offEl = toggleWrapper.querySelector('.formspec-toggle-off') as HTMLElement;
+        const onEl = toggleWrapper.querySelector('.formspec-toggle-on') as HTMLElement;
+        expect(toggleWrapper.classList.contains('formspec-toggle--on')).toBe(false);
+        expect(offEl.textContent).toBe('Off');
+        expect(onEl.textContent).toBe('On');
+
+        const input = toggleWrapper.querySelector('input') as HTMLInputElement;
+        flushSync(() => {
+            input.click();
+        });
+        expect(toggleWrapper.classList.contains('formspec-toggle--on')).toBe(true);
+        expect(offEl.textContent).toBe('Off');
+        expect(onEl.textContent).toBe('On');
+    });
+
     it('Toggle without on/off labels still has .formspec-toggle wrapper', () => {
         const def = baseDef([{ key: 'active', type: 'field', dataType: 'boolean', label: 'Active' }]);
         const node: LayoutNode = {
@@ -627,6 +663,20 @@ describe('Select — searchable', () => {
         expect(filterInput).toBeTruthy();
     });
 
+    it('places combobox input inside .formspec-combobox-row', () => {
+        const def = baseDef([{
+            key: 'country', type: 'field', dataType: 'choice', label: 'Country',
+            options: [{ value: 'us', label: 'United States' }],
+        }]);
+        const node: LayoutNode = {
+            id: 'country-field', component: 'Select', category: 'field',
+            props: { searchable: true }, cssClasses: [], children: [], bindPath: 'country',
+        };
+        const container = renderField(def, node);
+        const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
+        expect(input?.closest('.formspec-combobox-row')).not.toBeNull();
+    });
+
     it('native select is used when searchable is not set', () => {
         const def = baseDef([{
             key: 'color', type: 'field', dataType: 'choice', label: 'Color',
@@ -671,6 +721,31 @@ describe('Select — searchable', () => {
         expect(items[0].textContent).toBe('Canada');
     });
 
+    it('filters by definition option keywords when the label does not contain the query', () => {
+        const def = baseDef([{
+            key: 'country', type: 'field', dataType: 'choice', label: 'Country',
+            options: [
+                { value: 'us', label: 'United States', keywords: ['USA', 'US', 'America'] },
+                { value: 'ca', label: 'Canada', keywords: ['CAN', 'CA'] },
+            ],
+        }]);
+        const node: LayoutNode = {
+            id: 'country-field', component: 'Select', category: 'field',
+            props: { searchable: true }, cssClasses: [], children: [], bindPath: 'country',
+        };
+        const container = renderField(def, node);
+        const filterInput = container.querySelector('.formspec-select-searchable input[type="text"]') as HTMLInputElement;
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        flushSync(() => { filterInput.focus(); });
+        flushSync(() => {
+            nativeInputValueSetter?.call(filterInput, 'usa');
+            filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        const items = container.querySelectorAll('[role="option"]');
+        expect(items.length).toBe(1);
+        expect(items[0].textContent).toBe('United States');
+    });
+
     it('filter input does not have a separate onInput attribute (onChange is the sole handler)', () => {
         const def = baseDef([{
             key: 'country', type: 'field', dataType: 'choice', label: 'Country',
@@ -684,6 +759,33 @@ describe('Select — searchable', () => {
         const filterInput = container.querySelector('.formspec-select-searchable input[type="text"]') as HTMLInputElement;
         // React removes redundant event handlers — no oninput attribute should be set directly
         expect(filterInput.getAttribute('oninput')).toBeNull();
+    });
+});
+
+describe('Select — multiple (multiChoice)', () => {
+    it('renders combobox with aria-multiselectable when multiple is true', () => {
+        const def = baseDef([{
+            key: 'tags',
+            type: 'field',
+            dataType: 'multiChoice',
+            label: 'Tags',
+            options: [
+                { value: 'a', label: 'Alpha' },
+                { value: 'b', label: 'Beta' },
+            ],
+        }]);
+        const node: LayoutNode = {
+            id: 'tags-field',
+            component: 'Select',
+            category: 'field',
+            props: { multiple: true, searchable: true },
+            cssClasses: [],
+            children: [],
+            bindPath: 'tags',
+        };
+        const container = renderField(def, node);
+        expect(container.querySelector('.formspec-combobox')).toBeTruthy();
+        expect(container.querySelector('[aria-multiselectable="true"]')).toBeTruthy();
     });
 });
 
@@ -742,7 +844,7 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
     it('listbox is hidden when input is not focused', () => {
         const container = makeSearchable();
         const listbox = container.querySelector('[role="listbox"]') as HTMLElement;
-        expect(listbox.style.display).toBe('none');
+        expect(listbox.hidden).toBe(true);
     });
 
     it('listbox is visible when input is focused', () => {
@@ -750,7 +852,13 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
         flushSync(() => { input.focus(); });
         const listbox = container.querySelector('[role="listbox"]') as HTMLElement;
-        expect(listbox.style.display).not.toBe('none');
+        expect(listbox.hidden).toBe(false);
+    });
+
+    it('listbox uses formspec-combobox-list for dropdown chrome (parity with web component)', () => {
+        const container = makeSearchable();
+        const listbox = container.querySelector('[role="listbox"]');
+        expect(listbox?.classList.contains('formspec-combobox-list')).toBe(true);
     });
 
     it('each option has an id and role="option"', () => {
@@ -984,9 +1092,9 @@ describe('NumberInput stepper — button aria-labels', () => {
     });
 });
 
-// ── Rating aria-checked (radiogroup pattern) ───────────────────────
+// ── Rating (slider pattern — parity with default web component adapter) ──
 
-describe('Rating — radiogroup keyboard navigation', () => {
+describe('Rating — slider keyboard navigation', () => {
     function makeRating(value?: number) {
         const def = baseDef([{ key: 'stars', type: 'field', dataType: 'integer', label: 'Stars' }]);
         const engine = createFormEngine(def);
@@ -1008,108 +1116,88 @@ describe('Rating — radiogroup keyboard navigation', () => {
         return { container, engine };
     }
 
-    it('wraps stars in role="radiogroup"', () => {
+    it('wraps stars in role="slider" with aria attributes', () => {
         const { container } = makeRating();
-        expect(container.querySelector('[role="radiogroup"]')).toBeTruthy();
-    });
-
-    it('each star has role="radio" and aria-checked', () => {
-        const { container } = makeRating(3);
-        const stars = container.querySelectorAll('[role="radio"]');
-        expect(stars.length).toBe(5);
-        expect(stars[0].getAttribute('aria-checked')).toBe('true');
-        expect(stars[1].getAttribute('aria-checked')).toBe('true');
-        expect(stars[2].getAttribute('aria-checked')).toBe('true');
-        expect(stars[3].getAttribute('aria-checked')).toBe('false');
-        expect(stars[4].getAttribute('aria-checked')).toBe('false');
-    });
-
-    it('roving tabindex: selected star is tabIndex=0, others are -1', () => {
-        const { container } = makeRating(2);
-        const stars = container.querySelectorAll<HTMLElement>('[role="radio"]');
-        // star index 1 (value=2) is selected → tabIndex 0
-        expect(stars[1].tabIndex).toBe(0);
-        expect(stars[0].tabIndex).toBe(-1);
-        expect(stars[2].tabIndex).toBe(-1);
-    });
-
-    it('roving tabindex: first star is tabIndex=0 when no value', () => {
-        const { container } = makeRating();
-        const stars = container.querySelectorAll<HTMLElement>('[role="radio"]');
-        expect(stars[0].tabIndex).toBe(0);
-        stars.forEach((s, i) => { if (i > 0) expect(s.tabIndex).toBe(-1); });
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
+        expect(slider).toBeTruthy();
+        expect(slider.getAttribute('role')).toBe('slider');
+        expect(slider.getAttribute('tabindex')).toBe('0');
+        expect(slider.getAttribute('aria-valuemin')).toBe('0');
+        expect(slider.getAttribute('aria-valuemax')).toBe('5');
+        expect(slider.getAttribute('aria-valuenow')).toBe('0');
+        expect(slider.getAttribute('aria-valuetext')).toBe('0 of 5');
     });
 
     it('ArrowRight increments the rating', () => {
         const { container, engine } = makeRating(2);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(3);
     });
 
     it('ArrowLeft decrements the rating', () => {
         const { container, engine } = makeRating(3);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(2);
     });
 
     it('ArrowUp increments the rating', () => {
         const { container, engine } = makeRating(1);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(2);
     });
 
     it('ArrowDown decrements the rating', () => {
         const { container, engine } = makeRating(4);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(3);
     });
 
-    it('Home sets rating to 1', () => {
+    it('Home clears rating to 0', () => {
         const { container, engine } = makeRating(4);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
         });
-        expect(engine.getResponse().data['stars']).toBe(1);
+        expect(engine.getResponse().data['stars']).toBe(0);
     });
 
     it('End sets rating to maxRating', () => {
         const { container, engine } = makeRating(1);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(5);
     });
 
     it('ArrowRight clamps at maxRating', () => {
         const { container, engine } = makeRating(5);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(5);
     });
 
-    it('ArrowLeft clamps at 1', () => {
-        const { container, engine } = makeRating(1);
-        const radiogroup = container.querySelector('[role="radiogroup"]') as HTMLElement;
+    it('ArrowLeft clamps at 0', () => {
+        const { container, engine } = makeRating(0);
+        const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
         flushSync(() => {
-            radiogroup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+            slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
         });
-        expect(engine.getResponse().data['stars']).toBe(1);
+        expect(engine.getResponse().data['stars']).toBe(0);
     });
 });
 

@@ -1,11 +1,32 @@
 /** @filedesc FormspecForm — auto-renderer that walks LayoutNode tree into React elements. */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useRef } from 'react';
+import defaultThemeJson from '@formspec-org/layout/default-theme';
+import { emitMergedThemeCssVars } from '@formspec-org/layout';
 import { FormspecProvider } from './context';
 import type { FormspecProviderProps } from './context';
 import { useFormspecContext } from './context';
 import { FormspecNode } from './node-renderer';
 import { FormspecScreener } from './screener/FormspecScreener';
 import type { ScreenerRoute, ScreenerRouteType } from './screener/types';
+
+/** Match `<formspec-render>`: emit theme + component tokens on `.formspec-container` so CSS variables resolve the same as the web component (e.g. radio group border). */
+function useEmitThemeTokensOnFormspecContainerRef(): React.RefObject<HTMLDivElement | null> {
+    const ref = useRef<HTMLDivElement>(null);
+    const { themeDocument, componentDocument } = useFormspecContext();
+
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const effectiveTheme = themeDocument ?? defaultThemeJson;
+        const themeTokens = (effectiveTheme as { tokens?: Record<string, string | number> }).tokens;
+        emitMergedThemeCssVars(el, {
+            themeTokens: themeTokens || {},
+            componentTokens: componentDocument?.tokens,
+        });
+    }, [themeDocument, componentDocument]);
+
+    return ref;
+}
 
 export interface FormspecFormProps extends Omit<FormspecProviderProps, 'children'> {
     /** Optional className on the root container. */
@@ -102,9 +123,13 @@ function ScreenerGate({
     onSkip: () => void;
 }) {
     const { engine } = useFormspecContext();
+    const containerRef = useEmitThemeTokensOnFormspecContainerRef();
 
     return (
-        <div className={className ? `formspec-container ${className}` : 'formspec-container'}>
+        <div
+            ref={containerRef}
+            className={className ? `formspec-container ${className}` : 'formspec-container'}
+        >
             <FormspecScreener
                 definition={definition}
                 engine={engine}
@@ -126,26 +151,28 @@ function ScreenerGate({
 
 function FormspecFormInner({ className }: { className?: string }) {
     const { layoutPlan } = useFormspecContext();
+    const containerRef = useEmitThemeTokensOnFormspecContainerRef();
 
     if (!layoutPlan) {
         const containerClass = className
             ? `formspec-container ${className}`
             : 'formspec-container';
-        return <div className={containerClass}>No layout plan available.</div>;
+        return (
+            <div ref={containerRef} className={containerClass}>
+                No layout plan available.
+            </div>
+        );
     }
 
-    // The layout plan root already carries `formspec-container` (added in
-    // context.tsx during planning). Wrapping it in another container div
-    // creates nested flex-column parents that stretch children (submit
-    // button, add/remove buttons) to full width.  Render the plan directly;
-    // pass any caller className through by appending to the root node.
-    if (className) {
-        if (!layoutPlan.cssClasses.includes(className)) {
-            layoutPlan.cssClasses = [...layoutPlan.cssClasses, className];
-        }
-    }
+    const containerClass = className
+        ? `formspec-container ${className}`
+        : 'formspec-container';
 
-    return <FormspecNode node={layoutPlan} />;
+    return (
+        <div ref={containerRef} className={containerClass}>
+            <FormspecNode node={layoutPlan} />
+        </div>
+    );
 }
 
 /** Check whether a definition has an active screener block. */

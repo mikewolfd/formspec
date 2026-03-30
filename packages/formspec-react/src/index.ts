@@ -58,5 +58,5 @@ export { ValidationSummary } from './validation-summary';
 export type { ValidationSummaryProps } from './validation-summary';
 
 // ── Default theme ──
-import defaultThemeData from './default-theme.json';
+import defaultThemeData from '@formspec-org/layout/default-theme';
 export const defaultTheme = defaultThemeData;
