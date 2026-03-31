@@ -211,6 +211,16 @@ export function Header({
           >
             App Settings
           </button>
+          <div className="border-t border-border my-1" />
+          <a
+            href="/chat.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            onClick={() => setMenuOpen(false)}
+          >
+            AI Chat Studio
+          </a>
         </div>
       )}
     </div>
