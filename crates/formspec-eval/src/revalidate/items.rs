@@ -56,8 +56,9 @@ pub(super) fn validate_items(
             });
         }
 
-        // Type mismatch check — covers all 13 spec dataTypes
-        if !val.is_null() && let Some(ref dt) = item.data_type {
+        // Type mismatch check — covers all 13 spec dataTypes.
+        // Skip for null AND empty values (same gate as constraint checks per §3.8.1).
+        if !val.is_null() && !value_skips_optional_bind_checks(&val) && let Some(ref dt) = item.data_type {
             let mismatch = match dt.as_str() {
                 // String-family: must be a JSON string
                 "string" | "text" => !val.is_string(),
@@ -296,8 +297,8 @@ fn is_valid_datetime(s: &str) -> bool {
     if chrono::DateTime::parse_from_rfc3339(s).is_ok() {
         return true;
     }
-    // Also accept without timezone: YYYY-MM-DDThh:mm:ss
-    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").is_ok()
+    // Also accept without timezone: YYYY-MM-DDThh:mm:ss[.fff]
+    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f").is_ok()
 }
 
 /// HH:MM or HH:MM:SS with valid ranges — parsed by chrono.
@@ -325,13 +326,13 @@ fn validate_extension_constraints(
             results.push(ValidationResult {
                 path: item.path.clone(),
                 severity: "error".to_string(),
-                constraint_kind: "extension".to_string(),
+                constraint_kind: "constraint".to_string(),
                 code: "UNRESOLVED_EXTENSION".to_string(),
                 message: format!(
                     "Unresolved extension '{ext_name}': no matching registry entry loaded"
                 ),
                 constraint: None,
-                source: "extension".to_string(),
+                source: "external".to_string(),
                 shape_id: None,
                 context: None,
             });
@@ -344,11 +345,11 @@ fn validate_extension_constraints(
                 results.push(ValidationResult {
                     path: item.path.clone(),
                     severity: "warning".to_string(),
-                    constraint_kind: "extension".to_string(),
+                    constraint_kind: "constraint".to_string(),
                     code: "EXTENSION_RETIRED".to_string(),
                     message: format!("Extension '{ext_name}' is retired"),
                     constraint: None,
-                    source: "extension".to_string(),
+                    source: "external".to_string(),
                     shape_id: None,
                     context: None,
                 });
@@ -361,11 +362,11 @@ fn validate_extension_constraints(
                 results.push(ValidationResult {
                     path: item.path.clone(),
                     severity: "info".to_string(),
-                    constraint_kind: "extension".to_string(),
+                    constraint_kind: "constraint".to_string(),
                     code: "EXTENSION_DEPRECATED".to_string(),
                     message,
                     constraint: None,
-                    source: "extension".to_string(),
+                    source: "external".to_string(),
                     shape_id: None,
                     context: None,
                 });
@@ -379,13 +380,13 @@ fn validate_extension_constraints(
                 results.push(ValidationResult {
                     path: item.path.clone(),
                     severity: "warning".to_string(),
-                    constraint_kind: "extension".to_string(),
+                    constraint_kind: "constraint".to_string(),
                     code: "EXTENSION_COMPATIBILITY_MISMATCH".to_string(),
                     message: format!(
                         "Extension '{ext_name}' requires formspec version {compat_range}"
                     ),
                     constraint: None,
-                    source: "extension".to_string(),
+                    source: "external".to_string(),
                     shape_id: None,
                     context: None,
                 });
@@ -410,11 +411,11 @@ fn validate_extension_constraints(
                         results.push(ValidationResult {
                             path: item.path.clone(),
                             severity: "error".to_string(),
-                            constraint_kind: "extension".to_string(),
+                            constraint_kind: "constraint".to_string(),
                             code: "PATTERN_MISMATCH".to_string(),
                             message: format!("Must be a valid {label}"),
                             constraint: None,
-                            source: "extension".to_string(),
+                            source: "external".to_string(),
                             shape_id: None,
                             context: None,
                         });
@@ -426,15 +427,15 @@ fn validate_extension_constraints(
         // MaxLength constraint (string values only)
         if let Some(max_len) = constraint.max_length {
             if let Some(s) = val.as_str() {
-                if s.len() as u64 > max_len {
+                if s.chars().count() as u64 > max_len {
                     results.push(ValidationResult {
                         path: item.path.clone(),
                         severity: "error".to_string(),
-                        constraint_kind: "extension".to_string(),
+                        constraint_kind: "constraint".to_string(),
                         code: "MAX_LENGTH_EXCEEDED".to_string(),
                         message: format!("{label} must be at most {max_len} characters"),
                         constraint: None,
-                        source: "extension".to_string(),
+                        source: "external".to_string(),
                         shape_id: None,
                         context: None,
                     });
@@ -449,11 +450,11 @@ fn validate_extension_constraints(
                     results.push(ValidationResult {
                         path: item.path.clone(),
                         severity: "error".to_string(),
-                        constraint_kind: "extension".to_string(),
+                        constraint_kind: "constraint".to_string(),
                         code: "RANGE_UNDERFLOW".to_string(),
                         message: format!("{label} must be at least {min}"),
                         constraint: None,
-                        source: "extension".to_string(),
+                        source: "external".to_string(),
                         shape_id: None,
                         context: None,
                     });
@@ -468,11 +469,11 @@ fn validate_extension_constraints(
                     results.push(ValidationResult {
                         path: item.path.clone(),
                         severity: "error".to_string(),
-                        constraint_kind: "extension".to_string(),
+                        constraint_kind: "constraint".to_string(),
                         code: "RANGE_OVERFLOW".to_string(),
                         message: format!("{label} must be at most {max}"),
                         constraint: None,
-                        source: "extension".to_string(),
+                        source: "external".to_string(),
                         shape_id: None,
                         context: None,
                     });
