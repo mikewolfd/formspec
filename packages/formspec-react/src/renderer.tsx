@@ -179,7 +179,7 @@ function FormspecFormInner({ className }: { className?: string }) {
 function hasActiveScreenerDef(definition: any): boolean {
     const screener = definition?.screener;
     return (
-        screener?.enabled !== false &&
+        Boolean(screener) &&
         Array.isArray(screener?.items) &&
         screener.items.length > 0
     );

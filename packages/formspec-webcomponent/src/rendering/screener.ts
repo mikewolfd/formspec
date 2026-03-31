@@ -137,7 +137,7 @@ export function omitScreenerKeysFromData(definition: any, data: Record<string, a
 
 export function hasActiveScreener(definition: any): boolean {
     const screener = definition?.screener;
-    return screener?.enabled !== false && Array.isArray(screener?.items) && screener.items.length > 0;
+    return Boolean(screener) && Array.isArray(screener?.items) && screener.items.length > 0;
 }
 
 export function renderScreener(host: ScreenerHost, container: HTMLElement): void {

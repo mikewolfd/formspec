@@ -43,7 +43,7 @@ export function statistics(state: ProjectState): ProjectStatistics {
   }
 
   const screener = def.screener;
-  const screenerActive = screener && screener.enabled !== false;
+  const screenerActive = Boolean(screener);
 
   return {
     fieldCount,
