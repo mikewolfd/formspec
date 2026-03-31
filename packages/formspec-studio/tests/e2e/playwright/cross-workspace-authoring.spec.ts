@@ -49,7 +49,7 @@ test.describe('Cross-Workspace Authoring', () => {
     const canvas = page.locator('[data-testid="workspace-Editor"]');
     const incomeBlock = canvas.locator('[data-testid="field-income"]');
     await expect(incomeBlock).toBeVisible();
-    await expect(incomeBlock.getByText('req')).toBeVisible();
+    await expect(incomeBlock.getByText('must fill')).toBeVisible();
 
     // Switch to Manage view and verify the bind
     await page.getByRole('radio', { name: 'Manage' }).click();
@@ -59,7 +59,7 @@ test.describe('Cross-Workspace Authoring', () => {
     await page.getByRole('radio', { name: 'Build' }).click();
     const incomeBlockAgain = page.locator('[data-testid="workspace-Editor"]').locator('[data-testid="field-income"]');
     await expect(incomeBlockAgain).toBeVisible();
-    await expect(incomeBlockAgain.getByText('req')).toBeVisible();
+    await expect(incomeBlockAgain.getByText('must fill')).toBeVisible();
   });
 
   test('Full authoring cycle — all workspaces show seeded content', async ({ page }) => {

@@ -217,24 +217,31 @@ describe('DefinitionTreeEditor', () => {
     expect(statusRow.getByTestId('field-status-summary')).toBeInTheDocument();
     expect(statusRow.getByTestId('field-status-status')).toBeInTheDocument();
 
-    expect(amountRow.getByText('Initial')).toBeInTheDocument();
-    expect(amountRow.getByText('25')).toBeInTheDocument();
-    expect(amountRow.getByText('Relevant')).toBeInTheDocument();
-    expect(amountRow.getByText('Enabled is Yes')).toBeInTheDocument();
-    expect(amountRow.getByText('req')).toBeInTheDocument();
-    expect(amountRow.getByText('rel')).toBeInTheDocument();
-    expect(amountRow.getByText('rule')).toBeInTheDocument();
-    expect(amountRow.getByText('ro')).toBeInTheDocument();
+    // Category grid shows fixed slots with summarised values
+    const amountSummary = within(amountRow.getByTestId('field-amount-summary'));
+    expect(amountSummary.getByText('Visibility')).toBeInTheDocument();
+    expect(amountSummary.getByText(/Enabled is Yes/)).toBeInTheDocument();
+    expect(amountSummary.getByText('Validation')).toBeInTheDocument();
+    expect(amountSummary.getByText('2 rules')).toBeInTheDocument();
+    expect(amountSummary.getByText('Value')).toBeInTheDocument();
+    expect(amountSummary.getByText('Format')).toBeInTheDocument();
+    expect(amountSummary.getByText('USD 2dp')).toBeInTheDocument();
 
-    expect(statusRow.getByText('Options')).toBeInTheDocument();
-    expect(statusRow.getByText('2 choices')).toBeInTheDocument();
-    expect(statusRow.getByText('Calculate')).toBeInTheDocument();
-    expect(statusRow.getByText('$source.status')).toBeInTheDocument();
-    expect(statusRow.getByText('ƒx')).toBeInTheDocument();
-    expect(statusRow.getByText('pre')).toBeInTheDocument();
+    // Status pills still show behavioral indicators
+    expect(amountRow.getByText('must fill')).toBeInTheDocument();
+    expect(amountRow.getByText('shows if')).toBeInTheDocument();
+    expect(amountRow.getByText('validates')).toBeInTheDocument();
+    expect(amountRow.getByText('locked')).toBeInTheDocument();
+
+    const statusSummary = within(statusRow.getByTestId('field-status-summary'));
+    expect(statusSummary.getByText('Visibility')).toBeInTheDocument();
+    expect(statusSummary.getByText('Value')).toBeInTheDocument();
+    expect(statusSummary.getByText('formula')).toBeInTheDocument();
+    // Status pills still show
+    expect(statusRow.getByText('linked')).toBeInTheDocument();
   });
 
-  it('caps field summaries to the highest-priority facts', () => {
+  it('always shows exactly four fixed category slots for fields regardless of data richness', () => {
     renderTree({
       $formspec: '1.0', url: 'urn:tree-summary-cap', version: '1.0.0',
       items: [
@@ -259,14 +266,26 @@ describe('DefinitionTreeEditor', () => {
     });
 
     const summary = within(screen.getByTestId('field-amount-summary'));
-    expect(summary.getAllByRole('term')).toHaveLength(4);
-    expect(summary.getByText('Description')).toBeInTheDocument();
-    expect(summary.getByText('Hint')).toBeInTheDocument();
-    expect(summary.getByText('Pre-fill')).toBeInTheDocument();
-    expect(summary.getByText('Relevant')).toBeInTheDocument();
+    const terms = summary.getAllByRole('term');
+    expect(terms).toHaveLength(4);
+    expect(terms[0]).toHaveTextContent('Visibility');
+    expect(terms[1]).toHaveTextContent('Validation');
+    expect(terms[2]).toHaveTextContent('Value');
+    expect(terms[3]).toHaveTextContent('Format');
+
+    // Old variable-length labels no longer appear in the category grid
+    expect(summary.queryByText('Pre-fill')).toBeNull();
+    expect(summary.queryByText('Relevant')).toBeNull();
     expect(summary.queryByText('Precision')).toBeNull();
     expect(summary.queryByText('Prefix')).toBeNull();
     expect(summary.queryByText('Constraint')).toBeNull();
+
+    // Description/Hint are in a separate content section, not the category grid
+    const row = within(screen.getByTestId('field-amount'));
+    expect(row.getByText('Description')).toBeInTheDocument();
+    expect(row.getByText('Monthly amount for review.')).toBeInTheDocument();
+    expect(row.getByText('Hint')).toBeInTheDocument();
+    expect(row.getByText('Use gross income before deductions.')).toBeInTheDocument();
   });
 
   it('renders group items as collapsible nodes with children', () => {
@@ -365,7 +384,7 @@ describe('DefinitionTreeEditor', () => {
       items: [{ key: 'name', type: 'field', dataType: 'string', label: 'Name' }],
       binds: [{ path: 'name', required: 'true' }],
     });
-    expect(screen.getByText('req')).toBeInTheDocument();
+    expect(screen.getByText('must fill')).toBeInTheDocument();
   });
 
   it('has an Add Item button', () => {
@@ -464,8 +483,10 @@ describe('DefinitionTreeEditor', () => {
         { path: 'locked', readonly: 'true' },
       ],
     });
-    expect(screen.getByText('\u0192x')).toBeInTheDocument();
-    expect(screen.getByText('ro')).toBeInTheDocument();
+    const totalStatus = within(screen.getByTestId('field-total-status'));
+    expect(totalStatus.getByText('formula')).toBeInTheDocument();
+    const lockedStatus = screen.getByTestId('field-locked-status');
+    expect(lockedStatus.querySelector('[title="readonly"]')).toBeInTheDocument();
   });
 
   it('shows repeatable badge on groups', () => {
@@ -491,7 +512,7 @@ describe('DefinitionTreeEditor', () => {
       items: [{ key: 'f', type: 'field', dataType: 'string', label: 'F' }],
       binds: { f: { required: 'true' } },
     });
-    expect(screen.getByText('req')).toBeInTheDocument();
+    expect(screen.getByText('must fill')).toBeInTheDocument();
   });
 
   it('renders empty tree without errors', () => {
@@ -516,7 +537,7 @@ describe('DefinitionTreeEditor', () => {
       }],
       binds: [{ path: 'g.nested', required: 'true' }],
     });
-    expect(screen.getByText('req')).toBeInTheDocument();
+    expect(screen.getByText('must fill')).toBeInTheDocument();
   });
 
   it('collapses group children when toggle is clicked', () => {
@@ -837,6 +858,8 @@ describe('DefinitionTreeEditor', () => {
 
     const row = within(screen.getByTestId('field-amount'));
     fireEvent.click(row.getByRole('button', { name: 'Select Amount' }));
+    // Open "Data format" accordion section to access field-detail launchers
+    fireEvent.click(row.getByRole('button', { name: 'Expand Data format' }));
     // Currency, precision, prefix use field-detail launchers
     fireEvent.click(row.getByTestId('field-amount-add-currency'));
     fireEvent.change(row.getByLabelText('Inline currency'), { target: { value: 'USD' } });
@@ -870,6 +893,8 @@ describe('DefinitionTreeEditor', () => {
     expect(heading).toHaveClass('text-[13px]');
     expect(heading).toHaveClass('font-semibold');
     expect(lowerEditor).toHaveClass('space-y-3');
+    // Open "Data format" accordion section to access field-detail launchers
+    fireEvent.click(row.getByRole('button', { name: 'Expand Data format' }));
     expect(row.getByTestId('field-amount-add-semantic')).toHaveClass('text-accent');
     expect(row.getByTestId('field-amount-add-prefix')).toHaveClass('text-accent');
     fireEvent.click(row.getByTestId('field-amount-add-semantic'));
@@ -879,7 +904,7 @@ describe('DefinitionTreeEditor', () => {
     expect(row.getByLabelText('Inline prefix')).toBeInTheDocument();
   });
 
-  it('edits visible summary cards with single-line inline inputs', () => {
+  it('edits visible content rows (Hint) with single-line inline inputs', () => {
     const definition = {
       $formspec: '1.0', url: 'urn:tree-inline-summary-inputs', version: '1.0.0',
       items: [
@@ -902,8 +927,8 @@ describe('DefinitionTreeEditor', () => {
     expect(row.getByTestId('field-ssn-label-edit')).toBeInTheDocument();
     expect(row.getByTestId('field-ssn-key-edit')).toBeInTheDocument();
     expect(row.getByTestId('field-ssn-summary-edit-Hint')).toBeInTheDocument();
-    expect(row.getByTestId('field-ssn-summary-edit-Semantic')).toBeInTheDocument();
 
+    // Hint is in the content rows and editable inline
     fireEvent.click(row.getByText('XXX-XX-XXXX'));
     const hintInput = row.getByLabelText('Inline hint');
     expect(hintInput.tagName).toBe('INPUT');
@@ -911,15 +936,7 @@ describe('DefinitionTreeEditor', () => {
     fireEvent.change(hintInput, { target: { value: '999-99-9999' } });
     fireEvent.blur(hintInput);
 
-    fireEvent.click(row.getByText('us-gov:ssn'));
-    const semanticInput = row.getByLabelText('Inline semantic');
-    expect(semanticInput.tagName).toBe('INPUT');
-    expect(semanticInput).toHaveFocus();
-    fireEvent.change(semanticInput, { target: { value: 'us-gov:tin' } });
-    fireEvent.blur(semanticInput);
-
     expect((project.definition.items[0] as any)?.hint).toBe('999-99-9999');
-    expect((project.definition.items[0] as any)?.semanticType).toBe('us-gov:tin');
   });
 
   it('keeps the field type token on the primary row with the field key', () => {
@@ -962,7 +979,7 @@ describe('DefinitionTreeEditor', () => {
     ]));
   });
 
-  it('supports inline option editing for selected choice fields', () => {
+  it('supports option editing for selected choice fields via options modal', () => {
     const definition = {
       $formspec: '1.0', url: 'urn:tree-inline-options', version: '1.0.0',
       items: [
@@ -972,11 +989,14 @@ describe('DefinitionTreeEditor', () => {
     const { project } = renderTree(definition);
 
     fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Select Status' }));
-    fireEvent.click(within(screen.getByTestId('field-status')).getByText('1 choice'));
+    // Click the Options category slot value in the summary grid to open the modal
+    fireEvent.click(within(screen.getByTestId('field-status-summary')).getByText('1 choice'));
 
-    fireEvent.change(within(screen.getByTestId('field-status')).getByLabelText('Inline option 1 value'), { target: { value: 'open' } });
-    fireEvent.change(within(screen.getByTestId('field-status')).getByLabelText('Inline option 1 label'), { target: { value: 'Open' } });
-    fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Add option to Status' }));
+    // OptionsModal uses non-prefixed aria labels
+    const modal = screen.getByRole('dialog', { name: 'Edit options for Status' });
+    fireEvent.change(within(modal).getByLabelText('Option 1 value'), { target: { value: 'open' } });
+    fireEvent.change(within(modal).getByLabelText('Option 1 label'), { target: { value: 'Open' } });
+    fireEvent.click(within(modal).getByRole('button', { name: 'Add option to Status' }));
 
     expect((project.definition.items[0] as any)?.options).toEqual([
       { value: 'open', label: 'Open' },
@@ -984,7 +1004,7 @@ describe('DefinitionTreeEditor', () => {
     ]);
   });
 
-  it('supports removing options from selected choice fields inline', () => {
+  it('supports removing options from selected choice fields via options modal', () => {
     const definition = {
       $formspec: '1.0', url: 'urn:tree-inline-option-removal', version: '1.0.0',
       items: [
@@ -1003,8 +1023,10 @@ describe('DefinitionTreeEditor', () => {
     const { project } = renderTree(definition);
 
     fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Select Status' }));
-    fireEvent.click(within(screen.getByTestId('field-status')).getByText('2 choices'));
-    fireEvent.click(within(screen.getByTestId('field-status')).getByRole('button', { name: 'Remove option 1 from Status' }));
+    // Click "2 choices" in the category grid to open the options modal
+    fireEvent.click(within(screen.getByTestId('field-status-summary')).getByText('2 choices'));
+    const modal = screen.getByRole('dialog', { name: 'Edit options for Status' });
+    fireEvent.click(within(modal).getByRole('button', { name: 'Remove option 1 from Status' }));
 
     expect((project.definition.items[0] as any)?.options).toEqual([
       { value: 'open', label: 'Open' },
@@ -1022,6 +1044,9 @@ describe('DefinitionTreeEditor', () => {
 
     const row = within(screen.getByTestId('field-accountNumber'));
     fireEvent.click(row.getByRole('button', { name: 'Select Account Number' }));
+
+    // Open "Value" accordion section to access the Add Calculation / Pre-population menu
+    fireEvent.click(row.getByRole('button', { name: 'Expand Value' }));
 
     // Use AddBehaviorMenu to add pre-populate
     const addMenu = row.getByRole('button', { name: /Add Calculation/i });
@@ -1101,6 +1126,104 @@ describe('DefinitionTreeEditor', () => {
     // Focus should move to the age row's lower panel now
     const ageLowerPanel = within(ageRow).getByTestId('field-age-lower-panel');
     expect(document.activeElement).toBe(ageLowerPanel);
+  });
+
+  it('shows fixed category slots (Visibility, Validation, Value, Format) for field summary grid', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-category-grid-field', version: '1.0.0',
+      items: [
+        {
+          key: 'amount',
+          type: 'field',
+          dataType: 'money',
+          label: 'Amount',
+          currency: 'USD',
+          precision: 2,
+        },
+      ],
+      binds: [
+        { path: 'amount', required: 'true', relevant: '$enabled = true', constraint: '. > 0' },
+      ],
+    });
+
+    const summary = within(screen.getByTestId('field-amount-summary'));
+    const terms = summary.getAllByRole('term');
+    expect(terms).toHaveLength(4);
+    expect(terms[0]).toHaveTextContent('Visibility');
+    expect(terms[1]).toHaveTextContent('Validation');
+    expect(terms[2]).toHaveTextContent('Value');
+    expect(terms[3]).toHaveTextContent('Format');
+
+    // Values come from buildCategorySummaries
+    expect(summary.getByText(/Enabled is Yes/)).toBeInTheDocument();
+    expect(summary.getByText('2 rules')).toBeInTheDocument();
+    expect(summary.getByText('USD 2dp')).toBeInTheDocument();
+  });
+
+  it('shows fixed category slots (Visibility, Description) for display item summary grid', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-category-grid-display', version: '1.0.0',
+      items: [
+        {
+          key: 'header',
+          type: 'display',
+          label: 'Welcome',
+          description: 'About you',
+          presentation: { widgetHint: 'heading' },
+        },
+      ],
+      binds: [
+        { path: 'header', relevant: '$page = 2' },
+      ],
+    });
+
+    const summary = within(screen.getByTestId('display-header-summary'));
+    const terms = summary.getAllByRole('term');
+    expect(terms).toHaveLength(2);
+    expect(terms[0]).toHaveTextContent('Visibility');
+    expect(terms[1]).toHaveTextContent('Description');
+  });
+
+  it('renders category slots as read-only indicators without inline editing', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-category-readonly', version: '1.0.0',
+      items: [
+        {
+          key: 'amount',
+          type: 'field',
+          dataType: 'money',
+          label: 'Amount',
+        },
+      ],
+      binds: [
+        { path: 'amount', required: 'true' },
+      ],
+    });
+
+    const row = within(screen.getByTestId('field-amount'));
+    fireEvent.click(row.getByRole('button', { name: 'Select Amount' }));
+
+    const summary = within(screen.getByTestId('field-amount-summary'));
+    // Click the Validation category slot
+    fireEvent.click(summary.getByText('1 rule'));
+
+    // No inline input should appear — category slots are read-only indicators
+    expect(summary.queryByRole('textbox')).toBeNull();
+  });
+
+  it('shows "Always" for visibility and em-dash for empty categories on a bare field', () => {
+    renderTree({
+      $formspec: '1.0', url: 'urn:tree-category-defaults', version: '1.0.0',
+      items: [
+        { key: 'name', type: 'field', dataType: 'string', label: 'Name' },
+      ],
+    });
+
+    const summary = within(screen.getByTestId('field-name-summary'));
+    expect(summary.getByText('Always')).toBeInTheDocument();
+    // em-dash for empty categories
+    const dashes = summary.getAllByText('\u2014');
+    expect(dashes.length).toBe(3); // Validation, Value, Format
   });
 
   it('scrolls the selected group or field into view when selection changes externally', () => {

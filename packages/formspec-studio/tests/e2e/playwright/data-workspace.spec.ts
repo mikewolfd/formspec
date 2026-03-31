@@ -132,7 +132,7 @@ test.describe('Form Health Panel — Simulation', () => {
   });
 
   test('Simulation section shows a working engine simulation', async ({ page }) => {
-    await page.getByText('Simulation').click();
+    await page.getByRole('button', { name: 'Simulation' }).click();
     const panel = page.locator('[data-testid="simulation-content"]');
 
     await expect(panel.getByText('Engine Simulation')).toBeVisible();

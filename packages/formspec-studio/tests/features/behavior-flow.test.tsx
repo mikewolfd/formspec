@@ -162,8 +162,8 @@ describe('Behavior Flow Integration', () => {
 
       const behaviorSection = screen.getByRole('button', { name: /Behavior Rules/i }).closest('div[class*="rounded-"]') as HTMLElement;
       
-      // DOM Check: 'required' bind card
-      const requiredCard = within(behaviorSection).getByText(/required/i).closest('div[class*="border-l-accent"]') as HTMLElement;
+      // DOM Check: 'required' bind card (verb-intent label: MUST FILL, title: required)
+      const requiredCard = within(behaviorSection).getByText(/must fill/i).closest('div[class*="border-l-accent"]') as HTMLElement;
       expect(requiredCard).toBeInTheDocument();
       
       const removeBtn = within(requiredCard).getByTitle(/Remove required/i);

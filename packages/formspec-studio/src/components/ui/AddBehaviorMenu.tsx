@@ -16,6 +16,8 @@ interface AddBehaviorMenuProps {
   className?: string;
   label?: string;
   allowedTypes?: readonly string[];
+  /** When 'display', only 'relevant' is offered. When 'field' or omitted, existing behavior. */
+  itemType?: 'field' | 'display';
   /** When set, used for the trigger button styles instead of the default muted text link. */
   triggerClassName?: string;
   /** Accessible name for the trigger (e.g. "Add behavior to {field}"). Overrides visible label for assistive tech. */
@@ -28,15 +30,18 @@ export function AddBehaviorMenu({
   className,
   label = 'Add behavior rule',
   allowedTypes,
+  itemType,
   triggerClassName,
   triggerAriaLabel,
 }: AddBehaviorMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const available = BIND_TYPES.filter(t => 
-    !existingTypes.includes(t.id) && 
-    (!allowedTypes || (allowedTypes as string[]).includes(t.id))
+  const effectiveAllowed = itemType === 'display' ? ['relevant'] : allowedTypes;
+
+  const available = BIND_TYPES.filter(t =>
+    !existingTypes.includes(t.id) &&
+    (!effectiveAllowed || (effectiveAllowed as string[]).includes(t.id))
   );
 
   useEffect(() => {

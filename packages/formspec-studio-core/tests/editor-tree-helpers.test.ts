@@ -1,11 +1,15 @@
 /** @filedesc Tests for core-owned DefinitionTreeEditor row helper derivations. */
 import { describe, expect, it } from 'vitest';
 import {
+  buildAdvisories,
+  buildCategorySummaries,
+  buildExpressionDiagnostics,
   buildMissingPropertyActions,
   buildRowSummaries,
   buildStatusPills,
   summarizeExpression,
 } from '../src/editor-tree-helpers';
+import type { Advisory, ExpressionDiagnostic } from '../src/editor-tree-helpers';
 
 describe('editor-tree-helpers', () => {
   it('humanizes simple FEL expressions for row summaries', () => {
@@ -40,7 +44,7 @@ describe('editor-tree-helpers', () => {
     ]);
   });
 
-  it('builds status pills from binds and pre-populate state', () => {
+  it('builds status pills with verb-intent labels and specTerm tooltips', () => {
     const pills = buildStatusPills(
       {
         required: 'true',
@@ -53,12 +57,12 @@ describe('editor-tree-helpers', () => {
     );
 
     expect(pills).toEqual([
-      { text: 'req', color: 'accent' },
-      { text: 'rel', color: 'logic' },
-      { text: 'ƒx', color: 'green' },
-      { text: 'pre', color: 'amber' },
-      { text: 'rule', color: 'error' },
-      { text: 'ro', color: 'muted' },
+      { text: 'must fill', color: 'accent', specTerm: 'required' },
+      { text: 'shows if', color: 'logic', specTerm: 'relevant' },
+      { text: 'formula', color: 'green', specTerm: 'calculate' },
+      { text: 'linked', color: 'amber', specTerm: 'prePopulate' },
+      { text: 'validates', color: 'error', specTerm: 'constraint' },
+      { text: 'locked', color: 'muted', specTerm: 'readonly' },
     ]);
   });
 
@@ -102,12 +106,12 @@ describe('editor-tree-helpers', () => {
     expect(optionsEntry?.value).toBe('2 choices');
   });
 
-  it('surfaces default bind as a status pill', () => {
+  it('surfaces default bind as a status pill with specTerm', () => {
     const pills = buildStatusPills(
       { default: '42' },
       { key: 'age', type: 'field' } as any,
     );
-    expect(pills).toContainEqual({ text: 'def', color: 'green' });
+    expect(pills).toContainEqual({ text: 'resets to', color: 'green', specTerm: 'default' });
   });
 
   it('includes default bind value in row summaries', () => {
@@ -142,5 +146,350 @@ describe('editor-tree-helpers', () => {
     );
     const optionsEntry = summaries.find((s) => s.label === 'Options');
     expect(optionsEntry).toBeUndefined();
+  });
+
+  describe('buildCategorySummaries', () => {
+    it('produces four category slots for a field with binds and format', () => {
+      const result = buildCategorySummaries(
+        {
+          key: 'amount', type: 'field', dataType: 'money', label: 'Amount',
+          currency: 'USD', precision: 2,
+        } as any,
+        { required: 'true', relevant: '$enabled = true', constraint: '. > 0' },
+      );
+      expect(result).toEqual({
+        Visibility: 'Enabled is Yes',
+        Validation: '2 rules',
+        Value: '\u2014',
+        Format: 'USD 2dp',
+      });
+    });
+
+    it('shows "Always" for visibility when no relevant bind', () => {
+      const result = buildCategorySummaries(
+        { key: 'name', type: 'field', dataType: 'string', label: 'Name' } as any,
+        {},
+      );
+      expect(result.Visibility).toBe('Always');
+    });
+
+    it('shows dash for empty categories', () => {
+      const result = buildCategorySummaries(
+        { key: 'name', type: 'field', dataType: 'string', label: 'Name' } as any,
+        {},
+      );
+      expect(result.Validation).toBe('\u2014');
+      expect(result.Value).toBe('\u2014');
+      expect(result.Format).toBe('\u2014');
+    });
+
+    it('summarizes value category with most relevant source', () => {
+      const result = buildCategorySummaries(
+        { key: 'total', type: 'field', dataType: 'decimal', label: 'Total' } as any,
+        { calculate: '$a + $b' },
+      );
+      expect(result.Value).toContain('formula');
+    });
+
+    it('counts validation rules (required + constraint)', () => {
+      const result = buildCategorySummaries(
+        { key: 'age', type: 'field', dataType: 'integer', label: 'Age' } as any,
+        { required: 'true' },
+      );
+      expect(result.Validation).toBe('1 rule');
+    });
+
+    it('returns only Visibility and Description for display items', () => {
+      const result = buildCategorySummaries(
+        { key: 'header', type: 'display', label: 'Section Header', description: 'About you' } as any,
+        { relevant: '$page = 2' },
+      );
+      expect(Object.keys(result)).toEqual(['Visibility', 'Description']);
+      expect(result.Visibility).not.toBe('Always');
+      expect(result.Description).toBe('About you');
+    });
+
+    it('shows format summary for money with currency only', () => {
+      const result = buildCategorySummaries(
+        { key: 'price', type: 'field', dataType: 'money', label: 'Price', currency: 'EUR' } as any,
+        {},
+      );
+      expect(result.Format).toBe('EUR');
+    });
+
+    it('shows value as "locked" when only readonly is set', () => {
+      const result = buildCategorySummaries(
+        { key: 'status', type: 'field', dataType: 'string', label: 'Status' } as any,
+        { readonly: 'true' },
+      );
+      expect(result.Value).toBe('locked');
+    });
+  });
+
+  describe('buildAdvisories', () => {
+    // Advisory pattern 1: required + readonly without value source
+    it('warns when required + readonly with no value source', () => {
+      const advisories: Advisory[] = buildAdvisories(
+        { required: 'true', readonly: 'true' },
+        { key: 'locked', type: 'field', dataType: 'string', label: 'Locked' } as any,
+      );
+      expect(advisories).toHaveLength(1);
+      expect(advisories[0].message).toContain('locked with no value source');
+      expect(advisories[0].actions).toEqual([
+        { label: 'Add formula' },
+        { label: 'Add initial value' },
+        { label: 'Add pre-fill' },
+      ]);
+    });
+
+    // Advisory pattern 2: prePopulate + calculate
+    it('warns when prePopulate + calculate both present', () => {
+      const advisories = buildAdvisories(
+        { calculate: '$a + $b' },
+        {
+          key: 'total', type: 'field', dataType: 'decimal', label: 'Total',
+          prePopulate: { instance: 'src', path: 'val' },
+        } as any,
+      );
+      expect(advisories).toHaveLength(1);
+      expect(advisories[0].message).toContain('replaces the starting value from pre-fill');
+      expect(advisories[0].actions).toEqual([
+        { label: 'Remove pre-fill' },
+        { label: 'Remove formula' },
+      ]);
+    });
+
+    // Advisory pattern 3: required + readonly + calculate
+    it('warns when required + readonly + calculate makes required redundant', () => {
+      const advisories = buildAdvisories(
+        { required: 'true', readonly: 'true', calculate: '$x * 2' },
+        { key: 'computed', type: 'field', dataType: 'decimal', label: 'Computed' } as any,
+      );
+      expect(advisories).toHaveLength(1);
+      expect(advisories[0].message).toContain('mandatory rule is redundant');
+      expect(advisories[0].actions).toEqual([
+        { label: 'Remove mandatory rule' },
+      ]);
+    });
+
+    // Non-advisory: required only
+    it('returns empty for required only', () => {
+      expect(buildAdvisories(
+        { required: 'true' },
+        { key: 'name', type: 'field', dataType: 'string', label: 'Name' } as any,
+      )).toEqual([]);
+    });
+
+    // Non-advisory: readonly only
+    it('returns empty for readonly only', () => {
+      expect(buildAdvisories(
+        { readonly: 'true' },
+        { key: 'name', type: 'field', dataType: 'string', label: 'Name' } as any,
+      )).toEqual([]);
+    });
+
+    // Non-advisory: required + calculate (formula provides value)
+    it('returns empty for required + calculate (formula provides value)', () => {
+      expect(buildAdvisories(
+        { required: 'true', calculate: '$x + 1' },
+        { key: 'total', type: 'field', dataType: 'decimal', label: 'Total' } as any,
+      )).toEqual([]);
+    });
+
+    // Non-advisory: required + initialValue (value source exists)
+    it('returns empty for required + initialValue (value source exists)', () => {
+      expect(buildAdvisories(
+        { required: 'true' },
+        { key: 'age', type: 'field', dataType: 'integer', label: 'Age', initialValue: '18' } as any,
+      )).toEqual([]);
+    });
+
+    // Non-advisory: readonly + calculate (only triggers when all 3 present)
+    it('returns empty for readonly + calculate without required', () => {
+      expect(buildAdvisories(
+        { readonly: 'true', calculate: '$x' },
+        { key: 'comp', type: 'field', dataType: 'string', label: 'Comp' } as any,
+      )).toEqual([]);
+    });
+
+    // Edge case: required + readonly with initialValue — NOT an advisory (value source exists)
+    it('returns empty for required + readonly + initialValue', () => {
+      expect(buildAdvisories(
+        { required: 'true', readonly: 'true' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F', initialValue: 'default' } as any,
+      )).toEqual([]);
+    });
+
+    // Edge case: required + readonly with prePopulate — NOT an advisory (value source exists)
+    it('returns empty for required + readonly + prePopulate', () => {
+      expect(buildAdvisories(
+        { required: 'true', readonly: 'true' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F', prePopulate: { instance: 'src', path: 'p' } } as any,
+      )).toEqual([]);
+    });
+
+    // Edge case: empty binds, no item properties
+    it('returns empty for no binds and plain field', () => {
+      expect(buildAdvisories(
+        {},
+        { key: 'f', type: 'field', dataType: 'string', label: 'F' } as any,
+      )).toEqual([]);
+    });
+
+    // Edge case: pattern 3 should NOT also trigger pattern 1
+    // (required+readonly+calculate has a value source via calculate, so pattern 1 should not fire)
+    it('required + readonly + calculate only triggers pattern 3, not pattern 1', () => {
+      const advisories = buildAdvisories(
+        { required: 'true', readonly: 'true', calculate: '$x' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F' } as any,
+      );
+      expect(advisories).toHaveLength(1);
+      expect(advisories[0].message).toContain('redundant');
+    });
+
+    // Edge case: required + readonly + calculate + prePopulate triggers pattern 3 AND pattern 2
+    it('required + readonly + calculate + prePopulate triggers both pattern 3 and pattern 2', () => {
+      const advisories = buildAdvisories(
+        { required: 'true', readonly: 'true', calculate: '$x' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F', prePopulate: { instance: 's', path: 'p' } } as any,
+      );
+      expect(advisories).toHaveLength(2);
+      expect(advisories[0].message).toContain('redundant');
+      expect(advisories[1].message).toContain('replaces the starting value');
+    });
+
+    // Edge case: initialValue of 0 (falsy but valid value source)
+    it('treats initialValue of 0 as a valid value source', () => {
+      expect(buildAdvisories(
+        { required: 'true', readonly: 'true' },
+        { key: 'f', type: 'field', dataType: 'integer', label: 'F', initialValue: 0 } as any,
+      )).toEqual([]);
+    });
+
+    // Edge case: initialValue of empty string is NOT a value source
+    it('treats empty-string initialValue as no value source', () => {
+      const advisories = buildAdvisories(
+        { required: 'true', readonly: 'true' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F', initialValue: '' } as any,
+      );
+      expect(advisories).toHaveLength(1);
+      expect(advisories[0].message).toContain('locked with no value source');
+    });
+
+    // Edge case: whitespace-only initialValue is NOT a value source
+    it('treats whitespace-only initialValue as no value source', () => {
+      const advisories = buildAdvisories(
+        { required: 'true', readonly: 'true' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F', initialValue: '   ' } as any,
+      );
+      expect(advisories).toHaveLength(1);
+      expect(advisories[0].message).toContain('locked with no value source');
+    });
+  });
+
+  describe('buildExpressionDiagnostics', () => {
+    const keys = ['enabled', 'age', 'name', 'status'];
+
+    it('returns null for empty expressions', () => {
+      const result = buildExpressionDiagnostics({ required: '', relevant: '' }, keys);
+      expect(result.required).toBeNull();
+      expect(result.relevant).toBeNull();
+    });
+
+    it('returns null for valid literal expressions', () => {
+      const result = buildExpressionDiagnostics({ required: 'true', readonly: 'true' }, keys);
+      expect(result.required).toBeNull();
+      expect(result.readonly).toBeNull();
+    });
+
+    it('returns null when all $-prefixed references are valid', () => {
+      const result = buildExpressionDiagnostics(
+        { relevant: '$enabled = true', calculate: '$age + $status' },
+        keys,
+      );
+      expect(result.relevant).toBeNull();
+      expect(result.calculate).toBeNull();
+    });
+
+    it('returns error with message for undefined $-prefixed references', () => {
+      const result = buildExpressionDiagnostics(
+        { relevant: '$unknownField = true' },
+        keys,
+      );
+      expect(result.relevant).not.toBeNull();
+      expect(result.relevant!.message).toContain('unknownField');
+    });
+
+    it('provides suggestions based on substring match', () => {
+      const result = buildExpressionDiagnostics(
+        { relevant: '$stat = true' },
+        keys,
+      );
+      expect(result.relevant).not.toBeNull();
+      expect(result.relevant!.suggestions).toContain('status');
+    });
+
+    it('returns empty suggestions when no substring match exists', () => {
+      const result = buildExpressionDiagnostics(
+        { relevant: '$zzzzz = true' },
+        keys,
+      );
+      expect(result.relevant).not.toBeNull();
+      expect(result.relevant!.suggestions).toEqual([]);
+    });
+
+    it('handles multiple broken references in one expression', () => {
+      const result = buildExpressionDiagnostics(
+        { calculate: '$foo + $bar' },
+        keys,
+      );
+      expect(result.calculate).not.toBeNull();
+      expect(result.calculate!.message).toContain('foo');
+      expect(result.calculate!.message).toContain('bar');
+    });
+
+    it('handles dotted $-prefixed references by checking root key', () => {
+      const result = buildExpressionDiagnostics(
+        { relevant: '$enabled.sub = true' },
+        keys,
+      );
+      // $enabled is valid even with .sub suffix
+      expect(result.relevant).toBeNull();
+    });
+
+    it('ignores non-$ tokens', () => {
+      const result = buildExpressionDiagnostics(
+        { constraint: '. > 0 and someFunction(123)' },
+        keys,
+      );
+      expect(result.constraint).toBeNull();
+    });
+  });
+
+  describe('buildStatusPills with diagnostics', () => {
+    it('sets warn on pills whose bind has a diagnostic error', () => {
+      const binds = { relevant: '$badRef = true', required: 'true' };
+      const diagnostics: Record<string, ExpressionDiagnostic | null> = {
+        relevant: { message: 'Undefined reference: badRef', suggestions: [] },
+        required: null,
+      };
+      const pills = buildStatusPills(
+        binds,
+        { key: 'f', type: 'field' } as any,
+        diagnostics,
+      );
+      const relevantPill = pills.find(p => p.specTerm === 'relevant');
+      const requiredPill = pills.find(p => p.specTerm === 'required');
+      expect(relevantPill?.warn).toBe(true);
+      expect(requiredPill?.warn).toBeUndefined();
+    });
+
+    it('does not set warn when no diagnostics provided', () => {
+      const pills = buildStatusPills(
+        { required: 'true' },
+        { key: 'f', type: 'field' } as any,
+      );
+      expect(pills[0].warn).toBeUndefined();
+    });
   });
 });

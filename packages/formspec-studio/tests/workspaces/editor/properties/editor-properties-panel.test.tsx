@@ -64,7 +64,7 @@ describe('EditorPropertiesPanel', () => {
     renderPanel(baseDef, 'name', 'field');
     await act(async () => { screen.getByText('Select').click(); });
     expect(screen.getByText(/behavior rules/i)).toBeInTheDocument();
-    expect(screen.getByText(/^required$/i)).toBeInTheDocument();
+    expect(screen.getByText(/must fill/i)).toBeInTheDocument();
   });
 
   it('does NOT show appearance section for a selected field', async () => {
@@ -162,8 +162,8 @@ describe('EditorPropertiesPanel', () => {
   it('shows constraint bind card in binds section', async () => {
     renderPanel(baseDef, 'name', 'field');
     await act(async () => { screen.getByText('Select').click(); });
-    // constraint bind type label is shown as uppercase text
-    expect(screen.getByText(/^constraint$/i)).toBeInTheDocument();
+    // constraint bind type label is shown as verb-intent label
+    expect(screen.getByText(/validates/i)).toBeInTheDocument();
   });
 
   it('does not render constraintMessage as a separate bind card', async () => {

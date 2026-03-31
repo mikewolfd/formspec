@@ -6,7 +6,6 @@ import {
   summaryInputClassName,
   summaryInputLabel,
   summaryInputType,
-  PreFillSourceHint,
   EditMark,
 } from './item-row-shared';
 
@@ -31,6 +30,7 @@ export interface ItemRowEditState {
   activeInlineSummary: string | null;
   editingOptions: boolean;
   supportingText: SummaryEntry[];
+  categorySummaries: Record<string, string>;
   preFillSourceInputValue: string;
   summaryInputValue: (label: string) => string;
 }
@@ -65,13 +65,13 @@ export function ItemRowContent({
   } = identity;
   const {
     activeIdentityField, draftKey, draftLabel,
-    activeInlineSummary, editingOptions, supportingText,
-    preFillSourceInputValue, summaryInputValue,
+    activeInlineSummary, supportingText,
+    categorySummaries, summaryInputValue,
   } = editState;
   const {
     onDraftKeyChange, onDraftLabelChange, onCommitIdentityField,
     onCancelIdentityField, onOpenIdentityField, onOpenEditorForSummary,
-    onCloseInlineSummary, onPreFillSourceDraftChange, onUpdateSummaryValue,
+    onCloseInlineSummary, onUpdateSummaryValue,
   } = actions;
 
   const handleIdentityKeyDown = (field: 'label' | 'key') => (event: KeyboardEvent<HTMLInputElement>) => {
@@ -243,41 +243,35 @@ export function ItemRowContent({
         </div>
       </div>
 
+      {/* Category summary grid — fixed slots, read-only indicators */}
       <dl
         data-testid={`${testId}-summary`}
-        className="grid gap-x-5 gap-y-3 sm:grid-cols-2 xl:grid-cols-4"
+        className={`grid gap-x-5 gap-y-3 ${Object.keys(categorySummaries).length <= 2 ? 'grid-cols-2' : Object.keys(categorySummaries).length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}
       >
-        {supportingText.map((entry) => (
-          <div key={entry.label} className="min-w-0 border-l border-border/65 pl-3">
-            <dt className="font-mono text-[11px] tracking-[0.14em] text-ink/62">{entry.label}</dt>
-            {activeInlineSummary === entry.label && entry.label !== 'Options' ? (
-              entry.label === 'Pre-fill' ? (
-                <>
-                  <PreFillSourceHint />
-                  <input
-                    aria-label={summaryInputLabel(entry.label)}
-                    type={summaryInputType(entry.label)}
-                    autoFocus
-                    className={`${summaryInputClassName} font-mono`}
-                    value={preFillSourceInputValue}
-                    placeholder="@priorYear.totalIncome"
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => {
-                      const v = event.currentTarget.value;
-                      onPreFillSourceDraftChange(v);
-                      onUpdateSummaryValue(entry.label, v);
-                    }}
-                    onBlur={onCloseInlineSummary}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') onCloseInlineSummary();
-                      if (event.key === 'Escape') {
-                        event.preventDefault();
-                        onCloseInlineSummary();
-                      }
-                    }}
-                  />
-                </>
-              ) : (
+        {Object.entries(categorySummaries).map(([category, value]) => (
+          <div key={category} className="min-w-0 border-l border-border/65 pl-3">
+            <dt className="font-mono text-[11px] tracking-[0.14em] text-ink/62">{category}</dt>
+            <dd
+              className={`group mt-1 inline-flex max-w-full items-center truncate text-[14px] font-medium leading-5 text-ink/94 md:text-[15px] ${selected ? 'cursor-pointer' : ''}`}
+              onClick={(event) => {
+                if (!selected) return;
+                event.stopPropagation();
+                onOpenEditorForSummary(category);
+              }}
+            >
+              <span className="truncate">{value}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {/* Content rows — Description / Hint remain inline-editable */}
+      {supportingText.length > 0 && (
+        <dl className="mt-3 grid gap-x-5 gap-y-3 sm:grid-cols-2">
+          {supportingText.map((entry) => (
+            <div key={entry.label} className="min-w-0 border-l border-border/65 pl-3">
+              <dt className="font-mono text-[11px] tracking-[0.14em] text-ink/62">{entry.label}</dt>
+              {activeInlineSummary === entry.label ? (
                 <input
                   aria-label={summaryInputLabel(entry.label)}
                   type={summaryInputType(entry.label)}
@@ -295,34 +289,25 @@ export function ItemRowContent({
                     }
                   }}
                 />
-              )
-            ) : editingOptions && entry.label === 'Options' ? (
-              <button
-                type="button"
-                aria-label={`Edit options for ${itemLabel}`}
-                className="mt-1 inline-flex rounded-full border border-border/90 px-2.5 py-1 text-[12px] font-medium text-ink/75 transition-colors hover:border-accent/40 hover:text-ink"
-                onClick={(event) => event.stopPropagation()}
-              >
-                Editing options below
-              </button>
-            ) : (
-              <dd
-                className={`group mt-1 inline-flex max-w-full items-center truncate text-[14px] font-medium leading-5 text-ink/94 md:text-[15px] ${selected ? 'cursor-text' : ''}`}
-                onClick={(event) => {
-                  if (!selected) return;
-                  event.stopPropagation();
-                  onOpenEditorForSummary(entry.label);
-                }}
-              >
-                <span className={`truncate ${entry.value ? '' : 'text-ink/56 italic'}`}>
-                  {entry.value || (selected ? `Click to add ${entry.label.toLowerCase()}` : '\u2014')}
-                </span>
-                {selected ? <EditMark testId={`${testId}-summary-edit-${entry.label}`} /> : null}
-              </dd>
-            )}
-          </div>
-        ))}
-      </dl>
+              ) : (
+                <dd
+                  className={`group mt-1 inline-flex max-w-full items-center truncate text-[14px] font-medium leading-5 text-ink/94 md:text-[15px] ${selected ? 'cursor-text' : ''}`}
+                  onClick={(event) => {
+                    if (!selected) return;
+                    event.stopPropagation();
+                    onOpenEditorForSummary(entry.label);
+                  }}
+                >
+                  <span className={`truncate ${entry.value ? '' : 'text-ink/56 italic'}`}>
+                    {entry.value || (selected ? `Click to add ${entry.label.toLowerCase()}` : '\u2014')}
+                  </span>
+                  {selected ? <EditMark testId={`${testId}-summary-edit-${entry.label}`} /> : null}
+                </dd>
+              )}
+            </div>
+          ))}
+        </dl>
+      )}
     </div>
   );
 }

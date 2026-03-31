@@ -410,7 +410,7 @@ export function GroupNode({
                 />
               )}
               {statusPills.map((pill) => (
-                <Pill key={`${itemPath}-${pill.text}`} text={pill.text} color={pill.color} size="sm" />
+                <Pill key={`${itemPath}-${pill.text}`} text={pill.text} color={pill.color} size="sm" title={pill.specTerm} />
               ))}
               {selected && (
                 <button

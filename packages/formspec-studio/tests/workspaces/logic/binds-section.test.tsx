@@ -43,8 +43,8 @@ describe('BindsSection', () => {
 
   it('shows bind type pills per field', () => {
     renderBinds();
-    const allRequired = screen.getAllByText(/required/i);
-    expect(allRequired.length).toBeGreaterThanOrEqual(1);
+    const allMustFill = screen.getAllByText(/must fill/i);
+    expect(allMustFill.length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows expression text', () => {
@@ -78,8 +78,8 @@ describe('BindsSection', () => {
 
   it('BindCard still shows type label and colored border', () => {
     renderBinds();
-    const allRequired = screen.getAllByText(/required/i);
-    expect(allRequired.length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/relevant/i)).toBeInTheDocument();
+    const allMustFill = screen.getAllByText(/must fill/i);
+    expect(allMustFill.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/shows if/i)).toBeInTheDocument();
   });
 });

@@ -42,16 +42,12 @@ test.describe('Blueprint Selection Sync', () => {
     await page.waitForSelector('[data-testid="field-firstName"]', { timeout: 5000 });
   });
 
-  test('Structure Tree click populates the Properties panel', async ({ page }) => {
+  test('Structure Tree click selects the field in the editor', async ({ page }) => {
     // Click on "firstName" in the Structure Tree
     await page.click('[data-testid="tree-item-firstName"]');
 
-    // Properties panel should show "firstName" in the key input
-    const properties = propertiesPanel(page);
-    await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
-
-    // Properties panel should show data type info (String)
-    await expect(properties).toContainText('String');
+    // The field row in the editor should show selected styling
+    await expect(page.locator('[data-testid="field-firstName"]')).toHaveClass(/border-accent/);
   });
 
   test('Editor canvas click highlights the tree item', async ({ page }) => {
@@ -71,8 +67,7 @@ test.describe('Blueprint Selection Sync', () => {
     await page.click('[data-testid="field-firstName"]');
 
     // Verify it is selected before switching
-    const properties = propertiesPanel(page);
-    await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
+    await expect(page.locator('[data-testid="field-firstName"]')).toHaveClass(/border-accent/);
 
     // Switch to Layout tab
     await switchTab(page, 'Layout');
@@ -82,22 +77,22 @@ test.describe('Blueprint Selection Sync', () => {
 
     // Field block should still have selected styling (border-accent)
     await expect(page.locator('[data-testid="field-firstName"]')).toHaveClass(/border-accent/);
-
-    // Properties panel should still show "firstName"
-    await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
   });
 
   test('Clicking canvas background deselects the item', async ({ page }) => {
     // Select firstName first
     await page.click('[data-testid="field-firstName"]');
-    const properties = propertiesPanel(page);
-    await expect(properties.locator('input[type="text"]').first()).toHaveValue('firstName');
+    await expect(page.locator('[data-testid="field-firstName"]')).toHaveClass(/border-accent/);
 
     // Click on the canvas container background (outside any field block)
     // Use the workspace container and click at the very top (above field blocks)
     await page.click('[data-testid="workspace-Editor"]', { position: { x: 10, y: 5 } });
 
-    // When deselected, the right rail shows Form Health panel (not field properties).
+    // When deselected, the field should lose its selected styling
+    await expect(page.locator('[data-testid="field-firstName"]')).not.toHaveClass(/border-accent/);
+
+    // The right rail shows Form Health panel
+    const properties = propertiesPanel(page);
     await expect(properties).toContainText('Form Health');
     await expect(properties).toContainText('Issues');
   });
@@ -118,7 +113,7 @@ test.describe('Blueprint Selection Sync', () => {
     // Now the tree item for email should be visible
     await page.click('[data-testid="tree-item-pageTwo.email"]');
 
-    // Properties panel should show the email field
-    await expect(propertiesPanel(page).locator('input[type="text"]').first()).toHaveValue('email');
+    // The email field should be selected in the editor (border-accent styling)
+    await expect(page.locator('[data-testid="field-email"]')).toHaveClass(/border-accent/);
   });
 });

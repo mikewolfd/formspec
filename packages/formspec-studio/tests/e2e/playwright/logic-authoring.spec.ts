@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForApp, switchTab, importDefinition, propertiesPanel } from './helpers';
+import { waitForApp, importDefinition } from './helpers';
 
 const LOGIC_DEFINITION = {
   $formspec: '1.0',
@@ -80,7 +80,9 @@ test.describe('Editor Manage View — Logic', () => {
 
   test('shows shapes section with severity badge and constraint', async ({ page }) => {
     const workspace = page.locator('[data-testid="workspace-Editor"]');
-    await expect(workspace.getByText('ageValid')).toBeVisible();
+    // Use the shapes section to scope the selector and avoid strict mode violations
+    const shapesSection = workspace.locator('[data-testid="manage-section-shapes"]');
+    await expect(shapesSection.getByText('ageValid')).toBeVisible();
     await expect(workspace.getByText('$age >= 0 and $age <= 120')).toBeVisible();
   });
 
@@ -103,10 +105,9 @@ test.describe('Editor Manage View — Logic', () => {
     const workspace = page.locator('[data-testid="workspace-Editor"]');
     await workspace.getByText('income', { exact: true }).click();
 
-    // Switch to Build view — the properties panel should show the selected field
+    // Switch to Build view — the field should be selected in the editor
     await page.getByRole('radio', { name: 'Build' }).click();
-    const properties = propertiesPanel(page);
-    await expect(properties.locator('input[type="text"]').first()).toHaveValue('income');
+    await expect(page.locator('[data-testid="field-income"]')).toHaveClass(/border-accent/);
   });
 });
 

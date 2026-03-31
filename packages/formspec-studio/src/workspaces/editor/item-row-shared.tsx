@@ -8,6 +8,8 @@ export interface SummaryEntry {
 export interface StatusPill {
   text: string;
   color: 'accent' | 'logic' | 'error' | 'green' | 'amber' | 'muted';
+  /** Spec-normative term for tooltip discoverability. */
+  specTerm: string;
 }
 
 export interface MissingAction {
@@ -69,11 +71,11 @@ export function summaryInputLabel(label: string): string {
     case 'Suffix': return 'Inline suffix';
     case 'Semantic': return 'Inline semantic';
     case 'Pre-fill': return 'Inline pre-fill';
-    case 'Calculate': return 'Inline calculate';
-    case 'Relevant': return 'Inline relevant';
-    case 'Readonly': return 'Inline readonly';
-    case 'Required': return 'Inline required';
-    case 'Constraint': return 'Inline constraint';
+    case 'Calculate': return 'Inline formula';
+    case 'Relevant': return 'Inline visibility condition';
+    case 'Readonly': return 'Inline locked rule';
+    case 'Required': return 'Inline mandatory rule';
+    case 'Constraint': return 'Inline validation rule';
     case 'Message': return 'Inline message';
     default: return `Inline ${label.toLowerCase()}`;
   }

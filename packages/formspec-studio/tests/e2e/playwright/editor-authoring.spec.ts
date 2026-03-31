@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addFromPalette, editorFieldRows, editorGroupRows, importDefinition, propertiesPanel, waitForApp } from './helpers';
+import { addFromPalette, editorFieldRows, editorGroupRows, importDefinition, waitForApp } from './helpers';
 
 test.describe('Editor Authoring', () => {
   test.beforeEach(async ({ page }) => {
@@ -46,26 +46,24 @@ test.describe('Editor Authoring', () => {
     // Add a new field via palette
     await addFromPalette(page, 'Text');
 
-    // The newly added field should be auto-selected in the inspector
+    // The newly added field should be auto-selected (has selected styling)
     const fields = editorFieldRows(page);
-    // marital is inside pageOne group, new field is at root — find the last editor field row
     const allFields = await fields.all();
     const lastField = allFields[allFields.length - 1];
-    const newFieldTestId = await lastField.getAttribute('data-testid');
-    const newFieldKey = newFieldTestId?.replace('field-', '');
-
-    const properties = propertiesPanel(page);
-    await expect(properties.locator('input[type="text"]').first()).toHaveValue(newFieldKey || '');
+    // The newly added field should have selected styling (border-accent)
+    await expect(lastField).toHaveClass(/border-accent/);
   });
 
-  test('adding a Single Choice field immediately focuses the key input for renaming', async ({ page }) => {
+  test('adding a Single Choice field auto-selects the new field', async ({ page }) => {
     await addFromPalette(page, 'Single Choice');
 
-    const keyInput = propertiesPanel(page).locator('input[type="text"]').first();
-    await expect(keyInput).toBeFocused();
+    // After adding, the new field should be auto-selected (has border-accent styling)
+    const fields = editorFieldRows(page);
+    await expect(fields).toHaveCount(1);
+    await expect(fields.first()).toHaveClass(/border-accent/);
   });
 
-  test('select a field — Properties panel populates', async ({ page }) => {
+  test('select a field — field row shows selected styling with key and type', async ({ page }) => {
     await importDefinition(page, {
       $formspec: '1.0',
       items: [{ key: 'myField', type: 'field', dataType: 'string', label: 'My Field' }],
@@ -73,48 +71,59 @@ test.describe('Editor Authoring', () => {
 
     await page.click('[data-testid="field-myField"]');
 
-    const properties = propertiesPanel(page);
-    await expect(properties.locator('input[type="text"]').first()).toHaveValue('myField');
-    await expect(properties).toContainText('String');
+    // Field row should have selected styling
+    const row = page.locator('[data-testid="field-myField"]');
+    await expect(row).toHaveClass(/border-accent/);
+    // Key text and data type should be visible in the row
+    await expect(row).toContainText('myField');
+    await expect(row).toContainText('string');
   });
 
-  test('rename a field via Properties panel', async ({ page }) => {
+  test('rename a field via inline key editing', async ({ page }) => {
     await importDefinition(page, {
       $formspec: '1.0',
       items: [{ key: 'oldName', type: 'field', dataType: 'string', label: 'Old Name' }],
     });
 
+    // Select the field
     await page.click('[data-testid="field-oldName"]');
 
-    const keyInput = propertiesPanel(page).locator('input[type="text"]').first();
+    // Click the key text to open inline key editor
+    const row = page.locator('[data-testid="field-oldName"]');
+    await row.locator('[data-testid="field-oldName-key-edit"]').click();
+
+    // Fill the inline key input
+    const keyInput = page.getByLabel('Inline key');
     await keyInput.fill('firstName');
-    await page.click('[data-testid="workspace-Editor"]');
+    await keyInput.press('Enter');
 
     await expect(page.locator('[data-testid="field-firstName"]')).toBeVisible();
     await expect(page.locator('[data-testid="field-oldName"]')).not.toBeVisible();
   });
 
-  test('duplicate a field via Properties panel', async ({ page }) => {
+  test('duplicate a field via context menu', async ({ page }) => {
     await importDefinition(page, {
       $formspec: '1.0',
       items: [{ key: 'myField', type: 'field', dataType: 'string', label: 'My Field' }],
     });
 
-    await page.click('[data-testid="field-myField"]');
-    await propertiesPanel(page).getByRole('button', { name: 'Duplicate' }).click();
+    await page.click('[data-testid="field-myField"]', { button: 'right' });
+    await page.click('[data-testid="ctx-duplicate"]');
 
     const fieldBlocks = editorFieldRows(page);
     await expect(fieldBlocks).toHaveCount(2);
   });
 
-  test('delete a field via Properties panel', async ({ page }) => {
+  test('delete a field via context menu', async ({ page }) => {
     await importDefinition(page, {
       $formspec: '1.0',
       items: [{ key: 'toDelete', type: 'field', dataType: 'string', label: 'To Delete' }],
     });
 
-    await page.click('[data-testid="field-toDelete"]');
-    await propertiesPanel(page).getByRole('button', { name: 'Delete' }).click();
+    await page.click('[data-testid="field-toDelete"]', { button: 'right' });
+    await page.click('[data-testid="ctx-delete"]');
+    // Confirm the delete dialog
+    await page.getByRole('button', { name: /Confirm Delete/i }).click();
 
     await expect(page.locator('[data-testid="field-toDelete"]')).not.toBeVisible();
   });
@@ -160,7 +169,7 @@ test.describe('Editor Authoring', () => {
     await expect(editorFieldRows(page)).toHaveCount(1);
   });
 
-  test('field details: Pre-fill launcher, combined source, and editable toggle', async ({ page }) => {
+  test('field details: Pre-fill via Value section Add Behavior menu', async ({ page }) => {
     await importDefinition(page, {
       $formspec: '1.0',
       url: 'urn:e2e-tree-pre-fill',
@@ -173,25 +182,14 @@ test.describe('Editor Authoring', () => {
     const row = page.locator('[data-testid="field-accountNumber"]');
     await row.locator('[data-testid="field-accountNumber-select"]').click();
 
-    await row.getByTestId('field-accountNumber-add-pre-fill').click();
+    // Open the Value accordion section
+    await row.getByRole('button', { name: /Expand Value/i }).click();
 
-    const preFillInput = row.getByLabel('Inline pre-fill');
-    await expect(preFillInput).toBeVisible();
-    await preFillInput.fill('@applicant.crm.account_number');
+    // Click "Add Calculation / Pre-population" menu and select Pre-populate
+    await row.getByRole('button', { name: /Add Calculation/i }).click();
+    await page.getByText('Pre-populate', { exact: false }).click();
 
-    await expect(row.getByTestId('field-accountNumber-pre-populate-extras')).toBeVisible();
-
-    const editable = row.getByLabel('Inline pre-populate editable');
-    await expect(editable).toBeChecked();
-    await editable.focus();
-    await expect(editable).toBeFocused();
-    await page.keyboard.press('Space');
-    await expect(editable).not.toBeChecked();
-
-    // Orphan editor may dismiss when focus moves; edit source again from the summary row.
-    await row.getByTestId('field-accountNumber-summary-edit-Pre-fill').click();
-    const preFillSummaryInput = row.getByLabel('Inline pre-fill');
-    await preFillSummaryInput.fill('$other.source.path');
-    await expect(preFillSummaryInput).toHaveValue('$other.source.path');
+    // A PrePopulateCard should now be visible in the Value section
+    await expect(row.locator('[data-testid="field-accountNumber-lower-panel"]')).toBeVisible();
   });
 });

@@ -17,6 +17,10 @@ import {
 } from './item-row-shared';
 import { ItemRowContent } from './ItemRowContent';
 import { ItemRowLowerPanel } from './ItemRowLowerPanel';
+import { OptionsModal } from '../../components/ui/OptionsModal';
+
+/** Accordion section identifiers for the lower panel. */
+export type OpenSection = 'visibility' | 'validation' | 'value' | 'format' | null;
 
 interface ItemRowProps {
   itemKey: string;
@@ -24,6 +28,7 @@ interface ItemRowProps {
   itemType: 'field' | 'display';
   label?: string;
   summaries?: SummaryEntry[];
+  categorySummaries?: Record<string, string>;
   dataType?: string;
   widgetHint?: string;
   statusPills?: StatusPill[];
@@ -45,6 +50,7 @@ export function ItemRow({
   itemType,
   label,
   summaries = [],
+  categorySummaries,
   dataType,
   widgetHint,
   statusPills = [],
@@ -60,19 +66,18 @@ export function ItemRow({
   onContextMenu,
 }: ItemRowProps) {
   const isField = itemType === 'field';
+  const isDisplayItem = itemType === 'display';
   const testId = isField ? `field-${itemKey}` : `display-${itemKey}`;
 
   const dt = dataType ? dataTypeInfo(dataType) : null;
   const visibleMissingActions = selected ? missingActions : [];
   const showFooter = statusPills.length > 0;
   const [activeIdentityField, setActiveIdentityField] = useState<'label' | 'key' | null>(null);
-  const [editingContent, setEditingContent] = useState<'description' | 'hint' | 'both' | null>(null);
-  const [editingFieldConfig, setEditingFieldConfig] = useState(false);
-  const [editingBehavior, setEditingBehavior] = useState(false);
-  const [editingOptions, setEditingOptions] = useState(false);
+  const [openSection, setOpenSection] = useState<OpenSection>(null);
   const [draftKey, setDraftKey] = useState(itemKey);
   const [draftLabel, setDraftLabel] = useState(() => (label?.trim() ? label.trim() : ''));
   const [activeInlineSummary, setActiveInlineSummary] = useState<string | null>(null);
+  const [optionsModalOpen, setOptionsModalOpen] = useState(false);
   /** Keeps literal `@` / `$` while editing; definition only stores instance + path. */
   const [preFillSourceDraft, setPreFillSourceDraft] = useState<string | null>(null);
   const wasEditingPreFillRef = useRef(false);
@@ -95,20 +100,15 @@ export function ItemRow({
   useEffect(() => {
     if (!selected) {
       setActiveIdentityField(null);
-      setEditingContent(null);
-      setEditingFieldConfig(false);
-      setEditingBehavior(false);
-      setEditingOptions(false);
+      setOpenSection(null);
       setPreFillLowerSession(false);
       setActiveInlineSummary(null);
+      setOptionsModalOpen(false);
       return;
     }
-    if (isField) {
-      setEditingFieldConfig(true);
-    } else {
-      setEditingFieldConfig(false);
-    }
-  }, [selected, isField]);
+    // Default open section when selected
+    setOpenSection('visibility');
+  }, [selected]);
 
   const itemLabel = label || itemKey;
   const labelForDescription =
@@ -130,9 +130,10 @@ export function ItemRow({
   const prePopulateValue = item?.type === 'field' && item.prePopulate && typeof item.prePopulate === 'object'
     ? item.prePopulate
     : null;
-  const hiddenSummaryLabels = new Set<string>([
-    ...(editingOptions ? ['Options'] : []),
-  ]);
+
+  const choiceOptions = Array.isArray(item?.options ?? (item as Record<string, unknown>)?.choices)
+    ? ((item?.options ?? (item as Record<string, unknown>)?.choices) as Array<{ value: string; label: string; keywords?: string[] }>)
+    : [];
   const contentSummaryMap = new Map(
     summaries
       .filter((entry) => entry.label === 'Description' || entry.label === 'Hint')
@@ -146,16 +147,11 @@ export function ItemRow({
   const contentEntries = selected
     ? allContentEntries
     : allContentEntries.filter((entry) => entry.value.trim().length > 0);
-  const supportingText = [
-    ...contentEntries,
-    ...summaries.filter((entry) => entry.label !== 'Description' && entry.label !== 'Hint' && !hiddenSummaryLabels.has(entry.label)),
-  ];
+  // Content rows: only Description and Hint (everything else is in the category grid now)
+  const supportingText = contentEntries;
   const resetEditors = () => {
     setActiveIdentityField(null);
-    setEditingContent(null);
-    setEditingFieldConfig(false);
-    setEditingBehavior(false);
-    setEditingOptions(false);
+    setOpenSection(null);
     setPreFillSourceDraft(null);
     setPreFillLowerSession(false);
     setActiveInlineSummary(null);
@@ -173,53 +169,42 @@ export function ItemRow({
     if (label === 'Description' || label === 'Hint') {
       setPreFillLowerSession(false);
       setActiveInlineSummary(label);
-      setEditingContent(label === 'Description' ? 'description' : 'hint');
-      setEditingFieldConfig(isField);
-      setEditingBehavior(false);
-      setEditingOptions(false);
+      // Keep the current open section (or default to visibility for fields)
+      if (isField && openSection === null) setOpenSection('visibility');
       return;
     }
     if (label === 'Options') {
-      setPreFillLowerSession(false);
-      closeOtherEditors('options');
+      setOptionsModalOpen(true);
       return;
     }
     if (label === 'Calculate' || label === 'Relevant' || label === 'Readonly' || label === 'Required' || label === 'Constraint' || label === 'Message') {
       setPreFillLowerSession(false);
       setActiveInlineSummary(label);
-      setEditingContent(null);
-      setEditingFieldConfig(false);
-      setEditingBehavior(true);
-      setEditingOptions(false);
+      if (label === 'Relevant') {
+        setOpenSection('visibility');
+      } else if (label === 'Calculate' || label === 'Readonly') {
+        setOpenSection('value');
+      } else {
+        setOpenSection('validation');
+      }
       return;
     }
     if (label === 'Pre-fill' && opts?.preFillFromLauncher) {
       setPreFillLowerSession(true);
       setActiveInlineSummary(null);
-      setEditingFieldConfig(true);
+      setOpenSection('value');
       return;
     }
     if (label === 'Pre-fill') {
       setPreFillLowerSession(false);
       setActiveInlineSummary('Pre-fill');
-      setEditingFieldConfig(true);
+      setOpenSection('value');
       return;
     }
+    // Default: field-detail items (Currency, Precision, etc.) go to format section
     setPreFillLowerSession(false);
     setActiveInlineSummary(label);
-    setEditingFieldConfig(true);
-  };
-
-  const closeOtherEditors = (kind: 'content' | 'config' | 'behavior' | 'options') => {
-    setActiveIdentityField(null);
-    setEditingContent(kind === 'content' ? 'both' : null);
-    setEditingFieldConfig(kind === 'config');
-    setEditingBehavior(kind === 'behavior');
-    setEditingOptions(kind === 'options');
-    if (kind !== 'content' && kind !== 'config') {
-      setPreFillLowerSession(false);
-      setActiveInlineSummary(null);
-    }
+    setOpenSection('format');
   };
 
   const commitIdentityField = (field: 'label' | 'key') => {
@@ -243,9 +228,7 @@ export function ItemRow({
     setPreFillSourceDraft(null);
     setPreFillLowerSession(false);
     setActiveInlineSummary(null);
-    setEditingContent(null);
-    setEditingFieldConfig(Boolean(selected && isField));
-    setEditingBehavior(false);
+    // Keep the current accordion section open — only clear inline editing state
   };
 
   const editingDisplayContent =
@@ -253,9 +236,7 @@ export function ItemRow({
     (activeInlineSummary === 'Description' || activeInlineSummary === 'Hint');
 
   const showLowerPanel =
-    (editingFieldConfig && item?.type === 'field') ||
-    editingBehavior ||
-    editingOptions ||
+    (openSection !== null && (isField ? item?.type === 'field' : true)) ||
     editingDisplayContent ||
     preFillLowerSession;
 
@@ -413,9 +394,7 @@ export function ItemRow({
           if (blurredLabel === 'Pre-fill') {
             setPreFillSourceDraft(null);
           }
-          setEditingContent(null);
-          setEditingFieldConfig(Boolean(selected && isField));
-          setEditingBehavior(false);
+          // Keep the current accordion section open — only clear inline state
         }
       };
       // Blur may report no relatedTarget; focus moves on the next task (e.g. checkbox in field details).
@@ -441,8 +420,9 @@ export function ItemRow({
         draftKey,
         draftLabel,
         activeInlineSummary,
-        editingOptions,
+        editingOptions: false,
         supportingText,
+        categorySummaries: categorySummaries ?? {},
         preFillSourceInputValue,
         summaryInputValue,
       }}
@@ -505,7 +485,7 @@ export function ItemRow({
           className="mt-3 flex flex-wrap items-center gap-2"
         >
           {statusPills.map((pill) => (
-            <Pill key={`${itemPath}-${pill.text}`} text={pill.text} color={pill.color} size="sm" />
+            <Pill key={`${itemPath}-${pill.text}`} text={pill.text} color={pill.color} size="sm" title={pill.specTerm} />
           ))}
         </div>
       )}
@@ -520,11 +500,10 @@ export function ItemRow({
           binds={binds}
           isField={isField}
           isChoiceField={isChoiceField}
+          isDisplayItem={isDisplayItem}
           selected={selected}
-          editingFieldConfig={editingFieldConfig}
-          editingBehavior={editingBehavior}
-          editingOptions={editingOptions}
-          editingDisplayContent={editingDisplayContent}
+          openSection={openSection}
+          onSectionChange={setOpenSection}
           preFillLowerSession={preFillLowerSession}
           orphanUiLabel={orphanUiLabel}
           orphanFieldDetailLabel={orphanFieldDetailLabel}
@@ -535,12 +514,22 @@ export function ItemRow({
           summaryInputValue={summaryInputValue}
           updateSummaryValue={updateSummaryValue}
           closeInlineSummary={closeInlineSummary}
-          closeOtherEditors={closeOtherEditors}
           openEditorForSummary={openEditorForSummary}
           handleOrphanFieldDetailBlur={handleOrphanFieldDetailBlur}
           preFillSourceInputValue={preFillSourceInputValue}
           onPreFillSourceDraftChange={setPreFillSourceDraft}
           onUpdateItem={onUpdateItem}
+        />
+      )}
+
+      {isChoiceField && (
+        <OptionsModal
+          open={optionsModalOpen}
+          itemLabel={itemLabel}
+          itemPath={itemPath}
+          options={choiceOptions}
+          onUpdateOptions={(opts) => onUpdateItem?.({ options: opts })}
+          onClose={() => setOptionsModalOpen(false)}
         />
       )}
     </div>

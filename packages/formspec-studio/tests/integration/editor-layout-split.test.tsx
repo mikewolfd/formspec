@@ -317,8 +317,8 @@ describe('Layout properties shows only component props', () => {
     // Tier 1 sections absent
     expect(screen.queryByLabelText(/^key$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/behavior rules/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/^constraint$/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/^required$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/validates/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/must fill/i)).not.toBeInTheDocument();
   });
 
   it('selecting from LayoutCanvas updates the layout-scoped inspector', () => {

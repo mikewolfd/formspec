@@ -202,7 +202,7 @@ test.describe('Interaction Patterns', () => {
       await expect(page.locator('[data-testid="command-palette"]')).not.toBeVisible();
     });
 
-    test('Tab moves focus to the next field card instead of jumping into the inspector', async ({ page }) => {
+    test('Tab from the select button moves focus to the next field card', async ({ page }) => {
       await importDefinition(page, {
         $formspec: '1.0',
         items: [
@@ -213,7 +213,8 @@ test.describe('Interaction Patterns', () => {
       await page.waitForSelector('[data-testid="field-firstField"]');
       await page.waitForSelector('[data-testid="field-secondField"]');
 
-      await page.click('[data-testid="field-firstField"]');
+      // Focus the select button directly (the ItemRow select button handles Tab via onKeyDown)
+      await page.locator('[data-testid="field-firstField-select"]').focus();
       await page.keyboard.press('Tab');
 
       await expect(page.locator('[data-testid="field-secondField-select"]')).toBeFocused();

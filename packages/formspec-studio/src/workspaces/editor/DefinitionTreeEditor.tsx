@@ -7,6 +7,7 @@ import {
   bindsFor,
   buildDefLookup,
   buildMissingPropertyActions,
+  buildCategorySummaries,
   buildRowSummaries,
   buildStatusPills,
   type MissingPropertyAction,
@@ -80,6 +81,7 @@ function renderItemTree(
     const path = parentPath ? `${parentPath}.${item.key}` : item.key;
     const itemBinds = bindsFor(allBinds, path);
     const summaries = buildRowSummaries(item, itemBinds);
+    const categorySummaries = buildCategorySummaries(item, itemBinds);
     const statusPills = buildStatusPills(itemBinds, item);
     const resolvedLabel = typeof item.label === 'string' && item.label.trim() ? item.label : item.key;
     const missingActions = buildMissingPropertyActions(item, itemBinds, resolvedLabel);
@@ -124,6 +126,7 @@ function renderItemTree(
           itemType={itemType}
           label={item.label}
           summaries={summaries}
+          categorySummaries={categorySummaries}
           dataType={item.dataType}
           widgetHint={item.presentation?.widgetHint}
           statusPills={statusPills}

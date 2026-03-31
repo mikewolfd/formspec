@@ -1,12 +1,10 @@
-/** @filedesc Expanded lower panel for ItemRow: field config, behavior binds, display content, and options editing. */
+/** @filedesc Expanded lower panel for ItemRow: accordion sections for visibility, validation, value, and format. */
 import { forwardRef, type FocusEventHandler } from 'react';
 import { BindCard } from '../../components/ui/BindCard';
 import { InlineExpression } from '../../components/ui/InlineExpression';
 import { AddBehaviorMenu } from '../../components/ui/AddBehaviorMenu';
 import { PrePopulateCard } from '../../components/ui/PrePopulateCard';
 import {
-  formatCommaSeparatedKeywords,
-  parseCommaSeparatedKeywords,
   humanizeFEL,
 } from '@formspec-org/studio-core';
 import type { FormItem } from '@formspec-org/types';
@@ -16,12 +14,10 @@ import {
 import {
   EDITOR_DASH_BUTTON,
   summaryInputClassName,
-  lowerEditorInputClassName,
   summaryInputLabel,
   summaryInputType,
 } from './item-row-shared';
-
-type ChoiceOptionRow = { value: string; label: string; keywords?: string[] };
+import type { OpenSection } from './ItemRow';
 
 interface FieldDetailLauncher {
   label: string;
@@ -37,27 +33,85 @@ export interface ItemRowLowerPanelProps {
   binds: Record<string, string>;
   isField: boolean;
   isChoiceField: boolean;
+  isDisplayItem: boolean;
   selected: boolean | undefined;
-  editingFieldConfig: boolean;
-  editingBehavior: boolean;
-  editingOptions: boolean;
-  editingDisplayContent: boolean;
+  openSection: OpenSection;
+  onSectionChange: (section: OpenSection) => void;
   preFillLowerSession: boolean;
   orphanUiLabel: string | null;
   orphanFieldDetailLabel: string | null;
   prePopulateValue: Record<string, unknown> | null;
-  statusPills: { text: string; color: string }[];
+  statusPills: { text: string; color: string; specTerm: string }[];
   visibleMissingActions: { key: string; label: string; ariaLabel: string }[];
   fieldDetailLaunchers: FieldDetailLauncher[];
   summaryInputValue: (label: string) => string;
   updateSummaryValue: (label: string, rawValue: string) => void;
   closeInlineSummary: () => void;
-  closeOtherEditors: (kind: 'content' | 'config' | 'behavior' | 'options') => void;
   openEditorForSummary: (label: string, opts?: { preFillFromLauncher?: boolean }) => void;
   handleOrphanFieldDetailBlur: FocusEventHandler<HTMLInputElement>;
   preFillSourceInputValue: string;
   onPreFillSourceDraftChange: (value: string) => void;
   onUpdateItem: ((changes: Record<string, unknown>) => void) | undefined;
+}
+
+/** A controlled accordion section header+body for the lower panel. */
+function AccordionSection({
+  title,
+  subtitle,
+  sectionKey,
+  openSection,
+  onSectionChange,
+  children,
+  colorBar = 'border-l-accent',
+}: {
+  title: string;
+  subtitle: string;
+  sectionKey: string;
+  openSection: OpenSection;
+  onSectionChange: (section: OpenSection) => void;
+  children: React.ReactNode;
+  colorBar?: string;
+}) {
+  const isOpen = openSection === sectionKey;
+  return (
+    <div className={`border-l-2 ${colorBar} pl-3`}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSectionChange(isOpen ? null : sectionKey as OpenSection);
+        }}
+        className="flex w-full items-center justify-between py-2 text-left"
+        aria-expanded={isOpen}
+        aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${title}`}
+      >
+        <div>
+          <span className="text-[13px] font-semibold tracking-[0.04em] text-ink/84">{title}</span>
+          {!isOpen && (
+            <span className="ml-2 text-[11px] text-ink/50">{subtitle}</span>
+          )}
+        </div>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          className={`text-muted transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M2 3.5 L5 6.5 L8 3.5" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="space-y-3 pb-3">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export const ItemRowLowerPanel = forwardRef<HTMLDivElement, ItemRowLowerPanelProps>(function ItemRowLowerPanel({
@@ -68,11 +122,10 @@ export const ItemRowLowerPanel = forwardRef<HTMLDivElement, ItemRowLowerPanelPro
   binds,
   isField,
   isChoiceField,
+  isDisplayItem,
   selected,
-  editingFieldConfig,
-  editingBehavior,
-  editingOptions,
-  editingDisplayContent,
+  openSection,
+  onSectionChange,
   preFillLowerSession,
   orphanUiLabel,
   orphanFieldDetailLabel,
@@ -83,16 +136,25 @@ export const ItemRowLowerPanel = forwardRef<HTMLDivElement, ItemRowLowerPanelPro
   summaryInputValue,
   updateSummaryValue,
   closeInlineSummary,
-  closeOtherEditors,
   openEditorForSummary,
   handleOrphanFieldDetailBlur,
   preFillSourceInputValue,
   onPreFillSourceDraftChange,
   onUpdateItem,
 }, ref) {
-  const choiceOptions = Array.isArray(item?.options ?? item?.choices)
-    ? ((item?.options ?? item?.choices) as ChoiceOptionRow[])
-    : [];
+  const editingDisplayContent =
+    isDisplayItem && openSection === 'visibility';
+
+  // Visibility-related binds
+  const hasRelevant = binds.relevant != null && binds.relevant !== undefined;
+
+  // Validation-related binds
+  const hasRequired = binds.required != null && binds.required !== undefined;
+  const hasConstraint = binds.constraint != null && binds.constraint !== undefined;
+
+  // Value-related binds
+  const hasCalculate = binds.calculate != null && binds.calculate !== undefined;
+  const hasReadonly = binds.readonly != null && binds.readonly !== undefined;
 
   return (
     <div
@@ -102,8 +164,10 @@ export const ItemRowLowerPanel = forwardRef<HTMLDivElement, ItemRowLowerPanelPro
       className="mt-4 space-y-4 border-t border-border/70 pt-4 outline-none"
       onClick={(e) => e.stopPropagation()}
     >
-      {editingFieldConfig && item?.type === 'field' && (
+      {/* For fields: render accordion sections */}
+      {isField && item?.type === 'field' && (
         <section data-testid={`${testId}-lower-editor`} aria-label="Field details" className="space-y-3">
+          {/* Field details header - shows when any section is open */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h3 className="text-[13px] font-semibold tracking-[0.04em] text-ink/84">
@@ -120,124 +184,243 @@ export const ItemRowLowerPanel = forwardRef<HTMLDivElement, ItemRowLowerPanelPro
             )}
           </div>
 
-          {/* BindCard: Initial Value */}
-          {item?.initialValue != null && (
-            <BindCard bindType="Initial Value" expression={String(item.initialValue)}>
-              <InlineExpression
-                value={String(item.initialValue)}
-                onSave={(value) => onUpdateItem?.({ initialValue: value || null })}
-                placeholder="Click to add initial value (prefix = for FEL)"
+          {/* Visibility section (all items) */}
+          <AccordionSection
+            title="Visibility"
+            subtitle="When does this show?"
+            sectionKey="visibility"
+            openSection={openSection}
+            onSectionChange={onSectionChange}
+            colorBar="border-l-logic"
+          >
+            {hasRelevant && (
+              <BindCard
+                bindType="relevant"
+                expression={binds.relevant}
+                humanized={humanizeFEL(binds.relevant)}
+                onRemove={() => onUpdateItem?.({ relevant: null })}
+              >
+                <InlineExpression
+                  value={binds.relevant}
+                  onSave={(value) => onUpdateItem?.({ relevant: value ?? null })}
+                  placeholder="Click to add expression"
+                />
+              </BindCard>
+            )}
+            {!hasRelevant && (
+              <AddBehaviorMenu
+                label="Add visibility condition"
+                existingTypes={Object.keys(binds).filter(k => binds[k] != null && binds[k] !== undefined)}
+                allowedTypes={['relevant']}
+                onAdd={(type) => onUpdateItem?.({ [type]: 'true' })}
+                className="mt-1"
               />
-            </BindCard>
-          )}
+            )}
+          </AccordionSection>
 
-          {/* PrePopulateCard */}
-          {prePopulateValue && (
-            <PrePopulateCard
-              value={prePopulateValue}
-              onChange={(val) => onUpdateItem?.({ prePopulate: val })}
-              onRemove={() => onUpdateItem?.({ prePopulate: null })}
+          {/* Validation section (fields only) */}
+          <AccordionSection
+            title="Validation"
+            subtitle="What rules apply?"
+            sectionKey="validation"
+            openSection={openSection}
+            onSectionChange={onSectionChange}
+            colorBar="border-l-accent"
+          >
+            {hasRequired && (
+              <BindCard
+                bindType="required"
+                expression={binds.required}
+                humanized={humanizeFEL(binds.required)}
+                onRemove={() => onUpdateItem?.({ required: null })}
+              >
+                <InlineExpression
+                  value={binds.required}
+                  onSave={(value) => onUpdateItem?.({ required: value ?? null })}
+                  placeholder="Click to add expression"
+                />
+              </BindCard>
+            )}
+            {hasConstraint && (
+              <BindCard
+                bindType="constraint"
+                expression={binds.constraint}
+                humanized={humanizeFEL(binds.constraint)}
+                message={binds.constraintMessage}
+                onRemove={() => onUpdateItem?.({ constraint: null })}
+              >
+                <InlineExpression
+                  value={binds.constraint}
+                  onSave={(value) => onUpdateItem?.({ constraint: value ?? null })}
+                  placeholder="Click to add expression"
+                />
+              </BindCard>
+            )}
+            <AddBehaviorMenu
+              label="Add validation rule"
+              existingTypes={Object.keys(binds).filter(k => binds[k] != null && binds[k] !== undefined)}
+              allowedTypes={['required', 'constraint']}
+              onAdd={(type) => onUpdateItem?.({ [type]: 'true' })}
+              className="mt-1"
             />
-          )}
+          </AccordionSection>
 
-          {/* BindCard: Calculate */}
-          {binds.calculate != null && (
-            <BindCard
-              bindType="calculate"
-              expression={binds.calculate}
-              humanized={humanizeFEL(binds.calculate)}
-              onRemove={() => onUpdateItem?.({ calculate: null })}
-            >
-              <InlineExpression
-                value={binds.calculate}
-                onSave={(value) => onUpdateItem?.({ calculate: value ?? null })}
-                placeholder="Click to add expression"
+          {/* Value section (fields only) */}
+          <AccordionSection
+            title="Value"
+            subtitle="Where does the value come from?"
+            sectionKey="value"
+            openSection={openSection}
+            onSectionChange={onSectionChange}
+            colorBar="border-l-green"
+          >
+            {hasCalculate && (
+              <BindCard
+                bindType="calculate"
+                expression={binds.calculate}
+                humanized={humanizeFEL(binds.calculate)}
+                onRemove={() => onUpdateItem?.({ calculate: null })}
+              >
+                <InlineExpression
+                  value={binds.calculate}
+                  onSave={(value) => onUpdateItem?.({ calculate: value ?? null })}
+                  placeholder="Click to add expression"
+                />
+              </BindCard>
+            )}
+
+            {/* BindCard: Initial Value */}
+            {item?.initialValue != null && (
+              <BindCard bindType="Initial Value" expression={String(item.initialValue)}>
+                <InlineExpression
+                  value={String(item.initialValue)}
+                  onSave={(value) => onUpdateItem?.({ initialValue: value || null })}
+                  placeholder="Click to add initial value (prefix = for FEL)"
+                />
+              </BindCard>
+            )}
+
+            {/* PrePopulateCard */}
+            {prePopulateValue && (
+              <PrePopulateCard
+                value={prePopulateValue}
+                onChange={(val) => onUpdateItem?.({ prePopulate: val })}
+                onRemove={() => onUpdateItem?.({ prePopulate: null })}
               />
-            </BindCard>
-          )}
+            )}
 
-          {/* AddBehaviorMenu: Calculate / Pre-populate */}
-          <AddBehaviorMenu
-            label="Add Calculation / Pre-population"
-            existingTypes={[
-              ...(binds.calculate != null ? ['calculate'] : []),
-              ...(prePopulateValue ? ['pre-populate'] : []),
-            ]}
-            allowedTypes={['calculate', 'pre-populate']}
-            onAdd={(type) => {
-              if (type === 'pre-populate') {
-                onUpdateItem?.({ prePopulate: { instance: '', path: '' } });
-              } else if (type === 'calculate') {
-                onUpdateItem?.({ calculate: '' });
-              }
-            }}
-            className="mt-1"
-          />
+            {hasReadonly && (
+              <BindCard
+                bindType="readonly"
+                expression={binds.readonly}
+                humanized={humanizeFEL(binds.readonly)}
+                onRemove={() => onUpdateItem?.({ readonly: null })}
+              >
+                <InlineExpression
+                  value={binds.readonly}
+                  onSave={(value) => onUpdateItem?.({ readonly: value ?? null })}
+                  placeholder="Click to add expression"
+                />
+              </BindCard>
+            )}
 
-          {/* Orphan field-detail for non-FEL fields (Currency, Precision, etc.) */}
-          {orphanUiLabel && !['Pre-fill', 'Initial'].includes(orphanUiLabel) ? (
-            <div
-              data-testid={`${testId}-orphan-field-detail`}
-              className="rounded-[10px] border border-border/70 bg-bg-default/55 px-3 py-3"
-            >
-              <div className="text-[12px] font-semibold tracking-[0.02em] text-ink/88">
-                {fieldDetailOrphanHeading(orphanUiLabel)}
+            {/* AddBehaviorMenu: Calculate / Pre-populate / Readonly */}
+            <AddBehaviorMenu
+              label="Add Calculation / Pre-population"
+              existingTypes={[
+                ...(binds.calculate != null ? ['calculate'] : []),
+                ...(prePopulateValue ? ['pre-populate'] : []),
+                ...(binds.readonly != null ? ['readonly'] : []),
+              ]}
+              allowedTypes={['calculate', 'pre-populate', 'readonly']}
+              onAdd={(type) => {
+                if (type === 'pre-populate') {
+                  onUpdateItem?.({ prePopulate: { instance: '', path: '' } });
+                } else if (type === 'calculate') {
+                  onUpdateItem?.({ calculate: '' });
+                } else if (type === 'readonly') {
+                  onUpdateItem?.({ readonly: 'true' });
+                }
+              }}
+              className="mt-1"
+            />
+          </AccordionSection>
+
+          {/* Data format section (fields only) */}
+          <AccordionSection
+            title="Data format"
+            subtitle="How is the value displayed?"
+            sectionKey="format"
+            openSection={openSection}
+            onSectionChange={onSectionChange}
+            colorBar="border-l-muted"
+          >
+            {/* Orphan field-detail for non-FEL fields (Currency, Precision, etc.) */}
+            {orphanUiLabel && !['Pre-fill', 'Initial'].includes(orphanUiLabel) ? (
+              <div
+                data-testid={`${testId}-orphan-field-detail`}
+                className="rounded-[10px] border border-border/70 bg-bg-default/55 px-3 py-3"
+              >
+                <div className="text-[12px] font-semibold tracking-[0.02em] text-ink/88">
+                  {fieldDetailOrphanHeading(orphanUiLabel)}
+                </div>
+                <input
+                  aria-label={summaryInputLabel(orphanUiLabel)}
+                  type={summaryInputType(orphanUiLabel)}
+                  autoFocus
+                  className={summaryInputClassName}
+                  value={summaryInputValue(orphanUiLabel)}
+                  maxLength={orphanUiLabel === 'Currency' ? 3 : undefined}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => {
+                    const v = event.currentTarget.value;
+                    const raw = orphanUiLabel === 'Currency'
+                      ? v.toUpperCase().replace(/[^A-Z]/g, '')
+                      : v;
+                    updateSummaryValue(orphanUiLabel, raw);
+                  }}
+                  onBlur={handleOrphanFieldDetailBlur}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') closeInlineSummary();
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      closeInlineSummary();
+                    }
+                  }}
+                />
               </div>
-              <input
-                aria-label={summaryInputLabel(orphanUiLabel)}
-                type={summaryInputType(orphanUiLabel)}
-                autoFocus
-                className={summaryInputClassName}
-                value={summaryInputValue(orphanUiLabel)}
-                maxLength={orphanUiLabel === 'Currency' ? 3 : undefined}
-                onClick={(event) => event.stopPropagation()}
-                onChange={(event) => {
-                  const v = event.currentTarget.value;
-                  const raw = orphanUiLabel === 'Currency'
-                    ? v.toUpperCase().replace(/[^A-Z]/g, '')
-                    : v;
-                  updateSummaryValue(orphanUiLabel, raw);
-                }}
-                onBlur={handleOrphanFieldDetailBlur}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') closeInlineSummary();
-                  if (event.key === 'Escape') {
-                    event.preventDefault();
-                    closeInlineSummary();
-                  }
-                }}
-              />
-            </div>
-          ) : null}
+            ) : null}
 
-          {/* Non-FEL field-detail launchers (Prefix, Suffix, etc.) */}
-          {fieldDetailLaunchers.filter(l => !['Initial', 'Pre-fill'].includes(l.label)).length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {fieldDetailLaunchers
-                .filter(l => !['Initial', 'Pre-fill'].includes(l.label))
-                .map((launch) => (
-                <button
-                  key={launch.label}
-                  type="button"
-                  data-testid={launch.testId}
-                  aria-label={`Add ${launch.addLabel} to ${itemLabel}`}
-                  className={EDITOR_DASH_BUTTON}
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                    if (orphanFieldDetailLabel || preFillLowerSession) event.preventDefault();
-                  }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openEditorForSummary(launch.label);
-                  }}
-                >
-                  + {launch.addLabel}
-                </button>
-              ))}
-            </div>
-          ) : null}
+            {/* Non-FEL field-detail launchers (Prefix, Suffix, etc.) */}
+            {fieldDetailLaunchers.filter(l => !['Initial', 'Pre-fill'].includes(l.label)).length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {fieldDetailLaunchers
+                  .filter(l => !['Initial', 'Pre-fill'].includes(l.label))
+                  .map((launch) => (
+                  <button
+                    key={launch.label}
+                    type="button"
+                    data-testid={launch.testId}
+                    aria-label={`Add ${launch.addLabel} to ${itemLabel}`}
+                    className={EDITOR_DASH_BUTTON}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                      if (orphanFieldDetailLabel || preFillLowerSession) event.preventDefault();
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openEditorForSummary(launch.label);
+                    }}
+                  >
+                    + {launch.addLabel}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </AccordionSection>
 
-          {!editingBehavior && visibleMissingActions.some((action) => action.key === 'behavior') && (
+          {/* Behavior add button: always show when behavior action is available */}
+          {visibleMissingActions.some((action) => action.key === 'behavior') && (
             <AddBehaviorMenu
               label="Add behavior"
               triggerClassName={EDITOR_DASH_BUTTON}
@@ -250,7 +433,14 @@ export const ItemRowLowerPanel = forwardRef<HTMLDivElement, ItemRowLowerPanelPro
               allowedTypes={['relevant', 'required', 'readonly', 'constraint']}
               onAdd={(type) => {
                 onUpdateItem?.({ [type]: 'true' });
-                closeOtherEditors('behavior');
+                // Route to appropriate section
+                if (type === 'relevant') {
+                  onSectionChange('visibility');
+                } else if (type === 'required' || type === 'constraint') {
+                  onSectionChange('validation');
+                } else {
+                  onSectionChange('value');
+                }
               }}
               className="mt-1"
             />
@@ -264,136 +454,6 @@ export const ItemRowLowerPanel = forwardRef<HTMLDivElement, ItemRowLowerPanelPro
           <p className="mt-1 text-[11px] leading-snug text-ink/50">
             Edit description and hint in the summary row above.
           </p>
-        </section>
-      )}
-
-      {editingBehavior && (
-        <section aria-label="Behavior" className="space-y-2 border-t border-border/65 pt-4 first:border-t-0 first:pt-0">
-          <h3 className="text-[13px] font-semibold tracking-[0.04em] text-ink/84">
-            Behavior
-          </h3>
-          <div className="space-y-1">
-            {Object.entries(binds)
-              .filter(([type, expr]) => type !== 'calculate' && type !== 'constraintMessage' && expr != null && expr !== undefined)
-              .map(([bindType, expression]) => (
-                <BindCard
-                  key={bindType}
-                  bindType={bindType}
-                  expression={expression}
-                  humanized={humanizeFEL(expression)}
-                  message={bindType === 'constraint' ? binds.constraintMessage : undefined}
-                  onRemove={() => onUpdateItem?.({ [bindType]: null })}
-                >
-                  <InlineExpression
-                    value={expression}
-                    onSave={(value) => onUpdateItem?.({ [bindType]: value ?? null })}
-                    placeholder="Click to add expression"
-                  />
-                </BindCard>
-              ))}
-            <AddBehaviorMenu
-              existingTypes={Object.keys(binds).filter(k => binds[k] != null && binds[k] !== undefined)}
-              allowedTypes={['relevant', 'required', 'readonly', 'constraint']}
-              onAdd={(type) => onUpdateItem?.({ [type]: 'true' })}
-              className="mt-2"
-            />
-          </div>
-        </section>
-      )}
-
-      {editingOptions && isChoiceField && (
-        <section aria-label="Options" className="space-y-3 border-t border-border/65 pt-4 first:border-t-0 first:pt-0">
-          <h3 className="text-[13px] font-semibold tracking-[0.04em] text-ink/84">
-            Options
-          </h3>
-          {choiceOptions.map((option, index) => (
-            <div key={`inline-opt-${itemPath}-${index}`} className="space-y-2">
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr),minmax(0,1fr),auto] sm:items-end">
-                <label className="text-[13px] font-semibold tracking-[0.01em] text-ink">
-                  Option {index + 1} value
-                  <input
-                    aria-label={`Inline option ${index + 1} value`}
-                    type="text"
-                    className={lowerEditorInputClassName}
-
-                    value={option.value}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => {
-                      const next = choiceOptions.map((entry, optionIndex) =>
-                        optionIndex === index ? { ...entry, value: event.currentTarget.value } : entry,
-                      );
-                      onUpdateItem?.({ options: next });
-                    }}
-                  />
-                </label>
-                <label className="text-[13px] font-semibold tracking-[0.01em] text-ink">
-                  Option {index + 1} label
-                  <input
-                    aria-label={`Inline option ${index + 1} label`}
-                    type="text"
-                    className={lowerEditorInputClassName}
-
-                    value={option.label}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => {
-                      const next = choiceOptions.map((entry, optionIndex) =>
-                        optionIndex === index ? { ...entry, label: event.currentTarget.value } : entry,
-                      );
-                      onUpdateItem?.({ options: next });
-                    }}
-                  />
-                </label>
-                <div className="flex items-center justify-end sm:pb-1">
-                  <button
-                    type="button"
-                    aria-label={`Remove option ${index + 1} from ${itemLabel}`}
-                    className="inline-flex items-center rounded-full border border-border/90 px-2.5 py-1 text-[12px] font-medium text-ink/75 transition-colors hover:border-error/40 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onUpdateItem?.({
-                        options: choiceOptions.filter((_, optionIndex) => optionIndex !== index),
-                      });
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-              <label className="block text-[13px] font-semibold tracking-[0.01em] text-ink">
-                Option {index + 1} keywords (optional)
-                <input
-                  aria-label={`Inline option ${index + 1} search keywords`}
-                  type="text"
-                  className={lowerEditorInputClassName}
-                  placeholder="Comma-separated type-ahead"
-                  value={formatCommaSeparatedKeywords(option.keywords)}
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={(event) => {
-                    const keywords = parseCommaSeparatedKeywords(event.currentTarget.value);
-                    const next = choiceOptions.map((entry, optionIndex) => {
-                      if (optionIndex !== index) return entry;
-                      const row: ChoiceOptionRow = { ...entry, value: entry.value, label: entry.label };
-                      if (keywords) row.keywords = keywords;
-                      else delete row.keywords;
-                      return row;
-                    });
-                    onUpdateItem?.({ options: next });
-                  }}
-                />
-              </label>
-            </div>
-          ))}
-          <button
-            type="button"
-            aria-label={`Add option to ${itemLabel}`}
-            className={EDITOR_DASH_BUTTON}
-            onClick={(event) => {
-              event.stopPropagation();
-              onUpdateItem?.({ options: [...choiceOptions, { value: '', label: '' }] });
-            }}
-          >
-            + Add option
-          </button>
         </section>
       )}
     </div>
