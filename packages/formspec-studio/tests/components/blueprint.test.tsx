@@ -76,11 +76,10 @@ describe('Blueprint', () => {
         $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
         items: [],
         screener: {
-          enabled: true,
           items: [{ key: 'age', type: 'field', dataType: 'integer', label: 'Age' }],
           routes: [
-            { condition: '$age >= 18', destination: 'adult' },
-            { condition: 'true', destination: 'rejected' },
+            { condition: '$age >= 18', target: 'adult' },
+            { condition: 'true', target: 'rejected' },
           ],
         },
       } as any,

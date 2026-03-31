@@ -138,13 +138,12 @@ describe('ManageView', () => {
     const defWithScreener = {
       ...RICH_DEF,
       screener: {
-        enabled: true,
         items: [
           { key: 'age', type: 'field', dataType: 'integer', label: 'Age' },
         ],
         routes: [
-          { condition: '$age >= 18', destination: 'adult-form' },
-          { condition: 'true', destination: 'rejected' },
+          { condition: '$age >= 18', target: 'adult-form' },
+          { condition: 'true', target: 'rejected' },
         ],
       },
     };

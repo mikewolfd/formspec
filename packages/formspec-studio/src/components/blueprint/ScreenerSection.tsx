@@ -13,11 +13,10 @@ interface ScreenerItem {
 
 interface Route {
   condition: string;
-  destination: string;
+  target: string;
 }
 
 interface Screener {
-  enabled?: boolean;
   items?: ScreenerItem[];
   routes?: Route[];
 }
@@ -28,7 +27,7 @@ export function ScreenerSection() {
   const definition = useDefinition();
   const project = useProject();
   const screener = definition.screener as Screener | undefined;
-  const isEnabled = Boolean(screener) && screener?.enabled !== false;
+  const isEnabled = Boolean(screener);
 
   const handleAddField = () => {
     const key = `screen_${nextScreenFieldId++}`;
@@ -103,7 +102,7 @@ export function ScreenerSection() {
                     )}
                   </div>
                   <span className="text-xs text-muted">
-                    {'\u2192'} <span className="text-ink">{route.destination}</span>
+                    {'\u2192'} <span className="text-ink">{route.target}</span>
                   </span>
                 </div>
               </div>

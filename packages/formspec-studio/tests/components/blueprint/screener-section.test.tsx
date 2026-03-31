@@ -12,13 +12,12 @@ const screenerDef = {
     { key: 'income', type: 'field', dataType: 'money' },
   ],
   screener: {
-    enabled: true,
     items: [
       { key: 'age', type: 'field', dataType: 'integer' },
     ],
     routes: [
-      { condition: '$age >= 18', destination: 'main' },
-      { condition: 'true', destination: 'ineligible' },
+      { condition: '$age >= 18', target: 'main' },
+      { condition: 'true', target: 'ineligible' },
     ],
   },
 };
