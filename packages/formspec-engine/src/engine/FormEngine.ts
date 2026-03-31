@@ -1050,6 +1050,7 @@ export class FormEngine implements IFormEngine {
                     this.optionSignals[path] = this.optionSignals[path] ?? this._rx.signal([]);
                     this.optionSignals[path].value = options;
                     state.value = { loading: false, error: null };
+                    this._evaluate();
                 })
                 .catch((error) => {
                     state.value = {

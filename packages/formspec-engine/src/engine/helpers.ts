@@ -99,6 +99,9 @@ export function emptyValueForItem(item: FormItem): any {
         case 'date':
         case 'dateTime':
         case 'time':
+        case 'attachment':
+        case 'uri':
+        case 'choice':
             return null;
         case 'boolean':
             return false;
