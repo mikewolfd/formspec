@@ -1,9 +1,9 @@
-/** @filedesc Money default coercion: bind defaults for money fields preserve string amounts per spec. */
+/** @filedesc Money default coercion: bind defaults for money fields normalize amount strings to numbers. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FormEngine } from '../dist/index.js';
 
-test('money bind defaults preserve string amounts per spec', () => {
+test('money bind defaults are coerced to numeric amounts when a field becomes relevant', () => {
   const engine = new FormEngine({
     $formspec: '1.0',
     url: 'http://example.org/money-defaults',
@@ -24,14 +24,14 @@ test('money bind defaults preserve string amounts per spec', () => {
   assert.equal(engine.signals.amount.value, null);
 
   engine.setValue('show', true);
-  assert.deepEqual(engine.signals.amount.value, { amount: '0', currency: 'USD' });
-  assert.equal(typeof engine.signals.amount.value.amount, 'string');
+  assert.deepEqual(engine.signals.amount.value, { amount: 0, currency: 'USD' });
+  assert.equal(typeof engine.signals.amount.value.amount, 'number');
 
   engine.setValue('amount', { amount: 25, currency: 'USD' });
   engine.setValue('show', false);
   engine.setValue('amount', null);
   engine.setValue('show', true);
 
-  assert.deepEqual(engine.signals.amount.value, { amount: '0', currency: 'USD' });
-  assert.equal(typeof engine.signals.amount.value.amount, 'string');
+  assert.deepEqual(engine.signals.amount.value, { amount: 0, currency: 'USD' });
+  assert.equal(typeof engine.signals.amount.value.amount, 'number');
 });

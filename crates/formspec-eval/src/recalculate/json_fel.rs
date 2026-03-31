@@ -19,7 +19,7 @@ pub(crate) fn coerce_calculated_json(item: &ItemInfo, mut json_val: Value) -> Va
         && let Some(number) = json_val.as_f64()
     {
         json_val = serde_json::json!({
-            "amount": format!("{number}"),
+            "amount": number,
             "currency": item.currency.clone().unwrap_or_default(),
         });
     }
