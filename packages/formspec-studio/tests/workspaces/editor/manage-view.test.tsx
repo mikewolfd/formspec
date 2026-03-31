@@ -134,7 +134,7 @@ describe('ManageView', () => {
     window.removeEventListener('formspec:navigate-workspace', spy);
   });
 
-  it('renders screener section with routes and items', () => {
+  it('renders screener section with active status and counts', () => {
     const defWithScreener = {
       ...RICH_DEF,
       screener: {
@@ -152,12 +152,11 @@ describe('ManageView', () => {
 
     const screenerSection = screen.getByTestId('manage-section-screener');
     expect(screenerSection).toBeInTheDocument();
-    // Should show the screener item key
-    expect(within(screenerSection).getByText('age')).toBeInTheDocument();
-    // Should show the route destination
-    expect(within(screenerSection).getByText('adult-form')).toBeInTheDocument();
-    // Should show enabled status
-    expect(within(screenerSection).getByText('Enabled')).toBeInTheDocument();
+    // Should show active status pill
+    expect(within(screenerSection).getByText('Active')).toBeInTheDocument();
+    // Should show question and route counts
+    expect(within(screenerSection).getByText(/1 question/)).toBeInTheDocument();
+    expect(within(screenerSection).getByText(/2 routes/)).toBeInTheDocument();
   });
 
   it('renders all sections with an empty definition without errors', () => {

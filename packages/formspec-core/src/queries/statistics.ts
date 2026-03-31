@@ -57,7 +57,7 @@ export function statistics(state: ProjectState): ProjectStatistics {
     componentNodeCount,
     totalMappingRuleCount,
     mappingCount: Object.keys(state.mappings).length,
-    screenerFieldCount: screenerActive ? screener.items.length : 0,
-    screenerRouteCount: screenerActive ? screener.routes.length : 0,
+    screenerFieldCount: screener ? screener.items.length : 0,
+    screenerRouteCount: screener ? screener.routes.length : 0,
   };
 }

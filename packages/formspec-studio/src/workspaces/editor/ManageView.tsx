@@ -9,7 +9,7 @@ import { ShapesSection } from '../logic/ShapesSection';
 import { FilterBar } from '../logic/FilterBar';
 import { OptionSets } from './OptionSets';
 import { DataSources } from './DataSources';
-import { ScreenerSection } from '../../components/blueprint/ScreenerSection';
+import { ScreenerAuthoring } from './ScreenerAuthoring';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
 import { HelpTip } from '../../components/ui/HelpTip';
 
@@ -183,7 +183,7 @@ export function ManageView() {
           accentColor="bg-amber"
           sectionRef={sectionRefs['screener']}
         >
-          <ScreenerSection />
+          <ScreenerAuthoring />
         </ManagePillar>
 
         <ManagePillar
