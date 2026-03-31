@@ -3750,12 +3750,76 @@ export class Project {
     };
   }
 
+  /** Validate that a screener item key exists, returning its index. */
+  private _validateScreenerItemKey(key: string): number {
+    const items = (this.core.state.definition as any).screener?.items ?? [];
+    const idx = items.findIndex((it: any) => it.key === key);
+    if (idx === -1) {
+      throw new HelperError('SCREENER_ITEM_NOT_FOUND', `Screener item not found: ${key}`, { key });
+    }
+    return idx;
+  }
+
+  /** Update properties on a screener question. Accepts item properties (label, helpText) and bind properties (required). */
+  updateScreenField(key: string, changes: { label?: string; helpText?: string; required?: boolean | string }): HelperResult {
+    this._validateScreenerItemKey(key);
+
+    const commands: AnyCommand[] = [];
+
+    // Item property keys
+    for (const prop of ['label', 'helpText'] as const) {
+      if (prop in changes) {
+        commands.push({
+          type: 'definition.setScreenerItemProperty',
+          payload: { key, property: prop, value: (changes as any)[prop] },
+        });
+      }
+    }
+
+    // Bind keys
+    if ('required' in changes) {
+      const val = changes.required;
+      let bindValue: unknown;
+      if (val === true) bindValue = 'true';
+      else if (val === false) bindValue = null;
+      else bindValue = val;
+      commands.push({
+        type: 'definition.setScreenerBind',
+        payload: { path: key, properties: { required: bindValue } },
+      });
+    }
+
+    if (commands.length > 0) this.core.dispatch(commands);
+
+    return {
+      summary: `Updated screener field '${key}'`,
+      action: { helper: 'updateScreenField', params: { key, ...changes } },
+      affectedPaths: [key],
+    };
+  }
+
+  /** Reorder a screener question by key. */
+  reorderScreenField(key: string, direction: 'up' | 'down'): HelperResult {
+    const index = this._validateScreenerItemKey(key);
+    this.core.dispatch({
+      type: 'definition.reorderScreenerItem',
+      payload: { index, direction },
+    });
+
+    return {
+      summary: `Reordered screener field '${key}' ${direction}`,
+      action: { helper: 'reorderScreenField', params: { key, direction } },
+      affectedPaths: [key],
+    };
+  }
+
   /** Add a screener routing rule. */
-  addScreenRoute(condition: string, target: string, label?: string, message?: string): HelperResult {
+  addScreenRoute(condition: string, target: string, label?: string, message?: string, insertIndex?: number): HelperResult {
     this._validateFEL(condition);
     const payload: Record<string, unknown> = { condition, target };
     if (label) payload.label = label;
     if (message) payload.message = message;
+    if (insertIndex !== undefined) payload.insertIndex = insertIndex;
 
     this.core.dispatch({ type: 'definition.addRoute', payload });
 

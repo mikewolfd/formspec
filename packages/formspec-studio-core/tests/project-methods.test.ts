@@ -1947,6 +1947,125 @@ describe('removeScreenRoute', () => {
   });
 });
 
+// ── updateScreenField ───────────────────────────────────────────────
+
+describe('updateScreenField', () => {
+  it('updates a screener question label', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'How old?', 'integer');
+    const result = project.updateScreenField('age', { label: 'Your Age' });
+    expect(project.definition.screener.items[0].label).toBe('Your Age');
+    expect(result.action.helper).toBe('updateScreenField');
+    expect(result.affectedPaths).toContain('age');
+  });
+
+  it('updates helpText', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.updateScreenField('age', { helpText: 'Enter your age in years' });
+    expect(project.definition.screener.items[0].helpText).toBe('Enter your age in years');
+  });
+
+  it('clears helpText when set to undefined', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.updateScreenField('age', { helpText: 'some text' });
+    project.updateScreenField('age', { helpText: undefined });
+    // helpText should be deleted (handler deletes on undefined)
+    expect(project.definition.screener.items[0].helpText).toBeUndefined();
+  });
+
+  it('sets required bind via boolean true', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.updateScreenField('age', { required: true });
+    const bind = project.definition.screener.binds?.find((b: any) => b.path === 'age');
+    expect(bind?.required).toBe('true');
+  });
+
+  it('clears required bind via boolean false', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.updateScreenField('age', { required: true });
+    project.updateScreenField('age', { required: false });
+    const bind = project.definition.screener.binds?.find((b: any) => b.path === 'age');
+    // bind should have required cleared (null-deletion)
+    expect(bind?.required).toBeUndefined();
+  });
+
+  it('updates multiple properties at once', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.updateScreenField('age', { label: 'Your Age', helpText: 'In years', required: true });
+    const item = project.definition.screener.items[0];
+    expect(item.label).toBe('Your Age');
+    expect(item.helpText).toBe('In years');
+    const bind = project.definition.screener.binds?.find((b: any) => b.path === 'age');
+    expect(bind?.required).toBe('true');
+  });
+
+  it('throws SCREENER_ITEM_NOT_FOUND for nonexistent key', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    expect(() => project.updateScreenField('bogus', { label: 'Nope' })).toThrow(HelperError);
+  });
+});
+
+// ── reorderScreenField ──────────────────────────────────────────────
+
+describe('reorderScreenField', () => {
+  it('moves a screener question up by key', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.addScreenField('income', 'Income', 'money');
+    const result = project.reorderScreenField('income', 'up');
+    expect(project.definition.screener.items[0].key).toBe('income');
+    expect(project.definition.screener.items[1].key).toBe('age');
+    expect(result.action.helper).toBe('reorderScreenField');
+  });
+
+  it('moves a screener question down by key', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.addScreenField('income', 'Income', 'money');
+    project.reorderScreenField('age', 'down');
+    expect(project.definition.screener.items[0].key).toBe('income');
+  });
+
+  it('throws SCREENER_ITEM_NOT_FOUND for nonexistent key', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    expect(() => project.reorderScreenField('bogus', 'up')).toThrow(HelperError);
+  });
+});
+
+// ── addScreenRoute with insertIndex ─────────────────────────────────
+
+describe('addScreenRoute with insertIndex', () => {
+  it('inserts a route at a specific index', () => {
+    const project = createProject();
+    project.setScreener(true);
+    project.addScreenField('age', 'Age', 'integer');
+    project.addScreenRoute('age >= 18', 'https://a.com');
+    project.addScreenRoute('1 = 1', 'https://fallback.com');
+    // Insert between route 0 and fallback
+    project.addScreenRoute('age >= 21', 'https://b.com', undefined, undefined, 1);
+    const routes = project.definition.screener.routes;
+    expect(routes).toHaveLength(3);
+    expect(routes[1].condition).toBe('age >= 21');
+  });
+});
+
 // ── Spec Coverage Expansion (lines 1179-1234) ──────────────────────
 
 describe('PATH_NOT_FOUND with similarPaths', () => {
