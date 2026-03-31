@@ -24,7 +24,7 @@ import { CanvasTargetsProvider } from '../state/useCanvasTargets';
 import { useProject } from '../state/useProject';
 import { useSelection } from '../state/useSelection';
 import { ComponentTree } from './blueprint/ComponentTree';
-import { ScreenerSection } from './blueprint/ScreenerSection';
+import { ScreenerSummary } from './blueprint/ScreenerSummary';
 import { VariablesList } from './blueprint/VariablesList';
 import { DataSourcesList } from './blueprint/DataSourcesList';
 import { OptionSetsList } from './blueprint/OptionSetsList';
@@ -47,7 +47,7 @@ const WORKSPACES: Record<string, React.FC> = {
 const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
   'Structure': StructureTree,
   'Component Tree': ComponentTree,
-  'Screener': ScreenerSection,
+  'Screener': ScreenerSummary,
   'Variables': VariablesList,
   'Data Sources': DataSourcesList,
   'Option Sets': OptionSetsList,

@@ -91,8 +91,8 @@ describe('Blueprint', () => {
         </SelectionProvider>
       </ProjectProvider>
     );
-    // Screener section should show route count of 2
-    expect(screen.getByTestId('blueprint-section-Screener')).toHaveTextContent('2');
+    // Screener section should show combined count of items + routes = 3
+    expect(screen.getByTestId('blueprint-section-Screener')).toHaveTextContent('3');
   });
 
   it('auto-switches to Manage view when clicking a Manage concern section while in Build view', async () => {

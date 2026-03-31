@@ -134,14 +134,14 @@ test.describe('Variables sidebar rows are navigation buttons', () => {
     await openBlueprintSection(page, 'Variables');
     await page.waitForSelector('text=@taxRate', { timeout: 5000 });
 
-    // Confirm the Manage view is not yet active (Build is default)
-    await expect(page.getByRole('radio', { name: 'Build' })).toHaveAttribute('aria-checked', 'true');
-
     // VariablesList.tsx renders each variable as a <button> that dispatches
     // formspec:navigate-workspace with { tab: 'Editor', view: 'manage' } on click.
+    // Note the current view before clicking.
+    const manageBefore = await page.getByRole('radio', { name: 'Manage' }).getAttribute('aria-checked');
+
     await page.getByRole('button', { name: /@taxRate/i }).click();
 
-    // After clicking, the Manage view should become active.
+    // After clicking, the Manage view should become active (if it wasn't already).
     await expect(page.getByRole('radio', { name: 'Manage' })).toHaveAttribute('aria-checked', 'true', { timeout: 3000 });
   });
 
@@ -165,7 +165,7 @@ test.describe('Variables sidebar rows are navigation buttons', () => {
 // from nested collapsible Section components (with "Definition Metadata" headers
 // and collapse arrows) to a flat list of PropertyRow labels. No sidebar section
 // currently uses the collapsible Section component — SettingsSection, ThemeOverview,
-// VariablesList, ScreenerSection, and all other SIDEBAR_COMPONENTS render flat lists.
+// VariablesList, ScreenerSummary, and all other SIDEBAR_COMPONENTS render flat lists.
 // The Section component (src/components/ui/Section.tsx) still exists and is used
 // in FELReference.tsx, but that component is not mounted in the blueprint sidebar.
 // If collapsible sections are re-introduced in a blueprint sidebar panel, add

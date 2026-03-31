@@ -32,7 +32,10 @@ const SECTIONS: SectionDef[] = [
     help: 'UI component hierarchy generated from the item tree',
   },
   { name: 'Theme', countFn: (s) => Object.keys(s.theme.tokens ?? {}).length, help: 'Visual tokens, selectors, and presentation defaults', link: { tab: 'Theme', subTab: 'tokens' } },
-  { name: 'Screener', countFn: (s) => (s.definition.screener as any)?.routes?.length ?? 0, help: 'Pre-qualification gate before the main form', link: { tab: 'Editor', view: 'manage' } },
+  { name: 'Screener', countFn: (s) => {
+    const scr = s.definition.screener as any;
+    return scr ? (scr.items?.length ?? 0) + (scr.routes?.length ?? 0) : 0;
+  }, help: 'Pre-qualification gate before the main form', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Variables', countFn: (s) => s.definition.variables?.length ?? 0, help: 'Named computed values reusable across expressions', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Data Sources', countFn: (s) => Object.keys(s.definition.instances ?? {}).length, help: 'Secondary data instances for lookups and reference data', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Option Sets', countFn: (s) => Object.keys(s.definition.optionSets ?? {}).length, help: 'Reusable option lists for choice and multiChoice fields', link: { tab: 'Editor', view: 'manage' } },
