@@ -77,7 +77,7 @@ fn calculated_money_field_wraps_as_money_object() {
     let result = evaluate_definition(&def, &data);
     assert_eq!(
         result.values.get("total"),
-        Some(&json!({ "amount": 99.95, "currency": "USD" })),
+        Some(&json!({ "amount": "99.95", "currency": "USD" })),
     );
 }
 
@@ -918,8 +918,7 @@ fn round_trip_money() {
     });
     let json_val = fel_core::fel_to_json(&money);
     assert_eq!(json_val.get("currency"), Some(&json!("USD")));
-    let amount = json_val.get("amount").and_then(|v| v.as_f64()).unwrap();
-    assert!((amount - 99.99).abs() < 0.01, "money amount round-trip");
+    assert_eq!(json_val.get("amount"), Some(&json!("99.99")));
 }
 
 #[test]
@@ -2174,7 +2173,7 @@ fn calculated_field_reacts_to_final_global_variable_values() {
     let result = evaluate_definition(&def, &data);
     assert_eq!(
         result.values.get("budget.budgetDeviation"),
-        Some(&json!({ "$type": "money", "amount": 200, "currency": "USD" })),
+        Some(&json!({ "$type": "money", "amount": "200", "currency": "USD" })),
     );
 }
 
@@ -2701,7 +2700,7 @@ fn shape_constraints_handle_plain_money_field_values() {
         .collect();
     assert_eq!(
         result.variables.get("grandTotal"),
-        Some(&json!({ "$type": "money", "amount": 100, "currency": "USD" }))
+        Some(&json!({ "$type": "money", "amount": "100", "currency": "USD" }))
     );
     assert_eq!(
         shape_errors.len(),
@@ -2743,7 +2742,7 @@ fn calculated_money_sum_uses_plain_money_field_values() {
     let result = evaluate_definition(&def, &data);
     assert_eq!(
         result.values.get("total"),
-        Some(&json!({ "$type": "money", "amount": 105000, "currency": "USD" }))
+        Some(&json!({ "$type": "money", "amount": "105000", "currency": "USD" }))
     );
 }
 
