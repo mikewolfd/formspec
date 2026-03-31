@@ -1,5 +1,5 @@
 /** @filedesc V2 modal for editing choice-field options — row-ledger layout with inline columns. */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   formatCommaSeparatedKeywords,
@@ -7,6 +7,8 @@ import {
 } from '@formspec-org/studio-core';
 
 type ChoiceOptionRow = { value: string; label: string; keywords?: string[] };
+/** DI-4: Row with a stable identity for React keying. */
+type RowWithId = ChoiceOptionRow & { _rowId: number };
 
 interface OptionsModalProps {
   open: boolean;
@@ -15,18 +17,6 @@ interface OptionsModalProps {
   options: ChoiceOptionRow[];
   onUpdateOptions: (options: ChoiceOptionRow[]) => void;
   onClose: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function updateAt(
-  options: ChoiceOptionRow[],
-  index: number,
-  patch: Partial<ChoiceOptionRow>,
-): ChoiceOptionRow[] {
-  return options.map((opt, i) => (i === index ? { ...opt, ...patch } : opt));
 }
 
 // ---------------------------------------------------------------------------
@@ -267,13 +257,15 @@ function OptionRow({
             type="button"
             aria-label={`Remove option ${index + 1} from ${itemLabel}`}
             disabled={isOnly}
+            title={isOnly ? 'Cannot remove the only option' : undefined}
             onClick={onRemove}
             className={[
               'p-1 rounded transition-all duration-100',
               'text-ink/18 group-hover:text-ink/40',
               'hover:!text-error hover:bg-error/8',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/25',
-              'disabled:opacity-0 disabled:pointer-events-none',
+              // DI-6: Show disabled state visually instead of hiding completely.
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:!text-ink/18 disabled:hover:bg-transparent',
             ].join(' ')}
           >
             <svg
@@ -321,6 +313,35 @@ export function OptionsModal({
   onUpdateOptions,
   onClose,
 }: OptionsModalProps) {
+  // DI-4: Stable row identities — counter persists across renders.
+  const nextIdRef = useRef(0);
+  const [rows, setRows] = useState<RowWithId[]>(() =>
+    options.map(opt => ({ ...opt, _rowId: nextIdRef.current++ })),
+  );
+
+  // Sync external option changes into rows (e.g. undo/redo or parent update).
+  useEffect(() => {
+    const kwMatch = (a?: string[], b?: string[]) =>
+      JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+    setRows(prev => {
+      if (prev.length === options.length && prev.every((r, i) => r.value === options[i].value && r.label === options[i].label && kwMatch(r.keywords, options[i].keywords))) {
+        return prev;
+      }
+      return options.map((opt, i) => {
+        const existing = prev[i];
+        if (existing && existing.value === opt.value && existing.label === opt.label && kwMatch(existing.keywords, opt.keywords)) {
+          return { ...opt, _rowId: existing._rowId };
+        }
+        return { ...opt, _rowId: nextIdRef.current++ };
+      });
+    });
+  }, [options]);
+
+  const emitUpdate = useCallback((nextRows: RowWithId[]) => {
+    setRows(nextRows);
+    onUpdateOptions(nextRows.map(({ _rowId: _, ...rest }) => rest));
+  }, [onUpdateOptions]);
+
   // Trap focus and handle Escape
   useEffect(() => {
     if (!open) return;
@@ -337,21 +358,22 @@ export function OptionsModal({
   if (!open) return null;
 
   const handleUpdate = (index: number, patch: Partial<ChoiceOptionRow>) => {
+    const target = rows[index];
+    if (!target) return;
     // KeywordsRow may send a full ChoiceOptionRow to delete the key — detect
     if (patch && 'value' in patch && 'label' in patch && !('keywords' in patch)) {
-      // Full replacement — splice directly
-      onUpdateOptions(options.map((opt, i) => (i === index ? (patch as ChoiceOptionRow) : opt)));
+      emitUpdate(rows.map((r, i) => (i === index ? { ...(patch as ChoiceOptionRow), _rowId: r._rowId } : r)));
     } else {
-      onUpdateOptions(updateAt(options, index, patch));
+      emitUpdate(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
     }
   };
 
   const handleRemove = (index: number) => {
-    onUpdateOptions(options.filter((_, i) => i !== index));
+    emitUpdate(rows.filter((_, i) => i !== index));
   };
 
   const handleAdd = () => {
-    onUpdateOptions([...options, { value: '', label: '' }]);
+    emitUpdate([...rows, { value: '', label: '', _rowId: nextIdRef.current++ }]);
   };
 
   return createPortal(
@@ -425,13 +447,13 @@ export function OptionsModal({
         {/* ---------------------------------------------------------------- */}
         <div className="flex-1 overflow-y-auto px-3 py-2">
           <div className="divide-y divide-border/30">
-            {options.map((option, index) => (
+            {rows.map((row, index) => (
               <OptionRow
-                key={`${itemPath}-opt-${index}`}
+                key={row._rowId}
                 index={index}
-                option={option}
+                option={row}
                 itemLabel={itemLabel}
-                isOnly={options.length === 1}
+                isOnly={rows.length === 1}
                 onUpdate={(patch) => handleUpdate(index, patch)}
                 onRemove={() => handleRemove(index)}
               />

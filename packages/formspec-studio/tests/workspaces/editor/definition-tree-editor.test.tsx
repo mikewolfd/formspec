@@ -771,27 +771,35 @@ describe('DefinitionTreeEditor', () => {
   });
 
   it('supports inline content editing for a selected field row', () => {
-    const definition = {
-      $formspec: '1.0', url: 'urn:tree-inline-content', version: '1.0.0',
-      items: [
-        { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
-      ],
-    };
-    const { project } = renderTree(definition);
+    vi.useFakeTimers();
+    try {
+      const definition = {
+        $formspec: '1.0', url: 'urn:tree-inline-content', version: '1.0.0',
+        items: [
+          { key: 'name', type: 'field', dataType: 'string', label: 'Full Name' },
+        ],
+      };
+      const { project } = renderTree(definition);
 
-    fireEvent.click(within(screen.getByTestId('field-name')).getByRole('button', { name: 'Select Full Name' }));
-    fireEvent.click(within(screen.getByTestId('field-name')).getByText('Click to add description'));
+      fireEvent.click(within(screen.getByTestId('field-name')).getByRole('button', { name: 'Select Full Name' }));
+      fireEvent.click(within(screen.getByTestId('field-name')).getByText('Click to add description'));
 
-    fireEvent.change(within(screen.getByTestId('field-name')).getByLabelText('Inline description'), { target: { value: 'Used for household identity.' } });
-    fireEvent.blur(within(screen.getByTestId('field-name')).getByLabelText('Inline description'));
-    fireEvent.click(within(screen.getByTestId('field-name')).getByText('Click to add hint'));
-    fireEvent.change(within(screen.getByTestId('field-name')).getByLabelText('Inline hint'), { target: { value: 'First middle last' } });
-    fireEvent.blur(within(screen.getByTestId('field-name')).getByLabelText('Inline hint'));
+      fireEvent.change(within(screen.getByTestId('field-name')).getByLabelText('Inline description'), { target: { value: 'Used for household identity.' } });
+      // SI-5: Description/Hint writes are debounced — flush the timer before asserting.
+      vi.advanceTimersByTime(300);
+      fireEvent.blur(within(screen.getByTestId('field-name')).getByLabelText('Inline description'));
+      fireEvent.click(within(screen.getByTestId('field-name')).getByText('Click to add hint'));
+      fireEvent.change(within(screen.getByTestId('field-name')).getByLabelText('Inline hint'), { target: { value: 'First middle last' } });
+      vi.advanceTimersByTime(300);
+      fireEvent.blur(within(screen.getByTestId('field-name')).getByLabelText('Inline hint'));
 
-    expect((project.definition.items[0] as any)?.description).toBe('Used for household identity.');
-    expect((project.definition.items[0] as any)?.hint).toBe('First middle last');
-    expect(within(screen.getByTestId('field-name')).getByText('Description')).toBeInTheDocument();
-    expect(within(screen.getByTestId('field-name')).getByText('Used for household identity.')).toBeInTheDocument();
+      expect((project.definition.items[0] as any)?.description).toBe('Used for household identity.');
+      expect((project.definition.items[0] as any)?.hint).toBe('First middle last');
+      expect(within(screen.getByTestId('field-name')).getByText('Description')).toBeInTheDocument();
+      expect(within(screen.getByTestId('field-name')).getByText('Used for household identity.')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps only one inline editor open at a time within a row', () => {
@@ -819,7 +827,7 @@ describe('DefinitionTreeEditor', () => {
     expect(row.getByLabelText('Inline hint')).toBeInTheDocument();
   });
 
-  it('keeps the expanded category editor open while editing description or hint in the summary', () => {
+  it('closes the expanded category editor when editing description or hint inline (SM-1)', () => {
     renderTree({
       $formspec: '1.0', url: 'urn:tree-lower-panel-desc-hint', version: '1.0.0',
       items: [
@@ -839,16 +847,17 @@ describe('DefinitionTreeEditor', () => {
     fireEvent.click(row.getByTestId('field-name-category-Visibility'));
     expect(row.getByTestId('field-name-lower-editor')).toBeInTheDocument();
 
+    // SM-1: Opening inline description closes the category panel.
     fireEvent.click(row.getByText('Primary legal name.'));
     expect(row.getByLabelText('Inline description')).toBeInTheDocument();
-    expect(row.getByTestId('field-name-lower-editor')).toBeInTheDocument();
+    expect(row.queryByTestId('field-name-lower-editor')).toBeNull();
 
     fireEvent.blur(row.getByLabelText('Inline description'));
-    expect(row.getByTestId('field-name-lower-editor')).toBeInTheDocument();
 
+    // SM-1: Opening inline hint also keeps the category panel closed.
     fireEvent.click(row.getByText('Enter first and last name.'));
     expect(row.getByLabelText('Inline hint')).toBeInTheDocument();
-    expect(row.getByTestId('field-name-lower-editor')).toBeInTheDocument();
+    expect(row.queryByTestId('field-name-lower-editor')).toBeNull();
   });
 
   it('supports inline field config editing for selected field rows', () => {
@@ -929,7 +938,7 @@ describe('DefinitionTreeEditor', () => {
     const advisoriesRegion = row.getByTestId('field-total-advisories');
     expect(advisoriesRegion).toBeInTheDocument();
     expect(within(advisoriesRegion).getByRole('status')).toHaveTextContent(
-      /mandatory rule is redundant/,
+      /mandatory rule is usually redundant/,
     );
     expect(
       within(advisoriesRegion).getByRole('button', { name: 'Review formula' }),
@@ -944,38 +953,46 @@ describe('DefinitionTreeEditor', () => {
   });
 
   it('edits visible content rows (Hint) with single-line inline inputs', () => {
-    const definition = {
-      $formspec: '1.0', url: 'urn:tree-inline-summary-inputs', version: '1.0.0',
-      items: [
-        {
-          key: 'ssn',
-          type: 'field',
-          dataType: 'string',
-          label: 'SSN',
-          hint: 'XXX-XX-XXXX',
-          semanticType: 'us-gov:ssn',
-        },
-      ],
-    };
-    const { project } = renderTree(definition);
+    vi.useFakeTimers();
+    try {
+      const definition = {
+        $formspec: '1.0', url: 'urn:tree-inline-summary-inputs', version: '1.0.0',
+        items: [
+          {
+            key: 'ssn',
+            type: 'field',
+            dataType: 'string',
+            label: 'SSN',
+            hint: 'XXX-XX-XXXX',
+            semanticType: 'us-gov:ssn',
+          },
+        ],
+      };
+      const { project } = renderTree(definition);
 
-    const row = within(screen.getByTestId('field-ssn'));
-    fireEvent.click(row.getByRole('button', { name: 'Select SSN' }));
+      const row = within(screen.getByTestId('field-ssn'));
+      fireEvent.click(row.getByRole('button', { name: 'Select SSN' }));
 
-    expect(row.getByRole('heading', { name: 'ssn' })).toBeInTheDocument();
-    expect(row.getByTestId('field-ssn-label-edit')).toBeInTheDocument();
-    expect(row.getByTestId('field-ssn-key-edit')).toBeInTheDocument();
-    expect(row.getByTestId('field-ssn-summary-edit-Hint')).toBeInTheDocument();
+      // KN-5: Key text no longer carries role="heading" when inside a <button>.
+      expect(row.getByTestId('field-ssn-key-edit')).toBeInTheDocument();
+      expect(row.getByTestId('field-ssn-label-edit')).toBeInTheDocument();
+      expect(row.getByTestId('field-ssn-key-edit')).toBeInTheDocument();
+      expect(row.getByTestId('field-ssn-summary-edit-Hint')).toBeInTheDocument();
 
-    // Hint is in the content rows and editable inline
-    fireEvent.click(row.getByText('XXX-XX-XXXX'));
-    const hintInput = row.getByLabelText('Inline hint');
-    expect(hintInput.tagName).toBe('INPUT');
-    expect(hintInput).toHaveFocus();
-    fireEvent.change(hintInput, { target: { value: '999-99-9999' } });
-    fireEvent.blur(hintInput);
+      // Hint is in the content rows and editable inline
+      fireEvent.click(row.getByText('XXX-XX-XXXX'));
+      const hintInput = row.getByLabelText('Inline hint');
+      expect(hintInput.tagName).toBe('INPUT');
+      expect(hintInput).toHaveFocus();
+      fireEvent.change(hintInput, { target: { value: '999-99-9999' } });
+      // SI-5: Hint writes are debounced — flush the timer before asserting.
+      vi.advanceTimersByTime(300);
+      fireEvent.blur(hintInput);
 
-    expect((project.definition.items[0] as any)?.hint).toBe('999-99-9999');
+      expect((project.definition.items[0] as any)?.hint).toBe('999-99-9999');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps the field type token on the primary row with the field key', () => {

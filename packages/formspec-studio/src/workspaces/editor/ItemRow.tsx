@@ -1,6 +1,5 @@
 /** @filedesc Compact tree row for field and display items in the definition tree editor. */
-import { useEffect, useRef, useState, type FocusEventHandler } from 'react';
-import { flushSync } from 'react-dom';
+import { useEffect, useMemo, useRef, useState, type FocusEventHandler } from 'react';
 import { DragHandle } from '../../components/ui/DragHandle';
 import { dataTypeInfo } from '@formspec-org/studio-core';
 import type { FormItem } from '@formspec-org/types';
@@ -86,10 +85,14 @@ export function ItemRow({
   const [activeInlineSummary, setActiveInlineSummary] = useState<string | null>(
     null,
   );
+  // SI-4: Capture original value when opening inline summary; Escape restores it.
+  const [inlineSummaryOriginal, setInlineSummaryOriginal] = useState('');
   const [optionsModalOpen, setOptionsModalOpen] = useState(false);
   const categoryPanelRef = useRef<HTMLDivElement>(null);
   const prevShowCategoryPanelRef = useRef(false);
 
+  // IE-2: External prop changes (itemKey/label) sync drafts only when not actively editing.
+  // Ordering assumption: parent must not change itemKey/label while activeIdentityField is set.
   useEffect(() => {
     if (!activeIdentityField) {
       setDraftKey(itemKey);
@@ -97,12 +100,12 @@ export function ItemRow({
     }
   }, [itemKey, label, activeIdentityField]);
 
+  // SM-5: OptionsModal is portaled to document.body — it manages its own close lifecycle.
   useEffect(() => {
     if (!selected) {
       setActiveIdentityField(null);
       setExpandedCategory(null);
       setActiveInlineSummary(null);
-      setOptionsModalOpen(false);
     }
   }, [selected]);
 
@@ -118,6 +121,17 @@ export function ItemRow({
     item?.type === 'field' &&
     ['decimal', 'money'].includes(String(item.dataType ?? ''));
 
+  // SM-6: Suppress edit affordances when handlers are absent.
+  const editable = Boolean(onUpdateItem && onRenameIdentity);
+
+  // SM-4: Guard rAF callback against unmounted component.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
+  const selectButtonRef = useRef<HTMLButtonElement>(null);
+
+  // KN-3: Coupled to testId naming convention — select buttons must end with "-select"
+  // and the tree surface must have data-testid="definition-tree-surface".
   const moveCardFocus = (
     direction: 1 | -1,
     currentButton: HTMLButtonElement,
@@ -179,7 +193,16 @@ export function ItemRow({
 
   const openEditorForSummary = (label: string) => {
     setActiveIdentityField(null);
+
+    // CP-2: Display items only support Visibility/Relevant — early-return for others.
+    if (isDisplayItem && label !== 'Visibility' && label !== 'Relevant' && label !== 'Description' && label !== 'Hint') {
+      return;
+    }
+
     if (label === 'Description' || label === 'Hint') {
+      // SM-1: Close any open category panel before opening inline summary.
+      setExpandedCategory(null);
+      setInlineSummaryOriginal(summaryInputValue(label));
       setActiveInlineSummary(label);
       return;
     }
@@ -217,18 +240,22 @@ export function ItemRow({
     if (label === 'Pre-fill') {
       setExpandedCategory('Value');
       setActiveInlineSummary(null);
+      // SI-1: Pre-fill eagerly creates the prePopulate object (unlike Initial which just opens the panel).
+      // This is intentional — the PrePopulateCard needs a non-null value to render its instance/path editors.
       if (!prePopulateValue) {
         onUpdateItem?.({ prePopulate: { instance: '', path: '' } });
       }
       return;
     }
+    // SI-2: Don't eagerly write initialValue — just open the Value panel.
     if (label === 'Initial') {
       setExpandedCategory('Value');
       setActiveInlineSummary(null);
-      if (!(item?.initialValue != null && String(item.initialValue).trim())) {
-        onUpdateItem?.({ initialValue: '' });
-      }
       return;
+    }
+    // SI-3: Warn on unrecognized summary labels in development.
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[ItemRow] Unhandled summary label: "${label}"`);
     }
     setExpandedCategory('Format');
     setActiveInlineSummary(label);
@@ -237,22 +264,53 @@ export function ItemRow({
   const commitIdentityField = (field: 'label' | 'key') => {
     if (!onRenameIdentity) {
       setActiveIdentityField(null);
+      // IE-5: Return focus to the select button after commit.
+      queueMicrotask(() => selectButtonRef.current?.focus());
       return;
     }
+    // IE-1: If trimmed value is empty, cancel instead of silently reverting.
+    if (field === 'key' && !draftKey.trim()) {
+      cancelIdentityField();
+      return;
+    }
+    if (field === 'label' && !draftLabel.trim()) {
+      // IE-4: Display items allow empty labels (they render as blank content).
+      if (isField) {
+        cancelIdentityField();
+        return;
+      }
+    }
     const nextKey = field === 'key' ? draftKey.trim() || itemKey : itemKey;
+    // IE-4: Display items keep empty labels as-is; fields fall back to itemKey.
     const nextLabel =
-      field === 'label' ? draftLabel.trim() || itemKey : itemLabel;
+      field === 'label'
+        ? (isField ? (draftLabel.trim() || itemKey) : draftLabel.trim())
+        : itemLabel;
     onRenameIdentity(nextKey, nextLabel);
     setActiveIdentityField(null);
+    // IE-5: Return focus to the select button after commit.
+    queueMicrotask(() => selectButtonRef.current?.focus());
   };
 
   const cancelIdentityField = () => {
     setDraftKey(itemKey);
     setDraftLabel(label?.trim() ? label.trim() : '');
     setActiveIdentityField(null);
+    // IE-5: Return focus to the select button after cancel.
+    queueMicrotask(() => selectButtonRef.current?.focus());
   };
 
   const closeInlineSummary = () => {
+    setActiveInlineSummary(null);
+  };
+
+  // SI-4: Escape in inline summary reverts to value captured on open.
+  // Defined as a plain function (not useCallback) because it captures updateSummaryValue
+  // which is redefined each render.
+  const cancelInlineSummary = () => {
+    if (activeInlineSummary) {
+      updateSummaryValue(activeInlineSummary, inlineSummaryOriginal);
+    }
     setActiveInlineSummary(null);
   };
 
@@ -262,13 +320,16 @@ export function ItemRow({
     ((isField && item?.type === 'field') ||
       (isDisplayItem && expandedCategory === 'Visibility'));
 
+  // CP-1: Focus panel when category changes (not just on first open).
+  const prevExpandedCategoryRef = useRef<ExpandedSummaryCategory | null>(null);
   useEffect(() => {
-    const wasShowing = prevShowCategoryPanelRef.current;
+    const prev = prevExpandedCategoryRef.current;
+    prevExpandedCategoryRef.current = expandedCategory;
     prevShowCategoryPanelRef.current = Boolean(showCategoryPanel);
-    if (showCategoryPanel && !wasShowing && selected) {
+    if (showCategoryPanel && expandedCategory !== prev && selected) {
       categoryPanelRef.current?.focus();
     }
-  }, [showCategoryPanel, selected]);
+  }, [showCategoryPanel, expandedCategory, selected]);
 
   const summaryInputValue = (label: string): string => {
     switch (label) {
@@ -307,67 +368,87 @@ export function ItemRow({
     }
   };
 
+  // SI-5: Debounce Description/Hint writes to reduce intermediate undo states.
+  const summaryWriteTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(summaryWriteTimerRef.current), []);
+
   const updateSummaryValue = (label: string, rawValue: string) => {
+    // DI-2 contract: onUpdateItem accepts flat bind property names
+    // (calculate, relevant, readonly, required, constraint, constraintMessage) as top-level keys.
+    const dispatch = (changes: Record<string, unknown>) => {
+      clearTimeout(summaryWriteTimerRef.current);
+      // SI-5: Debounce non-FEL inline text fields.
+      if (label === 'Description' || label === 'Hint') {
+        summaryWriteTimerRef.current = setTimeout(() => onUpdateItem?.(changes), 300);
+      } else {
+        onUpdateItem?.(changes);
+      }
+    };
     switch (label) {
       case 'Description':
-        onUpdateItem?.({ description: rawValue || null });
+        dispatch({ description: rawValue || null });
         return;
       case 'Hint':
-        onUpdateItem?.({ hint: rawValue || null });
+        dispatch({ hint: rawValue || null });
         return;
       case 'Initial':
-        onUpdateItem?.({ initialValue: rawValue || null });
+        dispatch({ initialValue: rawValue || null });
         return;
       case 'Currency':
-        onUpdateItem?.({ currency: rawValue || null });
+        dispatch({ currency: rawValue || null });
         return;
       case 'Precision':
-        onUpdateItem?.({
+        dispatch({
           precision: rawValue === '' ? null : Number(rawValue),
         });
         return;
       case 'Prefix':
-        onUpdateItem?.({ prefix: rawValue || null });
+        dispatch({ prefix: rawValue || null });
         return;
       case 'Suffix':
-        onUpdateItem?.({ suffix: rawValue || null });
+        dispatch({ suffix: rawValue || null });
         return;
       case 'Semantic':
-        onUpdateItem?.({ semanticType: rawValue || null });
+        dispatch({ semanticType: rawValue || null });
         return;
       case 'Calculate':
-        onUpdateItem?.({ calculate: rawValue || null });
+        dispatch({ calculate: rawValue || null });
         return;
       case 'Relevant':
-        onUpdateItem?.({ relevant: rawValue || null });
+        dispatch({ relevant: rawValue || null });
         return;
       case 'Readonly':
-        onUpdateItem?.({ readonly: rawValue || null });
+        dispatch({ readonly: rawValue || null });
         return;
       case 'Required':
-        onUpdateItem?.({ required: rawValue || null });
+        dispatch({ required: rawValue || null });
         return;
       case 'Constraint':
-        onUpdateItem?.({ constraint: rawValue || null });
+        dispatch({ constraint: rawValue || null });
         return;
       case 'Message':
-        onUpdateItem?.({ constraintMessage: rawValue || null });
+        dispatch({ constraintMessage: rawValue || null });
         return;
     }
   };
 
-  const fieldDetailLaunchers = buildFieldDetailLaunchers({
-    item,
-    testIdPrefix: testId,
-    activeInlineSummary,
-    isDecimalLike,
-  });
+  // DI-3: Memoize field detail launchers.
+  const fieldDetailLaunchers = useMemo(
+    () => buildFieldDetailLaunchers({
+      item,
+      testIdPrefix: testId,
+      activeInlineSummary,
+      isDecimalLike,
+    }),
+    [item, testId, activeInlineSummary, isDecimalLike],
+  );
 
   const orphanFieldDetailLabel = computeOrphanFieldDetailLabel(
     activeInlineSummary,
     supportingText,
   );
 
+  // SM-4: Single requestAnimationFrame replaces fragile triple-delay blur handler.
   const handleOrphanFieldDetailBlur: FocusEventHandler<HTMLInputElement> = (
     event,
   ) => {
@@ -381,22 +462,13 @@ export function ItemRow({
     const blurredLabel = orphanFieldDetailLabel;
     if (!blurredLabel) return;
 
-    queueMicrotask(() => {
-      const tryDismiss = () => {
-        const ae = document.activeElement;
-        if (ae instanceof Node && shell?.contains(ae)) {
-          return;
-        }
-        flushSync(() => {
-          setActiveInlineSummary((current) => {
-            if (blurredLabel && current === blurredLabel) {
-              return null;
-            }
-            return current;
-          });
-        });
-      };
-      setTimeout(tryDismiss, 0);
+    requestAnimationFrame(() => {
+      if (!mountedRef.current) return;
+      const ae = document.activeElement;
+      if (ae instanceof Node && shell?.contains(ae)) return;
+      setActiveInlineSummary((current) =>
+        current === blurredLabel ? null : current,
+      );
     });
   };
 
@@ -408,6 +480,7 @@ export function ItemRow({
     itemLabel,
     isField,
     selected,
+    editable,
     dataType,
     widgetHint,
     dt,
@@ -434,6 +507,7 @@ export function ItemRow({
     onOpenIdentityField: openIdentityField,
     onOpenEditorForSummary: openEditorForSummary,
     onCloseInlineSummary: closeInlineSummary,
+    onCancelInlineSummary: cancelInlineSummary,
     onUpdateSummaryValue: updateSummaryValue,
   } satisfies ItemRowActions;
 
@@ -442,6 +516,7 @@ export function ItemRow({
       <ItemRowCategoryPanel
         ref={categoryPanelRef}
         testId={testId}
+        itemKey={itemKey}
         itemLabel={itemLabel}
         item={item}
         binds={binds}
@@ -495,6 +570,7 @@ export function ItemRow({
           ) : (
             <div className='flex min-w-0 flex-col gap-4'>
               <button
+                ref={selectButtonRef}
                 type='button'
                 data-testid={`${testId}-select`}
                 aria-label={`Select ${itemLabel}`}
@@ -502,13 +578,9 @@ export function ItemRow({
                 onClick={onClick}
                 onContextMenu={onContextMenu}
                 onKeyDown={(event) => {
-                  if (
-                    event.key !== 'Tab' ||
-                    event.altKey ||
-                    event.ctrlKey ||
-                    event.metaKey
-                  )
-                    return;
+                  if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
+                  // KN-1: When selected, let normal Tab flow into card internals.
+                  if (selected) return;
                   event.preventDefault();
                   moveCardFocus(event.shiftKey ? -1 : 1, event.currentTarget);
                 }}

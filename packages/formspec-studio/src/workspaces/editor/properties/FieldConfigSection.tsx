@@ -47,6 +47,7 @@ export function FieldConfigSection({
             onRemove={() => {
               project.updateItem(path, { prePopulate: null });
             }}
+            itemKey={path.split('.').pop()}
           />
         )}
 

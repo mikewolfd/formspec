@@ -18,6 +18,8 @@ export interface ItemRowIdentity {
   itemLabel: string;
   isField: boolean;
   selected: boolean | undefined;
+  /** SM-6: Whether edit handlers are available (suppresses edit affordances when false). */
+  editable: boolean;
   dataType: string | undefined;
   widgetHint: string | undefined;
   dt: { color: string } | null;
@@ -48,6 +50,8 @@ export interface ItemRowActions {
   onOpenIdentityField: (field: 'label' | 'key') => void;
   onOpenEditorForSummary: (label: string) => void;
   onCloseInlineSummary: () => void;
+  /** SI-4: Revert inline summary to original value and close. */
+  onCancelInlineSummary: () => void;
   onUpdateSummaryValue: (label: string, rawValue: string) => void;
 }
 
@@ -65,13 +69,14 @@ export interface ItemRowContentProps {
   statusPills?: StatusPill[];
 }
 
-function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
+function IdentityColumn({ identity, editState, actions, layout }: ItemRowContentProps) {
   const {
     testId,
     itemKey,
     itemLabel,
     isField,
     selected,
+    editable,
     dataType,
     widgetHint,
     dt,
@@ -87,6 +92,11 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
     onOpenIdentityField,
   } = actions;
 
+  // KN-5: When layout='identity', we're inside a <button> — role="heading" is invalid there.
+  const insideButton = layout === 'identity';
+  // SM-6: Only show edit affordances when handlers are available.
+  const showEditMark = selected && editable;
+
   const handleIdentityKeyDown =
     (field: 'label' | 'key') => (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'Enter') {
@@ -96,6 +106,20 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
       if (event.key === 'Escape') {
         event.preventDefault();
         onCancelIdentityField();
+      }
+      // IE-3: Tab in identity input cycles between key and label fields.
+      if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        if (isField) {
+          if (field === 'key' && !event.shiftKey) {
+            event.preventDefault();
+            onCommitIdentityField('key');
+            onOpenIdentityField('label');
+          } else if (field === 'label' && event.shiftKey) {
+            event.preventDefault();
+            onCommitIdentityField('label');
+            onOpenIdentityField('key');
+          }
+        }
       }
     };
 
@@ -138,11 +162,10 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
             ) : (
               <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-[17px] font-semibold leading-6 md:text-[18px]'>
                 <div
-                  role='heading'
-                  aria-level={2}
-                  className={`inline-flex max-w-full items-center font-mono text-ink ${selected ? 'group cursor-text' : ''}`}
+                  {...(insideButton ? {} : { role: 'heading', 'aria-level': 2 })}
+                  className={`inline-flex max-w-full items-center font-mono text-ink ${showEditMark ? 'group cursor-text' : ''}`}
                   onClick={(event) => {
-                    if (!selected) return;
+                    if (!showEditMark) return;
                     event.stopPropagation();
                     onOpenIdentityField('key');
                   }}
@@ -151,7 +174,7 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
                     <span className='text-ink/35'>{groupPrefix}</span>
                   )}
                   <span className='truncate'>{itemKey}</span>
-                  {selected ? <EditMark testId={`${testId}-key-edit`} /> : null}
+                  {showEditMark ? <EditMark testId={`${testId}-key-edit`} /> : null}
                 </div>
                 {dataType && (
                   <span
@@ -180,9 +203,9 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
                   />
                 ) : (
                   <div
-                    className={`text-[14px] font-normal leading-snug tracking-normal text-ink/72 md:text-[15px] ${selected ? 'group inline-flex cursor-text flex-wrap items-center gap-x-1' : ''}`}
+                    className={`text-[14px] font-normal leading-snug tracking-normal text-ink/72 md:text-[15px] ${showEditMark ? 'group inline-flex cursor-text flex-wrap items-center gap-x-1' : ''}`}
                     onClick={(event) => {
-                      if (!selected) return;
+                      if (!showEditMark) return;
                       event.stopPropagation();
                       onOpenIdentityField('label');
                     }}
@@ -194,7 +217,7 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
                     >
                       {labelForDescription ?? 'Add a display label\u2026'}
                     </span>
-                    {selected ? (
+                    {showEditMark ? (
                       <EditMark testId={`${testId}-label-edit`} />
                     ) : null}
                   </div>
@@ -223,18 +246,18 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
                 <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-[17px] font-semibold leading-6 text-ink md:text-[18px]'>
                   <span
                     className={
-                      selected
+                      showEditMark
                         ? 'group inline-flex max-w-full items-center cursor-text text-ink'
                         : 'inline-flex max-w-full items-center text-ink'
                     }
                     onClick={(event) => {
-                      if (!selected) return;
+                      if (!showEditMark) return;
                       event.stopPropagation();
                       onOpenIdentityField('label');
                     }}
                   >
                     <span className='truncate text-ink'>{itemLabel}</span>
-                    {selected ? (
+                    {showEditMark ? (
                       <EditMark testId={`${testId}-label-edit`} />
                     ) : null}
                   </span>
@@ -265,9 +288,9 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
                         Key
                       </span>
                       <span
-                        className={`group inline-flex items-center font-mono text-[12px] tracking-[0.08em] text-ink/68 ${selected ? 'cursor-text' : ''}`}
+                        className={`group inline-flex items-center font-mono text-[12px] tracking-[0.08em] text-ink/68 ${showEditMark ? 'cursor-text' : ''}`}
                         onClick={(event) => {
-                          if (!selected) return;
+                          if (!showEditMark) return;
                           event.stopPropagation();
                           onOpenIdentityField('key');
                         }}
@@ -276,7 +299,7 @@ function IdentityColumn({ identity, editState, actions }: ItemRowContentProps) {
                           <span className='text-ink/35'>{groupPrefix}</span>
                         )}
                         {itemKey}
-                        {selected ? (
+                        {showEditMark ? (
                           <EditMark testId={`${testId}-key-edit`} />
                         ) : null}
                       </span>
@@ -299,7 +322,8 @@ function SummaryColumn({
   categoryEditor,
   statusPills = [],
 }: ItemRowContentProps) {
-  const { testId, selected } = identity;
+  const { testId, selected, editable } = identity;
+  const showEditMark = selected && editable;
   const {
     activeInlineSummary,
     supportingText,
@@ -307,7 +331,7 @@ function SummaryColumn({
     expandedCategoryKey,
     summaryInputValue,
   } = editState;
-  const { onOpenEditorForSummary, onCloseInlineSummary, onUpdateSummaryValue } =
+  const { onOpenEditorForSummary, onCloseInlineSummary, onCancelInlineSummary, onUpdateSummaryValue } =
     actions;
 
   return (
@@ -388,15 +412,16 @@ function SummaryColumn({
                     if (event.key === 'Enter') onCloseInlineSummary();
                     if (event.key === 'Escape') {
                       event.preventDefault();
-                      onCloseInlineSummary();
+                      // SI-4: Revert to original value on Escape.
+                      onCancelInlineSummary();
                     }
                   }}
                 />
               ) : (
                 <dd
-                  className={`group mt-1 inline-flex max-w-full items-center truncate text-[14px] font-medium leading-5 text-ink/94 md:text-[15px] ${selected ? 'cursor-text' : ''}`}
+                  className={`group mt-1 inline-flex max-w-full items-center truncate text-[14px] font-medium leading-5 text-ink/94 md:text-[15px] ${showEditMark ? 'cursor-text' : ''}`}
                   onClick={(event) => {
-                    if (!selected) return;
+                    if (!showEditMark) return;
                     event.stopPropagation();
                     onOpenEditorForSummary(entry.label);
                   }}
@@ -409,7 +434,7 @@ function SummaryColumn({
                         ? `Click to add ${entry.label.toLowerCase()}`
                         : '\u2014')}
                   </span>
-                  {selected ? (
+                  {showEditMark ? (
                     <EditMark
                       testId={`${testId}-summary-edit-${entry.label}`}
                     />
@@ -438,6 +463,7 @@ export function ItemRowContent({
         identity={identity}
         editState={editState}
         actions={actions}
+        layout={layout}
       />
     );
   }

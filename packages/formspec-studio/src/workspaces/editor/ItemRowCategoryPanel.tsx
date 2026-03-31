@@ -41,6 +41,7 @@ interface FieldDetailLauncher {
 
 export interface ItemRowCategoryPanelProps {
   testId: string;
+  itemKey?: string;
   itemLabel: string;
   item: FormItem | undefined;
   binds: Record<string, string>;
@@ -86,6 +87,7 @@ export const ItemRowCategoryPanel = forwardRef<
 >(function ItemRowCategoryPanel(
   {
     testId,
+    itemKey,
     itemLabel,
     item,
     binds,
@@ -106,12 +108,11 @@ export const ItemRowCategoryPanel = forwardRef<
   },
   ref,
 ) {
-  const hasRelevant = binds.relevant != null && binds.relevant !== undefined;
-  const hasRequired = binds.required != null && binds.required !== undefined;
-  const hasConstraint =
-    binds.constraint != null && binds.constraint !== undefined;
-  const hasCalculate = binds.calculate != null && binds.calculate !== undefined;
-  const hasReadonly = binds.readonly != null && binds.readonly !== undefined;
+  const hasRelevant = binds.relevant != null;
+  const hasRequired = binds.required != null;
+  const hasConstraint = binds.constraint != null;
+  const hasCalculate = binds.calculate != null;
+  const hasReadonly = binds.readonly != null;
 
   const intro = CATEGORY_INTRO[expandedCategory];
 
@@ -159,6 +160,7 @@ export const ItemRowCategoryPanel = forwardRef<
     return (
       <div
         ref={ref}
+        // CP-3: tabIndex=-1 allows programmatic focus but not Tab-reach — by design.
         tabIndex={-1}
         data-testid={`${testId}-lower-panel`}
         className='mt-1 rounded-[12px] bg-bg-default/55 p-3 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] outline-none dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
@@ -195,7 +197,7 @@ export const ItemRowCategoryPanel = forwardRef<
             <AddBehaviorMenu
               label='Add visibility condition'
               existingTypes={Object.keys(binds).filter(
-                (k) => binds[k] != null && binds[k] !== undefined,
+                (k) => binds[k] != null,
               )}
               allowedTypes={['relevant']}
               onAdd={(type) => onUpdateItem?.({ [type]: 'true' })}
@@ -277,7 +279,7 @@ export const ItemRowCategoryPanel = forwardRef<
               <AddBehaviorMenu
                 label='Add visibility condition'
                 existingTypes={Object.keys(binds).filter(
-                  (k) => binds[k] != null && binds[k] !== undefined,
+                  (k) => binds[k] != null,
                 )}
                 allowedTypes={['relevant']}
                 onAdd={(type) => {
@@ -328,7 +330,7 @@ export const ItemRowCategoryPanel = forwardRef<
             <AddBehaviorMenu
               label='Add validation rule'
               existingTypes={Object.keys(binds).filter(
-                (k) => binds[k] != null && binds[k] !== undefined,
+                (k) => binds[k] != null,
               )}
               allowedTypes={['required', 'constraint']}
               onAdd={(type) => {
@@ -379,6 +381,7 @@ export const ItemRowCategoryPanel = forwardRef<
                 value={prePopulateValue}
                 onChange={(val) => onUpdateItem?.({ prePopulate: val })}
                 onRemove={() => onUpdateItem?.({ prePopulate: null })}
+                itemKey={itemKey}
               />
             )}
 

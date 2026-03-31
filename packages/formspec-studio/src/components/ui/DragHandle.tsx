@@ -1,4 +1,7 @@
 /** @filedesc Draggable grip icon for reorderable list items. */
+// KN-4 TODO: tabIndex=-1 makes reordering keyboard-inaccessible.
+// A broader solution (e.g. Ctrl+Up/Down shortcuts on the row) is needed
+// to expose reordering without a pointing device.
 import { forwardRef } from 'react';
 
 interface DragHandleProps {

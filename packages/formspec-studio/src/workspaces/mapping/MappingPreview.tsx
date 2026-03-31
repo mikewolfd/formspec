@@ -1,3 +1,4 @@
+/** @filedesc Live mapping preview panel for testing forward and reverse mapping transforms. */
 import { useEffect, useState } from 'react';
 import { generateDefinitionSampleData, serializeMappedData } from '@formspec-org/studio-core';
 import { useProject } from '../../state/useProject';

@@ -46,6 +46,8 @@ export function AddBehaviorMenu({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      // SM-3: Guard against detached DOM nodes during unmount.
+      if (!menuRef.current?.isConnected) return;
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
