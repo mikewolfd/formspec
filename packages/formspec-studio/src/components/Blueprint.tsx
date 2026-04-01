@@ -33,8 +33,10 @@ const SECTIONS: SectionDef[] = [
   },
   { name: 'Theme', countFn: (s) => Object.keys(s.theme.tokens ?? {}).length, help: 'Visual tokens, selectors, and presentation defaults', link: { tab: 'Theme', subTab: 'tokens' } },
   { name: 'Screener', countFn: (s) => {
-    const scr = s.definition.screener as any;
-    return scr ? (scr.items?.length ?? 0) + (scr.routes?.length ?? 0) : 0;
+    const scr = s.screener;
+    if (!scr) return 0;
+    const routes = scr.evaluation?.reduce((sum: number, p: any) => sum + (p.routes?.length ?? 0), 0) ?? 0;
+    return (scr.items?.length ?? 0) + routes;
   }, help: 'Pre-qualification gate before the main form', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Variables', countFn: (s) => s.definition.variables?.length ?? 0, help: 'Named computed values reusable across expressions', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Data Sources', countFn: (s) => Object.keys(s.definition.instances ?? {}).length, help: 'Secondary data instances for lookups and reference data', link: { tab: 'Editor', view: 'manage' } },

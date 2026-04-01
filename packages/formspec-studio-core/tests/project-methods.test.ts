@@ -886,20 +886,21 @@ describe('removeItem', () => {
   it('cleans up screener routes referencing deleted field', () => {
     const project = createProject();
     project.addField('age', 'Age', 'integer');
-    // Enable screener and add routes — one referencing 'age', one not
-    project.setScreener(true);
+    // Create screener and add routes — one referencing 'age', one not
+    project.createScreenerDocument();
     project.addScreenField('screen_age', 'Screen Age', 'integer');
-    project.addScreenRoute('age > 18', '/adult-form', 'Adult route');
-    project.addScreenRoute('1 = 1', '/fallback', 'Fallback');
+    project.addScreenRoute('default', { condition: 'age > 18', target: '/adult-form', label: 'Adult route' });
+    project.addScreenRoute('default', { condition: '1 = 1', target: '/fallback', label: 'Fallback' });
     // Verify routes exist
-    const routesBefore = project.definition.screener?.routes ?? [];
+    const screener = (project.core.state as any).screener;
+    const routesBefore = screener.evaluation[0].routes;
     expect(routesBefore.length).toBe(2);
-    expect((routesBefore[0] as any).condition).toBe('age > 18');
+    expect(routesBefore[0].condition).toBe('age > 18');
     // Delete the field — route referencing 'age' should be removed
     project.removeItem('age');
-    const routesAfter = project.definition.screener?.routes ?? [];
+    const routesAfter = (project.core.state as any).screener.evaluation[0].routes;
     expect(routesAfter.length).toBe(1);
-    expect((routesAfter[0] as any).condition).toBe('1 = 1');
+    expect(routesAfter[0].condition).toBe('1 = 1');
   });
 
   it('cleans up mapping rules referencing deleted field', () => {
@@ -1849,20 +1850,31 @@ describe('removeInstance', () => {
   });
 });
 
-// ── Screener Helpers ──
+// ── Screener Document Helpers ──
 
-describe('setScreener', () => {
-  it('enables the screener', () => {
+describe('createScreenerDocument / deleteScreenerDocument', () => {
+  it('creates a screener document with default phase', () => {
     const project = createProject();
-    project.setScreener(true);
-    expect(project.definition.screener).toBeDefined();
+    project.createScreenerDocument();
+    const screener = (project.core.state as any).screener;
+    expect(screener).toBeDefined();
+    expect(screener.$formspecScreener).toBe('1.0');
+    expect(screener.evaluation).toHaveLength(1);
+    expect(screener.evaluation[0].strategy).toBe('first-match');
+  });
+
+  it('removes the screener document', () => {
+    const project = createProject();
+    project.createScreenerDocument();
+    project.deleteScreenerDocument();
+    expect((project.core.state as any).screener).toBeNull();
   });
 });
 
 describe('addScreenField', () => {
   it('adds a screener question', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     const result = project.addScreenField('age', 'How old?', 'integer');
     expect(result.affectedPaths[0]).toBe('age');
   });
@@ -1871,7 +1883,7 @@ describe('addScreenField', () => {
 describe('removeScreenField', () => {
   it('removes a screener question', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
     const result = project.removeScreenField('age');
     expect(result.summary).toContain('age');
@@ -1880,20 +1892,20 @@ describe('removeScreenField', () => {
 });
 
 describe('addScreenRoute', () => {
-  it('adds a routing rule', () => {
+  it('adds a routing rule to the default phase', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
-    const result = project.addScreenRoute('age >= 18', 'https://form.example.com', 'Adults');
+    const result = project.addScreenRoute('default', { condition: 'age >= 18', target: 'https://form.example.com', label: 'Adults' });
     expect(result.summary).toContain('route');
   });
 
   it('stores a rejection message on the route', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
-    project.addScreenRoute('age < 18', 'https://reject.example.com', 'Minors', 'You must be 18 or older to participate.');
-    const route = project.definition.screener.routes[0];
+    project.addScreenRoute('default', { condition: 'age < 18', target: 'https://reject.example.com', label: 'Minors', message: 'You must be 18 or older to participate.' });
+    const route = (project.core.state as any).screener.evaluation[0].routes[0];
     expect(route.message).toBe('You must be 18 or older to participate.');
     expect(route.label).toBe('Minors');
   });
@@ -1902,47 +1914,47 @@ describe('addScreenRoute', () => {
 describe('updateScreenRoute', () => {
   it('updates a route condition', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
-    project.addScreenRoute('age >= 18', 'https://example.com');
-    project.updateScreenRoute(0, { condition: 'age >= 21' });
-    // Route should still exist
-    expect(project.definition.screener.routes).toHaveLength(1);
+    project.addScreenRoute('default', { condition: 'age >= 18', target: 'https://example.com' });
+    project.updateScreenRoute('default', 0, { condition: 'age >= 21' });
+    const routes = (project.core.state as any).screener.evaluation[0].routes;
+    expect(routes).toHaveLength(1);
   });
 
   it('updates a route message', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
-    project.addScreenRoute('age >= 18', 'https://example.com');
-    project.updateScreenRoute(0, { message: 'Sorry, you do not qualify.' });
-    const route = project.definition.screener.routes[0];
+    project.addScreenRoute('default', { condition: 'age >= 18', target: 'https://example.com' });
+    project.updateScreenRoute('default', 0, { message: 'Sorry, you do not qualify.' });
+    const route = (project.core.state as any).screener.evaluation[0].routes[0];
     expect(route.message).toBe('Sorry, you do not qualify.');
   });
 });
 
 describe('reorderScreenRoute', () => {
-  it('reorders routes', () => {
+  it('reorders routes within a phase', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
-    project.addScreenRoute('age >= 18', 'https://a.com');
-    project.addScreenRoute('age >= 21', 'https://b.com');
-    project.reorderScreenRoute(1, 'up');
-    const routes = project.definition.screener.routes;
+    project.addScreenRoute('default', { condition: 'age >= 18', target: 'https://a.com' });
+    project.addScreenRoute('default', { condition: 'age >= 21', target: 'https://b.com' });
+    project.reorderScreenRoute('default', 1, 'up');
+    const routes = (project.core.state as any).screener.evaluation[0].routes;
     expect(routes[0].condition).toBe('age >= 21');
   });
 });
 
 describe('removeScreenRoute', () => {
-  it('removes a route', () => {
+  it('removes a route from a phase', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
-    project.addScreenRoute('age >= 18', 'https://a.com');
-    project.addScreenRoute('age >= 21', 'https://b.com');
-    project.removeScreenRoute(0);
-    const routes = project.definition.screener.routes;
+    project.addScreenRoute('default', { condition: 'age >= 18', target: 'https://a.com' });
+    project.addScreenRoute('default', { condition: 'age >= 21', target: 'https://b.com' });
+    project.removeScreenRoute('default', 0);
+    const routes = (project.core.state as any).screener.evaluation[0].routes;
     expect(routes).toHaveLength(1);
   });
 });
@@ -1952,67 +1964,65 @@ describe('removeScreenRoute', () => {
 describe('updateScreenField', () => {
   it('updates a screener question label', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'How old?', 'integer');
     const result = project.updateScreenField('age', { label: 'Your Age' });
-    expect(project.definition.screener.items[0].label).toBe('Your Age');
+    expect((project.core.state as any).screener.items[0].label).toBe('Your Age');
     expect(result.action.helper).toBe('updateScreenField');
     expect(result.affectedPaths).toContain('age');
   });
 
   it('updates helpText', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     project.updateScreenField('age', { helpText: 'Enter your age in years' });
-    expect(project.definition.screener.items[0].helpText).toBe('Enter your age in years');
+    expect((project.core.state as any).screener.items[0].helpText).toBe('Enter your age in years');
   });
 
   it('clears helpText when set to undefined', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     project.updateScreenField('age', { helpText: 'some text' });
     project.updateScreenField('age', { helpText: undefined });
-    // helpText should be deleted (handler deletes on undefined)
-    expect(project.definition.screener.items[0].helpText).toBeUndefined();
+    expect((project.core.state as any).screener.items[0].helpText).toBeUndefined();
   });
 
   it('sets required bind via boolean true', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     project.updateScreenField('age', { required: true });
-    const bind = project.definition.screener.binds?.find((b: any) => b.path === 'age');
+    const bind = (project.core.state as any).screener.binds?.find((b: any) => b.path === 'age');
     expect(bind?.required).toBe('true');
   });
 
   it('clears required bind via boolean false', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     project.updateScreenField('age', { required: true });
     project.updateScreenField('age', { required: false });
-    const bind = project.definition.screener.binds?.find((b: any) => b.path === 'age');
-    // bind should have required cleared (null-deletion)
+    const bind = (project.core.state as any).screener.binds?.find((b: any) => b.path === 'age');
     expect(bind?.required).toBeUndefined();
   });
 
   it('updates multiple properties at once', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     project.updateScreenField('age', { label: 'Your Age', helpText: 'In years', required: true });
-    const item = project.definition.screener.items[0];
+    const item = (project.core.state as any).screener.items[0];
     expect(item.label).toBe('Your Age');
     expect(item.helpText).toBe('In years');
-    const bind = project.definition.screener.binds?.find((b: any) => b.path === 'age');
+    const bind = (project.core.state as any).screener.binds?.find((b: any) => b.path === 'age');
     expect(bind?.required).toBe('true');
   });
 
   it('throws SCREENER_ITEM_NOT_FOUND for nonexistent key', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     expect(() => project.updateScreenField('bogus', { label: 'Nope' })).toThrow(HelperError);
   });
@@ -2023,27 +2033,27 @@ describe('updateScreenField', () => {
 describe('reorderScreenField', () => {
   it('moves a screener question up by key', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     project.addScreenField('income', 'Income', 'money');
     const result = project.reorderScreenField('income', 'up');
-    expect(project.definition.screener.items[0].key).toBe('income');
-    expect(project.definition.screener.items[1].key).toBe('age');
+    expect((project.core.state as any).screener.items[0].key).toBe('income');
+    expect((project.core.state as any).screener.items[1].key).toBe('age');
     expect(result.action.helper).toBe('reorderScreenField');
   });
 
   it('moves a screener question down by key', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     project.addScreenField('income', 'Income', 'money');
     project.reorderScreenField('age', 'down');
-    expect(project.definition.screener.items[0].key).toBe('income');
+    expect((project.core.state as any).screener.items[0].key).toBe('income');
   });
 
   it('throws SCREENER_ITEM_NOT_FOUND for nonexistent key', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     expect(() => project.reorderScreenField('bogus', 'up')).toThrow(HelperError);
   });
@@ -2054,13 +2064,13 @@ describe('reorderScreenField', () => {
 describe('addScreenRoute with insertIndex', () => {
   it('inserts a route at a specific index', () => {
     const project = createProject();
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
-    project.addScreenRoute('age >= 18', 'https://a.com');
-    project.addScreenRoute('1 = 1', 'https://fallback.com');
+    project.addScreenRoute('default', { condition: 'age >= 18', target: 'https://a.com' });
+    project.addScreenRoute('default', { condition: '1 = 1', target: 'https://fallback.com' });
     // Insert between route 0 and fallback
-    project.addScreenRoute('age >= 21', 'https://b.com', undefined, undefined, 1);
-    const routes = project.definition.screener.routes;
+    project.addScreenRoute('default', { condition: 'age >= 21', target: 'https://b.com' }, 1);
+    const routes = (project.core.state as any).screener.evaluation[0].routes;
     expect(routes).toHaveLength(3);
     expect(routes[1].condition).toBe('age >= 21');
   });
@@ -2973,10 +2983,10 @@ describe('INSTANCE_NOT_FOUND pre-validation', () => {
 describe('ROUTE_OUT_OF_BOUNDS pre-validation', () => {
   it('updateScreenRoute throws for out-of-bounds index', () => {
     const project = createProject();
-    project.setScreener(true);
-    project.addScreenRoute('1 = 1', 'pass');
+    project.createScreenerDocument();
+    project.addScreenRoute('default', { condition: '1 = 1', target: 'pass' });
     try {
-      project.updateScreenRoute(99, { condition: '1 = 2' });
+      project.updateScreenRoute('default', 99, { condition: '1 = 2' });
       expect.unreachable('should throw');
     } catch (e) {
       expect(e).toBeInstanceOf(HelperError);
@@ -2986,10 +2996,10 @@ describe('ROUTE_OUT_OF_BOUNDS pre-validation', () => {
 
   it('reorderScreenRoute throws for out-of-bounds index', () => {
     const project = createProject();
-    project.setScreener(true);
-    project.addScreenRoute('1 = 1', 'pass');
+    project.createScreenerDocument();
+    project.addScreenRoute('default', { condition: '1 = 1', target: 'pass' });
     try {
-      project.reorderScreenRoute(99, 'up');
+      project.reorderScreenRoute('default', 99, 'up');
       expect.unreachable('should throw');
     } catch (e) {
       expect(e).toBeInstanceOf(HelperError);
@@ -3047,7 +3057,7 @@ describe('bind helpers reject nonexistent target paths', () => {
   it('addValidation throws PATH_NOT_FOUND for screener-only field', () => {
     const project = createProject();
     project.addField('name', 'Name', 'text');
-    project.setScreener(true);
+    project.createScreenerDocument();
     project.addScreenField('age', 'Age', 'integer');
     // 'age' exists only in the screener — not in the main form tree
     expect(() => project.addValidation('age', '$age > 0', 'Must be positive')).toThrow(HelperError);
@@ -3087,19 +3097,14 @@ describe('bind helpers reject nonexistent target paths', () => {
   });
 });
 
-describe('ROUTE_MIN_COUNT pre-validation', () => {
-  it('removeScreenRoute throws when trying to delete the last route', () => {
+describe('removeScreenRoute allows deleting last route', () => {
+  it('allows deleting the last route in a phase', () => {
     const project = createProject();
-    project.setScreener(true);
-    project.addScreenRoute('1 = 1', 'pass');
-    try {
-      project.removeScreenRoute(0);
-      expect.unreachable('should throw');
-    } catch (e) {
-      expect(e).toBeInstanceOf(HelperError);
-      expect((e as HelperError).code).toBe('ROUTE_MIN_COUNT');
-      expect((e as HelperError).detail?.currentRouteCount).toBe(1);
-    }
+    project.createScreenerDocument();
+    project.addScreenRoute('default', { condition: '1 = 1', target: 'pass' });
+    project.removeScreenRoute('default', 0);
+    const routes = (project.core.state as any).screener.evaluation[0].routes;
+    expect(routes).toHaveLength(0);
   });
 });
 

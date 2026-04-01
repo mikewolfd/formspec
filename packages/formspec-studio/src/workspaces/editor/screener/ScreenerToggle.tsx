@@ -6,18 +6,19 @@ interface ScreenerToggleProps {
   isActive: boolean;
   questionCount: number;
   routeCount: number;
+  phaseCount: number;
 }
 
-export function ScreenerToggle({ isActive, questionCount, routeCount }: ScreenerToggleProps) {
+export function ScreenerToggle({ isActive, questionCount, routeCount, phaseCount }: ScreenerToggleProps) {
   const project = useProject();
 
   const handleSetup = () => {
-    project.setScreener(true);
+    project.createScreenerDocument();
   };
 
   const handleRemove = () => {
-    if (window.confirm('This will remove all screening questions and routing rules.')) {
-      project.setScreener(false);
+    if (window.confirm('This will remove the screener document and all screening questions, phases, and routing rules.')) {
+      project.deleteScreenerDocument();
     }
   };
 
@@ -46,7 +47,7 @@ export function ScreenerToggle({ isActive, questionCount, routeCount }: Screener
       <div className="flex items-center gap-3">
         <Pill text="Active" color="green" size="sm" />
         <span className="text-[12px] text-muted">
-          {questionCount} question{questionCount !== 1 ? 's' : ''}, {routeCount} route{routeCount !== 1 ? 's' : ''}
+          {questionCount} question{questionCount !== 1 ? 's' : ''}, {phaseCount} phase{phaseCount !== 1 ? 's' : ''}, {routeCount} route{routeCount !== 1 ? 's' : ''}
         </span>
       </div>
       <button

@@ -100,6 +100,7 @@ export class Project {
         theme: s.theme as unknown as ThemeDocument,
         mappings: s.mappings as unknown as Record<string, MappingDocument>,
         selectedMappingId: s.selectedMappingId,
+        screener: s.screener ?? null,
       };
     }
     return this._snapshot!;
@@ -1410,13 +1411,15 @@ export class Project {
         }
       }
 
-      // Clean up screener routes (delete in descending index order)
+      // Clean up screener routes (delete in descending index order within each phase)
       if (depSet.screenerRoutes?.length) {
-        const sortedIndices = [...depSet.screenerRoutes].sort((a, b) => b - a);
-        for (const idx of sortedIndices) {
+        const sorted = [...depSet.screenerRoutes].sort((a, b) =>
+          a.phaseId === b.phaseId ? b.routeIndex - a.routeIndex : a.phaseId.localeCompare(b.phaseId)
+        );
+        for (const { phaseId, routeIndex } of sorted) {
           commands.push({
-            type: 'definition.deleteRoute',
-            payload: { index: idx },
+            type: 'screener.deleteRoute',
+            payload: { phaseId, index: routeIndex },
           });
         }
       }
@@ -3711,27 +3714,71 @@ export class Project {
     };
   }
 
-  // ── Screener Helpers ──
+  // ── Screener Document Helpers ──
 
-  /** Enable/disable screener. */
-  setScreener(enabled: boolean): HelperResult {
-    this.core.dispatch({ type: 'definition.setScreener', payload: { enabled } });
+  /** Get the active screener document or throw. */
+  private _getScreener() {
+    const screener = this.core.state.screener;
+    if (!screener) throw new HelperError('SCREENER_NOT_FOUND', 'No screener document loaded', {});
+    return screener;
+  }
 
+  /** Validate a screener item key exists, returning its index. */
+  private _validateScreenerItemKey(key: string): number {
+    const items = this._getScreener().items;
+    const idx = items.findIndex((it: any) => it.key === key);
+    if (idx === -1) throw new HelperError('SCREENER_ITEM_NOT_FOUND', `Screener item not found: ${key}`, { key });
+    return idx;
+  }
+
+  /** Validate a phase exists and a route index is in bounds. */
+  private _validatePhaseRoute(phaseId: string, routeIndex: number) {
+    const screener = this._getScreener();
+    const phase = screener.evaluation.find((p: any) => p.id === phaseId);
+    if (!phase) throw new HelperError('PHASE_NOT_FOUND', `Phase not found: ${phaseId}`, { phaseId });
+    if (routeIndex < 0 || routeIndex >= phase.routes.length) {
+      throw new HelperError('ROUTE_OUT_OF_BOUNDS', `Route index ${routeIndex} out of bounds in phase ${phaseId}`, {
+        phaseId, routeIndex, routeCount: phase.routes.length,
+      });
+    }
+  }
+
+  /** Create a new screener document with a default first-match phase. */
+  createScreenerDocument(options?: { url?: string; title?: string }): HelperResult {
+    const doc = {
+      $formspecScreener: '1.0' as const,
+      url: options?.url ?? '',
+      version: '1.0.0',
+      title: options?.title ?? 'Screener',
+      items: [],
+      evaluation: [{ id: 'default', strategy: 'first-match', routes: [] }],
+    };
+    this.core.dispatch({ type: 'screener.setDocument', payload: doc });
     return {
-      summary: `Screener ${enabled ? 'enabled' : 'disabled'}`,
-      action: { helper: 'setScreener', params: { enabled } },
+      summary: 'Created screener document',
+      action: { helper: 'createScreenerDocument', params: options ?? {} },
+      affectedPaths: [],
+    };
+  }
+
+  /** Remove the screener document. */
+  deleteScreenerDocument(): HelperResult {
+    this.core.dispatch({ type: 'screener.remove', payload: {} });
+    return {
+      summary: 'Removed screener document',
+      action: { helper: 'deleteScreenerDocument', params: {} },
       affectedPaths: [],
     };
   }
 
   /** Add a screener question. */
   addScreenField(key: string, label: string, type: string, props?: FieldProps): HelperResult {
+    this._getScreener();
     const resolved = resolveFieldType(type);
     this.core.dispatch({
-      type: 'definition.addScreenerItem',
+      type: 'screener.addItem',
       payload: { type: 'field', key, label, dataType: resolved.dataType },
     });
-
     return {
       summary: `Added screener field '${key}'`,
       action: { helper: 'addScreenField', params: { key, label, type } },
@@ -3741,8 +3788,7 @@ export class Project {
 
   /** Remove a screener question. */
   removeScreenField(key: string): HelperResult {
-    this.core.dispatch({ type: 'definition.deleteScreenerItem', payload: { key } });
-
+    this.core.dispatch({ type: 'screener.deleteItem', payload: { key } });
     return {
       summary: `Removed screener field '${key}'`,
       action: { helper: 'removeScreenField', params: { key } },
@@ -3750,33 +3796,20 @@ export class Project {
     };
   }
 
-  /** Validate that a screener item key exists, returning its index. */
-  private _validateScreenerItemKey(key: string): number {
-    const items = (this.core.state.definition as any).screener?.items ?? [];
-    const idx = items.findIndex((it: any) => it.key === key);
-    if (idx === -1) {
-      throw new HelperError('SCREENER_ITEM_NOT_FOUND', `Screener item not found: ${key}`, { key });
-    }
-    return idx;
-  }
-
-  /** Update properties on a screener question. Accepts item properties (label, helpText) and bind properties (required). */
+  /** Update properties on a screener question. */
   updateScreenField(key: string, changes: { label?: string; helpText?: string; required?: boolean | string }): HelperResult {
     this._validateScreenerItemKey(key);
-
     const commands: AnyCommand[] = [];
 
-    // Item property keys
     for (const prop of ['label', 'helpText'] as const) {
       if (prop in changes) {
         commands.push({
-          type: 'definition.setScreenerItemProperty',
+          type: 'screener.setItemProperty',
           payload: { key, property: prop, value: (changes as any)[prop] },
         });
       }
     }
 
-    // Bind keys
     if ('required' in changes) {
       const val = changes.required;
       let bindValue: unknown;
@@ -3784,13 +3817,12 @@ export class Project {
       else if (val === false) bindValue = null;
       else bindValue = val;
       commands.push({
-        type: 'definition.setScreenerBind',
+        type: 'screener.setBind',
         payload: { path: key, properties: { required: bindValue } },
       });
     }
 
     if (commands.length > 0) this.core.dispatch(commands);
-
     return {
       summary: `Updated screener field '${key}'`,
       action: { helper: 'updateScreenField', params: { key, ...changes } },
@@ -3801,11 +3833,7 @@ export class Project {
   /** Reorder a screener question by key. */
   reorderScreenField(key: string, direction: 'up' | 'down'): HelperResult {
     const index = this._validateScreenerItemKey(key);
-    this.core.dispatch({
-      type: 'definition.reorderScreenerItem',
-      payload: { index, direction },
-    });
-
+    this.core.dispatch({ type: 'screener.reorderItem', payload: { index, direction } });
     return {
       summary: `Reordered screener field '${key}' ${direction}`,
       action: { helper: 'reorderScreenField', params: { key, direction } },
@@ -3813,89 +3841,139 @@ export class Project {
     };
   }
 
-  /** Add a screener routing rule. */
-  addScreenRoute(condition: string, target: string, label?: string, message?: string, insertIndex?: number): HelperResult {
-    this._validateFEL(condition);
-    const payload: Record<string, unknown> = { condition, target };
-    if (label) payload.label = label;
-    if (message) payload.message = message;
-    if (insertIndex !== undefined) payload.insertIndex = insertIndex;
+  // ── Phase Management ──
 
-    this.core.dispatch({ type: 'definition.addRoute', payload });
-
+  /** Add an evaluation phase. */
+  addEvaluationPhase(id: string, strategy: string, label?: string): HelperResult {
+    this._getScreener();
+    this.core.dispatch({ type: 'screener.addPhase', payload: { id, strategy, label } });
     return {
-      summary: `Added screen route to '${target}'`,
-      action: { helper: 'addScreenRoute', params: { condition, target, label, message } },
+      summary: `Added evaluation phase '${id}' (${strategy})`,
+      action: { helper: 'addEvaluationPhase', params: { id, strategy, label } },
       affectedPaths: [],
     };
   }
 
-  private _validateRouteIndex(routeIndex: number): void {
-    const routes = (this.core.state.definition as any).screener?.routes ?? [];
-    if (routeIndex < 0 || routeIndex >= routes.length) {
-      throw new HelperError('ROUTE_OUT_OF_BOUNDS', `Route index ${routeIndex} is out of bounds`, {
-        routeIndex,
-        routeCount: routes.length,
-      });
-    }
+  /** Remove an evaluation phase. */
+  removeEvaluationPhase(phaseId: string): HelperResult {
+    this.core.dispatch({ type: 'screener.removePhase', payload: { phaseId } });
+    return {
+      summary: `Removed evaluation phase '${phaseId}'`,
+      action: { helper: 'removeEvaluationPhase', params: { phaseId } },
+      affectedPaths: [],
+    };
   }
 
-  /** Update a screener route. */
+  /** Reorder an evaluation phase. */
+  reorderPhase(phaseId: string, direction: 'up' | 'down'): HelperResult {
+    this.core.dispatch({ type: 'screener.reorderPhase', payload: { phaseId, direction } });
+    return {
+      summary: `Reordered phase '${phaseId}' ${direction}`,
+      action: { helper: 'reorderPhase', params: { phaseId, direction } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Set strategy and config on a phase. */
+  setPhaseStrategy(phaseId: string, strategy: string, config?: Record<string, unknown>): HelperResult {
+    const commands: AnyCommand[] = [
+      { type: 'screener.setPhaseProperty', payload: { phaseId, property: 'strategy', value: strategy } },
+    ];
+    if (config !== undefined) {
+      commands.push({ type: 'screener.setPhaseProperty', payload: { phaseId, property: 'config', value: config } });
+    }
+    this.core.dispatch(commands);
+    return {
+      summary: `Set phase '${phaseId}' strategy to '${strategy}'`,
+      action: { helper: 'setPhaseStrategy', params: { phaseId, strategy, config } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Phase-Scoped Route Management ──
+
+  /** Add a route to a phase. */
+  addScreenRoute(phaseId: string, route: { condition?: string; target: string; label?: string; message?: string; score?: string; threshold?: number }, insertIndex?: number): HelperResult {
+    this._getScreener();
+    if (route.condition) this._validateFEL(route.condition);
+    if (route.score) this._validateFEL(route.score);
+    this.core.dispatch({ type: 'screener.addRoute', payload: { phaseId, route, insertIndex } });
+    return {
+      summary: `Added route to '${route.target}' in phase '${phaseId}'`,
+      action: { helper: 'addScreenRoute', params: { phaseId, ...route } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Update properties on a route. */
   updateScreenRoute(
+    phaseId: string,
     routeIndex: number,
-    changes: { condition?: string; target?: string; label?: string; message?: string },
+    changes: { condition?: string; target?: string; label?: string; message?: string; score?: string; threshold?: number; override?: boolean; terminal?: boolean },
   ): HelperResult {
-    this._validateRouteIndex(routeIndex);
+    this._validatePhaseRoute(phaseId, routeIndex);
     if (changes.condition) this._validateFEL(changes.condition);
+    if (changes.score) this._validateFEL(changes.score);
 
     const commands: AnyCommand[] = [];
     for (const [prop, val] of Object.entries(changes)) {
       if (val !== undefined) {
         commands.push({
-          type: 'definition.setRouteProperty',
-          payload: { index: routeIndex, property: prop, value: val },
+          type: 'screener.setRouteProperty',
+          payload: { phaseId, index: routeIndex, property: prop, value: val },
         });
       }
     }
     if (commands.length > 0) this.core.dispatch(commands);
-
     return {
-      summary: `Updated screen route ${routeIndex}`,
-      action: { helper: 'updateScreenRoute', params: { routeIndex, ...changes } },
+      summary: `Updated route ${routeIndex} in phase '${phaseId}'`,
+      action: { helper: 'updateScreenRoute', params: { phaseId, routeIndex, ...changes } },
       affectedPaths: [],
     };
   }
 
-  /** Reorder a screener route. */
-  reorderScreenRoute(routeIndex: number, direction: 'up' | 'down'): HelperResult {
-    this._validateRouteIndex(routeIndex);
-    this.core.dispatch({
-      type: 'definition.reorderRoute',
-      payload: { index: routeIndex, direction },
-    });
-
+  /** Reorder a route within a phase. */
+  reorderScreenRoute(phaseId: string, routeIndex: number, direction: 'up' | 'down'): HelperResult {
+    this._validatePhaseRoute(phaseId, routeIndex);
+    this.core.dispatch({ type: 'screener.reorderRoute', payload: { phaseId, index: routeIndex, direction } });
     return {
-      summary: `Reordered screen route ${routeIndex} ${direction}`,
-      action: { helper: 'reorderScreenRoute', params: { routeIndex, direction } },
+      summary: `Reordered route ${routeIndex} in phase '${phaseId}' ${direction}`,
+      action: { helper: 'reorderScreenRoute', params: { phaseId, routeIndex, direction } },
       affectedPaths: [],
     };
   }
 
-  /** Remove a screener route. */
-  removeScreenRoute(routeIndex: number): HelperResult {
-    this._validateRouteIndex(routeIndex);
-    const routes = (this.core.state.definition as any).screener?.routes ?? [];
-    if (routes.length <= 1) {
-      throw new HelperError('ROUTE_MIN_COUNT', 'Cannot delete the last remaining screener route', {
-        currentRouteCount: routes.length,
-        routes,
-      });
-    }
-    this.core.dispatch({ type: 'definition.deleteRoute', payload: { index: routeIndex } });
-
+  /** Remove a route from a phase. */
+  removeScreenRoute(phaseId: string, routeIndex: number): HelperResult {
+    this._validatePhaseRoute(phaseId, routeIndex);
+    this.core.dispatch({ type: 'screener.deleteRoute', payload: { phaseId, index: routeIndex } });
     return {
-      summary: `Removed screen route ${routeIndex}`,
-      action: { helper: 'removeScreenRoute', params: { routeIndex } },
+      summary: `Removed route ${routeIndex} from phase '${phaseId}'`,
+      action: { helper: 'removeScreenRoute', params: { phaseId, routeIndex } },
+      affectedPaths: [],
+    };
+  }
+
+  // ── Screener Lifecycle ──
+
+  /** Set screener availability window. Pass null to clear. */
+  setScreenerAvailability(from?: string | null, until?: string | null): HelperResult {
+    this._getScreener();
+    this.core.dispatch({ type: 'screener.setAvailability', payload: { from, until } });
+    return {
+      summary: 'Updated screener availability',
+      action: { helper: 'setScreenerAvailability', params: { from, until } },
+      affectedPaths: [],
+    };
+  }
+
+  /** Set screener result validity duration. Pass null to clear. */
+  setScreenerResultValidity(duration: string | null): HelperResult {
+    this._getScreener();
+    this.core.dispatch({ type: 'screener.setResultValidity', payload: { duration } });
+    return {
+      summary: duration ? `Set result validity to ${duration}` : 'Cleared result validity',
+      action: { helper: 'setScreenerResultValidity', params: { duration } },
       affectedPaths: [],
     };
   }

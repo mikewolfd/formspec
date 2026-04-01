@@ -106,12 +106,15 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   const definitionLookup = useMemo(() => buildDefLookup(project.definition.items ?? []), [project.definition.items]);
   const manageCount = useMemo(() => {
     const def = project.definition;
+    const screenerRoutes = project.state.screener
+      ? project.state.screener.evaluation?.reduce((sum: number, p: any) => sum + (p.routes?.length ?? 0), 0) ?? 0
+      : 0;
     return (def.binds?.length ?? 0) +
       (Array.isArray(def.shapes) ? def.shapes.length : 0) +
       (def.variables?.length ?? 0) +
       Object.keys(def.optionSets ?? {}).length +
       Object.keys(def.instances ?? {}).length +
-      (def.screener?.routes?.length ?? 0);
+      screenerRoutes;
   }, [project.definition]);
   const viewportWidth = typeof window !== 'undefined'
     ? Math.min(window.innerWidth, document.documentElement?.clientWidth || window.innerWidth)

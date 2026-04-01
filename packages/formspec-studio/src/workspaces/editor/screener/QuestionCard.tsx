@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useProject } from '../../../state/useProject';
 import { FieldIcon } from '../../../components/ui/FieldIcon';
-import type { ScreenerQuestion } from './types';
+type ScreenerQuestion = { key: string; type: string; dataType?: string; label?: string; helpText?: string; [k: string]: unknown };
 
 interface QuestionCardProps {
   item: ScreenerQuestion;

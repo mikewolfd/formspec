@@ -557,13 +557,7 @@ describe('Shell', () => {
       instances: {
         lookup1: { data: { rows: [] } },
       },
-      screener: {
-        items: [{ key: 'eligible', type: 'field' as const, dataType: 'boolean' as const, label: 'Eligible?' }],
-        routes: [
-          { condition: '$eligible = true', target: 'urn:form-a' },
-          { condition: 'true', target: 'urn:form-b' },
-        ],
-      },
+      // screener is now a standalone document on state.screener, not on definition
     };
 
     renderShell(definition, 1440);

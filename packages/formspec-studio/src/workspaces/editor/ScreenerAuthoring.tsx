@@ -1,21 +1,17 @@
-/** @filedesc Full screener authoring surface for ManageView — questions, routes, and toggle. */
-import { useDefinition } from '../../state/useDefinition';
+/** @filedesc Full screener authoring surface for ManageView — questions, phases, routes, and toggle. */
+import { useScreener } from '../../state/useScreener';
 import { ScreenerToggle } from './screener/ScreenerToggle';
 import { ScreenerQuestions } from './screener/ScreenerQuestions';
-import { ScreenerRoutes } from './screener/ScreenerRoutes';
-import type { ScreenerQuestion, ScreenerRoute } from './screener/types';
-
-interface Screener {
-  items?: ScreenerQuestion[];
-  routes?: ScreenerRoute[];
-}
+import { PhaseList } from './screener/PhaseList';
 
 export function ScreenerAuthoring() {
-  const definition = useDefinition();
-  const screener = definition?.screener as Screener | undefined;
-  const isActive = Boolean(screener);
+  const screener = useScreener();
+  const isActive = screener !== null;
   const questionCount = screener?.items?.length ?? 0;
-  const routeCount = screener?.routes?.length ?? 0;
+  const phaseCount = screener?.evaluation?.length ?? 0;
+  const routeCount = screener
+    ? screener.evaluation.reduce((sum, phase) => sum + (phase.routes?.length ?? 0), 0)
+    : 0;
 
   return (
     <div className="space-y-4">
@@ -27,13 +23,14 @@ export function ScreenerAuthoring() {
         isActive={isActive}
         questionCount={questionCount}
         routeCount={routeCount}
+        phaseCount={phaseCount}
       />
 
       {isActive && (
         <div className="space-y-6 mt-2">
           <ScreenerQuestions />
 
-          <ScreenerRoutes />
+          <PhaseList />
         </div>
       )}
     </div>

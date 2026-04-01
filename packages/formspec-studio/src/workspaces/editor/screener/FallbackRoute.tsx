@@ -1,14 +1,15 @@
-/** @filedesc Visually distinct card for the catch-all fallback routing rule. */
+/** @filedesc Visually distinct card for the catch-all fallback routing rule (first-match phases only). */
 import { useState, useEffect } from 'react';
 import { useProject } from '../../../state/useProject';
-import type { ScreenerRoute } from './types';
+import type { Route } from '@formspec-org/types';
 
 interface FallbackRouteProps {
-  route: ScreenerRoute;
+  route: Route;
   routeIndex: number;
+  phaseId: string;
 }
 
-export function FallbackRoute({ route, routeIndex }: FallbackRouteProps) {
+export function FallbackRoute({ route, routeIndex, phaseId }: FallbackRouteProps) {
   const project = useProject();
   const [editTarget, setEditTarget] = useState(route.target);
   const [editMessage, setEditMessage] = useState(route.message ?? '');
@@ -18,7 +19,7 @@ export function FallbackRoute({ route, routeIndex }: FallbackRouteProps) {
   const displayLabel = route.label || 'Everyone else';
 
   const setRouteProperty = (property: string, value: string | undefined) => {
-    project.updateScreenRoute(routeIndex, { [property]: value });
+    project.updateScreenRoute(phaseId, routeIndex, { [property]: value });
   };
 
   const handleTargetBlur = () => {

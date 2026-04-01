@@ -10,9 +10,11 @@
 export type {
   FormItem, FormBind, FormShape, FormVariable, FormInstance, FormOption,
   FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
+  ScreenerDocument,
 } from '@formspec-org/types';
 import type {
   FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
+  ScreenerDocument,
 } from '@formspec-org/types';
 
 // ── Shared operational types (re-exported from formspec-core) ────────
@@ -38,6 +40,8 @@ export interface ProjectSnapshot {
   theme: ThemeDocument;
   mappings: Record<string, MappingDocument>;
   selectedMappingId?: string;
+  /** Standalone Screener Document, or null if no screener is loaded. */
+  screener: ScreenerDocument | null;
 }
 
 // ── Callback Types ──────────────────────────────────────────────────

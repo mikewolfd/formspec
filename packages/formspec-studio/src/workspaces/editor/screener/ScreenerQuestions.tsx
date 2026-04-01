@@ -1,10 +1,9 @@
 /** @filedesc Question list manager with accordion cards and inline add form for screener authoring. */
 import { useState } from 'react';
 import { sanitizeIdentifier } from '@formspec-org/studio-core';
-import { useDefinition } from '../../../state/useDefinition';
+import { useScreener } from '../../../state/useScreener';
 import { useProject } from '../../../state/useProject';
 import { QuestionCard } from './QuestionCard';
-import type { ScreenerQuestion } from './types';
 
 const TYPE_OPTIONS = [
   { value: 'boolean', label: 'Yes / No' },
@@ -16,11 +15,10 @@ const TYPE_OPTIONS = [
 ] as const;
 
 export function ScreenerQuestions() {
-  const definition = useDefinition();
+  const screener = useScreener();
   const project = useProject();
-  const screener = definition?.screener as { items?: ScreenerQuestion[]; binds?: { path: string; required?: string }[] } | undefined;
-  const items = screener?.items ?? [];
-  const binds = screener?.binds ?? [];
+  const items = (screener?.items ?? []) as Array<{ key: string; type: string; dataType?: string; label?: string; helpText?: string; [k: string]: unknown }>;
+  const binds = (screener?.binds ?? []) as Array<{ path: string; required?: string }>;
 
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
