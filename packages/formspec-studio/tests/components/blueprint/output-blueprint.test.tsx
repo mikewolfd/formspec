@@ -191,7 +191,7 @@ describe('OutputBlueprint — repeating group paths and validation', () => {
     expect(input).toBeTruthy();
     fireEvent.change(input!, { target: { value: '' } });
     await waitFor(() => {
-      expect(within(node!).getByText(/^✕ /)).toBeInTheDocument();
+      expect(within(node! as HTMLElement).getByText(/^✕ /)).toBeInTheDocument();
     });
   });
 });

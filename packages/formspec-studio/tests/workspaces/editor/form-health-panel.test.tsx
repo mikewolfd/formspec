@@ -62,6 +62,7 @@ describe('FormHealthPanel', () => {
           $formspec: '1.0',
           url: 'urn:health-advisories',
           version: '1.0.0',
+          title: 'Health Advisories Test',
           items: [
             { key: 'risky', type: 'field', dataType: 'string', label: 'Risky field' },
           ],
@@ -86,6 +87,7 @@ describe('FormHealthPanel', () => {
           $formspec: '1.0',
           url: 'urn:health-select',
           version: '1.0.0',
+          title: 'Health Select Test',
           items: [
             { key: 'risky', type: 'field', dataType: 'string', label: 'Risky' },
           ],

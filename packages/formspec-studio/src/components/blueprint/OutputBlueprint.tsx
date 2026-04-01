@@ -318,7 +318,7 @@ export function OutputBlueprint() {
       <div className="flex items-center justify-between">
         <div className="text-muted/60 text-[10px] tracking-wider uppercase font-sans font-bold">Response Document</div>
         {errorCount > 0 ? (
-          <span className="text-[10px] font-bold text-error">{errorCount} error{errorCount > 1 ? 's' : ''}</span>
+          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{errorCount} error{errorCount > 1 ? 's' : ''}</span>
         ) : (
           <span className="text-[10px] font-medium text-green-600 dark:text-green-400">Valid</span>
         )}
