@@ -1,7 +1,7 @@
 /** @filedesc useScreener — React hook for the Formspec screener gate. */
 import { useState, useCallback } from 'react';
 import type { IFormEngine } from '@formspec-org/engine';
-import { evalFEL } from '@formspec-org/engine';
+import { evalFEL, wasmEvaluateScreenerDocument } from '@formspec-org/engine';
 import type { UseScreenerOptions, UseScreenerResult, ScreenerRoute, ScreenerRouteType } from './types';
 
 /**
@@ -72,9 +72,9 @@ export function useScreener(
     definition: any,
     options: UseScreenerOptions = {},
 ): UseScreenerResult {
-    const screener = definition?.screener;
-    const items: any[] = screener?.items ?? [];
-    const routes: any[] = screener?.routes ?? [];
+    const screenerDoc = options.screenerDocument ?? null;
+    const items: any[] = screenerDoc?.items ?? [];
+    const routes: any[] = screenerDoc?.evaluation?.flatMap((p: any) => p.routes ?? []) ?? [];
 
     const [answers, setAnswers] = useState<Record<string, any>>(() =>
         buildSeedAnswers(items, options.seedAnswers),
@@ -103,7 +103,7 @@ export function useScreener(
     const submit = useCallback(() => {
         // Validate required fields
         const newErrors: Record<string, string> = {};
-        const hasExplicitRequired = items.some(i => isItemRequired(i, screener, engine, answers));
+        const hasExplicitRequired = items.some(i => isItemRequired(i, screenerDoc, engine, answers));
 
         if (hasExplicitRequired) {
             for (const item of items) {
@@ -134,7 +134,16 @@ export function useScreener(
         }
         setErrors({});
 
-        const result = engine.evaluateScreener(answers);
+        // Evaluate via WASM and extract first matched route from determination
+        let result: { target: string; label?: string; extensions?: Record<string, any> } | null = null;
+        if (screenerDoc) {
+            const determination = wasmEvaluateScreenerDocument(screenerDoc, answers);
+            const matched = determination.overrides?.matched?.[0]
+                ?? determination.phases?.flatMap((p: any) => p.matched)?.[0];
+            if (matched) {
+                result = { target: matched.target, label: matched.label };
+            }
+        }
         if (!result) {
             setRouteResult({ route: { target: '' }, routeType: 'none' });
             setState('routed');

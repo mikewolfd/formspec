@@ -31,6 +31,8 @@ function useEmitThemeTokensOnFormspecContainerRef(): React.RefObject<HTMLDivElem
 export interface FormspecFormProps extends Omit<FormspecProviderProps, 'children'> {
     /** Optional className on the root container. */
     className?: string;
+    /** Standalone Screener Document. */
+    screenerDocument?: any;
     /** When true, bypass the screener gate entirely. */
     skipScreener?: boolean;
     /** Pre-fill answers for the screener fields. */
@@ -54,6 +56,7 @@ export interface FormspecFormProps extends Omit<FormspecProviderProps, 'children
  */
 export function FormspecForm({
     className,
+    screenerDocument,
     skipScreener,
     screenerSeedAnswers,
     renderExternalRoute,
@@ -61,8 +64,7 @@ export function FormspecForm({
     onScreenerRoute,
     ...providerProps
 }: FormspecFormProps) {
-    const definition = providerProps.definition ?? providerProps.engine?.getDefinition();
-    const hasScreener = !skipScreener && hasActiveScreenerDef(definition);
+    const hasScreener = !skipScreener && hasActiveScreenerDoc(screenerDocument);
 
     const [screenerDone, setScreenerDone] = useState(!hasScreener);
 
@@ -132,6 +134,7 @@ function ScreenerGate({
         >
             <FormspecScreener
                 definition={definition}
+                screenerDocument={screenerDocument}
                 engine={engine}
                 seedAnswers={seedAnswers}
                 renderExternalRoute={renderExternalRoute}
@@ -175,12 +178,11 @@ function FormspecFormInner({ className }: { className?: string }) {
     );
 }
 
-/** Check whether a definition has an active screener block. */
-function hasActiveScreenerDef(definition: any): boolean {
-    const screener = definition?.screener;
+/** Check whether a standalone screener document is active. */
+function hasActiveScreenerDoc(screenerDocument: any | null | undefined): boolean {
     return (
-        Boolean(screener) &&
-        Array.isArray(screener?.items) &&
-        screener.items.length > 0
+        Boolean(screenerDocument) &&
+        Array.isArray(screenerDocument?.items) &&
+        screenerDocument.items.length > 0
     );
 }

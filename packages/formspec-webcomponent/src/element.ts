@@ -115,6 +115,8 @@ export class FormspecRender extends HTMLElement {
     /** @internal */ _screenerCompleted = false;
     /** The route selected by the screener, if any. */
     /** @internal */ _screenerRoute: ScreenerRoute | null = null;
+    /** Standalone Screener Document. */
+    /** @internal */ _screenerDocument: any | null = null;
     /** Backing store for the `screenerSeedAnswers` property. */
     private _screenerSeedAnswers: Record<string, any> | null = null;
     /**
@@ -221,11 +223,11 @@ export class FormspecRender extends HTMLElement {
     }
 
     private tryAutoCompleteScreenerFromSeed(): void {
-        if (!this.engine || !this._screenerSeedAnswers) return;
-        const screener = this._definition?.screener;
+        if (!this.engine || !this._screenerSeedAnswers || !this._screenerDocument) return;
+        const screener = this._screenerDocument;
         if (!screener?.items?.length) return;
 
-        const defaultCurrency = this._definition.formPresentation?.defaultCurrency || 'USD';
+        const defaultCurrency = this._definition?.formPresentation?.defaultCurrency || 'USD';
         const answers = buildInitialScreenerAnswers(screener, this._screenerSeedAnswers, defaultCurrency);
         if (!screenerAnswersSatisfyRequired(screener, answers)) return;
 
@@ -360,6 +362,18 @@ export class FormspecRender extends HTMLElement {
      * apply constraints and metadata (inputMode, autocomplete, pattern, etc.)
      * generically instead of hardcoding per-extension behaviour.
      */
+    /** Set the standalone Screener Document. */
+    set screenerDocument(doc: any | null) {
+        this._screenerDocument = doc ?? null;
+        this._screenerCompleted = false;
+        this._screenerRoute = null;
+        this.scheduleRender();
+    }
+
+    get screenerDocument(): any | null {
+        return this._screenerDocument;
+    }
+
     set registryDocuments(docs: any | any[]) {
         this._registryEntries.clear();
         const docList = Array.isArray(docs) ? docs : docs ? [docs] : [];
@@ -555,11 +569,11 @@ export class FormspecRender extends HTMLElement {
 
         emitTokenPropertiesFn(this._stylingHost, container);
 
-        if (hasActiveScreener(this._definition) && !this._screenerCompleted) {
+        if (hasActiveScreener(this._screenerDocument) && !this._screenerCompleted) {
             this.tryAutoCompleteScreenerFromSeed();
         }
 
-        if (hasActiveScreener(this._definition) && !this._screenerCompleted) {
+        if (hasActiveScreener(this._screenerDocument) && !this._screenerCompleted) {
             renderScreener(this as any as ScreenerHost, container);
             return;
         }

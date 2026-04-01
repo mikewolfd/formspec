@@ -19,6 +19,8 @@ export interface ScreenerStateSnapshot {
 export interface UseScreenerOptions {
     /** Pre-fill answers. */
     seedAnswers?: Record<string, any>;
+    /** Standalone Screener Document. */
+    screenerDocument?: any;
     /** Callback when a route is determined. */
     onRoute?: (route: ScreenerRoute, routeType: ScreenerRouteType, answers: Record<string, any>) => void;
 }

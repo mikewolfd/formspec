@@ -6,8 +6,10 @@ import { useScreener, itemDataType, itemOptions, isItemRequired } from './use-sc
 import type { UseScreenerOptions, ScreenerRoute } from './types';
 
 export interface FormspecScreenerProps extends UseScreenerOptions {
-    /** The Formspec definition containing a screener block. */
+    /** The Formspec definition containing a screener block (deprecated — use screenerDocument). */
     definition: any;
+    /** Standalone Screener Document. */
+    screenerDocument?: any;
     /** Pre-built engine. If omitted, one is created from the definition. */
     engine?: IFormEngine;
     /** Render prop for the external route result. */
@@ -20,6 +22,7 @@ export interface FormspecScreenerProps extends UseScreenerOptions {
 
 export function FormspecScreener({
     definition,
+    screenerDocument,
     engine: externalEngine,
     renderExternalRoute,
     renderNoMatch,
@@ -32,10 +35,10 @@ export function FormspecScreener({
         return createFormEngine(definition);
     }, [externalEngine, definition]);
 
-    const screener = useScreener(engine, definition, options);
-    const items: any[] = definition?.screener?.items ?? [];
+    const screener = useScreener(engine, definition, { ...options, screenerDocument });
+    const items: any[] = screenerDocument?.items ?? [];
 
-    if (!definition?.screener) return null;
+    if (!screenerDocument) return null;
 
     // External route result
     if (screener.routeResult?.routeType === 'external') {
@@ -85,16 +88,16 @@ export function FormspecScreener({
     // Render screener form
     return (
         <div className={cls('formspec-screener', className)}>
-            <h2 className="formspec-screener-heading">{definition.screener.title || 'Eligibility Check'}</h2>
-            {definition.screener.description && (
-                <p className="formspec-screener-intro">{definition.screener.description}</p>
+            <h2 className="formspec-screener-heading">{screenerDocument?.title || 'Eligibility Check'}</h2>
+            {screenerDocument?.description && (
+                <p className="formspec-screener-intro">{screenerDocument.description}</p>
             )}
             <div className="formspec-screener-fields">
                 {items.map((item: any) => (
                     <ScreenerField
                         key={item.key}
                         item={item}
-                        screener={definition.screener}
+                        screener={screenerDocument}
                         engine={engine}
                         answers={screener.answers}
                         value={screener.answers[item.key]}
@@ -108,7 +111,7 @@ export function FormspecScreener({
                 className="formspec-screener-continue"
                 onClick={screener.submit}
             >
-                {definition.screener.submitLabel || 'Check Eligibility'}
+                {(screenerDocument as any)?.submitLabel || 'Check Eligibility'}
             </button>
         </div>
     );

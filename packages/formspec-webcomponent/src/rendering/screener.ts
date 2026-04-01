@@ -1,9 +1,12 @@
 /** @filedesc Screener UI: renders eligibility questions and routes to internal/external forms. */
 import type { IFormEngine } from '@formspec-org/engine/render';
+import { wasmEvaluateScreenerDocument } from '@formspec-org/engine';
 import { ScreenerRoute } from '../types.js';
 
 export interface ScreenerHost {
     _definition: any;
+    /** Standalone ScreenerDocument. Required for screener functionality. */
+    _screenerDocument: any | null;
     engine: IFormEngine;
     _screenerCompleted: boolean;
     _screenerRoute: ScreenerRoute | null;
@@ -104,8 +107,9 @@ export function buildInitialScreenerAnswers(screener: any, seed: Record<string, 
 export function extractScreenerSeedFromData(
     definition: any,
     data: Record<string, any> | null | undefined,
+    screenerDocument?: any,
 ): Record<string, any> | null {
-    const items = definition?.screener?.items;
+    const items = screenerDocument?.items;
     if (!Array.isArray(items) || !items.length || !data || typeof data !== 'object') {
         return null;
     }
@@ -119,9 +123,9 @@ export function extractScreenerSeedFromData(
     return Object.keys(seed).length ? seed : null;
 }
 
-/** Shallow copy of `data` without top-level keys that belong to `definition.screener` items. */
-export function omitScreenerKeysFromData(definition: any, data: Record<string, any>): Record<string, any> {
-    const items = definition?.screener?.items;
+/** Shallow copy of `data` without top-level keys that belong to screener items. */
+export function omitScreenerKeysFromData(definition: any, data: Record<string, any>, screenerDocument?: any): Record<string, any> {
+    const items = screenerDocument?.items;
     if (!Array.isArray(items) || !items.length) {
         return { ...data };
     }
@@ -135,14 +139,14 @@ export function omitScreenerKeysFromData(definition: any, data: Record<string, a
     return out;
 }
 
-export function hasActiveScreener(definition: any): boolean {
-    const screener = definition?.screener;
-    return Boolean(screener) && Array.isArray(screener?.items) && screener.items.length > 0;
+/** Check if a standalone screener document is active (has items). */
+export function hasActiveScreener(screenerDocument: any | null): boolean {
+    return Boolean(screenerDocument) && Array.isArray(screenerDocument?.items) && screenerDocument.items.length > 0;
 }
 
 export function renderScreener(host: ScreenerHost, container: HTMLElement): void {
-    if (!hasActiveScreener(host._definition)) return;
-    const screener = host._definition.screener;
+    if (!hasActiveScreener(host._screenerDocument)) return;
+    const screener = host._screenerDocument;
     const panel = document.createElement('div');
     panel.className = 'formspec-screener';
 
@@ -333,7 +337,14 @@ export function renderScreener(host: ScreenerHost, container: HTMLElement): void
         }
         if (!valid) return;
 
-        const route = host.engine.evaluateScreener(answers);
+        // Evaluate via WASM and extract first matched route from determination
+        let route: ScreenerRoute | null = null;
+        const determination = wasmEvaluateScreenerDocument(host._screenerDocument!, answers);
+        const matched = determination.overrides?.matched?.[0]
+            ?? determination.phases?.flatMap((p: any) => p.matched)?.[0];
+        if (matched) {
+            route = { target: matched.target, label: matched.label };
+        }
         host._screenerRoute = route;
         const routeType = host.classifyScreenerRoute(route);
         const isInternal = routeType === 'internal';
