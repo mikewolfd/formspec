@@ -1,6 +1,6 @@
 /** @filedesc Colored-border card displaying a single bind rule's type, humanized description, and FEL expression. */
 import { useState } from 'react';
-import { FELReferencePopup } from './FELReferencePopup';
+import { HighlightedExpression } from './InlineExpression';
 
 const bindColors: Record<string, string> = {
   required: 'text-accent border-l-accent',
@@ -56,7 +56,6 @@ export function BindCard({ bindType, expression, humanized, message, children, o
           {displayLabel}
         </span>
         <div className="flex items-center gap-1">
-          <FELReferencePopup />
           {onRemove && (
             <button
               type="button"
@@ -84,11 +83,11 @@ export function BindCard({ bindType, expression, humanized, message, children, o
 
       {children ?? (expression && expression !== 'true' && (
         <div
-          className={`font-mono text-[10px] text-muted px-1.5 py-0.5 rounded-[2px] truncate ${error ? 'bg-error/10' : 'bg-subtle'}`}
+          className={`font-mono text-[11px] border border-border/60 px-1.5 py-0.5 rounded-[2px] truncate ${error ? 'bg-error/10' : 'bg-subtle'}`}
           title={expression}
           data-testid="bind-expression"
         >
-          {expression}
+          <HighlightedExpression expression={expression} />
         </div>
       ))}
 

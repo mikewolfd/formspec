@@ -1,5 +1,6 @@
 /** @filedesc Click-to-edit inline FEL expression widget that toggles between display and FELEditor modes. */
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { buildFELHighlightTokens, type FELHighlightToken } from '@formspec-org/studio-core';
 import { FELReferencePopup } from './FELReferencePopup';
 import { FELEditor } from './FELEditor';
 
@@ -24,20 +25,35 @@ function EditPencilIcon({ className }: { className?: string }) {
   );
 }
 
+const TOKEN_CLASS: Record<FELHighlightToken['kind'], string> = {
+  keyword: 'text-accent font-bold',
+  path: 'text-green',
+  function: 'text-logic font-semibold',
+  literal: 'text-amber',
+  operator: 'text-muted/60',
+  plain: 'text-ink/70',
+};
+
+export function HighlightedExpression({ expression }: { expression: string }) {
+  const tokens = useMemo(() => buildFELHighlightTokens(expression), [expression]);
+  return (
+    <>
+      {tokens.map((token, i) => (
+        <span key={`${token.key}-${i}`} className={TOKEN_CLASS[token.kind]}>
+          {token.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function InlineExpression({ value, onSave, placeholder, className }: InlineExpressionProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-  useEffect(() => {
-    // FELEditor handles its own focus and resize
-  }, [editing]);
 
   function enterEdit() {
     setDraft(value);
     setEditing(true);
-  }
-
-  function save() {
-    saveWith(draft);
   }
 
   function saveWith(val: string) {
@@ -83,10 +99,10 @@ export function InlineExpression({ value, onSave, placeholder, className }: Inli
   return (
     <span
       onClick={enterEdit}
-      className={`inline-flex items-center gap-1 font-mono text-[11px] text-muted bg-subtle px-1.5 py-0.5 rounded-[2px] cursor-pointer hover:bg-subtle/80 hover:text-ink transition-colors group/ie ${className ?? ''}`}
+      className={`inline-flex items-center gap-1 font-mono text-[11px] bg-subtle border border-border/60 px-1.5 py-0.5 rounded-[2px] cursor-pointer hover:bg-subtle/80 transition-colors group/ie ${className ?? ''}`}
       title={value}
     >
-      {value}
+      <HighlightedExpression expression={value} />
       <EditPencilIcon className="opacity-30 group-hover/ie:opacity-60" />
     </span>
   );

@@ -1,4 +1,4 @@
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { BindCard } from '../../../src/components/ui/BindCard';
 
@@ -10,15 +10,18 @@ describe('BindCard', () => {
     expect(label).toHaveAttribute('title', 'required');
   });
 
-  it('shows expression text', () => {
+  it('shows expression text with syntax highlighting', () => {
     render(<BindCard bindType="calculate" expression="$age + 1" />);
-    expect(screen.getByText('$age + 1')).toBeInTheDocument();
+    const exprArea = screen.getByTestId('bind-expression');
+    expect(exprArea).toBeInTheDocument();
+    expect(exprArea.textContent).toBe('$age + 1');
   });
 
   it('shows humanized expression when provided', () => {
     render(<BindCard bindType="relevant" expression="$show = true" humanized="Show is Yes" />);
     expect(screen.getByText('Show is Yes')).toBeInTheDocument();
-    expect(screen.getByText('$show = true')).toBeInTheDocument();
+    const exprArea = screen.getByTestId('bind-expression');
+    expect(exprArea.textContent).toContain('$show');
   });
 
   it('applies color based on bind type', () => {
@@ -27,29 +30,9 @@ describe('BindCard', () => {
     expect(container.firstChild).toBeTruthy();
   });
 
-  it('copies a function signature when a FEL reference entry is clicked', async () => {
-    const writeText = vi.fn();
-    vi.stubGlobal('navigator', {
-      ...navigator,
-      clipboard: { writeText },
-    });
-
-    render(<BindCard bindType="calculate" expression="sum($members[*].mInc)" />);
-
-    await act(async () => {
-      screen.getByRole('button', { name: /fel reference/i }).click();
-    });
-
-    await act(async () => {
-      screen.getByRole('button', { name: /aggregate/i }).click();
-    });
-
-    await act(async () => {
-      screen.getByText('sum').click();
-    });
-
-    // Engine signature: "sum(array<number>) -> number" — clipboard gets params part
-    expect(writeText).toHaveBeenCalledWith('sum(array<number>)');
+  it('does not render FEL reference popup in the header (popup lives in InlineExpression)', () => {
+    render(<BindCard bindType="calculate" expression="$x + 1" />);
+    expect(screen.queryByRole('button', { name: /fel reference/i })).not.toBeInTheDocument();
   });
 
   // ── Phase 5: Verb-intent labels ──────────────────────────────────
