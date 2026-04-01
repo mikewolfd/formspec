@@ -238,6 +238,21 @@ export function wasmEvaluateScreener(
     return JSON.parse(resultJson);
 }
 
+/** Evaluate a standalone Screener Document against respondent inputs.
+ *  Returns a Determination Record (always non-null). */
+export function wasmEvaluateScreenerDocument(
+    screener: unknown,
+    answers: Record<string, unknown>,
+    context?: Record<string, unknown>,
+): import('@formspec-org/types').DeterminationRecord {
+    const resultJson = wasm().evaluateScreenerDocument(
+        JSON.stringify(screener),
+        JSON.stringify(answers),
+        context ? JSON.stringify(context) : undefined,
+    );
+    return JSON.parse(resultJson);
+}
+
 /** Analyze a FEL expression and return structural info. */
 export function wasmAnalyzeFEL(expression: string): {
     valid: boolean;

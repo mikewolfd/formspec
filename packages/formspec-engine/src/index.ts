@@ -104,6 +104,9 @@ export { wasmEvalFEL as evalFEL } from './wasm-bridge-runtime.js';
 /** Lint with extension registries (WASM). */
 export { wasmLintDocumentWithRegistries as lintDocumentWithRegistries } from './wasm-bridge-tools.js';
 
+/** Evaluate a standalone Screener Document (WASM); returns a DeterminationRecord. */
+export { wasmEvaluateScreenerDocument } from './wasm-bridge-runtime.js';
+
 export { buildValidationReportEnvelope } from './engine/response-assembly.js';
 export { toValidationResults } from './engine/helpers.js';
 export type { EvalValidation } from './diff.js';
