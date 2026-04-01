@@ -274,7 +274,8 @@ describe('editor-tree-helpers', () => {
       expect(issues[0].path).toBe('name');
       expect(issues[0].label).toBe('Name');
       expect(issues[0].code).toBe('W900');
-      expect(issues[0].message).toContain('locked with no value source');
+      expect(issues[0].severity).toBe('warning');
+      expect(issues[0].message).toContain('required but locked');
     });
 
     it('produces advisories for nested items inside groups', () => {
@@ -295,7 +296,8 @@ describe('editor-tree-helpers', () => {
       expect(issues[0].path).toBe('contact.email');
       expect(issues[0].label).toBe('Email');
       expect(issues[0].code).toBe('W900');
-      expect(issues[0].message).toContain('locked with no value source');
+      expect(issues[0].severity).toBe('warning');
+      expect(issues[0].message).toContain('required but locked');
     });
 
     it('returns empty when no field advisories', () => {
@@ -306,6 +308,20 @@ describe('editor-tree-helpers', () => {
           [],
         ),
       ).toEqual([]);
+    });
+
+    // T4: Split-bind aggregation — required and readonly on separate bind objects
+    it('detects W900 when required and readonly are on separate binds for the same path', () => {
+      const issues = buildDefinitionAdvisoryIssues(
+        [{ key: 'status', type: 'field', dataType: 'string', label: 'Status' }] as any,
+        [
+          { path: 'status', required: 'true' },
+          { path: 'status', readonly: 'true' },
+        ] as any,
+      );
+      expect(issues).toHaveLength(1);
+      expect(issues[0].code).toBe('W900');
+      expect(issues[0].path).toBe('status');
     });
   });
 
@@ -318,11 +334,13 @@ describe('editor-tree-helpers', () => {
       );
       expect(advisories).toHaveLength(1);
       expect(advisories[0].code).toBe('W900');
-      expect(advisories[0].message).toContain('locked with no value source');
+      expect(advisories[0].severity).toBe('warning');
+      expect(advisories[0].message).toContain('required but locked');
       expect(advisories[0].actions).toEqual([
         { key: 'add_formula', label: 'Add formula' },
         { key: 'add_initial_value', label: 'Add initial value' },
         { key: 'add_pre_fill', label: 'Add pre-fill' },
+        { key: 'remove_readonly', label: 'Remove lock' },
       ]);
     });
 
@@ -337,7 +355,8 @@ describe('editor-tree-helpers', () => {
       );
       expect(advisories).toHaveLength(1);
       expect(advisories[0].code).toBe('W901');
-      expect(advisories[0].message).toContain('replaces the starting value from pre-fill');
+      expect(advisories[0].severity).toBe('warning');
+      expect(advisories[0].message).toContain('pre-fill setting has no effect');
       expect(advisories[0].actions).toEqual([
         { key: 'remove_pre_populate', label: 'Remove pre-fill' },
         { key: 'remove_formula', label: 'Remove formula' },
@@ -352,7 +371,8 @@ describe('editor-tree-helpers', () => {
       );
       expect(advisories).toHaveLength(1);
       expect(advisories[0].code).toBe('W902');
-      expect(advisories[0].message).toContain('usually redundant unless the formula can return empty');
+      expect(advisories[0].severity).toBe('info');
+      expect(advisories[0].message).toContain('usually redundant unless the formula sometimes produces no value');
       expect(advisories[0].actions).toEqual([
         { key: 'remove_required', label: 'Remove mandatory rule' },
         { key: 'review_formula', label: 'Review formula' },
@@ -442,7 +462,7 @@ describe('editor-tree-helpers', () => {
       );
       expect(advisories).toHaveLength(2);
       expect(advisories[0].message).toContain('usually redundant');
-      expect(advisories[1].message).toContain('replaces the starting value');
+      expect(advisories[1].message).toContain('pre-fill setting has no effect');
     });
 
     // Edge case: initialValue of 0 (falsy but valid value source)
@@ -460,7 +480,7 @@ describe('editor-tree-helpers', () => {
         { key: 'f', type: 'field', dataType: 'string', label: 'F', initialValue: '' } as any,
       );
       expect(advisories).toHaveLength(1);
-      expect(advisories[0].message).toContain('locked with no value source');
+      expect(advisories[0].message).toContain('required but locked');
     });
 
     // Edge case: whitespace-only initialValue is NOT a value source
@@ -470,7 +490,32 @@ describe('editor-tree-helpers', () => {
         { key: 'f', type: 'field', dataType: 'string', label: 'F', initialValue: '   ' } as any,
       );
       expect(advisories).toHaveLength(1);
-      expect(advisories[0].message).toContain('locked with no value source');
+      expect(advisories[0].message).toContain('required but locked');
+    });
+
+    // T5: Dynamic expressions do NOT trigger advisories (only static 'true' does)
+    it('does not trigger W900 for dynamic required/readonly expressions', () => {
+      expect(buildAdvisories(
+        { required: '$needsApproval', readonly: '$locked' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F' } as any,
+      )).toEqual([]);
+    });
+
+    it('does not trigger W902 for dynamic required with static readonly + calculate', () => {
+      expect(buildAdvisories(
+        { required: '$needsApproval', readonly: 'true', calculate: '$x' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F' } as any,
+      )).toEqual([]);
+    });
+
+    // T2: Pattern 2 with required present but no readonly — only W901 fires
+    it('required + prePopulate + calculate triggers only W901, not W900', () => {
+      const advisories = buildAdvisories(
+        { required: 'true', calculate: '$x' },
+        { key: 'f', type: 'field', dataType: 'string', label: 'F', prePopulate: { instance: 's', path: 'p' } } as any,
+      );
+      expect(advisories).toHaveLength(1);
+      expect(advisories[0].code).toBe('W901');
     });
   });
 

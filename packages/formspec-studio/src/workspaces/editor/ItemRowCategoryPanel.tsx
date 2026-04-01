@@ -131,6 +131,10 @@ export const ItemRowCategoryPanel = forwardRef<
           onUpdateItem?.({ required: null });
           onExpandCategory('Validation');
           break;
+        case 'remove_readonly':
+          onUpdateItem?.({ readonly: null });
+          onExpandCategory('Value');
+          break;
         case 'add_formula':
           onUpdateItem?.({ calculate: '' });
           onExpandCategory('Value');
@@ -248,6 +252,7 @@ export const ItemRowCategoryPanel = forwardRef<
               <AdvisoryCallout
                 key={`${idx}-${a.message.slice(0, 32)}`}
                 message={a.message}
+                severity={a.severity}
                 actions={a.actions.map((act: AdvisoryAction) => ({
                   label: act.label,
                   onClick: () => runAdvisory(act.key),

@@ -41,9 +41,13 @@ A **value source** is any of the following:
 - An `initialValue` property on the targeted Item (§4.2.3)
 - A `prePopulate` declaration on the targeted Item (§4.2.3)
 
-**Rationale.** Per §4.3.1, `readonly: "true"` means the field "MUST NOT be modified by direct user input." Per §4.3.1, `required: "true"` means the field "MUST have a non-empty value for the Response to pass validation." When both hold and no value source exists, the field will always produce a required-violation `ValidationResult` at the Revalidate phase (§2.4, Phase 3), and the user has no way to resolve it.
+> **Note:** The `default` Bind property (§2.1.4, §4.3.1) is intentionally excluded from this list. `default` only fires on relevance transitions (non-relevant to relevant), not on initial form load or Response creation. A field with `required: "true"`, `readonly: "true"`, and `default: "someValue"` will still be empty on first render — the `default` value is never assigned unless the field first becomes non-relevant and then becomes relevant again. This does not qualify as a reliable value source for the purposes of this advisory.
+
+**Rationale.** Per §2.1.4, `readonly: "true"` means the field's value "MUST NOT be modified by user input." (Note: §4.3.1 uses the weaker "SHOULD NOT be modified by direct user input," but §2.1.4 is normatively stronger and takes precedence for the purpose of this advisory.) Per §4.3.1, `required: "true"` means the field "MUST have a non-empty value for the Response to pass validation." When both hold and no value source exists, the field will always produce a required-violation `ValidationResult` at the Revalidate phase (§2.4, Phase 3), and the user has no way to resolve it.
 
 Processors SHOULD NOT emit this advisory when the `required` or `readonly` expression is dynamic (i.e., references field values), because the combination may be intentionally conditional. This check applies only when both expressions are statically determinable to be `true`.
+
+> **Definition: statically determinable to be `true`.** An expression is *statically determinable to be `true`* if a processor can determine, without evaluating the expression against Instance data, that it will always produce `true`. The minimum floor for conformance is recognizing the literal string `"true"`. Processors MAY implement deeper analysis — for example, constant folding of expressions like `"1 = 1"` or `"true and true"` — but are not required to. Any expression containing a field reference (`$key`) is NOT statically determinable.
 
 A conformant processor that detects this pattern SHOULD report it with severity `warning`.
 
@@ -55,11 +59,13 @@ A field that has both a `prePopulate` declaration (§4.2.3) and a `calculate` Bi
 
 A conformant processor that detects `prePopulate` + `calculate` on the same field SHOULD report it with severity `warning`. Processors MAY additionally report `initialValue` + `calculate` on the same field with severity `info` as a "verify intentional" advisory, since the combination is sometimes used deliberately.
 
+> **Note on `prePopulate.editable`.** The `editable` flag on `prePopulate` (§4.2.3, default `true`) does not affect this analysis. DA-02 is about the *value* being overwritten by `calculate`, not about the readonly state of the field. Whether `editable` is `true` or `false`, the calculate expression replaces the pre-populated value on the first recalculation cycle regardless.
+
 #### DA-03: Redundant Required on Calculated Read-Only Field
 
-A field with `required: "true"`, `readonly: "true"` (or implicitly readonly via `calculate`), and a `calculate` Bind has a redundant `required` check. The `calculate` expression will always produce a value (or `null` on evaluation error per §3.10.2), making the `required` check either always-satisfied or indicative of a deeper expression bug that should be fixed in the calculation, not caught by required validation.
+A field with `required: "true"`, `readonly: "true"` (or implicitly readonly via `calculate`), and a `calculate` Bind has a `required` check that is usually redundant. The `calculate` expression will produce a value on each recalculation cycle (or `null` on evaluation error per §3.10.2). In the common case, the `required` check is always satisfied. When the expression does produce `null`, it may be intentional (e.g., a conditional formula that deliberately yields null for certain inputs) or indicative of an expression bug. In either case, the correct response is typically to address the formula logic rather than to rely on `required` validation to catch it — but the `info` severity reflects that this pattern is not always a mistake.
 
-**Rationale.** Per §4.3.1, a node with a `calculate` Bind is "implicitly `readonly` unless `readonly` is explicitly set to `"false"`." In the typical case, the field's value is entirely determined by its expression. If the expression always produces a non-empty value, `required` is always satisfied. If the expression sometimes produces `null` (due to upstream nulls or evaluation errors), the correct fix is to address the expression — adding `required` turns a symptom (null from a broken expression) into a validation error visible to the end user, which violates the design rationale in §3.10.2: "form users should not be punished for a Definition author's mistake."
+**Rationale.** Per §4.3.1, a node with a `calculate` Bind is "implicitly `readonly` unless `readonly` is explicitly set to `"false"`." In the typical case, the field's value is entirely determined by its expression. If the expression always produces a non-empty value, `required` is always satisfied. If the expression sometimes produces `null` (due to upstream nulls or evaluation errors), the correct fix is to address the expression — adding `required` turns a symptom (null from a broken expression) into a validation error visible to the end user, which conflicts with the spirit of the design rationale in §3.10.2: "form users should not be punished for a Definition author's mistake." (Note: §3.10.2 addresses evaluation error handling specifically, not bind analysis. This is an analogical extension of that principle to the static analysis domain — the same user-protection rationale applies, but it is not a direct application of §3.10.2's normative text.)
 
 A conformant processor MAY report this pattern with severity `info`.
 
@@ -99,7 +105,7 @@ Bind consistency checks require:
 - The bind-to-item path mapping from Pass 3 (to correlate binds with items)
 - Optionally, expression compilation results from Pass 4 (to determine if `required`/`readonly` are statically `true`)
 
-This makes Pass 8 the natural home — after all definition passes (2-5) have completed, the bind consistency pass can cross-reference bind properties with item declarations.
+This makes Pass 8 the natural home — after all existing passes (1 through 7, including 1b and 3b) have completed, the bind consistency pass can cross-reference bind properties with item declarations.
 
 ## Severity Policy
 
@@ -110,7 +116,7 @@ The bind combination produces behavior the author almost certainly did not inten
 Warning severity means:
 - Reported in Runtime mode (default lint)
 - Reported in Strict mode
-- Suppressed in Authoring mode (like W300 and W802 — these checks are noisy during active editing when the author may be mid-construction)
+- Suppressed in Authoring mode (this is a design requirement for the Rust implementation: W900-W902 must be added to the `suppressed_in` set for `LintMode::Authoring`, following the same pattern as W300 and W802 — these checks are noisy during active editing when the author may be mid-construction)
 - NEVER affects the `valid` status of a lint result
 - NEVER halts processing
 
@@ -121,19 +127,19 @@ The bind combination is technically correct and may occasionally be intentional,
 Info severity means:
 - Reported in Runtime mode
 - Reported in Strict mode
-- Suppressed in Authoring mode
+- Suppressed in Authoring mode (same design requirement as W900/W901 above)
 - NEVER affects the `valid` status of a lint result
 - NEVER halts processing
 
 ### Never Errors
 
-These are NEVER errors. The processing model (S2.4) handles all bind combinations deterministically. A required + readonly field with no value source is not "broken" — it will simply always fail required validation, which is a perfectly valid (if almost certainly unintentional) state. Promoting these to errors would reject valid definitions and violate the spec's design principle that "form users should not be punished for a Definition author's mistake" (S3.10.2). The same principle applies to definition authors: an advisory that blocks their work is not advisory.
+These are NEVER errors. The processing model (S2.4) handles all bind combinations deterministically. A required + readonly field with no value source is not "broken" — it will simply always fail required validation, which is a perfectly valid (if almost certainly unintentional) state. Promoting these to errors would reject valid definitions and conflict with the spirit of §3.10.2's design principle that "form users should not be punished for a Definition author's mistake." (This is an analogical extension — §3.10.2 addresses runtime evaluation errors, but the same user-protection rationale applies to static analysis: an advisory that blocks the author's work is not advisory.)
 
 ## Migration Notes
 
 ### Spec Integration
 
-1. **Section numbering.** Insert as §3.10.3, between §3.10.2 (Evaluation Errors) and §3.11 (Reserved Words). No renumbering needed — the new section fits naturally within the §3.10 Error Handling umbrella.
+1. **Section numbering.** Insert as §3.10.3, between §3.10.2 (Evaluation Errors) and §3.11 (Reserved Words). No renumbering needed — the new section fits naturally within the §3.10 Error Handling umbrella. Note: §3.10 is currently titled "Error Handling" but with the addition of definition advisories, its scope expands beyond errors to include non-error static analysis findings. The section should be retitled to **"Error Handling and Static Analysis"**, and the preamble updated accordingly (see item 2 below).
 
 2. **Section preamble update.** The §3.10 preamble currently reads: "FEL distinguishes between two classes of errors: **definition errors** (detected at load time) and **evaluation errors** (detected at runtime during expression evaluation)." This needs updating to: "FEL distinguishes between three classes of findings: **definition errors** (detected at load time), **evaluation errors** (detected at runtime during expression evaluation), and **definition advisories** (static analysis findings about bind consistency)."
 
@@ -164,11 +170,12 @@ If the project later formalizes a lint diagnostic schema, the W900 range should 
 5. **Detection logic:**
 
    **W900 (required + readonly, no value source):**
-   - Walk `$.binds[]`. For each bind with `required` and `readonly` both present:
+   - First, **aggregate all bind properties per path** across all bind objects. Multiple binds may target the same path — one bind may declare `required` and another may declare `readonly`. The detection logic must merge these before checking combinations.
+   - For each unique path with both `required` and `readonly` present (from any bind targeting that path):
      - Check if both are statically `"true"` (literal string). If either is a dynamic expression, skip.
-     - Look up the bind's `path` in the tree index. Find the corresponding item.
+     - Look up the path in the tree index. Find the corresponding item.
      - Check if the item has `initialValue` or `prePopulate`. If yes, skip.
-     - Check if any other bind has `calculate` targeting the same path. If yes, skip.
+     - Check if any bind has `calculate` targeting the same path. If yes, skip.
      - Emit W900.
 
    **W901 (prePopulate + calculate):**
@@ -204,3 +211,32 @@ Each rule needs tests for:
 2. **Should dynamic expression analysis go deeper?** The current proposal only checks for literal `"true"` in W900/W902. A smarter analysis could detect `"1 = 1"` or `"true and true"` as effectively static. This is an implementation quality concern, not a spec concern — the spec says "statically determinable to be `true`" and leaves the depth of analysis to the processor.
 
 3. **Should W900 fire when `required` is dynamic but `readonly` is static (or vice versa)?** The current proposal says no — if either is dynamic, the combination may be conditionally intentional. This is the conservative choice. Revisit if real-world false negatives are common.
+
+## Architecture and Convergence Plan
+
+### Implementation Convergence (A1)
+
+The TypeScript implementation of definition advisories in `formspec-studio-core` (`buildDefinitionAdvisoryIssues`, `buildAdvisories`) is **transitional**. The long-term architecture is:
+
+1. **Short-term (current):** TypeScript implementation in `studio-core` provides advisory detection for the Studio UI. This is a stopgap — it duplicates logic that belongs in the Rust `formspec-lint` crate.
+2. **Long-term:** Advisory rules migrate to Rust as `formspec-lint` Pass 8, exposed via WASM. Studio calls the WASM-exposed Pass 8; the TypeScript implementation is deleted. This aligns with the project's architecture doctrine (CLAUDE.md): spec business logic lives in Rust crates, TypeScript is for orchestration and thin bridges to WASM.
+
+The TS implementation MUST NOT diverge from the spec semantics defined in §3.10.3. When Rust Pass 8 ships, any behavioral differences between the TS and Rust implementations are bugs in the TS code.
+
+### MCP Surface (A2)
+
+**Short-term:** The `formspec_audit` MCP tool calls `project.diagnose()`, which runs the Rust linter (no Pass 8 yet). To surface advisories to AI agents before Rust Pass 8 ships, `formspec_audit` should import `buildDefinitionAdvisoryIssues` from `studio-core` and include the results in audit output.
+
+**Long-term:** Rust lint Pass 8 powers both the Studio UI (via WASM) and the MCP audit tool (via `diagnose()`). The `studio-core` import is removed from `audit.ts` when the Rust implementation ships.
+
+### Studio Authoring Mode (A3)
+
+Studio runs definition advisories **continuously** — not deferred to save/check. This means authors will see advisories fire mid-construction, before they have finished configuring a field (e.g., they set `required: "true"` and `readonly: "true"` but haven't added the `calculate` expression yet). This mid-construction noise is an accepted tradeoff for immediate feedback.
+
+The `LintMode::Authoring` suppression defined in the Severity Policy section applies to the **Rust linter pipeline** (CI, publish, batch validation), not to the Studio UI. Studio's real-time advisory display is a separate concern — it runs the TS `buildAdvisories` function on each render, outside the lint pipeline entirely.
+
+### Mapping False Positives (A4)
+
+Forms that use **mapping rules** (Mapping spec) for value population will see persistent W900 advisories on fields that are legitimately `required: "true"` + `readonly: "true"` but receive their values from mapping transforms rather than `calculate`/`initialValue`/`prePopulate`. The current advisory system has no visibility into mapping documents.
+
+This is a known false positive. **Future work:** extend the value source check to inspect loaded mapping documents for rules targeting the field's path. A mapping rule that writes to the field would suppress W900, acting as an additional value source. Until that analysis is implemented, W900 advisories on mapping-populated fields should be understood as informational noise, not authoring errors.

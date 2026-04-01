@@ -142,12 +142,13 @@ export function bindsFor(
   path: string,
 ): Record<string, string> {
   if (!binds) return {};
-  const bind = binds.find((entry) => entry.path === path);
-  if (!bind) return {};
   const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(bind)) {
-    if (key !== 'path' && typeof value === 'string') {
-      result[key] = value;
+  for (const bind of binds) {
+    if (bind.path !== path) continue;
+    for (const [key, value] of Object.entries(bind)) {
+      if (key !== 'path' && typeof value === 'string') {
+        result[key] = value;
+      }
     }
   }
   return result;

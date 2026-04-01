@@ -70,7 +70,11 @@ export function FormHealthPanel() {
                   <button
                     type="button"
                     data-testid={`form-health-issue-${i}`}
-                    className="w-full text-left rounded-lg border border-amber-500/35 bg-amber-500/5 px-3 py-2.5 transition-colors hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+                    className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+                      issue.severity === 'info'
+                        ? 'border-blue-500/35 bg-blue-500/5 hover:bg-blue-500/10 focus-visible:ring-blue-500/40'
+                        : 'border-amber-500/35 bg-amber-500/5 hover:bg-amber-500/10 focus-visible:ring-amber-500/40'
+                    }`}
                     onClick={() =>
                       select(issue.path, 'field', { tab: EDITOR_SELECTION_TAB })
                     }

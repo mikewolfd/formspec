@@ -5,8 +5,22 @@ import { AdvisoryCallout } from '../../../src/components/ui/AdvisoryCallout';
 
 describe('AdvisoryCallout', () => {
   it('renders message text', () => {
-    render(<AdvisoryCallout message="Field is locked with no value source." />);
-    expect(screen.getByText('Field is locked with no value source.')).toBeInTheDocument();
+    render(<AdvisoryCallout message="Field is required but locked." />);
+    expect(screen.getByText('Field is required but locked.')).toBeInTheDocument();
+  });
+
+  it('renders with info severity styling', () => {
+    render(<AdvisoryCallout message="Info advisory" severity="info" />);
+    const callout = screen.getByRole('status');
+    expect(callout.className).toContain('border-l-blue-500');
+    expect(callout.className).toContain('bg-blue-500/5');
+  });
+
+  it('renders with warning severity styling by default', () => {
+    render(<AdvisoryCallout message="Warning advisory" />);
+    const callout = screen.getByRole('status');
+    expect(callout.className).toContain('border-l-amber');
+    expect(callout.className).toContain('bg-amber/5');
   });
 
   it('renders action buttons with labels', () => {

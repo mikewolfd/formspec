@@ -272,6 +272,7 @@ export function buildStatusPills(
 /** Stable keys for advisory action buttons (studio UI maps these to handlers). */
 export type AdvisoryActionKey =
   | 'remove_required'
+  | 'remove_readonly'
   | 'add_formula'
   | 'add_initial_value'
   | 'add_pre_fill'
@@ -284,8 +285,11 @@ export interface AdvisoryAction {
   label: string;
 }
 
+export type AdvisorySeverity = 'warning' | 'info';
+
 export interface Advisory {
   code: string;
+  severity: AdvisorySeverity;
   message: string;
   actions: AdvisoryAction[];
 }
@@ -293,8 +297,8 @@ export interface Advisory {
 export function buildAdvisories(binds: Record<string, string>, item: FormItem): Advisory[] {
   const advisories: Advisory[] = [];
 
-  const hasRequired = Boolean(binds.required);
-  const hasReadonly = Boolean(binds.readonly);
+  const hasRequired = binds.required === 'true';
+  const hasReadonly = binds.readonly === 'true';
   const hasCalculate = Boolean(binds.calculate);
   const hasInitialValue = item.initialValue != null && String(item.initialValue).trim() !== '';
   const hasPrePopulate = Boolean(item.prePopulate);
@@ -303,8 +307,9 @@ export function buildAdvisories(binds: Record<string, string>, item: FormItem): 
   if (hasRequired && hasReadonly && hasCalculate) {
     advisories.push({
       code: 'W902',
+      severity: 'info',
       message:
-        'This field is required and locked with a formula. The mandatory rule is usually redundant unless the formula can return empty.',
+        'This field is required and locked with a formula. The mandatory rule is usually redundant unless the formula sometimes produces no value.',
       actions: [
         { key: 'remove_required', label: 'Remove mandatory rule' },
         { key: 'review_formula', label: 'Review formula' },
@@ -316,11 +321,13 @@ export function buildAdvisories(binds: Record<string, string>, item: FormItem): 
   if (hasRequired && hasReadonly && !hasCalculate && !hasInitialValue && !hasPrePopulate) {
     advisories.push({
       code: 'W900',
-      message: 'This field must be filled but is locked with no value source. Add a formula, initial value, or pre-fill to resolve.',
+      severity: 'warning',
+      message: 'This field is required but locked, so respondents can\'t fill it in. Add a formula or pre-fill to supply the value automatically, or remove the lock.',
       actions: [
         { key: 'add_formula', label: 'Add formula' },
         { key: 'add_initial_value', label: 'Add initial value' },
         { key: 'add_pre_fill', label: 'Add pre-fill' },
+        { key: 'remove_readonly', label: 'Remove lock' },
       ],
     });
   }
@@ -329,7 +336,8 @@ export function buildAdvisories(binds: Record<string, string>, item: FormItem): 
   if (hasPrePopulate && hasCalculate) {
     advisories.push({
       code: 'W901',
-      message: 'The formula runs immediately and replaces the starting value from pre-fill.',
+      severity: 'warning',
+      message: 'The formula overwrites the pre-fill value immediately \u2014 the pre-fill setting has no effect. Remove one or the other.',
       actions: [
         { key: 'remove_pre_populate', label: 'Remove pre-fill' },
         { key: 'remove_formula', label: 'Remove formula' },
@@ -345,6 +353,7 @@ export interface DefinitionAdvisoryIssue {
   path: string;
   label: string;
   code: string;
+  severity: AdvisorySeverity;
   message: string;
 }
 
@@ -364,7 +373,7 @@ export function buildDefinitionAdvisoryIssues(
     const label =
       typeof item.label === 'string' && item.label.trim() ? item.label : item.key;
     for (const advisory of buildAdvisories(binds, item)) {
-      out.push({ path, label, code: advisory.code, message: advisory.message });
+      out.push({ path, label, code: advisory.code, severity: advisory.severity, message: advisory.message });
     }
   }
   return out;

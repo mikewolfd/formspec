@@ -1,20 +1,27 @@
-/** @filedesc Amber-bordered advisory callout with optional action buttons for bind conflict warnings. */
+/** @filedesc Advisory callout with severity-based styling for bind conflict warnings. */
+import type { AdvisorySeverity } from '@formspec-org/studio-core';
 
 interface AdvisoryCalloutProps {
   message: React.ReactNode;
+  severity?: AdvisorySeverity;
   actions?: Array<{ label: string; onClick: () => void }>;
 }
 
 /**
- * Non-dismissible advisory callout with amber left border.
+ * Non-dismissible advisory callout. Amber for warnings, blue for info.
  * Auto-appears/disappears based on parent state — no dismiss button.
  */
-export function AdvisoryCallout({ message, actions }: AdvisoryCalloutProps) {
+export function AdvisoryCallout({ message, severity = 'warning', actions }: AdvisoryCalloutProps) {
+  const isInfo = severity === 'info';
+  const borderColor = isInfo ? 'border-l-blue-500' : 'border-l-amber';
+  const bgColor = isInfo ? 'bg-blue-500/5' : 'bg-amber/5';
+  const iconColor = isInfo ? 'text-blue-500' : 'text-amber';
+
   return (
     <div
       role="status"
       aria-live="polite"
-      className="border border-border border-l-[3px] border-l-amber rounded-[4px] bg-amber/5 p-2 mb-1 flex items-start gap-2"
+      className={`border border-border border-l-[3px] ${borderColor} rounded-[4px] ${bgColor} p-2 mb-1 flex items-start gap-2`}
     >
       {/* Info icon */}
       <svg
@@ -27,7 +34,7 @@ export function AdvisoryCallout({ message, actions }: AdvisoryCalloutProps) {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-amber mt-0.5 shrink-0"
+        className={`${iconColor} mt-0.5 shrink-0`}
         aria-hidden="true"
       >
         <circle cx="12" cy="12" r="10" />

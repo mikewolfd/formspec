@@ -76,7 +76,7 @@ describe('FormHealthPanel', () => {
       </Providers>,
     );
     expect(screen.queryByText(/no issues found/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/locked with no value source/i)).toBeInTheDocument();
+    expect(screen.getByText(/required but locked/i)).toBeInTheDocument();
     expect(screen.getByText('Risky field')).toBeInTheDocument();
   });
 

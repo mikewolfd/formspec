@@ -133,6 +133,7 @@ export type {
   Advisory,
   AdvisoryAction,
   AdvisoryActionKey,
+  AdvisorySeverity,
   BuildStatusPillsOptions,
   CategorySummaries,
   DefinitionAdvisoryIssue,
