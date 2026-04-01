@@ -137,12 +137,14 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   const workspaceContent = (() => {
     if (activeTab === 'Editor') {
       return (
-        <div className="flex flex-col h-full">
-          <div className="sticky top-0 z-20 border-b border-border/70 bg-bg-default/80 backdrop-blur-md px-6 py-3">
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="px-3 pt-3 md:px-6 md:pt-4 xl:px-8">
             <BuildManageToggle activeView={activeEditorView} onViewChange={setActiveEditorView} manageCount={manageCount} />
           </div>
-          <div key={activeEditorView} className="flex-1 overflow-y-auto animate-in fade-in duration-150">
-            {activeEditorView === 'build' ? <DefinitionTreeEditor /> : <ManageView />}
+          <div key={activeEditorView} className="flex-1 animate-in fade-in duration-150">
+            {activeEditorView === 'build'
+              ? <DefinitionTreeEditor />
+              : <ManageView />}
           </div>
         </div>
       );
@@ -366,7 +368,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
         colorScheme={colorScheme}
       />
       <CanvasTargetsProvider>
-        <div className="flex flex-1 overflow-hidden bg-bg-default" aria-hidden={overlayOpen ? true : undefined}>
+        <div className={`flex flex-1 overflow-hidden bg-bg-default ${activeTab === 'Editor' ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(246,243,238,0.9)_100%)] dark:bg-none' : ''}`} aria-hidden={overlayOpen ? true : undefined}>
           {/* Desktop Left Sidebar */}
           <aside
             data-testid="blueprint-sidebar"
@@ -388,7 +390,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               aria-labelledby={activeTabId}
               data-testid={`workspace-${activeTab}`}
               data-workspace={activeTab}
-              className={`h-full flex flex-col ${activeTab === 'Editor' && activeEditorView === 'build' ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(246,243,238,0.9)_100%)] dark:bg-none' : ''}`}
+              className="h-full flex flex-col"
               onClick={(e) => {
                 if (e.target === e.currentTarget) deselect();
               }}

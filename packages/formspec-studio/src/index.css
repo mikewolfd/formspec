@@ -76,6 +76,12 @@ html {
   }
 }
 
+/* Empty state text — italic, low-ink placeholder */
+@utility text-empty {
+  color: color-mix(in srgb, var(--color-ink) 35%, transparent);
+  font-style: italic;
+}
+
 /* PRD Design Tokens */
 :root {
   --studio-color-ink: #0f172a;
@@ -99,6 +105,19 @@ html {
   --studio-color-focus-ring: #2563eb;
   --studio-font-ui: 'Space Grotesk', system-ui, sans-serif;
   --studio-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Type scale tokens — editor tree rows */
+  --font-size-key: 17px;
+  --font-size-key-md: 18px;
+  --font-size-group-key: 18px;
+  --font-size-group-key-md: 20px;
+  --font-size-label: 14px;
+  --font-size-label-md: 15px;
+  --font-size-category-label: 11px;
+  --font-size-category-value: 14px;
+  --font-size-category-value-md: 15px;
+  --font-size-data-type: 12px;
+  --font-size-mono-label: 11px;
 }
 
 @theme inline {
