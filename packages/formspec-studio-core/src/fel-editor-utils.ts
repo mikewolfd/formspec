@@ -86,6 +86,16 @@ export function validateFEL(expression: string): string | null {
   return null;
 }
 
+/** Token types that can continue a path reference after `$` or `@`. */
+const PATH_CONTINUATION_TOKENS = new Set([
+  'Identifier',
+  'Dot',
+  'LSquare',
+  'RSquare',
+  'Asterisk',
+  'NumberLiteral',
+]);
+
 export function buildFELHighlightTokens(
   expression: string,
   functionSignatures: Record<string, string> = {},
@@ -108,7 +118,6 @@ export function buildFELHighlightTokens(
   for (let index = 0; index < lexedTokens.length; index += 1) {
     const token = lexedTokens[index];
     const startOffset = token.start;
-    const endOffset = token.end;
 
     if (startOffset > cursor) {
       tokens.push({
@@ -118,6 +127,28 @@ export function buildFELHighlightTokens(
       });
     }
 
+    // When we encounter a path sigil ($ or @), greedily consume all
+    // adjacent path-continuation tokens to form one merged path token.
+    if (token.tokenType === 'Dollar' || token.tokenType === 'At') {
+      let pathEnd = token.end;
+      let consumed = 0;
+      for (let j = index + 1; j < lexedTokens.length; j += 1) {
+        const next = lexedTokens[j];
+        if (next.start !== pathEnd || !PATH_CONTINUATION_TOKENS.has(next.tokenType)) break;
+        pathEnd = next.end;
+        consumed += 1;
+      }
+      tokens.push({
+        key: `path-${startOffset}`,
+        text: expression.slice(startOffset, pathEnd),
+        kind: 'path',
+      });
+      index += consumed;
+      cursor = pathEnd;
+      continue;
+    }
+
+    const endOffset = token.end;
     const nextToken = lexedTokens[index + 1];
     const kind = classifyToken(token.tokenType, nextToken?.tokenType);
     const highlight: FELHighlightToken = {

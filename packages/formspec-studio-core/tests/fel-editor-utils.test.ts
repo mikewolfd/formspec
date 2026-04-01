@@ -105,6 +105,50 @@ describe('fel-editor-utils', () => {
       expect(kinds).toContain('operator');
       expect(kinds).toContain('literal');
     });
+
+    it('emits full path reference as a single path token', () => {
+      const tokens = buildFELHighlightTokens('$field > 10');
+      const pathTokens = tokens.filter((t) => t.kind === 'path');
+      expect(pathTokens).toHaveLength(1);
+      expect(pathTokens[0].text).toBe('$field');
+    });
+
+    it('emits dotted path as a single path token', () => {
+      const tokens = buildFELHighlightTokens('$group.field = true');
+      const pathTokens = tokens.filter((t) => t.kind === 'path');
+      expect(pathTokens).toHaveLength(1);
+      expect(pathTokens[0].text).toBe('$group.field');
+    });
+
+    it('emits bracketed wildcard path as a single path token', () => {
+      const tokens = buildFELHighlightTokens('sum($members[*].mInc)', { sum: 'sum(array)' });
+      const pathTokens = tokens.filter((t) => t.kind === 'path');
+      expect(pathTokens).toHaveLength(1);
+      expect(pathTokens[0].text).toBe('$members[*].mInc');
+    });
+
+    it('emits variable reference as a single path token', () => {
+      const tokens = buildFELHighlightTokens('@incLimit + 100');
+      const pathTokens = tokens.filter((t) => t.kind === 'path');
+      expect(pathTokens).toHaveLength(1);
+      expect(pathTokens[0].text).toBe('@incLimit');
+    });
+
+    it('handles multiple path references in one expression', () => {
+      const tokens = buildFELHighlightTokens('$a + $b.c');
+      const pathTokens = tokens.filter((t) => t.kind === 'path');
+      expect(pathTokens).toHaveLength(2);
+      expect(pathTokens[0].text).toBe('$a');
+      expect(pathTokens[1].text).toBe('$b.c');
+    });
+
+    it('does not merge path tokens across whitespace', () => {
+      const tokens = buildFELHighlightTokens('$a + $b');
+      const pathTokens = tokens.filter((t) => t.kind === 'path');
+      expect(pathTokens).toHaveLength(2);
+      expect(pathTokens[0].text).toBe('$a');
+      expect(pathTokens[1].text).toBe('$b');
+    });
   });
 
   describe('validateFEL', () => {
