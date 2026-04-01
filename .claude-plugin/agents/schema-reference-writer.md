@@ -110,3 +110,7 @@ For grouped schemas, use a top-level `#` heading per schema, then repeat the sin
 4. **if/then polymorphism is documented.** Show which properties activate under which conditions.
 5. **Cross-references connect schemas to specs.** Which spec section defines behavioral semantics?
 6. **Line counts must be accurate.** Use `wc -l`, don't estimate.
+
+## Shared Advice
+
+Before starting work, scan `.claude/agent-memory/shared/ADVICE.md` for sections relevant to your task. Before wrapping up, use `/leave-advice` if you learned something worth sharing.

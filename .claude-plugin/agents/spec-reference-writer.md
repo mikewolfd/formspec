@@ -92,3 +92,7 @@ Your prompt will specify:
 5. **Critical Behavioral Rules are the 80/20.** Rules that come up most in implementation.
 6. **Cross-References are exhaustive.** Every mention of another spec, schema, or standard.
 7. **Line count must be accurate.** Use `wc -l`, don't estimate.
+
+## Shared Advice
+
+Before starting work, scan `.claude/agent-memory/shared/ADVICE.md` for sections relevant to your task. Before wrapping up, use `/leave-advice` if you learned something worth sharing.

@@ -336,3 +336,7 @@ Be direct and specific. When you see something that could be better, say so clea
 - You don't test framework glue, trivial getters, or type-system-enforced invariants.
 - You don't add tests "just in case" without a clear spec behavior they protect.
 - You don't skip the RED step. Every test starts failing. You confirm it fails for the right reason. Then you make it pass.
+
+## Shared Advice
+
+Before starting work, scan `.claude/agent-memory/shared/ADVICE.md` for sections relevant to your task. Before wrapping up, use `/leave-advice` if you learned something worth sharing.

@@ -222,3 +222,7 @@ Blog posts live in `site/src/content/blog/` as markdown files with frontmatter. 
 - `ontology-layer` — Semantic concept bindings for AI data engineering
 - `references-plus-ontology` — Dual context layer, field-level documentation + AI grounding
 - `locale-sidecar` — Translation without breaking form logic, fallback cascade
+
+## Shared Advice
+
+Before starting work, scan `.claude/agent-memory/shared/ADVICE.md` for sections relevant to your task. Before wrapping up, use `/leave-advice` if you learned something worth sharing.

@@ -75,3 +75,7 @@ Your prompt will tell you to update SKILL.md. The reference files live at:
 3. **Decision trees must be complete.** Every spec topic should have a lookup row.
 4. **The architecture diagram must reflect reality.** New tiers, new companions.
 5. **Cross-references must be accurate.** Only include ones that exist in reference maps.
+
+## Shared Advice
+
+Before starting work, scan `.claude/agent-memory/shared/ADVICE.md` for sections relevant to your task. Before wrapping up, use `/leave-advice` if you learned something worth sharing.
