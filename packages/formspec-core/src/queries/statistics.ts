@@ -42,8 +42,10 @@ export function statistics(state: ProjectState): ProjectStatistics {
     totalMappingRuleCount += (m.rules?.length ?? 0);
   }
 
-  const screener = def.screener;
-  const screenerActive = Boolean(screener);
+  const screener = state.screener;
+  const screenerRouteCount = screener
+    ? screener.evaluation.reduce((sum: number, phase: any) => sum + (phase.routes?.length ?? 0), 0)
+    : 0;
 
   return {
     fieldCount,
@@ -58,6 +60,7 @@ export function statistics(state: ProjectState): ProjectStatistics {
     totalMappingRuleCount,
     mappingCount: Object.keys(state.mappings).length,
     screenerFieldCount: screener ? screener.items.length : 0,
-    screenerRouteCount: screener ? screener.routes.length : 0,
+    screenerRouteCount,
+    screenerPhaseCount: screener ? screener.evaluation.length : 0,
   };
 }

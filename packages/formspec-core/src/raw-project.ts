@@ -193,6 +193,7 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
     locales: options?.seed?.locales ?? {},
     selectedLocaleId: options?.seed?.selectedLocaleId,
     extensions: options?.seed?.extensions ?? { registries: [] },
+    screener: options?.seed?.screener ?? null,
     versioning: options?.seed?.versioning ?? {
       baseline: structuredClone(definition),
       releases: [],

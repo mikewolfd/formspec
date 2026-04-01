@@ -2,6 +2,7 @@
 import type { SchemaValidator } from '@formspec-org/engine/fel-tools';
 import type {
   FormItem, FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
+  ScreenerDocument,
 } from '@formspec-org/types';
 
 // ── Schema-derived types (re-exported from formspec-types) ──────────
@@ -9,6 +10,7 @@ import type {
 export type {
   FormItem, FormBind, FormShape, FormVariable, FormInstance, FormOption,
   FormDefinition, ComponentDocument, ThemeDocument, MappingDocument,
+  ScreenerDocument,
 } from '@formspec-org/types';
 
 // ── Internal content types ──────────────────────────────────────────
@@ -176,6 +178,8 @@ export interface ProjectState {
   selectedLocaleId?: string;
   /** Loaded extension registries providing custom types, functions, and constraints. */
   extensions: ExtensionsState;
+  /** Standalone Screener Document, or null if no screener is loaded. */
+  screener: ScreenerDocument | null;
   /** Baseline snapshot and release history for changelog generation. */
   versioning: VersioningState;
 }
@@ -341,10 +345,12 @@ export interface ProjectStatistics {
   totalMappingRuleCount: number;
   /** Number of distinct mapping documents. */
   mappingCount: number;
-  /** Number of fields in the screener (0 if no screener or disabled). */
+  /** Number of fields in the screener (0 if no screener loaded). */
   screenerFieldCount: number;
-  /** Number of routing rules in the screener (0 if no screener or disabled). */
+  /** Total routing rules across all screener phases (0 if no screener loaded). */
   screenerRouteCount: number;
+  /** Number of evaluation phases in the screener (0 if no screener loaded). */
+  screenerPhaseCount: number;
 }
 
 // ProjectBundle is now canonical in formspec-types.
@@ -574,8 +580,8 @@ export interface FieldDependents {
   variables: string[];
   /** Identifiers of mapping rules that reference this field (format: `mappingId:index`). */
   mappingRules: string[];
-  /** Indices of screener routes whose conditions reference this field. */
-  screenerRoutes: number[];
+  /** Screener routes whose expressions reference this field. */
+  screenerRoutes: Array<{ phaseId: string; routeIndex: number }>;
 }
 
 /**

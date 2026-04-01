@@ -9,7 +9,7 @@ import { definitionVariablesHandlers } from './definition-variables.js';
 import { definitionPagesHandlers } from './definition-pages.js';
 import { definitionOptionsetsHandlers } from './definition-optionsets.js';
 import { definitionInstancesHandlers } from './definition-instances.js';
-import { definitionScreenerHandlers } from './definition-screener.js';
+import { screenerHandlers } from './screener.js';
 import { definitionMigrationsHandlers } from './definition-migrations.js';
 import { componentTreeHandlers } from './component-tree.js';
 import { componentPropertiesHandlers } from './component-properties.js';
@@ -29,7 +29,7 @@ export const builtinHandlers: Readonly<Record<string, CommandHandler>> = Object.
   ...definitionPagesHandlers,
   ...definitionOptionsetsHandlers,
   ...definitionInstancesHandlers,
-  ...definitionScreenerHandlers,
+  ...screenerHandlers,
   ...definitionMigrationsHandlers,
   ...componentTreeHandlers,
   ...componentPropertiesHandlers,
