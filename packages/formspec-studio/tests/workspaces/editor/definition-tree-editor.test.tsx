@@ -629,7 +629,7 @@ describe('DefinitionTreeEditor', () => {
     expect(section.children).toHaveLength(1);
     expect(section.children[0].type).toBe('field');
     expect(screen.getByTestId(`field-${section.children[0].key}`)).toBeInTheDocument();
-    expect(screen.getByTestId(`field-${section.children[0].key}`).className).toContain('border-accent/30');
+    expect(screen.getByTestId(`field-${section.children[0].key}`).className).toContain('border-accent/50');
   });
 
   it('edits the label inline without opening the key editor and saves on blur', () => {

@@ -14,18 +14,17 @@ export function SortableItemWrapper({ id, index, group, children }: SortableItem
     id,
     index,
     group,
-    // Disable optimistic sorting — we handle positioning manually
-    transition: null,
   });
 
   const child = isValidElement(children)
     ? cloneElement(children, {
       dragHandleRef: handleRef,
+      isDragSource,
     } as Record<string, unknown>)
     : children;
 
   return (
-    <div ref={ref} style={{ opacity: isDragSource ? 0.4 : 1 }}>
+    <div ref={ref} className="py-0.5" style={{ opacity: isDragSource ? 0.4 : 1 }}>
       {child}
     </div>
   );

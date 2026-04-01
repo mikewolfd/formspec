@@ -42,6 +42,7 @@ interface GroupNodeProps {
   depth: number;
   children: ReactNode;
   selected?: boolean;
+  isDragSource?: boolean;
   dragHandleRef?: (element: Element | null) => void;
   item?: FormItem;
   binds?: Record<string, string>;
@@ -66,6 +67,7 @@ export function GroupNode({
   depth,
   children,
   selected,
+  isDragSource,
   dragHandleRef,
   item,
   binds = {},
@@ -76,6 +78,8 @@ export function GroupNode({
   onClick,
   onContextMenu,
 }: GroupNodeProps) {
+  // Collapse expanded content while being dragged to avoid layout disruption
+  const effectiveSelected = selected && !isDragSource;
   const [expanded, setExpanded] = useState(true);
   const [activeIdentityField, setActiveIdentityField] = useState<'label' | 'key' | null>(null);
   const [editingContent, setEditingContent] = useState<'description' | 'hint' | 'both' | null>(null);
@@ -93,7 +97,7 @@ export function GroupNode({
     { label: 'Description', value: contentSummaryMap.get('Description') ?? '' },
     { label: 'Hint', value: contentSummaryMap.get('Hint') ?? '' },
   ];
-  const contentEntries = selected
+  const contentEntries = effectiveSelected
     ? allContentEntries
     : allContentEntries.filter((entry) => entry.value.trim().length > 0);
 
@@ -101,7 +105,7 @@ export function GroupNode({
     { label: 'Relevant', value: binds.relevant ?? '' },
     { label: 'Required', value: binds.required ?? '' },
   ];
-  const behaviorEntries = selected
+  const behaviorEntries = effectiveSelected
     ? allBehaviorEntries
     : allBehaviorEntries.filter((entry) => entry.value.trim().length > 0);
 
@@ -109,7 +113,7 @@ export function GroupNode({
     ? `Yes · ${minRepeat ?? 0}–${maxRepeat != null ? maxRepeat : '∞'}`
     : '';
   const repeatableEntry = { label: 'Repeatable', value: repeatableDisplayValue };
-  const repeatableEntries = selected || repeatableDisplayValue ? [repeatableEntry] : [];
+  const repeatableEntries = effectiveSelected || repeatableDisplayValue ? [repeatableEntry] : [];
 
   const hiddenSummaryLabels = new Set<string>([
     ...(editingContent === 'both' && !activeInlineSummary ? ['Description', 'Hint'] : []),
@@ -121,8 +125,8 @@ export function GroupNode({
     ...behaviorEntries,
     ...repeatableEntries,
   ].filter((entry) => !hiddenSummaryLabels.has(entry.label));
-  const visibleMissingActions = selected ? missingActions : [];
-  const showFooter = repeatable || statusPills.length > 0 || visibleMissingActions.length > 0 || selected;
+  const visibleMissingActions = effectiveSelected ? missingActions : [];
+  const showFooter = repeatable || statusPills.length > 0 || visibleMissingActions.length > 0 || effectiveSelected;
   const resolvedLabel = label || itemKey;
   const labelForDescription =
     label?.trim() && label.trim() !== itemKey ? label.trim() : null;
@@ -234,7 +238,7 @@ export function GroupNode({
       className={[
         'rounded-[20px] border transition-[border-color,background-color,box-shadow]',
         selected
-          ? 'border-accent/40 bg-accent/[0.05] shadow-[0_16px_40px_rgba(59,130,246,0.12)]'
+          ? 'border-accent/55 bg-accent/[0.09] shadow-[0_8px_20px_rgba(37,99,235,0.18)]'
           : 'border-transparent hover:border-border/65 hover:bg-bg-default/40',
       ].join(' ')}
       onClick={onClick}
@@ -270,33 +274,33 @@ export function GroupNode({
                     type="text"
                     autoFocus
                     value={draftKey}
-                    className="w-full rounded-[6px] border border-accent/30 bg-surface px-2 py-1.5 text-[20px] font-semibold font-mono tracking-tight text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[22px]"
+                    className="w-full rounded-[6px] border border-accent/30 bg-surface px-2 py-1.5 text-[18px] font-semibold font-mono tracking-tight text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[20px]"
                     onChange={(event) => setDraftKey(event.currentTarget.value)}
                     onClick={(event) => event.stopPropagation()}
                     onBlur={() => commitIdentityField('key')}
                     onKeyDown={handleIdentityKeyDown('key')}
                   />
                 ) : (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[20px] font-semibold leading-none tracking-tight md:text-[22px]">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[18px] font-semibold leading-none tracking-tight md:text-[20px]">
                     <div
                       role="heading"
                       aria-level={2}
-                      className={`inline-flex max-w-full items-center font-mono text-ink ${selected ? 'group cursor-text' : ''}`}
+                      className={`inline-flex max-w-full items-center font-mono text-ink ${effectiveSelected ? 'group cursor-text' : ''}`}
                       onClick={(event) => {
-                        if (!selected) return;
+                        if (!effectiveSelected) return;
                         event.stopPropagation();
                         openIdentityField('key');
                       }}
                     >
                       <span className="truncate">{itemKey}</span>
-                      {selected ? <EditMark testId={`group-${itemKey}-key-edit`} /> : null}
+                      {effectiveSelected ? <EditMark testId={`group-${itemKey}-key-edit`} /> : null}
                     </div>
                     <span className="font-mono text-[12px] font-normal tracking-[0.08em] text-accent">
                       group
                     </span>
                   </div>
                 )}
-                {(labelForDescription || selected) && (
+                {(labelForDescription || effectiveSelected) && (
                   <div className="mt-1 max-w-full">
                     {activeIdentityField === 'label' ? (
                       <input
@@ -312,9 +316,9 @@ export function GroupNode({
                       />
                     ) : (
                       <div
-                        className={`text-[14px] font-normal leading-snug tracking-normal text-ink/72 md:text-[15px] ${selected ? 'group inline-flex cursor-text flex-wrap items-center gap-x-1' : ''}`}
+                        className={`text-[14px] font-normal leading-snug tracking-normal text-ink/80 md:text-[15px] ${effectiveSelected ? 'group inline-flex cursor-text flex-wrap items-center gap-x-1' : ''}`}
                         onClick={(event) => {
-                          if (!selected) return;
+                          if (!effectiveSelected) return;
                           event.stopPropagation();
                           openIdentityField('label');
                         }}
@@ -322,7 +326,7 @@ export function GroupNode({
                         <span className={labelForDescription ? '' : 'italic text-ink/50'}>
                           {labelForDescription ?? 'Add a display label…'}
                         </span>
-                        {selected ? <EditMark testId={`group-${itemKey}-label-edit`} /> : null}
+                        {effectiveSelected ? <EditMark testId={`group-${itemKey}-label-edit`} /> : null}
                       </div>
                     )}
                   </div>
@@ -351,7 +355,7 @@ export function GroupNode({
               <dl data-testid={`group-${itemKey}-summary`} className="grid gap-x-5 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
                 {supportingText.map((entry) => (
                   <div key={`${itemPath}-${entry.label}`} className="min-w-0 border-l border-border/65 pl-3">
-                    <dt className="font-mono text-[11px] tracking-[0.14em] text-ink/62">{entry.label}</dt>
+                    <dt className="font-mono text-[11px] tracking-[0.14em] text-ink/72">{entry.label}</dt>
                     {activeInlineSummary === entry.label && entry.label !== 'Repeatable' ? (
                       <input
                         aria-label={`Inline group ${entry.label.toLowerCase()}`}
@@ -384,17 +388,17 @@ export function GroupNode({
                       />
                     ) : (
                       <dd
-                        className={`group mt-1 inline-flex max-w-full items-center truncate text-[14px] font-medium leading-5 text-ink md:text-[15px] ${selected ? (entry.label === 'Repeatable' ? 'cursor-pointer' : 'cursor-text') : ''}`}
+                        className={`group mt-1 inline-flex max-w-full items-center truncate text-[14px] font-medium leading-5 text-ink md:text-[15px] ${effectiveSelected ? (entry.label === 'Repeatable' ? 'cursor-pointer' : 'cursor-text') : ''}`}
                         onClick={(event) => {
-                          if (!selected) return;
+                          if (!effectiveSelected) return;
                           event.stopPropagation();
                           openEditorForSummary(entry.label);
                         }}
                       >
                         <span className={`truncate ${entry.value ? '' : 'text-ink/56 italic'}`}>
-                          {entry.value || (selected ? `Click to add ${entry.label.toLowerCase()}` : '\u2014')}
+                          {entry.value || (effectiveSelected ? `Click to add ${entry.label.toLowerCase()}` : '\u2014')}
                         </span>
-                        {selected ? <EditMark testId={`group-${itemKey}-summary-edit-${entry.label}`} /> : null}
+                        {effectiveSelected ? <EditMark testId={`group-${itemKey}-summary-edit-${entry.label}`} /> : null}
                       </dd>
                     )}
                   </div>
@@ -413,7 +417,7 @@ export function GroupNode({
               {statusPills.map((pill) => (
                 <Pill key={`${itemPath}-${pill.text}`} text={pill.text} color={pill.color} size="sm" title={pill.specTerm} />
               ))}
-              {selected && (
+              {effectiveSelected && (
                 <button
                   type="button"
                   aria-label={`Edit repeats for ${resolvedLabel}`}
@@ -556,7 +560,7 @@ export function GroupNode({
         <div
           id={`group-panel-${itemKey}`}
           data-testid={`group-${itemKey}-children`}
-          className="ml-5 mt-2 flex flex-col gap-1 border-l border-border/55 pb-1 pl-4"
+          className="mt-2 flex flex-col px-4 pb-1 md:px-6"
         >
           {children}
         </div>

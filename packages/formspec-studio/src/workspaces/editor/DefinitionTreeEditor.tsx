@@ -75,9 +75,13 @@ function renderItemTree(
   depth: number,
   parentPath: string,
   ctx: TreeRenderContext,
-  indexCounter: { value: number },
   insideRepeatableGroup = false,
 ): React.ReactNode[] {
+  // Index tracks position within THIS sibling group (not global).
+  // The sortable group is the parent path so dnd-kit scopes collision detection per-parent.
+  const sortGroup = parentPath || 'root';
+  let siblingIndex = 0;
+
   return items.map((item) => {
     // Display items (content) belong in the layout workspace, not the definition tree.
     if (item.type === 'display') return null;
@@ -91,11 +95,11 @@ function renderItemTree(
     });
     const resolvedLabel = typeof item.label === 'string' && item.label.trim() ? item.label : item.key;
     const missingActions = buildMissingPropertyActions(item, itemBinds, resolvedLabel);
-    const sortIndex = indexCounter.value++;
+    const sortIndex = siblingIndex++;
 
     if (item.type === 'group') {
       return (
-        <SortableItemWrapper key={path} id={path} index={sortIndex} group="def-tree">
+        <SortableItemWrapper key={path} id={path} index={sortIndex} group={sortGroup}>
           <GroupNode
             itemKey={item.key}
             itemPath={path}
@@ -117,14 +121,14 @@ function renderItemTree(
             onClick={(e) => ctx.onItemClick(e, path, 'group')}
             onContextMenu={(e) => ctx.onItemContextMenu(e, path, 'group')}
           >
-            {item.children ? renderItemTree(item.children, allBinds, depth + 1, path, ctx, indexCounter, insideRepeatableGroup || item.repeatable === true) : null}
+            {item.children ? renderItemTree(item.children, allBinds, depth + 1, path, ctx, insideRepeatableGroup || item.repeatable === true) : null}
           </GroupNode>
         </SortableItemWrapper>
       );
     }
 
     return (
-      <SortableItemWrapper key={path} id={path} index={sortIndex} group="def-tree">
+      <SortableItemWrapper key={path} id={path} index={sortIndex} group={sortGroup}>
         <ItemRow
           itemKey={item.key}
           itemPath={path}
@@ -369,7 +373,7 @@ export function DefinitionTreeEditor() {
   }, [addParentPath, project, select]);
 
   const tree = useMemo(
-    () => renderItemTree(items, allBinds, 0, '', treeCtx, { value: 0 }),
+    () => renderItemTree(items, allBinds, 0, '', treeCtx),
     [items, allBinds, treeCtx],
   );
 
@@ -379,17 +383,14 @@ export function DefinitionTreeEditor() {
         <div
           ref={surfaceRef}
           data-testid="definition-tree-surface"
-          className="flex w-full max-w-[980px] flex-col gap-4 rounded-[22px] border border-border/65 bg-surface/96 px-4 py-4 shadow-[0_24px_70px_rgba(30,24,16,0.08)] backdrop-blur sm:px-5 md:px-6 md:py-5"
+          className="flex w-full max-w-[980px] flex-col gap-4 rounded-[22px] border border-border/65 bg-surface/96 px-4 py-4 shadow-[0_4px_16px_rgba(30,24,16,0.04)] backdrop-blur sm:px-5 md:px-6 md:py-5"
           onClick={(event) => {
             if (event.target === event.currentTarget) deselect();
           }}
         >
         <div className="flex flex-col gap-3 border-b border-border/65 pb-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/60">
-              Structure editor
-            </div>
-            <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">
+            <h1 className="text-[22px] font-semibold tracking-tight text-ink">
               {selectedSummary ? selectedSummary.label : 'Form structure'}
             </h1>
             <p

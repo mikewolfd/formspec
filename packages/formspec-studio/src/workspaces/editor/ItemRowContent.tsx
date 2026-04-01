@@ -10,6 +10,7 @@ import {
   summaryInputType,
   EditMark,
 } from './item-row-shared';
+import { CategoryCell } from './CategoryCell';
 
 /** Identifying data for the item row. */
 export interface ItemRowIdentity {
@@ -203,7 +204,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                   />
                 ) : (
                   <div
-                    className={`text-[14px] font-normal leading-snug tracking-normal text-ink/72 md:text-[15px] ${showEditMark ? 'group inline-flex cursor-text flex-wrap items-center gap-x-1' : ''}`}
+                    className={`text-[14px] font-normal leading-snug tracking-normal text-ink/80 md:text-[15px] ${showEditMark ? 'group inline-flex cursor-text flex-wrap items-center gap-x-1' : ''}`}
                     onClick={(event) => {
                       if (!showEditMark) return;
                       event.stopPropagation();
@@ -340,30 +341,17 @@ function SummaryColumn({
         data-testid={`${testId}-summary`}
         className={`grid gap-x-5 gap-y-3 ${Object.keys(categorySummaries).length <= 2 ? 'grid-cols-2' : Object.keys(categorySummaries).length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}
       >
-        {Object.entries(categorySummaries).map(([category, value]) => {
-          const isExpanded = expandedCategoryKey === category;
-          return (
-            <div
-              key={category}
-              data-testid={`${testId}-category-${category}`}
-              className={`min-w-0 border-l border-border/65 pl-3 ${selected ? 'cursor-pointer' : ''}`}
-              onClick={(event) => {
-                if (!selected) return;
-                event.stopPropagation();
-                onOpenEditorForSummary(category);
-              }}
-            >
-              <dt className='font-mono text-[11px] tracking-[0.14em] text-ink/62'>
-                {category}
-              </dt>
-              <dd
-                className={`group mt-1 inline-flex max-w-full items-center truncate rounded-md px-1 -mx-1 text-[14px] font-medium leading-5 text-ink/94 md:text-[15px] ${isExpanded ? 'bg-accent/12 ring-1 ring-accent/25' : ''}`}
-              >
-                <span className='truncate'>{value}</span>
-              </dd>
-            </div>
-          );
-        })}
+        {Object.entries(categorySummaries).map(([category, value]) => (
+          <CategoryCell
+            key={category}
+            category={category}
+            value={value}
+            isExpanded={expandedCategoryKey === category}
+            selected={selected}
+            testId={`${testId}-category-${category}`}
+            onOpen={onOpenEditorForSummary}
+          />
+        ))}
       </dl>
 
       {statusPills.length > 0 && (
@@ -393,7 +381,7 @@ function SummaryColumn({
               key={entry.label}
               className='min-w-0 border-l border-border/65 pl-3'
             >
-              <dt className='font-mono text-[11px] tracking-[0.14em] text-ink/62'>
+              <dt className='font-mono text-[11px] tracking-[0.14em] text-ink/72'>
                 {entry.label}
               </dt>
               {activeInlineSummary === entry.label ? (

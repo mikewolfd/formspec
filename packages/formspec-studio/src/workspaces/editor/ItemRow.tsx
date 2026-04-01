@@ -32,6 +32,7 @@ interface ItemRowProps {
   depth: number;
   insideRepeatableGroup?: boolean;
   selected?: boolean;
+  isDragSource?: boolean;
   dragHandleRef?: (element: Element | null) => void;
   item?: FormItem;
   binds?: Record<string, string>;
@@ -53,6 +54,7 @@ export function ItemRow({
   depth,
   insideRepeatableGroup,
   selected,
+  isDragSource,
   dragHandleRef,
   item,
   binds = {},
@@ -61,6 +63,8 @@ export function ItemRow({
   onClick,
   onContextMenu,
 }: ItemRowProps) {
+  // Collapse expanded content while being dragged to avoid layout disruption
+  const effectiveSelected = selected && !isDragSource;
   const isField = itemType === 'field';
   const isDisplayItem = itemType === 'display';
   const testId = isField ? `field-${itemKey}` : `display-${itemKey}`;
@@ -174,7 +178,7 @@ export function ItemRow({
     { label: 'Description', value: descriptionValue },
     { label: 'Hint', value: hintValue },
   ];
-  const supportingText = selected
+  const supportingText = effectiveSelected
     ? allContentEntries
     : allContentEntries.filter((entry) => entry.value.trim().length > 0);
 
@@ -315,7 +319,7 @@ export function ItemRow({
   };
 
   const showCategoryPanel =
-    selected &&
+    effectiveSelected &&
     expandedCategory !== null &&
     ((isField && item?.type === 'field') ||
       (isDisplayItem && expandedCategory === 'Visibility'));
@@ -326,7 +330,7 @@ export function ItemRow({
     const prev = prevExpandedCategoryRef.current;
     prevExpandedCategoryRef.current = expandedCategory;
     prevShowCategoryPanelRef.current = Boolean(showCategoryPanel);
-    if (showCategoryPanel && expandedCategory !== prev && selected) {
+    if (showCategoryPanel && expandedCategory !== prev && effectiveSelected) {
       categoryPanelRef.current?.focus();
     }
   }, [showCategoryPanel, expandedCategory, selected]);
@@ -479,7 +483,7 @@ export function ItemRow({
     itemKey,
     itemLabel,
     isField,
-    selected,
+    selected: effectiveSelected,
     editable,
     dataType,
     widgetHint,
@@ -544,7 +548,7 @@ export function ItemRow({
       className={[
         'group rounded-[18px] border px-3 py-4 transition-[border-color,background-color,box-shadow] md:px-4',
         selected
-          ? 'border-accent/30 bg-accent/[0.05] shadow-[0_14px_34px_rgba(59,130,246,0.12)]'
+          ? 'border-accent/50 bg-accent/[0.09] shadow-[0_14px_34px_rgba(59,130,246,0.12)]'
           : 'border-transparent hover:border-border/70 hover:bg-bg-default/56',
       ].join(' ')}
       style={{ paddingLeft: depth * 20 + 14 }}
