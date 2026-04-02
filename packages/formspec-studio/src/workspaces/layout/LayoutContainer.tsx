@@ -46,6 +46,8 @@ export interface LayoutContainerProps {
   onStyleAdd?: (key: string, value: string) => void;
   /** Called when style is removed from the PropertyPopover. */
   onStyleRemove?: (styleKey: string) => void;
+  /** When true, renders N+1 insert slots between/around children for spatial DnD. */
+  isDragActive?: boolean;
 }
 
 const ELEVATION_SHADOW: Record<number, string> = {
@@ -94,6 +96,29 @@ function buildContentStyle(props: LayoutContainerProps): React.CSSProperties {
   }
 }
 
+/** Renders N+1 droppable insert slots interleaved with N children. */
+function InsertSlotChildren({ nodeId, children }: { nodeId: string; children?: ReactNode }) {
+  const childArray = children ? (Array.isArray(children) ? children : [children]) : [];
+  const slotCount = childArray.length + 1;
+
+  return (
+    <>
+      {Array.from({ length: slotCount }, (_, i) => (
+        <>
+          <div
+            key={`slot-${i}`}
+            data-testid={`insert-slot-${nodeId}-${i}`}
+            data-insert-index={String(i)}
+            data-container-id={nodeId}
+            className="h-1 rounded bg-accent/30 transition-all"
+          />
+          {i < childArray.length && childArray[i]}
+        </>
+      ))}
+    </>
+  );
+}
+
 export function LayoutContainer(props: LayoutContainerProps) {
   const {
     component,
@@ -117,6 +142,7 @@ export function LayoutContainer(props: LayoutContainerProps) {
     onRemove,
     onStyleAdd,
     onStyleRemove,
+    isDragActive = false,
   } = props;
 
   const [open, setOpen] = useState(defaultOpen);
@@ -233,13 +259,17 @@ export function LayoutContainer(props: LayoutContainerProps) {
           style={contentStyle}
           className="px-3 pb-2"
         >
-          {children ?? (
-            <div
-              data-testid="empty-container-placeholder"
-              className="flex items-center justify-center rounded border border-dashed border-muted/50 py-4 text-[11px] text-muted"
-            >
-              Drop items here
-            </div>
+          {isDragActive && nodeId ? (
+            <InsertSlotChildren nodeId={nodeId}>{children}</InsertSlotChildren>
+          ) : (
+            children ?? (
+              <div
+                data-testid="empty-container-placeholder"
+                className="flex items-center justify-center rounded border border-dashed border-muted/50 py-4 text-[11px] text-muted"
+              >
+                Drop items here
+              </div>
+            )
           )}
         </div>
       )}

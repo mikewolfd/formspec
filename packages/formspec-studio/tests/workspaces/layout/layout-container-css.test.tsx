@@ -184,6 +184,53 @@ describe('LayoutContainer — Accordion flex-column', () => {
   });
 });
 
+describe('LayoutContainer — insert slots for spatial DnD', () => {
+  it('renders insert slots when nodeId is provided and isDragActive prop is true', () => {
+    const { container } = render(
+      <LayoutContainer component="Grid" nodeType="layout" nodeId="g1" columns={2} isDragActive>
+        <div data-testid="child-1">one</div>
+        <div data-testid="child-2">two</div>
+      </LayoutContainer>,
+    );
+    // N+1 slots for N children: 2 children → 3 slots
+    const slots = container.querySelectorAll('[data-testid^="insert-slot-"]');
+    expect(slots.length).toBe(3);
+  });
+
+  it('does not render insert slots when isDragActive is false', () => {
+    const { container } = render(
+      <LayoutContainer component="Grid" nodeType="layout" nodeId="g2" columns={2}>
+        <div>one</div>
+      </LayoutContainer>,
+    );
+    const slots = container.querySelectorAll('[data-testid^="insert-slot-"]');
+    expect(slots.length).toBe(0);
+  });
+
+  it('insert slots carry data-insert-index attributes', () => {
+    const { container } = render(
+      <LayoutContainer component="Grid" nodeType="layout" nodeId="g3" columns={2} isDragActive>
+        <div>child</div>
+      </LayoutContainer>,
+    );
+    // 1 child → 2 slots: index 0 (before) and index 1 (after)
+    const slots = container.querySelectorAll('[data-testid^="insert-slot-"]');
+    expect(slots.length).toBe(2);
+    expect(slots[0].getAttribute('data-insert-index')).toBe('0');
+    expect(slots[1].getAttribute('data-insert-index')).toBe('1');
+  });
+
+  it('empty container shows single insert slot when isDragActive', () => {
+    const { container } = render(
+      <LayoutContainer component="Grid" nodeType="layout" nodeId="g4" columns={2} isDragActive />,
+    );
+    // No children → 1 slot at index 0 (replaces / overlaps with empty placeholder)
+    const slots = container.querySelectorAll('[data-testid^="insert-slot-"]');
+    expect(slots.length).toBe(1);
+    expect(slots[0].getAttribute('data-insert-index')).toBe('0');
+  });
+});
+
 describe('LayoutContainer — empty container placeholder', () => {
   it('shows drop placeholder when container has no children', () => {
     render(<LayoutContainer component="Grid" nodeType="layout" nodeId="empty1" columns={2} />);

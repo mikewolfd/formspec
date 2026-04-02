@@ -1,6 +1,6 @@
 /** @filedesc Tests for LayoutDndProvider drop handler logic — asserts project API is used, not core.dispatch. */
 import { describe, it, expect, vi } from 'vitest';
-import { handleTrayDrop, handleTreeReorder } from '../../../src/workspaces/layout/LayoutDndProvider';
+import { handleTrayDrop, handleTreeReorder, handleSpatialDrop, handleContainerDrop, handleDragEnd } from '../../../src/workspaces/layout/LayoutDndProvider';
 import { createProject } from '@formspec-org/studio-core';
 
 function makeProject() {
@@ -49,6 +49,77 @@ describe('handleTrayDrop — tray-to-canvas', () => {
   });
 });
 
+describe('handleSpatialDrop — spatial reorder into container at index', () => {
+  it('calls project.moveComponentNodeToIndex with sourceRef, containerId, insertIndex', () => {
+    const project = makeProject();
+    const moveToIndex = vi.spyOn(project, 'moveComponentNodeToIndex').mockReturnValue({
+      summary: 'ok',
+      action: { helper: 'moveComponentNodeToIndex', params: {} },
+      affectedPaths: [],
+    });
+
+    handleSpatialDrop(project, { bind: 'email' }, 'container-node-1', 2);
+
+    expect(moveToIndex).toHaveBeenCalledOnce();
+    expect(moveToIndex).toHaveBeenCalledWith({ bind: 'email' }, 'container-node-1', 2);
+  });
+
+  it('works with nodeId ref for layout nodes', () => {
+    const project = makeProject();
+    const moveToIndex = vi.spyOn(project, 'moveComponentNodeToIndex').mockReturnValue({
+      summary: 'ok',
+      action: { helper: 'moveComponentNodeToIndex', params: {} },
+      affectedPaths: [],
+    });
+
+    handleSpatialDrop(project, { nodeId: 'node-abc' }, 'container-node-1', 0);
+
+    expect(moveToIndex).toHaveBeenCalledWith({ nodeId: 'node-abc' }, 'container-node-1', 0);
+  });
+
+  it('accepts insertIndex 0 (insert before first child)', () => {
+    const project = makeProject();
+    const moveToIndex = vi.spyOn(project, 'moveComponentNodeToIndex').mockReturnValue({
+      summary: 'ok',
+      action: { helper: 'moveComponentNodeToIndex', params: {} },
+      affectedPaths: [],
+    });
+
+    handleSpatialDrop(project, { bind: 'name' }, 'grid-1', 0);
+
+    expect(moveToIndex).toHaveBeenCalledWith({ bind: 'name' }, 'grid-1', 0);
+  });
+});
+
+describe('handleContainerDrop — drop onto container as last child', () => {
+  it('calls project.moveComponentNodeToContainer with sourceRef and targetContainerId', () => {
+    const project = makeProject();
+    const moveToContainer = vi.spyOn(project, 'moveComponentNodeToContainer').mockReturnValue({
+      summary: 'ok',
+      action: { helper: 'moveComponentNodeToContainer', params: {} },
+      affectedPaths: [],
+    });
+
+    handleContainerDrop(project, { bind: 'email' }, 'grid-container-1');
+
+    expect(moveToContainer).toHaveBeenCalledOnce();
+    expect(moveToContainer).toHaveBeenCalledWith({ bind: 'email' }, 'grid-container-1');
+  });
+
+  it('works with nodeId ref', () => {
+    const project = makeProject();
+    const moveToContainer = vi.spyOn(project, 'moveComponentNodeToContainer').mockReturnValue({
+      summary: 'ok',
+      action: { helper: 'moveComponentNodeToContainer', params: {} },
+      affectedPaths: [],
+    });
+
+    handleContainerDrop(project, { nodeId: 'node-xyz' }, 'panel-1');
+
+    expect(moveToContainer).toHaveBeenCalledWith({ nodeId: 'node-xyz' }, 'panel-1');
+  });
+});
+
 describe('handleTreeReorder — component tree reorder', () => {
   it('calls project.reorderComponentNode (not a raw dispatch bypass) for bound node reorder', () => {
     const project = makeProject();
@@ -92,3 +163,74 @@ describe('handleTreeReorder — component tree reorder', () => {
     expect(reorderComponentNode).toHaveBeenCalledWith({ nodeId: 'node-abc' }, 'down');
   });
 });
+
+// ── handleDragEnd routing — tests the onDragEnd dispatch logic in isolation ──
+// These tests require a pure exported handleDragEnd(project, eventData, activePageId, selectFn).
+
+describe('handleDragEnd routing — insert-slot drops', () => {
+  it('routes insert-slot target to handleSpatialDrop (moveComponentNodeToIndex)', () => {
+    const project = makeProject();
+    const moveToIndex = vi.spyOn(project, 'moveComponentNodeToIndex').mockReturnValue({
+      summary: 'ok', action: { helper: 'moveComponentNodeToIndex', params: {} }, affectedPaths: [],
+    });
+
+    // Simulate a dnd-kit event with insert-slot target type
+    handleDragEnd(project, {
+      canceled: false,
+      source: { id: 'field:email', data: { nodeRef: { bind: 'email' }, type: 'tree-node', index: 0 } },
+      target: { id: 'slot:grid-1:2', data: { type: 'insert-slot', containerId: 'grid-1', insertIndex: 2 } },
+    }, null, vi.fn());
+
+    expect(moveToIndex).toHaveBeenCalledWith({ bind: 'email' }, 'grid-1', 2);
+  });
+
+  it('routes container-drop target with nodeId to handleContainerDrop (moveComponentNodeToContainer)', () => {
+    const project = makeProject();
+    const moveToContainer = vi.spyOn(project, 'moveComponentNodeToContainer').mockReturnValue({
+      summary: 'ok', action: { helper: 'moveComponentNodeToContainer', params: {} }, affectedPaths: [],
+    });
+
+    handleDragEnd(project, {
+      canceled: false,
+      source: { id: 'field:email', data: { nodeRef: { bind: 'email' }, type: 'tree-node', index: 0 } },
+      target: { id: 'drop:node:card-1', data: { type: 'container-drop', nodeRef: { nodeId: 'card-1' } } },
+    }, null, vi.fn());
+
+    expect(moveToContainer).toHaveBeenCalledWith({ bind: 'email' }, 'card-1');
+  });
+
+  it('skips when event is canceled', () => {
+    const project = makeProject();
+    const moveToIndex = vi.spyOn(project, 'moveComponentNodeToIndex').mockReturnValue({
+      summary: 'ok', action: { helper: 'moveComponentNodeToIndex', params: {} }, affectedPaths: [],
+    });
+
+    handleDragEnd(project, {
+      canceled: true,
+      source: { id: 'field:email', data: { nodeRef: { bind: 'email' }, type: 'tree-node', index: 0 } },
+      target: { id: 'slot:grid-1:0', data: { type: 'insert-slot', containerId: 'grid-1', insertIndex: 0 } },
+    }, null, vi.fn());
+
+    expect(moveToIndex).not.toHaveBeenCalled();
+  });
+
+  it('falls back to linear reorder when no insert-slot or container-drop target', () => {
+    const project = makeProject();
+    const reorder = vi.spyOn(project, 'reorderComponentNode').mockReturnValue({
+      summary: 'ok', action: { helper: 'reorderComponentNode', params: {} }, affectedPaths: [],
+    });
+
+    handleDragEnd(project, {
+      canceled: false,
+      source: { id: 'field:email', data: { nodeRef: { bind: 'email' }, type: 'tree-node', index: 2 } },
+      target: { id: 'field:name', data: { nodeRef: { bind: 'name' }, type: 'tree-node', index: 0 } },
+    }, null, vi.fn());
+
+    // source.index (2) > target.index (0) → direction 'up'
+    expect(reorder).toHaveBeenCalledWith({ bind: 'email' }, 'up');
+  });
+});
+
+// NOTE: handleDragEnd must be exported from LayoutDndProvider for the above tests to run.
+// Add: export function handleDragEnd(project, eventData, activePageId, selectFn) { ... }
+// The import at the top of this file must be updated to include handleDragEnd.
