@@ -1,7 +1,7 @@
 /** @filedesc Layout workspace properties panel — shows only Tier 2/3 (presentation + component) properties. */
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Section } from '../../../components/ui/Section';
-import { PropertyRow } from '../../../components/ui/PropertyRow';
+import { TextPropertyInput, SelectPropertyInput } from '../../../components/ui/PropertyInput';
 import { InlineExpression } from '../../../components/ui/InlineExpression';
 import { useDefinition } from '../../../state/useDefinition';
 import { useProject } from '../../../state/useProject';
@@ -10,51 +10,13 @@ import {
   buildDefLookup,
   findComponentNodeById,
   isLayoutId,
+  LAYOUT_CONTAINER_COMPONENTS,
   nodeIdFromLayoutId,
 } from '@formspec-org/studio-core';
 import { AppearanceSection } from './AppearanceSection';
 import { WidgetSection } from './WidgetSection';
 import { LayoutSection } from './LayoutSection';
 import { ContainerSection } from './ContainerSection';
-
-const CONTAINER_TYPES = new Set(['Stack', 'Card', 'Grid', 'Panel', 'Accordion', 'Collapsible']);
-
-function TextPropertyInput({
-  label,
-  value,
-  placeholder,
-  onCommit,
-}: {
-  label: string;
-  value: string;
-  placeholder?: string;
-  onCommit: (value: string) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  return (
-    <PropertyRow label={label}>
-      <input
-        aria-label={label}
-        type="text"
-        value={draft}
-        placeholder={placeholder}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => onCommit(draft.trim())}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            (e.currentTarget as HTMLInputElement).blur();
-          }
-        }}
-        className="w-full rounded-[4px] border border-border bg-surface px-2 py-1 text-[12px] font-mono text-ink outline-none transition-colors placeholder:text-muted/40 focus:border-accent"
-      />
-    </PropertyRow>
-  );
-}
 
 export function ComponentProperties() {
   const { deselect, selectedKeyForTab, selectedTypeForTab } = useSelection();
@@ -108,6 +70,34 @@ export function ComponentProperties() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-3.5 py-2 space-y-1">
+          {/* Component-specific properties for Heading and Divider display nodes */}
+          {componentType === 'Heading' && (
+            <Section title="Heading">
+              <TextPropertyInput
+                label="Text"
+                value={(nodeProps.text as string) ?? ''}
+                placeholder="Heading text"
+                onCommit={(value) => project.setLayoutNodeProp(selectedKey, 'text', value)}
+              />
+              <SelectPropertyInput
+                label="Level"
+                value={String((nodeProps.level as number) ?? 2)}
+                options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `H${n}` }))}
+                onChange={(v) => project.setLayoutNodeProp(selectedKey, 'level', Number(v))}
+              />
+            </Section>
+          )}
+          {componentType === 'Divider' && (
+            <Section title="Divider">
+              <TextPropertyInput
+                label="Label"
+                value={(nodeProps.label as string) ?? ''}
+                placeholder="Optional divider label"
+                onCommit={(value) => project.setLayoutNodeProp(selectedKey, 'label', value)}
+              />
+            </Section>
+          )}
+
           <Section title="Actions">
             <div className="flex flex-wrap gap-2">
               <button
@@ -135,7 +125,13 @@ export function ComponentProperties() {
             </div>
           </Section>
 
-          <ContainerSection componentType={componentType} nodeProps={nodeProps} />
+          {!['Heading', 'Divider'].includes(componentType) && (
+            <ContainerSection
+              componentType={componentType}
+              nodeProps={nodeProps}
+              onSetProp={(key, value) => project.setLayoutNodeProp(selectedKey, key, value)}
+            />
+          )}
 
           <Section title="Visual Condition">
             <div className="space-y-1.5 mb-2">
@@ -187,7 +183,9 @@ export function ComponentProperties() {
   const isField = item.type === 'field';
   const isGroup = item.type === 'group';
   const isDisplay = item.type === 'display';
-  const isContainer = CONTAINER_TYPES.has(componentType);
+  const isContainer = LAYOUT_CONTAINER_COMPONENTS.has(componentType);
+  const isRepeatableGroup = isGroup && !!(item as Record<string, unknown>).repeatable;
+  const groupDisplayMode = (nodeProps.displayMode as 'stack' | 'table' | undefined) ?? 'stack';
 
   // Component `when` expression (Tier 3 visual condition, NOT bind `relevant`)
   const componentWhen = (nodeProps.when as string) ?? '';
@@ -219,7 +217,26 @@ export function ComponentProperties() {
 
         {/* Container properties for container components */}
         {(isGroup || isContainer) && componentType && (
-          <ContainerSection componentType={componentType} nodeProps={nodeProps} />
+          <ContainerSection
+            componentType={componentType}
+            nodeProps={nodeProps}
+            onSetProp={(key, value) => project.setLayoutNodeProp(selectedKey, key, value)}
+          />
+        )}
+
+        {/* Group display mode — stack vs DataTable (repeatable groups only) */}
+        {isRepeatableGroup && (
+          <Section title="Group Display">
+            <SelectPropertyInput
+              label="Group Display"
+              value={groupDisplayMode}
+              options={[
+                { value: 'stack', label: 'Stack (default)' },
+                { value: 'table', label: 'DataTable' },
+              ]}
+              onChange={(v) => project.setGroupDisplayMode(itemKey, v as 'stack' | 'table')}
+            />
+          </Section>
         )}
 
         {/* Appearance (theme cascade + style overrides) */}
@@ -231,7 +248,10 @@ export function ComponentProperties() {
 
         {/* Layout positioning (grid placement) */}
         {(isField || isDisplay) && (
-          <LayoutSection nodeProps={nodeProps} />
+          <LayoutSection
+            nodeProps={nodeProps}
+            onSetProp={(key, value) => project.setLayoutNodeProp(selectedKey, key, value)}
+          />
         )}
 
         {/* Visual Condition — component-level `when`, NOT bind `relevant` */}

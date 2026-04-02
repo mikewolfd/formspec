@@ -68,6 +68,24 @@ export function renderLayoutTree(
       continue;
     }
 
+    // Tier 3 display-only nodes (Heading, Divider) — _layout:true but no children
+    if (node._layout && (node.component === 'Heading' || node.component === 'Divider')) {
+      // Heading stores text as `text`; Divider renderer reads `label` (per webcomponent spec)
+      const label = (node.component === 'Divider' ? (node.label as string) : (node.text as string)) || node.component;
+      result.push(
+        <DisplayBlock
+          key={`node:${node.nodeId}`}
+          itemKey={node.nodeId!}
+          selectionKey={`__node:${node.nodeId!}`}
+          label={label}
+          widgetHint={node.component}
+          selected={ctx.selectedKey === `__node:${node.nodeId!}`}
+          onSelect={(selectionKey) => ctx.onSelect(selectionKey, 'layout')}
+        />,
+      );
+      continue;
+    }
+
     // Layout container (Card, Grid, Panel, Stack, etc.) — not a Page
     if (node._layout) {
       const children = node.children

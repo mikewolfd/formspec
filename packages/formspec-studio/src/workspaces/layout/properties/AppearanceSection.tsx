@@ -1,9 +1,38 @@
 /** @filedesc Layout properties panel section for resolved theme cascade and per-item style overrides. */
 import { useState } from 'react';
 import { Section } from '../../../components/ui/Section';
+import { SelectPropertyInput, CheckboxPropertyInput } from '../../../components/ui/PropertyInput';
 import { useTheme } from '../../../state/useTheme';
 import { useProject } from '../../../state/useProject';
 import { resolveThemeCascade, type ResolvedProperty } from '@formspec-org/studio-core';
+
+const COMPACT_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'compact', label: 'compact' },
+  { value: 'comfortable', label: 'comfortable' },
+  { value: 'spacious', label: 'spacious' },
+];
+
+const HELP_POS_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'below', label: 'below' },
+  { value: 'tooltip', label: 'tooltip' },
+  { value: 'above', label: 'above' },
+];
+
+const ERROR_DISPLAY_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'inline', label: 'inline' },
+  { value: 'tooltip', label: 'tooltip' },
+  { value: 'none', label: 'none' },
+];
+
+const INPUT_SIZE_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'sm', label: 'sm' },
+  { value: 'md', label: 'md' },
+  { value: 'lg', label: 'lg' },
+];
 
 const PROVENANCE_LABELS: Record<string, string> = {
   'default': 'from: Default',
@@ -35,6 +64,15 @@ export function AppearanceSection({
   const setItemOverride = (property: string, value: unknown) => {
     project.setItemOverride(itemKey, property, value);
   };
+
+  // Additional per-item overrides not in the cascade but settable via setItemOverride
+  const itemOverrides: Record<string, unknown> =
+    (project.state.theme as any)?.items?.[itemKey] ?? {};
+  const compact = (itemOverrides.compact as string) ?? '';
+  const helpTextPosition = (itemOverrides.helpTextPosition as string) ?? '';
+  const errorDisplay = (itemOverrides.errorDisplay as string) ?? '';
+  const inputSize = (itemOverrides.inputSize as string) ?? '';
+  const floatingLabel = (itemOverrides.floatingLabel as boolean) ?? false;
 
   const clearOverride = () => {
     project.clearItemOverrides(itemKey);
@@ -80,6 +118,37 @@ export function AppearanceSection({
           <option value="hidden">hidden</option>
         </select>
       </div>
+
+      {/* Additional item overrides */}
+      <SelectPropertyInput
+        label="Compact Mode"
+        value={compact}
+        options={COMPACT_OPTIONS}
+        onChange={(v) => setItemOverride('compact', v || null)}
+      />
+      <SelectPropertyInput
+        label="Help Text Position"
+        value={helpTextPosition}
+        options={HELP_POS_OPTIONS}
+        onChange={(v) => setItemOverride('helpTextPosition', v || null)}
+      />
+      <SelectPropertyInput
+        label="Error Display"
+        value={errorDisplay}
+        options={ERROR_DISPLAY_OPTIONS}
+        onChange={(v) => setItemOverride('errorDisplay', v || null)}
+      />
+      <SelectPropertyInput
+        label="Input Size"
+        value={inputSize}
+        options={INPUT_SIZE_OPTIONS}
+        onChange={(v) => setItemOverride('inputSize', v || null)}
+      />
+      <CheckboxPropertyInput
+        label="Floating Label"
+        checked={floatingLabel}
+        onChange={(v) => setItemOverride('floatingLabel', v || null)}
+      />
 
       {/* CSS Class */}
       {cascade.cssClass && (

@@ -19,6 +19,7 @@ import { LayoutStepNav } from './LayoutStepNav';
 import { renderLayoutTree } from './render-tree';
 import { UnassignedTray } from './UnassignedTray';
 import { LayoutContextMenu } from './LayoutContextMenu';
+import { LayoutDndProvider } from './LayoutDndProvider';
 import { clampContextMenuPosition } from '../../components/ui/context-menu-utils';
 
 interface CompNode {
@@ -66,7 +67,9 @@ function synthesizePagedLayoutTree(nodes: CompNode[], definition: ReturnType<typ
   });
 }
 
-const CONTAINER_PRESETS = ['Card', 'Stack', 'Grid', 'Panel'] as const;
+// Ordered list of containers shown in the toolbar. Keep in sync with
+// LAYOUT_CONTAINER_COMPONENTS in studio-core — ordering matters for display.
+const CONTAINER_PRESETS = ['Card', 'Stack', 'Grid', 'Panel', 'Accordion', 'Collapsible', 'ConditionalGroup'] as const;
 
 export function LayoutCanvas() {
   const definition = useDefinition();
@@ -275,6 +278,7 @@ export function LayoutCanvas() {
   );
 
   return (
+    <LayoutDndProvider activePageId={activePageId}>
     <WorkspacePage maxWidth="max-w-[980px]" className="overflow-y-auto">
       <WorkspacePageSection
         padding="px-7"
@@ -385,5 +389,6 @@ export function LayoutCanvas() {
         title="Add To Layout"
       />
     </WorkspacePage>
+    </LayoutDndProvider>
   );
 }
