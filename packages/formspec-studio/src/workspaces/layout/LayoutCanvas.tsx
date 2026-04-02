@@ -21,6 +21,11 @@ import { UnassignedTray } from './UnassignedTray';
 import { LayoutContextMenu } from './LayoutContextMenu';
 import { LayoutDndProvider } from './LayoutDndProvider';
 import { clampContextMenuPosition } from '../../components/ui/context-menu-utils';
+import { LayoutThemeToggle } from './LayoutThemeToggle';
+import { ThemeAuthoringOverlay } from './ThemeAuthoringOverlay';
+import { FormspecPreviewHost } from '../preview/FormspecPreviewHost';
+import { useOptionalLayoutMode } from './LayoutModeContext';
+import { type LayoutMode } from './LayoutThemeToggle';
 
 interface CompNode {
   component: string;
@@ -81,6 +86,11 @@ export function LayoutCanvas() {
   const [contextMenu, setContextMenu] = useState<LayoutContextMenuState | null>(null);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [localLayoutMode, setLocalLayoutMode] = useState<LayoutMode>('layout');
+  // Per-mode selection: layout mode tracks its own key, theme mode tracks its own
+  const [themeSelectedKey, setThemeSelectedKey] = useState<string | null>(null);
+  const layoutModeCtx = useOptionalLayoutMode();
+  const layoutMode = layoutModeCtx?.layoutMode ?? localLayoutMode;
 
   const items = definition?.items ?? [];
   const tree = component?.tree as CompNode | undefined;
@@ -262,6 +272,21 @@ export function LayoutCanvas() {
     handleSelectNode(selectionKey, selectionType);
   }, [activePageId, handleSelectNode, isMultiPage, materializePagedLayout, project]);
 
+  const handleModeChange = useCallback((mode: LayoutMode) => {
+    if (mode === 'theme') {
+      // Transfer canvas selection to theme mode
+      const canvasKey = selectedKeyForTab('layout');
+      setThemeSelectedKey(canvasKey);
+    }
+    // When switching back to layout, existing layout tab selection is preserved
+    setLocalLayoutMode(mode);
+    layoutModeCtx?.setLayoutMode(mode);
+  }, [selectedKeyForTab, layoutModeCtx]);
+
+  const handleThemeFieldSelect = useCallback((itemKey: string) => {
+    setThemeSelectedKey(itemKey);
+  }, []);
+
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const target = (e.target as HTMLElement).closest<HTMLElement>(
@@ -319,7 +344,10 @@ export function LayoutCanvas() {
       >
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <ModeSelector mode={structure.mode} onSetMode={(mode) => project.setFlow(mode)} />
+            <div className="flex items-center gap-3">
+              <ModeSelector mode={structure.mode} onSetMode={(mode) => project.setFlow(mode)} />
+              <LayoutThemeToggle activeMode={layoutMode} onModeChange={handleModeChange} />
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -370,42 +398,56 @@ export function LayoutCanvas() {
         </div>
       </WorkspacePageSection>
 
-      <WorkspacePageSection className="space-y-3 py-4">
-        <div onContextMenu={handleContextMenu}>
-          {renderLayoutTree(visibleTreeChildren, {
-            defLookup,
-            bindKeyMap,
-            selectedKey,
-            onSelect: handleSelectNode,
-            activePageId,
-            onSelectPage: setActivePageId,
-            onSetNodeProp: handleSetNodeProp,
-            onUnwrapNode: handleUnwrapNode,
-            onRemoveNode: handleRemoveNode,
-            onStyleAdd: handleStyleAdd,
-            onStyleRemove: handleStyleRemove,
-          }, '')}
+      {layoutMode === 'theme' ? (
+        <WorkspacePageSection className="py-0 flex-1 min-h-0 relative">
+          <div className="relative w-full h-full min-h-[400px]">
+            <FormspecPreviewHost width="100%" />
+            <ThemeAuthoringOverlay
+              onFieldSelect={handleThemeFieldSelect}
+              selectedItemKey={themeSelectedKey}
+            />
+          </div>
+        </WorkspacePageSection>
+      ) : (
+        <>
+          <WorkspacePageSection className="space-y-3 py-4">
+            <div onContextMenu={handleContextMenu}>
+              {renderLayoutTree(visibleTreeChildren, {
+                defLookup,
+                bindKeyMap,
+                selectedKey,
+                onSelect: handleSelectNode,
+                activePageId,
+                onSelectPage: setActivePageId,
+                onSetNodeProp: handleSetNodeProp,
+                onUnwrapNode: handleUnwrapNode,
+                onRemoveNode: handleRemoveNode,
+                onStyleAdd: handleStyleAdd,
+                onStyleRemove: handleStyleRemove,
+              }, '')}
 
-          {visibleTreeChildren.length === 0 && (
-            <p className="text-center text-[13px] text-muted py-8">
-              No layout content yet. Add items here or place existing definition items from the tray.
-            </p>
-          )}
-        </div>
-      </WorkspacePageSection>
+              {visibleTreeChildren.length === 0 && (
+                <p className="text-center text-[13px] text-muted py-8">
+                  No layout content yet. Add items here or place existing definition items from the tray.
+                </p>
+              )}
+            </div>
+          </WorkspacePageSection>
 
-      <WorkspacePageSection className="py-4">
-        <UnassignedTray
-          items={items}
-          treeChildren={treeChildren}
-          activePageId={activePageId}
-          onPlaceItem={(item) => {
-            if (!activePageId) return;
-            project.placeOnPage(item.key, activePageId);
-            handleSelectNode(item.key, item.itemType);
-          }}
-        />
-      </WorkspacePageSection>
+          <WorkspacePageSection className="py-4">
+            <UnassignedTray
+              items={items}
+              treeChildren={treeChildren}
+              activePageId={activePageId}
+              onPlaceItem={(item) => {
+                if (!activePageId) return;
+                project.placeOnPage(item.key, activePageId);
+                handleSelectNode(item.key, item.itemType);
+              }}
+            />
+          </WorkspacePageSection>
+        </>
+      )}
 
       {contextMenu && menuItems.length > 0 && (
         <div

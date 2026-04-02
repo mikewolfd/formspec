@@ -8,7 +8,7 @@ import { StatusBar } from './StatusBar';
 import { Blueprint } from './Blueprint';
 import { StructureTree } from './blueprint/StructureTree';
 import { DefinitionTreeEditor } from '../workspaces/editor/DefinitionTreeEditor';
-import { LayoutCanvas } from '../workspaces/layout/LayoutCanvas';
+import { LayoutWorkspace } from '../workspaces/layout/LayoutWorkspace';
 import { LayoutPreviewPanel } from '../workspaces/layout/LayoutPreviewPanel';
 import { ManageView } from '../workspaces/editor/ManageView';
 import { ScreenerWorkspace } from '../workspaces/editor/ScreenerWorkspace';
@@ -23,6 +23,7 @@ import { ChatPanel } from './ChatPanel';
 import { AppSettingsDialog } from './AppSettingsDialog';
 import { ResizeHandle } from './ui/ResizeHandle';
 import { CanvasTargetsProvider } from '../state/useCanvasTargets';
+import { LayoutModeProvider, useOptionalLayoutMode } from '../workspaces/layout/LayoutModeContext';
 import { useProject } from '../state/useProject';
 import { useSelection } from '../state/useSelection';
 import { ComponentTree } from './blueprint/ComponentTree';
@@ -40,7 +41,7 @@ import { type Viewport } from '../workspaces/preview/ViewportSwitcher';
 import { type PreviewMode } from '../workspaces/preview/PreviewTab';
 
 const WORKSPACES: Record<string, React.FC> = {
-  Layout: LayoutCanvas,
+  Layout: LayoutWorkspace,
   Theme: ThemeTab,
   Mapping: MappingTab,
   Preview: PreviewTab,
@@ -68,6 +69,65 @@ const BLUEPRINT_SECTIONS_BY_TAB: Record<string, string[]> = {
 
 interface ShellProps {
   colorScheme?: ColorScheme;
+}
+
+/** Reads layout mode from context to hide the right panel in Theme mode. */
+function LayoutRightPanelGate({
+  compactLayout,
+  showChatPanel,
+  showRightPanel,
+  rightWidth,
+  onResize,
+  onHide,
+  onShow,
+}: {
+  compactLayout: boolean;
+  showChatPanel: boolean;
+  showRightPanel: boolean;
+  rightWidth: number;
+  onResize: (delta: number) => void;
+  onHide: () => void;
+  onShow: () => void;
+}) {
+  const layoutModeCtx = useOptionalLayoutMode();
+  const isThemeMode = layoutModeCtx?.layoutMode === 'theme';
+
+  if (compactLayout || showChatPanel || isThemeMode) return null;
+
+  return showRightPanel ? (
+    <>
+      <ResizeHandle side="right" onResize={onResize} />
+      <aside
+        className="flex flex-col border-l border-border/80 bg-surface overflow-hidden shrink-0"
+        style={{ width: `clamp(200px, ${rightWidth}px, calc(50vw - 340px))` }}
+        data-testid="properties-panel"
+        aria-label="Properties panel"
+      >
+        <div className="flex items-center justify-end px-3 pt-2 shrink-0">
+          <button
+            type="button"
+            aria-label="Hide panel"
+            className="rounded p-1 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+            onClick={onHide}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+        <div className="flex-1 min-h-0">
+          <LayoutPreviewPanel width={rightWidth} />
+        </div>
+      </aside>
+    </>
+  ) : (
+    <button
+      type="button"
+      aria-label="Show preview panel"
+      className="shrink-0 border-l border-border/80 bg-surface px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+      onClick={onShow}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+  );
 }
 
 export function Shell({ colorScheme }: ShellProps = {}) {
@@ -356,6 +416,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
         isCompact={compactLayout}
         colorScheme={colorScheme}
       />
+      <LayoutModeProvider>
       <CanvasTargetsProvider>
         <div className={`flex flex-1 overflow-hidden bg-bg-default ${activeTab === 'Editor' ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(246,243,238,0.9)_100%)] dark:bg-none' : ''}`} aria-hidden={overlayOpen ? true : undefined}>
           {/* Desktop Left Sidebar */}
@@ -483,41 +544,16 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               </button>
             )
           )}
-          {activeTab === 'Layout' && !compactLayout && !showChatPanel && (
-            showRightPanel ? (
-              <>
-                <ResizeHandle side="right" onResize={onResizeRight} />
-                <aside
-                  className="flex flex-col border-l border-border/80 bg-surface overflow-hidden shrink-0"
-                  style={{ width: `clamp(200px, ${rightWidth}px, calc(50vw - 340px))` }}
-                  data-testid="properties-panel"
-                  aria-label="Properties panel"
-                >
-                  <div className="flex items-center justify-end px-3 pt-2 shrink-0">
-                    <button
-                      type="button"
-                      aria-label="Hide panel"
-                      className="rounded p-1 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                      onClick={() => setShowRightPanel(false)}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                    </button>
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    <LayoutPreviewPanel width={rightWidth} />
-                  </div>
-                </aside>
-              </>
-            ) : (
-              <button
-                type="button"
-                aria-label="Show preview panel"
-                className="shrink-0 border-l border-border/80 bg-surface px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                onClick={() => setShowRightPanel(true)}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-              </button>
-            )
+          {activeTab === 'Layout' && (
+            <LayoutRightPanelGate
+              compactLayout={compactLayout}
+              showChatPanel={showChatPanel}
+              showRightPanel={showRightPanel}
+              rightWidth={rightWidth}
+              onResize={onResizeRight}
+              onHide={() => setShowRightPanel(false)}
+              onShow={() => setShowRightPanel(true)}
+            />
           )}
           {showChatPanel && !compactLayout && (
             <aside className="w-[360px] shrink-0" data-testid="chat-panel-container">
@@ -627,6 +663,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
           </div>
         )}
       </CanvasTargetsProvider>
+      </LayoutModeProvider>
       <StatusBar />
       <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} />
       <ImportDialog open={showImport} onClose={() => setShowImport(false)} />
