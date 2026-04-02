@@ -1,7 +1,7 @@
-/** @filedesc Full screener authoring surface for ManageView — questions, phases, routes, and toggle. */
+/** @filedesc Full screener authoring surface — shared editor for items, plus phases/routes and toggle. */
 import { useScreener } from '../../state/useScreener';
 import { ScreenerToggle } from './screener/ScreenerToggle';
-import { ScreenerQuestions } from './screener/ScreenerQuestions';
+import { ScreenerItemEditor } from './ScreenerItemEditor';
 import { PhaseList } from './screener/PhaseList';
 
 export function ScreenerAuthoring() {
@@ -28,8 +28,7 @@ export function ScreenerAuthoring() {
 
       {isActive && (
         <div className="space-y-6 mt-2">
-          <ScreenerQuestions />
-
+          <ScreenerItemEditor />
           <PhaseList />
         </div>
       )}
