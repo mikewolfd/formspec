@@ -201,6 +201,33 @@ export type {
   UnassignedItem,
 } from './authoring-helpers.js';
 
+// ── Layout spatial + theme helpers ────────────────────────────────
+export {
+  setColumnSpan,
+  setRowSpan,
+  setPadding,
+  getPropertySources,
+  getEditableThemeProperties,
+  setThemeOverride,
+  clearThemeOverride,
+} from './layout-helpers.js';
+export type { NodeRef, PropertySource } from './layout-helpers.js';
+
+// ── Layout UI business logic helpers (extracted from Studio UI) ──────
+export {
+  resolveLayoutInsertTarget,
+  getItemOverrides,
+  addStyleOverride,
+  validateTokenName,
+  applyBreakpointPresets,
+  summarizeSelectorRule,
+  getTokensByGroup,
+  getGroupedTokens,
+  getSortedBreakpoints,
+  getEditablePropertiesForNode,
+} from './layout-ui-helpers.js';
+export type { Token, Breakpoint, LayoutInsertTarget } from './layout-ui-helpers.js';
+
 // ── Preview document normalization ─────────────────────────────────
 export {
   normalizeComponentDoc,

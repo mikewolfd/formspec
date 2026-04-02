@@ -2564,6 +2564,18 @@ export class Project {
     };
   }
 
+  /**
+   * Set a single style property on a component tree node by NodeRef.
+   * Uses `component.setNodeStyle`, which merges into the existing style map
+   * without clobbering other keys.
+   */
+  setNodeStyleProperty(ref: { nodeId?: string; bind?: string }, property: string, value: string): void {
+    this.core.dispatch({
+      type: 'component.setNodeStyle',
+      payload: { node: ref, property, value },
+    });
+  }
+
   /** Add a new item from the Layout workspace, placing it directly into the component tree. */
   addItemToLayout(spec: LayoutAddItemSpec, pageId?: string): HelperResult {
     if (spec.itemType === 'layout') {
