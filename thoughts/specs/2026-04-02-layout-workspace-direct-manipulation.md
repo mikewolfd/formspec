@@ -6,7 +6,7 @@
 
 ## Summary
 
-Rewrite the Layout workspace from a flat-list canvas with a sidebar property editor into a direct-manipulation authoring surface. Containers render with real CSS layout (Grid, Flexbox). Fields show proportional sizing. Users drag edges to resize column spans, row spans, panel widths, and grid column counts. Common properties surface as inline toolbars; rare ones as popovers. The right sidebar becomes a live `<formspec-render>` preview. The Preview tab stays unchanged.
+Rewrite the Layout workspace from a flat-list canvas with a sidebar property editor into a direct-manipulation authoring surface with two modes. **Layout mode**: Containers render with real CSS layout (Grid, Flexbox). Fields show proportional sizing. Users drag edges to resize column spans, row spans, panel widths, and grid column counts. Common properties surface as inline toolbars; rare ones as popovers. The right sidebar becomes a live `<formspec-render>` preview. **Theme mode**: The live preview takes over the full main area. Form-wide theme settings (tokens, rules, breakpoints) live in the Blueprint sidebar. Clicking a field in the preview opens a popover for per-item theme overrides. The standalone Theme tab is eliminated. The Preview tab stays unchanged.
 
 ## Design Decisions
 
@@ -16,6 +16,8 @@ Rewrite the Layout workspace from a flat-list canvas with a sidebar property edi
 - **Mixed inline editing strategy** — zero-click indicators, one-click toolbars, two-click popovers. Best tool for the job.
 - **Right sidebar = live preview** — `<formspec-render>` webcomponent, not a property editor.
 - **Preview tab unchanged** — the sidebar preview is a convenience; the tab is for deliberate testing with viewport/mode switching.
+- **Theme mode merges into layout workspace** — two-mode toggle (Layout/Theme). Theme mode shows full-width live preview with popover per-item overrides. Form-wide settings in sidebar. Eliminates standalone Theme tab.
+- **Per-item theme overrides via popover** — clicking a field in the theme preview opens a floating panel with cascade provenance and override controls. No right sidebar in Theme mode.
 
 ## Section 1: Canvas Architecture
 
@@ -166,10 +168,12 @@ Stays unchanged — drag an unassigned item from the tray onto the canvas to bin
 
 | File | Purpose |
 |------|---------|
-| `LayoutPreviewPanel.tsx` | Right sidebar live preview wrapper |
+| `LayoutPreviewPanel.tsx` | Right sidebar live preview wrapper (Layout mode) and full-width preview (Theme mode) |
 | `useResizeHandle.ts` | Shared hook for drag-to-resize with snapping |
 | `InlineToolbar.tsx` | Compact property toolbar rendered inside containers/fields |
-| `PropertyPopover.tsx` | Overflow popover for Tier 3 properties (absorbs current `properties/` content) |
+| `PropertyPopover.tsx` | Overflow popover for Tier 3 layout properties (absorbs current `properties/` content) |
+| `ThemeOverridePopover.tsx` | Per-item theme cascade popover shown when clicking a field in Theme mode preview |
+| `LayoutThemeToggle.tsx` | Mode toggle between Layout and Theme modes |
 
 ### Deleted
 
@@ -179,12 +183,90 @@ Stays unchanged — drag an unassigned item from the tray onto the canvas to bin
 | `properties/ContainerSection.tsx` | `InlineToolbar` per-container-type rendering |
 | `properties/LayoutSection.tsx` | Resize handles + field toolbar |
 | `properties/WidgetSection.tsx` | Field toolbar dropdown |
-| `properties/AppearanceSection.tsx` | `PropertyPopover` |
+| `properties/AppearanceSection.tsx` | `ThemeOverridePopover` (Theme mode) + `PropertyPopover` (Layout mode Tier 3) |
+
+### Relocated (not rewritten)
+
+These components stay in `workspaces/theme/` (no file move needed) but get registered in `SIDEBAR_COMPONENTS` and rendered in the Blueprint sidebar when the Layout workspace is in Theme mode. `ThemeTab.tsx` is the only file deleted from that directory.
+
+| File | Sidebar Section Name |
+|------|---------------------|
+| `ColorPalette.tsx` | "Colors" |
+| `TypographySpacing.tsx` | "Typography" |
+| `DefaultFieldStyle.tsx` | "Field Defaults" |
+| `FieldTypeRules.tsx` | "Field Rules" |
+| `ScreenSizes.tsx` | "Breakpoints" |
+| `AllTokens.tsx` | "All Tokens" |
+
+### Deleted (Theme tab)
+
+| File | Reason |
+|------|--------|
+| `workspaces/theme/ThemeTab.tsx` | Eliminated — functionality absorbed into Layout workspace Theme mode |
 
 ### Shell.tsx Changes
 
-- Swap `<ComponentProperties />` for `<LayoutPreviewPanel />` in the Layout tab's right sidebar slot.
+- Swap `<ComponentProperties />` for `<LayoutPreviewPanel />` in the Layout tab's right sidebar slot (Layout mode only).
+- Hide right sidebar in Theme mode.
 - Remove the compact properties modal for the Layout tab.
+- Remove `Theme` from the `WORKSPACES` map and Header tab bar.
+- Update `BLUEPRINT_SECTIONS_BY_TAB` for Layout to include theme sidebar sections when in Theme mode.
+
+## Section 8: Theme Mode — Visual Styling Workspace
+
+The layout workspace gets a mode toggle (like the editor's Build/Manage/Screener). Two modes:
+
+- **Layout mode** (Sections 1-7): Direct manipulation canvas with structural editing, resize handles, inline toolbars, live preview in the right sidebar.
+- **Theme mode**: The live `<formspec-render>` preview takes over the full main area. No structural blocks, no resize handles — just the rendered form. You edit how it looks, not how it's structured.
+
+### Main Area — Full-Width Live Preview
+
+The `<formspec-render>` webcomponent renders in the main canvas area at full width. This is the same preview the right sidebar shows in Layout mode, but now it's the primary surface. Updates reactively as you change tokens, rules, or per-item overrides.
+
+### Form-Wide Settings — Blueprint Sidebar
+
+The Blueprint sidebar already switches content per tab via `BLUEPRINT_SECTIONS_BY_TAB`. In Theme mode, the sidebar shows the form-wide theme editors:
+
+- Color Palette (token editors with color pickers)
+- Typography & Spacing (token inputs)
+- Default Field Style (label position, default widget, CSS class)
+- Field Type Rules (selector rule list with match/apply)
+- Screen Sizes (breakpoint editor)
+- All Tokens (full token reference)
+
+These are the existing components from `workspaces/theme/` — they move into sidebar sections rather than being a standalone workspace tab. No rewrite needed, just re-parenting.
+
+### Per-Item Theme Overrides — Popover on Preview
+
+Clicking a field in the live preview opens a floating popover anchored to that field showing:
+
+- Theme cascade provenance (where each property value comes from: Default, Selector Rule, or Item Override)
+- Override controls for label position, compact mode, help text position, error display, input size, floating label
+- Style overrides (add custom CSS properties)
+- Clear Override button
+
+This is the current `AppearanceSection` content, rendered as a popover. Dismisses on click-away or Escape.
+
+**Implementation note**: The `<formspec-render>` webcomponent needs to emit click events with the field key so the studio can identify which item was clicked. If this isn't wired yet, we add a click handler that walks up the DOM from the click target looking for `data-bind` or `data-key` attributes that the webcomponent renderer sets on field wrappers.
+
+### Right Sidebar in Theme Mode
+
+Hidden. No right sidebar in Theme mode — the preview IS the main area and per-item editing is via popover. The sidebar collapse button stays available but defaults to collapsed.
+
+### Mode Toggle
+
+Add a new toggle similar to `BuildManageToggle` in the editor workspace. Two modes:
+
+- **Layout** — structural editing (default)
+- **Theme** — visual styling
+
+This toggle sits in the sticky header area of the layout workspace, next to the existing toolbar buttons.
+
+### Theme Tab Elimination
+
+The standalone `ThemeTab.tsx` and its entry in the `WORKSPACES` map in `Shell.tsx` get removed. The Header tab bar drops from Editor/Layout/Theme/Mapping/Preview to Editor/Layout/Mapping/Preview. All theme functionality lives in the Layout workspace's Theme mode.
+
+`BLUEPRINT_SECTIONS_BY_TAB` for Layout gets updated to include the theme sidebar sections when in Theme mode.
 
 ## Section 7: Testing Strategy
 
@@ -211,7 +293,12 @@ Stays unchanged — drag an unassigned item from the tray onto the canvas to bin
 - Drag a tray item into a specific container.
 - Change container direction via toolbar, verify canvas re-lays out.
 - Verify right sidebar shows live preview and updates when layout changes.
+- Toggle to Theme mode, verify full-width preview renders.
+- Click a field in Theme mode preview, verify override popover appears with cascade info.
+- Change a color token in the sidebar, verify the preview updates.
+- Add a selector rule, verify it applies to matching fields in the preview.
 - Existing layout E2E tests updated to work with new component structure.
+- Verify Theme tab is no longer in the header tab bar.
 
 ### What We Don't Test
 
