@@ -9,7 +9,7 @@ import { Blueprint } from './Blueprint';
 import { StructureTree } from './blueprint/StructureTree';
 import { DefinitionTreeEditor } from '../workspaces/editor/DefinitionTreeEditor';
 import { LayoutCanvas } from '../workspaces/layout/LayoutCanvas';
-import { ComponentProperties } from '../workspaces/layout/properties/ComponentProperties';
+import { LayoutPreviewPanel } from '../workspaces/layout/LayoutPreviewPanel';
 import { ManageView } from '../workspaces/editor/ManageView';
 import { ScreenerWorkspace } from '../workspaces/editor/ScreenerWorkspace';
 import { FormHealthPanel } from '../workspaces/editor/FormHealthPanel';
@@ -83,7 +83,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   const [showSettings, setShowSettings] = useState(false);
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [showBlueprintDrawer, setShowBlueprintDrawer] = useState(false);
-  const [showPropertiesModal, setShowPropertiesModal] = useState(false);
+  const [showPreviewSheet, setShowPreviewSheet] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [showHealthSheet, setShowHealthSheet] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -98,7 +98,6 @@ export function Shell({ colorScheme }: ShellProps = {}) {
     setRightWidth((w) => Math.min(Math.max(w + delta, 220), 500));
   }, []);
   const blueprintCloseRef = useRef<HTMLButtonElement | null>(null);
-  const propertiesBackRef = useRef<HTMLButtonElement | null>(null);
   const lastFocusRef = useRef<HTMLElement | null>(null);
   const project = useProject();
   const { selectedKey, selectedKeyForTab, deselect } = useSelection();
@@ -117,7 +116,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
     ? Math.min(window.innerWidth, document.documentElement?.clientWidth || window.innerWidth)
     : Infinity;
   const compactLayout = isTabletLayout || viewportWidth <= 1024;
-  const overlayOpen = compactLayout && (showBlueprintDrawer || showPropertiesModal);
+  const overlayOpen = compactLayout && showBlueprintDrawer;
   const activePanelId = `studio-panel-${activeTab.toLowerCase()}`;
   const activeTabId = `studio-tab-${activeTab.toLowerCase()}`;
   const visibleBlueprintSections = BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS);
@@ -182,7 +181,6 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   useEffect(() => {
     if (!compactLayout || activeTab !== 'Editor') return;
     setShowBlueprintDrawer(false);
-    setShowPropertiesModal(false);
     setShowHealthSheet(false);
   }, [compactLayout, activeTab]);
 
@@ -272,29 +270,16 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   }, [compactLayout, showBlueprintDrawer]);
 
   useEffect(() => {
-    if (!compactLayout || !showPropertiesModal || !selectedKey) return;
-    lastFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    propertiesBackRef.current?.focus();
-    return () => {
-      lastFocusRef.current?.focus();
-    };
-  }, [compactLayout, showPropertiesModal, selectedKey]);
-
-  useEffect(() => {
     if (!overlayOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (showPropertiesModal) {
-        deselect();
-        return;
-      }
       if (showBlueprintDrawer) {
         setShowBlueprintDrawer(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [overlayOpen, showBlueprintDrawer, showPropertiesModal, deselect]);
+  }, [overlayOpen, showBlueprintDrawer]);
 
   useEffect(() => {
     const onAIAction = (event: Event) => {
@@ -399,6 +384,18 @@ export function Shell({ colorScheme }: ShellProps = {}) {
                 if (e.target === e.currentTarget) deselect();
               }}
             >
+              {compactLayout && activeTab === 'Layout' && (
+                <div className="sticky top-0 z-20 border-b border-border/70 bg-surface/95 px-3 py-2 backdrop-blur flex items-center justify-end" data-testid="mobile-layout-chrome">
+                  <button
+                    type="button"
+                    aria-label="Preview"
+                    className="rounded-full border border-border/60 bg-bg-default/75 px-3 py-1.5 text-[12px] font-semibold text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                    onClick={() => setShowPreviewSheet(true)}
+                  >
+                    Preview
+                  </button>
+                </div>
+              )}
               {compactLayout && activeTab === 'Editor' && (
                 <div className="sticky top-0 z-20 border-b border-border/70 bg-surface/95 px-3 py-3 backdrop-blur" data-testid="mobile-editor-chrome">
                   <div className="flex items-center justify-between">
@@ -507,14 +504,14 @@ export function Shell({ colorScheme }: ShellProps = {}) {
                     </button>
                   </div>
                   <div className="flex-1 min-h-0">
-                    <ComponentProperties />
+                    <LayoutPreviewPanel width={rightWidth} />
                   </div>
                 </aside>
               </>
             ) : (
               <button
                 type="button"
-                aria-label="Show properties panel"
+                aria-label="Show preview panel"
                 className="shrink-0 border-l border-border/80 bg-surface px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                 onClick={() => setShowRightPanel(true)}
               >
@@ -599,44 +596,33 @@ export function Shell({ colorScheme }: ShellProps = {}) {
           </div>
         )}
 
-        {/* Compact Properties Modal (Full Screen) */}
-        {compactLayout && activeTab === 'Layout' && showPropertiesModal && selectedKey && (
+        {/* Compact Layout Preview Sheet */}
+        {compactLayout && activeTab === 'Layout' && showPreviewSheet && (
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="properties-modal-title properties-modal-item-label"
-            className="fixed inset-0 z-50 bg-surface flex flex-col animate-in slide-in-from-bottom duration-300"
+            className="fixed inset-0 z-40 bg-black/40 transition-opacity"
+            onClick={() => setShowPreviewSheet(false)}
           >
-            <div className="flex items-center justify-between p-4 border-b border-border bg-surface shrink-0">
-              <div className="flex items-center gap-2">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Live Preview"
+              className="absolute bottom-0 left-0 right-0 max-h-[80vh] bg-surface rounded-t-2xl shadow-xl flex flex-col animate-in slide-in-from-bottom duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+                <h2 className="text-[15px] font-semibold text-ink tracking-tight font-ui">Live Preview</h2>
                 <button
-                  ref={propertiesBackRef}
                   type="button"
-                  aria-label="Close properties panel"
-                  className="rounded p-1 -ml-1 hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                  onClick={() => deselect()}
+                  aria-label="Close preview"
+                  className="rounded p-1 hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                  onClick={() => setShowPreviewSheet(false)}
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m15 18-6-6 6-6"/>
-                  </svg>
+                  ✕
                 </button>
-                <div className="min-w-0">
-                  <h2 id="properties-modal-title" className="font-bold text-[13px] truncate max-w-[200px]">Properties</h2>
-                  <div id="properties-modal-item-label" data-testid="compact-properties-item-label" className="font-mono text-[11px] text-muted truncate max-w-[200px]">
-                    {selectedItemLabel}
-                  </div>
-                </div>
               </div>
-              <button
-                type="button"
-                className="rounded bg-accent px-3 py-1.5 text-[13px] font-bold text-white transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                onClick={() => setShowPropertiesModal(false)}
-              >
-                Done
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 pb-24">
-              <ComponentProperties />
+              <div className="flex-1 overflow-y-auto">
+                <LayoutPreviewPanel width="100%" />
+              </div>
             </div>
           </div>
         )}

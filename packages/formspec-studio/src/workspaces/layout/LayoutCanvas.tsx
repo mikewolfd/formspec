@@ -168,6 +168,39 @@ export function LayoutCanvas() {
     select(key, type, { tab: 'layout' });
   }, [select]);
 
+  const handleSetNodeProp = useCallback((selectionKey: string, key: string, value: unknown) => {
+    project.setLayoutNodeProp(selectionKey, key, value);
+  }, [project]);
+
+  const handleUnwrapNode = useCallback((selectionKey: string) => {
+    const nodeId = selectionKey.startsWith('__node:') ? selectionKey.slice(7) : selectionKey;
+    project.unwrapLayoutNode(nodeId);
+    deselect();
+  }, [project, deselect]);
+
+  const handleRemoveNode = useCallback((selectionKey: string) => {
+    const nodeId = selectionKey.startsWith('__node:') ? selectionKey.slice(7) : selectionKey;
+    project.deleteLayoutNode(nodeId);
+    deselect();
+  }, [project, deselect]);
+
+  const handleStyleAdd = useCallback((selectionKey: string, key: string, value: string) => {
+    const current = project.componentFor(
+      selectionKey.startsWith('__node:') ? selectionKey.slice(7) : selectionKey,
+    ) as Record<string, unknown> | undefined;
+    const currentStyle = (current?.style as Record<string, unknown>) ?? {};
+    project.setLayoutNodeProp(selectionKey, 'style', { ...currentStyle, [key]: value });
+  }, [project]);
+
+  const handleStyleRemove = useCallback((selectionKey: string, key: string) => {
+    const current = project.componentFor(
+      selectionKey.startsWith('__node:') ? selectionKey.slice(7) : selectionKey,
+    ) as Record<string, unknown> | undefined;
+    const currentStyle = { ...(current?.style as Record<string, unknown>) ?? {} };
+    delete currentStyle[key];
+    project.setLayoutNodeProp(selectionKey, 'style', currentStyle);
+  }, [project]);
+
   const handleAddContainer = useCallback((componentName: typeof CONTAINER_PRESETS[number]) => {
     const pageIdMap = materializePagedLayout();
     const resolvedActivePageId = activePageId ? (pageIdMap.get(activePageId) ?? activePageId) : null;
@@ -346,6 +379,11 @@ export function LayoutCanvas() {
             onSelect: handleSelectNode,
             activePageId,
             onSelectPage: setActivePageId,
+            onSetNodeProp: handleSetNodeProp,
+            onUnwrapNode: handleUnwrapNode,
+            onRemoveNode: handleRemoveNode,
+            onStyleAdd: handleStyleAdd,
+            onStyleRemove: handleStyleRemove,
           }, '')}
 
           {visibleTreeChildren.length === 0 && (
