@@ -14,7 +14,6 @@ import { ManageView } from '../workspaces/editor/ManageView';
 import { ScreenerWorkspace } from '../workspaces/editor/ScreenerWorkspace';
 import { FormHealthPanel } from '../workspaces/editor/FormHealthPanel';
 import { BuildManageToggle, type EditorView } from '../workspaces/editor/BuildManageToggle';
-import { ThemeTab } from '../workspaces/theme/ThemeTab';
 import { MappingTab } from '../workspaces/mapping/MappingTab';
 import { PreviewTab } from '../workspaces/preview/PreviewTab';
 import { CommandPalette } from './CommandPalette';
@@ -42,7 +41,6 @@ import { type PreviewMode } from '../workspaces/preview/PreviewTab';
 
 const WORKSPACES: Record<string, React.FC> = {
   Layout: LayoutWorkspace,
-  Theme: ThemeTab,
   Mapping: MappingTab,
   Preview: PreviewTab,
 };
@@ -62,7 +60,6 @@ const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
 const BLUEPRINT_SECTIONS_BY_TAB: Record<string, string[]> = {
   Editor: ['Structure', 'Variables', 'Data Sources', 'Option Sets', 'Screener', 'Settings'],
   Layout: ['Structure', 'Component Tree', 'Screener', 'Variables', 'Data Sources', 'Option Sets', 'Mappings', 'Settings', 'Theme'],
-  Theme: ['Theme', 'Structure', 'Settings'],
   Mapping: ['Mappings', 'Structure', 'Data Sources', 'Option Sets', 'Settings'],
   Preview: ['Structure', 'Component Tree', 'Theme', 'Settings'],
 };

@@ -49,11 +49,12 @@ describe('Shell', () => {
     expect(screen.getByRole('button', { name: /the stack home/i })).toBeInTheDocument();
   });
 
-  it('shows 5 workspace tabs', () => {
+  it('shows 4 workspace tabs — Theme tab eliminated (Theme mode lives inside Layout)', () => {
     renderShell();
-    for (const tab of ['Editor', 'Layout', 'Theme', 'Mapping', 'Preview']) {
+    for (const tab of ['Editor', 'Layout', 'Mapping', 'Preview']) {
       expect(screen.getByRole('tab', { name: tab })).toBeInTheDocument();
     }
+    expect(screen.queryByRole('tab', { name: 'Theme' })).toBeNull();
   });
 
   it('defaults to Editor tab', () => {
@@ -226,18 +227,11 @@ describe('Shell', () => {
     expect(screen.getByRole('radio', { name: 'Manage' })).toBeInTheDocument();
   });
 
-  it('renders the Theme workspace with zone filter buttons', async () => {
-    renderShell();
-
-    await act(async () => {
-      screen.getByRole('tab', { name: 'Theme' }).click();
-    });
-
-    const themeWorkspace = screen.getByTestId('workspace-Theme');
-    expect(within(themeWorkspace).getByRole('button', { name: /all theme/i })).toBeInTheDocument();
-    expect(within(themeWorkspace).getByRole('button', { name: /brand & colors/i })).toBeInTheDocument();
-    expect(within(themeWorkspace).getByRole('button', { name: /field presentation/i })).toBeInTheDocument();
-    expect(within(themeWorkspace).getByRole('button', { name: /^layout$/i })).toBeInTheDocument();
+  it('Layout workspace Blueprint shows Theme section in sidebar sections list', () => {
+    renderShell(seededDefinition, 1440);
+    fireEvent.click(screen.getByRole('tab', { name: 'Layout' }));
+    // Theme section should be available in Layout's blueprint sections
+    expect(screen.getByTestId('blueprint-section-Theme')).toBeInTheDocument();
   });
 
   it('preserves Mapping tab state when navigating away and returning', async () => {
