@@ -47,6 +47,10 @@ export function createFieldDOM(
     const root = document.createElement(asGroup ? 'fieldset' : 'div');
     root.className = asGroup ? 'formspec-fieldset' : 'formspec-field';
     root.dataset.name = behavior.fieldPath;
+    // data-bind: the base item key (last segment of fieldPath, no array indices).
+    // Used by the Theme mode authoring overlay to look up theme overrides by itemKey.
+    const itemKey = behavior.fieldPath.replace(/\[\d+\]/g, '').split('.').pop();
+    if (itemKey) root.dataset.bind = itemKey;
     if (slots.root) actx.applyClassValue(root, slots.root);
 
     const effectiveLabelPosition = p.labelPosition || 'top';

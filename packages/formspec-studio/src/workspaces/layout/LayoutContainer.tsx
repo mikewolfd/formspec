@@ -87,7 +87,7 @@ function buildContentStyle(props: LayoutContainerProps): React.CSSProperties {
     case 'Panel':
     case 'Accordion':
     case 'Collapsible':
-      return {};
+      return { display: 'flex', flexDirection: 'column' };
 
     default:
       return { display: 'flex', flexDirection: 'column', gap: '6px' };

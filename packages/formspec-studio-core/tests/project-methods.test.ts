@@ -3584,3 +3584,102 @@ describe('component-level layout helpers', () => {
     expect(textItem?.type).toBe('display');
   });
 });
+
+// ── Spatial Movement Helpers ──
+
+describe('moveComponentNodeToContainer', () => {
+  it('moves a bound field node as last child of a layout container', () => {
+    const project = createProject();
+    project.addField('name', 'Name', 'text');
+    project.addField('email', 'Email', 'email');
+    // Wrap name in a Card so we have a container nodeId
+    const wrapResult = project.wrapInLayoutComponent('name', 'Card');
+    const containerNodeId = wrapResult.createdId!;
+
+    const result = project.moveComponentNodeToContainer({ bind: 'email' }, containerNodeId);
+    expect(result.summary).toBeDefined();
+    expect(result.action.helper).toBe('moveComponentNodeToContainer');
+
+    // email should now be inside the Card container
+    const tree = (project.component as any)?.tree;
+    const cardNode = findNodeById(tree, containerNodeId);
+    expect(cardNode).toBeDefined();
+    expect(cardNode?.children?.some((c: any) => c.bind === 'email')).toBe(true);
+  });
+
+  it('moves a layout node (by nodeId) into another container as last child', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'text');
+    project.addField('b', 'B', 'text');
+    const cardA = project.wrapInLayoutComponent('a', 'Card').createdId!;
+    const cardB = project.wrapInLayoutComponent('b', 'Card').createdId!;
+
+    project.moveComponentNodeToContainer({ nodeId: cardA }, cardB);
+
+    const tree = (project.component as any)?.tree;
+    const cardBNode = findNodeById(tree, cardB);
+    expect(cardBNode?.children?.some((c: any) => c.nodeId === cardA)).toBe(true);
+  });
+
+  it('returns a HelperResult with affectedPaths', () => {
+    const project = createProject();
+    project.addField('x', 'X', 'text');
+    const cardId = project.wrapInLayoutComponent('x', 'Card').createdId!;
+    project.addField('y', 'Y', 'text');
+
+    const result = project.moveComponentNodeToContainer({ bind: 'y' }, cardId);
+    expect(Array.isArray(result.affectedPaths)).toBe(true);
+  });
+});
+
+describe('moveComponentNodeToIndex', () => {
+  it('moves a bound field to a specific index within the target container', () => {
+    const project = createProject();
+    project.addField('first', 'First', 'text');
+    project.addField('second', 'Second', 'text');
+    project.addField('third', 'Third', 'text');
+    const cardId = project.wrapInLayoutComponent('first', 'Card').createdId!;
+
+    // Move 'third' into the card at index 0 (before 'first')
+    project.moveComponentNodeToIndex({ bind: 'third' }, cardId, 0);
+
+    const tree = (project.component as any)?.tree;
+    const cardNode = findNodeById(tree, cardId);
+    expect(cardNode?.children?.[0]?.bind).toBe('third');
+  });
+
+  it('appends when insertIndex equals children length', () => {
+    const project = createProject();
+    project.addField('a', 'A', 'text');
+    project.addField('b', 'B', 'text');
+    project.addField('c', 'C', 'text');
+    const cardId = project.wrapInLayoutComponent('a', 'Card').createdId!;
+    // Move b into card at index 0, then c at index 1
+    project.moveComponentNodeToIndex({ bind: 'b' }, cardId, 0);
+    project.moveComponentNodeToIndex({ bind: 'c' }, cardId, 1);
+
+    const tree = (project.component as any)?.tree;
+    const cardNode = findNodeById(tree, cardId);
+    expect(cardNode?.children?.[1]?.bind).toBe('c');
+  });
+
+  it('returns a HelperResult with action.helper set', () => {
+    const project = createProject();
+    project.addField('f', 'F', 'text');
+    const cardId = project.wrapInLayoutComponent('f', 'Card').createdId!;
+    project.addField('g', 'G', 'text');
+    const result = project.moveComponentNodeToIndex({ bind: 'g' }, cardId, 0);
+    expect(result.action.helper).toBe('moveComponentNodeToIndex');
+  });
+});
+
+/** Helper: find a component tree node by nodeId (BFS). */
+function findNodeById(root: any, nodeId: string): any {
+  if (!root) return undefined;
+  if (root.nodeId === nodeId) return root;
+  for (const child of root.children ?? []) {
+    const found = findNodeById(child, nodeId);
+    if (found) return found;
+  }
+  return undefined;
+}

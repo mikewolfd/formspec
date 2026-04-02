@@ -112,6 +112,13 @@ export function renderLayoutTree(
     if (node._layout && (node.component === 'Heading' || node.component === 'Divider')) {
       if (!node.nodeId) continue;
       const label = (node.component === 'Divider' ? (node.label as string) : (node.text as string)) || node.component;
+      const displayLayoutCtx: LayoutContext | undefined = parentCtx.parentContainerType
+        ? {
+            parentContainerType: parentCtx.parentContainerType,
+            parentGridColumns: parentCtx.parentGridColumns,
+            currentColSpan: parseColSpan(node.style?.gridColumn),
+          }
+        : undefined;
       result.push(
         <DisplayBlock
           key={`node:${node.nodeId}`}
@@ -121,6 +128,8 @@ export function renderLayoutTree(
           widgetHint={node.component}
           selected={ctx.selectedKey === `__node:${node.nodeId!}`}
           onSelect={(selectionKey) => ctx.onSelect(selectionKey, 'layout')}
+          layoutContext={displayLayoutCtx}
+          nodeStyle={node.style as Record<string, unknown> | undefined}
         />,
       );
       continue;
@@ -187,6 +196,7 @@ export function renderLayoutTree(
         const children = node.children
           ? renderLayoutTree(node.children, ctx, defPath, childCtx)
           : null;
+        const groupSelKey = defPath;
         result.push(
           <LayoutContainer
             key={defPath}
@@ -194,8 +204,27 @@ export function renderLayoutTree(
             nodeType="group"
             bind={item.key}
             bindPath={defPath}
-            selected={ctx.selectedKey === defPath}
-            onSelect={() => ctx.onSelect(defPath, 'group')}
+            selectionKey={groupSelKey}
+            selected={ctx.selectedKey === groupSelKey}
+            onSelect={() => ctx.onSelect(groupSelKey, 'group')}
+            columns={node.columns as number | undefined}
+            gap={node.gap as string | undefined}
+            direction={node.direction as string | undefined}
+            wrap={node.wrap as boolean | undefined}
+            align={node.align as string | undefined}
+            elevation={node.elevation as number | undefined}
+            width={node.width as string | undefined}
+            position={node.position as string | undefined}
+            title={node.title as string | undefined}
+            defaultOpen={node.defaultOpen as boolean | undefined}
+            nodeStyle={node.style as Record<string, unknown> | undefined}
+            nodeProps={node as Record<string, unknown>}
+            onSetProp={ctx.onSetNodeProp ? (k, v) => ctx.onSetNodeProp!(groupSelKey, k, v) : undefined}
+            onSetStyle={ctx.onStyleAdd ? (k, v) => ctx.onStyleAdd!(groupSelKey, k, v) : undefined}
+            onUnwrap={ctx.onUnwrapNode ? () => ctx.onUnwrapNode!(groupSelKey) : undefined}
+            onRemove={ctx.onRemoveNode ? () => ctx.onRemoveNode!(groupSelKey) : undefined}
+            onStyleAdd={ctx.onStyleAdd ? (k, v) => ctx.onStyleAdd!(groupSelKey, k, v) : undefined}
+            onStyleRemove={ctx.onStyleRemove ? (k) => ctx.onStyleRemove!(groupSelKey, k) : undefined}
           >
             {children}
           </LayoutContainer>,
@@ -241,6 +270,13 @@ export function renderLayoutTree(
       const label = (defEntry?.item as Item | undefined)?.label
         || (node as { text?: string }).text
         || node.nodeId;
+      const displayLayoutCtx2: LayoutContext | undefined = parentCtx.parentContainerType
+        ? {
+            parentContainerType: parentCtx.parentContainerType,
+            parentGridColumns: parentCtx.parentGridColumns,
+            currentColSpan: parseColSpan(node.style?.gridColumn),
+          }
+        : undefined;
       result.push(
         <DisplayBlock
           key={defPath || node.nodeId}
@@ -250,6 +286,8 @@ export function renderLayoutTree(
           widgetHint={node.component !== 'Text' ? node.component : undefined}
           selected={ctx.selectedKey === (defPath || node.nodeId)}
           onSelect={(selectionKey) => ctx.onSelect(selectionKey, 'display')}
+          layoutContext={displayLayoutCtx2}
+          nodeStyle={node.style as Record<string, unknown> | undefined}
         />,
       );
     }

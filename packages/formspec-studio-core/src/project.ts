@@ -3340,6 +3340,34 @@ export class Project {
     };
   }
 
+  /** Move a component node (by bind or nodeId ref) as the last child of a target container. */
+  moveComponentNodeToContainer(ref: { bind?: string; nodeId?: string }, targetContainerId: string): HelperResult {
+    this.core.dispatch({
+      type: 'component.moveNode',
+      payload: { source: ref, targetParent: { nodeId: targetContainerId } },
+    } as AnyCommand);
+    const id = 'bind' in ref && ref.bind ? ref.bind : (ref as any).nodeId;
+    return {
+      summary: `Moved node '${id}' into container '${targetContainerId}'`,
+      action: { helper: 'moveComponentNodeToContainer', params: { ref, targetContainerId } },
+      affectedPaths: [targetContainerId],
+    };
+  }
+
+  /** Move a component node (by bind or nodeId ref) to a specific index within a target container. */
+  moveComponentNodeToIndex(ref: { bind?: string; nodeId?: string }, targetContainerId: string, insertIndex: number): HelperResult {
+    this.core.dispatch({
+      type: 'component.moveNode',
+      payload: { source: ref, targetParent: { nodeId: targetContainerId }, targetIndex: insertIndex },
+    } as AnyCommand);
+    const id = 'bind' in ref && ref.bind ? ref.bind : (ref as any).nodeId;
+    return {
+      summary: `Moved node '${id}' to index ${insertIndex} in container '${targetContainerId}'`,
+      action: { helper: 'moveComponentNodeToIndex', params: { ref, targetContainerId, insertIndex } },
+      affectedPaths: [targetContainerId],
+    };
+  }
+
   /** Delete a component node by bind or nodeId ref. */
   deleteComponentNode(ref: { bind?: string; nodeId?: string }): HelperResult {
     this.core.dispatch({

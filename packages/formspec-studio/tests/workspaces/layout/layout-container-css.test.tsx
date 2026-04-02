@@ -145,6 +145,45 @@ describe('LayoutContainer — generic header', () => {
   });
 });
 
+describe('LayoutContainer — Panel flex-column', () => {
+  it('renders display:flex with flexDirection:column for Panel content area', () => {
+    const { container } = render(
+      <LayoutContainer component="Panel" nodeType="layout" nodeId="pan1">
+        <div>child</div>
+      </LayoutContainer>,
+    );
+    const content = container.querySelector('[data-layout-content]') as HTMLElement;
+    expect(content.style.display).toBe('flex');
+    expect(content.style.flexDirection).toBe('column');
+  });
+});
+
+describe('LayoutContainer — Collapsible flex-column', () => {
+  it('renders display:flex with flexDirection:column for Collapsible content area', () => {
+    const { container } = render(
+      <LayoutContainer component="Collapsible" nodeType="layout" nodeId="col1" defaultOpen>
+        <div>child</div>
+      </LayoutContainer>,
+    );
+    const content = container.querySelector('[data-layout-content]') as HTMLElement;
+    expect(content.style.display).toBe('flex');
+    expect(content.style.flexDirection).toBe('column');
+  });
+});
+
+describe('LayoutContainer — Accordion flex-column', () => {
+  it('renders display:flex with flexDirection:column for Accordion content area', () => {
+    const { container } = render(
+      <LayoutContainer component="Accordion" nodeType="layout" nodeId="acc1" defaultOpen>
+        <div>child</div>
+      </LayoutContainer>,
+    );
+    const content = container.querySelector('[data-layout-content]') as HTMLElement;
+    expect(content.style.display).toBe('flex');
+    expect(content.style.flexDirection).toBe('column');
+  });
+});
+
 describe('LayoutContainer — empty container placeholder', () => {
   it('shows drop placeholder when container has no children', () => {
     render(<LayoutContainer component="Grid" nodeType="layout" nodeId="empty1" columns={2} />);
