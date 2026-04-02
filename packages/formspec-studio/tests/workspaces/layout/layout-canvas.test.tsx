@@ -1,6 +1,6 @@
 /** @filedesc Tests for the Layout workspace canvas — authored Page sections, layout containers, and mode selector. */
 import { render, screen, act, fireEvent } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createProject, type Project } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
 import { SelectionProvider } from '../../../src/state/useSelection';
@@ -245,6 +245,29 @@ describe('LayoutCanvas', () => {
     // With selectionKey + onSetProp wired, the inline toolbar should appear on selection
     // The InlineToolbar renders the overflow button inside the header row
     expect(groupContainer.querySelector('[data-testid="toolbar-overflow"]')).not.toBeNull();
+  });
+
+  it('wires onResizeColSpan for display items inside a Grid — resize handle renders when in grid context', () => {
+    const project = makeProject({
+      $formspec: '1.0', url: 'urn:layout-test', version: '1.0.0',
+      items: [],
+    });
+    const setNodeStyleProperty = vi.spyOn(project, 'setNodeStyleProperty');
+
+    // Add a Grid layout node, then add a Heading display node inside it
+    const gridResult = project.addLayoutNode('root', 'Grid');
+    const gridNodeId = gridResult.createdId!;
+    project.addLayoutNode(gridNodeId, 'Heading');
+
+    renderLayout(project);
+
+    // The display block inside a Grid should render a resize handle
+    // (parentContainerType === 'grid' and not spanning all columns)
+    const handle = screen.queryByTestId('resize-handle-col');
+    expect(handle).toBeInTheDocument();
+
+    // Spy present and not yet called (no drag has happened)
+    expect(setNodeStyleProperty).not.toHaveBeenCalled();
   });
 
   it('renders bound group node with correct CSS layout when it has spatial props', () => {
