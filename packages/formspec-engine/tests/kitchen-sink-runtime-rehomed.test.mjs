@@ -184,27 +184,7 @@ test('kitchen-sink runtime: response and validation-report contract', () => {
   }
 });
 
-test('kitchen-sink runtime: screener and assembly remain available', () => {
-  const screenerDefinition = {
-    $formspec: '1.0',
-    url: 'https://example.org/forms/screener',
-    version: '1.0.0',
-    status: 'active',
-    title: 'Screener',
-    items: [{ key: 'triageScore', type: 'field', dataType: 'integer', label: 'Score' }],
-    screener: {
-      items: [{ key: 'triageScore', type: 'field', dataType: 'integer', label: 'Score' }],
-      routes: [
-        { condition: 'triageScore >= 50', target: 'https://example.org/forms/high' },
-        { condition: 'true', target: 'https://example.org/forms/low' },
-      ],
-    },
-  };
-
-  const screenerEngine = new FormEngine(screenerDefinition);
-  const screener = screenerEngine.evaluateScreener({ triageScore: 55 });
-  assert.equal(screener?.target, 'https://example.org/forms/high');
-
+test('kitchen-sink runtime: assembly remains available', () => {
   const imported = {
     $formspec: '1.0',
     url: 'https://example.org/forms/fragment',

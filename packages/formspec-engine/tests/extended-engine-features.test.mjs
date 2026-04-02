@@ -1,4 +1,4 @@
-/** @filedesc Extended engine features: formPresentation metadata, screener routing, and miscellaneous engine surface */
+/** @filedesc Extended engine features: formPresentation metadata, label contexts, migrations, and miscellaneous engine surface */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FormEngine } from '../dist/index.js';
@@ -30,45 +30,6 @@ test('should return null formPresentation when the definition omits formPresenta
   });
 
   assert.equal(engine.formPresentation, null);
-});
-
-test('should return the first matching screener route when multiple conditions are evaluated', () => {
-  const engine = new FormEngine({
-    $formspec: '1.0',
-    url: 'http://example.org/test',
-    version: '1.0.0',
-    title: 'Screener Test',
-    items: [],
-    screener: {
-      items: [
-        { key: 'age', type: 'field', dataType: 'integer', label: 'Age' },
-        { key: 'income', type: 'field', dataType: 'integer', label: 'Income' }
-      ],
-      routes: [
-        { condition: '$age < 18', target: '/forms/minor', label: 'Minor Form' },
-        { condition: '$income > 50000', target: '/forms/premium', label: 'Premium Form' },
-        { condition: 'true', target: '/forms/standard', label: 'Standard Form' }
-      ]
-    }
-  });
-
-  const routeWhenAdult = engine.evaluateScreener({ age: 25, income: 60000 });
-  const routeWhenMinor = engine.evaluateScreener({ age: 15, income: 60000 });
-
-  assert.deepEqual(routeWhenAdult, { target: '/forms/premium', label: 'Premium Form' });
-  assert.deepEqual(routeWhenMinor, { target: '/forms/minor', label: 'Minor Form' });
-});
-
-test('should return null screener route when the definition has no routes', () => {
-  const engine = new FormEngine({
-    $formspec: '1.0',
-    url: 'http://example.org/test',
-    version: '1.0.0',
-    title: 'No Screener',
-    items: []
-  });
-
-  assert.equal(engine.evaluateScreener({}), null);
 });
 
 test('should resolve pdf and csv labels when those contexts are active', () => {

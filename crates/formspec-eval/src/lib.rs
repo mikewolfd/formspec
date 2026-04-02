@@ -8,7 +8,7 @@
 //! 4. [`mod@nrb`] — output shaping for non-relevant fields
 //!
 //! Cross-cutting: [`mod@convert`] (path resolution), private `fel_json` (money-aware JSON→`FelValue` for env fields),
-//! private `runtime_seed` (prePopulate / previous non-relevant). [`mod@screener`] evaluates routes in an isolated env.
+//! private `runtime_seed` (prePopulate / previous non-relevant). [`mod@screener_eval`] evaluates standalone screener documents.
 //!
 //! ## Documentation
 //!
@@ -26,7 +26,6 @@ pub mod nrb;
 pub mod rebuild;
 pub mod recalculate;
 pub mod revalidate;
-pub mod screener;
 pub mod screener_eval;
 pub mod types;
 
@@ -39,7 +38,6 @@ pub use convert::resolve_value_by_path;
 pub use eval_json::{
     EvalHostContextBundle, eval_context_from_json_object, eval_host_context_from_json_map,
     evaluation_result_to_json_value, evaluation_result_to_json_value_styled,
-    screener_route_to_json_value,
 };
 pub use nrb::{apply_nrb, resolve_nrb};
 pub use pipeline::{
@@ -53,7 +51,6 @@ pub use rebuild::{expand_repeat_instances, expand_wildcard_path, rebuild_item_tr
 pub use recalculate::{recalculate, topo_sort_variables};
 pub use registry_constraints::extension_constraints_from_registry_documents;
 pub use revalidate::revalidate;
-pub use screener::{ScreenerRouteResult, evaluate_screener};
 pub use screener_eval::evaluate_screener_document;
 pub use types::{
     AnswerInput, AnswerState, DeterminationRecord, EvalContext, EvalTrigger, EvaluationResult,

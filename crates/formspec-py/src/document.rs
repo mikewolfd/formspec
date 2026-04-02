@@ -13,9 +13,9 @@ use formspec_core::{
 };
 use formspec_eval::{
     AnswerInput, AnswerState, EvalContext, eval_context_from_json_object,
-    evaluate_definition_full_with_instances_and_context, evaluate_screener,
+    evaluate_definition_full_with_instances_and_context,
     evaluate_screener_document, evaluation_result_to_json_value_styled,
-    extension_constraints_from_registry_documents, screener_route_to_json_value,
+    extension_constraints_from_registry_documents,
 };
 use formspec_lint::{LintMode, LintOptions, lint_result_to_json_value, lint_with_options};
 
@@ -224,30 +224,6 @@ pub fn apply_migrations_to_response_data(
     let data_v: Value = depythonize_json(data)?;
     let out = apply_migrations_to_response_data_core(&def_v, data_v, from_version, now_iso);
     json_to_python(py, &out)
-}
-
-// ── Screener Evaluation ─────────────────────────────────────────
-
-/// Evaluate screener routes and return the first matching route.
-///
-/// Args:
-///     definition: Python dict of the definition (must contain a "screener" key)
-///     answers: Python dict of screener answers
-///
-/// Returns:
-///     A dict with: target, label, message — or None if no route matches.
-#[pyfunction]
-pub fn evaluate_screener_py(
-    py: Python,
-    definition: &Bound<'_, PyAny>,
-    answers: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
-    let def: Value = depythonize_json(definition)?;
-    let ans_map = json_object_to_string_map(&depythonize_json(answers)?);
-
-    let route = evaluate_screener(&def, &ans_map);
-    let json = screener_route_to_json_value(route.as_ref());
-    json_to_python(py, &json)
 }
 
 // ── Standalone Screener Document Evaluation ────────────────────

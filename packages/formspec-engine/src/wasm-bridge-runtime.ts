@@ -226,18 +226,6 @@ export function wasmEvaluateDefinition(
     return JSON.parse(resultJson);
 }
 
-/** Evaluate screener routes against an isolated answer payload. */
-export function wasmEvaluateScreener(
-    definition: unknown,
-    answers: Record<string, unknown>,
-): { target: string; label?: string; message?: string; extensions?: Record<string, unknown> } | null {
-    const resultJson = wasm().evaluateScreener(
-        JSON.stringify(definition),
-        JSON.stringify(answers),
-    );
-    return JSON.parse(resultJson);
-}
-
 /** Evaluate a standalone Screener Document against respondent inputs.
  *  Returns a Determination Record (always non-null). */
 export function wasmEvaluateScreenerDocument(

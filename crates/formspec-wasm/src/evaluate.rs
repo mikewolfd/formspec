@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use formspec_core::json_object_to_string_map;
 use formspec_eval::{
     AnswerInput, AnswerState, EvalContext, EvalTrigger, eval_host_context_from_json_map,
-    evaluate_definition_full_with_instances_and_context, evaluate_screener,
-    evaluate_screener_document, evaluation_result_to_json_value, screener_route_to_json_value,
+    evaluate_definition_full_with_instances_and_context,
+    evaluate_screener_document, evaluation_result_to_json_value,
 };
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
@@ -68,24 +68,6 @@ pub(crate) fn evaluate_definition_inner(
 
     let json = evaluation_result_to_json_value(&result);
     to_json_string(&json)
-}
-
-/// Evaluate screener routes for an isolated answer payload.
-#[wasm_bindgen(js_name = "evaluateScreener")]
-pub fn evaluate_screener_wasm(
-    definition_json: &str,
-    answers_json: &str,
-) -> Result<String, JsError> {
-    let definition: Value =
-        parse_value_str(definition_json, "definition JSON").map_err(|e| JsError::new(&e))?;
-    let answers_val: Value =
-        parse_value_str(answers_json, "answers JSON").map_err(|e| JsError::new(&e))?;
-
-    let answers = json_object_to_string_map(&answers_val);
-
-    let route = evaluate_screener(&definition, &answers);
-    let json = screener_route_to_json_value(route.as_ref());
-    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 // ── Standalone Screener Document Evaluation ────────────────────

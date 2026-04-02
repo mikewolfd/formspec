@@ -37,7 +37,6 @@ _REQUIRED_EXPORTS = (
     "detect_type",
     "lint_document",
     "evaluate_def",
-    "evaluate_screener_py",
     "evaluate_screener_document_py",
     "execute_mapping_doc",
     "generate_changelog",
@@ -426,11 +425,6 @@ def evaluate_definition(
         variables=raw.get("variables", {}),
         non_relevant=raw.get("nonRelevant", raw.get("non_relevant", [])),
     )
-
-
-def evaluate_screener(definition: dict, answers: dict) -> dict | None:
-    """Evaluate screener routes and return first matching route."""
-    return formspec_rust.evaluate_screener_py(definition, answers)
 
 
 def evaluate_screener_document(

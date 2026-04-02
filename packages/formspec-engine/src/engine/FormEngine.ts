@@ -30,7 +30,6 @@ import { createFormViewModel, type FormViewModel } from '../form-view-model.js';
 import {
     wasmEvaluateDefinition,
     wasmEvalFELWithContext,
-    wasmEvaluateScreener,
 } from '../wasm-bridge-runtime.js';
 import {
     resolveOptionSetsOnDefinition,
@@ -741,12 +740,6 @@ export class FormEngine implements IFormEngine {
         }
         this._registryDocuments = [{ entries }];
         this._evaluate();
-    }
-
-    public evaluateScreener(
-        answers: Record<string, any>,
-    ): { target: string; label?: string; extensions?: Record<string, any> } | null {
-        return wasmEvaluateScreener(this.definition, answers);
     }
 
     public migrateResponse(responseData: Record<string, any>, fromVersion: string): Record<string, any> {

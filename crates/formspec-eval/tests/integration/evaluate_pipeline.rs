@@ -3,7 +3,7 @@
 use formspec_eval::{
     EvalContext, EvalTrigger, ValidationResult, evaluate_definition,
     evaluate_definition_full_with_instances, evaluate_definition_full_with_instances_and_context,
-    evaluate_definition_with_context, evaluate_definition_with_trigger, evaluate_screener,
+    evaluate_definition_with_context, evaluate_definition_with_trigger,
 };
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -1508,46 +1508,6 @@ fn trigger_disabled_skips_all_validation() {
         result.validations.is_empty(),
         "disabled trigger should skip all validation"
     );
-}
-
-// ── Screener ─────────────────────────────────────────────────
-
-#[test]
-fn screener_answers_do_not_pollute_main_evaluation() {
-    let def = json!({
-        "$formspec": "1.0",
-        "url": "https://example.org/screener",
-        "version": "1.0.0",
-        "status": "active",
-        "title": "Test",
-        "items": [
-            { "type": "field", "key": "name", "dataType": "string" }
-        ],
-        "screener": {
-            "items": [
-                { "type": "field", "key": "orgType", "dataType": "choice" }
-            ],
-            "routes": [
-                {
-                    "condition": "$orgType = 'nonprofit'",
-                    "target": "https://example.org/forms/new|1.0.0",
-                    "label": "New"
-                },
-                {
-                    "condition": "true",
-                    "target": "https://example.org/forms/general|1.0.0",
-                    "label": "General"
-                }
-            ]
-        }
-    });
-    let mut answers = HashMap::new();
-    answers.insert("orgType".to_string(), json!("nonprofit"));
-
-    let _route = evaluate_screener(&def, &answers);
-
-    let main_result = evaluate_definition(&def, &HashMap::new());
-    assert!(!main_result.values.contains_key("orgType"));
 }
 
 // ── 9a: excludedValue ────────────────────────────────────────

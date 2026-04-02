@@ -12,7 +12,7 @@ use formspec_core::wire_keys::evaluation_batch_keys;
 use formspec_core::JsonWireStyle;
 
 use crate::types::{EvalContext, EvalTrigger, EvaluationResult, ExtensionConstraint, ValidationResult};
-use crate::{extension_constraints_from_registry_documents, ScreenerRouteResult};
+use crate::extension_constraints_from_registry_documents;
 
 /// Full batch evaluation output as JSON (matches `evaluateDefinition` WASM shape, camelCase).
 pub fn evaluation_result_to_json_value(result: &EvaluationResult) -> Value {
@@ -64,26 +64,6 @@ fn validation_result_to_json_object(
         m.insert("context".into(), json!(ctx));
     }
     Value::Object(m)
-}
-
-/// Serialize a screener route for `evaluateScreener` (`null` when no match).
-pub fn screener_route_to_json_value(route: Option<&ScreenerRouteResult>) -> Value {
-    match route {
-        None => Value::Null,
-        Some(r) => {
-            let mut o = serde_json::json!({ "target": r.target });
-            if let Some(ref label) = r.label {
-                o["label"] = serde_json::json!(label);
-            }
-            if let Some(ref message) = r.message {
-                o["message"] = serde_json::json!(message);
-            }
-            if let Some(ref extensions) = r.extensions {
-                o["extensions"] = extensions.clone();
-            }
-            o
-        }
-    }
 }
 
 /// Parsed WASM / JSON evaluation context bundle.

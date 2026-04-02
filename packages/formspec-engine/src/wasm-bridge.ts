@@ -9,7 +9,6 @@ export {
     wasmEvalFEL,
     wasmEvalFELWithContext,
     wasmEvaluateDefinition,
-    wasmEvaluateScreener,
     wasmEvaluateScreenerDocument,
     wasmGetFELDependencies,
     wasmItemAtPath,

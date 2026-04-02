@@ -51,7 +51,7 @@ def test_formspec_rust_exports_expected_contract():
         "detect_type",
         "lint_document",
         "evaluate_def",
-        "evaluate_screener_py",
+        "evaluate_screener_document_py",
         "execute_mapping_doc",
         "generate_changelog",
         "apply_migrations_to_response_data",

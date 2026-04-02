@@ -320,7 +320,6 @@ export interface IFormEngine {
 
     setRegistryEntries?(entries: any[]): void;
 
-    evaluateScreener(answers: Record<string, any>): { target: string; label?: string; extensions?: Record<string, any> } | null;
     migrateResponse(responseData: Record<string, any>, fromVersion: string): Record<string, any>;
 }
 
