@@ -4,7 +4,6 @@ import { LayoutPageSection } from './LayoutPageSection';
 import { LayoutContainer } from './LayoutContainer';
 import { FieldBlock, type LayoutContext } from './FieldBlock';
 import { DisplayBlock } from './DisplayBlock';
-import { useLayoutDragActive } from './LayoutDragContext';
 
 interface CompNode {
   component: string;
