@@ -69,7 +69,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
   }
 
   // Floating UI for autocomplete menu
-  const { refs, floatingStyles, context, update } = useFloating({
+  const { refs, floatingStyles, isPositioned } = useFloating({
     open: !!autocomplete,
     onOpenChange: (open) => {
       if (!open) {
@@ -93,42 +93,39 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
     whileElementsMounted: autoUpdate,
   });
 
-  // Position reference to cursor
-  useEffect(() => {
-    if (autocomplete && textareaRef.current) {
-      const textarea = textareaRef.current;
-      const caret = autocomplete.start;
-      
-      // Rough estimate of caret position
-      // In a more complex implementation, we'd use a hidden mirror div
-      const fontSize = 11;
-      const lineHeight = 1.6;
-      const padding = 8;
-      
-      const lines = textarea.value.slice(0, caret).split('\n');
-      const lineIndex = lines.length - 1;
-      const charIndex = lines[lineIndex].length;
-      
-      const top = lineIndex * fontSize * lineHeight + padding;
-      const left = charIndex * (fontSize * 0.6) + padding; // 0.6 is a rough average character width factor
+  // Build a virtual reference element anchored to the caret position.
+  const makeCaretReference = (trigger: FELAutocompleteTrigger) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const fontSize = 11;
+    const lineHeight = 1.6;
+    const padding = 8;
+    const lines = textarea.value.slice(0, trigger.start).split('\n');
+    const lineIndex = lines.length - 1;
+    const charIndex = lines[lineIndex].length;
+    const top = lineIndex * fontSize * lineHeight + padding;
+    const left = charIndex * (fontSize * 0.6) + padding;
+    refs.setReference({
+      getBoundingClientRect: () => {
+        const rect = textarea.getBoundingClientRect();
+        return {
+          x: rect.left + left,
+          y: rect.top + top,
+          top: rect.top + top,
+          left: rect.left + left,
+          right: rect.left + left,
+          bottom: rect.top + top + fontSize * lineHeight,
+          width: 0,
+          height: fontSize * lineHeight,
+        };
+      },
+    });
+  };
 
-      refs.setReference({
-        getBoundingClientRect: () => {
-          const rect = textarea.getBoundingClientRect();
-          return {
-            x: rect.left + left,
-            y: rect.top + top,
-            top: rect.top + top,
-            left: rect.left + left,
-            right: rect.left + left,
-            bottom: rect.top + top + fontSize * lineHeight,
-            width: 0,
-            height: fontSize * lineHeight,
-          };
-        },
-      });
-    }
-  }, [autocomplete, refs]);
+  // Sync reference position before paint so the portal never appears at (0,0).
+  useLayoutEffect(() => {
+    if (autocomplete) makeCaretReference(autocomplete);
+  }, [autocomplete]);
 
   // Options memoization
   const fieldOptions = useMemo(() => {
@@ -190,6 +187,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
   const openAutocomplete = (nextValue: string, caret: number) => {
     const pathTrigger = getFELAutocompleteTrigger(nextValue, caret);
     if (pathTrigger) {
+      makeCaretReference(pathTrigger);
       setAutocomplete(pathTrigger);
       setAutocompleteKind('path');
       setActiveOptionIndex(0);
@@ -198,6 +196,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
 
     const instanceNameTrigger = getFELInstanceNameAutocompleteTrigger(nextValue, caret);
     if (instanceNameTrigger) {
+      makeCaretReference(instanceNameTrigger);
       setAutocomplete(instanceNameTrigger);
       setAutocompleteKind('instanceName');
       setActiveOptionIndex(0);
@@ -206,6 +205,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
 
     const functionTrigger = getFELFunctionAutocompleteTrigger(nextValue, caret);
     if (functionTrigger) {
+      makeCaretReference(functionTrigger);
       setAutocomplete(functionTrigger);
       setAutocompleteKind('function');
       setActiveOptionIndex(0);
@@ -376,7 +376,7 @@ export function FELEditor({ value, onSave, onCancel, placeholder, className, aut
           <FloatingPortal>
             <div
               ref={refs.setFloating}
-              style={floatingStyles}
+              style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
               className="z-[100] flex bg-surface border border-border rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
             >
               {/* Menu List */}
