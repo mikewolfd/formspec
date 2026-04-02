@@ -19,6 +19,7 @@
     "prebuild": "npm run build:studio && npm run copy:studio && npm run build:references && npm run copy:references && npm run build:react-demo && npm run copy:react-demo && npm run build:uswds-grant && npm run copy:uswds-grant && npm run build:mcpb && npm run copy:mcpb",
     "dev": "astro dev",
     "build": "astro build && cp -rL ../docs dist/docs",
+    "check:seo": "node ./scripts/check-seo.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },
