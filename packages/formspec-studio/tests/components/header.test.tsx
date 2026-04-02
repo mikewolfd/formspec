@@ -114,11 +114,11 @@ describe('Header', () => {
     expect(layoutTab).toHaveAttribute('tabindex', '-1');
   });
 
-  it('renders exactly 5 workspace tabs (Editor, Layout, Theme, Mapping, Preview)', () => {
+  it('renders exactly 4 workspace tabs (Editor, Layout, Mapping, Preview) — Theme tab eliminated', () => {
     renderHeader();
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(5);
-    expect(tabs.map(t => t.textContent)).toEqual(['Editor', 'Layout', 'Theme', 'Mapping', 'Preview']);
+    expect(tabs).toHaveLength(4);
+    expect(tabs.map(t => t.textContent)).toEqual(['Editor', 'Layout', 'Mapping', 'Preview']);
   });
 
   it('does not render Logic or Data tabs', () => {

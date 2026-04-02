@@ -2,7 +2,7 @@
 import { useRef, useCallback } from 'react';
 
 interface ThemeAuthoringOverlayProps {
-  onFieldSelect: (itemKey: string) => void;
+  onFieldSelect: (itemKey: string, position: { x: number; y: number }) => void;
   selectedItemKey?: string | null;
 }
 
@@ -33,7 +33,7 @@ export function ThemeAuthoringOverlay({ onFieldSelect, selectedItemKey }: ThemeA
 
     const itemKey = findDataBind(target);
     if (itemKey) {
-      onFieldSelect(itemKey);
+      onFieldSelect(itemKey, { x: clientX, y: clientY });
     }
     // If no data-bind found: no-op (containers not selectable per OBJ-12-03)
   }, [onFieldSelect]);

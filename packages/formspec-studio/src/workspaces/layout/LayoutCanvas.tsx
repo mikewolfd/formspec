@@ -23,9 +23,11 @@ import { LayoutDndProvider } from './LayoutDndProvider';
 import { clampContextMenuPosition } from '../../components/ui/context-menu-utils';
 import { LayoutThemeToggle } from './LayoutThemeToggle';
 import { ThemeAuthoringOverlay } from './ThemeAuthoringOverlay';
+import { ThemeOverridePopover } from './ThemeOverridePopover';
 import { FormspecPreviewHost } from '../preview/FormspecPreviewHost';
 import { useOptionalLayoutMode } from './LayoutModeContext';
 import { type LayoutMode } from './LayoutThemeToggle';
+import { setThemeOverride, clearThemeOverride } from '@formspec-org/studio-core';
 
 interface CompNode {
   component: string;
@@ -89,6 +91,7 @@ export function LayoutCanvas() {
   const [localLayoutMode, setLocalLayoutMode] = useState<LayoutMode>('layout');
   // Per-mode selection: layout mode tracks its own key, theme mode tracks its own
   const [themeSelectedKey, setThemeSelectedKey] = useState<string | null>(null);
+  const [themePopoverPosition, setThemePopoverPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const layoutModeCtx = useOptionalLayoutMode();
   const layoutMode = layoutModeCtx?.layoutMode ?? localLayoutMode;
 
@@ -283,8 +286,9 @@ export function LayoutCanvas() {
     layoutModeCtx?.setLayoutMode(mode);
   }, [selectedKeyForTab, layoutModeCtx]);
 
-  const handleThemeFieldSelect = useCallback((itemKey: string) => {
+  const handleThemeFieldSelect = useCallback((itemKey: string, position: { x: number; y: number }) => {
     setThemeSelectedKey(itemKey);
+    setThemePopoverPosition({ x: position.x + 12, y: position.y + 12 });
   }, []);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -407,6 +411,15 @@ export function LayoutCanvas() {
               selectedItemKey={themeSelectedKey}
             />
           </div>
+          <ThemeOverridePopover
+            open={!!themeSelectedKey}
+            itemKey={themeSelectedKey ?? ''}
+            position={themePopoverPosition}
+            project={project}
+            onClose={() => setThemeSelectedKey(null)}
+            onSetOverride={(key, prop, value) => setThemeOverride(project, key, prop, value)}
+            onClearOverride={(key, prop) => clearThemeOverride(project, key, prop)}
+          />
         </WorkspacePageSection>
       ) : (
         <>

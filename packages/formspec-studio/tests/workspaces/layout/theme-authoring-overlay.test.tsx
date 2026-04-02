@@ -39,8 +39,8 @@ describe('ThemeAuthoringOverlay', () => {
       fireEvent.click(overlay, { clientX: 100, clientY: 200 });
     });
 
-    // Overlay temporarily hides itself to allow elementFromPoint
-    expect(onFieldSelect).toHaveBeenCalledWith('email');
+    // Overlay temporarily hides itself to allow elementFromPoint — passes key + position
+    expect(onFieldSelect).toHaveBeenCalledWith('email', { x: 100, y: 200 });
 
     document.elementFromPoint = origFromPoint;
   });
@@ -88,7 +88,7 @@ describe('ThemeAuthoringOverlay', () => {
       fireEvent.click(overlay, { clientX: 50, clientY: 50 });
     });
 
-    expect(onFieldSelect).toHaveBeenCalledWith('name');
+    expect(onFieldSelect).toHaveBeenCalledWith('name', { x: 50, y: 50 });
 
     document.elementFromPoint = origFromPoint;
   });
