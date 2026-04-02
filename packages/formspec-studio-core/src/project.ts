@@ -1796,6 +1796,20 @@ export class Project {
     };
   }
 
+  /** Set the display mode for a repeatable group — 'stack' (default) or 'table' (DataTable). */
+  setGroupDisplayMode(groupKey: string, mode: 'stack' | 'table'): HelperResult {
+    const leafKey = groupKey.split('.').pop()!;
+    this.core.dispatch({
+      type: 'component.setGroupDisplayMode',
+      payload: { groupKey: leafKey, mode },
+    } as AnyCommand);
+    return {
+      summary: `Set group '${groupKey}' display mode to '${mode}'`,
+      action: { helper: 'setGroupDisplayMode', params: { groupKey, mode } },
+      affectedPaths: [groupKey],
+    };
+  }
+
   // ── Copy Item ──
 
   /** Copy a field or group. If targetPath is provided, places the clone under that group. */
@@ -2533,6 +2547,23 @@ export class Project {
     };
   }
 
+  /** Set an arbitrary property on a component tree node (identified by `__node:<id>` or bind key). */
+  setLayoutNodeProp(target: string, property: string, value: unknown): HelperResult {
+    this.core.dispatch({
+      type: 'component.setNodeProperty',
+      payload: {
+        node: this._componentTargetRef(target),
+        property,
+        value: value === '' ? null : value,
+      },
+    });
+    return {
+      summary: `Set '${property}' on '${target}'`,
+      action: { helper: 'setLayoutNodeProp', params: { target, property, value } },
+      affectedPaths: [target],
+    };
+  }
+
   /** Add a new item from the Layout workspace, placing it directly into the component tree. */
   addItemToLayout(spec: LayoutAddItemSpec, pageId?: string): HelperResult {
     if (spec.itemType === 'layout') {
@@ -2610,6 +2641,27 @@ export class Project {
         action: { helper: 'addItemToLayout', params: { spec, pageId } },
         affectedPaths: [fullPath],
         createdId: fullPath,
+      };
+    }
+
+    // Tier 3 display components (Heading, Divider) live in the component tree
+    // as _layout:true nodes — they have no definition-tier representation.
+    const LAYOUT_DISPLAY_COMPONENTS = new Set(['Heading', 'Divider']);
+    if (spec.component && LAYOUT_DISPLAY_COMPONENTS.has(spec.component)) {
+      const parentNodeId = pageId ?? 'root';
+      const props: Record<string, unknown> = spec.component === 'Heading'
+        ? { text: spec.label, level: 2 }
+        : { label: spec.label }; // Divider renderer reads comp.label
+      const result = this.core.dispatch({
+        type: 'component.addNode',
+        payload: { parent: { nodeId: parentNodeId }, component: spec.component, props },
+      } as AnyCommand);
+      const nodeId = (result as any)?.nodeRef?.nodeId;
+      return {
+        summary: `Added ${spec.component} '${spec.label}' to layout`,
+        action: { helper: 'addItemToLayout', params: { spec, pageId } },
+        affectedPaths: nodeId ? [nodeId] : [],
+        createdId: nodeId,
       };
     }
 

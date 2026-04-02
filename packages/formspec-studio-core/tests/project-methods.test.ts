@@ -3520,4 +3520,67 @@ describe('component-level layout helpers', () => {
     expect(project.itemAt('basics.email')?.type).toBe('field');
     expect(project.componentFor('email')).toBeDefined();
   });
+
+  // Phase 0: Heading/Divider tier fix
+  it('Heading palette adds a _layout:true component node, not a definition item', () => {
+    const project = createProject();
+    const result = project.addItemToLayout({
+      itemType: 'display',
+      label: 'Section Title',
+      component: 'Heading',
+    });
+
+    // Must NOT create a definition item
+    const allItems = (project.state.definition as any).items ?? [];
+    const headingDefItem = allItems.find((i: any) => i.label === 'Section Title');
+    expect(headingDefItem).toBeUndefined();
+
+    // Must create a component node with _layout: true and default level 2
+    const tree = (project.component as any)?.tree;
+    const rootChildren: any[] = tree?.children ?? [];
+    const headingNode = rootChildren.find((n: any) => n.component === 'Heading');
+    expect(headingNode).toBeDefined();
+    expect(headingNode?._layout).toBe(true);
+    expect(headingNode?.level).toBe(2);
+
+    // createdId must point to a node id (not a def path)
+    expect(result.createdId).toBeDefined();
+  });
+
+  it('Divider palette adds a _layout:true component node, not a definition item', () => {
+    const project = createProject();
+    const result = project.addItemToLayout({
+      itemType: 'display',
+      label: 'My Divider',
+      component: 'Divider',
+    });
+
+    const allItems = (project.state.definition as any).items ?? [];
+    const dividerDefItem = allItems.find((i: any) => i.label === 'My Divider');
+    expect(dividerDefItem).toBeUndefined();
+
+    const tree = (project.component as any)?.tree;
+    const rootChildren: any[] = tree?.children ?? [];
+    const dividerNode = rootChildren.find((n: any) => n.component === 'Divider');
+    expect(dividerNode).toBeDefined();
+    expect(dividerNode?._layout).toBe(true);
+    // Divider webcomponent renderer reads comp.label (not comp.text)
+    expect(dividerNode?.label).toBe('My Divider');
+
+    expect(result.createdId).toBeDefined();
+  });
+
+  it('Text Block palette still creates a Tier 1 display definition item', () => {
+    const project = createProject();
+    project.addItemToLayout({
+      itemType: 'display',
+      label: 'Intro text',
+      // No component override — defaults to Text Block (paragraph)
+    });
+
+    const allItems = (project.state.definition as any).items ?? [];
+    const textItem = allItems.find((i: any) => i.label === 'Intro text');
+    expect(textItem).toBeDefined();
+    expect(textItem?.type).toBe('display');
+  });
 });
