@@ -35,6 +35,9 @@ export function buildLayoutContextMenuItems(
     { label: 'Wrap in Stack', action: 'wrapInStack' },
     { label: 'Wrap in Grid', action: 'wrapInGrid' },
     { label: 'Wrap in Panel', action: 'wrapInPanel' },
+    { label: 'Wrap in Accordion', action: 'wrapInAccordion' },
+    { label: 'Wrap in Collapsible', action: 'wrapInCollapsible' },
+    { label: 'Wrap in Conditional Group', action: 'wrapInConditionalGroup' },
     { label: 'Move Up', action: 'moveUp' },
     { label: 'Move Down', action: 'moveDown' },
     { label: 'Remove from Tree', action: 'removeFromTree', separator: true },
@@ -71,12 +74,18 @@ export function executeLayoutAction({
     case 'wrapInCard':
     case 'wrapInStack':
     case 'wrapInGrid':
-    case 'wrapInPanel': {
+    case 'wrapInPanel':
+    case 'wrapInAccordion':
+    case 'wrapInCollapsible':
+    case 'wrapInConditionalGroup': {
       const componentMap: Record<string, string> = {
         wrapInCard: 'Card',
         wrapInStack: 'Stack',
         wrapInGrid: 'Grid',
         wrapInPanel: 'Panel',
+        wrapInAccordion: 'Accordion',
+        wrapInCollapsible: 'Collapsible',
+        wrapInConditionalGroup: 'ConditionalGroup',
       };
       const component = componentMap[action];
       const nodeRef = ref.bind ? { bind: ref.bind } : { nodeId: ref.nodeId! };

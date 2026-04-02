@@ -33,6 +33,7 @@ describe('buildLayoutContextMenuItems', () => {
     expect(actions).toContain('wrapInStack');
     expect(actions).toContain('wrapInGrid');
     expect(actions).toContain('wrapInPanel');
+    expect(actions).toContain('wrapInConditionalGroup');
     expect(actions).toContain('moveUp');
     expect(actions).toContain('moveDown');
     expect(actions).toContain('removeFromTree');
@@ -144,6 +145,22 @@ describe('executeLayoutAction', () => {
 
     expect(wrapComponentNode).toHaveBeenCalledWith({ bind: 'amount' }, 'Grid');
     expect(selected).toEqual({ key: '__node:node-abc', type: 'layout' });
+  });
+
+  it('calls wrapComponentNode for ConditionalGroup', () => {
+    const wrapComponentNode = vi.fn(() => ({ createdId: 'node-cg1' }));
+    const fakeProject = { wrapComponentNode };
+
+    executeLayoutAction({
+      action: 'wrapInConditionalGroup',
+      menu: { x: 0, y: 0, kind: 'node', nodeType: 'field', nodeRef: { bind: 'name' } },
+      project: fakeProject as any,
+      deselect: () => {},
+      select: () => {},
+      closeMenu: () => {},
+    });
+
+    expect(wrapComponentNode).toHaveBeenCalledWith({ bind: 'name' }, 'ConditionalGroup');
   });
 
   it('calls wrapComponentNode for Card and Stack too (unified path)', () => {

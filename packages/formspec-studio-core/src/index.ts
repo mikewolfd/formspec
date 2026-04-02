@@ -178,6 +178,7 @@ export {
   getFieldTypeCatalog,
   humanizeFEL,
   isLayoutId,
+  LAYOUT_CONTAINER_COMPONENTS,
   nodeIdFromLayoutId,
   nodeRefFor,
   normalizeBindEntries,

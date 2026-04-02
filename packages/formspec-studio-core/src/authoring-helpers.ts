@@ -358,6 +358,21 @@ export function sortForBatchDelete(paths: string[]): string[] {
   return [...paths].sort((a, b) => b.split('.').length - a.split('.').length);
 }
 
+/**
+ * Canonical set of layout container component types.
+ * Single source of truth for both the toolbar preset list and container
+ * detection in the properties panel. Update here to add new containers.
+ */
+export const LAYOUT_CONTAINER_COMPONENTS = new Set([
+  'Stack',
+  'Card',
+  'Grid',
+  'Panel',
+  'Accordion',
+  'Collapsible',
+  'ConditionalGroup',
+]);
+
 export function isLayoutId(id: string): boolean {
   return id.startsWith(LAYOUT_PREFIX);
 }
