@@ -9,7 +9,6 @@ import { ShapesSection } from '../logic/ShapesSection';
 import { FilterBar } from '../logic/FilterBar';
 import { OptionSets } from './OptionSets';
 import { DataSources } from './DataSources';
-import { ScreenerAuthoring } from './ScreenerAuthoring';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
 import { HelpTip } from '../../components/ui/HelpTip';
 
@@ -17,7 +16,6 @@ const SECTIONS = [
   { id: 'option-sets', label: 'Options' },
   { id: 'variables', label: 'Values' },
   { id: 'data-sources', label: 'Data' },
-  { id: 'screener', label: 'Screener' },
   { id: 'binds-index', label: 'Behaviors' },
   { id: 'shapes', label: 'Rules' },
 ] as const;
@@ -173,17 +171,6 @@ export function ManageView() {
           sectionRef={sectionRefs['data-sources']}
         >
           <DataSources />
-        </ManagePillar>
-
-        <ManagePillar
-          id="screener"
-          title="Screener & Routes"
-          subtitle="Pre-qualification routing"
-          helpText="Routing mechanism with screening items and ordered route rules."
-          accentColor="bg-amber"
-          sectionRef={sectionRefs['screener']}
-        >
-          <ScreenerAuthoring />
         </ManagePillar>
 
         <ManagePillar

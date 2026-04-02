@@ -544,8 +544,8 @@ describe('Shell', () => {
     window.removeEventListener('formspec:scroll-to-section', scrollHandler);
   });
 
-  // Task #12: manageCount covers all 6 Manage sections
-  it('manageCount includes optionSets, instances, and screener routes in addition to binds, shapes, and variables', () => {
+  // Task #12: manageCount covers definition cross-cutting concerns (screener excluded — belongs to Screen badge)
+  it('manageCount includes optionSets, instances, binds, shapes, and variables but excludes screener routes', () => {
     const definition: FormDefinition = {
       ...seededDefinition,
       binds: [
@@ -586,12 +586,11 @@ describe('Shell', () => {
 
     renderShell(definition, 1440, screenerDoc);
 
-    // Total should be: 1 bind + 1 shape + 1 variable + 2 optionSets + 1 instance + 2 routes = 8
-    // The Manage radio button label includes the count in parentheses
+    // Total should be: 1 bind + 1 shape + 1 variable + 2 optionSets + 1 instance = 6
+    // (screener routes excluded — they belong to the Screen mode badge, not Manage)
     const manageRadio = screen.getByRole('radio', { name: /Manage/i });
-    // The count badge is rendered near the Manage label
     const manageLabel = manageRadio.closest('label') ?? manageRadio.parentElement;
-    expect(manageLabel?.textContent).toContain('8');
+    expect(manageLabel?.textContent).toContain('6');
   });
 
   // Task #10: Compact/mobile Form Health layout
@@ -645,5 +644,106 @@ describe('Shell', () => {
   it('does not show health badge button on wide screens', () => {
     renderShell(seededDefinition, 1440);
     expect(screen.queryByRole('button', { name: /form health/i })).not.toBeInTheDocument();
+  });
+
+  it('shows Screener toggle option when a screener document exists', () => {
+    renderShell(seededDefinition, 1440, {
+      $formspec: '1.0',
+      items: [],
+      evaluation: [],
+    });
+    expect(screen.getByRole('radio', { name: 'Screener' })).toBeInTheDocument();
+  });
+
+  it('does not show Screener toggle option when no screener document exists', () => {
+    renderShell(seededDefinition, 1440);
+    expect(screen.queryByRole('radio', { name: 'Screener' })).not.toBeInTheDocument();
+  });
+
+  it('renders ScreenerWorkspace when Screener toggle is selected', async () => {
+    renderShell(seededDefinition, 1440, {
+      $formspec: '1.0',
+      items: [{ key: 'q1', type: 'field', dataType: 'boolean', label: 'Over 18?' }],
+      evaluation: [],
+    });
+
+    await act(async () => {
+      screen.getByRole('radio', { name: 'Screener' }).click();
+    });
+
+    expect(screen.getByTestId('screener-workspace')).toBeInTheDocument();
+    expect(screen.getByTestId('screener-item-surface')).toBeInTheDocument();
+  });
+
+  it('navigates to screener view when Blueprint Screener link arrow is clicked', async () => {
+    renderShell(seededDefinition, 1440, {
+      $formspec: '1.0',
+      items: [{ key: 'q1', type: 'field', dataType: 'boolean', label: 'Age?' }],
+      evaluation: [],
+    });
+
+    const handler = vi.fn();
+    window.addEventListener('formspec:navigate-workspace', handler);
+
+    // Click the Screener sidebar section link arrow button
+    const screenerSection = screen.getByTestId('blueprint-section-Screener');
+    const linkButton = within(screenerSection).getByRole('button', { name: /open screener tab/i });
+    await act(async () => {
+      linkButton.click();
+    });
+
+    expect(handler).toHaveBeenCalled();
+    const detail = (handler.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail).toEqual({ tab: 'Editor', view: 'screener' });
+
+    window.removeEventListener('formspec:navigate-workspace', handler);
+  });
+
+  it('excludes screener routes from manageCount (no double-counting with Screen badge)', () => {
+    const definition: FormDefinition = {
+      ...seededDefinition,
+      binds: [
+        { path: 'name', required: 'true' },
+      ],
+      shapes: [
+        { id: 's1', target: 'name', constraint: '$name != null', message: 'Required' },
+      ],
+      variables: [
+        { name: 'v1', expression: '1 + 1' },
+      ],
+      optionSets: {
+        colors: { options: [{ value: 'red', label: 'Red' }] },
+        sizes: { options: [{ value: 'sm', label: 'Small' }] },
+      },
+      instances: {
+        lookup1: { data: { rows: [] } },
+      },
+    };
+
+    const screenerDoc = {
+      $formspecScreener: '1.0',
+      url: 'urn:shell:screener',
+      version: '1.0.0',
+      title: 'Gate',
+      items: [],
+      evaluation: [
+        {
+          id: 'main',
+          strategy: 'first-match',
+          routes: [
+            { condition: 'true', target: 'urn:a' },
+            { condition: 'true', target: 'urn:b' },
+          ],
+        },
+      ],
+    };
+
+    renderShell(definition, 1440, screenerDoc);
+
+    // Total should be: 1 bind + 1 shape + 1 variable + 2 optionSets + 1 instance = 6
+    // (screener routes excluded — they belong to the Screen badge, not Manage)
+    const manageRadio = screen.getByRole('radio', { name: /Manage/i });
+    const manageLabel = manageRadio.closest('label') ?? manageRadio.parentElement;
+    expect(manageLabel?.textContent).toContain('6');
   });
 });

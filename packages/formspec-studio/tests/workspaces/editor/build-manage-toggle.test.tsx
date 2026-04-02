@@ -86,4 +86,57 @@ describe('BuildManageToggle', () => {
     fireEvent.keyDown(manageRadio, { key: 'ArrowUp' });
     expect(onChange).toHaveBeenCalledWith('build');
   });
+
+  it('shows Screener option when showScreener is true', () => {
+    render(<BuildManageToggle activeView="build" onViewChange={() => {}} showScreener />);
+    expect(screen.getByRole('radio', { name: 'Screener' })).toBeInTheDocument();
+  });
+
+  it('does not show Screener option when showScreener is false', () => {
+    render(<BuildManageToggle activeView="build" onViewChange={() => {}} />);
+    expect(screen.queryByRole('radio', { name: 'Screener' })).not.toBeInTheDocument();
+  });
+
+  it('calls onViewChange with screener when clicking the Screener option', () => {
+    const onChange = vi.fn();
+    render(<BuildManageToggle activeView="build" onViewChange={onChange} showScreener />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Screener' }));
+    expect(onChange).toHaveBeenCalledWith('screener');
+  });
+
+  it('marks Screener as checked when activeView is screener', () => {
+    render(<BuildManageToggle activeView="screener" onViewChange={() => {}} showScreener />);
+    expect(screen.getByRole('radio', { name: 'Screener' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Build' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('radio', { name: 'Manage' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('navigates through all three options with arrow keys when showScreener is true', () => {
+    const onChange = vi.fn();
+    render(<BuildManageToggle activeView="build" onViewChange={onChange} showScreener />);
+    const buildRadio = screen.getByRole('radio', { name: 'Build' });
+    fireEvent.keyDown(buildRadio, { key: 'ArrowRight' });
+    expect(onChange).toHaveBeenCalledWith('manage');
+  });
+
+  it('uses amber accent for active Screener segment instead of default accent', () => {
+    render(<BuildManageToggle activeView="screener" onViewChange={() => {}} showScreener />);
+    const screenerRadio = screen.getByRole('radio', { name: 'Screener' });
+    expect(screenerRadio.className).toMatch(/bg-amber/);
+    expect(screenerRadio.className).not.toMatch(/bg-accent/);
+  });
+
+  it('uses default accent for active Build segment', () => {
+    render(<BuildManageToggle activeView="build" onViewChange={() => {}} showScreener />);
+    const buildRadio = screen.getByRole('radio', { name: 'Build' });
+    expect(buildRadio.className).toMatch(/bg-accent/);
+    expect(buildRadio.className).not.toMatch(/bg-amber/);
+  });
+
+  it('uses default accent for active Manage segment', () => {
+    render(<BuildManageToggle activeView="manage" onViewChange={() => {}} showScreener />);
+    const manageRadio = screen.getByRole('radio', { name: 'Manage' });
+    expect(manageRadio.className).toMatch(/bg-accent/);
+    expect(manageRadio.className).not.toMatch(/bg-amber/);
+  });
 });

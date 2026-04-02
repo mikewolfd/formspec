@@ -2,12 +2,13 @@
 import { useProjectState } from '../state/useProjectState';
 import { useProject } from '../state/useProject';
 import { Pill } from './ui/Pill';
+import type { EditorView } from '../workspaces/editor/BuildManageToggle';
 
 interface BlueprintProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
   sections?: readonly string[];
-  activeEditorView?: 'build' | 'manage';
+  activeEditorView?: EditorView;
   activeTab?: string;
 }
 
@@ -37,7 +38,7 @@ const SECTIONS: SectionDef[] = [
     if (!scr) return 0;
     const routes = scr.evaluation?.reduce((sum: number, p: any) => sum + (p.routes?.length ?? 0), 0) ?? 0;
     return (scr.items?.length ?? 0) + routes;
-  }, help: 'Pre-qualification gate before the main form', link: { tab: 'Editor', view: 'manage' } },
+  }, help: 'Pre-qualification gate before the main form', link: { tab: 'Editor', view: 'screener' } },
   { name: 'Variables', countFn: (s) => s.definition.variables?.length ?? 0, help: 'Named computed values reusable across expressions', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Data Sources', countFn: (s) => Object.keys(s.definition.instances ?? {}).length, help: 'Secondary data instances for lookups and reference data', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Option Sets', countFn: (s) => Object.keys(s.definition.optionSets ?? {}).length, help: 'Reusable option lists for choice and multiChoice fields', link: { tab: 'Editor', view: 'manage' } },
@@ -88,8 +89,8 @@ export function Blueprint({ activeSection, onSectionChange, sections, activeEdit
                   className="min-w-0 flex-1 truncate rounded-[6px] text-left cursor-pointer focus-visible:outline-none"
                   onClick={() => {
                     onSectionChange(name);
-                    // Auto-switch to Manage view when clicking a Manage concern while in Build view
-                    if (link?.view === 'manage' && activeEditorView === 'build' && activeTab === 'Editor') {
+                    // Auto-switch editor view when clicking a section with a different view target
+                    if (link?.view && activeTab === 'Editor' && activeEditorView !== link.view) {
                       window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: link }));
                     }
                   }}

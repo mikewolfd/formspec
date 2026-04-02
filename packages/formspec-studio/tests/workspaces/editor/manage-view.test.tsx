@@ -27,14 +27,14 @@ const RICH_DEF: any = {
 };
 
 describe('ManageView', () => {
-  it('renders section anchors for all Manage sections', () => {
+  it('renders section anchors for all Manage sections (screener removed — lives in Screen mode)', () => {
     const project = createProject({ seed: { definition: RICH_DEF } });
     render(<Providers project={project}><ManageView /></Providers>);
 
     expect(screen.getByTestId('manage-section-option-sets')).toBeInTheDocument();
     expect(screen.getByTestId('manage-section-variables')).toBeInTheDocument();
     expect(screen.getByTestId('manage-section-data-sources')).toBeInTheDocument();
-    expect(screen.getByTestId('manage-section-screener')).toBeInTheDocument();
+    expect(screen.queryByTestId('manage-section-screener')).not.toBeInTheDocument();
     expect(screen.getByTestId('manage-section-binds-index')).toBeInTheDocument();
     expect(screen.getByTestId('manage-section-shapes')).toBeInTheDocument();
   });
@@ -65,7 +65,7 @@ describe('ManageView', () => {
     expect(screen.getByRole('button', { name: 'Options' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Values' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Data' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Screener' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Screener' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Behaviors' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rules' })).toBeInTheDocument();
   });
@@ -134,44 +134,15 @@ describe('ManageView', () => {
     window.removeEventListener('formspec:navigate-workspace', spy);
   });
 
-  it('renders screener section with active status and counts', () => {
-    const screener = {
-      $formspecScreener: '1.0',
-      url: 'urn:manage:gate',
-      version: '1.0.0',
-      title: 'Gate',
-      items: [
-        { key: 'age', type: 'field', dataType: 'integer', label: 'Age' },
-      ],
-      evaluation: [
-        {
-          id: 'main',
-          strategy: 'first-match',
-          routes: [
-            { condition: '$age >= 18', target: 'adult-form' },
-            { condition: 'true', target: 'rejected' },
-          ],
-        },
-      ],
-    };
-    const project = createProject({ seed: { definition: RICH_DEF, screener } });
-    render(<Providers project={project}><ManageView /></Providers>);
-
-    const screenerSection = screen.getByTestId('manage-section-screener');
-    expect(screenerSection).toBeInTheDocument();
-    expect(within(screenerSection).getByText('Active')).toBeInTheDocument();
-    expect(within(screenerSection).getByText(/1 question, 1 phase, 2 routes/)).toBeInTheDocument();
-  });
-
   it('renders all sections with an empty definition without errors', () => {
     const project = createProject();
     render(<Providers project={project}><ManageView /></Providers>);
 
-    // All six section anchors should still render
+    // Five section anchors should render (screener removed — lives in Screen mode)
     expect(screen.getByTestId('manage-section-option-sets')).toBeInTheDocument();
     expect(screen.getByTestId('manage-section-variables')).toBeInTheDocument();
     expect(screen.getByTestId('manage-section-data-sources')).toBeInTheDocument();
-    expect(screen.getByTestId('manage-section-screener')).toBeInTheDocument();
+    expect(screen.queryByTestId('manage-section-screener')).not.toBeInTheDocument();
     expect(screen.getByTestId('manage-section-binds-index')).toBeInTheDocument();
     expect(screen.getByTestId('manage-section-shapes')).toBeInTheDocument();
   });

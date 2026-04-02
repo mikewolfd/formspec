@@ -11,6 +11,7 @@ import { DefinitionTreeEditor } from '../workspaces/editor/DefinitionTreeEditor'
 import { LayoutCanvas } from '../workspaces/layout/LayoutCanvas';
 import { ComponentProperties } from '../workspaces/layout/properties/ComponentProperties';
 import { ManageView } from '../workspaces/editor/ManageView';
+import { ScreenerWorkspace } from '../workspaces/editor/ScreenerWorkspace';
 import { FormHealthPanel } from '../workspaces/editor/FormHealthPanel';
 import { BuildManageToggle, type EditorView } from '../workspaces/editor/BuildManageToggle';
 import { ThemeTab } from '../workspaces/theme/ThemeTab';
@@ -106,16 +107,12 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   const definitionLookup = useMemo(() => buildDefLookup(project.definition.items ?? []), [project.definition.items]);
   const manageCount = useMemo(() => {
     const def = project.definition;
-    const screenerRoutes = project.state.screener
-      ? project.state.screener.evaluation?.reduce((sum: number, p: any) => sum + (p.routes?.length ?? 0), 0) ?? 0
-      : 0;
     return (def.binds?.length ?? 0) +
       (Array.isArray(def.shapes) ? def.shapes.length : 0) +
       (def.variables?.length ?? 0) +
       Object.keys(def.optionSets ?? {}).length +
-      Object.keys(def.instances ?? {}).length +
-      screenerRoutes;
-  }, [project.definition, project.state.screener]);
+      Object.keys(def.instances ?? {}).length;
+  }, [project.definition]);
   const viewportWidth = typeof window !== 'undefined'
     ? Math.min(window.innerWidth, document.documentElement?.clientWidth || window.innerWidth)
     : Infinity;
@@ -137,17 +134,21 @@ export function Shell({ colorScheme }: ShellProps = {}) {
     setActiveSection(resolvedActiveSection);
   }, [activeSection, resolvedActiveSection]);
 
+  const hasScreener = project.state.screener !== null;
+
   const workspaceContent = (() => {
     if (activeTab === 'Editor') {
       return (
         <div className="flex-1 overflow-y-auto flex flex-col">
           <div className="px-3 pt-3 md:px-6 md:pt-4 xl:px-8">
-            <BuildManageToggle activeView={activeEditorView} onViewChange={setActiveEditorView} manageCount={manageCount} />
+            <BuildManageToggle activeView={activeEditorView} onViewChange={setActiveEditorView} manageCount={manageCount} showScreener={hasScreener} />
           </div>
           <div key={activeEditorView} className="flex-1 animate-in fade-in duration-150">
             {activeEditorView === 'build'
               ? <DefinitionTreeEditor />
-              : <ManageView />}
+              : activeEditorView === 'screener'
+                ? <ScreenerWorkspace />
+                : <ManageView />}
           </div>
         </div>
       );

@@ -76,7 +76,11 @@ describe('Blueprint', () => {
         $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
         items: [],
       } as any,
-      screener: {
+    } });
+    // Load screener via command dispatch (screener is standalone, not part of ProjectBundle)
+    (project as any).core.dispatch({
+      type: 'screener.setDocument',
+      payload: {
         $formspecScreener: '1.0',
         url: 'urn:test:gate',
         version: '1.0.0',
@@ -93,7 +97,7 @@ describe('Blueprint', () => {
           },
         ],
       },
-    } });
+    } as any);
     render(
       <ProjectProvider project={project}>
         <SelectionProvider>
