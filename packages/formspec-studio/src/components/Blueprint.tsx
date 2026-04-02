@@ -44,6 +44,13 @@ const SECTIONS: SectionDef[] = [
   { name: 'Option Sets', countFn: (s) => Object.keys(s.definition.optionSets ?? {}).length, help: 'Reusable option lists for choice and multiChoice fields', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Mappings', countFn: (s) => Object.values(s.mappings ?? {}).reduce((sum, m) => sum + (m.rules?.length ?? 0), 0), help: 'Bidirectional data transforms for import/export', link: { tab: 'Mapping', subTab: 'rules' } },
   { name: 'Settings', countFn: null, help: 'Form identity, presentation, and behavioral defaults' },
+  // Theme-mode sidebar sections (shown in Layout workspace Theme mode)
+  { name: 'Colors', countFn: (s) => Object.keys(s.theme.tokens ?? {}).length, help: 'Color tokens and brand palette' },
+  { name: 'Typography', countFn: null, help: 'Typography and spacing tokens' },
+  { name: 'Field Defaults', countFn: null, help: 'Default label position, widget, and CSS class for all fields' },
+  { name: 'Field Rules', countFn: (s) => ((s.theme.selectors ?? []) as unknown[]).length, help: 'Selector rules for field-type-specific presentation' },
+  { name: 'Breakpoints', countFn: (s) => Object.keys((s.theme as any).breakpoints ?? {}).length, help: 'Responsive breakpoint definitions' },
+  { name: 'All Tokens', countFn: null, help: 'Full token reference for the active theme' },
 ];
 
 /**

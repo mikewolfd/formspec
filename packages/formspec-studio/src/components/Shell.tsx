@@ -35,6 +35,12 @@ import { MappingsList } from './blueprint/MappingsList';
 import { SettingsSection } from './blueprint/SettingsSection';
 import { SettingsDialog } from './SettingsDialog';
 import { ThemeOverview } from './blueprint/ThemeOverview';
+import { ColorPalette } from '../workspaces/theme/ColorPalette';
+import { TypographySpacing } from '../workspaces/theme/TypographySpacing';
+import { DefaultFieldStyle } from '../workspaces/theme/DefaultFieldStyle';
+import { FieldTypeRules } from '../workspaces/theme/FieldTypeRules';
+import { ScreenSizes } from '../workspaces/theme/ScreenSizes';
+import { AllTokens } from '../workspaces/theme/AllTokens';
 import { type MappingTabId } from '../workspaces/mapping/MappingTab';
 import { type Viewport } from '../workspaces/preview/ViewportSwitcher';
 import { type PreviewMode } from '../workspaces/preview/PreviewTab';
@@ -55,7 +61,15 @@ const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
   'Mappings': MappingsList,
   'Settings': SettingsSection,
   'Theme': ThemeOverview,
+  'Colors': ColorPalette,
+  'Typography': TypographySpacing,
+  'Field Defaults': DefaultFieldStyle,
+  'Field Rules': FieldTypeRules,
+  'Breakpoints': ScreenSizes,
+  'All Tokens': AllTokens,
 };
+
+const THEME_MODE_BLUEPRINT_SECTIONS = ['Colors', 'Typography', 'Field Defaults', 'Field Rules', 'Breakpoints', 'All Tokens', 'Settings'];
 
 const BLUEPRINT_SECTIONS_BY_TAB: Record<string, string[]> = {
   Editor: ['Structure', 'Variables', 'Data Sources', 'Option Sets', 'Screener', 'Settings'],
@@ -124,6 +138,53 @@ function LayoutRightPanelGate({
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
     </button>
+  );
+}
+
+/**
+ * Blueprint sidebar inner — reads layoutMode from LayoutModeProvider context to supply
+ * theme-specific sections when in Theme mode. Must render inside <LayoutModeProvider>.
+ */
+function BlueprintSidebarInner({
+  activeTab,
+  activeSection,
+  onSectionChange,
+  activeEditorView,
+  compactLayout,
+  leftWidth,
+}: {
+  activeTab: string;
+  activeSection: string;
+  onSectionChange: (section: string) => void;
+  activeEditorView: EditorView | undefined;
+  compactLayout: boolean;
+  leftWidth: number;
+}) {
+  const layoutModeCtx = useOptionalLayoutMode();
+  const isThemeMode = activeTab === 'Layout' && layoutModeCtx?.layoutMode === 'theme';
+
+  const visibleSections = isThemeMode
+    ? THEME_MODE_BLUEPRINT_SECTIONS
+    : (BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS));
+
+  const resolvedSection = visibleSections.includes(activeSection)
+    ? activeSection
+    : (visibleSections[0] ?? 'Structure');
+
+  const SidebarComponent = SIDEBAR_COMPONENTS[resolvedSection];
+
+  return (
+    <aside
+      data-testid="blueprint-sidebar"
+      className={`border-r border-border/80 bg-surface overflow-y-auto flex flex-col shrink-0 ${compactLayout ? 'hidden' : ''}`}
+      style={{ width: `clamp(140px, ${leftWidth}px, calc(50vw - 340px))` }}
+      aria-label="Blueprint sidebar"
+    >
+      <Blueprint activeSection={resolvedSection} onSectionChange={onSectionChange} sections={visibleSections} activeEditorView={activeEditorView} activeTab={activeTab} />
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        {SidebarComponent && <SidebarComponent />}
+      </div>
+    </aside>
   );
 }
 
@@ -417,17 +478,14 @@ export function Shell({ colorScheme }: ShellProps = {}) {
       <CanvasTargetsProvider>
         <div className={`flex flex-1 overflow-hidden bg-bg-default ${activeTab === 'Editor' ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(246,243,238,0.9)_100%)] dark:bg-none' : ''}`} aria-hidden={overlayOpen ? true : undefined}>
           {/* Desktop Left Sidebar */}
-          <aside
-            data-testid="blueprint-sidebar"
-            className={`border-r border-border/80 bg-surface overflow-y-auto flex flex-col shrink-0 ${compactLayout ? 'hidden' : ''}`}
-            style={{ width: `clamp(140px, ${leftWidth}px, calc(50vw - 340px))` }}
-            aria-label="Blueprint sidebar"
-          >
-            <Blueprint activeSection={resolvedActiveSection} onSectionChange={setActiveSection} sections={visibleBlueprintSections} activeEditorView={activeEditorView} activeTab={activeTab} />
-            <div className="flex-1 overflow-y-auto px-3 py-4">
-              {SidebarComponent && <SidebarComponent />}
-            </div>
-          </aside>
+          <BlueprintSidebarInner
+            activeTab={activeTab}
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+            activeEditorView={activeEditorView}
+            compactLayout={compactLayout}
+            leftWidth={leftWidth}
+          />
           {!compactLayout && <ResizeHandle side="left" onResize={onResizeLeft} />}
 
           <main className="flex-1 overflow-y-auto bg-bg-default min-w-0 shrink-0">

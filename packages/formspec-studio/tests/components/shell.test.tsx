@@ -234,6 +234,16 @@ describe('Shell', () => {
     expect(screen.getByTestId('blueprint-section-Theme')).toBeInTheDocument();
   });
 
+  it('Layout workspace in Theme mode shows theme sidebar sections (Colors, Typography, etc.) in Blueprint', async () => {
+    renderShell(seededDefinition, 1440);
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Layout' })); });
+    // Switch to Theme mode via the Layout/Theme toggle
+    const themeToggle = screen.getByRole('radio', { name: 'Theme' });
+    await act(async () => { fireEvent.click(themeToggle); });
+    // Theme mode blueprint should include Color Palette section
+    expect(screen.getByTestId('blueprint-section-Colors')).toBeInTheDocument();
+  });
+
   it('preserves Mapping tab state when navigating away and returning', async () => {
     renderShell();
 
