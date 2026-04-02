@@ -29,6 +29,7 @@ import {
     screenerAnswersSatisfyRequired,
     extractScreenerSeedFromData,
     omitScreenerKeysFromData,
+    evaluateScreenerDocumentForRoute,
     type ScreenerHost,
 } from './rendering/screener';
 import { applyResponseDataToEngine } from './hydrate-response-data';
@@ -167,7 +168,7 @@ export class FormspecRender extends HTMLElement {
 
     /** Returns the current screener completion + routing state. */
     getScreenerState(): ScreenerStateSnapshot {
-        const hasScreener = hasActiveScreener(this._definition);
+        const hasScreener = hasActiveScreener(this._screenerDocument);
         return {
             hasScreener,
             completed: hasScreener ? this._screenerCompleted : true,
@@ -205,10 +206,10 @@ export class FormspecRender extends HTMLElement {
     }
 
     /**
-     * Full Formspec response `data` (same object you would pass to engine hydration). Set **before**
-     * {@link definition} on a new element. On engine boot, screener fields are split out for the gate;
-     * the rest is applied to the engine so one assignment replaces manual `extractScreenerSeedFromData` +
-     * `applyResponseDataToEngine` calls.
+     * Full Formspec response `data` (same object you would pass to engine hydration). Set
+     * {@link screenerDocument} first when the payload includes screener keys. Set **before**
+     * {@link definition} on a new element. Set {@link screenerDocument} first so screener keys in
+     * `data` are split out for the gate; the rest is applied to the engine.
      */
     set initialData(val: Record<string, any> | null | undefined) {
         if (val != null && typeof val === 'object' && !Array.isArray(val)) {
@@ -233,7 +234,7 @@ export class FormspecRender extends HTMLElement {
 
         let route: ScreenerRoute | null;
         try {
-            route = this.engine.evaluateScreener(answers);
+            route = evaluateScreenerDocumentForRoute(this._screenerDocument, answers);
         } catch {
             return;
         }
@@ -281,11 +282,11 @@ export class FormspecRender extends HTMLElement {
             }
 
             if (this._initialData) {
-                const seed = extractScreenerSeedFromData(val, this._initialData);
+                const seed = extractScreenerSeedFromData(this._screenerDocument, this._initialData);
                 if (seed) {
                     this._screenerSeedAnswers = seed;
                 }
-                const rest = omitScreenerKeysFromData(val, this._initialData);
+                const rest = omitScreenerKeysFromData(this._screenerDocument, this._initialData);
                 applyResponseDataToEngine(this.engine, rest);
                 this._initialData = null;
             }

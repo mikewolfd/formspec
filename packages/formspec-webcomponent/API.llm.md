@@ -10,9 +10,47 @@
 
 ## `renderDatePicker: AdapterRenderFn<DatePickerBehavior>`
 
+## `renderDefaultHeading(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultText(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultCard(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultSpacer(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultAlert(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultBadge(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultProgressBar(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultSummary(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultValidationSummary(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
 ## `renderFileUpload: AdapterRenderFn<FileUploadBehavior>`
 
 ## `defaultAdapter: RenderAdapter`
+
+## `renderPage(behavior: PageLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderStack(behavior: StackLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderGrid(behavior: GridLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDivider(behavior: DividerLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderCollapsible(behavior: CollapsibleLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderColumns(behavior: ColumnsLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderPanel(behavior: PanelLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderAccordion(behavior: AccordionLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderModal(behavior: ModalLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderPopover(behavior: PopoverLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void`
 
 ## `renderMoneyInput: AdapterRenderFn<MoneyInputBehavior>`
 
@@ -26,7 +64,9 @@
 
 ## `createFieldDOM(behavior: FieldBehavior, actx: AdapterContext, options?: FieldDOMOptions): FieldDOM`
 
-Create the common field wrapper structure: root div, label, description, hint, error.
+Create the common field wrapper structure: root div (or fieldset), label (or legend),
+description, hint, error.
+
 Uses behavior.widgetClassSlots for x-classes support (from theme widgetConfig).
 When a FieldViewModel is available, reads current locale-resolved values from VM signals.
 Returns element references for adapter-specific control insertion.
@@ -44,18 +84,19 @@ For radio/checkbox groups, applies to each input. For others, applies to the con
 #### interface `FieldDOMOptions`
 
 - **labelFor** (`boolean`): Set false for group controls where the label shouldn't target a single input. Default true.
+- **asGroup** (`boolean`): When true, use <fieldset> for root and <legend> for label.
 
 #### interface `FieldDOM`
 
-- **root**: `HTMLElement`
-- **label**: `HTMLElement`
-- **hint**: `HTMLElement | undefined`
-- **error**: `HTMLElement`
-- **describedBy**: `string[]`
+- **initialDescribedBy** (`string`): Initial space-separated ID string for aria-describedby.
 
 ## `renderSignature: AdapterRenderFn<SignatureBehavior>`
 
 ## `renderSlider: AdapterRenderFn<SliderBehavior>`
+
+## `renderDefaultConditionalGroup(behavior: DisplayComponentBehavior, parent: HTMLElement, actx: AdapterContext): void`
+
+## `renderDefaultDataTable(behavior: DataTableBehavior, parent: HTMLElement, actx: AdapterContext): void`
 
 ## `renderTabs: AdapterRenderFn<TabsBehavior>`
 
@@ -64,6 +105,121 @@ For radio/checkbox groups, applies to each input. For others, applies to the con
 ## `renderToggle: AdapterRenderFn<ToggleBehavior>`
 
 ## `renderWizard: AdapterRenderFn<WizardBehavior>`
+
+#### interface `DisplayComponentBehavior`
+
+- **comp**: `any`
+- **host**: `DisplayHostSlice`
+
+## `displayHostSlice(ctx: RenderContext): DisplayHostSlice`
+
+#### interface `DisplayHostSlice`
+
+##### `resolveCompText(comp: any, prop: string, fallback: string): string`
+
+##### `renderComponent(comp: any, parent: HTMLElement, prefix?: string): void`
+
+##### `resolveToken(val: any): any`
+
+##### `findItemByKey(key: string, items?: any[]): any | null`
+
+##### `resolveValidationTarget(resultOrPath: any): ValidationTargetMetadata`
+
+##### `focusField(path: string): boolean`
+
+## `renderMarkdown(src: string): string`
+
+Minimal markdown-to-HTML converter for Text component `format: 'markdown'`.
+Handles: **bold**, *italic*, `code`, ordered/unordered lists, line breaks.
+Output is pre-sanitized (no raw HTML passthrough).
+
+#### interface `PageLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleText**: `string | null`
+- **headingLevel**: `string`
+- **descriptionText**: `string | null`
+
+#### interface `StackLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleText**: `string | null`
+- **descriptionText**: `string | null`
+
+#### interface `GridLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleText**: `string | null`
+- **descriptionText**: `string | null`
+
+#### interface `DividerLayoutBehavior`
+
+- **comp**: `any`
+- **labelText**: `string | null`
+
+#### interface `CollapsibleLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleText**: `string`
+- **descriptionText**: `string | null`
+
+#### interface `ColumnsLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleText**: `string | null`
+- **descriptionText**: `string | null`
+
+#### interface `PanelLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleText**: `string | null`
+- **descriptionText**: `string | null`
+
+#### interface `AccordionLayoutBehavior`
+
+- **repeatCount** (`import('@preact/signals-core').Signal<number>`): Current number of repeat instances (only when bound).
+- **groupLabel** (`string`): Resolved label for the group/item being repeated.
+
+##### `addInstance(): void`
+
+Add a new repeat instance.
+
+##### `removeInstance(index: number): void`
+
+Remove a repeat instance by index.
+
+#### interface `ModalLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleText**: `string | null`
+- **triggerLabelText**: `string`
+
+#### interface `PopoverLayoutBehavior`
+
+- **comp**: `any`
+- **host**: `LayoutHostSlice`
+- **titleResolved**: `string`
+- **triggerLabelFallback**: `string`
+
+## `layoutHostSlice(ctx: RenderContext): LayoutHostSlice`
+
+#### interface `LayoutHostSlice`
+
+Subset of {@link RenderContext} for layout adapters (recursive render + repeat/accordion helpers).
+
+- **renderComponent**: `RenderContext['renderComponent']`
+- **prefix**: `string`
+- **resolveToken**: `RenderContext['resolveToken']`
+- **engine**: `RenderContext['engine']`
+- **cleanupFns**: `RenderContext['cleanupFns']`
+- **findItemByKey**: `RenderContext['findItemByKey']`
 
 ## `createSignatureCanvas(config: SignatureCanvasConfig): SignatureCanvasResult`
 
@@ -141,6 +297,8 @@ type AdapterRenderFn = (behavior: B, parent: HTMLElement, actx: AdapterContext) 
 
 ## `useCheckbox(ctx: BehaviorContext, comp: any): FieldBehavior`
 
+## `useDataTable(ctx: BehaviorContext, comp: any): DataTableBehavior`
+
 ## `useDatePicker(ctx: BehaviorContext, comp: any): DatePickerBehavior`
 
 ## `useFileUpload(ctx: BehaviorContext, comp: any): FileUploadBehavior`
@@ -152,6 +310,24 @@ type AdapterRenderFn = (behavior: B, parent: HTMLElement, actx: AdapterContext) 
 ## `useRadioGroup(ctx: BehaviorContext, comp: any): RadioGroupBehavior`
 
 ## `useRating(ctx: BehaviorContext, comp: any): RatingBehavior`
+
+## `bindSelectCombobox(ctx: BehaviorContext, opts: SelectComboboxBindOpts, refs: FieldRefs): () => void`
+
+#### interface `SelectComboboxBindOpts`
+
+- **fieldPath**: `string`
+- **dataType**: `string`
+- **multiple**: `boolean`
+- **searchable**: `boolean`
+- **clearable**: `boolean`
+- **placeholder**: `string`
+- **vm**: `FieldViewModel | undefined`
+- **labelText**: `string`
+- **getOptions**: `() => ReadonlyArray<{
+        value: string;
+        label: string;
+        keywords?: string[];
+    }>`
 
 ## `useSelect(ctx: BehaviorContext, comp: any): SelectBehavior`
 
@@ -212,6 +388,8 @@ substituted with concrete values. Adapters never need token resolution.
 #### interface `FieldRefs`
 
 - **onValidationChange** (`(hasError: boolean, message: string) => void`): Called by bind() when validation state changes. Adapters use this to toggle error classes.
+- **skipSharedReadonlyControl** (`boolean`): When true, {@link bindSharedFieldEffects} does not set `readOnly` on the control (combobox manages it).
+- **skipAriaDescribedBy** (`boolean`): When true, {@link bindSharedFieldEffects} does not set `aria-describedby` on the control (groups manage it on container).
 
 #### interface `SubmitDetail`
 
@@ -252,6 +430,7 @@ Custom adapters can ignore this — they own their own styling.
 ##### `options(): ReadonlyArray<{
         value: string;
         label: string;
+        keywords?: string[];
     }>`
 
 ##### `bind(refs: FieldRefs): () => void`
@@ -268,9 +447,8 @@ Custom adapters can ignore this — they own their own styling.
 
 #### interface `SelectBehavior`
 
-- **placeholder?**: `string`
-- **clearable?**: `boolean`
-- **dataType**: `string`
+- **searchable** (`boolean`): Combobox with optional filter (native &lt;select&gt; when false and not multiple).
+- **multiple** (`boolean`): Multi-value combobox; use with multiChoice fields.
 
 #### interface `ToggleBehavior`
 
@@ -292,6 +470,7 @@ Custom adapters can ignore this — they own their own styling.
 - **min?**: `number`
 - **max?**: `number`
 - **step?**: `number`
+- **showStepper**: `boolean`
 - **dataType**: `string`
 
 #### interface `DatePickerBehavior`
@@ -343,6 +522,20 @@ Clear all selected files.
 - **height**: `number`
 - **strokeColor**: `string`
 
+#### interface `DataTableRefs`
+
+- **root**: `HTMLElement`
+- **table**: `HTMLTableElement`
+- **tbody**: `HTMLElement`
+
+#### interface `DataTableBehavior`
+
+##### `addInstance(): void`
+
+##### `removeInstance(index: number): void`
+
+##### `bind(refs: DataTableRefs): () => void`
+
 #### interface `WizardSidenavItemRefs`
 
 Sidenav item refs for reactive class/text updates without DOM rebuilds.
@@ -360,8 +553,11 @@ Progress indicator refs for reactive class updates without DOM rebuilds.
 
 #### interface `WizardRefs`
 
+- **stepIndicator** (`HTMLElement`): Visible “Step N of M” line (matches React Wizard).
+- **announcer** (`HTMLElement`): Polite live region for step changes.
 - **sidenavItems** (`WizardSidenavItemRefs[]`): Sidenav items built once by the adapter; bind() toggles classes/text.
 - **progressItems** (`WizardProgressItemRefs[]`): Progress indicators built once by the adapter; bind() toggles classes.
+- **onStepChange** (`(stepIndex: number, totalSteps: number) => void`): Callback invoked whenever the active step changes.
 
 #### interface `WizardBehavior`
 
@@ -385,10 +581,7 @@ Progress indicator refs for reactive class updates without DOM rebuilds.
 
 #### interface `TabsRefs`
 
-- **root**: `HTMLElement`
-- **tabBar**: `HTMLElement`
-- **panels**: `HTMLElement[]`
-- **buttons**: `HTMLButtonElement[]`
+- **onTabChange** (`(tabIndex: number) => void`): Callback invoked whenever the active tab changes.
 
 #### interface `TabsBehavior`
 
@@ -411,51 +604,39 @@ focused on what behaviors actually need.
 
 ## `HeadingPlugin: ComponentPlugin`
 
-Renders an `<h1>`-`<h6>` heading element based on the `level` prop (defaults to h1).
-When `bind` is set, subscribes to the field signal and reactively updates the text.
+Renders an `<h1>`-`<h6>` heading; reactive when `bind` is set.
 
 ## `TextPlugin: ComponentPlugin`
 
-Renders a `<p>` text element. When `bind` is set, subscribes to the field or variable signal
-and reactively updates the text content, including currency formatting for money values.
+Renders body text or markdown; reactive when `bind` is set.
 
 ## `CardPlugin: ComponentPlugin`
 
-Renders a `<div>` card container with optional `<h3>` title, `<p>` subtitle, and elevation data attribute.
+Renders a card container with optional title, subtitle, and children.
 
 ## `SpacerPlugin: ComponentPlugin`
 
-Renders an empty `<div>` spacer with token-resolved height from the `size` prop.
+Renders a vertical spacer from token `size`.
 
 ## `AlertPlugin: ComponentPlugin`
 
-Renders a `<div>` alert with severity variant CSS class and optional dismiss button that removes the element.
+Renders an alert with optional dismiss control.
 
 ## `BadgePlugin: ComponentPlugin`
 
-Renders an inline `<span>` badge with a variant CSS class.
+Renders an inline badge.
 
 ## `ProgressBarPlugin: ComponentPlugin`
 
-Renders a `<progress>` element with optional percentage label.
-When `bind` is set, subscribes to the field signal to reactively update the progress value.
+Renders a `<progress>` bar with optional percent label.
 
 ## `SummaryPlugin: ComponentPlugin`
 
-Renders a `<dl>` definition list with reactive `<dd>` values bound to field or variable signals.
-Supports currency formatting for money values and optionSet label lookup.
+Renders a definition list summary of bound values.
 
 ## `ValidationSummaryPlugin: ComponentPlugin`
 
-Renders validation summary messages from either live validation state or
-the latest submit event detail, with optional jump links to target fields.
-
-Props:
-- `source`: 'live' | 'submit' (default 'live')
-- `mode`: validation mode for live source (default 'continuous')
-- `showFieldErrors`: include bind-level field errors (default false)
-- `jumpLinks`: render clickable jump buttons to focus related fields
-- `dedupe`: deduplicate repeated messages (default true)
+Renders validation messages with optional jump links.
 
 ## `registerDefaultComponents(): void`
 
@@ -573,15 +754,11 @@ Trigger label can be bound to a field signal. Uses the Popover API when availabl
 
 ## `ConditionalGroupPlugin: ComponentPlugin`
 
-Renders a simple wrapper `<div>` for conditional content whose visibility is controlled by bind relevance.
+Renders a wrapper for conditional (relevance-gated) content.
 
 ## `DataTablePlugin: ComponentPlugin`
 
-Renders an editable `<table>` bound to a repeatable group.
-Supports add/remove row buttons, optional row numbers, and signal-driven cell updates.
-Editable cells use `<input>` elements with type coercion; read-only cells display formatted text
-including currency formatting for money values. Cell effect subscriptions are tracked and
-disposed on re-render to prevent leaks.
+Renders a data-bound editable table for a repeat group.
 
 ## `focusFirstIn(container: HTMLElement): HTMLElement`
 
@@ -619,6 +796,7 @@ Orchestrates the full rendering pipeline:
 - **touchedVersion** (`import("@preact/signals-core").Signal<number>`): Incremented when touched state changes so error-display effects can react.
 - **_screenerCompleted** (`boolean`): Whether the screener has been completed (route selected).
 - **_screenerRoute** (`ScreenerRoute | null`): The route selected by the screener, if any.
+- **_screenerDocument** (`any | null`): Standalone Screener Document.
 - **resolveToken** (`(val: any) => any`): @internal
 - **resolveItemPresentation** (`(itemDesc: ItemDescriptor) => PresentationBlock`): @internal
 - **applyStyle** (`(el: HTMLElement, style: any) => void`): @internal
@@ -634,10 +812,10 @@ Orchestrates the full rendering pipeline:
 - **applyAccessibility** (`(el: HTMLElement, comp: any) => void`): @internal
 - **(set) screenerSeedAnswers** (`Record<string, any> | null | undefined`): Optional: only screener keys when you have no full `data` blob. Prefer {@link initialData}
 with the same shape as `response.data` so screener + main form hydrate in one step.
-- **(set) initialData** (`Record<string, any> | null | undefined`): Full Formspec response `data` (same object you would pass to engine hydration). Set **before**
-{@link definition} on a new element. On engine boot, screener fields are split out for the gate;
-the rest is applied to the engine so one assignment replaces manual `extractScreenerSeedFromData` +
-`applyResponseDataToEngine` calls.
+- **(set) initialData** (`Record<string, any> | null | undefined`): Full Formspec response `data` (same object you would pass to engine hydration). Set
+{@link screenerDocument} first when the payload includes screener keys. Set **before**
+{@link definition} on a new element. Set {@link screenerDocument} first so screener keys in
+`data` are split out for the gate; the rest is applied to the engine.
 - **(set) definition** (`any`): Set the form definition. Creates a new {@link FormEngine} instance and
 schedules a re-render. Throws if engine initialization fails.
 - **(get) definition** (`any`): The currently loaded form definition object.
@@ -648,10 +826,7 @@ breakpoints). Schedules a re-render.
 ref-counting and schedules a re-render.
 - **(get) themeDocument** (`ThemeDocument | null`): The currently loaded theme document, or `null` if none.
 - **(get) showSubmit** (`boolean`): Whether to auto-inject a SubmitButton into the layout plan. Defaults to true.
-- **(set) registryDocuments** (`any | any[]`): Set one or more extension registry documents. Builds an internal lookup
-map from extension name → registry entry so that field renderers can
-apply constraints and metadata (inputMode, autocomplete, pattern, etc.)
-generically instead of hardcoding per-extension behaviour.
+- **(set) screenerDocument** (`any | null`): Set the standalone Screener Document.
 - **(get) registryEntries** (`Map<string, any>`): The current registry entry lookup (extension name → entry).
 - **(set) localeDocuments** (`LocaleDocument | LocaleDocument[]`): Load one or more locale documents into the engine. If the engine
 hasn't been created yet (no definition set), the documents are
@@ -796,6 +971,10 @@ and removes the root container.
 
 Format a Formspec money value `{amount, currency}` as a localized currency string.
 Returns `''` when the amount is missing or not a finite number.
+
+## `formatBytes(bytes: number): string`
+
+Format a byte count into a human-readable string (KB, MB, GB).
 
 ## `applyResponseDataToEngine(engine: IFormEngine, data: Record<string, any>, prefix?: string): void`
 
@@ -948,6 +1127,11 @@ Interface for what emitNode/renderActualComponent need from FormspecRender.
 
 ##### `render(): void`
 
+## `evaluateScreenerDocumentForRoute(screenerDocument: any, answers: Record<string, any>): ScreenerRoute | null`
+
+Evaluate a standalone Screener Document (WASM) and return the first matched route, if any.
+See specs/screener/screener-spec.md — embedded `definition.screener` is not supported.
+
 ## `screenerAnswersSatisfyRequired(screener: any, answers: Record<string, any>): boolean`
 
 True when `answers` satisfies the same required / “at least one answer” rules as the Continue button.
@@ -955,29 +1139,31 @@ True when `answers` satisfies the same required / “at least one answer” rule
 ## `normalizeScreenerSeedForItem(item: any, raw: any, defaultCurrency: string): any`
 
 Coerce values from external systems (saved responses, REST/GraphQL, auth claims, etc.) into
-shapes the screener DOM and `evaluateScreener` expect.
+shapes the screener DOM and WASM screener evaluation expect.
 
 ## `buildInitialScreenerAnswers(screener: any, seed: Record<string, any> | null, defaultCurrency: string): Record<string, any>`
 
 Build the in-memory answer map for the screener from optional seed data (same keys as screener items).
 
-## `extractScreenerSeedFromData(definition: any, data: Record<string, any> | null | undefined): Record<string, any> | null`
+## `extractScreenerSeedFromData(screenerDocument: any | null | undefined, data: Record<string, any> | null | undefined): Record<string, any> | null`
 
-From any plain object, select only entries whose keys match `definition.screener` item keys.
-Use when hydrating from saved response `data`, a REST/GraphQL payload, identity claims, CRM or
-eligibility service output, etc. Assign the return value to `screenerSeedAnswers` on
-`FormspecRender` before setting `definition` so the first paint can pre-fill or skip the gate.
+From any plain object, select only entries whose keys match the standalone screener's `items`.
+Set {@link FormspecRender.screenerDocument} before {@link FormspecRender.definition} when using
+{@link FormspecRender.initialData} so seeds line up with the same document.
 
-## `omitScreenerKeysFromData(definition: any, data: Record<string, any>): Record<string, any>`
+## `omitScreenerKeysFromData(screenerDocument: any | null | undefined, data: Record<string, any>): Record<string, any>`
 
-Shallow copy of `data` without top-level keys that belong to `definition.screener` items.
+Shallow copy of `data` without top-level keys that match screener item keys.
 
-## `hasActiveScreener(definition: any): boolean`
+## `hasActiveScreener(screenerDocument: any | null | undefined): boolean`
+
+True when a standalone Screener Document is attached and has at least one item.
 
 ## `renderScreener(host: ScreenerHost, container: HTMLElement): void`
 
 #### interface `ScreenerHost`
 
+- **_screenerDocument** (`any | null`): Standalone Screener Document (`$formspecScreener`). Required for the gate UI.
 - **screenerSeedAnswers** (`Record<string, any> | null`): Initial answers when the screener mounts — from {@link extractScreenerSeedFromData} / host integration.
 
 ##### `classifyScreenerRoute(route: ScreenerRoute | null | undefined): 'none' | 'internal' | 'external'`

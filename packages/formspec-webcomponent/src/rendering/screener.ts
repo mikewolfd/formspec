@@ -1,11 +1,40 @@
 /** @filedesc Screener UI: renders eligibility questions and routes to internal/external forms. */
 import type { IFormEngine } from '@formspec-org/engine/render';
 import { wasmEvaluateScreenerDocument } from '@formspec-org/engine';
-import { ScreenerRoute } from '../types.js';
+import type { ScreenerRoute } from '../types.js';
+
+/** Use as {@link ScreenerRoute.extensions} only for plain objects (excludes null, arrays, Date, etc.). */
+function asRouteExtensionsRecord(value: unknown): Record<string, any> | undefined {
+    if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+        return undefined;
+    }
+    return value as Record<string, any>;
+}
+
+function firstMatchedRouteFromDetermination(determination: any): ScreenerRoute | null {
+    const matched =
+        determination.overrides?.matched?.[0] ?? determination.phases?.flatMap((p: any) => p.matched)?.[0];
+    if (!matched) return null;
+    const extensions =
+        asRouteExtensionsRecord(matched.extensions) ?? asRouteExtensionsRecord(matched.metadata);
+    return { target: matched.target, label: matched.label, extensions };
+}
+
+/**
+ * Evaluate a standalone Screener Document (WASM) and return the first matched route, if any.
+ * See specs/screener/screener-spec.md — embedded `definition.screener` is not supported.
+ */
+export function evaluateScreenerDocumentForRoute(
+    screenerDocument: any,
+    answers: Record<string, any>,
+): ScreenerRoute | null {
+    const determination = wasmEvaluateScreenerDocument(screenerDocument, answers);
+    return firstMatchedRouteFromDetermination(determination);
+}
 
 export interface ScreenerHost {
     _definition: any;
-    /** Standalone ScreenerDocument. Required for screener functionality. */
+    /** Standalone Screener Document (`$formspecScreener`). Required for the gate UI. */
     _screenerDocument: any | null;
     engine: IFormEngine;
     _screenerCompleted: boolean;
@@ -58,7 +87,7 @@ function normalizeMoneySeed(raw: any, defaultCurrency: string): { amount: number
 
 /**
  * Coerce values from external systems (saved responses, REST/GraphQL, auth claims, etc.) into
- * shapes the screener DOM and `evaluateScreener` expect.
+ * shapes the screener DOM and WASM screener evaluation expect.
  */
 export function normalizeScreenerSeedForItem(item: any, raw: any, defaultCurrency: string): any {
     if (raw === undefined) return undefined;
@@ -99,15 +128,13 @@ export function buildInitialScreenerAnswers(screener: any, seed: Record<string, 
 }
 
 /**
- * From any plain object, select only entries whose keys match `definition.screener` item keys.
- * Use when hydrating from saved response `data`, a REST/GraphQL payload, identity claims, CRM or
- * eligibility service output, etc. Assign the return value to `screenerSeedAnswers` on
- * `FormspecRender` before setting `definition` so the first paint can pre-fill or skip the gate.
+ * From any plain object, select only entries whose keys match the standalone screener's `items`.
+ * Set {@link FormspecRender.screenerDocument} before {@link FormspecRender.definition} when using
+ * {@link FormspecRender.initialData} so seeds line up with the same document.
  */
 export function extractScreenerSeedFromData(
-    definition: any,
+    screenerDocument: any | null | undefined,
     data: Record<string, any> | null | undefined,
-    screenerDocument?: any,
 ): Record<string, any> | null {
     const items = screenerDocument?.items;
     if (!Array.isArray(items) || !items.length || !data || typeof data !== 'object') {
@@ -123,8 +150,11 @@ export function extractScreenerSeedFromData(
     return Object.keys(seed).length ? seed : null;
 }
 
-/** Shallow copy of `data` without top-level keys that belong to screener items. */
-export function omitScreenerKeysFromData(definition: any, data: Record<string, any>, screenerDocument?: any): Record<string, any> {
+/** Shallow copy of `data` without top-level keys that match screener item keys. */
+export function omitScreenerKeysFromData(
+    screenerDocument: any | null | undefined,
+    data: Record<string, any>,
+): Record<string, any> {
     const items = screenerDocument?.items;
     if (!Array.isArray(items) || !items.length) {
         return { ...data };
@@ -139,14 +169,14 @@ export function omitScreenerKeysFromData(definition: any, data: Record<string, a
     return out;
 }
 
-/** Check if a standalone screener document is active (has items). */
-export function hasActiveScreener(screenerDocument: any | null): boolean {
-    return Boolean(screenerDocument) && Array.isArray(screenerDocument?.items) && screenerDocument.items.length > 0;
+/** True when a standalone Screener Document is attached and has at least one item. */
+export function hasActiveScreener(screenerDocument: any | null | undefined): boolean {
+    return Boolean(screenerDocument) && Array.isArray(screenerDocument.items) && screenerDocument.items.length > 0;
 }
 
 export function renderScreener(host: ScreenerHost, container: HTMLElement): void {
     if (!hasActiveScreener(host._screenerDocument)) return;
-    const screener = host._screenerDocument;
+    const screener = host._screenerDocument!;
     const panel = document.createElement('div');
     panel.className = 'formspec-screener';
 
@@ -337,13 +367,11 @@ export function renderScreener(host: ScreenerHost, container: HTMLElement): void
         }
         if (!valid) return;
 
-        // Evaluate via WASM and extract first matched route from determination
         let route: ScreenerRoute | null = null;
-        const determination = wasmEvaluateScreenerDocument(host._screenerDocument!, answers);
-        const matched = determination.overrides?.matched?.[0]
-            ?? determination.phases?.flatMap((p: any) => p.matched)?.[0];
-        if (matched) {
-            route = { target: matched.target, label: matched.label };
+        try {
+            route = evaluateScreenerDocumentForRoute(screener, answers);
+        } catch {
+            route = null;
         }
         host._screenerRoute = route;
         const routeType = host.classifyScreenerRoute(route);

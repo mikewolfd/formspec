@@ -246,9 +246,18 @@ Each input component receives a fully wired field wrapper with label, hint, erro
 
 ### Hydrating from saved or external `data`
 
-Use **`element.initialData = response.data`** (same shape as a Formspec response payload) **before** **`element.definition = …`**. On engine creation the element splits out screener keys, applies the rest with `applyResponseDataToEngine`, and pre-fills or auto-skips the screener—one assignment, same as the old “walk `data` + setValue” flow, without separate screener plumbing.
+Screener fields live in a **standalone Screener document** (`$formspecScreener`), not on the definition. Set **`element.screenerDocument = …`** before **`element.definition = …`** when you use the gate.
 
-For hydration **after** the element already has a definition, call **`applyResponseDataToEngine(engine, data)`** from this package. Optional: **`extractScreenerSeedFromData`** / **`omitScreenerKeysFromData`** / **`element.screenerSeedAnswers`** only if you need fine-grained control.
+Use **`element.initialData = response.data`** (same shape as a Formspec response payload) **before** **`element.definition = …`**. On engine creation the element uses the screener document’s `items` to split out screener keys, applies the rest with `applyResponseDataToEngine`, and pre-fills or auto-skips the screener.
+
+For hydration **after** the element already has a definition, call **`applyResponseDataToEngine(engine, data)`** from this package.
+
+Fine-grained helpers (both take the **screener document** as the first argument, not the definition):
+
+- **`extractScreenerSeedFromData(screenerDocument, data)`** — pick entries from `data` whose keys match screener item keys.
+- **`omitScreenerKeysFromData(screenerDocument, data)`** — shallow copy of `data` without those keys.
+
+You can also assign **`element.screenerSeedAnswers`** directly when you already have a seed object.
 
 ## Exports
 
