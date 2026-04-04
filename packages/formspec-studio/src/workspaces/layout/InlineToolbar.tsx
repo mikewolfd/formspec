@@ -358,12 +358,14 @@ function FieldControls({
   itemDataType,
   layoutContext,
   onSetProp,
+  onSetStyle,
 }: {
   nodeProps: Record<string, unknown>;
   itemType?: string;
   itemDataType?: string;
   layoutContext?: LayoutContext;
   onSetProp: (k: string, v: unknown) => void;
+  onSetStyle?: (k: string, v: string) => void;
 }) {
   const widgets = compatibleWidgets(itemType ?? 'field', itemDataType);
   const currentWidget = (nodeProps.widget as string) ?? '';
@@ -397,8 +399,8 @@ function FieldControls({
           min={1}
           max={parentCols}
           ariaLabel="column span"
-          onDecrement={() => onSetProp('gridColumn', `span ${currentSpan - 1}`)}
-          onIncrement={() => onSetProp('gridColumn', `span ${currentSpan + 1}`)}
+          onDecrement={() => onSetStyle?.('gridColumn', `span ${currentSpan - 1}`)}
+          onIncrement={() => onSetStyle?.('gridColumn', `span ${currentSpan + 1}`)}
         />
       )}
     </>
@@ -456,6 +458,7 @@ export function InlineToolbar(props: InlineToolbarProps) {
           itemDataType={itemDataType}
           layoutContext={layoutContext}
           onSetProp={onSetProp}
+          onSetStyle={onSetStyle}
         />
       )}
 

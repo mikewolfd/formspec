@@ -325,18 +325,18 @@ describe('InlineToolbar — Field', () => {
     expect(screen.queryByTestId('toolbar-span-dec')).toBeNull();
   });
 
-  it('increments span and calls onSetProp with gridColumn', () => {
-    const onSetProp = vi.fn();
-    render(<InlineToolbar {...makeFieldProps({ onSetProp, layoutContext: { parentContainerType: 'grid', parentGridColumns: 3, currentColSpan: 1 } })} />);
+  it('increments span and calls onSetStyle with gridColumn', () => {
+    const onSetStyle = vi.fn();
+    render(<InlineToolbar {...makeFieldProps({ onSetStyle, layoutContext: { parentContainerType: 'grid', parentGridColumns: 3, currentColSpan: 1 } })} />);
     fireEvent.click(screen.getByTestId('toolbar-span-inc'));
-    expect(onSetProp).toHaveBeenCalledWith('gridColumn', 'span 2');
+    expect(onSetStyle).toHaveBeenCalledWith('gridColumn', 'span 2');
   });
 
-  it('decrements span and calls onSetProp with gridColumn', () => {
-    const onSetProp = vi.fn();
-    render(<InlineToolbar {...makeFieldProps({ onSetProp, layoutContext: { parentContainerType: 'grid', parentGridColumns: 3, currentColSpan: 2 } })} />);
+  it('decrements span and calls onSetStyle with gridColumn', () => {
+    const onSetStyle = vi.fn();
+    render(<InlineToolbar {...makeFieldProps({ onSetStyle, layoutContext: { parentContainerType: 'grid', parentGridColumns: 3, currentColSpan: 2 } })} />);
     fireEvent.click(screen.getByTestId('toolbar-span-dec'));
-    expect(onSetProp).toHaveBeenCalledWith('gridColumn', 'span 1');
+    expect(onSetStyle).toHaveBeenCalledWith('gridColumn', 'span 1');
   });
 
   it('clamps span at 1 minimum', () => {
@@ -351,6 +351,21 @@ describe('InlineToolbar — Field', () => {
     render(<InlineToolbar {...makeFieldProps({ onSetProp, layoutContext: { parentContainerType: 'grid', parentGridColumns: 3, currentColSpan: 3 } })} />);
     fireEvent.click(screen.getByTestId('toolbar-span-inc'));
     expect(onSetProp).not.toHaveBeenCalled();
+  });
+
+  it('RED test: column span stepper must write to style.gridColumn via onSetStyle, not top-level prop', () => {
+    const onSetProp = vi.fn();
+    const onSetStyle = vi.fn();
+    render(<InlineToolbar {...makeFieldProps({
+      onSetProp,
+      onSetStyle,
+      layoutContext: { parentContainerType: 'grid', parentGridColumns: 3, currentColSpan: 1 },
+    })} />);
+    fireEvent.click(screen.getByTestId('toolbar-span-inc'));
+    // BUG: stepper currently calls onSetProp('gridColumn', 'span 2')
+    // CORRECT: stepper should call onSetStyle('gridColumn', 'span 2')
+    expect(onSetStyle).toHaveBeenCalledWith('gridColumn', 'span 2');
+    expect(onSetProp).not.toHaveBeenCalledWith('gridColumn', expect.anything());
   });
 });
 
