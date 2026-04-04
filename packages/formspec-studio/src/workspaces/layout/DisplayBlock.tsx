@@ -52,7 +52,7 @@ export function DisplayBlock({
   onRemove,
   onStyleRemove,
 }: DisplayBlockProps) {
-  const blockRef = useRef<HTMLButtonElement | null>(null);
+  const blockRef = useRef<HTMLDivElement | null>(null);
   const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -131,7 +131,7 @@ export function DisplayBlock({
 
   return (
     <div
-      ref={(el) => { blockRef.current = el as HTMLButtonElement; }}
+      ref={blockRef}
       role="button"
       tabIndex={0}
       data-testid={`layout-display-${itemKey}`}

@@ -231,43 +231,19 @@ export function getEditableThemeProperties(
   project: Project,
   itemKey: string,
 ): EditableThemeProperty[] {
-  // Determine the component type and item type
-  const definition = project.state.definition;
-  const core = definition.core ?? {};
-  const items = (core.items ?? []) as Array<{
-    key?: string;
-    type?: string;
-    dataType?: string;
-  }>;
-  const item = items.find((i) => i.key === itemKey);
+  // Get the item from the project
+  const item = project.itemAt(itemKey);
   const itemType = item?.type ?? 'field';
 
   // Look up the component that renders this item
   let component = '';
-  if (itemType === 'field' && item?.key) {
-    // For fields, find the component in the layout's render tree
-    const layout = definition.layout ?? {};
-    const findComponent = (node: unknown): string => {
-      if (typeof node !== 'object' || node === null) return '';
-      const n = node as Record<string, unknown>;
-      // Check if this is a field binding
-      if (n.bind === itemKey && typeof n.component === 'string') {
-        return n.component;
-      }
-      // Recurse into children
-      const children = n.children as unknown[];
-      if (Array.isArray(children)) {
-        for (const child of children) {
-          const found = findComponent(child);
-          if (found) return found;
-        }
-      }
-      return '';
-    };
-    if (typeof layout === 'object' && layout !== null) {
-      component = findComponent(layout);
+  if (itemType === 'field') {
+    // Get the component from the project's component document
+    const componentNode = project.componentFor(itemKey);
+    if (componentNode && typeof componentNode.component === 'string') {
+      component = componentNode.component;
     }
-    // If no component found yet, assume TextInput as a safe default
+    // If no component found, assume TextInput as a safe default
     if (!component) {
       component = 'TextInput';
     }

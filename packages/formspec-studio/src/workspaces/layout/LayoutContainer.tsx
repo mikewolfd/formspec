@@ -148,7 +148,14 @@ export function LayoutContainer(props: LayoutContainerProps) {
     index = 0,
     onSelect,
     children,
+    columns,
+    gap,
+    direction,
+    wrap,
+    align,
+    elevation,
     width,
+    position,
     title,
     defaultOpen = true,
     nodeStyle,
@@ -157,7 +164,6 @@ export function LayoutContainer(props: LayoutContainerProps) {
     onSetStyle,
     onUnwrap,
     onRemove,
-
     onStyleRemove,
     isDragActive: isDragActiveProp = false,
     isChildResizing = false,
@@ -188,7 +194,7 @@ export function LayoutContainer(props: LayoutContainerProps) {
 
   const isCollapsible = component === 'Collapsible' || component === 'Accordion';
   const contentStyle = buildContentStyle(component, {
-    columns, gap, direction, wrap, align, elevation, width, position, title, defaultOpen, nodeStyle,
+    columns, gap, direction, wrap, align, elevation, nodeStyle,
   });
   const containerStyle: React.CSSProperties = component === 'Panel' && width ? { width } : {};
   const displayTitle = title ?? undefined;

@@ -323,113 +323,19 @@ export function LayoutCanvas() {
     select(key, type, { tab: 'layout' });
   }, [select]);
 
-  const handleSetNodeProp = useCallback((selectionKey: string, key: string, value: unknown) => {
-    project.setLayoutNodeProp(selectionKey, key, value);
-  }, [project]);
+  const nodeOps = useLayoutNodeOperations(project, deselect);
+  const { handleSetNodeProp, handleUnwrapNode, handleRemoveNode, handleStyleAdd, handleStyleRemove, handleResizeColSpan, handleResizeRowSpan } = nodeOps;
 
-  const handleUnwrapNode = useCallback((selectionKey: string) => {
-    const nodeId = nodeIdFromLayoutId(selectionKey);
-    project.unwrapLayoutNode(nodeId);
-    deselect();
-  }, [project, deselect]);
-
-  const handleRemoveNode = useCallback((selectionKey: string) => {
-    const nodeId = nodeIdFromLayoutId(selectionKey);
-    project.deleteLayoutNode(nodeId);
-    deselect();
-  }, [project, deselect]);
-
-  const handleStyleAdd = useCallback((selectionKey: string, key: string, value: string) => {
-    const current = project.componentFor(
-      nodeIdFromLayoutId(selectionKey),
-    ) as Record<string, unknown> | undefined;
-    const currentStyle = (current?.style as Record<string, unknown>) ?? {};
-    project.setLayoutNodeProp(selectionKey, 'style', { ...currentStyle, [key]: value });
-  }, [project]);
-
-  const handleStyleRemove = useCallback((selectionKey: string, key: string) => {
-    const current = project.componentFor(
-      nodeIdFromLayoutId(selectionKey),
-    ) as Record<string, unknown> | undefined;
-    const currentStyle = { ...(current?.style as Record<string, unknown>) ?? {} };
-    delete currentStyle[key];
-    project.setLayoutNodeProp(selectionKey, 'style', currentStyle);
-  }, [project]);
-
-  const handleResizeColSpan = useCallback((selectionKey: string, newSpan: number) => {
-    const ref = isLayoutId(selectionKey)
-      ? { nodeId: nodeIdFromLayoutId(selectionKey) }
-      : { bind: selectionKey };
-    setColumnSpan(project, ref, newSpan);
-  }, [project]);
-
-  const handleResizeRowSpan = useCallback((selectionKey: string, newSpan: number) => {
-    const ref = isLayoutId(selectionKey)
-      ? { nodeId: nodeIdFromLayoutId(selectionKey) }
-      : { bind: selectionKey };
-    setRowSpan(project, ref, newSpan);
-  }, [project]);
-
-  const handleAddContainer = useCallback((componentName: typeof CONTAINER_PRESETS[number]) => {
-    const pageIdMap = materializePagedLayout();
-    const resolvedActivePageId = activePageId ? (pageIdMap.get(activePageId) ?? activePageId) : null;
-    const parentNodeId = isMultiPage ? (resolvedActivePageId ?? 'root') : 'root';
-    const result = project.addLayoutNode(parentNodeId, componentName);
-    if (result.createdId) {
-      if (resolvedActivePageId && resolvedActivePageId !== activePageId) {
-        setActivePageId(resolvedActivePageId);
-      }
-      handleSelectNode(`__node:${result.createdId}`, 'layout');
-    }
-  }, [activePageId, handleSelectNode, isMultiPage, materializePagedLayout, project]);
-
-  const handleAddPage = useCallback(() => {
-    materializePagedLayout();
-    const result = project.addPage(`Page ${pageNavItems.length + 1}`);
-    if (result.createdId) {
-      setActivePageId(result.createdId);
-    }
-  }, [materializePagedLayout, pageNavItems.length, project]);
-
-  const handleRenamePage = useCallback((pageId: string, title: string, groupPath?: string, componentPageId?: string) => {
-    if (componentPageId) {
-      project.renamePage(componentPageId, title);
-    }
-    if (groupPath) {
-      project.updateItem(groupPath, { label: title });
-    }
-  }, [project]);
-
-  const handleAddItem = useCallback((option: FieldTypeOption) => {
-    const pageIdMap = materializePagedLayout();
-    const resolvedActivePageId = activePageId ? (pageIdMap.get(activePageId) ?? activePageId) : null;
-    const pageId = isMultiPage ? (resolvedActivePageId ?? undefined) : undefined;
-    const result = project.addItemToLayout({
-      itemType: option.itemType,
-      label: option.label,
-      dataType: option.dataType,
-      component: option.component,
-      repeatable: option.extra?.repeatable === true,
-      presentation: (option.extra?.presentation as Record<string, unknown> | undefined) ?? undefined,
-    }, pageId);
-
-    if (!result.createdId) return;
-
-    if (resolvedActivePageId && resolvedActivePageId !== activePageId) {
-      setActivePageId(resolvedActivePageId);
-    }
-
-    const selectionKey = option.itemType === 'layout' ? `__node:${result.createdId}` : result.createdId;
-    const selectionType = option.itemType === 'layout'
-      ? 'layout'
-      : option.itemType === 'group'
-        ? 'group'
-        : option.itemType === 'display'
-          ? 'display'
-          : 'field';
-
-    handleSelectNode(selectionKey, selectionType);
-  }, [activePageId, handleSelectNode, isMultiPage, materializePagedLayout, project]);
+  const addOps = useLayoutAddOperations(
+    project,
+    activePageId,
+    isMultiPage,
+    pageNavItems,
+    materializePagedLayout,
+    setActivePageId,
+    handleSelectNode,
+  );
+  const { handleAddContainer, handleAddPage, handleRenamePage, handleAddItem } = addOps;
 
   const handleModeChange = useCallback((mode: LayoutMode) => {
     if (mode === 'theme') {

@@ -1,6 +1,6 @@
 /** @filedesc DnD wrapper for the Layout canvas — reorders component tree nodes. */
 import { useState, useCallback, type ReactNode } from 'react';
-import { DragDropProvider, type DragStartEvent, type DragEndEvent as DnDKitDragEndEvent } from '@dnd-kit/react';
+import { DragDropProvider } from '@dnd-kit/react';
 import { LayoutDragContext } from './LayoutDragContext';
 import { PointerSensor, PointerActivationConstraints } from '@dnd-kit/dom';
 import { useProject } from '../../state/useProject';
@@ -152,13 +152,13 @@ export function LayoutDndProvider({ children, activePageId = null }: LayoutDndPr
   const { select } = useSelection();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const onDragStart = useCallback((event: DragStartEvent) => {
+  const onDragStart = useCallback((event: any) => {
     const sourceId = String(event.operation?.source?.id ?? '');
     if (!sourceId) return;
     setActiveId(sourceId);
   }, []);
 
-  const onDragEnd = useCallback((event: DnDKitDragEndEvent) => {
+  const onDragEnd = useCallback((event: any) => {
     setActiveId(null);
     const source = event.operation?.source;
     const target = event.operation?.target;

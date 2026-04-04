@@ -244,7 +244,7 @@ export function renderLayoutTree(
           nodeStyle={node.style}
           nodeProps={node as Record<string, unknown>}
           onSetProp={ctx.onSetNodeProp ? (k, v) => ctx.onSetNodeProp!(defPath, k, v) : undefined}
-          onSetStyle={ctx.onStyleAdd ? (k, v) => ctx.onStyleAdd!(defPath, k, v) : undefined}
+          onSetStyle={ctx.onSetStyle ? (k, v) => ctx.onSetStyle!(defPath, k, v) : undefined}
           onSetColumnSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(defPath, n) : undefined}
           onResizeColSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(defPath, n) : undefined}
           onResizeRowSpan={ctx.onResizeRowSpan ? (n) => ctx.onResizeRowSpan!(defPath, n) : undefined}
