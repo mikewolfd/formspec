@@ -14,7 +14,7 @@ interface LayoutDndProviderProps {
   activePageId?: string | null;
 }
 
-type NodeRef = { bind: string } | { nodeId: string };
+type NodeRef = { bind?: string; nodeId?: string };
 type UnassignedItemData = { key: string; label: string; itemType: 'field' | 'group' | 'display' };
 
 /**
