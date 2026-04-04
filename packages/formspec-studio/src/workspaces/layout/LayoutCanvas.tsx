@@ -30,7 +30,7 @@ import { ThemeOverridePopover } from './ThemeOverridePopover';
 import { FormspecPreviewHost } from '../preview/FormspecPreviewHost';
 import { useOptionalLayoutMode } from './LayoutModeContext';
 import { type LayoutMode } from './LayoutThemeToggle';
-import { setThemeOverride, clearThemeOverride, setColumnSpan, setRowSpan } from '@formspec-org/studio-core';
+import { setThemeOverride, clearThemeOverride, setColumnSpan, setRowSpan, setStyleProperty, removeStyleProperty } from '@formspec-org/studio-core';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -64,20 +64,17 @@ function useLayoutNodeOperations(
   }, [project, deselect]);
 
   const handleStyleAdd = useCallback((selectionKey: string, key: string, value: string) => {
-    const current = project.componentFor(
-      nodeIdFromLayoutId(selectionKey),
-    ) as Record<string, unknown> | undefined;
-    const currentStyle = (current?.style as Record<string, unknown>) ?? {};
-    project.setLayoutNodeProp(selectionKey, 'style', { ...currentStyle, [key]: value });
+    const ref = isLayoutId(selectionKey)
+      ? { nodeId: nodeIdFromLayoutId(selectionKey) }
+      : { bind: selectionKey };
+    setStyleProperty(project, ref, key, value);
   }, [project]);
 
   const handleStyleRemove = useCallback((selectionKey: string, key: string) => {
-    const current = project.componentFor(
-      nodeIdFromLayoutId(selectionKey),
-    ) as Record<string, unknown> | undefined;
-    const currentStyle = { ...(current?.style as Record<string, unknown>) ?? {} };
-    delete currentStyle[key];
-    project.setLayoutNodeProp(selectionKey, 'style', currentStyle);
+    const ref = isLayoutId(selectionKey)
+      ? { nodeId: nodeIdFromLayoutId(selectionKey) }
+      : { bind: selectionKey };
+    removeStyleProperty(project, ref, key);
   }, [project]);
 
   const handleResizeColSpan = useCallback((selectionKey: string, newSpan: number) => {

@@ -125,6 +125,46 @@ export function setPadding(
   project.setNodeStyleProperty(ref, 'padding', value);
 }
 
+/**
+ * Add or update a single style property on a component node.
+ * Preserves all other style properties.
+ */
+export function setStyleProperty(
+  project: Project,
+  ref: NodeRef,
+  key: string,
+  value: string,
+): void {
+  project.setNodeStyleProperty(ref, key, value);
+}
+
+/**
+ * Remove a single style property from a component node.
+ * Preserves all other style properties.
+ */
+export function removeStyleProperty(
+  project: Project,
+  ref: NodeRef,
+  key: string,
+): void {
+  // Determine what component to fetch based on ref
+  const lookupKey = ref.nodeId || ref.bind;
+  if (!lookupKey) return;
+
+  // Get current style from the component
+  const component = project.componentFor(lookupKey) as Record<string, unknown> | undefined;
+  const currentStyle = { ...(component?.style as Record<string, unknown>) ?? {} };
+
+  // Delete the property
+  delete currentStyle[key];
+
+  // Determine the selection key for setLayoutNodeProp
+  const selectionKey = ref.nodeId ? `__node:${ref.nodeId}` : (ref.bind ?? '');
+
+  // Write back the updated style
+  project.setLayoutNodeProp(selectionKey, 'style', currentStyle);
+}
+
 // ── Theme helpers (Tier 2 — PresentationBlock cascade) ───────────────
 
 /**

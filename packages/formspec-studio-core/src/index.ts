@@ -207,6 +207,8 @@ export {
   setColumnSpan,
   setRowSpan,
   setPadding,
+  setStyleProperty,
+  removeStyleProperty,
   getPropertySources,
   getEditableThemeProperties,
   setThemeOverride,
