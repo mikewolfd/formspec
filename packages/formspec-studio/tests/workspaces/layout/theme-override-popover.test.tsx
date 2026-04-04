@@ -68,14 +68,18 @@ describe('ThemeOverridePopover — cascade provenance', () => {
   });
 
   it('shows property row even when getPropertySources returns empty', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['labelPosition']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'labelPosition', type: 'enum', options: ['top', 'start', 'hidden'] },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([]);
     render(<ThemeOverridePopover {...makeProps()} />);
     expect(screen.getByTestId('theme-prop-labelPosition')).toBeInTheDocument();
   });
 
   it('shows default source badge when cascade has a default level', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['labelPosition']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'labelPosition', type: 'enum', options: ['top', 'start', 'hidden'] },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([
       { source: 'default', value: 'top' },
     ]);
@@ -84,7 +88,9 @@ describe('ThemeOverridePopover — cascade provenance', () => {
   });
 
   it('shows selector source badge with detail', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['labelPosition']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'labelPosition', type: 'enum', options: ['top', 'start', 'hidden'] },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([
       { source: 'selector', sourceDetail: 'selector #1: field + string', value: 'start' },
     ]);
@@ -95,7 +101,9 @@ describe('ThemeOverridePopover — cascade provenance', () => {
   });
 
   it('shows item-override source badge when an override exists', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'cssClass', type: 'string' },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([
       { source: 'item-override', value: 'my-class' },
     ]);
@@ -104,7 +112,11 @@ describe('ThemeOverridePopover — cascade provenance', () => {
   });
 
   it('renders all editable properties as rows', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['labelPosition', 'widget', 'cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'labelPosition', type: 'enum', options: ['top', 'start', 'hidden'] },
+      { prop: 'widget', type: 'string' },
+      { prop: 'cssClass', type: 'string' },
+    ]);
     render(<ThemeOverridePopover {...makeProps()} />);
     expect(screen.getByTestId('theme-prop-labelPosition')).toBeInTheDocument();
     expect(screen.getByTestId('theme-prop-widget')).toBeInTheDocument();
@@ -116,7 +128,9 @@ describe('ThemeOverridePopover — cascade provenance', () => {
 
 describe('ThemeOverridePopover — override controls', () => {
   it('calls onSetOverride when cssClass input is committed (blur)', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'cssClass', type: 'string' },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([]);
     const onSetOverride = vi.fn();
     render(<ThemeOverridePopover {...makeProps({ onSetOverride })} />);
@@ -127,7 +141,9 @@ describe('ThemeOverridePopover — override controls', () => {
   });
 
   it('calls onClearOverride when Clear Override button clicked for a property with item-override', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'cssClass', type: 'string' },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([
       { source: 'item-override', value: 'my-cls' },
     ]);
@@ -138,7 +154,9 @@ describe('ThemeOverridePopover — override controls', () => {
   });
 
   it('clear button only visible when item-override source exists', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'cssClass', type: 'string' },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([
       { source: 'default', value: '' },
     ]);
@@ -151,7 +169,9 @@ describe('ThemeOverridePopover — override controls', () => {
 
 describe('ThemeOverridePopover — close and dirty guard', () => {
   it('calls onClose when close button clicked and no dirty inputs', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'cssClass', type: 'string' },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([]);
     const onClose = vi.fn();
     render(<ThemeOverridePopover {...makeProps({ onClose })} />);
@@ -160,7 +180,9 @@ describe('ThemeOverridePopover — close and dirty guard', () => {
   });
 
   it('shows dirty guard when trying to close with uncommitted changes', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'cssClass', type: 'string' },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([]);
     const onClose = vi.fn();
     render(<ThemeOverridePopover {...makeProps({ onClose })} />);
@@ -171,7 +193,9 @@ describe('ThemeOverridePopover — close and dirty guard', () => {
   });
 
   it('calls onClose after confirming discard in dirty guard', () => {
-    vi.mocked(getEditableThemeProperties).mockReturnValue(['cssClass']);
+    vi.mocked(getEditableThemeProperties).mockReturnValue([
+      { prop: 'cssClass', type: 'string' },
+    ]);
     vi.mocked(getPropertySources).mockReturnValue([]);
     const onClose = vi.fn();
     render(<ThemeOverridePopover {...makeProps({ onClose })} />);

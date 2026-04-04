@@ -44,8 +44,7 @@ export interface LayoutContainerProps {
   onUnwrap?: () => void;
   /** Called when "Remove from Tree" action is triggered from the PropertyPopover. */
   onRemove?: () => void;
-  /** Called when style is added from the PropertyPopover. */
-  onStyleAdd?: (key: string, value: string) => void;  /** Called when style is removed from the PropertyPopover. */
+  /** Called when style is removed from the PropertyPopover. */
   onStyleRemove?: (styleKey: string) => void;
   /** When true, renders N+1 insert slots between/around children for spatial DnD. */
   isDragActive?: boolean;
@@ -275,7 +274,7 @@ export function LayoutContainer(props: LayoutContainerProps) {
           anchorRef={overflowButtonRef}
           nodeProps={resolvedNodeProps}
           isContainer={true}
-          itemKey={bind ? bind.key : undefined}
+          itemKey={bind}
           onSetProp={onSetProp!}
           onSetStyle={onSetStyle ?? (() => {})}
           onStyleRemove={onStyleRemove ?? (() => {})}

@@ -46,10 +46,11 @@ interface FieldBlockProps {
   onSetProp?: (key: string, value: unknown) => void;
   /** Called when toolbar writes a style property (via style map, not direct prop). */
   onSetStyle?: (key: string, value: string) => void;
+  /** Called when toolbar wants to set column span via setColumnSpan. */
+  onSetColumnSpan?: (newSpan: number) => void;
   /** Called when "Remove from Tree" action is triggered from the PropertyPopover. */
   onRemove?: () => void;
-  /** Called when style is added from the PropertyPopover. */
-  onStyleAdd?: (key: string, value: string) => void;  /** Called when style is removed from the PropertyPopover. */
+  /** Called when style is removed from the PropertyPopover. */
   onStyleRemove?: (styleKey: string) => void;
 }
 
@@ -70,6 +71,7 @@ export function FieldBlock({
   nodeProps,
   onSetProp,
   onSetStyle,
+  onSetColumnSpan,
   onRemove,
   onStyleRemove,
 }: FieldBlockProps) {
@@ -195,6 +197,7 @@ export function FieldBlock({
           layoutContext={layoutContext}
           onSetProp={onSetProp!}
           onSetStyle={onSetStyle}
+          onSetColumnSpan={onSetColumnSpan}
           onOpenPopover={() => setPopoverOpen(true)}
           hasPopoverContent={hasPopoverContent}
           overflowButtonRef={overflowButtonRef}

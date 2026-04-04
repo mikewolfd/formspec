@@ -26,7 +26,7 @@ export interface LayoutRenderContext {
   /** Remove a layout node from the tree. */
   onRemoveNode?: (selectionKey: string) => void;
   /** Add a style override to a component node. */
-  onStyleAdd?: (selectionKey: string, key: string, value: string) => void;
+  onSetStyle?: (selectionKey: string, key: string, value: string) => void;
   /** Remove a style override from a component node. */
   onStyleRemove?: (selectionKey: string, key: string) => void;
   /** Resize a node's grid column span. */
@@ -108,7 +108,7 @@ function renderContainer(
       nodeStyle={node.style}
       nodeProps={node as Record<string, unknown>}
       onSetProp={ctx.onSetNodeProp ? (k, v) => ctx.onSetNodeProp!(selectionKey, k, v) : undefined}
-      onSetStyle={ctx.onStyleAdd ? (k, v) => ctx.onStyleAdd!(selectionKey, k, v) : undefined}
+      onSetStyle={ctx.onSetStyle ? (k, v) => ctx.onSetStyle!(selectionKey, k, v) : undefined}
       onUnwrap={ctx.onUnwrapNode ? () => ctx.onUnwrapNode!(selectionKey) : undefined}
       onRemove={ctx.onRemoveNode ? () => ctx.onRemoveNode!(selectionKey) : undefined}
       onStyleRemove={ctx.onStyleRemove ? (k) => ctx.onStyleRemove!(selectionKey, k) : undefined}
@@ -245,6 +245,7 @@ export function renderLayoutTree(
           nodeProps={node as Record<string, unknown>}
           onSetProp={ctx.onSetNodeProp ? (k, v) => ctx.onSetNodeProp!(defPath, k, v) : undefined}
           onSetStyle={ctx.onStyleAdd ? (k, v) => ctx.onStyleAdd!(defPath, k, v) : undefined}
+          onSetColumnSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(defPath, n) : undefined}
           onResizeColSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(defPath, n) : undefined}
           onResizeRowSpan={ctx.onResizeRowSpan ? (n) => ctx.onResizeRowSpan!(defPath, n) : undefined}
           onRemove={ctx.onRemoveNode ? () => ctx.onRemoveNode!(defPath) : undefined}

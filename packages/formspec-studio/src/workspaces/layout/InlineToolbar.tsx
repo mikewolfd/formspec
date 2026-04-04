@@ -27,6 +27,8 @@ export interface InlineToolbarProps {
   onSetProp: (key: string, value: unknown) => void;
   /** Called when the toolbar wants to write a style property (routes through style map, not direct props). */
   onSetStyle?: (key: string, value: string) => void;
+  /** Called when the stepper wants to set column span on a field in a grid. */
+  onSetColumnSpan?: (newSpan: number) => void;
   /** Called when overflow "..." button is clicked — caller manages popover mount. */
   onOpenPopover: () => void;
   /** Whether any Tier 3 properties are set — controls dot indicator on "..." button. */
@@ -361,6 +363,7 @@ function FieldControls({
   layoutContext,
   onSetProp,
   onSetStyle,
+  onSetColumnSpan,
 }: {
   nodeProps: Record<string, unknown>;
   itemType?: string;
@@ -368,6 +371,7 @@ function FieldControls({
   layoutContext?: LayoutContext;
   onSetProp: (k: string, v: unknown) => void;
   onSetStyle?: (k: string, v: string) => void;
+  onSetColumnSpan?: (newSpan: number) => void;
 }) {
   const widgets = compatibleWidgets(itemType ?? 'field', itemDataType);
   const currentWidget = (nodeProps.widget as string) ?? '';
@@ -401,8 +405,8 @@ function FieldControls({
           min={1}
           max={parentCols}
           ariaLabel="column span"
-          onDecrement={() => onSetStyle?.('gridColumn', `span ${currentSpan - 1}`)}
-          onIncrement={() => onSetStyle?.('gridColumn', `span ${currentSpan + 1}`)}
+          onDecrement={() => onSetColumnSpan?.(currentSpan - 1) ?? onSetStyle?.('gridColumn', `span ${currentSpan - 1}`)}
+          onIncrement={() => onSetColumnSpan?.(currentSpan + 1) ?? onSetStyle?.('gridColumn', `span ${currentSpan + 1}`)}
         />
       )}
     </>
@@ -420,6 +424,7 @@ export function InlineToolbar(props: InlineToolbarProps) {
     layoutContext,
     onSetProp,
     onSetStyle,
+    onSetColumnSpan,
     onOpenPopover,
     hasPopoverContent,
     overflowButtonRef,
@@ -515,13 +520,15 @@ export function InlineToolbar(props: InlineToolbarProps) {
 
           {/* Icon-only condition chip for compact mode */}
           {componentWhen && (
-            <span
+            <button
+              type="button"
               data-testid="toolbar-condition-chip-compact"
-              className="inline-flex h-6 px-1 items-center justify-center rounded border border-border/60 bg-subtle text-[10px] cursor-pointer hover:bg-subtle/80 transition-colors flex-shrink-0"
+              className="inline-flex h-6 px-1 items-center justify-center rounded border border-border/60 bg-subtle text-[10px] cursor-pointer hover:bg-subtle/80 transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/70"
               title={componentWhen}
+              onClick={(e) => { e.stopPropagation(); onOpenPopover(); }}
             >
               ⚙
-            </span>
+            </button>
           )}
 
           <button
@@ -568,6 +575,7 @@ export function InlineToolbar(props: InlineToolbarProps) {
               layoutContext={layoutContext}
               onSetProp={onSetProp}
               onSetStyle={onSetStyle}
+              onSetColumnSpan={onSetColumnSpan}
             />
           )}
 
@@ -587,7 +595,7 @@ export function InlineToolbar(props: InlineToolbarProps) {
             data-testid="toolbar-overflow"
             aria-label="More properties"
             onClick={(e) => { e.stopPropagation(); onOpenPopover(); }}
-            className="relative inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-surface text-[11px] text-muted hover:border-accent/40 hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/70"
+            className="relative ml-auto inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border border-border bg-surface text-[11px] text-muted hover:border-accent/40 hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/70"
           >
             ...
             {hasPopoverContent && (

@@ -46,8 +46,15 @@ export function DisplayBlock({
   nodeStyle,
   onResizeColSpan,
   onResizeRowSpan,
+  nodeProps,
+  onSetProp,
+  onSetStyle,
+  onRemove,
+  onStyleRemove,
 }: DisplayBlockProps) {
   const blockRef = useRef<HTMLButtonElement | null>(null);
+  const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const isInGrid = layoutContext?.parentContainerType === 'grid';
   const parentGridColumns = layoutContext?.parentGridColumns ?? 1;
@@ -110,16 +117,30 @@ export function DisplayBlock({
     ? { gridColumn: `span ${effectiveColSpan}` }
     : {};
 
+  const resolvedNodeProps = nodeProps ?? {};
+
+  // Determine dot indicator for overflow button
+  const hasPopoverContent = !!(
+    (resolvedNodeProps.accessibility as Record<string, unknown> | undefined)?.description ||
+    (resolvedNodeProps.accessibility as Record<string, unknown> | undefined)?.role ||
+    resolvedNodeProps.cssClass ||
+    Object.keys((resolvedNodeProps.style as Record<string, unknown>) ?? {}).length > 0
+  );
+
+  const showToolbar = selected && !!onSetProp;
+
   return (
-    <button
-      ref={blockRef}
-      type="button"
+    <div
+      ref={(el) => { blockRef.current = el as HTMLButtonElement; }}
+      role="button"
+      tabIndex={0}
       data-testid={`layout-display-${itemKey}`}
       data-layout-node
       data-layout-node-type="display"
       data-layout-node-id={itemKey}
       aria-pressed={selected}
       onClick={() => onSelect?.(selectionKey)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(selectionKey); } }}
       style={gridColumnStyle}
       className={`relative flex w-full items-center gap-2 rounded px-3 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 ${
         selected
@@ -127,10 +148,48 @@ export function DisplayBlock({
           : 'border-l-2 border-accent/40 bg-surface hover:bg-subtle/50'
       }`}
     >
-      {widgetHint && (
-        <span className="text-[10px] font-mono font-semibold uppercase text-accent/70">{widgetHint}</span>
+      {!showToolbar && (
+        <>
+          {widgetHint && (
+            <span className="text-[10px] font-mono font-semibold uppercase text-accent/70">{widgetHint}</span>
+          )}
+          <span className="text-[13px] text-ink">{label || itemKey}</span>
+        </>
       )}
-      <span className="text-[13px] text-ink">{label || itemKey}</span>
+
+      {/* Inline toolbar — shown when selected and onSetProp is provided */}
+      {showToolbar && (
+        <InlineToolbar
+          selectionKey={selectionKey}
+          itemKey={itemKey}
+          component={resolvedNodeProps.component as string ?? 'Heading'}
+          nodeProps={resolvedNodeProps}
+          itemType="display"
+          itemDataType={widgetHint}
+          layoutContext={layoutContext}
+          onSetProp={onSetProp!}
+          onSetStyle={onSetStyle}
+          onOpenPopover={() => setPopoverOpen(true)}
+          hasPopoverContent={hasPopoverContent}
+          overflowButtonRef={overflowButtonRef}
+        />
+      )}
+
+      {/* PropertyPopover */}
+      {showToolbar && popoverOpen && (
+        <PropertyPopover
+          open={popoverOpen}
+          anchorRef={overflowButtonRef}
+          nodeProps={resolvedNodeProps}
+          isContainer={false}
+          onSetProp={onSetProp!}
+          onSetStyle={onSetStyle ?? (() => {})}
+          onStyleRemove={onStyleRemove ?? (() => {})}
+          onUnwrap={() => {}}
+          onRemove={onRemove ?? (() => {})}
+          onClose={() => setPopoverOpen(false)}
+        />
+      )}
 
       {/* Right-edge column-span resize handle with touch zone */}
       {showColHandle && (
@@ -181,6 +240,6 @@ export function DisplayBlock({
           />
         </>
       )}
-    </button>
+    </div>
   );
 }

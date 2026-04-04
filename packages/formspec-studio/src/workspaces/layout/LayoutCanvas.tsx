@@ -36,6 +36,156 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Custom hook grouping node mutation operations.
+ */
+function useLayoutNodeOperations(
+  project: ReturnType<typeof useProject>,
+  deselect: () => void,
+) {
+  const handleSelectNode = useCallback((key: string, type: 'field' | 'group' | 'display' | 'layout') => {
+    // select is used from the parent
+  }, []);
+
+  const handleSetNodeProp = useCallback((selectionKey: string, key: string, value: unknown) => {
+    project.setLayoutNodeProp(selectionKey, key, value);
+  }, [project]);
+
+  const handleUnwrapNode = useCallback((selectionKey: string) => {
+    const nodeId = nodeIdFromLayoutId(selectionKey);
+    project.unwrapLayoutNode(nodeId);
+    deselect();
+  }, [project, deselect]);
+
+  const handleRemoveNode = useCallback((selectionKey: string) => {
+    const nodeId = nodeIdFromLayoutId(selectionKey);
+    project.deleteLayoutNode(nodeId);
+    deselect();
+  }, [project, deselect]);
+
+  const handleStyleAdd = useCallback((selectionKey: string, key: string, value: string) => {
+    const current = project.componentFor(
+      nodeIdFromLayoutId(selectionKey),
+    ) as Record<string, unknown> | undefined;
+    const currentStyle = (current?.style as Record<string, unknown>) ?? {};
+    project.setLayoutNodeProp(selectionKey, 'style', { ...currentStyle, [key]: value });
+  }, [project]);
+
+  const handleStyleRemove = useCallback((selectionKey: string, key: string) => {
+    const current = project.componentFor(
+      nodeIdFromLayoutId(selectionKey),
+    ) as Record<string, unknown> | undefined;
+    const currentStyle = { ...(current?.style as Record<string, unknown>) ?? {} };
+    delete currentStyle[key];
+    project.setLayoutNodeProp(selectionKey, 'style', currentStyle);
+  }, [project]);
+
+  const handleResizeColSpan = useCallback((selectionKey: string, newSpan: number) => {
+    const ref = isLayoutId(selectionKey)
+      ? { nodeId: nodeIdFromLayoutId(selectionKey) }
+      : { bind: selectionKey };
+    setColumnSpan(project, ref, newSpan);
+  }, [project]);
+
+  const handleResizeRowSpan = useCallback((selectionKey: string, newSpan: number) => {
+    const ref = isLayoutId(selectionKey)
+      ? { nodeId: nodeIdFromLayoutId(selectionKey) }
+      : { bind: selectionKey };
+    setRowSpan(project, ref, newSpan);
+  }, [project]);
+
+  return {
+    handleSetNodeProp,
+    handleUnwrapNode,
+    handleRemoveNode,
+    handleStyleAdd,
+    handleStyleRemove,
+    handleResizeColSpan,
+    handleResizeRowSpan,
+  };
+}
+
+/**
+ * Custom hook grouping add/page operations.
+ */
+function useLayoutAddOperations(
+  project: ReturnType<typeof useProject>,
+  activePageId: string | null,
+  isMultiPage: boolean,
+  pageNavItems: Array<{ id: string; title: string; groupPath?: string; pageId?: string }>,
+  materializePagedLayout: () => Map<string, string>,
+  setActivePageId: (id: string) => void,
+  handleSelectNode: (key: string, type: 'field' | 'group' | 'display' | 'layout') => void,
+) {
+  const handleAddContainer = useCallback((componentName: typeof CONTAINER_PRESETS[number]) => {
+    const pageIdMap = materializePagedLayout();
+    const resolvedActivePageId = activePageId ? (pageIdMap.get(activePageId) ?? activePageId) : null;
+    const parentNodeId = isMultiPage ? (resolvedActivePageId ?? 'root') : 'root';
+    const result = project.addLayoutNode(parentNodeId, componentName);
+    if (result.createdId) {
+      if (resolvedActivePageId && resolvedActivePageId !== activePageId) {
+        setActivePageId(resolvedActivePageId);
+      }
+      handleSelectNode(`__node:${result.createdId}`, 'layout');
+    }
+  }, [activePageId, handleSelectNode, isMultiPage, materializePagedLayout, project, setActivePageId]);
+
+  const handleAddPage = useCallback(() => {
+    materializePagedLayout();
+    const result = project.addPage(`Page ${pageNavItems.length + 1}`);
+    if (result.createdId) {
+      setActivePageId(result.createdId);
+    }
+  }, [materializePagedLayout, pageNavItems.length, project, setActivePageId]);
+
+  const handleRenamePage = useCallback((pageId: string, title: string, groupPath?: string, componentPageId?: string) => {
+    if (componentPageId) {
+      project.renamePage(componentPageId, title);
+    }
+    if (groupPath) {
+      project.updateItem(groupPath, { label: title });
+    }
+  }, [project]);
+
+  const handleAddItem = useCallback((option: FieldTypeOption) => {
+    const pageIdMap = materializePagedLayout();
+    const resolvedActivePageId = activePageId ? (pageIdMap.get(activePageId) ?? activePageId) : null;
+    const pageId = isMultiPage ? (resolvedActivePageId ?? undefined) : undefined;
+    const result = project.addItemToLayout({
+      itemType: option.itemType,
+      label: option.label,
+      dataType: option.dataType,
+      component: option.component,
+      repeatable: option.extra?.repeatable === true,
+      presentation: (option.extra?.presentation as Record<string, unknown> | undefined) ?? undefined,
+    }, pageId);
+
+    if (!result.createdId) return;
+
+    if (resolvedActivePageId && resolvedActivePageId !== activePageId) {
+      setActivePageId(resolvedActivePageId);
+    }
+
+    const selectionKey = option.itemType === 'layout' ? `__node:${result.createdId}` : result.createdId;
+    const selectionType = option.itemType === 'layout'
+      ? 'layout'
+      : option.itemType === 'group'
+        ? 'group'
+        : option.itemType === 'display'
+          ? 'display'
+          : 'field';
+
+    handleSelectNode(selectionKey, selectionType);
+  }, [activePageId, handleSelectNode, isMultiPage, materializePagedLayout, project, setActivePageId]);
+
+  return {
+    handleAddContainer,
+    handleAddPage,
+    handleRenamePage,
+    handleAddItem,
+  };
+}
+
 function synthesizePagedLayoutTree(nodes: CompNode[], definition: ReturnType<typeof useDefinition>): CompNode[] {
   const formPresentation = isRecord(definition?.formPresentation) ? definition.formPresentation : undefined;
   const pageMode = formPresentation?.pageMode;
@@ -402,7 +552,7 @@ export function LayoutCanvas() {
                 >
                   + Add Container
                 </button>
-                <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col bg-surface border border-border/60 rounded shadow-lg py-1 min-w-[140px] z-50">
+                <div className="absolute right-0 top-full mt-1 hidden group-hover:flex group-focus-within:flex flex-col bg-surface border border-border/60 rounded shadow-lg py-1 min-w-[140px] z-50">
                   {CONTAINER_PRESETS.map((componentName) => (
                     <button
                       key={componentName}
@@ -464,7 +614,7 @@ export function LayoutCanvas() {
                 onSetNodeProp: handleSetNodeProp,
                 onUnwrapNode: handleUnwrapNode,
                 onRemoveNode: handleRemoveNode,
-                onStyleAdd: handleStyleAdd,
+                onSetStyle: handleStyleAdd,
                 onStyleRemove: handleStyleRemove,
                 onResizeColSpan: handleResizeColSpan,
                 onResizeRowSpan: handleResizeRowSpan,
