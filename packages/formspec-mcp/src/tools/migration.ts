@@ -1,6 +1,5 @@
 /** @filedesc MCP tool for migration rule CRUD: add_rule, remove_rule, list_rules. */
 import type { ProjectRegistry } from '../registry.js';
-import type { Project } from '@formspec-org/studio-core';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
 import { HelperError } from '@formspec-org/studio-core';
 
@@ -20,11 +19,6 @@ interface MigrationParams {
   ruleIndex?: number;
 }
 
-/** Raw dispatch through the private core field. */
-function dispatch(project: Project, type: string, payload: Record<string, unknown>) {
-  (project as any).core.dispatch({ type, payload });
-}
-
 export function handleMigration(
   registry: ProjectRegistry,
   projectId: string,
@@ -40,14 +34,11 @@ export function handleMigration(
 
         // Ensure migration descriptor exists for this version
         if (!migrations?.from?.[fromVersion]) {
-          dispatch(project, 'definition.addMigration', {
-            fromVersion,
-            ...(params.description ? { description: params.description } : {}),
-          });
+          project.addMigration(fromVersion, params.description);
         }
 
         // Add the field map rule
-        dispatch(project, 'definition.addFieldMapRule', {
+        project.addMigrationRule({
           fromVersion,
           source: params.source!,
           target: params.target ?? null,
@@ -70,10 +61,7 @@ export function handleMigration(
         const fromVersion = params.fromVersion!;
         const ruleIndex = params.ruleIndex!;
 
-        dispatch(project, 'definition.deleteFieldMapRule', {
-          fromVersion,
-          index: ruleIndex,
-        });
+        project.removeMigrationRule(fromVersion, ruleIndex);
 
         return successResponse({
           fromVersion,

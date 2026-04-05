@@ -64,17 +64,17 @@ function listNodes(project: Project) {
 
 function addNode(project: Project, params: ComponentParams) {
   try {
-    const payload: Record<string, unknown> = {
-      parent: params.parent!,
-      component: params.component!,
-    };
-    if (params.bind) payload.bind = params.bind;
-    if (params.props) payload.props = params.props;
-
-    const result = (project as any).core.dispatch({ type: 'component.addNode', payload });
+    const result = project.addComponentNode(
+      params.parent!,
+      params.component!,
+      {
+        ...(params.bind ? { bind: params.bind } : {}),
+        ...(params.props ? { props: params.props } : {}),
+      },
+    );
     return successResponse({
       summary: `Added ${params.component} node`,
-      nodeRef: result?.nodeRef,
+      nodeRef: result.nodeRef,
       affectedPaths: [],
       warnings: [],
     });
@@ -86,14 +86,13 @@ function addNode(project: Project, params: ComponentParams) {
 
 function setNodeProperty(project: Project, params: ComponentParams) {
   try {
-    (project as any).core.dispatch({
-      type: 'component.setNodeProperty',
-      payload: {
-        node: params.node!,
-        property: params.property!,
-        value: params.value,
-      },
-    });
+    const target = params.node?.nodeId
+      ? `__node:${params.node.nodeId}`
+      : params.node?.bind;
+    if (!target) {
+      throw new HelperError('INVALID_TARGET', 'Node reference is required');
+    }
+    project.setLayoutNodeProp(target, params.property!, params.value);
     return successResponse({
       summary: `Set ${params.property} on node`,
       affectedPaths: [],
@@ -107,10 +106,7 @@ function setNodeProperty(project: Project, params: ComponentParams) {
 
 function removeNode(project: Project, params: ComponentParams) {
   try {
-    (project as any).core.dispatch({
-      type: 'component.deleteNode',
-      payload: { node: params.node! },
-    });
+    project.deleteComponentNode(params.node!);
     return successResponse({
       summary: `Removed node`,
       affectedPaths: [],

@@ -37,36 +37,27 @@ export function handleBehaviorExpanded(
 
     switch (params.action) {
       case 'set_bind_property': {
-        return wrapHelperCall(() => {
-          const bind = project.bindFor(params.target);
-          const updates = { ...bind, [params.property!]: params.value };
-          // Use the public Project API if available, or error if bind operations aren't exposed
-          throw new HelperError('NOT_IMPLEMENTED', `bind property updates not yet exposed in public API`);
-        });
+        return wrapHelperCall(() =>
+          project.updateItem(params.target, { [params.property!]: params.value }),
+        );
       }
 
       case 'set_shape_composition': {
-        // Create multiple shapes under a composition grouping
-        // The composition type indicates how child constraints combine
         const rules = params.rules ?? [];
         const composition = params.composition ?? 'and';
 
-        // Use the public addValidation API for each rule
         const createdIds: string[] = [];
         for (const rule of rules) {
           const result = wrapHelperCall(() =>
-            project.addValidation(params.target, rule.constraint, rule.message, {
-              // Note: composition metadata is not yet exposed in addValidation options
-              // This will need to be extended in the public API
-            }),
+            project.addValidation(params.target, rule.constraint, rule.message),
           );
 
           if ('isError' in result && result.isError) {
             return result;
           }
-          // Extract shape ID if available from result metadata
-          if ((result as any).structuredContent?.shapeId) {
-            createdIds.push((result as any).structuredContent.shapeId);
+          // Extract shape ID from HelperResult wrapped in structuredContent
+          if ((result as any).structuredContent?.createdId) {
+            createdIds.push((result as any).structuredContent.createdId);
           }
         }
 

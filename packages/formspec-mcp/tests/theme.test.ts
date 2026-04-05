@@ -21,6 +21,19 @@ describe('handleTheme — tokens', () => {
     expect(result.isError).toBeUndefined();
   });
 
+  it('rejects invalid token names', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handleTheme(registry, projectId, {
+      action: 'set_token',
+      key: 'color.bad key',
+      value: '#ff0000',
+    });
+    const data = parseResult(result);
+
+    expect(result.isError).toBe(true);
+    expect(data.code).toBe('INVALID_PARAM');
+  });
+
   it('lists tokens after setting one', () => {
     const { registry, projectId } = registryWithProject();
     handleTheme(registry, projectId, {
@@ -35,6 +48,42 @@ describe('handleTheme — tokens', () => {
     expect(result.isError).toBeUndefined();
     expect(data).toHaveProperty('tokens');
     expect(data.tokens).toHaveProperty('primaryColor', '#ff0000');
+    expect(data.groups).toBeDefined();
+    expect(data.groups[0]).toHaveProperty('prefix', 'other');
+  });
+
+  it('groups dotted tokens by prefix using the shared helper layer', () => {
+    const { registry, projectId } = registryWithProject();
+    handleTheme(registry, projectId, {
+      action: 'set_token',
+      key: 'color.primary',
+      value: '#ff0000',
+    });
+    handleTheme(registry, projectId, {
+      action: 'set_token',
+      key: 'primaryColor',
+      value: '#00ff00',
+    });
+
+    const result = handleTheme(registry, projectId, { action: 'list_tokens' });
+    const data = parseResult(result);
+    const colorGroup = data.groups.find((group: { prefix: string; items: Array<Record<string, unknown>> }) => group.prefix === 'color');
+    const otherGroup = data.groups.find((group: { prefix: string; items: Array<Record<string, unknown>> }) => group.prefix === 'other');
+
+    if (!colorGroup || !otherGroup) {
+      throw new Error('Expected color and other token groups');
+    }
+
+    expect(colorGroup.items[0]).toMatchObject({
+      key: 'color.primary',
+      name: 'primary',
+      value: '#ff0000',
+    });
+    expect(otherGroup.items[0]).toMatchObject({
+      key: 'primaryColor',
+      name: 'primaryColor',
+      value: '#00ff00',
+    });
   });
 
   it('removes a token', () => {
@@ -135,6 +184,7 @@ describe('handleTheme — selectors', () => {
     expect(data.selectors).toHaveLength(1);
     expect(data.selectors[0]).toHaveProperty('match');
     expect(data.selectors[0]).toHaveProperty('apply');
+    expect(data.selectors[0]).toHaveProperty('summary', 'email');
   });
 
   it('lists empty selectors for a fresh project', () => {
@@ -164,6 +214,75 @@ describe('handleTheme — selectors', () => {
     const data = parseResult(result);
 
     expect(data.selectors).toHaveLength(2);
+  });
+});
+
+// ── Breakpoints ─────────────────────────────────────────────────────
+
+describe('handleTheme — breakpoints', () => {
+  it('lists breakpoints in ascending order', () => {
+    const { registry, projectId } = registryWithProject();
+    const project = registry.getProject(projectId);
+    project.setBreakpoint('desktop', 1024);
+    project.setBreakpoint('mobile', 0);
+    project.setBreakpoint('tablet', 768);
+
+    const result = handleTheme(registry, projectId, { action: 'list_breakpoints' });
+    const data = parseResult(result);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.breakpoints.map((entry: { name: string }) => entry.name)).toEqual(['mobile', 'tablet', 'desktop']);
+  });
+
+  it('applies breakpoint presets', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handleTheme(registry, projectId, { action: 'apply_breakpoint_presets' });
+    const data = parseResult(result);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.applied).toBe(true);
+    expect(data.breakpoints.map((entry: { name: string }) => entry.name)).toEqual(['mobile', 'tablet', 'desktop']);
+  });
+});
+
+// ── Item Overrides ───────────────────────────────────────────────────
+
+describe('handleTheme — item overrides', () => {
+  it('sets, lists, and clears a per-item override', () => {
+    const { registry, projectId } = registryWithProject();
+
+    const setResult = handleTheme(registry, projectId, {
+      action: 'set_item_override',
+      itemKey: 'name',
+      property: 'labelPosition',
+      value: 'above',
+    });
+    expect(setResult.isError).toBeUndefined();
+
+    const listResult = handleTheme(registry, projectId, {
+      action: 'list_item_overrides',
+      itemKey: 'name',
+    });
+    const listData = parseResult(listResult);
+
+    expect(listResult.isError).toBeUndefined();
+    expect(listData).toHaveProperty('item_overrides');
+    expect(listData.item_overrides).toHaveProperty('labelPosition', 'above');
+
+    const clearResult = handleTheme(registry, projectId, {
+      action: 'clear_item_override',
+      itemKey: 'name',
+      property: 'labelPosition',
+    });
+    expect(clearResult.isError).toBeUndefined();
+
+    const afterClearResult = handleTheme(registry, projectId, {
+      action: 'list_item_overrides',
+      itemKey: 'name',
+    });
+    const afterClearData = parseResult(afterClearResult);
+
+    expect(afterClearData.item_overrides).not.toHaveProperty('labelPosition');
   });
 });
 

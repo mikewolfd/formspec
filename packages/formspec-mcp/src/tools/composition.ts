@@ -14,11 +14,6 @@ interface CompositionParams {
   keyPrefix?: string;
 }
 
-/** Raw dispatch through the private core field. */
-function dispatch(project: Project, type: string, payload: Record<string, unknown>) {
-  (project as any).core.dispatch({ type, payload });
-}
-
 export function handleComposition(
   registry: ProjectRegistry,
   projectId: string,
@@ -41,11 +36,7 @@ export function handleComposition(
           });
         }
 
-        dispatch(project, 'definition.setGroupRef', {
-          path,
-          ref: params.ref!,
-          ...(params.keyPrefix ? { keyPrefix: params.keyPrefix } : {}),
-        });
+        project.setGroupRef(path, params.ref!, params.keyPrefix);
 
         return successResponse({
           path,
@@ -62,10 +53,7 @@ export function handleComposition(
           throw new HelperError('ITEM_NOT_FOUND', `Item not found: ${path}`);
         }
 
-        dispatch(project, 'definition.setGroupRef', {
-          path,
-          ref: null,
-        });
+        project.setGroupRef(path, null);
 
         return successResponse({
           path,

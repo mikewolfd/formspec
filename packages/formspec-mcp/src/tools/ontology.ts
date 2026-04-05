@@ -135,17 +135,11 @@ function getOntologyBinding(item: FormItem): OntologyBinding | undefined {
 
 function setOntologyBinding(project: any, path: string, binding: OntologyBinding): void {
   // Use definition.setItemProperty handler to set the extension on the item
-  project.core.dispatch({
-    type: 'definition.setItemProperty',
-    payload: { path, property: `extensions.${ONTOLOGY_EXT_KEY}`, value: binding },
-  });
+  project.setItemExtension(path, ONTOLOGY_EXT_KEY, binding);
 }
 
 function removeOntologyBinding(project: any, path: string): void {
-  project.core.dispatch({
-    type: 'definition.setItemProperty',
-    payload: { path, property: `extensions.${ONTOLOGY_EXT_KEY}`, value: undefined },
-  });
+  project.setItemExtension(path, ONTOLOGY_EXT_KEY, undefined);
 }
 
 function walkItems(

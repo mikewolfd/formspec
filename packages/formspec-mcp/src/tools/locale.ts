@@ -28,17 +28,10 @@ export function handleLocale(
 
     switch (params.action) {
       case 'set_string':
-        return wrapDispatch(project, 'locale.setString', {
-          localeId: params.locale_id,
-          key: params.key!,
-          value: params.value!,
-        });
+        return successResponse(project.setLocaleString(params.key!, params.value!, params.locale_id));
 
       case 'remove_string':
-        return wrapDispatch(project, 'locale.removeString', {
-          localeId: params.locale_id,
-          key: params.key!,
-        });
+        return successResponse(project.removeLocaleString(params.key!, params.locale_id));
 
       case 'list_strings': {
         if (params.locale_id) {
@@ -60,11 +53,7 @@ export function handleLocale(
       }
 
       case 'set_form_string':
-        return wrapDispatch(project, 'locale.setMetadata', {
-          localeId: params.locale_id,
-          property: params.property!,
-          value: params.value!,
-        });
+        return successResponse(project.setLocaleMetadata(params.property!, params.value!, params.locale_id));
 
       case 'list_form_strings': {
         const locale = project.localeAt(params.locale_id!);
@@ -91,25 +80,6 @@ export function handleLocale(
           `Unknown locale action: ${params.action}`,
         ));
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
-}
-
-// ── Internal helpers ─────────────────────────────────────────────────
-
-function wrapDispatch(project: any, type: string, payload: Record<string, unknown>) {
-  try {
-    project.core.dispatch({ type, payload });
-    return successResponse({
-      summary: `${type} applied`,
-      affectedPaths: [],
-      warnings: [],
-    });
   } catch (err) {
     if (err instanceof HelperError) {
       return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));

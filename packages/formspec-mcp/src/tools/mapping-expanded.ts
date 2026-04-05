@@ -1,6 +1,5 @@
 /** @filedesc MCP tool for mapping rule CRUD: add_mapping, remove_mapping, list_mappings, auto_map. */
 import type { ProjectRegistry } from '../registry.js';
-import type { Project } from '@formspec-org/studio-core';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
 import { HelperError } from '@formspec-org/studio-core';
 
@@ -21,11 +20,6 @@ interface MappingParams {
   replace?: boolean;
 }
 
-/** Raw dispatch through the private core field. */
-function dispatch(project: Project, type: string, payload: Record<string, unknown>) {
-  (project as any).core.dispatch({ type, payload });
-}
-
 export function handleMappingExpanded(
   registry: ProjectRegistry,
   projectId: string,
@@ -36,7 +30,7 @@ export function handleMappingExpanded(
 
     switch (params.action) {
       case 'add_mapping': {
-        dispatch(project, 'mapping.addRule', {
+        project.addMappingRule({
           ...(params.mappingId ? { mappingId: params.mappingId } : {}),
           sourcePath: params.sourcePath,
           targetPath: params.targetPath,
@@ -57,10 +51,7 @@ export function handleMappingExpanded(
 
       case 'remove_mapping': {
         const ruleIndex = params.ruleIndex!;
-        dispatch(project, 'mapping.deleteRule', {
-          ...(params.mappingId ? { mappingId: params.mappingId } : {}),
-          index: ruleIndex,
-        });
+        project.removeMappingRule(ruleIndex, params.mappingId);
 
         return successResponse({
           removedIndex: ruleIndex,
@@ -87,7 +78,7 @@ export function handleMappingExpanded(
       }
 
       case 'auto_map': {
-        dispatch(project, 'mapping.autoGenerateRules', {
+        project.autoGenerateMappingRules({
           ...(params.mappingId ? { mappingId: params.mappingId } : {}),
           ...(params.scopePath ? { scopePath: params.scopePath } : {}),
           ...(params.replace !== undefined ? { replace: params.replace } : {}),

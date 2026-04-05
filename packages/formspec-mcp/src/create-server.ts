@@ -639,24 +639,25 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_theme', {
     title: 'Theme',
-    description: 'Manage theme tokens, defaults, and selectors. Actions: set_token, remove_token, list_tokens, set_default, list_defaults, add_selector, list_selectors.',
+    description: 'Manage theme tokens, defaults, item overrides, selectors, and breakpoints. Actions: set_token, remove_token, list_tokens, set_default, list_defaults, set_item_override, clear_item_override, list_item_overrides, add_selector, list_selectors, list_breakpoints, apply_breakpoint_presets.',
     inputSchema: {
       project_id: z.string(),
-      action: z.enum(['set_token', 'remove_token', 'list_tokens', 'set_default', 'list_defaults', 'add_selector', 'list_selectors']),
+      action: z.enum(['set_token', 'remove_token', 'list_tokens', 'set_default', 'list_defaults', 'set_item_override', 'clear_item_override', 'list_item_overrides', 'add_selector', 'list_selectors', 'list_breakpoints', 'apply_breakpoint_presets']),
       key: z.string().optional().describe('Token key (for set_token, remove_token)'),
       value: z.unknown().optional().describe('Token or default value (for set_token, set_default)'),
       property: z.string().optional().describe('Default property name (for set_default)'),
+      itemKey: z.string().optional().describe('Item key (for set_item_override, clear_item_override, list_item_overrides)'),
       match: z.record(z.string(), z.unknown()).optional().describe('Selector match criteria (for add_selector)'),
       apply: z.record(z.string(), z.unknown()).optional().describe('Selector properties to apply (for add_selector)'),
     },
     annotations: NON_DESTRUCTIVE,
-  }, async ({ project_id, action, key, value, property, match, apply }) => {
-    const readOnlyActions = ['list_tokens', 'list_defaults', 'list_selectors'];
+  }, async ({ project_id, action, key, value, property, itemKey, match, apply }) => {
+    const readOnlyActions = ['list_tokens', 'list_defaults', 'list_item_overrides', 'list_selectors', 'list_breakpoints'];
     if (readOnlyActions.includes(action)) {
-      return handleTheme(registry, project_id, { action, key, value, property, match, apply });
+      return handleTheme(registry, project_id, { action, key, value, property, itemKey, match, apply });
     }
     return bracketMutation(registry, project_id, 'formspec_theme', () =>
-      handleTheme(registry, project_id, { action, key, value, property, match, apply }),
+      handleTheme(registry, project_id, { action, key, value, property, itemKey, match, apply }),
     );
   });
 
