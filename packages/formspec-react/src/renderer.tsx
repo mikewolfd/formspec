@@ -55,6 +55,7 @@ export interface FormspecFormProps extends Omit<FormspecProviderProps, 'children
  * Once the screener routes internally (or is skipped), the form is shown.
  */
 export function FormspecForm({
+    definition,
     className,
     screenerDocument,
     skipScreener,
@@ -84,6 +85,7 @@ export function FormspecForm({
             <FormspecProvider {...providerProps}>
                 <ScreenerGate
                     definition={definition}
+                    screenerDocument={screenerDocument}
                     className={className}
                     seedAnswers={screenerSeedAnswers}
                     renderExternalRoute={renderExternalRoute}
@@ -109,6 +111,7 @@ export function FormspecForm({
  */
 function ScreenerGate({
     definition,
+    screenerDocument,
     className,
     seedAnswers,
     renderExternalRoute,
@@ -117,6 +120,7 @@ function ScreenerGate({
     onSkip,
 }: {
     definition: any;
+    screenerDocument?: any;
     className?: string;
     seedAnswers?: Record<string, any>;
     renderExternalRoute?: (route: ScreenerRoute) => React.ReactNode;
