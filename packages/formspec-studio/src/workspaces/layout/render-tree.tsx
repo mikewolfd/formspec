@@ -50,8 +50,6 @@ export interface LayoutRenderContext {
     nextLabel: string | null,
     kind: 'field' | 'display',
   ) => void;
-  /** Partial definition item update (description, hint, …). */
-  onUpdateDefinitionItem?: (defPath: string, changes: Record<string, unknown>) => void;
 }
 
 /** Layout context propagated from a parent container down to its children. */
@@ -135,6 +133,7 @@ function renderContainer(
   children: React.ReactNode,
   layoutProps: ContainerLayoutProps,
   collisionPriority: number,
+  pageSectionActive: boolean,
   extraProps?: Partial<{
     bind: string;
     bindPath: string;
@@ -160,6 +159,7 @@ function renderContainer(
       onRemove={ctx.onRemoveNode ? () => ctx.onRemoveNode!(selectionKey) : undefined}
       onStyleRemove={ctx.onStyleRemove ? (k) => ctx.onStyleRemove!(selectionKey, k) : undefined}
       collisionPriority={collisionPriority}
+      pageSectionActive={pageSectionActive}
     >
       {children}
     </LayoutContainer>
@@ -172,14 +172,25 @@ export function renderLayoutTree(
   defPathPrefix: string,
   parentCtx: ParentLayoutContext = ROOT_CONTEXT,
   containerDepth = 0,
+  /** True when nodes live on the active wizard page or single-page canvas (see LayoutCanvas). */
+  pageSectionActive = false,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
 
   for (const node of nodes) {
     // Authored Page node — render as a titled section in the Layout workspace.
     if (node._layout && node.component === 'Page') {
+      const pageId = node.nodeId ?? 'page';
+      const activePageSection = ctx.activePageId == null || ctx.activePageId === pageId;
       const children = node.children
-        ? renderLayoutTree(node.children, ctx, defPathPrefix, ROOT_CONTEXT, containerDepth)
+        ? renderLayoutTree(
+            node.children,
+            ctx,
+            defPathPrefix,
+            ROOT_CONTEXT,
+            containerDepth,
+            activePageSection,
+          )
         : null;
       result.push(
         <LayoutPageSection
@@ -235,7 +246,7 @@ export function renderLayoutTree(
         parentGridColumns: resolveContainerColumns(node.columns) ?? 2,
       };
       const children = node.children
-        ? renderLayoutTree(node.children, ctx, defPathPrefix, childCtx, containerDepth + 1)
+        ? renderLayoutTree(node.children, ctx, defPathPrefix, childCtx, containerDepth + 1, pageSectionActive)
         : null;
       const nodeSelKey = `__node:${node.nodeId!}`;
       result.push(
@@ -248,6 +259,7 @@ export function renderLayoutTree(
           children,
           buildContainerLayoutProps(node),
           containerDepth * 10,
+          pageSectionActive,
           { nodeId: node.nodeId! },
         ),
       );
@@ -268,7 +280,7 @@ export function renderLayoutTree(
           parentGridColumns: resolveContainerColumns(node.columns) ?? 2,
         };
         const children = node.children
-          ? renderLayoutTree(node.children, ctx, defPath, childCtx, containerDepth + 1)
+          ? renderLayoutTree(node.children, ctx, defPath, childCtx, containerDepth + 1, pageSectionActive)
           : null;
         const groupSelKey = defPath;
         result.push(
@@ -281,6 +293,7 @@ export function renderLayoutTree(
             children,
             buildContainerLayoutProps(node),
             containerDepth * 10,
+            pageSectionActive,
             {
               bind: item.key,
               bindPath: defPath,
@@ -321,14 +334,9 @@ export function renderLayoutTree(
           description={description}
           hint={hint}
           onRenameDefinitionItem={
-            ctx.onRenameDefinitionItem && ctx.onUpdateDefinitionItem
+            ctx.onRenameDefinitionItem
               ? (nextKey, nextLabel) =>
                   ctx.onRenameDefinitionItem!(defPath, nextKey, nextLabel, 'field')
-              : undefined
-          }
-          onUpdateDefinitionItem={
-            ctx.onUpdateDefinitionItem
-              ? (changes) => ctx.onUpdateDefinitionItem!(defPath, changes)
               : undefined
           }
           layoutContext={fieldLayoutCtx}
@@ -386,16 +394,12 @@ export function renderLayoutTree(
           description={displayDescription}
           hint={displayHint}
           onRenameDefinitionItem={
-            isDefinitionDisplay && ctx.onRenameDefinitionItem && ctx.onUpdateDefinitionItem && defPath
+            isDefinitionDisplay && ctx.onRenameDefinitionItem && defPath
               ? (nextKey, nextLabel) =>
                   ctx.onRenameDefinitionItem!(defPath, nextKey, nextLabel, 'display')
               : undefined
           }
-          onUpdateDefinitionItem={
-            defPath && ctx.onUpdateDefinitionItem
-              ? (changes) => ctx.onUpdateDefinitionItem!(defPath, changes)
-              : undefined
-          }
+          definitionCopyPath={isDefinitionDisplay && defPath ? defPath : null}
           layoutContext={displayLayoutCtx2}
           nodeStyle={node.style as Record<string, unknown> | undefined}
           onResizeColSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(displaySelKey, n) : undefined}

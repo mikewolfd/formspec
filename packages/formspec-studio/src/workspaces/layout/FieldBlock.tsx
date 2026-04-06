@@ -1,14 +1,16 @@
-/** @filedesc Layout canvas block for bound field items — shows label and data type, supports drag reordering, column span resize, inline toolbar, and definition inline edits. */
+/** @filedesc Layout canvas block for bound fields — label edit, read-only definition copy + Editor link, drag/resize, inline toolbar. */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useDraggable } from '@dnd-kit/react';
 import { dataTypeInfo, hasTier3Content } from '@formspec-org/studio-core';
 import { DragHandle } from '../../components/ui/DragHandle';
 import { FieldIcon } from '../../components/ui/FieldIcon';
-import { EditMark, summaryInputClassName, summaryInputLabel } from '../editor/item-row-shared';
+import { EditMark } from '../editor/item-row-shared';
 import { useResizeHandle } from './useResizeHandle';
 import { InlineToolbar } from './InlineToolbar';
 import { PropertyPopover } from './PropertyPopover';
+import { DefinitionCopyReadonlyPanel } from './DefinitionCopyReadonlyPanel';
 import { useLayoutResizeReporter } from './LayoutResizeContext';
+import { LAYOUT_LEAF_SELECTED, LAYOUT_LEAF_UNSELECTED } from './layout-node-styles';
 
 /** Blocks outer shell click-to-select (drag handle, inputs, toolbar, resize). */
 const STOP_SELECT = 'data-layout-stop-select';
@@ -46,12 +48,10 @@ interface FieldBlockProps {
   description?: string | null;
   hint?: string | null;
   /**
-   * When both this and `onUpdateDefinitionItem` are set, selected fields show ItemRow-style inline key/label edits.
-   * Signature matches editor `onRenameIdentity`: `(nextKey, nextLabel)` after any key rename.
+   * When set, selected fields allow inline **label** edits (keys stay read-only on the layout canvas).
+   * Description and hint are edited in Editor only (`DefinitionCopyReadonlyPanel`).
    */
   onRenameDefinitionItem?: (nextKey: string, nextLabel: string | null) => void;
-  /** Persist definition item changes (description, hint, …). */
-  onUpdateDefinitionItem?: (changes: Record<string, unknown>) => void;
   /** Layout context from the parent container. */
   layoutContext?: LayoutContext;
   /** Component node style map — gridColumn, padding, etc. */
@@ -91,7 +91,6 @@ export function FieldBlock({
   description = null,
   hint = null,
   onRenameDefinitionItem,
-  onUpdateDefinitionItem,
   layoutContext,
   nodeStyle,
   onResizeColSpan,
@@ -109,12 +108,8 @@ export function FieldBlock({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const reportResize = useLayoutResizeReporter();
 
-  const [activeIdentityField, setActiveIdentityField] = useState<'key' | 'label' | null>(null);
-  const [draftKey, setDraftKey] = useState(itemKey);
+  const [activeIdentityField, setActiveIdentityField] = useState<'label' | null>(null);
   const [draftLabel, setDraftLabel] = useState(() => (label?.trim() ? label.trim() : ''));
-  const [activeInlineSummary, setActiveInlineSummary] = useState<'Description' | 'Hint' | null>(null);
-  const [summaryDraft, setSummaryDraft] = useState('');
-  const [summaryOriginal, setSummaryOriginal] = useState('');
 
   const { ref: dragRef, isDragging } = useDraggable({
     id: `field:${bindPath}`,
@@ -202,18 +197,16 @@ export function FieldBlock({
 
   const resolvedNodeProps = nodeProps ?? {};
   const hasPopoverContent = hasTier3Content(resolvedNodeProps);
-  const showToolbar = selected && !!onSetProp;
 
   const dt = dataType ? dataTypeInfo(dataType) : null;
-  const labelForDescription = label?.trim() && label.trim() !== itemKey ? label.trim() : null;
+  const hasDistinctHumanLabel = Boolean(label?.trim() && label.trim() !== itemKey);
 
-  const editable = Boolean(onRenameDefinitionItem && onUpdateDefinitionItem);
+  const editable = Boolean(onRenameDefinitionItem);
   const effectiveSelected = selected && !isDragging;
   const showEditMark = effectiveSelected && editable;
 
   useEffect(() => {
     if (!activeIdentityField) {
-      setDraftKey(itemKey);
       setDraftLabel(label?.trim() ? label.trim() : '');
     }
   }, [itemKey, label, activeIdentityField]);
@@ -221,237 +214,119 @@ export function FieldBlock({
   useEffect(() => {
     if (!selected) {
       setActiveIdentityField(null);
-      setActiveInlineSummary(null);
     }
   }, [selected]);
 
-  const openIdentityField = (field: 'key' | 'label') => {
-    setActiveInlineSummary(null);
-    if (field === 'key') setDraftKey(itemKey);
-    if (field === 'label') setDraftLabel(label?.trim() ? label.trim() : '');
-    setActiveIdentityField(field);
+  const showToolbar = selected && !!onSetProp && !!selectionKey;
+
+  const openLabelEditor = () => {
+    setDraftLabel(label?.trim() ? label.trim() : '');
+    setActiveIdentityField('label');
   };
 
   const cancelIdentityField = () => {
-    setDraftKey(itemKey);
     setDraftLabel(label?.trim() ? label.trim() : '');
     setActiveIdentityField(null);
   };
 
-  const commitIdentityField = (field: 'key' | 'label') => {
+  const commitLabelField = () => {
     if (!onRenameDefinitionItem) return;
-    if (field === 'key' && !draftKey.trim()) {
+    if (!draftLabel.trim()) {
       cancelIdentityField();
       return;
     }
-    if (field === 'label' && !draftLabel.trim()) {
-      cancelIdentityField();
-      return;
+    onRenameDefinitionItem(itemKey, draftLabel.trim() || itemKey);
+    setActiveIdentityField(null);
+  };
+
+  const handleLabelKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitLabelField();
     }
-    const nextKey = field === 'key' ? draftKey.trim() : itemKey;
-    const nextLabel =
-      field === 'label'
-        ? (draftLabel.trim() || itemKey)
-        : (label?.trim() ? label.trim() : itemKey);
-    onRenameDefinitionItem(nextKey, nextLabel);
-    setActiveIdentityField(null);
-  };
-
-  const handleIdentityKeyDown =
-    (field: 'key' | 'label') => (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        commitIdentityField(field);
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        cancelIdentityField();
-      }
-    };
-
-  const openSummary = (which: 'Description' | 'Hint') => {
-    setActiveIdentityField(null);
-    const val = which === 'Description' ? (description ?? '') : (hint ?? '');
-    setSummaryOriginal(val);
-    setSummaryDraft(val);
-    setActiveInlineSummary(which);
-  };
-
-  const commitSummary = () => {
-    if (!onUpdateDefinitionItem || !activeInlineSummary) return;
-    const key = activeInlineSummary === 'Description' ? 'description' : 'hint';
-    const raw = summaryDraft.trim();
-    onUpdateDefinitionItem({ [key]: raw === '' ? null : raw });
-    setActiveInlineSummary(null);
-  };
-
-  const cancelSummary = () => {
-    setSummaryDraft(summaryOriginal);
-    setActiveInlineSummary(null);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelIdentityField();
+    }
   };
 
   const shellClasses = [
-    'group relative flex w-full min-w-0 flex-col rounded-[18px] border px-3 py-3 text-left transition-[border-color,background-color,box-shadow,opacity] md:px-4 md:py-3.5',
+    'group relative flex w-full min-w-0 flex-col rounded-[18px] px-3 py-3 text-left transition-[border-color,background-color,opacity] md:px-4 md:py-3.5',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35',
     isDragging ? 'opacity-40' : '',
-    selected
-      ? 'border-accent/50 bg-accent/[0.09] shadow-[0_14px_34px_rgba(59,130,246,0.12)]'
-      : 'border-transparent hover:border-border/70 hover:bg-bg-default/56',
+    selected ? LAYOUT_LEAF_SELECTED : LAYOUT_LEAF_UNSELECTED,
   ].join(' ');
 
   const stopProps = { [STOP_SELECT]: '' } as React.HTMLAttributes<HTMLDivElement>;
 
+  const renderReadonlyKeyRow = () => {
+    const selectedEditable = effectiveSelected && editable;
+    const showKeySegment = hasDistinctHumanLabel || selectedEditable;
+    if (!showKeySegment && !dataType) return null;
+    return (
+      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[12px] tracking-[0.04em] text-ink/50">
+        {showKeySegment ? (
+          <span className="inline-flex min-w-0 max-w-full items-baseline gap-0" title={bindPath || itemKey}>
+            {groupPathPrefix ? (
+              <span className="shrink-0 text-ink/35">{groupPathPrefix}</span>
+            ) : null}
+            <span className="min-w-0 truncate">{itemKey}</span>
+          </span>
+        ) : null}
+        {dataType && dt ? (
+          <span className={`text-[11px] font-normal tracking-[0.08em] ${dt.color}`}>{dataType}</span>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderIdentity = () => {
+    const headlineUnselected = label?.trim() || itemKey;
+
     if (!effectiveSelected || !editable) {
-      const labelForSecondary =
-        label?.trim() && label.trim() !== itemKey ? label.trim() : null;
       return (
         <>
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[17px] font-semibold leading-6 md:text-[18px]">
-            <span className="truncate font-mono text-ink">{itemKey}</span>
-            {dataType ? (
-              <span
-                className={`font-mono text-[12px] font-normal tracking-[0.08em] ${dt?.color ?? 'text-muted'}`}
-              >
-                {dataType}
-              </span>
-            ) : null}
+          <div className="min-w-0 text-[19px] font-semibold leading-tight tracking-tight text-ink md:text-[21px]">
+            <span className="break-words">{headlineUnselected}</span>
           </div>
-          {labelForSecondary ? (
-            <p className="text-[14px] font-normal leading-snug tracking-normal text-ink/80 md:text-[15px]">
-              {labelForSecondary}
-            </p>
-          ) : null}
+          {renderReadonlyKeyRow()}
         </>
       );
     }
 
     return (
       <>
-        {activeIdentityField === 'key' ? (
-          <input
-            aria-label="Inline key"
-            type="text"
-            autoFocus
-            value={draftKey}
-            className="w-full rounded-[6px] border border-accent/30 bg-surface px-2 py-1.5 text-[17px] font-semibold font-mono leading-6 text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[18px]"
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setDraftKey(e.currentTarget.value)}
-            onBlur={() => commitIdentityField('key')}
-            onKeyDown={handleIdentityKeyDown('key')}
-          />
-        ) : (
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[17px] font-semibold leading-6 md:text-[18px]">
+        <div className="min-w-0">
+          {activeIdentityField === 'label' ? (
+            <input
+              aria-label="Inline label"
+              type="text"
+              autoFocus
+              value={draftLabel}
+              className="w-full rounded-[6px] border border-border/80 bg-surface px-2 py-1.5 text-[19px] font-semibold leading-tight tracking-tight text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[20px]"
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setDraftLabel(e.currentTarget.value)}
+              onBlur={() => commitLabelField()}
+              onKeyDown={handleLabelKeyDown}
+            />
+          ) : (
             <div
-              className={`inline-flex max-w-full items-center font-mono text-ink ${showEditMark ? 'group cursor-text' : ''}`}
+              className={`inline-flex max-w-full flex-wrap items-center gap-x-1 text-[19px] font-semibold leading-tight tracking-tight text-ink md:text-[20px] ${showEditMark ? 'group cursor-text' : ''}`}
               onClick={(e) => {
                 if (!showEditMark) return;
                 e.stopPropagation();
-                openIdentityField('key');
+                openLabelEditor();
               }}
             >
-              {groupPathPrefix ? (
-                <span className="text-ink/35">{groupPathPrefix}</span>
-              ) : null}
-              <span className="truncate">{itemKey}</span>
-              {showEditMark ? <EditMark testId={`layout-field-${itemKey}-key-edit`} /> : null}
-            </div>
-            {dataType ? (
-              <span
-                className={`font-mono text-[12px] font-normal tracking-[0.08em] ${dt?.color ?? 'text-muted'}`}
-              >
-                {dataType}
+              <span className={label?.trim() ? '' : 'italic text-ink/50'}>
+                {label?.trim() ? label.trim() : 'Add a display label\u2026'}
               </span>
-            ) : null}
-          </div>
-        )}
-
-        {(labelForDescription || effectiveSelected) && (
-          <div className="mt-0.5 max-w-full">
-            {activeIdentityField === 'label' ? (
-              <input
-                aria-label="Inline label"
-                type="text"
-                autoFocus
-                value={draftLabel}
-                className="w-full rounded-[6px] border border-border/80 bg-surface px-2 py-1.5 text-[14px] font-normal leading-snug tracking-normal text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[15px]"
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => setDraftLabel(e.currentTarget.value)}
-                onBlur={() => commitIdentityField('label')}
-                onKeyDown={handleIdentityKeyDown('label')}
-              />
-            ) : (
-              <div
-                className={`text-[14px] font-normal leading-snug tracking-normal text-ink/80 md:text-[15px] ${showEditMark ? 'group inline-flex cursor-text flex-wrap items-center gap-x-1' : ''}`}
-                onClick={(e) => {
-                  if (!showEditMark) return;
-                  e.stopPropagation();
-                  openIdentityField('label');
-                }}
-              >
-                <span className={labelForDescription ? '' : 'italic text-ink/50'}>
-                  {labelForDescription ?? 'Add a display label\u2026'}
-                </span>
-                {showEditMark ? <EditMark testId={`layout-field-${itemKey}-label-edit`} /> : null}
-              </div>
-            )}
-          </div>
-        )}
+              {showEditMark ? <EditMark testId={`layout-field-${itemKey}-label-edit`} /> : null}
+            </div>
+          )}
+        </div>
+        {renderReadonlyKeyRow()}
       </>
-    );
-  };
-
-  const renderSummaryStrip = () => {
-    if (!effectiveSelected || !editable || !onUpdateDefinitionItem) return null;
-
-    const row = (which: 'Description' | 'Hint', value: string) => {
-      const open = activeInlineSummary === which;
-      if (open) {
-        return (
-          <textarea
-            aria-label={summaryInputLabel(which)}
-            rows={which === 'Description' ? 3 : 2}
-            value={summaryDraft}
-            className={summaryInputClassName}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setSummaryDraft(e.currentTarget.value)}
-            onBlur={() => commitSummary()}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelSummary();
-              }
-            }}
-          />
-        );
-      }
-      const has = value.trim().length > 0;
-      return (
-        <button
-          type="button"
-          className="w-full rounded-[8px] border border-transparent px-1 py-1 text-left transition-colors hover:border-border/50 hover:bg-bg-default/40"
-          aria-label={which === 'Description' ? 'Edit description' : 'Edit hint'}
-          onClick={(e) => {
-            e.stopPropagation();
-            openSummary(which);
-          }}
-        >
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{which}</span>
-          <div className={`text-[13px] leading-snug ${has ? 'text-ink/85' : 'italic text-ink/45'}`}>
-            {has ? value : which === 'Description' ? 'Add description\u2026' : 'Add hint\u2026'}
-          </div>
-        </button>
-      );
-    };
-
-    return (
-      <div
-        {...stopProps}
-        className="mt-3 flex flex-col gap-2 border-t border-border/35 pt-3"
-      >
-        {row('Description', description ?? '')}
-        {row('Hint', hint ?? '')}
-      </div>
     );
   };
 
@@ -496,9 +371,22 @@ export function FieldBlock({
         ) : null}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {renderIdentity()}
-          {renderSummaryStrip()}
+          {effectiveSelected ? (
+            <DefinitionCopyReadonlyPanel
+              definitionPath={bindPath}
+              kind="field"
+              description={description}
+              hint={hint}
+              selected={effectiveSelected}
+              showToolbar={showToolbar}
+              testIdPrefix={`layout-field-${itemKey}`}
+            />
+          ) : null}
           {showToolbar ? (
-            <div {...stopProps} className="min-w-0 pt-2">
+            <div
+              {...stopProps}
+              className="-mx-3 mt-2 min-w-0 rounded-b-[16px] border-t border-border/40 bg-subtle/40 px-3 pt-2 pb-2 shadow-[inset_0_1px_0_rgba(0,0,0,0.04)] md:-mx-4 md:px-4 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+            >
               <InlineToolbar
                 selectionKey={selectionKey}
                 itemKey={itemKey}
@@ -584,6 +472,13 @@ export function FieldBlock({
           />
         </>
       )}
+
+      {isInGrid && selected ? (
+        <span
+          className="pointer-events-none absolute bottom-1.5 end-1.5 z-[1] h-1 w-1 bg-accent/55"
+          aria-hidden
+        />
+      ) : null}
 
       {isInGrid && (
         <>

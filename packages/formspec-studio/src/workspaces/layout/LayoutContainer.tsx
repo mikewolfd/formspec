@@ -1,11 +1,17 @@
 /** @filedesc Layout canvas wrapper for layout nodes — applies real CSS layout per container type (Grid, Stack, Card, Panel, Collapsible, Accordion). */
 import React, { useState, useRef, useCallback, type ReactNode } from 'react';
+import { DragHandle } from '../../components/ui/DragHandle';
 import { useDraggable, useDroppable } from '@dnd-kit/react';
 import { hasTier3Content, type ContainerLayoutProps } from '@formspec-org/studio-core';
 import { InlineToolbar } from './InlineToolbar';
 import { PropertyPopover } from './PropertyPopover';
 import { useLayoutDragActive } from './LayoutDragContext';
 import { LayoutResizeProvider, type LayoutResizeState } from './LayoutResizeContext';
+import {
+  LAYOUT_CONTAINER_SELECTED,
+  LAYOUT_CONTAINER_UNSELECTED,
+  LAYOUT_CONTAINER_UNSELECTED_ON_ACTIVE_PAGE,
+} from './layout-node-styles';
 
 export interface LayoutContainerProps {
   component: string;
@@ -40,6 +46,11 @@ export interface LayoutContainerProps {
   isDragActive?: boolean;
   /** Collision priority for nested drop targets (higher wins). */
   collisionPriority?: number;
+  /**
+   * When true, unselected Stack containers use a solid frame on the active layout page so the
+   * interior does not read as a throwaway sketch (wizard / single-page canvas).
+   */
+  pageSectionActive?: boolean;
 }
 
 const ELEVATION_SHADOW: Record<number, string> = {
@@ -149,6 +160,7 @@ export function LayoutContainer(props: LayoutContainerProps) {
     onStyleRemove,
     isDragActive: isDragActiveProp = false,
     collisionPriority = 0,
+    pageSectionActive = false,
   } = props;
 
   // OBJ-4-02: read from DnD context so containers know drag is active without prop threading
@@ -160,6 +172,7 @@ export function LayoutContainer(props: LayoutContainerProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [childResizeState, setChildResizeState] = useState<LayoutResizeState | null>(null);
   const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dragHandleRef = useRef<Element | null>(null);
   const reportChildResize = useCallback((state: LayoutResizeState | null) => {
     setChildResizeState(state);
   }, []);
@@ -170,6 +183,8 @@ export function LayoutContainer(props: LayoutContainerProps) {
   const { ref: dragRef, isDragging } = useDraggable({
     id: dragId,
     data: { nodeRef, index, type: 'tree-node' },
+    /** Handle only — @dnd-kit overwrites aria-pressed on the activator for drag state; keep selection on the inner row. */
+    handle: dragHandleRef,
   });
 
   const { ref: dropRef } = useDroppable({
@@ -199,6 +214,13 @@ export function LayoutContainer(props: LayoutContainerProps) {
 
   const showToolbar = selected && !!onSetProp && !!selectionKey;
 
+  const shellClasses =
+    selected
+      ? LAYOUT_CONTAINER_SELECTED
+      : pageSectionActive && component === 'Stack'
+        ? LAYOUT_CONTAINER_UNSELECTED_ON_ACTIVE_PAGE
+        : LAYOUT_CONTAINER_UNSELECTED;
+
   return (
     <div
       ref={dropRef}
@@ -210,52 +232,53 @@ export function LayoutContainer(props: LayoutContainerProps) {
       {...(bind ? { 'data-layout-tree-bind': bind } : {})}
       {...(nodeId ? { 'data-layout-node-id': nodeId } : {})}
       style={containerStyle}
-      className={`rounded border border-dashed bg-surface transition-colors ${
-        isDragging ? 'opacity-40' : ''
-      } ${
-        selected
-          ? 'border-accent bg-accent/5 shadow-sm'
-          : 'border-muted'
-      }`}
+      className={`transition-colors ${isDragging ? 'opacity-40' : ''} ${shellClasses}`}
     >
-      {/* Header row: type badge + optional title + toolbar / collapse toggle — sole drag handle so nested Grid cells do not move the container */}
-      <div
-        ref={dragRef}
-        role="button"
-        tabIndex={0}
-        aria-pressed={selected}
-        aria-label={displayTitle ?? component}
-        onClick={isCollapsible
-          ? () => { setOpen((o) => !o); onSelect?.(); }
-          : onSelect}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(); } }}
-        className="flex w-full items-center gap-2 rounded px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 cursor-pointer"
-      >
-        <span className={`shrink-0 inline-block rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${
-          selected ? 'bg-accent/15 text-accent' : 'bg-subtle text-muted'
-        }`}>
-          {component}
-        </span>
-        {displayTitle && !showToolbar && (
-          <span className="text-[12px] text-ink font-medium truncate">{displayTitle}</span>
-        )}
-        {isCollapsible && !showToolbar && (
-          <span className="ml-auto text-muted text-[10px]">{open ? '▾' : '▸'}</span>
-        )}
-        {/* Inline toolbar — shown when selected and onSetProp is provided */}
-        {showToolbar && (
-          <InlineToolbar
-            selectionKey={selectionKey!}
-            nodeId={nodeId}
-            component={component}
-            nodeProps={resolvedNodeProps}
-            onSetProp={onSetProp!}
-            onSetStyle={onSetStyle}
-            onOpenPopover={() => setPopoverOpen(true)}
-            hasPopoverContent={hasPopoverContent}
-            overflowButtonRef={overflowButtonRef}
-          />
-        )}
+      {/* Header: drag grip (dnd activator) + clickable row (selection + toolbar). */}
+      <div ref={dragRef} className="flex w-full items-center gap-1 rounded px-2 py-1.5 md:px-2 md:py-2">
+        <DragHandle
+          ref={dragHandleRef}
+          label={`Reorder ${displayTitle ?? component}`}
+          className="h-9 shrink-0"
+        />
+        <div
+          data-testid="layout-select-row"
+          role="button"
+          tabIndex={0}
+          aria-pressed={selected}
+          aria-label={displayTitle ?? component}
+          onClick={isCollapsible
+            ? () => { setOpen((o) => !o); onSelect?.(); }
+            : onSelect}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(); } }}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+        >
+          <span className={`shrink-0 inline-block rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${
+            selected ? 'bg-accent/15 text-accent' : 'bg-subtle text-muted'
+          }`}>
+            {component}
+          </span>
+          {displayTitle && !showToolbar && (
+            <span className="text-[12px] text-ink font-medium truncate">{displayTitle}</span>
+          )}
+          {isCollapsible && !showToolbar && (
+            <span className="ml-auto text-muted text-[10px]">{open ? '▾' : '▸'}</span>
+          )}
+          {/* Inline toolbar — shown when selected and onSetProp is provided */}
+          {showToolbar && (
+            <InlineToolbar
+              selectionKey={selectionKey!}
+              nodeId={nodeId}
+              component={component}
+              nodeProps={resolvedNodeProps}
+              onSetProp={onSetProp!}
+              onSetStyle={onSetStyle}
+              onOpenPopover={() => setPopoverOpen(true)}
+              hasPopoverContent={hasPopoverContent}
+              overflowButtonRef={overflowButtonRef}
+            />
+          )}
+        </div>
       </div>
 
 

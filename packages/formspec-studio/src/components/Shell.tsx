@@ -9,7 +9,6 @@ import { Blueprint } from './Blueprint';
 import { StructureTree } from './blueprint/StructureTree';
 import { DefinitionTreeEditor } from '../workspaces/editor/DefinitionTreeEditor';
 import { LayoutWorkspace } from '../workspaces/layout/LayoutWorkspace';
-import { LayoutPreviewPanel } from '../workspaces/layout/LayoutPreviewPanel';
 import { ManageView } from '../workspaces/editor/ManageView';
 import { ScreenerWorkspace } from '../workspaces/editor/ScreenerWorkspace';
 import { FormHealthPanel } from '../workspaces/editor/FormHealthPanel';
@@ -25,6 +24,10 @@ import { CanvasTargetsProvider } from '../state/useCanvasTargets';
 import { LayoutModeProvider, useOptionalLayoutMode } from '../workspaces/layout/LayoutModeContext';
 import { useProject } from '../state/useProject';
 import { useSelection } from '../state/useSelection';
+import {
+  OpenDefinitionInEditorProvider,
+  type DefinitionEditorItemKind,
+} from '../state/OpenDefinitionInEditorContext';
 import { ComponentTree } from './blueprint/ComponentTree';
 import { ScreenerSummary } from './blueprint/ScreenerSummary';
 import { VariablesList } from './blueprint/VariablesList';
@@ -82,69 +85,9 @@ interface ShellProps {
   colorScheme?: ColorScheme;
 }
 
-/** Reads layout mode from context to hide the right panel in Theme mode. */
-function LayoutRightPanelGate({
-  compactLayout,
-  showChatPanel,
-  showRightPanel,
-  rightWidth,
-  onResize,
-  onHide,
-  onShow,
-}: {
-  compactLayout: boolean;
-  showChatPanel: boolean;
-  showRightPanel: boolean;
-  rightWidth: number;
-  onResize: (delta: number) => void;
-  onHide: () => void;
-  onShow: () => void;
-}) {
-  const layoutModeCtx = useOptionalLayoutMode();
-  const isThemeMode = layoutModeCtx?.layoutMode === 'theme';
-
-  if (compactLayout || showChatPanel || isThemeMode) return null;
-
-  return showRightPanel ? (
-    <>
-      <ResizeHandle side="right" onResize={onResize} />
-      <aside
-        className="flex flex-col border-l border-border/80 bg-surface overflow-hidden shrink-0"
-        style={{ width: `clamp(200px, ${rightWidth}px, calc(50vw - 340px))` }}
-        data-testid="properties-panel"
-        aria-label="Properties panel"
-      >
-        <div className="flex items-center justify-end px-3 pt-2 shrink-0">
-          <button
-            type="button"
-            aria-label="Hide panel"
-            className="rounded p-1 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-            onClick={onHide}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
-        </div>
-        <div className="flex-1 min-h-0">
-          <LayoutPreviewPanel width={rightWidth} />
-        </div>
-      </aside>
-    </>
-  ) : (
-    <button
-      type="button"
-      aria-label="Show preview panel"
-      className="shrink-0 border-l border-border/80 bg-surface px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-      onClick={onShow}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-    </button>
-  );
-}
-
 /**
- * Blueprint sidebar inner — reads layoutMode from LayoutModeProvider context to supply
- * theme-specific sections when in Theme mode. Must render inside <LayoutModeProvider>.
- * Also syncs sidebar section state per mode via context.
+ * Blueprint sidebar inner — Layout tab always uses theme authoring sections (Colors, Typography, …)
+ * for both layout and theme workspace modes. Must render inside <LayoutModeProvider>.
  */
 function BlueprintSidebarInner({
   activeTab,
@@ -162,32 +105,22 @@ function BlueprintSidebarInner({
   leftWidth: number;
 }) {
   const layoutModeCtx = useOptionalLayoutMode();
-  const isThemeMode = activeTab === 'Layout' && layoutModeCtx?.layoutMode === 'theme';
 
-  // Sync section state to context per mode
+  // Coerce invalid sections (e.g. Structure after switching from Editor), then mirror to context.
   useEffect(() => {
-    if (activeTab !== 'Layout') return;
-    if (isThemeMode) {
-      layoutModeCtx?.setThemeModeSection(activeSection);
-    } else {
-      layoutModeCtx?.setLayoutModeSection(activeSection);
+    if (activeTab !== 'Layout' || !layoutModeCtx) return;
+    const first = THEME_MODE_BLUEPRINT_SECTIONS[0] ?? 'Colors';
+    if (!THEME_MODE_BLUEPRINT_SECTIONS.includes(activeSection)) {
+      onSectionChange(first);
+      return;
     }
-  }, [activeTab, activeSection, isThemeMode, layoutModeCtx]);
+    layoutModeCtx.setThemeModeSection(activeSection);
+  }, [activeTab, activeSection, layoutModeCtx, onSectionChange]);
 
-  // Restore section from context when switching modes
-  useEffect(() => {
-    if (activeTab !== 'Layout') return;
-    const contextSection = isThemeMode
-      ? layoutModeCtx?.themeModeSection
-      : layoutModeCtx?.layoutModeSection;
-    if (contextSection && contextSection !== activeSection) {
-      onSectionChange(contextSection);
-    }
-  }, [activeTab, isThemeMode, layoutModeCtx?.layoutModeSection, layoutModeCtx?.themeModeSection]);
-
-  const visibleSections = isThemeMode
-    ? THEME_MODE_BLUEPRINT_SECTIONS
-    : (BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS));
+  const visibleSections =
+    activeTab === 'Layout'
+      ? THEME_MODE_BLUEPRINT_SECTIONS
+      : (BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS));
 
   const resolvedSection = visibleSections.includes(activeSection)
     ? activeSection
@@ -223,7 +156,6 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   const [showSettings, setShowSettings] = useState(false);
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [showBlueprintDrawer, setShowBlueprintDrawer] = useState(false);
-  const [showPreviewSheet, setShowPreviewSheet] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [showHealthSheet, setShowHealthSheet] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -240,7 +172,17 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   const blueprintCloseRef = useRef<HTMLButtonElement | null>(null);
   const lastFocusRef = useRef<HTMLElement | null>(null);
   const project = useProject();
-  const { selectedKey, selectedKeyForTab, deselect } = useSelection();
+  const { selectedKey, selectedKeyForTab, deselect, select } = useSelection();
+
+  const openDefinitionInEditor = useCallback(
+    (defPath: string, kind: DefinitionEditorItemKind) => {
+      setActiveTab('Editor');
+      setActiveEditorView('build');
+      select(defPath, kind, { tab: 'editor', focusInspector: true });
+      setShowRightPanel(true);
+    },
+    [select],
+  );
   const activeTabScope = activeTab.toLowerCase();
   const scopedSelectedKey = selectedKeyForTab(activeTabScope);
   const definitionLookup = useMemo(() => buildDefLookup(project.definition.items ?? []), [project.definition.items]);
@@ -259,7 +201,10 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   const overlayOpen = compactLayout && showBlueprintDrawer;
   const activePanelId = `studio-panel-${activeTab.toLowerCase()}`;
   const activeTabId = `studio-tab-${activeTab.toLowerCase()}`;
-  const visibleBlueprintSections = BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS);
+  const visibleBlueprintSections =
+    activeTab === 'Layout'
+      ? THEME_MODE_BLUEPRINT_SECTIONS
+      : (BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS));
   const resolvedActiveSection = visibleBlueprintSections.includes(activeSection)
     ? activeSection
     : (visibleBlueprintSections[0] ?? 'Structure');
@@ -317,13 +262,6 @@ export function Shell({ colorScheme }: ShellProps = {}) {
       }
     }
   })();
-
-  // Reset right panel visibility when entering Layout tab
-  useEffect(() => {
-    if (activeTab === 'Layout') {
-      setShowRightPanel(true);
-    }
-  }, [activeTab]);
 
   useEffect(() => {
     if (!compactLayout || activeTab !== 'Editor') return;
@@ -511,6 +449,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
         isCompact={compactLayout}
         colorScheme={colorScheme}
       />
+      <OpenDefinitionInEditorProvider value={openDefinitionInEditor}>
       <LayoutModeProvider>
       <CanvasTargetsProvider>
         <div className={`flex flex-1 overflow-hidden bg-bg-default ${activeTab === 'Editor' ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(246,243,238,0.9)_100%)] dark:bg-none' : ''}`} aria-hidden={overlayOpen ? true : undefined}>
@@ -537,18 +476,6 @@ export function Shell({ colorScheme }: ShellProps = {}) {
                 if (e.target === e.currentTarget) deselect();
               }}
             >
-              {compactLayout && activeTab === 'Layout' && (
-                <div className="sticky top-0 z-20 border-b border-border/70 bg-surface/95 px-3 py-2 backdrop-blur flex items-center justify-end" data-testid="mobile-layout-chrome">
-                  <button
-                    type="button"
-                    aria-label="Preview"
-                    className="rounded-full border border-border/60 bg-bg-default/75 px-3 py-1.5 text-[12px] font-semibold text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                    onClick={() => setShowPreviewSheet(true)}
-                  >
-                    Preview
-                  </button>
-                </div>
-              )}
               {compactLayout && activeTab === 'Editor' && (
                 <div className="sticky top-0 z-20 border-b border-border/70 bg-surface/95 px-3 py-3 backdrop-blur" data-testid="mobile-editor-chrome">
                   <div className="flex items-center justify-between">
@@ -636,17 +563,6 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               </button>
             )
           )}
-          {activeTab === 'Layout' && (
-            <LayoutRightPanelGate
-              compactLayout={compactLayout}
-              showChatPanel={showChatPanel}
-              showRightPanel={showRightPanel}
-              rightWidth={rightWidth}
-              onResize={onResizeRight}
-              onHide={() => setShowRightPanel(false)}
-              onShow={() => setShowRightPanel(true)}
-            />
-          )}
           {showChatPanel && !compactLayout && (
             <aside className="w-[360px] shrink-0" data-testid="chat-panel-container">
               <ChatPanel
@@ -724,38 +640,9 @@ export function Shell({ colorScheme }: ShellProps = {}) {
           </div>
         )}
 
-        {/* Compact Layout Preview Sheet */}
-        {compactLayout && activeTab === 'Layout' && showPreviewSheet && (
-          <div
-            className="fixed inset-0 z-40 bg-black/40 transition-opacity"
-            onClick={() => setShowPreviewSheet(false)}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Live Preview"
-              className="absolute bottom-0 left-0 right-0 max-h-[80vh] bg-surface rounded-t-2xl shadow-xl flex flex-col animate-in slide-in-from-bottom duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-                <h2 className="text-[15px] font-semibold text-ink tracking-tight font-ui">Live Preview</h2>
-                <button
-                  type="button"
-                  aria-label="Close preview"
-                  className="rounded p-1 hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                  onClick={() => setShowPreviewSheet(false)}
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <LayoutPreviewPanel width="100%" />
-              </div>
-            </div>
-          </div>
-        )}
       </CanvasTargetsProvider>
       </LayoutModeProvider>
+      </OpenDefinitionInEditorProvider>
       <StatusBar />
       <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} />
       <ImportDialog open={showImport} onClose={() => setShowImport(false)} />

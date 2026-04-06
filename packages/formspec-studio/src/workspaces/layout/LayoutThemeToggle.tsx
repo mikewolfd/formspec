@@ -43,10 +43,10 @@ export function LayoutThemeToggle({ activeMode, onModeChange }: LayoutThemeToggl
             tabIndex={isActive ? 0 : -1}
             onClick={() => { if (!isActive) onModeChange(id); }}
             onKeyDown={(e) => handleKeyDown(e, id)}
-            className={`px-3.5 py-1.5 text-[13px] font-semibold rounded-[10px] transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
+            className={`min-h-10 px-3.5 py-2 text-[13px] font-semibold rounded-[10px] transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
               isActive
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-muted hover:bg-subtle hover:text-ink'
+                ? 'border border-accent/70 bg-accent/[0.1] text-ink shadow-sm'
+                : 'border border-transparent text-muted hover:bg-subtle hover:text-ink'
             }`}
           >
             {label}

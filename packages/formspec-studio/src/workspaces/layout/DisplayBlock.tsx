@@ -1,12 +1,14 @@
-/** @filedesc Layout canvas block for display-only items (heading, divider, paragraph). Supports column-span resize, inline toolbar, and definition identity/summary edits. */
+/** @filedesc Layout canvas block for display-only items — label, body editor for notes, read-only definition copy with link to Editor, toolbar. */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { hasTier3Content } from '@formspec-org/studio-core';
 import type { LayoutContext } from './FieldBlock';
-import { EditMark, summaryInputClassName, summaryInputLabel } from '../editor/item-row-shared';
+import { EditMark } from '../editor/item-row-shared';
 import { useResizeHandle } from './useResizeHandle';
 import { InlineToolbar } from './InlineToolbar';
 import { PropertyPopover } from './PropertyPopover';
+import { DefinitionCopyReadonlyPanel } from './DefinitionCopyReadonlyPanel';
 import { useLayoutResizeReporter } from './LayoutResizeContext';
+import { LAYOUT_LEAF_SELECTED, LAYOUT_LEAF_UNSELECTED } from './layout-node-styles';
 
 const STOP_SELECT = 'data-layout-stop-select';
 
@@ -33,7 +35,8 @@ interface DisplayBlockProps {
   description?: string | null;
   hint?: string | null;
   onRenameDefinitionItem?: (nextKey: string, nextLabel: string | null) => void;
-  onUpdateDefinitionItem?: (changes: Record<string, unknown>) => void;
+  /** Definition path for description/hint (Editor is canonical); omit for tree-only display nodes. */
+  definitionCopyPath?: string | null;
   /** Layout context from the parent container (for grid column span). */
   layoutContext?: LayoutContext;
   /** Component node style map — gridColumn, etc. */
@@ -73,7 +76,7 @@ export function DisplayBlock({
   description = null,
   hint = null,
   onRenameDefinitionItem,
-  onUpdateDefinitionItem,
+  definitionCopyPath = null,
   layoutContext,
   nodeStyle,
   onResizeColSpan,
@@ -90,12 +93,8 @@ export function DisplayBlock({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const reportResize = useLayoutResizeReporter();
 
-  const [activeIdentityField, setActiveIdentityField] = useState<'key' | 'label' | null>(null);
-  const [draftKey, setDraftKey] = useState(itemKey);
+  const [activeIdentityField, setActiveIdentityField] = useState<'label' | null>(null);
   const [draftLabel, setDraftLabel] = useState(() => (label?.trim() ? label.trim() : ''));
-  const [activeInlineSummary, setActiveInlineSummary] = useState<'Description' | 'Hint' | null>(null);
-  const [summaryDraft, setSummaryDraft] = useState('');
-  const [summaryOriginal, setSummaryOriginal] = useState('');
 
   const [bodyDraft, setBodyDraft] = useState(label ?? '');
   useEffect(() => {
@@ -178,16 +177,15 @@ export function DisplayBlock({
 
   const resolvedNodeProps = nodeProps ?? {};
   const hasPopoverContent = hasTier3Content(resolvedNodeProps);
-  const showToolbar = selected && !!onSetProp;
+  const showToolbar = selected && !!onSetProp && !!selectionKey;
   const showBodyEditor = selected && !!onCommitDisplayLabel;
 
-  const editable = Boolean(onRenameDefinitionItem && onUpdateDefinitionItem);
+  const editable = Boolean(onRenameDefinitionItem);
   const effectiveSelected = selected;
   const showEditMark = effectiveSelected && editable;
 
   useEffect(() => {
     if (!activeIdentityField) {
-      setDraftKey(itemKey);
       setDraftLabel(label?.trim() ? label.trim() : '');
     }
   }, [itemKey, label, activeIdentityField]);
@@ -195,217 +193,120 @@ export function DisplayBlock({
   useEffect(() => {
     if (!selected) {
       setActiveIdentityField(null);
-      setActiveInlineSummary(null);
     }
   }, [selected]);
 
-  const openIdentityField = (field: 'key' | 'label') => {
-    setActiveInlineSummary(null);
-    if (field === 'key') setDraftKey(itemKey);
-    if (field === 'label') setDraftLabel(label?.trim() ? label.trim() : '');
-    setActiveIdentityField(field);
+  const openLabelEditor = () => {
+    setDraftLabel(label?.trim() ? label.trim() : '');
+    setActiveIdentityField('label');
   };
 
   const cancelIdentityField = () => {
-    setDraftKey(itemKey);
     setDraftLabel(label?.trim() ? label.trim() : '');
     setActiveIdentityField(null);
   };
 
-  const commitIdentityField = (field: 'key' | 'label') => {
+  const commitLabelField = () => {
     if (!onRenameDefinitionItem) return;
-    if (field === 'key' && !draftKey.trim()) {
-      cancelIdentityField();
-      return;
+    const nextLabel = draftLabel.trim() === '' ? null : draftLabel.trim();
+    onRenameDefinitionItem(itemKey, nextLabel);
+    setActiveIdentityField(null);
+  };
+
+  const handleLabelKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitLabelField();
     }
-    const nextKey = field === 'key' ? draftKey.trim() : itemKey;
-    const nextLabel =
-      field === 'label'
-        ? (draftLabel.trim() === '' ? null : draftLabel.trim())
-        : (label?.trim() ? label.trim() : null);
-    onRenameDefinitionItem(nextKey, nextLabel);
-    setActiveIdentityField(null);
-  };
-
-  const handleIdentityKeyDown =
-    (field: 'key' | 'label') => (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        commitIdentityField(field);
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        cancelIdentityField();
-      }
-    };
-
-  const openSummary = (which: 'Description' | 'Hint') => {
-    setActiveIdentityField(null);
-    const val = which === 'Description' ? (description ?? '') : (hint ?? '');
-    setSummaryOriginal(val);
-    setSummaryDraft(val);
-    setActiveInlineSummary(which);
-  };
-
-  const commitSummary = () => {
-    if (!onUpdateDefinitionItem || !activeInlineSummary) return;
-    const key = activeInlineSummary === 'Description' ? 'description' : 'hint';
-    const raw = summaryDraft.trim();
-    onUpdateDefinitionItem({ [key]: raw === '' ? null : raw });
-    setActiveInlineSummary(null);
-  };
-
-  const cancelSummary = () => {
-    setSummaryDraft(summaryOriginal);
-    setActiveInlineSummary(null);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelIdentityField();
+    }
   };
 
   const shellClasses = [
-    'group relative flex w-full min-w-0 flex-col rounded-[18px] border px-3 py-3 text-left transition-[border-color,background-color,box-shadow] md:px-4 md:py-3.5',
+    'group relative flex w-full min-w-0 flex-col rounded-[18px] px-3 py-3 text-left transition-[border-color,background-color] md:px-4 md:py-3.5',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35',
-    selected
-      ? 'border-accent/50 bg-accent/[0.09] shadow-[0_14px_34px_rgba(59,130,246,0.12)]'
-      : 'border-transparent hover:border-border/70 hover:bg-bg-default/56',
+    selected ? LAYOUT_LEAF_SELECTED : LAYOUT_LEAF_UNSELECTED,
   ].join(' ');
 
   const glyph = layoutDisplayGlyph(widgetHint);
   const stopProps = { [STOP_SELECT]: '' } as React.HTMLAttributes<HTMLDivElement>;
 
-  const renderSummaryStrip = () => {
-    if (!effectiveSelected || !editable || !onUpdateDefinitionItem) return null;
 
-    const row = (which: 'Description' | 'Hint', value: string) => {
-      const open = activeInlineSummary === which;
-      if (open) {
-        return (
-          <textarea
-            aria-label={summaryInputLabel(which)}
-            rows={which === 'Description' ? 3 : 2}
-            value={summaryDraft}
-            className={summaryInputClassName}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setSummaryDraft(e.currentTarget.value)}
-            onBlur={() => commitSummary()}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelSummary();
-              }
-            }}
-          />
-        );
-      }
-      const has = value.trim().length > 0;
-      return (
-        <button
-          type="button"
-          className="w-full rounded-[8px] border border-transparent px-1 py-1 text-left transition-colors hover:border-border/50 hover:bg-bg-default/40"
-          aria-label={which === 'Description' ? 'Edit description' : 'Edit hint'}
-          onClick={(e) => {
-            e.stopPropagation();
-            openSummary(which);
-          }}
-        >
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{which}</span>
-          <div className={`text-[13px] leading-snug ${has ? 'text-ink/85' : 'italic text-ink/45'}`}>
-            {has ? value : which === 'Description' ? 'Add description\u2026' : 'Add hint\u2026'}
-          </div>
-        </button>
-      );
-    };
-
+  const renderReadonlyKeyRow = () => {
+    const selectedEditable = effectiveSelected && editable;
+    const hasDistinctHeadline =
+      Boolean(label?.trim()) && label!.trim() !== itemKey;
+    const showKeySegment = hasDistinctHeadline || selectedEditable;
+    if (!showKeySegment && !widgetHint) return null;
     return (
-      <div {...stopProps} className="mt-3 flex flex-col gap-2 border-t border-border/35 pt-3">
-        {row('Description', description ?? '')}
-        {row('Hint', hint ?? '')}
+      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[12px] tracking-[0.04em] text-ink/50">
+        {showKeySegment ? (
+          <span className="inline-flex min-w-0 max-w-full items-baseline gap-0" title={itemKey}>
+            {groupPathPrefix ? (
+              <span className="shrink-0 text-ink/35">{groupPathPrefix}</span>
+            ) : null}
+            <span className="min-w-0 truncate">{itemKey}</span>
+          </span>
+        ) : null}
+        {widgetHint ? (
+          <span className="text-[11px] font-normal tracking-[0.08em] text-accent/80">{widgetHint}</span>
+        ) : null}
       </div>
     );
   };
 
   const renderIdentity = () => {
+    const headlineUnselected = label?.trim() || itemKey;
+
     if (!effectiveSelected || !editable) {
       return (
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[17px] font-semibold leading-6 text-ink md:text-[18px]">
-            <span className="min-w-0 whitespace-pre-wrap break-words">{label || itemKey}</span>
-            {widgetHint ? (
-              <span className="font-mono text-[12px] font-normal tracking-[0.08em] text-accent/80">
-                {widgetHint}
-              </span>
-            ) : null}
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="min-w-0 text-[19px] font-semibold leading-tight tracking-tight text-ink md:text-[21px]">
+            <span className="whitespace-pre-wrap break-words">{headlineUnselected}</span>
           </div>
+          {renderReadonlyKeyRow()}
         </div>
       );
     }
 
     return (
       <>
-        {activeIdentityField === 'label' ? (
-          <input
-            aria-label="Inline label"
-            type="text"
-            autoFocus
-            value={draftLabel}
-            className="w-full rounded-[6px] border border-accent/30 bg-surface px-2 py-1.5 text-[17px] font-semibold leading-6 text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[18px]"
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setDraftLabel(e.currentTarget.value)}
-            onBlur={() => commitIdentityField('label')}
-            onKeyDown={handleIdentityKeyDown('label')}
-          />
-        ) : (
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[17px] font-semibold leading-6 text-ink md:text-[18px]">
-            <span
-              className={showEditMark ? 'group inline-flex max-w-full cursor-text items-center text-ink' : 'inline-flex max-w-full items-center text-ink'}
+        <div className="min-w-0">
+          {activeIdentityField === 'label' ? (
+            <input
+              aria-label="Inline label"
+              type="text"
+              autoFocus
+              value={draftLabel}
+              className="w-full rounded-[6px] border border-accent/30 bg-surface px-2 py-1.5 text-[19px] font-semibold leading-tight tracking-tight text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[20px]"
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setDraftLabel(e.currentTarget.value)}
+              onBlur={() => commitLabelField()}
+              onKeyDown={handleLabelKeyDown}
+            />
+          ) : (
+            <div
+              className={`inline-flex max-w-full flex-wrap items-center gap-x-1 text-[19px] font-semibold leading-tight tracking-tight text-ink md:text-[20px] ${showEditMark ? 'group cursor-text' : ''}`}
               onClick={(e) => {
                 if (!showEditMark) return;
                 e.stopPropagation();
-                openIdentityField('label');
+                openLabelEditor();
               }}
             >
               <span className="min-w-0 whitespace-pre-wrap break-words">
-                {label?.trim() ? label.trim() : <span className="italic text-ink/50">Empty display text</span>}
+                {label?.trim() ? (
+                  label.trim()
+                ) : (
+                  <span className="italic text-ink/50">Empty display text</span>
+                )}
               </span>
               {showEditMark ? <EditMark testId={`layout-display-${itemKey}-label-edit`} /> : null}
-            </span>
-            {widgetHint ? (
-              <span className="font-mono text-[12px] font-normal tracking-[0.08em] text-accent/80">
-                {widgetHint}
-              </span>
-            ) : null}
-          </div>
-        )}
-
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          {activeIdentityField === 'key' ? (
-            <input
-              aria-label="Inline key"
-              type="text"
-              autoFocus
-              value={draftKey}
-              className="max-w-[16rem] rounded-[6px] border border-border/80 bg-surface px-2 py-1.5 font-mono text-[12px] tracking-[0.08em] text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25"
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => setDraftKey(e.currentTarget.value)}
-              onBlur={() => commitIdentityField('key')}
-              onKeyDown={handleIdentityKeyDown('key')}
-            />
-          ) : (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="font-mono text-[11px] tracking-[0.12em] text-ink/60">Key</span>
-              <span
-                className={`group inline-flex items-center font-mono text-[12px] tracking-[0.08em] text-ink/68 ${showEditMark ? 'cursor-text' : ''}`}
-                onClick={(e) => {
-                  if (!showEditMark) return;
-                  e.stopPropagation();
-                  openIdentityField('key');
-                }}
-              >
-                {groupPathPrefix ? <span className="text-ink/35">{groupPathPrefix}</span> : null}
-                {itemKey}
-                {showEditMark ? <EditMark testId={`layout-display-${itemKey}-key-edit`} /> : null}
-              </span>
-            </span>
+            </div>
           )}
         </div>
+        {renderReadonlyKeyRow()}
       </>
     );
   };
@@ -462,9 +363,22 @@ export function DisplayBlock({
               />
             </div>
           ) : null}
-          {editable && effectiveSelected ? renderSummaryStrip() : null}
+          {effectiveSelected && definitionCopyPath ? (
+            <DefinitionCopyReadonlyPanel
+              definitionPath={definitionCopyPath}
+              kind="display"
+              description={description}
+              hint={hint}
+              selected={effectiveSelected}
+              showToolbar={showToolbar}
+              testIdPrefix={`layout-display-${itemKey}`}
+            />
+          ) : null}
           {showToolbar ? (
-            <div {...stopProps} className="min-w-0 pt-2">
+            <div
+              {...stopProps}
+              className="-mx-3 mt-2 min-w-0 rounded-b-[16px] border-t border-border/40 bg-subtle/40 px-3 pt-2 pb-2 shadow-[inset_0_1px_0_rgba(0,0,0,0.04)] md:-mx-4 md:px-4 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+            >
               <InlineToolbar
                 selectionKey={selectionKey}
                 itemKey={itemKey}
@@ -523,12 +437,19 @@ export function DisplayBlock({
         </div>
       )}
 
+      {isInGrid && selected ? (
+        <span
+          className="pointer-events-none absolute bottom-1.5 end-1.5 z-[1] h-1 w-1 bg-accent/55"
+          aria-hidden
+        />
+      ) : null}
+
       {showColHandle && (
         <>
           <span
             data-testid="resize-handle-col"
             aria-hidden="true"
-            className="absolute inset-y-0 right-0 w-2 cursor-col-resize hover:bg-accent/30 rounded-r"
+            className="absolute inset-y-0 right-0 w-2 cursor-col-resize hover:bg-accent/30 rounded-r-[18px]"
             {...stopProps}
             onMouseDown={(e) => e.stopPropagation()}
             onPointerMove={handleProps.onPointerMove}

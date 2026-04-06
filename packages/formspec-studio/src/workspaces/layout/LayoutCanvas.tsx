@@ -14,7 +14,6 @@ import {
   nodeIdFromLayoutId,
   resolveLayoutSelectionNodeRef,
   type CompNode,
-  type ItemChanges,
   type LayoutContextMenuState,
 } from '@formspec-org/studio-core';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
@@ -31,6 +30,7 @@ import { ThemeAuthoringOverlay } from './ThemeAuthoringOverlay';
 import { ThemeOverridePopover } from './ThemeOverridePopover';
 import { DirtyGuardConfirm } from './DirtyGuardConfirm';
 import { FormspecPreviewHost } from '../preview/FormspecPreviewHost';
+import { LayoutLivePreviewSection } from './LayoutLivePreviewSection';
 import { useOptionalLayoutMode } from './LayoutModeContext';
 import { type LayoutMode } from './LayoutThemeToggle';
 import { setThemeOverride, clearThemeOverride, setColumnSpan, setRowSpan, setStyleProperty, removeStyleProperty } from '@formspec-org/studio-core';
@@ -356,6 +356,80 @@ function synthesizePagedLayoutTree(nodes: CompNode[], definition: ReturnType<typ
 // LAYOUT_CONTAINER_COMPONENTS in studio-core — ordering matters for display.
 const CONTAINER_PRESETS = ['Card', 'Stack', 'Grid', 'Panel', 'Accordion', 'Collapsible', 'ConditionalGroup'] as const;
 
+type LayoutContainerPreset = (typeof CONTAINER_PRESETS)[number];
+
+/**
+ * Primary action adds a Stack; chevron opens a click menu (keyboard/touch friendly vs hover-only).
+ */
+function AddLayoutContainerSplit({
+  onAddStack,
+  onPick,
+  presets,
+}: {
+  onAddStack: () => void;
+  onPick: (name: LayoutContainerPreset) => void;
+  presets: readonly LayoutContainerPreset[];
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} data-testid="layout-add-container" className="relative inline-flex min-h-11 items-stretch rounded-full border border-border/50 bg-bg-default/40">
+      <button
+        type="button"
+        data-testid="layout-add-container-primary"
+        aria-label="Add Stack layout container"
+        className="rounded-l-full border-0 bg-transparent px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:bg-bg-default/60 hover:text-ink focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+        onClick={() => onAddStack()}
+      >
+        + Stack
+      </button>
+      <span className="w-px shrink-0 self-stretch bg-border/50" aria-hidden />
+      <button
+        type="button"
+        data-testid="layout-add-container-menu"
+        aria-label="Choose layout container type"
+        aria-expanded={open}
+        className="min-w-11 rounded-r-full border-0 bg-transparent px-2.5 py-2 text-[12px] font-medium text-muted transition-colors hover:bg-bg-default/60 hover:text-ink focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+        onClick={() => setOpen((o) => !o)}
+      >
+        ▾
+      </button>
+      {open ? (
+        <div
+          className="absolute right-0 top-full z-50 mt-1 flex min-w-[160px] flex-col rounded border border-border/60 bg-surface py-1 shadow-lg"
+          role="menu"
+        >
+          {presets.map((componentName) => (
+            <button
+              key={componentName}
+              type="button"
+              role="menuitem"
+              data-testid={`layout-add-${componentName.toLowerCase()}`}
+              className="px-3 py-1.5 text-left text-[12px] text-ink transition-colors hover:bg-subtle hover:text-accent"
+              onClick={() => {
+                onPick(componentName);
+                setOpen(false);
+              }}
+            >
+              {componentName}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function LayoutCanvas() {
   const definition = useDefinition();
   const component = useComponent();
@@ -471,13 +545,6 @@ export function LayoutCanvas() {
     [project, select],
   );
 
-  const handleUpdateDefinitionItem = useCallback(
-    (defPath: string, changes: Record<string, unknown>) => {
-      project.updateItem(defPath, changes as ItemChanges);
-    },
-    [project],
-  );
-
   const nodeOps = useLayoutNodeOperations(project, deselect);
   const { handleSetNodeProp, handleUnwrapNode, handleRemoveNode, handleStyleAdd, handleStyleRemove, handleResizeColSpan, handleResizeRowSpan } = nodeOps;
 
@@ -532,12 +599,12 @@ export function LayoutCanvas() {
               <div className="w-px h-5 bg-border/40" />
               <LayoutThemeToggle activeMode={layoutMode} onModeChange={handleModeChange} />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
               <button
                 type="button"
                 data-testid="layout-add-item"
                 aria-label="Add item to layout"
-                className="rounded-full border border-border/80 bg-surface px-3 py-1.5 text-[12px] font-semibold text-ink transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+                className="min-h-11 rounded-full border border-border/70 bg-subtle/80 px-4 py-2 text-[12px] font-semibold text-ink shadow-sm transition-colors hover:border-accent/60 hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
                 onClick={() => setPaletteOpen(true)}
               >
                 + Item
@@ -547,37 +614,17 @@ export function LayoutCanvas() {
                   type="button"
                   data-testid="layout-add-page"
                   aria-label="Add page to layout"
-                  className="rounded-full border border-border/80 bg-surface px-3 py-1.5 text-[12px] font-semibold text-ink transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+                  className="min-h-11 rounded-full border border-transparent px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:border-border/60 hover:bg-bg-default/50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
                   onClick={handleAddPage}
                 >
                   + Page
                 </button>
               )}
-              <div className="relative group">
-                <button
-                  type="button"
-                  data-testid="layout-add-container"
-                  aria-label="Add layout container"
-                  className="rounded-full border border-border/80 bg-surface px-3 py-1.5 text-[12px] font-semibold text-ink transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
-                >
-                  + Add Container
-                </button>
-                <div className="absolute right-0 top-full mt-1 hidden group-hover:flex group-focus-within:flex flex-col bg-surface border border-border/60 rounded shadow-lg py-1 min-w-[140px] z-50">
-                  {CONTAINER_PRESETS.map((componentName) => (
-                    <button
-                      key={componentName}
-                      type="button"
-                      data-testid={`layout-add-${componentName.toLowerCase()}`}
-                      className="px-3 py-1.5 text-[12px] text-ink hover:bg-subtle hover:text-accent transition-colors text-left"
-                      onClick={() => {
-                        handleAddContainer(componentName);
-                      }}
-                    >
-                      {componentName}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <AddLayoutContainerSplit
+                onAddStack={() => handleAddContainer('Stack')}
+                onPick={(name) => handleAddContainer(name)}
+                presets={CONTAINER_PRESETS}
+              />
             </div>
           </div>
           {isMultiPage && (
@@ -614,26 +661,32 @@ export function LayoutCanvas() {
         <>
           <WorkspacePageSection className="space-y-3 py-4">
             <div onContextMenu={handleContextMenu}>
-              {renderLayoutTree(visibleTreeChildren, {
-                defLookup,
-                bindKeyMap,
-                selectedKey,
-                onSelect: handleSelectNode,
-                activePageId,
-                onSelectPage: setActivePageId,
-                onSetNodeProp: handleSetNodeProp,
-                onUnwrapNode: handleUnwrapNode,
-                onRemoveNode: handleRemoveNode,
-                onSetStyle: handleStyleAdd,
-                onStyleRemove: handleStyleRemove,
-                onResizeColSpan: handleResizeColSpan,
-                onResizeRowSpan: handleResizeRowSpan,
-                onCommitDisplayLabel: (defPath, text) => {
-                  project.updateItem(defPath, { label: text });
+              {renderLayoutTree(
+                visibleTreeChildren,
+                {
+                  defLookup,
+                  bindKeyMap,
+                  selectedKey,
+                  onSelect: handleSelectNode,
+                  activePageId,
+                  onSelectPage: setActivePageId,
+                  onSetNodeProp: handleSetNodeProp,
+                  onUnwrapNode: handleUnwrapNode,
+                  onRemoveNode: handleRemoveNode,
+                  onSetStyle: handleStyleAdd,
+                  onStyleRemove: handleStyleRemove,
+                  onResizeColSpan: handleResizeColSpan,
+                  onResizeRowSpan: handleResizeRowSpan,
+                  onCommitDisplayLabel: (defPath, text) => {
+                    project.updateItem(defPath, { label: text });
+                  },
+                  onRenameDefinitionItem: handleRenameDefinitionItem,
                 },
-                onRenameDefinitionItem: handleRenameDefinitionItem,
-                onUpdateDefinitionItem: handleUpdateDefinitionItem,
-              }, '')}
+                '',
+                undefined,
+                0,
+                !isMultiPage,
+              )}
 
               {visibleTreeChildren.length === 0 && (
                 <p className="text-center text-[13px] text-muted py-8">
@@ -654,6 +707,12 @@ export function LayoutCanvas() {
                 handleSelectNode(item.key, item.itemType);
               }}
             />
+          </WorkspacePageSection>
+
+          <WorkspacePageSection padding="px-7" className="py-5 border-t border-border/50">
+            <div className="rounded-[18px] border border-border/70 bg-surface/80 overflow-hidden shadow-sm">
+              <LayoutLivePreviewSection width="100%" className="min-h-[min(360px,55vh)]" />
+            </div>
           </WorkspacePageSection>
         </>
       )}

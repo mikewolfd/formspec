@@ -1,5 +1,5 @@
 /** @filedesc Overflow popover for Tier 3 layout properties (accessibility, style overrides, CSS class) with dirty guard. */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DirtyGuardConfirm } from './DirtyGuardConfirm';
 import { useOptionalLayoutMode } from './LayoutModeContext';
 
@@ -88,21 +88,78 @@ export function PropertyPopover({
   const [newStyleKey, setNewStyleKey] = useState('');
   const [newStyleValue, setNewStyleValue] = useState('');
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const dirtyInputsRef = useRef<Set<string>>(new Set());
+  dirtyInputsRef.current = dirtyInputs;
 
-  // Compute position from anchor element's bounding rect
-  useEffect(() => {
-    if (!open || !anchorRef.current) {
+  const clampPopoverInViewport = useCallback(() => {
+    if (!open) return;
+    const anchor = anchorRef.current;
+    const pop = popoverRef.current;
+    if (!pop) return;
+
+    const margin = 8;
+    const vv = window.visualViewport;
+    const vw = vv?.width ?? window.innerWidth;
+    const vh = vv?.height ?? window.innerHeight;
+    const vx = vv?.offsetLeft ?? 0;
+    const vy = vv?.offsetTop ?? 0;
+    const w = pop.offsetWidth;
+    const h = pop.offsetHeight;
+
+    let left: number;
+    let top: number;
+
+    if (anchor) {
+      const a = anchor.getBoundingClientRect();
+      left = a.right + margin;
+      top = a.top;
+      if (left + w > vx + vw - margin) {
+        left = Math.max(vx + margin, a.left - w - margin);
+      }
+      if (left < vx + margin) left = vx + margin;
+      if (left + w > vx + vw - margin) {
+        left = Math.max(vx + margin, vx + vw - w - margin);
+      }
+      if (top + h > vy + vh - margin) {
+        top = Math.max(vy + margin, vy + vh - h - margin);
+      }
+      if (top < vy + margin) top = vy + margin;
+    } else {
+      left = vx + margin;
+      top = vy + margin;
+      if (left + w > vx + vw - margin) left = Math.max(vx + margin, vx + vw - w - margin);
+      if (top + h > vy + vh - margin) top = Math.max(vy + margin, vy + vh - h - margin);
+    }
+
+    setPosition((prev) =>
+      prev && prev.left === left && prev.top === top ? prev : { left, top },
+    );
+  }, [open, anchorRef]);
+
+  useLayoutEffect(() => {
+    if (!open) {
       setPosition(null);
       return;
     }
+    clampPopoverInViewport();
+    window.addEventListener('resize', clampPopoverInViewport);
+    const v = window.visualViewport;
+    v?.addEventListener('resize', clampPopoverInViewport);
+    v?.addEventListener('scroll', clampPopoverInViewport);
+    return () => {
+      window.removeEventListener('resize', clampPopoverInViewport);
+      v?.removeEventListener('resize', clampPopoverInViewport);
+      v?.removeEventListener('scroll', clampPopoverInViewport);
+    };
+  }, [open, clampPopoverInViewport]);
 
-    const rect = anchorRef.current.getBoundingClientRect();
-    // Position popover to the right of the anchor, aligned to top
-    setPosition({
-      top: rect.top,
-      left: rect.right + 8, // 8px gap from anchor
-    });
-  }, [open, anchorRef]);
+  useLayoutEffect(() => {
+    if (!open || !popoverRef.current) return;
+    const ro = new ResizeObserver(() => clampPopoverInViewport());
+    ro.observe(popoverRef.current);
+    return () => ro.disconnect();
+  }, [open, clampPopoverInViewport]);
 
   // Reset dirty state when the popover opens/closes
   useEffect(() => {
@@ -134,13 +191,26 @@ export function PropertyPopover({
     });
   }
 
-  function requestClose() {
-    if (dirtyInputs.size > 0) {
+  const requestClose = useCallback(() => {
+    if (dirtyInputsRef.current.size > 0) {
       setShowDirtyGuard(true);
     } else {
       onClose();
     }
-  }
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDownCapture = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (popoverRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
+      requestClose();
+    };
+    document.addEventListener('pointerdown', onPointerDownCapture, true);
+    return () => document.removeEventListener('pointerdown', onPointerDownCapture, true);
+  }, [open, requestClose, anchorRef]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') {
@@ -172,6 +242,7 @@ export function PropertyPopover({
 
   const popoverContent = (
     <div
+      ref={popoverRef}
       data-testid="property-popover"
       role="dialog"
       aria-label="Component properties"
@@ -179,11 +250,12 @@ export function PropertyPopover({
       onKeyDown={handleKeyDown}
       style={{
         position: 'fixed',
-        top: `${(position ?? { top: 0, left: 0 }).top}px`,
-        left: `${(position ?? { top: 0, left: 0 }).left}px`,
+        top: position != null ? `${position.top}px` : 0,
+        left: position != null ? `${position.left}px` : 0,
+        visibility: position != null ? 'visible' : 'hidden',
         zIndex: 50,
       }}
-      className="w-72 rounded border border-border bg-surface shadow-lg flex flex-col overflow-hidden"
+      className="flex w-72 max-h-[min(32rem,calc(100dvh-1rem))] flex-col overflow-hidden rounded border border-border bg-surface shadow-lg"
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface shrink-0">
         <span className="text-[13px] font-semibold text-ink font-ui">Properties</span>
@@ -205,9 +277,9 @@ export function PropertyPopover({
           <div className="space-y-1.5">
             <PopoverInput
               testId="popover-aria-label"
-              label="ARIA label"
+              label="Accessible description"
               value={(accessibility.description as string) ?? ''}
-              placeholder="Optional label override"
+              placeholder="aria-describedby text (optional)"
               onCommit={(v) => commitAccessibility('description', v)}
               onDirtyChange={(id, isDirty) => trackDirty(id, isDirty)}
             />

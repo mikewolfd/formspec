@@ -14,7 +14,9 @@ export function LayoutPageSection({ title, pageId, active = false, onSelect, chi
     <div
       data-testid={`layout-page-${pageId}`}
       className={`rounded-lg border bg-surface ${
-        active ? 'border-accent shadow-sm' : 'border-border'
+        active
+          ? 'border-border border-s-[3px] border-s-accent/80 shadow-sm'
+          : 'border-border'
       }`}
     >
       <button
