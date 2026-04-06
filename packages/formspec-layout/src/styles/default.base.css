@@ -5,15 +5,15 @@
 .formspec-container :where(select) {
   display: block;
   width: 100%;
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--formspec-default-border-input);
+  padding: 0.75rem 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-input) 82%, white);
   border-radius: var(--formspec-default-radius-sm);
   box-sizing: border-box;
   font-family: inherit;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font-size: 0.9375rem;
+  line-height: 1.45;
   color: var(--formspec-default-text);
-  background: var(--formspec-default-surface);
+  background: color-mix(in srgb, var(--formspec-default-surface) 96%, var(--formspec-default-surface-muted));
   outline: none;
   transition: var(--formspec-default-transition-fast);
 }
@@ -42,9 +42,10 @@
 
 .formspec-container :where(label) {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 560;
+  letter-spacing: 0.01em;
   color: var(--formspec-default-text);
 }
 
@@ -120,14 +121,14 @@
 .formspec-description {
   font-size: 0.9375rem;
   line-height: 1.5;
-  color: var(--formspec-description-color, #64748b);
+  color: var(--formspec-description-color, var(--formspec-default-text-muted));
 }
 
 .formspec-hint {
   margin: 0 0 0.25rem;
   font-size: 0.875rem;
   line-height: 1.45;
-  color: var(--formspec-default-text-muted);
+  color: var(--formspec-default-text-subtle);
 }
 
 .formspec-heading {
@@ -168,7 +169,7 @@ h6.formspec-heading {
 .formspec-error {
   min-height: 1.25rem;
   margin-top: 0.25rem;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--formspec-default-danger);
 }
@@ -195,10 +196,10 @@ h6.formspec-heading {
 .formspec-input-adornment {
   display: flex;
   align-items: stretch;
-  border: 1px solid var(--formspec-default-border-input);
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-input) 82%, white);
   border-radius: var(--formspec-default-radius-sm);
   overflow: hidden;
-  background: var(--formspec-default-surface);
+  background: color-mix(in srgb, var(--formspec-default-surface) 96%, var(--formspec-default-surface-muted));
   transition: var(--formspec-default-transition-fast);
 }
 
@@ -217,7 +218,7 @@ h6.formspec-heading {
   padding: 0 0.625rem;
   font-size: 0.875rem;
   color: var(--formspec-default-text-subtle);
-  background: var(--formspec-default-surface-muted);
+  background: color-mix(in srgb, var(--formspec-default-surface-muted) 72%, white);
 }
 
 .formspec-prefix,
@@ -241,9 +242,9 @@ h6.formspec-heading {
 }
 
 .formspec-field--readonly {
-  padding: 0.625rem;
+  padding: 0.75rem 0.875rem;
   border: 1px solid var(--formspec-default-readonly-field-border);
-  border-left: 4px solid var(--formspec-default-readonly-field-accent);
+  border-left: 2px solid var(--formspec-default-readonly-field-accent);
   border-radius: var(--formspec-default-radius-sm);
   background: var(--formspec-default-readonly-field-bg);
 }
@@ -258,15 +259,15 @@ h6.formspec-heading {
 .formspec-field--readonly .formspec-label::after {
   content: 'Read only';
   display: inline-block;
-  padding: 0.2rem 0.4rem;
+  padding: 0.25rem 0.5rem;
   border: 1px solid var(--formspec-default-readonly-badge-border);
   border-radius: var(--formspec-default-radius-pill);
   background: var(--formspec-default-readonly-badge-bg);
   color: var(--formspec-default-readonly-badge-text);
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.68rem;
+  font-weight: 650;
   line-height: 1;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 

@@ -13,13 +13,14 @@
 
 .formspec-repeat-add,
 .formspec-repeat-remove {
-  padding: 0.625rem 1rem;
+  padding: 0.675rem 1rem;
   border: 1px solid transparent;
   border-radius: var(--formspec-default-radius-sm);
   background: transparent;
   font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .formspec-repeat-add {
@@ -52,12 +53,13 @@
   display: block;
   width: 100%;
   margin-top: 1rem;
-  padding: 0.75rem 1.25rem;
+  padding: 0.85rem 1.25rem;
   border: none;
   border-radius: var(--formspec-default-radius-sm);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .formspec-submit:hover {
@@ -133,8 +135,9 @@
   margin: 0;
   padding: 1.25rem 3rem 1rem 1.5rem;
   border-bottom: 1px solid var(--formspec-default-border-subtle);
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .formspec-modal-content {
@@ -146,10 +149,10 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
-  padding: 0.5rem 1rem;
+  padding: 0.625rem 1rem;
   border: 1px solid var(--formspec-default-primary);
   border-radius: var(--formspec-default-radius-sm);
-  background: transparent;
+  background: color-mix(in srgb, var(--formspec-default-primary) 6%, white);
   color: var(--formspec-default-primary);
   font: inherit;
   font-size: 0.875rem;
@@ -195,27 +198,29 @@
 
 .formspec-tab-bar {
   margin-bottom: 1rem;
-  border-bottom: 1px solid var(--formspec-default-border-muted);
+  padding: 0.25rem;
+  border: 1px solid var(--formspec-default-border-subtle);
+  border-radius: var(--formspec-default-radius-pill);
+  background: color-mix(in srgb, var(--formspec-default-surface-muted) 66%, white);
 }
 
 .formspec-tab {
-  margin-bottom: -1px;
-  padding: 0.625rem 0.875rem;
+  margin-bottom: 0;
+  padding: 0.6rem 0.9rem;
   border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: var(--formspec-default-radius-sm) var(--formspec-default-radius-sm) 0 0;
+  border-radius: var(--formspec-default-radius-pill);
   background: none;
   color: var(--formspec-default-text-muted);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: 0.9rem;
   font-weight: 500;
 }
 
 .formspec-tab--active {
-  border-bottom-color: var(--formspec-default-primary);
   color: var(--formspec-default-primary);
   font-weight: 600;
-  background: color-mix(in srgb, var(--formspec-default-primary) 7%, white);
+  background: var(--formspec-default-surface);
+  box-shadow: 0 1px 2px rgba(68, 56, 37, 0.08);
 }
 
 .formspec-tabs:not([data-position]) .formspec-tab-panels,
@@ -225,15 +230,16 @@
 
 .formspec-page h2 {
   margin-bottom: 0.25rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--formspec-default-border-subtle);
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .formspec-page-description {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   color: var(--formspec-default-text-subtle);
   font-size: 0.9375rem;
   line-height: 1.5;
+  max-width: 60ch;
 }
 
 .formspec-screener {
@@ -242,10 +248,12 @@
   gap: 1rem;
   max-width: 860px;
   margin: 0 auto;
-  padding: 1.5rem;
-  border: 1px solid var(--formspec-default-border-subtle);
+  padding: 1.75rem;
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 85%, white);
   border-radius: var(--formspec-default-radius-md);
-  background: var(--formspec-default-surface-quiet);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--formspec-default-surface-quiet) 70%, white) 0%, var(--formspec-default-surface) 100%);
+  box-shadow: var(--formspec-default-shadow-sm);
 }
 
 .formspec-screener-heading {
@@ -277,9 +285,9 @@
   flex-direction: column;
   gap: 0.25rem;
   padding: 12px;
-  border: 1px solid var(--formspec-default-border-subtle);
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 82%, white);
   border-radius: var(--formspec-default-radius-sm);
-  background: var(--formspec-default-surface);
+  background: color-mix(in srgb, white 72%, var(--formspec-default-surface));
 }
 
 .formspec-screener-continue {
@@ -301,20 +309,21 @@
   flex-direction: column;
   gap: var(--formspec-spacing-md, 1rem);
   padding: var(--formspec-spacing-lg, 1.5rem);
-  border: 1px solid var(--formspec-default-border-subtle);
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 82%, white);
   border-radius: var(--formspec-default-radius-md);
   background: var(--formspec-default-surface);
 }
 
 .formspec-wizard--with-sidenav {
-  border: 1px solid var(--formspec-default-border-subtle);
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 82%, white);
   border-radius: var(--formspec-default-radius-md);
   background: var(--formspec-default-surface);
+  box-shadow: var(--formspec-default-shadow-sm);
 }
 
 .formspec-wizard-sidenav {
   width: 216px;
-  background: var(--formspec-default-surface-quiet);
+  background: color-mix(in srgb, var(--formspec-default-surface-quiet) 78%, white);
   border-right: 1px solid var(--formspec-default-border-subtle);
   transition: width 0.22s ease;
 }

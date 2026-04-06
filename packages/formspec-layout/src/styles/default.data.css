@@ -11,6 +11,10 @@
   border-spacing: 0;
   font-size: 0.875rem;
   line-height: 1.45;
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 82%, white);
+  border-radius: var(--formspec-default-radius-md);
+  overflow: hidden;
+  background: var(--formspec-default-surface);
 }
 
 .formspec-data-table :is(th, td) {
@@ -20,16 +24,17 @@
 }
 
 .formspec-data-table th {
-  background: var(--formspec-default-surface-quiet);
+  background: color-mix(in srgb, var(--formspec-default-surface-muted) 62%, white);
   color: var(--formspec-default-text-strong);
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .formspec-datatable-input {
   width: 100%;
   min-width: 4rem;
-  padding: 0.375rem 0.5rem;
-  border: 1px solid var(--formspec-default-border-control);
+  padding: 0.5rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-control) 82%, white);
   border-radius: var(--formspec-default-radius-sm);
   font: inherit;
   font-size: 0.875rem;
@@ -117,20 +122,20 @@
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  border: 1px solid #fca5a5;
-  border-radius: var(--formspec-default-radius-sm);
-  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--formspec-default-danger) 22%, white);
+  border-radius: var(--formspec-default-radius-md);
+  background: #fffdfa;
 }
 
 .formspec-validation-summary-header,
 .formspec-validation-summary-title {
   margin: 0;
   padding: 0.875rem 1rem 0.75rem;
-  border-bottom: 1px solid #fca5a5;
+  border-bottom: 1px solid color-mix(in srgb, var(--formspec-default-danger) 22%, white);
   background: var(--formspec-default-danger-surface-soft);
   color: #7f1d1d;
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.35;
 }
 
@@ -141,7 +146,7 @@
   align-items: baseline;
   gap: 8px;
   padding: 0.75rem 1rem;
-  border-left: 3px solid transparent;
+  border-left: 2px solid transparent;
   border-radius: 0;
   font-size: 0.875rem;
   line-height: 1.45;
