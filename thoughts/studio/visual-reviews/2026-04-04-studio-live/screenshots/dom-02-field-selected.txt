@@ -1,0 +1,18 @@
+# DOM snapshot — Layout workspace after selecting “Full Legal Name” (wizard step nav)
+# Same session; click targeted Layout step “Full Legal Name” to select field and expose toolbar.
+
+- role: document — The Stack — Formspec Studio
+  - (workspace chrome same as dom-01-layout-initial.txt)
+  - button Applicant Information [pressed]
+  - button Stack
+  - button Reorder Full Legal Name
+  - button Edit description          # appears when field selected
+  - button Edit hint
+  - button More properties
+  - button Reorder Date of Birth
+  - …
+  - navigation Layout step navigation
+    - (Full Legal Name no longer sole focus; tree truncated)
+
+# Interpretation: selection surfaces authoring affordances (description/hint/properties) in the accessibility tree,
+# consistent with FieldBlock inline editing + InlineToolbar wiring.

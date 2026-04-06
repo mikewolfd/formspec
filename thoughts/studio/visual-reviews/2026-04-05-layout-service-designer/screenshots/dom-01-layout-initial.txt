@@ -1,0 +1,22 @@
+# DOM snapshot excerpt — Layout workspace (YAML accessibility tree)
+
+Captured after: Layout tab, Wizard selected, Layout mode, Applicant Information step.
+Source: browser snapshot (cursor-ide-browser). Excerpt focuses on canvas-adjacent controls.
+
+Relevant nodes:
+- tab "Layout" [selected]
+- tab "Wizard" [selected]
+- radio "Layout" [checked]
+- navigation "Layout step navigation"
+  - button "1 Applicant Information" [current]
+  - button "2 Household" … "5 Review & Submit"
+- button "Add item to layout"
+- button "Add page to layout"
+- button "Add Stack layout container"
+- button "Choose layout container type" [collapsed]
+- button "Applicant Information" on canvas (container header) [pressed when container selected]
+- button "Stack" (container type badge)
+- button "Reorder Full Legal Name" … (drag affordance; may be opacity-0 until hover in DOM/CSS)
+- region "Applicant Information" (live preview column mirrors headings/fields)
+
+Field blocks in canvas use role="group" with aria-label "Field {itemKey}" and aria-pressed — see FieldBlock.tsx (not always enumerated as separate interactive refs in this tree export).

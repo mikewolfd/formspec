@@ -1,0 +1,30 @@
+# DOM snapshot — Layout workspace (initial, Wizard mode)
+# Captured: live http://localhost:5173/studio/ after Layout tab, viewport ~1600×900 (content may still stack responsively).
+# Tool: cursor-ide-browser browser_snapshot (compact false, maxDepth 25).
+
+- role: document — The Stack — Formspec Studio
+  - tab Editor
+  - tab Layout [active, focused, selected]
+  - tab Mapping
+  - tab Preview
+  - button Preview
+  - tab Single
+  - tab Wizard [selected]
+  - tab Tabs
+  - radio Layout [checked]
+  - radio Theme
+  - button Add item to layout
+  - button Add page to layout
+  - button Add layout container
+  - button 1 Applicant Information [current]
+  - button 2 Household
+  - button 3 Income & Assets
+  - button 4 Housing
+  - button 5 Review & Submit
+  - button Applicant Information [pressed]  # container header in canvas
+  - button Stack
+  - button Reorder Full Legal Name
+  - button Reorder Date of Birth
+  - … (additional reorder handles)
+  - navigation Layout step navigation
+    - (step labels: Full Legal Name, Date of Birth, SSN, … truncated in tree depth)
