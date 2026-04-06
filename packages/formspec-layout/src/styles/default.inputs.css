@@ -374,7 +374,7 @@
 
 .formspec-combobox-option:hover,
 .formspec-combobox-option.formspec-option--highlighted {
-  background: var(--formspec-default-surface-muted);
+  background: color-mix(in srgb, var(--formspec-default-surface-muted) 72%, white);
 }
 
 .formspec-combobox-option.formspec-option--selected {
@@ -397,7 +397,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--formspec-default-text-subtle);
-  background: var(--formspec-default-surface-muted);
+  background: color-mix(in srgb, var(--formspec-default-surface-muted) 72%, white);
 }
 
 .formspec-money .formspec-input,
@@ -462,7 +462,7 @@
 .formspec-stepper-decrement:hover:not(:disabled),
 .formspec-stepper-increment:hover:not(:disabled) {
   color: var(--formspec-default-primary);
-  background: var(--formspec-default-surface-muted);
+  background: color-mix(in srgb, var(--formspec-default-surface-muted) 72%, white);
 }
 
 .formspec-stepper-decrement:active:not(:disabled),
@@ -509,24 +509,24 @@
 
 .formspec-rating-stars {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
   font-size: 24px;
 }
 
 .formspec-rating-star {
   display: inline-block;
-  color: #c2c7cf;
+  color: #d6ccbd;
   cursor: pointer;
   transition: color 0.15s;
 }
 
 .formspec-rating-star:hover {
-  color: #d8a23a;
+  color: #cf9440;
 }
 
 .formspec-rating-star--selected {
-  color: #c78a17;
+  color: #b7771f;
 }
 
 .formspec-rating-star--half {
@@ -568,10 +568,10 @@
 .formspec-file-browse-btn,
 .formspec-signature-clear {
   align-self: flex-start;
-  padding: 0.45rem 0.9rem;
-  border: 1px solid var(--formspec-default-border-subtle);
-  border-radius: 5px;
-  background: var(--formspec-default-surface);
+  padding: 0.55rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 84%, white);
+  border-radius: var(--formspec-default-radius-sm);
+  background: color-mix(in srgb, var(--formspec-default-surface) 92%, white);
   transition: var(--formspec-default-transition-fast);
 }
 
@@ -595,18 +595,19 @@
 
 .formspec-file-drop-zone {
   width: 100%;
-  padding: 1.5rem;
+  padding: 1.75rem 1.5rem;
   box-sizing: border-box;
   border: 2px dashed var(--formspec-default-border-control);
   border-radius: var(--formspec-default-radius-md);
   text-align: center;
-  background: var(--formspec-default-surface-quiet);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--formspec-default-surface-quiet) 80%, white) 0%, var(--formspec-default-surface) 100%);
   transition: var(--formspec-default-transition-fast);
 }
 
 .formspec-file-drop-zone--active {
   border-color: var(--formspec-default-primary);
-  background: #e8f0fe;
+  background: color-mix(in srgb, var(--formspec-default-primary) 8%, white);
 }
 
 .formspec-file-drop-content {
@@ -619,7 +620,7 @@
 .formspec-file-drop-icon {
   font-size: 1.75rem;
   line-height: 1;
-  color: var(--formspec-default-text-faint);
+  color: var(--formspec-default-text-subtle);
 }
 
 .formspec-file-drop-label {
@@ -638,10 +639,10 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--formspec-default-border-subtle);
+  padding: 0.45rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 84%, white);
   border-radius: var(--formspec-default-radius-sm);
-  background: var(--formspec-default-surface-quiet);
+  background: color-mix(in srgb, var(--formspec-default-surface-quiet) 80%, white);
   font-size: 0.875rem;
 }
 
@@ -677,8 +678,8 @@
 }
 
 .formspec-file-list-remove:hover {
-  color: #dc2626;
-  background: #fde8e8;
+  color: #c23a2b;
+  background: #fdf0ed;
 }
 
 .formspec-file-list-clear {
@@ -690,14 +691,15 @@
 }
 
 .formspec-file-list-clear:hover {
-  color: #dc2626;
+  color: #c23a2b;
 }
 
 .formspec-signature-canvas {
   display: block;
   max-width: 100%;
-  border: 1px solid var(--formspec-default-border-subtle);
+  border: 1px solid color-mix(in srgb, var(--formspec-default-border-subtle) 84%, white);
   border-radius: var(--formspec-default-radius-sm);
+  background: color-mix(in srgb, var(--formspec-default-surface) 94%, white);
   cursor: crosshair;
   touch-action: none;
 }
