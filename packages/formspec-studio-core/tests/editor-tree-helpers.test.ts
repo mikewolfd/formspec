@@ -179,18 +179,18 @@ describe('editor-tree-helpers', () => {
       );
       expect(result).toEqual({
         Visibility: 'Enabled is Yes',
-        Validation: 'Required \u00b7 Constraint',
+        Validation: '2 rules',
         Value: '',
         Format: 'USD 2dp',
       });
     });
 
-    it('returns empty string for visibility when no relevant bind', () => {
+    it('uses Always for visibility when no relevant bind on a field', () => {
       const result = buildCategorySummaries(
         { key: 'name', type: 'field', dataType: 'string', label: 'Name' } as any,
         {},
       );
-      expect(result.Visibility).toBe('');
+      expect(result.Visibility).toBe('Always');
     });
 
     it('returns empty string for unconfigured categories', () => {
@@ -211,21 +211,21 @@ describe('editor-tree-helpers', () => {
       expect(result.Value).toContain('formula');
     });
 
-    it('names validation rules instead of counting them', () => {
+    it('counts validation rules for the category strip', () => {
       expect(buildCategorySummaries(
         { key: 'age', type: 'field', dataType: 'integer', label: 'Age' } as any,
         { required: 'true' },
-      ).Validation).toBe('Required');
+      ).Validation).toBe('1 rule');
 
       expect(buildCategorySummaries(
         { key: 'age', type: 'field', dataType: 'integer', label: 'Age' } as any,
         { constraint: '. > 0' },
-      ).Validation).toBe('Constraint');
+      ).Validation).toBe('1 rule');
 
       expect(buildCategorySummaries(
         { key: 'age', type: 'field', dataType: 'integer', label: 'Age' } as any,
         { required: 'true', constraint: '. > 0' },
-      ).Validation).toBe('Required \u00b7 Constraint');
+      ).Validation).toBe('2 rules');
     });
 
     it('returns only Visibility and Description for display items', () => {

@@ -133,14 +133,16 @@ export function buildCategorySummaries(item: FormItem, binds: Record<string, str
     };
   }
 
-  // Visibility
-  const visibility = binds.relevant?.trim() ? summarizeExpression(binds.relevant) : '';
+  // Visibility — "Always" when no condition (definition tree shows fixed four slots).
+  const visibility = binds.relevant?.trim() ? summarizeExpression(binds.relevant) : 'Always';
 
-  // Validation: name each rule for scannability
-  const validationParts: string[] = [];
-  if (binds.required?.trim()) validationParts.push('Required');
-  if (binds.constraint?.trim()) validationParts.push('Constraint');
-  const validation = validationParts.join(' \u00b7 ');
+  // Validation — compact rule count for the category strip (details live in the lower panel).
+  const validationRuleCount =
+    (binds.required?.trim() ? 1 : 0) + (binds.constraint?.trim() ? 1 : 0);
+  const validation =
+    validationRuleCount === 0
+      ? ''
+      : `${validationRuleCount} ${validationRuleCount === 1 ? 'rule' : 'rules'}`;
 
   // Value: primary source, plus explicit readonly when it stacks (e.g. formula · locked).
   let value = '';

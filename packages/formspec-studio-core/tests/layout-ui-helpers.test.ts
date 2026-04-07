@@ -12,6 +12,10 @@ import {
   getGroupedTokens,
   getSortedBreakpoints,
   getEditablePropertiesForNode,
+  parseTokenRegistry,
+  getTokenRegistryEntry,
+  getEnrichedTokensByGroup,
+  getEnrichedGroupedTokens,
 } from '../src/layout-ui-helpers.js';
 
 // ── 1. resolveLayoutInsertTarget ──────────────────────────────────────
@@ -373,5 +377,198 @@ describe('getEditablePropertiesForNode', () => {
     const nodeId = result.createdId!;
     const props = getEditablePropertiesForNode(project, `__node:${nodeId}`);
     expect(props).toContain('when');
+  });
+});
+
+// ── 11. parseTokenRegistry ────────────────────────────────────────────
+
+describe('parseTokenRegistry', () => {
+  it('returns empty map for document with no categories', () => {
+    const registry = parseTokenRegistry({ $formspecTokenRegistry: '1.0' });
+    expect(registry.size).toBe(0);
+  });
+
+  it('parses a minimal registry into a map', () => {
+    const registry = parseTokenRegistry({
+      $formspecTokenRegistry: '1.0',
+      categories: {
+        color: {
+          type: 'color',
+          darkPrefix: 'color.dark',
+          tokens: {
+            'color.primary': { description: 'Primary', default: '#111', dark: '#eee' },
+          },
+        },
+      },
+    });
+    expect(registry.size).toBe(1);
+    const color = registry.get('color')!;
+    expect(color.type).toBe('color');
+    expect(color.darkPrefix).toBe('color.dark');
+    const entry = color.entries.get('color.primary')!;
+    expect(entry.description).toBe('Primary');
+    expect(entry.defaultValue).toBe('#111');
+    expect(entry.darkKey).toBe('color.dark.primary');
+  });
+
+  it('parses multiple categories', () => {
+    const registry = parseTokenRegistry({
+      $formspecTokenRegistry: '1.0',
+      categories: {
+        color: { type: 'color', tokens: { 'color.bg': { default: '#fff' } } },
+        spacing: { type: 'dimension', tokens: { 'spacing.sm': { default: '0.5rem' } } },
+      },
+    });
+    expect(registry.size).toBe(2);
+    expect(registry.get('spacing')!.type).toBe('dimension');
+  });
+
+  it('omits darkKey when category has no darkPrefix', () => {
+    const registry = parseTokenRegistry({
+      $formspecTokenRegistry: '1.0',
+      categories: {
+        spacing: {
+          type: 'dimension',
+          tokens: { 'spacing.sm': { default: '0.5rem' } },
+        },
+      },
+    });
+    const entry = registry.get('spacing')!.entries.get('spacing.sm')!;
+    expect(entry.darkKey).toBeUndefined();
+  });
+});
+
+// ── 12. getTokenRegistryEntry ─────────────────────────────────────────
+
+describe('getTokenRegistryEntry', () => {
+  const registry = parseTokenRegistry({
+    $formspecTokenRegistry: '1.0',
+    categories: {
+      color: { type: 'color', tokens: { 'color.primary': { description: 'Primary', default: '#111' } } },
+      spacing: { type: 'dimension', tokens: { 'spacing.sm': { default: '0.5rem' } } },
+    },
+  });
+
+  it('finds an entry across categories', () => {
+    const entry = getTokenRegistryEntry('spacing.sm', registry);
+    expect(entry).toBeDefined();
+    expect(entry!.defaultValue).toBe('0.5rem');
+  });
+
+  it('returns undefined for unknown key', () => {
+    expect(getTokenRegistryEntry('nonexistent.token', registry)).toBeUndefined();
+  });
+});
+
+// ── 13. getEnrichedTokensByGroup ──────────────────────────────────────
+
+describe('getEnrichedTokensByGroup', () => {
+  const registry = parseTokenRegistry({
+    $formspecTokenRegistry: '1.0',
+    categories: {
+      color: {
+        type: 'color',
+        darkPrefix: 'color.dark',
+        tokens: {
+          'color.primary': { description: 'Primary', default: '#111', dark: '#eee' },
+          'color.error': { description: 'Error', default: '#f00', dark: '#faa' },
+        },
+      },
+    },
+  });
+
+  it('enriches tokens with registry metadata', () => {
+    const tokens = {
+      'color.primary': '#222',
+      'color.dark.primary': '#ddd',
+      'color.error': '#f00',
+      'color.dark.error': '#faa',
+    };
+    const enriched = getEnrichedTokensByGroup(tokens, 'color', registry);
+    expect(enriched).toHaveLength(2); // dark tokens folded in
+    const primary = enriched.find(t => t.key === 'color.primary')!;
+    expect(primary.description).toBe('Primary');
+    expect(primary.type).toBe('color');
+    expect(primary.isModified).toBe(true); // #222 !== #111
+    expect(primary.darkValue).toBe('#ddd');
+    expect(primary.darkKey).toBe('color.dark.primary');
+  });
+
+  it('shows platform tokens even when theme omits them', () => {
+    const tokens = { 'color.primary': '#222', 'color.dark.primary': '#ddd' };
+    const enriched = getEnrichedTokensByGroup(tokens, 'color', registry);
+    expect(enriched).toHaveLength(2);
+    const error = enriched.find(t => t.key === 'color.error')!;
+    expect(error.value).toBe('#f00'); // uses default
+    expect(error.isModified).toBe(false);
+  });
+
+  it('includes custom tokens not in registry', () => {
+    const tokens = {
+      'color.primary': '#111',
+      'color.dark.primary': '#eee',
+      'color.custom': '#abc',
+    };
+    const enriched = getEnrichedTokensByGroup(tokens, 'color', registry);
+    const custom = enriched.find(t => t.key === 'color.custom')!;
+    expect(custom.isCustom).toBe(true);
+  });
+
+  it('works without a registry (all tokens are custom)', () => {
+    const tokens = { 'color.primary': '#111', 'color.accent': '#222' };
+    const enriched = getEnrichedTokensByGroup(tokens, 'color');
+    expect(enriched).toHaveLength(2);
+    expect(enriched.every(t => t.isCustom)).toBe(true);
+  });
+});
+
+// ── 14. getEnrichedGroupedTokens ──────────────────────────────────────
+
+describe('getEnrichedGroupedTokens', () => {
+  const registry = parseTokenRegistry({
+    $formspecTokenRegistry: '1.0',
+    categories: {
+      color: {
+        type: 'color',
+        darkPrefix: 'color.dark',
+        tokens: {
+          'color.primary': { description: 'Primary', default: '#111', dark: '#eee' },
+        },
+      },
+      spacing: {
+        type: 'dimension',
+        tokens: {
+          'spacing.sm': { default: '0.5rem' },
+        },
+      },
+    },
+  });
+
+  it('returns registry categories even with empty theme', () => {
+    const groups = getEnrichedGroupedTokens({}, registry);
+    expect(groups.has('color')).toBe(true);
+    expect(groups.has('spacing')).toBe(true);
+  });
+
+  it('includes custom groups not in registry', () => {
+    const tokens = { 'color.primary': '#111', 'brand.logo': 'url(...)' };
+    const groups = getEnrichedGroupedTokens(tokens, registry);
+    expect(groups.has('brand')).toBe(true);
+    expect(groups.get('brand')![0].isCustom).toBe(true);
+  });
+
+  it('folds dark tokens into their parent group', () => {
+    const tokens = { 'color.primary': '#222', 'color.dark.primary': '#ddd' };
+    const groups = getEnrichedGroupedTokens(tokens, registry);
+    // color.dark should NOT appear as a separate group
+    expect(groups.has('color')).toBe(true);
+    expect(groups.has('color.dark')).toBe(false);
+  });
+
+  it('works without a registry', () => {
+    const tokens = { 'color.primary': '#111', 'spacing.sm': '0.5rem' };
+    const groups = getEnrichedGroupedTokens(tokens);
+    expect(groups.has('color')).toBe(true);
+    expect(groups.has('spacing')).toBe(true);
   });
 });

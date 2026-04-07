@@ -3473,6 +3473,24 @@ export class Project {
     };
   }
 
+  /** Wrap multiple sibling nodes in one layout container (same parent, visual order preserved). */
+  wrapSiblingComponentNodes(
+    refs: Array<{ bind: string } | { nodeId: string }>,
+    component: string,
+  ): HelperResult {
+    const result = this.core.dispatch({
+      type: 'component.wrapSiblingNodes',
+      payload: { nodes: refs, wrapper: { component } },
+    } as AnyCommand);
+    const nodeId = (result as any)?.nodeRef?.nodeId;
+    return {
+      summary: `Wrapped ${refs.length} sibling nodes in ${component}`,
+      action: { helper: 'wrapSiblingComponentNodes', params: { refs, component } },
+      affectedPaths: nodeId ? [nodeId] : [],
+      createdId: nodeId,
+    };
+  }
+
   /** Reorder a component node (by bind or nodeId ref) up or down. */
   reorderComponentNode(ref: { bind?: string; nodeId?: string }, direction: 'up' | 'down'): HelperResult {
     this.core.dispatch({

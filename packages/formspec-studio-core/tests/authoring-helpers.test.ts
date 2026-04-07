@@ -162,7 +162,10 @@ describe('authoring-helpers', () => {
     expect(catalog.find((entry) => entry.label === 'Single Choice')?.dataType).toBe('choice');
     expect(catalog.find((entry) => entry.label === 'Multiple Choice')?.dataType).toBe('multiChoice');
     expect(catalog.filter((entry) => entry.itemType === 'layout').map((entry) => entry.label)).toEqual(
-      expect.arrayContaining(['Card', 'Columns', 'Collapsible', 'Stack', 'Spacer']),
+      expect.arrayContaining([
+        'Card', 'Columns', 'Collapsible', 'Stack', 'Spacer',
+        'Grid', 'Panel', 'Accordion', 'Conditional Group',
+      ]),
     );
   });
 

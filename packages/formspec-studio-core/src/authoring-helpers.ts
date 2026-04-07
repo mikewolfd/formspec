@@ -92,6 +92,10 @@ const FIELD_TYPE_CATALOG: FieldTypeCatalogEntry[] = [
   { label: 'Columns', description: 'Side-by-side column layout', icon: '▥', color: 'text-accent', itemType: 'layout', component: 'Columns', category: 'Layout', keywords: ['columns', 'grid', 'side', 'two', 'multi'] },
   { label: 'Collapsible', description: 'Expandable/collapsible section', icon: '▽', color: 'text-accent', itemType: 'layout', component: 'Collapsible', category: 'Layout', keywords: ['collapsible', 'accordion', 'expand', 'collapse', 'toggle'] },
   { label: 'Stack', description: 'Vertical or horizontal stack container', icon: '▤', color: 'text-accent', itemType: 'layout', component: 'Stack', category: 'Layout', keywords: ['stack', 'vertical', 'horizontal', 'list', 'column'] },
+  { label: 'Grid', description: 'Responsive grid with column count and gap', icon: '▦', color: 'text-accent', itemType: 'layout', component: 'Grid', category: 'Layout', keywords: ['grid', 'columns', 'rows', 'layout', 'responsive'] },
+  { label: 'Panel', description: 'Sliding or docked side panel', icon: '▐', color: 'text-accent', itemType: 'layout', component: 'Panel', category: 'Layout', keywords: ['panel', 'drawer', 'sidebar', 'dock'] },
+  { label: 'Accordion', description: 'Stack of expandable sections (one or many open)', icon: '≡', color: 'text-accent', itemType: 'layout', component: 'Accordion', category: 'Layout', keywords: ['accordion', 'sections', 'expand', 'collapse'] },
+  { label: 'Conditional Group', description: 'Show or hide children based on an expression', icon: '?', color: 'text-accent', itemType: 'layout', component: 'ConditionalGroup', category: 'Layout', keywords: ['conditional', 'conditionalgroup', 'visible', 'expression', 'logic'] },
   // Spacer is a Component Spec §5.5 layout component — no Tier 1 widgetHint (CoreSpec §4.2.5.1)
   { label: 'Spacer', description: 'Vertical space between items', icon: '↕', color: 'text-muted', itemType: 'layout', component: 'Spacer', category: 'Layout', keywords: ['spacer', 'space', 'gap', 'padding'] },
 ];

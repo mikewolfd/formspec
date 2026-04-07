@@ -239,8 +239,23 @@ export {
   getGroupedTokens,
   getSortedBreakpoints,
   getEditablePropertiesForNode,
+  parseTokenRegistry,
+  getTokenRegistryEntry,
+  getEnrichedTokensByGroup,
+  getEnrichedGroupedTokens,
 } from './layout-ui-helpers.js';
-export type { Token, Breakpoint, LayoutInsertTarget } from './layout-ui-helpers.js';
+export type {
+  Token,
+  Breakpoint,
+  LayoutInsertTarget,
+  TokenType,
+  TokenRegistryEntry,
+  TokenRegistryCategory,
+  TokenRegistryMap,
+  EnrichedToken,
+} from './layout-ui-helpers.js';
+
+export { platformTokenRegistry } from './token-registry.js';
 
 // ── Preview document normalization ─────────────────────────────────
 export {
