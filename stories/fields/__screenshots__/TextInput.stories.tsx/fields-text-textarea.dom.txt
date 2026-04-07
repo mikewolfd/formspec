@@ -18,7 +18,7 @@ div  |  1200×217
                     "Biography"
                   p  #field-bio-hint  .formspec-hint  |  584×18  m:16,0
                     "Tell us about yourself"
-                  textarea  #field-bio  name="bio"  aria-describedby="field-bio-hint"  aria-required="false"  aria-invalid="false"  |  181×81  d:inline-block  p:2  overflow:auto  |  bg:rgb(255, 255, 255)  border:1px solid rgb(118, 118, 118)  font:13.3333px
+                  textarea  #field-bio  name="bio"  aria-describedby="field-bio-hint"  aria-required="false"  aria-invalid="false"  |  182×81  d:inline-block  p:2  overflow:auto  |  bg:rgb(255, 255, 255)  border:1px solid rgb(118, 118, 118)  font:13.3333px
                   p  #field-bio-error  .formspec-error  aria-live="polite"  |  584×0  m:16,0
                 button  .formspec-submit  type="submit"  |  584×21  p:1,6  |  bg:rgb(239, 239, 239)  border:2px outset rgb(0, 0, 0)  font:13.3333px
                   "Submit"
@@ -41,7 +41,7 @@ div  |  1200×217
                           "Biography"
                         p  #field-bio-hint  .formspec-hint  |  584×18  m:16,0
                           "Tell us about yourself"
-                        textarea  #field-bio  .formspec-input  name="bio"  aria-describedby="field-bio-hint"  aria-required="false"  aria-invalid="false"  |  181×81  d:inline-block  p:2  overflow:auto  |  bg:rgb(255, 255, 255)  border:1px solid rgb(118, 118, 118)  font:13.3333px
+                        textarea  #field-bio  .formspec-input  name="bio"  aria-describedby="field-bio-hint"  aria-required="false"  aria-invalid="false"  |  182×81  d:inline-block  p:2  overflow:auto  |  bg:rgb(255, 255, 255)  border:1px solid rgb(118, 118, 118)  font:13.3333px
                         p  #field-bio-error  .formspec-error  aria-live="polite"  |  584×0  m:16,0
                       button  .formspec-submit.formspec-focus-ring  type="button"  |  58×21  d:inline-block  p:1,6  |  bg:rgb(239, 239, 239)  border:2px outset rgb(0, 0, 0)  font:13.3333px
                         "Submit"

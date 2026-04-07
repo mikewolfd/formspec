@@ -2,62 +2,62 @@ div .sb-preparing-story.sb-wrapper [hidden]
 div .sb-preparing-docs.sb-wrapper [hidden]
 div .sb-nopreview.sb-wrapper [hidden]
 div .sb-errordisplay.sb-wrapper [hidden]
-div  |  1200×411
-  div  |  1200×411  d:grid  cols:584px 584px 0px  rows:411.344px  gap:32px
-    div  |  584×411
+div  |  1200×167
+  div  |  1200×167  d:grid  cols:584px 584px 0px  rows:167px  gap:32px
+    div  |  584×167
       div  |  584×15  m:0,0,12,0  |  color:rgb(136, 136, 136)  font:13px/600
         "React"
-      div  |  584×384
+      div  |  584×140
         #shadow-root
           link [hidden]
-          div  |  584×384
-            div  .formspec-container.formspec-appearance-light  |  584×384  d:flex  dir:column  gap:16px  |  color:rgb(32, 36, 31)  font:15.36px
-              div  .formspec-accordion  |  584×384
-                details  .formspec-accordion-item  |  584×258  m:0,0,4,0  overflow:hidden  |  bg:rgb(253, 250, 244)  border:1px solid color(srgb 0.921205 0.905788 0.881807)  radius:14.4px
-                  summary  |  582×55  d:flex  gap:8px  jc:space-between  ai:center  p:15,16  |  bg:color(srgb 0.962274 0.944863 0.915843)  color:rgb(23, 27, 23)  font-weight:580
+          div  |  584×140
+            div  .formspec-container.formspec-appearance-light  |  584×140
+              div  .formspec-accordion  |  584×140
+                details  .formspec-accordion-item  |  584×104
+                  summary  |  584×18  d:list-item
                     "Personal Details"
-                  div  .formspec-accordion-content  |  582×202  p:12,14  |  bg:rgb(253, 250, 244)  border:1px 0px 0px solid none none rgb(231, 224, 213) rgb(32, 36, 31) rgb(32, 36, 31)
-                    div  .formspec-stack  |  554×177  d:flex  dir:column  gap:12px
-                      div  .formspec-field  data-name="firstName"  |  554×82  d:flex  dir:column  gap:4px
-                        label  .formspec-label  for="field-firstName"  |  554×22  m:0,0,6,0  |  font:13.44px/560
+                  div  .formspec-accordion-content  |  584×86
+                    div  .formspec-stack  |  584×86  d:flex  dir:column  gap:12px
+                      div  .formspec-field  data-name="firstName"  |  584×37
+                        label  .formspec-label  for="field-firstName"  |  84×18
                           "First Name"
-                          abbr  .formspec-required.usa-label--required  |  10×18  m:0,0,0,2  |  color:rgb(193, 40, 31)
+                          abbr  .formspec-required.usa-label--required  |  12×18
                             "*"
-                        input  #field-firstName  type="text"  required  name="firstName"  aria-required  aria-invalid="false"  |  554×50  p:13,15  overflow:clip  |  bg:color(srgb 0.992784 0.981961 0.960314)  border:1px solid color(srgb 0.797412 0.765255 0.720235)  radius:14.4px  font:15.2px
-                        p #field-firstName-error .formspec-error [hidden]
-                      div  .formspec-field  data-name="lastName"  |  554×82  d:flex  dir:column  gap:4px
-                        label  .formspec-label  for="field-lastName"  |  554×22  m:0,0,6,0  |  font:13.44px/560
+                        input  #field-firstName  type="text"  required  name="firstName"  aria-required  aria-invalid="false"  |  153×21  d:inline-block  p:1,2  overflow:clip  |  bg:rgb(255, 255, 255)  border:2px inset rgb(118, 118, 118)  font:13.3333px
+                        p  #field-firstName-error  .formspec-error  aria-live="polite"  |  584×0  m:16,0
+                      div  .formspec-field  data-name="lastName"  |  584×37
+                        label  .formspec-label  for="field-lastName"  |  82×18
                           "Last Name"
-                          abbr  .formspec-required.usa-label--required  |  10×18  m:0,0,0,2  |  color:rgb(193, 40, 31)
+                          abbr  .formspec-required.usa-label--required  |  12×18
                             "*"
-                        input  #field-lastName  type="text"  required  name="lastName"  aria-required  aria-invalid="false"  |  554×50  p:13,15  overflow:clip  |  bg:color(srgb 0.992784 0.981961 0.960314)  border:1px solid color(srgb 0.797412 0.765255 0.720235)  radius:14.4px  font:15.2px
-                        p #field-lastName-error .formspec-error [hidden]
-                details  .formspec-accordion-item  |  584×57  m:0,0,4,0  overflow:hidden  |  bg:rgb(253, 250, 244)  border:1px solid color(srgb 0.921205 0.905788 0.881807)  radius:14.4px
-                  summary  |  582×55  d:flex  gap:8px  jc:space-between  ai:center  p:15,16  |  bg:color(srgb 0.962274 0.944863 0.915843)  color:rgb(23, 27, 23)  font-weight:580
+                        input  #field-lastName  type="text"  required  name="lastName"  aria-required  aria-invalid="false"  |  153×21  d:inline-block  p:1,2  overflow:clip  |  bg:rgb(255, 255, 255)  border:2px inset rgb(118, 118, 118)  font:13.3333px
+                        p  #field-lastName-error  .formspec-error  aria-live="polite"  |  584×0  m:16,0
+                details  .formspec-accordion-item  |  584×18
+                  summary  |  584×18  d:list-item
                     "Contact Information"
-                  div  .formspec-accordion-content  |  582×202  p:12,14  |  bg:rgb(253, 250, 244)  border:1px 0px 0px solid none none rgb(231, 224, 213) rgb(32, 36, 31) rgb(32, 36, 31)
-                    div  .formspec-stack  |  554×177  d:flex  dir:column  gap:12px
-                      div  .formspec-field  data-name="email"  |  554×82  d:flex  dir:column  gap:4px
-                        label  .formspec-label  for="field-email"  |  554×22  m:0,0,6,0  |  font:13.44px/560
+                  div  .formspec-accordion-content  |  584×86
+                    div  .formspec-stack  |  584×86  d:flex  dir:column  gap:12px
+                      div  .formspec-field  data-name="email"  |  584×37
+                        label  .formspec-label  for="field-email"  |  38×18
                           "Email"
-                        input  #field-email  type="text"  name="email"  aria-required="false"  aria-invalid="false"  |  554×50  p:13,15  overflow:clip  |  bg:color(srgb 0.992784 0.981961 0.960314)  border:1px solid color(srgb 0.797412 0.765255 0.720235)  radius:14.4px  font:15.2px
-                        p #field-email-error .formspec-error [hidden]
-                      div  .formspec-field  data-name="phone"  |  554×82  d:flex  dir:column  gap:4px
-                        label  .formspec-label  for="field-phone"  |  554×22  m:0,0,6,0  |  font:13.44px/560
+                        input  #field-email  type="text"  name="email"  aria-required="false"  aria-invalid="false"  |  153×21  d:inline-block  p:1,2  overflow:clip  |  bg:rgb(255, 255, 255)  border:2px inset rgb(118, 118, 118)  font:13.3333px
+                        p  #field-email-error  .formspec-error  aria-live="polite"  |  584×0  m:16,0
+                      div  .formspec-field  data-name="phone"  |  584×37
+                        label  .formspec-label  for="field-phone"  |  40×18
                           "Phone"
-                        input  #field-phone  type="text"  name="phone"  aria-required="false"  aria-invalid="false"  |  554×50  p:13,15  overflow:clip  |  bg:color(srgb 0.992784 0.981961 0.960314)  border:1px solid color(srgb 0.797412 0.765255 0.720235)  radius:14.4px  font:15.2px
-                        p #field-phone-error .formspec-error [hidden]
-                details  .formspec-accordion-item  |  584×57  m:0,0,4,0  overflow:hidden  |  bg:rgb(253, 250, 244)  border:1px solid color(srgb 0.921205 0.905788 0.881807)  radius:14.4px
-                  summary  |  582×55  d:flex  gap:8px  jc:space-between  ai:center  p:15,16  |  bg:color(srgb 0.962274 0.944863 0.915843)  color:rgb(23, 27, 23)  font-weight:580
+                        input  #field-phone  type="text"  name="phone"  aria-required="false"  aria-invalid="false"  |  153×21  d:inline-block  p:1,2  overflow:clip  |  bg:rgb(255, 255, 255)  border:2px inset rgb(118, 118, 118)  font:13.3333px
+                        p  #field-phone-error  .formspec-error  aria-live="polite"  |  584×0  m:16,0
+                details  .formspec-accordion-item  |  584×18
+                  summary  |  584×18  d:list-item
                     "Preferences"
-                  div  .formspec-accordion-content  |  582×52  p:12,14  |  bg:rgb(253, 250, 244)  border:1px 0px 0px solid none none rgb(231, 224, 213) rgb(32, 36, 31) rgb(32, 36, 31)
-                    div  .formspec-stack  |  554×27  d:flex  dir:column  gap:12px
-                      div  .formspec-field.formspec-field--inline  data-name="newsletter"  |  554×27  d:flex  gap:8px  ai:center
-                        label  .formspec-label  for="field-newsletter"  |  148×19  |  font:13.44px/480
+                  div  .formspec-accordion-content  |  584×54
+                    div  .formspec-stack  |  584×54  d:flex  dir:column  gap:12px
+                      div  .formspec-field.formspec-field--inline  data-name="newsletter"  |  584×54
+                        label  .formspec-label  for="field-newsletter"  |  149×18
                           "Subscribe to newsletter"
-                        div  .formspec-toggle  |  51×27  d:flex  gap:8px  ai:center
-                          input  #field-newsletter  .formspec-input  type="checkbox"  role="switch"  aria-invalid="false"  |  44×24  pos:relative  m:0,3,3,4  |  bg:color(srgb 0.696157 0.685176 0.652235)  color:rgb(0, 0, 0)  border:1px solid rgba(0, 0, 0, 0)  radius:999px  font:13.3333px
-                        p #field-newsletter-error .formspec-error [hidden]
+                        div  .formspec-toggle  |  584×20
+                          input  #field-newsletter  .formspec-input  type="checkbox"  role="switch"  aria-invalid="false"  |  13×13  d:inline-block  m:3,3,3,4  |  font:13.3333px
+                        p  #field-newsletter-error  .formspec-error  aria-live="polite"  |  584×0  m:16,0
     div  |  584×155
       div  |  584×15  m:0,0,12,0  |  color:rgb(136, 136, 136)  font:13px/600
         "Web Component"
