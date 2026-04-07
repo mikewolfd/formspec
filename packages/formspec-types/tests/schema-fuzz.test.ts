@@ -14,6 +14,7 @@ const SCHEMAS_DIR = resolve(__dirname, '../../../schemas');
 const SCHEMA_FILES = [
   'definition', 'component', 'theme', 'mapping', 'registry',
   'response', 'validationReport', 'validationResult', 'fel-functions',
+  'token-registry',
 ];
 
 function loadSchemas() {
@@ -36,6 +37,29 @@ const { byId, byFile } = loadSchemas();
  * Recursively inline cross-file $refs so the schema is self-contained.
  * Local (#/) refs are left for faker/ajv to handle natively.
  */
+/**
+ * Resolve `#/$defs/X` refs within an object against a specific schema's $defs.
+ * Used when inlining a definition from another schema whose local refs would
+ * otherwise dangle in the target schema's context.
+ */
+function resolveLocalDefsRefs(obj: any, sourceDefs: Record<string, any>): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map((item: any) => resolveLocalDefsRefs(item, sourceDefs));
+
+  if (typeof obj.$ref === 'string' && obj.$ref.startsWith('#/$defs/')) {
+    const defName = obj.$ref.split('/').pop()!;
+    if (sourceDefs[defName]) {
+      return resolveLocalDefsRefs({ ...sourceDefs[defName] }, sourceDefs);
+    }
+  }
+
+  const result: any = {};
+  for (const [key, val] of Object.entries(obj)) {
+    result[key] = resolveLocalDefsRefs(val, sourceDefs);
+  }
+  return result;
+}
+
 function resolveExternalRefs(obj: any): any {
   if (!obj || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(resolveExternalRefs);
@@ -50,7 +74,8 @@ function resolveExternalRefs(obj: any): any {
       const schema = byFile[fileName] || byId[filePart];
       if (schema) {
         const defName = fragment.split('/').pop()!;
-        return resolveExternalRefs({ ...schema.$defs[defName] });
+        const inlined = resolveLocalDefsRefs({ ...schema.$defs[defName] }, schema.$defs || {});
+        return resolveExternalRefs(inlined);
       }
     }
 

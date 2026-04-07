@@ -93,6 +93,17 @@ export interface ThemeDocument {
    * External CSS stylesheet URIs. Web renderers SHOULD load these before rendering the form. Loaded in array order — later sheets take CSS precedence over earlier sheets. Renderers MUST NOT fail if a stylesheet cannot be loaded; they SHOULD warn and continue. Non-web renderers (PDF, native) MAY ignore stylesheets. Subject to host application security policy (CSP, CORS).
    */
   stylesheets?: string[];
+  /**
+   * Metadata for custom tokens introduced by this theme. Follows the Token Registry category schema. Platform tokens MUST NOT be redefined here — the platform registry provides their metadata. See the Token Registry Specification for details.
+   */
+  tokenMeta?: {
+    /**
+     * Custom token categories keyed by category prefix. Each category follows the Token Registry Category schema.
+     */
+    categories?: {
+      [k: string]: Category;
+    };
+  };
 }
 /**
  * Cascade level 1 (lowest theme specificity): baseline PresentationBlock applied to every item before selectors or per-item overrides. Sets the form-wide visual baseline. Overrides Tier 1 inline presentation hints (level 0) and formPresentation globals (level -1). Overridden by selectors (level 2) and items (level 3). Merge is shallow per-property — nested objects (widgetConfig, style, accessibility) are replaced as a whole, not deep-merged. Exception: cssClass uses union semantics across all levels.
@@ -200,4 +211,52 @@ export interface Region {
       hidden?: boolean;
     };
   };
+}
+/**
+ * A group of tokens sharing a category prefix and default type.
+ */
+export interface Category {
+  /**
+   * Human-readable description of the category.
+   */
+  description?: string;
+  /**
+   * Default token type for entries in this category. Entries may override with their own type.
+   */
+  type: 'color' | 'dimension' | 'fontFamily' | 'fontWeight' | 'duration' | 'opacity' | 'shadow' | 'number';
+  /**
+   * Prefix for dark-mode counterpart tokens. When present, each token's 'dark' field holds the default dark-mode value. The derived dark key is '<darkPrefix>.<suffix>' where suffix is the token key with the category prefix and its trailing dot removed. Only categories whose type is 'color' SHOULD declare darkPrefix.
+   */
+  darkPrefix?: string;
+  /**
+   * Token entries keyed by their full dot-delimited key. Each key MUST start with the category key followed by a dot.
+   */
+  tokens: {
+    [k: string]: TokenEntry;
+  };
+}
+/**
+ * Metadata for a single design token.
+ */
+export interface TokenEntry {
+  /**
+   * Human-readable description of the token's purpose.
+   */
+  description?: string;
+  /**
+   * Token type, overriding the category default.
+   */
+  type?: 'color' | 'dimension' | 'fontFamily' | 'fontWeight' | 'duration' | 'opacity' | 'shadow' | 'number';
+  /**
+   * Default value shipped with the platform theme.
+   */
+  default?: string | number;
+  /**
+   * Default dark-mode value. Only meaningful when the containing category declares a darkPrefix. Processors MUST ignore this field when darkPrefix is absent and SHOULD emit a warning.
+   */
+  dark?: string | number;
+  /**
+   * Example token values for documentation and tooling hints.
+   */
+  examples?: (string | number)[];
 }

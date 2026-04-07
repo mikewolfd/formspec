@@ -7,7 +7,7 @@
  */
 
 export const KNOWN_COMPONENT_TYPES = new Set([
-    'TextInput', 'NumberInput', 'Select', 'Toggle', 'Checkbox',
+    'TextInput', 'NumberInput', 'Select', 'Toggle',
     'DatePicker', 'RadioGroup', 'CheckboxGroup', 'Slider', 'Rating',
     'FileUpload', 'Signature', 'MoneyInput',
     'Stack', 'Card', 'Accordion', 'Collapsible',
@@ -29,7 +29,7 @@ export const SPEC_WIDGET_TO_COMPONENT: Record<string, string> = {
     stepper: 'NumberInput',
     slider: 'Slider',
     rating: 'Rating',
-    checkbox: 'Checkbox',
+    checkbox: 'Toggle',
     toggle: 'Toggle',
     yesno: 'Toggle',
     datepicker: 'DatePicker',
@@ -72,7 +72,6 @@ export const SPEC_WIDGET_TO_COMPONENT: Record<string, string> = {
 export const COMPONENT_TO_HINT: Record<string, string> = {
     TextInput: 'textInput',
     NumberInput: 'numberInput',
-    Checkbox: 'checkbox',
     Toggle: 'toggle',
     DatePicker: 'datePicker',
     Select: 'dropdown',
@@ -101,7 +100,7 @@ export const COMPATIBILITY_MATRIX: Record<string, string[]> = {
     text: ['TextInput'],
     decimal: ['NumberInput', 'Slider', 'Rating', 'TextInput'],
     integer: ['NumberInput', 'Slider', 'Rating', 'TextInput'],
-    boolean: ['Toggle', 'Checkbox'],
+    boolean: ['Toggle'],
     date: ['DatePicker', 'TextInput'],
     dateTime: ['DatePicker', 'TextInput'],
     time: ['DatePicker', 'TextInput'],
