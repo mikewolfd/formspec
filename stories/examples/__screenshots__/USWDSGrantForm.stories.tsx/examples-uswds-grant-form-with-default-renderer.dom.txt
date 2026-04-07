@@ -1,0 +1,253 @@
+div .sb-preparing-story.sb-wrapper [hidden]
+div .sb-preparing-docs.sb-wrapper [hidden]
+div .sb-nopreview.sb-wrapper [hidden]
+div .sb-errordisplay.sb-wrapper [hidden]
+div  |  1200×785
+  div  |  1200×785
+    div  |  800×785  m:0,200
+      div  |  800×785
+        #shadow-root
+          link [hidden]
+          link [hidden]
+          div  |  800×785
+            div  .isolated-story-root  |  800×785
+              formspec-render  data-formspecAppearance="light"  |  800×785
+                #shadow-root
+                div  .formspec-container.formspec-appearance-light  |  800×785  d:flex  dir:column  gap:16px  |  color:rgb(31, 37, 33)  font:15.36px
+                  div  .formspec-wizard  |  800×785
+                    div  .formspec-wizard-steps  aria-hidden  |  800×65  d:flex  wrap:wrap  gap:12px  m:0,0,20,0
+                      div  .formspec-wizard-step-wrapper  |  191×65  d:flex  dir:column  gap:4px  ai:center
+                        span  .formspec-wizard-step.formspec-wizard-step--active  |  34×34  d:flex  jc:center  ai:center  |  bg:rgb(0, 94, 162)  color:rgb(255, 255, 255)  border:2px solid rgb(0, 94, 162)  radius:50%  font:13px/bold
+                          "1"
+                        span  .formspec-wizard-step-label.formspec-wizard-step-label--active  |  150×21  m:6,0,0,0  overflow:hidden  |  color:rgb(23, 27, 23)  font:15px/560
+                          "Applicant Information"
+                      div  .formspec-wizard-step-wrapper  |  191×65  d:flex  dir:column  gap:4px  ai:center
+                        span  .formspec-wizard-step  |  34×34  d:flex  jc:center  ai:center  |  bg:rgb(248, 242, 233)  border:2px solid rgb(205, 195, 181)  radius:50%  font:13px/bold
+                          "2"
+                        span  .formspec-wizard-step-label  |  98×21  m:6,0,0,0  overflow:hidden  |  font:15px
+                          "Project Details"
+                      div  .formspec-wizard-step-wrapper  |  191×65  d:flex  dir:column  gap:4px  ai:center
+                        span  .formspec-wizard-step  |  34×34  d:flex  jc:center  ai:center  |  bg:rgb(248, 242, 233)  border:2px solid rgb(205, 195, 181)  radius:50%  font:13px/bold
+                          "3"
+                        span  .formspec-wizard-step-label  |  51×21  m:6,0,0,0  overflow:hidden  |  font:15px
+                          "Budget"
+                      div  .formspec-wizard-step-wrapper  |  191×65  d:flex  dir:column  gap:4px  ai:center
+                        span  .formspec-wizard-step  |  34×34  d:flex  jc:center  ai:center  |  bg:rgb(248, 242, 233)  border:2px solid rgb(205, 195, 181)  radius:50%  font:13px/bold
+                          "4"
+                        span  .formspec-wizard-step-label  |  187×21  m:6,0,0,0  overflow:hidden  |  font:15px
+                          "Attachments & Certification"
+                    div  .formspec-wizard-step-indicator  |  800×55  d:flex  ai:center  m:0,0,16,0  p:0,0,14,0  |  color:rgb(23, 27, 23)  border:0px 0px 1px none none solid rgb(23, 27, 23) rgb(23, 27, 23) color(srgb 0.889882 0.873569 0.847059)  font:15px/600
+                      "Step 1 of 4: Applicant Information"
+                    div  .formspec-wizard-panel  role="region"  aria-label="Applicant Information"  |  800×566  d:flex  dir:column  gap:12px
+                      section  #applicant-info  .formspec-page  |  800×566  pos:relative  d:flex  dir:column  gap:12px
+                        h2  |  800×24  m:0,0,6,0  |  color:rgb(23, 27, 23)  font:20.8px/bold
+                          "Applicant Information"
+                        div  .formspec-grid  data-columns="12"  |  800×525  d:grid  cols:55.6562px 55.6562px 55.6562px 55.6562px 55.6719px 55.6719px 55.6562px 55.6562px 55.6719px 55.6562px 55.6562px 55.6562px  rows:133.391px 80.4844px 82.2656px 82.2656px 82.2656px  gap:16px 12px
+                          div  .formspec-stack  |  529×133  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.org_name"  data-bind="org_name"  |  529×133  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-org_name"  |  529×45  m:0,0,6,0  |  font:13.44px/560
+                                "Organization Legal Name"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              div  #field-applicant_section-org_name-desc  .formspec-description  |  529×24  |  color:rgb(111, 106, 97)  font:15.2px
+                                "Full legal name as it appears on your IRS determination letter."
+                              input  #field-applicant_section-org_name  .formspec-input  type="text"  name="applicant_section.org_name"  aria-describedby="field-applicant_section-org_name-desc"  aria-required  aria-invalid="false"  |  529×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-org_name-error .formspec-error [hidden]
+                          div  .formspec-stack  |  259×133  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.ein"  data-bind="ein"  |  259×133  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-ein"  |  259×22  m:0,0,6,0  |  font:13.44px/560
+                                "Employer Identification Number (EIN)"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              div  #field-applicant_section-ein-desc  .formspec-description  |  259×47  |  color:rgb(111, 106, 97)  font:15.2px
+                                "9-digit federal tax ID (XX-XXXXXXX format)."
+                              input  #field-applicant_section-ein  .formspec-input  type="text"  name="applicant_section.ein"  aria-describedby="field-applicant_section-ein-desc"  aria-required  aria-invalid="false"  |  259×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-ein-error .formspec-error [hidden]
+                          div  .formspec-stack  |  394×80  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.org_type"  data-bind="org_type"  |  394×80  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-org_type"  |  394×22  m:0,0,6,0  |  font:13.44px/560
+                                "Organization Type"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              div  .formspec-select-wrapper  |  394×49  pos:relative  d:flex  |  bg:oklab(0 0 0 / 0)  color:rgb(0, 0, 0)  border:1px solid oklab(0 0 0)  radius:14.4px
+                                select  #field-applicant_section-org_type  .formspec-input.formspec-select-native  name="applicant_section.org_type"  aria-required  aria-invalid="false"  |  392×47  p:13,42,13,15  |  bg:rgb(255, 255, 255)  font:15px
+                                  option [hidden]
+                                  option  value="nonprofit"  |  0×0  p:0,2,1,2
+                                    "501(c)(3) Nonprofit"
+                                  option  value="government"  |  0×0  p:0,2,1,2
+                                    "State or Local Government"
+                                  option  value="tribal"  |  0×0  p:0,2,1,2
+                                    "Tribal Government"
+                                  option  value="educational"  |  0×0  p:0,2,1,2
+                                    "Educational Institution"
+                                  option  value="faith_based"  |  0×0  p:0,2,1,2
+                                    "Faith-Based Organization"
+                              p #field-applicant_section-org_type-error .formspec-error [hidden]
+                          div  .formspec-stack  |  800×82  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.address.street"  data-bind="street"  |  800×82  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-address-street"  |  800×22  m:0,0,6,0  |  font:13.44px/560
+                                "Street Address"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              input  #field-applicant_section-address-street  .formspec-input  type="text"  name="applicant_section.address.street"  aria-required  aria-invalid="false"  |  800×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-address-street-error .formspec-error [hidden]
+                          div  .formspec-stack  |  326×82  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.address.city"  data-bind="city"  |  326×82  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-address-city"  |  326×22  m:0,0,6,0  |  font:13.44px/560
+                                "City"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              input  #field-applicant_section-address-city  .formspec-input  type="text"  name="applicant_section.address.city"  aria-required  aria-invalid="false"  |  326×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-address-city-error .formspec-error [hidden]
+                          div  .formspec-stack  |  259×82  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.address.state"  data-bind="state"  |  259×82  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-address-state"  |  259×23  m:0,0,6,0  |  font:13.44px/560
+                                "State"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              div  .formspec-select-wrapper  |  259×49  pos:relative  d:flex  |  bg:oklab(0 0 0 / 0)  color:rgb(0, 0, 0)  border:1px solid oklab(0 0 0)  radius:14.4px
+                                select  #field-applicant_section-address-state  .formspec-input.formspec-select-native  name="applicant_section.address.state"  aria-required  aria-invalid="false"  |  257×47  p:13,42,13,15  |  bg:rgb(255, 255, 255)  font:15px
+                                  option [hidden]
+                                  option  value="AL"  |  0×0  p:0,2,1,2
+                                    "Alabama"
+                                  option  value="AK"  |  0×0  p:0,2,1,2
+                                    "Alaska"
+                                  option  value="AZ"  |  0×0  p:0,2,1,2
+                                    "Arizona"
+                                  option  value="AR"  |  0×0  p:0,2,1,2
+                                    "Arkansas"
+                                  option  value="CA"  |  0×0  p:0,2,1,2
+                                    "California"
+                                  option  value="CO"  |  0×0  p:0,2,1,2
+                                    "Colorado"
+                                  option  value="CT"  |  0×0  p:0,2,1,2
+                                    "Connecticut"
+                                  option  value="DE"  |  0×0  p:0,2,1,2
+                                    "Delaware"
+                                  option  value="DC"  |  0×0  p:0,2,1,2
+                                    "District of Columbia"
+                                  option  value="FL"  |  0×0  p:0,2,1,2
+                                    "Florida"
+                                  option  value="GA"  |  0×0  p:0,2,1,2
+                                    "Georgia"
+                                  option  value="HI"  |  0×0  p:0,2,1,2
+                                    "Hawaii"
+                                  option  value="ID"  |  0×0  p:0,2,1,2
+                                    "Idaho"
+                                  option  value="IL"  |  0×0  p:0,2,1,2
+                                    "Illinois"
+                                  option  value="IN"  |  0×0  p:0,2,1,2
+                                    "Indiana"
+                                  option  value="IA"  |  0×0  p:0,2,1,2
+                                    "Iowa"
+                                  option  value="KS"  |  0×0  p:0,2,1,2
+                                    "Kansas"
+                                  option  value="KY"  |  0×0  p:0,2,1,2
+                                    "Kentucky"
+                                  option  value="LA"  |  0×0  p:0,2,1,2
+                                    "Louisiana"
+                                  option  value="ME"  |  0×0  p:0,2,1,2
+                                    "Maine"
+                                  option  value="MD"  |  0×0  p:0,2,1,2
+                                    "Maryland"
+                                  option  value="MA"  |  0×0  p:0,2,1,2
+                                    "Massachusetts"
+                                  option  value="MI"  |  0×0  p:0,2,1,2
+                                    "Michigan"
+                                  option  value="MN"  |  0×0  p:0,2,1,2
+                                    "Minnesota"
+                                  option  value="MS"  |  0×0  p:0,2,1,2
+                                    "Mississippi"
+                                  option  value="MO"  |  0×0  p:0,2,1,2
+                                    "Missouri"
+                                  option  value="MT"  |  0×0  p:0,2,1,2
+                                    "Montana"
+                                  option  value="NE"  |  0×0  p:0,2,1,2
+                                    "Nebraska"
+                                  option  value="NV"  |  0×0  p:0,2,1,2
+                                    "Nevada"
+                                  option  value="NH"  |  0×0  p:0,2,1,2
+                                    "New Hampshire"
+                                  option  value="NJ"  |  0×0  p:0,2,1,2
+                                    "New Jersey"
+                                  option  value="NM"  |  0×0  p:0,2,1,2
+                                    "New Mexico"
+                                  option  value="NY"  |  0×0  p:0,2,1,2
+                                    "New York"
+                                  option  value="NC"  |  0×0  p:0,2,1,2
+                                    "North Carolina"
+                                  option  value="ND"  |  0×0  p:0,2,1,2
+                                    "North Dakota"
+                                  option  value="OH"  |  0×0  p:0,2,1,2
+                                    "Ohio"
+                                  option  value="OK"  |  0×0  p:0,2,1,2
+                                    "Oklahoma"
+                                  option  value="OR"  |  0×0  p:0,2,1,2
+                                    "Oregon"
+                                  option  value="PA"  |  0×0  p:0,2,1,2
+                                    "Pennsylvania"
+                                  option  value="RI"  |  0×0  p:0,2,1,2
+                                    "Rhode Island"
+                                  option  value="SC"  |  0×0  p:0,2,1,2
+                                    "South Carolina"
+                                  option  value="SD"  |  0×0  p:0,2,1,2
+                                    "South Dakota"
+                                  option  value="TN"  |  0×0  p:0,2,1,2
+                                    "Tennessee"
+                                  option  value="TX"  |  0×0  p:0,2,1,2
+                                    "Texas"
+                                  option  value="UT"  |  0×0  p:0,2,1,2
+                                    "Utah"
+                                  option  value="VT"  |  0×0  p:0,2,1,2
+                                    "Vermont"
+                                  option  value="VA"  |  0×0  p:0,2,1,2
+                                    "Virginia"
+                                  option  value="WA"  |  0×0  p:0,2,1,2
+                                    "Washington"
+                                  option  value="WV"  |  0×0  p:0,2,1,2
+                                    "West Virginia"
+                                  option  value="WI"  |  0×0  p:0,2,1,2
+                                    "Wisconsin"
+                                  option  value="WY"  |  0×0  p:0,2,1,2
+                                    "Wyoming"
+                              p #field-applicant_section-address-state-error .formspec-error [hidden]
+                          div  .formspec-stack  |  191×82  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.address.zip"  data-bind="zip"  |  191×82  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-address-zip"  |  191×22  m:0,0,6,0  |  font:13.44px/560
+                                "ZIP Code"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              input  #field-applicant_section-address-zip  .formspec-input  type="text"  name="applicant_section.address.zip"  aria-required  aria-invalid="false"  |  191×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-address-zip-error .formspec-error [hidden]
+                          div  .formspec-stack  |  259×82  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.contact_name"  data-bind="contact_name"  |  259×82  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-contact_name"  |  259×22  m:0,0,6,0  |  font:13.44px/560
+                                "Primary Contact Name"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              input  #field-applicant_section-contact_name  .formspec-input  type="text"  name="applicant_section.contact_name"  aria-required  aria-invalid="false"  |  259×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-contact_name-error .formspec-error [hidden]
+                          div  .formspec-stack  |  259×82  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.contact_email"  data-bind="contact_email"  |  259×82  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-contact_email"  |  259×22  m:0,0,6,0  |  font:13.44px/560
+                                "Contact Email"
+                                abbr  .formspec-required.usa-label--required  |  10×16  m:0,0,0,2  |  color:rgb(181, 9, 9)
+                                  "*"
+                              input  #field-applicant_section-contact_email  .formspec-input  type="text"  name="applicant_section.contact_email"  aria-required  aria-invalid="false"  |  259×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-contact_email-error .formspec-error [hidden]
+                          div  .formspec-stack  |  259×82  d:flex  dir:column  gap:12px
+                            div  .formspec-field  data-name="applicant_section.contact_phone"  data-bind="contact_phone"  |  259×82  d:flex  dir:column  gap:4px
+                              label  .formspec-label  for="field-applicant_section-contact_phone"  |  259×22  m:0,0,6,0  |  font:13.44px/560
+                                "Contact Phone"
+                              input  #field-applicant_section-contact_phone  .formspec-input  type="text"  name="applicant_section.contact_phone"  aria-required="false"  aria-invalid="false"  |  259×50  p:13,15  overflow:clip  |  bg:oklab(0.999994 0.0000455678 0.0000200868)  color:rgb(0, 0, 0)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547)  radius:14.4px  font:15.2px
+                              p #field-applicant_section-contact_phone-error .formspec-error [hidden]
+                    div .formspec-wizard-panel.formspec-hidden [hidden]
+                    div .formspec-wizard-panel.formspec-hidden [hidden]
+                    div .formspec-wizard-panel.formspec-hidden [hidden]
+                    div  .formspec-wizard-nav  |  800×47  d:flex  gap:8px  jc:flex-end  m:16,0,0,0
+                      button  .formspec-wizard-prev.formspec-button-secondary.formspec-focus-ring  type="button"  disabled  aria-label="Previous step"  aria-disabled  |  92×47  d:flex  jc:center  ai:center  p:12,17  |  bg:oklab(0.952125 0.0000434518 0.0000190139 / 0.301961)  color:rgba(16, 16, 16, 0.3)  border:1px solid oklab(0.565833 0.0000256598 0.0000113547 / 0.301961)  radius:14.4px  opacity:0.45  font:14px/600
+                        "Previous"
+                      button  .formspec-wizard-next.formspec-button-primary.formspec-focus-ring  type="button"  aria-label="Next step"  |  69×47  d:flex  jc:center  ai:center  p:12,18  |  bg:rgb(239, 239, 239)  color:rgb(0, 0, 0)  radius:14.4px  shadow:oklab(0 0 0 / 0) 0px 0px 0px 0px  font:14px/600
+                        "Next"
+                    div  .formspec-sr-only  role="status"  aria-live="polite"  |  1×1  pos:absolute  m:-1  overflow:hidden
+                      "Applicant Information. Step 1 of 4."
