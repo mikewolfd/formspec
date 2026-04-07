@@ -102,29 +102,13 @@ function crossDocumentAudit(project: Project): {
     });
   }
 
-  // Check component tree field references
-  const component = project.component;
-  const tree = (component as any)?.tree;
-  if (tree) {
-    const checkNode = (node: any) => {
-      if (!node) return;
-      if (node.bind && typeof node.bind === 'string') {
-        const item = project.itemAt(node.bind);
-        if (!item) {
-          issues.push({
-            type: 'component_ref',
-            severity: 'warning',
-            message: `Component node references nonexistent item: ${node.bind}`,
-            detail: { bind: node.bind, component: node.component },
-          });
-        }
-      }
-      if (node.children) {
-        for (const child of node.children) checkNode(child);
-      }
-    };
-    checkNode(tree);
-  }
+  // Component tree bind validation is handled by project.diagnose() above,
+  // which correctly checks node.bind against both item keys and full paths.
+  // Previously this section duplicated that check using project.itemAt(node.bind),
+  // which failed for nested items because itemAt requires full paths but
+  // component tree binds are leaf keys (e.g. "participant_name" not
+  // "demographics.participant_name"). The core diagnostics (ORPHAN_COMPONENT_BIND)
+  // surfaces these as consistency issues, so we don't need to re-check here.
 
   const errors = issues.filter(i => i.severity === 'error').length;
   const warnings = issues.filter(i => i.severity === 'warning').length;

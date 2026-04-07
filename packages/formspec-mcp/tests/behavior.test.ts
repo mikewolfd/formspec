@@ -181,7 +181,7 @@ describe('handleBehavior — remove_rule', () => {
     expect(data.affectedPaths).toContain(createdId);
   });
 
-  it('silently succeeds for nonexistent shape ID (no-op)', () => {
+  it('returns VALIDATION_NOT_FOUND for nonexistent target', () => {
     const { registry, projectId } = registryWithProject();
 
     const result = handleBehavior(registry, projectId, {
@@ -189,9 +189,9 @@ describe('handleBehavior — remove_rule', () => {
     });
     const data = parseResult(result);
 
-    // deleteShape is a filter -- missing IDs are a no-op, not an error
-    expect(result.isError).toBeUndefined();
-    expect(data.summary).toContain('nonexistent_shape_999');
+    // Nonexistent targets should report an error, not silently succeed
+    expect(result.isError).toBe(true);
+    expect(data.code).toBe('VALIDATION_NOT_FOUND');
   });
 
   it('round-trips add then remove in batch', () => {

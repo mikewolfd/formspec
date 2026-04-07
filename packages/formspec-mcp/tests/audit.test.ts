@@ -192,6 +192,50 @@ describe('handleAudit — bind_summary', () => {
   });
 });
 
+// ── BUG-9: cross_document audit component_ref check ─────────────────
+//
+// The cross-document audit previously used project.itemAt(node.bind) to
+// check component tree binds. Since binds store leaf keys (not full paths),
+// this produced false warnings for nested items. The fix removes the
+// duplicate check — project.diagnose() already validates binds correctly
+// using the itemKeySet approach. These tests verify that the classify_items
+// action (which walks the definition tree) correctly handles nested items.
+// The cross_document action delegates to project.diagnose() for bind checks.
+
+describe('BUG-9: nested item classification', () => {
+  it('classifies nested items with correct full paths', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addGroup('demographics', 'Demographics');
+    project.addField('demographics.participant_name', 'Name', 'text');
+
+    const result = handleAudit(registry, projectId, { action: 'classify_items' });
+    const data = parseResult(result);
+
+    // participant_name should be reported with its full path
+    const nested = data.items.find((i: any) => i.path === 'demographics.participant_name');
+    expect(nested).toBeDefined();
+    expect(nested.type).toBe('field');
+
+    // It should NOT appear as a bare leaf key
+    const bare = data.items.find((i: any) => i.path === 'participant_name');
+    expect(bare).toBeUndefined();
+  });
+
+  it('classifies deeply nested items correctly', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addGroup('section', 'Section');
+    project.addGroup('section.subsection', 'Subsection');
+    project.addField('section.subsection.email', 'Email', 'text');
+
+    const result = handleAudit(registry, projectId, { action: 'classify_items' });
+    const data = parseResult(result);
+
+    const nested = data.items.find((i: any) => i.path === 'section.subsection.email');
+    expect(nested).toBeDefined();
+    expect(nested.type).toBe('field');
+  });
+});
+
 // ── WRONG_PHASE ─────────────────────────────────────────────────────
 
 describe('handleAudit — errors', () => {

@@ -352,3 +352,47 @@ describe('UX-4c: formspec_group — repeat config in response', () => {
     expect(data.repeat).toBeUndefined();
   });
 });
+
+// ── BUG: makeRepeatable uses unresolved path when parentPath provided ──
+
+describe('BUG: handleGroup makeRepeatable — resolved path when parentPath set', () => {
+  it('single mode: group with parentPath + repeat succeeds without PATH_NOT_FOUND', () => {
+    const { registry, projectId } = registryWithProject();
+    handleGroup(registry, projectId, { path: 'outer', label: 'Outer' });
+
+    const result = handleGroup(registry, projectId, {
+      path: 'inner',
+      label: 'Inner',
+      parentPath: 'outer',
+      props: { repeat: { min: 1, max: 3 } },
+    } as any);
+
+    const data = parseResult(result);
+    expect(result.isError).toBeUndefined();
+    expect(data.affectedPaths).toContain('outer.inner');
+    expect(data).toHaveProperty('repeat');
+    expect(data.repeat).toMatchObject({ min: 1, max: 3 });
+  });
+
+  it('batch mode: group with parentPath + repeat succeeds without PATH_NOT_FOUND', () => {
+    const { registry, projectId } = registryWithProject();
+    handleGroup(registry, projectId, { path: 'container', label: 'Container' });
+
+    const result = handleGroup(registry, projectId, {
+      items: [
+        {
+          path: 'entries',
+          label: 'Entries',
+          parentPath: 'container',
+          props: { repeat: { min: 0, max: 5 } },
+        },
+      ],
+    } as any);
+
+    const data = parseResult(result);
+    expect(result.isError).toBeUndefined();
+    expect(data.succeeded).toBe(1);
+    expect(data.failed).toBe(0);
+    expect(data.results[0].success).toBe(true);
+  });
+});

@@ -53,7 +53,7 @@ describe('handleWidget — compatible', () => {
     const result = handleWidget(registry, projectId, { action: 'compatible', dataType: 'boolean' });
     const data = parseResult(result);
     expect(data).toContain('Toggle');
-    expect(data).toContain('Checkbox');
+    expect(data).not.toContain('Checkbox');
   });
 });
 

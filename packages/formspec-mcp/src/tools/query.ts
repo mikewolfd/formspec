@@ -1,13 +1,13 @@
 /**
  * Query tools (split per plan):
- *   formspec_describe: mode 'structure' | 'audit'
+ *   formspec_describe: mode 'structure' | 'audit' | 'shapes'
  *   formspec_search: standalone search
  *   formspec_trace: mode 'trace' | 'changelog'
  *   formspec_preview: mode 'preview' | 'validate'
  */
 
 import type { ProjectRegistry } from '../registry.js';
-import { previewForm, validateResponse, HelperError, type ItemFilter } from '@formspec-org/studio-core';
+import { previewForm, validateResponse, HelperError, describeShapeConstraint, type ItemFilter, type FormShape } from '@formspec-org/studio-core';
 import { errorResponse, successResponse, formatToolError } from '../errors.js';
 
 /** Common error handler for query tools (which return non-HelperResult types) */
@@ -29,13 +29,29 @@ function wrapQuery(fn: () => unknown) {
 export function handleDescribe(
   registry: ProjectRegistry,
   projectId: string,
-  mode: 'structure' | 'audit',
+  mode: 'structure' | 'audit' | 'shapes',
   target?: string,
 ) {
   return wrapQuery(() => {
     const project = registry.getProject(projectId);
     if (mode === 'audit') {
       return project.diagnose();
+    }
+    if (mode === 'shapes') {
+      const shapes = (project.definition.shapes ?? []) as FormShape[];
+      return {
+        shapes: shapes.map(shape => {
+          const s = shape as Record<string, unknown>;
+          return {
+            id: s.id,
+            target: s.target,
+            severity: s.severity ?? 'error',
+            constraint: s.constraint ?? null,
+            message: s.message ?? null,
+            description: describeShapeConstraint(shape),
+          };
+        }),
+      };
     }
     // structure mode
     if (target) {
@@ -52,7 +68,9 @@ export function handleDescribe(
       return result;
     }
     // Include pages and component-tier nodes (submit buttons, etc.)
-    const pages = project.listPages();
+    // Rename 'id' to 'page_id' so it matches formspec_place's parameter name
+    const rawPages = project.listPages();
+    const pages = rawPages.map(({ id, ...rest }) => ({ page_id: id, ...rest }));
     const componentTree = (project.component as any)?.tree;
     const componentNodes: Array<{ component: string; id?: string; props?: Record<string, unknown> }> = [];
     if (componentTree?.children) {
@@ -142,7 +160,7 @@ export function handlePreview(
       case 'validate':
         return validateResponse(project, params.response!);
       case 'sample_data':
-        return project.generateSampleData();
+        return project.generateSampleData(params.scenario);
       case 'normalize':
         return project.normalizeDefinition();
       case 'preview':

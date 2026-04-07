@@ -175,6 +175,28 @@ describe('handleContent', () => {
     expect(result.isError).toBeUndefined();
     expect(parseResult(result).affectedPaths).toContain('section.heading');
   });
+
+  it('respects insertIndex in props', () => {
+    const { registry, projectId, project } = registryWithProject();
+    // Add two fields first
+    handleField(registry, projectId, { path: 'q1', label: 'Q1', type: 'text' });
+    handleField(registry, projectId, { path: 'q2', label: 'Q2', type: 'text' });
+
+    // Insert content at index 1 (between q1 and q2)
+    const result = handleContent(registry, projectId, {
+      path: 'divider',
+      body: '---',
+      kind: 'divider',
+      props: { insertIndex: 1 },
+    });
+    expect(result.isError).toBeUndefined();
+
+    // Verify insertion order: q1, divider, q2
+    const items = project.definition.items;
+    expect(items[0].key).toBe('q1');
+    expect(items[1].key).toBe('divider');
+    expect(items[2].key).toBe('q2');
+  });
 });
 
 // ── handleGroup ──────────────────────────────────────────────────

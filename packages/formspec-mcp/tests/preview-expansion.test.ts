@@ -40,6 +40,34 @@ describe('handlePreview — sample_data mode', () => {
 
     expect(data.price).toEqual({ amount: 100, currency: 'USD' });
   });
+
+  it('applies scenario overrides to sample data', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('name', 'Name', 'string');
+    project.addField('age', 'Age', 'integer');
+
+    const result = handlePreview(registry, projectId, 'sample_data', {
+      scenario: { name: 'Alice' },
+    });
+    expect(result.isError).toBeUndefined();
+
+    const data = parseResult(result);
+    expect(data.name).toBe('Alice');
+    expect(data.age).toBe(42); // non-overridden field keeps default
+  });
+
+  it('ignores scenario keys that do not match any field', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('q1', 'Q1', 'text');
+
+    const result = handlePreview(registry, projectId, 'sample_data', {
+      scenario: { nonexistent: 'value' },
+    });
+    const data = parseResult(result);
+
+    expect(data).not.toHaveProperty('nonexistent');
+    expect(data.q1).toBe('Sample paragraph text');
+  });
 });
 
 describe('handlePreview — normalize mode', () => {

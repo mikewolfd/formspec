@@ -29,7 +29,11 @@ import {
   handleChangesetAccept, handleChangesetReject,
 } from './tools/changeset.js';
 
-type Handler = (registry: ProjectRegistry, projectId: string, args: Record<string, any>) => any;
+// The args parameter is `any` (not `Record<string, any>`) so that overloaded handler
+// functions are directly assignable without casts at each call site. This is the correct
+// type-erasure boundary: the dispatch table maps string names to untyped callables, and
+// type safety is enforced inside each handler via its own typed params.
+type Handler = (registry: ProjectRegistry, projectId: string, args: any) => any;
 
 /**
  * Wraps a 4-arg handler (registry, projectId, action, params) into the
@@ -47,34 +51,34 @@ function wrap4(
 
 const TOOL_HANDLERS: Record<string, Handler> = {
   // Handlers with standard (registry, projectId, params) signature
-  formspec_field: (r, p, a) => handleField(r, p, a as any),
-  formspec_content: (r, p, a) => handleContent(r, p, a as any),
-  formspec_group: (r, p, a) => handleGroup(r, p, a as any),
-  formspec_submit_button: (r, p, a) => handleSubmitButton(r, p, a as any),
-  formspec_place: (r, p, a) => handlePlace(r, p, a as any),
-  formspec_behavior: (r, p, a) => handleBehavior(r, p, a as any),
-  formspec_flow: (r, p, a) => handleFlow(r, p, a as any),
-  formspec_style: (r, p, a) => handleStyle(r, p, a as any),
-  formspec_data: (r, p, a) => handleData(r, p, a as any),
-  formspec_screener: (r, p, a) => handleScreener(r, p, a as any),
-  formspec_describe: (r, p, a) => handleDescribe(r, p, a as any),
-  formspec_search: (r, p, a) => handleSearch(r, p, a as any),
-  formspec_structure: (r, p, a) => handleStructureBatch(r, p, a as any),
-  formspec_fel: (r, p, a) => handleFel(r, p, a as any),
-  formspec_widget: (r, p, a) => handleWidget(r, p, a as any),
-  formspec_audit: (r, p, a) => handleAudit(r, p, a as any),
-  formspec_theme: (r, p, a) => handleTheme(r, p, a as any),
-  formspec_component: (r, p, a) => handleComponent(r, p, a as any),
-  formspec_locale: (r, p, a) => handleLocale(r, p, a as any),
-  formspec_ontology: (r, p, a) => handleOntology(r, p, a as any),
-  formspec_reference: (r, p, a) => handleReference(r, p, a as any),
-  formspec_behavior_expanded: (r, p, a) => handleBehaviorExpanded(r, p, a as any),
-  formspec_composition: (r, p, a) => handleComposition(r, p, a as any),
-  formspec_response: (r, p, a) => handleResponse(r, p, a as any),
-  formspec_mapping: (r, p, a) => handleMappingExpanded(r, p, a as any),
-  formspec_migration: (r, p, a) => handleMigration(r, p, a as any),
-  formspec_changelog: (r, p, a) => handleChangelog(r, p, a as any),
-  formspec_publish: (r, p, a) => (handlePublish as any)(r, p, a),
+  formspec_field: handleField,
+  formspec_content: handleContent,
+  formspec_group: handleGroup,
+  formspec_submit_button: handleSubmitButton,
+  formspec_place: handlePlace,
+  formspec_behavior: handleBehavior,
+  formspec_flow: handleFlow,
+  formspec_style: handleStyle,
+  formspec_data: handleData,
+  formspec_screener: handleScreener,
+  formspec_describe: handleDescribe,
+  formspec_search: handleSearch,
+  formspec_structure: handleStructureBatch,
+  formspec_fel: handleFel,
+  formspec_widget: handleWidget,
+  formspec_audit: handleAudit,
+  formspec_theme: handleTheme,
+  formspec_component: handleComponent,
+  formspec_locale: handleLocale,
+  formspec_ontology: handleOntology,
+  formspec_reference: handleReference,
+  formspec_behavior_expanded: handleBehaviorExpanded,
+  formspec_composition: handleComposition,
+  formspec_response: handleResponse,
+  formspec_mapping: handleMappingExpanded,
+  formspec_migration: handleMigration,
+  formspec_changelog: handleChangelog,
+  formspec_publish: handlePublish,
   // Handlers with (registry, projectId, action/target/mode, params) signature
   formspec_page: wrap4(handlePage, 'action'),
   formspec_update: wrap4(handleUpdate, 'target'),

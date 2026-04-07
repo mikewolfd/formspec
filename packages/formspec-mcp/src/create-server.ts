@@ -51,7 +51,7 @@ const fieldPropsSchema = z.object({
   hint: z.string(),
   description: z.string(),
   ariaLabel: z.string(),
-  choices: z.array(z.object({ value: z.string(), label: z.string() })),
+  choices: z.array(z.object({ value: z.string(), label: z.string() })).describe('Inline choice options. Use "choices" (NOT "options") — "options" is the schema-level name but will be rejected here.'),
   choicesFrom: z.string(),
   widget: z.string(),
   page: z.string(),
@@ -60,7 +60,7 @@ const fieldPropsSchema = z.object({
   initialValue: z.unknown(),
   insertIndex: z.number(),
   parentPath: z.string(),
-}).partial();
+}).partial().strict();
 
 const fieldItemSchema = z.object({
   path: z.string().describe('Item path (e.g., "name", "contact.email", "items[0].amount")'),
@@ -76,6 +76,7 @@ const contentItemSchema = z.object({
   props: z.object({
     page: z.string().optional().describe('Page ID to place this item on after creation'),
     parentPath: z.string().optional().describe('Parent group path to nest this item under'),
+    insertIndex: z.number().optional().describe('Position among siblings (0-based). Omit to append at end.'),
   }).partial().optional(),
 });
 
@@ -204,7 +205,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_field', {
     title: 'Add Field',
-    description: 'Add NEW data-collecting fields to the form. Supports single item or batch via items[] array. To modify an existing field\'s properties, use formspec_update instead.\n\nPath conventions:\n- Authoring paths use dot notation: "contact.email" (nests under group "contact")\n- FEL expressions use $-prefix: "$contact.email"\n- Runtime/preview uses indexed paths for repeating groups: "items[0].amount"',
+    description: 'Add NEW data-collecting fields to the form. Supports single item or batch via items[] array. To modify an existing field\'s properties, use formspec_update instead.\n\nPath conventions:\n- Authoring paths use dot notation: "contact.email" (nests under group "contact")\n- FEL expressions use $-prefix: "$contact.email"\n- Runtime/preview uses indexed paths for repeating groups: "items[0].amount"\n\nParent context: Use ONE of these — combining them causes double-nesting:\n- Dot notation in path: "contact.email" nests under group "contact"\n- parentPath (top-level or in props): sets an explicit parent group\n- props.page: auto-resolves to the page\'s primary group',
     inputSchema: {
       project_id: z.string(),
       path: z.string().optional().describe('Item path (e.g., "name", "contact.email", "items[0].amount")'),
@@ -224,7 +225,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_content', {
     title: 'Add Content',
-    description: 'Add non-data display elements to the form: headings, paragraphs, dividers, or banners. Supports batch via items[] array.',
+    description: 'Add non-data display elements to the form: headings, paragraphs, dividers, or banners. Supports batch via items[] array.\n\nParent context: Use ONE of these — combining them causes double-nesting:\n- Dot notation in path: "section.heading" nests under group "section"\n- parentPath (top-level or in props): sets an explicit parent group\n- props.page: auto-resolves to the page\'s primary group',
     inputSchema: {
       project_id: z.string(),
       path: z.string().optional(),
@@ -244,7 +245,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_group', {
     title: 'Add Group',
-    description: 'Add a logical group container for related items. Supports batch via items[] array.',
+    description: 'Add a logical group container for related items. Supports batch via items[] array.\n\nParent context: Use ONE of these — combining them causes double-nesting:\n- Dot notation in path: "parent.child_group" nests under "parent"\n- props.parentPath: sets an explicit parent group',
     inputSchema: {
       project_id: z.string(),
       path: z.string().optional(),
@@ -537,10 +538,10 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_describe', {
     title: 'Describe',
-    description: 'Introspect the form. mode="structure": returns form overview. mode="audit": runs diagnostics.',
+    description: 'Introspect the form. mode="structure": returns form overview (statistics, field paths, pages). mode="audit": runs diagnostics. mode="shapes": lists all cross-field validation shapes with human-readable descriptions.',
     inputSchema: {
       project_id: z.string(),
-      mode: z.enum(['structure', 'audit']).optional().default('structure'),
+      mode: z.enum(['structure', 'audit', 'shapes']).optional().default('structure'),
       target: z.string().optional(),
     },
     annotations: READ_ONLY,

@@ -81,8 +81,21 @@ describe('handleDescribe — structure', () => {
 
     expect(data).toHaveProperty('pages');
     expect(data.pages).toHaveLength(2);
-    expect(data.pages[0]).toMatchObject({ id: 'step1', title: 'Step 1', description: 'First step' });
-    expect(data.pages[1]).toMatchObject({ id: 'step2', title: 'Step 2' });
+    expect(data.pages[0]).toMatchObject({ page_id: 'step1', title: 'Step 1', description: 'First step' });
+    expect(data.pages[1]).toMatchObject({ page_id: 'step2', title: 'Step 2' });
+  });
+
+  it('uses page_id (not id) so it matches formspec_place parameter name', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addPage('My Page', undefined, 'pg1');
+
+    const result = handleDescribe(registry, projectId, 'structure');
+    const data = parseResult(result);
+
+    const page = data.pages[0];
+    expect(page).toHaveProperty('page_id');
+    expect(page).not.toHaveProperty('id');
+    expect(page.page_id).toBe('pg1');
   });
 
   it('omits pages when none exist', () => {
@@ -130,6 +143,50 @@ describe('handleDescribe — structure', () => {
     // componentNodeCount should equal the filtered array length (no Stack/Wizard/Page)
     expect(data.componentNodes).toBeDefined();
     expect(data.statistics.componentNodeCount).toBe(data.componentNodes.length);
+  });
+});
+
+// ── handleDescribe — shapes mode ──────────────────────────────
+
+describe('handleDescribe — shapes', () => {
+  it('returns empty shapes list when no shapes exist', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handleDescribe(registry, projectId, 'shapes');
+    const data = parseResult(result);
+
+    expect(data).toHaveProperty('shapes');
+    expect(data.shapes).toEqual([]);
+  });
+
+  it('returns shape details with human-readable description', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('qty', 'Quantity', 'integer');
+    project.addField('price', 'Price', 'decimal');
+    project.addValidation('qty', '$qty > 0', 'Quantity must be positive');
+
+    const result = handleDescribe(registry, projectId, 'shapes');
+    const data = parseResult(result);
+
+    expect(data.shapes.length).toBe(1);
+    const shape = data.shapes[0];
+    expect(shape).toHaveProperty('id');
+    expect(shape).toHaveProperty('target');
+    expect(shape).toHaveProperty('description');
+    expect(shape.target).toBe('qty');
+    expect(shape.description).toContain('Quantity must be positive');
+  });
+
+  it('includes severity for non-error shapes', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('age', 'Age', 'integer');
+    project.addValidation('age', '$age >= 0', 'Age should not be negative', { severity: 'warning' });
+
+    const result = handleDescribe(registry, projectId, 'shapes');
+    const data = parseResult(result);
+
+    expect(data.shapes.length).toBe(1);
+    expect(data.shapes[0].severity).toBe('warning');
+    expect(data.shapes[0].description).toContain('Age should not be negative');
   });
 });
 

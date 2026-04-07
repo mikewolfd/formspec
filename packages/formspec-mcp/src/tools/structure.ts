@@ -151,7 +151,7 @@ export function handleGroup(
         Object.keys(groupProps).length ? groupProps as GroupProps : undefined,
       );
       if (repeat) {
-        project!.makeRepeatable(item.path as string, repeat);
+        project!.makeRepeatable(result.affectedPaths[0], repeat);
         appendRepeatSummary(result, repeat);
       }
       return result;
@@ -167,7 +167,7 @@ export function handleGroup(
       Object.keys(groupProps).length ? groupProps as GroupProps : undefined,
     );
     if (repeat) {
-      project.makeRepeatable(params.path!, repeat);
+      project.makeRepeatable(result.affectedPaths[0], repeat);
       appendRepeatSummary(result, repeat);
     }
     return result;

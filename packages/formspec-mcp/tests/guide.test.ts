@@ -31,14 +31,19 @@ describe('handleGuide mode=new', () => {
     expect(data.workflow.first_question.text).toContain('existing materials');
   });
 
-  it('includes output instructions with artifact list', () => {
+  it('includes output instructions with artifact list and both paths', () => {
     const registry = new ProjectRegistry();
     const result = handleGuide(registry, 'new');
     const data = parseResult(result);
 
     expect(data.output_instructions).toBeDefined();
     expect(data.output_instructions.artifacts).toEqual(['definition', 'component', 'theme']);
-    expect(data.output_instructions.workflow).toBeInstanceOf(Array);
+    expect(data.output_instructions.paths).toBeDefined();
+    expect(data.output_instructions.paths.quick_start).toBeDefined();
+    expect(data.output_instructions.paths.quick_start.steps[0]).toContain('formspec_create');
+    expect(data.output_instructions.paths.import_existing).toBeDefined();
+    expect(data.output_instructions.paths.import_existing.steps[1]).toContain('formspec_draft');
+    expect(data.output_instructions.recommendation).toBeDefined();
   });
 
   it('each section has questions with id and text', () => {

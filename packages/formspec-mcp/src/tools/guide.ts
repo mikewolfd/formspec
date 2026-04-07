@@ -58,12 +58,25 @@ const WORKFLOW_INSTRUCTIONS = {
 
 const OUTPUT_INSTRUCTIONS = {
   artifacts: ['definition', 'component', 'theme'],
-  workflow: [
-    '1. Build all three JSON artifacts from gathered requirements',
-    '2. Submit each via formspec_draft(type, json)',
-    '3. Call formspec_load to transition to authoring',
-    '4. Use authoring tools for incremental refinements',
-  ],
+  paths: {
+    quick_start: {
+      description: 'Start from scratch with an empty form and build incrementally using authoring tools.',
+      steps: [
+        '1. Call formspec_create to get a project_id (immediately enters authoring phase)',
+        '2. Use formspec_field, formspec_group, formspec_content, formspec_behavior to build the form',
+      ],
+    },
+    import_existing: {
+      description: 'Import existing JSON artifacts (definition, component, theme) with schema validation.',
+      steps: [
+        '1. Build all three JSON artifacts from gathered requirements',
+        '2. Submit each via formspec_draft(type, json) for schema validation',
+        '3. Call formspec_load to transition to authoring',
+        '4. Use authoring tools for incremental refinements',
+      ],
+    },
+  },
+  recommendation: 'Use quick_start for conversational form building. Use import_existing when you have complete JSON artifacts (e.g., from a PDF or spreadsheet analysis).',
 };
 
 const MODIFY_QUESTIONS = [
