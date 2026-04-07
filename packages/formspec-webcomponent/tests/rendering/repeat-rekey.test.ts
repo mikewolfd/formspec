@@ -95,4 +95,15 @@ describe('repeat DOM re-keying after non-tail deletion', () => {
         expect(removeButton).toBeTruthy();
         expect(removeButton.getAttribute('aria-label')).toBe('Remove Items 1');
     });
+
+    it('renders a visible instance header inside each repeat row', () => {
+        const { element } = renderFormspec();
+        const instanceHeader = element.querySelector('.formspec-repeat-instance-header');
+        const instanceLabel = element.querySelector('.formspec-repeat-instance-label');
+        const removeButton = element.querySelector('.formspec-repeat-instance-header .formspec-repeat-remove');
+
+        expect(instanceHeader).toBeTruthy();
+        expect(instanceLabel?.textContent).toBe('Items 1');
+        expect(removeButton).toBeTruthy();
+    });
 });

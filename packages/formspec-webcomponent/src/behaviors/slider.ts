@@ -38,6 +38,17 @@ export function useSlider(ctx: BehaviorContext, comp: any): SliderBehavior {
         showTicks: comp.showTicks === true,
         showValue: comp.showValue !== false,
 
+        setValue(val: any): void {
+            ctx.engine.setValue(fieldPath, val);
+        },
+
+        touch(): void {
+            if (!ctx.touchedFields.has(fieldPath)) {
+                ctx.touchedFields.add(fieldPath);
+                ctx.touchedVersion.value += 1;
+            }
+        },
+
         bind(refs: FieldRefs): () => void {
             const disposers = bindSharedFieldEffects(ctx, fieldPath, vm || labelText, refs);
 

@@ -13,6 +13,7 @@ export const renderDatePicker: AdapterRenderFn<DatePickerBehavior> = (
     input.className = 'formspec-input';
     input.name = behavior.fieldPath;
     input.id = behavior.id;
+    if (behavior.placeholder) input.placeholder = behavior.placeholder;
     if (behavior.minDate) input.min = behavior.minDate;
     if (behavior.maxDate) input.max = behavior.maxDate;
 

@@ -13,6 +13,7 @@ export const renderNumberInput: AdapterRenderFn<NumberInputBehavior> = (
     input.className = 'formspec-input';
     input.name = behavior.fieldPath;
     input.id = behavior.id;
+    if (behavior.placeholder) input.placeholder = behavior.placeholder;
     if (behavior.step != null) input.step = String(behavior.step);
     if (behavior.min != null) input.min = String(behavior.min);
     if (behavior.max != null) input.max = String(behavior.max);

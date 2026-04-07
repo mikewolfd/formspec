@@ -20,15 +20,18 @@ export const renderTextInput: AdapterRenderFn<TextInputBehavior> = (
         textarea.id = behavior.id;
         control = textarea;
     } else if (behavior.prefix || behavior.suffix) {
-        // Prefix/suffix wrapper variant
+        // Prefix/suffix wrapper variant (matches .formspec-input-adornment in React)
         const wrapper = document.createElement('div');
-        wrapper.className = 'formspec-input-wrapper';
+        wrapper.className = 'formspec-input-adornment';
 
+        const adornmentIds: string[] = [];
         if (behavior.prefix) {
             const prefixEl = document.createElement('span');
-            prefixEl.className = 'formspec-prefix';
+            prefixEl.className = 'formspec-prefix formspec-input-prefix';
+            prefixEl.id = `${behavior.id}-prefix`;
             prefixEl.textContent = behavior.prefix;
             wrapper.appendChild(prefixEl);
+            adornmentIds.push(prefixEl.id);
         }
 
         const input = document.createElement('input');
@@ -43,13 +46,25 @@ export const renderTextInput: AdapterRenderFn<TextInputBehavior> = (
             else if (attr === 'maxLength') input.maxLength = Number(val);
             else input.setAttribute(attr, val);
         }
+
+        // Link prefix/suffix to input via aria-describedby
+        if (adornmentIds.length > 0) {
+            const currentDescribedBy = fieldDOM.initialDescribedBy;
+            input.setAttribute('aria-describedby', [currentDescribedBy, ...adornmentIds].filter(Boolean).join(' '));
+        }
+
         wrapper.appendChild(input);
 
         if (behavior.suffix) {
             const suffixEl = document.createElement('span');
-            suffixEl.className = 'formspec-suffix';
+            suffixEl.className = 'formspec-suffix formspec-input-suffix';
+            suffixEl.id = `${behavior.id}-suffix`;
             suffixEl.textContent = behavior.suffix;
             wrapper.appendChild(suffixEl);
+            adornmentIds.push(suffixEl.id);
+            // Re-update if suffix was added
+            const currentDescribedBy = fieldDOM.initialDescribedBy;
+            input.setAttribute('aria-describedby', [currentDescribedBy, ...adornmentIds].filter(Boolean).join(' '));
         }
 
         control = wrapper;

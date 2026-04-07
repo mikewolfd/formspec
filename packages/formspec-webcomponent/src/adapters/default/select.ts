@@ -2,7 +2,10 @@
 import type { SelectBehavior } from '../../behaviors/types';
 import type { AdapterContext, AdapterRenderFn } from '../types';
 import type { FieldDOM } from './shared';
-import { createFieldDOM, finalizeFieldDOM, applyControlSlotClass } from './shared';
+import { createFieldDOM, finalizeFieldDOM, applyControlSlotClass, watchFieldValueChanges } from './shared';
+
+/** Distinct value for the native select "clear" row (must stay in sync with `select.ts` behavior change handler). */
+export const SelectClearSentinel = '__formspec_clear__';
 
 function mountCombobox(fieldDOM: FieldDOM, behavior: SelectBehavior, actx: AdapterContext): HTMLElement {
     const wrap = document.createElement('div');
@@ -99,7 +102,7 @@ export const renderSelect: AdapterRenderFn<SelectBehavior> = (
 
     if (behavior.clearable) {
         const clearOpt = document.createElement('option');
-        clearOpt.value = '';
+        clearOpt.value = SelectClearSentinel;
         clearOpt.textContent = '\u2014 Clear \u2014';
         select.appendChild(clearOpt);
     }
@@ -113,6 +116,30 @@ export const renderSelect: AdapterRenderFn<SelectBehavior> = (
     }
 
     wrapper.appendChild(select);
+
+    if (behavior.clearable) {
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'formspec-select-clear';
+        clearBtn.setAttribute('aria-label', 'Clear selection');
+        clearBtn.innerHTML = '<span aria-hidden="true">\u00d7</span>';
+        clearBtn.style.display = 'none';
+        clearBtn.addEventListener('click', () => {
+            behavior.setValue(null);
+            behavior.touch();
+        });
+        wrapper.appendChild(clearBtn);
+
+        const updateClearBtn = () => {
+            const hasValue = behavior.vm
+                ? !!behavior.vm.value.value
+                : select.value !== '' && select.value !== SelectClearSentinel;
+            clearBtn.style.display = hasValue ? 'flex' : 'none';
+        };
+        actx.onDispose(watchFieldValueChanges(behavior, select, updateClearBtn));
+        updateClearBtn();
+    }
+
     fieldDOM.root.appendChild(wrapper);
     applyControlSlotClass(select, behavior, actx);
     finalizeFieldDOM(fieldDOM, behavior, actx);

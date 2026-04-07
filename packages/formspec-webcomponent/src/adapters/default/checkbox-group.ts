@@ -12,7 +12,9 @@ export const renderCheckboxGroup: AdapterRenderFn<CheckboxGroupBehavior> = (
     container.className = 'formspec-checkbox-group';
     container.setAttribute('role', 'group');
     container.setAttribute('aria-labelledby', fieldDOM.label.id);
-    container.setAttribute('aria-describedby', fieldDOM.initialDescribedBy);
+    if (fieldDOM.initialDescribedBy) {
+        container.setAttribute('aria-describedby', fieldDOM.initialDescribedBy);
+    }
     if (behavior.columns && behavior.columns > 1) {
         container.dataset.columns = String(behavior.columns);
     }

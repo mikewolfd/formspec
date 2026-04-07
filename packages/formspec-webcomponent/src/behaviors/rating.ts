@@ -53,9 +53,16 @@ export function useRating(ctx: BehaviorContext, comp: any): RatingBehavior {
         allowHalf,
         isInteger,
 
-        setValue(value: number): void {
-            const finalValue = isInteger ? Math.round(value) : value;
+        setValue(val: any): void {
+            const finalValue = isInteger && typeof val === 'number' ? Math.round(val) : val;
             ctx.engine.setValue(fieldPath, finalValue);
+        },
+
+        touch(): void {
+            if (!ctx.touchedFields.has(fieldPath)) {
+                ctx.touchedFields.add(fieldPath);
+                ctx.touchedVersion.value += 1;
+            }
         },
 
         bind(refs: FieldRefs): () => void {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 import { singleFieldDef, minimalComponentDoc, minimalTheme } from '../helpers/engine-fixtures';
 
 let FormspecRender: any;
+const originalMatchMedia = window.matchMedia;
 
 beforeAll(async () => {
     const mod = await import('../../src/index');
@@ -40,7 +41,24 @@ function renderField(
 
 describe('input rendering — label position cascade', () => {
     afterEach(() => {
+        window.matchMedia = originalMatchMedia;
         document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('mirrors browser dark preference onto the rendered container when no explicit appearance is set', () => {
+        window.matchMedia = vi.fn().mockImplementation(() => ({
+            matches: true,
+            media: '(prefers-color-scheme: dark)',
+            onchange: null,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        }));
+
+        const el = renderField();
+        expect(el.querySelector('.formspec-container.formspec-appearance-dark')).toBeTruthy();
     });
 
     it('defaults to top label position (no inline class)', () => {
@@ -246,13 +264,48 @@ describe('input rendering — TextInput variants', () => {
         expect(Number(textarea.rows)).toBe(5);
     });
 
-    it('prefix/suffix renders wrapper spans', () => {
+    it('prefix/suffix renders wrapper spans and links via aria-describedby', () => {
         const tree = { component: 'TextInput', bind: 'name', prefix: '$', suffix: '.00' };
         const el = renderField({ dataType: 'string' }, tree);
-        const prefix = el.querySelector('.formspec-prefix') as HTMLElement;
-        const suffix = el.querySelector('.formspec-suffix') as HTMLElement;
+        const prefix = el.querySelector('.formspec-input-prefix') as HTMLElement;
+        const suffix = el.querySelector('.formspec-input-suffix') as HTMLElement;
         expect(prefix.textContent).toBe('$');
         expect(suffix.textContent).toBe('.00');
+
+        // Verify IDs exist
+        expect(prefix.id).toMatch(/-prefix$/);
+        expect(suffix.id).toMatch(/-suffix$/);
+
+        // Verify aria-describedby linkage on the input
+        const input = el.querySelector('input') as HTMLInputElement;
+        const describedBy = input.getAttribute('aria-describedby') || '';
+        expect(describedBy).toContain(prefix.id);
+        expect(describedBy).toContain(suffix.id);
+    });
+});
+
+describe('input rendering — Select clearable', () => {
+    afterEach(() => {
+        document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('renders a clear button that resets the value', () => {
+        const tree = { component: 'Select', bind: 'name', clearable: true };
+        const el = renderField({
+            dataType: 'choice',
+            options: [{ value: 'a', label: 'A' }],
+        }, tree);
+        const engine = el.getEngine();
+        engine.setValue('name', 'a');
+        el.render();
+
+        const clearBtn = el.querySelector('.formspec-select-clear') as HTMLButtonElement;
+        expect(clearBtn).not.toBeNull();
+        expect(clearBtn.style.display).not.toBe('none');
+
+        clearBtn.click();
+        expect(engine.signals['name'].value).toBeNull();
+        expect(clearBtn.style.display).toBe('none');
     });
 });
 

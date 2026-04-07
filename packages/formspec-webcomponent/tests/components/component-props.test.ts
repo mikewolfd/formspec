@@ -212,6 +212,25 @@ describe('component props — Select', () => {
         expect(input).not.toBeNull();
         expect(input.closest('.formspec-combobox-row')).not.toBeNull();
     });
+
+    it('applies placeholder to searchable Select input', () => {
+        const el = renderWith(
+            [{
+                key: 'dept',
+                type: 'field',
+                dataType: 'choice',
+                label: 'Dept',
+                options: [{ value: 'a', label: 'A' }],
+            }],
+            {
+                component: 'Page',
+                children: [{ component: 'Select', bind: 'dept', searchable: true, placeholder: 'Choose a department' }],
+            },
+        );
+        const input = el.querySelector('input[role="combobox"]') as HTMLInputElement;
+        expect(input).not.toBeNull();
+        expect(input.placeholder).toBe('Choose a department');
+    });
 });
 
 describe('component props — DatePicker', () => {
@@ -231,6 +250,38 @@ describe('component props — DatePicker', () => {
         expect(input).not.toBeNull();
         expect(input.getAttribute('min')).toBe('1900-01-01');
         expect(input.getAttribute('max')).toBe('2025-12-31');
+    });
+
+    it('applies placeholder to the input', () => {
+        const el = renderWith(
+            [{ key: 'dob', type: 'field', dataType: 'date', label: 'DOB' }],
+            {
+                component: 'Page',
+                children: [{ component: 'DatePicker', bind: 'dob', placeholder: 'YYYY-MM-DD' }],
+            } as any,
+        );
+        const input = el.querySelector('input[type="date"]') as HTMLInputElement;
+        expect(input).not.toBeNull();
+        expect(input.placeholder).toBe('YYYY-MM-DD');
+    });
+});
+
+describe('component props — NumberInput', () => {
+    afterEach(() => {
+        document.body.querySelectorAll('formspec-render').forEach(el => el.remove());
+    });
+
+    it('applies placeholder to the input', () => {
+        const el = renderWith(
+            [{ key: 'qty', type: 'field', dataType: 'number', label: 'Qty' }],
+            {
+                component: 'Page',
+                children: [{ component: 'NumberInput', bind: 'qty', placeholder: '0.00' }],
+            } as any,
+        );
+        const input = el.querySelector('input[type="number"]') as HTMLInputElement;
+        expect(input).not.toBeNull();
+        expect(input.placeholder).toBe('0.00');
     });
 });
 

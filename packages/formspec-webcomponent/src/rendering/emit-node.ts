@@ -103,6 +103,10 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
         const liveRegion = document.createElement('div');
         liveRegion.className = 'formspec-sr-only';
         liveRegion.setAttribute('aria-live', 'polite');
+        const findRepeatInstanceFocusTarget = (instance: Element | null): HTMLElement | null =>
+            instance?.querySelector<HTMLElement>(
+                'input:not([type="hidden"]), select, textarea, [contenteditable="true"], button:not(.formspec-repeat-remove)',
+            ) ?? instance?.querySelector<HTMLElement>('button, [tabindex]:not([tabindex="-1"])') ?? null;
         let innerCleanupFns: Array<() => void> = [];
 
         const disposeInner = () => {
@@ -125,6 +129,14 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
                 instanceWrapper.setAttribute('aria-label', `${groupLabel} ${idx + 1} of ${count}`);
                 list.appendChild(instanceWrapper);
 
+                const instanceHeader = document.createElement('div');
+                instanceHeader.className = 'formspec-repeat-instance-header';
+                const instanceLabel = document.createElement('p');
+                instanceLabel.className = 'formspec-repeat-instance-label';
+                instanceLabel.textContent = `${groupLabel} ${idx + 1}`;
+                instanceHeader.appendChild(instanceLabel);
+                instanceWrapper.appendChild(instanceHeader);
+
                 const instancePrefix = `${fullRepeatPath}[${idx}]`;
                 for (const child of node.children) {
                     emitNode(repeatHost, child, instanceWrapper, instancePrefix, headingLevel);
@@ -132,7 +144,7 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
 
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
-                removeBtn.className = 'formspec-repeat-remove formspec-focus-ring';
+                removeBtn.className = 'formspec-repeat-remove formspec-button-danger formspec-focus-ring';
                 removeBtn.textContent = `Remove ${item?.label || bindKey}`;
                 removeBtn.setAttribute('aria-label', `Remove ${groupLabel} ${idx + 1}`);
                 const removeIdx = idx;
@@ -147,10 +159,10 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
                         }
                         const instances = container.querySelectorAll<HTMLElement>('.formspec-repeat-instance');
                         const targetInstance = instances[Math.min(removeIdx, newCount - 1)];
-                        targetInstance?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+                        findRepeatInstanceFocusTarget(targetInstance)?.focus();
                     });
                 });
-                instanceWrapper.appendChild(removeBtn);
+                instanceHeader.appendChild(removeBtn);
             }
 
             innerCleanupFns = nextInnerCleanupFns;
@@ -165,7 +177,7 @@ export function emitNode(host: RenderHost, node: LayoutNode, parent: HTMLElement
             queueMicrotask(() => {
                 const instances = container.querySelectorAll<HTMLElement>('.formspec-repeat-instance');
                 const last = instances[instances.length - 1];
-                last?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+                findRepeatInstanceFocusTarget(last)?.focus();
             });
         });
         container.appendChild(addBtn);

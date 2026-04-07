@@ -38,6 +38,16 @@ export function useMoneyInput(ctx: BehaviorContext, comp: any): MoneyInputBehavi
     const widgetClassSlots = ctx.resolveWidgetClassSlots(rawPresentation);
     const labelText = comp.labelOverride || item?.label || item?.key || comp.bind;
     const vm = ctx.getFieldVM(fieldPath);
+    const exts = item?.extensions;
+    let extensionPlaceholder: string | undefined;
+    if (exts && typeof exts === 'object') {
+        for (const [extName, extEnabled] of Object.entries(exts)) {
+            if (!extEnabled) continue;
+            const entry = ctx.registryEntries.get(extName);
+            if (!entry) continue;
+            if (entry.metadata?.placeholder && !comp.placeholder) extensionPlaceholder = entry.metadata.placeholder;
+        }
+    }
 
     if (item?.dataType && !['money', 'decimal'].includes(item.dataType)) {
         warnIfIncompatible('MoneyInput', item.dataType);
@@ -70,8 +80,19 @@ export function useMoneyInput(ctx: BehaviorContext, comp: any): MoneyInputBehavi
         min: comp.min,
         max: comp.max,
         step: comp.step,
-        placeholder: comp.placeholder,
+        placeholder: comp.placeholder || extensionPlaceholder,
         resolvedCurrency,
+
+        setValue(val: any): void {
+            ctx.engine.setValue(fieldPath, val);
+        },
+
+        touch(): void {
+            if (!ctx.touchedFields.has(fieldPath)) {
+                ctx.touchedFields.add(fieldPath);
+                ctx.touchedVersion.value += 1;
+            }
+        },
 
         bind(refs: FieldRefs): () => void {
             const disposers = bindSharedFieldEffects(ctx, fieldPath, vm || labelText, refs);

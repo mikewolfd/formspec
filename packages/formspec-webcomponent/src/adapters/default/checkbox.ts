@@ -21,8 +21,12 @@ export const renderCheckbox: AdapterRenderFn<FieldBehavior> = (
     checkbox.name = behavior.fieldPath;
     checkbox.id = behavior.id;
 
-    // Insert checkbox after the label, matching React's label-then-control order
-    fieldDOM.label.insertAdjacentElement('afterend', checkbox);
+    // After label, description, and hint — same vertical order as other default adapters.
+    const anchor =
+        fieldDOM.hint
+        ?? fieldDOM.root.querySelector<HTMLElement>('.formspec-description')
+        ?? fieldDOM.label;
+    anchor.insertAdjacentElement('afterend', checkbox);
     applyControlSlotClass(checkbox, behavior, actx);
     finalizeFieldDOM(fieldDOM, behavior, actx);
     parent.appendChild(fieldDOM.root);

@@ -285,7 +285,7 @@ describe('layout components — DataTable parity', () => {
         expect(actionHeader?.textContent).toBe('Actions');
         const removeButton = wrapper.querySelector('.formspec-datatable-remove') as HTMLButtonElement;
         expect(removeButton).not.toBeNull();
-        expect(removeButton.className).toBe('formspec-datatable-remove formspec-focus-ring');
+        expect(removeButton.className).toBe('formspec-datatable-remove formspec-button-danger formspec-focus-ring');
         const addButton = wrapper.querySelector('.formspec-datatable-add') as HTMLButtonElement;
         expect(addButton.className).toBe('formspec-datatable-add formspec-focus-ring');
     });

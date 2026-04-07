@@ -69,6 +69,17 @@ export function useFileUpload(ctx: BehaviorContext, comp: any): FileUploadBehavi
         maxSize,
         files: () => accumulated,
 
+        setValue(val: any): void {
+            ctx.engine.setValue(fieldPath, val);
+        },
+
+        touch(): void {
+            if (!ctx.touchedFields.has(fieldPath)) {
+                ctx.touchedFields.add(fieldPath);
+                ctx.touchedVersion.value += 1;
+            }
+        },
+
         removeFile(index: number) {
             accumulated = accumulated.filter((_, i) => i !== index);
             syncToEngine();

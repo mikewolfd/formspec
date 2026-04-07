@@ -275,7 +275,7 @@ export function renderDefaultDataTable(behavior: DataTableBehavior, parent: HTML
                     const td = document.createElement('td');
                     const removeBtn = document.createElement('button');
                     removeBtn.type = 'button';
-                    removeBtn.className = 'formspec-datatable-remove formspec-focus-ring';
+                    removeBtn.className = 'formspec-datatable-remove formspec-button-danger formspec-focus-ring';
                     removeBtn.textContent = 'Remove';
                     removeBtn.setAttribute('aria-label', `Remove row ${i + 1}`);
                     const idx = i;

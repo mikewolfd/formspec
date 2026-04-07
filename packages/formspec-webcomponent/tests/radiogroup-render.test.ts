@@ -244,11 +244,19 @@ describe('RadioGroup accessibility', () => {
         const el = renderRadioGroup();
         const container = el.querySelector('[role="radiogroup"]');
         expect(container!.getAttribute('aria-describedby')).toContain('field-color-hint');
+        expect(container!.getAttribute('aria-describedby')).not.toContain('field-color-error');
         // Individual radios should NOT have aria-describedby
         const radios = el.querySelectorAll('input[type="radio"]');
         for (const radio of radios) {
             expect(radio.getAttribute('aria-describedby')).toBeNull();
         }
+    });
+
+    it('error paragraph is a polite live region', () => {
+        const el = renderRadioGroup();
+        const err = el.querySelector('#field-color-error') as HTMLElement;
+        expect(err).not.toBeNull();
+        expect(err.getAttribute('aria-live')).toBe('polite');
     });
 });
 
@@ -305,6 +313,7 @@ describe('CheckboxGroup accessibility', () => {
         const el = renderCheckboxGroup();
         const container = el.querySelector('[role="group"]');
         expect(container!.getAttribute('aria-describedby')).toContain('field-colors-hint');
+        expect(container!.getAttribute('aria-describedby')).not.toContain('field-colors-error');
         // Individual checkboxes should NOT have aria-describedby
         const checkboxes = el.querySelectorAll('input[type="checkbox"]');
         for (const cb of checkboxes) {

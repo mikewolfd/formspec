@@ -310,7 +310,7 @@ export function renderAccordion(behavior: AccordionLayoutBehavior, parent: HTMLE
                 }
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
-                removeBtn.className = 'formspec-repeat-remove formspec-focus-ring';
+                removeBtn.className = 'formspec-repeat-remove formspec-button-danger formspec-focus-ring';
                 removeBtn.textContent = `Remove ${groupLabel}`;
                 removeBtn.setAttribute('aria-label', `Remove ${groupLabel} ${i + 1}`);
                 const idx = i;

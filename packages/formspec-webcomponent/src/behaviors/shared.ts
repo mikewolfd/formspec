@@ -109,7 +109,7 @@ export function bindSharedFieldEffects(
 
         if (refs.hint?.id) ids.push(refs.hint.id);
 
-        refs.control.querySelectorAll('.formspec-prefix[id], .formspec-suffix[id]').forEach((el) => {
+        refs.control.querySelectorAll('.formspec-prefix[id], .formspec-suffix[id], .formspec-input-prefix[id], .formspec-input-suffix[id]').forEach((el) => {
             if (el.id) ids.push(el.id);
         });
         const currencyBadge = refs.control.querySelector('.formspec-money-currency[id]') as HTMLElement | null;

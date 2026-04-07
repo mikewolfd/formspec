@@ -17,6 +17,16 @@ export function useSelect(ctx: BehaviorContext, comp: any): SelectBehavior {
     const widgetClassSlots = ctx.resolveWidgetClassSlots(rawPresentation);
     const labelText = comp.labelOverride || item?.label || item?.key || comp.bind;
     const vm = ctx.getFieldVM(fieldPath);
+    const exts = item?.extensions;
+    let extensionPlaceholder: string | undefined;
+    if (exts && typeof exts === 'object') {
+        for (const [extName, extEnabled] of Object.entries(exts)) {
+            if (!extEnabled) continue;
+            const entry = ctx.registryEntries.get(extName);
+            if (!entry) continue;
+            if (entry.metadata?.placeholder && !comp.placeholder) extensionPlaceholder = entry.metadata.placeholder;
+        }
+    }
 
     // Handle remote options
     const optionSignal = ctx.engine.getOptionsSignal?.(fieldPath);
@@ -53,15 +63,26 @@ export function useSelect(ctx: BehaviorContext, comp: any): SelectBehavior {
         },
         remoteOptionsState,
         options: () => ctx.engine.getOptions?.(fieldPath) || item?.options || [],
-        placeholder: comp.placeholder,
+        placeholder: comp.placeholder || extensionPlaceholder,
         clearable: comp.clearable,
         dataType,
         searchable,
         multiple,
 
+        setValue(val: any): void {
+            ctx.engine.setValue(fieldPath, val);
+        },
+
+        touch(): void {
+            if (!ctx.touchedFields.has(fieldPath)) {
+                ctx.touchedFields.add(fieldPath);
+                ctx.touchedVersion.value += 1;
+            }
+        },
+
         bind(refs: FieldRefs): () => void {
             if (searchable || multiple) {
-                const placeholderText = comp.placeholder || 'Select\u2026';
+                const placeholderText = comp.placeholder || extensionPlaceholder || 'Select\u2026';
                 return bindSelectCombobox(
                     ctx,
                     {
@@ -97,6 +118,11 @@ export function useSelect(ctx: BehaviorContext, comp: any): SelectBehavior {
             // Value sync: DOM → engine (coerce to number for numeric dataTypes)
             selectEl.addEventListener('change', (e) => {
                 const raw = (e.target as HTMLSelectElement).value;
+                // Must match `SelectClearSentinel` in adapters/default/select.ts
+                if (raw === '__formspec_clear__') {
+                    ctx.engine.setValue(fieldPath, null);
+                    return;
+                }
                 let val: any = raw;
                 if (['integer', 'decimal', 'number'].includes(dataType)) {
                     val = raw === '' ? null : Number(raw);

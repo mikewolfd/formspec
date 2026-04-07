@@ -1,4 +1,5 @@
 /** @filedesc Shared DOM construction helpers for the default render adapter. */
+import { effect } from '@preact/signals-core';
 import type { FieldBehavior } from '../../behaviors/types';
 import type { AdapterContext } from '../types';
 
@@ -36,6 +37,7 @@ export function createFieldDOM(
     const fieldId = behavior.id;
     const hintId = `${fieldId}-hint`;
     const errorId = `${fieldId}-error`;
+    const descId = `${fieldId}-desc`;
     const asGroup = options?.asGroup === true;
 
     // Read from VM signals when available; fall back to static behavior properties.
@@ -74,7 +76,6 @@ export function createFieldDOM(
     root.appendChild(label);
 
     if (descText) {
-        const descId = `${fieldId}-desc`;
         const desc = document.createElement('div');
         desc.className = 'formspec-description';
         desc.id = descId;
@@ -95,9 +96,11 @@ export function createFieldDOM(
     const error = document.createElement('p');
     error.className = 'formspec-error';
     error.id = errorId;
+    error.setAttribute('aria-live', 'polite');
     if (slots.error) actx.applyClassValue(error, slots.error);
 
-    const initialDescribedBy = [hintId, errorId].join(' ');
+    // Supplementary ids only — validation messages use aria-invalid + this live region (not describedby).
+    const initialDescribedBy = [descText ? descId : '', hintId].filter(Boolean).join(' ');
 
     return { root, label, hint, error, initialDescribedBy };
 }
@@ -158,6 +161,30 @@ export function finalizeFieldDOM(
  * Apply widgetClassSlots.control to the actual input element(s).
  * For radio/checkbox groups, applies to each input. For others, applies to the control.
  */
+/**
+ * Run `fn` whenever the field value may have changed.
+ *
+ * With a {@link FieldBehavior.vm}, tracks `vm.value` via Preact `effect` (engine view-model cells are typed as
+ * read-only signal accessors only; observing them goes through `effect`, not `.subscribe` on the public type).
+ *
+ * Without a VM, subscribes to `change` on `fallbackControl` (native &lt;select&gt; / similar).
+ */
+export function watchFieldValueChanges(
+    behavior: FieldBehavior,
+    fallbackControl: HTMLSelectElement,
+    fn: () => void,
+): () => void {
+    if (behavior.vm) {
+        return effect(() => {
+            behavior.vm!.value.value;
+            fn();
+        });
+    }
+    const onChange = () => fn();
+    fallbackControl.addEventListener('change', onChange);
+    return () => fallbackControl.removeEventListener('change', onChange);
+}
+
 export function applyControlSlotClass(
     control: HTMLElement,
     behavior: FieldBehavior,

@@ -9,7 +9,6 @@
   },
   "workspaces": [
     "packages/*",
-    "packages/formspec-webcomponent/stories",
     "examples/refrences",
     "site"
   ],

@@ -87,6 +87,10 @@ import {
  * ```
  */
 export class FormspecRender extends HTMLElement {
+    static get observedAttributes(): string[] {
+        return ['data-formspec-appearance'];
+    }
+
     // ── Internal state ────────────────────────────────────────────────
     /** @internal */ _definition: any;
     /** @internal */ _componentDocument: any;
@@ -99,6 +103,8 @@ export class FormspecRender extends HTMLElement {
     /** @internal */ stylesheetHrefs: string[] = [];
     private rootContainer: HTMLDivElement | null = null;
     private _renderPending = false;
+    private _colorSchemeMedia: MediaQueryList | null = null;
+    private readonly _handleColorSchemeChange = () => this.syncRootContainerAppearance();
     private _locale = '';
     private _pendingLocaleDocuments: LocaleDocument[] = [];
 
@@ -106,6 +112,12 @@ export class FormspecRender extends HTMLElement {
         super();
         const shadow = this.attachShadow({ mode: 'open' });
         shadow.appendChild(document.createElement('slot'));
+    }
+
+    attributeChangedCallback(name: string): void {
+        if (name === 'data-formspec-appearance') {
+            this.syncRootContainerAppearance();
+        }
     }
 
     /** Fields the user has interacted with (blur). Validation errors are hidden until touched. */
@@ -253,6 +265,29 @@ export class FormspecRender extends HTMLElement {
             this._renderPending = false;
             this.render();
         });
+    }
+
+    private ensureColorSchemeListener(): void {
+        if (this._colorSchemeMedia || typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+        this._colorSchemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+        if (typeof this._colorSchemeMedia.addEventListener === 'function') {
+            this._colorSchemeMedia.addEventListener('change', this._handleColorSchemeChange);
+        } else {
+            this._colorSchemeMedia.addListener(this._handleColorSchemeChange);
+        }
+    }
+
+    private syncRootContainerAppearance(): void {
+        if (!this.rootContainer) return;
+        this.rootContainer.classList.remove('formspec-appearance-light', 'formspec-appearance-dark');
+        const forcedAppearance = this.getAttribute('data-formspec-appearance');
+        if (forcedAppearance === 'light' || forcedAppearance === 'dark') {
+            this.rootContainer.classList.add(`formspec-appearance-${forcedAppearance}`);
+            return;
+        }
+        if (this._colorSchemeMedia?.matches) {
+            this.rootContainer.classList.add('formspec-appearance-dark');
+        }
     }
 
     /**
@@ -564,8 +599,10 @@ export class FormspecRender extends HTMLElement {
             this.appendChild(this.rootContainer);
         }
 
+        this.ensureColorSchemeListener();
         const container = this.rootContainer;
         container.className = 'formspec-container';
+        this.syncRootContainerAppearance();
         container.replaceChildren();
 
         emitTokenPropertiesFn(this._stylingHost, container);
@@ -664,6 +701,14 @@ export class FormspecRender extends HTMLElement {
         this.cleanup();
         cleanupStylesheetsFn(this._stylingHost);
         cleanupBreakpoints(this._breakpoints);
+        if (this._colorSchemeMedia) {
+            if (typeof this._colorSchemeMedia.removeEventListener === 'function') {
+                this._colorSchemeMedia.removeEventListener('change', this._handleColorSchemeChange);
+            } else {
+                this._colorSchemeMedia.removeListener(this._handleColorSchemeChange);
+            }
+            this._colorSchemeMedia = null;
+        }
         if (this.rootContainer) {
             this.rootContainer.remove();
             this.rootContainer = null;

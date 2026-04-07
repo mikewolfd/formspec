@@ -75,6 +75,8 @@ export interface FieldBehavior {
     };
     remoteOptionsState: { loading: boolean; error: string | null };
     options(): ReadonlyArray<{ value: string; label: string; keywords?: string[] }>;
+    setValue(val: any): void;
+    touch(): void;
     bind(refs: FieldRefs): () => void;
 }
 
@@ -122,12 +124,14 @@ export interface NumberInputBehavior extends FieldBehavior {
     step?: number;
     showStepper: boolean;
     dataType: string;
+    placeholder?: string;
 }
 
 export interface DatePickerBehavior extends FieldBehavior {
     inputType: string;
     minDate?: string;
     maxDate?: string;
+    placeholder?: string;
 }
 
 export interface MoneyInputBehavior extends FieldBehavior {

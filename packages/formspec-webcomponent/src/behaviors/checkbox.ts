@@ -38,6 +38,17 @@ export function useCheckbox(ctx: BehaviorContext, comp: any): FieldBehavior {
         remoteOptionsState: { loading: false, error: null },
         options: () => [],
 
+        setValue(val: any): void {
+            ctx.engine.setValue(fieldPath, val);
+        },
+
+        touch(): void {
+            if (!ctx.touchedFields.has(fieldPath)) {
+                ctx.touchedFields.add(fieldPath);
+                ctx.touchedVersion.value += 1;
+            }
+        },
+
         bind(refs: FieldRefs): () => void {
             const disposers = bindSharedFieldEffects(ctx, fieldPath, vm || labelText, refs);
 
