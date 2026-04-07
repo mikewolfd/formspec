@@ -40,9 +40,9 @@ function extractHeadingProp(css: string, level: number, prop: string): string | 
 describe('Canonical heading scale', () => {
     // Values from formspec-layout/src/styles/default.base.css — the canonical source.
     const expectedScale: Record<number, { size: string; weight: string }> = {
-        1: { size: '1.5rem', weight: '700' },
-        2: { size: '1.25rem', weight: '700' },
-        3: { size: '1rem', weight: '600' },
+        1: { size: '1.55rem', weight: '700' },
+        2: { size: '1.28rem', weight: '700' },
+        3: { size: '1.02rem', weight: '650' },
         4: { size: '0.9375rem', weight: '600' },
         5: { size: '0.875rem', weight: '600' },
         6: { size: '0.875rem', weight: '600' },

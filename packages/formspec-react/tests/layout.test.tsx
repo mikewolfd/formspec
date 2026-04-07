@@ -8,6 +8,7 @@ import { initFormspecEngine, createFormEngine } from '@formspec-org/engine';
 import type { LayoutNode } from '@formspec-org/layout';
 import { FormspecNode } from '../src/node-renderer';
 import { FormspecProvider } from '../src/context';
+import type { LayoutComponentProps } from '../src/component-map';
 
 beforeAll(async () => {
     await initFormspecEngine();
@@ -400,6 +401,62 @@ describe('Accordion layout', () => {
         const items = container.querySelectorAll('.formspec-accordion-item') as NodeListOf<HTMLDetailsElement>;
         expect(items[0].open).toBe(false);
         expect(items[1].open).toBe(true);
+    });
+
+    it('opens the clicked section when switching panels in single-open mode', () => {
+        const children: LayoutNode[] = [
+            { id: 'c1', component: 'Divider', category: 'layout', props: {}, cssClasses: [], children: [] },
+            { id: 'c2', component: 'Divider', category: 'layout', props: {}, cssClasses: [], children: [] },
+        ];
+        const container = renderNode({
+            id: 'acc-switch',
+            component: 'Accordion',
+            category: 'layout',
+            props: { defaultOpen: 0, labels: ['A', 'B'] },
+            cssClasses: [],
+            children,
+        });
+        const items = container.querySelectorAll<HTMLDetailsElement>('.formspec-accordion-item');
+        const summaries = container.querySelectorAll<HTMLElement>('summary');
+        expect(items[0].open).toBe(true);
+        expect(items[1].open).toBe(false);
+        flushSync(() => {
+            summaries[1].click();
+        });
+        expect(items[0].open).toBe(false);
+        expect(items[1].open).toBe(true);
+    });
+
+    it('does not render Accordion as a custom Collapsible when only Collapsible is in components.layout', () => {
+        function CustomCollapsible({ node }: LayoutComponentProps) {
+            return <div data-testid="custom-collapsible" data-node-id={node.id} />;
+        }
+        const children: LayoutNode[] = [
+            { id: 'c1', component: 'Divider', category: 'layout', props: {}, cssClasses: [], children: [] },
+            { id: 'c2', component: 'Divider', category: 'layout', props: {}, cssClasses: [], children: [] },
+        ];
+        const accordion: LayoutNode = {
+            id: 'acc-collapsible-map',
+            component: 'Accordion',
+            category: 'layout',
+            props: { labels: ['A', 'B'] },
+            cssClasses: [],
+            children,
+        };
+        const engine = createFormEngine(simpleDef);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        flushSync(() => {
+            root.render(
+                <FormspecProvider engine={engine} components={{ layout: { Collapsible: CustomCollapsible } }}>
+                    <FormspecNode node={accordion} />
+                </FormspecProvider>,
+            );
+        });
+        expect(container.querySelector('.formspec-accordion')).toBeTruthy();
+        expect(container.querySelectorAll('.formspec-accordion-item').length).toBe(2);
+        expect(container.querySelector('[data-testid="custom-collapsible"]')).toBeNull();
     });
 
     it('binds accordion sections to repeat instances', () => {

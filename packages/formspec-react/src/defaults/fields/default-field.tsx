@@ -35,18 +35,26 @@ export function DefaultField({ field, node }: FieldComponentProps) {
         }
         return attrs;
     }, [node.fieldItem?.extensions, registryEntries]);
+    const resolvePlaceholder = (componentPlaceholder?: string) =>
+        (extensionAttrs.placeholder as string | undefined) || componentPlaceholder;
 
-    const describedBy = [
-        field.hint ? `${field.id}-hint` : '',
-        showError ? `${field.id}-error` : '',
-    ].filter(Boolean).join(' ') || undefined;
+    const descId = `${field.id}-desc`;
+    const descriptionNode = field.description ? (
+        <div id={descId} className="formspec-description">{field.description}</div>
+    ) : null;
+    const hintNode = field.hint ? <p id={`${field.id}-hint`} className="formspec-hint">{field.hint}</p> : null;
+
+    // Supplementary text only — not validation errors (those use aria-invalid + live region on .formspec-error).
+    const supplementaryDescribedBy =
+        [field.description ? descId : '', field.hint ? `${field.id}-hint` : ''].filter(Boolean).join(' ') || undefined;
     const errorNode = (
         <p id={`${field.id}-error`} className="formspec-error" aria-live="polite">
             {showError ? field.error : ''}
         </p>
     );
-    const requiredNode = field.required ? <span className="formspec-required" aria-hidden="true"> *</span> : null;
-    const hintNode = field.hint ? <p id={`${field.id}-hint`} className="formspec-hint">{field.hint}</p> : null;
+    const requiredNode = field.required ? (
+        <abbr className="formspec-required usa-label--required" title="required"> *</abbr>
+    ) : null;
 
     // Checkbox / Toggle: inline layout
     if (node.component === 'Checkbox' || node.component === 'Toggle') {
@@ -68,7 +76,7 @@ export function DefaultField({ field, node }: FieldComponentProps) {
                 disabled={isReadonly}
                 aria-invalid={showError}
                 aria-required={field.required || undefined}
-                aria-describedby={describedBy}
+                {...(supplementaryDescribedBy ? { 'aria-describedby': supplementaryDescribedBy } : {})}
             />
         );
 
@@ -78,10 +86,12 @@ export function DefaultField({ field, node }: FieldComponentProps) {
                 style={node.style as React.CSSProperties | undefined}
                 data-name={field.path}
             >
-                <label htmlFor={field.id}>
+                <label htmlFor={field.id} className="formspec-label">
                     {field.label}
                     {requiredNode}
                 </label>
+                {descriptionNode}
+                {hintNode}
                 {isToggle ? (
                     <div
                         className={`formspec-toggle${field.value ? ' formspec-toggle--on' : ''}`.trim()}
@@ -106,32 +116,32 @@ export function DefaultField({ field, node }: FieldComponentProps) {
         );
     }
 
-    // RadioGroup / CheckboxGroup — same structure as default web component adapter (div + label + role group)
+    // RadioGroup / CheckboxGroup — fieldset + legend (native group caption) to match default WC adapter.
     if (node.component === 'RadioGroup' || node.component === 'CheckboxGroup') {
         const labelId = `${field.id}-label`;
         const labelHidden = node.labelPosition === 'hidden';
-        const groupAriaDescribedBy = [field.hint ? `${field.id}-hint` : '', `${field.id}-error`]
-            .filter(Boolean)
-            .join(' ');
+        const groupSupplementaryDescribedBy =
+            [field.description ? descId : '', field.hint ? `${field.id}-hint` : ''].filter(Boolean).join(' ') || undefined;
 
         return (
-            <div
-                className={`formspec-field ${isProtected ? 'formspec-protected' : ''} ${themeClass}`.trim()}
+            <fieldset
+                className={[`formspec-fieldset`, isProtected ? 'formspec-protected' : '', themeClass].filter(Boolean).join(' ').trim()}
                 style={node.style as React.CSSProperties | undefined}
                 data-name={field.path}
             >
-                <label
+                <legend
                     id={labelId}
-                    className={labelHidden ? 'formspec-label formspec-sr-only' : 'formspec-label'}
+                    className={labelHidden ? 'formspec-legend formspec-sr-only' : 'formspec-legend'}
                 >
                     {field.label}
                     {requiredNode}
-                </label>
+                </legend>
+                {descriptionNode}
                 {hintNode}
                 {/* Item 4: pass isReadonly so individual inputs get disabled */}
-                {renderGroupControl(field, node, isReadonly, labelId, groupAriaDescribedBy)}
+                {renderGroupControl(field, node, isReadonly, labelId, groupSupplementaryDescribedBy)}
                 {errorNode}
-            </div>
+            </fieldset>
         );
     }
 
@@ -152,15 +162,16 @@ export function DefaultField({ field, node }: FieldComponentProps) {
         >
             <label
                 htmlFor={field.id}
-                className={node.labelPosition === 'hidden' ? 'sr-only' : undefined}
+                className={node.labelPosition === 'hidden' ? 'formspec-label formspec-sr-only' : 'formspec-label'}
             >
                 {field.label}
                 {requiredNode}
             </label>
 
+            {descriptionNode}
             {hintNode}
 
-            {renderControl(field, node, describedBy, isProtected, extensionAttrs)}
+            {renderControl(field, node, supplementaryDescribedBy, isProtected, extensionAttrs, resolvePlaceholder)}
 
             {errorNode}
         </div>
@@ -174,7 +185,7 @@ function renderGroupControl(
     // Item 4: isReadonly propagated to each input
     isReadonly: boolean,
     labelId: string,
-    groupAriaDescribedBy: string,
+    groupSupplementaryDescribedBy: string | undefined,
 ) {
     if (node.component === 'RadioGroup') {
         const orientation = node.props?.orientation as string | undefined;
@@ -183,7 +194,7 @@ function renderGroupControl(
                 className="formspec-radio-group"
                 role="radiogroup"
                 aria-labelledby={labelId}
-                aria-describedby={groupAriaDescribedBy}
+                {...(groupSupplementaryDescribedBy ? { 'aria-describedby': groupSupplementaryDescribedBy } : {})}
                 {...(orientation === 'horizontal' ? { 'data-orientation': 'horizontal' as const } : {})}
             >
                 {field.options.map((opt) => (
@@ -221,7 +232,7 @@ function renderGroupControl(
             className="formspec-checkbox-group"
             role="group"
             aria-labelledby={labelId}
-            aria-describedby={groupAriaDescribedBy}
+            {...(groupSupplementaryDescribedBy ? { 'aria-describedby': groupSupplementaryDescribedBy } : {})}
             style={columnStyle}
             {...dataColumns}
         >
@@ -271,6 +282,7 @@ function renderControl(
     describedBy: string | undefined,
     isProtected = false,
     extensionAttrs: Record<string, any> = {},
+    resolvePlaceholder: (componentPlaceholder?: string) => string | undefined = (value) => value,
 ) {
     const { dataType, id, path, value } = field;
     const isReadonly = field.readonly || isProtected;
@@ -279,7 +291,7 @@ function renderControl(
     const common = {
         id,
         name: path,
-        'aria-describedby': describedBy,
+        ...(describedBy ? { 'aria-describedby': describedBy } : {}),
         'aria-invalid': showError,
         'aria-required': field.required,
         required: field.required,
@@ -294,14 +306,14 @@ function renderControl(
             const searchable = node.props?.searchable as boolean | undefined;
             const multiple = node.props?.multiple as boolean | undefined;
             const placeholderOpt =
-                (node.props?.placeholder as string | undefined) || 'Select…';
+                resolvePlaceholder(node.props?.placeholder as string | undefined) || 'Select…';
 
             if (searchable || multiple) {
                 return (
                     <ComboboxSelect
                         field={field}
                         node={node}
-                        common={common}
+                        common={{ ...common, placeholder: resolvePlaceholder(node.props?.placeholder as string | undefined) }}
                         isReadonly={isReadonly}
                     />
                 );
@@ -342,6 +354,7 @@ function renderControl(
             // Item 20: minDate/maxDate → native min/max attributes
             const minDate = node.props?.minDate as string | undefined;
             const maxDate = node.props?.maxDate as string | undefined;
+            const placeholder = resolvePlaceholder(node.props?.placeholder as string | undefined);
             let inputType = 'date';
             if (variant === 'dateTime' || dataType === 'dateTime') inputType = 'datetime-local';
             else if (variant === 'time' || dataType === 'time') inputType = 'time';
@@ -351,6 +364,7 @@ function renderControl(
                     type={inputType}
                     value={value ?? ''}
                     readOnly={isReadonly}
+                    placeholder={placeholder}
                     min={minDate}
                     max={maxDate}
                     onChange={(e) => field.setValue(e.target.value)}
@@ -363,6 +377,7 @@ function renderControl(
             const max = node.props?.max != null ? Number(node.props.max) : undefined;
             const step = node.props?.step != null ? Number(node.props.step) : undefined;
             const showStepper = node.props?.showStepper as boolean | undefined;
+            const placeholder = resolvePlaceholder(node.props?.placeholder as string | undefined);
 
             const numberInput = (
                 <input
@@ -370,6 +385,7 @@ function renderControl(
                     type="number"
                     value={value ?? ''}
                     readOnly={isReadonly}
+                    placeholder={placeholder}
                     min={min != null ? String(min) : undefined}
                     max={max != null ? String(max) : undefined}
                     step={step != null ? String(step) : undefined}
@@ -414,16 +430,31 @@ function renderControl(
             return <FileUploadControl field={field} node={node} common={common} isReadonly={isReadonly} />;
 
         case 'MoneyInput':
-            return <MoneyInputControl field={field} node={node} common={common} isReadonly={isReadonly} />;
+            return (
+                <MoneyInputControl
+                    field={field}
+                    node={node}
+                    common={common}
+                    isReadonly={isReadonly}
+                    placeholder={resolvePlaceholder(node.props?.placeholder as string | undefined)}
+                />
+            );
 
         case 'Slider':
             return <SliderControl field={field} node={node} common={common} isReadonly={isReadonly} />;
 
         case 'Rating':
-            return <RatingControl field={field} node={node} isReadonly={isReadonly} />;
+            return (
+                <RatingControl
+                    field={field}
+                    node={node}
+                    isReadonly={isReadonly}
+                    supplementaryDescribedBy={describedBy}
+                />
+            );
 
         case 'Signature':
-            return <SignatureControl field={field} node={node} />;
+            return <SignatureControl field={field} node={node} supplementaryDescribedBy={describedBy} />;
 
         case 'TextInput':
         default: {
@@ -452,7 +483,7 @@ function renderControl(
                 <textarea
                     {...controlProps}
                     rows={maxLines}
-                    placeholder={extensionAttrs.placeholder || placeholder}
+                    placeholder={resolvePlaceholder(placeholder)}
                     value={value ?? ''}
                     readOnly={isReadonly}
                     maxLength={extensionAttrs.maxLength}
@@ -464,7 +495,7 @@ function renderControl(
                     type={extensionAttrs.type || 'text'}
                     value={value ?? ''}
                     readOnly={isReadonly}
-                    placeholder={extensionAttrs.placeholder || placeholder}
+                    placeholder={resolvePlaceholder(placeholder)}
                     inputMode={(extensionAttrs.inputMode || inputMode) as React.HTMLAttributes<HTMLInputElement>['inputMode']}
                     maxLength={extensionAttrs.maxLength}
                     pattern={extensionAttrs.pattern}
@@ -507,7 +538,7 @@ function ComboboxSelect({ field, node, common, isReadonly }: Pick<CommonInputPro
     const searchableFilter = !!(node.props?.searchable as boolean | undefined);
     const clearable = !!(node.props?.clearable as boolean | undefined);
     const placeholderText =
-        (node.props?.placeholder as string | undefined) || 'Select…';
+        ((common.placeholder as string | undefined) || (node.props?.placeholder as string | undefined) || 'Select…');
 
     const blurTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const [open, setOpen] = useState(false);
@@ -821,13 +852,19 @@ function formatMoneyAmountForInput(amount: unknown): string {
     return String(Math.round(n * 100) / 100);
 }
 
-function MoneyInputControl({ field, node, common, isReadonly }: CommonInputProps) {
+function MoneyInputControl({
+    field,
+    node,
+    common,
+    isReadonly,
+    placeholder: resolvedPlaceholder,
+}: CommonInputProps & { placeholder?: string }) {
     const currencyCode = ((node.props?.currency as string) || 'USD').toUpperCase();
     const currency = toCurrencySymbol(currencyCode);
     const min = node.props?.min != null ? String(node.props.min) : undefined;
     const max = node.props?.max != null ? String(node.props.max) : undefined;
     const step = node.props?.step != null ? String(node.props.step) : undefined;
-    const placeholder = (node.props?.placeholder as string) || 'Amount';
+    const placeholder = resolvedPlaceholder || 'Amount';
 
     const currencyId = `${field.id}-currency`;
 
@@ -958,7 +995,18 @@ function resolveRatingIcons(icon?: string): [string, string] {
     return RATING_ICON_MAP[icon] || [icon, icon];
 }
 
-function RatingControl({ field, node, isReadonly }: { field: FieldComponentProps['field']; node: FieldComponentProps['node']; isReadonly: boolean }) {
+function RatingControl({
+    field,
+    node,
+    isReadonly,
+    supplementaryDescribedBy,
+}: {
+    field: FieldComponentProps['field'];
+    node: FieldComponentProps['node'];
+    isReadonly: boolean;
+    supplementaryDescribedBy?: string;
+}) {
+    const showError = !!(field.error && field.touched);
     const maxFromProps = node.props?.max ?? node.props?.maxRating;
     const maxRating = typeof maxFromProps === 'number' && maxFromProps > 0 ? maxFromProps : 5;
     const allowHalf = node.props?.allowHalf === true;
@@ -1023,6 +1071,8 @@ function RatingControl({ field, node, isReadonly }: { field: FieldComponentProps
             aria-valuenow={currentValue}
             aria-valuetext={`${currentValue} of ${maxRating}`}
             aria-label={field.label}
+            aria-invalid={showError}
+            {...(supplementaryDescribedBy ? { 'aria-describedby': supplementaryDescribedBy } : {})}
             onKeyDown={handleKeyDown}
         >
             {Array.from({ length: maxRating }, (_, idx) => {
@@ -1050,7 +1100,16 @@ function RatingControl({ field, node, isReadonly }: { field: FieldComponentProps
     );
 }
 
-function SignatureControl({ field, node }: { field: FieldComponentProps['field']; node: FieldComponentProps['node'] }) {
+function SignatureControl({
+    field,
+    node,
+    supplementaryDescribedBy,
+}: {
+    field: FieldComponentProps['field'];
+    node: FieldComponentProps['node'];
+    supplementaryDescribedBy?: string;
+}) {
+    const showError = !!(field.error && field.touched);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const isDrawingRef = useRef(false);
     const height = (node.props?.height as number) || 200;
@@ -1142,8 +1201,11 @@ function SignatureControl({ field, node }: { field: FieldComponentProps['field']
                 // Item 1: WCAG 2.1.1 / 4.1.2 — canvas needs role, label, and keyboard focus
                 role="img"
                 aria-label={`Signature pad for ${field.label}`}
+                aria-invalid={showError}
+                {...(supplementaryDescribedBy ? { 'aria-describedby': supplementaryDescribedBy } : {})}
                 tabIndex={0}
-                style={{ width: '100%', height, border: '1px solid #ccc', touchAction: 'none', cursor: 'crosshair', display: 'block' }}
+                className="formspec-signature-canvas"
+                style={{ width: '100%', height, touchAction: 'none', cursor: 'crosshair', display: 'block' }}
             />
             <button
                 type="button"

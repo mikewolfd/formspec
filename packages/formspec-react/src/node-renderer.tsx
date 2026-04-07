@@ -39,7 +39,6 @@ const FALLBACK_MAP: Record<string, string> = {
     ProgressBar: 'Text',
     Summary: 'Text',
     Panel: 'Card',
-    Accordion: 'Collapsible',
     Modal: 'Collapsible',
     Popover: 'Collapsible',
     DataTable: 'Card',
@@ -160,6 +159,13 @@ function RepeatGroup({ node }: { node: LayoutNode }) {
     const addBtnRef = useRef<HTMLButtonElement>(null);
     const [announcement, setAnnouncement] = useState('');
 
+    const findRepeatInstanceFocusTarget = useCallback((instance: Element | null) => {
+        if (!instance) return null;
+        return instance.querySelector<HTMLElement>(
+            'input:not([type="hidden"]), select, textarea, [contenteditable="true"], button:not(.formspec-repeat-remove)',
+        ) ?? instance.querySelector<HTMLElement>('button, [tabindex]:not([tabindex="-1"])');
+    }, []);
+
     // Build instances by rewriting template child bindPaths
     const instances = useMemo(() => {
         const result: LayoutNode[][] = [];
@@ -179,10 +185,9 @@ function RepeatGroup({ node }: { node: LayoutNode }) {
         setTimeout(() => {
             const instances = containerRef.current?.querySelectorAll('.formspec-repeat-instance');
             const last = instances?.[instances.length - 1];
-            const firstInput = last?.querySelector<HTMLElement>('input, select, textarea, button');
-            firstInput?.focus();
+            findRepeatInstanceFocusTarget(last ?? null)?.focus();
         }, 0);
-    }, [engine, repeatPath, count, title]);
+    }, [count, engine, findRepeatInstanceFocusTarget, repeatPath, title]);
 
     const handleRemove = useCallback((idx: number) => {
         engine.removeRepeatInstance(repeatPath, idx);
@@ -195,11 +200,10 @@ function RepeatGroup({ node }: { node: LayoutNode }) {
             } else {
                 const instances = containerRef.current?.querySelectorAll('.formspec-repeat-instance');
                 const target = instances?.[Math.min(idx, newCount - 1)];
-                const firstInput = target?.querySelector<HTMLElement>('input, select, textarea, button');
-                firstInput?.focus();
+                findRepeatInstanceFocusTarget(target ?? null)?.focus();
             }
         }, 0);
-    }, [engine, repeatPath, count, title]);
+    }, [count, engine, findRepeatInstanceFocusTarget, repeatPath, title]);
 
     return (
         <div className="formspec-repeat" data-bind={node.repeatGroup} ref={containerRef}>
@@ -208,17 +212,20 @@ function RepeatGroup({ node }: { node: LayoutNode }) {
                     <div key={idx} className="formspec-repeat-instance"
                          role="group"
                          aria-label={`${title} ${idx + 1} of ${count}`}>
+                        <div className="formspec-repeat-instance-header">
+                            <p className="formspec-repeat-instance-label">{`${title} ${idx + 1}`}</p>
+                            <button
+                                type="button"
+                                className="formspec-repeat-remove formspec-button-danger formspec-focus-ring"
+                                aria-label={`Remove ${title} ${idx + 1}`}
+                                onClick={() => handleRemove(idx)}
+                            >
+                                {`Remove ${title}`}
+                            </button>
+                        </div>
                         {children.map((child) => (
                             <FormspecNode key={child.id} node={child} />
                         ))}
-                        <button
-                            type="button"
-                            className="formspec-repeat-remove formspec-focus-ring"
-                            aria-label={`Remove ${title} ${idx + 1}`}
-                            onClick={() => handleRemove(idx)}
-                        >
-                            {`Remove ${title}`}
-                        </button>
                     </div>
                 ))}
             </div>
@@ -494,17 +501,18 @@ function DisplayNode({ node }: { node: LayoutNode }) {
         default: {
             const format = node.props?.format as string | undefined;
             const bindPath = node.props?.bind as string | undefined;
+            const textClassName = `formspec-text${format === 'markdown' ? ' formspec-text--markdown' : ''}${cssClass ? ` ${cssClass}` : ''}`;
             if (format === 'markdown' && !bindPath) {
                 return (
                     <p
-                        className={cssClass}
+                        className={textClassName}
                         style={style}
                         dangerouslySetInnerHTML={{ __html: simpleMarkdown(text) }}
                     />
                 );
             }
             return (
-                <p className={cssClass} style={style}>
+                <p className={textClassName} style={style}>
                     {bindPath ? <BoundText bind={bindPath} /> : text}
                 </p>
             );
@@ -870,7 +878,7 @@ function DataTableDisplay({
                                 <td>
                                     <button
                                         type="button"
-                                        className="formspec-datatable-remove formspec-focus-ring"
+                                        className="formspec-datatable-remove formspec-button-danger formspec-focus-ring"
                                         aria-label={`Remove row ${i + 1}`}
                                         onClick={() => handleRemove(i)}
                                     >

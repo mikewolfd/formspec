@@ -1,6 +1,6 @@
 /** @filedesc Tests for DefaultField input sub-features and new input types. */
 import { describe, it, expect, beforeAll } from 'vitest';
-import React from 'react';
+import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { initFormspecEngine, createFormEngine } from '@formspec-org/engine';
@@ -11,6 +11,13 @@ import { FormspecProvider } from '../src/context';
 beforeAll(async () => {
     await initFormspecEngine();
 });
+
+/** flushSync inside act — engine signal → useSyncExternalStore updates must see an act boundary in tests. */
+function actSync(callback: () => void): void {
+    act(() => {
+        flushSync(callback);
+    });
+}
 
 const baseDef = (items: any[]) => ({
     $formspec: '1.0',
@@ -27,7 +34,7 @@ function renderField(definition: any, node: LayoutNode): HTMLElement {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
-    flushSync(() => {
+    actSync(() => {
         root.render(
             <FormspecProvider engine={engine}>
                 <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -279,7 +286,7 @@ describe('Rating', () => {
             id: 'stars-field', component: 'Rating', category: 'field',
             props: { maxRating: 5 }, cssClasses: [], children: [], bindPath: 'stars',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -301,7 +308,7 @@ describe('Rating', () => {
             id: 'stars-field', component: 'Rating', category: 'field',
             props: { maxRating: 5 }, cssClasses: [], children: [], bindPath: 'stars',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -311,7 +318,7 @@ describe('Rating', () => {
 
         const stars = container.querySelectorAll('.formspec-rating-star');
         // Click the 4th star
-        flushSync(() => { (stars[3] as HTMLElement).click(); });
+        actSync(() => { (stars[3] as HTMLElement).click(); });
 
         const selected = container.querySelectorAll('.formspec-rating-star--selected');
         expect(selected.length).toBe(4);
@@ -409,6 +416,61 @@ describe('Signature', () => {
     });
 });
 
+// ── RadioGroup / CheckboxGroup — fieldset parity with WC ───────────
+
+describe('RadioGroup / CheckboxGroup — fieldset + legend', () => {
+    it('uses fieldset.formspec-fieldset and legend.formspec-legend for RadioGroup', () => {
+        const def = baseDef([{
+            key: 'color',
+            type: 'field',
+            dataType: 'choice',
+            label: 'Color',
+            options: [{ value: 'red', label: 'Red' }, { value: 'blue', label: 'Blue' }],
+        }]);
+        const node: LayoutNode = {
+            id: 'color-field',
+            component: 'RadioGroup',
+            category: 'field',
+            props: {},
+            cssClasses: [],
+            children: [],
+            bindPath: 'color',
+        };
+        const container = renderField(def, node);
+        const fs = container.querySelector('fieldset.formspec-fieldset');
+        const legend = container.querySelector('legend.formspec-legend');
+        expect(fs).toBeTruthy();
+        expect(legend).toBeTruthy();
+        const radiogroup = container.querySelector('[role="radiogroup"]');
+        expect(radiogroup?.getAttribute('aria-labelledby')).toBe(legend?.id);
+    });
+
+    it('uses fieldset and legend for CheckboxGroup', () => {
+        const def = baseDef([{
+            key: 'tags',
+            type: 'field',
+            dataType: 'multiChoice',
+            label: 'Tags',
+            options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }],
+        }]);
+        const node: LayoutNode = {
+            id: 'tags-field',
+            component: 'CheckboxGroup',
+            category: 'field',
+            props: {},
+            cssClasses: [],
+            children: [],
+            bindPath: 'tags',
+        };
+        const container = renderField(def, node);
+        expect(container.querySelector('fieldset.formspec-fieldset')).toBeTruthy();
+        expect(container.querySelector('legend.formspec-legend')).toBeTruthy();
+        const group = container.querySelector('[role="group"]');
+        const leg = container.querySelector('legend');
+        expect(group?.getAttribute('aria-labelledby')).toBe(leg?.id);
+    });
+});
+
 // ── RadioGroup / CheckboxGroup readonly ───────────────────────────
 
 describe('RadioGroup — readonly disables inputs', () => {
@@ -501,7 +563,7 @@ describe('Slider — aria-valuetext', () => {
             id: 'vol-field', component: 'Slider', category: 'field',
             props: { min: 0, max: 100 }, cssClasses: [], children: [], bindPath: 'vol',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -606,7 +668,7 @@ describe('Toggle — role switch', () => {
         expect(onEl.textContent).toBe('On');
 
         const input = toggleWrapper.querySelector('input') as HTMLInputElement;
-        flushSync(() => {
+        actSync(() => {
             input.click();
         });
         expect(toggleWrapper.classList.contains('formspec-toggle--on')).toBe(true);
@@ -708,10 +770,10 @@ describe('Select — searchable', () => {
         const filterInput = container.querySelector('.formspec-select-searchable input[type="text"]') as HTMLInputElement;
 
         // Focus, then simulate typing via React's input value setter to trigger onChange
-        flushSync(() => { filterInput.focus(); });
+        actSync(() => { filterInput.focus(); });
         // React intercepts the native setter — use Object.getOwnPropertyDescriptor to trigger it
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-        flushSync(() => {
+        actSync(() => {
             nativeInputValueSetter?.call(filterInput, 'can');
             filterInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
@@ -736,8 +798,8 @@ describe('Select — searchable', () => {
         const container = renderField(def, node);
         const filterInput = container.querySelector('.formspec-select-searchable input[type="text"]') as HTMLInputElement;
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-        flushSync(() => { filterInput.focus(); });
-        flushSync(() => {
+        actSync(() => { filterInput.focus(); });
+        actSync(() => {
             nativeInputValueSetter?.call(filterInput, 'usa');
             filterInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
@@ -837,7 +899,7 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
     it('aria-expanded becomes true when input is focused', () => {
         const container = makeSearchable();
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
+        actSync(() => { input.focus(); });
         expect(input.getAttribute('aria-expanded')).toBe('true');
     });
 
@@ -850,7 +912,7 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
     it('listbox is visible when input is focused', () => {
         const container = makeSearchable();
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
+        actSync(() => { input.focus(); });
         const listbox = container.querySelector('[role="listbox"]') as HTMLElement;
         expect(listbox.hidden).toBe(false);
     });
@@ -864,7 +926,7 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
     it('each option has an id and role="option"', () => {
         const container = makeSearchable();
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
+        actSync(() => { input.focus(); });
         const options = container.querySelectorAll('[role="option"]');
         expect(options.length).toBe(3);
         options.forEach(opt => expect(opt.id).toBeTruthy());
@@ -873,8 +935,8 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
     it('ArrowDown highlights the first option and sets aria-activedescendant', () => {
         const container = makeSearchable();
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+        actSync(() => { input.focus(); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
         const options = container.querySelectorAll('[role="option"]');
         expect(options[0].getAttribute('aria-selected')).toBe('true');
         expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id);
@@ -883,9 +945,9 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
     it('ArrowDown twice highlights the second option', () => {
         const container = makeSearchable();
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+        actSync(() => { input.focus(); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
         const options = container.querySelectorAll('[role="option"]');
         expect(options[1].getAttribute('aria-selected')).toBe('true');
         expect(input.getAttribute('aria-activedescendant')).toBe(options[1].id);
@@ -894,9 +956,9 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
     it('ArrowUp from first wraps to last option', () => {
         const container = makeSearchable();
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })); });
+        actSync(() => { input.focus(); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })); });
         const options = container.querySelectorAll('[role="option"]');
         expect(options[options.length - 1].getAttribute('aria-selected')).toBe('true');
     });
@@ -917,7 +979,7 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
             id: 'country-field', component: 'Select', category: 'field',
             props: { searchable: true }, cssClasses: [], children: [], bindPath: 'country',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -925,18 +987,18 @@ describe('SearchableSelect — WAI-ARIA combobox pattern', () => {
             );
         });
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+        actSync(() => { input.focus(); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
         expect(engine.getResponse().data['country']).toBe('us');
     });
 
     it('Escape closes the listbox', () => {
         const container = makeSearchable();
         const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
-        flushSync(() => { input.focus(); });
+        actSync(() => { input.focus(); });
         expect(input.getAttribute('aria-expanded')).toBe('true');
-        flushSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+        actSync(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
         expect(input.getAttribute('aria-expanded')).toBe('false');
     });
 });
@@ -956,7 +1018,7 @@ describe('FileUpload — maxSize', () => {
             // maxSize = 1000 bytes
             props: { maxSize: 1000 }, cssClasses: [], children: [], bindPath: 'doc',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -968,7 +1030,7 @@ describe('FileUpload — maxSize', () => {
         // Simulate oversized file
         const bigFile = new File(['x'.repeat(2000)], 'big.pdf', { type: 'application/pdf' });
         Object.defineProperty(input, 'files', { value: [bigFile], configurable: true });
-        flushSync(() => {
+        actSync(() => {
             input.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
@@ -994,7 +1056,7 @@ describe('FileUpload — maxSize', () => {
             id: 'doc-field', component: 'FileUpload', category: 'field',
             props: { maxSize: 1000 }, cssClasses: [], children: [], bindPath: 'doc',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -1005,7 +1067,7 @@ describe('FileUpload — maxSize', () => {
         const input = container.querySelector('input[type="file"]') as HTMLInputElement;
         const smallFile = new File(['small'], 'small.pdf', { type: 'application/pdf' });
         Object.defineProperty(input, 'files', { value: [smallFile], configurable: true });
-        flushSync(() => {
+        actSync(() => {
             input.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
@@ -1106,7 +1168,7 @@ describe('Rating — slider keyboard navigation', () => {
             id: 'stars-field', component: 'Rating', category: 'field',
             props: { maxRating: 5 }, cssClasses: [], children: [], bindPath: 'stars',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />
@@ -1131,7 +1193,7 @@ describe('Rating — slider keyboard navigation', () => {
     it('ArrowRight increments the rating', () => {
         const { container, engine } = makeRating(2);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(3);
@@ -1140,7 +1202,7 @@ describe('Rating — slider keyboard navigation', () => {
     it('ArrowLeft decrements the rating', () => {
         const { container, engine } = makeRating(3);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(2);
@@ -1149,7 +1211,7 @@ describe('Rating — slider keyboard navigation', () => {
     it('ArrowUp increments the rating', () => {
         const { container, engine } = makeRating(1);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(2);
@@ -1158,7 +1220,7 @@ describe('Rating — slider keyboard navigation', () => {
     it('ArrowDown decrements the rating', () => {
         const { container, engine } = makeRating(4);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(3);
@@ -1167,7 +1229,7 @@ describe('Rating — slider keyboard navigation', () => {
     it('Home clears rating to 0', () => {
         const { container, engine } = makeRating(4);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(0);
@@ -1176,7 +1238,7 @@ describe('Rating — slider keyboard navigation', () => {
     it('End sets rating to maxRating', () => {
         const { container, engine } = makeRating(1);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(5);
@@ -1185,7 +1247,7 @@ describe('Rating — slider keyboard navigation', () => {
     it('ArrowRight clamps at maxRating', () => {
         const { container, engine } = makeRating(5);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(5);
@@ -1194,10 +1256,108 @@ describe('Rating — slider keyboard navigation', () => {
     it('ArrowLeft clamps at 0', () => {
         const { container, engine } = makeRating(0);
         const slider = container.querySelector('.formspec-rating-stars') as HTMLElement;
-        flushSync(() => {
+        actSync(() => {
             slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
         });
         expect(engine.getResponse().data['stars']).toBe(0);
+    });
+});
+
+// ── aria-describedby policy (supplementary text only, not errors) ─
+
+describe('DefaultField — aria-describedby excludes validation errors', () => {
+    it('TextInput keeps hint in aria-describedby but not error id when invalid', () => {
+        const def = baseDef([{
+            key: 'email',
+            type: 'field',
+            dataType: 'string',
+            label: 'Email',
+            hint: 'Work email',
+        }]);
+        def.binds = [{ path: 'email', constraint: 'false' }];
+        const engine = createFormEngine(def);
+        const node: LayoutNode = {
+            id: 'email-field',
+            component: 'TextInput',
+            category: 'field',
+            props: {},
+            cssClasses: [],
+            children: [],
+            bindPath: 'email',
+        };
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        actSync(() => {
+            root.render(
+                <FormspecProvider engine={engine}>
+                    <FormspecNode
+                        node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }}
+                    />
+                </FormspecProvider>,
+            );
+        });
+        engine.setValue('email', 'not-an-email');
+        actSync(() => {
+            const inputEl = container.querySelector('#field-email') as HTMLInputElement;
+            inputEl?.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+        });
+        const input = container.querySelector('#field-email') as HTMLInputElement;
+        const db = input.getAttribute('aria-describedby') ?? '';
+        expect(db).toContain('field-email-hint');
+        expect(db).not.toContain('field-email-error');
+        expect(input.getAttribute('aria-invalid')).toBe('true');
+    });
+});
+
+// ── Field chrome parity (label / description / hint order) ────────
+
+describe('DefaultField — description and label chrome', () => {
+    it('renders description after label and before hint for TextInput', () => {
+        const def = baseDef([{
+            key: 'x',
+            type: 'field',
+            dataType: 'string',
+            label: 'Title',
+            description: 'Longer field help text.',
+            hint: 'Short hint.',
+        }]);
+        const node: LayoutNode = {
+            id: 'x-field',
+            component: 'TextInput',
+            category: 'field',
+            props: {},
+            cssClasses: [],
+            children: [],
+            bindPath: 'x',
+        };
+        const container = renderField(def, node);
+        const field = container.querySelector('.formspec-field');
+        expect(field).toBeTruthy();
+        const children = [...field!.children];
+        const descIdx = children.findIndex((c) => c.classList.contains('formspec-description'));
+        const hintIdx = children.findIndex((c) => c.classList.contains('formspec-hint'));
+        const inputIdx = children.findIndex((c) => c.matches('input'));
+        expect(descIdx).toBeGreaterThan(-1);
+        expect(hintIdx).toBeGreaterThan(descIdx);
+        expect(inputIdx).toBeGreaterThan(hintIdx);
+        expect((children[descIdx] as HTMLElement).textContent).toContain('Longer field help');
+    });
+
+    it('applies formspec-label to the primary label element', () => {
+        const def = baseDef([{ key: 'y', type: 'field', dataType: 'string', label: 'Name' }]);
+        const node: LayoutNode = {
+            id: 'y-field',
+            component: 'TextInput',
+            category: 'field',
+            props: {},
+            cssClasses: [],
+            children: [],
+            bindPath: 'y',
+        };
+        const container = renderField(def, node);
+        const lbl = container.querySelector('.formspec-field label.formspec-label');
+        expect(lbl).toBeTruthy();
     });
 });
 
@@ -1219,7 +1379,7 @@ describe('Select — clear button icon aria-hidden', () => {
             id: 'color-field', component: 'Select', category: 'field',
             props: { clearable: true }, cssClasses: [], children: [], bindPath: 'color',
         };
-        flushSync(() => {
+        actSync(() => {
             root.render(
                 <FormspecProvider engine={engine}>
                     <FormspecNode node={{ id: 'root', component: 'Stack', category: 'layout', props: {}, cssClasses: [], children: [node] }} />

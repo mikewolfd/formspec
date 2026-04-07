@@ -72,13 +72,34 @@ describe('Field spacing token ownership', () => {
 
     it('defines the refined default typography and color tokens in the canonical theme', () => {
         expect(layoutTheme.tokens['font.family']).toBe('"Instrument Sans", "Avenir Next", "Segoe UI", sans-serif');
-        expect(layoutTheme.tokens['color.primary']).toBe('#1f6a5b');
-        expect(layoutTheme.tokens['color.surface']).toBe('#f4efe7');
+        expect(layoutTheme.tokens['color.primary']).toBe('#27594f');
+        expect(layoutTheme.tokens['color.surface']).toBe('#f2ece2');
+    });
+
+    it('ships a single canonical dark token override block in the canonical CSS bundle', () => {
+        expect(layoutCSS).toContain('color-scheme: light;');
+        expect(layoutCSS).toContain('.formspec-container.formspec-appearance-dark');
+        expect(layoutCSS).toContain('--formspec-default-bg: #161311;');
+        expect(layoutCSS).toContain('--formspec-default-text: #f3ecdf;');
+        expect(layoutCSS).toContain('--formspec-default-surface: #211c19;');
+        expect(layoutCSS).not.toContain('@media (prefers-color-scheme: dark)');
+        expect(layoutCSS).not.toContain('.formspec-appearance-light .formspec-container');
+        expect(layoutCSS).not.toContain('.formspec-appearance-dark .formspec-container');
     });
 
     it('uses a less boxy grouped-choice layout in the canonical CSS', () => {
         expect(extractRuleProp(layoutCSS, '.formspec-checkbox-group', 'border-left')).toBe('none');
         expect(extractRuleProp(layoutCSS, '.formspec-checkbox-group', 'padding-left')).toBe('0');
+    });
+
+    it('neutralizes native fieldset and legend chrome so grouped controls match across renderers', () => {
+        expect(extractRuleProp(layoutCSS, '.formspec-fieldset', 'border')).toBe('0');
+        expect(extractRuleProp(layoutCSS, '.formspec-fieldset', 'padding')).toBe('0');
+        expect(extractRuleProp(layoutCSS, '.formspec-fieldset', 'gap')).toBe(
+            'var(--formspec-spacing-xs, 0.25rem)',
+        );
+        expect(extractRuleProp(layoutCSS, '.formspec-legend', 'display')).toBe('block');
+        expect(extractRuleProp(layoutCSS, '.formspec-legend', 'font-size')).toBe('0.84rem');
     });
 
     it('keeps shared field skin selectors in the canonical layout bundle instead of the React add-on', () => {

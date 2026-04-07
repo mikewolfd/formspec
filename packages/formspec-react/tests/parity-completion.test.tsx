@@ -413,6 +413,22 @@ describe('Input prop completeness', () => {
             expect(incBtn).toBeTruthy();
             expect(decBtn).toBeTruthy();
         });
+
+        it('applies placeholder attribute', () => {
+            const container = renderField('NumberInput', 'qty', { placeholder: '0.00' }, { dataType: 'number' });
+            const input = container.querySelector('input[type="number"]') as HTMLInputElement;
+            expect(input).toBeTruthy();
+            expect(input.placeholder).toBe('0.00');
+        });
+    });
+
+    describe('DatePicker', () => {
+        it('applies placeholder attribute', () => {
+            const container = renderField('DatePicker', 'dob', { placeholder: 'YYYY-MM-DD' }, { dataType: 'date' });
+            const input = container.querySelector('input[type="date"]') as HTMLInputElement;
+            expect(input).toBeTruthy();
+            expect(input.placeholder).toBe('YYYY-MM-DD');
+        });
     });
 
     describe('Select', () => {
@@ -435,6 +451,16 @@ describe('Input prop completeness', () => {
 
             const clearBtn = container.querySelector('.formspec-select-clear, [aria-label*="Clear"], [aria-label*="clear"]');
             expect(clearBtn).toBeTruthy();
+        });
+
+        it('uses placeholder for searchable select input', () => {
+            const container = renderField('Select', 'color', { searchable: true, placeholder: 'Choose color' }, {
+                dataType: 'choice',
+                options: [{ value: 'red', label: 'Red' }, { value: 'blue', label: 'Blue' }],
+            });
+            const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
+            expect(input).toBeTruthy();
+            expect(input.placeholder).toBe('Choose color');
         });
     });
 

@@ -10,6 +10,14 @@ import { FormspecScreener } from './screener/FormspecScreener';
 import type { ScreenerRoute, ScreenerRouteType } from './screener/types';
 
 /** Match `<formspec-render>`: emit theme + component tokens on `.formspec-container` so CSS variables resolve the same as the web component (e.g. radio group border). */
+function syncSystemAppearanceClass(el: HTMLDivElement | null, systemPrefersDark: boolean): void {
+    if (!el) return;
+    const hasExplicitLight = el.classList.contains('formspec-appearance-light');
+    const hasExplicitDark = el.classList.contains('formspec-appearance-dark');
+    if (hasExplicitLight || hasExplicitDark) return;
+    el.classList.toggle('formspec-appearance-dark', systemPrefersDark);
+}
+
 function useEmitThemeTokensOnFormspecContainerRef(): React.RefObject<HTMLDivElement | null> {
     const ref = useRef<HTMLDivElement>(null);
     const { themeDocument, componentDocument } = useFormspecContext();
@@ -23,7 +31,35 @@ function useEmitThemeTokensOnFormspecContainerRef(): React.RefObject<HTMLDivElem
             themeTokens: themeTokens || {},
             componentTokens: componentDocument?.tokens,
         });
+        return () => {
+            for (let i = el.style.length - 1; i >= 0; i--) {
+                const prop = el.style[i];
+                if (prop.startsWith('--formspec-')) {
+                    el.style.removeProperty(prop);
+                }
+            }
+        };
     }, [themeDocument, componentDocument]);
+
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el || typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+
+        const colorSchemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+        const syncAppearance = () => {
+            syncSystemAppearanceClass(el, colorSchemeMedia.matches);
+        };
+
+        syncAppearance();
+
+        if (typeof colorSchemeMedia.addEventListener === 'function') {
+            colorSchemeMedia.addEventListener('change', syncAppearance);
+            return () => colorSchemeMedia.removeEventListener('change', syncAppearance);
+        }
+
+        colorSchemeMedia.addListener(syncAppearance);
+        return () => colorSchemeMedia.removeListener(syncAppearance);
+    });
 
     return ref;
 }
@@ -82,7 +118,7 @@ export function FormspecForm({
     // If the screener is active and not yet resolved, render it standalone
     if (hasScreener && !screenerDone) {
         return (
-            <FormspecProvider {...providerProps}>
+            <FormspecProvider definition={definition} {...providerProps}>
                 <ScreenerGate
                     definition={definition}
                     screenerDocument={screenerDocument}
@@ -98,7 +134,7 @@ export function FormspecForm({
     }
 
     return (
-        <FormspecProvider {...providerProps}>
+        <FormspecProvider definition={definition} {...providerProps}>
             <FormspecFormInner className={className} />
         </FormspecProvider>
     );

@@ -600,7 +600,8 @@ describe('Item 11: Wizard step indicator aria-live removed', () => {
 // ── Item 31: No dual submit buttons when Wizard is present ───────────────
 
 describe('Item 31: FormspecForm does not render second submit when Wizard present', () => {
-    const defWithWizard = {
+    /** Minimal definition (empty items): default layout plan has no Wizard node. */
+    const minimalFormDefinition = {
         $formspec: '1.0',
         url: 'https://test.example/wizard-form',
         version: '1.0.0',
@@ -635,7 +636,7 @@ describe('Item 31: FormspecForm does not render second submit when Wizard presen
         document.body.appendChild(container);
         const root = createRoot(container);
         flushSync(() => {
-            root.render(<FormspecForm definition={defWithWizard} onSubmit={() => {}} />);
+            root.render(<FormspecForm definition={minimalFormDefinition} onSubmit={() => {}} />);
         });
         expect(container.querySelector('.formspec-submit')).toBeTruthy();
     });
@@ -669,7 +670,7 @@ describe('Item 31: FormspecForm does not render second submit when Wizard presen
         // simulates its current UNFIXED behavior) and show both submit buttons exist.
         // Then verify the fixed behavior shows only one.
 
-        const engine = createFormEngine(defWithWizard);
+        const engine = createFormEngine(minimalFormDefinition);
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);

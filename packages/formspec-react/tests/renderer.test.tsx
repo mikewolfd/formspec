@@ -1,10 +1,11 @@
 /** @filedesc Tests for FormspecForm auto-renderer and default components. */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { initFormspecEngine, createFormEngine } from '@formspec-org/engine';
 import type { LayoutNode } from '@formspec-org/layout';
+import defaultThemeJson from '@formspec-org/layout/default-theme';
 import { FormspecForm } from '../src/renderer';
 import { FormspecNode } from '../src/node-renderer';
 import { FormspecProvider } from '../src/context';
@@ -12,6 +13,12 @@ import type { FieldComponentProps } from '../src/component-map';
 
 beforeAll(async () => {
     await initFormspecEngine();
+});
+
+const originalMatchMedia = window.matchMedia;
+
+afterEach(() => {
+    window.matchMedia = originalMatchMedia;
 });
 
 const testDefinition = {
@@ -63,6 +70,25 @@ function renderInto(element: React.ReactElement): HTMLElement {
 // ── FormspecForm auto-renderer ─────────────────────────────────────
 
 describe('FormspecForm', () => {
+    it('mirrors browser dark preference onto the formspec container when no explicit appearance is set', () => {
+        window.matchMedia = vi.fn().mockImplementation(() => ({
+            matches: true,
+            media: '(prefers-color-scheme: dark)',
+            onchange: null,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        }));
+
+        const container = renderInto(
+            <FormspecForm definition={testDefinition} />
+        );
+
+        expect(container.querySelector('.formspec-container.formspec-appearance-dark')).toBeTruthy();
+    });
+
     it('renders all fields from definition', () => {
         const container = renderInto(
             <FormspecForm definition={testDefinition} />
@@ -114,10 +140,10 @@ describe('FormspecForm', () => {
         const container = renderInto(
             <FormspecForm definition={testDefinition} />
         );
-        // Required fields get a * indicator
-        const reqSpans = container.querySelectorAll('[aria-hidden="true"]');
-        const starTexts = Array.from(reqSpans).map(s => s.textContent?.trim());
-        expect(starTexts).toContain('*');
+        const requiredAbbrs = container.querySelectorAll('abbr.formspec-required');
+        expect(requiredAbbrs.length).toBeGreaterThan(0);
+        const starTexts = Array.from(requiredAbbrs).map(s => s.textContent?.trim());
+        expect(starTexts.some(t => t?.includes('*'))).toBe(true);
     });
 
     it('accepts a className prop on root', () => {
@@ -145,7 +171,10 @@ describe('FormspecForm', () => {
             <FormspecForm definition={testDefinition} />
         );
         const host = container.querySelector('.formspec-container') as HTMLElement;
-        expect(host?.style.getPropertyValue('--formspec-color-border').trim()).toBe('#c9c1b4');
+        const expectedBorder = String(
+            (defaultThemeJson as { tokens?: Record<string, string> }).tokens?.['color.border'] ?? '',
+        );
+        expect(host?.style.getPropertyValue('--formspec-color-border').trim()).toBe(expectedBorder);
     });
 });
 
@@ -206,6 +235,7 @@ describe('display node rendering', () => {
 
         const para = container.querySelector('p');
         expect(para).toBeTruthy();
+        expect(para?.className).toContain('formspec-text');
         expect(para!.textContent).toBe('Some helpful instructions.');
     });
 
@@ -1318,6 +1348,20 @@ describe('repeat group rendering', () => {
         expect(repeatContainer.querySelector('.formspec-repeat-add')).toBeTruthy();
         expect(repeatContainer.querySelector('.formspec-sr-only[aria-live="polite"]')).toBeTruthy();
     });
+
+    it('renders a visible instance header that keeps remove actions attached to each row', () => {
+        const container = renderInto(
+            <FormspecForm definition={repeatDefinition} />
+        );
+
+        const instanceHeader = container.querySelector('.formspec-repeat-instance-header');
+        const instanceLabel = container.querySelector('.formspec-repeat-instance-label');
+        const removeButton = container.querySelector('.formspec-repeat-instance-header .formspec-repeat-remove');
+
+        expect(instanceHeader).toBeTruthy();
+        expect(instanceLabel?.textContent).toBe('Team Members 1');
+        expect(removeButton).toBeTruthy();
+    });
 });
 
 // ── DataTable select column rendering ─────────────────────────────
@@ -1483,7 +1527,7 @@ describe('DataTable select column rendering', () => {
         expect(actionHeader?.textContent).toBe('Actions');
         const removeButton = wrapper.querySelector('.formspec-datatable-remove') as HTMLButtonElement;
         expect(removeButton).toBeTruthy();
-        expect(removeButton.className).toBe('formspec-datatable-remove formspec-focus-ring');
+        expect(removeButton.className).toBe('formspec-datatable-remove formspec-button-danger formspec-focus-ring');
         const addButton = wrapper.querySelector('.formspec-datatable-add') as HTMLButtonElement;
         expect(addButton.className).toBe('formspec-datatable-add formspec-focus-ring');
     });

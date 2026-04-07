@@ -251,7 +251,14 @@ function AccordionLayout({ node, children, themeClass, style }: LayoutProps) {
                 return next;
             });
         } else {
-            setOpenIndex(open ? idx : null);
+            setOpenIndex(prev => {
+                if (open) return idx;
+                // Programmatically closing another <details> (when switching panels)
+                // fires toggle with open=false on that element. Ignore those so they
+                // do not clear the index we just set from the opening panel.
+                if (prev === idx) return null;
+                return prev;
+            });
         }
     }, [allowMultiple]);
 
