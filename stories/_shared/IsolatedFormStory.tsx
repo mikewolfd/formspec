@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { FormspecForm } from '@formspec-org/react';
 import type { SubmitResult, ComponentMap } from '@formspec-org/react';
 import formspecReactCssUrl from '../../packages/formspec-react/src/formspec.css?url';
+import { getStoryAppearanceClass, type StoryAppearance } from './storyAppearance';
 
 export interface IsolatedFormStoryProps {
     /** The Formspec definition JSON. */
@@ -20,6 +21,8 @@ export interface IsolatedFormStoryProps {
     showSubmit?: boolean;
     /** Optional className on the form container. */
     className?: string;
+    /** Storybook-controlled appearance override. */
+    appearance?: StoryAppearance;
 }
 
 /** Renders a FormspecForm inside an isolated shadow root. */
@@ -31,12 +34,17 @@ export function IsolatedFormStory({
     initialData,
     showSubmit = true,
     className,
+    appearance = 'system',
 }: IsolatedFormStoryProps) {
     const hostRef = useRef<HTMLDivElement>(null);
     const [mountNode, setMountNode] = useState<HTMLDivElement | null>(null);
     const [result, setResult] = useState<SubmitResult | null>(null);
 
     const stylesheets = useMemo(() => [formspecReactCssUrl], []);
+    const formspecClassName = useMemo(() => {
+        const appearanceClassName = appearance === 'system' ? undefined : getStoryAppearanceClass(appearance);
+        return [className, appearanceClassName].filter(Boolean).join(' ') || undefined;
+    }, [appearance, className]);
 
     useEffect(() => {
         const host = hostRef.current;
@@ -66,7 +74,7 @@ export function IsolatedFormStory({
         <>
             <div ref={hostRef} />
             {mountNode ? createPortal(
-                <div>
+                <>
                     <FormspecForm
                         definition={definition}
                         themeDocument={theme}
@@ -74,7 +82,7 @@ export function IsolatedFormStory({
                         componentDocument={componentDocument}
                         initialData={initialData}
                         onSubmit={showSubmit ? setResult : undefined}
-                        className={className}
+                        className={formspecClassName}
                     />
                     {result && (
                         <details style={{ marginTop: 16 }}>
@@ -86,7 +94,7 @@ export function IsolatedFormStory({
                             </pre>
                         </details>
                     )}
-                </div>,
+                </>,
                 mountNode,
             ) : null}
         </>

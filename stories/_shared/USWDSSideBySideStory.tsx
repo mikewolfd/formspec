@@ -4,6 +4,7 @@ import { uswdsAdapter } from '@formspec-org/adapters';
 import { SideBySideStory } from './SideBySideStory';
 import { IsolatedWebComponentStory } from './IsolatedWebComponentStory';
 import { RealUSWDSStory } from './RealUSWDSStory';
+import type { StoryAppearance } from './storyAppearance';
 
 export interface USWDSSideBySideStoryProps {
     definition: any;
@@ -15,6 +16,8 @@ export interface USWDSSideBySideStoryProps {
     initialData?: Record<string, any>;
     /** When true, all fields are touched on mount so validation errors display immediately. */
     touchAll?: boolean;
+    /** Storybook-controlled appearance override. */
+    appearance?: StoryAppearance;
 }
 
 export function USWDSSideBySideStory({
@@ -25,6 +28,7 @@ export function USWDSSideBySideStory({
     maxWidth = 1400,
     initialData,
     touchAll,
+    appearance = 'system',
 }: USWDSSideBySideStoryProps) {
     return (
         <SideBySideStory
@@ -33,6 +37,7 @@ export function USWDSSideBySideStory({
             componentDocument={componentDocument}
             showSubmit={showSubmit}
             maxWidth={maxWidth}
+            appearance={appearance}
             leftLabel="USWDS Adapter"
             rightLabel="Real USWDS"
             leftPane={(
@@ -45,6 +50,7 @@ export function USWDSSideBySideStory({
                     maxWidth={640}
                     initialData={initialData}
                     touchAll={touchAll}
+                    appearance={appearance}
                 />
             )}
             rightPane={(

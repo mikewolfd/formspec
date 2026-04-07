@@ -2,6 +2,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Reporter, TestCase, TestModule } from 'vitest/reporters';
+import { storyScreenshotBaseId } from '../../.storybook/story-screenshot-id';
 
 const CWD = process.cwd();
 const MANIFEST = path.join(CWD, 'storybook-manifest.json');
@@ -38,7 +39,7 @@ export default class ManifestReporter implements Reporter {
             }
         }
 
-        const safeId = storyId.replace(/[^a-zA-Z0-9-]+/g, '_');
+        const safeId = storyScreenshotBaseId(storyId);
 
         // Co-locate DOM snapshot with screenshot baselines in __screenshots__/
         // testCase.module.moduleId is the absolute path to the .stories.tsx file

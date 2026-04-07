@@ -6,6 +6,7 @@ import type { RenderAdapter } from '@formspec-org/webcomponent';
 import formspecDefaultCssUrl from '../../packages/formspec-webcomponent/src/formspec-default.css?url';
 import formspecLayoutCssUrl from '../../packages/formspec-webcomponent/src/formspec-layout.css?url';
 import uswdsCssUrl from '@uswds/uswds/css/uswds.css?url';
+import type { StoryAppearance } from './storyAppearance';
 
 if (!customElements.get('formspec-render')) {
     customElements.define('formspec-render', FormspecRender);
@@ -22,6 +23,8 @@ export interface IsolatedWebComponentStoryProps {
     initialData?: Record<string, any>;
     /** When true, all fields are touched on mount so validation errors display immediately. */
     touchAll?: boolean;
+    /** Storybook-controlled appearance override. */
+    appearance?: StoryAppearance;
 }
 
 function useShadowRoot(stylesheets: string[], inlineStyles: string[]) {
@@ -70,6 +73,7 @@ export function IsolatedWebComponentStory({
     maxWidth = 640,
     initialData,
     touchAll = false,
+    appearance = 'system',
 }: IsolatedWebComponentStoryProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const elementRef = useRef<FormspecRender | null>(null);
@@ -102,6 +106,16 @@ export function IsolatedWebComponentStory({
     const { hostRef, mountNode } = useShadowRoot(stylesheets, inlineStyles);
 
     useEffect(() => {
+        const el = elementRef.current;
+        if (!el) return;
+        if (appearance === 'light' || appearance === 'dark') {
+            el.setAttribute('data-formspec-appearance', appearance);
+        } else {
+            el.removeAttribute('data-formspec-appearance');
+        }
+    }, [appearance, mountNode]);
+
+    useEffect(() => {
         if (!containerRef.current) return;
 
         const shadowHost = hostRef.current;
@@ -120,6 +134,11 @@ export function IsolatedWebComponentStory({
         }
 
         const el = elementRef.current;
+        if (appearance === 'light' || appearance === 'dark') {
+            el.setAttribute('data-formspec-appearance', appearance);
+        } else {
+            el.removeAttribute('data-formspec-appearance');
+        }
         if (shadowHost) {
             shadowHost.style.cssText = '';
             if (theme?.tokens && typeof theme.tokens === 'object') {

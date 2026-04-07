@@ -1,10 +1,52 @@
 import type { StorybookConfig } from '@storybook/react-vite';
+import fs from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import type { Connect, Plugin } from 'vite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const pkg = (name: string) => path.resolve(repoRoot, 'packages', name, 'src');
+
+/**
+ * Vite rewrites JSON imports under /examples/... to URLs like
+ * `/examples/foo.json?import`. The dev static handler then serves raw
+ * `application/json`, so the browser rejects them as ES modules ("Failed to fetch
+ * dynamically imported module"). Serve validated JSON as `export default` JS.
+ */
+function examplesJsonAsEsmPlugin(root: string): Plugin {
+    const examplesRoot = path.resolve(root, 'examples');
+    const handler: Connect.NextHandleFunction = (req, res, next) => {
+        const url = req.url;
+        if (!url) return next();
+        const q = url.indexOf('?');
+        const pathname = q >= 0 ? url.slice(0, q) : url;
+        const search = q >= 0 ? url.slice(q) : '';
+        if (!pathname.endsWith('.json') || !pathname.startsWith('/examples/')) return next();
+        if (!search.includes('import')) return next();
+        const abs = path.resolve(root, pathname.slice(1));
+        if (!abs.startsWith(examplesRoot)) return next();
+        fs.readFile(abs, 'utf8', (err, content) => {
+            if (err) return next();
+            try {
+                const parsed = JSON.parse(content) as unknown;
+                const body = `export default ${JSON.stringify(parsed)};\n`;
+                res.setHeader('Content-Type', 'text/javascript');
+                res.setHeader('Cache-Control', 'no-cache');
+                res.end(body);
+            } catch {
+                next();
+            }
+        });
+    };
+    return {
+        name: 'formspec-examples-json-esm',
+        configureServer(server) {
+            const stack = server.middlewares.stack as { route: string; handle: Connect.NextHandleFunction }[];
+            stack.unshift({ route: '', handle: handler });
+        },
+    };
+}
 
 const config: StorybookConfig = {
     stories: ['../stories/**/*.stories.@(ts|tsx)'],
@@ -62,6 +104,8 @@ const config: StorybookConfig = {
             'react/jsx-runtime',
             'react/jsx-dev-runtime',
         ];
+
+        config.plugins = [examplesJsonAsEsmPlugin(repoRoot), ...(config.plugins ?? [])];
 
         return config;
     },

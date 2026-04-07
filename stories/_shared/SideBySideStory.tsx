@@ -3,6 +3,7 @@
 import React from 'react';
 import { IsolatedFormStory } from './IsolatedFormStory';
 import { IsolatedWebComponentStory } from './IsolatedWebComponentStory';
+import type { StoryAppearance } from './storyAppearance';
 
 export interface SideBySideStoryProps {
     /** The Formspec definition JSON. */
@@ -25,6 +26,8 @@ export interface SideBySideStoryProps {
     leftPane?: React.ReactNode;
     /** Optional custom right pane. When omitted, renders the default Web Component story. */
     rightPane?: React.ReactNode;
+    /** Storybook-controlled appearance override. */
+    appearance?: StoryAppearance;
 }
 
 const labelStyle: React.CSSProperties = {
@@ -48,6 +51,7 @@ export function SideBySideStory({
     rightLabel = 'Web Component',
     leftPane,
     rightPane,
+    appearance = 'system',
 }: SideBySideStoryProps) {
     return (
         <div
@@ -69,6 +73,7 @@ export function SideBySideStory({
                         componentDocument={componentDocument}
                         initialData={initialData}
                         showSubmit={showSubmit}
+                        appearance={appearance}
                     />
                 )}
             </div>
@@ -81,6 +86,7 @@ export function SideBySideStory({
                         componentDocument={componentDocument}
                         showSubmit={showSubmit}
                         maxWidth={9999}
+                        appearance={appearance}
                     />
                 )}
             </div>

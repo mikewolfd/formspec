@@ -54,10 +54,23 @@ test.describe('Components: Grant App Component Rendering', () => {
     await goToPage(page, 'Project Narrative');
     const activeTab = page.locator('.formspec-tab--active');
     await expect(activeTab).toHaveCount(1);
-    // Active tab should have distinguishing visual style
-    const bg = await activeTab.evaluate(el => getComputedStyle(el).borderBottom);
-    // Should have SOME border-bottom styling (not "0px none")
-    expect(bg).not.toContain('0px');
+    // Default layout tabs (default.navigation.css) use pill background + box-shadow; grant-bridge
+    // uses a bottom border. Accept any of these so the active state is visually distinct.
+    const styles = await activeTab.evaluate(el => {
+      const cs = getComputedStyle(el);
+      return {
+        borderBottomWidth: cs.borderBottomWidth,
+        borderBottomStyle: cs.borderBottomStyle,
+        backgroundColor: cs.backgroundColor,
+        boxShadow: cs.boxShadow,
+      };
+    });
+    const hasVisibleBottomBorder =
+      parseFloat(styles.borderBottomWidth) > 0 && styles.borderBottomStyle !== 'none';
+    const hasBackground =
+      styles.backgroundColor !== 'rgba(0, 0, 0, 0)' && styles.backgroundColor !== 'transparent';
+    const hasElevation = styles.boxShadow !== 'none';
+    expect(hasVisibleBottomBorder || hasBackground || hasElevation).toBe(true);
   });
 
   test('should render Badge with background color styling', async ({ page }) => {

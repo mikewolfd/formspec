@@ -7,6 +7,13 @@ import theme from '../../examples/uswds-grant/grant.theme.json';
 const meta: Meta<typeof IsolatedWebComponentStory> = {
     title: 'Examples/USWDS Grant Form',
     component: IsolatedWebComponentStory,
+    decorators: [
+        (Story) => (
+            <div style={{ minHeight: 'min(85vh, 1200px)' }}>
+                <Story />
+            </div>
+        ),
+    ],
     parameters: {
         docs: {
             story: { inline: false },

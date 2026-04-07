@@ -60,7 +60,7 @@ export const badgeSpacerComponentDoc = {
         gap: "8px",
         children: [
             { component: "Heading", text: "Application Status" },
-            { component: "Badge", text: "In Progress", variant: "info" },
+            { component: "Badge", text: "In Progress", variant: "primary" },
             { component: "Spacer", size: "1.5rem" },
             { component: "TextInput", bind: "firstName" },
             { component: "TextInput", bind: "lastName" },

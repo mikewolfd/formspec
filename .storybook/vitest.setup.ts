@@ -2,6 +2,7 @@
 import { afterEach, expect } from 'vitest';
 import { page } from 'vitest/browser';
 import { serializeDOM } from './dom-serializer';
+import { storyScreenshotBaseId } from './story-screenshot-id';
 
 // Disable CSS animations/transitions for deterministic screenshots
 const DISABLE_ANIMATIONS_CSS = `
@@ -29,7 +30,7 @@ afterEach(async (context) => {
         styleInjected = true;
     }
 
-    const name = storyId.replace(/[^a-zA-Z0-9-]+/g, '_');
+    const name = storyScreenshotBaseId(storyId);
     const rootEl = document.getElementById('storybook-root') ?? document.body;
 
     // Capture DOM snapshot before screenshot (screenshot may clear/modify state)

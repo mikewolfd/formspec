@@ -18,6 +18,7 @@
     "start:site": "npm run dev --workspace=formspec-site",
     "start:stories": "npm run dev --workspace=formspec-stories",
     "storybook": "storybook dev -p 6006",
+    "test:storybook:dom": "playwright test -c playwright.storybook.config.ts tests/storybook/uswds-grant-story-dom.spec.ts",
     "test:storybook:visual": "vitest run -c vitest.config.storybook.ts",
     "test:storybook:visual:update": "vitest run -c vitest.config.storybook.ts --update",
     "scrape:uswds-components": "node ../uswds_md/scrape-uswds-components.mjs --prefix /components/",
