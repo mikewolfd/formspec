@@ -123,6 +123,7 @@ function buildItem(payload: Record<string, unknown>): FormItem {
     'currency',
     'presentation',
     'prePopulate',
+    'extensions',
   ]) {
     if (payload[prop] !== undefined) {
       (item as any)[prop] = payload[prop];

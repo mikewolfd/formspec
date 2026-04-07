@@ -17,6 +17,7 @@ export { normalizeDefinition } from './normalization.js';
 export { resolveThemeCascade } from './theme-cascade.js';
 export type { ResolvedProperty, ThemeCascadeInput } from './theme-cascade.js';
 export { resolvePageStructure } from './page-resolution.js';
+export { describeShapeConstraint } from './queries/shape-display.js';
 export type { ResolvedPageStructure, ResolvedPage, ResolvedRegion, PageDiagnostic, PageStructureInput } from './page-resolution.js';
 
 // Schema-derived types (from formspec-types, re-exported via types.ts)

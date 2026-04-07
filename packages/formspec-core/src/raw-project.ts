@@ -9,6 +9,7 @@ import type {
   ThemeState,
   MappingState,
   LocaleState,
+  LoadedRegistry,
   AnyCommand,
   CommandResult,
   ChangeListener,
@@ -78,18 +79,115 @@ import {
   resolveExtension as _resolveExtension,
 } from './queries/index.js';
 import { itemAtPath } from '@formspec-org/engine/fel-runtime';
+import { indexRegistryPayload } from './registry-index.js';
 
 /** Components that manage their own group path binding and MUST keep their bind on export. */
 const SELF_MANAGED_GROUP_BINDS = new Set(['Accordion', 'DataTable']);
 
 /**
- * Strip internal Studio properties from a component tree node and normalize
- * bind values to absolute dot-paths for export.
+ * Schema-derived allowlist of valid properties per component type.
  *
- * - `nodeId` and `_layout` are always removed (they fail `unevaluatedProperties: false`
- *   schema validation — they are authoring-time identifiers, never part of the wire format).
- * - For non-self-managed layout/container nodes bound to a group item: bind is removed and
- *   the group path becomes the prefix for all descendant bind values.
+ * Every built-in component inherits ComponentBase properties (id, component,
+ * when, responsive, style, accessibility, cssClass) plus its own type-specific
+ * properties. Only properties in this allowlist survive export; everything else
+ * (authoring metadata like widgetHint, repeatable, displayMode, addLabel,
+ * removeLabel, dataTableConfig, nodeId, _layout, span, start) is stripped.
+ *
+ * `bind` and `children` are handled structurally by the export logic and are
+ * NOT in the per-type sets — they are added when appropriate.
+ *
+ * Source of truth: schemas/component.schema.json
+ */
+const COMPONENT_BASE_PROPS = new Set([
+  'id', 'component', 'when', 'responsive', 'style', 'accessibility', 'cssClass',
+]);
+
+const COMPONENT_SCHEMA_PROPS: Record<string, Set<string>> = {
+  Page:             new Set(['title', 'description']),
+  Stack:            new Set(['direction', 'gap', 'align', 'wrap']),
+  Grid:             new Set(['columns', 'gap', 'rowGap']),
+  Spacer:           new Set(['size']),
+  TextInput:        new Set(['placeholder', 'maxLines', 'inputMode', 'prefix', 'suffix']),
+  NumberInput:      new Set(['placeholder', 'step', 'min', 'max', 'showStepper', 'locale']),
+  DatePicker:       new Set(['placeholder', 'format', 'minDate', 'maxDate', 'showTime']),
+  Select:           new Set(['searchable', 'multiple', 'placeholder', 'clearable']),
+  CheckboxGroup:    new Set(['columns', 'selectAll']),
+  Toggle:           new Set(['onLabel', 'offLabel']),
+  FileUpload:       new Set(['accept', 'maxSize', 'multiple', 'dragDrop']),
+  Heading:          new Set(['level', 'text']),
+  Text:             new Set(['text', 'format']),
+  Divider:          new Set(['label']),
+  Card:             new Set(['title', 'subtitle', 'elevation']),
+  Collapsible:      new Set(['title', 'defaultOpen']),
+  ConditionalGroup: new Set(['fallback']),
+  Columns:          new Set(['widths', 'gap']),
+  Tabs:             new Set(['position', 'tabLabels', 'defaultTab']),
+  SubmitButton:     new Set(['label', 'mode', 'emitEvent', 'pendingLabel', 'disableWhenPending']),
+  Accordion:        new Set(['allowMultiple', 'defaultOpen', 'labels']),
+  RadioGroup:       new Set(['columns', 'orientation']),
+  MoneyInput:       new Set(['placeholder', 'step', 'min', 'max', 'showStepper', 'currency', 'showCurrency', 'locale']),
+  Slider:           new Set(['min', 'max', 'step', 'showValue', 'showTicks']),
+  Rating:           new Set(['max', 'icon', 'allowHalf']),
+  Signature:        new Set(['strokeColor', 'height', 'penWidth', 'clearable']),
+  Alert:            new Set(['severity', 'text', 'dismissible']),
+  Badge:            new Set(['text', 'variant']),
+  ProgressBar:      new Set(['value', 'max', 'label', 'showPercent']),
+  Summary:          new Set(['items']),
+  ValidationSummary: new Set(['source', 'mode', 'showFieldErrors', 'jumpLinks', 'dedupe']),
+  DataTable:        new Set(['columns', 'showRowNumbers', 'allowAdd', 'allowRemove']),
+  Panel:            new Set(['position', 'title', 'width']),
+  Modal:            new Set(['title', 'size', 'trigger', 'triggerLabel', 'closable', 'headingLevel', 'placement']),
+  Popover:          new Set(['triggerBind', 'triggerLabel', 'placement']),
+};
+
+/**
+ * Get the set of schema-valid property names for a component type.
+ * For unknown/custom component types, returns ComponentBase props + `params`.
+ */
+function allowedPropsFor(componentType: string): Set<string> {
+  const typeProps = COMPONENT_SCHEMA_PROPS[componentType];
+  if (typeProps) {
+    const merged = new Set(COMPONENT_BASE_PROPS);
+    for (const p of typeProps) merged.add(p);
+    return merged;
+  }
+  // Custom component or unrecognized: allow base props + params (CustomComponentRef)
+  const custom = new Set(COMPONENT_BASE_PROPS);
+  custom.add('params');
+  return custom;
+}
+
+/**
+ * Filter a tree node to only schema-valid properties for its component type.
+ *
+ * Strips all authoring-time metadata (nodeId, _layout, widgetHint, repeatable,
+ * displayMode, addLabel, removeLabel, dataTableConfig, etc.) by emitting ONLY
+ * properties that the component schema declares for the node's component type.
+ *
+ * `bind` and `children` are structural and handled separately by the caller.
+ */
+function filterToSchemaProps(
+  base: Record<string, unknown>,
+  componentType: string,
+): Record<string, unknown> {
+  const allowed = allowedPropsFor(componentType);
+  const filtered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(base)) {
+    if (allowed.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
+}
+
+/**
+ * Clean a component tree node for export, applying schema-valid property
+ * filtering and bind path normalization.
+ *
+ * - Only schema-declared properties survive (allowlist per component type).
+ * - `nodeId`, `_layout`, and all authoring metadata are implicitly excluded.
+ * - For non-self-managed layout/container nodes bound to a group item: bind is
+ *   removed and the group path becomes the prefix for all descendant bind values.
  * - For input/display/self-managed nodes: bind is converted to the full absolute path.
  * - If bind references a path not found in the definition, it is kept as-is at the
  *   absolute path (orphaned binds are preserved rather than silently dropped).
@@ -99,10 +197,13 @@ function cleanTreeForExport(
   definition: { items: FormItem[] },
   prefix: string,
 ): Record<string, unknown> {
-  // Strip schema-undefined internal properties (nodeId, _layout, span/start/responsive fail unevaluatedProperties: false)
-  const { nodeId: _nodeId, _layout: _lay, span: _span, start: _start, responsive: _resp, bind: bindKey, children, ...base } = node;
+  const componentType = (node.component as string) ?? '';
+  const bindKey = node.bind;
+  const children = node.children;
 
-  const component = base.component as string | undefined;
+  // Filter to schema-valid properties only (excludes bind and children — handled below)
+  const base = filterToSchemaProps(node, componentType);
+
   let output: Record<string, unknown>;
   let childPrefix = prefix;
 
@@ -110,7 +211,7 @@ function cleanTreeForExport(
     const fullPath = prefix ? `${prefix}.${String(bindKey)}` : String(bindKey);
     const item = itemAtPath(definition.items, fullPath);
 
-    if (item?.type === 'group' && !SELF_MANAGED_GROUP_BINDS.has(component ?? '')) {
+    if (item?.type === 'group' && !SELF_MANAGED_GROUP_BINDS.has(componentType)) {
       // Non-self-managed group container: omit bind entirely, propagate full path to children
       output = { ...base };
       childPrefix = fullPath;
@@ -124,7 +225,7 @@ function cleanTreeForExport(
   }
 
   if (Array.isArray(children)) {
-    output.children = children.map((child: unknown) =>
+    output.children = (children as unknown[]).map((child: unknown) =>
       cleanTreeForExport(child as Record<string, unknown>, definition, childPrefix)
     );
   }
@@ -148,6 +249,7 @@ function createDefaultDefinition(): FormDefinition {
     $formspec: '1.0',
     url: generateUrl(),
     version: '0.1.0',
+    status: 'draft',
     title: '',
     items: [],
   };
@@ -184,6 +286,18 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
     mappings[selectedMappingId] = { rules: [] };
   }
 
+  const seedRegs: LoadedRegistry[] = [
+    ...((options?.seed?.extensions?.registries as LoadedRegistry[] | undefined) ?? []),
+  ];
+  const registryUrlSeen = new Set(seedRegs.map((r) => r.url));
+  for (const raw of options?.registries ?? []) {
+    const indexed = indexRegistryPayload(raw as Record<string, unknown>);
+    if (!registryUrlSeen.has(indexed.url)) {
+      registryUrlSeen.add(indexed.url);
+      seedRegs.push(indexed);
+    }
+  }
+
   return {
     definition,
     component: componentState ?? createComponentArtifact(url),
@@ -192,7 +306,7 @@ function createDefaultState(options?: ProjectOptions): ProjectState {
     selectedMappingId,
     locales: options?.seed?.locales ?? {},
     selectedLocaleId: options?.seed?.selectedLocaleId,
-    extensions: options?.seed?.extensions ?? { registries: [] },
+    extensions: { registries: seedRegs },
     screener: options?.seed?.screener ?? null,
     versioning: options?.seed?.versioning ?? {
       baseline: structuredClone(definition),

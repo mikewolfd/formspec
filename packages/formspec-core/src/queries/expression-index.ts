@@ -4,6 +4,7 @@
 import type { FormItem } from '@formspec-org/types';
 import {
   analyzeFEL,
+  analyzeFELWithFieldTypes,
   getFELDependencies,
   normalizeIndexedPath,
   type FELAnalysis,
@@ -43,7 +44,27 @@ function addFELHint(expression: string, message: string): string {
  * Parse and validate a FEL expression without saving it to project state.
  */
 export function parseFEL(state: ProjectState, expression: string, context?: FELParseContext): FELParseResult {
-  const analysis = analyzeExpression(expression);
+  // When context is available, compute available references once and run typed
+  // analysis to get type-mismatch warnings alongside the structural analysis.
+  const resolved = context !== undefined ? resolveParseContext(context) : undefined;
+  const available = resolved !== undefined ? availableReferences(state, resolved) : undefined;
+
+  let analysis: FELAnalysis;
+  let typeWarnings: string[] = [];
+  if (available) {
+    const fieldTypeMap: Record<string, string> = {};
+    for (const field of available.fields) {
+      fieldTypeMap[field.path] = field.dataType;
+    }
+    analysis = analyzeFELWithFieldTypes(expression, fieldTypeMap);
+    // Separate type-mismatch warnings from arity warnings by message content.
+    typeWarnings = (analysis.warnings ?? []).filter(
+      (msg) => !msg.includes('requires at least') && !msg.includes('accepts at most'),
+    );
+  } else {
+    analysis = analyzeExpression(expression);
+  }
+
   const parseErrors: Diagnostic[] = analysis.errors.map((error) => ({
     artifact: 'definition',
     path: 'expression',
@@ -53,8 +74,8 @@ export function parseFEL(state: ProjectState, expression: string, context?: FELP
   }));
 
   const semanticErrors: Diagnostic[] = [];
-  if (context !== undefined && analysis.valid) {
-    const available = availableReferences(state, resolveParseContext(context));
+  const warnings: Diagnostic[] = [];
+  if (available && analysis.valid) {
     const knownFieldPaths = new Set(available.fields.map((field) => normalizeIndexedPath(field.path)));
     const knownVariables = new Set([
       ...available.variables.map((variable) => variable.name),
@@ -72,6 +93,15 @@ export function parseFEL(state: ProjectState, expression: string, context?: FELP
           code: 'FEL_UNKNOWN_REFERENCE',
           message: `Unknown field reference "$${reference}" in this editor context`,
         });
+        if (knownVariables.has(reference)) {
+          warnings.push({
+            artifact: 'definition',
+            path: 'expression',
+            severity: 'warning',
+            code: 'FEL_SIGIL_HINT',
+            message: `Did you mean @${reference}? '$${reference}' references a field, but '${reference}' is a known variable.`,
+          });
+        }
       }
     }
 
@@ -88,10 +118,22 @@ export function parseFEL(state: ProjectState, expression: string, context?: FELP
     }
   }
 
-  const warnings: Diagnostic[] = [];
+  // Surface type-mismatch warnings from the typed analysis
+  for (const msg of typeWarnings) {
+    warnings.push({
+      artifact: 'definition',
+      path: 'expression',
+      severity: 'warning',
+      code: 'FEL_TYPE_MISMATCH',
+      message: msg,
+    });
+  }
 
   // Surface arity warnings from the Rust analyzer
-  for (const msg of analysis.warnings ?? []) {
+  const arityWarnings = (analysis.warnings ?? []).filter(
+    (msg) => msg.includes('requires at least') || msg.includes('accepts at most'),
+  );
+  for (const msg of arityWarnings) {
     warnings.push({
       artifact: 'definition',
       path: 'expression',

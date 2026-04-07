@@ -126,8 +126,8 @@ describe('reconcileComponentTree', () => {
     const tree = reconcileComponentTree(definition, undefined);
     // widgetHint: 'radio' → RadioGroup, not the default Select
     expect(tree.children[0].component).toBe('RadioGroup');
-    // widgetHint: 'checkbox' → Checkbox, not the default Toggle
-    expect(tree.children[1].component).toBe('Checkbox');
+    // widgetHint: 'checkbox' → Toggle (Checkbox is not a valid schema component type)
+    expect(tree.children[1].component).toBe('Toggle');
   });
 
   it('falls back to defaultComponentType when no widgetHint', () => {

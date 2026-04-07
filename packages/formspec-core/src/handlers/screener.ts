@@ -68,6 +68,7 @@ export const screenerHandlers: Record<string, CommandHandler> = {
     };
     if (p.dataType) item.dataType = p.dataType as FormItem['dataType'];
     if (p.options) item.options = p.options as FormItem['options'];
+    if (p.extensions) (item as any).extensions = p.extensions;
 
     if (p.insertIndex !== undefined) {
       screener.items.splice(p.insertIndex as number, 0, item as any);

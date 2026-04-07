@@ -1050,6 +1050,75 @@ describe('parseFEL', () => {
     expect(result.valid).toBe(false);
     expect(result.warnings).toEqual([]);
   });
+
+  it('emits FEL_SIGIL_HINT warning when $name matches a known variable', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addVariable', payload: { name: 'status', expression: '"active"' } },
+    ]);
+
+    // $status uses the field sigil, but 'status' is a known variable (@status)
+    const result = project.parseFEL('$status = "active"', { targetPath: '' });
+    const sigilHint = result.warnings.find((w) => w.code === 'FEL_SIGIL_HINT');
+    expect(sigilHint).toBeDefined();
+    expect(sigilHint!.severity).toBe('warning');
+    expect(sigilHint!.message).toContain('@status');
+    expect(sigilHint!.message).toContain('$status');
+  });
+
+  it('does NOT emit FEL_SIGIL_HINT when $name is a known field', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'status' } },
+    ]);
+
+    const result = project.parseFEL('$status = "active"', { targetPath: 'status' });
+    const sigilHint = result.warnings.find((w) => w.code === 'FEL_SIGIL_HINT');
+    expect(sigilHint).toBeUndefined();
+  });
+
+  it('does NOT emit FEL_SIGIL_HINT when $name is unknown to both fields and variables', () => {
+    const project = createRawProject();
+    const result = project.parseFEL('$ghost = 1', { targetPath: '' });
+    const sigilHint = result.warnings.find((w) => w.code === 'FEL_SIGIL_HINT');
+    expect(sigilHint).toBeUndefined();
+  });
+
+  it('emits FEL_TYPE_MISMATCH warning when comparing date field to number', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'start_date', dataType: 'date' } },
+    ]);
+
+    const result = project.parseFEL('$start_date > 100', { targetPath: '' });
+    const typeMismatch = result.warnings.find((w) => w.code === 'FEL_TYPE_MISMATCH');
+    expect(typeMismatch).toBeDefined();
+    expect(typeMismatch!.severity).toBe('warning');
+    expect(typeMismatch!.message).toContain('Date');
+  });
+
+  it('emits FEL_TYPE_MISMATCH warning when comparing money field to plain number', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'revenue', dataType: 'money' } },
+    ]);
+
+    const result = project.parseFEL('$revenue > 1000', { targetPath: '' });
+    const typeMismatch = result.warnings.find((w) => w.code === 'FEL_TYPE_MISMATCH');
+    expect(typeMismatch).toBeDefined();
+    expect(typeMismatch!.severity).toBe('warning');
+  });
+
+  it('does NOT emit FEL_TYPE_MISMATCH for same-type comparison', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'age', dataType: 'integer' } },
+    ]);
+
+    const result = project.parseFEL('$age > 18', { targetPath: '' });
+    const typeMismatch = result.warnings.find((w) => w.code === 'FEL_TYPE_MISMATCH');
+    expect(typeMismatch).toBeUndefined();
+  });
 });
 
 // ── Extension queries ──────────────────────────────────────────

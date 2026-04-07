@@ -12,6 +12,7 @@ import type { FormItem } from '@formspec-org/types';
 import { normalizeComponentState } from '../component-documents.js';
 import { normalizeBcp47 } from '../locale-utils.js';
 import { normalizeDefinition } from '../normalization.js';
+import { indexRegistryPayload } from '../registry-index.js';
 
 export const projectHandlers: Record<string, CommandHandler> = {
 
@@ -92,19 +93,8 @@ export const projectHandlers: Record<string, CommandHandler> = {
   },
 
   'project.loadRegistry': (state, payload) => {
-    const { registry } = payload as { registry: any };
-
-    const entries: Record<string, unknown> = {};
-    for (const entry of (registry.entries ?? []) as any[]) {
-      if (entry.name) entries[entry.name] = entry;
-    }
-
-    state.extensions.registries.push({
-      url: registry.url,
-      document: registry,
-      entries,
-    });
-
+    const { registry } = payload as { registry: Record<string, unknown> };
+    state.extensions.registries.push(indexRegistryPayload(registry));
     return { rebuildComponentTree: false };
   },
 

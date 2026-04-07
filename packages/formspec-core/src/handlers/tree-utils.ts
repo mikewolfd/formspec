@@ -16,7 +16,12 @@ import {
  * Internal representation of a component tree node.
  *
  * - `component` -- the component type name (built-in or custom).
- * - `bind` -- present when the node is bound to a definition item key.
+ * - `bind` -- present when the node is bound to a definition item key. In memory
+ *   this stores the **leaf `item.key`** only (e.g. `"email"`), not the full dotted
+ *   path. At export time, `cleanTreeForExport()` in `raw-project.ts` rewrites it to
+ *   the absolute path by prepending the group prefix accumulated from ancestor nodes
+ *   (e.g. `"contact.email"`). Code that reads `bind` from an in-memory `TreeNode`
+ *   must not assume it is a rooted path.
  * - `nodeId` -- present on unbound nodes (layout, container).
  * - `children` -- child nodes; only meaningful for Layout and Container types.
  * - `style`, `accessibility`, `responsive` -- typed sub-objects for property handlers.

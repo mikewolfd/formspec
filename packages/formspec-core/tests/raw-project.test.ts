@@ -140,6 +140,19 @@ describe('RawProject', () => {
   });
 
   describe('JSON-native state', () => {
+    it('loads registries from ProjectOptions.registries at creation', () => {
+      const raw = createRawProject({
+        registries: [
+          {
+            url: 'https://example.org/bundled',
+            entries: [{ name: 'x-init-type', category: 'dataType', baseType: 'string', description: 't' }],
+          },
+        ],
+      });
+      expect(raw.listRegistries()).toEqual([{ url: 'https://example.org/bundled', entryCount: 1 }]);
+      expect(raw.resolveExtension('x-init-type')).toMatchObject({ category: 'dataType', baseType: 'string' });
+    });
+
     it('state round-trips through JSON.stringify', () => {
       const raw = createRawProject();
       raw.dispatch({ type: 'definition.addItem', payload: { type: 'field', key: 'f1' } });
