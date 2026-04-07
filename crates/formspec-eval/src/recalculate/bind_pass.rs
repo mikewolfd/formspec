@@ -327,3 +327,41 @@ pub(crate) fn evaluate_items_with_inheritance_scoped(
         }
     }
 }
+
+// ── Post-calculate required refresh ────────────────────────────────────────
+
+/// Re-evaluate required expressions after calculated values have settled.
+///
+/// The initial bind pass evaluates required before calculate for each item.
+/// When a required condition depends on a calculated field that appears later
+/// in the tree, the required state may be stale. This function re-evaluates
+/// only required expressions using the current environment (which now has
+/// settled calculated values) and updates MIP state.
+pub(crate) fn refresh_required_state(
+    items: &mut [ItemInfo],
+    env: &mut FormspecEnvironment,
+    invalid_paths: &HashSet<String>,
+) {
+    for item in items.iter_mut() {
+        if item.relevant {
+            if let Some(ref expr) = item.required_expr {
+                let normalized_expr = resolve_qualified_repeat_refs(expr, &item.path);
+                item.required = eval_bool(&normalized_expr, env, false);
+            }
+        } else {
+            item.required = false;
+        }
+
+        env.set_mip(
+            &item.path,
+            MipState {
+                valid: !invalid_paths.contains(&item.path),
+                relevant: item.relevant,
+                readonly: item.readonly,
+                required: item.required,
+            },
+        );
+
+        refresh_required_state(&mut item.children, env, invalid_paths);
+    }
+}

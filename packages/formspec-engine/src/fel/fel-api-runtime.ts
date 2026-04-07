@@ -5,6 +5,7 @@ import type { FELAnalysis } from '../interfaces.js';
 export type { FELAnalysis } from '../interfaces.js';
 import {
     wasmAnalyzeFEL,
+    wasmAnalyzeFELWithFieldTypes,
     wasmComputeDependencyGroups,
     wasmEvaluateDefinition,
     wasmGetFELDependencies,
@@ -19,6 +20,20 @@ export const itemAtPath = wasmItemAtPath;
 
 export function analyzeFEL(expression: string): FELAnalysis {
     const raw = wasmAnalyzeFEL(expression);
+    return {
+        ...raw,
+        errors: raw.errors.map((e: string | { message: string; line?: number; column?: number; offset?: number }) =>
+            typeof e === 'string' ? { message: e, line: 1, column: 1, offset: 0 } : e,
+        ),
+    };
+}
+
+/** Analyze a FEL expression with field data type context for type-mismatch warnings. */
+export function analyzeFELWithFieldTypes(
+    expression: string,
+    fieldTypes: Record<string, string>,
+): FELAnalysis {
+    const raw = wasmAnalyzeFELWithFieldTypes(expression, fieldTypes);
     return {
         ...raw,
         errors: raw.errors.map((e: string | { message: string; line?: number; column?: number; offset?: number }) =>

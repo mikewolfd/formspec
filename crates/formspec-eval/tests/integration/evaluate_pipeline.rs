@@ -3691,3 +3691,352 @@ fn shape_message_bad_expr_preserved() {
     assert_eq!(result.validations.len(), 1);
     assert_eq!(result.validations[0].message, "Error: {{!!!bad}}");
 }
+
+// ── BUG-2 / FIX 4: Date coercion at context entry ─────────────────────────
+
+/// A date-typed field with value "2026-12-25" must be comparable to today()
+/// via `>=`. Before the fix, the field entered FEL as a string, making the
+/// comparison produce null (treated as constraint failure).
+#[test]
+fn date_field_compared_to_today_passes_when_future() {
+    let def = json!({
+        "items": [
+            { "key": "deadline", "dataType": "date" }
+        ],
+        "shapes": [{
+            "target": "deadline",
+            "constraint": "$deadline >= today()",
+            "severity": "error",
+            "message": "Deadline must be today or later"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("deadline".to_string(), json!("2099-12-25"));
+
+    let context = EvalContext {
+        now_iso: Some("2026-04-07T12:00:00".to_string()),
+        ..Default::default()
+    };
+    let result = evaluate_definition_with_context(&def, &data, &context);
+
+    let shape_errors: Vec<&ValidationResult> = result
+        .validations
+        .iter()
+        .filter(|v| v.constraint_kind == "shape")
+        .collect();
+    assert!(
+        shape_errors.is_empty(),
+        "date field '2099-12-25' should pass >= today() (2026-04-07), got: {shape_errors:?}"
+    );
+}
+
+/// A date-typed field with a past date must fail the >= today() constraint.
+#[test]
+fn date_field_compared_to_today_fails_when_past() {
+    let def = json!({
+        "items": [
+            { "key": "deadline", "dataType": "date" }
+        ],
+        "shapes": [{
+            "target": "deadline",
+            "constraint": "$deadline >= today()",
+            "severity": "error",
+            "message": "Deadline must be today or later"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("deadline".to_string(), json!("2020-01-01"));
+
+    let context = EvalContext {
+        now_iso: Some("2026-04-07T12:00:00".to_string()),
+        ..Default::default()
+    };
+    let result = evaluate_definition_with_context(&def, &data, &context);
+
+    let shape_errors: Vec<&ValidationResult> = result
+        .validations
+        .iter()
+        .filter(|v| v.constraint_kind == "shape")
+        .collect();
+    assert_eq!(
+        shape_errors.len(),
+        1,
+        "date field '2020-01-01' should fail >= today() (2026-04-07)"
+    );
+}
+
+/// Date coercion must also work in bind constraints, not just shapes.
+#[test]
+fn date_field_bind_constraint_compares_with_today() {
+    let def = json!({
+        "items": [
+            { "key": "start_date", "dataType": "date" }
+        ],
+        "binds": {
+            "start_date": { "constraint": "$start_date >= today()" }
+        }
+    });
+
+    let mut data = HashMap::new();
+    data.insert("start_date".to_string(), json!("2099-06-15"));
+
+    let context = EvalContext {
+        now_iso: Some("2026-04-07T12:00:00".to_string()),
+        ..Default::default()
+    };
+    let result = evaluate_definition_with_context(&def, &data, &context);
+
+    let constraint_errors: Vec<&ValidationResult> = result
+        .validations
+        .iter()
+        .filter(|v| v.code == "CONSTRAINT_FAILED")
+        .collect();
+    assert!(
+        constraint_errors.is_empty(),
+        "date field '2099-06-15' should pass >= today() bind constraint, got: {constraint_errors:?}"
+    );
+}
+
+/// dateTime-typed fields should also be coerced.
+#[test]
+fn datetime_field_coerced_at_context_entry() {
+    let def = json!({
+        "items": [
+            { "key": "timestamp", "dataType": "dateTime" }
+        ],
+        "shapes": [{
+            "target": "timestamp",
+            "constraint": "$timestamp >= today()",
+            "severity": "error",
+            "message": "Timestamp must be today or later"
+        }]
+    });
+
+    let mut data = HashMap::new();
+    data.insert("timestamp".to_string(), json!("2099-12-25T10:30:00"));
+
+    let context = EvalContext {
+        now_iso: Some("2026-04-07T12:00:00".to_string()),
+        ..Default::default()
+    };
+    let result = evaluate_definition_with_context(&def, &data, &context);
+
+    let shape_errors: Vec<&ValidationResult> = result
+        .validations
+        .iter()
+        .filter(|v| v.constraint_kind == "shape")
+        .collect();
+    assert!(
+        shape_errors.is_empty(),
+        "dateTime field should be coerced and pass >= today(), got: {shape_errors:?}"
+    );
+}
+
+// ── BUG-4 / FIX 5: Calculate-before-required evaluation order ──────────────
+
+/// When field B's required condition depends on calculated field A, the
+/// required state must reflect A's calculated value, not the pre-calculate data.
+#[test]
+fn required_condition_sees_calculated_field_value() {
+    let def = json!({
+        "items": [
+            { "key": "revenue", "dataType": "number" },
+            { "key": "expenses", "dataType": "number" },
+            { "key": "net_income", "dataType": "number" },
+            { "key": "loss_explanation", "dataType": "string" }
+        ],
+        "binds": {
+            "net_income": { "calculate": "$revenue - $expenses" },
+            "loss_explanation": { "required": "$net_income < 0" }
+        }
+    });
+
+    let mut data = HashMap::new();
+    data.insert("revenue".to_string(), json!(100));
+    data.insert("expenses".to_string(), json!(200));
+
+    let result = evaluate_definition(&def, &data);
+
+    // net_income should be -100
+    assert_eq!(
+        result.values.get("net_income"),
+        Some(&json!(-100)),
+        "net_income should be calculated as revenue - expenses"
+    );
+
+    // loss_explanation should be required because net_income < 0
+    assert_eq!(
+        result.required.get("loss_explanation"),
+        Some(&true),
+        "loss_explanation must be required when net_income < 0"
+    );
+}
+
+/// When the calculated field is positive, the conditional required should NOT fire.
+#[test]
+fn required_condition_not_triggered_when_calculated_field_is_positive() {
+    let def = json!({
+        "items": [
+            { "key": "revenue", "dataType": "number" },
+            { "key": "expenses", "dataType": "number" },
+            { "key": "net_income", "dataType": "number" },
+            { "key": "loss_explanation", "dataType": "string" }
+        ],
+        "binds": {
+            "net_income": { "calculate": "$revenue - $expenses" },
+            "loss_explanation": { "required": "$net_income < 0" }
+        }
+    });
+
+    let mut data = HashMap::new();
+    data.insert("revenue".to_string(), json!(500));
+    data.insert("expenses".to_string(), json!(200));
+
+    let result = evaluate_definition(&def, &data);
+
+    // net_income should be 300
+    assert_eq!(result.values.get("net_income"), Some(&json!(300)));
+
+    // loss_explanation should NOT be required
+    assert!(
+        result.required.get("loss_explanation") != Some(&true),
+        "loss_explanation should NOT be required when net_income >= 0"
+    );
+}
+
+/// The required condition must see the calculated value even when items are
+/// declared in the "wrong" order (required field appears before the calculated
+/// field in the items array).
+#[test]
+fn required_sees_calculated_value_regardless_of_declaration_order() {
+    let def = json!({
+        "items": [
+            { "key": "loss_explanation", "dataType": "string" },
+            { "key": "net_income", "dataType": "number" },
+            { "key": "revenue", "dataType": "number" },
+            { "key": "expenses", "dataType": "number" }
+        ],
+        "binds": {
+            "net_income": { "calculate": "$revenue - $expenses" },
+            "loss_explanation": { "required": "$net_income < 0" }
+        }
+    });
+
+    let mut data = HashMap::new();
+    data.insert("revenue".to_string(), json!(100));
+    data.insert("expenses".to_string(), json!(200));
+
+    let result = evaluate_definition(&def, &data);
+
+    assert_eq!(result.values.get("net_income"), Some(&json!(-100)));
+    assert_eq!(
+        result.required.get("loss_explanation"),
+        Some(&true),
+        "loss_explanation must be required even when declared before net_income"
+    );
+}
+
+// ── BUG-6 / FIX 6: Skip repeat template validation at 0 instances ─────────
+
+/// When a repeatable group has minRepeat: 0 and no instances in the data,
+/// required validation must NOT fire on the template paths.
+#[test]
+fn repeat_group_zero_instances_no_required_errors() {
+    let def = json!({
+        "items": [
+            {
+                "key": "health_history",
+                "repeatable": true,
+                "minRepeat": 0,
+                "children": [
+                    { "key": "condition_name", "dataType": "string" }
+                ]
+            }
+        ],
+        "binds": {
+            "health_history[*].condition_name": { "required": "true" }
+        }
+    });
+
+    let data = HashMap::new();
+    let result = evaluate_definition(&def, &data);
+
+    let required_errors: Vec<&ValidationResult> = result
+        .validations
+        .iter()
+        .filter(|v| v.code == "REQUIRED")
+        .collect();
+    assert!(
+        required_errors.is_empty(),
+        "required must not fire on repeat template with 0 instances, got: {required_errors:?}"
+    );
+}
+
+/// When a repeatable group has minRepeat: 0, no data, and NO wildcard binds,
+/// template children must still not produce validation errors.
+#[test]
+fn repeat_group_zero_instances_inline_required_no_errors() {
+    let def = json!({
+        "items": [
+            {
+                "key": "past_conditions",
+                "repeatable": true,
+                "minRepeat": 0,
+                "children": [
+                    { "key": "condition_name", "dataType": "string", "required": true }
+                ]
+            }
+        ]
+    });
+
+    let data = HashMap::new();
+    let result = evaluate_definition(&def, &data);
+
+    let required_errors: Vec<&ValidationResult> = result
+        .validations
+        .iter()
+        .filter(|v| v.code == "REQUIRED")
+        .collect();
+    assert!(
+        required_errors.is_empty(),
+        "required must not fire on repeat template with 0 instances (inline required), got: {required_errors:?}"
+    );
+}
+
+/// When instances DO exist, required should fire normally.
+#[test]
+fn repeat_group_with_instances_required_fires_normally() {
+    let def = json!({
+        "items": [
+            {
+                "key": "items",
+                "repeatable": true,
+                "minRepeat": 1,
+                "children": [
+                    { "key": "name", "dataType": "string" }
+                ]
+            }
+        ],
+        "binds": {
+            "items[*].name": { "required": "true" }
+        }
+    });
+
+    let mut data = HashMap::new();
+    data.insert("items[0].name".to_string(), json!(""));
+
+    let result = evaluate_definition(&def, &data);
+
+    let required_errors: Vec<&ValidationResult> = result
+        .validations
+        .iter()
+        .filter(|v| v.code == "REQUIRED")
+        .collect();
+    assert_eq!(
+        required_errors.len(),
+        1,
+        "required must fire on existing instance with empty value"
+    );
+}

@@ -16,7 +16,7 @@ use fel_core::FormspecEnvironment;
 use serde_json::Value;
 
 use crate::rebuild::parse_variables;
-use crate::types::ItemInfo;
+use crate::types::{ItemInfo, collect_data_types};
 
 pub use variables::topo_sort_variables;
 
@@ -45,14 +45,23 @@ pub fn recalculate(
     }
     let mut values = data.clone();
 
+    // Build path→dataType map for type-aware coercion (spec S2.1.3: date strings → FelDate)
+    let data_types = collect_data_types(items);
+
     for (k, v) in &values {
-        env.set_field(k, json_fel::json_to_runtime_fel(v));
+        env.set_field(
+            k,
+            json_fel::json_to_runtime_fel_typed(v, data_types.get(k).map(|s| s.as_str())),
+        );
     }
 
     bind_pass::apply_whitespace_to_items(items, &mut values);
 
     for (k, v) in &values {
-        env.set_field(k, json_fel::json_to_runtime_fel(v));
+        env.set_field(
+            k,
+            json_fel::json_to_runtime_fel_typed(v, data_types.get(k).map(|s| s.as_str())),
+        );
     }
     repeats::populate_repeat_group_arrays(items, &values, &mut env);
 
@@ -121,6 +130,12 @@ pub fn recalculate(
     for (name, val) in &final_var_values {
         env.set_variable(name, json_fel::json_to_runtime_fel(val));
     }
+
+    // Re-evaluate required expressions now that all calculated values and
+    // variables have settled. The initial bind pass evaluated required before
+    // calculate for each item, so required states that depend on calculated
+    // fields may be stale (spec S2.4: topological evaluation order).
+    bind_pass::refresh_required_state(items, &mut env, &invalid_paths);
 
     (values, final_var_values, cycle_err)
 }

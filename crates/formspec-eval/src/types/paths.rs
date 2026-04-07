@@ -230,6 +230,30 @@ pub(crate) fn collect_mip_state(
     }
 }
 
+/// Build a map from field path to data type string for type-aware coercion.
+///
+/// For indexed repeat paths like `group[0].field`, also registers the base
+/// path `group.field` so that pre-expansion lookups succeed.
+pub(crate) fn collect_data_types(items: &[ItemInfo]) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    collect_data_types_inner(items, &mut map);
+    map
+}
+
+fn collect_data_types_inner(items: &[ItemInfo], map: &mut HashMap<String, String>) {
+    for item in items {
+        if let Some(ref dt) = item.data_type {
+            map.insert(item.path.clone(), dt.clone());
+            // Also map the base (un-indexed) path for repeat group children
+            let base = strip_indices(&item.path);
+            if base != item.path {
+                map.insert(base, dt.clone());
+            }
+        }
+        collect_data_types_inner(&item.children, map);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::missing_docs_in_private_items)]

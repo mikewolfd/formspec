@@ -42,8 +42,9 @@ pub use extension_analysis::{
 };
 pub use fel_analysis::{
     FelAnalysis, FelRewriteTargets, NavigationTarget, RewriteOptions, analyze_fel,
-    collect_fel_rewrite_targets, fel_analysis_to_json_value, fel_rewrite_targets_to_json_value,
-    get_fel_dependencies, rewrite_fel_references, rewrite_options_from_camel_case_json,
+    analyze_fel_with_field_types, collect_fel_rewrite_targets, fel_analysis_to_json_value,
+    fel_rewrite_targets_to_json_value, get_fel_dependencies, rewrite_fel_references,
+    rewrite_options_from_camel_case_json,
 };
 pub use json_artifacts::{
     JsonWireStyle, changelog_to_json_value, extension_usage_issues_to_json_value,

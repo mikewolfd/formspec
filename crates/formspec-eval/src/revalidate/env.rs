@@ -24,11 +24,22 @@ pub(super) fn apply_excluded_values_to_env(items: &[ItemInfo], env: &mut Formspe
     }
 }
 
+#[cfg(test)]
 pub(crate) fn build_validation_env(
     values: &HashMap<String, Value>,
     variables: &HashMap<String, Value>,
     now_iso: Option<&str>,
     instances: &HashMap<String, Value>,
+) -> FormspecEnvironment {
+    build_validation_env_typed(values, variables, now_iso, instances, &HashMap::new())
+}
+
+pub(crate) fn build_validation_env_typed(
+    values: &HashMap<String, Value>,
+    variables: &HashMap<String, Value>,
+    now_iso: Option<&str>,
+    instances: &HashMap<String, Value>,
+    data_types: &HashMap<String, String>,
 ) -> FormspecEnvironment {
     let mut env = FormspecEnvironment::new();
     if let Some(now_iso) = now_iso {
@@ -38,7 +49,13 @@ pub(crate) fn build_validation_env(
         // Skip repeat group arrays — flat indexed keys exist and FEL should
         // use those instead (array path resolution uses 1-based indexing).
         if !is_repeat_group_array(v) {
-            env.set_field(k, json_to_runtime_fel(v));
+            env.set_field(
+                k,
+                crate::fel_json::json_to_runtime_fel_typed(
+                    v,
+                    data_types.get(k).map(|s| s.as_str()),
+                ),
+            );
         }
     }
     for (name, value) in variables {

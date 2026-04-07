@@ -10,9 +10,9 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
-use crate::types::{EvalTrigger, ExtensionConstraint, ItemInfo, ValidationResult};
+use crate::types::{EvalTrigger, ExtensionConstraint, ItemInfo, ValidationResult, collect_data_types};
 
-use env::{apply_excluded_values_to_env, build_validation_env};
+use env::{apply_excluded_values_to_env, build_validation_env_typed};
 use items::validate_items;
 use shapes::validate_shape;
 
@@ -35,7 +35,8 @@ pub fn revalidate(
         return results;
     }
 
-    let mut env = build_validation_env(values, variables, now_iso, instances);
+    let data_types = collect_data_types(items);
+    let mut env = build_validation_env_typed(values, variables, now_iso, instances, &data_types);
 
     // 9a: Apply excludedValue — non-relevant fields with excludedValue="null" appear as null in FEL
     apply_excluded_values_to_env(items, &mut env);
@@ -104,6 +105,7 @@ pub fn revalidate(
 mod tests {
     #![allow(clippy::missing_docs_in_private_items)]
     use super::*;
+    use super::env::build_validation_env;
     use serde_json::json;
 
     #[test]

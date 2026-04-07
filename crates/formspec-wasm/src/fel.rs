@@ -13,8 +13,9 @@ use fel_core::{
     tokenize_to_json_value,
 };
 use formspec_core::{
-    analyze_fel, definition_item_location_to_json_value, fel_analysis_to_json_value,
-    get_fel_dependencies, json_definition_item_at_path, normalize_indexed_path, JsonWireStyle,
+    analyze_fel, analyze_fel_with_field_types, definition_item_location_to_json_value,
+    fel_analysis_to_json_value, get_fel_dependencies, json_definition_item_at_path,
+    normalize_indexed_path, JsonWireStyle,
 };
 #[cfg(feature = "fel-authoring")]
 use formspec_core::{
@@ -156,6 +157,35 @@ pub fn analyze_fel_wasm(expression: &str) -> Result<String, JsError> {
     let result = analyze_fel(expression);
     let json = fel_analysis_to_json_value(&result);
     to_json_string(&json).map_err(|e| JsError::new(&e))
+}
+
+/// Analyze a FEL expression with field data type context for type-mismatch warnings.
+///
+/// `field_types_json` is a JSON object mapping field paths to data type strings,
+/// e.g. `{"revenue": "money", "age": "number"}`.
+#[wasm_bindgen(js_name = "analyzeFELWithFieldTypes")]
+pub fn analyze_fel_with_field_types_wasm(
+    expression: &str,
+    field_types_json: &str,
+) -> Result<String, JsError> {
+    analyze_fel_with_field_types_inner(expression, field_types_json).map_err(|e| JsError::new(&e))
+}
+
+fn analyze_fel_with_field_types_inner(
+    expression: &str,
+    field_types_json: &str,
+) -> Result<String, String> {
+    let val: Value = parse_value_str(field_types_json, "field types JSON")?;
+    let obj = val
+        .as_object()
+        .ok_or("field_types_json must be a JSON object")?;
+    let field_types: std::collections::HashMap<String, String> = obj
+        .iter()
+        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_owned())))
+        .collect();
+    let result = analyze_fel_with_field_types(expression, &field_types);
+    let json = fel_analysis_to_json_value(&result);
+    to_json_string(&json)
 }
 
 #[cfg(feature = "fel-authoring")]

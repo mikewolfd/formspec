@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use fel_core::ast::{Expr, PathSegment};
+use fel_core::ast::{BinaryOp, Expr, PathSegment, UnaryOp};
 use fel_core::extensions::builtin_function_catalog;
 use fel_core::{FelError, parse};
 use serde_json::{json, Value};
@@ -183,6 +183,200 @@ fn check_function_arity(calls: &[(String, usize)]) -> Vec<FelAnalysisWarning> {
         }
     }
     warnings
+}
+
+// ── Operator type checking (ARCH-3) ────────────────────────────────────────
+
+/// Coarse FEL type tag for comparison type-checking. Not a full type system --
+/// just enough to detect known-bad operator combinations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CoarseType {
+    Number,
+    String,
+    Date,
+    Money,
+    Boolean,
+    Unknown,
+}
+
+/// Infer the coarse type of an expression using field data types, literal types,
+/// and known function return types. Returns `Unknown` when the type is ambiguous
+/// or depends on runtime values.
+fn infer_coarse_type(expr: &Expr, field_types: &HashMap<String, String>) -> CoarseType {
+    match expr {
+        Expr::Number(_) => CoarseType::Number,
+        Expr::String(_) => CoarseType::String,
+        Expr::Boolean(_) => CoarseType::Boolean,
+        Expr::DateLiteral(_) | Expr::DateTimeLiteral(_) => CoarseType::Date,
+        Expr::Null => CoarseType::Unknown,
+
+        Expr::FieldRef { name, path } => {
+            let mut segments = Vec::new();
+            if let Some(n) = name {
+                segments.push(n.clone());
+            }
+            for seg in path {
+                match seg {
+                    PathSegment::Dot(s) => segments.push(s.clone()),
+                    PathSegment::Index(_) | PathSegment::Wildcard => {}
+                }
+            }
+            let key = segments.join(".");
+            match field_types.get(&key).map(|s| s.as_str()) {
+                Some("date") => CoarseType::Date,
+                Some("dateTime") => CoarseType::Date,
+                Some("number" | "integer" | "decimal") => CoarseType::Number,
+                Some("money") => CoarseType::Money,
+                Some("string" | "text") => CoarseType::String,
+                Some("boolean") => CoarseType::Boolean,
+                _ => CoarseType::Unknown,
+            }
+        }
+
+        Expr::FunctionCall { name, .. } => match name.as_str() {
+            "today" | "now" | "date" | "dateAdd" => CoarseType::Date,
+            "moneyAmount" | "number" | "sum" | "count" | "avg" | "min" | "max"
+            | "length" | "round" | "floor" | "ceil" | "abs" | "power"
+            | "year" | "month" | "day" | "hours" | "minutes" | "seconds"
+            | "dateDiff" | "timeDiff" => CoarseType::Number,
+            "money" | "moneyAdd" | "moneySum" => CoarseType::Money,
+            "contains" | "startsWith" | "endsWith" | "matches" | "empty" | "present"
+            | "isNumber" | "isString" | "isDate" | "isNull" | "selected"
+            | "valid" | "relevant" | "readonly" | "required" => CoarseType::Boolean,
+            "string" | "upper" | "lower" | "trim" | "substring" | "replace"
+            | "format" | "moneyCurrency" | "typeOf" | "locale" | "time" => CoarseType::String,
+            _ => CoarseType::Unknown,
+        },
+
+        Expr::UnaryOp { op: UnaryOp::Neg, .. } => CoarseType::Number,
+        Expr::UnaryOp { op: UnaryOp::Not, .. } => CoarseType::Boolean,
+
+        _ => CoarseType::Unknown,
+    }
+}
+
+/// Check comparison operators for known-bad type combinations.
+///
+/// Walks the AST looking for `BinaryOp` nodes with relational or equality
+/// operators, infers the coarse types of both operands, and warns on:
+/// - Money vs Number (suggest `moneyAmount()`)
+/// - Date vs String (suggest `date()` cast)
+fn check_comparison_types(
+    expr: &Expr,
+    field_types: &HashMap<String, String>,
+    warnings: &mut Vec<FelAnalysisWarning>,
+) {
+    match expr {
+        Expr::BinaryOp { op, left, right } => {
+            let is_comparison = matches!(
+                op,
+                BinaryOp::Eq
+                    | BinaryOp::NotEq
+                    | BinaryOp::Lt
+                    | BinaryOp::Gt
+                    | BinaryOp::LtEq
+                    | BinaryOp::GtEq
+            );
+
+            if is_comparison {
+                let left_type = infer_coarse_type(left, field_types);
+                let right_type = infer_coarse_type(right, field_types);
+
+                if left_type != CoarseType::Unknown && right_type != CoarseType::Unknown
+                    && left_type != right_type
+                {
+                    match (left_type, right_type) {
+                        (CoarseType::Money, CoarseType::Number)
+                        | (CoarseType::Number, CoarseType::Money) => {
+                            warnings.push(FelAnalysisWarning {
+                                message: "Comparing money with number: use moneyAmount() to extract the numeric amount".to_string(),
+                            });
+                        }
+                        (CoarseType::Date, CoarseType::String)
+                        | (CoarseType::String, CoarseType::Date) => {
+                            warnings.push(FelAnalysisWarning {
+                                message: "Comparing date with string: use date() to convert the string, or declare the field as dataType \"date\"".to_string(),
+                            });
+                        }
+                        _ => {
+                            // Other mismatches: generic warning
+                            warnings.push(FelAnalysisWarning {
+                                message: format!(
+                                    "Type mismatch in comparison: {:?} vs {:?}",
+                                    left_type, right_type
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Recurse into sub-expressions
+            check_comparison_types(left, field_types, warnings);
+            check_comparison_types(right, field_types, warnings);
+        }
+        Expr::UnaryOp { operand, .. } => {
+            check_comparison_types(operand, field_types, warnings);
+        }
+        Expr::Ternary { condition, then_branch, else_branch }
+        | Expr::IfThenElse { condition, then_branch, else_branch } => {
+            check_comparison_types(condition, field_types, warnings);
+            check_comparison_types(then_branch, field_types, warnings);
+            check_comparison_types(else_branch, field_types, warnings);
+        }
+        Expr::FunctionCall { args, .. } => {
+            for arg in args {
+                check_comparison_types(arg, field_types, warnings);
+            }
+        }
+        Expr::Membership { value, container, .. } => {
+            check_comparison_types(value, field_types, warnings);
+            check_comparison_types(container, field_types, warnings);
+        }
+        Expr::NullCoalesce { left, right } => {
+            check_comparison_types(left, field_types, warnings);
+            check_comparison_types(right, field_types, warnings);
+        }
+        Expr::LetBinding { value, body, .. } => {
+            check_comparison_types(value, field_types, warnings);
+            check_comparison_types(body, field_types, warnings);
+        }
+        Expr::Array(elems) => {
+            for e in elems {
+                check_comparison_types(e, field_types, warnings);
+            }
+        }
+        Expr::Object(entries) => {
+            for (_, v) in entries {
+                check_comparison_types(v, field_types, warnings);
+            }
+        }
+        Expr::PostfixAccess { expr, .. } => {
+            check_comparison_types(expr, field_types, warnings);
+        }
+        // Leaves with no sub-expressions
+        _ => {}
+    }
+}
+
+/// Analyze a FEL expression with field data type context for type-aware warnings.
+///
+/// `field_types` maps field path (e.g. "revenue") to data type (e.g. "money").
+/// Produces the same output as [`analyze_fel`] plus additional warnings for
+/// type-mismatched comparisons (money vs number, date vs string).
+pub fn analyze_fel_with_field_types(
+    expression: &str,
+    field_types: &HashMap<String, String>,
+) -> FelAnalysis {
+    let mut result = analyze_fel(expression);
+    if result.valid && !field_types.is_empty() {
+        if let Ok(expr) = parse(expression) {
+            let mut type_warnings = Vec::new();
+            check_comparison_types(&expr, field_types, &mut type_warnings);
+            result.warnings.extend(type_warnings);
+        }
+    }
+    result
 }
 
 /// Extract field dependencies from an expression (safe on parse failure).
@@ -1260,6 +1454,118 @@ mod tests {
                 .iter()
                 .any(|w| w.message.contains("arg")),
             "unknown function should not get arity warnings"
+        );
+    }
+
+    // ── ARCH-3: Operator type checking ────────────────────────────────────
+
+    #[test]
+    fn type_check_money_vs_number_warns() {
+        let mut field_types = HashMap::new();
+        field_types.insert("revenue".to_string(), "money".to_string());
+
+        let result = analyze_fel_with_field_types("$revenue > 0", &field_types);
+        assert!(result.valid);
+        assert!(
+            result.warnings.iter().any(|w| w.message.contains("moneyAmount")),
+            "should warn about money vs number comparison, got: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn type_check_money_amount_no_warning() {
+        let mut field_types = HashMap::new();
+        field_types.insert("revenue".to_string(), "money".to_string());
+
+        let result = analyze_fel_with_field_types("moneyAmount($revenue) > 0", &field_types);
+        assert!(result.valid);
+        let type_warnings: Vec<_> = result.warnings.iter()
+            .filter(|w| w.message.contains("money") || w.message.contains("Money"))
+            .collect();
+        assert!(
+            type_warnings.is_empty(),
+            "moneyAmount() extracts number, no type warning expected, got: {:?}",
+            type_warnings
+        );
+    }
+
+    #[test]
+    fn type_check_date_vs_string_warns() {
+        // When a string-typed field is compared with today(), should warn
+        let mut field_types = HashMap::new();
+        field_types.insert("deadline".to_string(), "string".to_string());
+
+        let result = analyze_fel_with_field_types("$deadline >= today()", &field_types);
+        assert!(result.valid);
+        assert!(
+            result.warnings.iter().any(|w| w.message.contains("date")),
+            "should warn about string vs date comparison, got: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn type_check_date_vs_date_no_warning() {
+        // When a date-typed field is compared with today(), no warning
+        let mut field_types = HashMap::new();
+        field_types.insert("deadline".to_string(), "date".to_string());
+
+        let result = analyze_fel_with_field_types("$deadline >= today()", &field_types);
+        assert!(result.valid);
+        let type_warnings: Vec<_> = result.warnings.iter()
+            .filter(|w| w.message.contains("date") || w.message.contains("Date")
+                    || w.message.contains("string") || w.message.contains("String"))
+            .collect();
+        assert!(
+            type_warnings.is_empty(),
+            "date vs date should not warn, got: {:?}",
+            type_warnings
+        );
+    }
+
+    #[test]
+    fn type_check_no_field_types_no_warning() {
+        // Without field type context, no type warnings
+        let result = analyze_fel_with_field_types("$revenue > 0", &HashMap::new());
+        assert!(result.valid);
+        let type_warnings: Vec<_> = result.warnings.iter()
+            .filter(|w| w.message.contains("money") || w.message.contains("date"))
+            .collect();
+        assert!(
+            type_warnings.is_empty(),
+            "without field types, no type warnings expected"
+        );
+    }
+
+    #[test]
+    fn type_check_number_vs_number_no_warning() {
+        let mut field_types = HashMap::new();
+        field_types.insert("age".to_string(), "number".to_string());
+
+        let result = analyze_fel_with_field_types("$age >= 18", &field_types);
+        assert!(result.valid);
+        let type_warnings: Vec<_> = result.warnings.iter()
+            .filter(|w| w.message.contains("mismatch") || w.message.contains("money")
+                    || w.message.contains("date"))
+            .collect();
+        assert!(type_warnings.is_empty(), "number vs number should not warn");
+    }
+
+    #[test]
+    fn type_check_nested_comparison_in_if() {
+        let mut field_types = HashMap::new();
+        field_types.insert("balance".to_string(), "money".to_string());
+
+        let result = analyze_fel_with_field_types(
+            "if($balance > 0, \"positive\", \"negative\")",
+            &field_types,
+        );
+        assert!(result.valid);
+        assert!(
+            result.warnings.iter().any(|w| w.message.contains("moneyAmount")),
+            "should detect money vs number in nested if() comparison, got: {:?}",
+            result.warnings
         );
     }
 }

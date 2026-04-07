@@ -254,6 +254,25 @@ export function wasmAnalyzeFEL(expression: string): {
     return JSON.parse(resultJson);
 }
 
+/** Analyze a FEL expression with field data type context for type-mismatch warnings. */
+export function wasmAnalyzeFELWithFieldTypes(
+    expression: string,
+    fieldTypes: Record<string, string>,
+): {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+    references: string[];
+    variables: string[];
+    functions: string[];
+} {
+    const resultJson = wasm().analyzeFELWithFieldTypes(
+        expression,
+        JSON.stringify(fieldTypes),
+    );
+    return JSON.parse(resultJson);
+}
+
 /** Check if a string is a valid FEL identifier. */
 export function wasmIsValidFelIdentifier(s: string): boolean {
     return wasm().isValidFelIdentifier(s);

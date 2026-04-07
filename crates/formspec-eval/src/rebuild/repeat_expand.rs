@@ -59,6 +59,12 @@ fn expand_repeat_instances_inner(items: &mut [ItemInfo], data: &HashMap<String, 
                     }
                 }
                 item.children = expanded;
+            } else {
+                // Zero instances: clear template children so downstream phases
+                // (validation, NRB) don't process un-indexed template paths.
+                // The definition still holds the template; the item tree is
+                // the evaluation-time expansion.
+                item.children.clear();
             }
         } else {
             // Recurse into non-repeatable groups
