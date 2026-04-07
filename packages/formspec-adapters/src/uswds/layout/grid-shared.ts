@@ -22,6 +22,48 @@ export function equalGridCellClass(columnCount: number): string {
     return 'grid-col-12 tablet:grid-col-fill';
 }
 
+function clampGridSpan(span: number): number {
+    if (!Number.isFinite(span)) return 12;
+    return Math.min(12, Math.max(1, Math.floor(span)));
+}
+
+/**
+ * Theme page regions attach `style.gridColumn` to the child Stack (`span N` or `start / span N`).
+ * USWDS theme grids wrap each child in a flex row cell: `grid-column` on the inner Stack has no
+ * effect, and `tablet:grid-col-fill` on every cell squeezes all regions into one row. Map planner
+ * output to USWDS column (+ optional offset) classes on the **cell** instead.
+ */
+export function uswdsGridCellClassForChild(
+    childStyle: Record<string, string> | undefined,
+    columnCount: number,
+): string {
+    const raw = childStyle?.gridColumn?.trim();
+    if (!raw) {
+        return equalGridCellClass(columnCount);
+    }
+
+    const spanOnly = /^span\s+(\d+)$/i.exec(raw);
+    if (spanOnly) {
+        const span = clampGridSpan(Number(spanOnly[1]));
+        return `grid-col-12 tablet:grid-col-${span}`;
+    }
+
+    const startSpan = /^(\d+)\s*\/\s*span\s+(\d+)$/i.exec(raw);
+    if (startSpan) {
+        const startLine = Number(startSpan[1]);
+        const span = clampGridSpan(Number(startSpan[2]));
+        const offset = Math.min(11, Math.max(0, Math.floor(startLine) - 1));
+        const parts: string[] = ['grid-col-12'];
+        if (offset > 0) {
+            parts.push(`tablet:grid-offset-${offset}`);
+        }
+        parts.push(`tablet:grid-col-${span}`);
+        return parts.join(' ');
+    }
+
+    return equalGridCellClass(columnCount);
+}
+
 /** Internal helper to render standard USWDS layout title/description headers. */
 export function renderUSWDSLayoutHeader(el: HTMLElement, titleText: string | null, descriptionText: string | null): void {
     if (titleText) {

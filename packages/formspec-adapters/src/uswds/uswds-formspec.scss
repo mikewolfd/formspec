@@ -63,6 +63,13 @@ $fs-trailing-checkbox-size: 1.25rem !default;
   overflow: visible;
 }
 
+// USWDS `.usa-form` applies `max-width: units("mobile")` from the `mobile-lg` breakpoint — correct for
+// simple single-column forms, but it forces theme page grids (wizard, regions) into a phone-width strip.
+// `formspec-render` always exposes `.formspec-container` in light DOM; fill the embedding width instead.
+.usa-form:has(.formspec-container) {
+  max-width: 100%;
+}
+
 // Injected by webcomponent shared behavior (required asterisk span).
 .formspec-required {
   color: color('error-dark');

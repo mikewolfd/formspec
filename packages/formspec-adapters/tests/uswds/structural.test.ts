@@ -373,6 +373,12 @@ describe('Integration CSS', () => {
         expect(integrationCSS).toContain('.usa-alert');
         expect(integrationCSS).not.toContain('.formspec-alert');
     });
+
+    it('uncaps .usa-form max-width when Formspec container is present (theme page grids)', async () => {
+        const { integrationCSS } = await import('../../src/uswds/integration-css');
+        expect(integrationCSS).toContain('.usa-form:has(.formspec-container)');
+        expect(integrationCSS).toMatch(/\.usa-form:has\(\.formspec-container\)\{[^}]*max-width:100%/);
+    });
 });
 
 // ── Cascade obligations ────────────────────────────────────────────

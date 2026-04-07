@@ -1,7 +1,19 @@
 /** @filedesc USWDS layout grid — `grid-row` / `grid-col-*` with optional token gaps; string `columns` falls back to default CSS grid. */
 import type { AdapterContext, GridLayoutBehavior } from '@formspec-org/webcomponent';
 import { renderDefaultLayoutGrid } from '@formspec-org/webcomponent';
-import { equalGridCellClass, USWDS_LAYOUT_ROW_CLASS, renderUSWDSLayoutHeader } from './grid-shared';
+import { USWDS_LAYOUT_ROW_CLASS, renderUSWDSLayoutHeader, uswdsGridCellClassForChild } from './grid-shared';
+
+function stripGridColumnFromChild<T extends { style?: Record<string, string> }>(child: T): T {
+    if (child.style?.gridColumn === undefined) {
+        return child;
+    }
+    const { gridColumn: _gc, ...rest } = child.style;
+    if (Object.keys(rest).length === 0) {
+        const { style: _s, ...noStyle } = child;
+        return noStyle as T;
+    }
+    return { ...child, style: rest };
+}
 
 /**
  * Renders a USWDS flex row with responsive columns. Custom `columns` template strings delegate to {@link renderDefaultLayoutGrid}.
@@ -14,7 +26,6 @@ export function renderUSWDSGrid(behavior: GridLayoutBehavior, parent: HTMLElemen
     }
 
     const n = typeof comp.columns === 'number' ? comp.columns : 2;
-    const colClass = equalGridCellClass(n);
 
     const row = document.createElement('div');
     if (comp.id) row.id = comp.id;
@@ -30,8 +41,9 @@ export function renderUSWDSGrid(behavior: GridLayoutBehavior, parent: HTMLElemen
 
     for (const child of comp.children || []) {
         const cell = document.createElement('div');
-        cell.className = colClass;
-        host.renderComponent(child, cell, host.prefix);
+        cell.className = uswdsGridCellClassForChild(child.style, n);
+
+        host.renderComponent(stripGridColumnFromChild(child), cell, host.prefix);
         row.appendChild(cell);
     }
     parent.appendChild(row);
