@@ -2,6 +2,11 @@
 import type { AdapterContext, StackLayoutBehavior } from '@formspec-org/webcomponent';
 import { USWDS_LAYOUT_ROW_CLASS, renderUSWDSLayoutHeader } from './grid-shared';
 
+function horizontalCellClass(child: any): string {
+    const explicitWidth = child?.width ?? child?.style?.width;
+    return explicitWidth ? 'grid-col-12 tablet:grid-col-auto' : 'grid-col-12 tablet:grid-col-fill';
+}
+
 export function renderUSWDSStack(behavior: StackLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void {
     const { comp, host, titleText, descriptionText } = behavior;
     const row = document.createElement('div');
@@ -24,11 +29,9 @@ export function renderUSWDSStack(behavior: StackLayoutBehavior, parent: HTMLElem
 
     renderUSWDSLayoutHeader(row, titleText, descriptionText);
 
-    const cellClass = horizontal ? 'grid-col-12 tablet:grid-col-auto' : 'grid-col-12';
-
     for (const child of comp.children || []) {
         const cell = document.createElement('div');
-        cell.className = cellClass;
+        cell.className = horizontal ? horizontalCellClass(child) : 'grid-col-12';
         host.renderComponent(child, cell, host.prefix);
         row.appendChild(cell);
     }

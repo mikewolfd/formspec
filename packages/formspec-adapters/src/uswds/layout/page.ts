@@ -3,6 +3,16 @@ import type { AdapterContext, PageLayoutBehavior } from '@formspec-org/webcompon
 
 export function renderUSWDSPage(behavior: PageLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void {
     const { comp, host, titleText, headingLevel, descriptionText } = behavior;
+
+    // Page-mode containers (wizard / tabs) already provide the panel shell, heading, and spacing.
+    // Rendering a full Page inside them duplicates titles and narrows the content unexpectedly.
+    if (parent.classList.contains('formspec-wizard-panel') || parent.classList.contains('formspec-tab-panel')) {
+        for (const child of comp.children || []) {
+            host.renderComponent(child, parent, host.prefix);
+        }
+        return;
+    }
+
     const section = document.createElement('section');
     if (comp.id) section.id = comp.id;
     section.className = 'usa-section formspec-page';

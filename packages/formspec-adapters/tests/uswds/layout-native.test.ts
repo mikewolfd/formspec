@@ -6,12 +6,14 @@ import type {
     DividerLayoutBehavior,
     CollapsibleLayoutBehavior,
     PanelLayoutBehavior,
+    ModalLayoutBehavior,
 } from '@formspec-org/webcomponent';
 import { renderUSWDSPage } from '../../src/uswds/layout/page';
 import { renderUSWDSStack } from '../../src/uswds/layout/stack';
 import { renderUSWDSDivider } from '../../src/uswds/layout/divider';
 import { renderUSWDSCollapsible } from '../../src/uswds/layout/collapsible';
 import { renderUSWDSPanel } from '../../src/uswds/layout/panel';
+import { renderUSWDSModal } from '../../src/uswds/layout/modal';
 import { mockAdapterContext } from '../helpers';
 
 function layoutHost() {
@@ -40,6 +42,22 @@ describe('USWDS layout natives', () => {
         expect(parent.querySelector('.grid-container > .usa-prose')).toBeTruthy();
     });
 
+    it('renderUSWDSPage skips the outer page shell inside wizard and tab panels', () => {
+        const wizardPanel = document.createElement('div');
+        wizardPanel.className = 'formspec-wizard-panel';
+        const host = layoutHost();
+        const behavior: PageLayoutBehavior = {
+            comp: { children: [{ component: 'TextInput', bind: 'firstName' }] },
+            host,
+            titleText: 'Step 1',
+            headingLevel: 'h2',
+            descriptionText: null,
+        };
+        renderUSWDSPage(behavior, wizardPanel, mockAdapterContext());
+        expect(wizardPanel.querySelector('.formspec-page')).toBeNull();
+        expect(host.renderComponent).toHaveBeenCalledTimes(1);
+    });
+
     it('renderUSWDSStack vertical uses grid-row and full-width cells', () => {
         const parent = document.createElement('div');
         const behavior: StackLayoutBehavior = {
@@ -52,16 +70,34 @@ describe('USWDS layout natives', () => {
         expect(parent.querySelector('.grid-col-12')).toBeTruthy();
     });
 
-    it('renderUSWDSStack horizontal uses tablet:grid-col-auto cells', () => {
+    it('renderUSWDSStack horizontal uses fill cells when children do not declare widths', () => {
         const parent = document.createElement('div');
         const behavior: StackLayoutBehavior = {
             comp: { direction: 'horizontal', children: [{ component: 'TextInput', bind: 'a' }] },
             host: layoutHost(),
         };
         renderUSWDSStack(behavior, parent, mockAdapterContext());
-        const cell = parent.querySelector('[class*="tablet:grid-col-auto"]');
+        const cell = parent.querySelector('[class*="tablet:grid-col-fill"]');
         expect(cell).toBeTruthy();
         expect(cell!.className).toContain('grid-col-12');
+    });
+
+    it('renderUSWDSStack horizontal lets only explicit-width children use auto columns', () => {
+        const parent = document.createElement('div');
+        const behavior: StackLayoutBehavior = {
+            comp: {
+                direction: 'horizontal',
+                children: [
+                    { component: 'Panel', width: '200px', children: [] },
+                    { component: 'Stack', children: [{ component: 'TextInput', bind: 'a' }] },
+                ],
+            },
+            host: layoutHost(),
+        };
+        renderUSWDSStack(behavior, parent, mockAdapterContext());
+        const cells = Array.from(parent.querySelectorAll('.formspec-stack > div')) as HTMLDivElement[];
+        expect(cells[0]?.className).toContain('tablet:grid-col-auto');
+        expect(cells[1]?.className).toContain('tablet:grid-col-fill');
     });
 
     it('renderUSWDSDivider renders hr.formspec-uswds-divider', () => {
@@ -94,5 +130,23 @@ describe('USWDS layout natives', () => {
         expect(parent.querySelector('.usa-card .usa-card__container')).toBeTruthy();
         expect(parent.querySelector('.usa-card__heading')?.textContent).toBe('Aside');
         expect(parent.querySelector('.usa-card__body')).toBeTruthy();
+    });
+
+    it('renderUSWDSModal keeps the dialog hidden until the trigger opens it', () => {
+        const parent = document.createElement('div');
+        const behavior: ModalLayoutBehavior = {
+            comp: { children: [], triggerLabel: 'Open details' },
+            host: layoutHost(),
+            titleText: 'Details',
+            triggerLabelText: 'Open details',
+        };
+        renderUSWDSModal(behavior, parent, mockAdapterContext());
+        const dialog = parent.querySelector('dialog.usa-modal') as HTMLDialogElement | null;
+        const trigger = Array.from(parent.querySelectorAll('button')).find((el) => el.textContent === 'Open details') as HTMLButtonElement | null;
+        expect(dialog).not.toBeNull();
+        expect(trigger?.textContent).toBe('Open details');
+        expect(dialog?.hidden).toBe(true);
+        expect(dialog?.getAttribute('hidden')).toBe('');
+        expect(dialog?.style.display).toBe('none');
     });
 });

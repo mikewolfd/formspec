@@ -1,7 +1,7 @@
 /** @filedesc USWDS display adapter smoke tests. */
 import { describe, it, expect, vi } from 'vitest';
 import type { DisplayComponentBehavior } from '@formspec-org/webcomponent';
-import { renderUSWDSAlert, renderUSWDSBadge, renderUSWDSHeading, renderUSWDSCard } from '../../src/uswds/display-components';
+import { renderUSWDSAlert, renderUSWDSBadge, renderUSWDSCard, renderUSWDSHeading, renderUSWDSText } from '../../src/uswds/display-components';
 import { mockAdapterContext } from '../helpers';
 
 function mockHost(): DisplayComponentBehavior['host'] {
@@ -30,6 +30,8 @@ describe('USWDS display', () => {
         };
         renderUSWDSHeading(behavior, parent, mockAdapterContext());
         expect(parent.querySelector('.usa-prose .formspec-heading')).toBeTruthy();
+        expect(parent.querySelector('.formspec-uswds-heading-wrap')?.className).toContain('margin-bottom-2');
+        expect(parent.querySelector('h2')?.className).toContain('margin-top-0');
         expect(parent.querySelector('h2')?.textContent).toBe('Hi');
     });
 
@@ -50,7 +52,18 @@ describe('USWDS display', () => {
             host: mockHost(),
         };
         renderUSWDSAlert(behavior, parent, mockAdapterContext());
+        expect(parent.querySelector('.margin-y-2 > .usa-alert')).toBeTruthy();
         expect(parent.querySelector('.usa-alert.usa-alert--info .usa-alert__text')?.textContent).toBe('Msg');
+    });
+
+    it('renderUSWDSText removes the default prose top margin from paragraphs', () => {
+        const parent = document.createElement('div');
+        const behavior: DisplayComponentBehavior = {
+            comp: { text: 'Body copy' },
+            host: mockHost(),
+        };
+        renderUSWDSText(behavior, parent, mockAdapterContext());
+        expect(parent.querySelector('.usa-prose p')?.className).toContain('margin-top-0');
     });
 
     it('renderUSWDSBadge uses usa-tag', () => {

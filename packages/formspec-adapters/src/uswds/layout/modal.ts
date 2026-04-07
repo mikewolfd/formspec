@@ -3,6 +3,18 @@ import { effect } from '@preact/signals-core';
 import type { AdapterContext, ModalLayoutBehavior } from '@formspec-org/webcomponent';
 import { focusFirstIn, positionOverlayNearTrigger, type PopupPlacement } from './overlay';
 
+function hideDialog(dialog: HTMLDialogElement): void {
+    dialog.hidden = true;
+    dialog.setAttribute('hidden', '');
+    dialog.style.display = 'none';
+}
+
+function showDialog(dialog: HTMLDialogElement): void {
+    dialog.hidden = false;
+    dialog.removeAttribute('hidden');
+    dialog.style.display = '';
+}
+
 export function renderUSWDSModal(behavior: ModalLayoutBehavior, parent: HTMLElement, actx: AdapterContext): void {
     const { comp, host, titleText, triggerLabelText } = behavior;
     const placement: PopupPlacement = comp.placement || 'bottom';
@@ -10,6 +22,7 @@ export function renderUSWDSModal(behavior: ModalLayoutBehavior, parent: HTMLElem
     const dialog = document.createElement('dialog');
     if (comp.id) dialog.id = comp.id;
     dialog.className = 'usa-modal formspec-modal';
+    hideDialog(dialog);
     if (comp.size) dialog.dataset.size = comp.size;
     if (comp.size === 'lg') dialog.classList.add('usa-modal--lg');
 
@@ -63,15 +76,18 @@ export function renderUSWDSModal(behavior: ModalLayoutBehavior, parent: HTMLElem
                 effect(() => {
                     const shouldOpen = !!exprFn();
                     if (shouldOpen && !dialog.open) {
+                        showDialog(dialog);
                         dialog.showModal();
                         queueMicrotask(() => focusFirstIn(dialog));
                     } else if (!shouldOpen && dialog.open) {
                         dialog.close();
+                        hideDialog(dialog);
                     }
                 })
             );
         } else {
             queueMicrotask(() => {
+                showDialog(dialog);
                 if (!dialog.open) dialog.showModal();
                 focusFirstIn(dialog);
             });
@@ -89,6 +105,7 @@ export function renderUSWDSModal(behavior: ModalLayoutBehavior, parent: HTMLElem
     };
 
     triggerBtn.addEventListener('click', () => {
+        showDialog(dialog);
         if (!dialog.open) dialog.showModal();
         queueMicrotask(() => {
             repositionDialog();
@@ -101,6 +118,9 @@ export function renderUSWDSModal(behavior: ModalLayoutBehavior, parent: HTMLElem
         window.removeEventListener('resize', repositionDialog);
         window.removeEventListener('scroll', repositionDialog, true);
     });
-    dialog.addEventListener('close', () => triggerBtn.focus());
+    dialog.addEventListener('close', () => {
+        hideDialog(dialog);
+        triggerBtn.focus();
+    });
     parent.appendChild(triggerBtn);
 }
