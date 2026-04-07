@@ -4,29 +4,29 @@
   font-family: var(--formspec-font-family, "Instrument Sans", "Avenir Next", "Segoe UI", sans-serif);
   font-size: 0.96rem;
   line-height: 1.6;
-  color: var(--formspec-color-foreground, #1f2521);
+  color: var(--formspec-color-foreground, #20241f);
   color-scheme: light;
-  --formspec-default-text: var(--formspec-color-foreground, #1f2521);
+  --formspec-default-text: var(--formspec-color-foreground, #20241f);
   --formspec-default-text-strong: #171b17;
-  --formspec-default-text-muted: var(--formspec-color-muted, #6f6a61);
+  --formspec-default-text-muted: var(--formspec-color-muted, #686158);
   --formspec-default-text-subtle: var(--formspec-color-mutedForeground, #736c62);
   --formspec-default-text-faint: var(--formspec-color-foreground-muted, #746c61);
-  --formspec-default-text-inverse: var(--formspec-color-primaryForeground, #fff);
+  --formspec-default-text-inverse: var(--formspec-color-primaryForeground, #ffffff);
   --formspec-default-bg: var(--formspec-color-background, #f6f0e6);
-  --formspec-default-surface: var(--formspec-color-card, #fffdfa);
-  --formspec-default-surface-muted: var(--formspec-color-surface, #f4efe7);
+  --formspec-default-surface: var(--formspec-color-card, #fdfaf4);
+  --formspec-default-surface-muted: var(--formspec-color-surface, #f2ece2);
   --formspec-default-surface-subtle: #f8f2e9;
   --formspec-default-surface-soft: #f4ede3;
   --formspec-default-surface-quiet: #fcf8f1;
   --formspec-default-primary-soft: var(--formspec-color-primary-light, #e3ece8);
-  --formspec-default-border-input: var(--formspec-color-input, #b7aea1);
-  --formspec-default-border: var(--formspec-color-border, #c9c1b4);
+  --formspec-default-border-input: var(--formspec-color-input, #c0b6a8);
+  --formspec-default-border: var(--formspec-color-border, #d1c8ba);
   --formspec-default-border-strong: color-mix(in srgb, var(--formspec-default-border) 82%, #5b5448);
   --formspec-default-border-subtle: color-mix(in srgb, var(--formspec-default-border) 52%, white);
   --formspec-default-border-muted: #e7e0d5;
   --formspec-default-border-control: #cdc3b5;
-  --formspec-default-focus: var(--formspec-color-ring, #1f6a5b);
-  --formspec-default-primary: var(--formspec-color-primary, #1f6a5b);
+  --formspec-default-focus: var(--formspec-color-ring, #27594f);
+  --formspec-default-primary: var(--formspec-color-primary, #27594f);
   --formspec-default-primary-strong: var(--formspec-color-primary-dark, #1d443c);
   --formspec-default-danger: var(--formspec-color-error, #c1281f);
   --formspec-default-danger-strong: #b1261d;
@@ -92,7 +92,7 @@
   --formspec-default-text-muted: var(--formspec-color-dark-muted, #c4b8a7);
   --formspec-default-text-subtle: var(--formspec-color-dark-mutedForeground, #ad9f8d);
   --formspec-default-text-faint: #948676;
-  --formspec-default-text-inverse: var(--formspec-color-dark-primaryForeground, #fff);
+  --formspec-default-text-inverse: var(--formspec-color-dark-primaryForeground, #ffffff);
 
   /* Surfaces — base tokens via color.dark.* Layer A */
   --formspec-default-bg: var(--formspec-color-dark-background, #161311);
@@ -122,9 +122,9 @@
   --formspec-default-info: var(--formspec-color-dark-info, #82b8f8);
 
   /* Fills — reference light-mode base tokens (dark buttons use the saturated light-mode colors) */
-  --formspec-default-primary-fill: var(--formspec-color-primary, #1f6a5b);
+  --formspec-default-primary-fill: var(--formspec-color-primary, #27594f);
   --formspec-default-primary-fill-strong: #2d6f62;
-  --formspec-default-success-fill: var(--formspec-color-success, #2b724d);
+  --formspec-default-success-fill: var(--formspec-color-success, #2f855a);
   --formspec-default-danger-fill: var(--formspec-color-error, #c1281f);
 
   /* Status text */

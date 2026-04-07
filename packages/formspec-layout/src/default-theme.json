@@ -1,9 +1,8 @@
 {
+  "_generated": "DO NOT EDIT — generated from schemas/token-registry.json by scripts/generate-theme-from-registry.mjs",
   "$formspecTheme": "1.0",
   "version": "1.0.0",
   "name": "formspec-default",
-  "title": "Formspec Default Theme",
-  "description": "Shared default theme and token set for the canonical Formspec baseline styles.",
   "targetDefinition": {
     "url": "urn:formspec:any",
     "compatibleVersions": ">=1.0.0"
@@ -24,6 +23,15 @@
     "color.ring": "#27594f",
     "color.input": "#c0b6a8",
     "color.surface": "#f2ece2",
+    "spacing.xs": "0.25rem",
+    "spacing.sm": "0.5rem",
+    "spacing.md": "1rem",
+    "spacing.lg": "1.5rem",
+    "spacing.xl": "2rem",
+    "spacing.field": "0.75rem",
+    "radius.sm": "0.9rem",
+    "radius.md": "1.35rem",
+    "font.family": "\"Instrument Sans\", \"Avenir Next\", \"Segoe UI\", sans-serif",
     "color.dark.primary": "#8bb8ac",
     "color.dark.primaryForeground": "#ffffff",
     "color.dark.foreground": "#f3ecdf",
@@ -38,50 +46,6 @@
     "color.dark.info": "#82b8f8",
     "color.dark.ring": "#8fc6b7",
     "color.dark.input": "#5c5247",
-    "color.dark.surface": "#2a241f",
-    "spacing.xs": "0.25rem",
-    "spacing.sm": "0.5rem",
-    "spacing.md": "1rem",
-    "spacing.lg": "1.5rem",
-    "spacing.xl": "2rem",
-    "spacing.field": "0.75rem",
-    "radius.sm": "0.9rem",
-    "radius.md": "1.35rem",
-    "font.family": "\"Instrument Sans\", \"Avenir Next\", \"Segoe UI\", sans-serif"
-  },
-  "defaults": {
-    "labelPosition": "top",
-    "accessibility": {
-      "liveRegion": "off"
-    }
-  },
-  "selectors": [
-    {
-      "match": { "type": "group" },
-      "apply": {
-        "cssClass": "formspec-themed-group",
-        "accessibility": {
-          "role": "group"
-        }
-      }
-    },
-    {
-      "match": { "type": "display" },
-      "apply": {
-        "cssClass": "formspec-themed-display"
-      }
-    },
-    {
-      "match": { "type": "field" },
-      "apply": {
-        "cssClass": "formspec-themed-field"
-      }
-    },
-    {
-      "match": { "dataType": "boolean" },
-      "apply": {
-        "labelPosition": "start"
-      }
-    }
-  ]
+    "color.dark.surface": "#2a241f"
+  }
 }

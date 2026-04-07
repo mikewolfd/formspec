@@ -72,7 +72,8 @@
   margin-top: 0;
 }
 
-.formspec-stack--horizontal {
+/* Match specificity of `.formspec-stack:not(.grid-row)` above so row wins over column. */
+.formspec-stack.formspec-stack--horizontal {
   flex-direction: row;
 }
 

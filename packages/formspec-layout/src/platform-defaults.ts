@@ -1,7 +1,7 @@
 /** @filedesc Platform rendering defaults and theme builder that derives a ThemeDocument from the token registry. */
 
 import type { PresentationBlock, ThemeSelector, ThemeDocument } from './theme-resolver.js';
-import tokenRegistry from './token-registry.json';
+import tokenRegistry from './token-registry.json' with { type: 'json' };
 
 // ── Platform Defaults ──────────────────────────────────────────────
 
