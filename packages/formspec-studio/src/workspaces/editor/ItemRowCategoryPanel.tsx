@@ -195,7 +195,7 @@ export const ItemRowCategoryPanel = forwardRef<
             <BindCard
               bindType='relevant'
               expression={binds.relevant}
-              humanized={humanizeFEL(binds.relevant)}
+              humanized={humanizeFEL(binds.relevant).text}
               onRemove={() => onUpdateItem?.({ relevant: null })}
             >
               <InlineExpression
@@ -283,7 +283,7 @@ export const ItemRowCategoryPanel = forwardRef<
               <BindCard
                 bindType='relevant'
                 expression={binds.relevant}
-                humanized={humanizeFEL(binds.relevant)}
+                humanized={humanizeFEL(binds.relevant).text}
                 onRemove={() => onUpdateItem?.({ relevant: null })}
               >
                 <InlineExpression
@@ -321,7 +321,7 @@ export const ItemRowCategoryPanel = forwardRef<
               <BindCard
                 bindType='required'
                 expression={binds.required}
-                humanized={humanizeFEL(binds.required)}
+                humanized={humanizeFEL(binds.required).text}
                 onRemove={() => onUpdateItem?.({ required: null })}
               >
                 <InlineExpression
@@ -339,7 +339,7 @@ export const ItemRowCategoryPanel = forwardRef<
               <BindCard
                 bindType='constraint'
                 expression={binds.constraint}
-                humanized={humanizeFEL(binds.constraint)}
+                humanized={humanizeFEL(binds.constraint).text}
                 message={binds.constraintMessage}
                 onRemove={() => onUpdateItem?.({ constraint: null })}
               >
@@ -378,7 +378,7 @@ export const ItemRowCategoryPanel = forwardRef<
               <BindCard
                 bindType='calculate'
                 expression={binds.calculate}
-                humanized={humanizeFEL(binds.calculate)}
+                humanized={humanizeFEL(binds.calculate).text}
                 onRemove={() => onUpdateItem?.({ calculate: null })}
               >
                 <InlineExpression
@@ -421,7 +421,7 @@ export const ItemRowCategoryPanel = forwardRef<
               <BindCard
                 bindType='readonly'
                 expression={binds.readonly}
-                humanized={humanizeFEL(binds.readonly)}
+                humanized={humanizeFEL(binds.readonly).text}
                 onRemove={() => onUpdateItem?.({ readonly: null })}
               >
                 <InlineExpression

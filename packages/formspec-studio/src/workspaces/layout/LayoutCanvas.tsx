@@ -562,38 +562,15 @@ export function LayoutCanvas() {
 
   return (
     <LayoutDndProvider activePageId={activePageId}>
-    <WorkspacePage maxWidth="max-w-[980px]" className="overflow-y-auto relative">
-      <WorkspacePageSection
-        padding="px-7"
-        className="sticky top-0 z-20 border-b border-border/40 bg-bg-default/85 py-4 backdrop-blur-md"
-      >
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <ModeSelector mode={structure.mode} onSetMode={(mode) => project.setFlow(mode)} />
-            </div>
-            {structure.mode !== 'single' && !isMultiPage ? (
-              <button
-                type="button"
-                data-testid="layout-add-page"
-                aria-label="Add page to layout"
-                className="min-h-11 rounded-full border border-transparent px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:border-border/60 hover:bg-bg-default/50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
-                onClick={handleAddPage}
-              >
-                + Page
-              </button>
-            ) : null}
-          </div>
-          {isMultiPage && (
-            <LayoutStepNav
-              pages={pageNavItems}
-              activePageId={activePageId ?? pageNavItems[0]?.id ?? null}
-              onSelectPage={setActivePageId}
-              onRenamePage={handleRenamePage}
-              onReorderPage={handlePageNavReorder}
-              onMovePageToIndex={handlePageNavMoveToIndex}
-              onRequestRemovePage={handleRequestRemovePage}
-              trailing={
+    <div className="flex min-h-full w-full flex-col">
+      <div className="sticky top-0 z-20 w-full shrink-0 border-b border-border/40 bg-bg-default/85 py-4 backdrop-blur-md">
+        <div className="mx-auto w-full max-w-[980px] px-7">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <ModeSelector mode={structure.mode} onSetMode={(mode) => project.setFlow(mode)} />
+              </div>
+              {structure.mode !== 'single' && !isMultiPage ? (
                 <button
                   type="button"
                   data-testid="layout-add-page"
@@ -603,12 +580,36 @@ export function LayoutCanvas() {
                 >
                   + Page
                 </button>
-              }
-            />
-          )}
+              ) : null}
+            </div>
+            {isMultiPage && (
+              <LayoutStepNav
+                pages={pageNavItems}
+                activePageId={activePageId ?? pageNavItems[0]?.id ?? null}
+                onSelectPage={setActivePageId}
+                onRenamePage={handleRenamePage}
+                onReorderPage={handlePageNavReorder}
+                onMovePageToIndex={handlePageNavMoveToIndex}
+                onRequestRemovePage={handleRequestRemovePage}
+                trailing={
+                  <button
+                    type="button"
+                    data-testid="layout-add-page"
+                    aria-label="Add page to layout"
+                    className="min-h-11 rounded-full border border-transparent px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:border-border/60 hover:bg-bg-default/50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+                    onClick={handleAddPage}
+                  >
+                    + Page
+                  </button>
+                }
+              />
+            )}
+          </div>
         </div>
-      </WorkspacePageSection>
+      </div>
 
+    <div className="min-h-0 flex-1 overflow-y-auto relative w-full">
+    <WorkspacePage maxWidth="max-w-[980px]" className="relative">
       <>
         <WorkspacePageSection className="space-y-3 py-4">
             <div onContextMenu={handleContextMenu}>
@@ -715,6 +716,8 @@ export function LayoutCanvas() {
         onConfirm={handleConfirmRemovePage}
       />
     </WorkspacePage>
+    </div>
+    </div>
     </LayoutDndProvider>
   );
 }

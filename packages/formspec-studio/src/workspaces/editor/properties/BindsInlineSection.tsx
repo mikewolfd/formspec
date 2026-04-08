@@ -26,7 +26,7 @@ export function BindsInlineSection({
               key={bindType}
               bindType={bindType}
               expression={expression}
-              humanized={humanizeFEL(expression)}
+              humanized={humanizeFEL(expression).text}
               message={bindType === 'constraint' ? binds.constraintMessage : undefined}
               onRemove={() => {
                 project.updateItem(path, { [bindType]: null });
