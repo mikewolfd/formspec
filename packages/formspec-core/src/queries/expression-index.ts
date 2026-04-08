@@ -32,6 +32,23 @@ function resolveParseContext(context?: string | FELParseContext): FELParseContex
   return context;
 }
 
+/** Levenshtein edit distance between two strings. */
+function editDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
 /** Detect common FEL mistakes and prepend a helpful hint to the error message. */
 function addFELHint(expression: string, message: string): string {
   if (/\btrue\s*\(/.test(expression) || /\bfalse\s*\(/.test(expression)) {
@@ -86,12 +103,23 @@ export function parseFEL(state: ProjectState, expression: string, context?: FELP
 
     for (const reference of analysis.references) {
       if (!knownFieldPaths.has(normalizeIndexedPath(reference))) {
+        let message = `Unknown field reference "$${reference}" in this editor context`;
+        const suffix = reference.split('.').pop()!;
+        const partialMatches = [...knownFieldPaths].filter(
+          (p) => p === suffix || p.endsWith(`.${suffix}`),
+        );
+        if (partialMatches.length === 1) {
+          message += `. Did you mean "$${partialMatches[0]}"?`;
+        } else if (partialMatches.length > 1) {
+          const quoted = partialMatches.map((p) => `"$${p}"`).join(', ');
+          message += `. Did you mean one of: ${quoted}?`;
+        }
         semanticErrors.push({
           artifact: 'definition',
           path: 'expression',
           severity: 'error',
           code: 'FEL_UNKNOWN_REFERENCE',
-          message: `Unknown field reference "$${reference}" in this editor context`,
+          message,
         });
         if (knownVariables.has(reference)) {
           warnings.push({
@@ -146,15 +174,27 @@ export function parseFEL(state: ProjectState, expression: string, context?: FELP
   // Cross-reference called functions against the known catalog
   if (analysis.valid && analysis.functions.length > 0) {
     const catalog = felFunctionCatalog(state);
-    const knownFunctions = new Set(catalog.map((entry) => entry.name));
+    const catalogNames = catalog.map((entry) => entry.name);
+    const knownFunctions = new Set(catalogNames);
     for (const fn of analysis.functions) {
       if (!knownFunctions.has(fn)) {
+        let message = `Unknown function "${fn}" — not a built-in or registered extension function`;
+        const prefix = fn.slice(0, 3);
+        const candidates = catalogNames.filter(
+          (name) => (prefix.length >= 3 && name.startsWith(prefix)) || editDistance(fn, name) <= 2,
+        );
+        if (candidates.length === 1) {
+          message += `. Did you mean "${candidates[0]}()"?`;
+        } else if (candidates.length > 1) {
+          const quoted = candidates.map((c) => `"${c}()"`).join(', ');
+          message += `. Did you mean one of: ${quoted}?`;
+        }
         warnings.push({
           artifact: 'definition',
           path: 'expression',
           severity: 'warning',
           code: 'FEL_UNKNOWN_FUNCTION',
-          message: `Unknown function "${fn}" — not a built-in or registered extension function`,
+          message,
         });
       }
     }

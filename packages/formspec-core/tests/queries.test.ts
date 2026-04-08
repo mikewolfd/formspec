@@ -1119,6 +1119,81 @@ describe('parseFEL', () => {
     const typeMismatch = result.warnings.find((w) => w.code === 'FEL_TYPE_MISMATCH');
     expect(typeMismatch).toBeUndefined();
   });
+
+  // ── U6: "did you mean" for partial path matches in repeat context ──
+
+  it('suggests full path when bare field name matches a nested field', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'group', key: 'rows', repeatable: true } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'quantity', parentPath: 'rows', dataType: 'integer' } },
+    ]);
+
+    const result = project.parseFEL('$quantity > 0', { targetPath: 'rows[0].quantity' });
+    expect(result.valid).toBe(false);
+    const ref = result.errors.find((e) => e.code === 'FEL_UNKNOWN_REFERENCE');
+    expect(ref).toBeDefined();
+    expect(ref!.message).toContain('Did you mean "$rows.quantity"?');
+  });
+
+  it('suggests multiple paths when bare field name matches several nested fields', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'group', key: 'rows', repeatable: true } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'amount', parentPath: 'rows', dataType: 'decimal' } },
+      { type: 'definition.addItem', payload: { type: 'group', key: 'extras' } },
+      { type: 'definition.addItem', payload: { type: 'field', key: 'amount', parentPath: 'extras', dataType: 'decimal' } },
+    ]);
+
+    const result = project.parseFEL('$amount > 0', { targetPath: 'rows[0].amount' });
+    expect(result.valid).toBe(false);
+    const ref = result.errors.find((e) => e.code === 'FEL_UNKNOWN_REFERENCE');
+    expect(ref).toBeDefined();
+    expect(ref!.message).toContain('Did you mean one of:');
+    expect(ref!.message).toContain('$rows.amount');
+    expect(ref!.message).toContain('$extras.amount');
+  });
+
+  it('does not suggest paths when no partial match exists', () => {
+    const project = createRawProject();
+    project.batch([
+      { type: 'definition.addItem', payload: { type: 'field', key: 'name', dataType: 'string' } },
+    ]);
+
+    const result = project.parseFEL('$nonexistent > 0', { targetPath: '' });
+    expect(result.valid).toBe(false);
+    const ref = result.errors.find((e) => e.code === 'FEL_UNKNOWN_REFERENCE');
+    expect(ref).toBeDefined();
+    expect(ref!.message).not.toContain('Did you mean');
+  });
+
+  // ── U12: fuzzy match for unknown function names ──
+
+  it('suggests close function names via prefix and edit distance', () => {
+    const project = createRawProject();
+    const result = project.parseFEL('len($x)');
+    const fnWarn = result.warnings.find((w) => w.code === 'FEL_UNKNOWN_FUNCTION');
+    expect(fnWarn).toBeDefined();
+    // "len" matches "length" via prefix and "min" via edit distance
+    expect(fnWarn!.message).toContain('Did you mean');
+    expect(fnWarn!.message).toContain('length()');
+  });
+
+  it('suggests close function name via edit distance', () => {
+    const project = createRawProject();
+    const result = project.parseFEL('cunt($x)');
+    const fnWarn = result.warnings.find((w) => w.code === 'FEL_UNKNOWN_FUNCTION');
+    expect(fnWarn).toBeDefined();
+    expect(fnWarn!.message).toContain('count()');
+  });
+
+  it('does not suggest when no function name is close', () => {
+    const project = createRawProject();
+    const result = project.parseFEL('totallyFake($x)');
+    const fnWarn = result.warnings.find((w) => w.code === 'FEL_UNKNOWN_FUNCTION');
+    expect(fnWarn).toBeDefined();
+    expect(fnWarn!.message).not.toContain('Did you mean');
+  });
 });
 
 // ── Extension queries ──────────────────────────────────────────
