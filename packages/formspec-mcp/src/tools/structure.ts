@@ -289,8 +289,24 @@ export function handleUpdate(
   registry: ProjectRegistry,
   projectId: string,
   target: 'item' | 'metadata',
-  params: { path?: string; changes: ItemChanges | MetadataChanges },
+  params: { path?: string; changes?: ItemChanges | MetadataChanges; items?: Array<{ path: string; changes: ItemChanges }> },
 ) {
+  // Batch mode: items[] array for target='item' only
+  if (params.items) {
+    if (target !== 'item') {
+      return errorResponse(formatToolError(
+        'INVALID_BATCH',
+        "Batch mode (items[]) is only supported for target='item', not metadata.",
+      ));
+    }
+    const { project, error } = getProjectSafe(registry, projectId);
+    if (error) return error;
+    return wrapBatchCall(params.items, (item) => {
+      const normalized = normalizeItemChanges(item.changes as Record<string, unknown>);
+      return project!.updateItem(item.path as string, normalized);
+    });
+  }
+
   return wrapHelperCall(() => {
     const project = registry.getProject(projectId);
     if (target === 'metadata') {

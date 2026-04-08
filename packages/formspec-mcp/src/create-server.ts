@@ -98,15 +98,15 @@ const groupItemSchema = z.object({
 const behaviorItemSchema = z.object({
   action: z.enum(['show_when', 'readonly_when', 'require', 'calculate', 'add_rule', 'remove_rule']),
   target: z.string().describe('Field path to apply behavior to'),
-  condition: z.string().optional().describe('FEL condition (for show_when, readonly_when, require)'),
-  expression: z.string().optional().describe('FEL expression (for calculate)'),
+  condition: z.string().optional().describe('FEL condition (for show_when, readonly_when, require). Field refs use $-prefix: $field_name, $group.field'),
+  expression: z.string().optional().describe('FEL expression (for calculate). Field refs use $-prefix: $field_name, $group.field'),
   rule: z.string().optional().describe('FEL validation expression (for add_rule)'),
   message: z.string().optional().describe('Validation message (for add_rule)'),
   options: z.object({
     timing: z.enum(['continuous', 'submit', 'demand']),
     severity: z.enum(['error', 'warning', 'info']),
     code: z.string(),
-    activeWhen: z.string(),
+    activeWhen: z.string().describe('FEL condition to activate this rule. Field refs use $-prefix: $field_name'),
   }).partial().optional(),
 });
 
@@ -128,7 +128,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_guide', {
     title: 'Guide',
-    description: 'Start a new form or modify an existing one through guided questions. Call this FIRST before using authoring tools. For mode="new", returns a conversational questionnaire to gather requirements. For mode="modify", returns the current form summary and targeted modification questions.',
+    description: 'Start a new form or modify an existing one through guided questions. Returns a structured questionnaire for the LLM to use in conversation — not required, you can call formspec_create directly. For mode="new", returns questions to gather requirements. For mode="modify", returns the current form summary and targeted modification questions.',
     inputSchema: {
       mode: z.enum(['new', 'modify']).describe('"new" to create a form from scratch; "modify" to change an existing form'),
       project_id: z.string().optional().describe('Required for mode="modify"'),
@@ -143,7 +143,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_create', {
     title: 'Create Project',
-    description: 'Create a new project ready for authoring.',
+    description: 'Create a new project ready for authoring. For guided creation, call formspec_guide(mode="new") first.',
     inputSchema: {},
     annotations: NON_DESTRUCTIVE,
   }, async () => {
@@ -245,7 +245,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_group', {
     title: 'Add Group',
-    description: 'Add a logical group container for related items. Supports batch via items[] array.\n\nParent context: Use ONE of these — combining them causes double-nesting:\n- Dot notation in path: "parent.child_group" nests under "parent"\n- props.parentPath: sets an explicit parent group',
+    description: 'Add a logical group container for related items. Supports batch via items[] array.\n\nParent context: Use ONE of these — combining them causes double-nesting:\n- Dot notation in path: "parent.child_group" nests under "parent"\n- props.parentPath: sets an explicit parent group\n\nGroups do not have a page prop — use formspec_place to assign a group to a page after creation.',
     inputSchema: {
       project_id: z.string(),
       path: z.string().optional(),
@@ -281,17 +281,21 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_update', {
     title: 'Update',
-    description: 'Modify properties on EXISTING items or form-level metadata. target="item" changes an item\'s label, description, choices, etc. target="metadata" changes form-level title, description, version, etc.',
+    description: 'Modify properties on EXISTING items or form-level metadata. target="item" changes an item\'s label, description, choices, etc. target="metadata" changes form-level title, description, version, etc. Supports batch via items[] array (target="item" only).',
     inputSchema: {
       project_id: z.string(),
       target: z.enum(['item', 'metadata']),
       path: z.string().optional(),
-      changes: z.record(z.string(), z.unknown()),
+      changes: z.record(z.string(), z.unknown()).optional(),
+      items: z.array(z.object({
+        path: z.string().describe('Item path to update'),
+        changes: z.record(z.string(), z.unknown()).describe('Properties to change'),
+      })).optional().describe('Batch: array of item updates (target="item" only)'),
     },
     annotations: NON_DESTRUCTIVE,
-  }, async ({ project_id, target, path, changes }) => {
+  }, async ({ project_id, target, path, changes, items }) => {
     return bracketMutation(registry, project_id, 'formspec_update', () =>
-      structure.handleUpdate(registry, project_id, target, { path, changes }),
+      structure.handleUpdate(registry, project_id, target, { path, changes, items }),
     );
   });
 
@@ -349,7 +353,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_page', {
     title: 'Page',
-    description: 'Manage form pages: add, remove, reorder, or list.',
+    description: 'Manage form pages: add, remove, reorder, or list. After adding a page, assign items to it using props.page on formspec_field/formspec_content, or via formspec_place. For a review/summary page, use the Summary component (S6.12) via formspec_component.',
     inputSchema: {
       project_id: z.string(),
       action: z.enum(['add', 'remove', 'move', 'list']),
@@ -393,20 +397,20 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_behavior', {
     title: 'Behavior',
-    description: 'Set per-field logic and cross-field validation. Supports batch via items[] array.\n\nActions show_when, readonly_when, require, calculate set per-field bind properties. Action add_rule creates a cross-field validation shape (named rules with severity). remove_rule removes validation (both bind constraints and shape rules).\n\nshow_when sets a `relevant` expression on a single field. For branching patterns (show different pages/sections based on one answer), use formspec_flow(branch) instead.',
+    description: 'Set per-field logic and cross-field validation. Supports batch via items[] array.\n\nActions show_when, readonly_when, require, calculate set per-field bind properties. Action add_rule creates a cross-field validation shape (named rules with severity). remove_rule removes validation (both bind constraints and shape rules).\n\nshow_when sets a `relevant` expression on a single field. For branching patterns (show different pages/sections based on one answer), use formspec_flow(branch) instead. To skip a wizard page conditionally, set relevant on the page\'s backing group.\n\nFEL syntax: Field references in condition/expression/rule MUST use $-prefix: `$field_name`, `$group.field`. The target parameter uses bare authoring paths (no $). For display-only computed values, use calculate on a field bound to a Text component.',
     inputSchema: {
       project_id: z.string(),
       action: z.enum(['show_when', 'readonly_when', 'require', 'calculate', 'add_rule', 'remove_rule']).optional(),
-      target: z.string().optional(),
-      condition: z.string().optional(),
-      expression: z.string().optional(),
+      target: z.string().optional().describe('Field path (bare authoring path, no $ prefix)'),
+      condition: z.string().optional().describe('FEL condition. Field refs use $-prefix: $field_name, $group.field'),
+      expression: z.string().optional().describe('FEL expression. Field refs use $-prefix: $field_name, $group.field'),
       rule: z.string().optional(),
       message: z.string().optional(),
       options: z.object({
         timing: z.enum(['continuous', 'submit', 'demand']),
         severity: z.enum(['error', 'warning', 'info']),
         code: z.string(),
-        activeWhen: z.string(),
+        activeWhen: z.string().describe('FEL condition. Field refs use $-prefix: $field_name'),
       }).partial().optional(),
       items: z.array(behaviorItemSchema).optional(),
     },
@@ -593,7 +597,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_fel', {
     title: 'FEL',
-    description: 'FEL utilities: list available references, function catalog, validate/check an expression, get autocomplete suggestions, or humanize an expression to English.',
+    description: 'FEL utilities: list available references, function catalog, validate/check an expression, get autocomplete suggestions, or humanize an expression to English.\n\nRepeat group references: Inside a repeat context, $siblingField resolves to the current instance. Use $group[*].field to aggregate across all instances (e.g., sum($items[*].amount)). Context variables: @current (current instance object), @index (0-based), @count (total instances). The context action returns scope: "local"|"global" annotations per reference.',
     inputSchema: {
       project_id: z.string(),
       action: z.enum(['context', 'functions', 'check', 'validate', 'autocomplete', 'humanize']),
@@ -610,7 +614,7 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
 
   server.registerTool('formspec_widget', {
     title: 'Widget',
-    description: 'Query widget vocabulary: list all widgets, find compatible widgets for a data type, or get the field type catalog.',
+    description: 'Query widget vocabulary: list all widgets, find compatible widgets for a data type, or get the field type catalog. For signature capture, use dataType "attachment" with widgetHint "signature".',
     inputSchema: {
       project_id: z.string(),
       action: z.enum(['list_widgets', 'compatible', 'field_types']),

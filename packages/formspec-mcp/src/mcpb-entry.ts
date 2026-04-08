@@ -94,7 +94,7 @@ server.registerTool('formspec_open', {
 
 server.registerTool('formspec_save', {
   title: 'Save Project',
-  description: 'Save project artifacts to disk.',
+  description: 'Save project artifacts to disk. For newly created projects, a path parameter is required (the project has no default save location). Use formspec_publish to export the bundle inline without a disk path.',
   inputSchema: {
     project_id: z.string(),
     path: z.string().optional(),

@@ -151,7 +151,7 @@ export function handleSave(
     // Resolve target path
     const targetPath = path ? resolve(path) : entry.sourcePath;
     if (!targetPath) {
-      return errorResponse(formatToolError('SAVE_FAILED', 'No save path specified and project has no source path'));
+      return errorResponse(formatToolError('SAVE_FAILED', "No save path specified. For newly created projects, provide a path parameter (e.g., formspec_save with path='my-form'). Or use formspec_publish to export the bundle inline."));
     }
 
     const bundle = project.export();

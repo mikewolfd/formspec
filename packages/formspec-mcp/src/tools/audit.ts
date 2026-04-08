@@ -155,11 +155,14 @@ function accessibilityAudit(project: Project): {
         // Check: required fields should have a constraint message or description
         const bind = bindMap.get(path);
         if (bind?.required && bind.required !== 'false') {
-          if (!item.hint && !item.description) {
+          const label = (item.label ?? '').trim();
+          const wordCount = label.split(/\s+/).filter(Boolean).length;
+          const isSelfExplanatory = wordCount > 0 && wordCount <= 3;
+          if (!item.hint && !item.description && !isSelfExplanatory) {
             issues.push({
               path,
               severity: 'info',
-              message: `Required field '${path}' has no hint or description to guide users`,
+              message: `Consider adding a hint or description to required field '${path}'`,
             });
           }
         }
