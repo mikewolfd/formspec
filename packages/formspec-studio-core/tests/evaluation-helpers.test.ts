@@ -626,16 +626,18 @@ describe('validateResponse', () => {
 describe('previewForm — per-page validation counts', () => {
   function buildWizardForm() {
     const project = createProject();
-    project.addPage('Personal Info', undefined, 'personal');
-    project.addPage('Address', undefined, 'address');
+    project.addGroup('personal', 'Personal Info');
+    project.addGroup('address', 'Address');
+    project.addPage('Personal Info', undefined, 'personal_page');
+    project.addPage('Address', undefined, 'address_page');
+    project.placeOnPage('personal', 'personal_page');
+    project.placeOnPage('address', 'address_page');
 
-    // addPage('...', undefined, 'personal') creates group key 'personal'
     project.addField('personal.first_name', 'First Name', 'text');
     project.addField('personal.last_name', 'Last Name', 'text');
     project.require('personal.first_name');
     project.require('personal.last_name');
 
-    // addPage('...', undefined, 'address') creates group key 'address'
     project.addField('address.street', 'Street', 'text');
     project.addField('address.city', 'City', 'text');
     project.require('address.street');
@@ -648,8 +650,8 @@ describe('previewForm — per-page validation counts', () => {
     const preview = previewForm(project);
 
     // All required fields are empty — errors on both pages
-    const personalPage = preview.pages.find(p => p.id === 'personal');
-    const addressPage = preview.pages.find(p => p.id === 'address');
+    const personalPage = preview.pages.find(p => p.id === 'personal_page');
+    const addressPage = preview.pages.find(p => p.id === 'address_page');
 
     expect(personalPage).toBeDefined();
     expect(addressPage).toBeDefined();
@@ -664,13 +666,15 @@ describe('previewForm — per-page validation counts', () => {
       'personal.last_name': 'Smith',
     });
 
-    const personalPage = preview.pages.find(p => p.id === 'personal');
+    const personalPage = preview.pages.find(p => p.id === 'personal_page');
     expect(personalPage!.validationErrors).toBe(0);
   });
 
   it('does not count errors for hidden fields', () => {
     const project = createProject();
-    project.addPage('Main', undefined, 'main');
+    project.addGroup('main', 'Main');
+    project.addPage('Main', undefined, 'main_page');
+    project.placeOnPage('main', 'main_page');
     project.addField('main.toggle', 'Show Details', 'boolean');
     project.addField('main.details', 'Details', 'text');
     project.require('main.details');
@@ -679,30 +683,32 @@ describe('previewForm — per-page validation counts', () => {
     const preview = previewForm(project);
 
     // toggle is false by default, so details is hidden — its required error shouldn't count
-    const mainPage = preview.pages.find(p => p.id === 'main');
+    const mainPage = preview.pages.find(p => p.id === 'main_page');
     expect(mainPage!.validationErrors).toBe(0);
   });
 
   it('counts warnings separately from errors', () => {
     const project = createProject();
-    project.addPage('Info', undefined, 'info');
+    project.addGroup('info', 'Info');
+    project.addPage('Info', undefined, 'info_page');
+    project.placeOnPage('info', 'info_page');
     project.addField('info.code', 'Code', 'text');
     project.require('info.code');
     project.addValidation('info.code', "matches($info.code, '^[A-Z]+$')", 'Prefer uppercase', { severity: 'warning' });
 
     const preview = previewForm(project, { 'info.code': 'abc' });
 
-    const infoPage = preview.pages.find(p => p.id === 'info');
+    const infoPage = preview.pages.find(p => p.id === 'info_page');
     expect(infoPage!.validationErrors).toBe(0);    // code is provided, so not "Required"
     expect(infoPage!.validationWarnings).toBe(1);   // warning from the matches rule
   });
 
   it('returns 0 counts for pages with no fields', () => {
     const project = createProject();
-    project.addPage('Empty Page', undefined, 'empty');
+    project.addPage('Empty Page', undefined, 'empty_page');
 
     const preview = previewForm(project);
-    const emptyPage = preview.pages.find(p => p.id === 'empty');
+    const emptyPage = preview.pages.find(p => p.id === 'empty_page');
     expect(emptyPage!.validationErrors).toBe(0);
     expect(emptyPage!.validationWarnings).toBe(0);
   });
@@ -718,7 +724,9 @@ describe('previewForm — per-page validation counts', () => {
 
   it('counts errors in repeat group fields on a page', () => {
     const project = createProject();
-    project.addPage('Items', undefined, 'items');
+    project.addGroup('items', 'Items');
+    project.addPage('Items', undefined, 'items_page');
+    project.placeOnPage('items', 'items_page');
     project.addGroup('items.line_items', 'Line Items');
     project.makeRepeatable('items.line_items', { min: 1 });
     project.addField('items.line_items.amount', 'Amount', 'decimal');
@@ -730,7 +738,7 @@ describe('previewForm — per-page validation counts', () => {
       'items.line_items[1].amount': undefined,
     });
 
-    const itemsPage = preview.pages.find(p => p.id === 'items');
+    const itemsPage = preview.pages.find(p => p.id === 'items_page');
     expect(itemsPage!.validationErrors).toBe(2);
   });
 
@@ -755,8 +763,12 @@ describe('previewForm — per-page validation counts', () => {
 
   it('errors on all pages are independent', () => {
     const project = createProject();
+    project.addGroup('page_a', 'Page A');
+    project.addGroup('page_b', 'Page B');
     project.addPage('Page A', undefined, 'page-a');
     project.addPage('Page B', undefined, 'page-b');
+    project.placeOnPage('page_a', 'page-a');
+    project.placeOnPage('page_b', 'page-b');
 
     project.addField('page_a.x', 'X', 'text');
     project.require('page_a.x');
@@ -775,7 +787,9 @@ describe('previewForm — per-page validation counts', () => {
 
   it('filling all required fields brings page errors to 0', () => {
     const project = createProject();
-    project.addPage('Contact', undefined, 'contact');
+    project.addGroup('contact', 'Contact');
+    project.addPage('Contact', undefined, 'contact_page');
+    project.placeOnPage('contact', 'contact_page');
     project.addField('contact.name', 'Name', 'text');
     project.addField('contact.email', 'Email', 'email');
     project.require('contact.name');
@@ -787,7 +801,7 @@ describe('previewForm — per-page validation counts', () => {
       'contact.email': 'alice@example.com',
     });
 
-    const contactPage = preview.pages.find(p => p.id === 'contact');
+    const contactPage = preview.pages.find(p => p.id === 'contact_page');
     expect(contactPage!.validationErrors).toBe(0);
     expect(contactPage!.validationWarnings).toBe(0);
   });

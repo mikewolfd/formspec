@@ -131,13 +131,13 @@ describe('handleContent', () => {
 
   it('places content on a page when props.page is provided', () => {
     const { registry, projectId, project } = registryWithProject();
-    const pageResult = project.addPage('Page One');
-    const pageId = pageResult.createdId!;
-    const groupKey = pageResult.affectedPaths[0];
+    const pageId = project.addPage('Page One').createdId!;
+    project.addGroup('main', 'Main');
+    project.placeOnPage('main', pageId);
 
     // Content must go inside the page's group in a paged definition
     const result = handleContent(registry, projectId, {
-      path: `${groupKey}.intro`,
+      path: 'main.intro',
       body: 'Welcome',
       kind: 'heading',
       props: { page: pageId },
@@ -146,7 +146,7 @@ describe('handleContent', () => {
     expect(result.isError).toBeUndefined();
     // Content was placed inside the page's group — verify it exists in the definition
     const def = (project.core as any).state.definition;
-    const group = (def.items ?? []).find((i: any) => i.key === groupKey);
+    const group = (def.items ?? []).find((i: any) => i.key === 'main');
     expect(group).toBeDefined();
     const contentItem = (group.children ?? []).find((c: any) => c.key === 'intro');
     expect(contentItem).toBeDefined();

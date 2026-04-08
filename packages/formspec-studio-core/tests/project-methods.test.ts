@@ -257,6 +257,7 @@ describe('addGroup in paged mode', () => {
   it('does NOT create a Page node for a nested (non-root) group', () => {
     const project = createProject();
     project.addPage('Page One'); // wizard mode
+    project.addGroup('page_one', 'Page One Group');
     project.addGroup('sub_section', 'Sub Section', { parentPath: 'page_one' });
 
     const pages = getPageNodes(project);
@@ -1325,28 +1326,22 @@ describe('addSubmitButton', () => {
 // ── Page Helpers ──
 
 describe('addPage', () => {
-  it('creates both a definition group AND a Page node in the component tree', () => {
+  it('creates a Page node without a definition group', () => {
     const project = createProject();
     const result = project.addPage('Step 1');
 
-    // Returns a createdId (the page ID)
     expect(result.createdId).toBeDefined();
 
     // Page node exists in component tree
     const pages = getPageNodes(project);
     expect(pages.length).toBe(1);
-    const page = pages[0];
-    expect(page.title).toBe('Step 1');
+    expect(pages[0].title).toBe('Step 1');
 
-    // Definition group exists
-    const groupKey = result.affectedPaths[0];
-    expect(groupKey).toBeDefined();
-    const item = project.itemAt(groupKey);
-    expect(item?.type).toBe('group');
-    expect(item?.label).toBe('Step 1');
+    // No definition items created
+    expect(project.definition.items.length).toBe(0);
 
-    // Group is wired to page via bound children
-    expect(getBoundChildren(page).some((n: any) => n.bind === groupKey)).toBe(true);
+    // No bound children on the page
+    expect(getBoundChildren(pages[0])).toHaveLength(0);
   });
 
   it('sets wizard page mode on first page', () => {
@@ -1362,21 +1357,7 @@ describe('addPage', () => {
     expect(project.definition.formPresentation?.pageMode).toBe('tabs');
   });
 
-  it('produces component tree with Page nodes after addPage', () => {
-    const project = createProject();
-    const result = project.addPage('Step 1');
-    const groupKey = result.affectedPaths[0];
-
-    // Add a field into the group
-    project.addField(`${groupKey}.name`, 'Name', 'text');
-
-    const comp = project.component as any;
-    const pageNodes = comp.tree?.children?.filter((n: any) => n.component === 'Page') ?? [];
-    expect(pageNodes.length).toBeGreaterThanOrEqual(1);
-    expect(pageNodes[0]?.component).toBe('Page');
-  });
-
-  it('creates multiple pages with unique groups', () => {
+  it('creates multiple pages with different IDs and no definition items', () => {
     const project = createProject();
     const r1 = project.addPage('Step 1');
     const r2 = project.addPage('Step 2');
@@ -1384,12 +1365,11 @@ describe('addPage', () => {
     const pages = getPageNodes(project);
     expect(pages.length).toBe(2);
 
-    // Different groups
-    expect(r1.affectedPaths[0]).not.toBe(r2.affectedPaths[0]);
+    // Different page IDs
+    expect(r1.createdId).not.toBe(r2.createdId);
 
-    // Both groups exist
-    expect(project.itemAt(r1.affectedPaths[0])?.type).toBe('group');
-    expect(project.itemAt(r2.affectedPaths[0])?.type).toBe('group');
+    // No definition items created
+    expect(project.definition.items.length).toBe(0);
   });
 
   it('handles description parameter', () => {
@@ -1399,12 +1379,11 @@ describe('addPage', () => {
     expect(page?.description).toBe('First step');
   });
 
-  it('undoes both tiers in one step', () => {
+  it('undoes in one step — only Page node removed', () => {
     const project = createProject();
-    const result = project.addPage('Step 1');
-    const groupKey = result.affectedPaths[0];
+    project.addPage('Step 1');
 
-    expect(project.definition.items.length).toBe(1);
+    expect(project.definition.items.length).toBe(0);
     expect(getPageNodes(project).length).toBe(1);
 
     project.undo();
@@ -1434,25 +1413,27 @@ describe('removePage', () => {
     const project = createProject();
     const r1 = project.addPage('Page 1');
     project.addPage('Page 2');
-    const groupKey = r1.affectedPaths[0];
-    expect(project.itemAt(groupKey)).toBeDefined();
+    project.addGroup('g1', 'Group 1');
+    project.placeOnPage('g1', r1.createdId!);
+    expect(project.itemAt('g1')).toBeDefined();
 
     project.removePage(r1.createdId!);
     // Group survives — deleting a presentation surface does not destroy response structure
-    expect(project.itemAt(groupKey)).toBeDefined();
+    expect(project.itemAt('g1')).toBeDefined();
   });
 
   it('preserves children of the definition group when page is deleted', () => {
     const project = createProject();
     const r1 = project.addPage('Page 1');
     project.addPage('Page 2');
-    const groupKey = r1.affectedPaths[0];
-    project.addField(`${groupKey}.name`, 'Name', 'text');
-    expect(project.itemAt(`${groupKey}.name`)).toBeDefined();
+    project.addGroup('g1', 'Group 1');
+    project.addField('g1.name', 'Name', 'text');
+    project.placeOnPage('g1', r1.createdId!);
+    expect(project.itemAt('g1.name')).toBeDefined();
 
     project.removePage(r1.createdId!);
     // Fields survive — presentation changes must not destroy data
-    expect(project.itemAt(`${groupKey}.name`)).toBeDefined();
+    expect(project.itemAt('g1.name')).toBeDefined();
   });
 
   it('is atomic — single undo restores just the page', () => {
@@ -1470,13 +1451,12 @@ describe('removePage', () => {
     expect(findPageNode(project, r1.createdId!)).toBeDefined();
   });
 
-  it('does not delete group if page has no region pointing to a root group', () => {
-    // Page created manually without a corresponding definition group
+  it('does not affect definition items when removing a page with no bound groups', () => {
     const project = createProject();
     project.addPage('Page 1');
-    // Manually add a page with no bound children
-    project.setFlow('wizard');
-    const pagesBefore = project.definition.items.length;
+    project.addGroup('g1', 'Group 1');
+    const itemsBefore = project.definition.items.length;
+    // Manually add a second page with no bound children
     (project as any).core.dispatch({
       type: 'component.addNode',
       payload: {
@@ -1485,18 +1465,19 @@ describe('removePage', () => {
         props: { nodeId: 'orphan-page', title: 'Orphan' },
       },
     });
-    expect(project.definition.items.length).toBe(pagesBefore); // no new group
+    expect(project.definition.items.length).toBe(itemsBefore); // no new group
     project.removePage('orphan-page');
     // Original items unchanged
-    expect(project.definition.items.length).toBe(pagesBefore);
+    expect(project.definition.items.length).toBe(itemsBefore);
   });
 
   it('removes only the Page node, groups become unassigned', () => {
     const project = createProject();
     const r1 = project.addPage('Page 1');
     project.addPage('Page 2');
-    const groupKey = r1.affectedPaths[0];
-    project.addField(`${groupKey}.name`, 'Name', 'text');
+    project.addGroup('g1', 'Group 1');
+    project.addField('g1.name', 'Name', 'text');
+    project.placeOnPage('g1', r1.createdId!);
 
     const itemsBefore = project.definition.items.length;
     project.removePage(r1.createdId!);
@@ -1506,8 +1487,8 @@ describe('removePage', () => {
     // Definition items are intact — same count
     expect(project.definition.items.length).toBe(itemsBefore);
     // Group and its field still exist
-    expect(project.itemAt(groupKey)?.type).toBe('group');
-    expect(project.itemAt(`${groupKey}.name`)).toBeDefined();
+    expect(project.itemAt('g1')?.type).toBe('group');
+    expect(project.itemAt('g1.name')).toBeDefined();
   });
 });
 
@@ -2131,38 +2112,6 @@ describe('updateItem edge cases', () => {
   });
 });
 
-describe('addPage standalone option', () => {
-  it('creates only a Page node when standalone is true — no paired group', () => {
-    const project = createProject();
-    const result = project.addPage('Empty Page', undefined, undefined, { standalone: true });
-    expect(result.createdId).toBeDefined();
-
-    // Page node exists in component tree
-    const pages = getPageNodes(project);
-    expect(pages.length).toBe(1);
-    expect(pages[0].title).toBe('Empty Page');
-
-    // No definition group created
-    expect(project.definition.items.length).toBe(0);
-    expect(result.groupKey).toBeUndefined();
-  });
-
-  it('standalone page has no bound children', () => {
-    const project = createProject();
-    const result = project.addPage('Standalone', undefined, undefined, { standalone: true });
-    const page = findPageNode(project, result.createdId!);
-    expect(getBoundChildren(page)).toHaveLength(0);
-  });
-
-  it('default addPage still creates paired group + bound child', () => {
-    const project = createProject();
-    const result = project.addPage('Step 1');
-    expect(result.groupKey).toBeDefined();
-    expect(project.itemAt(result.groupKey!)).toBeDefined();
-    const page = findPageNode(project, result.createdId!);
-    expect(getBoundChildren(page).some((n: any) => n.bind === result.groupKey)).toBe(true);
-  });
-});
 
 describe('addPage edge cases', () => {
   it('does not re-dispatch pageMode when already wizard', () => {
@@ -2172,7 +2121,6 @@ describe('addPage edge cases', () => {
 
     project.addPage('Step 2');
     expect(project.definition.formPresentation?.pageMode).toBe('wizard');
-    expect(project.definition.items).toHaveLength(2);
     expect(getPageNodes(project).length).toBe(2);
   });
 });
@@ -2183,22 +2131,6 @@ describe('addPage with custom ID', () => {
     const result = project.addPage('Step 1', undefined, 'my-page');
     expect(result.createdId).toBe('my-page');
     expect(findPageNode(project, 'my-page')).toBeDefined();
-  });
-
-  it('derives group key from page_id when provided, not title', () => {
-    const project = createProject();
-    const result = project.addPage('My Fancy Title', undefined, 'basics');
-    // Group key should be derived from "basics" (the id), not "my_fancy_title" (the title)
-    expect(result.affectedPaths[0]).toBe('basics');
-    expect(project.itemAt('basics')).toBeDefined();
-    expect(project.itemAt('basics')?.type).toBe('group');
-  });
-
-  it('falls back to title-derived key when no custom ID', () => {
-    const project = createProject();
-    const result = project.addPage('Contact Info');
-    // Should derive from title since no custom ID
-    expect(result.affectedPaths[0]).toBe('contact_info');
   });
 
   it('rejects invalid custom ID (starts with number)', () => {
@@ -2234,14 +2166,14 @@ describe('listPages', () => {
     expect(project.listPages()).toEqual([]);
   });
 
-  it('returns pages with id and title', () => {
+  it('returns pages with id and title, no groupPath when no group placed', () => {
     const project = createProject();
     project.addPage('Step 1', undefined, 'step1');
     project.addPage('Step 2', 'Second step', 'step2');
     const pages = project.listPages();
     expect(pages).toHaveLength(2);
-    expect(pages[0]).toEqual({ id: 'step1', title: 'Step 1', groupPath: 'step1' });
-    expect(pages[1]).toEqual({ id: 'step2', title: 'Step 2', description: 'Second step', groupPath: 'step2' });
+    expect(pages[0]).toEqual({ id: 'step1', title: 'Step 1' });
+    expect(pages[1]).toEqual({ id: 'step2', title: 'Step 2', description: 'Second step' });
   });
 
   it('excludes description when not set', () => {
@@ -2251,12 +2183,14 @@ describe('listPages', () => {
     expect(pages[0]).not.toHaveProperty('description');
   });
 
-  it('includes groupPath from page regions', () => {
+  it('includes groupPath when a group is placed on the page', () => {
     const project = createProject();
     project.addPage('Step 1', undefined, 'step1');
+    project.addGroup('contact', 'Contact');
+    project.placeOnPage('contact', 'step1');
     const pages = project.listPages();
     expect(pages[0]).toHaveProperty('groupPath');
-    expect(pages[0].groupPath).toBe('step1');
+    expect(pages[0].groupPath).toBe('contact');
   });
 });
 
@@ -2272,7 +2206,7 @@ describe('pageStructure', () => {
     expect(structure.pages).toHaveLength(1);
     expect(structure.pages[0].id).toBe('step1');
     expect(structure.itemPageMap.name).toBe('step1');
-    expect(structure.pages[0].items.some((item) => item.key === 'step1')).toBe(true);
+    expect(structure.pages[0].items.some((item) => item.key === 'name')).toBe(true);
   });
 });
 
@@ -2745,17 +2679,15 @@ describe('addContent defaults', () => {
 });
 
 describe('addContent page placement', () => {
-  it('adds content to the page group when page prop is given', () => {
+  it('adds content and places it on the page when page prop is given', () => {
     const project = createProject();
     const pageResult = project.addPage('Page One');
     const pageId = pageResult.createdId!;
-    const groupKey = pageResult.affectedPaths[0];
 
-    // Content goes inside the page's group in a paged definition
-    project.addContent(`${groupKey}.intro`, 'Welcome', 'heading', { page: pageId });
+    project.addContent('intro', 'Welcome', 'heading', { page: pageId });
 
-    // The content item exists in the definition under the page group
-    const item = project.itemAt(`${groupKey}.intro`);
+    // The content item exists in the definition
+    const item = project.itemAt('intro');
     expect(item?.type).toBe('display');
     expect(item?.label).toBe('Welcome');
   });
@@ -2776,22 +2708,22 @@ describe('addContent page placement', () => {
     const project = createProject();
     const pageResult = project.addPage('Page One');
     const pageId = pageResult.createdId!;
-    const groupKey = pageResult.affectedPaths[0];
 
-    // Content must go inside the page's group in a paged definition
-    project.addContent(`${groupKey}.intro`, 'Welcome', 'heading', { page: pageId });
+    project.addContent('intro', 'Welcome', 'heading', { page: pageId });
 
-    const item = project.itemAt(`${groupKey}.intro`);
+    const item = project.itemAt('intro');
     expect(item?.type).toBe('display');
     expect((item as any)?.presentation?.widgetHint).toBe('heading');
   });
 });
 
 describe('page prop auto-resolves to parentPath', () => {
-  it('addField with props.page nests field under the page group', () => {
+  it('addField with props.page nests field under the page group when group is placed', () => {
     const project = createProject();
     const pageResult = project.addPage('Basics', undefined, 'basics');
     const pageId = pageResult.createdId!;
+    project.addGroup('basics', 'Basics Group');
+    project.placeOnPage('basics', pageId);
 
     // Use only props.page — no dot-path, no parentPath
     project.addField('name', 'Full Name', 'text', { page: pageId });
@@ -2802,10 +2734,25 @@ describe('page prop auto-resolves to parentPath', () => {
     expect(item?.label).toBe('Full Name');
   });
 
+  it('addField with props.page creates at root when no group placed on page', () => {
+    const project = createProject();
+    const pageResult = project.addPage('Basics', undefined, 'basics');
+    const pageId = pageResult.createdId!;
+
+    // No group placed on the page — field goes to root
+    project.addField('name', 'Full Name', 'text', { page: pageId });
+
+    const item = project.itemAt('name');
+    expect(item).toBeDefined();
+    expect(item?.label).toBe('Full Name');
+  });
+
   it('explicit parentPath takes precedence over page prop', () => {
     const project = createProject();
     const pageResult = project.addPage('Basics', undefined, 'basics');
     const pageId = pageResult.createdId!;
+    project.addGroup('basics', 'Basics Group');
+    project.placeOnPage('basics', pageId);
 
     // Create another group under the page group
     project.addGroup('basics.contact', 'Contact');
@@ -2818,10 +2765,12 @@ describe('page prop auto-resolves to parentPath', () => {
     expect(project.itemAt('basics.phone')).toBeUndefined();
   });
 
-  it('addContent with props.page nests content under the page group', () => {
+  it('addContent with props.page nests content under the page group when group is placed', () => {
     const project = createProject();
     const pageResult = project.addPage('Info', undefined, 'info');
     const pageId = pageResult.createdId!;
+    project.addGroup('info', 'Info Group');
+    project.placeOnPage('info', pageId);
 
     project.addContent('intro', 'Welcome', 'heading', { page: pageId });
 
@@ -3225,14 +3174,14 @@ describe('behavioral page methods', () => {
     const project = createProject();
     const result = project.addPage('Test Page');
     const pageId = result.createdId!;
-    const groupKey = (result as any).groupKey as string;
-    // In paged mode, fields must live inside the page's group
-    project.addField(`${groupKey}.name`, 'Name', 'text');
-    project.addField(`${groupKey}.email`, 'Email', 'email');
-    // Place the leaf keys on the page
+    // addPage no longer creates a paired group — add fields at top level and place them
+    project.addField('name', 'Name', 'text');
+    project.addField('email', 'Email', 'email');
+    project.addField('phone', 'Phone', 'phone');
     project.placeOnPage('name', pageId);
     project.placeOnPage('email', pageId);
-    return { project, pageId, groupKey };
+    project.placeOnPage('phone', pageId);
+    return { project, pageId };
   }
 
   describe('setItemWidth', () => {
@@ -3362,23 +3311,12 @@ describe('behavioral page methods', () => {
     });
   });
 
-  describe('addPage returns groupKey', () => {
-    it('includes groupKey in the result', () => {
-      const project = createProject();
-      const result = project.addPage('My Page');
-      expect(result).toHaveProperty('groupKey');
-      expect(typeof (result as any).groupKey).toBe('string');
-      // groupKey matches the affected path
-      expect((result as any).groupKey).toBe(result.affectedPaths[0]);
-    });
-  });
-
   describe('edge cases', () => {
     it('reorder first item up is a no-op (index clamped to 0)', () => {
       const { project, pageId } = projectWithPageAndItems();
       const pageBefore = findPageNode(project, pageId);
       const keysBefore = getBoundChildren(pageBefore).map((n: any) => n.bind);
-      // The first bound child is the group key from addPage — reorder it up
+      // Reorder the first bound child up — should be a no-op
       const firstKey = keysBefore[0];
       project.reorderItemOnPage(pageId, firstKey, 'up');
       const pageAfter = findPageNode(project, pageId);
@@ -3514,8 +3452,9 @@ describe('component-level layout helpers', () => {
       dataType: 'string',
     }, pageId);
 
-    expect(result.createdId).toBe('basics.email');
-    expect(project.itemAt('basics.email')?.type).toBe('field');
+    // No group on page — field is created at root level
+    expect(result.createdId).toBe('email');
+    expect(project.itemAt('email')?.type).toBe('field');
     expect(project.componentFor('email')).toBeDefined();
   });
 
@@ -3655,7 +3594,7 @@ describe('moveComponentNodeToIndex', () => {
     const cardId = project.wrapInLayoutComponent('first', 'Card').createdId!;
 
     // Move 'third' into the card at index 0 (before 'first')
-    project.moveComponentNodeToIndex({ bind: 'third' }, cardId, 0);
+    project.moveComponentNodeToIndex({ bind: 'third' }, { nodeId: cardId }, 0);
 
     const tree = (project.component as any)?.tree;
     const cardNode = findNodeById(tree, cardId);
@@ -3669,8 +3608,8 @@ describe('moveComponentNodeToIndex', () => {
     project.addField('c', 'C', 'text');
     const cardId = project.wrapInLayoutComponent('a', 'Card').createdId!;
     // Move b into card at index 0, then c at index 1
-    project.moveComponentNodeToIndex({ bind: 'b' }, cardId, 0);
-    project.moveComponentNodeToIndex({ bind: 'c' }, cardId, 1);
+    project.moveComponentNodeToIndex({ bind: 'b' }, { nodeId: cardId }, 0);
+    project.moveComponentNodeToIndex({ bind: 'c' }, { nodeId: cardId }, 1);
 
     const tree = (project.component as any)?.tree;
     const cardNode = findNodeById(tree, cardId);
@@ -3682,7 +3621,7 @@ describe('moveComponentNodeToIndex', () => {
     project.addField('f', 'F', 'text');
     const cardId = project.wrapInLayoutComponent('f', 'Card').createdId!;
     project.addField('g', 'G', 'text');
-    const result = project.moveComponentNodeToIndex({ bind: 'g' }, cardId, 0);
+    const result = project.moveComponentNodeToIndex({ bind: 'g' }, { nodeId: cardId }, 0);
     expect(result.action.helper).toBe('moveComponentNodeToIndex');
   });
 });
@@ -3888,38 +3827,39 @@ describe('FIX-9: removeValidation normalization', () => {
 // ── BUG-11: listPages first-page groupPath ──────────────────────────
 
 describe('BUG-11: listPages groupPath for all pages', () => {
-  it('returns groupPath for both first and second page', () => {
+  it('returns groupPath only when groups are explicitly placed on pages', () => {
     const project = createProject();
     project.addPage('Step 1', undefined, 'step1');
     project.addPage('Step 2', undefined, 'step2');
 
+    // No groups placed yet — no groupPath
     const pages = project.listPages();
     expect(pages).toHaveLength(2);
-    expect(pages[0].groupPath).toBe('step1');
-    expect(pages[1].groupPath).toBe('step2');
-  });
+    expect(pages[0].groupPath).toBeUndefined();
+    expect(pages[1].groupPath).toBeUndefined();
 
-  it('preserves first page groupPath after adding fields to it', () => {
-    const project = createProject();
-    project.addPage('Step 1', undefined, 'step1');
-    project.addPage('Step 2', undefined, 'step2');
-    // Adding a field triggers a tree rebuild
-    project.addField('name', 'Name', 'string', { parentPath: 'step1' });
+    // Place groups explicitly
+    project.addGroup('g1', 'Group 1');
+    project.addGroup('g2', 'Group 2');
+    project.placeOnPage('g1', 'step1');
+    project.placeOnPage('g2', 'step2');
 
-    const pages = project.listPages();
-    expect(pages[0].groupPath).toBe('step1');
-    expect(pages[1].groupPath).toBe('step2');
+    const pagesAfter = project.listPages();
+    expect(pagesAfter[0].groupPath).toBe('g1');
+    expect(pagesAfter[1].groupPath).toBe('g2');
   });
 
   it('preserves first page groupPath after placing items on pages', () => {
     const project = createProject();
     project.addField('name', 'Name', 'string');
+    project.addGroup('contact', 'Contact');
     project.addPage('Step 1', undefined, 'step1');
     project.addPage('Step 2', undefined, 'step2');
+    project.placeOnPage('contact', 'step1');
     project.placeOnPage('name', 'step1');
 
     const pages = project.listPages();
-    expect(pages[0].groupPath).toBe('step1');
-    expect(pages[1].groupPath).toBe('step2');
+    expect(pages[0].groupPath).toBe('contact');
+    expect(pages[1].groupPath).toBeUndefined();
   });
 });

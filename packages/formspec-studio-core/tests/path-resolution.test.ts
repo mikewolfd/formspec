@@ -82,8 +82,10 @@ describe('path resolution — parentPath + dot-path interaction', () => {
 describe('addGroup page prop', () => {
   it('places group on specified page via parentPath resolution', () => {
     const project = createProject();
+    // Create a root group and page, then place the group on the page
+    project.addGroup('page_1', 'Page 1 Group');
     project.addPage('Details', undefined, 'page_1');
-    // addPage with id='page_1' creates a root group with key 'page_1'
+    project.placeOnPage('page_1', 'page_1');
     // addGroup with page='page_1' should nest under that page group
     project.addGroup('details', 'Service Details', { page: 'page_1' });
     // The group should exist as a child of the page's root group
@@ -108,7 +110,10 @@ describe('addGroup page prop', () => {
 
   it('page prop with dot-path uses parentPath for nesting under page group', () => {
     const project = createProject();
+    // Create a root group and page, then place the group on the page
+    project.addGroup('page_1', 'Page 1 Group');
     project.addPage('Details', undefined, 'page_1');
+    project.placeOnPage('page_1', 'page_1');
     // Create a group under the page, then nest via explicit parentPath
     project.addGroup('parent', 'Parent', { page: 'page_1' });
     // To nest under page_1.parent, use parentPath explicitly

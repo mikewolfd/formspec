@@ -273,18 +273,16 @@ describe('M6: duplicate leaf key blocked at authoring time (Rust E200)', () => {
 // ── L7: addPage atomicity ───────────────────────────────────
 
 describe('L7: addPage atomicity', () => {
-  it('addPage undoes both tiers in one step', () => {
+  it('addPage creates Page node and wizard mode, undo reverses both', () => {
     const project = createProject();
     project.addPage('Step 1');
-    // Should have created the group item + Page node + wizard mode
-    expect(project.definition.items.length).toBeGreaterThan(0);
+    // addPage now creates only a Page node + wizard mode (no definition items)
     expect(project.definition.formPresentation?.pageMode).toBe('wizard');
     const comp = project.component as any;
     const pageNodes = (comp.tree?.children ?? []).filter((n: any) => n.component === 'Page');
     expect(pageNodes.length).toBe(1);
-    // Single undo reverses everything
+    // Single undo reverses the Page node and wizard mode
     project.undo();
-    expect(project.definition.items).toHaveLength(0);
     const compAfter = project.component as any;
     const pageNodesAfter = (compAfter.tree?.children ?? []).filter((n: any) => n.component === 'Page');
     expect(pageNodesAfter.length).toBe(0);
