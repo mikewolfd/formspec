@@ -2382,11 +2382,8 @@ export class Project {
 
   // ── Page Helpers ──
 
-  /**
-   * Add a page. By default creates a paired definition group and places it on the new page.
-   * With `opts.standalone`, creates only the page with no paired group.
-   */
-  addPage(title: string, description?: string, id?: string, opts?: { standalone?: boolean }): HelperResult {
+  /** Add a page — creates a Page node in the component tree. */
+  addPage(title: string, description?: string, id?: string): HelperResult {
     // Validate custom ID format
     if (id !== undefined) {
       if (!/^[a-zA-Z][a-zA-Z0-9_\-]*$/.test(id)) {
@@ -2422,54 +2419,17 @@ export class Project {
       },
     };
 
-    if (opts?.standalone) {
-      if (pageModeCommand) {
-        this.core.dispatch([pageModeCommand, addPageCommand]);
-      } else {
-        this.core.dispatch(addPageCommand);
-      }
-
-      return {
-        summary: `Added page '${title}'`,
-        action: { helper: 'addPage', params: { title, description, standalone: true } },
-        affectedPaths: [pageId],
-        createdId: pageId,
-      };
+    if (pageModeCommand) {
+      this.core.dispatch([pageModeCommand, addPageCommand]);
+    } else {
+      this.core.dispatch(addPageCommand);
     }
-
-    // Convenience path: group + page + region
-    const rawKey = id ?? title;
-    const key = rawKey.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `page_${Date.now()}`;
-
-    // Deduplicate: if key already exists, append a counter
-    let finalKey = key;
-    let counter = 2;
-    while (this.core.itemAt(finalKey)) {
-      finalKey = `${key}_${counter++}`;
-    }
-
-    const phase1: AnyCommand[] = [
-      { type: 'definition.addItem', payload: { type: 'group', key: finalKey, label: title } },
-      ...(pageModeCommand ? [pageModeCommand] : []),
-    ];
-    const phase2: AnyCommand[] = [
-      addPageCommand,
-      {
-        type: 'component.moveNode',
-        payload: {
-          source: { bind: finalKey },
-          targetParent: { nodeId: pageId },
-        },
-      },
-    ];
-    this.core.batchWithRebuild(phase1, phase2);
 
     return {
       summary: `Added page '${title}'`,
       action: { helper: 'addPage', params: { title, description } },
-      affectedPaths: [finalKey],
+      affectedPaths: [pageId],
       createdId: pageId,
-      groupKey: finalKey,
     };
   }
 
@@ -2749,13 +2709,16 @@ export class Project {
       const typeArg = spec.registryDataType ?? spec.dataType ?? 'string';
       const addResult = this.addField(key, spec.label, typeArg, {
         ...(parentPath ? { parentPath } : {}),
-        ...(pageId ? { page: pageId } : {}),
       });
+      const leafKey = addResult.affectedPaths[0] ?? fullPath;
+      if (pageId && !pageGroupPath) {
+        this.placeOnPage(leafKey, pageId);
+      }
       return {
         summary: addResult.summary,
         action: { helper: 'addItemToLayout', params: { spec, pageId } },
         affectedPaths: addResult.affectedPaths,
-        createdId: addResult.affectedPaths[0] ?? fullPath,
+        createdId: leafKey,
       };
     }
 
@@ -2822,6 +2785,10 @@ export class Project {
     if (parentPath) payload.parentPath = parentPath;
     if (spec.presentation) payload.presentation = spec.presentation;
     this.core.dispatch({ type: 'definition.addItem', payload });
+
+    if (pageId && !pageGroupPath) {
+      this.placeOnPage(key, pageId);
+    }
 
     return {
       summary: `Added display item '${spec.label}' to layout`,

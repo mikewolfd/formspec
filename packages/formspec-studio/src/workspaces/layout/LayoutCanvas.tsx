@@ -32,6 +32,7 @@ import { LayoutDndProvider } from './LayoutDndProvider';
 import { clampContextMenuPosition } from '../../components/ui/context-menu-utils';
 import { ThemeOverridePopover } from './ThemeOverridePopover';
 import { useOptionalLayoutMode } from './LayoutModeContext';
+import { useLayoutPreviewNav } from './LayoutPreviewNavContext';
 import { setThemeOverride, clearThemeOverride, setColumnSpan, setRowSpan, setStyleProperty, removeStyleProperty } from '@formspec-org/studio-core';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -301,6 +302,7 @@ export function LayoutCanvas() {
     isSelectedForTab,
     selectedKeysForTab,
     selectedKeyForTab,
+    selectedTypeForTab,
   } = useSelection();
   const structure = useLayoutPageStructure();
 
@@ -308,6 +310,7 @@ export function LayoutCanvas() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pendingRemovePageNavId, setPendingRemovePageNavId] = useState<string | null>(null);
   const layoutModeCtx = useOptionalLayoutMode();
+  const { setPreviewPageIndex, setHighlightFieldPath } = useLayoutPreviewNav();
   const themeSelectedKey = layoutModeCtx?.themeSelectedKey ?? null;
   const setThemeSelectedKey = layoutModeCtx?.setThemeSelectedKey ?? (() => {});
   const themePopoverPosition = layoutModeCtx?.themePopoverPosition ?? { x: 0, y: 0 };
@@ -327,6 +330,7 @@ export function LayoutCanvas() {
   const hasPages = pagedTreeChildren.some((node) => node.component === 'Page');
   const isMultiPage = structure.mode !== 'single' && hasPages;
   const layoutPrimaryKey = selectedKeyForTab('layout');
+  const layoutPrimaryType = selectedTypeForTab('layout');
   const layoutSelectedKeys = selectedKeysForTab('layout');
 
   const pageNavItems = useMemo(
@@ -365,7 +369,7 @@ export function LayoutCanvas() {
     }
 
     for (const page of syntheticPages) {
-      const result = project.addPage(page.title, undefined, page.id, { standalone: true });
+      const result = project.addPage(page.title, undefined, page.id);
       const createdPageId = result.createdId!;
       project.placeOnPage(page.groupPath!, createdPageId);
       pageIdMap.set(page.id, createdPageId);
@@ -385,6 +389,36 @@ export function LayoutCanvas() {
       setActivePageId(pageNavItems[0]?.id ?? null);
     }
   }, [activePageId, pageNavItems]);
+
+  useEffect(() => {
+    return () => {
+      setPreviewPageIndex(null);
+      setHighlightFieldPath(null);
+    };
+  }, [setPreviewPageIndex, setHighlightFieldPath]);
+
+  useEffect(() => {
+    if (!isMultiPage || !activePageId) {
+      setPreviewPageIndex(null);
+      return;
+    }
+    const idx = pageNavItems.findIndex((p) => p.id === activePageId);
+    setPreviewPageIndex(idx >= 0 ? idx : 0);
+  }, [activePageId, isMultiPage, pageNavItems, setPreviewPageIndex]);
+
+  useEffect(() => {
+    const key = layoutPrimaryKey;
+    const type = layoutPrimaryType;
+    if (!key || key.startsWith('__node:')) {
+      setHighlightFieldPath(null);
+      return;
+    }
+    if (type === 'field' || type === 'display') {
+      setHighlightFieldPath(key);
+      return;
+    }
+    setHighlightFieldPath(null);
+  }, [layoutPrimaryKey, layoutPrimaryType, setHighlightFieldPath]);
 
   const visibleTreeChildren = useMemo(() => {
     if (!isMultiPage || !activePageId) {

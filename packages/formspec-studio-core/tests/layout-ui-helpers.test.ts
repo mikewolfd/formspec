@@ -35,7 +35,7 @@ describe('resolveLayoutInsertTarget', () => {
 
   it('returns pageId as parentNodeId when multi-page project has an active page', () => {
     const project = createProject();
-    const pageResult = project.addPage('Page One', undefined, undefined, { standalone: true });
+    const pageResult = project.addPage('Page One');
     const pageId = pageResult.createdId!;
     const result = resolveLayoutInsertTarget(project, pageId);
     expect(result.parentNodeId).toBe(pageId);
