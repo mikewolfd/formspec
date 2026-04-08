@@ -1,0 +1,277 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:zj2b7qv5",
+  "version": "0.1.0",
+  "title": "TechConf 2025 — Registration",
+  "items": [
+    {
+      "key": "about_you",
+      "type": "group",
+      "label": "About You",
+      "children": [
+        {
+          "key": "attendee_name",
+          "type": "field",
+          "label": "Full Name",
+          "dataType": "string",
+          "hint": "As it will appear on your conference badge"
+        },
+        {
+          "key": "email",
+          "type": "field",
+          "label": "Email Address",
+          "dataType": "string",
+          "hint": "We'll send your confirmation and updates here"
+        },
+        {
+          "key": "company",
+          "type": "field",
+          "label": "Company / Organization",
+          "dataType": "string",
+          "hint": "Optional — leave blank if not applicable"
+        },
+        {
+          "key": "welcome_banner",
+          "type": "display",
+          "label": "Welcome to TechConf 2025! Complete this form to secure your spot. It takes about 3 minutes.",
+          "presentation": {
+            "widgetHint": "banner"
+          }
+        }
+      ]
+    },
+    {
+      "key": "conference_details",
+      "type": "group",
+      "label": "Conference Details",
+      "children": [
+        {
+          "key": "registration_type",
+          "type": "field",
+          "label": "I am registering as a...",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "radio"
+          },
+          "options": [
+            {
+              "value": "attendee",
+              "label": "Attendee — here to learn and network"
+            },
+            {
+              "value": "speaker",
+              "label": "Speaker — presenting a talk or workshop"
+            },
+            {
+              "value": "sponsor",
+              "label": "Sponsor — representing a sponsoring company"
+            }
+          ],
+          "hint": "Your registration type determines your access level and conference kit"
+        },
+        {
+          "key": "sessions",
+          "type": "field",
+          "label": "Which sessions are you interested in attending?",
+          "dataType": "multiChoice",
+          "hint": "Select all that apply — we use this to plan room sizes",
+          "presentation": {
+            "widgetHint": "checkboxGroup"
+          },
+          "options": [
+            {
+              "value": "keynote",
+              "label": "Opening Keynote: The Future of AI"
+            },
+            {
+              "value": "workshop_react",
+              "label": "Workshop: React Performance Deep Dive"
+            },
+            {
+              "value": "talk_accessibility",
+              "label": "Talk: Accessibility-First Design"
+            },
+            {
+              "value": "workshop_cloud",
+              "label": "Workshop: Cloud Architecture Patterns"
+            },
+            {
+              "value": "talk_security",
+              "label": "Talk: Zero Trust Security in Practice"
+            },
+            {
+              "value": "panel_future",
+              "label": "Panel: The Future of Remote Work"
+            },
+            {
+              "value": "talk_data",
+              "label": "Talk: Data Pipelines at Scale"
+            },
+            {
+              "value": "closing",
+              "label": "Closing Ceremony & Networking"
+            }
+          ]
+        },
+        {
+          "key": "session_intro",
+          "type": "display",
+          "label": "TechConf 2025 features 8 sessions across two days. Let us know which ones interest you most so we can plan room capacity.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        }
+      ]
+    },
+    {
+      "key": "logistics_accessibility",
+      "type": "group",
+      "label": "Logistics & Accessibility",
+      "children": [
+        {
+          "key": "dietary",
+          "type": "field",
+          "label": "Dietary Preference",
+          "dataType": "choice",
+          "hint": "We'll do our best to accommodate your needs",
+          "presentation": {
+            "widgetHint": "radio"
+          },
+          "options": [
+            {
+              "value": "none",
+              "label": "No restrictions"
+            },
+            {
+              "value": "vegetarian",
+              "label": "Vegetarian"
+            },
+            {
+              "value": "vegan",
+              "label": "Vegan"
+            },
+            {
+              "value": "gluten_free",
+              "label": "Gluten-free"
+            },
+            {
+              "value": "other",
+              "label": "Other (please describe in accessibility notes)"
+            }
+          ]
+        },
+        {
+          "key": "tshirt_size",
+          "type": "field",
+          "label": "T-Shirt Size",
+          "dataType": "choice",
+          "hint": "Shirts will be available at check-in on Day 1",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "xs",
+              "label": "XS"
+            },
+            {
+              "value": "s",
+              "label": "S"
+            },
+            {
+              "value": "m",
+              "label": "M"
+            },
+            {
+              "value": "l",
+              "label": "L"
+            },
+            {
+              "value": "xl",
+              "label": "XL"
+            },
+            {
+              "value": "xxl",
+              "label": "2XL"
+            },
+            {
+              "value": "xxxl",
+              "label": "3XL"
+            }
+          ]
+        },
+        {
+          "key": "accessibility",
+          "type": "field",
+          "label": "Accessibility Requirements",
+          "dataType": "text",
+          "hint": "We want everyone to feel welcome. Let us know what you need.",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "agreement",
+          "type": "field",
+          "label": "I agree to the TechConf 2025 Code of Conduct and Terms of Participation",
+          "dataType": "boolean",
+          "hint": "You must agree to participate in the conference",
+          "presentation": {
+            "widgetHint": "checkbox"
+          }
+        },
+        {
+          "key": "logistics_heading",
+          "type": "display",
+          "label": "Almost done! Just a few logistics questions.",
+          "presentation": {
+            "widgetHint": "heading"
+          }
+        }
+      ]
+    }
+  ],
+  "formPresentation": {
+    "pageMode": "wizard",
+    "showProgress": true,
+    "allowSkip": false
+  },
+  "binds": [
+    {
+      "path": "about_you.attendee_name",
+      "required": "true"
+    },
+    {
+      "path": "about_you.email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "conference_details.registration_type",
+      "required": "true"
+    },
+    {
+      "path": "logistics_accessibility.agreement",
+      "required": "true"
+    },
+    {
+      "path": "conference_details.sessions",
+      "required": "$conference_details.registration_type = \"attendee\""
+    },
+    {
+      "path": "logistics_accessibility.tshirt_size",
+      "relevant": "$conference_details.registration_type != \"speaker\""
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_6",
+      "target": "logistics_accessibility.agreement",
+      "message": "You must agree to the Code of Conduct to register.",
+      "severity": "error",
+      "constraint": "$logistics_accessibility.agreement = true",
+      "timing": "submit"
+    }
+  ],
+  "description": "Join us for three days of talks, workshops, and networking. Register below to secure your spot!"
+}

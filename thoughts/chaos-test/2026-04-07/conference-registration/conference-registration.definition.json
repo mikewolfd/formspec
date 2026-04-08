@@ -1,0 +1,577 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:f70v9k3y",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "TechConf 2025 — Conference Registration",
+  "items": [
+    {
+      "key": "your_information",
+      "type": "group",
+      "label": "Your Information",
+      "children": [
+        {
+          "key": "first_name",
+          "type": "field",
+          "label": "First Name",
+          "dataType": "string"
+        },
+        {
+          "key": "last_name",
+          "type": "field",
+          "label": "Last Name",
+          "dataType": "string"
+        },
+        {
+          "key": "email",
+          "type": "field",
+          "label": "Email Address",
+          "dataType": "string",
+          "hint": "We'll send your confirmation here"
+        },
+        {
+          "key": "phone",
+          "type": "field",
+          "label": "Phone Number",
+          "dataType": "string",
+          "hint": "Optional — for day-of emergency contact only"
+        },
+        {
+          "key": "organization",
+          "type": "field",
+          "label": "Organization / Company",
+          "dataType": "string"
+        },
+        {
+          "key": "job_title",
+          "type": "field",
+          "label": "Job Title",
+          "dataType": "string"
+        },
+        {
+          "key": "attendee_type",
+          "type": "field",
+          "label": "I am attending as a...",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "radio"
+          },
+          "options": [
+            {
+              "value": "professional",
+              "label": "Industry Professional"
+            },
+            {
+              "value": "student",
+              "label": "Student"
+            },
+            {
+              "value": "speaker",
+              "label": "Speaker / Presenter"
+            },
+            {
+              "value": "sponsor",
+              "label": "Sponsor Representative"
+            },
+            {
+              "value": "press",
+              "label": "Press / Media"
+            }
+          ],
+          "hint": "Your attendee type may affect pricing and session eligibility"
+        },
+        {
+          "key": "additional_guests",
+          "type": "group",
+          "label": "Additional Guests",
+          "children": [
+            {
+              "key": "guest_name",
+              "type": "field",
+              "label": "Guest Full Name",
+              "dataType": "string"
+            },
+            {
+              "key": "guest_email",
+              "type": "field",
+              "label": "Guest Email",
+              "dataType": "string"
+            },
+            {
+              "key": "guest_organization",
+              "type": "field",
+              "label": "Guest Organization",
+              "dataType": "string"
+            },
+            {
+              "key": "guest_tshirt_size",
+              "type": "field",
+              "label": "Guest T-Shirt Size",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "xs",
+                  "label": "XS"
+                },
+                {
+                  "value": "s",
+                  "label": "S"
+                },
+                {
+                  "value": "m",
+                  "label": "M"
+                },
+                {
+                  "value": "l",
+                  "label": "L"
+                },
+                {
+                  "value": "xl",
+                  "label": "XL"
+                },
+                {
+                  "value": "xxl",
+                  "label": "2XL"
+                },
+                {
+                  "value": "xxxl",
+                  "label": "3XL"
+                }
+              ]
+            }
+          ],
+          "repeatable": true,
+          "minRepeat": 0,
+          "maxRepeat": 3
+        }
+      ]
+    },
+    {
+      "key": "session_selection",
+      "type": "group",
+      "label": "Session Selection",
+      "children": [
+        {
+          "key": "morning_heading",
+          "type": "display",
+          "label": "Morning Sessions (9:00 AM – 12:00 PM)",
+          "presentation": {
+            "widgetHint": "heading"
+          }
+        },
+        {
+          "key": "morning_sessions",
+          "type": "field",
+          "label": "Morning Sessions",
+          "dataType": "multiChoice",
+          "hint": "Select all sessions you plan to attend",
+          "presentation": {
+            "widgetHint": "checkboxGroup"
+          },
+          "options": [
+            {
+              "value": "keynote",
+              "label": "Opening Keynote: The Future of Tech (All attendees)"
+            },
+            {
+              "value": "ai_track_am",
+              "label": "AI & Machine Learning Deep Dive"
+            },
+            {
+              "value": "devops_track_am",
+              "label": "DevOps at Scale: Lessons from the Trenches"
+            },
+            {
+              "value": "design_track_am",
+              "label": "UX Research Methods Workshop"
+            },
+            {
+              "value": "security_track_am",
+              "label": "Zero Trust Architecture in Practice"
+            }
+          ]
+        },
+        {
+          "key": "afternoon_heading",
+          "type": "display",
+          "label": "Afternoon Sessions (1:00 PM – 5:00 PM)",
+          "presentation": {
+            "widgetHint": "heading"
+          }
+        },
+        {
+          "key": "afternoon_sessions",
+          "type": "field",
+          "label": "Afternoon Sessions",
+          "dataType": "multiChoice",
+          "hint": "Select all sessions you plan to attend",
+          "presentation": {
+            "widgetHint": "checkboxGroup"
+          },
+          "options": [
+            {
+              "value": "cloud_pm",
+              "label": "Cloud Cost Optimization Strategies"
+            },
+            {
+              "value": "ai_track_pm",
+              "label": "Responsible AI: Ethics & Governance"
+            },
+            {
+              "value": "platform_pm",
+              "label": "Platform Engineering: Building Developer Portals"
+            },
+            {
+              "value": "data_pm",
+              "label": "Real-Time Data Pipelines"
+            },
+            {
+              "value": "leadership_pm",
+              "label": "Engineering Leadership Workshop"
+            }
+          ]
+        },
+        {
+          "key": "workshop_interest",
+          "type": "field",
+          "label": "Pre-Conference Workshop (Day Before, Extra Fee)",
+          "dataType": "choice",
+          "hint": "Optional add-on — pricing shown at checkout",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "none",
+              "label": "No workshop"
+            },
+            {
+              "value": "kubernetes_101",
+              "label": "Kubernetes 101 (Half Day, $149)"
+            },
+            {
+              "value": "llm_apps",
+              "label": "Building LLM Apps (Full Day, $249)"
+            },
+            {
+              "value": "sec_bootcamp",
+              "label": "Security Bootcamp (Full Day, $249)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "preferences",
+      "type": "group",
+      "label": "Preferences",
+      "children": [
+        {
+          "key": "swag_note",
+          "type": "display",
+          "label": "All registered attendees receive a conference T-shirt! We order exact quantities so please choose carefully — we can't guarantee exchanges on-site.",
+          "presentation": {
+            "widgetHint": "banner"
+          }
+        },
+        {
+          "key": "tshirt_size",
+          "type": "field",
+          "label": "T-Shirt Size",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "xs",
+              "label": "XS"
+            },
+            {
+              "value": "s",
+              "label": "S"
+            },
+            {
+              "value": "m",
+              "label": "M"
+            },
+            {
+              "value": "l",
+              "label": "L"
+            },
+            {
+              "value": "xl",
+              "label": "XL"
+            },
+            {
+              "value": "xxl",
+              "label": "2XL"
+            },
+            {
+              "value": "xxxl",
+              "label": "3XL"
+            }
+          ]
+        },
+        {
+          "key": "tshirt_cut",
+          "type": "field",
+          "label": "T-Shirt Cut",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "unisex",
+              "label": "Unisex / Standard"
+            },
+            {
+              "value": "fitted",
+              "label": "Fitted / Women's"
+            }
+          ]
+        },
+        {
+          "key": "dietary_restrictions",
+          "type": "field",
+          "label": "Dietary Restrictions",
+          "dataType": "multiChoice",
+          "hint": "Select all that apply — catering will be notified",
+          "presentation": {
+            "widgetHint": "checkboxGroup"
+          },
+          "options": [
+            {
+              "value": "none",
+              "label": "No restrictions"
+            },
+            {
+              "value": "vegetarian",
+              "label": "Vegetarian"
+            },
+            {
+              "value": "vegan",
+              "label": "Vegan"
+            },
+            {
+              "value": "gluten_free",
+              "label": "Gluten-free"
+            },
+            {
+              "value": "halal",
+              "label": "Halal"
+            },
+            {
+              "value": "kosher",
+              "label": "Kosher"
+            },
+            {
+              "value": "nut_allergy",
+              "label": "Nut allergy (severe)"
+            },
+            {
+              "value": "dairy_free",
+              "label": "Dairy-free"
+            }
+          ]
+        },
+        {
+          "key": "dietary_other",
+          "type": "field",
+          "label": "Other dietary needs or severe allergies",
+          "dataType": "text",
+          "hint": "We take allergies seriously. Our catering team will follow up if needed.",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        }
+      ]
+    },
+    {
+      "key": "registration_tier",
+      "type": "group",
+      "label": "Registration Tier",
+      "children": [
+        {
+          "key": "pricing_intro",
+          "type": "display",
+          "label": "Registration includes full conference access, all meals, and your T-shirt.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        },
+        {
+          "key": "pricing_divider",
+          "type": "display",
+          "label": "",
+          "presentation": {
+            "widgetHint": "divider"
+          }
+        },
+        {
+          "key": "ticket_type",
+          "type": "field",
+          "label": "Registration Package",
+          "dataType": "choice",
+          "hint": "Early bird pricing ends March 31st",
+          "presentation": {
+            "widgetHint": "radio"
+          },
+          "options": [
+            {
+              "value": "early_bird",
+              "label": "Early Bird — $299 (save $100!)"
+            },
+            {
+              "value": "regular",
+              "label": "Regular — $399"
+            },
+            {
+              "value": "vip",
+              "label": "VIP — $699 (priority seating, speaker dinner, exclusive lounge access)"
+            }
+          ]
+        },
+        {
+          "key": "promo_code",
+          "type": "field",
+          "label": "Promo / Discount Code",
+          "dataType": "string",
+          "hint": "Codes are case-insensitive"
+        },
+        {
+          "key": "total_due",
+          "type": "field",
+          "label": "Estimated Total",
+          "dataType": "money",
+          "hint": "Final total calculated before payment processing",
+          "presentation": {
+            "widgetHint": "moneyInput"
+          }
+        },
+        {
+          "key": "billing_name",
+          "type": "field",
+          "label": "Name on Card / Invoice",
+          "dataType": "string",
+          "hint": "As it should appear on your receipt or invoice"
+        },
+        {
+          "key": "purchase_order",
+          "type": "field",
+          "label": "Purchase Order Number",
+          "dataType": "string",
+          "hint": "If your organization requires a PO number for invoicing"
+        },
+        {
+          "key": "student_discount_note",
+          "type": "display",
+          "label": "Student discount applied! Please bring valid student ID to the registration desk. Your 50% discount will be reflected in your final invoice.",
+          "presentation": {
+            "widgetHint": "banner"
+          }
+        }
+      ]
+    }
+  ],
+  "formPresentation": {
+    "pageMode": "wizard",
+    "showProgress": true
+  },
+  "binds": [
+    {
+      "path": "your_information.first_name",
+      "required": "true"
+    },
+    {
+      "path": "your_information.last_name",
+      "required": "true"
+    },
+    {
+      "path": "your_information.email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "your_information.phone",
+      "constraint": "matches($, '^[+]?[0-9\\\\s\\\\-().]+$')"
+    },
+    {
+      "path": "your_information.organization",
+      "required": "true"
+    },
+    {
+      "path": "your_information.attendee_type",
+      "required": "true"
+    },
+    {
+      "path": "session_selection.morning_sessions",
+      "required": "true"
+    },
+    {
+      "path": "preferences.tshirt_size",
+      "required": "true"
+    },
+    {
+      "path": "preferences.tshirt_cut",
+      "required": "true"
+    },
+    {
+      "path": "preferences.dietary_other",
+      "relevant": "!contains($preferences.dietary_restrictions, \"none\")"
+    },
+    {
+      "path": "registration_tier.ticket_type",
+      "required": "true"
+    },
+    {
+      "path": "registration_tier.total_due",
+      "readonly": "true",
+      "calculate": "money(if($registration_tier.ticket_type = \"early_bird\", 299, if($registration_tier.ticket_type = \"regular\", 399, if($registration_tier.ticket_type = \"vip\", 699, 0))) + if($session_selection.workshop_interest = \"kubernetes_101\", 149, if($session_selection.workshop_interest = \"llm_apps\", 249, if($session_selection.workshop_interest = \"sec_bootcamp\", 249, 0))), \"USD\")"
+    },
+    {
+      "path": "registration_tier.billing_name",
+      "required": "true"
+    },
+    {
+      "path": "registration_tier.student_discount_note",
+      "relevant": "$your_information.attendee_type = \"student\""
+    },
+    {
+      "path": "your_information.additional_guests.guest_name",
+      "required": "true"
+    },
+    {
+      "path": "your_information.additional_guests.guest_email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "your_information.additional_guests.guest_tshirt_size",
+      "required": "true"
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_1",
+      "target": "session_selection.morning_sessions",
+      "message": "Please select at least one morning session to attend.",
+      "severity": "error",
+      "constraint": "count($session_selection.morning_sessions) >= 1",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_2",
+      "target": "registration_tier.billing_name",
+      "message": "Please enter the full name as it should appear on your invoice.",
+      "severity": "error",
+      "constraint": "length($registration_tier.billing_name) >= 2",
+      "timing": "continuous"
+    }
+  ],
+  "description": "Register for TechConf 2025. Early bird pricing available through March 31st."
+}

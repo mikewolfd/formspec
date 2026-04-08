@@ -1,0 +1,49 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "reporter_name": {
+      "widgetConfig": {
+        "placeholder": "First and last name"
+      }
+    },
+    "department": {
+      "widgetConfig": {
+        "placeholder": "e.g., Engineering, Finance, Operations"
+      }
+    },
+    "fiscal_year": {
+      "widgetConfig": {
+        "placeholder": "YYYY"
+      }
+    },
+    "revenue": {
+      "widgetConfig": {
+        "placeholder": "0.00"
+      }
+    },
+    "expenses": {
+      "widgetConfig": {
+        "placeholder": "0.00"
+      }
+    },
+    "loss_explanation": {
+      "widgetConfig": {
+        "placeholder": "Describe the factors contributing to the net loss and any planned corrective actions..."
+      }
+    },
+    "description": {
+      "widgetConfig": {
+        "placeholder": "Brief description of this line item"
+      }
+    },
+    "amount": {
+      "widgetConfig": {
+        "placeholder": "0.00"
+      }
+    }
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:0ilvja3t"
+  }
+}

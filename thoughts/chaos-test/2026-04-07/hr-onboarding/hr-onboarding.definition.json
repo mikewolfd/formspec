@@ -1,0 +1,1116 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:cmh0lzqu",
+  "version": "0.1.0",
+  "status": "draft",
+  "title": "Employee Onboarding Checklist",
+  "items": [
+    {
+      "key": "employee_information",
+      "type": "group",
+      "label": "Employee Information",
+      "children": [
+        {
+          "key": "first_name",
+          "type": "field",
+          "label": "First Name",
+          "dataType": "string"
+        },
+        {
+          "key": "last_name",
+          "type": "field",
+          "label": "Last Name",
+          "dataType": "string"
+        },
+        {
+          "key": "employee_id",
+          "type": "field",
+          "label": "Employee ID",
+          "dataType": "string",
+          "hint": "Assigned by HR — format: EMP-XXXXX"
+        },
+        {
+          "key": "personal_email",
+          "type": "field",
+          "label": "Personal Email Address",
+          "dataType": "string"
+        },
+        {
+          "key": "phone",
+          "type": "field",
+          "label": "Phone Number",
+          "dataType": "string"
+        },
+        {
+          "key": "start_date",
+          "type": "field",
+          "label": "Start Date",
+          "dataType": "date",
+          "presentation": {
+            "widgetHint": "datePicker"
+          }
+        },
+        {
+          "key": "manager_name",
+          "type": "field",
+          "label": "Hiring Manager Name",
+          "dataType": "string"
+        }
+      ]
+    },
+    {
+      "key": "department_role",
+      "type": "group",
+      "label": "Department & Role",
+      "children": [
+        {
+          "key": "department",
+          "type": "field",
+          "label": "Department",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "manufacturing",
+              "label": "Manufacturing Floor"
+            },
+            {
+              "value": "office",
+              "label": "Office / Administration"
+            },
+            {
+              "value": "it",
+              "label": "Information Technology"
+            },
+            {
+              "value": "warehouse",
+              "label": "Warehouse / Logistics"
+            }
+          ],
+          "hint": "The department selected here determines which equipment, training, and compliance sections appear in later pages."
+        },
+        {
+          "key": "job_title",
+          "type": "field",
+          "label": "Job Title",
+          "dataType": "string"
+        },
+        {
+          "key": "employment_type",
+          "type": "field",
+          "label": "Employment Type",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "full_time",
+              "label": "Full-Time"
+            },
+            {
+              "value": "part_time",
+              "label": "Part-Time"
+            },
+            {
+              "value": "contract",
+              "label": "Contract"
+            },
+            {
+              "value": "temp",
+              "label": "Temporary"
+            }
+          ]
+        },
+        {
+          "key": "work_location",
+          "type": "field",
+          "label": "Work Location / Shift",
+          "dataType": "string",
+          "hint": "e.g., Building A - Day Shift, Remote, Main Office"
+        }
+      ]
+    },
+    {
+      "key": "equipment_checklist",
+      "type": "group",
+      "label": "Equipment Checklist",
+      "children": [
+        {
+          "key": "manufacturing_equipment",
+          "type": "group",
+          "label": "Manufacturing Floor Equipment",
+          "children": [
+            {
+              "key": "safety_glasses",
+              "type": "field",
+              "label": "Safety glasses issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "hard_hat",
+              "type": "field",
+              "label": "Hard hat issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "steel_toe_boots",
+              "type": "field",
+              "label": "Steel-toe boots issued (or voucher provided)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "hi_vis_vest",
+              "type": "field",
+              "label": "High-visibility vest issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "ear_protection",
+              "type": "field",
+              "label": "Ear protection issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "gloves",
+              "type": "field",
+              "label": "Work gloves issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "locker_assigned",
+              "type": "field",
+              "label": "Locker assigned",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "locker_number",
+              "type": "field",
+              "label": "Locker Number",
+              "dataType": "string",
+              "hint": "Leave blank if not applicable"
+            }
+          ]
+        },
+        {
+          "key": "office_equipment",
+          "type": "group",
+          "label": "Office / Admin Equipment",
+          "children": [
+            {
+              "key": "laptop_issued",
+              "type": "field",
+              "label": "Laptop / computer issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "monitor",
+              "type": "field",
+              "label": "Monitor(s) issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "keyboard_mouse",
+              "type": "field",
+              "label": "Keyboard and mouse issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "desk_phone",
+              "type": "field",
+              "label": "Desk phone issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "office_keys",
+              "type": "field",
+              "label": "Office keys / access card issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "parking_permit",
+              "type": "field",
+              "label": "Parking permit issued (if applicable)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "it_equipment",
+          "type": "group",
+          "label": "IT Department Equipment",
+          "children": [
+            {
+              "key": "laptop_issued",
+              "type": "field",
+              "label": "Laptop issued (with IT image)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "monitor",
+              "type": "field",
+              "label": "Monitor(s) issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "docking_station",
+              "type": "field",
+              "label": "Docking station issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "company_phone",
+              "type": "field",
+              "label": "Company mobile phone issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "vpn_token",
+              "type": "field",
+              "label": "VPN token / authenticator configured",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "network_access",
+              "type": "field",
+              "label": "Network access credentials provided",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "admin_rights",
+              "type": "field",
+              "label": "Admin rights level assigned",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "standard",
+                  "label": "Standard user"
+                },
+                {
+                  "value": "local_admin",
+                  "label": "Local admin"
+                },
+                {
+                  "value": "domain_admin",
+                  "label": "Domain admin"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "warehouse_equipment",
+          "type": "group",
+          "label": "Warehouse / Logistics Equipment",
+          "children": [
+            {
+              "key": "safety_glasses",
+              "type": "field",
+              "label": "Safety glasses issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "steel_toe_boots",
+              "type": "field",
+              "label": "Steel-toe boots issued (or voucher provided)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "hi_vis_vest",
+              "type": "field",
+              "label": "High-visibility vest issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "forklift_license_verified",
+              "type": "field",
+              "label": "Forklift license verified (if applicable)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "scanner_issued",
+              "type": "field",
+              "label": "Barcode scanner / handheld device issued",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "locker_assigned",
+              "type": "field",
+              "label": "Locker assigned",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "locker_number",
+              "type": "field",
+              "label": "Locker Number",
+              "dataType": "string",
+              "hint": "Leave blank if not applicable"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "training_modules",
+      "type": "group",
+      "label": "Training Modules",
+      "children": [
+        {
+          "key": "common_training",
+          "type": "group",
+          "label": "All Employees — Required Training",
+          "children": [
+            {
+              "key": "harassment_prevention",
+              "type": "field",
+              "label": "Harassment Prevention & Workplace Conduct (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "safety_orientation",
+              "type": "field",
+              "label": "General Safety Orientation (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "it_security",
+              "type": "field",
+              "label": "IT Security Awareness (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "handbook_review",
+              "type": "field",
+              "label": "Employee Handbook reviewed and signed",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "manufacturing_training",
+          "type": "group",
+          "label": "Manufacturing Floor Training",
+          "children": [
+            {
+              "key": "lockout_tagout",
+              "type": "field",
+              "label": "Lockout/Tagout (LOTO) Procedures (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "machine_specific",
+              "type": "field",
+              "label": "Machine-Specific Safety Training (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "ppe_usage",
+              "type": "field",
+              "label": "PPE Usage & Care (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "emergency_procedures",
+              "type": "field",
+              "label": "Emergency Evacuation & First Aid (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "quality_standards",
+              "type": "field",
+              "label": "Quality Control Standards Overview (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "office_training",
+          "type": "group",
+          "label": "Office / Admin Training",
+          "children": [
+            {
+              "key": "systems_orientation",
+              "type": "field",
+              "label": "Office Systems & Software Orientation (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "records_management",
+              "type": "field",
+              "label": "Records Management & Document Control (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "ergonomics",
+              "type": "field",
+              "label": "Ergonomics & Workstation Setup (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "it_training",
+          "type": "group",
+          "label": "IT Department Training",
+          "children": [
+            {
+              "key": "network_security",
+              "type": "field",
+              "label": "Network Security & Acceptable Use Policy (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "incident_response",
+              "type": "field",
+              "label": "Incident Response Procedures (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "data_handling",
+              "type": "field",
+              "label": "Data Classification & Handling (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "systems_access",
+              "type": "field",
+              "label": "Systems Access Management (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "warehouse_training",
+          "type": "group",
+          "label": "Warehouse / Logistics Training",
+          "children": [
+            {
+              "key": "material_handling",
+              "type": "field",
+              "label": "Safe Material Handling (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "forklift_certification",
+              "type": "field",
+              "label": "Forklift Certification (if applicable)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "hazmat_awareness",
+              "type": "field",
+              "label": "Hazardous Materials Awareness (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "inventory_systems",
+              "type": "field",
+              "label": "Inventory & Scanning System Training (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "compliance_documents",
+      "type": "group",
+      "label": "Compliance Documents",
+      "children": [
+        {
+          "key": "common_compliance",
+          "type": "group",
+          "label": "All Employees — Required Compliance Documents",
+          "children": [
+            {
+              "key": "i9_completed",
+              "type": "field",
+              "label": "I-9 Employment Eligibility Verification (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              },
+              "hint": "Check only after the I-9 form has been fully completed, reviewed, and filed."
+            },
+            {
+              "key": "w4_completed",
+              "type": "field",
+              "label": "W-4 Tax Withholding Form (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "direct_deposit",
+              "type": "field",
+              "label": "Direct Deposit Authorization Form (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "confidentiality_agreement",
+              "type": "field",
+              "label": "Confidentiality / NDA Agreement (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              },
+              "hint": "Check only after the employee has signed and dated the agreement. Retain a copy in their personnel file."
+            },
+            {
+              "key": "background_check",
+              "type": "field",
+              "label": "Background Check Authorization (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "emergency_contact",
+              "type": "field",
+              "label": "Emergency Contact Form (completed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "manufacturing_compliance",
+          "type": "group",
+          "label": "Manufacturing Floor Compliance",
+          "children": [
+            {
+              "key": "osha_acknowledgment",
+              "type": "field",
+              "label": "OSHA Rights & Responsibilities Acknowledgment (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "ppe_policy",
+              "type": "field",
+              "label": "PPE Policy Agreement (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "chemical_right_to_know",
+              "type": "field",
+              "label": "Chemical Right-to-Know / SDS Acknowledgment (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "it_compliance",
+          "type": "group",
+          "label": "IT Department Compliance",
+          "children": [
+            {
+              "key": "acceptable_use_policy",
+              "type": "field",
+              "label": "Acceptable Use Policy (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "data_privacy_agreement",
+              "type": "field",
+              "label": "Data Privacy & Security Agreement (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "remote_work_policy",
+              "type": "field",
+              "label": "Remote Work / VPN Policy Agreement (signed, if applicable)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "warehouse_compliance",
+          "type": "group",
+          "label": "Warehouse / Logistics Compliance",
+          "children": [
+            {
+              "key": "osha_acknowledgment",
+              "type": "field",
+              "label": "OSHA Rights & Responsibilities Acknowledgment (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "forklift_policy",
+              "type": "field",
+              "label": "Powered Industrial Truck Policy (signed, if applicable)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "hazmat_policy",
+              "type": "field",
+              "label": "Hazardous Materials Handling Policy (signed)",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "confirmation",
+      "type": "group",
+      "label": "Confirmation",
+      "children": [
+        {
+          "key": "review_heading",
+          "type": "display",
+          "label": "Review & Submit",
+          "presentation": {
+            "widgetHint": "heading"
+          }
+        },
+        {
+          "key": "review_instructions",
+          "type": "display",
+          "label": "Please review all sections of this onboarding checklist before submitting. By signing below, you confirm that all items marked as completed have been issued, reviewed, or acknowledged by the employee named above.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        },
+        {
+          "key": "hr_representative_name",
+          "type": "field",
+          "label": "HR Representative Name",
+          "dataType": "string"
+        },
+        {
+          "key": "hr_signature_date",
+          "type": "field",
+          "label": "Date Completed",
+          "dataType": "date",
+          "presentation": {
+            "widgetHint": "datePicker"
+          },
+          "initialValue": "=today()"
+        },
+        {
+          "key": "additional_notes",
+          "type": "field",
+          "label": "Additional Notes",
+          "dataType": "text",
+          "hint": "Any follow-up items, exceptions, or notes for this employee's onboarding",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        }
+      ]
+    }
+  ],
+  "formPresentation": {
+    "pageMode": "wizard",
+    "showProgress": true
+  },
+  "binds": [
+    {
+      "path": "employee_information.first_name",
+      "required": "true"
+    },
+    {
+      "path": "employee_information.last_name",
+      "required": "true"
+    },
+    {
+      "path": "employee_information.employee_id",
+      "required": "true"
+    },
+    {
+      "path": "employee_information.personal_email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "employee_information.phone",
+      "required": "true",
+      "constraint": "matches($, '^[+]?[0-9\\\\s\\\\-().]+$')"
+    },
+    {
+      "path": "employee_information.start_date",
+      "required": "true"
+    },
+    {
+      "path": "employee_information.manager_name",
+      "required": "true"
+    },
+    {
+      "path": "department_role.department",
+      "required": "true"
+    },
+    {
+      "path": "department_role.job_title",
+      "required": "true"
+    },
+    {
+      "path": "department_role.employment_type",
+      "required": "true"
+    },
+    {
+      "path": "department_role.work_location",
+      "required": "true"
+    },
+    {
+      "path": "equipment_checklist.manufacturing_equipment",
+      "relevant": "$department_role.department = 'manufacturing'"
+    },
+    {
+      "path": "equipment_checklist.office_equipment",
+      "relevant": "$department_role.department = 'office'"
+    },
+    {
+      "path": "equipment_checklist.it_equipment",
+      "relevant": "$department_role.department = 'it'"
+    },
+    {
+      "path": "equipment_checklist.warehouse_equipment",
+      "relevant": "$department_role.department = 'warehouse'"
+    },
+    {
+      "path": "training_modules.common_training.harassment_prevention",
+      "required": "true"
+    },
+    {
+      "path": "training_modules.common_training.safety_orientation",
+      "required": "true"
+    },
+    {
+      "path": "training_modules.common_training.it_security",
+      "required": "true"
+    },
+    {
+      "path": "training_modules.common_training.handbook_review",
+      "required": "true"
+    },
+    {
+      "path": "training_modules.manufacturing_training",
+      "relevant": "$department_role.department = 'manufacturing'"
+    },
+    {
+      "path": "training_modules.office_training",
+      "relevant": "$department_role.department = 'office'"
+    },
+    {
+      "path": "training_modules.it_training",
+      "relevant": "$department_role.department = 'it'"
+    },
+    {
+      "path": "training_modules.warehouse_training",
+      "relevant": "$department_role.department = 'warehouse'"
+    },
+    {
+      "path": "compliance_documents.common_compliance.i9_completed",
+      "required": "true"
+    },
+    {
+      "path": "compliance_documents.common_compliance.w4_completed",
+      "required": "true"
+    },
+    {
+      "path": "compliance_documents.common_compliance.confidentiality_agreement",
+      "required": "true"
+    },
+    {
+      "path": "compliance_documents.common_compliance.background_check",
+      "required": "true"
+    },
+    {
+      "path": "compliance_documents.common_compliance.emergency_contact",
+      "required": "true"
+    },
+    {
+      "path": "compliance_documents.manufacturing_compliance",
+      "relevant": "$department_role.department = 'manufacturing'"
+    },
+    {
+      "path": "compliance_documents.it_compliance",
+      "relevant": "$department_role.department = 'it'"
+    },
+    {
+      "path": "compliance_documents.warehouse_compliance",
+      "relevant": "$department_role.department = 'warehouse'"
+    },
+    {
+      "path": "confirmation.hr_representative_name",
+      "required": "true"
+    },
+    {
+      "path": "confirmation.hr_signature_date",
+      "required": "true"
+    },
+    {
+      "path": "equipment_checklist.manufacturing_equipment.locker_number",
+      "relevant": "$equipment_checklist.manufacturing_equipment.locker_assigned = true"
+    },
+    {
+      "path": "equipment_checklist.warehouse_equipment.locker_number",
+      "relevant": "$equipment_checklist.warehouse_equipment.locker_assigned = true"
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_7",
+      "target": "equipment_checklist.manufacturing_equipment.locker_number",
+      "message": "Locker number is required when a locker has been assigned.",
+      "severity": "error",
+      "constraint": "not($equipment_checklist.manufacturing_equipment.locker_assigned) or present($equipment_checklist.manufacturing_equipment.locker_number)",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_8",
+      "target": "equipment_checklist.warehouse_equipment.locker_number",
+      "message": "Locker number is required when a locker has been assigned.",
+      "severity": "error",
+      "constraint": "not($equipment_checklist.warehouse_equipment.locker_assigned) or present($equipment_checklist.warehouse_equipment.locker_number)",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_13",
+      "target": "compliance_documents.common_compliance.i9_completed",
+      "message": "I-9 Verification must be completed before the checklist can be submitted.",
+      "severity": "error",
+      "constraint": "$compliance_documents.common_compliance.i9_completed = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_14",
+      "target": "compliance_documents.common_compliance.w4_completed",
+      "message": "W-4 Tax Withholding Form must be completed before submission.",
+      "severity": "error",
+      "constraint": "$compliance_documents.common_compliance.w4_completed = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_15",
+      "target": "compliance_documents.common_compliance.confidentiality_agreement",
+      "message": "Confidentiality Agreement must be signed before submission.",
+      "severity": "error",
+      "constraint": "$compliance_documents.common_compliance.confidentiality_agreement = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_16",
+      "target": "compliance_documents.common_compliance.background_check",
+      "message": "Background Check Authorization must be signed before submission.",
+      "severity": "error",
+      "constraint": "$compliance_documents.common_compliance.background_check = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_17",
+      "target": "compliance_documents.common_compliance.emergency_contact",
+      "message": "Emergency Contact Form must be completed before submission.",
+      "severity": "error",
+      "constraint": "$compliance_documents.common_compliance.emergency_contact = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_18",
+      "target": "training_modules.common_training.harassment_prevention",
+      "message": "Harassment Prevention training must be completed before submission.",
+      "severity": "error",
+      "constraint": "$training_modules.common_training.harassment_prevention = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_19",
+      "target": "training_modules.common_training.safety_orientation",
+      "message": "General Safety Orientation must be completed before submission.",
+      "severity": "error",
+      "constraint": "$training_modules.common_training.safety_orientation = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_20",
+      "target": "training_modules.common_training.it_security",
+      "message": "IT Security Awareness training must be completed before submission.",
+      "severity": "error",
+      "constraint": "$training_modules.common_training.it_security = true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_21",
+      "target": "training_modules.common_training.handbook_review",
+      "message": "Employee Handbook must be reviewed and signed before submission.",
+      "severity": "error",
+      "constraint": "$training_modules.common_training.handbook_review = true",
+      "timing": "submit"
+    }
+  ],
+  "description": "To be completed by HR for each new employee. Tracks equipment issuance, training completion, and compliance document acknowledgment by department."
+}

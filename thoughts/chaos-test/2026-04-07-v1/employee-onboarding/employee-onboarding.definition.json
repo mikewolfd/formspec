@@ -1,0 +1,560 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:bfsqqpnf",
+  "version": "0.1.0",
+  "status": "draft",
+  "title": "Employee Onboarding Checklist",
+  "items": [
+    {
+      "key": "basic_information",
+      "type": "group",
+      "label": "Basic Information",
+      "children": [
+        {
+          "key": "employee_name",
+          "type": "field",
+          "label": "Full Name",
+          "dataType": "string",
+          "description": "Enter your legal name as it appears on your government ID"
+        },
+        {
+          "key": "department",
+          "type": "field",
+          "label": "Department",
+          "dataType": "choice",
+          "description": "Select the department you will be joining",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "engineering",
+              "label": "Engineering"
+            },
+            {
+              "value": "marketing",
+              "label": "Marketing"
+            },
+            {
+              "value": "sales",
+              "label": "Sales"
+            },
+            {
+              "value": "hr",
+              "label": "HR"
+            }
+          ]
+        },
+        {
+          "key": "start_date",
+          "type": "field",
+          "label": "Start Date",
+          "dataType": "date",
+          "description": "Your confirmed first day of employment",
+          "presentation": {
+            "widgetHint": "datePicker"
+          }
+        }
+      ]
+    },
+    {
+      "key": "department_setup",
+      "type": "group",
+      "label": "Department Setup",
+      "children": [
+        {
+          "key": "engineering_section",
+          "type": "group",
+          "label": "Engineering Setup",
+          "children": [
+            {
+              "key": "laptop_preference",
+              "type": "field",
+              "label": "Laptop Preference",
+              "dataType": "choice",
+              "description": "Select your preferred laptop configuration",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "macbook_pro_14",
+                  "label": "MacBook Pro 14\" (M3 Pro)"
+                },
+                {
+                  "value": "macbook_pro_16",
+                  "label": "MacBook Pro 16\" (M3 Max)"
+                },
+                {
+                  "value": "dell_xps_15",
+                  "label": "Dell XPS 15 (Windows)"
+                },
+                {
+                  "value": "thinkpad_x1",
+                  "label": "ThinkPad X1 Carbon (Windows)"
+                }
+              ]
+            },
+            {
+              "key": "github_username",
+              "type": "field",
+              "label": "GitHub Username",
+              "dataType": "string",
+              "description": "Your GitHub username so we can add you to the organization"
+            }
+          ]
+        },
+        {
+          "key": "marketing_section",
+          "type": "group",
+          "label": "Marketing Setup",
+          "children": [
+            {
+              "key": "brand_guidelines_acknowledged",
+              "type": "field",
+              "label": "Brand Guidelines Acknowledgment",
+              "dataType": "boolean",
+              "description": "I have read and understand the company brand guidelines, including logo usage, color palette, typography standards, and tone of voice requirements",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            },
+            {
+              "key": "design_tools_access",
+              "type": "field",
+              "label": "Design Tools Needed",
+              "dataType": "multiChoice",
+              "description": "Select all design tools you will need access to",
+              "presentation": {
+                "widgetHint": "checkboxGroup"
+              },
+              "options": [
+                {
+                  "value": "figma",
+                  "label": "Figma"
+                },
+                {
+                  "value": "canva",
+                  "label": "Canva Pro"
+                },
+                {
+                  "value": "adobe_cc",
+                  "label": "Adobe Creative Cloud"
+                },
+                {
+                  "value": "hubspot",
+                  "label": "HubSpot Marketing Hub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "sales_section",
+          "type": "group",
+          "label": "Sales Setup",
+          "children": [
+            {
+              "key": "crm_training",
+              "type": "field",
+              "label": "CRM Training Module",
+              "dataType": "choice",
+              "description": "Select the CRM training track appropriate for your role",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "salesforce_basics",
+                  "label": "Salesforce Basics (New to CRM)"
+                },
+                {
+                  "value": "salesforce_advanced",
+                  "label": "Salesforce Advanced (Experienced users)"
+                },
+                {
+                  "value": "salesforce_admin",
+                  "label": "Salesforce Admin Track (Sales Ops roles)"
+                }
+              ]
+            },
+            {
+              "key": "sales_territory",
+              "type": "field",
+              "label": "Assigned Sales Territory",
+              "dataType": "choice",
+              "description": "Your assigned geographic sales territory",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "northeast",
+                  "label": "Northeast"
+                },
+                {
+                  "value": "southeast",
+                  "label": "Southeast"
+                },
+                {
+                  "value": "midwest",
+                  "label": "Midwest"
+                },
+                {
+                  "value": "west",
+                  "label": "West"
+                },
+                {
+                  "value": "international",
+                  "label": "International"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "hr_section",
+          "type": "group",
+          "label": "HR Setup",
+          "children": [
+            {
+              "key": "hris_access_level",
+              "type": "field",
+              "label": "HRIS Access Level",
+              "dataType": "choice",
+              "description": "Select the level of HRIS system access appropriate for your role",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "view_only",
+                  "label": "View Only (HR Coordinators)"
+                },
+                {
+                  "value": "data_entry",
+                  "label": "Data Entry (HR Generalists)"
+                },
+                {
+                  "value": "full_access",
+                  "label": "Full Access (HR Managers and above)"
+                }
+              ]
+            },
+            {
+              "key": "confidentiality_agreement",
+              "type": "field",
+              "label": "Confidentiality Agreement",
+              "dataType": "boolean",
+              "description": "I understand that as an HR team member I will have access to confidential employee data and agree to handle it according to company policy and applicable data protection laws",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ]
+        },
+        {
+          "key": "dept_intro",
+          "type": "display",
+          "label": "The fields below are specific to your department. Only your department's section will be visible based on your selection on the previous page.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        }
+      ]
+    },
+    {
+      "key": "emergency_contact",
+      "type": "group",
+      "label": "Emergency Contact",
+      "children": [
+        {
+          "key": "contact_name",
+          "type": "field",
+          "label": "Emergency Contact Full Name",
+          "dataType": "string"
+        },
+        {
+          "key": "relationship",
+          "type": "field",
+          "label": "Relationship to Employee",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "spouse",
+              "label": "Spouse / Partner"
+            },
+            {
+              "value": "parent",
+              "label": "Parent"
+            },
+            {
+              "value": "sibling",
+              "label": "Sibling"
+            },
+            {
+              "value": "child",
+              "label": "Child"
+            },
+            {
+              "value": "friend",
+              "label": "Friend"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ]
+        },
+        {
+          "key": "contact_phone",
+          "type": "field",
+          "label": "Emergency Contact Phone Number",
+          "dataType": "string",
+          "description": "A phone number where we can reach this person during business hours"
+        },
+        {
+          "key": "contact_email",
+          "type": "field",
+          "label": "Emergency Contact Email Address",
+          "dataType": "string"
+        }
+      ]
+    },
+    {
+      "key": "benefits_enrollment",
+      "type": "group",
+      "label": "Benefits Enrollment",
+      "children": [
+        {
+          "key": "health_plan",
+          "type": "field",
+          "label": "Health Insurance Plan",
+          "dataType": "choice",
+          "description": "Select your health insurance coverage level",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "hmo_individual",
+              "label": "HMO - Individual"
+            },
+            {
+              "value": "hmo_family",
+              "label": "HMO - Family"
+            },
+            {
+              "value": "ppo_individual",
+              "label": "PPO - Individual"
+            },
+            {
+              "value": "ppo_family",
+              "label": "PPO - Family"
+            },
+            {
+              "value": "waive",
+              "label": "Waive coverage (have other coverage)"
+            }
+          ]
+        },
+        {
+          "key": "dental_plan",
+          "type": "field",
+          "label": "Dental Insurance",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "basic",
+              "label": "Basic Dental"
+            },
+            {
+              "value": "comprehensive",
+              "label": "Comprehensive Dental"
+            },
+            {
+              "value": "waive",
+              "label": "Waive coverage"
+            }
+          ]
+        },
+        {
+          "key": "retirement_contribution",
+          "type": "field",
+          "label": "401(k) Contribution Percentage",
+          "dataType": "integer",
+          "description": "Percentage of salary to contribute (0-50%). Company matches up to 4%.",
+          "hint": "Enter a whole number between 0 and 50",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "direct_deposit_bank",
+          "type": "field",
+          "label": "Bank Name for Direct Deposit",
+          "dataType": "string"
+        },
+        {
+          "key": "direct_deposit_routing",
+          "type": "field",
+          "label": "Routing Number",
+          "dataType": "string",
+          "description": "Your bank's 9-digit ABA routing number, found at the bottom left of a check",
+          "hint": "Must be exactly 9 digits"
+        },
+        {
+          "key": "direct_deposit_account",
+          "type": "field",
+          "label": "Account Number",
+          "dataType": "string",
+          "description": "Your checking account number for payroll direct deposit"
+        },
+        {
+          "key": "benefits_intro",
+          "type": "display",
+          "label": "All employees must complete benefits enrollment within 30 days of their start date. Changes can only be made during open enrollment or after a qualifying life event.",
+          "presentation": {
+            "widgetHint": "banner"
+          }
+        }
+      ]
+    }
+  ],
+  "description": "Complete this form before your first day to ensure a smooth onboarding experience. Different sections will appear based on your department.",
+  "formPresentation": {
+    "pageMode": "wizard",
+    "showProgress": true
+  },
+  "binds": [
+    {
+      "path": "basic_information.employee_name",
+      "required": "true"
+    },
+    {
+      "path": "basic_information.department",
+      "required": "true"
+    },
+    {
+      "path": "basic_information.start_date",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.engineering_section.laptop_preference",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.engineering_section.github_username",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.marketing_section.brand_guidelines_acknowledged",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.sales_section.crm_training",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.sales_section.sales_territory",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.hr_section.hris_access_level",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.hr_section.confidentiality_agreement",
+      "required": "true"
+    },
+    {
+      "path": "emergency_contact.contact_name",
+      "required": "true"
+    },
+    {
+      "path": "emergency_contact.relationship",
+      "required": "true"
+    },
+    {
+      "path": "emergency_contact.contact_phone",
+      "required": "true",
+      "constraint": "matches($, '^[+]?[0-9\\\\s\\\\-().]+$')"
+    },
+    {
+      "path": "emergency_contact.contact_email",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "benefits_enrollment.health_plan",
+      "required": "true"
+    },
+    {
+      "path": "benefits_enrollment.dental_plan",
+      "required": "true"
+    },
+    {
+      "path": "benefits_enrollment.retirement_contribution",
+      "required": "true"
+    },
+    {
+      "path": "benefits_enrollment.direct_deposit_bank",
+      "required": "true"
+    },
+    {
+      "path": "benefits_enrollment.direct_deposit_routing",
+      "required": "true"
+    },
+    {
+      "path": "benefits_enrollment.direct_deposit_account",
+      "required": "true"
+    },
+    {
+      "path": "department_setup.engineering_section",
+      "relevant": "basic_information.department = 'engineering'"
+    },
+    {
+      "path": "department_setup.marketing_section",
+      "relevant": "basic_information.department = 'marketing'"
+    },
+    {
+      "path": "department_setup.sales_section",
+      "relevant": "basic_information.department = 'sales'"
+    },
+    {
+      "path": "department_setup.hr_section",
+      "relevant": "basic_information.department = 'hr'"
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_7",
+      "target": "benefits_enrollment.retirement_contribution",
+      "message": "Contribution percentage must be between 0 and 50",
+      "severity": "error",
+      "constraint": "$benefits_enrollment.retirement_contribution >= 0 and $benefits_enrollment.retirement_contribution <= 50",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_10",
+      "target": "benefits_enrollment.direct_deposit_routing",
+      "message": "Routing number must be exactly 9 digits",
+      "severity": "error",
+      "constraint": "length($benefits_enrollment.direct_deposit_routing) == 9",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_11",
+      "target": "basic_information.start_date",
+      "message": "Start date must be today or in the future",
+      "severity": "error",
+      "constraint": "$basic_information.start_date >= today()",
+      "timing": "continuous"
+    }
+  ]
+}

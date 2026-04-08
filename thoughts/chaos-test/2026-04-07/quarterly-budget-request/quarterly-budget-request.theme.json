@@ -1,0 +1,99 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "department_name": {
+      "widgetConfig": {
+        "placeholder": "e.g., Finance, Engineering, Operations"
+      }
+    },
+    "department_cost_center": {
+      "widgetConfig": {
+        "placeholder": "e.g., CC-1042"
+      }
+    },
+    "fiscal_year": {
+      "widgetConfig": {
+        "placeholder": "e.g., 2026"
+      }
+    },
+    "submitter_name": {
+      "widgetConfig": {
+        "placeholder": "Full name"
+      }
+    },
+    "description": {
+      "widgetConfig": {
+        "placeholder": "Brief description of the expense"
+      }
+    },
+    "unit_cost": {
+      "widgetConfig": {
+        "placeholder": "0.00"
+      }
+    },
+    "tax_rate": {
+      "widgetConfig": {
+        "placeholder": "0.00"
+      }
+    },
+    "business_case": {
+      "widgetConfig": {
+        "placeholder": "Describe the business need and expected outcomes..."
+      }
+    },
+    "strategic_alignment": {
+      "widgetConfig": {
+        "placeholder": "How does this request align with organizational strategy?"
+      }
+    },
+    "roi_description": {
+      "widgetConfig": {
+        "placeholder": "Describe expected ROI, cost savings, or revenue impact..."
+      }
+    },
+    "alternatives_considered": {
+      "widgetConfig": {
+        "placeholder": "Describe alternatives you evaluated before making this request..."
+      }
+    },
+    "asset_description": {
+      "widgetConfig": {
+        "placeholder": "Describe the capital asset, expected useful life, and depreciation method..."
+      }
+    },
+    "headcount_justification": {
+      "widgetConfig": {
+        "placeholder": "Describe the role, reporting structure, and business need..."
+      }
+    },
+    "position_title": {
+      "widgetConfig": {
+        "placeholder": "e.g., Senior Software Engineer"
+      }
+    },
+    "manager_name": {
+      "widgetConfig": {
+        "placeholder": "Full name of direct manager"
+      }
+    },
+    "director_name": {
+      "widgetConfig": {
+        "placeholder": "Full name"
+      }
+    },
+    "budget_code_override": {
+      "widgetConfig": {
+        "placeholder": "If different from cost center, enter override budget code"
+      }
+    },
+    "additional_notes": {
+      "widgetConfig": {
+        "placeholder": "Any context you'd like approvers to know..."
+      }
+    }
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:u26v67ey"
+  }
+}

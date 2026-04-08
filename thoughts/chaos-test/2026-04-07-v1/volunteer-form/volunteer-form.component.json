@@ -1,0 +1,81 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:rilf64ni"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Stack",
+        "children": []
+      },
+      {
+        "component": "Page",
+        "title": "Volunteer Information",
+        "description": "Tell us about yourself",
+        "children": [
+          {
+            "component": "Stack",
+            "children": []
+          },
+          {
+            "component": "TextInput",
+            "bind": "volunteer_name"
+          },
+          {
+            "component": "TextInput",
+            "bind": "volunteer_email"
+          },
+          {
+            "component": "TextInput",
+            "bind": "volunteer_phone"
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Availability & Skills",
+        "description": "When can you help and what can you do?",
+        "children": [
+          {
+            "component": "Stack",
+            "children": []
+          },
+          {
+            "component": "CheckboxGroup",
+            "bind": "availability_days"
+          },
+          {
+            "component": "CheckboxGroup",
+            "bind": "skills"
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Emergency Contact",
+        "description": "In case we need to reach someone",
+        "children": [
+          {
+            "component": "Stack",
+            "children": []
+          },
+          {
+            "component": "TextInput",
+            "bind": "emergency_contact_name"
+          },
+          {
+            "component": "TextInput",
+            "bind": "emergency_contact_phone"
+          }
+        ]
+      },
+      {
+        "component": "SubmitButton",
+        "label": "Sign Me Up!"
+      }
+    ]
+  }
+}

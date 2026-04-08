@@ -1,0 +1,465 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:cmh0lzqu"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Page",
+        "title": "Employee Information",
+        "description": "Basic information about the new employee",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "employee_information.first_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "employee_information.last_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "employee_information.employee_id"
+              },
+              {
+                "component": "TextInput",
+                "bind": "employee_information.personal_email"
+              },
+              {
+                "component": "TextInput",
+                "bind": "employee_information.phone"
+              },
+              {
+                "component": "DatePicker",
+                "bind": "employee_information.start_date"
+              },
+              {
+                "component": "TextInput",
+                "bind": "employee_information.manager_name"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Department & Role",
+        "description": "Department assignment and role details",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Select",
+                "bind": "department_role.department"
+              },
+              {
+                "component": "TextInput",
+                "bind": "department_role.job_title"
+              },
+              {
+                "component": "Select",
+                "bind": "department_role.employment_type"
+              },
+              {
+                "component": "TextInput",
+                "bind": "department_role.work_location"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Equipment Checklist",
+        "description": "Equipment to be issued — varies by department",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.manufacturing_equipment.safety_glasses"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.manufacturing_equipment.hard_hat"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.manufacturing_equipment.steel_toe_boots"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.manufacturing_equipment.hi_vis_vest"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.manufacturing_equipment.ear_protection"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.manufacturing_equipment.gloves"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.manufacturing_equipment.locker_assigned"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "equipment_checklist.manufacturing_equipment.locker_number"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.office_equipment.laptop_issued"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.office_equipment.monitor"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.office_equipment.keyboard_mouse"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.office_equipment.desk_phone"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.office_equipment.office_keys"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.office_equipment.parking_permit"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.it_equipment.laptop_issued"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.it_equipment.monitor"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.it_equipment.docking_station"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.it_equipment.company_phone"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.it_equipment.vpn_token"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.it_equipment.network_access"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "equipment_checklist.it_equipment.admin_rights"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.warehouse_equipment.safety_glasses"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.warehouse_equipment.steel_toe_boots"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.warehouse_equipment.hi_vis_vest"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.warehouse_equipment.forklift_license_verified"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.warehouse_equipment.scanner_issued"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "equipment_checklist.warehouse_equipment.locker_assigned"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "equipment_checklist.warehouse_equipment.locker_number"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Training Modules",
+        "description": "Required training — varies by department",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.common_training.harassment_prevention"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.common_training.safety_orientation"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.common_training.it_security"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.common_training.handbook_review"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.manufacturing_training.lockout_tagout"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.manufacturing_training.machine_specific"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.manufacturing_training.ppe_usage"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.manufacturing_training.emergency_procedures"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.manufacturing_training.quality_standards"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.office_training.systems_orientation"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.office_training.records_management"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.office_training.ergonomics"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.it_training.network_security"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.it_training.incident_response"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.it_training.data_handling"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.it_training.systems_access"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.warehouse_training.material_handling"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.warehouse_training.forklift_certification"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.warehouse_training.hazmat_awareness"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "training_modules.warehouse_training.inventory_systems"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Compliance Documents",
+        "description": "Required compliance acknowledgments — varies by department",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.common_compliance.i9_completed"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.common_compliance.w4_completed"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.common_compliance.direct_deposit"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.common_compliance.confidentiality_agreement"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.common_compliance.background_check"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.common_compliance.emergency_contact"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.manufacturing_compliance.osha_acknowledgment"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.manufacturing_compliance.ppe_policy"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.manufacturing_compliance.chemical_right_to_know"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.it_compliance.acceptable_use_policy"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.it_compliance.data_privacy_agreement"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.it_compliance.remote_work_policy"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.warehouse_compliance.osha_acknowledgment"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.warehouse_compliance.forklift_policy"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "compliance_documents.warehouse_compliance.hazmat_policy"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Confirmation",
+        "description": "Review and submit the onboarding checklist",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "Review & Submit"
+              },
+              {
+                "component": "Text",
+                "text": "Please review all sections of this onboarding checklist before submitting. By signing below, you confirm that all items marked as completed have been issued, reviewed, or acknowledged by the employee named above."
+              },
+              {
+                "component": "TextInput",
+                "bind": "confirmation.hr_representative_name"
+              },
+              {
+                "component": "DatePicker",
+                "bind": "confirmation.hr_signature_date"
+              },
+              {
+                "component": "TextInput",
+                "bind": "confirmation.additional_notes"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

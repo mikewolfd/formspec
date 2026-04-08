@@ -1,0 +1,55 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "first_name": {
+      "widgetConfig": {
+        "placeholder": "Jane"
+      }
+    },
+    "last_name": {
+      "widgetConfig": {
+        "placeholder": "Smith"
+      }
+    },
+    "email": {
+      "widgetConfig": {
+        "placeholder": "jane@example.com"
+      }
+    },
+    "organization": {
+      "widgetConfig": {
+        "placeholder": "Acme Corp"
+      }
+    },
+    "job_title": {
+      "widgetConfig": {
+        "placeholder": "Senior Engineer"
+      }
+    },
+    "dietary_other": {
+      "widgetConfig": {
+        "placeholder": "Please describe any other requirements..."
+      }
+    },
+    "promo_code": {
+      "widgetConfig": {
+        "placeholder": "Enter code if you have one"
+      }
+    }
+  },
+  "tokens": {
+    "color.primary": "#1a1f36",
+    "color.accent": "#6c63ff",
+    "color.surface": "#f8f7ff",
+    "font.family": "Inter, system-ui, sans-serif"
+  },
+  "breakpoints": {
+    "mobile": 0,
+    "tablet": 768,
+    "desktop": 1024
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:f70v9k3y"
+  }
+}

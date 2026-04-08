@@ -1,0 +1,39 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "full_name": {
+      "widgetConfig": {
+        "placeholder": "First Last"
+      }
+    },
+    "email": {
+      "widgetConfig": {
+        "placeholder": "you@university.edu"
+      }
+    },
+    "total_funding": {
+      "widgetConfig": {
+        "placeholder": "e.g. 250000"
+      }
+    },
+    "research_statement": {
+      "widgetConfig": {
+        "placeholder": "Describe your research..."
+      }
+    },
+    "doi": {
+      "widgetConfig": {
+        "placeholder": "10.xxxx/xxxxx"
+      }
+    },
+    "course_code": {
+      "widgetConfig": {
+        "placeholder": "e.g. CS 501"
+      }
+    }
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:w7pqjjai"
+  }
+}

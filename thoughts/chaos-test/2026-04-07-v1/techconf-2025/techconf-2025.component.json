@@ -1,0 +1,111 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:zj2b7qv5"
+  },
+  "breakpoints": {
+    "mobile": 0
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Page",
+        "title": "About You",
+        "description": "Let's start with the basics — who are you?",
+        "children": []
+      },
+      {
+        "component": "Page",
+        "title": "Conference Details",
+        "description": "How are you joining us at TechConf 2025?",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "RadioGroup",
+                "bind": "conference_details.registration_type"
+              },
+              {
+                "component": "Text",
+                "text": "TechConf 2025 features 8 sessions across two days. Let us know which ones interest you most so we can plan room capacity."
+              }
+            ]
+          },
+          {
+            "component": "CheckboxGroup",
+            "bind": "sessions"
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Logistics & Accessibility",
+        "description": "Help us make your experience as comfortable as possible.",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "RadioGroup",
+                "bind": "logistics_accessibility.dietary"
+              },
+              {
+                "component": "TextInput",
+                "widgetHint": "textarea",
+                "bind": "logistics_accessibility.accessibility"
+              },
+              {
+                "component": "Checkbox",
+                "bind": "logistics_accessibility.agreement"
+              },
+              {
+                "component": "Text",
+                "text": "Almost done! Just a few logistics questions."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Grid",
+        "columns": 2,
+        "children": [
+          {
+            "component": "Select",
+            "bind": "tshirt_size"
+          }
+        ]
+      },
+      {
+        "component": "Grid",
+        "columns": 2,
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "about_you.attendee_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "about_you.email"
+              },
+              {
+                "component": "TextInput",
+                "bind": "about_you.company"
+              },
+              {
+                "component": "Text",
+                "text": "Welcome to TechConf 2025! Complete this form to secure your spot. It takes about 3 minutes."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

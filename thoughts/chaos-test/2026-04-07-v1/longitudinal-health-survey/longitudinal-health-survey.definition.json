@@ -1,0 +1,707 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:hte74xu7",
+  "version": "1.0.0",
+  "title": "Longitudinal Health Research Survey",
+  "items": [
+    {
+      "key": "demographics",
+      "type": "group",
+      "label": "Demographics",
+      "children": [
+        {
+          "key": "demographics_intro",
+          "type": "display",
+          "label": "Please provide your demographic information. All fields marked as required must be completed.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        },
+        {
+          "key": "participant_name",
+          "type": "field",
+          "label": "Full Name",
+          "dataType": "string",
+          "hint": "Enter your full legal name as it appears on your ID"
+        },
+        {
+          "key": "age",
+          "type": "field",
+          "label": "Age",
+          "dataType": "integer",
+          "hint": "Must be between 18 and 120",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "sex",
+          "type": "field",
+          "label": "Sex",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "male",
+              "label": "Male"
+            },
+            {
+              "value": "female",
+              "label": "Female"
+            },
+            {
+              "value": "intersex",
+              "label": "Intersex"
+            },
+            {
+              "value": "prefer_not_to_say",
+              "label": "Prefer not to say"
+            }
+          ],
+          "hint": "Biological sex at birth"
+        },
+        {
+          "key": "ethnicity",
+          "type": "field",
+          "label": "Ethnicity",
+          "dataType": "multiChoice",
+          "presentation": {
+            "widgetHint": "checkboxGroup"
+          },
+          "options": [
+            {
+              "value": "hispanic",
+              "label": "Hispanic or Latino"
+            },
+            {
+              "value": "white",
+              "label": "White"
+            },
+            {
+              "value": "black",
+              "label": "Black or African American"
+            },
+            {
+              "value": "asian",
+              "label": "Asian"
+            },
+            {
+              "value": "native",
+              "label": "American Indian or Alaska Native"
+            },
+            {
+              "value": "pacific",
+              "label": "Native Hawaiian or Pacific Islander"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ],
+          "hint": "Select all that apply"
+        },
+        {
+          "key": "height_cm",
+          "type": "field",
+          "label": "Height (cm)",
+          "dataType": "decimal",
+          "hint": "Height in centimeters",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "weight_kg",
+          "type": "field",
+          "label": "Weight (kg)",
+          "dataType": "decimal",
+          "hint": "Weight in kilograms",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "bmi",
+          "type": "field",
+          "label": "BMI (Calculated)",
+          "dataType": "decimal",
+          "hint": "Automatically calculated from height and weight",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        }
+      ]
+    },
+    {
+      "key": "health_history",
+      "type": "group",
+      "label": "Health History",
+      "children": [
+        {
+          "key": "health_intro",
+          "type": "display",
+          "label": "List all past medical conditions. Click 'Add Condition' to add more entries.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        },
+        {
+          "key": "past_conditions",
+          "type": "group",
+          "label": "Past Medical Conditions",
+          "children": [
+            {
+              "key": "condition_name",
+              "type": "field",
+              "label": "Condition Name",
+              "dataType": "string",
+              "hint": "Enter the name of the medical condition as diagnosed"
+            },
+            {
+              "key": "year_diagnosed",
+              "type": "field",
+              "label": "Year Diagnosed",
+              "dataType": "integer",
+              "hint": "Year the condition was first diagnosed",
+              "presentation": {
+                "widgetHint": "numberInput"
+              }
+            },
+            {
+              "key": "current_status",
+              "type": "field",
+              "label": "Current Status",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "active",
+                  "label": "Active / Ongoing"
+                },
+                {
+                  "value": "managed",
+                  "label": "Managed with Treatment"
+                },
+                {
+                  "value": "remission",
+                  "label": "In Remission"
+                },
+                {
+                  "value": "resolved",
+                  "label": "Resolved"
+                }
+              ]
+            }
+          ],
+          "repeatable": true,
+          "minRepeat": 0,
+          "maxRepeat": 10
+        }
+      ]
+    },
+    {
+      "key": "symptoms",
+      "type": "group",
+      "label": "Current Symptoms",
+      "children": [
+        {
+          "key": "symptoms_intro",
+          "type": "display",
+          "label": "Check all symptoms you are currently experiencing. For each checked symptom, rate its severity on a scale of 1-10.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        },
+        {
+          "key": "symptom_headache",
+          "type": "field",
+          "label": "Headache",
+          "dataType": "boolean",
+          "presentation": {
+            "widgetHint": "toggle"
+          }
+        },
+        {
+          "key": "symptom_fatigue",
+          "type": "field",
+          "label": "Fatigue",
+          "dataType": "boolean",
+          "presentation": {
+            "widgetHint": "toggle"
+          }
+        },
+        {
+          "key": "symptom_pain",
+          "type": "field",
+          "label": "Chronic Pain",
+          "dataType": "boolean",
+          "presentation": {
+            "widgetHint": "toggle"
+          }
+        },
+        {
+          "key": "symptom_breathing",
+          "type": "field",
+          "label": "Difficulty Breathing",
+          "dataType": "boolean",
+          "presentation": {
+            "widgetHint": "toggle"
+          }
+        },
+        {
+          "key": "symptom_dizziness",
+          "type": "field",
+          "label": "Dizziness",
+          "dataType": "boolean",
+          "presentation": {
+            "widgetHint": "toggle"
+          }
+        },
+        {
+          "key": "symptom_nausea",
+          "type": "field",
+          "label": "Nausea",
+          "dataType": "boolean",
+          "presentation": {
+            "widgetHint": "toggle"
+          }
+        },
+        {
+          "key": "severity_headache",
+          "type": "field",
+          "label": "Headache Severity (1-10)",
+          "dataType": "integer",
+          "hint": "Rate severity from 1 (mild) to 10 (severe)",
+          "presentation": {
+            "widgetHint": "rating"
+          }
+        },
+        {
+          "key": "severity_fatigue",
+          "type": "field",
+          "label": "Fatigue Severity (1-10)",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "rating"
+          }
+        },
+        {
+          "key": "severity_pain",
+          "type": "field",
+          "label": "Pain Severity (1-10)",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "rating"
+          }
+        },
+        {
+          "key": "severity_breathing",
+          "type": "field",
+          "label": "Breathing Difficulty Severity (1-10)",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "rating"
+          }
+        },
+        {
+          "key": "severity_dizziness",
+          "type": "field",
+          "label": "Dizziness Severity (1-10)",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "rating"
+          }
+        },
+        {
+          "key": "severity_nausea",
+          "type": "field",
+          "label": "Nausea Severity (1-10)",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "rating"
+          }
+        },
+        {
+          "key": "geriatric_assessment",
+          "type": "group",
+          "label": "Geriatric Assessment (Age 65+)",
+          "children": [
+            {
+              "key": "fall_risk",
+              "type": "field",
+              "label": "Fall Risk Assessment",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "low",
+                  "label": "Low Risk"
+                },
+                {
+                  "value": "moderate",
+                  "label": "Moderate Risk"
+                },
+                {
+                  "value": "high",
+                  "label": "High Risk"
+                }
+              ]
+            },
+            {
+              "key": "mobility_score",
+              "type": "field",
+              "label": "Mobility Score",
+              "dataType": "integer",
+              "hint": "Rate mobility from 1 (bedbound) to 10 (fully mobile)",
+              "presentation": {
+                "widgetHint": "rating"
+              }
+            },
+            {
+              "key": "cognitive_screening",
+              "type": "field",
+              "label": "Cognitive Screening Result",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "normal",
+                  "label": "Normal"
+                },
+                {
+                  "value": "mild_impairment",
+                  "label": "Mild Cognitive Impairment"
+                },
+                {
+                  "value": "moderate_impairment",
+                  "label": "Moderate Impairment"
+                },
+                {
+                  "value": "severe_impairment",
+                  "label": "Severe Impairment"
+                }
+              ]
+            },
+            {
+              "key": "living_situation",
+              "type": "field",
+              "label": "Living Situation",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "independent",
+                  "label": "Independent"
+                },
+                {
+                  "value": "with_family",
+                  "label": "With Family/Caregiver"
+                },
+                {
+                  "value": "assisted",
+                  "label": "Assisted Living"
+                },
+                {
+                  "value": "nursing",
+                  "label": "Nursing Facility"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "urgent_referral",
+          "type": "group",
+          "label": "Urgent Referral Required",
+          "children": [
+            {
+              "key": "referral_reason",
+              "type": "field",
+              "label": "Reason for Urgent Referral",
+              "dataType": "text",
+              "presentation": {
+                "widgetHint": "textarea"
+              },
+              "hint": "Describe the reason an urgent referral is needed"
+            },
+            {
+              "key": "referral_specialty",
+              "type": "field",
+              "label": "Referral Specialty",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "cardiology",
+                  "label": "Cardiology"
+                },
+                {
+                  "value": "neurology",
+                  "label": "Neurology"
+                },
+                {
+                  "value": "pulmonology",
+                  "label": "Pulmonology"
+                },
+                {
+                  "value": "pain_management",
+                  "label": "Pain Management"
+                },
+                {
+                  "value": "emergency",
+                  "label": "Emergency/Urgent Care"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
+              ]
+            },
+            {
+              "key": "referral_urgency",
+              "type": "field",
+              "label": "Urgency Level",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "24h",
+                  "label": "Within 24 Hours"
+                },
+                {
+                  "value": "48h",
+                  "label": "Within 48 Hours"
+                },
+                {
+                  "value": "1week",
+                  "label": "Within 1 Week"
+                }
+              ]
+            },
+            {
+              "key": "urgent_banner",
+              "type": "display",
+              "label": "WARNING: One or more symptoms have been rated with high severity (>7). An urgent referral is recommended.",
+              "presentation": {
+                "widgetHint": "banner"
+              }
+            }
+          ]
+        },
+        {
+          "key": "avg_severity_display",
+          "type": "field",
+          "label": "Average Symptom Severity Score",
+          "dataType": "decimal",
+          "hint": "Average severity across all checked symptoms",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        }
+      ]
+    },
+    {
+      "key": "followup",
+      "type": "group",
+      "label": "Follow-up Scheduling",
+      "children": [
+        {
+          "key": "followup_intro",
+          "type": "display",
+          "label": "Schedule your next follow-up appointment. The date must be in the future.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        },
+        {
+          "key": "followup_date",
+          "type": "field",
+          "label": "Follow-up Date",
+          "dataType": "date",
+          "hint": "Must be a future date",
+          "presentation": {
+            "widgetHint": "datePicker"
+          }
+        },
+        {
+          "key": "followup_time_preference",
+          "type": "field",
+          "label": "Preferred Time",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "morning",
+              "label": "Morning (8am-12pm)"
+            },
+            {
+              "value": "afternoon",
+              "label": "Afternoon (12pm-4pm)"
+            },
+            {
+              "value": "evening",
+              "label": "Evening (4pm-6pm)"
+            }
+          ]
+        },
+        {
+          "key": "followup_notes",
+          "type": "field",
+          "label": "Additional Notes",
+          "dataType": "text",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "followup_contact_method",
+          "type": "field",
+          "label": "Preferred Contact Method",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "phone",
+              "label": "Phone"
+            },
+            {
+              "value": "email",
+              "label": "Email"
+            },
+            {
+              "value": "sms",
+              "label": "SMS/Text"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "description": "Multi-page survey instrument for longitudinal health research with branching logic and repeat groups",
+  "formPresentation": {
+    "pageMode": "wizard"
+  },
+  "binds": [
+    {
+      "path": "demographics.participant_name",
+      "required": "true"
+    },
+    {
+      "path": "demographics.age",
+      "required": "true"
+    },
+    {
+      "path": "demographics.sex",
+      "required": "true"
+    },
+    {
+      "path": "demographics.ethnicity",
+      "required": "true"
+    },
+    {
+      "path": "health_history.past_conditions.condition_name",
+      "required": "true"
+    },
+    {
+      "path": "followup.followup_date",
+      "required": "true"
+    },
+    {
+      "path": "symptoms.urgent_referral.referral_reason",
+      "required": "true"
+    },
+    {
+      "path": "demographics.bmi",
+      "readonly": "true",
+      "calculate": "round($demographics.weight_kg / power($demographics.height_cm / 100, 2), 1)"
+    },
+    {
+      "path": "symptoms.geriatric_assessment",
+      "relevant": "$demographics.age > 65"
+    },
+    {
+      "path": "symptoms.severity_headache",
+      "relevant": "$symptoms.symptom_headache = true"
+    },
+    {
+      "path": "symptoms.severity_fatigue",
+      "relevant": "$symptoms.symptom_fatigue = true"
+    },
+    {
+      "path": "symptoms.severity_pain",
+      "relevant": "$symptoms.symptom_pain = true"
+    },
+    {
+      "path": "symptoms.severity_breathing",
+      "relevant": "$symptoms.symptom_breathing = true"
+    },
+    {
+      "path": "symptoms.severity_dizziness",
+      "relevant": "$symptoms.symptom_dizziness = true"
+    },
+    {
+      "path": "symptoms.severity_nausea",
+      "relevant": "$symptoms.symptom_nausea = true"
+    },
+    {
+      "path": "symptoms.urgent_referral",
+      "relevant": "coalesce($symptoms.severity_headache, 0) > 7 or coalesce($symptoms.severity_fatigue, 0) > 7 or coalesce($symptoms.severity_pain, 0) > 7 or coalesce($symptoms.severity_breathing, 0) > 7 or coalesce($symptoms.severity_dizziness, 0) > 7 or coalesce($symptoms.severity_nausea, 0) > 7"
+    },
+    {
+      "path": "symptoms.avg_severity_display",
+      "readonly": "true",
+      "calculate": "if(($symptoms.symptom_headache = true or $symptoms.symptom_fatigue = true or $symptoms.symptom_pain = true or $symptoms.symptom_breathing = true or $symptoms.symptom_dizziness = true or $symptoms.symptom_nausea = true), round((if($symptoms.symptom_headache = true, coalesce($symptoms.severity_headache, 0), 0) + if($symptoms.symptom_fatigue = true, coalesce($symptoms.severity_fatigue, 0), 0) + if($symptoms.symptom_pain = true, coalesce($symptoms.severity_pain, 0), 0) + if($symptoms.symptom_breathing = true, coalesce($symptoms.severity_breathing, 0), 0) + if($symptoms.symptom_dizziness = true, coalesce($symptoms.severity_dizziness, 0), 0) + if($symptoms.symptom_nausea = true, coalesce($symptoms.severity_nausea, 0), 0)) / (if($symptoms.symptom_headache = true, 1, 0) + if($symptoms.symptom_fatigue = true, 1, 0) + if($symptoms.symptom_pain = true, 1, 0) + if($symptoms.symptom_breathing = true, 1, 0) + if($symptoms.symptom_dizziness = true, 1, 0) + if($symptoms.symptom_nausea = true, 1, 0)), 1), 0)"
+    }
+  ],
+  "variables": [
+    {
+      "name": "avg_severity",
+      "expression": "if(($symptoms.symptom_headache = true or $symptoms.symptom_fatigue = true or $symptoms.symptom_pain = true or $symptoms.symptom_breathing = true or $symptoms.symptom_dizziness = true or $symptoms.symptom_nausea = true), round((if($symptoms.symptom_headache = true, coalesce($symptoms.severity_headache, 0), 0) + if($symptoms.symptom_fatigue = true, coalesce($symptoms.severity_fatigue, 0), 0) + if($symptoms.symptom_pain = true, coalesce($symptoms.severity_pain, 0), 0) + if($symptoms.symptom_breathing = true, coalesce($symptoms.severity_breathing, 0), 0) + if($symptoms.symptom_dizziness = true, coalesce($symptoms.severity_dizziness, 0), 0) + if($symptoms.symptom_nausea = true, coalesce($symptoms.severity_nausea, 0), 0)) / (if($symptoms.symptom_headache = true, 1, 0) + if($symptoms.symptom_fatigue = true, 1, 0) + if($symptoms.symptom_pain = true, 1, 0) + if($symptoms.symptom_breathing = true, 1, 0) + if($symptoms.symptom_dizziness = true, 1, 0) + if($symptoms.symptom_nausea = true, 1, 0)), 1), 0)"
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_12",
+      "target": "demographics.age",
+      "message": "Age must be between 18 and 120",
+      "severity": "error",
+      "constraint": "$demographics.age >= 18 and $demographics.age <= 120",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_13",
+      "target": "followup.followup_date",
+      "message": "Follow-up date must be in the future",
+      "severity": "error",
+      "constraint": "$followup.followup_date > today()",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_14",
+      "target": "symptoms",
+      "message": "At least one symptom must be checked",
+      "severity": "error",
+      "constraint": "$symptoms.symptom_headache = true or $symptoms.symptom_fatigue = true or $symptoms.symptom_pain = true or $symptoms.symptom_breathing = true or $symptoms.symptom_dizziness = true or $symptoms.symptom_nausea = true",
+      "code": "MIN_ONE_SYMPTOM",
+      "timing": "submit"
+    }
+  ]
+}

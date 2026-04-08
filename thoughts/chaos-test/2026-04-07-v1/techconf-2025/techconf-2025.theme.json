@@ -1,0 +1,39 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "attendee_name": {
+      "widgetConfig": {
+        "placeholder": "Jane Smith"
+      }
+    },
+    "email": {
+      "widgetConfig": {
+        "placeholder": "jane@example.com"
+      }
+    },
+    "company": {
+      "widgetConfig": {
+        "placeholder": "Where do you work?"
+      }
+    },
+    "accessibility": {
+      "widgetConfig": {
+        "placeholder": "e.g. wheelchair access, hearing loop, service animal space, large-print materials..."
+      }
+    }
+  },
+  "tokens": {
+    "color.primary": "#6C3DE4",
+    "color.accent": "#F59E0B",
+    "font.family": "Inter, system-ui, sans-serif"
+  },
+  "breakpoints": {
+    "mobile": 0,
+    "tablet": 768,
+    "desktop": 1024
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:zj2b7qv5"
+  }
+}

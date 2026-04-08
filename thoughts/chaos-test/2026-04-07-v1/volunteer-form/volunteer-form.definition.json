@@ -1,0 +1,139 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:rilf64ni",
+  "version": "0.1.0",
+  "title": "",
+  "items": [
+    {
+      "key": "volunteer_name",
+      "type": "field",
+      "label": "Your Name",
+      "dataType": "string"
+    },
+    {
+      "key": "volunteer_email",
+      "type": "field",
+      "label": "Email Address",
+      "dataType": "string"
+    },
+    {
+      "key": "volunteer_phone",
+      "type": "field",
+      "label": "Phone Number",
+      "dataType": "string"
+    },
+    {
+      "key": "availability_days",
+      "type": "field",
+      "label": "Which days can you help? (select all that apply)",
+      "dataType": "multiChoice",
+      "presentation": {
+        "widgetHint": "checkboxGroup"
+      },
+      "options": [
+        {
+          "value": "friday",
+          "label": "Friday"
+        },
+        {
+          "value": "saturday",
+          "label": "Saturday"
+        },
+        {
+          "value": "sunday",
+          "label": "Sunday"
+        }
+      ]
+    },
+    {
+      "key": "skills",
+      "type": "field",
+      "label": "What skills can you offer? (check all that apply)",
+      "dataType": "multiChoice",
+      "presentation": {
+        "widgetHint": "checkboxGroup"
+      },
+      "options": [
+        {
+          "value": "setup",
+          "label": "Event Setup"
+        },
+        {
+          "value": "cleanup",
+          "label": "Cleanup"
+        },
+        {
+          "value": "registration",
+          "label": "Registration Desk"
+        },
+        {
+          "value": "childcare",
+          "label": "Childcare"
+        },
+        {
+          "value": "catering",
+          "label": "Food/Beverage"
+        }
+      ]
+    },
+    {
+      "key": "emergency_contact_name",
+      "type": "field",
+      "label": "Emergency Contact Name",
+      "dataType": "string"
+    },
+    {
+      "key": "emergency_contact_phone",
+      "type": "field",
+      "label": "Emergency Contact Phone",
+      "dataType": "string"
+    },
+    {
+      "key": "contact_info",
+      "type": "group",
+      "label": "Contact Information",
+      "children": []
+    },
+    {
+      "key": "volunteer_information",
+      "type": "group",
+      "label": "Volunteer Information",
+      "children": []
+    },
+    {
+      "key": "availability_skills",
+      "type": "group",
+      "label": "Availability & Skills",
+      "children": []
+    },
+    {
+      "key": "emergency_contact",
+      "type": "group",
+      "label": "Emergency Contact",
+      "children": []
+    }
+  ],
+  "binds": [
+    {
+      "path": "volunteer_email",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')",
+      "required": "true"
+    },
+    {
+      "path": "volunteer_phone",
+      "constraint": "matches($, '^[+]?[0-9\\\\s\\\\-().]+$')",
+      "required": "true"
+    },
+    {
+      "path": "emergency_contact_phone",
+      "constraint": "matches($, '^[+]?[0-9\\\\s\\\\-().]+$')"
+    },
+    {
+      "path": "volunteer_name",
+      "required": "true"
+    }
+  ],
+  "formPresentation": {
+    "pageMode": "wizard"
+  }
+}

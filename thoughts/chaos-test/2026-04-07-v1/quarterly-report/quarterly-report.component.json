@@ -1,0 +1,66 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:0ilvja3t"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "TextInput",
+        "bind": "reporter_name"
+      },
+      {
+        "component": "TextInput",
+        "bind": "department"
+      },
+      {
+        "component": "Select",
+        "bind": "quarter"
+      },
+      {
+        "component": "NumberInput",
+        "bind": "fiscal_year"
+      },
+      {
+        "component": "MoneyInput",
+        "bind": "revenue"
+      },
+      {
+        "component": "MoneyInput",
+        "bind": "expenses"
+      },
+      {
+        "component": "MoneyInput",
+        "bind": "net_income"
+      },
+      {
+        "component": "TextInput",
+        "widgetHint": "textarea",
+        "bind": "loss_explanation"
+      },
+      {
+        "component": "Stack",
+        "displayMode": "dataTable",
+        "repeatable": true,
+        "addLabel": "Add Line Item",
+        "removeLabel": "Remove",
+        "children": [
+          {
+            "component": "TextInput",
+            "bind": "line_items.description"
+          },
+          {
+            "component": "MoneyInput",
+            "bind": "line_items.amount"
+          },
+          {
+            "component": "Select",
+            "bind": "line_items.category"
+          }
+        ]
+      }
+    ]
+  }
+}

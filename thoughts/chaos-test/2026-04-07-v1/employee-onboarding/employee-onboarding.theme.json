@@ -1,0 +1,49 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "employee_name": {
+      "widgetConfig": {
+        "placeholder": "e.g., Jane Smith"
+      }
+    },
+    "github_username": {
+      "widgetConfig": {
+        "placeholder": "e.g., janesmith-dev"
+      }
+    },
+    "contact_name": {
+      "widgetConfig": {
+        "placeholder": "e.g., John Smith"
+      }
+    },
+    "contact_phone": {
+      "widgetConfig": {
+        "placeholder": "e.g., (555) 123-4567"
+      }
+    },
+    "contact_email": {
+      "widgetConfig": {
+        "placeholder": "e.g., john.smith@email.com"
+      }
+    },
+    "direct_deposit_bank": {
+      "widgetConfig": {
+        "placeholder": "e.g., Chase Bank"
+      }
+    },
+    "direct_deposit_routing": {
+      "widgetConfig": {
+        "placeholder": "9-digit routing number"
+      }
+    },
+    "direct_deposit_account": {
+      "widgetConfig": {
+        "placeholder": "Your checking account number"
+      }
+    }
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:bfsqqpnf"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "first_name": {
+      "widgetConfig": {
+        "placeholder": "Enter first name"
+      }
+    },
+    "last_name": {
+      "widgetConfig": {
+        "placeholder": "Enter last name"
+      }
+    }
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:cmh0lzqu"
+  }
+}

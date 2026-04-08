@@ -1,0 +1,143 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:apx2ep9p",
+  "version": "0.1.0",
+  "status": "draft",
+  "title": "Community Garden Volunteer Signup",
+  "items": [
+    {
+      "key": "contact_info",
+      "type": "group",
+      "label": "Contact Information",
+      "children": [
+        {
+          "key": "name",
+          "type": "field",
+          "label": "Full Name",
+          "dataType": "string"
+        },
+        {
+          "key": "email",
+          "type": "field",
+          "label": "Email Address",
+          "dataType": "string"
+        },
+        {
+          "key": "phone",
+          "type": "field",
+          "label": "Phone Number",
+          "dataType": "string"
+        }
+      ]
+    },
+    {
+      "key": "volunteer_preferences",
+      "type": "group",
+      "label": "Volunteer Preferences",
+      "children": [
+        {
+          "key": "experience_level",
+          "type": "field",
+          "label": "Experience Level",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "beginner",
+              "label": "Beginner"
+            },
+            {
+              "value": "intermediate",
+              "label": "Intermediate"
+            },
+            {
+              "value": "advanced",
+              "label": "Advanced"
+            }
+          ]
+        },
+        {
+          "key": "tasks",
+          "type": "field",
+          "label": "Tasks You're Interested In",
+          "dataType": "multiChoice",
+          "presentation": {
+            "widgetHint": "checkboxGroup"
+          },
+          "options": [
+            {
+              "value": "planting",
+              "label": "Planting"
+            },
+            {
+              "value": "weeding",
+              "label": "Weeding"
+            },
+            {
+              "value": "harvesting",
+              "label": "Harvesting"
+            },
+            {
+              "value": "composting",
+              "label": "Composting"
+            },
+            {
+              "value": "maintenance",
+              "label": "Garden Maintenance"
+            }
+          ]
+        },
+        {
+          "key": "hours_available",
+          "type": "field",
+          "label": "How Many Hours Can You Help?",
+          "dataType": "integer",
+          "hint": "Enter a number between 1 and 8",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "dietary_restrictions",
+          "type": "field",
+          "label": "Dietary Restrictions or Allergies",
+          "dataType": "text",
+          "hint": "Let us know if you have any dietary restrictions or allergies (optional)",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        }
+      ]
+    }
+  ],
+  "binds": [
+    {
+      "path": "contact_info.name",
+      "required": "true"
+    },
+    {
+      "path": "contact_info.email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "contact_info.phone",
+      "constraint": "matches($, '^[+]?[0-9\\\\s\\\\-().]+$')"
+    },
+    {
+      "path": "volunteer_preferences.experience_level",
+      "required": "true"
+    },
+    {
+      "path": "volunteer_preferences.tasks",
+      "required": "true"
+    },
+    {
+      "path": "volunteer_preferences.hours_available",
+      "required": "true"
+    }
+  ],
+  "description": "Help us plant, grow, and harvest at our community garden event this Saturday!"
+}

@@ -1,0 +1,581 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:u26v67ey",
+  "version": "0.1.0",
+  "status": "draft",
+  "title": "Quarterly Budget Request",
+  "items": [
+    {
+      "key": "request_info",
+      "type": "group",
+      "label": "Request Information",
+      "children": [
+        {
+          "key": "department_name",
+          "type": "field",
+          "label": "Department Name",
+          "dataType": "string"
+        },
+        {
+          "key": "department_cost_center",
+          "type": "field",
+          "label": "Cost Center Code",
+          "dataType": "string",
+          "hint": "Enter your 6-digit cost center code"
+        },
+        {
+          "key": "fiscal_quarter",
+          "type": "field",
+          "label": "Fiscal Quarter",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "Q1",
+              "label": "Q1 (Jan–Mar)"
+            },
+            {
+              "value": "Q2",
+              "label": "Q2 (Apr–Jun)"
+            },
+            {
+              "value": "Q3",
+              "label": "Q3 (Jul–Sep)"
+            },
+            {
+              "value": "Q4",
+              "label": "Q4 (Oct–Dec)"
+            }
+          ]
+        },
+        {
+          "key": "fiscal_year",
+          "type": "field",
+          "label": "Fiscal Year",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "numberInput"
+          },
+          "hint": "Enter the 4-digit fiscal year (e.g., 2026)"
+        },
+        {
+          "key": "request_type",
+          "type": "field",
+          "label": "Request Type",
+          "dataType": "choice",
+          "hint": "Select the category that best describes this budget request",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "operational",
+              "label": "Operational Expense (OpEx)"
+            },
+            {
+              "value": "capital",
+              "label": "Capital Expenditure (CapEx)"
+            },
+            {
+              "value": "new_initiative",
+              "label": "New Initiative"
+            },
+            {
+              "value": "headcount",
+              "label": "Headcount / Staffing"
+            }
+          ]
+        },
+        {
+          "key": "submitter_name",
+          "type": "field",
+          "label": "Submitted By",
+          "dataType": "string"
+        },
+        {
+          "key": "submitter_email",
+          "type": "field",
+          "label": "Submitter Email",
+          "dataType": "string"
+        },
+        {
+          "key": "submission_date",
+          "type": "field",
+          "label": "Submission Date",
+          "dataType": "date",
+          "presentation": {
+            "widgetHint": "datePicker"
+          },
+          "initialValue": "=today()"
+        }
+      ]
+    },
+    {
+      "key": "line_items",
+      "type": "group",
+      "label": "Line Items",
+      "children": [
+        {
+          "key": "items",
+          "type": "group",
+          "label": "Budget Line Items",
+          "children": [
+            {
+              "key": "description",
+              "type": "field",
+              "label": "Description",
+              "dataType": "string"
+            },
+            {
+              "key": "category",
+              "type": "field",
+              "label": "Category",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "personnel",
+                  "label": "Personnel"
+                },
+                {
+                  "value": "technology",
+                  "label": "Technology / Software"
+                },
+                {
+                  "value": "equipment",
+                  "label": "Equipment / Hardware"
+                },
+                {
+                  "value": "facilities",
+                  "label": "Facilities"
+                },
+                {
+                  "value": "travel",
+                  "label": "Travel & Entertainment"
+                },
+                {
+                  "value": "consulting",
+                  "label": "Consulting / Professional Services"
+                },
+                {
+                  "value": "marketing",
+                  "label": "Marketing"
+                },
+                {
+                  "value": "training",
+                  "label": "Training & Development"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
+              ]
+            },
+            {
+              "key": "quantity",
+              "type": "field",
+              "label": "Quantity",
+              "dataType": "decimal",
+              "presentation": {
+                "widgetHint": "numberInput"
+              },
+              "initialValue": 1
+            },
+            {
+              "key": "unit_cost",
+              "type": "field",
+              "label": "Unit Cost ($)",
+              "dataType": "money",
+              "presentation": {
+                "widgetHint": "moneyInput"
+              }
+            },
+            {
+              "key": "line_total",
+              "type": "field",
+              "label": "Line Total ($)",
+              "dataType": "money",
+              "hint": "Auto-calculated: Quantity × Unit Cost",
+              "presentation": {
+                "widgetHint": "moneyInput"
+              }
+            }
+          ],
+          "repeatable": true,
+          "minRepeat": 1,
+          "maxRepeat": 20
+        }
+      ]
+    },
+    {
+      "key": "totals",
+      "type": "group",
+      "label": "Budget Totals",
+      "children": [
+        {
+          "key": "subtotal",
+          "type": "field",
+          "label": "Subtotal",
+          "dataType": "money",
+          "hint": "Sum of all line item totals",
+          "presentation": {
+            "widgetHint": "moneyInput"
+          }
+        },
+        {
+          "key": "tax_rate",
+          "type": "field",
+          "label": "Tax Rate (%)",
+          "dataType": "decimal",
+          "hint": "Enter applicable tax rate as a percentage (e.g., 8.5 for 8.5%)",
+          "presentation": {
+            "widgetHint": "numberInput"
+          },
+          "initialValue": 0
+        },
+        {
+          "key": "tax_amount",
+          "type": "field",
+          "label": "Tax Amount",
+          "dataType": "money",
+          "hint": "Auto-calculated based on subtotal and tax rate",
+          "presentation": {
+            "widgetHint": "moneyInput"
+          }
+        },
+        {
+          "key": "grand_total",
+          "type": "field",
+          "label": "Grand Total",
+          "dataType": "money",
+          "hint": "Subtotal plus tax",
+          "presentation": {
+            "widgetHint": "moneyInput"
+          }
+        }
+      ]
+    },
+    {
+      "key": "justification",
+      "type": "group",
+      "label": "Business Justification",
+      "children": [
+        {
+          "key": "business_case",
+          "type": "field",
+          "label": "Business Case Summary",
+          "dataType": "text",
+          "hint": "Required for all request types",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "strategic_alignment",
+          "type": "field",
+          "label": "Strategic Alignment",
+          "dataType": "text",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "roi_description",
+          "type": "field",
+          "label": "Expected Return on Investment",
+          "dataType": "text",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "alternatives_considered",
+          "type": "field",
+          "label": "Alternatives Considered",
+          "dataType": "text",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "asset_description",
+          "type": "field",
+          "label": "Asset Description",
+          "dataType": "text",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "headcount_justification",
+          "type": "field",
+          "label": "Headcount Justification",
+          "dataType": "text",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        },
+        {
+          "key": "position_title",
+          "type": "field",
+          "label": "Position Title",
+          "dataType": "string"
+        },
+        {
+          "key": "start_date",
+          "type": "field",
+          "label": "Requested Start Date",
+          "dataType": "date",
+          "presentation": {
+            "widgetHint": "datePicker"
+          }
+        }
+      ]
+    },
+    {
+      "key": "approval",
+      "type": "group",
+      "label": "Approval Routing",
+      "children": [
+        {
+          "key": "approval_tier",
+          "type": "field",
+          "label": "Required Approval Level",
+          "dataType": "string",
+          "hint": "Auto-determined based on request total"
+        },
+        {
+          "key": "manager_name",
+          "type": "field",
+          "label": "Direct Manager Name",
+          "dataType": "string",
+          "hint": "Your direct manager who has budget authority for this request"
+        },
+        {
+          "key": "manager_email",
+          "type": "field",
+          "label": "Direct Manager Email",
+          "dataType": "string"
+        },
+        {
+          "key": "director_name",
+          "type": "field",
+          "label": "Director / VP Name",
+          "dataType": "string",
+          "hint": "Required for requests $25,000 and above"
+        },
+        {
+          "key": "director_email",
+          "type": "field",
+          "label": "Director / VP Email",
+          "dataType": "string"
+        },
+        {
+          "key": "cfo_name",
+          "type": "field",
+          "label": "CFO Name",
+          "dataType": "string",
+          "hint": "Required for requests $100,000 and above"
+        },
+        {
+          "key": "cfo_email",
+          "type": "field",
+          "label": "CFO Email",
+          "dataType": "string"
+        },
+        {
+          "key": "budget_code_override",
+          "type": "field",
+          "label": "Budget Code Override",
+          "dataType": "string"
+        },
+        {
+          "key": "additional_notes",
+          "type": "field",
+          "label": "Notes to Approvers",
+          "dataType": "text",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        }
+      ]
+    }
+  ],
+  "description": "Submit departmental budget requests for the upcoming fiscal quarter. Includes line-item detail, auto-calculated totals, and approval routing.",
+  "formPresentation": {
+    "pageMode": "wizard",
+    "showProgress": true
+  },
+  "binds": [
+    {
+      "path": "request_info.department_name",
+      "required": "true"
+    },
+    {
+      "path": "request_info.department_cost_center",
+      "required": "true"
+    },
+    {
+      "path": "request_info.fiscal_quarter",
+      "required": "true"
+    },
+    {
+      "path": "request_info.fiscal_year",
+      "required": "true"
+    },
+    {
+      "path": "request_info.request_type",
+      "required": "true"
+    },
+    {
+      "path": "request_info.submitter_name",
+      "required": "true"
+    },
+    {
+      "path": "request_info.submitter_email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "request_info.submission_date",
+      "required": "true"
+    },
+    {
+      "path": "line_items.items.description",
+      "required": "true"
+    },
+    {
+      "path": "line_items.items.category",
+      "required": "true"
+    },
+    {
+      "path": "line_items.items.quantity",
+      "required": "true"
+    },
+    {
+      "path": "line_items.items.unit_cost",
+      "required": "true"
+    },
+    {
+      "path": "line_items.items.line_total",
+      "readonly": "true",
+      "calculate": "$line_items.items.quantity * $line_items.items.unit_cost"
+    },
+    {
+      "path": "totals.subtotal",
+      "readonly": "true",
+      "calculate": "moneySum($line_items.items[*].line_total)"
+    },
+    {
+      "path": "totals.tax_amount",
+      "readonly": "true",
+      "calculate": "money(moneyAmount(moneySum($line_items.items[*].line_total)) * ($totals.tax_rate / 100), \"USD\")"
+    },
+    {
+      "path": "totals.grand_total",
+      "readonly": "true",
+      "calculate": "moneyAdd(moneySum($line_items.items[*].line_total), money(moneyAmount(moneySum($line_items.items[*].line_total)) * ($totals.tax_rate / 100), \"USD\"))"
+    },
+    {
+      "path": "justification.business_case",
+      "required": "true"
+    },
+    {
+      "path": "justification.asset_description",
+      "relevant": "$request_info.request_type = \"capital\"",
+      "required": "$request_info.request_type = \"capital\""
+    },
+    {
+      "path": "justification.headcount_justification",
+      "relevant": "$request_info.request_type = \"headcount\"",
+      "required": "$request_info.request_type = \"headcount\""
+    },
+    {
+      "path": "justification.position_title",
+      "relevant": "$request_info.request_type = \"headcount\"",
+      "required": "$request_info.request_type = \"headcount\""
+    },
+    {
+      "path": "justification.start_date",
+      "relevant": "$request_info.request_type = \"headcount\""
+    },
+    {
+      "path": "justification.roi_description",
+      "required": "$request_info.request_type = \"new_initiative\""
+    },
+    {
+      "path": "approval.approval_tier",
+      "readonly": "true",
+      "calculate": "if(moneyAmount($totals.grand_total) >= 100000, \"Executive (CFO)\", if(moneyAmount($totals.grand_total) >= 25000, \"Director / VP\", \"Manager\"))"
+    },
+    {
+      "path": "approval.manager_name",
+      "required": "true"
+    },
+    {
+      "path": "approval.manager_email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "approval.director_email",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')",
+      "relevant": "moneyAmount($totals.grand_total) >= 25000",
+      "required": "moneyAmount($totals.grand_total) >= 25000"
+    },
+    {
+      "path": "approval.cfo_email",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')",
+      "relevant": "moneyAmount($totals.grand_total) >= 100000",
+      "required": "moneyAmount($totals.grand_total) >= 100000"
+    },
+    {
+      "path": "approval.director_name",
+      "relevant": "moneyAmount($totals.grand_total) >= 25000",
+      "required": "moneyAmount($totals.grand_total) >= 25000"
+    },
+    {
+      "path": "approval.cfo_name",
+      "relevant": "moneyAmount($totals.grand_total) >= 100000",
+      "required": "moneyAmount($totals.grand_total) >= 100000"
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_3",
+      "target": "request_info.fiscal_year",
+      "message": "Fiscal year must be between 2024 and 2035",
+      "severity": "error",
+      "constraint": "$request_info.fiscal_year >= 2024 and $request_info.fiscal_year <= 2035",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_4",
+      "target": "totals.tax_rate",
+      "message": "Tax rate must be between 0 and 100",
+      "severity": "error",
+      "constraint": "$totals.tax_rate >= 0 and $totals.tax_rate <= 100",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_5",
+      "target": "line_items.items[*].unit_cost",
+      "message": "Unit cost must be greater than zero",
+      "severity": "error",
+      "constraint": "moneyAmount($line_items.items.unit_cost) > 0",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_6",
+      "target": "line_items.items[*].quantity",
+      "message": "Quantity must be greater than zero",
+      "severity": "error",
+      "constraint": "$line_items.items.quantity > 0",
+      "timing": "continuous"
+    }
+  ]
+}

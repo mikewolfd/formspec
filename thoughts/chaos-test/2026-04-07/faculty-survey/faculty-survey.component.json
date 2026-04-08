@@ -1,0 +1,226 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:w7pqjjai"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Page",
+        "title": "Demographics & Role",
+        "description": "Basic respondent information and institutional role",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "demographics.full_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "demographics.email"
+              },
+              {
+                "component": "Select",
+                "bind": "demographics.department"
+              },
+              {
+                "component": "Select",
+                "bind": "demographics.respondent_type"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "demographics.years_at_institution"
+              },
+              {
+                "component": "DatePicker",
+                "bind": "demographics.hire_date"
+              },
+              {
+                "component": "Select",
+                "bind": "demographics.academic_rank"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Research Activity",
+        "description": "Grants, funding, and research program details",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Toggle",
+                "bind": "research.has_active_grants"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "research.num_grants"
+              },
+              {
+                "component": "MoneyInput",
+                "bind": "research.total_funding"
+              },
+              {
+                "component": "Select",
+                "bind": "research.primary_research_area"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "research.lab_members"
+              },
+              {
+                "component": "TextInput",
+                "bind": "research.research_statement"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Publications",
+        "description": "List your publications from the past 3 years",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "TextInput",
+                    "bind": "publications.pub_entries.pub_title"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "publications.pub_entries.journal_name"
+                  },
+                  {
+                    "component": "NumberInput",
+                    "bind": "publications.pub_entries.pub_year"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "publications.pub_entries.pub_type"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "publications.pub_entries.doi"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "publications.pub_entries.peer_reviewed"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Teaching Load",
+        "description": "Courses taught and student advising",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "NumberInput",
+                "bind": "teaching.num_advisees"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "teaching.num_committees"
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "TextInput",
+                    "bind": "teaching.courses.course_code"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "teaching.courses.course_title"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "teaching.courses.semester"
+                  },
+                  {
+                    "component": "NumberInput",
+                    "bind": "teaching.courses.enrollment"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "teaching.courses.is_graduate"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Eligibility Summary",
+        "description": "Calculated eligibility score and review",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "Your Eligibility Assessment"
+              },
+              {
+                "component": "Text",
+                "text": "The scores below are automatically calculated based on your responses. A combined score of 70 or higher qualifies you for the Research Excellence Grant program."
+              },
+              {
+                "component": "NumberInput",
+                "bind": "eligibility.pub_count"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "eligibility.peer_reviewed_count"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "eligibility.research_score"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "eligibility.teaching_score"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "eligibility.seniority_score"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "eligibility.total_score"
+              },
+              {
+                "component": "TextInput",
+                "bind": "eligibility.eligible"
+              },
+              {
+                "component": "Text",
+                "text": "Congratulations! Based on your responses, you qualify for the Research Excellence Grant program."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

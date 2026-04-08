@@ -1,0 +1,54 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:apx2ep9p"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "TextInput",
+            "bind": "contact_info.name"
+          },
+          {
+            "component": "TextInput",
+            "bind": "contact_info.email"
+          },
+          {
+            "component": "TextInput",
+            "bind": "contact_info.phone"
+          }
+        ]
+      },
+      {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Select",
+            "bind": "volunteer_preferences.experience_level"
+          },
+          {
+            "component": "CheckboxGroup",
+            "bind": "volunteer_preferences.tasks"
+          },
+          {
+            "component": "NumberInput",
+            "bind": "volunteer_preferences.hours_available"
+          },
+          {
+            "component": "TextInput",
+            "bind": "volunteer_preferences.dietary_restrictions"
+          }
+        ]
+      },
+      {
+        "component": "SubmitButton",
+        "label": "Sign Up for the Event"
+      }
+    ]
+  }
+}

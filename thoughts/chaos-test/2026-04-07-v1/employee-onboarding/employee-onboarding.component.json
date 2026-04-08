@@ -1,0 +1,172 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:bfsqqpnf"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Page",
+        "title": "Basic Information",
+        "description": "Tell us about yourself and your role",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "basic_information.employee_name"
+              },
+              {
+                "component": "Select",
+                "bind": "basic_information.department"
+              },
+              {
+                "component": "DatePicker",
+                "bind": "basic_information.start_date"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Department Setup",
+        "description": "Equipment and system access requirements for your department",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Select",
+                    "bind": "department_setup.engineering_section.laptop_preference"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "department_setup.engineering_section.github_username"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Toggle",
+                    "bind": "department_setup.marketing_section.brand_guidelines_acknowledged"
+                  },
+                  {
+                    "component": "CheckboxGroup",
+                    "bind": "department_setup.marketing_section.design_tools_access"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Select",
+                    "bind": "department_setup.sales_section.crm_training"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "department_setup.sales_section.sales_territory"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Select",
+                    "bind": "department_setup.hr_section.hris_access_level"
+                  },
+                  {
+                    "component": "Toggle",
+                    "bind": "department_setup.hr_section.confidentiality_agreement"
+                  }
+                ]
+              },
+              {
+                "component": "Text",
+                "text": "The fields below are specific to your department. Only your department's section will be visible based on your selection on the previous page."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Emergency Contact",
+        "description": "Who should we contact in case of emergency?",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "emergency_contact.contact_name"
+              },
+              {
+                "component": "Select",
+                "bind": "emergency_contact.relationship"
+              },
+              {
+                "component": "TextInput",
+                "bind": "emergency_contact.contact_phone"
+              },
+              {
+                "component": "TextInput",
+                "bind": "emergency_contact.contact_email"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Benefits Enrollment",
+        "description": "Select your benefits package options",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Select",
+                "bind": "benefits_enrollment.health_plan"
+              },
+              {
+                "component": "Select",
+                "bind": "benefits_enrollment.dental_plan"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "benefits_enrollment.retirement_contribution"
+              },
+              {
+                "component": "TextInput",
+                "bind": "benefits_enrollment.direct_deposit_bank"
+              },
+              {
+                "component": "TextInput",
+                "bind": "benefits_enrollment.direct_deposit_routing"
+              },
+              {
+                "component": "TextInput",
+                "bind": "benefits_enrollment.direct_deposit_account"
+              },
+              {
+                "component": "Text",
+                "text": "All employees must complete benefits enrollment within 30 days of their start date. Changes can only be made during open enrollment or after a qualifying life event."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

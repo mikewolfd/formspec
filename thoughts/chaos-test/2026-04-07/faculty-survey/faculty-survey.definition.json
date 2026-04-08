@@ -1,0 +1,682 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:w7pqjjai",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "Faculty Research Activity Survey 2026",
+  "items": [
+    {
+      "key": "demographics",
+      "type": "group",
+      "label": "Demographics & Role",
+      "children": [
+        {
+          "key": "full_name",
+          "type": "field",
+          "label": "Full Name",
+          "dataType": "string",
+          "hint": "Enter your legal name as it appears in university records"
+        },
+        {
+          "key": "email",
+          "type": "field",
+          "label": "Institutional Email",
+          "dataType": "string",
+          "hint": "Must be a .edu institutional email"
+        },
+        {
+          "key": "department",
+          "type": "field",
+          "label": "Department",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "cs",
+              "label": "Computer Science"
+            },
+            {
+              "value": "bio",
+              "label": "Biology"
+            },
+            {
+              "value": "chem",
+              "label": "Chemistry"
+            },
+            {
+              "value": "phys",
+              "label": "Physics"
+            },
+            {
+              "value": "math",
+              "label": "Mathematics"
+            },
+            {
+              "value": "eng",
+              "label": "Engineering"
+            },
+            {
+              "value": "soc",
+              "label": "Sociology"
+            },
+            {
+              "value": "psych",
+              "label": "Psychology"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ]
+        },
+        {
+          "key": "respondent_type",
+          "type": "field",
+          "label": "Your Role",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "faculty",
+              "label": "Faculty"
+            },
+            {
+              "value": "staff",
+              "label": "Research Staff"
+            },
+            {
+              "value": "student",
+              "label": "Graduate Student"
+            }
+          ],
+          "hint": "This determines which sections of the survey apply to you"
+        },
+        {
+          "key": "years_at_institution",
+          "type": "field",
+          "label": "Years at Institution",
+          "dataType": "integer",
+          "hint": "Round to the nearest year",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "hire_date",
+          "type": "field",
+          "label": "Start Date at Institution",
+          "dataType": "date",
+          "presentation": {
+            "widgetHint": "datePicker"
+          }
+        },
+        {
+          "key": "academic_rank",
+          "type": "field",
+          "label": "Academic Rank",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "optionSet": "academic_ranks"
+        }
+      ]
+    },
+    {
+      "key": "research",
+      "type": "group",
+      "label": "Research Activity",
+      "children": [
+        {
+          "key": "has_active_grants",
+          "type": "field",
+          "label": "Do you have any active grants?",
+          "dataType": "boolean",
+          "presentation": {
+            "widgetHint": "toggle"
+          }
+        },
+        {
+          "key": "num_grants",
+          "type": "field",
+          "label": "Number of Active Grants",
+          "dataType": "integer",
+          "hint": "Include all grants where you are PI or Co-PI",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "total_funding",
+          "type": "field",
+          "label": "Total Active Funding Amount ($)",
+          "dataType": "money",
+          "presentation": {
+            "widgetHint": "moneyInput"
+          }
+        },
+        {
+          "key": "primary_research_area",
+          "type": "field",
+          "label": "Primary Research Area",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "basic",
+              "label": "Basic/Fundamental Research"
+            },
+            {
+              "value": "applied",
+              "label": "Applied Research"
+            },
+            {
+              "value": "clinical",
+              "label": "Clinical/Translational"
+            },
+            {
+              "value": "computational",
+              "label": "Computational/Data Science"
+            },
+            {
+              "value": "mixed",
+              "label": "Mixed Methods"
+            }
+          ]
+        },
+        {
+          "key": "lab_members",
+          "type": "field",
+          "label": "Number of Lab/Team Members",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "research_statement",
+          "type": "field",
+          "label": "Brief Research Statement",
+          "dataType": "text",
+          "hint": "2-3 sentences describing your current research focus",
+          "presentation": {
+            "widgetHint": "textarea"
+          }
+        }
+      ]
+    },
+    {
+      "key": "publications",
+      "type": "group",
+      "label": "Publications",
+      "children": [
+        {
+          "key": "pub_entries",
+          "type": "group",
+          "label": "Publication Entries",
+          "children": [
+            {
+              "key": "pub_title",
+              "type": "field",
+              "label": "Publication Title",
+              "dataType": "string"
+            },
+            {
+              "key": "journal_name",
+              "type": "field",
+              "label": "Journal / Conference Name",
+              "dataType": "string"
+            },
+            {
+              "key": "pub_year",
+              "type": "field",
+              "label": "Year Published",
+              "dataType": "integer",
+              "hint": "YYYY format",
+              "presentation": {
+                "widgetHint": "numberInput"
+              }
+            },
+            {
+              "key": "pub_type",
+              "type": "field",
+              "label": "Publication Type",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "journal",
+                  "label": "Journal Article"
+                },
+                {
+                  "value": "conference",
+                  "label": "Conference Paper"
+                },
+                {
+                  "value": "book_chapter",
+                  "label": "Book Chapter"
+                },
+                {
+                  "value": "preprint",
+                  "label": "Preprint"
+                },
+                {
+                  "value": "technical_report",
+                  "label": "Technical Report"
+                }
+              ]
+            },
+            {
+              "key": "doi",
+              "type": "field",
+              "label": "DOI",
+              "dataType": "string"
+            },
+            {
+              "key": "peer_reviewed",
+              "type": "field",
+              "label": "Peer Reviewed?",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ],
+          "repeatable": true,
+          "minRepeat": 0,
+          "maxRepeat": 20
+        }
+      ]
+    },
+    {
+      "key": "teaching",
+      "type": "group",
+      "label": "Teaching Load",
+      "children": [
+        {
+          "key": "num_advisees",
+          "type": "field",
+          "label": "Number of Graduate Advisees",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "num_committees",
+          "type": "field",
+          "label": "Thesis/Dissertation Committees Served On",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "courses",
+          "type": "group",
+          "label": "Courses Taught",
+          "children": [
+            {
+              "key": "course_code",
+              "type": "field",
+              "label": "Course Code",
+              "dataType": "string"
+            },
+            {
+              "key": "course_title",
+              "type": "field",
+              "label": "Course Title",
+              "dataType": "string"
+            },
+            {
+              "key": "semester",
+              "type": "field",
+              "label": "Semester",
+              "dataType": "choice",
+              "presentation": {
+                "widgetHint": "dropdown"
+              },
+              "options": [
+                {
+                  "value": "fall_2025",
+                  "label": "Fall 2025"
+                },
+                {
+                  "value": "spring_2026",
+                  "label": "Spring 2026"
+                },
+                {
+                  "value": "summer_2025",
+                  "label": "Summer 2025"
+                }
+              ]
+            },
+            {
+              "key": "enrollment",
+              "type": "field",
+              "label": "Student Enrollment",
+              "dataType": "integer",
+              "presentation": {
+                "widgetHint": "numberInput"
+              }
+            },
+            {
+              "key": "is_graduate",
+              "type": "field",
+              "label": "Graduate-Level Course?",
+              "dataType": "boolean",
+              "presentation": {
+                "widgetHint": "toggle"
+              }
+            }
+          ],
+          "repeatable": true,
+          "minRepeat": 0,
+          "maxRepeat": 10
+        }
+      ]
+    },
+    {
+      "key": "eligibility",
+      "type": "group",
+      "label": "Eligibility Summary",
+      "children": [
+        {
+          "key": "elig_heading",
+          "type": "display",
+          "label": "Your Eligibility Assessment",
+          "presentation": {
+            "widgetHint": "heading"
+          }
+        },
+        {
+          "key": "elig_instructions",
+          "type": "display",
+          "label": "The scores below are automatically calculated based on your responses. A combined score of 70 or higher qualifies you for the Research Excellence Grant program.",
+          "presentation": {
+            "widgetHint": "paragraph"
+          }
+        },
+        {
+          "key": "pub_count",
+          "type": "field",
+          "label": "Total Publications",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "peer_reviewed_count",
+          "type": "field",
+          "label": "Peer-Reviewed Publications",
+          "dataType": "integer",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "research_score",
+          "type": "field",
+          "label": "Research Score (0-50)",
+          "dataType": "decimal",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "teaching_score",
+          "type": "field",
+          "label": "Teaching Score (0-30)",
+          "dataType": "decimal",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "seniority_score",
+          "type": "field",
+          "label": "Seniority Score (0-20)",
+          "dataType": "decimal",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "total_score",
+          "type": "field",
+          "label": "Total Eligibility Score (0-100)",
+          "dataType": "decimal",
+          "presentation": {
+            "widgetHint": "numberInput"
+          }
+        },
+        {
+          "key": "eligible",
+          "type": "field",
+          "label": "Eligible for Research Excellence Grant?",
+          "dataType": "string"
+        },
+        {
+          "key": "elig_banner",
+          "type": "display",
+          "label": "Congratulations! Based on your responses, you qualify for the Research Excellence Grant program.",
+          "presentation": {
+            "widgetHint": "banner"
+          }
+        }
+      ]
+    }
+  ],
+  "description": "Annual longitudinal survey of research productivity, teaching load, and funding eligibility for university faculty, staff, and students.",
+  "formPresentation": {
+    "pageMode": "wizard"
+  },
+  "binds": [
+    {
+      "path": "demographics.full_name",
+      "required": "true"
+    },
+    {
+      "path": "demographics.email",
+      "required": "true",
+      "constraint": "matches($, '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$')"
+    },
+    {
+      "path": "demographics.department",
+      "required": "true"
+    },
+    {
+      "path": "demographics.respondent_type",
+      "required": "true"
+    },
+    {
+      "path": "demographics.years_at_institution",
+      "required": "true"
+    },
+    {
+      "path": "demographics.hire_date",
+      "required": "true"
+    },
+    {
+      "path": "research.primary_research_area",
+      "required": "true"
+    },
+    {
+      "path": "publications.pub_entries.pub_title",
+      "required": "true"
+    },
+    {
+      "path": "publications.pub_entries.journal_name",
+      "required": "true"
+    },
+    {
+      "path": "publications.pub_entries.pub_year",
+      "required": "true"
+    },
+    {
+      "path": "teaching.courses.course_code",
+      "required": "true"
+    },
+    {
+      "path": "teaching.courses.course_title",
+      "required": "true"
+    },
+    {
+      "path": "eligibility.pub_count",
+      "readonly": "true",
+      "calculate": "count($publications.pub_entries.pub_title)"
+    },
+    {
+      "path": "eligibility.peer_reviewed_count",
+      "readonly": "true",
+      "calculate": "countWhere($publications.pub_entries.peer_reviewed, true)"
+    },
+    {
+      "path": "eligibility.research_score",
+      "readonly": "true",
+      "calculate": "min(50, coalesce($research.num_grants, 0) * 5 + coalesce($eligibility.peer_reviewed_count, 0) * 3 + if($research.has_active_grants = true, 10, 0))"
+    },
+    {
+      "path": "eligibility.teaching_score",
+      "readonly": "true",
+      "calculate": "min(30, count($teaching.courses.course_code) * 5 + coalesce($teaching.num_advisees, 0) * 2 + coalesce($teaching.num_committees, 0))"
+    },
+    {
+      "path": "eligibility.seniority_score",
+      "readonly": "true",
+      "calculate": "min(20, coalesce($demographics.years_at_institution, 0) * 2)"
+    },
+    {
+      "path": "eligibility.total_score",
+      "readonly": "true",
+      "calculate": "coalesce($eligibility.research_score, 0) + coalesce($eligibility.teaching_score, 0) + coalesce($eligibility.seniority_score, 0)"
+    },
+    {
+      "path": "eligibility.eligible",
+      "readonly": "true",
+      "calculate": "if($eligibility.total_score >= 70, \"Yes - Eligible\", \"No - Score below threshold\")"
+    },
+    {
+      "path": "research",
+      "relevant": "demographics.respondent_type = 'faculty' or demographics.respondent_type = 'staff'"
+    },
+    {
+      "path": "publications",
+      "relevant": "demographics.respondent_type = 'faculty' or demographics.respondent_type = 'staff' or demographics.respondent_type = 'student'"
+    },
+    {
+      "path": "teaching",
+      "relevant": "demographics.respondent_type = 'faculty'"
+    },
+    {
+      "path": "eligibility",
+      "relevant": "demographics.respondent_type = 'faculty' or demographics.respondent_type = 'staff' or demographics.respondent_type = 'student'"
+    },
+    {
+      "path": "research.num_grants",
+      "relevant": "$research.has_active_grants = true"
+    },
+    {
+      "path": "research.total_funding",
+      "relevant": "$research.has_active_grants = true"
+    },
+    {
+      "path": "research.research_statement",
+      "required": "$demographics.respondent_type = \"faculty\""
+    },
+    {
+      "path": "demographics.academic_rank",
+      "relevant": "$demographics.respondent_type = \"faculty\""
+    },
+    {
+      "path": "eligibility.elig_banner",
+      "relevant": "$eligibility.total_score >= 70"
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_9",
+      "target": "publications.pub_entries[*].pub_year",
+      "message": "Publication year must be between 2023 and 2026",
+      "severity": "error",
+      "constraint": "$publications.pub_entries.pub_year >= 2023 and $publications.pub_entries.pub_year <= 2026",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_10",
+      "target": "demographics.years_at_institution",
+      "message": "Years at institution cannot be negative",
+      "severity": "error",
+      "constraint": "$demographics.years_at_institution >= 0"
+    },
+    {
+      "id": "shape_11",
+      "target": "demographics.email",
+      "message": "Please use your institutional .edu email address",
+      "severity": "warning",
+      "constraint": "endsWith($demographics.email, \".edu\")"
+    },
+    {
+      "id": "shape_12",
+      "target": "research.num_grants",
+      "message": "Please enter the number of active grants",
+      "severity": "error",
+      "constraint": "if($research.has_active_grants = true, $research.num_grants > 0, true)"
+    },
+    {
+      "id": "shape_22",
+      "target": "research.total_funding",
+      "message": "You indicated active grants but reported $0 in funding. Please verify.",
+      "severity": "warning",
+      "constraint": "if($research.has_active_grants = true and present($research.total_funding), moneyAmount($research.total_funding) > 0, true)",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_23",
+      "target": "demographics.hire_date",
+      "message": "Start date cannot be in the future",
+      "severity": "error",
+      "constraint": "if(present($demographics.hire_date), $demographics.hire_date <= today(), true)",
+      "timing": "continuous"
+    }
+  ],
+  "optionSets": {
+    "academic_ranks": {
+      "options": [
+        {
+          "value": "assistant",
+          "label": "Assistant Professor"
+        },
+        {
+          "value": "associate",
+          "label": "Associate Professor"
+        },
+        {
+          "value": "full",
+          "label": "Full Professor"
+        },
+        {
+          "value": "emeritus",
+          "label": "Professor Emeritus"
+        },
+        {
+          "value": "lecturer",
+          "label": "Lecturer"
+        },
+        {
+          "value": "adjunct",
+          "label": "Adjunct"
+        }
+      ]
+    }
+  }
+}

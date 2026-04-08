@@ -1,0 +1,232 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:hte74xu7"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Page",
+        "title": "Demographics",
+        "description": "Basic participant demographics",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "Please provide your demographic information. All fields marked as required must be completed."
+              },
+              {
+                "component": "TextInput",
+                "bind": "demographics.participant_name"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "demographics.age"
+              },
+              {
+                "component": "Select",
+                "bind": "demographics.sex"
+              },
+              {
+                "component": "CheckboxGroup",
+                "bind": "demographics.ethnicity"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "demographics.height_cm"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "demographics.weight_kg"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "demographics.bmi"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Health History",
+        "description": "Past medical conditions and diagnoses",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "List all past medical conditions. Click 'Add Condition' to add more entries."
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "TextInput",
+                    "bind": "health_history.past_conditions.condition_name"
+                  },
+                  {
+                    "component": "NumberInput",
+                    "bind": "health_history.past_conditions.year_diagnosed"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "health_history.past_conditions.current_status"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Current Symptoms",
+        "description": "Current symptoms and severity assessment",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "Check all symptoms you are currently experiencing. For each checked symptom, rate its severity on a scale of 1-10."
+              },
+              {
+                "component": "Toggle",
+                "bind": "symptoms.symptom_headache"
+              },
+              {
+                "component": "Toggle",
+                "bind": "symptoms.symptom_fatigue"
+              },
+              {
+                "component": "Toggle",
+                "bind": "symptoms.symptom_pain"
+              },
+              {
+                "component": "Toggle",
+                "bind": "symptoms.symptom_breathing"
+              },
+              {
+                "component": "Toggle",
+                "bind": "symptoms.symptom_dizziness"
+              },
+              {
+                "component": "Toggle",
+                "bind": "symptoms.symptom_nausea"
+              },
+              {
+                "component": "Rating",
+                "bind": "symptoms.severity_headache"
+              },
+              {
+                "component": "Rating",
+                "bind": "symptoms.severity_fatigue"
+              },
+              {
+                "component": "Rating",
+                "bind": "symptoms.severity_pain"
+              },
+              {
+                "component": "Rating",
+                "bind": "symptoms.severity_breathing"
+              },
+              {
+                "component": "Rating",
+                "bind": "symptoms.severity_dizziness"
+              },
+              {
+                "component": "Rating",
+                "bind": "symptoms.severity_nausea"
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "Select",
+                    "bind": "symptoms.geriatric_assessment.fall_risk"
+                  },
+                  {
+                    "component": "Rating",
+                    "bind": "symptoms.geriatric_assessment.mobility_score"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "symptoms.geriatric_assessment.cognitive_screening"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "symptoms.geriatric_assessment.living_situation"
+                  }
+                ]
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "TextInput",
+                    "widgetHint": "textarea",
+                    "bind": "symptoms.urgent_referral.referral_reason"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "symptoms.urgent_referral.referral_specialty"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "symptoms.urgent_referral.referral_urgency"
+                  },
+                  {
+                    "component": "Text",
+                    "text": "WARNING: One or more symptoms have been rated with high severity (>7). An urgent referral is recommended."
+                  }
+                ]
+              },
+              {
+                "component": "NumberInput",
+                "bind": "symptoms.avg_severity_display"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Follow-up Scheduling",
+        "description": "Schedule next follow-up visit",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "Schedule your next follow-up appointment. The date must be in the future."
+              },
+              {
+                "component": "DatePicker",
+                "bind": "followup.followup_date"
+              },
+              {
+                "component": "Select",
+                "bind": "followup.followup_time_preference"
+              },
+              {
+                "component": "TextInput",
+                "bind": "followup.followup_notes"
+              },
+              {
+                "component": "Select",
+                "bind": "followup.followup_contact_method"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

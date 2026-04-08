@@ -1,0 +1,200 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:f70v9k3y"
+  },
+  "breakpoints": {
+    "mobile": 0
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Page",
+        "title": "Your Information",
+        "description": "Tell us a bit about yourself",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "your_information.email"
+              },
+              {
+                "component": "TextInput",
+                "bind": "your_information.phone"
+              },
+              {
+                "component": "TextInput",
+                "bind": "your_information.organization"
+              },
+              {
+                "component": "TextInput",
+                "bind": "your_information.job_title"
+              },
+              {
+                "component": "RadioGroup",
+                "bind": "your_information.attendee_type"
+              },
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "TextInput",
+                    "bind": "your_information.additional_guests.guest_name"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "your_information.additional_guests.guest_email"
+                  },
+                  {
+                    "component": "TextInput",
+                    "bind": "your_information.additional_guests.guest_organization"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "your_information.additional_guests.guest_tshirt_size"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Session Selection",
+        "description": "Choose the sessions you want to attend",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "Morning Sessions (9:00 AM – 12:00 PM)"
+              },
+              {
+                "component": "CheckboxGroup",
+                "bind": "session_selection.morning_sessions"
+              },
+              {
+                "component": "Text",
+                "text": "Afternoon Sessions (1:00 PM – 5:00 PM)"
+              },
+              {
+                "component": "CheckboxGroup",
+                "bind": "session_selection.afternoon_sessions"
+              },
+              {
+                "component": "Select",
+                "bind": "session_selection.workshop_interest"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Preferences",
+        "description": "T-shirt size and dietary requirements",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "All registered attendees receive a conference T-shirt! We order exact quantities so please choose carefully — we can't guarantee exchanges on-site."
+              },
+              {
+                "component": "CheckboxGroup",
+                "bind": "preferences.dietary_restrictions"
+              },
+              {
+                "component": "TextInput",
+                "bind": "preferences.dietary_other"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Registration Tier",
+        "description": "Select your registration package",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Text",
+                "text": "Registration includes full conference access, all meals, and your T-shirt."
+              },
+              {
+                "component": "Text",
+                "text": ""
+              },
+              {
+                "component": "RadioGroup",
+                "bind": "registration_tier.ticket_type"
+              },
+              {
+                "component": "TextInput",
+                "bind": "registration_tier.promo_code"
+              },
+              {
+                "component": "MoneyInput",
+                "bind": "registration_tier.total_due"
+              },
+              {
+                "component": "TextInput",
+                "bind": "registration_tier.billing_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "registration_tier.purchase_order"
+              },
+              {
+                "component": "Text",
+                "text": "Student discount applied! Please bring valid student ID to the registration desk. Your 50% discount will be reflected in your final invoice."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Grid",
+        "columns": 2,
+        "children": [
+          {
+            "component": "TextInput",
+            "bind": "first_name"
+          },
+          {
+            "component": "TextInput",
+            "bind": "last_name"
+          }
+        ]
+      },
+      {
+        "component": "Grid",
+        "columns": 2,
+        "children": [
+          {
+            "component": "Select",
+            "bind": "tshirt_size"
+          },
+          {
+            "component": "Select",
+            "bind": "tshirt_cut"
+          }
+        ]
+      },
+      {
+        "component": "SubmitButton",
+        "label": "Complete Registration & Proceed to Payment"
+      }
+    ]
+  }
+}

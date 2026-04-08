@@ -1,0 +1,24 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "0.1.0",
+  "items": {
+    "participant_name": {
+      "widgetConfig": {
+        "placeholder": "Enter full name"
+      }
+    },
+    "condition_name": {
+      "widgetConfig": {
+        "placeholder": "e.g., Type 2 Diabetes, Hypertension"
+      }
+    },
+    "followup_notes": {
+      "widgetConfig": {
+        "placeholder": "Any special requests or concerns for next visit"
+      }
+    }
+  },
+  "targetDefinition": {
+    "url": "urn:formspec:hte74xu7"
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "0.1.0",
+  "targetDefinition": {
+    "url": "urn:formspec:u26v67ey"
+  },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "Page",
+        "title": "Request Information",
+        "description": "Department details and request type classification",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "request_info.department_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "request_info.department_cost_center"
+              },
+              {
+                "component": "Select",
+                "bind": "request_info.fiscal_quarter"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "request_info.fiscal_year"
+              },
+              {
+                "component": "Select",
+                "bind": "request_info.request_type"
+              },
+              {
+                "component": "TextInput",
+                "bind": "request_info.submitter_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "request_info.submitter_email"
+              },
+              {
+                "component": "DatePicker",
+                "bind": "request_info.submission_date"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Line Items",
+        "description": "Enter individual budget line items with quantities and costs",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "Stack",
+                "children": [
+                  {
+                    "component": "TextInput",
+                    "bind": "line_items.items.description"
+                  },
+                  {
+                    "component": "Select",
+                    "bind": "line_items.items.category"
+                  },
+                  {
+                    "component": "NumberInput",
+                    "bind": "line_items.items.quantity"
+                  },
+                  {
+                    "component": "MoneyInput",
+                    "bind": "line_items.items.unit_cost"
+                  },
+                  {
+                    "component": "MoneyInput",
+                    "bind": "line_items.items.line_total"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Budget Totals",
+        "description": "Review auto-calculated subtotals, tax, and grand total",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "MoneyInput",
+                "bind": "totals.subtotal"
+              },
+              {
+                "component": "NumberInput",
+                "bind": "totals.tax_rate"
+              },
+              {
+                "component": "MoneyInput",
+                "bind": "totals.tax_amount"
+              },
+              {
+                "component": "MoneyInput",
+                "bind": "totals.grand_total"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Business Justification",
+        "description": "Provide narrative justification for the budget request",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "justification.business_case"
+              },
+              {
+                "component": "TextInput",
+                "bind": "justification.strategic_alignment"
+              },
+              {
+                "component": "TextInput",
+                "bind": "justification.roi_description"
+              },
+              {
+                "component": "TextInput",
+                "bind": "justification.alternatives_considered"
+              },
+              {
+                "component": "TextInput",
+                "bind": "justification.asset_description"
+              },
+              {
+                "component": "TextInput",
+                "bind": "justification.headcount_justification"
+              },
+              {
+                "component": "TextInput",
+                "bind": "justification.position_title"
+              },
+              {
+                "component": "DatePicker",
+                "bind": "justification.start_date"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "component": "Page",
+        "title": "Approval Routing",
+        "description": "Designate approvers based on request type and total amount",
+        "children": [
+          {
+            "component": "Stack",
+            "children": [
+              {
+                "component": "TextInput",
+                "bind": "approval.approval_tier"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.manager_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.manager_email"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.director_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.director_email"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.cfo_name"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.cfo_email"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.budget_code_override"
+              },
+              {
+                "component": "TextInput",
+                "bind": "approval.additional_notes"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "version": "0.1.0",
+  "definitionRef": "urn:formspec:zj2b7qv5",
+  "definitionVersion": ">=0.0.0",
+  "targetSchema": {
+    "format": "json"
+  },
+  "rules": []
+}

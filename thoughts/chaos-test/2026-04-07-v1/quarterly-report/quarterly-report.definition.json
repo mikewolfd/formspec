@@ -1,0 +1,279 @@
+{
+  "$formspec": "1.0",
+  "url": "urn:formspec:0ilvja3t",
+  "version": "0.1.0",
+  "title": "Quarterly Financial Report",
+  "items": [
+    {
+      "key": "reporter_name",
+      "type": "field",
+      "label": "Reporter Name",
+      "dataType": "string",
+      "description": "Full name of the person submitting this report"
+    },
+    {
+      "key": "department",
+      "type": "field",
+      "label": "Department",
+      "dataType": "string",
+      "description": "The department this report covers"
+    },
+    {
+      "key": "quarter",
+      "type": "field",
+      "label": "Quarter",
+      "dataType": "choice",
+      "description": "Fiscal quarter being reported",
+      "presentation": {
+        "widgetHint": "dropdown"
+      },
+      "options": [
+        {
+          "value": "Q1",
+          "label": "Q1 (January – March)"
+        },
+        {
+          "value": "Q2",
+          "label": "Q2 (April – June)"
+        },
+        {
+          "value": "Q3",
+          "label": "Q3 (July – September)"
+        },
+        {
+          "value": "Q4",
+          "label": "Q4 (October – December)"
+        }
+      ]
+    },
+    {
+      "key": "fiscal_year",
+      "type": "field",
+      "label": "Fiscal Year",
+      "dataType": "integer",
+      "description": "Four-digit fiscal year (e.g., 2025)",
+      "presentation": {
+        "widgetHint": "numberInput"
+      }
+    },
+    {
+      "key": "revenue",
+      "type": "field",
+      "label": "Total Revenue",
+      "dataType": "money",
+      "description": "Total revenue for the quarter (must be a positive amount)",
+      "presentation": {
+        "widgetHint": "moneyInput"
+      }
+    },
+    {
+      "key": "expenses",
+      "type": "field",
+      "label": "Total Expenses",
+      "dataType": "money",
+      "description": "Total expenses for the quarter (must be a positive amount)",
+      "presentation": {
+        "widgetHint": "moneyInput"
+      }
+    },
+    {
+      "key": "net_income",
+      "type": "field",
+      "label": "Net Income",
+      "dataType": "money",
+      "description": "Calculated automatically: Revenue minus Expenses",
+      "presentation": {
+        "widgetHint": "moneyInput"
+      }
+    },
+    {
+      "key": "loss_explanation",
+      "type": "field",
+      "label": "Loss Explanation",
+      "dataType": "text",
+      "description": "Required when net income is negative. Explain the reasons for the loss and any corrective actions planned.",
+      "presentation": {
+        "widgetHint": "textarea"
+      }
+    },
+    {
+      "key": "line_items",
+      "type": "group",
+      "label": "Line Items",
+      "children": [
+        {
+          "key": "description",
+          "type": "field",
+          "label": "Description",
+          "dataType": "string"
+        },
+        {
+          "key": "amount",
+          "type": "field",
+          "label": "Amount",
+          "dataType": "money",
+          "presentation": {
+            "widgetHint": "moneyInput"
+          }
+        },
+        {
+          "key": "category",
+          "type": "field",
+          "label": "Category",
+          "dataType": "choice",
+          "presentation": {
+            "widgetHint": "dropdown"
+          },
+          "options": [
+            {
+              "value": "revenue",
+              "label": "Revenue"
+            },
+            {
+              "value": "cogs",
+              "label": "Cost of Goods Sold"
+            },
+            {
+              "value": "operating",
+              "label": "Operating Expense"
+            },
+            {
+              "value": "payroll",
+              "label": "Payroll"
+            },
+            {
+              "value": "marketing",
+              "label": "Marketing"
+            },
+            {
+              "value": "capex",
+              "label": "Capital Expenditure"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ]
+        }
+      ],
+      "repeatable": true,
+      "minRepeat": 1,
+      "maxRepeat": 50
+    }
+  ],
+  "description": "Data collection form for quarterly financial reporting. Submit one form per department per quarter.",
+  "binds": [
+    {
+      "path": "reporter_name",
+      "required": "true"
+    },
+    {
+      "path": "department",
+      "required": "true"
+    },
+    {
+      "path": "quarter",
+      "required": "true"
+    },
+    {
+      "path": "fiscal_year",
+      "required": "true"
+    },
+    {
+      "path": "revenue",
+      "required": "true"
+    },
+    {
+      "path": "expenses",
+      "required": "true"
+    },
+    {
+      "path": "net_income",
+      "readonly": "true",
+      "calculate": "$revenue - $expenses"
+    },
+    {
+      "path": "loss_explanation",
+      "relevant": "$net_income < 0",
+      "required": "moneyAmount($revenue) - moneyAmount($expenses) < 0"
+    },
+    {
+      "path": "line_items.description",
+      "required": "true"
+    },
+    {
+      "path": "line_items.amount",
+      "required": "true"
+    },
+    {
+      "path": "line_items.category",
+      "required": "true"
+    }
+  ],
+  "shapes": [
+    {
+      "id": "shape_3",
+      "target": "fiscal_year",
+      "message": "Fiscal year must be a valid 4-digit year between 2000 and 2100",
+      "severity": "error",
+      "constraint": "$fiscal_year >= 2000 and $fiscal_year <= 2100",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_4",
+      "target": "line_items[*].amount",
+      "message": "[DISABLED - predicate bug]",
+      "severity": "info",
+      "constraint": "true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_5",
+      "target": "line_items[*].amount",
+      "message": "At least one line item is required",
+      "severity": "error",
+      "constraint": "count($line_items.description) > 0",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_8",
+      "target": "revenue",
+      "message": "Revenue must be a positive amount greater than zero",
+      "severity": "error",
+      "constraint": "moneyAmount($revenue) > 0",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_9",
+      "target": "expenses",
+      "message": "Expenses must be a positive amount greater than zero",
+      "severity": "error",
+      "constraint": "moneyAmount($expenses) > 0",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_15",
+      "target": "line_items[*].amount",
+      "message": "Each line item amount must be greater than zero",
+      "severity": "error",
+      "constraint": "moneyAmount($line_items.amount) > 0",
+      "timing": "continuous"
+    },
+    {
+      "id": "shape_16",
+      "target": "line_items[*].description",
+      "message": "[DISABLED - per-row shape rule bug]",
+      "severity": "info",
+      "constraint": "true",
+      "timing": "submit"
+    },
+    {
+      "id": "shape_17",
+      "target": "net_income",
+      "message": "The sum of all line item amounts must equal Net Income (Revenue minus Expenses). Please reconcile your line items.",
+      "severity": "warning",
+      "constraint": "moneyAmount(moneySum($line_items.amount)) = moneyAmount($revenue) - moneyAmount($expenses)",
+      "timing": "submit"
+    }
+  ]
+}
