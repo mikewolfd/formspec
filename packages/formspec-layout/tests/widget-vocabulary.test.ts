@@ -11,16 +11,20 @@ import {
 
 describe('widgetTokenToComponent', () => {
   it('resolves spec hints to components', () => {
-    expect(widgetTokenToComponent('checkbox')).toBe('Checkbox');
+    // Tier 1 widgetHint "checkbox" / "toggle" / "yesNo" → Toggle (no standalone Checkbox component)
+    expect(widgetTokenToComponent('checkbox')).toBe('Toggle');
     expect(widgetTokenToComponent('toggle')).toBe('Toggle');
     expect(widgetTokenToComponent('radio')).toBe('RadioGroup');
     expect(widgetTokenToComponent('dropdown')).toBe('Select');
   });
 
   it('passes through PascalCase component names', () => {
-    expect(widgetTokenToComponent('Checkbox')).toBe('Checkbox');
     expect(widgetTokenToComponent('Toggle')).toBe('Toggle');
     expect(widgetTokenToComponent('RadioGroup')).toBe('RadioGroup');
+  });
+
+  it('normalizes Checkbox to checkbox hint and resolves to Toggle', () => {
+    expect(widgetTokenToComponent('Checkbox')).toBe('Toggle');
   });
 
   it('returns null for unknown tokens', () => {
@@ -33,11 +37,7 @@ describe('widgetTokenToComponent', () => {
 // ── COMPONENT_TO_HINT (new export) ────────────────────────────────
 
 describe('COMPONENT_TO_HINT — reverse map from component to canonical hint', () => {
-  it('maps Checkbox to checkbox', () => {
-    expect(COMPONENT_TO_HINT['Checkbox']).toBe('checkbox');
-  });
-
-  it('maps Toggle to toggle', () => {
+  it('maps Toggle to toggle (boolean single-value control)', () => {
     expect(COMPONENT_TO_HINT['Toggle']).toBe('toggle');
   });
 
@@ -73,8 +73,8 @@ describe('COMPONENT_TO_HINT — reverse map from component to canonical hint', (
 // ── COMPATIBILITY_MATRIX (new export) ─────────────────────────────
 
 describe('COMPATIBILITY_MATRIX — dataType to compatible components', () => {
-  it('boolean supports Toggle and Checkbox', () => {
-    expect(COMPATIBILITY_MATRIX['boolean']).toEqual(['Toggle', 'Checkbox']);
+  it('boolean uses Toggle', () => {
+    expect(COMPATIBILITY_MATRIX['boolean']).toEqual(['Toggle']);
   });
 
   it('choice supports Select, RadioGroup, TextInput', () => {
