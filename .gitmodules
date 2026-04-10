@@ -1,0 +1,3 @@
+[submodule "wos-spec"]
+	path = wos-spec
+	url = https://github.com/Formspec-org/wos-spec
