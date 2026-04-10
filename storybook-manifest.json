@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-04-08T02:30:44.543Z",
+  "generatedAt": "2026-04-08T13:57:54.640Z",
   "count": 1,
   "stories": [
     {
-      "id": "adapters-uswds-layout--tabs",
+      "id": "adapters-uswds-layout--collapsible",
       "title": "USWDSSideBySideStory",
-      "name": "Tabs",
-      "png": "stories/adapters/uswds/__screenshots__/USWDSLayout.stories.tsx/adapters-uswds-layout-tabs-chromium-darwin.png",
-      "dom": "stories/adapters/uswds/__screenshots__/USWDSLayout.stories.tsx/adapters-uswds-layout-tabs.dom.txt",
+      "name": "Collapsible",
+      "png": "stories/adapters/uswds/__screenshots__/USWDSLayout.stories.tsx/adapters-uswds-layout-collapsible-chromium-darwin.png",
+      "dom": "stories/adapters/uswds/__screenshots__/USWDSLayout.stories.tsx/adapters-uswds-layout-collapsible.dom.txt",
       "consoleErrors": [],
       "ok": true
     }
