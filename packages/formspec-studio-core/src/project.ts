@@ -57,7 +57,7 @@ import {
 } from './authoring-helpers.js';
 import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from '@formspec-org/types';
 import { analyzeFEL } from '@formspec-org/engine/fel-runtime';
-import { rewriteFELReferences } from '@formspec-org/engine/fel-tools';
+import { rewriteFELReferences, rewriteMessageTemplate } from '@formspec-org/engine/fel-tools';
 import { createFormEngine, type FormspecDefinition, type IFormEngine } from '@formspec-org/engine/render';
 
 type ComponentNode = Record<string, unknown>;
@@ -1069,6 +1069,87 @@ export class Project {
     return normalized.join('.');
   }
 
+  /**
+   * Build a rewriter that canonicalizes FEL references from template (authored)
+   * paths to row-scoped paths after _normalizeShapeTarget inserts [*].
+   *
+   * Given authored target `expenses.receipt` normalized to `expenses[*].receipt`:
+   * - `$expenses.receipt` (target itself) -> `$` (current)
+   * - `$expenses.row_total` (same-row sibling) -> `$row_total`
+   * - `$grand_total` (outside repeat) -> unchanged
+   * - `sum($expenses[*].row_total)` (explicit collection) -> unchanged
+   */
+  private static _buildRepeatScopeRewriter(
+    authoredTarget: string,
+    normalizedTarget: string,
+  ): { rewriteExpression: (expr: string) => string; rewriteMessage: (msg: string) => string } {
+    // Derive the row scope prefix from the normalized target.
+    // For `expenses[*].receipt`, row scope is `expenses`.
+    // For `sections[*].items[*].amount`, row scope is `sections.items`.
+    //
+    // We use the authored target's prefix (without the target leaf) as the
+    // template-form row scope. References that start with this prefix are
+    // same-row and get rewritten by stripping the prefix.
+    const authoredParts = authoredTarget.split('.');
+    const targetLeaf = authoredParts[authoredParts.length - 1];
+    const authoredRowScope = authoredParts.slice(0, -1).join('.'); // e.g. "expenses" or "sections.items"
+
+    const rewriteFieldPath = (refPath: string): string => {
+      // Already uses explicit [*] collection syntax — leave unchanged
+      if (refPath.includes('[*]')) return refPath;
+
+      // Reference to the target field itself -> $
+      if (refPath === authoredTarget) return '';
+
+      // Same-row sibling: starts with the row scope prefix
+      if (authoredRowScope && refPath.startsWith(authoredRowScope + '.')) {
+        const relative = refPath.slice(authoredRowScope.length + 1);
+        // Don't rewrite if the relative part still contains the row scope
+        // (would indicate a nested/ambiguous reference)
+        return relative;
+      }
+
+      // Outside the repeat scope — leave unchanged
+      return refPath;
+    };
+
+    // Build the rewrite map for message template rewriting (needs an eagerly
+    // computed map rather than a callback).
+    const buildRewriteMap = (source: string): Record<string, string> => {
+      const map: Record<string, string> = {};
+      // Quick regex scan for $fieldRef patterns in the source
+      const refPattern = /\$([a-zA-Z_]\w*(?:\.\w+)*)/g;
+      let match;
+      while ((match = refPattern.exec(source)) !== null) {
+        const refPath = match[1];
+        const rewritten = rewriteFieldPath(refPath);
+        if (rewritten !== refPath) {
+          map[refPath] = rewritten;
+        }
+      }
+      return map;
+    };
+
+    return {
+      rewriteExpression: (expr: string): string => {
+        try {
+          return rewriteFELReferences(expr, { rewriteFieldPath });
+        } catch {
+          return expr;
+        }
+      },
+      rewriteMessage: (msg: string): string => {
+        const fieldMap = buildRewriteMap(msg);
+        if (Object.keys(fieldMap).length === 0) return msg;
+        try {
+          return rewriteMessageTemplate(msg, { fieldPaths: fieldMap });
+        } catch {
+          return msg;
+        }
+      },
+    };
+  }
+
   /** Conditional visibility — dispatches definition.setBind { relevant: condition } */
   showWhen(target: string, condition: string): HelperResult {
     this._requireItemPath(target);
@@ -1272,15 +1353,31 @@ export class Project {
 
     const normalizedTarget = this._normalizeShapeTarget(target);
 
+    // When _normalizeShapeTarget inserted [*], rewrite authored FEL to
+    // row-scoped canonical form per the spec (Decision 1 in phase4 follow-up).
+    const targetWasNormalized = normalizedTarget !== target;
+    let canonicalRule = rule;
+    let canonicalMessage = message;
+    let canonicalActiveWhen = options?.activeWhen;
+
+    if (targetWasNormalized) {
+      const rewriter = Project._buildRepeatScopeRewriter(target, normalizedTarget);
+      canonicalRule = rewriter.rewriteExpression(rule);
+      canonicalMessage = rewriter.rewriteMessage(message);
+      if (canonicalActiveWhen) {
+        canonicalActiveWhen = rewriter.rewriteExpression(canonicalActiveWhen);
+      }
+    }
+
     const payload: Record<string, unknown> = {
       target: normalizedTarget,
-      constraint: rule,
-      message,
+      constraint: canonicalRule,
+      message: canonicalMessage,
     };
     if (options?.timing) payload.timing = options.timing;
     if (options?.severity) payload.severity = options.severity;
     if (options?.code) payload.code = options.code;
-    if (options?.activeWhen) payload.activeWhen = options.activeWhen;
+    if (canonicalActiveWhen) payload.activeWhen = canonicalActiveWhen;
 
     // Advisory warning: field already has a bind-level constraint
     const warnings: HelperWarning[] = [];
