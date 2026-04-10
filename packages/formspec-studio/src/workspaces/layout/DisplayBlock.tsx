@@ -1,6 +1,8 @@
 /** @filedesc Layout canvas block for display-only items — label, body editor for notes, read-only definition copy with link to Editor, toolbar. */
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useSortable } from '@dnd-kit/react/sortable';
 import { hasTier3Content } from '@formspec-org/studio-core';
+import { DragHandle } from '../../components/ui/DragHandle';
 import type { LayoutContext } from './FieldBlock';
 import { EditMark } from '../editor/item-row-shared';
 import { useResizeHandle } from './useResizeHandle';
@@ -9,6 +11,7 @@ import { PropertyPopover } from './PropertyPopover';
 import { DefinitionCopyReadonlyPanel } from './DefinitionCopyReadonlyPanel';
 import { useLayoutResizeReporter } from './LayoutResizeContext';
 import { LAYOUT_LEAF_SELECTED, LAYOUT_LEAF_UNSELECTED } from './layout-node-styles';
+import { LAYOUT_DND_FEEDBACK_NONE, LAYOUT_SORTABLE_TRANSITION } from './layout-dnd-sortable-config';
 
 const STOP_SELECT = 'data-layout-stop-select';
 
@@ -64,6 +67,10 @@ interface DisplayBlockProps {
    * When set, a multi-line editor is shown while the block is selected.
    */
   onCommitDisplayLabel?: (text: string | null) => void;
+  /** Layout canvas: parent @dnd-kit/sortable group (with sortableIndex + treeDragNodeRef). */
+  sortableGroup?: string;
+  sortableIndex?: number;
+  treeDragNodeRef?: { bind?: string; nodeId?: string };
 }
 
 export function DisplayBlock({
@@ -89,8 +96,12 @@ export function DisplayBlock({
   onRemove,
   onStyleRemove,
   onCommitDisplayLabel,
+  sortableGroup,
+  sortableIndex,
+  treeDragNodeRef,
 }: DisplayBlockProps) {
   const blockRef = useRef<HTMLDivElement | null>(null);
+  const dragHandleRef = useRef<Element | null>(null);
   const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const reportResize = useLayoutResizeReporter();
@@ -102,6 +113,30 @@ export function DisplayBlock({
   useEffect(() => {
     setBodyDraft(label ?? '');
   }, [label]);
+
+  const layoutSortable = Boolean(
+    sortableGroup &&
+      sortableIndex !== undefined &&
+      treeDragNodeRef &&
+      (treeDragNodeRef.nodeId != null || treeDragNodeRef.bind != null),
+  );
+  const sortableDragId =
+    treeDragNodeRef?.nodeId != null
+      ? `node:${treeDragNodeRef.nodeId}`
+      : treeDragNodeRef?.bind != null
+        ? `bind:${treeDragNodeRef.bind}`
+        : 'layout-display:noop';
+
+  const { ref: sortableRef, handleRef: connectSortableHandle, isDragSource } = useSortable({
+    id: sortableDragId,
+    index: sortableIndex ?? 0,
+    group: sortableGroup ?? 'noop',
+    data: layoutSortable ? { nodeRef: treeDragNodeRef!, type: 'tree-node' } : {},
+    handle: dragHandleRef,
+    disabled: !layoutSortable,
+    feedback: LAYOUT_DND_FEEDBACK_NONE,
+    transition: LAYOUT_SORTABLE_TRANSITION,
+  });
 
   const isInGrid = layoutContext?.parentContainerType === 'grid';
   const parentGridColumns = layoutContext?.parentGridColumns ?? 1;
@@ -184,7 +219,7 @@ export function DisplayBlock({
   const showBodyEditor = selected && !!onCommitDisplayLabel && isToolbarPrimary;
 
   const editable = Boolean(onRenameDefinitionItem);
-  const effectiveSelected = selected;
+  const effectiveSelected = selected && !isDragSource;
   const showEditMark = effectiveSelected && editable && isToolbarPrimary;
 
   useEffect(() => {
@@ -228,8 +263,9 @@ export function DisplayBlock({
   };
 
   const shellClasses = [
-    'group relative flex w-full min-w-0 flex-col rounded-[18px] px-3 py-3 text-left transition-[border-color,background-color] md:px-4 md:py-3.5',
+    'group relative flex w-full min-w-0 flex-col rounded-[18px] px-3 py-3 text-left transition-[border-color,background-color,opacity,box-shadow] md:px-4 md:py-3.5',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35',
+    isDragSource ? 'opacity-50 ring-2 ring-accent/45 ring-offset-2 ring-offset-background' : '',
     selected ? LAYOUT_LEAF_SELECTED : LAYOUT_LEAF_UNSELECTED,
   ].join(' ');
 
@@ -316,7 +352,10 @@ export function DisplayBlock({
 
   return (
     <div
-      ref={blockRef}
+      ref={(el) => {
+        blockRef.current = el;
+        sortableRef(el as unknown as Element);
+      }}
       role="group"
       tabIndex={0}
       aria-pressed={selected}
@@ -341,6 +380,18 @@ export function DisplayBlock({
       }}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
+        {layoutSortable ? (
+          <div {...stopProps} className="shrink-0">
+            <DragHandle
+              ref={(el) => {
+                dragHandleRef.current = el;
+                connectSortableHandle(el);
+              }}
+              label={`Reorder ${label?.trim() || itemKey}`}
+              className="h-11"
+            />
+          </div>
+        ) : null}
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-bg-default/85">
           <span className="shrink-0 font-mono text-accent">{glyph}</span>
         </div>

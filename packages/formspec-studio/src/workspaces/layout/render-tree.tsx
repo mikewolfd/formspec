@@ -242,6 +242,8 @@ function renderContainer(
   layoutProps: ContainerLayoutProps,
   collisionPriority: number,
   pageSectionActive: boolean,
+  sortableGroupId: string,
+  sortableIndex: number,
   extraProps?: Partial<{
     bind: string;
     bindPath: string;
@@ -270,6 +272,8 @@ function renderContainer(
       onStyleRemove={ctx.onStyleRemove ? (k) => ctx.onStyleRemove!(selectionKey, k) : undefined}
       collisionPriority={collisionPriority}
       pageSectionActive={pageSectionActive}
+      sortableGroup={sortableGroupId}
+      sortableIndex={sortableIndex}
     >
       {children}
     </LayoutContainer>
@@ -284,14 +288,23 @@ export function renderLayoutTree(
   containerDepth = 0,
   /** True when nodes live on the active wizard page or single-page canvas (see LayoutCanvas). */
   pageSectionActive = false,
+  /**
+   * @dnd-kit sortable group id for direct children (`root`, a parent `nodeId`, or `bind:` + definition key).
+   * Must stay consistent with `layoutSortGroupToTargetParent` in `LayoutDndProvider.tsx`.
+   */
+  sortableGroupId = 'root',
 ): ReactNode[] {
   const result: ReactNode[] = [];
+  /** Contiguous index among rendered sortable siblings (loop index `i` skips nodes → breaks @dnd-kit/sortable). */
+  let siblingSortIndex = 0;
 
-  for (const node of nodes) {
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
     // Authored Page node — render as a titled section in the Layout workspace.
     if (node._layout && node.component === 'Page') {
       const pageId = node.nodeId ?? 'page';
       const activePageSection = ctx.activePageId == null || ctx.activePageId === pageId;
+      const pageSortGroup = node.nodeId ?? pageId;
       const children = node.children
         ? renderLayoutTree(
             node.children,
@@ -300,6 +313,7 @@ export function renderLayoutTree(
             ROOT_CONTEXT,
             containerDepth,
             activePageSection,
+            pageSortGroup,
           )
         : null;
       result.push(
@@ -344,6 +358,9 @@ export function renderLayoutTree(
           nodeStyle={node.style as Record<string, unknown> | undefined}
           onResizeColSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(nodeSelKey, n) : undefined}
           onResizeRowSpan={ctx.onResizeRowSpan ? (n) => ctx.onResizeRowSpan!(nodeSelKey, n) : undefined}
+          sortableGroup={sortableGroupId}
+          sortableIndex={siblingSortIndex++}
+          treeDragNodeRef={{ nodeId: node.nodeId! }}
         />,
       );
       continue;
@@ -356,8 +373,17 @@ export function renderLayoutTree(
         parentContainerType: node.component.toLowerCase(),
         parentGridColumns: resolveContainerColumns(node.columns) ?? 2,
       };
+      const innerSortGroup = node.nodeId!;
       const children = node.children
-        ? renderLayoutTree(node.children, ctx, defPathPrefix, childCtx, containerDepth + 1, pageSectionActive)
+        ? renderLayoutTree(
+            node.children,
+            ctx,
+            defPathPrefix,
+            childCtx,
+            containerDepth + 1,
+            pageSectionActive,
+            innerSortGroup,
+          )
         : null;
       const nodeSelKey = `__node:${node.nodeId!}`;
       result.push(
@@ -371,6 +397,8 @@ export function renderLayoutTree(
           buildContainerLayoutProps(node),
           containerDepth * 10,
           pageSectionActive,
+          sortableGroupId,
+          siblingSortIndex++,
           { nodeId: node.nodeId! },
         ),
       );
@@ -390,8 +418,17 @@ export function renderLayoutTree(
           parentContainerType: node.component.toLowerCase(),
           parentGridColumns: resolveContainerColumns(node.columns) ?? 2,
         };
+        const innerSortGroup = node.nodeId ? node.nodeId : `bind:${node.bind}`;
         const children = node.children
-          ? renderLayoutTree(node.children, ctx, defPath, childCtx, containerDepth + 1, pageSectionActive)
+          ? renderLayoutTree(
+              node.children,
+              ctx,
+              defPath,
+              childCtx,
+              containerDepth + 1,
+              pageSectionActive,
+              innerSortGroup,
+            )
           : null;
         const groupSelKey = defPath;
         result.push(
@@ -405,9 +442,12 @@ export function renderLayoutTree(
             buildContainerLayoutProps(node),
             containerDepth * 10,
             pageSectionActive,
+            sortableGroupId,
+            siblingSortIndex++,
             {
               bind: item.key,
               bindPath: defPath,
+              ...(node.nodeId ? { nodeId: node.nodeId } : {}),
             },
           ),
         );
@@ -461,6 +501,8 @@ export function renderLayoutTree(
           onResizeRowSpan={ctx.onResizeRowSpan ? (n) => ctx.onResizeRowSpan!(defPath, n) : undefined}
           onRemove={ctx.onRemoveNode ? () => ctx.onRemoveNode!(defPath) : undefined}
           onStyleRemove={ctx.onStyleRemove ? (k) => ctx.onStyleRemove!(defPath, k) : undefined}
+          sortableGroup={sortableGroupId}
+          sortableIndex={siblingSortIndex++}
         />,
       );
       continue;
@@ -522,6 +564,9 @@ export function renderLayoutTree(
               ? (text) => ctx.onCommitDisplayLabel!(defPath!, text)
               : undefined
           }
+          sortableGroup={sortableGroupId}
+          sortableIndex={siblingSortIndex++}
+          treeDragNodeRef={{ nodeId: node.nodeId }}
         />,
       );
     }

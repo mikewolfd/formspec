@@ -1,7 +1,8 @@
 /** @filedesc Layout canvas wrapper for layout nodes — applies real CSS layout per container type (Grid, Stack, Card, Panel, Collapsible, Accordion). */
 import React, { useState, useRef, useCallback, type ReactNode } from 'react';
 import { DragHandle } from '../../components/ui/DragHandle';
-import { useDraggable, useDroppable } from '@dnd-kit/react';
+import { useDroppable } from '@dnd-kit/react';
+import { useSortable } from '@dnd-kit/react/sortable';
 import { hasTier3Content, type ContainerLayoutProps } from '@formspec-org/studio-core';
 import { InlineToolbar } from './InlineToolbar';
 import { PropertyPopover } from './PropertyPopover';
@@ -12,6 +13,7 @@ import {
   LAYOUT_CONTAINER_UNSELECTED,
   LAYOUT_CONTAINER_UNSELECTED_ON_ACTIVE_PAGE,
 } from './layout-node-styles';
+import { LAYOUT_DND_FEEDBACK_NONE, LAYOUT_SORTABLE_TRANSITION } from './layout-dnd-sortable-config';
 
 export interface LayoutContainerProps {
   component: string;
@@ -24,8 +26,11 @@ export interface LayoutContainerProps {
   selected?: boolean;
   /** When set, inline toolbar only shows on the primary row during multi-select. */
   layoutPrimaryKey?: string | null;
-  index?: number;
   onSelect?: (e: React.MouseEvent | React.KeyboardEvent) => void;
+  /** Parent list id for @dnd-kit/sortable (root stack, page, or layout/bind group). */
+  sortableGroup: string;
+  /** Index among siblings in `sortableGroup`. */
+  sortableIndex: number;
   children?: ReactNode;
   /** Layout-specific props grouped to avoid a long positional prop list. */
   layoutProps?: ContainerLayoutProps;
@@ -108,7 +113,7 @@ function buildContentStyle(component: string, layoutProps: ContentStyleProps = {
 
 /** A single droppable insert slot registered with dnd-kit. */
 function InsertSlot({ nodeId, index, collisionPriority }: { nodeId: string; index: number; collisionPriority: number }) {
-  const { ref } = useDroppable({
+  const { ref, isDropTarget } = useDroppable({
     id: `slot-${nodeId}-${index}`,
     data: { type: 'insert-slot', containerId: nodeId, insertIndex: index },
     collisionPriority,
@@ -119,7 +124,9 @@ function InsertSlot({ nodeId, index, collisionPriority }: { nodeId: string; inde
       data-testid={`insert-slot-${nodeId}-${index}`}
       data-insert-index={String(index)}
       data-container-id={nodeId}
-      className="h-1 rounded bg-accent/30 transition-all"
+      className={`min-h-[12px] shrink-0 rounded transition-colors ${
+        isDropTarget ? 'bg-accent/55 ring-2 ring-accent/80 ring-inset' : 'bg-accent/25 hover:bg-accent/35'
+      }`}
     />
   );
 }
@@ -151,7 +158,8 @@ export function LayoutContainer(props: LayoutContainerProps) {
     selectionKey,
     selected = false,
     layoutPrimaryKey = null,
-    index = 0,
+    sortableGroup,
+    sortableIndex,
     onSelect,
     children,
     layoutProps,
@@ -183,20 +191,26 @@ export function LayoutContainer(props: LayoutContainerProps) {
   const dragId = nodeId ? `node:${nodeId}` : `bind:${bind ?? component}`;
   const nodeRef = nodeId ? { nodeId } : bind ? { bind } : undefined;
 
-  const { ref: dragRef, isDragging } = useDraggable({
+  const { ref: sortableRef, handleRef: connectSortableHandle, isDragSource } = useSortable({
     id: dragId,
-    data: { nodeRef, index, type: 'tree-node' },
-    /** Handle only — @dnd-kit overwrites aria-pressed on the activator for drag state; keep selection on the inner row. */
+    index: sortableIndex,
+    group: sortableGroup,
+    data: { nodeRef, type: 'tree-node' },
     handle: dragHandleRef,
+    collisionPriority,
+    feedback: LAYOUT_DND_FEEDBACK_NONE,
+    transition: LAYOUT_SORTABLE_TRANSITION,
   });
 
   const { ref: dropRef } = useDroppable({
     id: `drop:${dragId}`,
-    data: { nodeRef, index, type: 'container-drop', component },
+    data: { nodeRef, index: sortableIndex, type: 'container-drop', component },
     collisionPriority,
   });
 
   const isCollapsible = component === 'Collapsible' || component === 'Accordion';
+  /** Keep body mounted during canvas drag so nested sortables / insert slots stay registered (avoids dnd-kit crashes). */
+  const showCollapsibleContent = !isCollapsible || open || isDragActive;
   const contentStyle = buildContentStyle(component, resolvedLayoutProps);
   const containerStyle: React.CSSProperties = component === 'Panel' && resolvedLayoutProps.width
     ? { width: resolvedLayoutProps.width }
@@ -227,7 +241,10 @@ export function LayoutContainer(props: LayoutContainerProps) {
 
   return (
     <div
-      ref={dropRef}
+      ref={(el) => {
+        dropRef(el);
+        sortableRef(el);
+      }}
       data-testid={`layout-container-${nodeId ?? bind ?? component}`}
       data-layout-node
       data-layout-node-type={nodeType}
@@ -237,12 +254,15 @@ export function LayoutContainer(props: LayoutContainerProps) {
       {...(nodeId ? { 'data-layout-node-id': nodeId } : {})}
       {...(selectionKey ? { 'data-layout-select-key': selectionKey } : {})}
       style={containerStyle}
-      className={`transition-colors ${isDragging ? 'opacity-40' : ''} ${shellClasses}`}
+      className={`transition-[colors,opacity,box-shadow] ${isDragSource ? 'opacity-50 ring-2 ring-accent/45 ring-offset-2 ring-offset-background' : ''} ${shellClasses}`}
     >
       {/* Header: drag grip (dnd activator) + clickable row (selection + toolbar). */}
-      <div ref={dragRef} className="flex w-full items-center gap-1 rounded px-2 py-1.5 md:px-2 md:py-2">
+      <div className="flex w-full items-center gap-1 rounded px-2 py-1.5 md:px-2 md:py-2">
         <DragHandle
-          ref={dragHandleRef}
+          ref={(el) => {
+            dragHandleRef.current = el;
+            connectSortableHandle(el);
+          }}
           label={`Reorder ${displayTitle ?? component}`}
           className="h-9 shrink-0"
         />
@@ -318,8 +338,8 @@ export function LayoutContainer(props: LayoutContainerProps) {
         />
       )}
 
-      {/* Content area — hidden when collapsible is closed */}
-      {(!isCollapsible || open) && (
+      {/* Content area — hidden when collapsible is closed unless a layout drag is active (keeps nested DnD valid). */}
+      {showCollapsibleContent && (
         <LayoutResizeProvider onResizeChange={reportChildResize}>
           <div
             data-layout-content

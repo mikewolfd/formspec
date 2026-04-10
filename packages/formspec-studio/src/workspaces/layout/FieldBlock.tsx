@@ -1,6 +1,6 @@
 /** @filedesc Layout canvas block for bound fields — label edit, read-only definition copy + Editor link, drag/resize, inline toolbar. */
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { useDraggable } from '@dnd-kit/react';
+import { useSortable } from '@dnd-kit/react/sortable';
 import { dataTypeInfo, hasTier3Content } from '@formspec-org/studio-core';
 import { DragHandle } from '../../components/ui/DragHandle';
 import { FieldIcon } from '../../components/ui/FieldIcon';
@@ -11,6 +11,7 @@ import { PropertyPopover } from './PropertyPopover';
 import { DefinitionCopyReadonlyPanel } from './DefinitionCopyReadonlyPanel';
 import { useLayoutResizeReporter } from './LayoutResizeContext';
 import { LAYOUT_LEAF_SELECTED, LAYOUT_LEAF_UNSELECTED } from './layout-node-styles';
+import { LAYOUT_DND_FEEDBACK_NONE, LAYOUT_SORTABLE_TRANSITION } from './layout-dnd-sortable-config';
 
 /** Blocks outer shell click-to-select (drag handle, inputs, toolbar, resize). */
 const STOP_SELECT = 'data-layout-stop-select';
@@ -42,8 +43,9 @@ interface FieldBlockProps {
   selected?: boolean;
   /** When set, toolbars / inline edits show only on the primary row during multi-select. */
   layoutPrimaryKey?: string | null;
-  index?: number;
   onSelect?: (ev: MouseEvent | KeyboardEvent, selectionKey: string) => void;
+  sortableGroup: string;
+  sortableIndex: number;
   /** Dot-delimited parent path prefix (e.g. `demographics.`) shown before the key when inline editing. */
   groupPathPrefix?: string | null;
   /** Tier 1 definition copy — shown as inline summary rows when selected. */
@@ -88,7 +90,8 @@ export function FieldBlock({
   itemType = 'field',
   selected = false,
   layoutPrimaryKey = null,
-  index = 0,
+  sortableGroup,
+  sortableIndex,
   onSelect,
   groupPathPrefix = null,
   description = null,
@@ -114,10 +117,14 @@ export function FieldBlock({
   const [activeIdentityField, setActiveIdentityField] = useState<'label' | null>(null);
   const [draftLabel, setDraftLabel] = useState(() => (label?.trim() ? label.trim() : ''));
 
-  const { ref: dragRef, isDragging } = useDraggable({
+  const { ref: sortableRef, handleRef: connectSortableHandle, isDragSource } = useSortable({
     id: `field:${bindPath}`,
-    data: { nodeRef: { bind: itemKey }, index, type: 'tree-node' },
+    index: sortableIndex,
+    group: sortableGroup,
+    data: { nodeRef: { bind: itemKey }, type: 'tree-node' },
     handle: dragHandleRef,
+    feedback: LAYOUT_DND_FEEDBACK_NONE,
+    transition: LAYOUT_SORTABLE_TRANSITION,
   });
 
   const isInGrid = layoutContext?.parentContainerType === 'grid';
@@ -205,7 +212,7 @@ export function FieldBlock({
   const hasDistinctHumanLabel = Boolean(label?.trim() && label.trim() !== itemKey);
 
   const editable = Boolean(onRenameDefinitionItem);
-  const effectiveSelected = selected && !isDragging;
+  const effectiveSelected = selected && !isDragSource;
   const isToolbarPrimary = layoutPrimaryKey == null || layoutPrimaryKey === selectionKey;
   const showEditMark = effectiveSelected && editable && isToolbarPrimary;
 
@@ -257,7 +264,7 @@ export function FieldBlock({
   const shellClasses = [
     'group relative flex w-full min-w-0 flex-col rounded-[18px] px-3 py-3 text-left transition-[border-color,background-color,opacity] md:px-4 md:py-3.5',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35',
-    isDragging ? 'opacity-40' : '',
+    isDragSource ? 'opacity-50 ring-2 ring-accent/45 ring-offset-2 ring-offset-background' : '',
     selected ? LAYOUT_LEAF_SELECTED : LAYOUT_LEAF_UNSELECTED,
   ].join(' ');
 
@@ -336,7 +343,10 @@ export function FieldBlock({
 
   return (
     <div
-      ref={(el) => { dragRef(el as HTMLElement); (buttonRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
+      ref={(el) => {
+        sortableRef(el as unknown as Element);
+        (buttonRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+      }}
       role="group"
       tabIndex={0}
       aria-pressed={selected}
@@ -364,7 +374,10 @@ export function FieldBlock({
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <div {...stopProps} className="shrink-0">
           <DragHandle
-            ref={dragHandleRef}
+            ref={(el) => {
+              dragHandleRef.current = el;
+              connectSortableHandle(el);
+            }}
             label={`Reorder ${label || itemKey}`}
             className="h-11"
           />

@@ -1,13 +1,17 @@
 /** @filedesc Live preview block (header + FormspecPreviewHost) — embedded in Layout canvas; replaces right-rail preview. */
+import type { ResolvedTheme } from '../../hooks/useColorScheme';
 import { FormspecPreviewHost } from '../preview/FormspecPreviewHost';
+import { useLayoutPreviewNav } from './LayoutPreviewNavContext';
 
 export interface LayoutLivePreviewSectionProps {
   width?: string | number;
   /** Extra classes on the outer wrapper (e.g. min-height). */
   className?: string;
+  appearance?: ResolvedTheme;
 }
 
-export function LayoutLivePreviewSection({ width = '100%', className = '' }: LayoutLivePreviewSectionProps) {
+export function LayoutLivePreviewSection({ width = '100%', className = '', appearance }: LayoutLivePreviewSectionProps) {
+  const { previewPageIndex, highlightFieldPath } = useLayoutPreviewNav();
   return (
     <div className={`flex flex-col min-h-0 ${className}`.trim()}>
       <div
@@ -19,7 +23,12 @@ export function LayoutLivePreviewSection({ width = '100%', className = '' }: Lay
         </span>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <FormspecPreviewHost width={width} />
+        <FormspecPreviewHost
+          width={width}
+          appearance={appearance}
+          layoutPreviewPageIndex={previewPageIndex}
+          layoutHighlightFieldPath={highlightFieldPath}
+        />
       </div>
     </div>
   );

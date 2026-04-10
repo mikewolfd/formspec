@@ -3,12 +3,20 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { LayoutContainer } from '../../../src/workspaces/layout/LayoutContainer';
+import { LayoutDragContext } from '../../../src/workspaces/layout/LayoutDragContext';
 import { useLayoutResizeReporter } from '../../../src/workspaces/layout/LayoutResizeContext';
 
 // dnd-kit hooks mocked — no DndContext needed
 vi.mock('@dnd-kit/react', () => ({
-  useDraggable: () => ({ ref: () => {}, isDragging: false }),
-  useDroppable: () => ({ ref: () => {} }),
+  useDroppable: () => ({ ref: () => {}, isDropTarget: false }),
+}));
+
+vi.mock('@dnd-kit/react/sortable', () => ({
+  useSortable: () => ({
+    ref: () => {},
+    handleRef: () => {},
+    isDragSource: false,
+  }),
 }));
 
 function ResizeProbe() {
@@ -25,7 +33,7 @@ function ResizeProbe() {
 describe('LayoutContainer — Grid', () => {
   it('renders display:grid with grid-template-columns', () => {
     const { container } = render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="n1" layoutProps={{ columns: 3 }} />,
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n1" layoutProps={{ columns: 3 }} />,
     );
     // The children wrapper is what carries the CSS grid layout
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
@@ -36,7 +44,7 @@ describe('LayoutContainer — Grid', () => {
 
   it('applies gap from prop', () => {
     const { container } = render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="n2" layoutProps={{ columns: 2, gap: '16px' }} />,
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n2" layoutProps={{ columns: 2, gap: '16px' }} />,
     );
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
     expect(content.style.gap).toBe('16px');
@@ -44,7 +52,7 @@ describe('LayoutContainer — Grid', () => {
 
   it('defaults to 2 columns when columns prop is missing', () => {
     const { container } = render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="n3" layoutProps={{}} />,
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n3" layoutProps={{}} />,
     );
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
     expect(content.style.gridTemplateColumns).toBe('repeat(2, 1fr)');
@@ -54,7 +62,7 @@ describe('LayoutContainer — Grid', () => {
 describe('LayoutContainer — Stack', () => {
   it('renders display:flex with flex-direction from direction prop', () => {
     const { container } = render(
-      <LayoutContainer component="Stack" nodeType="layout" nodeId="n4" layoutProps={{ direction: 'row' }} />,
+      <LayoutContainer component="Stack" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n4" layoutProps={{ direction: 'row' }} />,
     );
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
     expect(content.style.display).toBe('flex');
@@ -63,7 +71,7 @@ describe('LayoutContainer — Stack', () => {
 
   it('defaults to column direction when direction prop is missing', () => {
     const { container } = render(
-      <LayoutContainer component="Stack" nodeType="layout" nodeId="n5" layoutProps={{}} />,
+      <LayoutContainer component="Stack" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n5" layoutProps={{}} />,
     );
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
     expect(content.style.flexDirection).toBe('column');
@@ -71,7 +79,7 @@ describe('LayoutContainer — Stack', () => {
 
   it('applies flex-wrap from wrap prop (boolean true → "wrap")', () => {
     const { container } = render(
-      <LayoutContainer component="Stack" nodeType="layout" nodeId="n6" layoutProps={{ direction: 'row', wrap: true }} />,
+      <LayoutContainer component="Stack" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n6" layoutProps={{ direction: 'row', wrap: true }} />,
     );
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
     expect(content.style.flexWrap).toBe('wrap');
@@ -79,7 +87,7 @@ describe('LayoutContainer — Stack', () => {
 
   it('applies align-items from align prop', () => {
     const { container } = render(
-      <LayoutContainer component="Stack" nodeType="layout" nodeId="n7" layoutProps={{ align: 'center' }} />,
+      <LayoutContainer component="Stack" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n7" layoutProps={{ align: 'center' }} />,
     );
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
     expect(content.style.alignItems).toBe('center');
@@ -89,14 +97,14 @@ describe('LayoutContainer — Stack', () => {
 describe('LayoutContainer — Card', () => {
   it('renders a card wrapper with data-component="Card"', () => {
     const { container } = render(
-      <LayoutContainer component="Card" nodeType="layout" nodeId="n8" layoutProps={{}} />,
+      <LayoutContainer component="Card" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n8" layoutProps={{}} />,
     );
     expect(container.querySelector('[data-component="Card"]')).not.toBeNull();
   });
 
   it('applies style.padding from nodeStyle prop', () => {
     const { container } = render(
-      <LayoutContainer component="Card" nodeType="layout" nodeId="n9" layoutProps={{ nodeStyle: { padding: '24px' } }} />,
+      <LayoutContainer component="Card" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n9" layoutProps={{ nodeStyle: { padding: '24px' } }} />,
     );
     const content = container.querySelector('[data-layout-content]') as HTMLElement;
     expect(content.style.padding).toBe('24px');
@@ -106,14 +114,14 @@ describe('LayoutContainer — Card', () => {
 describe('LayoutContainer — Collapsible', () => {
   it('renders title from prop', () => {
     render(
-      <LayoutContainer component="Collapsible" nodeType="layout" nodeId="n10" layoutProps={{ title: 'My Section' }} />,
+      <LayoutContainer component="Collapsible" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n10" layoutProps={{ title: 'My Section' }} />,
     );
     expect(screen.getByText('My Section')).toBeInTheDocument();
   });
 
   it('is open by default when defaultOpen is true', () => {
     const { container } = render(
-      <LayoutContainer component="Collapsible" nodeType="layout" nodeId="n11" layoutProps={{ title: 'Sect', defaultOpen: true }}>
+      <LayoutContainer component="Collapsible" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n11" layoutProps={{ title: 'Sect', defaultOpen: true }}>
         <div data-testid="child-content">child</div>
       </LayoutContainer>,
     );
@@ -122,7 +130,7 @@ describe('LayoutContainer — Collapsible', () => {
 
   it('is closed by default when defaultOpen is false', () => {
     const { container } = render(
-      <LayoutContainer component="Collapsible" nodeType="layout" nodeId="n12" layoutProps={{ title: 'Sect', defaultOpen: false }}>
+      <LayoutContainer component="Collapsible" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n12" layoutProps={{ title: 'Sect', defaultOpen: false }}>
         <div data-testid="child-content">child</div>
       </LayoutContainer>,
     );
@@ -130,9 +138,21 @@ describe('LayoutContainer — Collapsible', () => {
     expect(container.querySelector('[data-layout-content]')).toBeNull();
   });
 
+  it('keeps collapsible content mounted while layout drag is active so nested DnD can register', () => {
+    const { container } = render(
+      <LayoutDragContext.Provider value={{ isDragActive: true }}>
+        <LayoutContainer component="Collapsible" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n12b" layoutProps={{ title: 'Sect', defaultOpen: false }}>
+          <div data-testid="child-content">child</div>
+        </LayoutContainer>
+      </LayoutDragContext.Provider>,
+    );
+    expect(container.querySelector('[data-layout-content]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="child-content"]')).not.toBeNull();
+  });
+
   it('toggles open/closed on header click', () => {
     const { container } = render(
-      <LayoutContainer component="Collapsible" nodeType="layout" nodeId="n13" layoutProps={{ title: 'Sect', defaultOpen: false }}>
+      <LayoutContainer component="Collapsible" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n13" layoutProps={{ title: 'Sect', defaultOpen: false }}>
         <div data-testid="child-content">child</div>
       </LayoutContainer>,
     );
@@ -144,14 +164,14 @@ describe('LayoutContainer — Collapsible', () => {
 
 describe('LayoutContainer — generic header', () => {
   it('shows component type badge', () => {
-    render(<LayoutContainer component="Panel" nodeType="layout" nodeId="n14" layoutProps={{}} />);
+    render(<LayoutContainer component="Panel" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n14" layoutProps={{}} />);
     expect(screen.getByText('Panel')).toBeInTheDocument();
   });
 
   it('calls onSelect when select button is clicked', () => {
     const onSelect = vi.fn();
     render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="n15" onSelect={onSelect} layoutProps={{}} />,
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n15" onSelect={onSelect} layoutProps={{}} />,
     );
     fireEvent.click(screen.getByTestId('layout-select-row'));
     expect(onSelect).toHaveBeenCalledOnce();
@@ -161,7 +181,7 @@ describe('LayoutContainer — generic header', () => {
 describe('LayoutContainer — Panel flex-column', () => {
   it('renders display:flex with flexDirection:column for Panel content area', () => {
     const { container } = render(
-      <LayoutContainer component="Panel" nodeType="layout" nodeId="pan1" layoutProps={{}}>
+      <LayoutContainer component="Panel" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="pan1" layoutProps={{}}>
         <div>child</div>
       </LayoutContainer>,
     );
@@ -174,7 +194,7 @@ describe('LayoutContainer — Panel flex-column', () => {
 describe('LayoutContainer — Collapsible flex-column', () => {
   it('renders display:flex with flexDirection:column for Collapsible content area', () => {
     const { container } = render(
-      <LayoutContainer component="Collapsible" nodeType="layout" nodeId="col1" layoutProps={{ defaultOpen: true }}>
+      <LayoutContainer component="Collapsible" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="col1" layoutProps={{ defaultOpen: true }}>
         <div>child</div>
       </LayoutContainer>,
     );
@@ -187,7 +207,7 @@ describe('LayoutContainer — Collapsible flex-column', () => {
 describe('LayoutContainer — Accordion flex-column', () => {
   it('renders display:flex with flexDirection:column for Accordion content area', () => {
     const { container } = render(
-      <LayoutContainer component="Accordion" nodeType="layout" nodeId="acc1" layoutProps={{ defaultOpen: true }}>
+      <LayoutContainer component="Accordion" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="acc1" layoutProps={{ defaultOpen: true }}>
         <div>child</div>
       </LayoutContainer>,
     );
@@ -200,7 +220,7 @@ describe('LayoutContainer — Accordion flex-column', () => {
 describe('LayoutContainer — insert slots for spatial DnD', () => {
   it('renders insert slots when nodeId is provided and isDragActive prop is true', () => {
     const { container } = render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="g1" layoutProps={{ columns: 2 }} isDragActive>
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="g1" layoutProps={{ columns: 2 }} isDragActive>
         <div data-testid="child-1">one</div>
         <div data-testid="child-2">two</div>
       </LayoutContainer>,
@@ -212,7 +232,7 @@ describe('LayoutContainer — insert slots for spatial DnD', () => {
 
   it('does not render insert slots when isDragActive is false', () => {
     const { container } = render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="g2" layoutProps={{ columns: 2 }}>
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="g2" layoutProps={{ columns: 2 }}>
         <div>one</div>
       </LayoutContainer>,
     );
@@ -222,7 +242,7 @@ describe('LayoutContainer — insert slots for spatial DnD', () => {
 
   it('insert slots carry data-insert-index attributes', () => {
     const { container } = render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="g3" layoutProps={{ columns: 2 }} isDragActive>
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="g3" layoutProps={{ columns: 2 }} isDragActive>
         <div>child</div>
       </LayoutContainer>,
     );
@@ -235,7 +255,7 @@ describe('LayoutContainer — insert slots for spatial DnD', () => {
 
   it('empty container shows single insert slot when isDragActive', () => {
     const { container } = render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="g4" layoutProps={{ columns: 2 }} isDragActive />,
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="g4" layoutProps={{ columns: 2 }} isDragActive />,
     );
     // No children → 1 slot at index 0 (replaces / overlaps with empty placeholder)
     const slots = container.querySelectorAll('[data-testid^="insert-slot-"]');
@@ -247,7 +267,7 @@ describe('LayoutContainer — insert slots for spatial DnD', () => {
 describe('LayoutContainer — child resize reporting', () => {
   it('shows grid guides and the resize tooltip when a child reports an active resize', async () => {
     render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="g5" layoutProps={{ columns: 3 }}>
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="g5" layoutProps={{ columns: 3 }}>
         <ResizeProbe />
       </LayoutContainer>,
     );
@@ -259,19 +279,19 @@ describe('LayoutContainer — child resize reporting', () => {
 
 describe('LayoutContainer — empty container placeholder', () => {
   it('shows drop placeholder when container has no children', () => {
-    render(<LayoutContainer component="Grid" nodeType="layout" nodeId="empty1" layoutProps={{ columns: 2 }} />);
+    render(<LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="empty1" layoutProps={{ columns: 2 }} />);
     expect(screen.getByTestId('empty-container-placeholder')).toBeInTheDocument();
   });
 
   it('placeholder contains instructional text', () => {
-    render(<LayoutContainer component="Stack" nodeType="layout" nodeId="empty2" layoutProps={{}} />);
+    render(<LayoutContainer component="Stack" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="empty2" layoutProps={{}} />);
     const placeholder = screen.getByTestId('empty-container-placeholder');
     expect(placeholder.textContent).toMatch(/drop/i);
   });
 
   it('does not show placeholder when children are present', () => {
     render(
-      <LayoutContainer component="Grid" nodeType="layout" nodeId="nonempty1" layoutProps={{ columns: 2 }}>
+      <LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="nonempty1" layoutProps={{ columns: 2 }}>
         <div>child</div>
       </LayoutContainer>,
     );
@@ -279,7 +299,7 @@ describe('LayoutContainer — empty container placeholder', () => {
   });
 
   it('placeholder has dashed border styling class', () => {
-    render(<LayoutContainer component="Grid" nodeType="layout" nodeId="empty3" layoutProps={{ columns: 2 }} />);
+    render(<LayoutContainer component="Grid" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="empty3" layoutProps={{ columns: 2 }} />);
     const placeholder = screen.getByTestId('empty-container-placeholder');
     expect(placeholder.className).toMatch(/border-dashed/);
   });

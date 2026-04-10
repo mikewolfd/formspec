@@ -63,6 +63,7 @@ const GRID_PROJECT = {
               direction: 'column',
               children: [
                 { component: 'TextInput', bind: 'email' },
+                { component: 'TextInput', bind: 'phone' },
               ],
             },
           ],
@@ -508,6 +509,17 @@ test.describe('Layout Components', () => {
       const gridFields = page.locator('[data-testid="layout-container-grid-main"] [data-testid^="layout-field-"]');
       await expect(gridFields.nth(0)).toHaveAttribute('data-testid', 'layout-field-lastName');
       await expect(gridFields.nth(1)).toHaveAttribute('data-testid', 'layout-field-firstName');
+    });
+
+    test('reorders fields within a Stack using a spatial insert slot', async ({ page }) => {
+      const source = '[data-testid="layout-field-phone"] [data-testid="drag-handle"]';
+      const target = '[data-testid="insert-slot-stack-secondary-0"]';
+
+      await dragSelectorToSelector(page, source, target);
+
+      const stackFields = page.locator('[data-testid="layout-container-stack-secondary"] [data-testid^="layout-field-"]');
+      await expect(stackFields.nth(0)).toHaveAttribute('data-testid', 'layout-field-phone');
+      await expect(stackFields.nth(1)).toHaveAttribute('data-testid', 'layout-field-email');
     });
 
     test('drags an unassigned tray item back onto the canvas', async ({ page }) => {

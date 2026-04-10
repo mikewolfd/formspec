@@ -3633,16 +3633,21 @@ export class Project {
   }
 
   /** Move a component node (by bind or nodeId ref) to a specific index within a target container. */
-  moveComponentNodeToIndex(ref: { bind?: string; nodeId?: string }, targetContainerId: string, insertIndex: number): HelperResult {
+  moveComponentNodeToIndex(
+    ref: { bind?: string; nodeId?: string },
+    targetParent: { bind?: string; nodeId?: string },
+    insertIndex: number,
+  ): HelperResult {
     this.core.dispatch({
       type: 'component.moveNode',
-      payload: { source: ref, targetParent: { nodeId: targetContainerId }, targetIndex: insertIndex },
+      payload: { source: ref, targetParent, targetIndex: insertIndex },
     } as AnyCommand);
     const id = 'bind' in ref && ref.bind ? ref.bind : (ref as any).nodeId;
+    const targetKey = targetParent.nodeId ?? targetParent.bind ?? '';
     return {
-      summary: `Moved node '${id}' to index ${insertIndex} in container '${targetContainerId}'`,
-      action: { helper: 'moveComponentNodeToIndex', params: { ref, targetContainerId, insertIndex } },
-      affectedPaths: [targetContainerId],
+      summary: `Moved node '${id}' to index ${insertIndex} in container '${targetKey}'`,
+      action: { helper: 'moveComponentNodeToIndex', params: { ref, targetParent, insertIndex } },
+      affectedPaths: targetKey ? [targetKey] : [],
     };
   }
 

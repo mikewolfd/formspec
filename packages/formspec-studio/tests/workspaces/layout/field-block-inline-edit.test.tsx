@@ -6,8 +6,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { FieldBlock } from '../../../src/workspaces/layout/FieldBlock';
 import { OpenDefinitionInEditorProvider } from '../../../src/state/OpenDefinitionInEditorContext';
 
-vi.mock('@dnd-kit/react', () => ({
-  useDraggable: () => ({ ref: () => {}, isDragging: false }),
+vi.mock('@dnd-kit/react/sortable', () => ({
+  useSortable: () => ({
+    ref: () => {},
+    handleRef: () => {},
+    isDragSource: false,
+  }),
 }));
 
 const base = {
@@ -16,6 +20,8 @@ const base = {
   selectionKey: 'email',
   label: 'Email',
   dataType: 'string',
+  sortableGroup: 'root',
+  sortableIndex: 0,
 };
 
 function renderField(ui: ReactElement, openEditor = vi.fn()) {

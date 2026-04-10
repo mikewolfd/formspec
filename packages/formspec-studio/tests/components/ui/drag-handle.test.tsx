@@ -5,7 +5,9 @@ import { DragHandle } from '../../../src/components/ui/DragHandle';
 describe('DragHandle', () => {
   it('renders a grip icon with drag-handle testid', () => {
     render(<DragHandle />);
-    expect(screen.getByTestId('drag-handle')).toBeInTheDocument();
+    const el = screen.getByTestId('drag-handle');
+    expect(el).toBeInTheDocument();
+    expect(el).toHaveAttribute('tabIndex', '0');
   });
 
   it('applies custom className', () => {

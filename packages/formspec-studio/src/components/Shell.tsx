@@ -16,6 +16,7 @@ import { BuildManageToggle, type EditorView } from '../workspaces/editor/BuildMa
 import { MappingTab } from '../workspaces/mapping/MappingTab';
 import { PreviewTab } from '../workspaces/preview/PreviewTab';
 import { LayoutLivePreviewSection } from '../workspaces/layout/LayoutLivePreviewSection';
+import { LayoutPreviewNavProvider } from '../workspaces/layout/LayoutPreviewNavContext';
 import { CommandPalette } from './CommandPalette';
 import { ImportDialog } from './ImportDialog';
 import { ChatPanel } from './ChatPanel';
@@ -267,6 +268,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
             onViewportChange={setPreviewViewport}
             mode={previewMode}
             onModeChange={setPreviewMode}
+            appearance={colorScheme?.resolvedTheme ?? 'light'}
           />
         );
       default: {
@@ -472,6 +474,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
         colorScheme={colorScheme}
       />
       <OpenDefinitionInEditorProvider value={openDefinitionInEditor}>
+      <LayoutPreviewNavProvider>
       <LayoutModeProvider>
       <CanvasTargetsProvider>
         <div
@@ -610,7 +613,11 @@ export function Shell({ colorScheme }: ShellProps = {}) {
                   </div>
                   <div className="flex-1 min-h-0 px-3 pb-3">
                     <div className="h-full overflow-hidden rounded-[22px] border border-border/70 bg-surface/80 shadow-[0_18px_40px_rgba(23,32,51,0.08)] dark:shadow-[0_18px_36px_rgba(0,0,0,0.24)]">
-                      <LayoutLivePreviewSection width="100%" className="h-full" />
+                      <LayoutLivePreviewSection
+                        width="100%"
+                        className="h-full"
+                        appearance={colorScheme?.resolvedTheme ?? 'light'}
+                      />
                     </div>
                   </div>
                 </aside>
@@ -705,6 +712,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
 
       </CanvasTargetsProvider>
       </LayoutModeProvider>
+      </LayoutPreviewNavProvider>
       </OpenDefinitionInEditorProvider>
       <StatusBar />
       <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} />

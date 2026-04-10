@@ -4,9 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { FieldBlock } from '../../../src/workspaces/layout/FieldBlock';
 import type { LayoutContext } from '../../../src/workspaces/layout/FieldBlock';
 
-// dnd-kit hooks are mocked so we don't need a DndContext wrapper
-vi.mock('@dnd-kit/react', () => ({
-  useDraggable: () => ({ ref: () => {}, isDragging: false }),
+vi.mock('@dnd-kit/react/sortable', () => ({
+  useSortable: () => ({
+    ref: () => {},
+    handleRef: () => {},
+    isDragSource: false,
+  }),
 }));
 
 const defaultProps = {
@@ -15,6 +18,8 @@ const defaultProps = {
   selectionKey: 'name',
   label: 'Full Name',
   dataType: 'string',
+  sortableGroup: 'root',
+  sortableIndex: 0,
 };
 
 describe('FieldBlock resize handles', () => {

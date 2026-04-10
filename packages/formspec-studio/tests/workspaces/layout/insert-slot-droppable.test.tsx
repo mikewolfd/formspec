@@ -3,12 +3,19 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { LayoutContainer } from '../../../src/workspaces/layout/LayoutContainer';
 
+vi.mock('@dnd-kit/react/sortable', () => ({
+  useSortable: () => ({
+    ref: () => {},
+    handleRef: () => {},
+    isDragSource: false,
+  }),
+}));
+
 // Mock dnd-kit so we can control isDragActive / useDroppable registration
 vi.mock('@dnd-kit/react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@dnd-kit/react')>();
   return {
     ...actual,
-    useDraggable: () => ({ ref: () => {}, isDragging: false }),
     useDroppable: vi.fn((opts) => ({ ref: () => {}, isOver: false, id: opts.id })),
     useDragOperation: () => ({ source: null, target: null }),
   };
@@ -21,6 +28,8 @@ describe('OBJ-4-01: InsertSlotChildren — slots registered as droppables', () =
         component="Stack"
         nodeType="layout"
         nodeId="node-abc"
+        sortableGroup="root"
+        sortableIndex={0}
         isDragActive={true}
       >
         <div>child 1</div>
@@ -44,6 +53,8 @@ describe('OBJ-4-01: InsertSlotChildren — slots registered as droppables', () =
         component="Grid"
         nodeType="layout"
         nodeId="grid-1"
+        sortableGroup="root"
+        sortableIndex={0}
         isDragActive={true}
       >
         <div>child A</div>
@@ -79,6 +90,8 @@ describe('OBJ-4-01: InsertSlotChildren — slots registered as droppables', () =
         component="Stack"
         nodeType="layout"
         nodeId="node-xyz"
+        sortableGroup="root"
+        sortableIndex={0}
         isDragActive={false}
       >
         <div>child 1</div>
@@ -98,6 +111,8 @@ describe('OBJ-4-03: InsertSlotChildren — React Fragment keys', () => {
         component="Stack"
         nodeType="layout"
         nodeId="key-test-node"
+        sortableGroup="root"
+        sortableIndex={0}
         isDragActive={true}
       >
         <div key="a">A</div>
@@ -123,6 +138,8 @@ describe('OBJ-4-02: isDragActive flows from LayoutDndContext', () => {
         component="Stack"
         nodeType="layout"
         nodeId="node-flow"
+        sortableGroup="root"
+        sortableIndex={0}
         isDragActive={true}
       >
         <div>X</div>

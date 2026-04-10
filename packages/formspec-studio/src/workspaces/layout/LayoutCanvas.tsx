@@ -673,6 +673,7 @@ export function LayoutCanvas() {
                 undefined,
                 0,
                 !isMultiPage,
+                'root',
               )}
 
               {visibleTreeChildren.length === 0 && (

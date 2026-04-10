@@ -58,6 +58,22 @@ describe('PreviewTab', () => {
     expect(el).toBeTruthy();
   });
 
+  it('passes Studio appearance to formspec-render so preview does not follow OS prefers-color-scheme alone', async () => {
+    vi.useFakeTimers();
+    const project = createProject({ seed: { definition: previewDef as any } });
+    render(
+      <ProjectProvider project={project}>
+        <PreviewTab appearance="dark" />
+      </ProjectProvider>,
+    );
+    await act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    const el = screen.getByTestId('formspec-preview-host').querySelector('formspec-render');
+    expect(el?.getAttribute('data-formspec-appearance')).toBe('dark');
+    vi.useRealTimers();
+  });
+
   it('syncs definition to formspec-render after debounce and renders form content', async () => {
     vi.useFakeTimers();
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

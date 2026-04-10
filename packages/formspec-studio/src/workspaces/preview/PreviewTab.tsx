@@ -1,5 +1,6 @@
 /** @filedesc Preview workspace tab toggling between live form render and JSON documents view. */
 import { useState } from 'react';
+import type { ResolvedTheme } from '../../hooks/useColorScheme';
 import { useDefinition } from '../../state/useDefinition';
 import { ViewportSwitcher, type Viewport } from './ViewportSwitcher';
 import { JsonDocumentsView } from './JsonDocumentsView';
@@ -18,6 +19,8 @@ interface PreviewTabProps {
   onViewportChange?: (viewport: Viewport) => void;
   mode?: PreviewMode;
   onModeChange?: (mode: PreviewMode) => void;
+  /** Passed through to `<formspec-render>` so preview matches Studio shell theme. */
+  appearance?: ResolvedTheme;
 }
 
 export function PreviewTab({
@@ -25,6 +28,7 @@ export function PreviewTab({
   onViewportChange,
   mode,
   onModeChange,
+  appearance,
 }: PreviewTabProps = {}) {
   const definition = useDefinition();
   const [internalViewport, setInternalViewport] = useState<Viewport>('desktop');
@@ -72,7 +76,7 @@ export function PreviewTab({
                   minWidth: activeViewport === 'desktop' ? '800px' : undefined,
                 }}
               >
-                <FormspecPreviewHost width={viewportWidths[activeViewport]} />
+                <FormspecPreviewHost width={viewportWidths[activeViewport]} appearance={appearance} />
               </div>
             </div>
           </div>
