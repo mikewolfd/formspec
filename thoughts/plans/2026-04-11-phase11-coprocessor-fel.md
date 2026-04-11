@@ -5,7 +5,7 @@
 **Date:** 2026-04-11  
 **Last updated:** 2026-04-11 (execution sync)  
 **Status:** In progress — **FEL-QUANTIFIERS** + **Core FEL-RECORDS slice** (normative predicate / `$.field` on object elements) shipped in Formspec; **WOS example pass** + **constraint-`$` edge cases** + **COPROCESSOR (S15)** still open.  
-**Sources:** `wos-spec/TODO.md` Phase 11; subagent briefs (spec-expert + formspec-scout personas); `thoughts/specs/2026-04-10-formspec-integration-gaps.md`
+**Sources:** `wos-spec/TODO.md` Phase 11; subagent briefs (spec-expert + formspec-scout personas); `thoughts/archive/specs/2026-04-10-formspec-integration-gaps.md`
 
 ---
 
@@ -94,7 +94,7 @@ Gap 2 → Gap 3 → Gap 1: **functions first**, then calling convention / record
 - **`every` / `some` / `duration`:** **Resolved** in Core §3.5.1 / §3.5.4 and `fel-functions.schema.json`.
 - **`timeDiff`:** **Resolved** — schema now matches Core (two args, signed seconds). `duration` documented separately (ms).
 - **`$` in quantifier predicates:** **Resolved** in §3.5.1 — rebound `$` may be an object; `$.field` is postfix on the element (consistent with evaluator behavior and §3.6 access rules).
-- **Response:** `response.schema.json` requires top-level **`data`**; optional **`validationResults`**. Coprocessor design: **`validateFormspecTaskResponse`** + full envelope (`thoughts/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`); integration gaps §1.2.2–1.2.3 updated accordingly (**finding #2** closed at design level — **normative `runtime.md` land** still open).
+- **Response:** `response.schema.json` requires top-level **`data`**; optional **`validationResults`**. Coprocessor design: **`validateFormspecTaskResponse`** + full envelope (`thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`); integration gaps §1.2.2–1.2.3 updated accordingly (**finding #2** closed at design level — **normative `runtime.md` land** still open).
 - **Mapping `direction`:** Spec + `mapping.schema.json` agree on **`forward` | `reverse` | `both`** — finding #6 is spec-correct.
 
 ## 4. Formspec-scout synthesis (implementation)
@@ -105,7 +105,7 @@ Gap 2 → Gap 3 → Gap 1: **functions first**, then calling convention / record
 
 ## 5. COPROCESSOR — eight review items (from `wos-spec/TODO.md`)
 
-Cross-check against `thoughts/specs/2026-04-10-formspec-integration-gaps.md` when drafting S15. **Behavioral bias for each item is in §1.3.**
+Cross-check against `thoughts/archive/specs/2026-04-10-formspec-integration-gaps.md` when drafting S15. **Behavioral bias for each item is in §1.3.**
 
 1. Separate **Respondent Ledger** from adverse-decision **notice** delivery.  
 2. **`ContractValidator` input:** **Resolved in design** — full **Response** + pin via **`validateFormspecTaskResponse`** (S15 proposal + integration gaps §1.2.3).  
@@ -125,7 +125,7 @@ Cross-check against `thoughts/specs/2026-04-10-formspec-integration-gaps.md` whe
 3. ~~**Rust / Python / engine:** `fel-core`, `dependencies`, wos-lint AG-012, parity tests.~~  
 4. ~~**Contracts:** `test_fel_functions_schema_names_are_builtin` (schema ⊆ `BUILTIN_NAMES`).~~  
 5. **FEL-RECORDS (tail):** ~~Grep WOS for string-predicate `every`/`some`~~ (done: `ai-integration.md` + repo-wide `wos-spec` grep clean). ~~Optional **ADR** for **constraint** bind `$`~~ **Done** — [ADR-0060](../adr/0060-fel-constraint-self-dollar-nesting.md). ~~Optional: extend **`fel-functions.schema.json`**~~ **Done**.  
-6. **COPROCESSOR:** **Concrete S15 outline** — [`thoughts/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`](../specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md) (spec-expert + wos-spec-author synthesis). **Next:** land prose in `wos-spec/specs/companions/runtime.md` §15 + kernel/case schemas; apply §1.3 review biases (validator input, `failed` not limbo, idempotency, ledger vs notice).
+6. **COPROCESSOR:** **Concrete S15 outline** — [`thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`](../archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md) (spec-expert + wos-spec-author synthesis). **Next:** land prose in `wos-spec/specs/companions/runtime.md` §15 + kernel/case schemas; apply §1.3 review biases (validator input, `failed` not limbo, idempotency, ledger vs notice).
 
 ## 7. Subagent transcripts
 

@@ -146,4 +146,4 @@ Depends on `formspec-assist` (Layer 2) and `formspec-types` (Layer 0). Pluggable
 - `thoughts/specs/2026-03-26-assist-implementation.md` — implementation design
 - `thoughts/specs/2026-03-26-assist-chat.md` — chat package design
 - `thoughts/specs/2026-03-26-formy-extension.md` — Formy browser extension (Chrome/Firefox consumer of the Assist spec)
-- `thoughts/specs/2026-03-25-assistive-chat-agent.md` — original brainstorm + research findings
+- `thoughts/archive/specs/2026-03-25-assistive-chat-agent.md` — original brainstorm + research findings

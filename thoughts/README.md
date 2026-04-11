@@ -17,6 +17,7 @@ All internal planning, research, decisions, and reviews live here. `docs/` is fo
 | `research/` | External spec analysis, competitive research | Free-form |
 | `studio/` | Formspec Studio subdomain (plans, bugs, designs) | Free-form |
 | `examples/` | Reference example implementation plans | Free-form |
+| `archive/` | Superseded or historical ADRs, plans, specs (see [archive/README.md](archive/README.md)) | Mirrors `adr/` / `plans/` / `specs/` layout |
 
 ---
 
@@ -27,9 +28,6 @@ Next available number: **0061**
 | ADR | File | Status | Notes |
 |-----|------|--------|-------|
 | 0001 | [linter-policy-and-modes](adr/0001-linter-policy-and-modes.md) | Accepted | Active; fully implemented |
-| 0002 | [presentation-layer-approach-a](adr/0002-presentation-layer-approach-a.md) | Superseded | Adopted as Tier 1 in spec §4.2.5 |
-| 0003 | [presentation-layer-approach-b](adr/0003-presentation-layer-approach-b.md) | Superseded | Adopted as `theme-spec.md` |
-| 0004 | [presentation-layer-approach-c](adr/0004-presentation-layer-approach-c.md) | Superseded | Adopted as `component-spec.md` |
 | 0005 | [tier1-presentation-hints-plan](adr/0005-tier1-presentation-hints-plan.md) | Implemented | All 22 tasks complete |
 | 0006 | [tier1-revised-plan](adr/0006-tier1-revised-plan.md) | Implemented | 111 tests passing |
 | 0007 | [tier2-theme-revised-plan](adr/0007-tier2-theme-revised-plan.md) | Implemented | 201 tests; cascade gap closed by ADR-0019 |
@@ -46,14 +44,11 @@ Next available number: **0061**
 | 0018 | [python-unit-test-reorg](adr/0018-python-unit-test-reorganization-and-ownership.md) | Implemented | 1,882 tests migrated |
 | 0019 | [theme-cascade-default-theme](adr/0019-theme-cascade-default-theme.md) | Implemented | 5-level cascade + ARIA fixes |
 | 0020 | [css-integration](adr/0020-css-integration-and-design-system-interop.md) | Implemented | `cssClass` + `stylesheets` |
-| 0021 | [holistic-kitchen-sink-e2e](adr/0021-holistic-kitchen-sink-e2e-conformance-plan.md) | Implemented | Parity moved to shared suite |
-| 0022 | [component-playground-strategy](adr/0022-component-playground-strategy.md) | Superseded | Implemented then removed |
 | 0023 | [e2e-real-world-examples](adr/0023-e2e-tests-use-real-world-example-apps.md) | Accepted | E2E uses grant-app example |
 | 0025 | [grant-application-design](adr/0025-grant-application-example-design.md) | Implemented | Reference design document |
 | 0029 | [schema-parity-phase1](adr/0029-schema-parity-phase1-enrich-existing.md) | Proposed | Enrich existing (~60 gaps) |
 | 0030 | [schema-parity-phase2](adr/0030-schema-parity-phase2-new-artifacts.md) | Proposed | New artifacts + mapping depth |
 | 0031 | [schema-parity-phase3](adr/0031-schema-parity-phase3-new-subsystems.md) | Proposed | Screener, registry, scoped vars |
-| 0033 | [core-semantics-matrix](adr/0033-core-semantics-conformance-matrix.md) | Historical | Conformance matrix |
 | 0035 | [test-suite-reorg](adr/0035-test-suite-reorganization-and-unification.md) | Accepted | Unify test suites |
 | 0036 | [extract-studio-core](adr/0036-extract-formspec-studio-core-package.md) | Proposed | Extract `formspec-studio-core` |
 | 0037 | [move-python-to-packages](adr/0037-move-python-into-packages-formspec-core.md) | Accepted | Move `src/formspec/` → packages |
@@ -69,6 +64,10 @@ Next available number: **0061**
 
 Numbers 0024, 0026, 0027, 0028, 0032, 0034, 0038 were execution plans, not decisions — moved to `plans/`.
 
+### Archived ADRs
+
+Superseded Tier 1/2/3 approach records, removed playground, historical matrix, duplicate marketing/blog drafts, and superseded kitchen-sink E2E ADR: see [`archive/adr/`](archive/adr/).
+
 ---
 
 ## Plans
@@ -80,24 +79,22 @@ Numbers 0024, 0026, 0027, 0028, 0032, 0034, 0038 were execution plans, not decis
 | [self-contained-grant-app](plans/2026-02-27-self-contained-grant-app.md) | 2026-02-27 | Vite self-contained app (ex-ADR 0027) |
 | [ralph-loop-execution](plans/2026-02-28-ralph-loop-execution.md) | 2026-02-28 | 3 phases x 15 iterations (ex-ADR 0032) |
 | [definition-evaluator](plans/2026-03-05-definition-evaluator.md) | 2026-03-05 | Server-side evaluator (ex-ADR 0028) |
-| [webcomponent-reorg-design](plans/2026-03-04-webcomponent-reorg-design.md) | 2026-03-04 | Extract god class, domain groups |
 | [webcomponent-reorg-plan](plans/2026-03-04-webcomponent-reorg-plan.md) | 2026-03-04 | Delete dead theme-resolver, reorg |
-| [unified-tree-editor-design](plans/2026-03-04-unified-component-tree-editor-design.md) | 2026-03-04 | Interleave layout + definition items |
 | [unified-tree-editor](plans/2026-03-04-unified-component-tree-editor.md) | 2026-03-04 | Implementation plan for tree editor |
 | [native-shared-parity-suite](plans/2026-03-10-native-shared-parity-suite.md) | 2026-03-10 | Retire legacy matrix (ex-ADR 0038) |
 | [studio-review-fixes](plans/2026-03-12-studio-review-fixes.md) | 2026-03-12 | Fix renderer/studio-core bugs |
 | [e2e-dispatch-cleanup](plans/2026-03-13-e2e-dispatch-cleanup.md) | 2026-03-13 | Replace Playwright dispatch() backdoors |
 | [studio-root-domino-recovery](plans/2026-03-13-studio-root-domino-recovery.md) | 2026-03-13 | Fix root dominoes, not symptoms |
 | [seamless-page-management](plans/2026-03-14-seamless-page-management.md) | 2026-03-14 | Rewrite page management |
-| [seamless-page-mgmt-prompt](plans/2026-03-14-seamless-page-mgmt-prompt.md) | 2026-03-14 | Implementation prompt for ADR-0039 |
 | [mcp-spec-rev8-fixes](plans/2026-03-15-mcp-spec-rev8-fixes.md) | 2026-03-15 | Fix MCP spec rev 7 → 8 |
 | [studio-core-helpers](plans/2026-03-15-studio-core-helpers.md) | 2026-03-15 | 40+ authoring helpers for Project |
 | [studio-core-helpers-schema-addendum](plans/2026-03-15-studio-core-helpers-schema-addendum.md) | 2026-03-15 | Schema cross-ref inconsistencies |
 | [core-studio-split](plans/2026-03-15-formspec-core-studio-split.md) | 2026-03-15 | Split into core + studio-core |
 | [core-runtime-redesign](plans/2026-03-15-formspec-core-runtime-redesign.md) | 2026-03-15 | Decompose RawProject |
-| [rust-backend-transition](plans/2026-03-17-rust-backend-transition.md) | 2026-03-17 | Rust backend adoption plan |
 | [rust-merge-reconciliation](plans/2026-03-18-rust-merge-reconciliation.md) | 2026-03-18 | Reconcile merged Rust rewrite work |
 | [rust-decommission-tasks](plans/2026-03-20-rust-decommission-tasks.md) | 2026-03-20 | Task backlog for TS/Python runtime decommission |
+
+Superseded design precursors and archived execution plans: [`archive/plans/`](archive/plans/).
 
 ---
 
@@ -111,6 +108,8 @@ Numbers 0024, 0026, 0027, 0028, 0032, 0034, 0038 were execution plans, not decis
 | [core-runtime-redesign](specs/2026-03-15-formspec-core-runtime-redesign.md) | 2026-03-15 | One dispatch pipeline, no global state |
 | [core-studio-split-design](specs/2026-03-15-formspec-core-studio-split-design.md) | 2026-03-15 | IProjectCore boundary design |
 | [project-ts-split](specs/2026-03-15-project-ts-split.md) | 2026-03-15 | Split 2500-line project.ts |
+
+Merged Phase 11 inputs and early assist brainstorm: [`archive/specs/`](archive/specs/) (prefer [`specs/2026-04-11-formspec-wos-phase11-integration-master.md`](specs/2026-04-11-formspec-wos-phase11-integration-master.md) for WOS handoff).
 
 ---
 

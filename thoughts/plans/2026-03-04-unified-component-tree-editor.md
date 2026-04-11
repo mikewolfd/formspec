@@ -8,7 +8,7 @@
 
 **Tech Stack:** Preact + @preact/signals, Vitest + @testing-library/preact, formspec-engine types, component.schema.json for schema-driven property editors.
 
-**Design doc:** `docs/plans/2026-03-04-unified-component-tree-editor-design.md`
+**Design doc:** `thoughts/archive/plans/2026-03-04-unified-component-tree-editor-design.md`
 
 ---
 

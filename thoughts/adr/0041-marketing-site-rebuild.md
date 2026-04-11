@@ -16,7 +16,7 @@ This plan was developed through a structured debate between a senior product adv
 
 **The buying sequence**: Problem recognition → Solution discovery → Trust verification → Technical evaluation. The page follows this order. Outcomes above the fold, architecture below it. The spec is the moat, not the billboard.
 
-**AI positioning**: AI is a consequence of good architecture, not a promise. "ChatGPT for forms" lives on the page as a subtle aside — confident enough to name the comparison, grounded enough to redirect to the real value. The full AI thesis belongs in a blog post (see `thoughts/adr/0002-launch-blog-posts.md`).
+**AI positioning**: AI is a consequence of good architecture, not a promise. "ChatGPT for forms" lives on the page as a subtle aside — confident enough to name the comparison, grounded enough to redirect to the real value. The full AI thesis belongs in a blog post (see `thoughts/adr/0042-launch-blog-posts.md`).
 
 **Audience**: Civic tech — government agencies, nonprofits, tribal nations. Three buyer personas in order of who lands on the page first:
 1. **Program managers** — googled "free grant form builder." Need to see outcomes in 3 seconds.
@@ -457,4 +457,4 @@ Full-screen overlay with `backdrop-filter: blur(16px)`. Links stacked vertically
 
 **Audience reality-check**: Final pass shifted information hierarchy from spec-first to outcome-first. The government PM is the first domino — if they bounce, IT never evaluates, and the developer never sees the repo. Technical depth moves below the fold. The spec is the moat, not the billboard.
 
-Content moved to blog post proposals: founding story, XForms prior art, "ChatGPT for forms" deep dive, AI architecture thesis, detailed spec walkthrough. See `thoughts/adr/0002-launch-blog-posts.md`.
+Content moved to blog post proposals: founding story, XForms prior art, "ChatGPT for forms" deep dive, AI architecture thesis, detailed spec walkthrough. See `thoughts/adr/0042-launch-blog-posts.md`.

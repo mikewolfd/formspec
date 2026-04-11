@@ -1,9 +1,10 @@
 ---
 title: WOS Runtime S15 — Formspec Coprocessor Protocol (concrete proposal)
 date: 2026-04-11
-status: proposed
+status: superseded
 merged_into: thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md
-sources: .claude-plugin/agents/spec-expert.md + wos-spec-author.md personas; thoughts/specs/2026-04-10-formspec-integration-gaps.md; wos-spec/specs/companions/runtime.md; schemas/response.schema.json
+superseded_by: thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md
+sources: .claude-plugin/agents/spec-expert.md + wos-spec-author.md personas; thoughts/archive/specs/2026-04-10-formspec-integration-gaps.md; wos-spec/specs/companions/runtime.md; schemas/response.schema.json
 ---
 
 > **Superseded as the single handoff doc by** [`2026-04-11-formspec-wos-phase11-integration-master.md`](2026-04-11-formspec-wos-phase11-integration-master.md) **(2026-04-11).** This file remains as the detailed §15 paste source; the master merges plan + integration gaps + this draft.
@@ -224,4 +225,4 @@ State: **Formspec validation + optional pipeline** constitute the **single gatin
 - Formspec Core: Response §2.1.6, VP-01 (S1.4.3 / S6.4), processing (§2.4), validation / shape timing (**§5.5**), **`status` / VE-05** (§5.5 + schema `status`), Mapping spec `direction`.
 - Formspec schemas: `response.schema.json`, `validationResult.schema.json`, `mapping.schema.json`.
 - WOS: Runtime S12, S5.5, S8; Governance task lifecycle (`created` / `claimed` / `failed` / `completed`), S5 pipelines, S8 rejection.
-- Design input: `thoughts/specs/2026-04-10-formspec-integration-gaps.md` §1.2.
+- Design input: `thoughts/archive/specs/2026-04-10-formspec-integration-gaps.md` §1.2.

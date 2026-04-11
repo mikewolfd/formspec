@@ -3,12 +3,12 @@ title: Formspec ↔ WOS Phase 11 — Integration master (gaps, plan, Runtime S15
 date: 2026-04-11
 status: proposed
 supersedes_as_single_index:
-  - thoughts/specs/2026-04-10-formspec-integration-gaps.md
-  - thoughts/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md
+  - thoughts/archive/specs/2026-04-10-formspec-integration-gaps.md
+  - thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md
   - thoughts/plans/2026-04-11-phase11-coprocessor-fel.md
 note: >-
-  This file merges the three sources above into one narrative. The older paths
-  remain in the repo for history; prefer this document for Phase 11 handoff.
+  This file merges the three sources above into one narrative. The older inputs
+  live under thoughts/archive/specs/; prefer this document for Phase 11 handoff.
 ---
 
 # Formspec ↔ WOS Phase 11 — Integration master
@@ -17,8 +17,8 @@ note: >-
 
 | Source (merged) | Role in this master |
 |-----------------|---------------------|
-| `thoughts/specs/2026-04-10-formspec-integration-gaps.md` | Original gap analysis, coprocessor narrative, FEL gap specs |
-| `thoughts/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md` | Refined Runtime §15 / §12.9 draft, executive decisions, pin semantics |
+| `thoughts/archive/specs/2026-04-10-formspec-integration-gaps.md` | Original gap analysis, coprocessor narrative, FEL gap specs |
+| `thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md` | Refined Runtime §15 / §12.9 draft, executive decisions, pin semantics |
 | `thoughts/plans/2026-04-11-phase11-coprocessor-fel.md` | North star, biases, shipped inventory, sequencing, next actions |
 
 **Normative home:** WOS coprocessor changes now live in `wos-spec/` (Runtime Companion §12.9 / §15, Kernel §9.2 / §11.3, kernel schema, case-instance schema, and typed Rust model). Formspec changes live in `specs/` and `schemas/`. This `thoughts/` file is the Phase 11 integration index; use the WOS specs as the behavior source of truth.

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Preact Signals, Vitest (happy-dom), formspec-engine, formspec-layout
 
-**Reference:** See `docs/plans/2026-03-04-webcomponent-reorg-design.md` for full design.
+**Reference:** See `thoughts/archive/plans/2026-03-04-webcomponent-reorg-design.md` for full design.
 
 **Baseline check:** Run `cd packages/formspec-webcomponent && npx vitest run` before starting. All ~148 tests must pass. Run again after every task.
 
