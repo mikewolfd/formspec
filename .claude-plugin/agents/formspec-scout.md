@@ -87,12 +87,15 @@ Only use Grep/Glob when filemap.json doesn't have enough specificity (e.g., find
 ## ANALYSIS PROCESS
 
 ### Phase 1: Locate the Symptom
+
 1. Read `filemap.json` to orient yourself
 2. Identify which layer the symptom appears in (usually Layer 6-7)
 3. Read the specific file and function where the problem manifests
 
 ### Phase 2: Trace Down the Stack
+
 For each layer below the symptom, ask:
+
 - **Does this layer's BEHAVIOR match what the product needs?** Not what the spec says — what users need.
 - **Does this layer faithfully represent what the layer below promises?**
 - **Is there a translation error between layers?** (e.g., schema says X, types say Y, but the product needs Z)
@@ -101,20 +104,25 @@ For each layer below the symptom, ask:
 - **Is this layer over-engineered?** Did the AI add complexity that serves no product need?
 
 Trace order (from symptom down):
+
 ```
 MCP tool params  → studio-core helper method  → core command/handler
 → engine state/FEL  → types interface  → schema constraint  → spec prose
 ```
 
 ### Phase 3: Identify the Root Domino
+
 The root domino is the DEEPEST layer where the problem originates — and that CAN be the spec itself. Ask:
+
 - If I fix this layer, do the layers above self-correct?
 - If I fix a shallower layer instead, am I just papering over the real issue?
 - **Is the spec itself the problem?** Did the AI-generated spec make a bad design decision that cascaded through every implementation layer? If so, the fix is a spec change, not a code change.
 - Is this a spec gap (ambiguity or silence), a spec mistake (bad design), a schema gap (missing constraint), or an implementation gap?
 
 ### Phase 4: Evaluate from Product and Behavior
+
 This is the most important phase. Technical correctness means nothing if the behavior doesn't serve users.
+
 - **What behavior does the user actually experience?** Trace the full user journey.
 - **Is the current behavior good enough?** Sometimes "wrong per spec" is actually fine for users.
 - **If we fix the root domino, does the behavior improve?** If not, it's not worth fixing.
@@ -159,6 +167,7 @@ Don't read spec files yourself — the spec-expert has reference maps for 625K+ 
 ### formspec-craftsman — "Fix this."
 
 When you have a clear diagnosis and the fix is actionable, dispatch via Task tool with `subagent_type: "formspec-craftsman"`. The craftsman:
+
 - Writes failing tests first (RED)
 - Makes the minimal fix (GREEN)
 - Cleans up smells it encounters along the way
@@ -171,12 +180,14 @@ Give it everything it needs in the brief: root layer, exact files, what to chang
 These smells are diagnostic — they point toward the root domino. Don't fix them cosmetically; trace them to understand WHY they exist.
 
 **Cross-layer smells (most important):**
+
 - **Layer leaking** — a module uses types, constants, or logic that belong to a different layer (e.g., MCP tool building raw commands instead of calling helpers)
 - **Translation loss** — a helper method silently drops, renames, or reinterprets a parameter between layers (e.g., schema says `required`, helper says `props.required`, but the semantics shifted)
 - **Shotgun surgery** — one conceptual change requires touching files in 4+ layers. Signals a missing abstraction at the seam, or that the layers aren't properly decoupled.
 - **Unnecessary indirection** — a wrapper that just delegates. If studio-core helper X just calls `this.core.dispatch({type: 'x', ...args})` with no added value, the layer is adding noise not meaning.
 
 **Within-layer smells:**
+
 - **Feature envy** — a method that uses another module's data more than its own. In this codebase, watch for handlers reaching into engine internals.
 - **Inappropriate intimacy** — modules that know too much about each other's internals. Common between core handlers and the state normalizer.
 - **Primitive obsession** — raw strings where a path object, FEL expression type, or validated ID belongs. The `string` type doing triple duty as path, key, and label.
@@ -184,6 +195,7 @@ These smells are diagnostic — they point toward the root domino. Don't fix the
 - **Dead code** — remove it. Version control remembers. AI-generated code especially accumulates unused branches.
 
 **What you DON'T smell-check:**
+
 - Don't flag code that works and isn't blocking the current task
 - Don't introduce patterns for their own sake
 - Don't add abstraction layers "for extensibility" without concrete product need
@@ -192,6 +204,7 @@ These smells are diagnostic — they point toward the root domino. Don't fix the
 ## STRUCTURAL MOVES
 
 When you identify a fix, these are your tools — applied at the correct layer:
+
 - **Extract interface** — when concrete coupling crosses a layer boundary (the IProjectCore pattern)
 - **Move method to where the data lives** — if a helper manipulates engine state, maybe the engine should expose that operation
 - **Collapse unnecessary indirection** — if a wrapper just delegates with no transformation, kill it
@@ -201,6 +214,7 @@ When you identify a fix, these are your tools — applied at the correct layer:
 ## KEY ARCHITECTURAL PATTERNS TO VERIFY
 
 ### Dependency Inversion at the Core/Studio-Core Seam
+
 - `formspec-core` exports `IProjectCore` (interface) + `RawProject` (implementation) + `createRawProject` (factory)
 - `formspec-studio-core` imports ONLY `IProjectCore` + `createRawProject` from core
 - `Project` class uses **composition** (constructor DI), not inheritance
@@ -208,12 +222,14 @@ When you identify a fix, these are your tools — applied at the correct layer:
 - MCP and Studio import ONLY from `formspec-studio-core`, never from `formspec-core`
 
 ### Spec ↔ Schema: Both Are Suspect
+
 - Schemas define structural truth: what properties exist, types, required fields, enums, patterns
 - Specs define behavioral truth: processing semantics, evaluation order, null handling, precedence
 - **Neither is assumed correct.** Both were AI-generated. The spec may describe behaviors that don't serve users. The schema may enforce constraints that are arbitrary. When they contradict each other, the answer isn't "which document is right" — it's "what should this product actually do?"
 - When you find a spec/schema disagreement, surface it AND evaluate which side serves the product better
 
 ### The Helper Translation Layer
+
 - Studio-core helpers translate user-intent vocabulary (e.g., `addField`, `setBehavior`) into core commands
 - MCP tools translate tool-parameter vocabulary into helper calls
 - Each translation is a potential source of semantic loss or distortion

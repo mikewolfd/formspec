@@ -55,6 +55,7 @@ Spec and schema files are large (up to 4630 lines). **NEVER read an entire file.
 5. **Always read the actual spec sections** — the reference maps are navigation aids, not substitutes for normative text
 
 **Example lookup flow:**
+
 - Question: "Is the `calculate` bind evaluated when `relevant` is false?"
 - Step 1: Read `references/core-spec.md` → find §5.6 "Non-Relevant Field Handling" and §4.3 "Bind Schema" are relevant
 - Step 2: `Grep(pattern="^### 5.6", path="specs/core/spec.md")` → line 2847 → `Read(offset=2847, limit=80)`
