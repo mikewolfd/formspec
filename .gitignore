@@ -52,6 +52,9 @@ site/public/references/
 # MCP bundle (build output)
 *.mcpb
 
+# macOS debug symbol bundles (e.g. next to maturin-built .dylib under src/formspec/)
+**/*.dSYM/
+
 # Rust / WASM build artifacts
 target/
 packages/formspec-engine/wasm-pkg/
