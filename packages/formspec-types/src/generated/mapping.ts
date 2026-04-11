@@ -286,6 +286,11 @@ export interface MappingDocument {
    * Document-level extension properties. All keys MUST be prefixed with 'x-'.
    */
   extensions?: {};
+  /**
+   * This interface was referenced by `MappingDocument`'s JSON-Schema definition
+   * via the `patternProperty` "^x-".
+   */
+  [k: string]: unknown;
 }
 /**
  * Type conversion descriptor specifying source type, target type, and optional format pattern. Supported conversions: string<->number, string<->integer, string<->boolean, string<->date, string<->datetime, number<->integer, number<->boolean, integer<->boolean, date<->datetime, money->string, money->number (lossy), money->integer (lossy). Unsupported pairs MUST be rejected at validation time.

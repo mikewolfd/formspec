@@ -186,6 +186,11 @@ export interface ComponentDocument {
    * Document-level extension properties. All keys MUST be prefixed with 'x-'.
    */
   extensions?: {};
+  /**
+   * This interface was referenced by `ComponentDocument`'s JSON-Schema definition
+   * via the `patternProperty` "^x-".
+   */
+  [k: string]: unknown;
 }
 /**
  * Binding to the target Formspec Definition and optional compatibility range.

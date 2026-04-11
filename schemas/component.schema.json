@@ -10,6 +10,9 @@
     "targetDefinition",
     "tree"
   ],
+  "patternProperties": {
+    "^x-": true
+  },
   "additionalProperties": false,
   "properties": {
     "$formspecComponent": {
