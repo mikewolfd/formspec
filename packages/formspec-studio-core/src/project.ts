@@ -1,12 +1,4 @@
-/** @filedesc Project class: high-level form authoring facade over formspec-core.
- *
- * TECH-DEBT: ~25 `as any` casts remain in this file.  Most exist at the
- * IProjectCore delegation boundary where studio-core's public types
- * (FormItem, FormDefinition, etc.) don't align 1:1 with core's internal
- * types.  Resolution path: refine IProjectCore's generic signatures so
- * the delegation layer can type-check without casts.  Track progress by
- * periodically running `grep -c 'as any' project.ts` — target is zero.
- */
+/** @filedesc Project class: high-level form authoring facade over formspec-core. */
 import { createRawProject, createChangesetMiddleware } from '@formspec-org/core';
 import type { ChangesetRecorderControl } from '@formspec-org/core';
 // Internal-only core types — never appear in public method signatures
@@ -55,12 +47,11 @@ import {
   sanitizeIdentifier,
   type FieldTypeCatalogEntry,
 } from './authoring-helpers.js';
+import type { CompNode } from './layout-helpers.js';
 import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from '@formspec-org/types';
 import { analyzeFEL } from '@formspec-org/engine/fel-runtime';
 import { rewriteFELReferences, rewriteMessageTemplate } from '@formspec-org/engine/fel-tools';
 import { createFormEngine, type FormspecDefinition, type IFormEngine } from '@formspec-org/engine/render';
-
-type ComponentNode = Record<string, unknown>;
 
 function felConstraintFromPattern(pattern: string): string {
   const escaped = pattern.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -175,8 +166,8 @@ export class Project {
       valid: parseResult.valid,
       errors: parseResult.errors.map(d => ({
         message: d.message,
-        line: (d as any).line,
-        column: (d as any).column,
+        line: d.line,
+        column: d.column,
       })),
       references: parseResult.references,
       functions: parseResult.functions,
@@ -423,10 +414,10 @@ export class Project {
 
   /** Remove all mapping rules for a given source path. */
   unmapField(sourcePath: string, mappingId?: string): HelperResult {
-    const rules = (this.core.mapping as any)?.rules ?? [];
-    const indices = rules
-      .map((r: any, i: number) => r.sourcePath === sourcePath ? i : -1)
-      .filter((i: number) => i >= 0)
+    const mappingRules = this.core.mapping.rules ?? [];
+    const indices = mappingRules
+      .map((r, i) => r.sourcePath === sourcePath ? i : -1)
+      .filter((i) => i >= 0)
       .reverse(); // descending to avoid index shift
     for (const idx of indices) {
       this.core.dispatch({
@@ -465,7 +456,7 @@ export class Project {
     const allPaths = this.core.fieldPaths();
     // Also include group paths
     const allItems = this.core.state.definition.items;
-    const collectPaths = (items: any[], prefix?: string): string[] => {
+    const collectPaths = (items: FormItem[], prefix?: string): string[] => {
       const result: string[] = [];
       for (const item of items) {
         const fullPath = prefix ? `${prefix}.${item.key}` : item.key;
@@ -503,48 +494,48 @@ export class Project {
   }
 
   /** Get the root component tree children from the effective component tree. */
-  private _getRootChildren(): ComponentNode[] {
-    const tree = (this.component as any).tree;
-    return Array.isArray(tree?.children) ? (tree.children as ComponentNode[]) : [];
+  private _getRootChildren(): CompNode[] {
+    const tree = this.core.state.component?.tree as CompNode | undefined;
+    return tree?.children ?? [];
   }
 
   /** Get all Page nodes from the effective component tree. */
-  private _getPageNodes(): ComponentNode[] {
+  private _getPageNodes(): CompNode[] {
     return this._getRootChildren().filter(
-      (n: any) => n.component === 'Page',
+      n => n.component === 'Page',
     );
   }
 
   /** Find a Page node by nodeId. Throws PAGE_NOT_FOUND if absent. */
-  private _findPageNode(pageId: string): ComponentNode {
-    const page = this._getPageNodes().find((n: any) => n.nodeId === pageId);
+  private _findPageNode(pageId: string): CompNode {
+    const page = this._getPageNodes().find(n => n.nodeId === pageId);
     if (!page) throw new HelperError('PAGE_NOT_FOUND', `Page not found: ${pageId}`);
     return page;
   }
 
   /** Return a NodeRef for a tree node. */
-  private _nodeRefFor(node: ComponentNode): { bind: string } | { nodeId: string } {
+  private _nodeRefFor(node: CompNode): { bind: string } | { nodeId: string } {
     if (typeof node.bind === 'string') return { bind: node.bind };
     if (typeof node.nodeId === 'string') return { nodeId: node.nodeId };
     throw new HelperError('NODE_NOT_FOUND', 'Component node is missing both bind and nodeId');
   }
 
   /** Get all direct children of a Page node. */
-  private _pageChildren(page: ComponentNode): ComponentNode[] {
-    return Array.isArray(page.children) ? (page.children as ComponentNode[]) : [];
+  private _pageChildren(page: CompNode): CompNode[] {
+    return page.children ?? [];
   }
 
   /** Get the bound children of a Page node (equivalent of regions). */
-  private _pageBoundChildren(page: ComponentNode): ComponentNode[] {
+  private _pageBoundChildren(page: CompNode): CompNode[] {
     return this._pageChildren(page).filter(
-      (n: any) => n.bind,
+      n => n.bind,
     );
   }
 
   /** Resolve a page-relative index to a raw root-child index for component.moveNode. */
   private _pageInsertIndex(targetIndex: number, movingPageId: string): number {
     const children = this._getRootChildren();
-    const fromIndex = children.findIndex((n: any) => n.component === 'Page' && n.nodeId === movingPageId);
+    const fromIndex = children.findIndex((n) => n.component === 'Page' && n.nodeId === movingPageId);
     if (fromIndex === -1) throw new HelperError('PAGE_NOT_FOUND', `Page not found: ${movingPageId}`);
 
     const pageIndices = children
@@ -570,7 +561,7 @@ export class Project {
 
   /** Resolve a page ID to its primary definition group path (from component tree). */
   private _resolvePageGroup(pageId: string): string | undefined {
-    const page = this._getPageNodes().find((n: any) => n.nodeId === pageId);
+    const page = this._getPageNodes().find((n) => n.nodeId === pageId);
     if (!page) return undefined;
     const boundChildren = this._pageBoundChildren(page);
     if (boundChildren.length === 0) return undefined;
@@ -653,7 +644,7 @@ export class Project {
   }
 
   /** Walk the item tree to find any item with the given leaf key. Returns its full path or null. */
-  private _findKeyInItems(items: any[], leafKey: string, prefix: string): string | null {
+  private _findKeyInItems(items: FormItem[], leafKey: string, prefix: string): string | null {
     for (const item of items) {
       const path = prefix ? `${prefix}.${item.key}` : item.key;
       if (item.key === leafKey) return path;
@@ -717,7 +708,7 @@ export class Project {
     }
 
     if (props?.page) {
-      const pageExists = this._getPageNodes().some((n: any) => n.nodeId === props.page);
+      const pageExists = this._getPageNodes().some((n) => n.nodeId === props.page);
       if (!pageExists) {
         throw new HelperError('PAGE_NOT_FOUND', `Page "${props.page}" does not exist`, {
           pageId: props.page,
@@ -878,7 +869,7 @@ export class Project {
   addGroup(path: string, label: string, props?: GroupProps): HelperResult {
     // Page validation
     if (props?.page) {
-      const pageExists = this._getPageNodes().some((n: any) => n.nodeId === props.page);
+      const pageExists = this._getPageNodes().some((n) => n.nodeId === props.page);
       if (!pageExists) {
         throw new HelperError('PAGE_NOT_FOUND', `Page "${props.page}" does not exist`, {
           pageId: props.page,
@@ -948,7 +939,7 @@ export class Project {
     const widgetHint = kindToHint[kind ?? 'paragraph'] ?? 'paragraph';
 
     if (props?.page) {
-      const pageExists = this._getPageNodes().some((n: any) => n.nodeId === props.page);
+      const pageExists = this._getPageNodes().some((n) => n.nodeId === props.page);
       if (!pageExists) {
         throw new HelperError('PAGE_NOT_FOUND', `Page "${props.page}" does not exist`, {
           pageId: props.page,
@@ -1060,7 +1051,7 @@ export class Project {
 
       // Check if this segment is a repeatable group
       const item = this.core.itemAt(lookupPath);
-      if (item?.type === 'group' && (item as any).repeatable) {
+      if (item?.type === 'group' && item.repeatable) {
         // Append [*] to the last segment we just pushed
         normalized[normalized.length - 1] = segment + '[*]';
       }
@@ -1420,7 +1411,7 @@ export class Project {
 
     // Try shape ID lookup
     const shapes = this.core.state.definition.shapes ?? [];
-    const shapeById = shapes.find((s: any) => s.id === target);
+    const shapeById = shapes.find(s => s.id === target);
     if (shapeById) {
       commands.push({ type: 'definition.deleteShape', payload: { id: target } });
       affectedPaths.push(target);
@@ -1445,8 +1436,8 @@ export class Project {
         shapeById ? [target] : [],
       );
       for (const shape of shapes) {
-        const shapeTarget = (shape as any).target;
-        const shapeId = (shape as any).id as string;
+        const shapeTarget = shape.target;
+        const shapeId = shape.id;
         if (deletedShapeIds.has(shapeId)) continue;
         if (shapeTarget === target || shapeTarget === normalizedTarget) {
           commands.push({ type: 'definition.deleteShape', payload: { id: shapeId } });
@@ -1485,8 +1476,8 @@ export class Project {
       activeWhen?: string;
     },
   ): HelperResult {
-    const shape = (this.core.state.definition.shapes ?? []).find((s: any) => s.id === shapeId);
-    const target = (shape as any)?.target;
+    const shape = (this.core.state.definition.shapes ?? []).find(s => s.id === shapeId);
+    const target = shape?.target;
 
     if (changes.rule) this._validateFEL(changes.rule, target);
     if (changes.activeWhen) this._validateFEL(changes.activeWhen, target);
@@ -1560,7 +1551,7 @@ export class Project {
     // Also collect for descendants if item is a group
     const descendantDeps: typeof deps[] = [];
     if (item.children?.length) {
-      const collectDescendantPaths = (children: any[], parentPath: string) => {
+      const collectDescendantPaths = (children: FormItem[], parentPath: string) => {
         for (const child of children) {
           const childPath = `${parentPath}.${child.key}`;
           descendantDeps.push(this.core.fieldDependents(childPath));
@@ -1824,7 +1815,7 @@ export class Project {
       const results = this.core.dispatch(commands);
       // Check for nodeNotFound from component.setFieldWidget (non-throwing)
       for (const result of results) {
-        if ((result as any).nodeNotFound) {
+        if (result.nodeNotFound) {
           warnings.push({
             code: 'COMPONENT_NODE_NOT_FOUND',
             message: `No component node bound to field '${leafKey}'; widgetHint set on definition only`,
@@ -2097,11 +2088,11 @@ export class Project {
       const binds = this.core.state.definition.binds ?? [];
       const shapes = this.core.state.definition.shapes ?? [];
 
-      const matchingBinds = binds.filter((b: any) =>
+      const matchingBinds = binds.filter(b =>
         b.path === path || b.path?.startsWith(`${path}.`),
       );
       if (matchingBinds.length > 0) {
-        const props = matchingBinds.flatMap((b: any) =>
+        const props = matchingBinds.flatMap(b =>
           Object.keys(b).filter(k => k !== 'path'),
         );
         warnings.push({
@@ -2111,7 +2102,7 @@ export class Project {
         });
       }
 
-      const matchingShapes = shapes.filter((s: any) =>
+      const matchingShapes = shapes.filter(s =>
         s.target === path || s.target?.startsWith(`${path}.`),
       );
       if (matchingShapes.length > 0) {
@@ -2140,11 +2131,11 @@ export class Project {
     const binds = this.core.state.definition.binds ?? [];
     const shapes = this.core.state.definition.shapes ?? [];
 
-    const matchingBinds = binds.filter((b: any) =>
+    const matchingBinds = binds.filter(b =>
       b.path === path || b.path?.startsWith(`${path}.`),
     );
 
-    const matchingShapes = shapes.filter((s: any) =>
+    const matchingShapes = shapes.filter(s =>
       s.target === path || s.target?.startsWith(`${path}.`),
     );
 
@@ -2246,10 +2237,10 @@ export class Project {
     const leafKey = path.split('.').pop()!;
     const parentPath = path.includes('.') ? path.slice(0, path.lastIndexOf('.')) : undefined;
     const parentItem = parentPath ? this.core.itemAt(parentPath) : undefined;
-    const siblings: any[] = parentPath
-      ? (parentItem as any)?.children ?? []
+    const siblings: FormItem[] = parentPath
+      ? parentItem?.children ?? []
       : this.core.state.definition.items;
-    const existingKeys = new Set(siblings.map((s: any) => s.key));
+    const existingKeys = new Set(siblings.map(s => s.key));
 
     // Replicate uniqueKey logic from definition-items.ts
     if (!existingKeys.has(leafKey)) return leafKey;
@@ -2260,9 +2251,9 @@ export class Project {
 
   /** Check if a group already contains a child with the given key. */
   private _hasKeyInGroup(groupPath: string, key: string): boolean {
-    const groupItem = this.core.itemAt(groupPath) as any;
+    const groupItem = this.core.itemAt(groupPath);
     if (!groupItem?.children) return false;
-    return groupItem.children.some((c: any) => c.key === key);
+    return groupItem.children.some(c => c.key === key);
   }
 
   // ── Wrap Items In Group ──
@@ -2318,7 +2309,7 @@ export class Project {
     const parentItems = parentPath
       ? this.core.itemAt(parentPath)?.children ?? []
       : this.core.state.definition.items;
-    const insertIndex = parentItems.findIndex((i: any) => i.key === firstItemKey);
+    const insertIndex = parentItems.findIndex(i => i.key === firstItemKey);
 
     const addPayload: Record<string, unknown> = {
       type: 'group', key: groupKey, label,
@@ -2363,7 +2354,7 @@ export class Project {
       type: 'component.wrapNode',
       payload: { node: { bind: leafKey }, wrapper: { component } },
     });
-    const nodeId = (result as any)?.nodeRef?.nodeId;
+    const nodeId = result?.nodeRef?.nodeId;
 
     return {
       summary: `Wrapped '${path}' in ${component}`,
@@ -2459,7 +2450,7 @@ export class Project {
 
     if (pageId) {
       const addResult = this.core.dispatch(addNodeCmd);
-      const nodeId = (addResult as any)?.nodeRef?.nodeId;
+      const nodeId = addResult?.nodeRef?.nodeId;
       if (nodeId) {
         this.core.dispatch({
           type: 'component.moveNode',
@@ -2478,7 +2469,7 @@ export class Project {
     }
 
     const result = this.core.dispatch(addNodeCmd);
-    const nodeId = (result as any)?.nodeRef?.nodeId;
+    const nodeId = result?.nodeRef?.nodeId;
 
     return {
       summary: `Added submit button`,
@@ -2498,7 +2489,7 @@ export class Project {
         throw new HelperError('INVALID_PAGE_ID', `Page ID "${id}" is invalid. Must start with a letter and contain only letters, digits, underscores, or hyphens.`, { id });
       }
       // Check for duplicate page ID in the component tree
-      const existing = this._getPageNodes().find((n: any) => n.nodeId === id);
+      const existing = this._getPageNodes().find((n) => n.nodeId === id);
       if (existing) {
         throw new HelperError('DUPLICATE_KEY', `A page with ID "${id}" already exists`, { id });
       }
@@ -2597,13 +2588,13 @@ export class Project {
 
   /** List all pages with their id, title, description, and primary group path. */
   listPages(): Array<{ id: string; title: string; description?: string; groupPath?: string }> {
-    return this._getPageNodes().map((n: any) => {
+    return this._getPageNodes().map(n => {
       const boundChildren = this._pageBoundChildren(n);
-      const groupPath = boundChildren[0]?.bind as string | undefined;
+      const groupPath = boundChildren[0]?.bind;
       return {
-        id: n.nodeId as string,
-        title: (n.title as string) ?? 'Untitled',
-        ...(n.description ? { description: n.description as string } : {}),
+        id: n.nodeId!,
+        title: n.title ?? 'Untitled',
+        ...(n.description ? { description: n.description } : {}),
         ...(groupPath ? { groupPath } : {}),
       };
     });
@@ -2650,8 +2641,8 @@ export class Project {
    * Remove from Tree), rebuild bound nodes from the definition before moveNode.
    */
   private _ensureComponentNodeExistsForMove(sourceRef: { bind?: string; nodeId?: string }): void {
-    const tree = this.core.state.component?.tree as ComponentNode | undefined;
-    if (findComponentNodeByRef(tree as any, sourceRef)) return;
+    const tree = this.core.state.component?.tree as CompNode | undefined;
+    if (findComponentNodeByRef(tree, sourceRef)) return;
     this.core.dispatch({
       type: 'component.reconcileFromDefinition',
       payload: {},
@@ -2891,7 +2882,7 @@ export class Project {
         type: 'component.addNode',
         payload: { parent: { nodeId: parentNodeId }, component: spec.component, props },
       } as AnyCommand);
-      const nodeId = (result as any)?.nodeRef?.nodeId;
+      const nodeId = result?.nodeRef?.nodeId;
       return {
         summary: `Added ${spec.component} '${spec.label}' to layout`,
         action: { helper: 'addItemToLayout', params: { spec, pageId } },
@@ -2934,8 +2925,8 @@ export class Project {
   };
 
   /** Find the component tree parent node ref that contains a given bind or nodeId. */
-  private _findComponentParentRef(tree: any, ref: { bind?: string; nodeId?: string }): { nodeId: string } | { bind: string } | null {
-    const walk = (node: any): any | null => {
+  private _findComponentParentRef(tree: CompNode, ref: { bind?: string; nodeId?: string }): { nodeId: string } | { bind: string } | null {
+    const walk = (node: CompNode): CompNode | null => {
       for (const child of node.children ?? []) {
         if ((ref.bind && child.bind === ref.bind) || (ref.nodeId && child.nodeId === ref.nodeId)) {
           return node;
@@ -2958,7 +2949,7 @@ export class Project {
     const layout = Project._LAYOUT_MAP[arrangement];
 
     // Find the common parent of the target items in the component tree
-    const tree = this.core.state.component?.tree;
+    const tree = this.core.state.component?.tree as CompNode | undefined;
     let parentRef: { nodeId: string } | { bind: string } = { nodeId: 'root' };
     if (tree) {
       const targetRefs = targetArray.map(t => ({ bind: t.split('.').pop()! }));
@@ -2982,11 +2973,11 @@ export class Project {
     this.core.dispatch({ type: 'component.addNode', payload: addPayload });
 
     // Find the created node — it should be the last child of the parent
-    const updatedTree = this.core.state.component?.tree;
+    const updatedTree = this.core.state.component?.tree as CompNode | undefined;
     const parentNode = 'nodeId' in parentRef
-      ? findComponentNodeById(updatedTree as any, parentRef.nodeId)
-      : findComponentNodeByRef(updatedTree as any, parentRef);
-    const parentChildren = (parentNode as any)?.children ?? [];
+      ? findComponentNodeById(updatedTree, parentRef.nodeId)
+      : findComponentNodeByRef(updatedTree, parentRef);
+    const parentChildren = parentNode?.children ?? [];
     const lastChild = parentChildren[parentChildren.length - 1];
     const containerRef = lastChild?.nodeId
       ? { nodeId: lastChild.nodeId }
@@ -3027,7 +3018,7 @@ export class Project {
     const commands: AnyCommand[] = [];
 
     // Check for ambiguous leaf key — multiple items share same key
-    const collectLeafPaths = (items: any[], key: string, prefix?: string): string[] => {
+    const collectLeafPaths = (items: FormItem[], key: string, prefix?: string): string[] => {
       const paths: string[] = [];
       for (const item of items) {
         const itemPath = prefix ? `${prefix}.${item.key}` : item.key;
@@ -3097,7 +3088,7 @@ export class Project {
       }
       // CSS properties nest inside defaults.style as a single merge
       if (Object.keys(cssProps).length > 0) {
-        const existing = (this.core.state.theme as any).defaults?.style ?? {};
+        const existing = (this.core.state.theme.defaults?.style as Record<string, unknown> | undefined) ?? {};
         commands.push({
           type: 'theme.setDefaults',
           payload: { property: 'style', value: { ...existing, ...cssProps } },
@@ -3214,7 +3205,7 @@ export class Project {
   addThemeSelector(match: Record<string, unknown>, apply: Record<string, unknown>): HelperResult {
     this.core.dispatch({ type: 'theme.addSelector', payload: { match, apply } } as AnyCommand);
     // Read newly created selector index
-    const selectors = (this.core.state.theme as any).selectors ?? [];
+    const selectors = this.core.state.theme.selectors ?? [];
     const newIndex = selectors.length - 1;
     return {
       summary: `Added theme selector`,
@@ -3456,7 +3447,7 @@ export class Project {
   private _regionIndexOf(pageId: string, itemKey: string): number {
     const page = this._findPageNode(pageId);
     const boundChildren = this._pageBoundChildren(page);
-    const index = boundChildren.findIndex((n: any) => n.bind === itemKey);
+    const index = boundChildren.findIndex(n => n.bind === itemKey);
     if (index === -1) throw new HelperError('ITEM_NOT_ON_PAGE', `Item '${itemKey}' is not on page '${pageId}'`, { pageId, itemKey });
     return index;
   }
@@ -3466,7 +3457,7 @@ export class Project {
   /** Set the width (grid span) of an item on a page. */
   setItemWidth(pageId: string, itemKey: string, width: number): HelperResult {
     const page = this._findPageNode(pageId);
-    const node = this._pageBoundChildren(page).find((n: any) => n.bind === itemKey);
+    const node = this._pageBoundChildren(page).find(n => n.bind === itemKey);
     if (!node) throw new HelperError('ITEM_NOT_ON_PAGE', `Item '${itemKey}' is not on page '${pageId}'`, { pageId, itemKey });
     this.core.dispatch({
       type: 'component.setNodeProperty',
@@ -3482,7 +3473,7 @@ export class Project {
   /** Set the offset (grid start) of an item on a page. */
   setItemOffset(pageId: string, itemKey: string, offset: number | undefined): HelperResult {
     const page = this._findPageNode(pageId);
-    const node = this._pageBoundChildren(page).find((n: any) => n.bind === itemKey);
+    const node = this._pageBoundChildren(page).find(n => n.bind === itemKey);
     if (!node) throw new HelperError('ITEM_NOT_ON_PAGE', `Item '${itemKey}' is not on page '${pageId}'`, { pageId, itemKey });
     this.core.dispatch({
       type: 'component.setNodeProperty',
@@ -3505,10 +3496,10 @@ export class Project {
     this._regionIndexOf(pageId, itemKey); // validates existence
     const page = this._findPageNode(pageId);
     const boundChildren = this._pageBoundChildren(page);
-    const node = boundChildren.find((n: any) => n.bind === itemKey)!;
+    const node = boundChildren.find(n => n.bind === itemKey)!;
 
     // Clone existing responsive map or start fresh
-    const responsive = { ...((node.responsive as Record<string, unknown>) ?? {}) };
+    const responsive = { ...(node.responsive ?? {}) };
 
     if (overrides === undefined) {
       delete responsive[breakpoint];
@@ -3639,7 +3630,7 @@ export class Project {
         ...(options?.insertIndex !== undefined ? { insertIndex: options.insertIndex } : {}),
       },
     } as AnyCommand);
-    const nodeRef = (result as any)?.nodeRef as { bind?: string; nodeId?: string } | undefined;
+    const nodeRef = result?.nodeRef;
     const createdId = nodeRef?.nodeId ?? nodeRef?.bind;
     return {
       summary: `Added component node '${component}'`,
@@ -3656,7 +3647,7 @@ export class Project {
       type: 'component.addNode',
       payload: { parent: { nodeId: parentNodeId }, component },
     } as AnyCommand);
-    const nodeId = (result as any)?.nodeRef?.nodeId;
+    const nodeId = result?.nodeRef?.nodeId;
     return {
       summary: `Added layout node '${component}' under '${parentNodeId}'`,
       action: { helper: 'addLayoutNode', params: { parentNodeId, component } },
@@ -3697,7 +3688,7 @@ export class Project {
       type: 'component.wrapNode',
       payload: { node: ref, wrapper: { component } },
     } as AnyCommand);
-    const nodeId = (result as any)?.nodeRef?.nodeId;
+    const nodeId = result?.nodeRef?.nodeId;
     return {
       summary: `Wrapped node in ${component}`,
       action: { helper: 'wrapComponentNode', params: { ref, component } },
@@ -3715,7 +3706,7 @@ export class Project {
       type: 'component.wrapSiblingNodes',
       payload: { nodes: refs, wrapper: { component } },
     } as AnyCommand);
-    const nodeId = (result as any)?.nodeRef?.nodeId;
+    const nodeId = result?.nodeRef?.nodeId;
     return {
       summary: `Wrapped ${refs.length} sibling nodes in ${component}`,
       action: { helper: 'wrapSiblingComponentNodes', params: { refs, component } },
@@ -3746,7 +3737,7 @@ export class Project {
       type: 'component.moveNode',
       payload: { source: ref, targetParent },
     } as AnyCommand);
-    const id = 'bind' in ref && ref.bind ? ref.bind : (ref as any).nodeId;
+    const id = 'bind' in ref && ref.bind ? ref.bind : ref.nodeId;
     const targetKey = targetParent.nodeId ?? targetParent.bind ?? '';
     return {
       summary: `Moved node '${id}' into container '${targetKey}'`,
@@ -3765,7 +3756,7 @@ export class Project {
       type: 'component.moveNode',
       payload: { source: ref, targetParent, targetIndex: insertIndex },
     } as AnyCommand);
-    const id = 'bind' in ref && ref.bind ? ref.bind : (ref as any).nodeId;
+    const id = 'bind' in ref && ref.bind ? ref.bind : ref.nodeId;
     const targetKey = targetParent.nodeId ?? targetParent.bind ?? '';
     return {
       summary: `Moved node '${id}' to index ${insertIndex} in container '${targetKey}'`,
@@ -3780,7 +3771,7 @@ export class Project {
       type: 'component.deleteNode',
       payload: { node: ref },
     } as AnyCommand);
-    const id = 'bind' in ref && ref.bind ? ref.bind : (ref as any).nodeId;
+    const id = 'bind' in ref && ref.bind ? ref.bind : ref.nodeId;
     return {
       summary: `Deleted component node '${id}'`,
       action: { helper: 'deleteComponentNode', params: { ref } },
@@ -4225,7 +4216,7 @@ export class Project {
   /** Validate a screener item key exists, returning its index. */
   private _validateScreenerItemKey(key: string): number {
     const items = this._getScreener().items;
-    const idx = items.findIndex((it: any) => it.key === key);
+    const idx = items.findIndex(it => it.key === key);
     if (idx === -1) throw new HelperError('SCREENER_ITEM_NOT_FOUND', `Screener item not found: ${key}`, { key });
     return idx;
   }
@@ -4233,7 +4224,7 @@ export class Project {
   /** Validate a phase exists and a route index is in bounds. */
   private _validatePhaseRoute(phaseId: string, routeIndex: number) {
     const screener = this._getScreener();
-    const phase = screener.evaluation.find((p: any) => p.id === phaseId);
+    const phase = screener.evaluation.find(p => p.id === phaseId);
     if (!phase) throw new HelperError('PHASE_NOT_FOUND', `Phase not found: ${phaseId}`, { phaseId });
     if (routeIndex < 0 || routeIndex >= phase.routes.length) {
       throw new HelperError('ROUTE_OUT_OF_BOUNDS', `Route index ${routeIndex} out of bounds in phase ${phaseId}`, {
@@ -4314,7 +4305,7 @@ export class Project {
       if (prop in changes) {
         commands.push({
           type: 'screener.setItemProperty',
-          payload: { key, property: prop, value: (changes as any)[prop] },
+          payload: { key, property: prop, value: changes[prop] },
         });
       }
     }
@@ -4509,10 +4500,10 @@ export class Project {
   }
 
   /** Generate a context-aware sample value for a field. */
-  private static _sampleValueForField(item: any, fieldIndex: number): unknown {
-    const dt = item.dataType as string;
-    const key = (item.key as string).toLowerCase();
-    const options = item.options as Array<{ value: string }> | undefined;
+  private static _sampleValueForField(item: FormItem, fieldIndex: number): unknown {
+    const dt = item.dataType ?? 'string';
+    const key = item.key.toLowerCase();
+    const options = item.options;
 
     if (dt === 'choice' || dt === 'multiChoice') {
       if (options?.length) {
@@ -4562,7 +4553,7 @@ export class Project {
     let fieldIndex = 0;
 
     /** Build a sample instance object from a group's children. */
-    const buildInstance = (children: any[]): Record<string, unknown> => {
+    const buildInstance = (children: FormItem[]): Record<string, unknown> => {
       const instance: Record<string, unknown> = {};
       for (const child of children) {
         if (child.type === 'group') {
@@ -4580,7 +4571,7 @@ export class Project {
         if (child.type !== 'field') continue;
         if (overrides) {
           // Check for override by leaf key within the repeat
-          const overrideKey = child.key as string;
+          const overrideKey = child.key;
           if (overrideKey in overrides) {
             instance[child.key] = overrides[overrideKey];
             fieldIndex++;
@@ -4593,7 +4584,7 @@ export class Project {
       return instance;
     };
 
-    const walkItems = (itemList: any[], prefix: string) => {
+    const walkItems = (itemList: FormItem[], prefix: string) => {
       for (const item of itemList) {
         const path = prefix ? `${prefix}.${item.key}` : item.key;
         if (item.type === 'group') {
@@ -4621,7 +4612,7 @@ export class Project {
       }
     };
 
-    walkItems(items as any[], '');
+    walkItems(items, '');
     return Project._filterByRelevance(this.export().definition, data);
   }
 
@@ -4706,10 +4697,11 @@ export function createProject(options?: CreateProjectOptions): Project {
     coreMiddleware.push(createChangesetMiddleware(recorderControl));
   }
 
-  const coreOptions: any = { ...options };
-  if (coreMiddleware.length > 0) {
-    coreOptions.middleware = coreMiddleware;
-  }
+  const coreOptions: import('@formspec-org/core').ProjectOptions = {
+    ...options,
+    seed: options?.seed as import('@formspec-org/core').ProjectOptions['seed'],
+    middleware: coreMiddleware.length > 0 ? coreMiddleware : undefined,
+  };
 
   // Bridge studio-core options → core options at the package boundary
   return new Project(createRawProject(coreOptions), recorderControl);
@@ -4737,7 +4729,7 @@ export function buildBundleFromDefinition(definition: FormDefinition): ProjectBu
         $formspecComponent: '1.0',
         version: '0.1.0',
         targetDefinition: definition.url ? { url: definition.url } : undefined,
-        tree: null as any,
+        tree: null!,
         customComponents: [],
       } as unknown as ComponentDocument,
       theme: null as unknown as ThemeDocument,

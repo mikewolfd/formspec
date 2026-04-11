@@ -26,6 +26,7 @@ export interface CompNode {
   bind?: string;
   nodeId?: string;
   title?: string;
+  description?: string;
   syntheticPage?: boolean;
   groupPath?: string;
   _layout?: boolean;
@@ -43,6 +44,12 @@ export interface CompNode {
   /** Accordion/Collapsible may use a numeric default in schema types. */
   defaultOpen?: boolean | number;
   style?: Record<string, unknown>;
+  /** Grid region column span (1-12). Studio-internal; not in component schema. */
+  span?: number;
+  /** Grid region column start (1-12). Studio-internal; not in component schema. */
+  start?: number;
+  /** Breakpoint-keyed responsive overrides on layout nodes. */
+  responsive?: Record<string, unknown>;
 }
 
 /**
