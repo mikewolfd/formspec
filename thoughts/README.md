@@ -22,7 +22,7 @@ All internal planning, research, decisions, and reviews live here. `docs/` is fo
 
 ## ADRs (Architecture Decision Records)
 
-Next available number: **0045**
+Next available number: **0061**
 
 | ADR | File | Status | Notes |
 |-----|------|--------|-------|
@@ -63,6 +63,7 @@ Next available number: **0045**
 | 0042 | [launch-blog-posts](adr/0042-launch-blog-posts.md) | Proposed | Content for launch |
 | 0043 | [archive-form-builder](adr/0043-archive-form-builder.md) | Approved | Remove form-builder |
 | 0044 | [inspector-ux-redesign](adr/0044-inspector-ux-redesign.md) | Implemented | Zero-jargon progressive disclosure |
+| 0060 | [fel-constraint-self-dollar-nesting](adr/0060-fel-constraint-self-dollar-nesting.md) | Accepted | Constraint `$` vs quantifier predicate `$` scoping |
 
 ### Gaps in numbering
 
@@ -142,6 +143,7 @@ See [studio/README.md](studio/README.md) — 24 artifacts covering Studio v1/v2 
 ## Examples
 
 Reference example implementation plans (formerly `refrence/`):
+
 - [grant-report-plan](examples/2026-03-04-grant-report-plan.md) — Tribal Grant Annual Report
 - [invoice-plan](examples/2026-03-04-invoice-plan.md) — Invoice with Line Items
 - [clinical-intake-plan](examples/2026-03-04-clinical-intake-plan.md) — Clinical Intake Survey
