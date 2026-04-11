@@ -40,11 +40,13 @@ test.describe('Editor Authoring', () => {
       ],
     });
 
-    // Select an existing field first
-    await page.click('[data-testid="field-marital"]');
+    // Paged (wizard) definitions reject root-level adds. The footer "+ Add Item" clears parentPath;
+    // use the group row "+" control so the palette opens with addParentPath = pageOne.
+    await page.locator('[data-testid="add-to-pageOne"]').click();
 
-    // Add a new field via palette
-    await addFromPalette(page, 'Text');
+    const palette = page.locator('[data-testid="add-item-palette"]');
+    await palette.waitFor();
+    await palette.getByRole('button', { name: /^Text\b/ }).first().click();
 
     // The newly added field should be auto-selected (has selected styling)
     const fields = editorFieldRows(page);

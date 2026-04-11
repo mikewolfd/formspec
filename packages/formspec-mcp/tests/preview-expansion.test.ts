@@ -17,8 +17,9 @@ describe('handlePreview — sample_data mode', () => {
     expect(result.isError).toBeUndefined();
 
     const data = parseResult(result);
-    expect(data.name).toBe('Sample text');
-    expect(data.age).toBe(42);
+    // string key "name" uses name heuristic; integer uses 10 + fieldIndex (second field → 11)
+    expect(data.name).toBe('Jane Doe');
+    expect(data.age).toBe(11);
   });
 
   it('returns empty object for project with no fields', () => {
@@ -53,7 +54,7 @@ describe('handlePreview — sample_data mode', () => {
 
     const data = parseResult(result);
     expect(data.name).toBe('Alice');
-    expect(data.age).toBe(42); // non-overridden field keeps default
+    expect(data.age).toBe(11); // non-overridden field keeps generated default
   });
 
   it('ignores scenario keys that do not match any field', () => {

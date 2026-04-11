@@ -129,8 +129,8 @@ describe('compatibleWidgets', () => {
     expect(compatibleWidgets('field', 'decimal')).toEqual(['NumberInput', 'Slider', 'Rating', 'TextInput']);
   });
 
-  it('returns Toggle and Checkbox for boolean fields', () => {
-    expect(compatibleWidgets('field', 'boolean')).toEqual(['Toggle', 'Checkbox']);
+  it('returns Toggle for boolean fields (checkbox hint maps to Toggle)', () => {
+    expect(compatibleWidgets('field', 'boolean')).toEqual(['Toggle']);
   });
 
   it('returns DatePicker and TextInput for date fields', () => {

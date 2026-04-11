@@ -62,7 +62,8 @@ describe('handleAudit — accessibility', () => {
 
   it('flags required fields without hints', () => {
     const { registry, projectId, project } = registryWithProject();
-    project.addField('name', 'Name', 'text');
+    // Short labels (≤3 words) are treated as self-explanatory; use a longer label so a hint is recommended.
+    project.addField('name', 'Full legal name exactly as on government ID', 'text');
     project.require('name');
 
     const result = handleAudit(registry, projectId, { action: 'accessibility' });
