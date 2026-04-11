@@ -7,7 +7,7 @@ All internal planning, research, decisions, and reviews live here. `docs/` is fo
 ### Verification
 
 - After adding or moving markdown under `thoughts/`, run **`npm run docs:filemap`** so `filemap.json` stays accurate.
-- **`npm run docs:check`** includes **`scripts/check-thoughts-relocated-paths.mjs`**, which fails if tracked sources cite legacy `thoughts/adr|plans|specs/...` paths for files that now exist only under **`thoughts/archive/`**.
+- **`npm run docs:check`** includes **`scripts/check-thoughts-relocated-paths.mjs`**, which fails if tracked sources cite legacy paths under **`thoughts/adr`**, **`thoughts/plans`**, **`thoughts/specs`**, **`thoughts/reviews`**, or **`thoughts/studio`** for files that exist only under **`thoughts/archive/`** (with exceptions when the same path still exists at top level, e.g. `thoughts/reviews/README.md`).
 
 ---
 
@@ -18,10 +18,10 @@ All internal planning, research, decisions, and reviews live here. `docs/` is fo
 | `adr/` | **Active** ADRs — Proposed, in-progress, or Accepted but not yet landed as described | `NNNN-short-name.md` |
 | `plans/` | **Active** implementation plans (open or draft) | `YYYY-MM-DD-short-name.md` |
 | `specs/` | **Active** design specs / PRDs (future or partial) | `YYYY-MM-DD-short-name.md` |
-| `archive/` | Closed ADRs, completed plans, delivered specs, superseded precursors | Mirrors `adr/` / `plans/` / `specs/` |
-| `reviews/` | Code reviews, audits, post-mortems | `YYYY-MM-DD-short-name.md` |
+| `archive/` | Closed ADRs, plans, specs, **archived** reviews & Studio history | `adr/`, `plans/`, `specs/`, `reviews/`, `studio/` |
+| `reviews/` | **Active** reference reviews + planning (`README.md` indexes the split) | `YYYY-MM-DD-short-name.md` |
 | `research/` | External spec analysis, competitive research | Free-form |
-| `studio/` | Formspec Studio subdomain | Free-form |
+| `studio/` | **Active** Studio canon + prior art cited from specs (`README.md` indexes the split) | Dated `.md`, `vendor/`, new `visual-reviews/` |
 | `examples/` | Reference example implementation plans | Free-form |
 
 ---
@@ -109,15 +109,7 @@ Next free id: **0061** (duplicate `0047` / `0048` / `0053` filenames remain on d
 
 ## Reviews
 
-| File | Date | Summary |
-|------|------|---------|
-| [review-since-e81e62a](reviews/2026-04-04-review-since-e81e62a.md) | 2026-04-04 | MCP + Studio patch review; 2 blockers, 5 warnings |
-| [reference-examples-smoke-test](reviews/2026-03-09-reference-examples-smoke-test.md) | 2026-03-09 | Smoke test issues (ex-ADR 0034) |
-| [studio-fixes-post-review](reviews/2026-03-13-studio-fixes-post-review.md) | 2026-03-13 | Post-review cleanup |
-| [helpers-review](reviews/2026-03-14-formspec-studio-core-helpers-review.md) | 2026-03-14 | C1-C5 critical issues |
-| [helpers-review-v2](reviews/2026-03-14-formspec-studio-core-helpers-review-v2.md) | 2026-03-14 | 4 implementation blockers |
-| [feature-implementation-matrix](reviews/2026-02-24-feature-implementation-matrix.md) | 2026-02-24 | 200 FULL, 9 PARTIAL, 3 MISSING |
-| [schema-coverage-audit](reviews/2026-02-28-schema-coverage-audit.md) | 2026-02-28 | Grant app vs schemas |
+See [`reviews/README.md`](reviews/README.md) — what stayed at top level vs [`archive/reviews/`](archive/reviews/).
 
 ---
 
@@ -129,7 +121,7 @@ See [research/README.md](research/README.md) — external spec analysis (XForms,
 
 ## Studio
 
-See [studio/README.md](studio/README.md) — Studio v1/v2 product requirements, design specs, visual reviews, implementation plans, and code reviews.
+See [studio/README.md](studio/README.md) — active canon and prior art; archived sprints and visual-review bundles under [`archive/studio/`](archive/studio/).
 
 ---
 

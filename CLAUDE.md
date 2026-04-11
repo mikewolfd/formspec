@@ -67,9 +67,9 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
   - `thoughts/plans/` — **Active** implementation plans. Completed plans: `thoughts/archive/plans/`.
   - `thoughts/specs/` — **Active** design specs. Delivered / merged specs: `thoughts/archive/specs/`.
   - `thoughts/archive/` — **Implemented**, superseded, or merged precursors. `npm run docs:check` enforces that tracked links use `thoughts/archive/...` for files stored here.
-  - `thoughts/reviews/` — Code reviews, audits, post-mortems. `YYYY-MM-DD-short-name.md`.
+  - `thoughts/reviews/` — Reference reviews and planning docs still in active use; historical reviews: `thoughts/archive/reviews/`. See `thoughts/reviews/README.md`.
   - `thoughts/research/` — Exploratory research, comparative analysis, external doc captures.
-  - `thoughts/studio/` — Formspec Studio subdomain (plans, bugs, designs).
+  - `thoughts/studio/` — Active Studio canon and spec-cited prior art; archived sprints and visual-review bundles: `thoughts/archive/studio/`. See `thoughts/studio/README.md`.
   - `thoughts/examples/` — Reference example implementation plans.
 - **`tests/`** — Python conformance test suite (pytest + jsonschema + hypothesis).
 - **`tests/e2e/`** — Playwright E2E tests and JSON fixtures.

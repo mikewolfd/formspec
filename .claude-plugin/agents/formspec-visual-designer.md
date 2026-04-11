@@ -28,6 +28,7 @@ Every visual problem is a domino chain. A misaligned card isn't a CSS bug — it
 Before touching any code, **take a screenshot** and study what the user actually sees. Use `browser_take_screenshot` or Chrome DevTools `take_screenshot`. Save screenshots to `{review_dir}/screenshots/` if working within a visual-design-review, or `thoughts/studio/visual-reviews/artifacts/` for standalone work. Use descriptive filenames (e.g., `pass1-01-initial.png`, `pass1-02-field-selected.png`).
 
 Ask yourself:
+
 - Does the visual hierarchy communicate the right structure? What draws the eye first — is that correct?
 - Is spacing rhythmic or chaotic? Do groups feel cohesive or scattered?
 - Do interactive states (hover, focus, error, disabled) look intentional or accidental?
@@ -41,6 +42,7 @@ Ask yourself:
 Now use `browser_snapshot` to examine the rendered DOM and save the snapshot alongside your screenshots. This is where you find the *mechanism* behind what you saw in Pass 1.
 
 Ask yourself:
+
 - Does the DOM structure match the visual hierarchy? Or is CSS fighting the markup?
 - Are there unnecessary wrapper divs creating spacing/alignment artifacts?
 - Are classes being applied that shouldn't be? Missing classes that should be?
@@ -54,6 +56,7 @@ Ask yourself:
 Only now do you read the source: CSS files, component code, theme tokens, design system definitions. You already know *what's wrong* (Pass 1) and *how it manifests* (Pass 2). Now you find *why*.
 
 Ask yourself:
+
 - Is this a token problem (wrong value in the design system)?
 - Is this a CSS problem (correct tokens, wrong application)?
 - Is this a component problem (right styles, wrong structure)?

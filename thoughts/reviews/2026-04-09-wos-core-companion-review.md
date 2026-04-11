@@ -1,11 +1,11 @@
 # WOS Implementation Plan — Hierarchical Kernel + Layered Governance
 
 **Date:** 2026-04-09 (v3 — human-first architecture audit)
-**Updated:** 2026-04-09 (v4 — implementation complete through Phase 3 + profiles + companion)
+**Updated:** 2026-04-11 (v5 — Section 12 inventory synced to landed Runtime + collateral)
 **Author:** Formspec project
 **Status:** Phases 1-3 COMPLETE. Profiles and companion COMPLETE. Phase 4 PLANNED.
 **Draft corpus:** `wos-spec/DRAFTS/` (13 files: v0.1 through v7, agent tier, lifecycle tier, amendments, proposals, schemas)
-**Delivered:** 15 specs, 14 schemas, 19 fixtures (see Section 12 for full inventory)
+**Delivered:** 18 specs, 18 schemas, 39 document fixtures + 2 harness fixtures (see Section 12 for full inventory)
 
 ---
 
@@ -732,17 +732,20 @@ Full audit of all 4 flagged draft files completed 2026-04-09. Results:
 
 ## 12. Delivered Inventory
 
-*Added 2026-04-09 after all Phases 1-3 + profiles + companion completed.*
+*Added 2026-04-09 after the initial architecture slice. Synced 2026-04-11 to the landed Runtime Companion, CaseInstance schema, correspondence metadata, and current fixture inventory.*
 
-### Specs (15 documents)
+### Specs (18 documents)
 
 | Layer | Document | Path |
 |-------|----------|------|
 | L0 Kernel | Kernel Spec | `specs/kernel/spec.md` |
+| L0 sidecar | Correspondence Metadata | `specs/kernel/correspondence-metadata.md` |
 | L1 Governance | Workflow Governance Spec | `specs/governance/workflow-governance.md` |
 | L1 sidecar | Due Process Config | `specs/governance/due-process-config.md` |
 | L1 sidecar | Assertion Gate Library | `specs/governance/assertion-library.md` |
 | L1 sidecar | Policy Parameter Config | `specs/governance/policy-parameters.md` |
+| L1 sidecar | Business Calendar | `specs/sidecars/business-calendar.md` |
+| L1 sidecar | Notification Template | `specs/sidecars/notification-template.md` |
 | L2 AI | AI Integration Spec | `specs/ai/ai-integration.md` |
 | L2 sidecar | Agent Config | `specs/ai/agent-config.md` |
 | L2 sidecar | Drift Monitor Config | `specs/ai/drift-monitor.md` |
@@ -752,16 +755,20 @@ Full audit of all 4 flagged draft files completed 2026-04-09. Results:
 | Profile | Integration Profile | `specs/profiles/integration.md` |
 | Profile | Semantic Profile | `specs/profiles/semantic.md` |
 | Companion | Lifecycle Detail | `specs/companions/lifecycle-detail.md` |
+| Companion | Runtime Companion | `specs/companions/runtime.md` |
 
-### Schemas (14)
+### Schemas (18)
 
 | Schema | Path |
 |--------|------|
 | `wos-kernel.schema.json` | `schemas/wos-kernel.schema.json` |
+| `wos-correspondence-metadata.schema.json` | `schemas/wos-correspondence-metadata.schema.json` |
 | `wos-workflow-governance.schema.json` | `schemas/wos-workflow-governance.schema.json` |
 | `wos-due-process.schema.json` | `schemas/wos-due-process.schema.json` |
 | `wos-assertion-gate.schema.json` | `schemas/wos-assertion-gate.schema.json` |
 | `wos-policy-parameters.schema.json` | `schemas/wos-policy-parameters.schema.json` |
+| `wos-business-calendar.schema.json` | `schemas/wos-business-calendar.schema.json` |
+| `wos-notification-template.schema.json` | `schemas/wos-notification-template.schema.json` |
 | `wos-ai-integration.schema.json` | `schemas/wos-ai-integration.schema.json` |
 | `wos-agent-config.schema.json` | `schemas/wos-agent-config.schema.json` |
 | `wos-drift-monitor.schema.json` | `schemas/wos-drift-monitor.schema.json` |
@@ -771,30 +778,27 @@ Full audit of all 4 flagged draft files completed 2026-04-09. Results:
 | `wos-integration-profile.schema.json` | `schemas/wos-integration-profile.schema.json` |
 | `wos-semantic-profile.schema.json` | `schemas/wos-semantic-profile.schema.json` |
 | `wos-lifecycle-detail.schema.json` | `schemas/wos-lifecycle-detail.schema.json` |
+| `wos-case-instance.schema.json` | `schemas/wos-case-instance.schema.json` |
 
-### Conformance Fixtures (19)
+### Fixtures (41 JSON artifacts)
 
-| Fixture | Path | Purpose |
-|---------|------|---------|
-| Purchase Order Approval | `fixtures/kernel/purchase-order-approval.json` | Kernel-only smoke test |
-| Benefits Adjudication (Kernel) | `fixtures/kernel/benefits-adjudication.json` | Full K+L1 workflow |
-| Purchase Order Provenance | `fixtures/kernel/purchase-order-provenance.json` | Expected provenance trace |
-| Invalid Documents | `fixtures/kernel/invalid-documents.json` | 8 expected rejections |
-| Benefits Governance | `fixtures/governance/benefits-adjudication-governance.json` | L1 governance document |
-| Benefits Policy Parameters | `fixtures/governance/benefits-policy-parameters.json` | Temporal parameters sidecar |
-| Benefits AI Integration | `fixtures/ai/benefits-adjudication-ai.json` | L2 AI integration |
-| Document Extractor Config | `fixtures/ai/document-extractor-config.json` | Agent config sidecar |
-| Benefits Drift Monitor | `fixtures/ai/benefits-drift-monitor.json` | Drift monitor sidecar |
-| Benefits Advanced Governance | `fixtures/advanced/benefits-advanced-governance.json` | L3 constraint zones + equity |
-| Verification Report | `fixtures/advanced/verification-report.json` | SMT verification results |
-| Benefits Equity Config | `fixtures/advanced/benefits-equity-config.json` | Equity monitoring sidecar |
-| Integration Profile | `fixtures/profiles/integration-benefits-adjudication.json` | 7 binding types |
-| Semantic Profile | `fixtures/profiles/semantic-benefits-adjudication.json` | JSON-LD + SHACL + PROV-O config |
-| Lifecycle Detail | `fixtures/companions/benefits-lifecycle-detail.json` | Compensation + timer + SCXML config |
-| LLM Test: Procurement | `fixtures/validation/procurement-approval-llm-test.json` | LLM-authoring gate |
-| LLM Test: FOIA | `fixtures/validation/foia-kernel-llm-test.json` | LLM-authoring gate |
-| LLM Test: FOIA Governance | `fixtures/validation/foia-governance-llm-test.json` | LLM-authoring gate |
-| LLM Test: Benefits AI | `fixtures/validation/benefits-ai-llm-test.json` | LLM-authoring gate |
+The current fixture inventory is 41 JSON files:
+
+- 39 authored document fixtures under `wos-spec/fixtures/`
+- 2 kernel harness fixtures in the same tree: `kernel/invalid-documents.json` and `kernel/purchase-order-provenance.json`
+
+Category breakdown:
+
+| Category | Count | Paths |
+|----------|-------|-------|
+| Kernel | 17 | `fixtures/kernel/autonomy-caps.json`, `fixtures/kernel/benefits-adjudication.json`, `fixtures/kernel/benefits-correspondence-metadata.json`, `fixtures/kernel/case-relationship-appeal.json`, `fixtures/kernel/compensation.json`, `fixtures/kernel/dcr-zone.json`, `fixtures/kernel/deontic-enforcement.json`, `fixtures/kernel/due-process.json`, `fixtures/kernel/durability.json`, `fixtures/kernel/hold-resume-lifecycle.json`, `fixtures/kernel/invalid-documents.json`, `fixtures/kernel/medicaid-redetermination.json`, `fixtures/kernel/parallel-timer-scoping.json`, `fixtures/kernel/pipeline-execution.json`, `fixtures/kernel/purchase-order-approval.json`, `fixtures/kernel/purchase-order-provenance.json`, `fixtures/kernel/timer-tolerance-violation.json` |
+| Governance | 5 | `fixtures/governance/benefits-adjudication-governance.json`, `fixtures/governance/benefits-policy-parameters.json`, `fixtures/governance/due-process-governance.json`, `fixtures/governance/hold-resume-governance.json`, `fixtures/governance/pipeline-execution-governance.json` |
+| AI | 6 | `fixtures/ai/autonomy-caps-agent-config.json`, `fixtures/ai/autonomy-caps-ai.json`, `fixtures/ai/benefits-adjudication-ai.json`, `fixtures/ai/benefits-drift-monitor.json`, `fixtures/ai/deontic-enforcement-ai.json`, `fixtures/ai/document-extractor-config.json` |
+| Advanced | 4 | `fixtures/advanced/benefits-advanced-governance.json`, `fixtures/advanced/benefits-equity-config.json`, `fixtures/advanced/dcr-zone-governance.json`, `fixtures/advanced/verification-report.json` |
+| Profiles | 2 | `fixtures/profiles/integration-benefits-adjudication.json`, `fixtures/profiles/semantic-benefits-adjudication.json` |
+| Sidecars | 2 | `fixtures/sidecars/benefits-business-calendar.json`, `fixtures/sidecars/benefits-notification-templates.json` |
+| Companions | 1 | `fixtures/companions/benefits-lifecycle-detail.json` |
+| Validation | 4 | `fixtures/validation/benefits-ai-llm-test.json`, `fixtures/validation/foia-governance-llm-test.json`, `fixtures/validation/foia-kernel-llm-test.json`, `fixtures/validation/procurement-approval-llm-test.json` |
 
 ### Review History
 
