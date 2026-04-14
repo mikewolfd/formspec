@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createProject } from '../src/project.js';
 import { HelperError } from '../src/helper-types.js';
+import { findComponentNodeById, findComponentNodeByRef } from '../src/tree-utils.js';
 
 // ── Component tree page helpers for test assertions ──
 
@@ -3550,7 +3551,7 @@ describe('moveComponentNodeToContainer', () => {
 
     // email should now be inside the Card container
     const tree = (project.component as any)?.tree;
-    const cardNode = findNodeById(tree, containerNodeId);
+    const cardNode = findComponentNodeById(tree, containerNodeId);
     expect(cardNode).toBeDefined();
     expect(cardNode?.children?.some((c: any) => c.bind === 'email')).toBe(true);
   });
@@ -3565,7 +3566,7 @@ describe('moveComponentNodeToContainer', () => {
     project.moveComponentNodeToContainer({ nodeId: cardA }, { nodeId: cardB });
 
     const tree = (project.component as any)?.tree;
-    const cardBNode = findNodeById(tree, cardB);
+    const cardBNode = findComponentNodeById(tree, cardB);
     expect(cardBNode?.children?.some((c: any) => c.nodeId === cardA)).toBe(true);
   });
 
@@ -3591,7 +3592,7 @@ describe('moveComponentNodeToContainer', () => {
     project.moveComponentNodeToContainer({ bind: 'email' }, { bind: 'section' });
 
     const tree = (project.component as any)?.tree;
-    const section = findNodeByBind(tree, 'section');
+    const section = findComponentNodeByRef(tree, { bind: 'section' });
     expect(section?.children?.some((c: any) => c.bind === 'email')).toBe(true);
   });
 });
@@ -3608,7 +3609,7 @@ describe('moveComponentNodeToIndex', () => {
     project.moveComponentNodeToIndex({ bind: 'third' }, { nodeId: cardId }, 0);
 
     const tree = (project.component as any)?.tree;
-    const cardNode = findNodeById(tree, cardId);
+    const cardNode = findComponentNodeById(tree, cardId);
     expect(cardNode?.children?.[0]?.bind).toBe('third');
   });
 
@@ -3623,7 +3624,7 @@ describe('moveComponentNodeToIndex', () => {
     project.moveComponentNodeToIndex({ bind: 'c' }, { nodeId: cardId }, 1);
 
     const tree = (project.component as any)?.tree;
-    const cardNode = findNodeById(tree, cardId);
+    const cardNode = findComponentNodeById(tree, cardId);
     expect(cardNode?.children?.[1]?.bind).toBe('c');
   });
 
@@ -3685,28 +3686,6 @@ describe('mergedFieldTypeCatalog', () => {
     expect(item?.extensions?.['x-studio-addfield-test']).toBe(true);
   });
 });
-
-/** Helper: find a component tree node by nodeId (BFS). */
-function findNodeById(root: any, nodeId: string): any {
-  if (!root) return undefined;
-  if (root.nodeId === nodeId) return root;
-  for (const child of root.children ?? []) {
-    const found = findNodeById(child, nodeId);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-/** Helper: find a component tree node by definition bind key (BFS). */
-function findNodeByBind(root: any, bind: string): any {
-  if (!root) return undefined;
-  if (root.bind === bind) return root;
-  for (const child of root.children ?? []) {
-    const found = findNodeByBind(child, bind);
-    if (found) return found;
-  }
-  return undefined;
-}
 
 // ── BUG-1: _resolvePath parentPath doubling ─────────────────────────
 

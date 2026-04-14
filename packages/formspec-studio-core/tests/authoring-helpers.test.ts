@@ -9,8 +9,6 @@ import {
   countDefinitionFields,
   dataTypeInfo,
   flatItems,
-  findComponentNodeById,
-  findComponentNodeByRef,
   flattenComponentTree,
   isCircularComponentMove,
   getFieldTypeCatalog,
@@ -26,6 +24,7 @@ import {
   shapesFor,
   sortForBatchDelete,
 } from '../src/authoring-helpers';
+import { findComponentNodeById, findComponentNodeByRef } from '../src/tree-utils';
 
 function fieldNode(bind: string, component = 'TextInput') {
   return { component, bind };

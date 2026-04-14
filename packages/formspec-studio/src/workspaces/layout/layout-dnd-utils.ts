@@ -1,32 +1,7 @@
 /** @filedesc Pure DnD event handlers for the layout canvas — routes drag-end events to project methods. */
 import type { DragStartEvent as DndDragStartEvent, DragEndEvent as DndDragEndEvent } from '@dnd-kit/dom';
-import type { CompNode, Project } from '@formspec-org/studio-core';
-import { isCircularComponentMove } from '@formspec-org/studio-core';
-
-export type NodeRef = { bind?: string; nodeId?: string };
-
-/** Parent of the node matching `ref`, or `null` if the match is the tree root, or `undefined` if not found. */
-export function findParentOfNodeRef(
-  tree: CompNode | undefined,
-  ref: NodeRef,
-): CompNode | null | undefined {
-  if (!tree) return undefined;
-  if (!ref.nodeId && !ref.bind) return undefined;
-
-  const walk = (node: CompNode | undefined, parent: CompNode | null): CompNode | null | undefined => {
-    if (!node) return undefined;
-    const matches =
-      (ref.nodeId != null && node.nodeId === ref.nodeId) || (ref.bind != null && node.bind === ref.bind);
-    if (matches) return parent;
-    for (const child of node.children ?? []) {
-      const hit = walk(child, node);
-      if (hit !== undefined) return hit;
-    }
-    return undefined;
-  };
-
-  return walk(tree, null);
-}
+import type { CompNode, NodeRef, Project } from '@formspec-org/studio-core';
+import { findParentOfNodeRef, isCircularComponentMove } from '@formspec-org/studio-core';
 
 export type UnassignedItemData = { key: string; label: string; itemType: 'field' | 'group' | 'display' };
 export type DragStartPayload = Parameters<DndDragStartEvent>[0];

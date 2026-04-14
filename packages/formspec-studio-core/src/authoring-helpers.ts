@@ -8,6 +8,11 @@ import {
   SPEC_WIDGET_TO_COMPONENT,
 } from '@formspec-org/types';
 import type { CompNode } from './layout-helpers.js';
+import {
+  findComponentNodeById,
+  findComponentNodeByRef,
+  treeContainsRef,
+} from './tree-utils.js';
 
 export interface DataTypeDisplay {
   icon: string;
@@ -493,29 +498,6 @@ export function flattenComponentTree(
   return result;
 }
 
-export function findComponentNodeById(
-  node: CompNode | undefined,
-  nodeId: string,
-): CompNode | null {
-  if (!node) return null;
-  if (node.nodeId === nodeId) return node;
-  const children = Array.isArray(node.children) ? node.children : [];
-  for (const child of children) {
-    const found = findComponentNodeById(child, nodeId);
-    if (found) return found;
-  }
-  return null;
-}
-
-function componentTreeHasBind(node: CompNode | undefined, bind: string): boolean {
-  if (!node) return false;
-  if (node.bind === bind) return true;
-  for (const c of node.children ?? []) {
-    if (componentTreeHasBind(c, bind)) return true;
-  }
-  return false;
-}
-
 /**
  * Map a layout-canvas selection key (def path, short bind, `__node:id`, or raw display `nodeId`) to a
  * `NodeRef` that `component.setNodeStyle` and related commands resolve via `findNode`.
@@ -534,7 +516,7 @@ export function resolveLayoutSelectionNodeRef(
     if (byFullId && byFullId.nodeId === selectionKey && !byFullId.bind) {
       return { nodeId: selectionKey };
     }
-    if (componentTreeHasBind(tree, selectionKey)) {
+    if (treeContainsRef(tree, { bind: selectionKey })) {
       return { bind: selectionKey };
     }
     if (byFullId) {
@@ -546,41 +528,13 @@ export function resolveLayoutSelectionNodeRef(
       if (byLeafId && byLeafId.nodeId === leafKey && !byLeafId.bind) {
         return { nodeId: leafKey };
       }
-      if (componentTreeHasBind(tree, leafKey)) {
+      if (treeContainsRef(tree, { bind: leafKey })) {
         return { bind: leafKey };
       }
     }
   }
   const leafKey = selectionKey.split('.').pop() ?? selectionKey;
   return { bind: leafKey };
-}
-
-/** Find a component tree node by `bind` or `nodeId` (depth-first). */
-export function findComponentNodeByRef(
-  node: CompNode | undefined,
-  ref: { bind?: string; nodeId?: string },
-): CompNode | null {
-  if (!node || (!ref.bind && !ref.nodeId)) return null;
-  if (ref.nodeId && node.nodeId === ref.nodeId) return node;
-  if (ref.bind && node.bind === ref.bind) return node;
-  const children = Array.isArray(node.children) ? node.children : [];
-  for (const child of children) {
-    const found = findComponentNodeByRef(child, ref);
-    if (found) return found;
-  }
-  return null;
-}
-
-function componentSubtreeContainsRef(
-  node: CompNode,
-  ref: { bind?: string; nodeId?: string },
-): boolean {
-  if (ref.nodeId && node.nodeId === ref.nodeId) return true;
-  if (ref.bind && node.bind === ref.bind) return true;
-  for (const c of node.children ?? []) {
-    if (componentSubtreeContainsRef(c, ref)) return true;
-  }
-  return false;
 }
 
 /**
@@ -597,16 +551,9 @@ export function isCircularComponentMove(
   if (!targetParentRef.nodeId && !targetParentRef.bind) return false;
   const sourceNode = findComponentNodeByRef(root, sourceRef);
   if (!sourceNode) return false;
-  if (
-    (targetParentRef.nodeId && sourceNode.nodeId === targetParentRef.nodeId)
-    || (targetParentRef.bind && sourceNode.bind === targetParentRef.bind)
-  ) {
-    return true;
-  }
-  for (const c of sourceNode.children ?? []) {
-    if (componentSubtreeContainsRef(c, targetParentRef)) return true;
-  }
-  return false;
+  // The source subtree (including its own root) must not contain the target parent —
+  // that would mean dropping a node into itself or one of its descendants.
+  return treeContainsRef(sourceNode, targetParentRef);
 }
 
 interface MoveCommand {

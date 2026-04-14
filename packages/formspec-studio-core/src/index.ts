@@ -176,8 +176,6 @@ export {
   componentForWidgetHint,
   countDefinitionFields,
   dataTypeInfo,
-  findComponentNodeById,
-  findComponentNodeByRef,
   resolveLayoutSelectionNodeRef,
   flattenComponentTree,
   isCircularComponentMove,
@@ -197,6 +195,15 @@ export {
   buildBatchMoveCommands,
   widgetHintForComponent,
 } from './authoring-helpers.js';
+
+// ── Tree traversal helpers ─────────────────────────────────────────
+export {
+  findComponentNodeById,
+  findComponentNodeByRef,
+  treeContainsRef,
+  findParentOfNodeRef,
+  findParentRefOfNodeRef,
+} from './tree-utils.js';
 export type {
   DataTypeDisplay,
   DefLookupEntry,

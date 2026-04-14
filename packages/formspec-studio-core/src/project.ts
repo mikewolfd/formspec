@@ -37,8 +37,6 @@ import {
 import { resolveFieldType, resolveWidget, widgetHintFor, isTextareaWidget, _FIELD_TYPE_MAP } from './field-type-aliases.js';
 import type { ResolvedFieldType } from './field-type-aliases.js';
 import {
-  findComponentNodeById,
-  findComponentNodeByRef,
   getFieldTypeCatalog,
   humanizeFEL,
   isLayoutId,
@@ -47,6 +45,11 @@ import {
   sanitizeIdentifier,
   type FieldTypeCatalogEntry,
 } from './authoring-helpers.js';
+import {
+  findComponentNodeById,
+  findComponentNodeByRef,
+  findParentRefOfNodeRef,
+} from './tree-utils.js';
 import type { CompNode } from './layout-helpers.js';
 import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from '@formspec-org/types';
 import { analyzeFEL } from '@formspec-org/engine/fel-runtime';
@@ -2924,25 +2927,6 @@ export class Project {
     'inline': { component: 'Stack', props: { direction: 'horizontal' } },
   };
 
-  /** Find the component tree parent node ref that contains a given bind or nodeId. */
-  private _findComponentParentRef(tree: CompNode, ref: { bind?: string; nodeId?: string }): { nodeId: string } | { bind: string } | null {
-    const walk = (node: CompNode): CompNode | null => {
-      for (const child of node.children ?? []) {
-        if ((ref.bind && child.bind === ref.bind) || (ref.nodeId && child.nodeId === ref.nodeId)) {
-          return node;
-        }
-        const deeper = walk(child);
-        if (deeper) return deeper;
-      }
-      return null;
-    };
-    const parent = walk(tree);
-    if (!parent) return null;
-    if (parent.nodeId) return { nodeId: parent.nodeId };
-    if (parent.bind) return { bind: parent.bind };
-    return null;
-  }
-
   /** Apply spatial layout to targets. */
   applyLayout(targets: string | string[], arrangement: LayoutArrangement): HelperResult {
     const targetArray = Array.isArray(targets) ? targets : [targets];
@@ -2954,7 +2938,7 @@ export class Project {
     if (tree) {
       const targetRefs = targetArray.map(t => ({ bind: t.split('.').pop()! }));
       const parentRefs = targetRefs
-        .map(ref => this._findComponentParentRef(tree, ref))
+        .map(ref => findParentRefOfNodeRef(tree, ref))
         .filter((r): r is NonNullable<typeof r> => r !== null);
       // Use the first target's parent if all parents match, otherwise fall back to root
       if (parentRefs.length > 0 && parentRefs.every(r => JSON.stringify(r) === JSON.stringify(parentRefs[0]))) {

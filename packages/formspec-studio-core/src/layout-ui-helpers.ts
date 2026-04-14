@@ -1,5 +1,6 @@
 /** @filedesc Business logic helpers extracted from Studio UI components for shared use by Studio and MCP. */
-import { findComponentNodeById, nodeIdFromLayoutId, isLayoutId } from './authoring-helpers.js';
+import { nodeIdFromLayoutId, isLayoutId } from './authoring-helpers.js';
+import { findComponentNodeById } from './tree-utils.js';
 import { componentTreeForLayout } from './layout-helpers.js';
 import type { Project } from './project.js';
 

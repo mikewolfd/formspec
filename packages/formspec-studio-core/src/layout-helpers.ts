@@ -2,6 +2,7 @@
 import type { ComponentDocument } from '@formspec-org/types';
 import type { HelperResult } from './helper-types.js';
 import type { Project } from './project.js';
+import { findComponentNodeById } from './tree-utils.js';
 
 /**
  * DataTable `columns` entry shape (schema-aligned) — kept explicit so `CompNode` can accept both Grid
@@ -199,7 +200,7 @@ export function removeStyleProperty(
   if (ref.bind) {
     node = compNodeFromRecord(project.componentFor(ref.bind));
   } else {
-    node = findNodeById(componentTreeForLayout(project.component), ref.nodeId!);
+    node = findComponentNodeById(componentTreeForLayout(project.component), ref.nodeId!) ?? undefined;
   }
   const currentStyle = { ...(node?.style as Record<string, unknown>) ?? {} };
 
@@ -211,17 +212,6 @@ export function removeStyleProperty(
 
   // Write back the updated style
   project.setLayoutNodeProp(selectionKey, 'style', currentStyle);
-}
-
-/** Walk the component tree to find a node by nodeId. */
-function findNodeById(tree: CompNode | undefined, nodeId: string): CompNode | undefined {
-  if (!tree) return undefined;
-  if (tree.nodeId === nodeId) return tree;
-  for (const child of tree.children ?? []) {
-    const found = findNodeById(child, nodeId);
-    if (found) return found;
-  }
-  return undefined;
 }
 
 // ── Theme helpers (Tier 2 — PresentationBlock cascade) ───────────────

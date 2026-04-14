@@ -5,10 +5,9 @@ import {
   handleSpatialDrop,
   handleContainerDrop,
   handleDragEnd,
-  findParentOfNodeRef,
   sortGroupToParentRef,
 } from '../../../src/workspaces/layout/layout-dnd-utils';
-import { createProject, type Project } from '@formspec-org/studio-core';
+import { createProject, findParentOfNodeRef, type Project } from '@formspec-org/studio-core';
 
 function makeProject() {
   const project = createProject();
