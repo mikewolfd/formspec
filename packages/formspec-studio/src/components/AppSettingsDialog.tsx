@@ -84,7 +84,7 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -113,7 +113,7 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
               id="app-provider"
               value={provider}
               onChange={e => setProvider(e.target.value as ProviderType)}
-              className="w-full rounded-md border border-border bg-bg-default px-3 py-2 text-[13px] outline-none focus:border-accent/50 transition-colors"
+              className="w-full rounded-[4px] border border-border bg-bg-default px-3 py-2 text-[13px] outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-shadow"
             >
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="google">Google (Gemini)</option>
@@ -131,7 +131,7 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
               placeholder="Enter your API key"
-              className="w-full rounded-md border border-border bg-bg-default px-3 py-2 text-[13px] font-mono outline-none focus:border-accent/50 transition-colors"
+              className="w-full rounded-[4px] border border-border bg-bg-default px-3 py-2 text-[13px] font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-shadow"
             />
             <p className="text-[11px] text-muted">
               Stored locally in your browser. Never sent to our servers.
@@ -160,7 +160,7 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
               <button
                 type="button"
                 onClick={handleClear}
-                className="px-3 py-1.5 text-[12px] font-medium rounded-md border border-error/30 text-error hover:bg-error/5 transition-colors"
+                className="px-3 py-1.5 text-[12px] font-medium rounded-[4px] border border-error/30 text-error hover:bg-error/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/40"
               >
                 Disconnect
               </button>
@@ -170,14 +170,14 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-[12px] font-medium rounded-md border border-border hover:bg-subtle transition-colors"
+              className="px-3 py-1.5 text-[12px] font-medium rounded-[4px] border border-border hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-3 py-1.5 text-[12px] font-semibold rounded-md bg-accent text-white hover:bg-accent/90 transition-colors"
+              className="px-3 py-1.5 text-[12px] font-semibold rounded-[4px] bg-accent text-white hover:bg-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               Save
             </button>

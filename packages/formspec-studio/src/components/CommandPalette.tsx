@@ -136,7 +136,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           <input
             type="text"
             placeholder="Search items, variables..."
-            className="w-full px-3 py-2 text-sm bg-bg border border-border rounded outline-none focus:border-accent"
+            className="w-full px-3 py-2.5 text-[13.5px] bg-bg-default border border-border rounded-[4px] outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-all font-ui"
             value={search}
             onInput={(e) => {
               setSearch((e.target as HTMLInputElement).value);
@@ -171,10 +171,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   <div
                     key={result.id}
                     data-testid="palette-result"
-                    className={`px-3 py-2 text-sm rounded ${
+                    className={`px-3 py-1.5 flex items-center justify-between text-[13px] rounded-[4px] transition-colors ${
                       result.actionable === false ? 'text-muted' : 'cursor-pointer'
                     } ${
-                      highlighted ? 'bg-subtle text-ink' : (result.actionable === false ? '' : 'hover:bg-surface-hover')
+                      highlighted ? 'bg-accent/10 text-accent font-medium' : (result.actionable === false ? '' : 'hover:bg-subtle/80 hover:text-ink')
                     }`}
                     onClick={() => {
                       if (result.actionable === false) return;
@@ -182,12 +182,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     }}
                     title={result.subtitle}
                   >
-                    <span className="font-medium">{result.title}</span>
-                    {result.subtitle && showSubtitleInline ? (
-                      <span className="ml-2 text-muted">{result.subtitle}</span>
-                    ) : null}
+                    <div className="flex-1 truncate">
+                      <span className="font-medium mr-2">{result.title}</span>
+                      {result.subtitle && showSubtitleInline ? (
+                        <span className={`truncate ${highlighted ? 'text-accent/80' : 'text-muted'}`}>{result.subtitle}</span>
+                      ) : null}
+                    </div>
                     {result.meta ? (
-                      <span className="ml-2 text-[11px] uppercase tracking-wide text-muted">{result.meta}</span>
+                      <span className="ml-3 shrink-0 rounded border border-border/80 bg-surface px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted font-mono">{result.meta}</span>
                     ) : null}
                   </div>
                 );

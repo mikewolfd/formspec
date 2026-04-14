@@ -43,12 +43,12 @@ function CompNodeRow({ node, depth }: { node: CompNode; depth: number }) {
   return (
     <>
       <div
-        className="flex items-center gap-1.5 px-2 py-1 text-sm"
+        className="flex items-center justify-between px-2 py-1.5 rounded-[4px] hover:bg-subtle/50 transition-colors group cursor-default"
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
-        <span className={`font-mono text-xs ${color}`}>{node.component}</span>
+        <span className={`font-mono text-[13px] ${color} font-medium tracking-tight`}>{node.component}</span>
         {bind && (
-          <span className="text-xs text-muted">{bind}</span>
+          <span className="text-[10px] text-muted uppercase tracking-wider bg-surface border border-border/50 px-1.5 py-0.5 rounded opacity-80 group-hover:opacity-100 transition-opacity truncate max-w-[120px]">{bind}</span>
         )}
       </div>
       {node.children?.map((child, i) => (
@@ -63,7 +63,11 @@ export function ComponentTree() {
   const tree = component.tree as CompNode | undefined;
 
   if (!tree) {
-    return <p className="text-sm text-muted py-2">No component tree</p>;
+    return (
+      <div className="flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-[6px] bg-subtle/30 text-muted mx-1">
+        <span className="text-[12px] font-medium font-ui tracking-tight">No component tree</span>
+      </div>
+    );
   }
 
   return (

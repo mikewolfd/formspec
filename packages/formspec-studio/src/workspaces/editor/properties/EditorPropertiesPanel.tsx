@@ -167,7 +167,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
               ref={keyInputRef}
               type="text"
               aria-label="Key"
-              className="w-full rounded-[12px] border border-border/80 bg-surface px-3 py-2 text-[13px] font-mono outline-none transition-colors focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25"
+              className="w-full h-8 px-2.5 text-[13px] font-mono border border-border/80 rounded-[6px] bg-surface outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
               defaultValue={currentKey}
             />
           </div>
@@ -179,7 +179,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
               key={`${path}-label`}
               type="text"
               aria-label="Label"
-              className="w-full rounded-[12px] border border-border/80 bg-surface px-3 py-2 text-[13px] outline-none transition-colors focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25"
+              className="w-full h-8 px-2.5 text-[13px] border border-border/80 rounded-[6px] bg-surface outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
               defaultValue={(item.label as string) || ''}
               onBlur={(event) => {
                 project.updateItem(path, { label: event.currentTarget.value || null });

@@ -140,7 +140,7 @@ export function Header({
       ref={(node) => {
         tabRefs.current[index] = node;
       }}
-      className={`flex items-center px-3 sm:px-3.5 h-full text-[13px] transition-colors border-b-2 cursor-pointer whitespace-nowrap shrink-0 ${
+      className={`flex items-center px-3 sm:px-3.5 h-full text-[13px] transition-colors border-b-2 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset ${
         activeTab === name
           ? 'border-accent text-accent font-semibold'
           : 'border-transparent text-muted hover:text-ink'
@@ -158,7 +158,7 @@ export function Header({
         type="button"
         aria-label="Account menu"
         aria-expanded={menuOpen}
-        className={`w-7 h-7 rounded-full bg-[#E2D9CF] border-2 shrink-0 transition-colors ${
+        className={`w-7 h-7 rounded-full bg-[#E2D9CF] border-2 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
           menuOpen ? 'border-accent' : 'border-border hover:border-muted/40'
         }`}
         onClick={() => setMenuOpen(!menuOpen)}
@@ -232,7 +232,7 @@ export function Header({
         <button
           onClick={onSearch}
           aria-label="Search"
-          className="rounded-full border border-border/65 bg-surface/70 p-2 text-muted hover:bg-surface hover:text-ink transition-colors"
+          className="rounded-full border border-border/65 bg-surface/70 p-2 text-muted hover:bg-surface hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
           title="Search (⌘K)"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -240,7 +240,7 @@ export function Header({
       ) : (
         <button
           onClick={onSearch}
-          className="group flex items-center gap-2 rounded-full border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(246,237,226,0.88))] dark:bg-[linear-gradient(180deg,rgba(32,44,59,0.9),rgba(26,35,47,0.88))] px-4 py-2 max-w-[260px] text-muted shadow-[0_10px_25px_rgba(23,32,51,0.06)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.28)] hover:border-muted/50 hover:text-ink transition-colors"
+          className="group flex items-center gap-2 rounded-full border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(246,237,226,0.88))] dark:bg-[linear-gradient(180deg,rgba(32,44,59,0.9),rgba(26,35,47,0.88))] px-4 py-2 max-w-[260px] text-muted shadow-[0_10px_25px_rgba(23,32,51,0.06)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.28)] hover:border-muted/50 hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
         >
           <span className="text-[13px]">⌕</span>
           <span className="text-[13px] font-ui">Search…</span>
@@ -254,7 +254,7 @@ export function Header({
         <button
           type="button"
           aria-label={`FORMSPEC ${definition.$formspec} metadata`}
-          className="rounded-full border border-border/75 px-3.5 py-2 text-[12.5px] font-medium text-ink/88 hover:bg-surface/70 transition-colors"
+          className="rounded-full border border-border/75 px-3.5 py-2 text-[12.5px] font-medium text-ink/88 hover:bg-surface/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
           onClick={onOpenMetadata}
         >
           Metadata
@@ -264,7 +264,7 @@ export function Header({
         data-testid="undo-btn"
         aria-label="Undo"
         disabled={!project.canUndo}
-        className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink disabled:opacity-30 transition-colors"
+        className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink disabled:opacity-30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
         onClick={() => project.undo()}
         title="Undo (⌘Z)"
       >
@@ -274,7 +274,7 @@ export function Header({
         data-testid="redo-btn"
         aria-label="Redo"
         disabled={!project.canRedo}
-        className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink disabled:opacity-30 transition-colors"
+        className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink disabled:opacity-30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
         onClick={() => project.redo()}
         title="Redo (⌘⇧Z)"
       >
@@ -286,7 +286,7 @@ export function Header({
           type="button"
           data-testid="toggle-chat"
           aria-label="Toggle AI chat"
-          className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink transition-colors"
+          className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
           onClick={onToggleChat}
           title="AI Assistant"
         >
@@ -301,7 +301,7 @@ export function Header({
           type="button"
           aria-label={`Switch to ${nextTheme(colorScheme.theme)} theme`}
           title={`Theme: ${colorScheme.theme} (click to switch to ${nextTheme(colorScheme.theme)})`}
-          className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink transition-colors"
+          className="rounded-full border border-transparent p-2 text-muted hover:border-border/60 hover:bg-surface/75 hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
           onClick={() => colorScheme.setTheme(nextTheme(colorScheme.theme))}
         >
           <ThemeToggleIcon theme={colorScheme.theme} resolved={colorScheme.resolvedTheme} />
@@ -322,7 +322,7 @@ export function Header({
             <button
               type="button"
               aria-label="Toggle blueprint menu"
-              className="rounded-full border border-border/60 bg-surface/75 p-2 -ml-1.5 hover:bg-surface transition-colors"
+              className="rounded-full border border-border/60 bg-surface/75 p-2 -ml-1.5 hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
               onClick={onToggleMenu}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

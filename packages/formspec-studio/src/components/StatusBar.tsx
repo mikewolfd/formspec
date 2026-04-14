@@ -90,14 +90,14 @@ export function StatusBar() {
           <a
             href={definition.url}
             title={definition.url}
-            className="max-w-[260px] truncate text-[11px] uppercase tracking-[0.16em] text-muted hover:text-accent transition-colors"
+            className="max-w-[260px] truncate text-[11px] uppercase tracking-[0.16em] text-muted hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-[2px]"
           >
             {definition.url}
           </a>
           <button
             onClick={() => handleCopyUrl(definition.url)}
             title="Copy URL"
-            className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted hover:bg-surface hover:text-ink transition-colors"
+            className="rounded-[4px] border border-border/70 px-2.5 py-1 text-[11px] text-muted hover:bg-surface hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             {copied ? 'Copied' : 'Copy'}
           </button>

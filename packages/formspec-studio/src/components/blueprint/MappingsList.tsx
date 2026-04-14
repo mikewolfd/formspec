@@ -10,7 +10,11 @@ export function MappingsList() {
   const direction = mapping.direction ?? 'bidirectional';
 
   if (rules.length === 0) {
-    return <p className="text-xs text-muted py-2">No mapping rules defined</p>;
+    return (
+      <div className="flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-[6px] bg-subtle/30 text-muted mx-1">
+        <span className="text-[12px] font-medium font-ui tracking-tight">No mapping rules defined</span>
+      </div>
+    );
   }
 
   return (

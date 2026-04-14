@@ -34,7 +34,7 @@ export function PropInput({
         type={type}
         min={min}
         aria-label={label}
-        className="w-full px-2 py-1 text-[13px] font-mono border border-border rounded-[4px] bg-surface outline-none focus:border-accent transition-colors"
+        className="w-full h-8 px-2.5 text-[13px] border border-border/80 rounded-[6px] bg-surface outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
         defaultValue={value}
         onBlur={(event) => {
           let nextValue: string | number | null = event.currentTarget.value;

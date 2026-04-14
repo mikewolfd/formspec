@@ -160,7 +160,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                 type='text'
                 autoFocus
                 value={draftKey}
-                className='w-full rounded-[6px] border border-accent/30 bg-surface px-2 py-1.5 text-[17px] font-semibold font-mono leading-6 text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[18px]'
+                className='w-full rounded-[6px] border border-accent/35 bg-surface px-2.5 py-1.5 text-[17px] font-semibold font-mono leading-6 text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.03)] md:text-[18px]'
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) =>
                   onDraftKeyChange(event.currentTarget.value)
@@ -202,7 +202,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                     type='text'
                     autoFocus
                     value={draftLabel}
-                    className='w-full rounded-[6px] border border-border/80 bg-surface px-2 py-1.5 text-[14px] font-normal leading-snug tracking-normal text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[15px]'
+                    className='w-full rounded-[6px] border border-border/80 bg-surface px-2.5 py-1.5 text-[14px] font-normal leading-snug tracking-normal text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.03)] md:text-[15px]'
                     onClick={(event) => event.stopPropagation()}
                     onChange={(event) =>
                       onDraftLabelChange(event.currentTarget.value)
@@ -242,7 +242,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                 type='text'
                 autoFocus
                 value={draftLabel}
-                className='w-full rounded-[6px] border border-accent/30 bg-surface px-2 py-1.5 text-[17px] font-semibold leading-6 text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25 md:text-[18px]'
+                className='w-full rounded-[6px] border border-accent/35 bg-surface px-2.5 py-1.5 text-[17px] font-semibold leading-6 text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.03)] md:text-[18px]'
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) =>
                   onDraftLabelChange(event.currentTarget.value)
@@ -283,7 +283,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                       type='text'
                       autoFocus
                       value={draftKey}
-                      className='w-full max-w-[16rem] rounded-[6px] border border-border/80 bg-surface px-2 py-1.5 font-mono text-[12px] tracking-[0.08em] text-ink outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/25'
+                      className='w-full max-w-[16rem] rounded-[6px] border border-border/80 bg-surface px-2 py-1.5 font-mono text-[12px] tracking-[0.08em] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.03)]'
                       onClick={(event) => event.stopPropagation()}
                       onChange={(event) =>
                         onDraftKeyChange(event.currentTarget.value)

@@ -46,22 +46,25 @@ export function FormHealthPanel() {
             Issues
           </h3>
           {issues.length === 0 ? (
-            <div className="flex items-center gap-2 text-[13px]">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                className="text-green-600 dark:text-green-400 shrink-0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M11.5 3.5 L5.5 10 L2.5 7" />
-              </svg>
-              <span className="text-ink font-medium">No issues found</span>
+            <div className="flex flex-col items-center justify-center rounded-[6px] border border-dashed border-border/70 bg-subtle/30 px-4 py-6 text-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/10 mb-2">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  className="text-green-600 dark:text-green-400 shrink-0"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M11.5 3.5 L5.5 10 L2.5 7" />
+                </svg>
+              </div>
+              <span className="text-[13px] font-medium text-ink/90">No issues found</span>
+              <span className="mt-1 text-[11px] text-ink/50">Your form definition looks good!</span>
             </div>
           ) : (
             <ul className="space-y-3">
@@ -70,10 +73,10 @@ export function FormHealthPanel() {
                   <button
                     type="button"
                     data-testid={`form-health-issue-${i}`}
-                    className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+                    className={`w-full text-left rounded-[8px] border px-3 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                       issue.severity === 'info'
-                        ? 'border-blue-500/35 bg-blue-500/5 hover:bg-blue-500/10 focus-visible:ring-blue-500/40'
-                        : 'border-amber-500/35 bg-amber-500/5 hover:bg-amber-500/10 focus-visible:ring-amber-500/40'
+                        ? 'border-blue-500/35 bg-blue-500/5 hover:bg-blue-500/10 focus-visible:ring-blue-500/40 hover:border-blue-500/50'
+                        : 'border-amber-500/35 bg-amber-500/5 hover:bg-amber-500/10 focus-visible:ring-amber-500/40 hover:border-amber-500/50'
                     }`}
                     onClick={() =>
                       select(issue.path, 'field', { tab: EDITOR_SELECTION_TAB })

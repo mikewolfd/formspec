@@ -195,8 +195,8 @@ export function StructureTree() {
 
           <div className="flex flex-col gap-1 border-l border-border/55 pl-2">
             {items.length === 0 ? (
-              <div className="px-2 py-1 text-[12px] text-muted italic">
-                No items defined
+              <div className="flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-[6px] bg-subtle/30 text-muted mx-1">
+                <span className="text-[12px] font-medium font-ui tracking-tight">No items defined</span>
               </div>
             ) : (
               items.map((item) => (

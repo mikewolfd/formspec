@@ -12,7 +12,11 @@ export function VariablesList() {
   };
 
   if (variables.length === 0) {
-    return <p className="text-xs text-muted py-2">No variables defined</p>;
+    return (
+      <div className="flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-[6px] bg-subtle/30 text-muted mx-1">
+        <span className="text-[12px] font-medium font-ui tracking-tight">No variables defined</span>
+      </div>
+    );
   }
 
   return (
@@ -22,11 +26,11 @@ export function VariablesList() {
           key={v.name}
           type="button"
           onClick={navigateToManage}
-          className="w-full rounded-[4px] px-2 py-1 text-left transition-colors hover:bg-subtle group"
+          className="w-full rounded-[6px] px-2.5 py-1.5 text-left transition-colors hover:bg-subtle hover:text-ink group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <div className="flex items-center justify-between">
-            <div className="text-sm font-mono text-accent">@{v.name}</div>
-            <div className="text-[9px] text-muted opacity-0 group-hover:opacity-100 transition-opacity">Go to Manage</div>
+            <div className="text-[13px] font-mono text-accent font-medium">@{v.name}</div>
+            <div className="text-[9px] uppercase tracking-widest text-muted opacity-0 group-hover:opacity-100 transition-opacity">Manage ↗</div>
           </div>
           <div className="text-xs font-mono text-muted truncate" title={v.expression}>
             {displayExpression(v.expression)}

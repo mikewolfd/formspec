@@ -50,7 +50,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -76,10 +76,10 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
                 <button
                   type="button"
                   key={type}
-                  className={`px-3 py-1 text-sm rounded border ${
+                  className={`px-3 py-1 text-sm rounded-[4px] border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                     selectedType === type
                       ? 'border-accent bg-accent text-on-accent'
-                      : 'border-border text-muted hover:bg-surface-hover'
+                      : 'border-border text-muted hover:text-ink hover:bg-subtle/70'
                   }`}
                   onClick={() => setSelectedType(type)}
                 >
@@ -93,8 +93,8 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
             <label htmlFor={textareaId} className="block text-xs font-medium text-muted mb-2">JSON Content</label>
             <textarea
               id={textareaId}
-              className={`w-full h-40 px-3 py-2 text-sm font-mono bg-bg border rounded resize-none outline-none focus:border-accent ${
-                parseError ? 'border-red-500' : 'border-border'
+              className={`w-full h-40 px-3 py-2 text-sm font-mono bg-bg-default border rounded-[4px] resize-none outline-none focus:ring-2 transition-shadow ${
+                parseError ? 'border-error focus:border-error focus:ring-error/30' : 'border-border focus:border-accent focus:ring-accent/30'
               }`}
               placeholder={`Paste ${selectedType.toLowerCase()} JSON here...`}
               value={jsonText}
@@ -114,7 +114,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
               }}
             />
             {parseError && (
-              <p className="text-xs text-red-500 mt-1">{parseError}</p>
+              <p className="text-xs text-error mt-1">{parseError}</p>
             )}
           </div>
         </div>
@@ -122,14 +122,14 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
         <div className="p-4 border-t border-border flex justify-end gap-2">
           <button
             type="button"
-            className="px-3 py-1.5 text-sm rounded border border-border text-muted hover:bg-surface-hover"
+            className="px-3 py-1.5 text-sm rounded-[4px] border border-border text-muted hover:bg-subtle/70 hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             onClick={onClose}
           >
             Cancel
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 text-sm rounded bg-accent text-on-accent hover:opacity-90"
+            className="px-3 py-1.5 text-[13px] font-medium rounded-[4px] bg-accent text-white hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 transition-colors"
             disabled={!canLoad}
             onClick={() => {
               try {

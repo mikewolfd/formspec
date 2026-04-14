@@ -517,7 +517,7 @@ export function ItemListEditor({ config }: { config: ItemListEditorConfig }) {
 
       {allowWrapInGroup && wrapGroupDraft && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]"
           onClick={(event) => {
             if (event.target === event.currentTarget) setWrapGroupDraft(null);
           }}
@@ -549,7 +549,7 @@ export function ItemListEditor({ config }: { config: ItemListEditorConfig }) {
                     const nextKey = event.currentTarget.value;
                     setWrapGroupDraft((current) => current ? { ...current, key: nextKey } : current);
                   }}
-                  className="w-full rounded-[6px] border border-border/80 bg-surface px-3 py-2 text-[13px] font-mono outline-none transition-colors focus:border-accent"
+                  className="w-full rounded-[6px] border border-border/80 bg-surface px-3 py-2 text-[13px] font-mono outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30"
                 />
               </div>
               <div className="space-y-2">
@@ -564,7 +564,7 @@ export function ItemListEditor({ config }: { config: ItemListEditorConfig }) {
                     const nextLabel = event.currentTarget.value;
                     setWrapGroupDraft((current) => current ? { ...current, label: nextLabel } : current);
                   }}
-                  className="w-full rounded-[6px] border border-border/80 bg-surface px-3 py-2 text-[13px] outline-none transition-colors focus:border-accent"
+                  className="w-full rounded-[6px] border border-border/80 bg-surface px-3 py-2 text-[13px] outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30"
                 />
               </div>
             </div>

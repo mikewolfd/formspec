@@ -59,7 +59,7 @@ function SelectField({
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="flex-1 rounded-[3px] border border-border bg-surface px-2 py-1 text-[12.5px] font-mono outline-none focus:border-accent"
+        className="flex-1 rounded-[4px] border border-border bg-bg-default px-2 py-1.5 text-[12.5px] font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-shadow"
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>{opt}</option>
@@ -102,7 +102,7 @@ function TextInputField({
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="flex-1 rounded-[3px] border border-border bg-surface px-2 py-1 text-[12.5px] font-mono outline-none focus:border-accent"
+        className="flex-1 rounded-[4px] border border-border bg-bg-default px-2 py-1.5 text-[12.5px] font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-shadow"
       />
     </div>
   );
@@ -133,7 +133,7 @@ function TextAreaField({
           const trimmed = e.target.value.trim();
           if (trimmed !== value) onCommit(trimmed);
         }}
-        className="flex-1 rounded-[3px] border border-border bg-surface px-2 py-1 text-[12.5px] font-mono outline-none focus:border-accent resize-none"
+        className="flex-1 rounded-[4px] border border-border bg-bg-default px-2 py-1.5 text-[12.5px] font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-shadow resize-none"
       />
     </div>
   );
@@ -176,7 +176,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -191,7 +191,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           <button
             type="button"
             aria-label="Close"
-            className="p-1 rounded hover:bg-subtle text-muted hover:text-ink transition-colors"
+            className="p-1 rounded-[4px] hover:bg-subtle text-muted hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             onClick={onClose}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -243,7 +243,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         <div className="p-4 border-t border-border flex justify-end">
           <button
             type="button"
-            className="px-3 py-1.5 text-sm rounded border border-border text-muted hover:bg-surface-hover"
+            className="px-3 py-1.5 text-sm rounded-[4px] border border-border text-muted hover:bg-surface-hover hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             onClick={onClose}
           >
             Done
