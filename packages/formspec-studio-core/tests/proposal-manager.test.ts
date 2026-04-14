@@ -52,10 +52,13 @@ describe('ProposalManager', () => {
       });
 
       const firstId = firstProject.proposals!.openChangeset();
+      firstProject.proposals!.discardChangeset();
+      const firstId2 = firstProject.proposals!.openChangeset();
       const secondId = secondProject.proposals!.openChangeset();
 
       const counterFor = (id: string) => id.match(/^cs-(\d+)-/)?.[1];
       expect(counterFor(firstId)).toBe('1');
+      expect(counterFor(firstId2)).toBe('2');
       expect(counterFor(secondId)).toBe('1');
     });
 
