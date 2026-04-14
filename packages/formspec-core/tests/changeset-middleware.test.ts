@@ -263,4 +263,48 @@ describe('RawProject.restoreState', () => {
     expect(project.definition.items[0].key).toBe('email');
     expect(project.canUndo).toBe(true);
   });
+
+  // ── Snapshot reference contract ─────────────────────────────────
+  //
+  // restoreState holds the passed snapshot BY REFERENCE for performance
+  // (callers — ProposalManager — already clone). These tests lock that
+  // contract so future refactors can't silently switch to cloning (which
+  // would mask caller bugs) or start mutating the snapshot in-place
+  // (which would corrupt caller copies).
+
+  it('freezes the snapshot in dev so accidental mutation throws', () => {
+    const project = createRawProject();
+    const snapshot = structuredClone(project.state);
+
+    project.restoreState(snapshot);
+
+    // In dev (default NODE_ENV !== 'production'), the snapshot is deep-frozen
+    // after assignment. Attempts to mutate it surface immediately at the
+    // mutation site instead of silently corrupting project state.
+    expect(Object.isFrozen(snapshot)).toBe(true);
+    expect(() => { (snapshot.definition as { title: string }).title = 'mutated'; }).toThrow();
+  });
+
+  it('external mutation of a cloned snapshot does not affect project state', () => {
+    // Positive path: caller clones before passing — project state is isolated.
+    const project = createRawProject({
+      seed: {
+        definition: {
+          $formspec: '1.0',
+          url: 'urn:test:clone-contract',
+          version: '0.1.0',
+          title: 'Original',
+          items: [],
+        },
+      },
+    });
+
+    const externalCopy = structuredClone(project.state);
+    // Clone-at-call-site is the documented pattern (see ProposalManager).
+    project.restoreState(structuredClone(externalCopy));
+
+    // Mutating the caller's copy must NOT reach into project state.
+    externalCopy.definition.title = 'mutated externally';
+    expect(project.definition.title).toBe('Original');
+  });
 });

@@ -234,6 +234,23 @@ function cleanTreeForExport(
 }
 
 /**
+ * Recursively freeze a value and everything reachable from it.
+ *
+ * Used in dev to enforce the {@link RawProject.restoreState} by-reference
+ * contract: if a caller mutates a snapshot after handing it over, the
+ * mutation throws at its own site instead of silently diverging project
+ * state from the caller's view.  Safe on plain-JSON `ProjectState` graphs
+ * (no cycles, no class instances with methods).
+ */
+function deepFreeze(value: unknown): void {
+  if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return;
+  Object.freeze(value);
+  for (const key of Object.keys(value as object)) {
+    deepFreeze((value as Record<string, unknown>)[key]);
+  }
+}
+
+/**
  * Generate a unique URN for a new definition.
  */
 function generateUrl(): string {
@@ -529,14 +546,39 @@ export class RawProject implements IProjectCore {
 
   resetHistory(): void { this._history.clear(); }
 
+  /**
+   * Wholesale replace project state with a prior snapshot.
+   *
+   * CONTRACT — the snapshot is held BY REFERENCE:
+   *   - Callers MUST NOT mutate `snapshot` after this call. The project will
+   *     observe those mutations as corruption of its internal state.
+   *   - Callers who intend to keep using their own copy MUST clone before
+   *     passing (see ProposalManager — every call site wraps with
+   *     `structuredClone`).
+   *
+   * Why by-reference rather than cloning inside?  Snapshots are already full
+   * `ProjectState` graphs (definition + component + theme + mappings + locales
+   * + baseline). In snapshot-and-replay flows (reject / partial-merge) the
+   * caller clones once from the stored `snapshotBefore`; cloning again here
+   * would double the cost of every replay for a guarantee the caller already
+   * provides.  In dev builds we deep-freeze the snapshot after assignment so
+   * accidental mutation throws at the mutation site rather than silently
+   * corrupting downstream reads.
+   */
   restoreState(snapshot: ProjectState): void {
     this._state = snapshot;
     this._history.clear();
     // Invalidate cached component views
     this._cachedComponent = null;
     this._cachedComponentForState = null;
-    // Reconcile generated component tree if needed
+    // Reconcile generated component tree if needed (mutates _state in place —
+    // must run before we freeze).
     this._syncComponentTree(this._state);
+    // Dev-only defense: surface contract violations at the mutation site.
+    // Skipped in production to avoid traversal cost on large states.
+    if (typeof process === 'undefined' || process.env?.NODE_ENV !== 'production') {
+      deepFreeze(this._state);
+    }
     this._notify(
       { type: 'restoreState', payload: {} },
       { rebuildComponentTree: true },
