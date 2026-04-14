@@ -1,4 +1,4 @@
-# ADR 0001 Sidecar: Implementation Tasks
+# ADR 0061 Sidecar: Implementation Tasks
 
 This sidecar tracks the implementation work proposed by [ADR 0061](./0061-current-state-authoring-runtime.md).
 

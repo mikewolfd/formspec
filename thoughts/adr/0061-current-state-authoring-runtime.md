@@ -1,4 +1,4 @@
-# ADR 0001: Tighten `formspec-studio-core` Around a Headless Authoring Runtime
+# ADR 0061: Tighten `formspec-studio-core` Around a Headless Authoring Runtime
 
 ## Status
 
