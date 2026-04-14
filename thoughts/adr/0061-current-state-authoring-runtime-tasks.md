@@ -1,6 +1,6 @@
 # ADR 0001 Sidecar: Implementation Tasks
 
-This sidecar tracks the implementation work proposed by [ADR 0001](./0001-current-state-authoring-runtime.md).
+This sidecar tracks the implementation work proposed by [ADR 0061](./0061-current-state-authoring-runtime.md).
 
 The goal is not to preserve the current implementation. The goal is to tighten `formspec-studio-core` around the runtime boundary it already wants to be.
 

@@ -5,7 +5,7 @@ Surface: `http://127.0.0.1:5173/studio/`
 
 Notes:
 - I started the local Vite app and audited the live studio surface plus the current UI source.
-- Browser MCP navigation and sandboxed Playwright launch were blocked in this session, so the findings below are documented from the running app entrypoint, the exact layout/styling code that drives the visible shell, and the checked-in studio screenshots under `packages/formspec-studio/research/assets/`.
+- Browser MCP navigation and sandboxed Playwright launch were blocked in this session, so the findings below are documented from the running app entrypoint, the exact layout/styling code that drives the visible shell, and the checked-in studio screenshots under `thoughts/archive/studio/research-2026-04-14/assets/` (originally `packages/formspec-studio/research/assets/`).
 
 ## 1. Shell breaks down at tablet and split-screen widths
 

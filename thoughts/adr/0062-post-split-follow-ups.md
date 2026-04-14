@@ -10,9 +10,9 @@ Proposed
 
 ## Context
 
-[ADR 0001](./0001-current-state-authoring-runtime.md) proposed ten changes to tighten `formspec-studio-core` as a headless authoring runtime. The [package split](../../docs/superpowers/specs/2026-03-15-formspec-core-studio-split-design.md) into `formspec-core` and `formspec-studio-core` addressed the layering problem (primitives vs. helpers) but was orthogonal to the runtime architecture concerns in ADR 0001.
+[ADR 0061](./0061-current-state-authoring-runtime.md) proposed ten changes to tighten `formspec-studio-core` as a headless authoring runtime. The [package split](../archive/specs/2026-03-15-formspec-core-studio-split-design.md) into `formspec-core` and `formspec-studio-core` addressed the layering problem (primitives vs. helpers) but was orthogonal to the runtime architecture concerns in ADR 0061.
 
-This document maps the remaining ADR 0001 items to their post-split locations and updates the [implementation sidecar](./0001-current-state-authoring-runtime-tasks.md) accordingly.
+This document maps the remaining ADR 0061 items to their post-split locations and updates the [implementation sidecar](./0061-current-state-authoring-runtime-tasks.md) accordingly.
 
 ## What the Split Resolved
 

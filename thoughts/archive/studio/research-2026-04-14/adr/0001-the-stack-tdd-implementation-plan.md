@@ -745,8 +745,8 @@ After all phases:
 | Studio-core types | `packages/formspec-studio-core/src/types.ts` |
 | Command catalog schema | `schemas/studio-commands.schema.json` |
 | Studio-core API reference | `packages/formspec-studio-core/API.llm.md` |
-| PRD | `packages/formspec-studio/research/assets/the-stack-prd.md` |
-| Visual prototype | `packages/formspec-studio/research/assets/the-stack-desktop-split/` |
-| Mockup screenshots | `packages/formspec-studio/research/assets/Screenshot*.png` |
+| PRD | `thoughts/archive/studio/research-2026-04-14/assets/the-stack-prd.md` |
+| Visual prototype | `thoughts/archive/studio/research-2026-04-14/assets/the-stack-desktop-split/` |
+| Mockup screenshots | (not archived — original Screenshot*.png assets were not moved) |
 | Existing form-builder | `form-builder/src/` |
 | Existing form-builder state | `form-builder/src/state/` |

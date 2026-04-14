@@ -529,5 +529,5 @@ Pull `HistoryManager` and `normalizeState` into their own modules.
 ## Supersedes
 
 This spec supersedes the runtime architecture portions of:
-- [ADR 0001: Current State Authoring Runtime](../../packages/formspec-studio-core/research/adr/0001-current-state-authoring-runtime.md) — slices 1, 2, 3, 4, 5
-- [ADR 0002: Post-Split Follow-Ups](../../packages/formspec-studio-core/research/adr/0002-post-split-follow-ups.md) — items 1–5
+- [ADR 0061: Current State Authoring Runtime](../../adr/0061-current-state-authoring-runtime.md) — slices 1, 2, 3, 4, 5
+- [ADR 0062: Post-Split Follow-Ups](../../adr/0062-post-split-follow-ups.md) — items 1–5
