@@ -49,6 +49,7 @@
     "@modelcontextprotocol/sdk": "^1.11.0",
     "@formspec-org/engine": "*",
     "@formspec-org/studio-core": "*",
+    "@formspec-org/types": "*",
     "uuid": "^11.1.0",
     "zod": "^3.24.0"
   },
