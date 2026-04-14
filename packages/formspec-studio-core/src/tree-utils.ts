@@ -1,6 +1,35 @@
 /** @filedesc Canonical component tree traversal helpers (find node/parent by id, bind, or ref). */
 import type { CompNode, NodeRef } from './layout-helpers.js';
+import type { FormItem } from './types.js';
+import { HelperError } from './helper-types.js';
 export type { NodeRef };
+
+/** Direct children of a Page node in the component tree. */
+export function pageChildren(page: CompNode): CompNode[] {
+  return page.children ?? [];
+}
+
+/**
+ * NodeRef for a component node: prefers `bind` when it is a string, else `nodeId`.
+ */
+export function refForCompNode(node: CompNode): { bind: string } | { nodeId: string } {
+  if (typeof node.bind === 'string') return { bind: node.bind };
+  if (typeof node.nodeId === 'string') return { nodeId: node.nodeId };
+  throw new HelperError('NODE_NOT_FOUND', 'Component node is missing both bind and nodeId');
+}
+
+/** Walk the item tree to find any item with the given leaf key. Returns its full path or null. */
+export function findKeyInItems(items: FormItem[], leafKey: string, prefix: string): string | null {
+  for (const item of items) {
+    const path = prefix ? `${prefix}.${item.key}` : item.key;
+    if (item.key === leafKey) return path;
+    if (item.children?.length) {
+      const found = findKeyInItems(item.children, leafKey, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 /**
  * Depth-first search for a node by `nodeId`. Matches the root if it carries the id.

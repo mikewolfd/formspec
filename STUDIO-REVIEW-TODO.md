@@ -57,14 +57,14 @@ Use this file as a **backlog**: each `- [ ]` is one shippable task unless noted 
 
 ## P3 — `project.ts` modularization (epic — slice by slice)
 
-**Context:** `packages/formspec-studio-core/src/project.ts` is ~4,739 lines; **13** private methods are pure (no `this`) and safe to extract first. Preserve **`src/index.ts`** public API.
+**Context:** `project.ts` remains large (~4.4k lines after helper extraction); further splits are tracked below. Preserve **`src/index.ts`** public API.
 
-- [ ] **Extract pure helpers (batch 1 — sample / object):**  
-  `_pruneObject`, `_sampleValues`, `_sampleValueForField`, `_filterByRelevance` → `lib/sample-data.ts`; `_editDistance`, `_resolvePath` → `lib/object-utils.ts`.
-- [ ] **Extract pure helpers (batch 2 — FEL / tree):**  
-  `_buildRepeatScopeRewriter`, `_checkVariableSelfReference` → `lib/fel-rewriter.ts`; `_nodeRefFor`, `_pageChildren`, `_findKeyInItems`, `_findComponentParentRef`, `_componentTargetRef` → `lib/tree-utils.ts` (coordinate with P2 tree-utils merge to avoid duplicate modules).
+- [x] **Extract pure helpers (batch 1 — sample / object):**  
+  `pruneObject`, `sampleValueForField`, `filterByRelevance` (+ `sampleValues` internal to sample-data) → `lib/sample-data.ts`; `editDistance`, `resolvePath` → `lib/object-utils.ts`.
+- [x] **Extract pure helpers (batch 2 — FEL / tree):**  
+  `buildRepeatScopeRewriter`, `checkVariableSelfReference` → `lib/fel-rewriter.ts`; `refForCompNode`, `pageChildren`, `findKeyInItems` → `tree-utils.ts`; `componentTargetRef` → `lib/component-target-ref.ts` (avoids `tree-utils` ↔ `authoring-helpers` cycle). `_findComponentParentRef` was already removed in P2 (`findParentRefOfNodeRef`).
 - [ ] **Split remaining `Project` responsibilities** into focused modules (names indicative): layout/page/region operations, theme/breakpoint/locale, screener/phases, mapping — re-export or compose from `project.ts` without breaking consumers.
-- [ ] Add a **file size guardrail** (e.g. warn in CI or a script when a single source file exceeds ~1000 lines) scoped to studio packages if desired.
+- [x] Add a **file size guardrail:** `npm run check:studio-source-sizes` — advisory listing of `packages/formspec-studio/src` and `packages/formspec-studio-core/src` files over 1000 lines (`STUDIO_FILE_LINE_WARN` overrides threshold).
 
 ---
 

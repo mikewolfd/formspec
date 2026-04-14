@@ -39,8 +39,6 @@ import type { ResolvedFieldType } from './field-type-aliases.js';
 import {
   getFieldTypeCatalog,
   humanizeFEL,
-  isLayoutId,
-  nodeIdFromLayoutId,
   registryExtensionPaletteEntries,
   sanitizeIdentifier,
   type FieldTypeCatalogEntry,
@@ -48,13 +46,18 @@ import {
 import {
   findComponentNodeById,
   findComponentNodeByRef,
+  findKeyInItems,
   findParentRefOfNodeRef,
+  pageChildren,
+  refForCompNode,
 } from './tree-utils.js';
+import { editDistance, resolvePath } from './lib/object-utils.js';
+import { filterByRelevance, pruneObject, sampleValueForField } from './lib/sample-data.js';
+import { buildRepeatScopeRewriter, checkVariableSelfReference } from './lib/fel-rewriter.js';
+import { componentTargetRef } from './lib/component-target-ref.js';
 import type { CompNode } from './layout-helpers.js';
 import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from '@formspec-org/types';
-import { analyzeFEL } from '@formspec-org/engine/fel-runtime';
-import { rewriteFELReferences, rewriteMessageTemplate } from '@formspec-org/engine/fel-tools';
-import { createFormEngine, type FormspecDefinition, type IFormEngine } from '@formspec-org/engine/render';
+import { rewriteFELReferences } from '@formspec-org/engine/fel-tools';
 
 function felConstraintFromPattern(pattern: string): string {
   const escaped = pattern.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -435,25 +438,6 @@ export class Project {
     };
   }
 
-  /** Simple edit distance for fuzzy path matching. */
-  private static _editDistance(a: string, b: string): number {
-    if (a === b) return 0;
-    const la = a.length, lb = b.length;
-    if (la === 0) return lb;
-    if (lb === 0) return la;
-    const dp: number[][] = Array.from({ length: la + 1 }, () => Array(lb + 1).fill(0));
-    for (let i = 0; i <= la; i++) dp[i][0] = i;
-    for (let j = 0; j <= lb; j++) dp[0][j] = j;
-    for (let i = 1; i <= la; i++) {
-      for (let j = 1; j <= lb; j++) {
-        dp[i][j] = a[i - 1] === b[j - 1]
-          ? dp[i - 1][j - 1]
-          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-      }
-    }
-    return dp[la][lb];
-  }
-
   /** Find field paths similar to the given (nonexistent) path. */
   private _findSimilarPaths(path: string, maxDistance = 3): string[] {
     const allPaths = this.core.fieldPaths();
@@ -473,7 +457,7 @@ export class Project {
     const allKnownPaths = [...new Set([...allPaths, ...collectPaths(allItems)])];
 
     return allKnownPaths
-      .map(p => ({ path: p, dist: Project._editDistance(path.toLowerCase(), p.toLowerCase()) }))
+      .map(p => ({ path: p, dist: editDistance(path.toLowerCase(), p.toLowerCase()) }))
       .filter(({ dist }) => dist <= maxDistance && dist > 0)
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 5)
@@ -516,21 +500,9 @@ export class Project {
     return page;
   }
 
-  /** Return a NodeRef for a tree node. */
-  private _nodeRefFor(node: CompNode): { bind: string } | { nodeId: string } {
-    if (typeof node.bind === 'string') return { bind: node.bind };
-    if (typeof node.nodeId === 'string') return { nodeId: node.nodeId };
-    throw new HelperError('NODE_NOT_FOUND', 'Component node is missing both bind and nodeId');
-  }
-
-  /** Get all direct children of a Page node. */
-  private _pageChildren(page: CompNode): CompNode[] {
-    return page.children ?? [];
-  }
-
   /** Get the bound children of a Page node (equivalent of regions). */
   private _pageBoundChildren(page: CompNode): CompNode[] {
-    return this._pageChildren(page).filter(
+    return pageChildren(page).filter(
       n => n.bind,
     );
   }
@@ -574,15 +546,6 @@ export class Project {
     return item?.type === 'group' ? groupKey : undefined;
   }
 
-  /** Resolve a layout selection target or path to a component node ref. */
-  private _componentTargetRef(target: string): { bind: string } | { nodeId: string } {
-    if (isLayoutId(target)) {
-      return { nodeId: nodeIdFromLayoutId(target) };
-    }
-    const leafKey = target.split('.').pop()!;
-    return { bind: leafKey };
-  }
-
   /** Build a unique item key relative to the requested parent. */
   private _uniqueLayoutItemKey(label: string, parentPath?: string, explicitKey?: string): string {
     const base = sanitizeIdentifier((explicitKey ?? label).toLowerCase()) || 'item';
@@ -596,47 +559,12 @@ export class Project {
   }
 
   /**
-   * Unified path resolution for addField/addGroup/addContent.
-   *
-   * - When `parentPath` is given, `path` is treated as relative: split on dots,
-   *   last segment = key, preceding segments prepended to parentPath.
-   * - When `parentPath` is NOT given, `path` is split on dots: last = key,
-   *   preceding = parentPath.
-   */
-  private _resolvePath(path: string, parentPath?: string): { key: string; parentPath?: string; fullPath: string } {
-    const segments = path.split('.');
-    const key = segments.pop()!;
-    const relativeParts = segments; // everything before the last dot
-
-    let effectiveParent: string | undefined;
-    if (parentPath) {
-      if (relativeParts.length > 0) {
-        const prefix = relativeParts.join('.');
-        // When the path prefix matches (or starts with) parentPath, the path
-        // is already absolute — don't prepend parentPath again.
-        if (prefix === parentPath || prefix.startsWith(parentPath + '.')) {
-          effectiveParent = prefix;
-        } else {
-          effectiveParent = `${parentPath}.${prefix}`;
-        }
-      } else {
-        effectiveParent = parentPath;
-      }
-    } else {
-      effectiveParent = relativeParts.length > 0 ? relativeParts.join('.') : undefined;
-    }
-
-    const fullPath = effectiveParent ? `${effectiveParent}.${key}` : key;
-    return { key, parentPath: effectiveParent, fullPath };
-  }
-
-  /**
    * Ensure `leafKey` is unique across the entire item tree.
    * The Rust linter catches this as E200; this surfaces the error at authoring time.
    */
   private _assertGlobalKeyUniqueness(leafKey: string): void {
     const items = this.core.state.definition.items ?? [];
-    const existingPath = this._findKeyInItems(items, leafKey, '');
+    const existingPath = findKeyInItems(items, leafKey, '');
     if (existingPath !== null) {
       throw new HelperError(
         'DUPLICATE_KEY',
@@ -644,19 +572,6 @@ export class Project {
         { key: leafKey, existingPath },
       );
     }
-  }
-
-  /** Walk the item tree to find any item with the given leaf key. Returns its full path or null. */
-  private _findKeyInItems(items: FormItem[], leafKey: string, prefix: string): string | null {
-    for (const item of items) {
-      const path = prefix ? `${prefix}.${item.key}` : item.key;
-      if (item.key === leafKey) return path;
-      if (item.children?.length) {
-        const found = this._findKeyInItems(item.children, leafKey, path);
-        if (found) return found;
-      }
-    }
-    return null;
   }
 
   /**
@@ -725,7 +640,7 @@ export class Project {
       baseParent = this._resolvePageGroup(props.page);
     }
 
-    const { key, parentPath, fullPath } = this._resolvePath(path, baseParent);
+    const { key, parentPath, fullPath } = resolvePath(path, baseParent);
 
     // Check for duplicate full path
     if (this.core.itemAt(fullPath)) {
@@ -886,7 +801,7 @@ export class Project {
       baseParent = this._resolvePageGroup(props.page);
     }
 
-    const { key, parentPath, fullPath } = this._resolvePath(path, baseParent);
+    const { key, parentPath, fullPath } = resolvePath(path, baseParent);
 
     if (this.core.itemAt(fullPath)) {
       throw new HelperError('DUPLICATE_KEY', `An item with key "${fullPath}" already exists`, {
@@ -956,7 +871,7 @@ export class Project {
       baseParent = this._resolvePageGroup(props.page);
     }
 
-    const { key, parentPath, fullPath } = this._resolvePath(path, baseParent);
+    const { key, parentPath, fullPath } = resolvePath(path, baseParent);
 
     if (this.core.itemAt(fullPath)) {
       throw new HelperError('DUPLICATE_KEY', `An item with key "${fullPath}" already exists`, {
@@ -1013,17 +928,6 @@ export class Project {
     }
   }
 
-  /** Throw CIRCULAR_REFERENCE if the expression references the variable being defined. */
-  private _checkVariableSelfReference(name: string, expression: string): void {
-    const analysis = analyzeFEL(expression);
-    if (analysis.valid && analysis.variables.includes(name)) {
-      throw new HelperError('CIRCULAR_REFERENCE', `Variable "${name}" references itself`, {
-        name,
-        expression,
-      });
-    }
-  }
-
   /**
    * Normalize a shape target path by inserting `[*]` after any repeatable group
    * segments. Template paths like `expenses.receipt` become `expenses[*].receipt`
@@ -1061,87 +965,6 @@ export class Project {
     }
 
     return normalized.join('.');
-  }
-
-  /**
-   * Build a rewriter that canonicalizes FEL references from template (authored)
-   * paths to row-scoped paths after _normalizeShapeTarget inserts [*].
-   *
-   * Given authored target `expenses.receipt` normalized to `expenses[*].receipt`:
-   * - `$expenses.receipt` (target itself) -> `$` (current)
-   * - `$expenses.row_total` (same-row sibling) -> `$row_total`
-   * - `$grand_total` (outside repeat) -> unchanged
-   * - `sum($expenses[*].row_total)` (explicit collection) -> unchanged
-   */
-  private static _buildRepeatScopeRewriter(
-    authoredTarget: string,
-    normalizedTarget: string,
-  ): { rewriteExpression: (expr: string) => string; rewriteMessage: (msg: string) => string } {
-    // Derive the row scope prefix from the normalized target.
-    // For `expenses[*].receipt`, row scope is `expenses`.
-    // For `sections[*].items[*].amount`, row scope is `sections.items`.
-    //
-    // We use the authored target's prefix (without the target leaf) as the
-    // template-form row scope. References that start with this prefix are
-    // same-row and get rewritten by stripping the prefix.
-    const authoredParts = authoredTarget.split('.');
-    const targetLeaf = authoredParts[authoredParts.length - 1];
-    const authoredRowScope = authoredParts.slice(0, -1).join('.'); // e.g. "expenses" or "sections.items"
-
-    const rewriteFieldPath = (refPath: string): string => {
-      // Already uses explicit [*] collection syntax — leave unchanged
-      if (refPath.includes('[*]')) return refPath;
-
-      // Reference to the target field itself -> $
-      if (refPath === authoredTarget) return '';
-
-      // Same-row sibling: starts with the row scope prefix
-      if (authoredRowScope && refPath.startsWith(authoredRowScope + '.')) {
-        const relative = refPath.slice(authoredRowScope.length + 1);
-        // Don't rewrite if the relative part still contains the row scope
-        // (would indicate a nested/ambiguous reference)
-        return relative;
-      }
-
-      // Outside the repeat scope — leave unchanged
-      return refPath;
-    };
-
-    // Build the rewrite map for message template rewriting (needs an eagerly
-    // computed map rather than a callback).
-    const buildRewriteMap = (source: string): Record<string, string> => {
-      const map: Record<string, string> = {};
-      // Quick regex scan for $fieldRef patterns in the source
-      const refPattern = /\$([a-zA-Z_]\w*(?:\.\w+)*)/g;
-      let match;
-      while ((match = refPattern.exec(source)) !== null) {
-        const refPath = match[1];
-        const rewritten = rewriteFieldPath(refPath);
-        if (rewritten !== refPath) {
-          map[refPath] = rewritten;
-        }
-      }
-      return map;
-    };
-
-    return {
-      rewriteExpression: (expr: string): string => {
-        try {
-          return rewriteFELReferences(expr, { rewriteFieldPath });
-        } catch {
-          return expr;
-        }
-      },
-      rewriteMessage: (msg: string): string => {
-        const fieldMap = buildRewriteMap(msg);
-        if (Object.keys(fieldMap).length === 0) return msg;
-        try {
-          return rewriteMessageTemplate(msg, { fieldPaths: fieldMap });
-        } catch {
-          return msg;
-        }
-      },
-    };
   }
 
   /** Conditional visibility — dispatches definition.setBind { relevant: condition } */
@@ -1355,7 +1178,7 @@ export class Project {
     let canonicalActiveWhen = options?.activeWhen;
 
     if (targetWasNormalized) {
-      const rewriter = Project._buildRepeatScopeRewriter(target, normalizedTarget);
+      const rewriter = buildRepeatScopeRewriter(target, normalizedTarget);
       canonicalRule = rewriter.rewriteExpression(rule);
       canonicalMessage = rewriter.rewriteMessage(message);
       if (canonicalActiveWhen) {
@@ -2538,10 +2361,10 @@ export class Project {
   /** Remove a page — deletes only the page surface. Groups and fields remain intact as unassigned items. */
   removePage(pageId: string): HelperResult {
     const page = this._findPageNode(pageId);
-    const commands: AnyCommand[] = this._pageChildren(page).map((child) => ({
+    const commands: AnyCommand[] = pageChildren(page).map((child) => ({
       type: 'component.moveNode',
       payload: {
-        source: this._nodeRefFor(child),
+        source: refForCompNode(child),
         targetParent: { nodeId: 'root' },
       },
     }));
@@ -2746,7 +2569,7 @@ export class Project {
     this.core.dispatch({
       type: 'component.setNodeProperty',
       payload: {
-        node: this._componentTargetRef(target),
+        node: componentTargetRef(target),
         property: 'when',
         value: when && when.trim() ? when.trim() : null,
       },
@@ -2766,7 +2589,7 @@ export class Project {
     this.core.dispatch({
       type: 'component.setNodeAccessibility',
       payload: {
-        node: this._componentTargetRef(target),
+        node: componentTargetRef(target),
         property,
         value: value === '' ? null : value,
       },
@@ -2786,7 +2609,7 @@ export class Project {
     this.core.dispatch({
       type: 'component.setNodeProperty',
       payload: {
-        node: this._componentTargetRef(target),
+        node: componentTargetRef(target),
         property,
         value: value === '' ? null : value,
       },
@@ -3327,7 +3150,7 @@ export class Project {
     if (!child) throw new HelperError('ROUTE_OUT_OF_BOUNDS', `Region not found at index ${regionIndex} on page '${pageId}'`);
     this.core.dispatch({
       type: 'component.setNodeProperty',
-      payload: { node: this._nodeRefFor(child), property, value: value ?? null },
+      payload: { node: refForCompNode(child), property, value: value ?? null },
     });
     return {
       summary: `Updated region ${regionIndex} on page '${pageId}' property '${property}'`,
@@ -3344,7 +3167,7 @@ export class Project {
     this.core.dispatch({
       type: 'component.moveNode',
       payload: {
-        source: this._nodeRefFor(child),
+        source: refForCompNode(child),
         targetParent: { nodeId: 'root' },
       },
     });
@@ -3364,7 +3187,7 @@ export class Project {
     this.core.dispatch({
       type: 'component.moveNode',
       payload: {
-        source: this._nodeRefFor(child),
+        source: refForCompNode(child),
         targetParent: { nodeId: pageId },
         targetIndex,
       },
@@ -3382,7 +3205,7 @@ export class Project {
     const boundChildren = this._pageBoundChildren(page);
     const child = boundChildren[regionIndex];
     if (!child) throw new HelperError('ROUTE_OUT_OF_BOUNDS', `Region not found at index ${regionIndex} on page '${pageId}'`);
-    const oldNodeRef = this._nodeRefFor(child);
+    const oldNodeRef = refForCompNode(child);
     const newNodeRef = { bind: newKey };
     const commands: AnyCommand[] = [
       {
@@ -3445,7 +3268,7 @@ export class Project {
     if (!node) throw new HelperError('ITEM_NOT_ON_PAGE', `Item '${itemKey}' is not on page '${pageId}'`, { pageId, itemKey });
     this.core.dispatch({
       type: 'component.setNodeProperty',
-      payload: { node: this._nodeRefFor(node), property: 'span', value: width },
+      payload: { node: refForCompNode(node), property: 'span', value: width },
     });
     return {
       summary: `Set width of '${itemKey}' on page '${pageId}' to ${width}`,
@@ -3461,7 +3284,7 @@ export class Project {
     if (!node) throw new HelperError('ITEM_NOT_ON_PAGE', `Item '${itemKey}' is not on page '${pageId}'`, { pageId, itemKey });
     this.core.dispatch({
       type: 'component.setNodeProperty',
-      payload: { node: this._nodeRefFor(node), property: 'start', value: offset ?? null },
+      payload: { node: refForCompNode(node), property: 'start', value: offset ?? null },
     });
     return {
       summary: `Set offset of '${itemKey}' on page '${pageId}' to ${offset ?? 'auto'}`,
@@ -3499,7 +3322,7 @@ export class Project {
     this.core.dispatch({
       type: 'component.setNodeProperty',
       payload: {
-        node: this._nodeRefFor(node),
+        node: refForCompNode(node),
         property: 'responsive',
         value: Object.keys(responsive).length > 0 ? responsive : null,
       },
@@ -4010,7 +3833,7 @@ export class Project {
   /** Add a named FEL variable. */
   addVariable(name: string, expression: string, scope?: string): HelperResult {
     this._validateFEL(expression);
-    this._checkVariableSelfReference(name, expression);
+    checkVariableSelfReference(name, expression);
     const payload: Record<string, unknown> = { name, expression };
     if (scope) payload.scope = scope;
 
@@ -4032,7 +3855,7 @@ export class Project {
       });
     }
     this._validateFEL(expression);
-    this._checkVariableSelfReference(name, expression);
+    checkVariableSelfReference(name, expression);
     this.core.dispatch({
       type: 'definition.setVariable',
       payload: { name, property: 'expression', value: expression },
@@ -4471,63 +4294,6 @@ export class Project {
 
   // ── Preview / Query Methods ──
 
-  /** Default sample values by data type. Uses today's date for date/dateTime. */
-  private static _sampleValues(): Record<string, unknown> {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    return {
-      string: 'Sample text',
-      text: 'Sample paragraph text',
-      integer: 42,
-      decimal: 3.14,
-      boolean: true,
-      date: today,
-      time: '09:00:00',
-      dateTime: `${today}T09:00:00Z`,
-      uri: 'https://example.com',
-      attachment: 'sample-file.pdf',
-      money: { amount: 100, currency: 'USD' },
-      multiChoice: ['option1'],
-    };
-  }
-
-  /** Generate a context-aware sample value for a field. */
-  private static _sampleValueForField(item: FormItem, fieldIndex: number): unknown {
-    const dt = item.dataType ?? 'string';
-    const key = item.key.toLowerCase();
-    const options = item.options;
-
-    if (dt === 'choice' || dt === 'multiChoice') {
-      if (options?.length) {
-        return dt === 'multiChoice' ? [options[0].value] : options[0].value;
-      }
-      return dt === 'multiChoice' ? ['option1'] : 'option1';
-    }
-
-    // Key-based heuristics for string/text fields
-    if (dt === 'string' || dt === 'text') {
-      if (key.includes('email')) return 'sample@example.com';
-      if (key.includes('phone') || key.includes('tel')) return '+1-555-0100';
-      if (key.includes('name') && key.includes('first')) return 'Jane';
-      if (key.includes('name') && key.includes('last')) return 'Doe';
-      if (key.includes('name')) return 'Jane Doe';
-    }
-
-    // Respect min/max constraints for numeric types
-    if (dt === 'integer' || dt === 'decimal') {
-      const min = typeof item.min === 'number' ? item.min : undefined;
-      const max = typeof item.max === 'number' ? item.max : undefined;
-      const baseValue = dt === 'integer' ? (10 + fieldIndex) : parseFloat((1.5 + fieldIndex * 0.7).toFixed(2));
-      if (min !== undefined && max !== undefined) {
-        return dt === 'integer' ? Math.round((min + max) / 2) : parseFloat(((min + max) / 2).toFixed(2));
-      }
-      if (min !== undefined && baseValue < min) return min;
-      if (max !== undefined && baseValue > max) return max;
-      return baseValue;
-    }
-
-    return Project._sampleValues()[dt] ?? 'Sample text';
-  }
-
   /**
    * Generate plausible sample data for each field based on its data type.
    * When overrides are provided, those values replace the generated defaults
@@ -4569,7 +4335,7 @@ export class Project {
             continue;
           }
         }
-        instance[child.key] = Project._sampleValueForField(child, fieldIndex);
+        instance[child.key] = sampleValueForField(child, fieldIndex);
         fieldIndex++;
       }
       return instance;
@@ -4598,45 +4364,13 @@ export class Project {
           continue;
         }
 
-        data[path] = Project._sampleValueForField(item, fieldIndex);
+        data[path] = sampleValueForField(item, fieldIndex);
         fieldIndex++;
       }
     };
 
     walkItems(items, '');
-    return Project._filterByRelevance(this.export().definition, data);
-  }
-
-  /**
-   * Load sample data into a FormEngine and strip fields whose
-   * show_when/relevant condition evaluates to false.
-   */
-  private static _filterByRelevance(
-    definition: unknown,
-    data: Record<string, unknown>,
-  ): Record<string, unknown> {
-    let engine: IFormEngine;
-    try {
-      engine = createFormEngine(definition as FormspecDefinition);
-    } catch {
-      // If the definition can't produce a valid engine (e.g. degenerate form),
-      // fall back to returning unfiltered data rather than crashing.
-      return data;
-    }
-
-    for (const [path, value] of Object.entries(data)) {
-      if (value !== undefined) {
-        engine.setValue(path, value);
-      }
-    }
-
-    const filtered: Record<string, unknown> = {};
-    for (const [path, value] of Object.entries(data)) {
-      if (engine.isPathRelevant(path)) {
-        filtered[path] = value;
-      }
-    }
-    return filtered;
+    return filterByRelevance(this.export().definition, data);
   }
 
   /**
@@ -4646,30 +4380,7 @@ export class Project {
   normalizeDefinition(): Record<string, unknown> {
     const def = this.core.state.definition;
     const clone = JSON.parse(JSON.stringify(def));
-    return Project._pruneObject(clone) as Record<string, unknown>;
-  }
-
-  /** Recursively prune null values, empty arrays, and empty objects from a value. */
-  private static _pruneObject(value: unknown): unknown {
-    if (value === null || value === undefined) return undefined;
-    if (Array.isArray(value)) {
-      if (value.length === 0) return undefined;
-      const pruned = value.map(v => Project._pruneObject(v)).filter(v => v !== undefined);
-      return pruned.length === 0 ? undefined : pruned;
-    }
-    if (typeof value === 'object') {
-      const result: Record<string, unknown> = {};
-      let hasKeys = false;
-      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-        const pruned = Project._pruneObject(v);
-        if (pruned !== undefined) {
-          result[k] = pruned;
-          hasKeys = true;
-        }
-      }
-      return hasKeys ? result : undefined;
-    }
-    return value;
+    return pruneObject(clone) as Record<string, unknown>;
   }
 }
 

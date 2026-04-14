@@ -200,9 +200,12 @@ export {
 export {
   findComponentNodeById,
   findComponentNodeByRef,
-  treeContainsRef,
+  findKeyInItems,
   findParentOfNodeRef,
   findParentRefOfNodeRef,
+  pageChildren,
+  refForCompNode,
+  treeContainsRef,
 } from './tree-utils.js';
 export type {
   DataTypeDisplay,
