@@ -11,7 +11,7 @@ const GEMINI_API_KEY = 'mock-key-for-playwright';
 // Pre-seed localStorage with the Google provider config before each test
 async function seedProvider(page: Page) {
   await page.addInitScript((apiKey: string) => {
-    const PROVIDER_KEY = 'formspec-chat:provider';
+    const PROVIDER_KEY = 'formspec:provider-config';
     localStorage.setItem(PROVIDER_KEY, JSON.stringify({
       provider: 'google',
       apiKey,

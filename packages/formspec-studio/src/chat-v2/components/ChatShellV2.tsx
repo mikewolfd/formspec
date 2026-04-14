@@ -11,8 +11,12 @@ import { ChatPanelV2 } from './ChatPanelV2.js';
 import { FormPreviewV2 } from './FormPreviewV2.js';
 import { IssuePanelV2 } from './IssuePanelV2.js';
 import { ProviderSetupV2 } from './ProviderSetupV2.js';
+import {
+  CANONICAL_PROVIDER_CONFIG_KEY,
+  migrateLegacyProviderConfigKeys,
+} from '../../lib/provider-config-storage.js';
 
-const PROVIDER_STORAGE_KEY = 'formspec-chat:provider';
+const PROVIDER_STORAGE_KEY = CANONICAL_PROVIDER_CONFIG_KEY;
 const UPLOAD_ACCEPT = '.pdf,.png,.jpg,.jpeg,.csv,.tsv,.xlsx,.json';
 
 function attachmentTypeFromFilename(name: string): Attachment['type'] {
@@ -49,6 +53,7 @@ export function ChatShellV2({ store, storage }: ChatShellProps = {}) {
   const [recentSessions, setRecentSessions] = useState(() => store?.list() ?? []);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(() => {
     if (!storage) return null;
+    migrateLegacyProviderConfigKeys(storage);
     const raw = storage.getItem(PROVIDER_STORAGE_KEY);
     if (!raw) return null;
     try {

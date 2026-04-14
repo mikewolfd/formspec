@@ -5,6 +5,7 @@ import { initFormspecEngine, initFormspecEngineTools } from '@formspec-org/engin
 import '@formspec-org/webcomponent/formspec-default.css';
 import { FormspecRender } from '@formspec-org/webcomponent';
 import { App } from './App';
+import { migrateLegacyProviderConfigKeys } from './lib/provider-config-storage';
 import './index.css';
 
 if (!customElements.get('formspec-render')) {
@@ -12,6 +13,7 @@ if (!customElements.get('formspec-render')) {
 }
 
 async function bootstrap(): Promise<void> {
+  migrateLegacyProviderConfigKeys();
   await initFormspecEngine();
   await initFormspecEngineTools();
 

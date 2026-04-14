@@ -15,7 +15,7 @@ vi.mock('@formspec-org/chat', async (importOriginal) => {
 
 import { ChatPanel } from '../../src/components/ChatPanel.js';
 
-const STORAGE_KEY = 'formspec-studio:provider-config';
+const STORAGE_KEY = 'formspec:provider-config';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

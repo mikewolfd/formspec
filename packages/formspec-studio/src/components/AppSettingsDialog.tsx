@@ -2,39 +2,25 @@
 import { useState, useEffect, useId } from 'react';
 import type { ProviderConfig, ProviderType } from '@formspec-org/chat';
 import { validateProviderConfig } from '@formspec-org/chat';
-
-const STORAGE_KEY = 'formspec-studio:provider-config';
+import {
+  loadProviderConfig,
+  saveProviderConfig,
+  clearProviderConfig,
+} from '../lib/provider-config-storage.js';
 
 interface AppSettingsDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-function loadConfig(): ProviderConfig | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveConfig(config: ProviderConfig) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-}
-
-function clearConfig() {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
 /** Returns the currently saved provider config, or null. */
 export function getSavedProviderConfig(): ProviderConfig | null {
-  return loadConfig();
+  return loadProviderConfig();
 }
 
 export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
   const titleId = useId();
-  const saved = loadConfig();
+  const saved = loadProviderConfig();
   const [provider, setProvider] = useState<ProviderType>(saved?.provider ?? 'google');
   const [apiKey, setApiKey] = useState(saved?.apiKey ?? '');
   const [errors, setErrors] = useState<string[]>([]);
@@ -42,7 +28,7 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
 
   useEffect(() => {
     if (!open) return;
-    const config = loadConfig();
+    const config = loadProviderConfig();
     setProvider(config?.provider ?? 'google');
     setApiKey(config?.apiKey ?? '');
     setErrors([]);
@@ -68,13 +54,13 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
       return;
     }
     setErrors([]);
-    saveConfig(config);
+    saveProviderConfig(config);
     setSaved_(true);
     setTimeout(() => onClose(), 600);
   };
 
   const handleClear = () => {
-    clearConfig();
+    clearProviderConfig();
     setProvider('google');
     setApiKey('');
     setSaved_(false);
