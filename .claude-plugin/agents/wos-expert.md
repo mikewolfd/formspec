@@ -3,7 +3,7 @@ name: wos-expert
 description: Use this agent when the user needs authoritative answers about the Workflow Orchestration Standard (WOS). Navigates the full WOS specification suite — Kernel (L0), Governance (L1), AI Integration (L2), and Advanced (L3) — using the wos-core navigation skill for efficient lookup.
 model: sonnet
 color: cyan
-tools: ["Read", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
 ---
 
 <example>
