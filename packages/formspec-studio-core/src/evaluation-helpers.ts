@@ -6,6 +6,7 @@ import {
     type IFormEngine,
 } from '@formspec-org/engine/render';
 import type { Project } from './project.js';
+import { componentTreeForLayout, type CompNode } from './layout-helpers.js';
 
 /**
  * Collect paths of money-typed fields from a definition item tree.
@@ -285,18 +286,21 @@ export function previewForm(
     cleanState[path] = { severity: entry.severity, message: entry.message };
   }
 
-  // Pages from component tree — with per-page validation counts
-  const comp = project.component as any;
-  const treeRoot = comp?.tree;
-  const pageNodes: any[] = treeRoot?.children?.filter((n: any) => n.component === 'Page') ?? [];
+  // Pages from component tree — with per-page validation counts.
+  // componentTreeForLayout() is the single sanctioned narrowing from the schema
+  // AnyComponent union to CompNode, so traversal below is fully typed.
+  const treeRoot: CompNode = componentTreeForLayout(project.component);
+  const pageNodes: CompNode[] = (treeRoot.children ?? []).filter(
+    (n) => n.component === 'Page',
+  );
   const visibleFieldSet = new Set(visibleFields);
   const hiddenFieldSet = new Set(hiddenFields.map(h => h.path));
   const requiredFieldSet = new Set(requiredFields);
-  const pages = pageNodes.map((n: any) => {
+  const pages = pageNodes.map((n) => {
     // Collect bound keys owned by this page (equivalent of regions)
     const boundKeys: string[] = (n.children ?? [])
-      .map((c: any) => c.bind)
-      .filter(Boolean);
+      .map((c) => c.bind)
+      .filter((bind): bind is string => typeof bind === 'string' && bind.length > 0);
 
     const fieldBelongsToPage = (fieldPath: string) =>
       boundKeys.some(rk => fieldPath === rk || fieldPath.startsWith(rk + '.') || fieldPath.startsWith(rk + '['));
@@ -332,8 +336,8 @@ export function previewForm(
     }
 
     return {
-      id: n.nodeId as string,
-      title: (n.title as string) ?? '',
+      id: n.nodeId ?? '',
+      title: n.title ?? '',
       validationErrors: errors,
       validationWarnings: warnings,
       status,
