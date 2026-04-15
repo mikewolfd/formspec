@@ -85,7 +85,7 @@ export function Blueprint({ activeSection, onSectionChange, sections, activeEdit
                 key={name}
                 data-testid={`blueprint-section-${name}`}
                 title={help}
-                className={`group flex items-center justify-between rounded-[10px] px-2 py-2 text-[12.5px] text-left transition-all focus-within:ring-2 focus-within:ring-accent/35 focus-within:ring-offset-2 focus-within:ring-offset-surface ${
+                className={`group flex items-center justify-between rounded-[10px] px-2 py-2 text-[12.5px] text-left transition-colors focus-within:ring-2 focus-within:ring-accent/35 focus-within:ring-offset-2 focus-within:ring-offset-surface ${
                   isActive
                     ? 'bg-bg-default/90 text-ink shadow-[inset_0_0_0_1px_rgba(90,76,56,0.08)]'
                     : 'text-muted hover:text-ink hover:bg-bg-default/50'
@@ -93,7 +93,7 @@ export function Blueprint({ activeSection, onSectionChange, sections, activeEdit
               >
                 <button
                   aria-current={isActive ? 'page' : undefined}
-                  className="min-w-0 flex-1 truncate rounded-[6px] text-left cursor-pointer focus-visible:outline-none"
+                  className="min-w-0 flex-1 truncate rounded-[6px] text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                   onClick={() => {
                     onSectionChange(name);
                     // Auto-switch editor view when clicking a section with a different view target
@@ -115,7 +115,7 @@ export function Blueprint({ activeSection, onSectionChange, sections, activeEdit
                       window.dispatchEvent(new CustomEvent('formspec:open-settings'));
                     }}
                   >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                       <path d="m15 5 4 4" />
                     </svg>
@@ -125,13 +125,13 @@ export function Blueprint({ activeSection, onSectionChange, sections, activeEdit
                   <button
                     type="button"
                     aria-label={`Open ${name} tab`}
-                    className="rounded p-0.5 shrink-0 opacity-0 text-muted/40 transition-all group-hover:opacity-100 group-focus-within:opacity-100 hover:text-accent focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                    className="rounded p-0.5 shrink-0 opacity-0 text-muted/40 transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:text-accent focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                     onClick={(e) => {
                       e.stopPropagation();
                       window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: link }));
                     }}
                   >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M7 17 17 7" /><path d="M7 7h10v10" />
                     </svg>
                   </button>

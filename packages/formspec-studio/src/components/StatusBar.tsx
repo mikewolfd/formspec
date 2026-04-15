@@ -52,34 +52,34 @@ export function StatusBar() {
           {status}
         </span>
 
-        <div className="hidden items-center gap-3 text-[11px] text-muted md:flex">
+        <div className="hidden items-center gap-3 text-[11px] text-muted md:flex" aria-label={`Mode ${pageMode || 'standard'}, Currency ${(defaultCurrency as string) || 'USD'}, Density ${(density as string) || 'comfortable'}`}>
           <span className="flex items-center gap-2 uppercase tracking-[0.18em]">
-            <span className="text-[16px] leading-none text-brass">◫</span>
+            <span className="text-[16px] leading-none text-brass" aria-hidden="true">◫</span>
             Mode {pageMode || 'standard'}
           </span>
-          <span className="text-border">/</span>
+          <span className="text-border" aria-hidden="true">/</span>
           <span className="flex items-center gap-2 uppercase tracking-[0.18em]">
-            <span className="text-[14px] leading-none text-teal">$</span>
+            <span className="text-[14px] leading-none text-teal" aria-hidden="true">$</span>
             Currency {(defaultCurrency as string) || 'USD'}
           </span>
-          <span className="text-border">/</span>
+          <span className="text-border" aria-hidden="true">/</span>
           <span className="flex items-center gap-2 uppercase tracking-[0.18em]">
-            <span className="text-[15px] leading-none text-accent">⋮⋮</span>
+            <span className="text-[15px] leading-none text-accent" aria-hidden="true">⋮⋮</span>
             Density {(density as string) || 'comfortable'}
           </span>
         </div>
 
         <div className="flex shrink-0 items-center gap-4 text-[11px] text-ink/88">
           <span className="flex items-center gap-2 uppercase tracking-[0.18em] text-muted">
-            <span className="text-[19px] leading-none text-accent">▦</span>
+            <span className="text-[19px] leading-none text-accent" aria-hidden="true">▦</span>
             <span><span className="text-accent">{plural(fieldCount, 'field')}</span></span>
           </span>
           <span className="hidden items-center gap-2 uppercase tracking-[0.18em] text-muted sm:flex">
-            <span className="text-[18px] leading-none text-teal">⇄</span>
+            <span className="text-[18px] leading-none text-teal" aria-hidden="true">⇄</span>
             <span>{plural(bindCount, 'bind')}</span>
           </span>
           <span className="hidden items-center gap-2 uppercase tracking-[0.18em] text-muted md:flex">
-            <span className="text-[18px] leading-none text-brass">◯</span>
+            <span className="text-[18px] leading-none text-brass" aria-hidden="true">◯</span>
             <span>{plural(shapeCount, 'shape')}</span>
           </span>
         </div>
@@ -95,6 +95,7 @@ export function StatusBar() {
             {definition.url}
           </a>
           <button
+            type="button"
             onClick={() => handleCopyUrl(definition.url)}
             title="Copy URL"
             className="rounded-[4px] border border-border/70 px-2.5 py-1 text-[11px] text-muted hover:bg-surface hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"

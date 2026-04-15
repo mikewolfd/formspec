@@ -39,7 +39,7 @@ describe('BehaviorPreview', () => {
       </ProjectProvider>,
     );
 
-    const scenarioInput = screen.getByTestId('behavior-scenario-input');
+    const scenarioInput = screen.getByTestId('behavior-scenario-input') as HTMLTextAreaElement;
     await waitFor(
       () => {
         expect(scenarioInput.value).toContain('hasIncome');
@@ -95,13 +95,13 @@ describe('BehaviorPreview', () => {
       </ProjectProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId('behavior-scenario-input').value).toContain('title'));
+    await waitFor(() => expect((screen.getByTestId('behavior-scenario-input') as HTMLTextAreaElement).value).toContain('title'));
 
     fireEvent.change(screen.getByTestId('behavior-scenario-input'), { target: { value: 'not json' } });
     fireEvent.click(screen.getByTestId('behavior-fill-sample'));
 
     await waitFor(() => {
-      const raw = screen.getByTestId('behavior-scenario-input').value;
+      const raw = (screen.getByTestId('behavior-scenario-input') as HTMLTextAreaElement).value;
       expect(() => JSON.parse(raw)).not.toThrow();
       expect(raw).toContain('title');
     });

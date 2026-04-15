@@ -87,7 +87,7 @@ describe('Header', () => {
       screen.getByRole('button', { name: /account menu/i }).click();
     });
     await act(async () => {
-      screen.getByRole('button', { name: /new form/i }).click();
+      screen.getByRole('menuitem', { name: /new form/i }).click();
     });
 
     // Re-open menu (it closes after each click), click Export
@@ -95,7 +95,7 @@ describe('Header', () => {
       screen.getByRole('button', { name: /account menu/i }).click();
     });
     await act(async () => {
-      screen.getByRole('button', { name: /^export$/i }).click();
+      screen.getByRole('menuitem', { name: /^export$/i }).click();
     });
 
     expect(onNew).toHaveBeenCalledTimes(1);

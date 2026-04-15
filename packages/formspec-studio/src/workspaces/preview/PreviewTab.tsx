@@ -52,12 +52,14 @@ export function PreviewTab({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between gap-2 p-2 border-b border-border">
-        <div className="flex gap-1">
+        <div role="tablist" aria-label="Preview mode" className="flex gap-1">
           {PREVIEW_MODES.map((m) => (
             <button
               key={m}
               type="button"
-              className={`px-3 py-1 text-sm rounded ${
+              role="tab"
+              aria-selected={activeMode === m}
+              className={`px-3 py-1 text-sm rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
                 activeMode === m
                   ? 'bg-accent text-white'
                   : 'text-muted hover:text-ink hover:bg-subtle'
@@ -73,6 +75,11 @@ export function PreviewTab({
           <ViewportSwitcher active={activeViewport} onChange={setViewport} />
         )}
       </div>
+      <div
+        role="tabpanel"
+        aria-label={`${MODE_LABEL[activeMode]} preview`}
+        className="flex-1 min-h-0 flex flex-col"
+      >
       {activeMode === 'form' ? (
         items.length > 0 ? (
           <div className="flex-1 overflow-hidden bg-subtle/50">
@@ -90,7 +97,7 @@ export function PreviewTab({
             </div>
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-center text-muted text-sm py-8">
+          <div className="flex flex-1 items-center justify-center text-center text-muted text-sm py-8" role="status">
             No items to preview
           </div>
         )
@@ -100,13 +107,14 @@ export function PreviewTab({
             <BehaviorPreview viewport={activeViewport} appearance={appearance} />
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-center text-muted text-sm py-8">
+          <div className="flex flex-1 items-center justify-center text-center text-muted text-sm py-8" role="status">
             No items to preview
           </div>
         )
       ) : (
         <JsonDocumentsView />
       )}
+      </div>
     </div>
   );
 }

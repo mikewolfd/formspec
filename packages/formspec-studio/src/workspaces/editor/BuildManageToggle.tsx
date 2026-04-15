@@ -52,7 +52,7 @@ export function BuildManageToggle({ activeView, onViewChange, manageCount, showS
             tabIndex={isActive ? 0 : -1}
             onClick={() => { if (!isActive) onViewChange(id); }}
             onKeyDown={(e) => handleKeyDown(e, id)}
-            className={`px-3.5 py-1.5 text-[13px] font-semibold rounded-[10px] transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
+            className={`px-3.5 py-1.5 text-[13px] font-semibold rounded-[10px] transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
               isActive
                 ? id === 'screener' ? 'bg-amber text-white shadow-sm' : 'bg-accent text-white shadow-sm'
                 : 'text-muted hover:bg-subtle hover:text-ink'

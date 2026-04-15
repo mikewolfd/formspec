@@ -684,7 +684,23 @@ export function LayoutCanvas() {
     <WorkspacePage maxWidth="max-w-[980px]" className="relative">
       <>
         <WorkspacePageSection className="space-y-3 py-4">
-            <div onContextMenu={handleContextMenu}>
+            <div
+              onContextMenu={handleContextMenu}
+              onKeyDown={(e) => {
+                if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+                  const target = (e.target as HTMLElement).closest<HTMLElement>('[data-layout-node]');
+                  if (!target) return;
+                  const rect = target.getBoundingClientRect();
+                  handleContextMenu({
+                    preventDefault: () => {},
+                    clientX: rect.left + rect.width / 2,
+                    clientY: rect.top + rect.height / 2,
+                    target: e.target,
+                  } as React.MouseEvent);
+                  e.preventDefault();
+                }
+              }}
+            >
               {renderLayoutTree(
                 visibleTreeChildren,
                 {

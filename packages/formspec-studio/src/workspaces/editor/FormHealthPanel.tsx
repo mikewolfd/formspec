@@ -73,7 +73,8 @@ export function FormHealthPanel() {
                   <button
                     type="button"
                     data-testid={`form-health-issue-${i}`}
-                    className={`w-full text-left rounded-[8px] border px-3 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                    aria-label={`${issue.severity === 'info' ? 'Info' : 'Warning'}: ${issue.label} at ${issue.path} — ${issue.message}`}
+                    className={`w-full text-left rounded-[8px] border px-3 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                       issue.severity === 'info'
                         ? 'border-blue-500/35 bg-blue-500/5 hover:bg-blue-500/10 focus-visible:ring-blue-500/40 hover:border-blue-500/50'
                         : 'border-amber-500/35 bg-amber-500/5 hover:bg-amber-500/10 focus-visible:ring-amber-500/40 hover:border-amber-500/50'

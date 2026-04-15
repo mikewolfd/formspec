@@ -101,14 +101,20 @@ export function MappingTab({
           <MappingSelector />
         </div>
         {/* Section filter tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-subtle/50 rounded-[8px] border border-border/50 w-fit">
+        <div
+          role="tablist"
+          aria-label="Mapping section filter"
+          className="flex items-center gap-1.5 p-1 bg-subtle/50 rounded-[8px] border border-border/50 w-fit"
+        >
           {sectionTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
               data-testid={`mapping-filter-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 text-[12px] font-bold uppercase tracking-wider rounded-[6px] transition-all duration-200 ${activeTab === tab.id
+              className={`px-3 py-1.5 text-[12px] font-bold uppercase tracking-wider rounded-[6px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${activeTab === tab.id
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-muted hover:text-ink hover:bg-subtle'
                 }`}

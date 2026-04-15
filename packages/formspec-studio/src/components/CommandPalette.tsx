@@ -126,23 +126,41 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   if (!open) return null;
 
+  const listboxId = 'command-palette-listbox';
+  const activeId = highlightedIndex >= 0 && filteredResults[highlightedIndex]
+    ? `palette-result-${filteredResults[highlightedIndex].id}`
+    : undefined;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      aria-hidden="true"
     >
-      <div data-testid="command-palette" className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl">
+      <div
+        data-testid="command-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+        className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-xl"
+      >
         <div className="p-3 border-b border-border">
           <input
             type="text"
             placeholder="Search items, variables..."
-            className="w-full px-3 py-2.5 text-[13.5px] bg-bg-default border border-border rounded-[4px] outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-all font-ui"
+            aria-label="Search items, variables, binds, and shapes"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={listboxId}
+            aria-activedescendant={activeId}
+            className="w-full px-3 py-2.5 text-[13.5px] bg-bg-default border border-border rounded-[4px] focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30 transition-[border-color,box-shadow] font-ui"
             value={search}
             onInput={(e) => {
               setSearch((e.target as HTMLInputElement).value);
               updateHighlightedIndex(0);
             }}
             onKeyDown={(event) => {
+              if (event.key === 'Escape') { onClose(); return; }
               if (filteredResults.length === 0) return;
               if (event.key === 'ArrowDown') {
                 event.preventDefault();
@@ -158,10 +176,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             autoFocus
           />
         </div>
-        <div className="max-h-80 overflow-y-auto p-2">
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-label="Search results"
+          className="max-h-80 overflow-y-auto p-2"
+        >
           {orderedSections.map((section) => (
-            <div key={section}>
-              <div className="px-2 py-1 text-xs text-muted font-medium uppercase">{section}</div>
+            <div key={section} role="group" aria-label={section}>
+              <div className="px-2 py-1 text-xs text-muted font-medium uppercase" aria-hidden="true">{section}</div>
               {groupedResults[section].map((result) => {
                 const resultIndex = filteredResults.findIndex((entry) => entry.id === result.id);
                 const highlighted = resultIndex === highlightedIndex;
@@ -170,6 +193,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 return (
                   <div
                     key={result.id}
+                    id={`palette-result-${result.id}`}
+                    role="option"
+                    aria-selected={highlighted}
                     data-testid="palette-result"
                     className={`px-3 py-1.5 flex items-center justify-between text-[13px] rounded-[4px] transition-colors ${
                       result.actionable === false ? 'text-muted' : 'cursor-pointer'
@@ -197,7 +223,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             </div>
           ))}
           {filteredResults.length === 0 && (
-            <div className="px-3 py-4 text-sm text-muted text-center">No results found</div>
+            <div className="px-3 py-4 text-sm text-muted text-center" role="status">No results found</div>
           )}
         </div>
       </div>

@@ -26,6 +26,16 @@
   animation: msg-appear 0.18s ease-out both;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot,
+  .msg-appear {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
 html {
   scrollbar-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border)) transparent;
   scrollbar-width: thin;
@@ -92,7 +102,7 @@ html {
   --studio-color-accent: #2757c7;
   --studio-color-logic: #2d6b73;
   --studio-color-error: #dc2626;
-  --studio-color-muted: #6f6a63;
+  --studio-color-muted: #5f5a52;
   --studio-color-subtle: #f1e8dc;
   --studio-color-panel: #fffaf3;
   --studio-color-green: #059669;

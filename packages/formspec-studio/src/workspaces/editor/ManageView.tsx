@@ -98,7 +98,7 @@ function ManagePillar({
         style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
         data-expanded={open}
       >
-        <div className="overflow-hidden" aria-hidden={!open}>
+        <div className="overflow-hidden" {...(!open ? { inert: true } : {})}>
           <div className="pl-6 border-l border-border/60 ml-0.5 mt-4">
             {children}
           </div>

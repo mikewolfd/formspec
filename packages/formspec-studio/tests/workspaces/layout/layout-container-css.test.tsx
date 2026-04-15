@@ -8,6 +8,7 @@ import { useLayoutResizeReporter } from '../../../src/workspaces/layout/LayoutRe
 // dnd-kit hooks mocked — no DndContext needed
 vi.mock('@dnd-kit/react', () => ({
   useDroppable: () => ({ ref: () => {}, isDropTarget: false }),
+  useDragOperation: () => ({ source: null }),
 }));
 
 vi.mock('@dnd-kit/react/sortable', () => ({

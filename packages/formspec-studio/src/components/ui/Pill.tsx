@@ -24,7 +24,7 @@ export function Pill({ text, color = 'muted', size = 'md', title, warn }: PillPr
   const warnClasses = warn ? ' border-amber/40' : '';
   return (
     <span className={`inline-flex items-center rounded-sm border font-ui ${colorClasses} ${sizeClasses}${warnClasses}`} title={title}>
-      {text}{warn ? ' \u26A0' : ''}
+      {text}{warn ? <span aria-hidden="true">{' \u26A0'}</span> : ''}
     </span>
   );
 }

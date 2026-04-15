@@ -58,7 +58,7 @@ describe('PreviewTab', () => {
     expect(screen.getByText('Behavior Snapshot')).toBeInTheDocument();
     await waitFor(
       () => {
-        expect(screen.getByTestId('behavior-scenario-input').value).toContain('name');
+        expect((screen.getByTestId('behavior-scenario-input') as HTMLTextAreaElement).value).toContain('name');
       },
       { timeout: 4000 },
     );

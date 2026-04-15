@@ -99,7 +99,7 @@ export function Header({
   const menuRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click or Escape
   useEffect(() => {
     if (!menuOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -107,8 +107,15 @@ export function Header({
         setMenuOpen(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [menuOpen]);
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -164,33 +171,38 @@ export function Header({
         onClick={() => setMenuOpen(!menuOpen)}
       />
       {menuOpen && (
-        <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-[6px] shadow-lg py-1 z-50">
+        <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-[6px] shadow-lg py-1 z-50" role="menu" aria-label="Account menu">
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset"
             onClick={() => { setMenuOpen(false); onNew?.(); }}
           >
             New Form
           </button>
           <button
+            type="button"
+            role="menuitem"
             data-testid="import-btn"
-            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset"
             onClick={() => { setMenuOpen(false); onImport(); }}
           >
             Import
           </button>
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset"
             onClick={() => { setMenuOpen(false); onExport?.(); }}
           >
             Export
           </button>
-          <div className="border-t border-border my-1" />
+          <div className="border-t border-border my-1" role="separator" />
           {isCompact && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset"
               onClick={() => { setMenuOpen(false); onOpenMetadata?.(); }}
             >
               Metadata
@@ -198,24 +210,27 @@ export function Header({
           )}
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset"
             onClick={() => { setMenuOpen(false); onOpenMetadata?.(); }}
           >
             Form Settings
           </button>
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset"
             onClick={() => { setMenuOpen(false); onToggleAccountMenu?.(); }}
           >
             App Settings
           </button>
-          <div className="border-t border-border my-1" />
+          <div className="border-t border-border my-1" role="separator" />
           <a
             href="/chat.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors"
+            role="menuitem"
+            className="block w-full text-left px-3 py-2 text-[13px] hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-inset"
             onClick={() => setMenuOpen(false)}
           >
             AI Chat Studio
@@ -235,7 +250,7 @@ export function Header({
           className="rounded-full border border-border/65 bg-surface/70 p-2 text-muted hover:bg-surface hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
           title="Search (⌘K)"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </button>
       ) : (
         <button
@@ -268,7 +283,7 @@ export function Header({
         onClick={() => project.undo()}
         title="Undo (⌘Z)"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
       </button>
       <button
         data-testid="redo-btn"
@@ -278,7 +293,7 @@ export function Header({
         onClick={() => project.redo()}
         title="Redo (⌘⇧Z)"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
       </button>
 
       {onToggleChat && (
@@ -325,7 +340,7 @@ export function Header({
               className="rounded-full border border-border/60 bg-surface/75 p-2 -ml-1.5 hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
               onClick={onToggleMenu}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <line x1="3" y1="12" x2="21" y2="12" />
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <line x1="3" y1="18" x2="21" y2="18" />
@@ -338,8 +353,8 @@ export function Header({
             className="flex items-center gap-2.5 shrink-0 text-left"
             onClick={() => { onTabChange('Editor'); onHome?.(); }}
           >
-            <div className="w-8 h-8 bg-[linear-gradient(160deg,var(--color-accent),color-mix(in_srgb,var(--color-accent)_68%,var(--color-teal)))] rounded-[9px] flex items-center justify-center shrink-0 shadow-[0_12px_30px_rgba(39,87,199,0.24)]">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+            <div className="w-8 h-8 bg-[linear-gradient(160deg,var(--color-accent),color-mix(in_srgb,var(--color-accent)_68%,var(--color-teal)))] rounded-[9px] flex items-center justify-center shrink-0 shadow-[0_12px_30px_rgba(39,87,199,0.24)]" aria-hidden="true">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                 <rect x="2" y="1.5" width="8" height="2" rx=".4" fill="white" />
                 <rect x="2" y="5" width="8" height="2" rx=".4" fill="white" fillOpacity=".7" />
                 <rect x="2" y="8.5" width="8" height="2" rx=".4" fill="white" fillOpacity=".4" />
@@ -378,8 +393,8 @@ export function Header({
         className="flex items-center gap-3 mr-4 shrink-0 text-left"
         onClick={() => { onTabChange('Editor'); onHome?.(); }}
       >
-        <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[linear-gradient(145deg,var(--color-accent),color-mix(in_srgb,var(--color-accent)_72%,var(--color-teal)))] shadow-[0_20px_40px_rgba(39,87,199,0.24)] shrink-0">
-          <svg width="16" height="16" viewBox="0 0 12 12" fill="none">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[linear-gradient(145deg,var(--color-accent),color-mix(in_srgb,var(--color-accent)_72%,var(--color-teal)))] shadow-[0_20px_40px_rgba(39,87,199,0.24)] shrink-0" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <rect x="2" y="1.5" width="8" height="2" rx=".4" fill="white" />
             <rect x="2" y="5" width="8" height="2" rx=".4" fill="white" fillOpacity=".7" />
             <rect x="2" y="8.5" width="8" height="2" rx=".4" fill="white" fillOpacity=".4" />
