@@ -1,11 +1,11 @@
 /** @filedesc Live form preview panel that runs the FormEngine with scenario data and renders at a given viewport. */
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createFormEngine } from '@formspec-org/engine';
 import type { IFormEngine } from '@formspec-org/engine/render';
 import type { FormDefinition } from '@formspec-org/types';
 import { applyResponseDataToEngine } from '@formspec-org/webcomponent';
 import { useProjectState } from '../../state/useProjectState';
-import { normalizeDefinitionDoc } from '@formspec-org/studio-core';
+import { generateDefinitionSampleData, normalizeDefinitionDoc } from '@formspec-org/studio-core';
 import type { ResolvedTheme } from '../../hooks/useColorScheme';
 import { FormspecPreviewHost } from '../../workspaces/preview/FormspecPreviewHost';
 import type { Viewport } from '../../workspaces/preview/ViewportSwitcher';
@@ -15,6 +15,8 @@ const viewportWidths: Record<Viewport, string> = {
   tablet: '768px',
   mobile: '375px',
 };
+
+const SAMPLE_DEBOUNCE_MS = 250;
 
 interface SimulationResult {
   parseError?: string;
@@ -68,6 +70,49 @@ interface BehaviorPreviewProps {
 export function BehaviorPreview({ viewport = 'desktop', appearance }: BehaviorPreviewProps = {}) {
   const state = useProjectState();
   const [scenarioText, setScenarioText] = useState<string>('{}');
+  const scenarioUserEditedRef = useRef(false);
+
+  const defNormalized = useMemo(
+    () => normalizeDefinitionDoc(state.definition) as FormDefinition,
+    [state.definition],
+  );
+
+  const applyGeneratedSample = useCallback(async () => {
+    if (!defNormalized.items?.length) {
+      setScenarioText('{}');
+      return;
+    }
+    const data = await generateDefinitionSampleData(defNormalized);
+    setScenarioText(JSON.stringify(data, null, 2));
+  }, [defNormalized]);
+
+  useEffect(() => {
+    if (scenarioUserEditedRef.current) return;
+    let cancelled = false;
+    const id = window.setTimeout(() => {
+      void (async () => {
+        if (cancelled) return;
+        if (!defNormalized.items?.length) {
+          setScenarioText('{}');
+          return;
+        }
+        const data = await generateDefinitionSampleData(defNormalized);
+        if (!cancelled) {
+          setScenarioText(JSON.stringify(data, null, 2));
+        }
+      })();
+    }, SAMPLE_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
+  }, [defNormalized]);
+
+  const fillSampleFromDefinition = useCallback(() => {
+    scenarioUserEditedRef.current = false;
+    void applyGeneratedSample();
+  }, [applyGeneratedSample]);
+
   const parsedScenario = useMemo(() => parseScenarioText(scenarioText), [scenarioText]);
 
   const simulation = useMemo(() => {
@@ -102,17 +147,30 @@ export function BehaviorPreview({ viewport = 'desktop', appearance }: BehaviorPr
 
       <div className="flex min-h-0 flex-col gap-3 overflow-auto">
         <section className="rounded border border-border bg-surface p-3">
-          <div className="mb-2 text-sm font-semibold">Scenario JSON</div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-semibold">Scenario JSON</div>
+            <button
+              type="button"
+              className="shrink-0 rounded border border-border bg-subtle px-2 py-1 text-xs font-medium text-ink hover:bg-muted/30"
+              onClick={fillSampleFromDefinition}
+              data-testid="behavior-fill-sample"
+            >
+              Fill sample from definition
+            </button>
+          </div>
           <textarea
             data-testid="behavior-scenario-input"
             className="min-h-[140px] w-full rounded border border-border bg-bg-default p-2 font-mono text-xs outline-none focus:border-accent"
             value={scenarioText}
-            onChange={(event) => setScenarioText(event.target.value)}
+            onChange={(event) => {
+              scenarioUserEditedRef.current = true;
+              setScenarioText(event.target.value);
+            }}
             aria-label="Scenario JSON"
           />
           <p className="mt-2 text-xs text-muted">
-            Same nested shape as response <code className="text-[11px]">data</code> — applied to the live preview and
-            the behavior snapshot.
+            Pre-filled from the definition (same nested shape as response <code className="text-[11px]">data</code>
+            ). Edit freely; use the button above to regenerate after you change the spec.
           </p>
         </section>
 

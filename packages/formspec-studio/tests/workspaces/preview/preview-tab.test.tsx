@@ -1,4 +1,4 @@
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { FormspecRender } from '@formspec-org/webcomponent';
 import { createProject } from '@formspec-org/studio-core';
@@ -50,12 +50,18 @@ describe('PreviewTab', () => {
     expect(screen.getByText(/mobile/i)).toBeInTheDocument();
   });
 
-  it('shows behavior lab when Behavior mode is selected', () => {
+  it('shows behavior lab when Behavior mode is selected', async () => {
     renderPreview();
     fireEvent.click(screen.getByTestId('preview-mode-behavior'));
     expect(screen.getByTestId('behavior-scenario-input')).toBeInTheDocument();
     expect(screen.getByText('Scenario JSON')).toBeInTheDocument();
     expect(screen.getByText('Behavior Snapshot')).toBeInTheDocument();
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('behavior-scenario-input').value).toContain('name');
+      },
+      { timeout: 4000 },
+    );
   });
 
   it('renders FormspecPreviewHost with formspec-render when definition has items', () => {

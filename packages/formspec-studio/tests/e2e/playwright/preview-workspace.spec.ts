@@ -60,6 +60,8 @@ test.describe('Preview Workspace', () => {
     await workspace.getByTestId('preview-mode-behavior').click();
     await expect(workspace.getByTestId('behavior-scenario-input')).toBeVisible();
     await expect(workspace.getByTestId('formspec-preview-host')).toBeVisible();
+    await expect(workspace.getByTestId('behavior-fill-sample')).toBeVisible();
+    await expect(workspace.getByTestId('behavior-scenario-input')).toHaveValue(/firstName/, { timeout: 5000 });
   });
 
   test('renders form inputs for fields, group fieldset, and display text', async ({ page }) => {

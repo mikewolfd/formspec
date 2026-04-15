@@ -78,7 +78,7 @@ Derived hooks (`useDefinition`, `useComponent`, `useTheme`, `useMapping`) select
 | Layout | `LayoutCanvas` | Visual form builder — pages, layout containers, placement, and widget selection |
 | Theme | `ThemeTab` | Token editor, defaults, selector cascade, item overrides |
 | Mapping | `MappingTab` | Transform rules, adapter config, mapping preview |
-| Preview | `PreviewTab` | Live form preview, **Behavior** lab (scenario JSON + diagnostics), viewport switcher, and JSON documents view |
+| Preview | `PreviewTab` | Live form preview, **Behavior** lab (scenario JSON pre-filled from the definition via `generateDefinitionSampleData`, plus diagnostics), viewport switcher, and JSON documents view |
 
 ### Blueprint sidebar
 

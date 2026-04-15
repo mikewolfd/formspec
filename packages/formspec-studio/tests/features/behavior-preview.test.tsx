@@ -30,7 +30,7 @@ const relevantDefinition = {
 };
 
 describe('BehaviorPreview', () => {
-  it('shows live relevance changes from scenario input', async () => {
+  it('pre-fills scenario from the definition then reflects live relevance edits', async () => {
     const project = createProject({ seed: { definition: relevantDefinition as any } });
 
     render(
@@ -39,14 +39,31 @@ describe('BehaviorPreview', () => {
       </ProjectProvider>,
     );
 
+    const scenarioInput = screen.getByTestId('behavior-scenario-input');
+    await waitFor(
+      () => {
+        expect(scenarioInput.value).toContain('hasIncome');
+        expect(scenarioInput.value).toContain('monthlyIncome');
+      },
+      { timeout: 4000 },
+    );
+
     const host = screen.getByTestId('formspec-preview-host');
+    await waitFor(() => {
+      const field = host.querySelector('.formspec-field[data-name="income.monthlyIncome"]');
+      expect(field).toBeTruthy();
+      // Sample data sets booleans to true, so the conditional field starts relevant.
+      expect(field).not.toHaveClass('formspec-hidden');
+    });
+
+    fireEvent.change(scenarioInput, { target: { value: '{"income":{"hasIncome":false}}' } });
+
     await waitFor(() => {
       const field = host.querySelector('.formspec-field[data-name="income.monthlyIncome"]');
       expect(field).toBeTruthy();
       expect(field).toHaveClass('formspec-hidden');
     });
 
-    const scenarioInput = screen.getByTestId('behavior-scenario-input');
     fireEvent.change(scenarioInput, { target: { value: '{"income":{"hasIncome":true}}' } });
 
     await waitFor(() => {
@@ -58,5 +75,35 @@ describe('BehaviorPreview', () => {
     const row = screen.getByText('income.monthlyIncome').closest('div');
     expect(row).toBeTruthy();
     expect(within(row as HTMLElement).getByText('Yes')).toBeInTheDocument();
+  });
+
+  it('Fill sample from definition restores valid JSON after invalid edits', async () => {
+    const project = createProject({
+      seed: {
+        definition: {
+          $formspec: '1.0',
+          url: 'urn:fill-sample',
+          version: '1.0.0',
+          items: [{ key: 'title', type: 'field', dataType: 'string', label: 'Title' }],
+        } as any,
+      },
+    });
+
+    render(
+      <ProjectProvider project={project}>
+        <BehaviorPreview />
+      </ProjectProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('behavior-scenario-input').value).toContain('title'));
+
+    fireEvent.change(screen.getByTestId('behavior-scenario-input'), { target: { value: 'not json' } });
+    fireEvent.click(screen.getByTestId('behavior-fill-sample'));
+
+    await waitFor(() => {
+      const raw = screen.getByTestId('behavior-scenario-input').value;
+      expect(() => JSON.parse(raw)).not.toThrow();
+      expect(raw).toContain('title');
+    });
   });
 });
