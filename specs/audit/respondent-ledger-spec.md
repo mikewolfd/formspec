@@ -5,10 +5,10 @@ date: 2026-04-15
 status: draft
 ---
 
-# Respondent Ledger Add-On Specification v0.1
+# Respondent Ledger Add-On Specification v0.2
 
 **Status:** Draft  
-**Last updated:** 2026-03-22  
+**Last updated:** 2026-04-15  
 **Audience:** Formspec add-on editors, platform engineers, runtime implementers, trust/compliance reviewers  
 **Normative language:** The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHOULD**, **SHOULD NOT**, and **MAY** are to be interpreted as described in RFC 2119 / RFC 8174 when, and only when, they appear in all capitals.
 
@@ -328,7 +328,7 @@ Implementations using `assuranceLevel` **MUST** support at minimum the following
 | `L3` | Verified | Binding verified against an authoritative source (e.g., government ID match, credential issuer). |
 | `L4` | In-person or equivalent | Binding verified under conditions equivalent to in-person government-issued identity check. |
 
-Implementations **MAY** define additional levels; additional levels **MUST** be declared in reference to the base four.
+Implementations **MAY** define additional levels; additional levels **MUST** be declared with an explicit ordering position relative to the base four.
 
 Assurance levels are declared per attestation; they are not properties of the subject. An assurance level **MAY** be upgraded by a later `attestation.captured` event referencing the same `subjectRef`, but **MUST NOT** be silently downgraded. Upgrades apply forward only; prior events **MUST NOT** be rewritten.
 
@@ -358,6 +358,8 @@ Consequences:
 - `attestation.captured` events that upgrade assurance **MUST NOT** implicitly change the disclosure tier on the same `subjectRef`.
 - Disclosure re-scoping (e.g., a pseudonymous record being later identified) **MUST NOT** imply an assurance upgrade.
 - Reviewers and verifiers **MUST** be able to check assurance claims independently of disclosure claims.
+
+Note: `privacyTier` uses a closed enumeration (the four values above are exhaustive); `assuranceLevel` is extensible per §6.6.1 (implementations MAY declare additional levels). This asymmetry is intentional — privacy tiers are a fixed ontology; assurance levels are an ordered scale that domains may extend.
 
 ### 6.8 Authored signatures vs. recorded attestations
 

@@ -53,6 +53,8 @@ Plans 2 and 3 can only be authored after Plan 1's upstream homes exist.
 
 ## Task 1: Add `custodyHook` seam to WOS Kernel §10
 
+> **Implementation note:** Landed as S10.5 (custodyHook) and S10.6 (extensions), not the S10.6/S10.7 originally specified.
+
 **Files:**
 - Modify: `wos-spec/specs/kernel/spec.md` (§10 Named Extension Seams)
 - Modify: `wos-spec/schemas/kernel/wos-kernel.schema.json`
