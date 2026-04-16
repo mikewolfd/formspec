@@ -17,9 +17,10 @@ test.describe('Header Actions', () => {
     // Import, New Form, Export are inside the account dropdown menu
     await header.click({ position: { x: 0, y: 0 } }); // dismiss any open menus
     await page.click('button[aria-label="Account menu"]');
-    await expect(header.getByRole('button', { name: /import/i })).toBeVisible();
-    await expect(header.getByRole('button', { name: /new form/i })).toBeVisible();
-    await expect(header.getByRole('button', { name: /^export$/i })).toBeVisible();
+    // Dropdown entries use role="menuitem" (not button) per WAI-ARIA menu pattern.
+    await expect(header.getByRole('menuitem', { name: /import/i })).toBeVisible();
+    await expect(header.getByRole('menuitem', { name: /new form/i })).toBeVisible();
+    await expect(header.getByRole('menuitem', { name: /^export$/i })).toBeVisible();
   });
 
   test('exposes form metadata and avatar affordances as interactive controls', async ({ page }) => {

@@ -35,11 +35,11 @@ test('REGRESSION: Moving item back from nested container to root via context men
   
   // Right-click field1 inside stack
   await field1.click({ button: 'right' });
-  await page.click('[data-testid="layout-ctx-moveComponentNodeDown"]');
-  
+  await page.click('[data-testid="layout-ctx-moveDown"]');
+
   // Right-click again to move out
   await field1.click({ button: 'right' });
-  await page.click('[data-testid="layout-ctx-moveComponentNodeDown"]');
+  await page.click('[data-testid="layout-ctx-moveDown"]');
 
   // If it crashes, the next assertion or action will fail or page will reload.
   // We expect it to be visible at the root level now.

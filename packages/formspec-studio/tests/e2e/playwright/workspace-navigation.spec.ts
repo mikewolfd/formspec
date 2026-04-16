@@ -39,8 +39,9 @@ test.describe('Workspace Navigation — Tab Switching', () => {
   test('Mapping tab renders mapping workspace', async ({ page }) => {
     await switchTab(page, 'Mapping');
     const workspace = page.locator('[data-testid="workspace-Mapping"]');
-    await expect(workspace.getByRole('button', { name: 'Blueprint', exact: true })).toBeVisible();
-    await expect(workspace.getByRole('button', { name: 'Rules', exact: true })).toBeVisible();
+    // Section filter uses role="tab" on the control surface (MappingTab sectionTabs).
+    await expect(workspace.getByRole('tab', { name: 'Blueprint', exact: true })).toBeVisible();
+    await expect(workspace.getByRole('tab', { name: 'Rules', exact: true })).toBeVisible();
   });
 
   test('Preview tab renders preview workspace', async ({ page }) => {
