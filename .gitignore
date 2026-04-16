@@ -19,6 +19,8 @@ project/
 .claude/*
 !.claude/settings.json
 !.claude/mcp.json
+# OpenCode local project config
+opencode.json
 .serena/
 dist-playground/
 .playwright-mcp/
