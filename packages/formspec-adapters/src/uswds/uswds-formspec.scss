@@ -114,14 +114,10 @@ $fs-trailing-checkbox-size: 1.25rem !default;
   max-width: none;
 }
 
-// Grid/columns rows: collapse extra top margin between cells (stack rows keep rhythm below).
-.grid-row.grid-gap .usa-form-group {
-  margin-top: 0;
-}
-
-.formspec-stack:not(.formspec-stack--horizontal).grid-row.grid-gap > [class*='grid-col'] + [class*='grid-col'] {
-  margin-top: var(--formspec-uswds-stack-gap, #{units(3)});
-}
+// Do not zero `.usa-form-group` margin inside grid rows — USWDS uses `margin-top` on each group for
+// rhythm between fields (label of the next group sits below the prior control). A previous
+// `margin-top: 0` here removed that spacing for theme Page → Grid layouts; `row-gap` on the row
+// instead split flex lines and looked like extra space between labels and controls.
 
 .grid-row.grid-gap > [class*='grid-col'] > .usa-form-group {
   flex: 1;

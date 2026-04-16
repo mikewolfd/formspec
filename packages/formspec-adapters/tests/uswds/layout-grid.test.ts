@@ -129,9 +129,9 @@ describe('USWDS integrationCSS layout grid', () => {
         expect(integrationCSS).toContain('.usa-form-group');
     });
 
-    it('only adds vertical stack rhythm on later full-width stack cells', async () => {
+    it('does not strip USWDS form-group top margin inside grid rows (that spacing is between fields)', async () => {
         const { integrationCSS } = await import('../../src/uswds/integration-css');
-        expect(integrationCSS).toMatch(/\.formspec-stack:not\(\.formspec-stack--horizontal\)\.grid-row\.grid-gap>\[class\*=grid-col\]\+\[class\*=grid-col\]\{margin-top:var\(--formspec-uswds-stack-gap,\s*1\.5rem\)\}/);
+        expect(integrationCSS).not.toMatch(/\.grid-row\.grid-gap\s+\.usa-form-group\s*\{[^}]*margin-top:\s*0/);
         expect(integrationCSS).not.toContain('.formspec-stack.grid-row.grid-gap .usa-form-group{margin-top:1.5rem}');
     });
 
