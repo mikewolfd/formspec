@@ -89,6 +89,23 @@ function findNode(
   return undefined;
 }
 
+/**
+ * Find the parent node and index whose `children[index]` is the given `target`.
+ * Used to reparent when reordering past the end of a sibling list (outdent).
+ */
+function findParentContainingChild(
+  root: TreeNode,
+  target: TreeNode,
+): { parent: TreeNode; index: number } | undefined {
+  const children = root.children ?? [];
+  for (let i = 0; i < children.length; i++) {
+    if (children[i] === target) return { parent: root, index: i };
+    const nested = findParentContainingChild(children[i], target);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
 export const componentTreeHandlers: Record<string, CommandHandler> = {
 
   /**
@@ -199,12 +216,32 @@ export const componentTreeHandlers: Record<string, CommandHandler> = {
     const result = findNode(root, ref);
     if (!result || result.index === -1) throw new Error('Node not found');
 
-    const children = result.parent.children!;
+    const parent = result.parent;
+    const children = parent.children!;
     const idx = result.index;
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= children.length) return { rebuildComponentTree: false };
 
-    [children[idx], children[targetIdx]] = [children[targetIdx], children[idx]];
+    if (targetIdx >= 0 && targetIdx < children.length) {
+      [children[idx], children[targetIdx]] = [children[targetIdx], children[idx]];
+      return { rebuildComponentTree: false };
+    }
+
+    // Outdent: no adjacent sibling in that direction — move into the grandparent's
+    // child list before/after the current parent (layout canvas "move out" of a wrapper).
+    const grand = findParentContainingChild(root, parent);
+    if (!grand) return { rebuildComponentTree: false };
+
+    if (direction === 'down' && idx === children.length - 1) {
+      const [node] = children.splice(idx, 1);
+      grand.parent.children!.splice(grand.index + 1, 0, node);
+      return { rebuildComponentTree: false };
+    }
+    if (direction === 'up' && idx === 0) {
+      const [node] = children.splice(idx, 1);
+      grand.parent.children!.splice(grand.index, 0, node);
+      return { rebuildComponentTree: false };
+    }
+
     return { rebuildComponentTree: false };
   },
 

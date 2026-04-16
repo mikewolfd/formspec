@@ -304,6 +304,55 @@ describe('component.reorderNode', () => {
     expect(tree.children[0].component).toBe('Stack');
     expect(tree.children[1].component).toBe('Card');
   });
+
+  it('outdents last child when moving down past sibling end (into grandparent after parent)', () => {
+    const project = createRawProject();
+
+    const wrapper = (project.dispatch({
+      type: 'component.addNode',
+      payload: { parent: { nodeId: 'root' }, component: 'Stack' },
+    }) as any).nodeRef;
+
+    const leaf = (project.dispatch({
+      type: 'component.addNode',
+      payload: { parent: wrapper, component: 'TextInput', bind: 'onlyField' },
+    }) as any).nodeRef;
+
+    project.dispatch({
+      type: 'component.reorderNode',
+      payload: { node: leaf, direction: 'down' },
+    });
+
+    const tree = project.component.tree as any;
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children[0].component).toBe('Stack');
+    expect(tree.children[0].children ?? []).toHaveLength(0);
+    expect(tree.children[1].bind).toBe('onlyField');
+  });
+
+  it('outdents first child when moving up past sibling start (into grandparent before parent)', () => {
+    const project = createRawProject();
+
+    const wrapper = (project.dispatch({
+      type: 'component.addNode',
+      payload: { parent: { nodeId: 'root' }, component: 'Stack' },
+    }) as any).nodeRef;
+
+    const leaf = (project.dispatch({
+      type: 'component.addNode',
+      payload: { parent: wrapper, component: 'TextInput', bind: 'onlyField' },
+    }) as any).nodeRef;
+
+    project.dispatch({
+      type: 'component.reorderNode',
+      payload: { node: leaf, direction: 'up' },
+    });
+
+    const tree = project.component.tree as any;
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children[0].bind).toBe('onlyField');
+    expect(tree.children[1].component).toBe('Stack');
+  });
 });
 
 describe('component.duplicateNode', () => {
