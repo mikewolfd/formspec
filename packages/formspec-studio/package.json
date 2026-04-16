@@ -27,9 +27,8 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@dnd-kit/dom": "^0.3.2",
-    "@dnd-kit/helpers": "^0.3.2",
-    "@dnd-kit/react": "^0.3.2",
+    "@atlaskit/pragmatic-drag-and-drop": "^1.7.10",
+    "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
     "@floating-ui/react": "^0.27.19",
     "@formspec-org/chat": "*",
     "@formspec-org/engine": "*",

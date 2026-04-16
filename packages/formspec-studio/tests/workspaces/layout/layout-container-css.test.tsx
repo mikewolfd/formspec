@@ -5,20 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { LayoutContainer } from '../../../src/workspaces/layout/LayoutContainer';
 import { useLayoutResizeReporter } from '../../../src/workspaces/layout/LayoutResizeContext';
 
-// dnd-kit hooks mocked — no DndContext needed
-vi.mock('@dnd-kit/react', () => ({
-  useDroppable: () => ({ ref: () => {}, isDropTarget: false }),
-  useDragOperation: () => ({ source: null }),
-}));
-
-vi.mock('@dnd-kit/react/sortable', () => ({
-  useSortable: () => ({
-    ref: () => {},
-    handleRef: () => {},
-    isDragSource: false,
-  }),
-}));
-
 function ResizeProbe() {
   const reportResize = useLayoutResizeReporter();
 
@@ -134,19 +120,21 @@ describe('LayoutContainer — Collapsible', () => {
         <div data-testid="child-content">child</div>
       </LayoutContainer>,
     );
-    // Children hidden when closed
-    expect(container.querySelector('[data-layout-content]')).toBeNull();
+    const content = container.querySelector('[data-layout-content]');
+    expect(content).not.toBeNull();
+    expect(content).toHaveAttribute('data-layout-collapsed', 'true');
+    expect(content?.querySelector('[data-testid="child-content"]')).not.toBeNull();
   });
 
-  it('keeps collapsible content mounted while layout drag is active so nested DnD can register', () => {
-    // Note: isDragActive is now detected via useDragOperation mock
+  it('keeps collapsible content mounted when closed so nested drag targets stay registered', () => {
     const { container } = render(
       <LayoutContainer component="Collapsible" nodeType="layout" sortableGroup="root" sortableIndex={0} nodeId="n12b" layoutProps={{ title: 'Sect', defaultOpen: false }}>
         <div data-testid="child-content">child</div>
       </LayoutContainer>,
     );
-    // isDragActive default in mock is false, so it should be null here
-    expect(container.querySelector('[data-layout-content]')).toBeNull();
+    const content = container.querySelector('[data-layout-content]');
+    expect(content).not.toBeNull();
+    expect(content).toHaveAttribute('data-layout-collapsed', 'true');
   });
 
   it('toggles open/closed on header click', () => {
@@ -155,9 +143,10 @@ describe('LayoutContainer — Collapsible', () => {
         <div data-testid="child-content">child</div>
       </LayoutContainer>,
     );
-    expect(container.querySelector('[data-layout-content]')).toBeNull();
+    const contentEl = () => container.querySelector('[data-layout-content]');
+    expect(contentEl()).toHaveAttribute('data-layout-collapsed', 'true');
     fireEvent.click(screen.getByTestId('layout-select-row'));
-    expect(container.querySelector('[data-layout-content]')).not.toBeNull();
+    expect(contentEl()).not.toHaveAttribute('data-layout-collapsed');
   });
 });
 

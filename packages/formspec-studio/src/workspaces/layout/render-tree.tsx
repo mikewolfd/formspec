@@ -73,6 +73,17 @@ const ROOT_CONTEXT: ParentLayoutContext = {
   parentGridColumns: 0,
 };
 
+/**
+ * Pragmatic list collision uses **higher** `collisionPriority` first. `LayoutContainer` uses `depth * 10`,
+ * so a Stack/Accordion shell wraps its children in the DOM and would otherwise **beat** inner
+ * `FieldBlock` / `DisplayBlock` rows (same rect stack) — breaking in-container reorder and cross-parent drags.
+ */
+const LAYOUT_LEAF_COLLISION_BOOST = 100;
+
+function leafRowCollisionPriority(containerDepth: number): number {
+  return containerDepth * 10 + LAYOUT_LEAF_COLLISION_BOOST;
+}
+
 function resolveDefPathMaps(
   key: string,
   defPathPrefix: string,
@@ -304,12 +315,12 @@ export function renderLayoutTree(
   /** True when nodes live on the active wizard page or single-page canvas (see LayoutCanvas). */
   pageSectionActive = false,
   /**
-   * @dnd-kit sortable group id for direct children (`root`, a parent `nodeId`, or `bind:` + definition key).
+   * Reorder list id for direct children (`root`, a parent `nodeId`, or `bind:` + definition key).
    */
   sortableGroupId = 'root',
 ): ReactNode[] {
   const result: ReactNode[] = [];
-  /** Contiguous index among rendered sortable siblings (loop index `i` skips nodes → breaks @dnd-kit/sortable). */
+  /** Contiguous index among rendered reorder siblings (loop index `i` skips nodes → must stay aligned with drag payloads). */
   let siblingSortIndex = 0;
 
   for (let i = 0; i < nodes.length; i++) {
@@ -374,6 +385,7 @@ export function renderLayoutTree(
           onResizeRowSpan={ctx.onResizeRowSpan ? (n) => ctx.onResizeRowSpan!(nodeSelKey, n) : undefined}
           sortableGroup={sortableGroupId}
           sortableIndex={siblingSortIndex++}
+          collisionPriority={leafRowCollisionPriority(containerDepth)}
           treeDragNodeRef={{ nodeId: node.nodeId! }}
         />,
       );
@@ -517,6 +529,7 @@ export function renderLayoutTree(
           onStyleRemove={ctx.onStyleRemove ? (k) => ctx.onStyleRemove!(defPath, k) : undefined}
           sortableGroup={sortableGroupId}
           sortableIndex={siblingSortIndex++}
+          collisionPriority={leafRowCollisionPriority(containerDepth)}
         />,
       );
       continue;
@@ -580,6 +593,7 @@ export function renderLayoutTree(
           }
           sortableGroup={sortableGroupId}
           sortableIndex={siblingSortIndex++}
+          collisionPriority={leafRowCollisionPriority(containerDepth)}
           treeDragNodeRef={{ nodeId: node.nodeId }}
         />,
       );

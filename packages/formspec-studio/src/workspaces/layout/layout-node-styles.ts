@@ -22,4 +22,5 @@ export const LAYOUT_LEAF_SELECTED =
 export const LAYOUT_LEAF_UNSELECTED = 'rounded-[8px] border border-transparent hover:border-border/60 hover:bg-subtle/30 transition-all';
 
 /** Premium style for an active drag source: 'picked up' feel with scale, grayscale, and reduced opacity. */
-export const LAYOUT_DRAG_SOURCE_STYLE = 'opacity-40 grayscale-[0.2] scale-[0.98] ring-2 ring-accent/45 ring-offset-2 ring-offset-background';
+export const LAYOUT_DRAG_SOURCE_STYLE =
+  'opacity-55 grayscale-[0.15] scale-[0.98] ring-2 ring-accent/60 ring-offset-2 ring-offset-background shadow-md';

@@ -1,8 +1,8 @@
 /** @filedesc Tray showing definition items not bound in the component tree. */
-import { useMemo } from 'react';
-import { useDraggable } from '@dnd-kit/react';
-import { STUDIO_DND_FEEDBACK } from '../shared/dnd-config';
-import { LAYOUT_DRAG_SOURCE_STYLE } from '../layout/layout-node-styles';
+import { useEffect, useMemo, useState } from 'react';
+import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import { LAYOUT_PDND_KIND } from './layout-pdnd-kind';
+import { LAYOUT_DRAG_SOURCE_STYLE } from './layout-node-styles';
 import type { FormItem } from '@formspec-org/types';
 import {
   computeUnassignedItems,
@@ -26,23 +26,32 @@ function UnassignedTrayItem({
   activePageId?: string | null;
   onPlaceItem?: (item: UnassignedItem) => void;
 }) {
-  const { ref: dragRef, isDragging } = useDraggable({
-    id: `unassigned:${item.key}`,
-    feedback: STUDIO_DND_FEEDBACK,
-    data: {
-      type: 'unassigned-item',
-      key: item.key,
-      label: item.label,
-      itemType: item.itemType,
-    },
-  });
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (!host) return;
+    return draggable({
+      element: host,
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+      getInitialData: () => ({
+        kind: LAYOUT_PDND_KIND,
+        type: 'unassigned-item',
+        id: `unassigned:${item.key}`,
+        key: item.key,
+        label: item.label,
+        itemType: item.itemType,
+      }),
+    });
+  }, [host, item.key, item.label, item.itemType]);
 
   return (
     <div
-      ref={dragRef}
+      ref={setHost}
       tabIndex={0}
       data-testid={`unassigned-${item.key}`}
-      aria-label={`${item.label} — drag to canvas or focus and press Space to pick up, arrow keys to move, Space to drop`}
+      aria-label={`${item.label} — drag onto the layout canvas to place`}
       className={`flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[12px] text-muted outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-accent/55 ${
         isDragging ? `cursor-grabbing ${LAYOUT_DRAG_SOURCE_STYLE}` : 'cursor-grab'
       }`}

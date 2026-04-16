@@ -1,8 +1,6 @@
 /** @filedesc Layout canvas wrapper for layout nodes — applies real CSS layout per container type (Grid, Stack, Card, Panel, Collapsible, Accordion). */
 import React, { useState, useRef, useCallback, type ReactNode } from 'react';
 import { DragHandle } from '../../components/ui/DragHandle';
-import { useDroppable, useDragOperation } from '@dnd-kit/react';
-import { useSortable } from '@dnd-kit/react/sortable';
 import { hasTier3Content, type ContainerLayoutProps } from '@formspec-org/studio-core';
 import { InlineToolbar } from './InlineToolbar';
 import { PropertyPopover } from './PropertyPopover';
@@ -11,9 +9,15 @@ import {
   LAYOUT_CONTAINER_SELECTED,
   LAYOUT_CONTAINER_UNSELECTED,
   LAYOUT_CONTAINER_UNSELECTED_ON_ACTIVE_PAGE,
-  LAYOUT_DRAG_SOURCE_STYLE,
 } from './layout-node-styles';
-import { STUDIO_DND_FEEDBACK, STUDIO_SORTABLE_TRANSITION } from '../shared/dnd-config';
+import { useLayoutCanvasContainerDropTargetActive } from './LayoutCanvasDragFeedbackContext';
+import { LayoutCanvasRowDropGuides } from './LayoutCanvasRowDropGuides';
+import {
+  LAYOUT_CANVAS_EMPTY_CONTAINER_DROP_ACTIVE,
+  layoutCanvasContainerShellClassName,
+} from './layout-canvas-drag-chrome';
+import { useLayoutPragmaticContainerDrop } from './useLayoutPragmaticContainerDrop';
+import { useLayoutPragmaticItem } from './useLayoutPragmaticItem';
 
 export interface LayoutContainerProps {
   component: string;
@@ -27,7 +31,7 @@ export interface LayoutContainerProps {
   /** When set, inline toolbar only shows on the primary row during multi-select. */
   layoutPrimaryKey?: string | null;
   onSelect?: (e: React.MouseEvent | React.KeyboardEvent) => void;
-  /** Parent list id for @dnd-kit/sortable (root stack, page, or layout/bind group). */
+  /** Parent list id for layout canvas reorder (root stack, page, or layout/bind group). */
   sortableGroup: string;
   /** Index among siblings in `sortableGroup`. */
   sortableIndex: number;
@@ -110,25 +114,24 @@ function buildContentStyle(component: string, layoutProps: ContentStyleProps = {
 }
 
 /** Subtle drop target rendered only when a container is empty. */
-function EmptyContainerPlaceholder({ containerRef, collisionPriority }: { containerRef: {bind?: string, nodeId?: string}; collisionPriority: number }) {
-  const containerIdText = containerRef.nodeId ?? `bind:${containerRef.bind}`;
-  const { ref, isDropTarget } = useDroppable({
-    id: `empty-${containerIdText}`,
-    data: { type: 'container-drop', nodeRef: containerRef },
-    collisionPriority,
+function EmptyContainerPlaceholder({ containerRef }: { containerRef: { bind?: string; nodeId?: string } }) {
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  const emptyDropActive = useLayoutCanvasContainerDropTargetActive(containerRef);
+  useLayoutPragmaticContainerDrop({
+    element: host,
+    enabled: !!(containerRef.nodeId || containerRef.bind),
+    nodeRef: containerRef,
   });
-  
+
   return (
-    <div 
-      ref={ref}
+    <div
+      ref={setHost}
       data-testid="empty-container-placeholder"
-      className={`py-8 border-2 border-dashed rounded-[16px] flex flex-col items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] transition-all duration-200 ${
-        isDropTarget 
-          ? 'bg-accent/15 border-accent text-accent shadow-sm scale-[0.99]' 
-          : 'bg-bg-default/30 border-accent/10 text-accent/20'
+      className={`py-8 border-2 border-dashed rounded-[16px] flex flex-col items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] transition-all duration-200 bg-bg-default/30 border-accent/10 text-accent/20 ${
+        emptyDropActive ? LAYOUT_CANVAS_EMPTY_CONTAINER_DROP_ACTIVE : ''
       }`}
     >
-      <div className={`w-1.5 h-1.5 rounded-full ${isDropTarget ? 'bg-accent' : 'bg-accent/20'}`} />
+      <div className="w-1.5 h-1.5 rounded-full bg-accent/20" />
       Empty Container
     </div>
   );
@@ -155,13 +158,11 @@ export function LayoutContainer(props: LayoutContainerProps) {
     onUnwrap,
     onRemove,
     onStyleRemove,
-    collisionPriority = 0,
+    collisionPriority: _collisionPriority = 0,
     pageSectionActive = false,
   } = props;
 
-  // Track active drag state for UI feedback.
-  const dragOperation = useDragOperation();
-  const isDragActive = !!dragOperation.source;
+  void _collisionPriority;
 
   const resolvedLayoutProps = layoutProps ?? {};
   const [open, setOpen] = useState(resolvedLayoutProps.defaultOpen ?? true);
@@ -169,28 +170,39 @@ export function LayoutContainer(props: LayoutContainerProps) {
   const [childResizeState, setChildResizeState] = useState<LayoutResizeState | null>(null);
   const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
   const dragHandleRef = useRef<Element | null>(null);
+  const [shellEl, setShellEl] = useState<HTMLDivElement | null>(null);
+  const [headerDropEl, setHeaderDropEl] = useState<HTMLDivElement | null>(null);
+  const [dragHandleHost, setDragHandleHost] = useState<Element | null>(null);
+  const [isDragSource, setIsDragSource] = useState(false);
   const reportChildResize = useCallback((state: LayoutResizeState | null) => {
     setChildResizeState(state);
   }, []);
 
   const dragId = nodeId ? `node:${nodeId}` : `bind:${bind ?? component}`;
   const nodeRef = nodeId ? { nodeId } : bind ? { bind } : undefined;
+  const containerDropActive = useLayoutCanvasContainerDropTargetActive(nodeRef ?? null);
 
-  const { ref: sortableRef, handleRef: connectSortableHandle, isDragSource } = useSortable({
-    id: dragId,
-    index: sortableIndex,
-    group: sortableGroup,
-    data: { nodeRef, type: 'tree-node' },
-    handle: dragHandleRef,
-    collisionPriority,
-    feedback: STUDIO_DND_FEEDBACK,
-    transition: STUDIO_SORTABLE_TRANSITION,
+  useLayoutPragmaticItem({
+    enabled: !!nodeRef,
+    element: shellEl,
+    dragHandle: dragHandleHost,
+    sortableGroup,
+    sortableIndex,
+    nodeRef: nodeRef!,
+    sourceId: dragId,
+    onDragSourceChange: setIsDragSource,
   });
 
-
   const isCollapsible = component === 'Collapsible' || component === 'Accordion';
-  /** Keep body mounted during canvas drag so nested sortables / insert slots stay registered (avoids dnd-kit crashes). */
-  const showCollapsibleContent = !isCollapsible || open || isDragActive;
+  /** Visually collapse only — content stays mounted (nested drag targets stay registered). */
+  const collapsibleContentClosed = isCollapsible && !open;
+
+  useLayoutPragmaticContainerDrop({
+    element: headerDropEl,
+    enabled: isCollapsible && !!nodeRef && !isDragSource,
+    nodeRef: nodeRef!,
+  });
+
   const contentStyle = buildContentStyle(component, resolvedLayoutProps);
   const containerStyle: React.CSSProperties = component === 'Panel' && resolvedLayoutProps.width
     ? { width: resolvedLayoutProps.width }
@@ -221,7 +233,7 @@ export function LayoutContainer(props: LayoutContainerProps) {
 
   return (
     <div
-      ref={sortableRef}
+      ref={setShellEl}
       data-testid={`layout-container-${nodeId ?? bind ?? component}`}
       data-layout-node
       data-layout-node-type={nodeType}
@@ -231,16 +243,19 @@ export function LayoutContainer(props: LayoutContainerProps) {
       {...(nodeId ? { 'data-layout-node-id': nodeId } : {})}
       {...(selectionKey ? { 'data-layout-select-key': selectionKey } : {})}
       style={containerStyle}
-      className={`transition-all duration-200 ${
-        isDragSource ? LAYOUT_DRAG_SOURCE_STYLE : ''
-      } ${shellClasses}`}
+      className={layoutCanvasContainerShellClassName({
+        selectionShell: shellClasses,
+        isDragSource,
+        containerDropActive,
+      })}
     >
-      {/* Header: drag grip (dnd activator) + clickable row (selection + toolbar). */}
-      <div className="flex w-full items-center gap-1 rounded px-2 py-1.5 md:px-2 md:py-2">
+      {nodeRef ? <LayoutCanvasRowDropGuides sortableGroup={sortableGroup} sortableIndex={sortableIndex} /> : null}
+      {/* Header: drag grip + row. Collapsible `container-drop` is header-only so inner rows stay the innermost drop target. */}
+      <div ref={isCollapsible ? setHeaderDropEl : undefined} className="flex w-full items-center gap-1 rounded px-2 py-1.5 md:px-2 md:py-2">
         <DragHandle
           ref={(el) => {
             dragHandleRef.current = el;
-            connectSortableHandle(el);
+            setDragHandleHost(el);
           }}
           label={`Reorder ${displayTitle ?? component}`}
           className="h-9 shrink-0"
@@ -317,14 +332,19 @@ export function LayoutContainer(props: LayoutContainerProps) {
         />
       )}
 
-      {/* Content area — hidden when collapsible is closed unless a layout drag is active (keeps nested DnD valid). */}
-      {showCollapsibleContent && (
-        <LayoutResizeProvider onResizeChange={reportChildResize}>
-          <div
-            data-layout-content
-            style={contentStyle}
-            className="relative px-3 pb-2"
-          >
+      {/* Content area — collapsible hides via CSS when closed; never unmount (keeps nested Pragmatic drop targets registered). */}
+      <LayoutResizeProvider onResizeChange={reportChildResize}>
+        <div
+          data-layout-content
+          {...(collapsibleContentClosed ? { 'data-layout-collapsed': 'true' } : {})}
+          inert={collapsibleContentClosed ? true : undefined}
+          style={contentStyle}
+          className={`relative px-3 pb-2 transition-[max-height,opacity] duration-200 ease-out ${
+            collapsibleContentClosed
+              ? 'max-h-0 overflow-hidden p-0 pb-0 opacity-0 pointer-events-none'
+              : ''
+          }`}
+        >
             {/* Column guides overlay when a child is resizing inside a Grid */}
             {showColumnGuides && childResizeAxis === 'x' && (
               <div
@@ -360,16 +380,18 @@ export function LayoutContainer(props: LayoutContainerProps) {
               </div>
             )}
 
-            <div style={contentStyle} className="relative min-h-[1.5rem] w-full">
+            <div
+              style={contentStyle}
+              className={`relative w-full ${collapsibleContentClosed ? 'min-h-0' : 'min-h-[1.5rem]'}`}
+            >
               {React.Children.count(children) > 0 ? (
                 children
               ) : (
-                <EmptyContainerPlaceholder key="empty-placeholder" containerRef={nodeRef!} collisionPriority={collisionPriority + 1} />
+                <EmptyContainerPlaceholder key="empty-placeholder" containerRef={nodeRef!} />
               )}
             </div>
-          </div>
-        </LayoutResizeProvider>
-      )}
+        </div>
+      </LayoutResizeProvider>
     </div>
   );
 }

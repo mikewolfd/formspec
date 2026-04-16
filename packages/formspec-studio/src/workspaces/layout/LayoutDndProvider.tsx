@@ -1,73 +1,111 @@
-/** @filedesc DnD wrapper for the Layout canvas — reorders component tree nodes. */
-import { useCallback, type ReactNode } from 'react';
-import { DragDropProvider, PointerSensor } from '@dnd-kit/react';
-import { STUDIO_POINTER_ACTIVATION } from '../shared/dnd-config';
+/** @filedesc DnD wrapper for the Layout canvas — Pragmatic drag-and-drop, reorders component tree nodes. */
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { useProject } from '../../state/useProject';
 import { useSelection } from '../../state/useSelection';
-import { handleDragEnd, type DragEndEvent, type DragEndPayload } from './layout-dnd-utils';
+import { handleDragEnd, type DragEndEvent } from './layout-dnd-utils';
+import {
+  LAYOUT_PDND_KIND,
+  layoutCanvasDropIndicatorFromTargetData,
+  pragmaticMonitorDropToDragEnd,
+} from './layout-pdnd';
+import { layoutDragOverlayFromPdndSource } from './LayoutDragOverlay';
+import {
+  LayoutCanvasDragFeedbackProvider,
+  type LayoutCanvasDragFeedbackState,
+} from './LayoutCanvasDragFeedbackContext';
+import { layoutCanvasDragOverlayPositionStyle } from './layout-canvas-drag-chrome';
+import { isRecord } from '../shared/runtime-guards';
 
 interface LayoutDndProviderProps {
   children: ReactNode;
   activePageId?: string | null;
 }
 
-interface SortableDraggable {
-  sortable: {
-    group: string | number;
-    index: number;
-    initialGroup: string | number;
-    initialIndex: number;
-  };
-}
+const emptyFeedback: LayoutCanvasDragFeedbackState = { pointer: null, indicator: null };
 
-function isSortableDraggable(draggable: unknown): draggable is SortableDraggable {
-  return (
-    !!draggable &&
-    typeof draggable === 'object' &&
-    'sortable' in draggable &&
-    typeof (draggable as any).sortable === 'object'
-  );
-}
-
-/**
- * DnD provider for the Layout workspace.
- * Reset to stock configuration as requested.
- */
 export function LayoutDndProvider({ children, activePageId = null }: LayoutDndProviderProps) {
   const project = useProject();
   const { select } = useSelection();
+  const [overlaySource, setOverlaySource] = useState<Record<string, unknown> | null>(null);
+  const [dragFeedback, setDragFeedback] = useState<LayoutCanvasDragFeedbackState>(emptyFeedback);
 
-  const onDragEnd = useCallback((event: DragEndPayload) => {
-    if (event.canceled) return;
+  const onDrop = useCallback(
+    (payload: Parameters<NonNullable<Parameters<typeof monitorForElements>[0]['onDrop']>>[0]) => {
+      try {
+        const ev = pragmaticMonitorDropToDragEnd(project, {
+          source: payload.source,
+          location: payload.location,
+        });
+        if (ev && !ev.canceled) {
+          handleDragEnd(project, ev, activePageId, (key, itemType, opts) => select(key, itemType, opts));
+        }
+      } finally {
+        setOverlaySource(null);
+        setDragFeedback(emptyFeedback);
+      }
+    },
+    [project, select, activePageId],
+  );
 
-    const source = event.operation?.source;
-    const target = event.operation?.target;
+  const onDragStart = useCallback(
+    (payload: Parameters<NonNullable<Parameters<typeof monitorForElements>[0]['onDragStart']>>[0]) => {
+      const d = payload.source.data;
+      setOverlaySource(isRecord(d) ? d : null);
+      const input = payload.location.current.input;
+      setDragFeedback({
+        pointer: { clientX: input.clientX, clientY: input.clientY },
+        indicator: null,
+      });
+    },
+    [],
+  );
 
-    const dragEndPayload: DragEndEvent = {
-      canceled: false,
-      source: source ? { id: String(source.id ?? ''), data: source.data ?? {} } : { id: '', data: {} },
-      target: target ? { id: String(target.id ?? ''), data: target.data ?? {} } : null,
-      sortable: isSortableDraggable(source) ? source.sortable : null,
-    };
+  const onDrag = useCallback(
+    (payload: Parameters<NonNullable<Parameters<typeof monitorForElements>[0]['onDrag']>>[0]) => {
+      const input = payload.location.current.input;
+      const targets = payload.location.current.dropTargets;
+      let indicator = null;
+      if (targets.length > 0) {
+        const data = targets[0].data;
+        if (isRecord(data)) {
+          indicator = layoutCanvasDropIndicatorFromTargetData(data);
+        }
+      }
+      setDragFeedback({
+        pointer: { clientX: input.clientX, clientY: input.clientY },
+        indicator,
+      });
+    },
+    [],
+  );
 
-    // Defer state update so dnd-kit can settle its own DOM cleanup before React re-renders.
-    setTimeout(() => {
-      handleDragEnd(project, dragEndPayload, activePageId, (key, itemType, opts) => 
-        select(key, itemType, opts)
-      );
-    }, 0);
-  }, [project, select, activePageId]);
+  useEffect(() => {
+    return monitorForElements({
+      canMonitor: ({ source }) => {
+        const d = source.data;
+        if (!isRecord(d)) return false;
+        return d.kind === LAYOUT_PDND_KIND;
+      },
+      onDragStart,
+      onDrag,
+      onDrop,
+    });
+  }, [onDragStart, onDrag, onDrop]);
+
+  const ptr = dragFeedback.pointer;
 
   return (
-    <DragDropProvider
-      onDragEnd={onDragEnd}
-      sensors={() => [
-        PointerSensor.configure({
-          activationConstraints: STUDIO_POINTER_ACTIVATION,
-        }),
-      ]}
-    >
+    <LayoutCanvasDragFeedbackProvider value={dragFeedback}>
       {children}
-    </DragDropProvider>
+      {overlaySource ? (
+        <div
+          className={`pointer-events-none fixed z-[9999] ${ptr ? '' : 'left-1/2 top-4 -translate-x-1/2'}`}
+          style={layoutCanvasDragOverlayPositionStyle(ptr)}
+        >
+          {layoutDragOverlayFromPdndSource(overlaySource)}
+        </div>
+      ) : null}
+    </LayoutCanvasDragFeedbackProvider>
   );
 }

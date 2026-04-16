@@ -6,14 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { FieldBlock } from '../../../src/workspaces/layout/FieldBlock';
 import { OpenDefinitionInEditorProvider } from '../../../src/state/OpenDefinitionInEditorContext';
 
-vi.mock('@dnd-kit/react/sortable', () => ({
-  useSortable: () => ({
-    ref: () => {},
-    handleRef: () => {},
-    isDragSource: false,
-  }),
-}));
-
 const base = {
   itemKey: 'email',
   bindPath: 'email',

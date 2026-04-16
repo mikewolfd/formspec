@@ -7,6 +7,7 @@ import {
   handleDragEnd,
   sortGroupToParentRef,
 } from '../../../src/workspaces/layout/layout-dnd-utils';
+import { LAYOUT_PDND_KIND } from '../../../src/workspaces/layout/layout-pdnd-kind';
 import { createProject, findParentOfNodeRef, type Project } from '@formspec-org/studio-core';
 
 function makeProject() {
@@ -289,7 +290,10 @@ describe('handleDragEnd — tray to tree-node spatial drop', () => {
 
     handleDragEnd(project, {
       canceled: false,
-      source: { id: 'unassigned:email', data: { type: 'unassigned-item', key: 'email', label: 'Email', itemType: 'field' } },
+      source: {
+        id: 'unassigned:email',
+        data: { kind: LAYOUT_PDND_KIND, type: 'unassigned-item', key: 'email', label: 'Email', itemType: 'field' },
+      },
       target: { id: 'field:name', data: { type: 'tree-node', nodeRef: { bind: 'name' } } },
     }, 'page-1', selectFn);
 

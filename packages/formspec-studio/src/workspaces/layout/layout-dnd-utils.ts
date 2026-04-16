@@ -1,11 +1,12 @@
 /** @filedesc Pure DnD event handlers for the layout canvas — routes drag-end events to project methods. */
-import type { DragStartEvent as DndDragStartEvent, DragEndEvent as DndDragEndEvent } from '@dnd-kit/dom';
 import type { CompNode, NodeRef, Project } from '@formspec-org/studio-core';
 import { findParentOfNodeRef, isCircularComponentMove } from '@formspec-org/studio-core';
+import { LAYOUT_PDND_KIND } from './layout-pdnd-kind';
 
 export type UnassignedItemData = { key: string; label: string; itemType: 'field' | 'group' | 'display' };
-export type DragStartPayload = Parameters<DndDragStartEvent>[0];
-export type DragEndPayload = Parameters<DndDragEndEvent>[0];
+/** Opaque drag payload from the monitor layer (tests may stub). */
+export type DragStartPayload = unknown;
+export type DragEndPayload = unknown;
 
 export function isUnassignedItemData(data: unknown): data is UnassignedItemData {
   return !!data && typeof data === 'object' && 'key' in data && 'label' in data && 'itemType' in data;
@@ -65,7 +66,17 @@ export function sortGroupToParentRef(group: string | number): NodeRef | null {
   return { nodeId: g };
 }
 
-/** Sortable placement extracted from the raw @dnd-kit source after drag. */
+/** Index of the child matching `nodeRef` among `children`, or `-1` if absent. */
+export function indexOfComponentChild(children: CompNode[] | undefined, nodeRef: NodeRef): number {
+  const list = children ?? [];
+  return list.findIndex(
+    c =>
+      (nodeRef.nodeId != null && c.nodeId === nodeRef.nodeId) ||
+      (nodeRef.bind != null && c.bind === nodeRef.bind),
+  );
+}
+
+/** Sortable placement extracted from the Pragmatic monitor payload (`layout-pdnd`). */
 export interface SortablePlacement {
   group: string | number;
   index: number;
@@ -78,13 +89,13 @@ export interface DragEndEvent {
   canceled: boolean;
   source: { id: string; data: Record<string, unknown> };
   target: { id: string; data: Record<string, unknown> } | null | undefined;
-  /** Sortable final state from the source — populated by LayoutDndProvider from the raw @dnd-kit event. */
+  /** Sortable final state from the source — populated by `LayoutDndProvider` via `pragmaticMonitorDropToDragEnd`. */
   sortable?: SortablePlacement | null;
 }
 
 /**
  * Pure handler: routes a drag-end event to the appropriate project method.
- * Exported for unit testing — the LayoutDndProvider wires dnd-kit events to this.
+ * Exported for unit testing — `LayoutDndProvider` maps Pragmatic drops into this shape.
  */
 export function handleDragEnd(
   project: Project,
@@ -103,7 +114,7 @@ export function handleDragEnd(
   const componentTree = project.component.tree as CompNode | undefined;
 
   // ── Tray-to-canvas: unassigned item dragged onto the tree ──
-  if (sourceData.type === 'unassigned-item' && isUnassignedItemData(sourceData)) {
+  if (sourceData.kind === LAYOUT_PDND_KIND && sourceData.type === 'unassigned-item' && isUnassignedItemData(sourceData)) {
     handleTrayDrop(project, sourceData, activePageId);
 
     const leafKey = sourceData.key.split('.').pop() ?? sourceData.key;
@@ -117,12 +128,9 @@ export function handleDragEnd(
     } else if (targetData.type === 'tree-node') {
       const targetRef: NodeRef | undefined = targetData.nodeRef as NodeRef | undefined;
       const parent = targetRef ? findParentOfNodeRef(componentTree, targetRef) : null;
-      if (parent) {
+      if (parent && targetRef) {
         const parentRef = parent.bind ? { bind: parent.bind } : { nodeId: parent.nodeId };
-        const children = parent.children ?? [];
-        const targetIndex = children.findIndex(c => 
-          (targetRef?.nodeId && c.nodeId === targetRef.nodeId) || (targetRef?.bind && c.bind === targetRef.bind)
-        );
+        const targetIndex = indexOfComponentChild(parent.children, targetRef);
         if (targetIndex !== -1 && !isCircularComponentMove(componentTree, traySourceRef, parentRef)) {
           handleSpatialDrop(project, traySourceRef, parentRef, targetIndex);
         }
@@ -146,7 +154,7 @@ export function handleDragEnd(
     return;
   }
 
-  // ── Sortable reorder: @dnd-kit sortable sets source.index/group to the final position ──
+  // ── Sortable reorder: monitor supplies final `group` / `index` after the drag ──
   const sortable = event.sortable;
   if (sortable && sortable.group != null && typeof sortable.index === 'number') {
     const targetParent = sortGroupToParentRef(sortable.group);
@@ -179,15 +187,8 @@ export function handleDragEnd(
     if (!parentRef.bind && !parentRef.nodeId) return;
     if (isCircularComponentMove(componentTree, sourceRef, parentRef)) return;
 
-    let targetIndex = 0;
-    const children = parent.children ?? [];
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      if ((targetRef.nodeId && child.nodeId === targetRef.nodeId) || (targetRef.bind && child.bind === targetRef.bind)) {
-        targetIndex = i;
-        break;
-      }
-    }
+    const targetIndex = indexOfComponentChild(parent.children, targetRef);
+    if (targetIndex === -1) return;
 
     handleSpatialDrop(project, sourceRef, parentRef, targetIndex);
   }

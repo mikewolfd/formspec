@@ -1,7 +1,17 @@
 /** @filedesc Layout workspace step selector — page tabs with drag-reorder, context menu, and inline rename. */
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
+import { draggable, dropTargetForElements, monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import { attachClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
 import { getAnchoredDropdownPosition } from '../../components/ui/context-menu-utils';
+import {
+  STEP_NAV_PDND_KIND,
+  applyLayoutStepNavDrop,
+  type StepNavPdndRowData,
+  type StepNavPdndSourceData,
+} from './layout-step-nav-pdnd';
+import { isRecord } from '../shared/runtime-guards';
 
 export interface LayoutStepNavPage {
   id: string;
@@ -25,7 +35,106 @@ interface LayoutStepNavProps {
   trailing?: ReactNode;
 }
 
-const PAGE_DRAG_MIME = 'application/x-formspec-layout-page-nav-id';
+interface LayoutStepNavSortablePageRowProps {
+  page: LayoutStepNavPage;
+  index: number;
+  isActive: boolean;
+  reorderEnabled: boolean;
+  onSelectPage: (pageId: string) => void;
+  startRename: (pageId: string) => void;
+  openContextMenu: (e: React.MouseEvent, pageId: string) => void;
+}
+
+function LayoutStepNavSortablePageRow({
+  page,
+  index,
+  isActive,
+  reorderEnabled,
+  onSelectPage,
+  startRename,
+  openContextMenu,
+}: LayoutStepNavSortablePageRowProps) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row || !reorderEnabled) return;
+    const handle = handleRef.current;
+
+    const d = draggable({
+      element: row,
+      dragHandle: handle ?? undefined,
+      getInitialData: (): StepNavPdndSourceData => ({
+        kind: STEP_NAV_PDND_KIND,
+        pageId: page.id,
+        index,
+      }),
+    });
+
+    const rowDataBase: StepNavPdndRowData = {
+      kind: STEP_NAV_PDND_KIND,
+      pageId: page.id,
+      rowIndex: index,
+    };
+
+    const dt = dropTargetForElements({
+      element: row,
+      canDrop: ({ source }) => {
+        const sd = source.data;
+        return isRecord(sd) && sd.kind === STEP_NAV_PDND_KIND;
+      },
+      getData: ({ input }) =>
+        attachClosestEdge(rowDataBase, {
+          element: row,
+          input,
+          allowedEdges: ['left', 'right'],
+        }),
+    });
+
+    return combine(d, dt);
+  }, [page.id, index, reorderEnabled]);
+
+  return (
+    <div
+      ref={rowRef}
+      data-testid={`page-nav-row-${page.id}`}
+      className={`flex min-h-11 max-w-[11rem] shrink-0 items-stretch rounded-lg border-x border-t transition-colors border-border/80 ${
+        isActive ? 'border-b-2 border-b-accent bg-accent/[0.08] shadow-sm' : 'border-b-2 border-b-transparent'
+      }`}
+      onContextMenu={(e) => openContextMenu(e, page.id)}
+    >
+      {reorderEnabled ? (
+        <button
+          ref={handleRef}
+          type="button"
+          data-testid={`page-nav-drag-${page.id}`}
+          aria-label={`Reorder page: ${page.title}`}
+          className="flex w-7 shrink-0 cursor-grab items-center justify-center border-0 bg-transparent text-muted hover:bg-subtle/80 hover:text-ink active:cursor-grabbing"
+          onClick={(ev) => ev.stopPropagation()}
+        >
+          <span className="select-none text-[10px] leading-none tracking-tighter" aria-hidden>
+            ⋮⋮
+          </span>
+        </button>
+      ) : null}
+      <button
+        type="button"
+        data-testid={`page-nav-tab-${page.id}`}
+        title={page.title}
+        aria-current={isActive ? 'page' : undefined}
+        onClick={() => onSelectPage(page.id)}
+        onDoubleClick={() => startRename(page.id)}
+        className={`flex min-w-0 flex-1 items-center gap-1.5 px-2 py-2 text-left text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 ${
+          isActive ? 'text-ink' : 'text-muted hover:bg-subtle hover:text-ink'
+        }`}
+      >
+        <span className="shrink-0 text-[10px] tabular-nums opacity-60">{index + 1}</span>
+        <span className="line-clamp-2 min-w-0 leading-snug">{page.title}</span>
+      </button>
+    </div>
+  );
+}
 
 export function LayoutStepNav({
   pages,
@@ -42,7 +151,18 @@ export function LayoutStepNav({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; width: number; pageId: string } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!onMovePageToIndex) return;
+    return monitorForElements({
+      canMonitor: ({ source }) => {
+        const d = source.data;
+        return isRecord(d) && d.kind === STEP_NAV_PDND_KIND;
+      },
+      onDrop: (payload) =>
+        applyLayoutStepNavDrop(pages, { source: payload.source, location: payload.location }, onMovePageToIndex),
+    });
+  }, [pages, onMovePageToIndex]);
 
   useEffect(() => {
     if (editingPageId) {
@@ -116,7 +236,6 @@ export function LayoutStepNav({
         {pages.map((page, index) => {
           const isActive = page.id === activePageId;
           const isEditing = page.id === editingPageId;
-          const isDropTarget = dragOverId === page.id;
           return isEditing ? (
             <div key={page.id} className="shrink-0">
               <input
@@ -139,76 +258,16 @@ export function LayoutStepNav({
               />
             </div>
           ) : (
-            <div
+            <LayoutStepNavSortablePageRow
               key={page.id}
-              data-testid={`page-nav-row-${page.id}`}
-              className={`flex min-h-11 max-w-[11rem] shrink-0 items-stretch rounded-lg border-x border-t transition-colors ${
-                isDropTarget ? 'border-accent ring-1 ring-accent/40' : 'border-border/80'
-              } ${
-                isActive
-                  ? 'border-b-2 border-b-accent bg-accent/[0.08] shadow-sm'
-                  : 'border-b-2 border-b-transparent'
-              }`}
-              onContextMenu={(e) => openContextMenu(e, page.id)}
-              onDragOver={
-                onMovePageToIndex
-                  ? (e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                      setDragOverId(page.id);
-                    }
-                  : undefined
-              }
-              onDragLeave={() => {
-                setDragOverId((id) => (id === page.id ? null : id));
-              }}
-              onDrop={
-                onMovePageToIndex
-                  ? (e) => {
-                      e.preventDefault();
-                      setDragOverId(null);
-                      const draggedId = e.dataTransfer.getData(PAGE_DRAG_MIME) || e.dataTransfer.getData('text/plain');
-                      if (!draggedId || draggedId === page.id) return;
-                      onMovePageToIndex(draggedId, index);
-                    }
-                  : undefined
-              }
-            >
-              {onMovePageToIndex ? (
-                <button
-                  type="button"
-                  data-testid={`page-nav-drag-${page.id}`}
-                  draggable
-                  aria-label={`Reorder page: ${page.title}`}
-                  className="flex w-7 shrink-0 cursor-grab items-center justify-center border-0 bg-transparent text-muted hover:bg-subtle/80 hover:text-ink active:cursor-grabbing"
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(PAGE_DRAG_MIME, page.id);
-                    e.dataTransfer.setData('text/plain', page.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onDragEnd={() => setDragOverId(null)}
-                  onClick={(ev) => ev.stopPropagation()}
-                >
-                  <span className="select-none text-[10px] leading-none tracking-tighter" aria-hidden>
-                    ⋮⋮
-                  </span>
-                </button>
-              ) : null}
-              <button
-                type="button"
-                data-testid={`page-nav-tab-${page.id}`}
-                title={page.title}
-                aria-current={isActive ? 'page' : undefined}
-                onClick={() => onSelectPage(page.id)}
-                onDoubleClick={() => startRename(page.id)}
-                className={`flex min-w-0 flex-1 items-center gap-1.5 px-2 py-2 text-left text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 ${
-                  isActive ? 'text-ink' : 'text-muted hover:bg-subtle hover:text-ink'
-                }`}
-              >
-                <span className="shrink-0 text-[10px] tabular-nums opacity-60">{index + 1}</span>
-                <span className="line-clamp-2 min-w-0 leading-snug">{page.title}</span>
-              </button>
-            </div>
+              page={page}
+              index={index}
+              isActive={isActive}
+              reorderEnabled={!!onMovePageToIndex}
+              onSelectPage={onSelectPage}
+              startRename={startRename}
+              openContextMenu={openContextMenu}
+            />
           );
         })}
         {trailing ? <div className="flex shrink-0 items-center">{trailing}</div> : null}

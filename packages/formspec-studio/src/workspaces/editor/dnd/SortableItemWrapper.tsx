@@ -1,7 +1,6 @@
-/** @filedesc Wrapper that makes a canvas item sortable via dnd-kit, fading the source during drag. */
-import { cloneElement, isValidElement, type ReactElement } from 'react';
-import { useSortable } from '@dnd-kit/react/sortable';
-import { STUDIO_DND_FEEDBACK, STUDIO_SORTABLE_TRANSITION } from '../../shared/dnd-config';
+/** @filedesc Wrapper that makes a canvas item sortable via Pragmatic DnD, fading the source during drag. */
+import { cloneElement, isValidElement, useCallback, useState, type ReactElement } from 'react';
+import { useEditorPragmaticSortableItem } from './useEditorPragmaticSortableItem';
 
 interface SortableItemWrapperProps {
   id: string;
@@ -11,23 +10,31 @@ interface SortableItemWrapperProps {
 }
 
 export function SortableItemWrapper({ id, index, group, children }: SortableItemWrapperProps) {
-  const { ref, handleRef, isDragSource } = useSortable({
+  const [shell, setShell] = useState<HTMLDivElement | null>(null);
+  const [dragHandle, setDragHandle] = useState<Element | null>(null);
+  const [isDragSource, setIsDragSource] = useState(false);
+  const onDragSourceChange = useCallback((active: boolean) => {
+    setIsDragSource(active);
+  }, []);
+
+  useEditorPragmaticSortableItem({
+    element: shell,
+    dragHandle,
     id,
     index,
-    group,
-    feedback: STUDIO_DND_FEEDBACK,
-    transition: STUDIO_SORTABLE_TRANSITION,
+    group: group ?? 'root',
+    onDragSourceChange,
   });
 
   const child = isValidElement(children)
     ? cloneElement(children, {
-      dragHandleRef: handleRef,
-      isDragSource,
-    } as Record<string, unknown>)
+        dragHandleRef: (el: Element | null) => setDragHandle(el),
+        isDragSource,
+      } as Record<string, unknown>)
     : children;
 
   return (
-    <div ref={ref} className="py-0.5" style={{ opacity: isDragSource ? 0.4 : 1 }}>
+    <div ref={setShell} className="py-0.5" style={{ opacity: isDragSource ? 0.4 : 1 }}>
       {child}
     </div>
   );

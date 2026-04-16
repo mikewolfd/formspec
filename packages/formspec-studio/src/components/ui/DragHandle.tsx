@@ -1,4 +1,4 @@
-/** @filedesc Draggable grip icon for reorderable list items — focusable for @dnd-kit KeyboardSensor (Space/Enter to pick up, arrows to move, Space/Enter to drop). */
+/** @filedesc Draggable grip icon for reorderable list items — focusable button used as Pragmatic `dragHandle`. */
 import { forwardRef } from 'react';
 
 interface DragHandleProps {

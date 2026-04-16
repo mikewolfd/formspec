@@ -34,10 +34,7 @@ import { ThemeOverridePopover } from './ThemeOverridePopover';
 import { useOptionalLayoutMode } from './LayoutModeContext';
 import { useLayoutPreviewNav } from './LayoutPreviewNavContext';
 import { setThemeOverride, clearThemeOverride, setColumnSpan, setRowSpan, setStyleProperty, removeStyleProperty } from '@formspec-org/studio-core';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
+import { isPlainObject } from '../shared/runtime-guards';
 
 /**
  * Context menu orchestration for the Layout canvas tree and page structure.
@@ -298,14 +295,14 @@ function useLayoutAddOperations(
 }
 
 function synthesizePagedLayoutTree(nodes: CompNode[], definition: ReturnType<typeof useDefinition>): CompNode[] {
-  const formPresentation = isRecord(definition?.formPresentation) ? definition.formPresentation : undefined;
+  const formPresentation = isPlainObject(definition?.formPresentation) ? definition.formPresentation : undefined;
   const pageMode = formPresentation?.pageMode;
   if (pageMode !== 'wizard' && pageMode !== 'tabs') return nodes;
 
   const items = Array.isArray(definition?.items) ? definition.items : [];
   const topLevelGroupLabels = new Map<string, string>();
   for (const item of items) {
-    if (!isRecord(item) || item.type !== 'group' || typeof item.key !== 'string') continue;
+    if (!isPlainObject(item) || item.type !== 'group' || typeof item.key !== 'string') continue;
     topLevelGroupLabels.set(item.key, typeof item.label === 'string' && item.label.trim() ? item.label : item.key);
   }
 

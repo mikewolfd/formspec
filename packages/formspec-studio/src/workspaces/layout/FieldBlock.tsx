@@ -1,6 +1,5 @@
 /** @filedesc Layout canvas block for bound fields — label edit, read-only definition copy + Editor link, drag/resize, inline toolbar. */
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { useSortable } from '@dnd-kit/react/sortable';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { dataTypeInfo, hasTier3Content } from '@formspec-org/studio-core';
 import { DragHandle } from '../../components/ui/DragHandle';
 import { FieldIcon } from '../../components/ui/FieldIcon';
@@ -11,7 +10,8 @@ import { PropertyPopover } from './PropertyPopover';
 import { DefinitionCopyReadonlyPanel } from './DefinitionCopyReadonlyPanel';
 import { useLayoutResizeReporter } from './LayoutResizeContext';
 import { LAYOUT_LEAF_SELECTED, LAYOUT_LEAF_UNSELECTED, LAYOUT_DRAG_SOURCE_STYLE } from './layout-node-styles';
-import { STUDIO_DND_FEEDBACK, STUDIO_SORTABLE_TRANSITION } from '../shared/dnd-config';
+import { LayoutCanvasRowDropGuides } from './LayoutCanvasRowDropGuides';
+import { useLayoutPragmaticItem } from './useLayoutPragmaticItem';
 
 /** Blocks outer shell click-to-select (drag handle, inputs, toolbar, resize). */
 const STOP_SELECT = 'data-layout-stop-select';
@@ -46,6 +46,8 @@ interface FieldBlockProps {
   onSelect?: (ev: MouseEvent | KeyboardEvent, selectionKey: string) => void;
   sortableGroup: string;
   sortableIndex: number;
+  /** Must exceed ancestor `LayoutContainer` sortable priority so inner rows win collision (nested Stack/Accordion). */
+  collisionPriority?: number;
   /** Dot-delimited parent path prefix (e.g. `demographics.`) shown before the key when inline editing. */
   groupPathPrefix?: string | null;
   /** Tier 1 definition copy — shown as inline summary rows when selected. */
@@ -92,6 +94,7 @@ export function FieldBlock({
   layoutPrimaryKey = null,
   sortableGroup,
   sortableIndex,
+  collisionPriority: _collisionPriority,
   onSelect,
   groupPathPrefix = null,
   description = null,
@@ -108,8 +111,11 @@ export function FieldBlock({
   onRemove,
   onStyleRemove,
 }: FieldBlockProps) {
+  void _collisionPriority;
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const dragHandleRef = useRef<Element | null>(null);
+  const [shellEl, setShellEl] = useState<HTMLDivElement | null>(null);
+  const [dragHandleHost, setDragHandleHost] = useState<Element | null>(null);
   const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const reportResize = useLayoutResizeReporter();
@@ -117,14 +123,20 @@ export function FieldBlock({
   const [activeIdentityField, setActiveIdentityField] = useState<'label' | null>(null);
   const [draftLabel, setDraftLabel] = useState(() => (label?.trim() ? label.trim() : ''));
 
-  const { ref: sortableRef, handleRef: connectSortableHandle, isDragSource } = useSortable({
-    id: `field:${bindPath}`,
-    index: sortableIndex,
-    group: sortableGroup,
-    data: { nodeRef: { bind: itemKey }, type: 'tree-node' },
-    handle: dragHandleRef,
-    feedback: STUDIO_DND_FEEDBACK,
-    transition: STUDIO_SORTABLE_TRANSITION,
+  const [isDragSource, setIsDragSource] = useState(false);
+  const onDragSourceChange = useCallback((active: boolean) => {
+    setIsDragSource(active);
+  }, []);
+
+  useLayoutPragmaticItem({
+    enabled: true,
+    element: shellEl,
+    dragHandle: dragHandleHost,
+    sortableGroup,
+    sortableIndex,
+    nodeRef: { bind: itemKey },
+    sourceId: `field:${bindPath}`,
+    onDragSourceChange,
   });
 
   const isInGrid = layoutContext?.parentContainerType === 'grid';
@@ -344,7 +356,7 @@ export function FieldBlock({
   return (
     <div
       ref={(el) => {
-        sortableRef(el as unknown as Element);
+        setShellEl(el);
         (buttonRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
       }}
       role="group"
@@ -371,12 +383,13 @@ export function FieldBlock({
         }
       }}
     >
+      <LayoutCanvasRowDropGuides sortableGroup={sortableGroup} sortableIndex={sortableIndex} />
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <div {...stopProps} className="shrink-0">
           <DragHandle
             ref={(el) => {
               dragHandleRef.current = el;
-              connectSortableHandle(el);
+              setDragHandleHost(el);
             }}
             label={`Reorder ${label || itemKey}`}
             className="h-11"

@@ -26,7 +26,8 @@ describe('DataTab', () => {
       ...baseDef,
       items: [{ key: 'name', type: 'field', dataType: 'string' }],
       optionSets: { colors: { options: [{ value: 'red', label: 'Red' }] } },
-      instances: { api: { source: 'https://api.example.com' } },
+      // Non-HTTP(S) source avoids FormEngine instance prefetch (see `initializeInstanceSource` in formspec-engine).
+      instances: { api: { source: 'urn:formspec:test-instance' } },
     });
     // Pillar titles are rendered as h3 headings
     expect(screen.getByText('Submission Structure')).toBeInTheDocument();

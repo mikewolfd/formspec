@@ -1,6 +1,5 @@
 /** @filedesc Layout canvas block for display-only items — label, body editor for notes, read-only definition copy with link to Editor, toolbar. */
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { useSortable } from '@dnd-kit/react/sortable';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { hasTier3Content } from '@formspec-org/studio-core';
 import { DragHandle } from '../../components/ui/DragHandle';
 import type { LayoutContext } from './FieldBlock';
@@ -11,7 +10,8 @@ import { PropertyPopover } from './PropertyPopover';
 import { DefinitionCopyReadonlyPanel } from './DefinitionCopyReadonlyPanel';
 import { useLayoutResizeReporter } from './LayoutResizeContext';
 import { LAYOUT_LEAF_SELECTED, LAYOUT_LEAF_UNSELECTED, LAYOUT_DRAG_SOURCE_STYLE } from './layout-node-styles';
-import { STUDIO_DND_FEEDBACK, STUDIO_SORTABLE_TRANSITION } from '../shared/dnd-config';
+import { LayoutCanvasRowDropGuides } from './LayoutCanvasRowDropGuides';
+import { useLayoutPragmaticItem } from './useLayoutPragmaticItem';
 
 const STOP_SELECT = 'data-layout-stop-select';
 
@@ -67,9 +67,11 @@ interface DisplayBlockProps {
    * When set, a multi-line editor is shown while the block is selected.
    */
   onCommitDisplayLabel?: (text: string | null) => void;
-  /** Layout canvas: parent @dnd-kit/sortable group (with sortableIndex + treeDragNodeRef). */
+  /** Layout canvas: parent reorder list id (with sortableIndex + treeDragNodeRef). */
   sortableGroup?: string;
   sortableIndex?: number;
+  /** Must exceed ancestor `LayoutContainer` sortable priority when nested in containers. */
+  collisionPriority?: number;
   treeDragNodeRef?: { bind?: string; nodeId?: string };
 }
 
@@ -98,10 +100,14 @@ export function DisplayBlock({
   onCommitDisplayLabel,
   sortableGroup,
   sortableIndex,
+  collisionPriority: _collisionPriority,
   treeDragNodeRef,
 }: DisplayBlockProps) {
+  void _collisionPriority;
   const blockRef = useRef<HTMLDivElement | null>(null);
   const dragHandleRef = useRef<Element | null>(null);
+  const [shellEl, setShellEl] = useState<HTMLDivElement | null>(null);
+  const [dragHandleHost, setDragHandleHost] = useState<Element | null>(null);
   const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const reportResize = useLayoutResizeReporter();
@@ -127,15 +133,20 @@ export function DisplayBlock({
         ? `bind:${treeDragNodeRef.bind}`
         : 'layout-display:noop';
 
-  const { ref: sortableRef, handleRef: connectSortableHandle, isDragSource } = useSortable({
-    id: sortableDragId,
-    index: sortableIndex ?? 0,
-    group: sortableGroup ?? 'noop',
-    data: layoutSortable ? { nodeRef: treeDragNodeRef!, type: 'tree-node' } : {},
-    handle: dragHandleRef,
-    disabled: !layoutSortable,
-    feedback: STUDIO_DND_FEEDBACK,
-    transition: STUDIO_SORTABLE_TRANSITION,
+  const [isDragSource, setIsDragSource] = useState(false);
+  const onDragSourceChange = useCallback((active: boolean) => {
+    setIsDragSource(active);
+  }, []);
+
+  useLayoutPragmaticItem({
+    enabled: layoutSortable,
+    element: shellEl,
+    dragHandle: layoutSortable ? dragHandleHost : null,
+    sortableGroup: sortableGroup ?? 'noop',
+    sortableIndex: sortableIndex ?? 0,
+    nodeRef: treeDragNodeRef ?? {},
+    sourceId: sortableDragId,
+    onDragSourceChange,
   });
 
   const isInGrid = layoutContext?.parentContainerType === 'grid';
@@ -354,7 +365,7 @@ export function DisplayBlock({
     <div
       ref={(el) => {
         blockRef.current = el;
-        sortableRef(el as unknown as Element);
+        setShellEl(el);
       }}
       role="group"
       tabIndex={0}
@@ -379,13 +390,16 @@ export function DisplayBlock({
         }
       }}
     >
+      {layoutSortable && sortableGroup != null && sortableIndex != null ? (
+        <LayoutCanvasRowDropGuides sortableGroup={sortableGroup} sortableIndex={sortableIndex} />
+      ) : null}
       <div className="flex min-w-0 flex-1 items-start gap-3">
         {layoutSortable ? (
           <div {...stopProps} className="shrink-0">
             <DragHandle
               ref={(el) => {
                 dragHandleRef.current = el;
-                connectSortableHandle(el);
+                setDragHandleHost(el);
               }}
               label={`Reorder ${label?.trim() || itemKey}`}
               className="h-11"

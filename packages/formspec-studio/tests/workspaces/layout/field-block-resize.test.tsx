@@ -4,14 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { FieldBlock } from '../../../src/workspaces/layout/FieldBlock';
 import type { LayoutContext } from '../../../src/workspaces/layout/FieldBlock';
 
-vi.mock('@dnd-kit/react/sortable', () => ({
-  useSortable: () => ({
-    ref: () => {},
-    handleRef: () => {},
-    isDragSource: false,
-  }),
-}));
-
 const defaultProps = {
   itemKey: 'name',
   bindPath: 'name',
