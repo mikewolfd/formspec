@@ -7,7 +7,7 @@ use pyo3::types::PyDict;
 
 use fel_core::{
     JsonWireStyle, MapEnvironment, builtin_function_catalog_json_value,
-    dependencies_to_json_value_styled, evaluate, extract_dependencies,
+    dependencies_to_json_value_styled, evaluate, evaluate_with_trace, extract_dependencies,
     fel_diagnostics_to_json_value, parse, prepare_fel_expression_owned,
     prepare_fel_host_options_from_json_map,
 };
@@ -50,6 +50,47 @@ pub fn eval_fel(
     let result = evaluate(&expr, &env);
 
     fel_to_python(py, &result.value)
+}
+
+/// Parse and evaluate a FEL expression, returning a structured trace of evaluation steps.
+///
+/// Args:
+///     expression: FEL expression string
+///     fields: Optional dict of field name → value
+///
+/// Returns:
+///     A dict with: value, diagnostics, trace. Each trace step is a dict with a
+///     PascalCase `kind` tag (`FieldResolved`, `FunctionCalled`, `BinaryOp`,
+///     `IfBranch`, `ShortCircuit`) and per-kind payload fields. Values in the
+///     trace are raw JSON-like Python (no type tagging) — the trace is for
+///     human/LLM consumption, not re-evaluation.
+#[pyfunction]
+pub fn eval_fel_with_trace(
+    py: Python,
+    expression: &str,
+    fields: Option<&Bound<'_, PyDict>>,
+) -> PyResult<PyObject> {
+    let expr = parse_fel_expr(expression)?;
+
+    let field_map = match fields {
+        Some(dict) => pydict_to_field_map(py, dict)?,
+        None => HashMap::new(),
+    };
+
+    let env = MapEnvironment::with_fields(field_map);
+    let (result, trace) = evaluate_with_trace(&expr, &env);
+
+    let value = fel_to_python(py, &result.value)?;
+    let diagnostics = json_to_python(py, &fel_diagnostics_to_json_value(&result.diagnostics))?;
+    let trace_json = serde_json::to_value(&trace.steps)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("trace serialization: {e}")))?;
+    let trace_py = json_to_python(py, &trace_json)?;
+
+    let payload = PyDict::new(py);
+    payload.set_item("value", value)?;
+    payload.set_item("diagnostics", diagnostics)?;
+    payload.set_item("trace", trace_py)?;
+    Ok(payload.into())
 }
 
 /// Parse and evaluate a FEL expression with full Formspec context.

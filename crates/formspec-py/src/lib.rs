@@ -31,6 +31,7 @@ fn formspec_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("PY_API_VERSION", PY_API_VERSION)?;
     m.add("CRATE_VERSION", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(fel::eval_fel, m)?)?;
+    m.add_function(wrap_pyfunction!(fel::eval_fel_with_trace, m)?)?;
     m.add_function(wrap_pyfunction!(fel::eval_fel_detailed, m)?)?;
     m.add_function(wrap_pyfunction!(fel::parse_fel, m)?)?;
     m.add_function(wrap_pyfunction!(fel::get_dependencies, m)?)?;

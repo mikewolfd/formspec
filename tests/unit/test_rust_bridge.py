@@ -47,6 +47,7 @@ def test_formspec_rust_exports_expected_contract():
 
     for name in (
         "eval_fel_detailed",
+        "eval_fel_with_trace",
         "extract_deps",
         "detect_type",
         "lint_document",
@@ -98,6 +99,39 @@ def test_evaluate_string():
     result = evaluate("'hello'")
     assert isinstance(result.value, FelString)
     assert result.value.value == "hello"
+
+
+# ── FEL eval_fel_with_trace ──────────────────────────────────────
+
+
+def test_eval_fel_with_trace_returns_value_diagnostics_and_trace():
+    payload = formspec_rust.eval_fel_with_trace("$a + $b", {"a": 3, "b": 4})
+    # `value` is projected through fel_to_python; for an integer result it may be
+    # int or Decimal-like — just check numeric equality.
+    assert float(payload["value"]) == 7.0
+    assert payload["diagnostics"] == []
+    trace = payload["trace"]
+    assert len(trace) == 3, trace
+    assert trace[0]["kind"] == "FieldResolved"
+    assert trace[0]["path"] == "a"
+    assert trace[1]["kind"] == "FieldResolved"
+    assert trace[1]["path"] == "b"
+    assert trace[2]["kind"] == "BinaryOp"
+    assert trace[2]["op"] == "+"
+    assert trace[2]["result"] == 7
+
+
+def test_eval_fel_with_trace_short_circuit_and():
+    payload = formspec_rust.eval_fel_with_trace("false and $undefined", {})
+    trace = payload["trace"]
+    assert any(
+        step["kind"] == "ShortCircuit" and step["op"] == "and" for step in trace
+    ), trace
+    # Right side must never resolve.
+    assert not any(
+        step["kind"] == "FieldResolved" and step.get("path") == "undefined"
+        for step in trace
+    )
 
 
 # ── FEL extract_dependencies ─────────────────────────────────────
