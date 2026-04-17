@@ -43,6 +43,14 @@ build-js:
 build-python:
 	maturin develop --release --manifest-path crates/formspec-py/Cargo.toml
 
+# Force-rebuild the Python extension from scratch. Use this when tests pick up
+# stale bindings — typical symptom: a function signature was changed in Rust
+# but Python still sees the old shape. Wipes any in-tree _native*.so before
+# invoking maturin so we never silently pick up a cached artifact.
+rebuild-python:
+	rm -f src/formspec/_native*.so
+	maturin develop --release --manifest-path crates/formspec-py/Cargo.toml
+
 test-rust:
 	cargo test --workspace
 
@@ -141,4 +149,4 @@ clean:
 	      packages/formspec-mcp/API.llm.md \
 	      packages/formspec-studio-core/API.llm.md
 
-.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python build-wasm test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
+.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python rebuild-python build-wasm test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
