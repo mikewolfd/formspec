@@ -1,0 +1,7 @@
+{
+  "$formspecTheme": "1.0",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "https://example.com/forms/w704" },
+  "tokens": { "color.primary": "#112233" },
+  "defaults": { "style": { "borderColor": "$token.color.missing" } }
+}

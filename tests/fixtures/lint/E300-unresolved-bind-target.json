@@ -1,0 +1,13 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e300",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E300 fixture — bind targets a key that is not in `items`",
+  "items": [
+    { "key": "name", "type": "field", "label": "N", "dataType": "string" }
+  ],
+  "binds": [
+    { "path": "ghost", "required": "true" }
+  ]
+}

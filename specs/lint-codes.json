@@ -20,7 +20,7 @@
       "title": "Schema violation",
       "specRef": "specs/core/spec.md#4-definition-schema",
       "suggestedFix": "align the document with schemas/*.schema.json — fix the flagged property or value",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/E101-schema-violation.json"],
       "state": "tested"
     },
     {
@@ -50,7 +50,7 @@
       "title": "Bind target not found",
       "specRef": "specs/core/spec.md#433-path-syntax",
       "suggestedFix": "change bind target to match an item key, or add the missing item to `items`",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/E300-unresolved-bind-target.json"],
       "state": "tested"
     },
     {
@@ -80,7 +80,7 @@
       "title": "Incompatible dataType for optionSet",
       "specRef": "specs/core/spec.md#46-option-sets",
       "suggestedFix": "change dataType to one of string/integer/decimal/choice/multiChoice, or drop the optionSet",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/W300-incompatible-optionset-datatype.json"],
       "state": "tested"
     },
     {
@@ -100,7 +100,7 @@
       "title": "Dependency cycle",
       "specRef": "specs/core/spec.md#362-topological-ordering",
       "suggestedFix": "break the dependency cycle — remove one bind's reference to the other",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/E500-dependency-cycle.json"],
       "state": "tested"
     },
     {
@@ -110,7 +110,7 @@
       "title": "Unresolved extension",
       "specRef": "specs/core/spec.md#85-extension-namespaces",
       "suggestedFix": "declare the extension in a loaded registry, or remove the extension key",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/E600-unresolved-extension.json"],
       "state": "tested"
     },
     {
@@ -180,7 +180,7 @@
       "title": "Unresolved token reference",
       "specRef": "specs/theme/theme-spec.md#34-token-resolution",
       "suggestedFix": "define the token in your theme's tokens map, or use an existing token",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/W704-unresolved-token-reference.json"],
       "state": "tested"
     },
     {
@@ -330,7 +330,7 @@
       "title": "Component bind does not resolve to a field",
       "specRef": "specs/component/component-spec.md#42-bind-resolution-rules",
       "suggestedFix": "point bind at an existing field key, or add that field to the definition",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/W800-component-bind-unresolved.json"],
       "state": "tested"
     },
     {
@@ -350,7 +350,7 @@
       "title": "Component compatibility warning (loose match)",
       "specRef": "specs/component/component-spec.md#46-binddatatype-compatibility-matrix",
       "suggestedFix": "pick a component whose dataType matrix includes this field's type",
-      "fixtures": [],
+      "fixtures": ["tests/fixtures/lint/W802-component-loose-compatibility.json"],
       "state": "tested"
     },
     {

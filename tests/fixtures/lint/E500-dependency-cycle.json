@@ -1,0 +1,15 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e500",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E500 fixture — two calculate binds reference each other (a↔b cycle)",
+  "items": [
+    { "key": "a", "type": "field", "label": "A", "dataType": "integer" },
+    { "key": "b", "type": "field", "label": "B", "dataType": "integer" }
+  ],
+  "binds": [
+    { "path": "a", "calculate": "$b + 1" },
+    { "path": "b", "calculate": "$a + 1" }
+  ]
+}

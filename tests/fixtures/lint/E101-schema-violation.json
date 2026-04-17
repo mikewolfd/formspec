@@ -1,0 +1,10 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e101",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E101 fixture — missing required item field `key`",
+  "items": [
+    { "type": "field", "label": "no key", "dataType": "string" }
+  ]
+}

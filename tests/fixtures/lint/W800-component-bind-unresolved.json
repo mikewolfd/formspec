@@ -1,0 +1,21 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "https://example.com/forms/w800" },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      { "component": "TextInput", "bind": "ghost" }
+    ]
+  },
+  "_pairedDefinition": {
+    "$formspec": "1.0",
+    "url": "https://example.com/forms/w800",
+    "version": "1.0.0",
+    "status": "draft",
+    "title": "W800 fixture paired definition",
+    "items": [
+      { "key": "name", "type": "field", "label": "N", "dataType": "string" }
+    ]
+  }
+}

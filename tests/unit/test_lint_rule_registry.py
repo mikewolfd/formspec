@@ -217,67 +217,70 @@ def test_strip_test_modules_handles_literal_braces_in_strings() -> None:
     assert '"W999"' not in stripped
 
 
-# ── End-to-end: emitted diagnostics match the registry ──────────────
+# ── End-to-end: registry-driven fixture coverage ──────────────
+#
+# Every rule at state `tested` or `stable` must point at ≥1 on-disk fixture
+# that, when linted, emits the rule's code with matching spec_ref and
+# suggested_fix. This replaces hand-crafted per-rule tests: to graduate a
+# new rule, drop a fixture into tests/fixtures/lint/ and list it in
+# specs/lint-codes.json — the loop below covers the rest.
 
 
-def test_e300_bind_target_emits_registered_metadata() -> None:
-    rule = _rules_by_code()["E300"]
-    document = {
-        "$formspec": "1.0",
-        "url": "https://example.com/forms/x",
-        "version": "1.0.0",
-        "status": "draft",
-        "title": "X",
-        "items": [{"key": "name", "type": "field", "label": "N", "dataType": "string"}],
-        "binds": [{"path": "ghost", "required": "true"}],
-    }
-    diagnostics = lint(document)
-    e300 = [d for d in diagnostics if d.code == "E300"]
-    assert e300, "expected E300 for unresolved bind target"
-    assert e300[0].spec_ref == rule["specRef"], (
-        f"E300 spec_ref mismatch: emitted {e300[0].spec_ref!r}, "
-        f"registry has {rule['specRef']!r}"
-    )
-    assert e300[0].suggested_fix == rule["suggestedFix"]
+def test_every_tested_rule_has_at_least_one_triggering_fixture() -> None:
+    rules = _rules_by_code()
+    failures: list[str] = []
+    for code, rule in sorted(rules.items()):
+        if rule["state"] not in ("tested", "stable"):
+            continue
 
+        fixtures = rule.get("fixtures")
+        if not isinstance(fixtures, list) or not fixtures:
+            failures.append(
+                f"{code}: state={rule['state']} but 'fixtures' is empty. "
+                "Add a path under tests/fixtures/lint/ that triggers this rule."
+            )
+            continue
 
-def test_e600_unresolved_extension_emits_registered_metadata() -> None:
-    rule = _rules_by_code()["E600"]
-    # With no registry documents loaded, every enabled extension is unresolved.
-    document = {
-        "$formspec": "1.0",
-        "url": "https://example.com/forms/x",
-        "version": "1.0.0",
-        "status": "draft",
-        "title": "X",
-        "items": [
-            {
-                "key": "a",
-                "type": "field",
-                "label": "A",
-                "dataType": "string",
-                "extensions": {"com.example.unknown": True},
-            }
-        ],
-    }
-    diagnostics = lint(document)
-    e600 = [d for d in diagnostics if d.code == "E600"]
-    assert e600, "expected E600 for unresolved extension"
-    assert e600[0].spec_ref == rule["specRef"]
-    assert e600[0].suggested_fix == rule["suggestedFix"]
+        for rel_path in fixtures:
+            if not isinstance(rel_path, str):
+                failures.append(f"{code}: fixture entry must be a string, got {rel_path!r}")
+                continue
+            fixture_path = REPO_ROOT / rel_path
+            if not fixture_path.exists():
+                failures.append(f"{code}: fixture path does not exist: {rel_path}")
+                continue
 
+            try:
+                document = json.loads(fixture_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                failures.append(f"{code}: fixture {rel_path} is not valid JSON: {exc}")
+                continue
 
-def test_w704_unresolved_token_emits_registered_metadata() -> None:
-    rule = _rules_by_code()["W704"]
-    document = {
-        "$formspecTheme": "1.0",
-        "version": "1.0.0",
-        "targetDefinition": {"url": "https://example.com/forms/x"},
-        "tokens": {"color.primary": "#112233"},
-        "defaults": {"style": {"borderColor": "$token.color.missing"}},
-    }
-    diagnostics = lint(document)
-    w704 = [d for d in diagnostics if d.code == "W704"]
-    assert w704, "expected W704 for unresolved token reference"
-    assert w704[0].spec_ref == rule["specRef"]
-    assert w704[0].suggested_fix == rule["suggestedFix"]
+            # Some rules (W800, W802) only fire when the linter has the paired
+            # definition. Fixtures opt in via a top-level `_pairedDefinition`
+            # key that is stripped before the document is passed to `lint()`.
+            paired_definition = document.pop("_pairedDefinition", None)
+
+            diagnostics = lint(document, component_definition=paired_definition)
+            matching = [d for d in diagnostics if d.code == code]
+            if not matching:
+                emitted = sorted({d.code for d in diagnostics})
+                failures.append(
+                    f"{code}: fixture {rel_path} did not emit {code}. "
+                    f"Emitted codes: {emitted}"
+                )
+                continue
+
+            diag = matching[0]
+            if diag.spec_ref != rule["specRef"]:
+                failures.append(
+                    f"{code}: fixture {rel_path} emitted spec_ref={diag.spec_ref!r}, "
+                    f"registry has {rule['specRef']!r}"
+                )
+            if diag.suggested_fix != rule["suggestedFix"]:
+                failures.append(
+                    f"{code}: fixture {rel_path} emitted suggested_fix="
+                    f"{diag.suggested_fix!r}, registry has {rule['suggestedFix']!r}"
+                )
+
+    assert not failures, "\n".join(failures)

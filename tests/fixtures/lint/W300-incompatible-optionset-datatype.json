@@ -1,0 +1,19 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/w300",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "W300 fixture — optionSet attached to boolean dataType",
+  "items": [
+    {
+      "key": "flag",
+      "type": "field",
+      "label": "Flag",
+      "dataType": "boolean",
+      "optionSet": "yesno"
+    }
+  ],
+  "optionSets": {
+    "yesno": { "options": [{ "value": "yes" }, { "value": "no" }] }
+  }
+}

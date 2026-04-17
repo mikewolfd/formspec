@@ -1,0 +1,21 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "https://example.com/forms/w802" },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      { "component": "TextInput", "bind": "a" }
+    ]
+  },
+  "_pairedDefinition": {
+    "$formspec": "1.0",
+    "url": "https://example.com/forms/w802",
+    "version": "1.0.0",
+    "status": "draft",
+    "title": "W802 fixture — TextInput loosely compatible with integer field",
+    "items": [
+      { "key": "a", "type": "field", "label": "A", "dataType": "integer" }
+    ]
+  }
+}

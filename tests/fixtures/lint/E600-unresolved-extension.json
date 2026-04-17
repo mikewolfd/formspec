@@ -1,0 +1,16 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e600",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E600 fixture — extension declared but no registry loaded",
+  "items": [
+    {
+      "key": "a",
+      "type": "field",
+      "label": "A",
+      "dataType": "string",
+      "extensions": { "com.example.unknown": true }
+    }
+  ]
+}
