@@ -2,7 +2,19 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    ["@formspec-org/types"],
+    [
+      "@formspec-org/engine",
+      "@formspec-org/layout",
+      "@formspec-org/webcomponent",
+      "@formspec-org/react",
+      "@formspec-org/core",
+      "@formspec-org/assist"
+    ],
+    ["@formspec-org/adapters", "@formspec-org/studio-core"],
+    ["@formspec-org/mcp", "@formspec-org/chat"]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
