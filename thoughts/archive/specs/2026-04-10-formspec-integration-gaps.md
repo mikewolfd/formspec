@@ -3,11 +3,11 @@ title: Formspec Integration Gaps -- Design Specification
 date: 2026-04-10
 status: superseded
 author: WOS Working Group
-merged_into: thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md
-superseded_by: thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md
+merged_into: wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md
+superseded_by: wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md
 ---
 
-> **Merged handoff:** [`2026-04-11-formspec-wos-phase11-integration-master.md`](2026-04-11-formspec-wos-phase11-integration-master.md) consolidates this gaps doc, the Phase 11 plan, and the S15 coprocessor proposal (2026-04-11).
+> **Merged handoff:** [`wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md`](../../../wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md) consolidates this gaps doc, the Phase 11 plan, and the S15 coprocessor proposal (2026-04-11).
 
 # Formspec Integration Gaps -- Design Specification
 
@@ -93,7 +93,7 @@ The processor MUST reject a `submitTaskResponse` where the Response's `definitio
 
 On receiving a `submitTaskResponse`, the processor MUST execute validation before advancing workflow state. The validation sequence:
 
-1. **Formspec validation.** Validate the **full Response document** (envelope per `response.schema.json`, VP-01 tuple match, then Definition evaluation over **`data`**) via an extended host operation (concrete proposal: **`validateFormspecTaskResponse`** on Runtime S12.3 — see `thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`). The Formspec-conformant processor (Core S1.4) evaluates Binds and Shapes per Core §5.5. The WOS wrapper result aggregates envelope, pin, and definition validity (**`ValidationOutcome`** — not a single Formspec `ValidationResult`).
+1. **Formspec validation.** Validate the **full Response document** (envelope per `response.schema.json`, VP-01 tuple match, then Definition evaluation over **`data`**) via an extended host operation (concrete proposal: **`validateFormspecTaskResponse`** on Runtime S12.3 — see `wos-spec/thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`). The Formspec-conformant processor (Core S1.4) evaluates Binds and Shapes per Core §5.5. The WOS wrapper result aggregates envelope, pin, and definition validity (**`ValidationOutcome`** — not a single Formspec `ValidationResult`).
 
 2. **Pipeline validation (if configured).** If a data validation pipeline (Governance S5) is attached to this contract via the `contractHook` seam, execute the pipeline stages. Pipeline assertion gates (Governance S5.4) run after Formspec validation, using the validated Response data as input.
 

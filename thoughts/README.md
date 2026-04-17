@@ -101,7 +101,7 @@ Next free id: **0061** (duplicate `0047` / `0048` / `0053` filenames remain on d
 | [definition-advisories](specs/2026-03-31-definition-advisories.md) | Definition advisories / Form Health |
 | [formspec-brand-guidelines](specs/2026-04-06-formspec-brand-guidelines.md) | Brand voice / visual |
 | [phase4-follow-up-design-decisions](specs/2026-04-07-phase4-follow-up-design-decisions.md) | Repeat-target FEL / tree paths |
-| [formspec-wos-phase11-integration-master](specs/2026-04-11-formspec-wos-phase11-integration-master.md) | **WOS ↔ Formspec Phase 11 index** |
+| [formspec-wos-phase11-integration-master](../wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md) | **WOS ↔ Formspec Phase 11 index** *(in `wos-spec/` submodule)* |
 
 **Delivered / merged design specs (historical):** [`archive/specs/`](archive/specs/) (MCP, core split, assist interop, layout workspace DnD, Astro site, etc.).
 

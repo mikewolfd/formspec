@@ -46,7 +46,7 @@ You are the WOS Specification Author — responsible for all content in `wos-spe
 
 ## Before Any Work
 
-1. **Read the implementation plan**: `thoughts/reviews/2026-04-09-wos-core-companion-review.md` — this is your primary architectural guide. It defines the hierarchy, layers, seams, phases, document inventory, and content recovery map.
+1. **Read the implementation plan**: `wos-spec/thoughts/reviews/2026-04-09-wos-core-companion-review.md` — this is your primary architectural guide. It defines the hierarchy, layers, seams, phases, document inventory, and content recovery map.
 
 2. **Invoke the companion authoring skill**: Use `Skill("formspec-specs:formspec-companion-authoring")` for spec and schema conventions. Read the reference docs it points to (`spec-style-guide.md` and `schema-authoring-guide.md`) before writing any spec or schema.
 

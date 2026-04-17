@@ -1,6 +1,6 @@
 # Phase 11: Formspec coprocessor + FEL gaps — execution plan
 
-> **Merged index:** [`thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md`](../specs/2026-04-11-formspec-wos-phase11-integration-master.md) — north star, gaps, S15 draft, checklist in one place (2026-04-11).
+> **Merged index:** [`wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md`](../../wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md) — north star, gaps, S15 draft, checklist in one place (2026-04-11).
 
 **Date:** 2026-04-11  
 **Last updated:** 2026-04-11 (execution sync)  
@@ -94,7 +94,7 @@ Gap 2 → Gap 3 → Gap 1: **functions first**, then calling convention / record
 - **`every` / `some` / `duration`:** **Resolved** in Core §3.5.1 / §3.5.4 and `fel-functions.schema.json`.
 - **`timeDiff`:** **Resolved** — schema now matches Core (two args, signed seconds). `duration` documented separately (ms).
 - **`$` in quantifier predicates:** **Resolved** in §3.5.1 — rebound `$` may be an object; `$.field` is postfix on the element (consistent with evaluator behavior and §3.6 access rules).
-- **Response:** `response.schema.json` requires top-level **`data`**; optional **`validationResults`**. Coprocessor design: **`validateFormspecTaskResponse`** + full envelope (`thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`); integration gaps §1.2.2–1.2.3 updated accordingly (**finding #2** closed at design level — **normative `runtime.md` land** still open).
+- **Response:** `response.schema.json` requires top-level **`data`**; optional **`validationResults`**. Coprocessor design: **`validateFormspecTaskResponse`** + full envelope (`wos-spec/thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`); integration gaps §1.2.2–1.2.3 updated accordingly (**finding #2** closed at design level — **normative `runtime.md` land** still open).
 - **Mapping `direction`:** Spec + `mapping.schema.json` agree on **`forward` | `reverse` | `both`** — finding #6 is spec-correct.
 
 ## 4. Formspec-scout synthesis (implementation)
@@ -125,7 +125,7 @@ Cross-check against `thoughts/archive/specs/2026-04-10-formspec-integration-gaps
 3. ~~**Rust / Python / engine:** `fel-core`, `dependencies`, wos-lint AG-012, parity tests.~~  
 4. ~~**Contracts:** `test_fel_functions_schema_names_are_builtin` (schema ⊆ `BUILTIN_NAMES`).~~  
 5. **FEL-RECORDS (tail):** ~~Grep WOS for string-predicate `every`/`some`~~ (done: `ai-integration.md` + repo-wide `wos-spec` grep clean). ~~Optional **ADR** for **constraint** bind `$`~~ **Done** — [ADR-0060](../adr/0060-fel-constraint-self-dollar-nesting.md). ~~Optional: extend **`fel-functions.schema.json`**~~ **Done**.  
-6. **COPROCESSOR:** **Concrete S15 outline** — [`thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`](../archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md) (spec-expert + wos-spec-author synthesis). **Next:** land prose in `wos-spec/specs/companions/runtime.md` §15 + kernel/case schemas; apply §1.3 review biases (validator input, `failed` not limbo, idempotency, ledger vs notice).
+6. **COPROCESSOR:** **Concrete S15 outline** — [`wos-spec/thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md`](../../wos-spec/thoughts/archive/specs/2026-04-11-wos-s15-formspec-coprocessor-proposal.md) (spec-expert + wos-spec-author synthesis). **Next:** land prose in `wos-spec/specs/companions/runtime.md` §15 + kernel/case schemas; apply §1.3 review biases (validator input, `failed` not limbo, idempotency, ledger vs notice).
 
 ## 7. Subagent transcripts
 

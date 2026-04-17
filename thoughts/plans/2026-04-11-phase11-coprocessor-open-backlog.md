@@ -1,6 +1,6 @@
 # Phase 11 — Coprocessor backlog closure (questions & assumptions)
 
-> **Canonical design:** [`thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md`](../specs/2026-04-11-formspec-wos-phase11-integration-master.md) (§6 coprocessor, §6.10 closed decisions, §7 publication checklist).
+> **Canonical design:** [`wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md`](../../wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md) (§6 coprocessor, §6.10 closed decisions, §7 publication checklist).
 > **Execution context:** [`thoughts/plans/2026-04-11-phase11-coprocessor-fel.md`](2026-04-11-phase11-coprocessor-fel.md)
 
 **Date:** 2026-04-11
@@ -108,7 +108,7 @@ The behavior questions are now closed for purposes of continuing the Phase 11 in
 
 | Status | Items | Closure note |
 |--------|-------|--------------|
-| Closed in WOS normative slice | **P11-BL-001**–**005**, **P11-BL-010**–**013**, **P11-BL-020**–**022**, **P11-BL-030**–**032**, **P11-BL-040**–**042**, **P11-BL-051** | Proceed with `thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md` using Runtime §15 as the source of truth for the coprocessor protocol. |
+| Closed in WOS normative slice | **P11-BL-001**–**005**, **P11-BL-010**–**013**, **P11-BL-020**–**022**, **P11-BL-030**–**032**, **P11-BL-040**–**042**, **P11-BL-051** | Proceed with `wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md` using Runtime §15 as the source of truth for the coprocessor protocol. |
 | Closed by publication review | **P11-BL-050** | Closed after semi-formal review verified the landed prose stayed additive, delegated to Formspec, terminology-safe, and consistent on terminal/replay behavior. |
 
 ---
