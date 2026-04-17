@@ -41,7 +41,11 @@ describe('tool registration — expanded tools', () => {
     expect(toolNames).toContain('formspec_lifecycle');
   });
 
-  it('registers 42 tools total', () => {
-    expect(toolNames).toHaveLength(42);
+  it('registers formspec_fel_trace', () => {
+    expect(toolNames).toContain('formspec_fel_trace');
+  });
+
+  it('registers 43 tools total', () => {
+    expect(toolNames).toHaveLength(43);
   });
 });

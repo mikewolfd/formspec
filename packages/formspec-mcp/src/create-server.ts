@@ -21,7 +21,7 @@ import { handleData } from './tools/data.js';
 import { handleScreener } from './tools/screener.js';
 import { handleDescribe, handleSearch, handleTrace, handlePreview } from './tools/query.js';
 import { handleStructureBatch } from './tools/structure-batch.js';
-import { handleFel } from './tools/fel.js';
+import { handleFel, handleFelTrace } from './tools/fel.js';
 import { handleWidget } from './tools/widget.js';
 import { handleAudit } from './tools/audit.js';
 import { handleTheme } from './tools/theme.js';
@@ -608,6 +608,19 @@ export function createFormspecServer(registry: ProjectRegistry): McpServer {
     annotations: READ_ONLY,
   }, async ({ project_id, action, path, expression, context_path }) => {
     return handleFel(registry, project_id, { action, path, expression, context_path });
+  });
+
+  server.registerTool('formspec_fel_trace', {
+    title: 'FEL Trace',
+    description: 'Evaluate a FEL expression with a structured trace of evaluation steps. Returns { value, diagnostics, trace }; each trace step has a `kind` (FieldResolved, FunctionCalled, BinaryOp, IfBranch, ShortCircuit) plus per-kind payload. Intended for explainer / LLM surfaces — the trace is human-readable, not a reprojected AST.',
+    inputSchema: {
+      project_id: z.string(),
+      expression: z.string().describe('FEL expression to trace'),
+      fields: z.record(z.string(), z.unknown()).optional().describe('Optional flat map of field name -> value injected into the evaluation environment.'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, expression, fields }) => {
+    return handleFelTrace(registry, project_id, { expression, fields });
   });
 
   // ── Widget Vocabulary ────────────────────────────────────────────

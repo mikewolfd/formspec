@@ -9,7 +9,7 @@ import { handleData } from './tools/data.js';
 import { handleScreener } from './tools/screener.js';
 import { handleDescribe, handleSearch, handleTrace, handlePreview } from './tools/query.js';
 import { handleStructureBatch } from './tools/structure-batch.js';
-import { handleFel } from './tools/fel.js';
+import { handleFel, handleFelTrace } from './tools/fel.js';
 import { handleWidget } from './tools/widget.js';
 import { handleAudit } from './tools/audit.js';
 import { handleTheme } from './tools/theme.js';
@@ -65,6 +65,7 @@ const TOOL_HANDLERS: Record<string, Handler> = {
   formspec_search: handleSearch,
   formspec_structure: handleStructureBatch,
   formspec_fel: handleFel,
+  formspec_fel_trace: handleFelTrace,
   formspec_widget: handleWidget,
   formspec_audit: handleAudit,
   formspec_theme: handleTheme,

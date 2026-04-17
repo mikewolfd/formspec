@@ -1,7 +1,7 @@
-/** @filedesc Tests for expanded FEL MCP tool actions: validate, autocomplete, humanize. */
+/** @filedesc Tests for expanded FEL MCP tool actions: validate, autocomplete, humanize, trace. */
 import { describe, it, expect } from 'vitest';
 import { registryWithProject } from './helpers.js';
-import { handleFel } from '../src/tools/fel.js';
+import { handleFel, handleFelTrace } from '../src/tools/fel.js';
 
 function parseResult(result: { content: Array<{ text: string }> }) {
   return JSON.parse(result.content[0].text);
@@ -145,5 +145,41 @@ describe('handleFel — humanize', () => {
     const data = parseResult(result);
 
     expect(data.humanized).toEqual({ text: 'Active is Yes', supported: true });
+  });
+});
+
+// ── trace tool (formspec_fel_trace) ─────────────────────────────────
+
+describe('handleFelTrace', () => {
+  it('returns value, diagnostics, and an ordered trace for a simple addition', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handleFelTrace(registry, projectId, {
+      expression: '$a + $b',
+      fields: { a: 3, b: 4 },
+    });
+    const data = parseResult(result);
+
+    expect(data.value).toBe(7);
+    expect(data.diagnostics).toEqual([]);
+    expect(data.trace).toHaveLength(3);
+    expect(data.trace[0]).toMatchObject({ kind: 'FieldResolved', path: 'a', value: 3 });
+    expect(data.trace[1]).toMatchObject({ kind: 'FieldResolved', path: 'b', value: 4 });
+    expect(data.trace[2]).toMatchObject({ kind: 'BinaryOp', op: '+', result: 7 });
+  });
+
+  it('defaults fields to an empty map', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handleFelTrace(registry, projectId, { expression: '1 + 2' });
+    const data = parseResult(result);
+    expect(data.value).toBe(3);
+  });
+
+  it('surfaces parse errors as tool errors', () => {
+    const { registry, projectId } = registryWithProject();
+    const result = handleFelTrace(registry, projectId, { expression: '1 +' }) as {
+      isError?: boolean;
+      content: Array<{ text: string }>;
+    };
+    expect(result.isError).toBe(true);
   });
 });

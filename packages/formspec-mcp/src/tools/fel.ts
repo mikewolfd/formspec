@@ -1,6 +1,9 @@
 /**
  * FEL tool (consolidated):
  *   action: 'context' | 'functions' | 'check' | 'validate' | 'autocomplete' | 'humanize'
+ *
+ * Also exports `handleFelTrace` — the `formspec_fel_trace` tool that returns a
+ * structured evaluation trace suitable for LLM / explainer surfaces.
  */
 
 import type { ProjectRegistry } from '../registry.js';
@@ -55,6 +58,39 @@ export function handleFel(
         return successResponse(response);
       }
     }
+  } catch (err) {
+    if (err instanceof HelperError) {
+      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    return errorResponse(formatToolError('COMMAND_FAILED', message));
+  }
+}
+
+// ── FEL trace ────────────────────────────────────────────────────────
+
+interface FelTraceParams {
+  expression: string;
+  fields?: Record<string, unknown>;
+}
+
+/**
+ * Evaluate a FEL expression and return a structured trace of evaluation steps.
+ *
+ * The trace is identical in shape to what Rust `fel_core::evaluate_with_trace`
+ * produces — each step carries a PascalCase `kind` tag (`FieldResolved`,
+ * `FunctionCalled`, `BinaryOp`, `IfBranch`, `ShortCircuit`) plus per-kind payload.
+ * Intended for LLM / error-explainer surfaces.
+ */
+export function handleFelTrace(
+  registry: ProjectRegistry,
+  projectId: string,
+  params: FelTraceParams,
+) {
+  try {
+    const project = registry.getProject(projectId);
+    const result = project.traceFEL(params.expression, params.fields ?? {});
+    return successResponse(result);
   } catch (err) {
     if (err instanceof HelperError) {
       return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
