@@ -39,11 +39,16 @@ Two reference implementations exist: TypeScript (client-side engine + web compon
 
 ---
 
-## Designed for Humans and AI
+## Schema-First: Built for LLM Authoring
 
-Formspec is AI-native. Every design decision — JSON as the canonical format, typed schemas for every document, an Excel-like expression language, structured validation results, semantic field identity — was made so that AI can author, validate, and help fill forms while humans can always read, audit, and modify everything.
+Formspec's primary design goal is to be authored by LLMs. Every design decision — JSON as the canonical format, typed schemas for every document, an Excel-like expression language, structured validation results, semantic field identity — follows from making the spec readable by and generatable by AI. Humans can always read, audit, and modify everything; the inversion is that AI is the primary author and humans are the review layer, not the other way around.
 
-### How AI builds forms
+Two claims, cleanly separable:
+
+- **Claim A — LLM-authored forms (the generation story).** Forms are structured data. An LLM generates them directly against the schema. The MCP server (~48 typed tools) is the reference authoring harness. Lint gives immediate structural feedback; conformance gives immediate behavioral feedback. The spec → schema → lint → conformance iteration *is* the LLM's authoring loop, compressed to seconds.
+- **Claim B — AI-assisted form filling (the completion story).** At runtime, AI can help users answer fields — profile matching, contextual help, conversational assistance — grounded in the form's own metadata rather than probabilistic guessing. Optional, additive.
+
+### Claim A: LLM-authored forms
 
 Describe the form you need in plain English. AI builds a validated first draft through ~48 typed tool calls (MCP server) — not freeform text generation. Three verification layers catch errors automatically:
 1. **Tool schemas** — reject invalid field types before execution
@@ -52,7 +57,7 @@ Describe the form you need in plain English. AI builds a validated first draft t
 
 FEL's determinism means AI-generated expressions are auditable and statically verifiable — the linter catches plausible-but-wrong bugs before a human sees them. The human role shifts from line-by-line construction to high-level oversight: reviewing what was built, tweaking wording, adjusting structure.
 
-### How AI helps people complete forms
+### Claim B: AI-assisted form filling
 
 Users can ask "what does Modified Total Direct Costs mean?" and get an answer grounded in the form's own documentation and regulations — not a probabilistic guess from the internet. 15 tools across 4 categories (introspection, mutation, profile, navigation) surface the metadata the author already created at the moment someone needs it:
 
@@ -70,6 +75,12 @@ The specification is the contract. JSON is readable by humans and parseable by m
 ---
 
 ## Who It's For
+
+### AI Agents and LLMs (Primary Authoring Audience)
+
+**Today you deal with:** Form specs designed for human visual builders. Generated output drifts from the schema. No immediate feedback loop — you produce a definition, someone runs it through a pipeline days later, you find out it was wrong. Expression languages designed for runtime eval, not static analysis, so you cannot tell whether a calculation is correct without executing it on sample data.
+
+**Formspec gives you:** A JSON spec constrained by JSON Schema, a deterministic expression language (FEL) that is statically analyzable, and a linter that catches semantic errors (undefined references, circular dependencies, type mismatches) before execution. The MCP server is the reference authoring harness: ~48 typed tool calls instead of freeform text generation, three verification layers (tool schemas → JSON Schema → lint), and a feedback loop measured in seconds. Every diagnostic is structured and machine-readable; every spec clause is traceable. The generation-lint-conformance loop is the product, not an integration.
 
 ### Form Authoring Teams
 
@@ -95,7 +106,7 @@ The specification is the contract. JSON is readable by humans and parseable by m
 
 **Formspec gives you:** AGPL-3.0 open source with no vendor lock-in. JSON definitions you own and version-control. Designed to support WCAG 2.2 AA conformance with built-in accessibility primitives. USWDS adapter included; headless architecture supports Bootstrap, Tailwind, Material, and custom design systems. Spec-defined interoperability — your data flows into compliance databases, audit trails, or PDF generation through a declared Mapping DSL, not export macros.
 
-The primary site audience is **non-technical form managers**, not developers — though developers get dedicated technical depth (architecture, code examples, extension points).
+The primary authoring interface is **an LLM driving the MCP server**, with **non-technical form managers** reviewing and refining what the AI produces. Developers get dedicated technical depth (architecture, code examples, extension points) but are no longer the bottleneck — form managers author through the AI, not through engineering tickets.
 
 ---
 
@@ -113,15 +124,16 @@ The primary site audience is **non-technical form managers**, not developers —
 
 ## Key Differentiators
 
-1. **Specification, not platform** — Portable, vendor-independent, version-controlled definitions
-2. **One definition, multiple runtimes** — Identical behavior on web, React, iOS, and server, including offline. Android is architecture-finalized.
-3. **Deterministic expressions** — FEL is auditable, statically analyzable, non-Turing-complete, with base-10 decimal arithmetic
-4. **Separation of concerns** — Ten independent document types (Definition, Theme, Component, Locale, References, Ontology, Registry, Mapping, Changelog, Assist), each with its own authoring team and review cycle
-5. **AI-native, human-auditable** — Designed from the ground up for AI authoring and AI-assisted filling, with every artifact (definitions, expressions, validation results) remaining human-readable and machine-verifiable
-6. **High-stakes focus** — Built for tax prep, grants, insurance, clinical, compliance, inspection — not contact forms or surveys
-7. **Accessible by default** — Designed for WCAG 2.2 AA conformance; accessibility primitives (ARIA, keyboard navigation, focus management) built into the behavior layer. USWDS adapter for federal projects.
-8. **Semantic data** — Ontology layer gives fields machine-readable identity, enabling deterministic AI data engineering
-9. **Non-relevant field handling** — Configurable per-bind `nonRelevantBehavior` (remove/empty/keep) controls what happens to data when fields become irrelevant — a nuance most form specs ignore
+1. **Schema-first design for LLM authoring** — Forms are generated JSON constrained to the definition schema. Lint and conformance give the LLM immediate feedback. No human canvas required. Incumbent form tools cannot retrofit this without redesigning their stack: their canvases produce output, not input.
+2. **Specification, not platform** — Portable, vendor-independent, version-controlled definitions
+3. **One definition, multiple runtimes** — Identical behavior on web, React, iOS, and server, including offline. Android is architecture-finalized.
+4. **Deterministic expressions** — FEL is auditable, statically analyzable, non-Turing-complete, with base-10 decimal arithmetic
+5. **Separation of concerns** — Ten independent document types (Definition, Theme, Component, Locale, References, Ontology, Registry, Mapping, Changelog, Assist), each with its own authoring team and review cycle
+6. **Human-auditable by construction** — Every artifact (definitions, expressions, validation results) is human-readable and machine-verifiable. AI authors, humans review, both see the same JSON
+7. **High-stakes focus** — Built for tax prep, grants, insurance, clinical, compliance, inspection — not contact forms or surveys
+8. **Accessible by default** — Designed for WCAG 2.2 AA conformance; accessibility primitives (ARIA, keyboard navigation, focus management) built into the behavior layer. USWDS adapter for federal projects.
+9. **Semantic data** — Ontology layer gives fields machine-readable identity, enabling deterministic AI data engineering
+10. **Non-relevant field handling** — Configurable per-bind `nonRelevantBehavior` (remove/empty/keep) controls what happens to data when fields become irrelevant — a nuance most form specs ignore
 
 ---
 

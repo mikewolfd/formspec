@@ -1,6 +1,6 @@
 # Formspec
 
-**A declarative form specification where structure, behavior, and presentation are independent, composable JSON documents.**
+**A JSON-native form specification designed for LLM authoring. One definition renders on web, React, iOS, and server — and because every artifact is schema-constrained JSON, AI can generate valid forms directly, with lint and conformance closing the loop in seconds.**
 
 Built by [Michael Deeb](https://www.linkedin.com/in/michael-deeb/), [TealWolf Consulting](https://tealwolf.consulting/) with [Focus Consulting](https://focusconsulting.io/) as a strategic partner. Open-core: runtime under [Apache-2.0](LICENSE), authoring tools under [BSL 1.1](LICENSE-BSL). See [LICENSING.md](LICENSING.md).
 
@@ -319,15 +319,23 @@ result = evaluate_definition(definition, submitted_data)
 # result.valid, result.data, result.results
 ```
 
-## LLM Integration
+## LLM Authoring (the primary authoring path)
 
-Every Formspec artifact has a JSON Schema. Pass the schema as a structured-output constraint and the LLM produces valid documents directly:
+Formspec is designed to be authored by LLMs. The MCP server is the reference authoring harness — not an integration, the intended front-door. It exposes ~48 typed tools across structure, behavior, presentation, mapping, locale, ontology, screener, and lifecycle management.
 
-1. **Generate forms** — constrain output to `definition.schema.json`
-2. **Fill responses** — constrain output to `response.schema.json`
-3. **Interpret validation** — feed `validationReport` documents back for natural-language error explanations
+The authoring loop runs in seconds:
 
-The MCP server exposes 48 typed tools for AI-driven form authoring — structure, behavior, presentation, mapping, locale, ontology, screener, and lifecycle management. Compact `*.llm.md` spec variants under `specs/` fit LLM context windows.
+1. **Generate** — LLM calls typed MCP tools (or constrains output against `definition.schema.json`) to produce a definition.
+2. **Lint** — `formspec-lint` returns structured diagnostics (code, path, severity, message) for structural and semantic issues.
+3. **Conformance** — runtime evaluation against shared fixtures verifies behavior.
+4. **Iterate** — the LLM consumes the diagnostics, adjusts, re-runs. No human in the inner loop.
+
+Two additional integration points:
+
+- **Fill responses** — constrain output to `response.schema.json` for AI-completed submissions.
+- **Interpret validation** — feed `validationReport` documents back for natural-language error explanations to end users.
+
+Compact `*.llm.md` spec variants under `specs/` fit LLM context windows; full specs remain the normative source.
 
 ## Development
 
