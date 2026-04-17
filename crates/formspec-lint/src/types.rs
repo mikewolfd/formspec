@@ -98,6 +98,13 @@ pub struct LintDiagnostic {
     pub path: String,
     /// Human-readable message.
     pub message: String,
+    /// Machine-readable repair hint for the authoring loop.
+    /// Populated opportunistically by individual rules; LLM authors consume this
+    /// to apply structured fixes rather than reparse prose messages.
+    pub suggested_fix: Option<String>,
+    /// Pointer to the normative spec clause that motivates this rule
+    /// (e.g., `specs/core/spec.md#bind-target`). Links diagnostics back to spec for traceability.
+    pub spec_ref: Option<String>,
 }
 
 impl LintDiagnostic {
@@ -114,6 +121,8 @@ impl LintDiagnostic {
             severity: LintSeverity::Error,
             path: path.into(),
             message: message.into(),
+            suggested_fix: None,
+            spec_ref: None,
         }
     }
 
@@ -130,6 +139,8 @@ impl LintDiagnostic {
             severity: LintSeverity::Warning,
             path: path.into(),
             message: message.into(),
+            suggested_fix: None,
+            spec_ref: None,
         }
     }
 
@@ -141,7 +152,22 @@ impl LintDiagnostic {
             severity: LintSeverity::Info,
             path: path.into(),
             message: message.into(),
+            suggested_fix: None,
+            spec_ref: None,
         }
+    }
+
+    /// Attach a machine-readable repair hint (e.g., `"rename 'amount' to 'quantity'"`).
+    pub fn with_suggested_fix(mut self, fix: impl Into<String>) -> Self {
+        self.suggested_fix = Some(fix.into());
+        self
+    }
+
+    /// Attach a pointer to the normative spec clause that motivates this rule
+    /// (e.g., `"specs/core/spec.md#bind-target"`).
+    pub fn with_spec_ref(mut self, spec_ref: impl Into<String>) -> Self {
+        self.spec_ref = Some(spec_ref.into());
+        self
     }
 
     /// Whether this diagnostic should be suppressed in the given lint mode.
@@ -289,6 +315,53 @@ mod tests {
                 "Authoring mode should NOT suppress {code}"
             );
         }
+    }
+
+    // ── Finding 47: sort_diagnostics stability ───────────────────
+
+    // ── Authoring-loop metadata: suggested_fix + spec_ref ───────
+
+    /// Spec: New diagnostics default to `None` for suggested_fix and spec_ref —
+    /// existing call sites keep working unchanged.
+    #[test]
+    fn diagnostic_defaults_authoring_metadata_to_none() {
+        let diag = LintDiagnostic::error("E300", 3, "$.binds.0", "bind target missing");
+        assert!(diag.suggested_fix.is_none());
+        assert!(diag.spec_ref.is_none());
+    }
+
+    /// Spec: `with_suggested_fix` attaches a fix hint for the authoring loop.
+    /// LLMs consuming diagnostics need structured repair suggestions, not prose.
+    #[test]
+    fn diagnostic_with_suggested_fix_attaches_hint() {
+        let diag = LintDiagnostic::error("E300", 3, "$.binds.0", "bind target missing")
+            .with_suggested_fix("change 'amount' to 'quantity'");
+        assert_eq!(
+            diag.suggested_fix.as_deref(),
+            Some("change 'amount' to 'quantity'")
+        );
+    }
+
+    /// Spec: `with_spec_ref` attaches a pointer to the normative spec clause
+    /// that motivates the rule, enabling spec traceability from every diagnostic.
+    #[test]
+    fn diagnostic_with_spec_ref_attaches_reference() {
+        let diag = LintDiagnostic::warning("W704", 6, "$.tokens.x", "unresolved token")
+            .with_spec_ref("specs/theme/theme-spec.md#token-cascade");
+        assert_eq!(
+            diag.spec_ref.as_deref(),
+            Some("specs/theme/theme-spec.md#token-cascade")
+        );
+    }
+
+    /// Spec: Builders compose — a diagnostic can carry both fix and spec ref.
+    #[test]
+    fn diagnostic_builders_chain() {
+        let diag = LintDiagnostic::error("E300", 3, "$", "bad")
+            .with_suggested_fix("fix it")
+            .with_spec_ref("specs/core/spec.md#bind-target");
+        assert_eq!(diag.suggested_fix.as_deref(), Some("fix it"));
+        assert_eq!(diag.spec_ref.as_deref(), Some("specs/core/spec.md#bind-target"));
     }
 
     // ── Finding 47: sort_diagnostics stability ───────────────────

@@ -132,6 +132,8 @@ class LintDiagnostic(msgspec.Struct, frozen=True):
     severity: str
     path: str
     message: str
+    suggested_fix: str | None = None
+    spec_ref: str | None = None
 
 
 class RegistryInfo(msgspec.Struct, frozen=True):
@@ -384,6 +386,8 @@ def lint(
             severity=d.get("severity", "error"),
             path=d.get("path", ""),
             message=d.get("message", ""),
+            suggested_fix=d.get("suggested_fix"),
+            spec_ref=d.get("spec_ref"),
         )
         for d in diagnostics
     ]

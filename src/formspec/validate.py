@@ -120,6 +120,15 @@ class ValidationReport:
     passes: list[PassResult] = field(default_factory=list)
 
 
+# ── Public pass titles ───────────────────────────────────────────────────────
+#
+# Downstream consumers (benchmark runner, CI dashboards) match on these exact
+# strings when they need to reason about a specific pass. Rename them here and
+# downstream breaks loudly, not silently.
+
+DEFINITION_LINTING_TITLE = "Definition linting"
+
+
 # ── Discovery ────────────────────────────────────────────────────────────────
 
 
@@ -278,7 +287,7 @@ def _lint_pass(
 def _pass_definition_linting(arts: DiscoveredArtifacts) -> PassResult:
     all_defs = list(arts.definitions.values()) + list(arts.fragments.values())
     regs = [r.doc for r in arts.registries]
-    return _lint_pass("Definition linting", all_defs, registry_documents=regs)
+    return _lint_pass(DEFINITION_LINTING_TITLE, all_defs, registry_documents=regs)
 
 
 def _pass_sidecar_linting(arts: DiscoveredArtifacts) -> PassResult:
@@ -804,6 +813,60 @@ def validate_all(artifacts: DiscoveredArtifacts) -> ValidationReport:
     )
 
 
+# ── JSON output ──────────────────────────────────────────────────────────────
+
+
+def _diagnostic_to_json(d: LintDiagnostic) -> dict:
+    """Serialize a LintDiagnostic with a stable, camelCase shape for LLM consumers."""
+    return {
+        "code": d.code,
+        "severity": d.severity,
+        "path": d.path,
+        "message": d.message,
+        "suggestedFix": d.suggested_fix,
+        "specRef": d.spec_ref,
+    }
+
+
+def _item_to_json(item: PassItemResult) -> dict:
+    return {
+        "label": item.label,
+        "errorCount": item.error_count,
+        "warningCount": item.warning_count,
+        "diagnostics": [_diagnostic_to_json(d) for d in item.diagnostics],
+        "runtimeResults": list(item.runtime_results),
+    }
+
+
+def report_to_json(report: ValidationReport, *, title: str | None = None) -> dict:
+    """Project a ValidationReport into a JSON-serializable dict for `--json` output.
+
+    Keys are camelCase to match the rest of the JS/WASM wire surface.
+    Diagnostic shape matches the Rust lint wire format — including the authoring-loop
+    metadata fields (`suggestedFix`, `specRef`) that LLMs consume to apply structured
+    fixes and trace rules back to the spec.
+    """
+    total_errors = 0
+    passes_json: list[dict] = []
+    for i, pr in enumerate(report.passes, start=1):
+        for item in pr.items:
+            total_errors += item.error_count
+        passes_json.append(
+            {
+                "index": i,
+                "title": pr.title,
+                "empty": pr.empty,
+                "items": [_item_to_json(item) for item in pr.items],
+            }
+        )
+    return {
+        "title": title or "",
+        "valid": total_errors == 0,
+        "totalErrors": total_errors,
+        "passes": passes_json,
+    }
+
+
 # ── Terminal output ──────────────────────────────────────────────────────────
 
 
@@ -932,6 +995,12 @@ def main(argv: list[str] | None = None) -> int:
         "--title",
         help="Title shown in the report header",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a structured JSON report to stdout instead of the human-readable summary. "
+        "Intended for LLM consumers and CI pipelines — diagnostics include suggestedFix and specRef fields.",
+    )
     args = parser.parse_args(argv)
 
     directory = args.directory.resolve()
@@ -948,7 +1017,12 @@ def main(argv: list[str] | None = None) -> int:
         registry_paths=registry_paths,
     )
     title = args.title or directory.name
-    return print_report(validate_all(artifacts), title=title)
+    report = validate_all(artifacts)
+    if args.json:
+        payload = report_to_json(report, title=title)
+        print(json.dumps(payload, indent=2))
+        return 0 if payload["totalErrors"] == 0 else 1
+    return print_report(report, title=title)
 
 
 if __name__ == "__main__":

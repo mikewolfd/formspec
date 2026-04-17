@@ -137,15 +137,16 @@ Exit code: `1` if errors, `0` if clean, `2` for input file issues.
 ### Diagnostic Type
 
 ```python
-@dataclass(frozen=True, slots=True)
-class LintDiagnostic:
-    severity: Literal["error", "warning", "info"]
-    code: str
-    message: str
-    path: str        # JSON-path-like location (e.g., "$.items[0].binds[1]")
-    category: Literal["schema", "reference", "expression", "dependency", "tree", "theme", "component"]
-    detail: str | None = None
+class LintDiagnostic(msgspec.Struct, frozen=True):
+    code: str                      # e.g., "E100", "E300", "W704"
+    severity: str                  # "error" | "warning" | "info"
+    path: str                      # JSONPath location (e.g., "$.items[0].binds[1]")
+    message: str                   # human-readable description
+    suggested_fix: str | None = None   # machine-readable repair hint for the authoring loop
+    spec_ref: str | None = None        # pointer to the normative spec clause (e.g., "specs/core/spec.md#bind-target")
 ```
+
+`suggested_fix` and `spec_ref` are populated opportunistically by individual rules; diagnostics that do not provide them leave the fields as `None`. They exist so LLMs consuming diagnostics can apply structured fixes and trace each rule back to the spec, rather than parsing prose.
 
 ### Lint Modes
 
