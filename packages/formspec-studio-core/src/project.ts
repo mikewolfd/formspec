@@ -155,6 +155,8 @@ export class Project {
   pageStructure(): PageStructureView { return resolveLayoutPageStructure(this.state); }
   searchItems(filter: ItemFilter): ItemSearchResult[] { return this.core.searchItems(filter); }
   parseFEL(expression: string, context?: FELParseContext): FELParseResult { return this.core.parseFEL(expression, context); }
+  /** Evaluate a FEL expression and return a structured trace of evaluation steps. */
+  traceFEL(expression: string, fields?: Record<string, unknown>) { return this.core.traceFEL(expression, fields); }
   felFunctionCatalog(): FELFunctionEntry[] { return this.core.felFunctionCatalog(); }
   availableReferences(context?: string | FELParseContext): FELReferenceSet { return this.core.availableReferences(context); }
   expressionDependencies(expression: string): string[] { return this.core.expressionDependencies(expression); }

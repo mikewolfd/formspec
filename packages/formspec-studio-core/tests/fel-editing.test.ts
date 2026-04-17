@@ -192,3 +192,22 @@ describe('humanizeFELExpression', () => {
     expect(project.humanizeFELExpression('$count <= 100')).toEqual({ text: 'Count is at most 100', supported: true });
   });
 });
+
+// ── traceFEL ───────────────────────────────────────────────────────
+
+describe('traceFEL', () => {
+  it('returns value and ordered trace steps for an addition', () => {
+    const project = createProject();
+    const result = project.traceFEL('$a + $b', { a: 3, b: 4 });
+    expect(result.value).toBe(7);
+    expect(result.trace).toHaveLength(3);
+    expect(result.trace[2]).toMatchObject({ kind: 'BinaryOp', op: '+', result: 7 });
+  });
+
+  it('records the branch taken by a ternary', () => {
+    const project = createProject();
+    const result = project.traceFEL("if($x > 0, 'pos', 'neg')", { x: 5 });
+    const branch = result.trace.find((s) => s.kind === 'IfBranch');
+    expect(branch).toMatchObject({ kind: 'IfBranch', branch_taken: 'then' });
+  });
+});

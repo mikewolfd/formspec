@@ -1196,6 +1196,40 @@ describe('parseFEL', () => {
   });
 });
 
+describe('traceFEL', () => {
+  it('returns value, diagnostics, and an ordered trace of evaluation steps', () => {
+    const project = createRawProject();
+    const result = project.traceFEL('$a + $b', { a: 3, b: 4 });
+
+    expect(result.value).toBe(7);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.trace).toHaveLength(3);
+    expect(result.trace[0]).toMatchObject({ kind: 'FieldResolved', path: 'a', value: 3 });
+    expect(result.trace[1]).toMatchObject({ kind: 'FieldResolved', path: 'b', value: 4 });
+    expect(result.trace[2]).toMatchObject({ kind: 'BinaryOp', op: '+', result: 7 });
+  });
+
+  it('records IfBranch with the branch taken', () => {
+    const project = createRawProject();
+    const result = project.traceFEL("if($x > 0, 'pos', 'neg')", { x: 5 });
+    const branch = result.trace.find((s) => s.kind === 'IfBranch');
+    expect(branch).toBeDefined();
+    expect(branch).toMatchObject({ kind: 'IfBranch', branch_taken: 'then' });
+  });
+
+  it('emits ShortCircuit step for `false and $undef` and skips the right side', () => {
+    const project = createRawProject();
+    const result = project.traceFEL('false and $undefined', {});
+    const short = result.trace.find((s) => s.kind === 'ShortCircuit');
+    expect(short).toBeDefined();
+    expect(short).toMatchObject({ kind: 'ShortCircuit', op: 'and' });
+    const rightResolved = result.trace.find(
+      (s) => s.kind === 'FieldResolved' && (s as { path: string }).path === 'undefined',
+    );
+    expect(rightResolved).toBeUndefined();
+  });
+});
+
 // ── Extension queries ──────────────────────────────────────────
 
 describe('listRegistries', () => {

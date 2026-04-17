@@ -78,7 +78,7 @@ import {
   browseExtensions as _browseExtensions,
   resolveExtension as _resolveExtension,
 } from './queries/index.js';
-import { itemAtPath } from '@formspec-org/engine/fel-runtime';
+import { itemAtPath, evalFELWithTrace, type FelTraceResult } from '@formspec-org/engine/fel-runtime';
 import { indexRegistryPayload } from './registry-index.js';
 
 /** Components that manage their own group path binding and MUST keep their bind on export. */
@@ -461,6 +461,7 @@ export class RawProject implements IProjectCore {
   resolveToken(key: string): string | number | undefined { return _resolveToken(this._state, key); }
   allDataTypes(): DataTypeInfo[] { return _allDataTypes(this._state); }
   parseFEL(expression: string, context?: FELParseContext): FELParseResult { return _parseFEL(this._state, expression, context); }
+  traceFEL(expression: string, fields: Record<string, unknown> = {}): FelTraceResult { return evalFELWithTrace(expression, fields); }
   felFunctionCatalog(): FELFunctionEntry[] { return _felFunctionCatalog(this._state); }
   availableReferences(context?: string | FELParseContext): FELReferenceSet { return _availableReferences(this._state, context); }
   allExpressions(): ExpressionLocation[] { return _allExpressions(this._state); }

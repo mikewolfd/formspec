@@ -92,6 +92,12 @@ export interface IProjectCore {
   resolveToken(key: string): string | number | undefined;
   allDataTypes(): DataTypeInfo[];
   parseFEL(expression: string, context?: FELParseContext): FELParseResult;
+  /**
+   * Evaluate a FEL expression and return a structured trace of evaluation
+   * steps. Intended for MCP / LLM surfaces; values are projected to JSON
+   * so type fidelity (money, date) is lost but readability is universal.
+   */
+  traceFEL(expression: string, fields?: Record<string, unknown>): import('@formspec-org/engine/fel-runtime').FelTraceResult;
   felFunctionCatalog(): FELFunctionEntry[];
   availableReferences(context?: string | FELParseContext): FELReferenceSet;
   allExpressions(): ExpressionLocation[];
