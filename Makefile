@@ -45,11 +45,17 @@ build-python:
 
 # Force-rebuild the Python extension from scratch. Use this when tests pick up
 # stale bindings — typical symptom: a function signature was changed in Rust
-# but Python still sees the old shape. Wipes any in-tree _native*.so before
-# invoking maturin so we never silently pick up a cached artifact.
+# but Python still sees the old shape.
+#
+# Maturin installs the compiled `_native` module into site-packages, but
+# `src/formspec/_rust.py` imports it as `from formspec import _native`, which
+# requires the `.so` to live inside `src/formspec/`. We wipe, rebuild, then
+# copy the fresh artifact back into the source tree.
 rebuild-python:
 	rm -f src/formspec/_native*.so
 	maturin develop --release --manifest-path crates/formspec-py/Cargo.toml
+	@SITE_PKG_SO=$$(python3 -c "import _native as m, os; print(os.path.dirname(m.__file__))")/_native.cpython-*.so; \
+	cp $$SITE_PKG_SO src/formspec/ && echo "✓ copied fresh _native.so to src/formspec/"
 
 test-rust:
 	cargo test --workspace

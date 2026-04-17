@@ -90,42 +90,23 @@ def test_registry_covers_every_code_the_linter_emits() -> None:
     )
 
 
-def test_every_code_with_metadata_is_tested_in_registry() -> None:
-    """If a rule has authoring-loop metadata wired up in `metadata.rs`, the
-    registry must reflect that by marking the rule `tested` (or `stable`).
-    A rule carrying a live spec_ref + suggested_fix but sitting in `draft`
-    is a contradiction — it means the code says "I'm ready" while the
-    registry says "I'm not." Surface the drift loudly.
+def test_metadata_rs_reads_registry_not_hardcoded_table() -> None:
+    """Structural invariant: `crates/formspec-lint/src/metadata.rs` must load
+    rule metadata from `specs/lint-codes.json` via `include_str!`, not from a
+    hand-maintained match table. This collapses the previous drift risk —
+    where code said 'tested' while registry said 'draft', or vice versa —
+    into a single source of truth.
+
+    If someone reverts to a hardcoded table, reinstate the earlier
+    `_scan_metadata_rs_for_codes` helper plus a drift check.
     """
-    metadata_codes = _scan_metadata_rs_for_codes()
-    assert metadata_codes, (
-        "Expected metadata.rs to wire metadata for at least one code; "
-        "the scanner may have regressed."
+    metadata_rs = (
+        REPO_ROOT / "crates" / "formspec-lint" / "src" / "metadata.rs"
+    ).read_text(encoding="utf-8")
+    assert 'include_str!("../../../specs/lint-codes.json")' in metadata_rs, (
+        "metadata.rs must embed specs/lint-codes.json via include_str! so "
+        "the registry is the single source of truth for authoring metadata."
     )
-    rules = _rules_by_code()
-    mismatched = []
-    for code in sorted(metadata_codes):
-        rule = rules.get(code)
-        if rule is None:
-            mismatched.append(f"{code}: in metadata.rs but missing from registry")
-            continue
-        if rule["state"] not in ("tested", "stable"):
-            mismatched.append(
-                f"{code}: metadata.rs populates it, but registry state is '{rule['state']}' "
-                f"— promote to 'tested' or remove the metadata entry"
-            )
-    assert not mismatched, "\n".join(mismatched)
-
-
-def _scan_metadata_rs_for_codes() -> set[str]:
-    """Collect every diagnostic code listed in the `metadata_for` match arm."""
-    import re
-
-    path = REPO_ROOT / "crates" / "formspec-lint" / "src" / "metadata.rs"
-    assert path.exists(), f"metadata.rs missing at {path}"
-    # Match arms are lines like `"E300" => RuleMetadata { ... }`.
-    pattern = re.compile(r'"([EW]\d{3})"\s*=>\s*RuleMetadata')
-    return set(pattern.findall(path.read_text(encoding="utf-8")))
 
 
 def _scan_linter_source_for_codes() -> set[str]:
