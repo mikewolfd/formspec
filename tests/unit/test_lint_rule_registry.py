@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from formspec._rust import lint
+from formspec._rust import LintDiagnostic, lint
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -226,6 +226,36 @@ def test_strip_test_modules_handles_literal_braces_in_strings() -> None:
 # specs/lint-codes.json — the loop below covers the rest.
 
 
+def _check_diagnostics_against_registry(
+    code: str,
+    rule: dict,
+    rel_path: str,
+    matching: list,
+) -> list[str]:
+    """Verify every diagnostic in `matching` carries registry-consistent
+    `spec_ref` + `suggested_fix`. Each divergent emission produces its own
+    failure line so repeated emissions can't mask drift.
+
+    The previous single-pick assertion (`matching[0]`) silently accepted any
+    divergent metadata on later emissions — a real inconsistency would have
+    slipped through as long as the first emission matched.
+    """
+    failures: list[str] = []
+    for index, diag in enumerate(matching):
+        locator = rel_path if len(matching) == 1 else f"{rel_path} (emission #{index})"
+        if diag.spec_ref != rule["specRef"]:
+            failures.append(
+                f"{code}: fixture {locator} emitted spec_ref={diag.spec_ref!r}, "
+                f"registry has {rule['specRef']!r}"
+            )
+        if diag.suggested_fix != rule["suggestedFix"]:
+            failures.append(
+                f"{code}: fixture {locator} emitted suggested_fix="
+                f"{diag.suggested_fix!r}, registry has {rule['suggestedFix']!r}"
+            )
+    return failures
+
+
 def test_every_tested_rule_has_at_least_one_triggering_fixture() -> None:
     rules = _rules_by_code()
     failures: list[str] = []
@@ -271,16 +301,91 @@ def test_every_tested_rule_has_at_least_one_triggering_fixture() -> None:
                 )
                 continue
 
-            diag = matching[0]
-            if diag.spec_ref != rule["specRef"]:
-                failures.append(
-                    f"{code}: fixture {rel_path} emitted spec_ref={diag.spec_ref!r}, "
-                    f"registry has {rule['specRef']!r}"
-                )
-            if diag.suggested_fix != rule["suggestedFix"]:
-                failures.append(
-                    f"{code}: fixture {rel_path} emitted suggested_fix="
-                    f"{diag.suggested_fix!r}, registry has {rule['suggestedFix']!r}"
-                )
+            failures.extend(
+                _check_diagnostics_against_registry(code, rule, rel_path, matching)
+            )
 
     assert not failures, "\n".join(failures)
+
+
+# ── Unit coverage for the divergence checker ──────────────────
+#
+# These tests exercise `_check_diagnostics_against_registry` directly with
+# synthetic diagnostics so the "repeated emissions with divergent metadata"
+# case is covered independently of whatever the Rust linter emits today.
+# The previous `matching[0]`-only assertion silently accepted drift after
+# the first emission; these tests pin down the tightened contract.
+
+
+def _make_diag(code: str, *, spec_ref: str | None, suggested_fix: str | None) -> LintDiagnostic:
+    return LintDiagnostic(
+        code=code,
+        severity="warning",
+        path="$",
+        message="synthetic",
+        suggested_fix=suggested_fix,
+        spec_ref=spec_ref,
+    )
+
+
+def test_divergence_checker_passes_when_all_emissions_match_registry() -> None:
+    rule = {"specRef": "specs/core/spec.md#x", "suggestedFix": "fix x"}
+    matching = [
+        _make_diag("W999", spec_ref="specs/core/spec.md#x", suggested_fix="fix x"),
+        _make_diag("W999", spec_ref="specs/core/spec.md#x", suggested_fix="fix x"),
+    ]
+    assert _check_diagnostics_against_registry("W999", rule, "fake.json", matching) == []
+
+
+def test_divergence_checker_catches_divergent_spec_ref_on_later_emission() -> None:
+    """Old behavior: `matching[0]` matched, so divergent `matching[1]` slipped
+    through silently. New behavior: every emission is checked and divergence
+    on any emission is reported with an emission-index locator."""
+    rule = {"specRef": "specs/core/spec.md#x", "suggestedFix": "fix x"}
+    matching = [
+        _make_diag("W999", spec_ref="specs/core/spec.md#x", suggested_fix="fix x"),
+        _make_diag("W999", spec_ref="specs/core/spec.md#DIVERGED", suggested_fix="fix x"),
+    ]
+    failures = _check_diagnostics_against_registry("W999", rule, "fake.json", matching)
+    assert len(failures) == 1
+    assert "emission #1" in failures[0]
+    assert "DIVERGED" in failures[0]
+
+
+def test_divergence_checker_catches_divergent_suggested_fix_on_later_emission() -> None:
+    rule = {"specRef": "specs/core/spec.md#x", "suggestedFix": "fix x"}
+    matching = [
+        _make_diag("W999", spec_ref="specs/core/spec.md#x", suggested_fix="fix x"),
+        _make_diag("W999", spec_ref="specs/core/spec.md#x", suggested_fix="fix DIVERGED"),
+    ]
+    failures = _check_diagnostics_against_registry("W999", rule, "fake.json", matching)
+    assert len(failures) == 1
+    assert "emission #1" in failures[0]
+    assert "DIVERGED" in failures[0]
+
+
+def test_divergence_checker_reports_each_divergent_emission_separately() -> None:
+    """Two emissions diverge on different fields — both must be reported."""
+    rule = {"specRef": "specs/core/spec.md#x", "suggestedFix": "fix x"}
+    matching = [
+        _make_diag("W999", spec_ref="specs/core/spec.md#x", suggested_fix="fix x"),
+        _make_diag("W999", spec_ref="specs/core/spec.md#A", suggested_fix="fix x"),
+        _make_diag("W999", spec_ref="specs/core/spec.md#x", suggested_fix="fix B"),
+    ]
+    failures = _check_diagnostics_against_registry("W999", rule, "fake.json", matching)
+    assert len(failures) == 2
+    assert any("emission #1" in f and "#A" in f for f in failures)
+    assert any("emission #2" in f and "fix B" in f for f in failures)
+
+
+def test_divergence_checker_omits_emission_index_for_single_match() -> None:
+    """When there's only one matching diagnostic, the locator stays clean —
+    no confusing `(emission #0)` suffix for the common single-match case."""
+    rule = {"specRef": "specs/core/spec.md#x", "suggestedFix": "fix x"}
+    matching = [
+        _make_diag("W999", spec_ref="specs/core/spec.md#DIVERGED", suggested_fix="fix x"),
+    ]
+    failures = _check_diagnostics_against_registry("W999", rule, "some/fixture.json", matching)
+    assert len(failures) == 1
+    assert "emission #" not in failures[0]
+    assert "some/fixture.json" in failures[0]
