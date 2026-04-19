@@ -589,12 +589,12 @@ pub fn lint_theme(theme: &Value, definition: Option<&Value>) -> Vec<LintDiagnost
             if let Some(id) = page.get("id").and_then(|v| v.as_str())
                 && !seen_ids.insert(id.to_string())
             {
-                diags.push(LintDiagnostic::error(
+                diags.push(crate::metadata::with_metadata(LintDiagnostic::error(
                     "E710",
                     PASS,
                     format!("$.pages[{i}].id"),
                     format!("Duplicate page ID: '{id}'"),
-                ));
+                )));
             }
         }
 

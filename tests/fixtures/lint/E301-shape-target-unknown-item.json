@@ -1,0 +1,19 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e301",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E301 fixture — shape target points at a nonexistent item",
+  "items": [
+    { "key": "age", "type": "field", "dataType": "integer", "label": "Age" }
+  ],
+  "shapes": [
+    {
+      "id": "income-check",
+      "target": "income",
+      "constraint": "$ > 0",
+      "severity": "error",
+      "message": "Income must be positive"
+    }
+  ]
+}

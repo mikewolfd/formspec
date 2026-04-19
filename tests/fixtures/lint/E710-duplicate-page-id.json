@@ -1,0 +1,10 @@
+{
+  "$formspecTheme": "1.0",
+  "url": "https://example.com/themes/e710",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "https://example.com/forms/e710" },
+  "pages": [
+    { "id": "intro", "title": "Intro", "regions": [] },
+    { "id": "intro", "title": "Intro again", "regions": [] }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "https://formspec.org/schemas/lint-registry.schema.json",
   "version": "1.0",
-  "description": "Canonical registry of Formspec lint rule codes. Tested rules carry a normative spec pointer (specRef) and an imperative repair hint (suggestedFix) that the authoring loop surfaces to LLMs. Draft entries exist so every emitted code is discoverable — fill them in as rules graduate.",
+  "description": "Canonical registry of Formspec lint rule codes. Tested rules carry a normative spec pointer (specRef) and an imperative repair hint (suggestedFix) that the authoring loop surfaces to LLMs. Draft entries exist so every emitted code is discoverable \u2014 fill them in as rules graduate.",
   "rules": [
     {
       "code": "E100",
@@ -19,8 +19,10 @@
       "severity": "error",
       "title": "Schema violation",
       "specRef": "specs/core/spec.md#4-definition-schema",
-      "suggestedFix": "align the document with schemas/*.schema.json — fix the flagged property or value",
-      "fixtures": ["tests/fixtures/lint/E101-schema-violation.json"],
+      "suggestedFix": "align the document with schemas/*.schema.json \u2014 fix the flagged property or value",
+      "fixtures": [
+        "tests/fixtures/lint/E101-schema-violation.json"
+      ],
       "state": "tested"
     },
     {
@@ -29,9 +31,11 @@
       "severity": "error",
       "title": "Duplicate item key",
       "specRef": "specs/core/spec.md#213-item",
-      "suggestedFix": "rename one of the duplicate item keys — each `key` must be unique within its parent scope",
-      "fixtures": [],
-      "state": "draft"
+      "suggestedFix": "rename one of the duplicate item keys \u2014 each `key` must be unique within its parent scope",
+      "fixtures": [
+        "tests/fixtures/lint/E200-duplicate-item-key.json"
+      ],
+      "state": "tested"
     },
     {
       "code": "E201",
@@ -40,8 +44,10 @@
       "title": "Duplicate item full path",
       "specRef": "specs/core/spec.md#213-item",
       "suggestedFix": "remove the duplicate item at this path, or re-key one instance so full paths are unique",
-      "fixtures": [],
-      "state": "draft"
+      "fixtures": [
+        "tests/fixtures/lint/E201-duplicate-item-path.json"
+      ],
+      "state": "tested"
     },
     {
       "code": "E300",
@@ -50,7 +56,9 @@
       "title": "Bind target not found",
       "specRef": "specs/core/spec.md#433-path-syntax",
       "suggestedFix": "change bind target to match an item key, or add the missing item to `items`",
-      "fixtures": ["tests/fixtures/lint/E300-unresolved-bind-target.json"],
+      "fixtures": [
+        "tests/fixtures/lint/E300-unresolved-bind-target.json"
+      ],
       "state": "tested"
     },
     {
@@ -60,8 +68,10 @@
       "title": "Shape target references unknown item",
       "specRef": "specs/core/spec.md#215-validation-shape",
       "suggestedFix": "point the shape target at an existing item path, or add the referenced item to `items`",
-      "fixtures": [],
-      "state": "draft"
+      "fixtures": [
+        "tests/fixtures/lint/E301-shape-target-unknown-item.json"
+      ],
+      "state": "tested"
     },
     {
       "code": "E302",
@@ -70,8 +80,10 @@
       "title": "Undefined option set reference",
       "specRef": "specs/core/spec.md#46-option-sets",
       "suggestedFix": "define the named option set under `optionSets`, or change the item's `optionSet` reference",
-      "fixtures": [],
-      "state": "draft"
+      "fixtures": [
+        "tests/fixtures/lint/E302-undefined-option-set.json"
+      ],
+      "state": "tested"
     },
     {
       "code": "W300",
@@ -80,7 +92,9 @@
       "title": "Incompatible dataType for optionSet",
       "specRef": "specs/core/spec.md#46-option-sets",
       "suggestedFix": "change dataType to one of string/integer/decimal/choice/multiChoice, or drop the optionSet",
-      "fixtures": ["tests/fixtures/lint/W300-incompatible-optionset-datatype.json"],
+      "fixtures": [
+        "tests/fixtures/lint/W300-incompatible-optionset-datatype.json"
+      ],
       "state": "tested"
     },
     {
@@ -89,7 +103,7 @@
       "severity": "error",
       "title": "FEL expression failed to parse",
       "specRef": "specs/fel/fel-grammar.md#4-expression-grammar",
-      "suggestedFix": "fix the FEL syntax to match the grammar — check operators, quotes, and path references",
+      "suggestedFix": "fix the FEL syntax to match the grammar \u2014 check operators, quotes, and path references",
       "fixtures": [],
       "state": "draft"
     },
@@ -99,8 +113,10 @@
       "severity": "error",
       "title": "Dependency cycle",
       "specRef": "specs/core/spec.md#362-topological-ordering",
-      "suggestedFix": "break the dependency cycle — remove one bind's reference to the other",
-      "fixtures": ["tests/fixtures/lint/E500-dependency-cycle.json"],
+      "suggestedFix": "break the dependency cycle \u2014 remove one bind's reference to the other",
+      "fixtures": [
+        "tests/fixtures/lint/E500-dependency-cycle.json"
+      ],
       "state": "tested"
     },
     {
@@ -110,7 +126,9 @@
       "title": "Unresolved extension",
       "specRef": "specs/core/spec.md#85-extension-namespaces",
       "suggestedFix": "declare the extension in a loaded registry, or remove the extension key",
-      "fixtures": ["tests/fixtures/lint/E600-unresolved-extension.json"],
+      "fixtures": [
+        "tests/fixtures/lint/E600-unresolved-extension.json"
+      ],
       "state": "tested"
     },
     {
@@ -119,7 +137,7 @@
       "severity": "warning",
       "title": "Retired extension",
       "specRef": "specs/registry/extension-registry.md#6-extension-lifecycle",
-      "suggestedFix": "stop using this retired extension — migrate to its replacement or remove the key",
+      "suggestedFix": "stop using this retired extension \u2014 migrate to its replacement or remove the key",
       "fixtures": [],
       "state": "draft"
     },
@@ -149,7 +167,7 @@
       "severity": "warning",
       "title": "Invalid size token value",
       "specRef": "specs/theme/theme-spec.md#32-token-categories",
-      "suggestedFix": "use a valid CSS length with unit (px, rem, em, %, …) for this size token",
+      "suggestedFix": "use a valid CSS length with unit (px, rem, em, %, \u2026) for this size token",
       "fixtures": [],
       "state": "draft"
     },
@@ -159,7 +177,7 @@
       "severity": "warning",
       "title": "Invalid font weight token value",
       "specRef": "specs/theme/theme-spec.md#32-token-categories",
-      "suggestedFix": "set font weight to a 100-step numeric (100…900) or a recognized keyword (normal, bold, …)",
+      "suggestedFix": "set font weight to a 100-step numeric (100\u2026900) or a recognized keyword (normal, bold, \u2026)",
       "fixtures": [],
       "state": "draft"
     },
@@ -180,7 +198,9 @@
       "title": "Unresolved token reference",
       "specRef": "specs/theme/theme-spec.md#34-token-resolution",
       "suggestedFix": "define the token in your theme's tokens map, or use an existing token",
-      "fixtures": ["tests/fixtures/lint/W704-unresolved-token-reference.json"],
+      "fixtures": [
+        "tests/fixtures/lint/W704-unresolved-token-reference.json"
+      ],
       "state": "tested"
     },
     {
@@ -239,9 +259,11 @@
       "severity": "error",
       "title": "Duplicate page id",
       "specRef": "specs/theme/theme-spec.md#61-pages-array",
-      "suggestedFix": "rename one of the duplicate page IDs — each `pages[].id` must be unique",
-      "fixtures": [],
-      "state": "draft"
+      "suggestedFix": "rename one of the duplicate page IDs \u2014 each `pages[].id` must be unique",
+      "fixtures": [
+        "tests/fixtures/lint/E710-duplicate-page-id.json"
+      ],
+      "state": "tested"
     },
     {
       "code": "W711",
@@ -319,7 +341,7 @@
       "severity": "error",
       "title": "Custom component reference cycle",
       "specRef": "specs/component/component-spec.md#74-recursion-prohibition-and-cycle-detection",
-      "suggestedFix": "break the custom-component cycle — a component must not transitively reference itself",
+      "suggestedFix": "break the custom-component cycle \u2014 a component must not transitively reference itself",
       "fixtures": [],
       "state": "draft"
     },
@@ -330,7 +352,9 @@
       "title": "Component bind does not resolve to a field",
       "specRef": "specs/component/component-spec.md#42-bind-resolution-rules",
       "suggestedFix": "point bind at an existing field key, or add that field to the definition",
-      "fixtures": ["tests/fixtures/lint/W800-component-bind-unresolved.json"],
+      "fixtures": [
+        "tests/fixtures/lint/W800-component-bind-unresolved.json"
+      ],
       "state": "tested"
     },
     {
@@ -339,7 +363,7 @@
       "severity": "warning",
       "title": "Input component missing required bind",
       "specRef": "specs/component/component-spec.md#42-bind-resolution-rules",
-      "suggestedFix": "remove `bind` from layout/container components — only input components bind to fields",
+      "suggestedFix": "remove `bind` from layout/container components \u2014 only input components bind to fields",
       "fixtures": [],
       "state": "draft"
     },
@@ -350,7 +374,9 @@
       "title": "Component compatibility warning (loose match)",
       "specRef": "specs/component/component-spec.md#46-binddatatype-compatibility-matrix",
       "suggestedFix": "pick a component whose dataType matrix includes this field's type",
-      "fixtures": ["tests/fixtures/lint/W802-component-loose-compatibility.json"],
+      "fixtures": [
+        "tests/fixtures/lint/W802-component-loose-compatibility.json"
+      ],
       "state": "tested"
     },
     {
@@ -359,7 +385,7 @@
       "severity": "warning",
       "title": "Non-input component has bind",
       "specRef": "specs/component/component-spec.md#43-editable-binding-uniqueness",
-      "suggestedFix": "keep only one editable input bound to each field — move extra inputs to a different field",
+      "suggestedFix": "keep only one editable input bound to each field \u2014 move extra inputs to a different field",
       "fixtures": [],
       "state": "draft"
     },
@@ -369,7 +395,7 @@
       "severity": "warning",
       "title": "Custom component reference unresolved",
       "specRef": "specs/component/component-spec.md#43-editable-binding-uniqueness",
-      "suggestedFix": "bind each field from at most one place in the component tree — remove the duplicate",
+      "suggestedFix": "bind each field from at most one place in the component tree \u2014 remove the duplicate",
       "fixtures": [],
       "state": "draft"
     }

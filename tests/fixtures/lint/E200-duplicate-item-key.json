@@ -1,0 +1,25 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e200",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E200 fixture — same key reused under different parents",
+  "items": [
+    {
+      "key": "contact",
+      "type": "group",
+      "label": "Contact",
+      "children": [
+        { "key": "name", "type": "field", "dataType": "string", "label": "Contact name" }
+      ]
+    },
+    {
+      "key": "personnel",
+      "type": "group",
+      "label": "Personnel",
+      "children": [
+        { "key": "name", "type": "field", "dataType": "string", "label": "Personnel name" }
+      ]
+    }
+  ]
+}

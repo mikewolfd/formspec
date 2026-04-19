@@ -1,53 +1,15 @@
 # Formspec — Consolidated TODO
 
-**Validated 2026-04-10** against the current codebase by formspec-scout.
-
-Sources: editor/layout split review, chaos-test phase 1 findings + phase 4 follow-ups, layout DnD review, studio plans.
+**Validated 2026-04-19.** Items #30, #31, #32 landed in the 2026-04-19 batch; #29 batch 1 (5 of 29 rules) landed alongside them. See "Resolved" section below and git log.
 
 ## Open
 
-### 22. Bridge FEL traces through WASM → Python → MCP
-- **State**: `evaluate_with_trace` in `crates/fel-core/src/trace.rs` emits ordered `TraceStep` sequences (FieldResolved, FunctionCalled, BinaryOp, IfBranch, ShortCircuit). No binding forwards them.
-- **Why**: LLMs cannot see the trace until the WASM → Python → TS → MCP chain carries it. The Rust foundation sits unused until this wires through.
-- **Files**: `crates/formspec-wasm/src/fel.rs` (add `eval_fel_with_trace` returning `{value, diagnostics, trace}`), `crates/formspec-py/src/fel.rs` (Python binding mirror), `packages/formspec-engine/src/wasm-bridge-*.ts` (add `FelTrace` type + `wasmEvalFELWithTrace` method), `packages/formspec-mcp/src/tools/fel.ts` (new `formspec_fel_trace` tool).
-- **Done when**: `formspec_fel_trace("$a + $b", {a: 3, b: 4})` called through the MCP returns a `TraceStep[]` identical to what Rust produces for the same input.
-
-### 23. MCP-driven benchmark runner loop
-- **State**: `benchmarks/run_benchmark.py` scores a candidate directory against a reference. Four tasks under `benchmarks/tasks/` each carry a `requirement.md`. Nothing reads those requirements.
-- **Why**: The existing runner proves references validate clean. Measuring whether an LLM can *produce* a clean candidate from prose requires a separate runner that drives the MCP from `requirement.md`.
-- **Files**: new `benchmarks/run_mcp_loop.py`.
-- **Done when**: `python3 benchmarks/run_mcp_loop.py invoice --model <name>` reads `tasks/invoice/requirement.md`, drives `formspec_create` + `formspec_audit` in a scratch dir, iterates until clean or `N` rounds elapse, then writes `{score, rounds, first_round_diags, last_round_diags}` per task. Pair with `run_benchmark.py score` to reuse the scoring function.
-
-### 24. Split release pipelines by velocity tier
-- **State**: `COMPAT.md`, ADR-0063, and per-tier `CHANGELOG.md` stubs ship. Every npm package still releases atomically through one Changesets pipeline (`.github/workflows/publish.yml` + `.changeset/config.json`).
-- **Why**: Kernel packages need slow, semver-strict cadence; AI packages want monthly pre-1.0 drops. One pipeline couples kernel stability to AI velocity.
-- **Files**: `.changeset/config.json` (add `fixed` groups per tier), `.github/workflows/publish.yml` (per-tier job matrix), git tag conventions (`kernel-v*`, `foundation-v*`, `ai-v*`), npm `dist-tag` conventions.
-- **Done when**: each tier publishes on its own tag and cadence, proven by a dry-run on a release branch before landing on `main`.
-
-### 25. CI gate for lint-code registry coverage + per-rule fixtures
-- **State**: `tests/unit/test_lint_rule_registry.py` passes locally. It enforces that every emitted code appears in `specs/lint-codes.json` and every `tested`/`stable` rule carries `specRef` + `suggestedFix`. CI does not run it. Every `fixtures: []` array in the registry is empty.
-- **Why**: A new diagnostic code can reach `main` today without a registry entry. "Registered" without "exercised" is weak coverage — fixture links close the loop.
-- **Files**: `.github/workflows/*.yml` (wire the test into the required suite), `specs/lint-codes.json` (populate `fixtures` arrays).
-- **Done when**: the Python test runs on every PR, and every rule lists ≥1 fixture path under `tests/` or `examples/` that triggers the rule.
-
-### 26. Populate authoring metadata on 29 draft lint rules
-- **State**: 8 of 37 rules in `specs/lint-codes.json` are `state: "tested"` with real `specRef` + `suggestedFix`. 29 remain `state: "draft"` with empty strings. After the single-source refactor, `crates/formspec-lint/src/metadata.rs` loads the registry via `include_str!` — metadata flows automatically, no Rust edits.
-- **Why**: A diagnostic without a repair hint costs an LLM a round trip per miss. Every rule stuck at `draft` weakens the authoring loop.
-- **Files**: `specs/lint-codes.json` only. Spec anchors live in `specs/core/spec.md`, `specs/theme/theme-spec.md`, `specs/component/component-spec.md`, `specs/fel/fel-grammar.md` — verify each anchor exists before committing.
-- **Done when**: every rule reaches `state: "tested"` with a verified repo-relative `specRef` and an imperative `suggestedFix` under ~120 characters. `test_tested_and_stable_rules_have_spec_ref_and_suggested_fix` stays green throughout.
-
-### 27. `generate_changelog` output fails document-type detection (E100)
-- **State**: `generate_changelog(parent, child, url)` returns a document that `detect_document_type` cannot classify. `_pass_changelog_generation` at `src/formspec/validate.py:493-531` pipes the output through `lint()`, which emits E100. The `grant-report` benchmark task is scoped to the short form only to avoid tripping this.
-- **Why**: Any directory-validator run over a multi-version definition tree sees a spurious E100. The benchmark workaround hides the defect — remove both together.
-- **Plan**: `thoughts/plans/2026-04-17-changelog-generation-fails-doctype-detection.md`.
-- **Files**: `crates/formspec-changeset/` (generator output shape), `src/formspec/validate.py:493-531`, `crates/formspec-core/src/document_type.rs` if the fix extends detection instead of the generator.
-- **Done when**: a generated changelog round-trips `detect_document_type` → `lint()` cleanly, a fixture under `tests/conformance/` guards the invariant, and the `grant-report` benchmark task widens to cover base + long alongside short.
-
-### 28. Commit ADR-0064 + handoff archival
-- **State**: The handoff has been relocated inside the submodule to `wos-spec/thoughts/archive/reviews/2026-04-16-architecture-review-handoff.md` (submodule change pending). `thoughts/adr/0064-wos-granularity-and-ai-native-positioning.md` carries the updated path references but remains uncommitted.
-- **Why**: ADR-0064's "Supersedes" clause mandates the relocation. The ADR and the submodule pointer bump need to land together so `wos-spec/architecture-review-handoff.md` stops resolving while the ADR is visible.
-- **Files**: `thoughts/adr/0064-wos-granularity-and-ai-native-positioning.md`, the `wos-spec` submodule pointer in the outer repo.
-- **Done when**: ADR-0064 lands on `main`, the `wos-spec` submodule bump lands in the same or a closely-following commit, and the pre-move handoff path no longer resolves from either side.
+### 29. Graduate 29 draft lint rules with fixtures — 5 of 29 done
+- **Progress (2026-04-19 batch 1)**: E200, E201, E301, E302, E710 graduated to `state: "tested"` with triggering fixtures under `tests/fixtures/lint/`. Rust emission sites for E200/E201/E302/E710 wrapped with `crate::metadata::with_metadata(...)`; E301 was already wrapped via `validate_path`. 13/13 registry tests green; 302 Rust lint tests green; 1985 Python tests green.
+- **State**: 24 draft rules remain — E100, E400, E601, E602, E800–E807 (minus E805 which doesn't exist), W700–W703, W705–W709, W711, W801, W803, W804. `metadata_for(code)` still filters these out.
+- **Sequencing**: `thoughts/research/2026-04-17-lint-rule-graduation-needs-fixtures.md` — next suggested batches: (2) FEL parse failure E400, (3) theme token value checks W700-series, (4) paired-artifact theme/component rules, (5) extension lifecycle E601/E602, (6) W803/W804 **only after** the Rust-vs-Python semantic divergence at `crates/formspec-lint/src/pass_component.rs:1133-1140` is resolved.
+- **Files**: `tests/fixtures/lint/*.json` (new fixtures), `specs/lint-codes.json` (flip state + add fixture path), Rust emission sites as needed for `with_metadata` wrapping.
+- **Done when**: every rule reaches `state: "tested"` with ≥1 fixture path that triggers the rule's code and matches its registry `specRef` / `suggestedFix`. `test_every_tested_rule_has_at_least_one_triggering_fixture` stays green throughout.
 
 ## Track / Monitor
 
@@ -61,15 +23,35 @@ Sources: editor/layout split review, chaos-test phase 1 findings + phase 4 follo
 - **File**: `packages/formspec-core/src/raw-project.ts:350-373`
 - **Action**: Monitor. Resolution path documented: add dirty flag. Not yet implemented.
 
-### ~~21. `as any` casts in `project.ts`~~ — resolved
-- All 33 casts eliminated. `CommandResult` typed with `nodeRef`/`nodeNotFound`, `Diagnostic` with `line`/`column`, `CompNode` structured type replaces `Record<string, unknown>`.
-
 ### LayoutContainer dual-droppable
 - **Source**: layout DnD review (2026-04-07)
 - **File**: `packages/formspec-studio/src/workspaces/layout/LayoutContainer.tsx:194-209`
 - **Status**: `useSortable` + `useDroppable(container-drop)` on same element. No code change until a mis-hit is reproduced.
 
 ## Resolved
+
+<details>
+<summary>Resolved 2026-04-19 batch (click to expand)</summary>
+
+- **#30** — Changelog snake→camel boundary hardened. `generate_changelog` Python binding now accepts `wire_style="snake" | "camel"`; `change_to_object` in `crates/formspec-core/src/json_artifacts.rs` skips None for optional string fields so camel output matches `changelog.schema.json` directly. `_changelog_snake_to_camel` helper + 52 LOC of private allowlist deleted from `validate.py`. 8 new tests (5 Python, 3 Rust) pin the contract.
+- **#31** — Release-pipeline scripts now have 22 tests across `scripts/tests/` (8 filter + 10 placement + 4 CLI subprocess). Scripts refactored to export pure `filterForTier` / `restoreFromScratch` / `checkPlacement` functions with CLI guards. CLI behavior preserved byte-for-byte.
+- **#32** — Registry assertion at `tests/unit/test_lint_rule_registry.py` extracted into `_check_diagnostics_against_registry` that iterates all matching diagnostics instead of picking `matching[0]`. 5 new unit tests pin divergent-emission detection with per-emission locator.
+- **#29 batch 1 / 6** — E200, E201, E301, E302, E710 graduated. 5 new fixtures under `tests/fixtures/lint/`, 4 Rust emission sites wrapped with `with_metadata`. 24 rules still draft; see Open #29.
+
+</details>
+
+<details>
+<summary>Resolved 2026-04-17 parallel-craftsman batch (click to expand)</summary>
+
+- **#22** — FEL trace bridge through WASM → Python → TS → MCP. 5 commits (`e72f9843`, `9a46698c`, `b890ec5c`, `edbe2ca3`, `058e385d`). New MCP tool `formspec_fel_trace` returns `TraceStep[]` byte-identical to Rust.
+- **#23** — `benchmarks/run_mcp_loop.py`. Commit `a4b7dd1c`. Verified end-to-end: converged to `score=1.0 / validates=true` in one round on the invoice task.
+- **#24** — Tier-split release pipeline with scripted partitioning + per-tier sequential CI. Commits `78f8fc7b`, `95912f6e`, `364d3a96`. Four-tier dry-run matches COMPAT.md membership.
+- **#25** — CI gate verified (test already in `python-tests` job); 8 on-disk fixtures + generic registry-driven assertion (commit `42004918`). Replaces 3 hand-crafted per-rule tests.
+- **#26** — 29 draft rules carry verified `specRef` + `suggestedFix` (commit `003cd229`). State intentionally stays `draft`; graduation tracked in item #29 above.
+- **#27** — Changelog E100 fix: `$formspecChangelog` envelope marker in generator + snake→camel translation at lint boundary + 4 round-trip conformance tests + benchmark widening (commits `2e110a54`, `78f82b1b`, `81df0d6d`, `67685ecf`). `grant-report` benchmark validates clean on base + long + short.
+- **#28** — ADR-0064 landed in earlier session (`2fe42175` + `7ec2093e`); submodule pointer already current.
+
+</details>
 
 <details>
 <summary>Resolved items from editor/layout split review (click to expand)</summary>
@@ -104,46 +86,36 @@ Sources: editor/layout split review, chaos-test phase 1 findings + phase 4 follo
 - **17.** ~~Test file naming ambiguity~~ — renamed
 - **18.** ~~Orphaned E2E spec~~ — moved
 - **20.** ~~`SubmitButton` spec prose~~ — S5.19 added
+- **21.** ~~`as any` casts in `project.ts`~~ — all 33 casts eliminated
 
 </details>
 
 <details>
 <summary>Resolved items from chaos-test + DnD review + studio plans (click to expand)</summary>
 
-- ~~ARCH-3: `analyze_fel_with_field_types` end-to-end~~ — full chain wired: WASM → bridge → API → parseFEL with `FEL_TYPE_MISMATCH`
+- ~~ARCH-3: `analyze_fel_with_field_types` end-to-end~~ — full chain wired
 - ~~Sigil hint ($name vs @name)~~ — `expression-index.ts:129` emits `FEL_SIGIL_HINT`
-- ~~BUG-5: Shape per-row evaluation~~ — `shapes.rs:117-227` evaluates per-instance correctly
-- ~~UX-5: Theme token validation/listing~~ — `theme.ts:64` validates, `:73` lists
-- ~~CONF-3: Variables in bind expressions~~ — `parseFEL` includes variables in known refs
-- ~~addPage standalone-only refactor~~ — code matches plan; `standalone` option and `groupKey` removed
+- ~~BUG-5: Shape per-row evaluation~~ — `shapes.rs:117-227` evaluates per-instance
+- ~~UX-5: Theme token validation/listing~~ — `theme.ts:64`/`:73`
+- ~~CONF-3: Variables in bind expressions~~ — `parseFEL` includes variables
+- ~~addPage standalone-only refactor~~ — code matches plan
 - ~~BUG-1: `parentPath` doubles path~~ — fixed in `_resolvePath`
-- ~~BUG-2: Date comparison with `today()`~~ — `json_to_runtime_fel_typed` coerces dates
-- ~~BUG-4: Conditional required on calculated fields~~ — `refresh_required_state()` re-evaluates after calculate
-- ~~BUG-6: Required fires on repeat template at 0 instances~~ — `repeat_expand.rs` clears children
+- ~~BUG-2: Date comparison with `today()`~~ — coerces dates
+- ~~BUG-4: Conditional required on calculated fields~~ — re-evaluates after calculate
+- ~~BUG-6: Required fires on repeat template at 0 instances~~ — clears children
 - ~~BUG-7: `remove_rule` ambiguous~~ — `removeValidation` normalizes target
 - ~~BUG-8: `sample_data` ignores scenario~~ — `generateSampleData(overrides?)` added
-- ~~BUG-9: Cross-document audit leaf key~~ — broken check removed
+- ~~BUG-9: Cross-document audit leaf key~~ — removed
 - ~~BUG-10: Content items not findable by `placeOnPage`~~ — `_nodeRefForItem()` added
-- ~~BUG-12: Save omits `status`~~ — `createDefaultDefinition` includes `status: 'draft'`
+- ~~BUG-12: Save omits `status`~~ — includes `status: 'draft'`
 - ~~BUG-13: Unknown `Checkbox` component~~ — mapped to `Toggle`
-- ~~BUG-14: Unevaluated `widgetHint` on component nodes~~ — allowlist export strips it
-- ~~BUG-16: Repeat component unevaluated props~~ — allowlist export strips them
-- ~~UX-1: No shape listing~~ — `formspec_describe(mode: 'shapes')` added
-- ~~UX-2: `choices` silently ignored~~ — `.strict()` on Zod schemas
-- ~~UX-3: Sample data dates~~ — dynamic today() dates, nested repeat arrays
-- ~~UX-4: `formspec_create` skips bootstrap~~ — guide shows both paths
-- ~~UX-6: `humanize` FEL limitation~~ — MCP surfaces `note` explaining supported patterns
-- ~~UX-7: Flat sample data for repeat groups~~ — nested arrays with 2 sample instances
-- ~~UX-8: Content appended at end~~ — `insertIndex` added to content schema
-- ~~UX-9: `describe` vs `place` identifier mismatch~~ — `id` → `page_id`
-- ~~UX-10: No unsaved indicator~~ — `isDirty` / `markClean()` on Project, surfaced in MCP statistics
+- ~~BUG-14: Unevaluated `widgetHint` on component nodes~~ — allowlist strips it
+- ~~BUG-16: Repeat component unevaluated props~~ — allowlist strips them
+- ~~UX-1 through UX-10~~ — all resolved (see git log)
 - ~~CONF-1: Three parent-context mechanisms~~ — precedence notes in tool descriptions
-- ~~CONF-2: Money diagnostic gap~~ — evaluator.rs now suggests `moneyAmount()` for money/number and money/money ordering
-- ~~BUG-3: Money comparison diagnostic~~ — evaluator.rs suggests `moneyAmount()` in all money comparison failures
-- ~~FIX 8: FEL rewrite for repeat wildcard shapes~~ — `addValidation` rewrites FEL at write time via `rewriteFELReferences`/`rewriteMessageTemplate`
-- ~~Sortable-only E2E test gap~~ — skip reasons documented (dnd-kit simulation limitation)
-- ~~Layout DnD Finding 1: Sibling fallback~~ — `siblingIndicesForTreeReorder` derives from tree
-- ~~Layout DnD Finding 3: Stale `isDragging` comment~~ — fixed
-- ~~Layout DnD Finding 5: `bind:` prefix encoding~~ — JSDoc added
+- ~~CONF-2 / BUG-3: Money diagnostic gap~~ — `moneyAmount()` suggestions added
+- ~~FIX 8: FEL rewrite for repeat wildcard shapes~~ — `rewriteFELReferences`/`rewriteMessageTemplate`
+- ~~Sortable-only E2E test gap~~ — skip reasons documented
+- ~~Layout DnD Findings 1, 3, 5~~ — all resolved
 
 </details>

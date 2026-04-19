@@ -119,12 +119,12 @@ fn walk_items_for_option_sets(
     visit_definition_items_json(items, json_prefix, None, &mut |ctx| {
         if let Some(option_set_ref) = ctx.item.get("optionSet").and_then(|v| v.as_str()) {
             if !defined_sets.contains(option_set_ref) {
-                diagnostics.push(LintDiagnostic::error(
+                diagnostics.push(crate::metadata::with_metadata(LintDiagnostic::error(
                     "E302",
                     3,
                     format!("{}.optionSet", ctx.json_path),
                     format!("optionSet references undefined set: {option_set_ref}"),
-                ));
+                )));
             }
 
             if let Some(data_type) = ctx.item.get("dataType").and_then(|v| v.as_str())

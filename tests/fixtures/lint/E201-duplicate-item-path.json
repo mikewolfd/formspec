@@ -1,0 +1,11 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e201",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E201 fixture — two top-level items share identical full path",
+  "items": [
+    { "key": "email", "type": "field", "dataType": "string", "label": "Email" },
+    { "key": "email", "type": "field", "dataType": "string", "label": "Email duplicate" }
+  ]
+}

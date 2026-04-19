@@ -1,0 +1,21 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.com/forms/e302",
+  "version": "1.0.0",
+  "status": "draft",
+  "title": "E302 fixture — item references a set not declared under optionSets",
+  "items": [
+    {
+      "key": "state",
+      "type": "field",
+      "dataType": "string",
+      "label": "State",
+      "optionSet": "us-states"
+    }
+  ],
+  "optionSets": {
+    "country-codes": {
+      "options": [{ "value": "US", "label": "United States" }]
+    }
+  }
+}
