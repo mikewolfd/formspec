@@ -2,49 +2,55 @@
 /** @filedesc Moves out-of-tier changesets aside so `changeset version` only bumps one tier. */
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { TIERS, extractTier, listChangesetFiles, readChangeset } from './changeset-tiers.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-const CHANGESET_DIR = join(ROOT, '.changeset');
-const SCRATCH_DIR = join(ROOT, '.changeset-scratch');
+const DEFAULT_CHANGESET_DIR = join(ROOT, '.changeset');
+const DEFAULT_SCRATCH_DIR = join(ROOT, '.changeset-scratch');
 
-function usage() {
-  console.error(
-    `Usage:\n` +
-      `  node scripts/changeset-tier-filter.mjs <tier>   # move out-of-tier changesets to .changeset-scratch/\n` +
-      `  node scripts/changeset-tier-filter.mjs --restore # move them all back\n` +
-      `\nValid tiers: ${TIERS.join(', ')}`,
-  );
-  process.exit(2);
-}
-
-function restore() {
-  if (!existsSync(SCRATCH_DIR)) return;
-  const entries = readdirSync(SCRATCH_DIR, { withFileTypes: true });
-  for (const e of entries) {
-    if (e.isFile() && e.name.endsWith('.md')) {
-      renameSync(join(SCRATCH_DIR, e.name), join(CHANGESET_DIR, e.name));
-    }
+/**
+ * Errors the filter can raise. Consumers (CLI, tests) discriminate by `.code`.
+ */
+export class ChangesetTierFilterError extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.code = code;
+    this.details = details;
   }
-  rmSync(SCRATCH_DIR, { recursive: true, force: true });
-  console.log(`[changeset-tier-filter] restored ${entries.length} changeset(s) from scratch`);
 }
 
-function filterForTier(targetTier) {
+/**
+ * Move every changeset whose tier sentinel is not `targetTier` into
+ * `scratchDir`. Returns `{ kept, moved }` — each a list of basenames.
+ *
+ * Throws `ChangesetTierFilterError` when:
+ *   - `targetTier` is not in `TIERS` (code: `unknown-tier`)
+ *   - `scratchDir` already exists (code: `scratch-exists`)
+ *   - any changeset is missing its tier sentinel (code: `missing-sentinel`)
+ */
+export function filterForTier({
+  targetTier,
+  changesetDir = DEFAULT_CHANGESET_DIR,
+  scratchDir = DEFAULT_SCRATCH_DIR,
+}) {
   if (!TIERS.includes(targetTier)) {
-    console.error(`[changeset-tier-filter] unknown tier: ${targetTier}`);
-    usage();
-  }
-
-  // If a scratch dir is already present something is wrong; restore before filtering.
-  if (existsSync(SCRATCH_DIR)) {
-    console.error(
-      `[changeset-tier-filter] scratch dir already exists at ${SCRATCH_DIR}; run --restore first`,
+    throw new ChangesetTierFilterError(
+      'unknown-tier',
+      `unknown tier: ${targetTier}`,
+      { targetTier, valid: TIERS },
     );
-    process.exit(1);
   }
 
-  const files = listChangesetFiles(CHANGESET_DIR);
+  if (existsSync(scratchDir)) {
+    throw new ChangesetTierFilterError(
+      'scratch-exists',
+      `scratch dir already exists at ${scratchDir}; run --restore first`,
+      { scratchDir },
+    );
+  }
+
+  const files = listChangesetFiles(changesetDir);
   const missing = [];
   const matches = [];
   const moves = [];
@@ -61,27 +67,96 @@ function filterForTier(targetTier) {
   }
 
   if (missing.length > 0) {
-    console.error(
-      `[changeset-tier-filter] ${missing.length} changeset(s) missing tier sentinel:\n` +
-        missing.map((f) => `  - ${basename(f)}`).join('\n') +
-        `\n\nEvery .changeset/*.md MUST contain <!-- tier: kernel|foundation|integration|ai --> in its body.\n`,
+    throw new ChangesetTierFilterError(
+      'missing-sentinel',
+      `${missing.length} changeset(s) missing tier sentinel`,
+      { missing: missing.map((f) => basename(f)) },
     );
-    process.exit(1);
   }
 
   if (moves.length > 0) {
-    mkdirSync(SCRATCH_DIR, { recursive: true });
+    mkdirSync(scratchDir, { recursive: true });
     for (const { file } of moves) {
-      renameSync(file, join(SCRATCH_DIR, basename(file)));
+      renameSync(file, join(scratchDir, basename(file)));
     }
   }
 
-  console.log(
-    `[changeset-tier-filter] target=${targetTier} kept=${matches.length} moved=${moves.length}`,
-  );
+  return {
+    kept: matches.map((f) => basename(f)),
+    moved: moves.map(({ file }) => basename(file)),
+  };
 }
 
-const arg = process.argv[2];
-if (!arg) usage();
-if (arg === '--restore') restore();
-else filterForTier(arg);
+/**
+ * Move every `*.md` file in `scratchDir` back into `changesetDir`, then
+ * remove `scratchDir`. Silently no-ops when `scratchDir` is absent.
+ * Returns `{ restored }` — the count of moved files.
+ */
+export function restoreFromScratch({
+  changesetDir = DEFAULT_CHANGESET_DIR,
+  scratchDir = DEFAULT_SCRATCH_DIR,
+} = {}) {
+  if (!existsSync(scratchDir)) return { restored: 0 };
+  const entries = readdirSync(scratchDir, { withFileTypes: true });
+  let restored = 0;
+  for (const e of entries) {
+    if (e.isFile() && e.name.endsWith('.md')) {
+      renameSync(join(scratchDir, e.name), join(changesetDir, e.name));
+      restored++;
+    }
+  }
+  rmSync(scratchDir, { recursive: true, force: true });
+  return { restored };
+}
+
+function usage() {
+  console.error(
+    `Usage:\n` +
+      `  node scripts/changeset-tier-filter.mjs <tier>   # move out-of-tier changesets to .changeset-scratch/\n` +
+      `  node scripts/changeset-tier-filter.mjs --restore # move them all back\n` +
+      `\nValid tiers: ${TIERS.join(', ')}`,
+  );
+  process.exit(2);
+}
+
+function runCli() {
+  const arg = process.argv[2];
+  if (!arg) usage();
+
+  if (arg === '--restore') {
+    const { restored } = restoreFromScratch();
+    console.log(`[changeset-tier-filter] restored ${restored} changeset(s) from scratch`);
+    return;
+  }
+
+  try {
+    const { kept, moved } = filterForTier({ targetTier: arg });
+    console.log(
+      `[changeset-tier-filter] target=${arg} kept=${kept.length} moved=${moved.length}`,
+    );
+  } catch (err) {
+    if (err instanceof ChangesetTierFilterError) {
+      if (err.code === 'unknown-tier') {
+        console.error(`[changeset-tier-filter] ${err.message}`);
+        usage();
+      } else if (err.code === 'missing-sentinel') {
+        const list = err.details.missing.map((f) => `  - ${f}`).join('\n');
+        console.error(
+          `[changeset-tier-filter] ${err.message}:\n${list}\n\n` +
+            `Every .changeset/*.md MUST contain <!-- tier: kernel|foundation|integration|ai --> in its body.\n`,
+        );
+        process.exit(1);
+      } else {
+        console.error(`[changeset-tier-filter] ${err.message}`);
+        process.exit(1);
+      }
+    } else {
+      throw err;
+    }
+  }
+}
+
+// CLI guard: only invoke when executed directly, not when imported by tests.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  runCli();
+}
