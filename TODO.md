@@ -37,14 +37,14 @@ _(No open items.)_
   3. Theme value + paired-artifact (7): W700, W701, W708, W705, W706, W707, W711.
   4. Component (7): E800, E801, E802, E803, E806, E807, W801.
   5. Document type + extension lifecycle (3): E100, E601, E602.
-  6. Final six decision-blocked graduations: W702/W703 via platform-token catalog extension (`font.weight.*`, `font.lineHeight.*` added to `crates/formspec-lint/schemas/token-registry.json`); W709 via title+fix correction (per-token semantic now matches the Rust emission); W803 via title correction ("Multiple editable inputs bind to the same field"); W804 via title correction + README fix (Python never emitted it — the "Summary/DataTable" reference was stale doc); E804 via `variant: "plain" | "richtext" | "markdown"` prop added to TextInput schema + spec §5.6 + Rust rewrite.
+  6. Final six decision-blocked graduations: W702/W703 via platform-token catalog extension (`font.weight.*`, `font.lineHeight.*` added to canonical `schemas/token-registry.json` and synced to the lint-crate + layout-package copies via `scripts/generate-theme-from-registry.mjs`); W709 via title+fix correction (per-token semantic now matches the Rust emission); W803 via title correction ("Multiple editable inputs bind to the same field"); W804 via title correction + README fix (Python never emitted it — the "Summary/DataTable" reference was stale doc); E804 via new `variant` prop on TextInput (`plain` default + three formatted variants: `richtext`, `markdown`, `latex`). Schema, spec §5.6, and Rust check (`matches!(variant, "richtext" | "markdown" | "latex")` at `pass_component.rs:298`) all aligned; three fixtures cover each formatted variant.
 - **Registry bug fixes landed alongside:**
   - E806 title: "Duplicate bind in component tree" → "Custom component instance missing required param" (copy-paste fossil from W804).
   - W801 title: "Input component missing required bind" → "Layout/container component should not declare a bind" (same fossil class).
   - W709 suggestedFix: removed misleading "remove it from the registry" clause.
 - **Harness extensions:** `_registryDocuments` opt-in added to `tests/unit/test_lint_rule_registry.py` for E601/E602; obsolete `draft_codes_return_none` and `with_metadata_passes_draft_codes_through` Rust unit tests removed (no drafts remain; invariant noted in-source).
-- **Schema additions:** `variant: "plain" | "richtext" | "markdown"` on TextInput in both `schemas/component.schema.json` and `crates/formspec-lint/schemas/component.schema.json`. Spec §5.6 documents serialization semantics for each variant.
-- **Baselines:** 300 Rust lint tests green, 13/13 registry tests green, 1986 Python tests green.
+- **Schema additions:** `variant: "plain" | "richtext" | "markdown" | "latex"` on TextInput in both `schemas/component.schema.json` and `crates/formspec-lint/schemas/component.schema.json`. Spec §5.6 documents serialization semantics for each variant (richtext: runtime-defined; markdown: raw source, portable/diffable; latex: raw source, authoritative for math, degrades to source when no renderer available).
+- **Baselines:** 300 Rust lint tests green, 13/13 registry tests green, 1986 Python tests green. 7 commits across the session: `238c3ec3` (#32), `92daf57c` (#31), `add10712` (#30), `e24dd9b6` / `6dcf9caa` / `3ee172e3` / `c1934ab4` (#29 sub-batches 1-6), `3a7c273d` (LaTeX variant extension).
 
 </details>
 
