@@ -1,0 +1,22 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "https://example.com/forms/w804" },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      { "component": "TextInput", "bind": "title" },
+      { "component": "TextInput", "bind": "title" }
+    ]
+  },
+  "_pairedDefinition": {
+    "$formspec": "1.0",
+    "url": "https://example.com/forms/w804",
+    "version": "1.0.0",
+    "status": "draft",
+    "title": "W804 paired",
+    "items": [
+      { "key": "title", "type": "field", "label": "Title", "dataType": "string" }
+    ]
+  }
+}

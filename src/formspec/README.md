@@ -151,7 +151,7 @@ class LintDiagnostic(msgspec.Struct, frozen=True):
 ### Lint Modes
 
 - **`authoring`** — passes diagnostics through unchanged; lenient for interactive editing.
-- **`strict`** — escalates specific warnings to errors for CI: `W800` (unresolved bind refs), `W802` (compatibility fallback), `W803` (duplicate editable bindings), `W804` (summary/datatable bind issues).
+- **`strict`** — escalates specific warnings to errors for CI: `W800` (unresolved bind refs), `W802` (compatibility fallback), `W803` (duplicate editable bindings), `W804` (duplicate bind in component tree).
 
 ### Pipeline Passes
 
@@ -196,7 +196,7 @@ class LintDiagnostic(msgspec.Struct, frozen=True):
 | W800 | warning | component | Unresolved bind path |
 | W801 | warning | component | Layout/container should not bind |
 | W803 | warning | component | Duplicate editable binding |
-| W804 | warning | component | Summary/DataTable bind unresolved |
+| W804 | warning | component | Duplicate bind in component tree |
 
 ### Component Compatibility Matrix (`validator/component_matrix.py`)
 

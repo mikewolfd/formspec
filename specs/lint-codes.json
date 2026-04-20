@@ -190,7 +190,10 @@
       "title": "Invalid font weight token value",
       "specRef": "specs/theme/theme-spec.md#32-token-categories",
       "suggestedFix": "set font weight to a 100-step numeric (100\u2026900) or a recognized keyword (normal, bold, \u2026)",
-      "state": "draft"
+      "state": "tested",
+      "fixtures": [
+        "tests/fixtures/lint/W702-invalid-font-weight-token.json"
+      ]
     },
     {
       "code": "W703",
@@ -199,7 +202,10 @@
       "title": "Invalid duration or easing token value",
       "specRef": "specs/theme/theme-spec.md#32-token-categories",
       "suggestedFix": "use a valid duration (e.g. `200ms`) or an easing function (`ease-in`, `cubic-bezier(...)`)",
-      "state": "draft"
+      "state": "tested",
+      "fixtures": [
+        "tests/fixtures/lint/W703-invalid-number-token.json"
+      ]
     },
     {
       "code": "W704",
@@ -265,11 +271,13 @@
       "code": "W709",
       "pass": 6,
       "severity": "info",
-      "title": "No tokens declared",
+      "title": "Platform token not declared",
       "specRef": "specs/theme/theme-spec.md#31-token-structure",
-      "suggestedFix": "declare at least one token under `tokens` to give renderers a baseline to cascade from",
-      "fixtures": [],
-      "state": "draft"
+      "suggestedFix": "declare this token under `tokens` to set a project-specific default; otherwise the platform default applies \u2014 no action required",
+      "fixtures": [
+        "tests/fixtures/lint/W709-platform-token-not-declared.json"
+      ],
+      "state": "tested"
     },
     {
       "code": "E710",
@@ -347,10 +355,14 @@
       "code": "E804",
       "pass": 7,
       "severity": "error",
-      "title": "Richtext TextInput must bind to string field",
+      "title": "Formatted-variant TextInput must bind to string field",
       "specRef": "specs/component/component-spec.md#56-textinput",
-      "suggestedFix": "bind richtext `TextInput` to a `string` or `text` field, or drop the richtext variant prop",
-      "state": "draft"
+      "suggestedFix": "bind a richtext or markdown TextInput to a field whose dataType is string or text, or set variant back to plain",
+      "state": "tested",
+      "fixtures": [
+        "tests/fixtures/lint/E804-richtext-must-bind-string.json",
+        "tests/fixtures/lint/E804-markdown-must-bind-string.json"
+      ]
     },
     {
       "code": "E806",
@@ -392,7 +404,7 @@
       "code": "W801",
       "pass": 7,
       "severity": "warning",
-      "title": "Input component missing required bind",
+      "title": "Layout/container component should not declare a bind",
       "specRef": "specs/component/component-spec.md#42-bind-resolution-rules",
       "suggestedFix": "remove `bind` from layout/container components \u2014 only input components bind to fields",
       "fixtures": [
@@ -416,21 +428,25 @@
       "code": "W803",
       "pass": 7,
       "severity": "warning",
-      "title": "Non-input component has bind",
+      "title": "Multiple editable inputs bind to the same field",
       "specRef": "specs/component/component-spec.md#43-editable-binding-uniqueness",
       "suggestedFix": "keep only one editable input bound to each field \u2014 move extra inputs to a different field",
-      "fixtures": [],
-      "state": "draft"
+      "fixtures": [
+        "tests/fixtures/lint/W803-duplicate-editable-bind.json"
+      ],
+      "state": "tested"
     },
     {
       "code": "W804",
       "pass": 7,
       "severity": "warning",
-      "title": "Custom component reference unresolved",
-      "specRef": "specs/component/component-spec.md#43-editable-binding-uniqueness",
-      "suggestedFix": "bind each field from at most one place in the component tree \u2014 remove the duplicate",
-      "fixtures": [],
-      "state": "draft"
+      "title": "Duplicate bind in component tree",
+      "specRef": "specs/component/component-spec.md#42-bind-resolution-rules",
+      "suggestedFix": "remove one of the duplicated binds \u2014 a single field MUST NOT be bound by more than one component in the same tree",
+      "fixtures": [
+        "tests/fixtures/lint/W804-duplicate-bind-any-component.json"
+      ],
+      "state": "tested"
     }
   ]
 }

@@ -241,23 +241,15 @@ impl<'a> WalkState<'a> {
                 )));
             }
 
-            // W804: Duplicate bind in tree (any component)
-            // NOTE: intentionally unwrapped — the Rust emission ("Duplicate
-            // bind in tree") diverges from the Python linter's W804
-            // ("unresolved Summary/DataTable bind") and from the registry
-            // title's current wording. Held until the 3-way semantic is
-            // reconciled per TODO #29 / thoughts/research/2026-04-17-
-            // lint-rule-graduation-needs-fixtures.md. Do NOT wrap with
-            // with_metadata until the semantic is resolved — doing so
-            // would bind an ambiguous registry entry to whichever emission
-            // site wins the graduation race.
+            // W804: Duplicate bind in tree — a single field MUST NOT be
+            // bound by more than one component in the same tree (spec §4.2).
             if !self.all_binds.insert(bind.to_string()) {
-                self.diags.push(LintDiagnostic::warning(
+                self.diags.push(crate::metadata::with_metadata(LintDiagnostic::warning(
                     "W804",
                     PASS,
                     path,
                     format!("Duplicate bind in component tree: {bind}"),
-                ));
+                )));
             }
 
             // Cross-artifact checks for input components
@@ -299,40 +291,30 @@ impl<'a> WalkState<'a> {
                                 )));
                             }
 
-                            // E804: richtext TextInput must bind to string
+                            // E804: formatted-variant TextInput must bind
+                            // to a string/text field (spec §5.6). Applies
+                            // to `variant: "richtext"` and `"markdown"` —
+                            // both are string-encoded and cannot serialize
+                            // into any other primitive.
                             if comp_type == "TextInput" {
-                                let is_richtext = node
-                                    .get("inputMode")
+                                let variant = node
+                                    .get("variant")
                                     .and_then(|v| v.as_str())
-                                    .is_some_and(|m| m == "richtext");
-                                if is_richtext {
+                                    .unwrap_or("plain");
+                                let needs_string = matches!(variant, "richtext" | "markdown");
+                                if needs_string {
                                     let is_string = field_info
                                         .data_type
                                         .as_deref()
                                         .is_some_and(|dt| dt == "string" || dt == "text");
-                                    // E804 intentionally unwrapped —
-                                    // the Rust trigger condition
-                                    // `inputMode == "richtext"` is
-                                    // unreachable via any schema-valid
-                                    // document (component.schema.json
-                                    // restricts inputMode to
-                                    // text|email|tel|url|search). The
-                                    // spec §5.6 does not mention
-                                    // richtext; the registry specRef
-                                    // at `#56-textinput` is currently
-                                    // inaccurate. Held until the
-                                    // richtext semantic is specified
-                                    // and a schema-valid fixture can
-                                    // trigger it. See TODO #29 batch 4
-                                    // review (Finding 2).
                                     if !is_string {
-                                        self.diags.push(LintDiagnostic::error(
+                                        self.diags.push(crate::metadata::with_metadata(LintDiagnostic::error(
                                             "E804", PASS, path,
                                             format!(
-                                                "TextInput with inputMode 'richtext' must bind to a string field, found '{}'",
+                                                "TextInput with variant '{variant}' must bind to a string field, found '{}'",
                                                 field_info.data_type.as_deref().unwrap_or("unknown")
                                             ),
-                                        ));
+                                        )));
                                     }
                                 }
                             }
@@ -340,21 +322,15 @@ impl<'a> WalkState<'a> {
                     }
                 }
 
-                // W803: Multiple editable inputs bind same field
-                // NOTE: intentionally unwrapped — the Rust title ("Non-input
-                // component has bind") drifted from the spec §4.3 Editable
-                // Binding Uniqueness clause this check actually implements.
-                // Held until the semantic is reconciled per TODO #29 /
-                // thoughts/research/2026-04-17-lint-rule-graduation-
-                // needs-fixtures.md. See W804 note above for the parallel
-                // guidance: do NOT wrap with with_metadata yet.
+                // W803: Multiple editable inputs bind to the same field
+                // (spec §4.3 Editable Binding Uniqueness).
                 if !self.editable_binds.insert(bind.to_string()) {
-                    self.diags.push(LintDiagnostic::warning(
+                    self.diags.push(crate::metadata::with_metadata(LintDiagnostic::warning(
                         "W803",
                         PASS,
                         path,
                         format!("Multiple editable inputs bind to the same field: '{bind}'"),
-                    ));
+                    )));
                 }
             }
         }
@@ -906,7 +882,7 @@ mod tests {
             "tree": {
                 "component": "Stack",
                 "children": [
-                    { "component": "TextInput", "bind": "count", "inputMode": "richtext" }
+                    { "component": "TextInput", "bind": "count", "variant": "richtext" }
                 ]
             }
         });
@@ -926,7 +902,7 @@ mod tests {
             "tree": {
                 "component": "Stack",
                 "children": [
-                    { "component": "TextInput", "bind": "bio", "inputMode": "richtext" }
+                    { "component": "TextInput", "bind": "bio", "variant": "richtext" }
                 ]
             }
         });
@@ -1031,7 +1007,7 @@ mod tests {
             "tree": {
                 "component": "Stack",
                 "children": [
-                    { "component": "TextInput", "bind": "notes", "inputMode": "richtext" }
+                    { "component": "TextInput", "bind": "notes", "variant": "richtext" }
                 ]
             }
         });

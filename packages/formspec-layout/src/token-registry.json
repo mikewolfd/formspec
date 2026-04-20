@@ -135,6 +135,36 @@
         "font.family": {
           "description": "Base font family stack",
           "default": "\"Instrument Sans\", \"Avenir Next\", \"Segoe UI\", sans-serif"
+        },
+        "font.weight.regular": {
+          "type": "fontWeight",
+          "description": "Standard text weight",
+          "default": 400
+        },
+        "font.weight.medium": {
+          "type": "fontWeight",
+          "description": "Emphasized text weight",
+          "default": 500
+        },
+        "font.weight.bold": {
+          "type": "fontWeight",
+          "description": "Heading / strong emphasis weight",
+          "default": 700
+        },
+        "font.lineHeight.tight": {
+          "type": "number",
+          "description": "Tight line height for headings",
+          "default": 1.25
+        },
+        "font.lineHeight.normal": {
+          "type": "number",
+          "description": "Standard body line height",
+          "default": 1.5
+        },
+        "font.lineHeight.loose": {
+          "type": "number",
+          "description": "Loose line height for long-form reading",
+          "default": 1.75
         }
       }
     }

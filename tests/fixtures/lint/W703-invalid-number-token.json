@@ -1,0 +1,9 @@
+{
+  "$formspecTheme": "1.0",
+  "url": "https://example.com/themes/w703",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "https://example.com/forms/w703" },
+  "tokens": {
+    "font.lineHeight.normal": "1.5em"
+  }
+}

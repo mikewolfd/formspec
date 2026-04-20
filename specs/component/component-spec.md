@@ -946,11 +946,27 @@ than 1, the input renders as a multi-line textarea.
 | `inputMode` | string | `"text"` | No | Input mode hint. One of `"text"`, `"email"`, `"tel"`, `"url"`, `"search"`. |
 | `prefix` | string | — | No | Static text rendered before the input (e.g., `"https://"`). |
 | `suffix` | string | — | No | Static text rendered after the input (e.g., `".com"`). |
+| `variant` | string | `"plain"` | No | Content-type variant. `"plain"` accepts unstyled text. `"richtext"` accepts formatted text with runtime-defined serialization. `"markdown"` accepts Markdown source — portable, diffable, and degrades gracefully to plain text. `"richtext"` and `"markdown"` both MUST bind to a `string` or `text` field. |
 
 #### Rendering Requirements
 
 - MUST render as a text input element (`<input type="text">` or
-  `<textarea>` for multi-line).
+  `<textarea>` for multi-line) when `variant` is `"plain"` (default).
+- When `variant` is `"richtext"`, MUST render a content-editable
+  rich-text surface capable of round-tripping bold, italic, and link
+  formatting through the bound field's serialized string value. The
+  on-the-wire serialization is runtime-defined; a registry extension
+  MAY pin a canonical format.
+- When `variant` is `"markdown"`, MUST render a Markdown-aware surface
+  (plain-text editor with preview, or a source-of-truth-Markdown WYSIWYG)
+  and store the raw Markdown source in the bound string field. Markdown
+  is the preferred variant when the document will be diffed, version-
+  controlled, or consumed by non-renderer tooling — the source is plain
+  text and degrades gracefully.
+- For both `"richtext"` and `"markdown"`, the bound field's `dataType`
+  MUST be `string` or `text` — neither representation is encodable in
+  any other primitive. A non-string bind with either variant MUST
+  produce a lint error (E804).
 - MUST propagate the bound item's `required`, `readOnly`, and
   `relevant` state.
 - MUST display validation errors from the bound item.
@@ -966,6 +982,25 @@ than 1, the input renders as a multi-line textarea.
   "bind": "email",
   "placeholder": "you@example.com",
   "inputMode": "email"
+}
+```
+
+```json
+{
+  "component": "TextInput",
+  "bind": "notes",
+  "variant": "richtext",
+  "maxLines": 8
+}
+```
+
+```json
+{
+  "component": "TextInput",
+  "bind": "description",
+  "variant": "markdown",
+  "maxLines": 12,
+  "placeholder": "# Heading\n\nWrite in Markdown…"
 }
 ```
 

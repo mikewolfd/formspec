@@ -1,0 +1,25 @@
+{
+  "$formspecComponent": "1.0",
+  "version": "1.0.0",
+  "targetDefinition": { "url": "https://example.com/forms/e804" },
+  "tree": {
+    "component": "Stack",
+    "children": [
+      {
+        "component": "TextInput",
+        "bind": "count",
+        "variant": "richtext"
+      }
+    ]
+  },
+  "_pairedDefinition": {
+    "$formspec": "1.0",
+    "url": "https://example.com/forms/e804",
+    "version": "1.0.0",
+    "status": "draft",
+    "title": "E804 paired",
+    "items": [
+      { "key": "count", "type": "field", "label": "Count", "dataType": "integer" }
+    ]
+  }
+}

@@ -449,10 +449,6 @@ pub fn lint_theme(theme: &Value, definition: Option<&Value>) -> Vec<LintDiagnost
                 Value::String(s) => Some(s.as_str()),
                 Value::Number(n) => {
                     // Numbers are valid for fontWeight and number types; validate inline.
-                    // NOTE: the fontWeight and number arms below are dead code until
-                    // `crates/formspec-lint/schemas/token-registry.json` declares at
-                    // least one token with `type: "fontWeight"` or `type: "number"`.
-                    // The wrappers are in place so graduation becomes "drop in fixture".
                     match token_type {
                         Some("fontWeight") => {
                             let repr = n.to_string();
@@ -542,14 +538,14 @@ pub fn lint_theme(theme: &Value, definition: Option<&Value>) -> Vec<LintDiagnost
     if let Some(tokens) = theme.get("tokens").and_then(|v| v.as_object()) {
         for key in registry.all_keys() {
             if !tokens.contains_key(key.as_str()) {
-                diags.push(LintDiagnostic::info(
+                diags.push(crate::metadata::with_metadata(LintDiagnostic::info(
                     "W709",
                     PASS,
                     "$.tokens",
                     format!(
                         "Platform token '{key}' not declared in theme (platform default will be used)"
                     ),
-                ));
+                )));
             }
         }
     }
