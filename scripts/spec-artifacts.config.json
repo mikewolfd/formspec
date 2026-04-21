@@ -401,6 +401,22 @@
       ]
     },
     {
+      "spec": "wos-spec/specs/registry/extension-registry.md",
+      "schema": "wos-spec/schemas/registry/wos-extension-registry.schema.json",
+      "llm": "wos-spec/specs/registry/extension-registry.llm.md",
+      "behaviorEssentials": [
+        "Catalog the kernel's six named extension seams (actorExtension, contractHook, provenanceLayer, lifecycleHook, custodyHook, vendor x- extensions) plus vendor-specific shape registrations.",
+        "Track each registry entry through a draft → stable → deprecated → retired lifecycle with explicit replacedBy chains so consumers can follow migrations deterministically.",
+        "Declare composition semantics (merge / replace / augment) per entry so multiple registrations at one seam combine predictably.",
+        "Provide deterministic discovery and resolution: when multiple registries declare the same seam, the resolution order is published and stable."
+      ],
+      "conformanceEssentials": [
+        "A conforming extension-registry document must include $wosExtensionRegistry=1.0, version, and at least one entry.",
+        "Every entry MUST declare seam, kind, lifecycle, and description; entries that change vendor extensions MUST declare a vendorPrefix matching ^x-[a-z][a-z0-9-]*$.",
+        "Processors MUST treat unknown registry entries as forward-compatible additions and MUST NOT reject documents that reference unregistered seams unless strict validation is requested."
+      ]
+    },
+    {
       "spec": "wos-spec/specs/companions/runtime.md",
       "schema": "wos-spec/schemas/companions/wos-case-instance.schema.json",
       "llm": "wos-spec/specs/companions/runtime.llm.md",

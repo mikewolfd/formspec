@@ -48,6 +48,7 @@
     "wasm:twiggy": "bash scripts/twiggy-wasm.sh",
     "check:deps": "node scripts/check-dep-fences.mjs",
     "check:changesets": "node scripts/check-changeset-tier-placement.mjs",
+    "test:scripts": "node --test scripts/tests/*.test.mjs",
     "check:studio-source-sizes": "node scripts/check-studio-source-sizes.mjs",
     "check:thoughts-paths": "node scripts/check-thoughts-relocated-paths.mjs",
     "docs:check": "node scripts/generate-theme-from-registry.mjs --check && node scripts/generate-spec-artifacts.mjs --check && node scripts/run-spec-contract-tests.mjs && node scripts/check-thoughts-relocated-paths.mjs && node scripts/check-changeset-tier-placement.mjs",
