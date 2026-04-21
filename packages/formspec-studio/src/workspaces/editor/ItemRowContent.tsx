@@ -9,7 +9,7 @@ import {
   summaryInputLabel,
   summaryInputType,
   EditMark,
-} from './item-row-shared';
+} from '../shared/item-row-shared';
 import { CategoryCell } from './CategoryCell';
 
 /** Hover hints for category cells — surfaces what each category configures before expanding. */

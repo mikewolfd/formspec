@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, type KeyboardEvent, type ReactNode } from 
 import { Pill } from '../../components/ui/Pill';
 import { DragHandle } from '../../components/ui/DragHandle';
 import type { FormItem } from '@formspec-org/types';
-import type { StatusPill } from './item-row-shared';
+import type { StatusPill } from '../shared/item-row-shared';
 import { useSelection } from '../../state/useSelection';
 
 function EditMark({ testId }: { testId?: string }) {

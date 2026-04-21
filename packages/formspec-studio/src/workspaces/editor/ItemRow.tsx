@@ -7,7 +7,7 @@ import {
   buildFieldDetailLaunchers,
   computeOrphanFieldDetailLabel,
 } from './item-row-field-detail';
-import { type SummaryEntry, type StatusPill } from './item-row-shared';
+import { type SummaryEntry, type StatusPill } from '../shared/item-row-shared';
 import {
   ItemRowContent,
   type ItemRowIdentity,

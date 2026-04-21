@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Mous
 import { dataTypeInfo, hasTier3Content } from '@formspec-org/studio-core';
 import { DragHandle } from '../../components/ui/DragHandle';
 import { FieldIcon } from '../../components/ui/FieldIcon';
-import { EditMark } from '../editor/item-row-shared';
+import { EditMark } from '../shared/item-row-shared';
 import { useResizeHandle } from './useResizeHandle';
 import { InlineToolbar } from './InlineToolbar';
 import { PropertyPopover } from './PropertyPopover';

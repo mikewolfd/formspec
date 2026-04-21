@@ -24,7 +24,7 @@ import {
   summaryInputClassName,
   summaryInputLabel,
   summaryInputType,
-} from './item-row-shared';
+} from '../shared/item-row-shared';
 
 /** Category keys from buildCategorySummaries (field rows). */
 export type ExpandedSummaryCategory =
