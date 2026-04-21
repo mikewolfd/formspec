@@ -26,7 +26,7 @@
 
 **Spec:** `thoughts/specs/2026-03-25-page-mode-as-presentation-design.md`
 
-**Prior art:** `thoughts/studio/2026-03-17-pages-tab-redesign.md` (UX patterns, `buildLabelMap`), `thoughts/studio/2026-03-17-nested-wizard-fix.md` (planner `applyThemePages` guard)
+**Prior art:** `thoughts/archive/studio/2026-03-17-pages-tab-redesign.md` (UX patterns, `buildLabelMap`), `thoughts/archive/studio/2026-03-17-nested-wizard-fix.md` (planner `applyThemePages` guard)
 
 **Worktree:** All work in the existing unified-authoring worktree:
 
@@ -901,7 +901,7 @@ git commit -m "refactor(studio-core): update page helpers to read/write componen
 
 Read `planner.ts` to understand `wrapPageModePages` (lines ~606-636), `applyGeneratedPageMode` (lines ~638-724), and `applyDefinitionPageMode` (lines ~339-351).
 
-Also read `thoughts/studio/2026-03-17-nested-wizard-fix.md` for the `applyThemePages` guard that must be preserved.
+Also read `thoughts/archive/studio/2026-03-17-nested-wizard-fix.md` for the `applyThemePages` guard that must be preserved.
 
 - [x] **Step 2: Refactor `applyGeneratedPageMode` and `applyDefinitionPageMode`**
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, Tailwind CSS, formspec-studio-core helpers
 
-**Spec:** `thoughts/studio/2026-03-17-pages-tab-redesign.md`
+**Spec:** `thoughts/archive/studio/2026-03-17-pages-tab-redesign.md`
 
 **Key patterns from existing code:**
 

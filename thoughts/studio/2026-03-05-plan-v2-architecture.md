@@ -109,7 +109,7 @@ A **program officer or grants manager** who:
 3. **Style the form**: pick a theme, adjust per-field presentation (widget choice, layout hints), see changes in preview immediately.
 4. **Import/Export (core)**: load/save definition + optional theme/component + imported extension catalogs.
 
-Mappings and changelog/history are planned as sidecars: see [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-sidecars.md).
+Mappings and changelog/history are planned as sidecars: see [`2026-03-05-plan-v2-sidecars.md`](../archive/studio/2026-03-05-plan-v2-sidecars.md).
 
 ### Power-User Escape Hatches (always available, never required)
 
@@ -128,7 +128,7 @@ A project always contains:
 - **1 Component document** (nullable) — optional layout tree / platform-specific presentation.
 - **N imported registries** — extension catalogs (data types, functions, constraints).
 
-Sidecars (planned separately): mappings + changelogs. See [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-sidecars.md).
+Sidecars (planned separately): mappings + changelogs. See [`2026-03-05-plan-v2-sidecars.md`](../archive/studio/2026-03-05-plan-v2-sidecars.md).
 
 ### Identity rules (no invented schema fields)
 
@@ -149,9 +149,9 @@ Because schemas are strict (many are `additionalProperties: false`), Studio shou
 The tree + preview remain centered on the active definition. The sidebar becomes *tooling drawers* (toggle open/closed) rather than mutually-exclusive artifact editors:
 - **Project**: identity, versions (active + immutable), imports/exports, files.
 - **Extensions**: imported registries and extension catalog browser.
-- **Mappings** (sidecar): see [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-sidecars.md).
-- **History** (sidecar): see [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-sidecars.md).
+- **Mappings** (sidecar): see [`2026-03-05-plan-v2-sidecars.md`](../archive/studio/2026-03-05-plan-v2-sidecars.md).
 
+- **History** (sidecar): see [`2026-03-05-plan-v2-sidecars.md`](../archive/studio/2026-03-05-plan-v2-sidecars.md).
 No sidebar entry for "Component", "Theme", or "Registry".
 
 ### Properties Panel: composite sections
@@ -296,7 +296,7 @@ Export profiles:
 - Definition-only: just the definition JSON
 - Core bundle: definition + theme + component + registries (optional)
 
-Sidecar bundling (mappings/changelogs) is specified in [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-sidecars.md).
+Sidecar bundling (mappings/changelogs) is specified in [`2026-03-05-plan-v2-sidecars.md`](../archive/studio/2026-03-05-plan-v2-sidecars.md).
 
 ---
 
@@ -328,7 +328,7 @@ Milestone: The app edits definitions as before, but the UI model matches V2. Aut
 Milestone: Selecting a field lets you change widget appearance and immediately see it in preview, without leaving the definition workflow.
 
 ### Phase 3: Mapping Inline Editing + Global Inspector
-Moved to sidecars plan: [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-sidecars.md).
+Moved to sidecars plan: [`2026-03-05-plan-v2-sidecars.md`](../archive/studio/2026-03-05-plan-v2-sidecars.md).
 
 ---
 
@@ -341,4 +341,4 @@ Moved to sidecars plan: [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-si
 5. JSON editors remain available as "Advanced" escape hatches for every document type
 6. Widget constraints configured in the UI are enforced semantically in the Definition (not just in the widget layer)
 
-Sidecar acceptance criteria live in [`formspec-studio-v2-sidecars.md`](formspec-studio-v2-sidecars.md).
+Sidecar acceptance criteria live in [`2026-03-05-plan-v2-sidecars.md`](../archive/studio/2026-03-05-plan-v2-sidecars.md).

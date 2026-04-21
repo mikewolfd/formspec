@@ -17,6 +17,15 @@ Superseded V1 plans, fix-era notes, exploratory UX spikes, HTML mocks, and **com
 | [2026-03-29-option-keywords-studio.md](2026-03-29-option-keywords-studio.md) | Option `keywords` note |
 | [2026-03-30-itemrow-non-technical-ux.md](2026-03-30-itemrow-non-technical-ux.md) | ItemRow UX (with [mock-itemrow-ux.html](mock-itemrow-ux.html)) |
 | [2026-04-08-addpage-standalone-only.md](2026-04-08-addpage-standalone-only.md) | addPage behavior note |
+| [2026-03-05-design-review-v2.md](2026-03-05-design-review-v2.md) | V2 parity task tracker — nearly all items complete |
+| [2026-03-05-plan-v2-roadmap.md](2026-03-05-plan-v2-roadmap.md) | V2 roadmap for `form-builder/` — superseded by `formspec-studio` |
+| [2026-03-05-plan-v2-sidecars.md](2026-03-05-plan-v2-sidecars.md) | Sidecars plan — superseded, changelog not started |
+| [2026-03-05-plan-documentation.md](2026-03-05-plan-documentation.md) | Documentation strategy for `form-builder/` — superseded |
+| [2026-03-05-testing-prod-mvp.md](2026-03-05-testing-prod-mvp.md) | Prod-MVP testing for `form-builder/` — superseded |
+| [2026-03-17-nested-wizard-fix.md](2026-03-17-nested-wizard-fix.md) | Nested wizard fix — applied |
+| [2026-03-17-pages-tab-redesign.md](2026-03-17-pages-tab-redesign.md) | Pages tab UX design — superseded by layout workspace |
+| [2026-03-17-pages-tab-redesign-plan.md](2026-03-17-pages-tab-redesign-plan.md) | Pages tab plan — all tasks complete |
+| [2026-03-30-screener-authoring-plan.md](2026-03-30-screener-authoring-plan.md) | Screener authoring plan — superseded by standalone document model |
 
 ## `visual-reviews/`
 
@@ -31,8 +40,3 @@ Superseded V1 plans, fix-era notes, exploratory UX spikes, HTML mocks, and **com
 ## `vendor/`
 
 Third-party notes live with the active Studio tree: **`thoughts/studio/vendor/dndkit.txt`**.
-
-</think>
-
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-Glob

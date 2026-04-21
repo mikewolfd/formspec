@@ -2041,7 +2041,7 @@ with backwards compatibility.
 
 ### C.13 Existing Plans
 
-`thoughts/studio/2026-03-30-screener-authoring-plan.md` was written for the
+`thoughts/archive/studio/2026-03-30-screener-authoring-plan.md` was written for the
 embedded screener model and is now outdated. A new implementation plan should
 be written that accounts for the standalone document model, phase-based UI,
 and the gateway architecture.
