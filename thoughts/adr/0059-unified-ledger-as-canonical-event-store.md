@@ -1,13 +1,16 @@
 # ADR-0059: Unified Ledger as Canonical Event Store for the WOS + Formspec Case Lifecycle
 
-**Status:** Proposed
-**Date:** 10 April 2026
-**Author:** Mike (TealWolf Consulting LLC)
-**Applies to:** Formspec Respondent Ledger Spec, WOS Runtime Companion, Formspec Coprocessor (not yet specified), Enterprise Implementation Roadmap
-**Depends on:** ADR-0003 (Audit Ledger), ADR-0007 (Key Management), ADR-0054 (Client/Server Ledger Chain), ADR-0012 (Data Lifecycle)
+**Narrative status:** **Locked** 2026-04-22 — this ADR is the **authoritative Phase 3+ architecture description** (single append-only spine per case, encrypt-then-hash, disposable projections, WOS governance as ledger-shaped evidence). **Delivery** is **phased** per [`trellis/thoughts/product-vision.md`](../trellis/thoughts/product-vision.md); **superseded sequencing** was “unified immutable store for all case data *before* Phase 1 byte-exact exports and G-5,” not this architecture.
+
+**Status:** Proposed (technical annexes and open questions until promoted normatively)
+
+**Date:** 10 April 2026  
+**Author:** Mike (TealWolf Consulting LLC)  
+**Applies to:** Formspec Respondent Ledger Spec, WOS Runtime Companion, Formspec Coprocessor (not yet specified), Enterprise Implementation Roadmap  
+**Depends on:** ADR-0003 (Audit Ledger), ADR-0007 (Key Management), ADR-0054 (Client/Server Ledger Chain), ADR-0012 (Data Lifecycle)  
 **Supersedes:** None (extends ADR-0054 into the WOS governance domain)
 
-> **Note:** The comprehensive version of this ADR with encryption architecture, technology composition, expert panel review findings, and the client-first local ledger reframe lives at [`wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md`](../wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md). This file is the original proposal; the WOS-specific version is authoritative.
+> **Where to read first.** Stack **program summary** (sequencing, WOS/Trellis/Formspec handoffs): [`wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md`](../wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md). **Full technical ADR** is this file. **Phase 1 wire discipline** (maximalist envelope, restrictive runtime): [`trellis/thoughts/specs/2026-04-20-trellis-phase-1-mvp-principles-and-format-adrs.md`](../trellis/thoughts/specs/2026-04-20-trellis-phase-1-mvp-principles-and-format-adrs.md).
 
 ---
 
@@ -220,24 +223,29 @@ Per-Event Data Encryption Key (DEK)
 ### 2.3 Access paths
 
 **Tenant staff (caseworker Angela):**
+
 ```
 KMS.decrypt(tenant_wrapped_dek, using: PRK derived from TMK)
   -> DEK
   -> AES-256-GCM.decrypt(ciphertext, using: DEK)
   -> plaintext event content
 ```
+
 Access goes through the KMS. The KMS logs every decryption. The platform decrypts in memory during processing and never stores plaintext at rest.
 
 **Respondent (James):**
+
 ```
 DID_private_key.decrypt(respondent_wrapped_dek)
   -> DEK
   -> AES-256-GCM.decrypt(ciphertext, using: DEK)
   -> plaintext event content
 ```
+
 Access uses the respondent's own key. It does not go through the tenant or the platform. When the respondent exports their ledger, they can read it on their own machine with their own key.
 
 **Verifier (federal auditor, integrity checker):**
+
 ```
 For each event in chain:
   computed_hash = SHA-256(envelope + ciphertext + key_bag)
@@ -245,14 +253,17 @@ For each event in chain:
   assert event.prev_hash == previous_event.event_hash
 Chain verified. Content not decrypted.
 ```
+
 The auditor proves the chain is unbroken without reading a single event's content. If the auditor needs content access for a case review, the tenant provides the PRK or the respondent cooperates.
 
 **External transparency log:**
+
 ```
 At each checkpoint:
   merkle_root = MerkleTree.root(all event hashes since last checkpoint)
   anchor = submit(merkle_root) to Rekor / OpenTimestamps
 ```
+
 The transparency log sees one hash. It learns nothing about the content, the respondent, or the case.
 
 ### 2.4 What stays plaintext vs. what gets encrypted
@@ -307,16 +318,19 @@ Structural verification (was due process followed? was AI disclosed? were review
 BBS+ is separate from encryption. It solves a different problem: "prove a claim about the content without revealing the content."
 
 At event creation time:
+
 1. BBS+ sign all plaintext fields individually (BBS+ signs a vector of messages, one per field).
 2. Encrypt the sensitive fields (per the encryption model above).
 3. Hash the encrypted event into the chain.
 
 At disclosure time (FOIA, cross-agency sharing, audit):
+
 1. Create a BBS+ derived proof revealing only selected fields.
 2. The proof is verifiable against the BBS+ public key.
 3. The verifier confirms the fields were part of a signed event without seeing other fields or needing the decryption key.
 
 Three layers, three independent purposes:
+
 - **Hash chain** proves "these events are unmodified and in order."
 - **Encryption** ensures "only authorized parties can read the content."
 - **BBS+ proofs** prove "these specific claims about the content are true."

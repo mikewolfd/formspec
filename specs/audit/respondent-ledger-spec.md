@@ -229,7 +229,9 @@ Each event **MUST** contain at least:
 - `changes` **MUST** be present when the event records a material state delta.
 - `validationSnapshot` **SHOULD** be present for save, submit-attempt, completion, amendment, or stop transitions when validation findings are available.
 - `identityAttestation` **SHOULD** be present for `identity-verified`, `attestation.captured`, delegated-signing, or other events where identity, proof-of-personhood, or assurance facts materially changed.
-- `priorEventHash` and `eventHash` **SHOULD** be present when integrity chaining is enabled.
+- `priorEventHash` and `eventHash` **SHOULD** be present when integrity chaining is enabled. When a Respondent Ledger event is wrapped by a Trellis envelope, `eventHash` and `priorEventHash` **MUST** be present; `priorEventHash` is `null` only for the first event in the wrapped chain.
+- `attachmentBinding` **MUST** be present for `attachment.added` and `attachment.replaced`.
+- `priorAttachmentBindingHash` **MUST** be present for `attachment.removed`; `attachment.removed` **MUST NOT** carry a new `attachmentBinding`.
 - `sessionRef` **SHOULD** be present when the implementation distinguishes respondent sessions.
 - `amendmentRef` **SHOULD** be present when an event belongs to a particular reopening/amendment cycle.
 
@@ -247,6 +249,10 @@ Each event **MUST** contain at least:
 - `changes` — ordered set of atomic field/document/status changes, if any.
 - `validationSnapshot` — point-in-time summary of validation state relevant to the event.
 - `identityAttestation` — provider-neutral record of identity, proof-of-personhood, DID, or delegation evidence associated with the event.
+- `attachmentBinding` — chain-bound `EvidenceAttachmentBinding` record for an added or replaced attachment, defined in §6.9.
+- `priorAttachmentBindingHash` — prior attachment-binding event hash referenced by an attachment removal.
+- `priorEventHash` — previous event hash in the respondent-ledger chain, or `null` for the first event in a Trellis-wrapped chain.
+- `eventHash` — hash of this respondent-ledger event under the active integrity profile.
 - `privacyTier` — optional disclosure tier on the actor or identity attestation stating how linkable or revealed the subject is for this event.
 - `extensions` — additive implementation-specific metadata.
 
@@ -346,6 +352,8 @@ The first concern may be stored off-chain, on-chain, or in hybrid storage. The s
 
 This means a conforming implementation can keep the form response and respondent ledger anonymous or pseudonymous by default — including when writing hashes, checkpoints, or commitments to a chain — while still using the same framework to attach higher-assurance identity proofs later.
 
+Implementations **SHOULD** preserve this separation all the way through export and verification: the event chain proves continuity and integrity of respondent activity, `identityAttestation` proves identity or assurance claims about a subject, and an authored signature proves explicit assent to specific Response content. These claims may corroborate one another, but they **MUST NOT** be collapsed into one field or one verification step.
+
 ### 6.7 Disclosure tier and assurance are independent
 
 Implementations **MUST NOT** conflate disclosure tier (`privacyTier`) and assurance level (`assuranceLevel`). The two are independent properties of an attestation. Implementations **MUST NOT** derive one from the other, and **MUST NOT** couple their transitions.
@@ -371,6 +379,42 @@ This add-on records the fact that a signature, credential, or delegation was bou
 - A **recorded attestation** is an audit-history entry describing that signature (or another credential) as it was observed, validated, or admitted into workflow.
 
 An implementation **MUST NOT** treat a recorded `attestation.captured` event as a substitute for the authored signature itself. Verifiers evaluating authenticity of Response content **MUST** verify the authored signature; the ledger event is corroborating audit context, not the signature.
+
+### 6.9 EvidenceAttachmentBinding object
+
+`EvidenceAttachmentBinding` is the canonical Formspec-originated attachment-binding record adopted by [ADR 0072](../../thoughts/adr/0072-stack-evidence-integrity-and-attachment-binding.md).
+
+For `attachment.added` and `attachment.replaced`, the event **MUST** carry an `attachmentBinding` object with exactly these fields:
+
+- `attachment_id`
+- `slot_path`
+- `media_type`
+- `byte_length`
+- `attachment_sha256`
+- `payload_content_hash`
+- `filename`
+- `prior_binding_hash`
+
+Field semantics:
+
+- `attachment_id` — stable logical attachment identifier within the current `responseId` and origin-layer scope. It **MUST** remain stable across replacement of the same logical attachment. It **MUST NOT** be derived solely from filename, storage key, or content hash.
+- `slot_path` — Formspec response path or evidence slot where the attachment is bound. For repeated or multi-attachment slots, the path **SHOULD** include a stable row or attachment discriminator when available and **SHOULD NOT** rely on an array index alone when a stable discriminator exists.
+- `media_type` — RFC 6838 media type of the attachment bytes.
+- `byte_length` — exact byte length before Trellis envelope encryption.
+- `attachment_sha256` — SHA-256 over the exact attachment bytes before Trellis envelope encryption. The processor **MUST NOT** canonicalize, transcode, normalize, or MIME-reinterpret bytes before computing this digest.
+- `payload_content_hash` — Trellis ciphertext hash. For Trellis-wrapped attachment events, this value **MUST** equal `EventPayload.content_hash` and `PayloadExternal.content_hash`.
+- `filename` — display-only filename, or `null`. It **MUST NOT** be treated as identity.
+- `prior_binding_hash` — `null` for `attachment.added`; the prior binding event's `canonical_event_hash` for `attachment.replaced`.
+
+`attachment.added` **MUST** set `prior_binding_hash` to `null`.
+
+`attachment.replaced` **MUST** set `prior_binding_hash` to the immediately prior binding event for the same `attachment_id`.
+
+`attachment.removed` **MUST NOT** emit a new `EvidenceAttachmentBinding`; it records removal under its own lifecycle event and references the removed binding through `priorAttachmentBindingHash`.
+
+The attachment binding is authoritative for portable attachment identity. Storage layout, blob identifiers, filenames, and membership under a payload directory are adapter details and **MUST NOT** be used as substitutes for this record.
+
+When this event is wrapped by Trellis, the `EvidenceAttachmentBinding` metadata is carried in `EventPayload.extensions["trellis.evidence-attachment-binding.v1"]`; Trellis `PayloadExternal` names the attachment ciphertext bytes whose digest is `payload_content_hash`.
 
 ---
 
@@ -528,7 +572,9 @@ An implementation **MAY** support additional material event types, including:
 - `response.amendment-opened` — previously completed response reopened for editing.
 - `response.amended` — durable completion of an amendment cycle.
 - `response.stopped` — response marked abandoned or intentionally stopped.
-- `attachment.*` — material attachment mutations.
+- `attachment.added` — first introduction of attachment bytes. The event **MUST** carry `attachmentBinding` with `prior_binding_hash = null`.
+- `attachment.replaced` — replacement of an existing logical attachment. The event **MUST** carry `attachmentBinding` with `prior_binding_hash` set to the prior binding event hash.
+- `attachment.removed` — removal of an existing logical attachment. The event **MUST** carry `priorAttachmentBindingHash` and **MUST NOT** carry a new `attachmentBinding`.
 - `prepopulation.applied` — external or parent-response data hydrated into the response.
 - `system.merge-resolved` — platform resolved concurrent changes, conflicts, or resume merges.
 - `validation.snapshot-recorded` — explicit audit capture of validation state independent of save or submit.
@@ -841,6 +887,18 @@ The following non-exhaustive example shows one possible document layout:
       "definitionVersion": "2.3.0",
       "actor": { "kind": "respondent", "id": "usr-17" },
       "source": { "kind": "web", "channelId": "public-portal" },
+      "priorEventHash": "sha256:0e5df0b2c0f30d7e4c5a2d4c8a6c4fffe1c9dfc9aa7b7b64d2f5e14591f7d009",
+      "eventHash": "sha256:72df6b4f6ff78ec1f41f43a5c68a1be2114e7338e25a7bde7a7258f5b8bb0fb9",
+      "attachmentBinding": {
+        "attachment_id": "att_resp-8d0b1e85_documents_paystub_0",
+        "slot_path": "documents.paystub[0]",
+        "media_type": "application/pdf",
+        "byte_length": 43821,
+        "attachment_sha256": "sha256:1f74d3a1e85f2f7a6df1e7cf8a580f2e9b5c17231ce0a91d89d8e3bb18c3e19a",
+        "payload_content_hash": "sha256:e796c89473ca5db95c63050683cb05b971b8815380e847ef560d32f805459fe6",
+        "filename": "paystub-march.pdf",
+        "prior_binding_hash": null
+      },
       "changes": [
         {
           "op": "add",

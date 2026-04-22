@@ -49,7 +49,7 @@ Next free id: **0061** (duplicate `0047` / `0048` / `0053` filenames remain on d
 | 0054 | [privacy-preserving-ledger-chain](adr/0054-privacy-preserving-client-server-ledger-chain.md) | Proposed | Ledger + crypto |
 | 0055 | [studio-semantic-workspace-consolidation](adr/0055-studio-semantic-workspace-consolidation.md) | Proposed | Editor-centric semantic UX |
 | 0056 | [click-to-sign-attestation](adr/0056-click-to-sign-attestation-component.md) | Proposed | Click-to-sign component |
-| 0059 | [unified-ledger-canonical-event-store](adr/0059-unified-ledger-as-canonical-event-store.md) | Proposed | Cross-product ledger |
+| 0059 | [unified-ledger-canonical-event-store](adr/0059-unified-ledger-as-canonical-event-store.md) | Narrative locked 2026-04-22 | Phase 3+ target; program summary [wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md](../wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md) |
 
 **Implemented / accepted / historical ADRs:** [`archive/adr/`](archive/adr/) (tier plans, WASM split, WOS boundary, grant design, etc.).
 

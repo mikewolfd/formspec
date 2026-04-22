@@ -41,11 +41,13 @@ A specification for the governance layer of rights-impacting workflows — benef
 
 ### Trellis — integrity
 
-A cryptographic specification for making the record portable and durable. Content-addressed, signed events; sealed checkpoints; export bundles that verify offline without access to the original system. Identity-decoupled: pseudonymous continuity references carry the audit chain while identity proofing attaches separately through provider-neutral adapters. Anchoring to external trust substrates is pluggable.
+A cryptographic specification for making the record portable and durable. Content-addressed, signed events; sealed checkpoints; export bundles that verify offline without access to the original system. Identity-decoupled: pseudonymous continuity references carry the audit chain while identity proofing attaches separately through provider-neutral adapters. The audit chain tracks continuity and integrity of respondent activity; it does not require every event to embed legal identity directly, and it does not collapse explicit signing attestation into ordinary event continuity. Anchoring to external trust substrates is pluggable.
+
+**Phased arc (conceptual).** Near term, the integrity story is **attested exports** — a signed bundle and a verifier that do not depend on the vendor runtime. Later phases add **runtime-time attestation** on every write, a **portable case ledger** that composes sealed intake heads with governance events, and optional **federation / witness** tiers (transparency-log-class anchors such as OpenTimestamps, Sigstore Rekor, or tile-based logs) for third-party consistency — without replacing the three-layer separation above. The envelope is designed so later phases are **strict supersets** of the export shape, not parallel byte religions. Detail and gate vocabulary live in [Trellis product vision](trellis/thoughts/product-vision.md) and the [stack-wide vision model](.claude/vision-model.md).
 
 ### The Respondent Ledger bridge
 
-A Formspec companion specifies *what* events a respondent-facing audit chain records and declares the abstract integrity seams Trellis fills. The Respondent Ledger says *what*; Trellis says *how it survives*. Without Trellis the ledger is a logical event stream; with Trellis it becomes a signed, offline-verifiable record.
+A Formspec companion specifies *what* events a respondent-facing audit chain records and declares the abstract integrity seams Trellis fills. The Respondent Ledger says *what*; Trellis says *how it survives*. Identity attestations and authored signatures can be attached to that chain, but they remain separate claims: continuity of activity, proof of identity, and explicit consent-to-content are different contracts. Without Trellis the ledger is a logical event stream; with Trellis it becomes a signed, offline-verifiable record.
 
 ---
 
@@ -159,18 +161,27 @@ Everything in the stack composes through these five seams. Their specific shapes
 
 ### Open contracts
 
-Five contracts exist; more are known to be needed. Naming them honestly matters more than pretending the seam list is complete. Each gap is the *shape of an event that lands in the record*, not a service that needs to be built — the services typically exist as adapters already.
+Five contracts exist; more are known to be needed. Naming them honestly matters more than pretending the seam list is complete. Open contracts come in two shapes: event-shape gaps (*what lands in the record*) and integration primitives (*how the three layers compose*). The services underneath the event-shape gaps typically exist as adapters already; the integration primitives are fully center work.
 
-- **Evidence integrity.** Files attached during intake — pay stubs, ID photos, supporting documents — are load-bearing for rights-impacting decisions. A contract declaring how their content hashes bind into the chain and travel in the export bundle is missing. Storage is an adapter; the binding is center.
+**Event-shape gaps.**
+
+- **Evidence integrity.** Files attached during intake — pay stubs, ID photos, supporting documents — are load-bearing for rights-impacting decisions. A contract declaring how their content hashes bind into the chain and travel in the export bundle is missing. Full proposal at [ADR 0072](thoughts/adr/0072-stack-evidence-integrity-and-attachment-binding.md). Storage is an adapter; the binding is center.
 - **Identity attestation shape.** Identity proofing is an adapter slot. The normalized attestation that lands in the ledger is a center concern, currently described in prose rather than contracted.
-- **Signature attestation shape.** Signing workflows — multi-party signatures, countersignatures, consent capture under ESIGN, UETA, or eIDAS — are load-bearing for any rights-impacting use case that needs legal weight. WOS pins the governance semantics in its Signature Profile: signer roles, flow patterns, intent capture, and a provenance record kind covering signer, document-hash binding, identity-proofing reference, and consent-capture reference. Trellis owns certificate-of-completion composition in the export bundle. What is open is the cross-layer contract that connects them: the exact shape of the record that crosses the governance custody hook, harmonized with identity-attestation shape and document-hash binding. Signing ceremonies remain adapters (see "What this is not").
+- **Signature attestation shape.** Signing workflows — multi-party signatures, countersignatures, consent capture under ESIGN, UETA, or eIDAS — are load-bearing for any rights-impacting use case that needs legal weight. The **machine-verifiable** slice is now wired end-to-end in reference form: canonical intake fields, WOS `SignatureAffirmation` provenance, `custodyHook` append, and Trellis export catalog rows that verifiers check against payloads. What remains center-shaped is **human-facing completion** (certificate-of-completion composition), **shared cross-repo fixtures** that pin one byte story across all three layers, and any further normative tightening of the claim graph — not greenfield invention of the seam.
 - **Actor authorization.** Governance constrains AI agents through deontic modalities and structures human review. A parallel shape for *human* authorization — actor acted under which policy at which moment, attested into the chain — is implicit. IAM is an adapter; the claim shape is center.
-- **Amendment and supersession.** Append-only is correct until a decision is wrong. Cross-layer semantics for one decision superseding another — new chain, linked chain, governance event shape — are undefined. No adapter supplies this; it is fully center work.
-- **Statutory clocks.** Rights-impacting workflows run on deadlines — appeal windows, SLA limits, expirations. A contract declaring how a deadline attaches to an event, what fires when it elapses, and how clock state seals into the chain is missing. Timers are adapters; deadline semantics are center.
+- **Amendment and supersession.** Append-only is correct until a decision is wrong. Cross-layer semantics for one decision superseding another — new chain, linked chain, governance event shape — are undefined. Full proposal drafted at [ADR 0066](thoughts/adr/0066-stack-amendment-and-supersession.md); no adapter supplies this — fully center work.
+- **Statutory clocks.** Rights-impacting workflows run on deadlines — appeal windows, SLA limits, expirations. A contract declaring how a deadline attaches to an event, what fires when it elapses, and how clock state seals into the chain is missing. Full proposal drafted at [ADR 0067](thoughts/adr/0067-stack-statutory-clocks.md); timers are adapters, deadline semantics are center.
 
-Cost differs sharply. Evidence, identity, signatures, and authorization are cheap: the adapters exist; the missing work is the shape they emit. Amendment and clock semantics are expensive: they touch all three layers and every existing seam has to accommodate them.
+**Integration primitives.** Not event shapes but composition protocols — how the three layers agree on scope, time, failure, and version. All four touch all three layers; none has an adapter that fills the gap. All four now have proposed ADRs at [`thoughts/adr/`](thoughts/adr/).
 
-Open contracts are named here so downstream readers are not surprised, and so proposals can reference them by name. Their resolution lives in each owning project's planning documents.
+- **Tenant and scope composition.** Formspec has definition scope, WOS has `DurableRuntime` tenant scope, Trellis has ledger scope. Three parallel scoping concepts that do not yet compose. Full proposal at [ADR 0068](thoughts/adr/0068-stack-tenant-and-scope-composition.md).
+- **Time semantics.** All three layers timestamp. No shared pin on RFC3339 UTC, monotonic versus wall-clock, or leap-second policy. Full proposal at [ADR 0069](thoughts/adr/0069-stack-time-semantics.md).
+- **Cross-layer failure and compensation.** Partial-commit semantics — what happens when intake commits, governance fails, integrity has anchored — are undefined. Full proposal at [ADR 0070](thoughts/adr/0070-stack-failure-and-compensation.md).
+- **Cross-layer migration and versioning.** Single-spec migration is covered by each project's changelog. Chain validity under evolving cross-spec semantics is not. Full proposal at [ADR 0071](thoughts/adr/0071-stack-cross-layer-migration-and-versioning.md).
+
+Cost differs sharply. Evidence, identity, signatures, and authorization are cheap: adapters exist; the missing work is the shape they emit. Amendment, clocks, and the four integration primitives are expensive: they touch all three layers and every existing seam has to accommodate them. Seven ADRs drafted as proposals (0066–0072); identity attestation and signature attestation are tracked in submodule TODOs (WOS-T4 for signatures; identity generalizes from T4-6); acceptance across the seven is the remaining blocker.
+
+Open contracts are named here so downstream readers are not surprised, and so proposals can reference them by name. Their resolution lives in each owning project's planning documents or, when fully cross-layer, in stack-scoped ADRs at [`thoughts/adr/`](thoughts/adr/).
 
 ---
 
@@ -184,7 +195,7 @@ Each row is an adapter slot; the column values illustrate the kinds of choices a
 | Workflow engine | A simple durable executor | A commercial BPMN or workflow orchestrator |
 | Identity proofing | None | A verified-identity provider (public or commercial) |
 | Key management | Local or file-backed | Cloud KMS, hardware security module, or qualified trust service |
-| Anchor target | None | One or more external transparency logs or timestamp authorities |
+| Anchor target | None | One or more external timestamp or transparency-log services (time anchors, public append-only logs, or tile-served logs — adapter choice, not center) |
 | Storage | Ordinary database plus append-only tables | Tenant-isolated encrypted stores plus WORM-class ledger storage |
 | Delivery | Email | Email plus secondary channels with retry, bounce handling, and delivery receipts |
 | Legal posture | Open-core defaults | A dual-license or Apache-only arrangement suited to the buyer |
@@ -203,15 +214,15 @@ Maintained by Michael Deeb ([TealWolf Consulting](https://tealwolf.consulting/))
 
 ### Cross-project change management
 
-Each project owns its own change log, ADR tree, and TODO list. A change that crosses a contract seam — altering a shape that one project declares and another consumes — requires an ADR in each affected project referencing the others. Author discipline currently carries this load-bearing convention; a mechanical cross-check remains open work.
+Each project owns its own change log, ADR tree, and TODO list. A change that crosses a contract seam — altering a shape that one project declares and another consumes — requires an ADR in each affected project referencing the others. Stack-scoped ADRs that are fully cross-layer by construction (the integration primitives above, composition across all three specs) live at [`thoughts/adr/`](thoughts/adr/) in the monorepo parent; per-project ADRs live in each project's own tree. Author discipline currently carries the cross-seam convention; a mechanical cross-check remains open work.
 
 ### Conformance ownership
 
-Each project owns its own conformance suite. No shared stack-level conformance suite exists today; composition correctness is asserted by prose and by this document rather than by mechanical verification. That is a gap.
+Each project owns its own conformance suite. Trellis additionally enforces **byte identity across two implementations** (Rust as byte authority, Python as CI cross-check) on its vector corpus; **G-5** — an independent second implementation commissioned against spec prose alone — is **closed** for that byte story. A **shared stack-level** suite — cross-seam fixtures that exercise canonical-response, governance-coprocessor, event-chain, checkpoint-seal, and custody-hook composition in one pinned artifact — remains **open work** tracked under WOS and Trellis closeout (see their TODOs). When it lands, full-stack composition claims stop depending on prose alone.
 
 ### Contribution and cadence
 
-Contributions accepted under Apache-2.0 for runtime, BSL 1.1 for authoring tools. No CLA today. No security disclosure policy yet — cryptographic specification work will need one before reference implementations close. Pre-release; release sequencing and dependency ordering tracked in each project's own planning documents.
+Contributions accepted under Apache-2.0 for runtime, BSL 1.1 for authoring tools. No CLA today. Security disclosure policy is now load-bearing — Trellis has a reference implementation and a disclosure policy lands before final ratification. Pre-release; release sequencing and dependency ordering tracked in each project's own planning documents.
 
 ---
 
@@ -220,8 +231,8 @@ Contributions accepted under Apache-2.0 for runtime, BSL 1.1 for authoring tools
 Pre-release. Across the three layers, maturity varies by design:
 
 - **The intake runtime** is deployable today at the kernel level. Its authoring tools ship under a license that converts to fully open in 2030.
-- **The governance kernel** compiles and evaluates lifecycles, deontic rules, structured review gates, and provenance emission. Engine-specific bindings to production workflow platforms are future work.
-- **The integrity layer** is specification-only today. A reference implementation and an independent second implementation are the two ratification milestones that will make "the record survives the vendor" mechanically true.
+- **The governance kernel** compiles and evaluates lifecycles, deontic rules, structured review gates, and provenance emission — including Signature Profile semantics and `SignatureAffirmation` emission where the profile applies. Engine-specific bindings to production workflow platforms are future work.
+- **The integrity layer** has a reference implementation **and** an independent second implementation; the **G-5** stranger gate for Trellis byte conformance is **complete**, so the “verifier you did not write” story for the export bundle is no longer hypothetical. Remaining work is **product and stack glue** — human certificate-of-completion, authoring UX, shared fixtures — not the existence of a second verifier.
 
 Each project tracks its own finishing work. Current counts, gate names, open decisions, and ratification status live in each project's README, TODO, and ratification files. See Reading order.
 
@@ -229,20 +240,16 @@ Each project tracks its own finishing work. Current counts, gate names, open dec
 
 ## Positioning
 
-The stack admits multiple valid audiences because the center is multi-valent, but multiple valid audiences is an architectural property, not a go-to-market strategy. Two delivery vehicles carry the near-term wedge; both are stack-level and exercise all three layers.
-
-**Federal-agency rights-impacting pilot.** A DocuSign and Adobe Forms replacement for a government workflow where the record must outlive the vendor. Validates the three layers end-to-end on a concrete rights-impacting case. Governance artifacts, offline-verifiable bundles, and declared AI-agent constraints are scored differentiators against incumbent form-and-signature vendors that offer none of them.
-
-**Public SaaS.** A multi-tenant form builder on the same three-spec center — Jotform, Google Forms, and Typeform on the core UX, with two differentiators no incumbent combines: built-in AI-agent governance and a cryptographically-verifiable signature ledger. The ledger is the mechanism that makes a verifiable, DocuSign-equivalent signature available without the DocuSign business model.
+The stack admits multiple valid audiences because the center is multi-valent, but multiple valid audiences is an architectural property, not a go-to-market strategy. The lead wedge for the near term is mid-market regulated-industry CTOs with a current audit finding about AI-assisted decisioning — a budget, a clear pain (compliance cannot reconstruct what the model saw), and a sales cycle short enough for a pre-release stack to land.
 
 Supporting audiences — each genuinely valid but not prioritized:
 
-- Primes and SBIR channels beyond the first pilot: governance artifacts as a scored differentiator on rights-impacting-workflow proposals.
+- Government, primes, and SBIR channels: governance artifacts as a scored differentiator on rights-impacting-workflow proposals.
 - Press and founder-led attention: the record survives the vendor.
 - The developer community: portable form runtime, shared kernel, identical semantics on every platform.
 - The design-systems community: honest seams between data, behavior, and presentation.
 
-The supporting wedges do not fight the two leads architecturally. They compete for engineering hours; the leads win them by default and supporting wedges earn them with concrete pull signal.
+The supporting wedges do not fight the lead architecturally. They compete for engineering hours; the lead wins them by default and supporting wedges earn them with concrete pull signal.
 
 The one positioning mistake that is load-bearing: letting any wedge leak into the center. Chasing a pitch by modifying the specs to flatter it is how multi-valent stacks become narrow ones.
 
@@ -250,7 +257,7 @@ The one positioning mistake that is load-bearing: letting any wedge leak into th
 
 ## What this is not
 
-- **A hosted product — today.** No SaaS exists yet; see Positioning for the planned one. Each project is a specification plus reference implementation; you host it or integrate it.
+- **A hosted product.** No SaaS exists. Each project is a specification plus reference implementation; you host it or integrate it.
 - **A workflow engine.** The governance layer runs on top of existing engines. It does not durably execute workflows; it governs them.
 - **A rendering library.** The intake layer is a data and behavior specification. Rendering is a pluggable sidecar.
 - **A blockchain.** The integrity layer anchors to external trust substrates. Specific substrate choices are pluggable; none is required.
@@ -266,11 +273,15 @@ Numbers, ratification status, technical surfaces, and open decisions live in the
 First time here:
 
 1. This document.
-2. [Formspec root README](README.md) — intake depth.
-3. [WOS root README](wos-spec/README.md) — governance depth.
-4. [Trellis root README](trellis/README.md) — integrity depth.
-5. [Respondent Ledger specification](specs/audit/respondent-ledger-spec.md) — the bridge.
-6. [LICENSING](LICENSING.md) — authoritative on the open-core split.
+2. [Stack-wide vision model](.claude/vision-model.md) — foundational Q1–Q4 answers and per-spec commitments; update there when cross-layer posture changes.
+3. [Formspec root README](README.md) — intake depth.
+4. [WOS root README](wos-spec/README.md) — governance depth.
+5. [Trellis root README](trellis/README.md) — integrity depth.
+6. [Trellis product vision](trellis/thoughts/product-vision.md) — phased delivery arc (exports → runtime integrity → portable case file → federation) without duplicating ratification tables here.
+7. [Respondent Ledger specification](specs/audit/respondent-ledger-spec.md) — the bridge.
+8. [LICENSING](LICENSING.md) — authoritative on the open-core split.
+
+**Adapter and risk posture (integrity adjacent).** For the menu of mature components (storage, anchoring, selective disclosure defaults, key management) and for **standards-first vs. bespoke** discipline on the ledger path, see [Trellis unified ledger technology survey](trellis/thoughts/research/2026-04-10-unified-ledger-technology-survey.md) and [ledger risk reduction](trellis/thoughts/research/ledger-risk-reduction.md). They inform adapter choices; they do not redefine the three-layer center.
 
 For technical truth — counts, schemas, tests, open work, ratification status — each project's own README, TODO, and (for Trellis) ratification files are the source. Avoid duplicating their numbers here; they drift.
 

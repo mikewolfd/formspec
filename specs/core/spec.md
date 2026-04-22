@@ -493,6 +493,29 @@ A Response references exactly one Definition by the tuple
 Response whose `definitionVersion` does not match any known Definition at the
 given `definitionUrl`.
 
+A Response MAY carry one or more `authoredSignatures` records. Each record
+binds one signer/document act to the Response envelope itself, not merely to a
+widget control in `data`.
+
+An `authoredSignatures` record is for authored evidence produced at signing
+time. It is distinct from respondent-ledger `attestation.captured` events,
+which are audit-history observations about a signing act. Implementations MUST
+keep these concerns separate.
+
+When `authoredSignatures` is present:
+
+- the top-level `id` MUST be present,
+- each `authoredSignatures[*].responseId` MUST equal that top-level `id`,
+- each record MUST bind the signing act to a `documentHash` and
+  `documentHashAlgorithm`, and
+- each record MUST carry explicit consent evidence
+  (`consentAccepted`, `consentTextRef`, `consentVersion`, `affirmationText`).
+
+A drawn signature image, typed name, or provider callback alone is not
+sufficient signing intent. A conforming implementation MUST NOT claim authored
+signature semantics from `signatureValue` alone without the consent and
+document-binding evidence above.
+
 > **Example.** A completed Response (this object includes every required
 > top-level property in `schemas/response.schema.json` and omits optional
 > fields such as `id` and `validationResults` for brevity):
@@ -508,6 +531,50 @@ given `definitionUrl`.
 >     "lastName": "Lovelace"
 >   },
 >   "authored": "2025-07-10T14:30:00Z"
+> }
+> ```
+
+> **Example.** A completed Response with authored-signature evidence:
+>
+> ```json
+> {
+>   "$formspecResponse": "1.0",
+>   "definitionUrl": "https://example.org/forms/signature-attestation",
+>   "definitionVersion": "1.0.0",
+>   "id": "resp-2026-0001",
+>   "status": "completed",
+>   "data": {
+>     "signerName": "Ada Lovelace",
+>     "consentAccepted": true,
+>     "signatureCapture": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+>     "identityProofRef": "urn:agency.gov:identity-proof:case-2026-0042"
+>   },
+>   "authored": "2026-04-22T12:00:00Z",
+>   "authoredSignatures": [
+>     {
+>       "documentId": "benefitsApplication",
+>       "signatureValue": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+>       "signatureMethod": "drawn",
+>       "signerId": "applicant",
+>       "signerName": "Ada Lovelace",
+>       "signedAt": "2026-04-22T12:00:00Z",
+>       "consentAccepted": true,
+>       "consentTextRef": "urn:agency.gov:consent:esign-benefits:v1",
+>       "consentVersion": "1.0.0",
+>       "affirmationText": "I certify under penalty of perjury that this submission is true and complete.",
+>       "documentHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+>       "documentHashAlgorithm": "sha-256",
+>       "responseId": "resp-2026-0001",
+>       "identityProofRef": "urn:agency.gov:identity-proof:case-2026-0042",
+>       "identityBinding": {
+>         "method": "email-otp",
+>         "assuranceLevel": "standard",
+>         "providerRef": "urn:agency.gov:identity:providers:email-otp"
+>       },
+>       "signatureProvider": "urn:agency.gov:signature:providers:formspec",
+>       "ceremonyId": "ceremony-2026-0001"
+>     }
+>   ]
 > }
 > ```
 
