@@ -58,6 +58,16 @@ import { componentTargetRef } from './lib/component-target-ref.js';
 import type { CompNode } from './layout-helpers.js';
 import { COMPATIBILITY_MATRIX, COMPONENT_TO_HINT } from '@formspec-org/types';
 import { rewriteFELReferences } from '@formspec-org/engine/fel-tools';
+import {
+  widgetConstraintToFEL,
+  felToWidgetConstraint,
+  isWidgetManagedConstraint,
+  getWidgetConstraintProps,
+  type WidgetConstraintSpec,
+  type WidgetConstraintState,
+  type NumericConstraintValues,
+  type DateConstraintValues,
+} from './widget-constraints.js';
 
 function felConstraintFromPattern(pattern: string): string {
   const escaped = pattern.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -1672,6 +1682,165 @@ export class Project {
         : `Set item extension '${extension}' on '${path}'`,
       action: { helper: 'setItemExtension', params: { path, extension, value } },
       affectedPaths: [path],
+    };
+  }
+
+  /**
+   * Set widget constraint properties (min, max, step, minDate, maxDate) on a field.
+   * Updates both the component tree node AND generates a corresponding bind constraint.
+   * If the existing bind constraint is not widget-managed (custom FEL), it is preserved.
+   * Pass empty values to clear individual constraints.
+   */
+  setWidgetConstraints(
+    path: string,
+    values: Partial<NumericConstraintValues> | Partial<DateConstraintValues>,
+  ): HelperResult {
+    if (!this.core.itemAt(path)) {
+      this._throwPathNotFound(path);
+    }
+
+    const leafKey = path.split('.').pop()!;
+    const compNode = this.core.componentFor(leafKey);
+    const component = compNode?.component as string | undefined;
+    const constraintProps = getWidgetConstraintProps(component ?? '');
+    if (constraintProps.length === 0) {
+      return {
+        summary: `Skipped widget constraints on '${path}' (no constraint widget)`,
+        action: { helper: 'setWidgetConstraints', params: { path, values } },
+        affectedPaths: [path],
+      };
+    }
+
+    const isDateWidget = constraintProps.some(p => p.type === 'date');
+    const commands: AnyCommand[] = [];
+
+    const bind = this.core.bindFor(path);
+    const existingConstraint = bind?.constraint as string | undefined;
+    const hasCustomConstraint = !!existingConstraint && !isWidgetManagedConstraint(existingConstraint);
+
+    if (isDateWidget) {
+      const dateIn = values as Partial<DateConstraintValues>;
+      const min = dateIn.min !== undefined ? dateIn.min : (compNode?.minDate as string | undefined);
+      const max = dateIn.max !== undefined ? dateIn.max : (compNode?.maxDate as string | undefined);
+
+      if (dateIn.min !== undefined) {
+        commands.push({
+          type: 'component.setNodeProperty',
+          payload: { node: { bind: leafKey }, property: 'minDate', value: dateIn.min || null },
+        });
+      }
+      if (dateIn.max !== undefined) {
+        commands.push({
+          type: 'component.setNodeProperty',
+          payload: { node: { bind: leafKey }, property: 'maxDate', value: dateIn.max || null },
+        });
+      }
+      if (!hasCustomConstraint) {
+        const dateValues: DateConstraintValues = {
+          ...(min ? { min } : {}),
+          ...(max ? { max } : {}),
+        };
+        const spec: WidgetConstraintSpec = { type: 'date', values: dateValues };
+        const fel = widgetConstraintToFEL(spec);
+        commands.push({
+          type: 'definition.setBind',
+          payload: { path, properties: { constraint: fel ?? null } },
+        });
+      }
+    } else {
+      const numIn = values as Partial<NumericConstraintValues>;
+      const min = numIn.min !== undefined ? numIn.min : (compNode?.min as number | undefined);
+      const max = numIn.max !== undefined ? numIn.max : (compNode?.max as number | undefined);
+
+      if (numIn.min !== undefined) {
+        commands.push({
+          type: 'component.setNodeProperty',
+          payload: { node: { bind: leafKey }, property: 'min', value: numIn.min ?? null },
+        });
+      }
+      if (numIn.max !== undefined) {
+        commands.push({
+          type: 'component.setNodeProperty',
+          payload: { node: { bind: leafKey }, property: 'max', value: numIn.max ?? null },
+        });
+      }
+      if (numIn.step !== undefined) {
+        commands.push({
+          type: 'component.setNodeProperty',
+          payload: { node: { bind: leafKey }, property: 'step', value: numIn.step ?? null },
+        });
+      }
+      if (!hasCustomConstraint) {
+        const numValues: NumericConstraintValues = {
+          ...(min != null ? { min } : {}),
+          ...(max != null ? { max } : {}),
+        };
+        const spec: WidgetConstraintSpec = { type: 'numeric', values: numValues };
+        const fel = widgetConstraintToFEL(spec);
+        commands.push({
+          type: 'definition.setBind',
+          payload: { path, properties: { constraint: fel ?? null } },
+        });
+      }
+    }
+
+    if (commands.length > 0) {
+      this.core.dispatch(commands);
+    }
+
+    return {
+      summary: `Set widget constraints on '${path}'`,
+      action: { helper: 'setWidgetConstraints', params: { path, values } },
+      affectedPaths: [path],
+    };
+  }
+
+  /**
+   * Read current widget constraint values for a field from its component node.
+   * Returns the component-level min/max/step (or minDate/maxDate) and whether
+   * the bind constraint is widget-managed or custom.
+   */
+  getWidgetConstraints(path: string): WidgetConstraintState {
+    const leafKey = path.split('.').pop()!;
+    const compNode = this.core.componentFor(leafKey);
+    const component = (compNode?.component as string) ?? null;
+    const constraintProps = getWidgetConstraintProps(component ?? '');
+    if (constraintProps.length === 0) {
+      return {
+        type: 'none',
+        numericValues: {},
+        dateValues: {},
+        isManaged: false,
+        hasCustomConstraint: false,
+        component,
+      };
+    }
+
+    const isDateWidget = constraintProps.some(p => p.type === 'date');
+    const numericValues: NumericConstraintValues = {};
+    const dateValues: DateConstraintValues = {};
+
+    if (isDateWidget) {
+      if (compNode?.minDate != null) dateValues.min = String(compNode.minDate);
+      if (compNode?.maxDate != null) dateValues.max = String(compNode.maxDate);
+    } else {
+      if (compNode?.min != null) numericValues.min = Number(compNode.min);
+      if (compNode?.max != null) numericValues.max = Number(compNode.max);
+      if (compNode?.step != null) numericValues.step = Number(compNode.step);
+    }
+
+    const bind = this.core.bindFor(path);
+    const existingConstraint = bind?.constraint as string | undefined;
+    const hasCustomConstraint = !!existingConstraint && !isWidgetManagedConstraint(existingConstraint);
+    const isManaged = !!existingConstraint && isWidgetManagedConstraint(existingConstraint);
+
+    return {
+      type: isDateWidget ? 'date' : 'numeric',
+      numericValues,
+      dateValues,
+      isManaged,
+      hasCustomConstraint,
+      component,
     };
   }
   // ── Move / Rename / Reorder ──

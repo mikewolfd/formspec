@@ -1,5 +1,6 @@
 /** @filedesc Spatial and theme override helpers for the Layout workspace direct-manipulation canvas. */
 import type { ComponentDocument } from '@formspec-org/types';
+import { resolveThemeCascade, type ResolvedProperty, type DefinitionCascadeInput } from '@formspec-org/core';
 import type { HelperResult } from './helper-types.js';
 import type { Project } from './project.js';
 import { findComponentNodeById } from './tree-utils.js';
@@ -275,6 +276,31 @@ export function getPropertySources(
   }
 
   return sources;
+}
+
+/**
+ * Resolve the full 5-level presentation cascade for an item:
+ * formPresentation → item.presentation → theme.defaults → theme.selectors → theme.items[key].
+ * Returns per-property provenance showing which tier produced the effective value.
+ */
+export function getPresentationCascade(
+  project: Project,
+  itemKey: string,
+): Record<string, ResolvedProperty> {
+  const state = project.state;
+  const item = project.itemAt(itemKey);
+  const itemType = item?.type ?? 'field';
+  const itemDataType = item?.dataType as string | undefined;
+
+  const definition: DefinitionCascadeInput = {};
+  if (state.definition.formPresentation) {
+    definition.formPresentation = state.definition.formPresentation as Record<string, unknown>;
+  }
+  if ((item as Record<string, unknown>)?.presentation) {
+    definition.itemPresentation = (item as Record<string, unknown>).presentation as Record<string, unknown>;
+  }
+
+  return resolveThemeCascade(state.theme, itemKey, itemType, itemDataType, definition);
 }
 
 // ── Type-aware theme property definitions ───────────────────────────────────

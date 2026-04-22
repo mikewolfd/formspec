@@ -10,6 +10,7 @@ import {
   setStyleProperty,
   removeStyleProperty,
   getPropertySources,
+  getPresentationCascade,
   getEditableThemeProperties,
   setThemeOverride,
   clearThemeOverride,
@@ -365,7 +366,62 @@ describe('clearThemeOverride', () => {
 
   it('is a no-op when no override exists', () => {
     const p = makeProject();
-    // Should not throw
     expect(() => clearThemeOverride(p, 'name', 'labelPosition')).not.toThrow();
+  });
+});
+
+// ── getPresentationCascade ──────────────────────────────────────────
+
+describe('getPresentationCascade', () => {
+  it('returns only item-level hints for project with no theme', () => {
+    const p = createProject();
+    p.addField('name', 'Name', 'text');
+    const cascade = getPresentationCascade(p, 'name');
+    for (const key of Object.keys(cascade)) {
+      expect(cascade[key].source).toBe('item-hint');
+    }
+  });
+
+  it('resolves formPresentation at form-default level', () => {
+    const p = createProject();
+    p.addField('name', 'Name', 'text');
+    p.setMetadata({ labelPosition: 'start' });
+    const cascade = getPresentationCascade(p, 'name');
+    expect(cascade.labelPosition).toEqual({ value: 'start', source: 'form-default' });
+  });
+
+  it('resolves theme defaults at default level', () => {
+    const p = createProject();
+    p.addField('name', 'Name', 'text');
+    p.setThemeDefault('labelPosition', 'top');
+    p.setThemeDefault('widget', 'TextInput');
+    const cascade = getPresentationCascade(p, 'name');
+    expect(cascade.labelPosition).toEqual({ value: 'top', source: 'default' });
+    expect(cascade.widget).toEqual({ value: 'TextInput', source: 'default' });
+  });
+
+  it('theme defaults override formPresentation', () => {
+    const p = createProject();
+    p.addField('name', 'Name', 'text');
+    p.setMetadata({ labelPosition: 'start' });
+    p.setThemeDefault('labelPosition', 'top');
+    const cascade = getPresentationCascade(p, 'name');
+    expect(cascade.labelPosition).toEqual({ value: 'top', source: 'default' });
+  });
+
+  it('resolves item override as highest priority', () => {
+    const p = createProject();
+    p.addField('name', 'Name', 'text');
+    p.setThemeDefault('widget', 'TextInput');
+    p.setItemOverride('name', 'widget', 'Textarea');
+    const cascade = getPresentationCascade(p, 'name');
+    expect(cascade.widget).toEqual({ value: 'Textarea', source: 'item-override' });
+  });
+
+  it('item-hint level carries widgetHint from item.presentation', () => {
+    const p = createProject();
+    p.addField('notes', 'Notes', 'text', { widget: 'textarea' });
+    const cascade = getPresentationCascade(p, 'notes');
+    expect(cascade.widgetHint).toEqual({ value: 'textarea', source: 'item-hint' });
   });
 });

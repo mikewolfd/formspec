@@ -165,6 +165,45 @@ export type {
   FELHighlightToken,
 } from './fel-editor-utils.js';
 
+// ── FEL condition builder ──────────────────────────────────────────
+export {
+  conditionToFEL,
+  emptyCondition,
+  emptyGroup,
+  fieldOptionsFromItems,
+  getOperatorLabel,
+  getOperatorsForDataType,
+  groupToFEL,
+  operatorRequiresValue,
+  parseFELToGroup,
+} from './fel-condition-builder.js';
+export type {
+  ComparisonOperator,
+  BooleanOperator,
+  StringOperator,
+  NullCheckOperator,
+  MoneyOperator,
+  Operator,
+  Condition,
+  ConditionGroup,
+  OperatorInfo,
+} from './fel-condition-builder.js';
+
+// ── Widget constraint sync ──────────────────────────────────────────
+export {
+  widgetConstraintToFEL,
+  felToWidgetConstraint,
+  isWidgetManagedConstraint,
+  getWidgetConstraintProps,
+} from './widget-constraints.js';
+export type {
+  WidgetConstraintSpec,
+  WidgetConstraintState,
+  NumericConstraintValues,
+  DateConstraintValues,
+  WidgetConstraintProp,
+} from './widget-constraints.js';
+
 // ── Shared authoring helpers ───────────────────────────────────────
 export {
   bindsFor,
@@ -227,6 +266,7 @@ export {
   setStyleProperty,
   removeStyleProperty,
   getPropertySources,
+  getPresentationCascade,
   getEditableThemeProperties,
   setThemeOverride,
   clearThemeOverride,
