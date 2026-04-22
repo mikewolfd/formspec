@@ -10,6 +10,24 @@ Built by [Michael Deeb](https://www.linkedin.com/in/michael-deeb/), [TealWolf Co
 
 Formspec separates *what data to collect* from *how it behaves* from *how it looks*. A single definition drives validation, computed fields, conditional logic, and repeatable sections across any runtime — browser, server, mobile, offline. Every artifact is a JSON document backed by a JSON Schema, so the entire system is machine-readable.
 
+Formspec is also the intake layer in a three-spec stack with [WOS](wos-spec/README.md) and [Trellis](trellis/README.md). The stack target is one portable case record: Formspec captures the canonical response, WOS records how the decision was governed, and Trellis makes the record signed, durable, and verifiable offline without the original vendor runtime.
+
+For the stack-level architecture, start with [STACK.md](STACK.md). For active platform leans, forks, kill criteria, and end-state commitments, see the [platform decisioning register](thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md).
+
+## The Stack
+
+Formspec stands alone as a portable form runtime and authoring substrate, but it composes with two sibling specs when the workflow needs governed decisions and durable proof.
+
+| Layer | Spec | Responsibility |
+|---|---|---|
+| Intake | **Formspec** | Definitions, FEL, validation, canonical responses, respondent-ledger event shape |
+| Governance | **WOS** | Workflow semantics, AI constraints, review protocols, provenance, signature workflow meaning |
+| Integrity | **Trellis** | Signed event envelopes, checkpoint seals, export bundles, offline verification |
+
+The stack has a strict center/adapter split. The center owns meaning: response shape, governance events, evidence bindings, identity and signature attestations, amendments, statutory clocks, migration pins, and verifier behavior. Adapters own replaceable machinery: renderers, workflow engines, identity providers, storage engines, KMS, and witness or anchor targets.
+
+The end-state proof is not a dashboard. It is a verifier-facing package: specs, schemas or byte grammars, vectors, and verifier behavior that can reproduce the case record without a SaaS login. Product demos and buyer evidence matter, but they do not replace offline verification.
+
 ## Architecture
 
 ### The Specification as Abstraction Boundary
@@ -171,9 +189,9 @@ Neither runtime imports or wraps the other. They deploy and test independently, 
 
 `specs/` — Normative Formspec specifications organized by tier
 
-[`wos-spec/`](wos-spec/README.md) — **WOS (Workflow Orchestration Standard):** JSON-native governance for rights-impacting workflows — deontic constraints on agents, structured human oversight, provenance tiers, and conformance-checked Rust runtime crates. Composes with Formspec artifacts; execution stays on engines like Camunda or Temporal while WOS defines the protections that bind transitions and AI behavior.
+[`wos-spec/`](wos-spec/README.md) — **WOS (Workflow Orchestration Standard):** JSON-native governance for rights-impacting workflows — deontic constraints on agents, structured human oversight, provenance tiers, signature workflow semantics, and conformance-checked Rust runtime crates. Composes with Formspec artifacts; durable execution stays behind adapters while WOS defines the protections that bind transitions and AI behavior.
 
-[`trellis/`](trellis/README.md) — **Trellis:** cross-cutting design workspace for the **shared respondent ledger** and related case lifecycle, privacy, sync, and crypto semantics where Formspec and WOS evolve together. Drafts and matrices here inform normative changes in `specs/` and `wos-spec/`. Heading-level navigation: [REFERENCE.md](trellis/REFERENCE.md).
+[`trellis/`](trellis/README.md) — **Trellis:** cryptographic integrity layer for content-addressed signed events, checkpoint seals, export bundles, and offline verification. Trellis concretizes the Respondent Ledger integrity seams and consumes WOS custody hooks so the portable case record survives without the original system.
 
 `registries/` — Extension registries (common: email, phone, currency, SSN, etc.)
 
@@ -240,7 +258,7 @@ site/                           Formspec.org (Astro 5.0, Tailwind CSS v4)
 docs/                           Generated HTML specs and API reference (Pandoc, pdoc, TypeDoc)
 thoughts/                       ADRs, research, and design artifacts
 wos-spec/                       WOS specs, schemas, Rust runtime & conformance (see wos-spec/README.md)
-trellis/                        Joint ledger & provenance drafts for Formspec + WOS (see trellis/README.md)
+trellis/                        Trellis integrity specs, Rust crates, vectors, and verifier (see trellis/README.md)
 
 tests/
   unit/                         Pure logic unit tests (Python)
@@ -361,6 +379,7 @@ npm run test:all           # Everything (unit + E2E + Studio E2E)
 - [x] **PyO3 wired into Python** — `formspec-py` connected to the Python package. FEL, linting, evaluation, mapping, registry, and changelog all run through Rust. Format adapters stay Python.
 - [x] **Companion specs** — Locale, Ontology, References, Screener, Assist, and Respondent Ledger specifications drafted with corresponding JSON Schemas.
 - [ ] **Conformance test suite** — Formalize the cross-runtime parity tests into a spec-defined conformance suite format.
+- [ ] **Stack-level semantic fixture** — Exercise canonical response → WOS `SignatureAffirmation` / provenance → Trellis custody append → export → offline verification across the five contracts.
 
 ## Status
 

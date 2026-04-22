@@ -17,15 +17,32 @@ status: living document — update when layer boundaries, contracts, or deploy p
 
 # The Stack — Formspec + WOS + Trellis
 
-Three JSON-native specifications compose one record: what was collected (Formspec), how the decision was governed (WOS), and what survives when the system is gone (Trellis). Authored by LLMs. Governed by declared rules. Sealed by provenance that does not depend on the vendor staying alive.
+Three JSON-native specifications compose one portable case record: what was collected (Formspec), how the decision was governed (WOS), and what survives when the system is gone (Trellis). Authored by LLMs. Governed by declared rules. Sealed by provenance that does not depend on the vendor staying alive.
 
 - **[Formspec](README.md)** — the intake layer.
 - **[WOS](wos-spec/README.md)** — the governance layer.
 - **[Trellis](trellis/README.md)** — the integrity layer.
 
-Each layer is independently useful and independently conformance-checkable. Together they describe one portable, signed, offline-verifiable record of a governed decision.
+Each layer is independently useful and independently conformance-checkable. Together they describe one signed, offline-verifiable case record for a governed decision, including intake data, workflow provenance, evidence bindings, identity and signature attestations, amendments, clock state, and migration pins where the workflow requires them.
 
 This document is conceptual. It explains what the stack *is* and *how it thinks*. Counts, file paths, ratification gates, version strings, and per-project status belong in each project's own README, TODO, and ratification documents. Every technical claim points there.
+
+---
+
+## End-state commitments
+
+The stack's target state is not three adjacent artifacts. It is one portable case record a third party can verify without the original vendor runtime.
+
+Six commitments follow from that target:
+
+1. **Independent verification.** A serious stack claim must reduce to published semantics, schemas or byte grammars, vectors, and verifier behavior. A live dashboard is useful product surface, not proof.
+2. **One case record.** Canonical response, respondent ledger, governance events, integrity checkpoints, evidence, identity, signatures, amendments, statutory clocks, and migration pins compose into one verifier-understandable artifact set.
+3. **One meaning of signing.** Intake evidence may capture a click or authored response, but the stack-level meaning of "signed" flows through WOS signature semantics and Trellis custody/export verification.
+4. **Ledger-visible workflow truth.** Durable engines may orchestrate and retry, but decisions, stalls, resumes, compensation, overrides, and policy-relevant transitions must be visible in exported evidence when they affect the case.
+5. **Custody-honest privacy.** Encryption, key destruction, selective disclosure, metadata minimization, and identity separation must match what operators can decrypt and what verifiers can still prove.
+6. **Product sequencing cannot weaken the center.** Demos, SaaS onboarding, and procurement packages may ship in practical order, but they cannot introduce rival semantics for proof, signing, custody, or governance.
+
+These commitments are architectural. Concrete storage engines, witness services, identity providers, workflow engines, and legal postures remain adapters unless a spec promotes them with vectors and conformance behavior.
 
 ---
 
@@ -77,7 +94,7 @@ A rural county processes emergency rental-assistance applications. The workflow 
 - **Submission.** The browser signs the response. The server re-validates with the same semantics. A checkpoint seals events so far and anchors outward to one or more trust substrates.
 - **Caseworker review.** Governance structurally gates the review: the interface cannot reveal the AI's recommendation until the caseworker commits an independent judgment. Any change-of-mind after reveal becomes a counterfactual trace the audit can analyze later.
 - **Decision.** Authority-ranked reasoning recorded. Final checkpoint sealed.
-- **Export.** A single portable bundle carries everything — canonical response, version-pinned definition, ledger events, signed anchored checkpoints, governance events, reasoning, identity attestations, and anchor proofs. A verifier tool proves the chain offline, without the county, without the vendor, without the original system.
+- **Export.** A single portable bundle carries everything needed to verify the case — canonical response, version-pinned definition, ledger events, signed anchored checkpoints, governance events, reasoning, evidence bindings, identity attestations, signature affirmations, amendment links, clock state, migration pins, and anchor proofs. A verifier tool proves the chain offline, without the county, without the vendor, without the original system.
 
 For most workflows you do not need this. For rights-impacting workflows where the record must outlive the vendor, this is what the stack is for.
 
@@ -161,7 +178,7 @@ Everything in the stack composes through these five seams. Their specific shapes
 
 ### Open contracts
 
-Five contracts exist; more are known to be needed. Naming them honestly matters more than pretending the seam list is complete. Open contracts come in two shapes: event-shape gaps (*what lands in the record*) and integration primitives (*how the three layers compose*). The services underneath the event-shape gaps typically exist as adapters already; the integration primitives are fully center work.
+The five contracts are the baseline, not the full end state. The stack needs additional contracts before it can make serious full-stack product claims. Naming them honestly matters more than pretending the seam list is complete. Open contracts come in two shapes: event-shape gaps (*what lands in the record*) and integration primitives (*how the three layers compose*). The services underneath the event-shape gaps typically exist as adapters already; the integration primitives are fully center work.
 
 **Event-shape gaps.**
 
@@ -179,7 +196,7 @@ Five contracts exist; more are known to be needed. Naming them honestly matters 
 - **Cross-layer failure and compensation.** Partial-commit semantics — what happens when intake commits, governance fails, integrity has anchored — are undefined. Full proposal at [ADR 0070](thoughts/adr/0070-stack-failure-and-compensation.md).
 - **Cross-layer migration and versioning.** Single-spec migration is covered by each project's changelog. Chain validity under evolving cross-spec semantics is not. Full proposal at [ADR 0071](thoughts/adr/0071-stack-cross-layer-migration-and-versioning.md).
 
-Cost differs sharply. Evidence, identity, signatures, and authorization are cheap: adapters exist; the missing work is the shape they emit. Amendment, clocks, and the four integration primitives are expensive: they touch all three layers and every existing seam has to accommodate them. Seven ADRs drafted as proposals (0066–0072); identity attestation and signature attestation are tracked in submodule TODOs (WOS-T4 for signatures; identity generalizes from T4-6); acceptance across the seven is the remaining blocker.
+Cost differs sharply. Evidence, identity, signatures, and authorization are cheap: adapters exist; the missing work is the shape they emit. Amendment, clocks, and the four integration primitives are expensive: they touch all three layers and every existing seam has to accommodate them. That cost does not make them optional; it makes them required closure work before the stack presents the full portable-case-record claim. Seven ADRs drafted as proposals (0066–0072); identity attestation and signature attestation are tracked in submodule TODOs (WOS-T4 for signatures; identity generalizes from T4-6); acceptance across the seven is the remaining blocker.
 
 Open contracts are named here so downstream readers are not surprised, and so proposals can reference them by name. Their resolution lives in each owning project's planning documents or, when fully cross-layer, in stack-scoped ADRs at [`thoughts/adr/`](thoughts/adr/).
 
@@ -218,7 +235,7 @@ Each project owns its own change log, ADR tree, and TODO list. A change that cro
 
 ### Conformance ownership
 
-Each project owns its own conformance suite. Trellis additionally enforces **byte identity across two implementations** (Rust as byte authority, Python as CI cross-check) on its vector corpus; **G-5** — an independent second implementation commissioned against spec prose alone — is **closed** for that byte story. A **shared stack-level** suite — cross-seam fixtures that exercise canonical-response, governance-coprocessor, event-chain, checkpoint-seal, and custody-hook composition in one pinned artifact — remains **open work** tracked under WOS and Trellis closeout (see their TODOs). When it lands, full-stack composition claims stop depending on prose alone.
+Each project owns its own conformance suite. Trellis additionally enforces **byte identity across two implementations** (Rust as byte authority, Python as CI cross-check) on its vector corpus; **G-5** — an independent second implementation commissioned against spec prose alone — is **closed** for that byte story. A **shared stack-level** suite — cross-seam fixtures that exercise canonical-response, governance-coprocessor, event-chain, checkpoint-seal, custody-hook, evidence, signature, amendment, clock, and migration composition in one pinned artifact — remains **required open work** tracked under WOS and Trellis closeout (see their TODOs). When it lands, full-stack composition claims stop depending on prose alone.
 
 ### Contribution and cadence
 
@@ -235,6 +252,18 @@ Pre-release. Across the three layers, maturity varies by design:
 - **The integrity layer** has a reference implementation **and** an independent second implementation; the **G-5** stranger gate for Trellis byte conformance is **complete**, so the “verifier you did not write” story for the export bundle is no longer hypothetical. Remaining work is **product and stack glue** — human certificate-of-completion, authoring UX, shared fixtures — not the existence of a second verifier.
 
 Each project tracks its own finishing work. Current counts, gate names, open decisions, and ratification status live in each project's README, TODO, and ratification files. See Reading order.
+
+---
+
+## Proof packages
+
+The stack needs two proof packages, and they serve different readers.
+
+The **engineering proof package** is verifier-facing: specs, schemas or byte grammars, vectors, release artifacts, and verifier behavior that reproduce the same case outcome without a SaaS login.
+
+The **buyer proof package** is procurement-facing: accessibility conformance, operational attestations, security posture, schedule vehicles, counsel-reviewed signing claims, and deployment evidence. It makes the stack purchasable; it does not replace verifier evidence.
+
+Product demos sit outside both packages unless they run the same verifier path. An online trust surface may help users understand the record, but it cannot stand in for offline verification or introduce a second proof story.
 
 ---
 
@@ -261,7 +290,7 @@ The one positioning mistake that is load-bearing: letting any wedge leak into th
 - **A workflow engine.** The governance layer runs on top of existing engines. It does not durably execute workflows; it governs them.
 - **A rendering library.** The intake layer is a data and behavior specification. Rendering is a pluggable sidecar.
 - **A blockchain.** The integrity layer anchors to external trust substrates. Specific substrate choices are pluggable; none is required.
-- **A signing ceremony.** Agreement-style flows can be composed on top, but the stack does not bake signing-ceremony concepts into the center.
+- **A standalone signing product.** Agreement-style flows compose across Formspec, WOS, and Trellis; signing product UX, administration, and counsel-specific legal packaging live above the center.
 - **Complete.** Pre-release. Each project tracks its own finishing work.
 
 ---
@@ -274,12 +303,13 @@ First time here:
 
 1. This document.
 2. [Stack-wide vision model](.claude/vision-model.md) — foundational Q1–Q4 answers and per-spec commitments; update there when cross-layer posture changes.
-3. [Formspec root README](README.md) — intake depth.
-4. [WOS root README](wos-spec/README.md) — governance depth.
-5. [Trellis root README](trellis/README.md) — integrity depth.
-6. [Trellis product vision](trellis/thoughts/product-vision.md) — phased delivery arc (exports → runtime integrity → portable case file → federation) without duplicating ratification tables here.
-7. [Respondent Ledger specification](specs/audit/respondent-ledger-spec.md) — the bridge.
-8. [LICENSING](LICENSING.md) — authoritative on the open-core split.
+3. [Platform decisioning register](thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md) — end-state commitments, implementation leans, open forks, kill criteria, and product constraints.
+4. [Formspec root README](README.md) — intake depth.
+5. [WOS root README](wos-spec/README.md) — governance depth.
+6. [Trellis root README](trellis/README.md) — integrity depth.
+7. [Trellis product vision](trellis/thoughts/product-vision.md) — phased delivery arc (exports → runtime integrity → portable case file → federation) without duplicating ratification tables here.
+8. [Respondent Ledger specification](specs/audit/respondent-ledger-spec.md) — the bridge.
+9. [LICENSING](LICENSING.md) — authoritative on the open-core split.
 
 **Adapter and risk posture (integrity adjacent).** For the menu of mature components (storage, anchoring, selective disclosure defaults, key management) and for **standards-first vs. bespoke** discipline on the ledger path, see [Trellis unified ledger technology survey](trellis/thoughts/research/2026-04-10-unified-ledger-technology-survey.md) and [ledger risk reduction](trellis/thoughts/research/ledger-risk-reduction.md). They inform adapter choices; they do not redefine the three-layer center.
 

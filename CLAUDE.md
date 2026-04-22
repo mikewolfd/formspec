@@ -10,13 +10,14 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
 
 ## Operating Context — READ THESE BEFORE DECIDING
 
-Formspec is one spec in a three-spec stack. Architectural decisions routinely cross spec boundaries, and the owner's operating preferences override generic defaults. Three companion docs set the frame — consult them in this order before any non-trivial decision:
+Formspec is one spec in a three-spec stack. Architectural decisions routinely cross spec boundaries, and the owner's operating preferences override generic defaults. Four companion docs set the frame — consult them in this order before any non-trivial decision:
 
 1. **[`.claude/user_profile.md`](.claude/user_profile.md)** — Owner's operating preferences: economic model (minutes-not-days × Imp × Debt), design philosophy (opinionated, closed taxonomies, named seams), communication style (terse, opinionated, hedges labeled), and the **maximalist one-shot delivery** rule: no stubs, no `TODO: implement later`, no placeholder returns. If AI builds it, it ships complete and working in one pass; iterate on working code, not half-built code. Surface blockers instead of papering over with stubs.
 2. **[`.claude/vision-model.md`](.claude/vision-model.md)** — Stack-wide vision captured via owner probing on 2026-04-20. Foundational Q1-Q4 answers (first adopter, spec vs. runtime authority, opinionatedness, verifiability threshold) plus per-spec architectural commitments. Consult before any decision that crosses more than one subsystem, crosses spec boundaries, or re-opens a foundational question.
 3. **[`STACK.md`](STACK.md)** — Public-facing integrative doc covering the three-spec stack (Formspec + WOS + Trellis) and the five cross-layer contracts. Canonical source for how the specs compose. Use when a decision touches integration between Formspec and WOS (`wos-spec/` submodule) or Trellis (`trellis/` submodule).
+4. **[`thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md`](thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md)** — Active platform decision register for end-state commitments, implementation leans, forks, kill criteria, and organizational/product constraints. Consult before changing cross-layer architecture, proof posture, signing semantics, custody, durable-runtime assumptions, or product-vs-engineering proof claims.
 
-**Conflict resolution:** direct owner signals in the current conversation > these three docs > CLAUDE.md > generic defaults. If any of these three docs conflicts with owner signals, update the doc — don't work around it.
+**Conflict resolution:** direct owner signals in the current conversation > these docs > CLAUDE.md > generic defaults. If any of these docs conflicts with owner signals, update the doc — don't work around it.
 
 ## Development Philosophy — READ THIS FIRST
 
