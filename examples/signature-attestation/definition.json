@@ -1,0 +1,40 @@
+{
+  "$formspec": "1.0",
+  "url": "https://example.org/forms/signature-attestation",
+  "version": "1.0.0",
+  "status": "active",
+  "title": "Signature Attestation",
+  "description": "Minimal signing example with explicit consent, signature capture, and identity-proof reference.",
+  "items": [
+    {
+      "type": "field",
+      "key": "signerName",
+      "label": "Signer name",
+      "dataType": "string"
+    },
+    {
+      "type": "field",
+      "key": "consentAccepted",
+      "label": "I agree to the consent statement",
+      "dataType": "boolean"
+    },
+    {
+      "type": "field",
+      "key": "signatureCapture",
+      "label": "Signature capture",
+      "dataType": "attachment"
+    },
+    {
+      "type": "field",
+      "key": "identityProofRef",
+      "label": "Identity proof reference",
+      "dataType": "string"
+    }
+  ],
+  "binds": [
+    { "path": "signerName", "required": "true" },
+    { "path": "consentAccepted", "required": "true" },
+    { "path": "signatureCapture", "required": "true" },
+    { "path": "identityProofRef", "required": "true" }
+  ]
+}

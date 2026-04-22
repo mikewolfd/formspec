@@ -1,0 +1,42 @@
+{
+  "eventId": "evt-attachment-0001",
+  "sequence": 1,
+  "eventType": "attachment.added",
+  "occurredAt": "2026-04-22T14:00:00Z",
+  "recordedAt": "2026-04-22T14:00:01Z",
+  "responseId": "resp-8d0b1e85",
+  "definitionUrl": "https://forms.example.gov/intake/housing-assistance",
+  "definitionVersion": "2.3.0",
+  "actor": {
+    "kind": "respondent",
+    "id": "usr-17",
+    "subjectRef": "subj-pseudo-44"
+  },
+  "source": {
+    "kind": "web",
+    "channelId": "public-portal"
+  },
+  "priorEventHash": null,
+  "eventHash": "sha256:72df6b4f6ff78ec1f41f43a5c68a1be2114e7338e25a7bde7a7258f5b8bb0fb9",
+  "attachmentBinding": {
+    "attachment_id": "att_resp-8d0b1e85_documents_paystub_0",
+    "slot_path": "documents.paystub[0]",
+    "media_type": "application/pdf",
+    "byte_length": 43821,
+    "attachment_sha256": "sha256:1f74d3a1e85f2f7a6df1e7cf8a580f2e9b5c17231ce0a91d89d8e3bb18c3e19a",
+    "payload_content_hash": "sha256:e796c89473ca5db95c63050683cb05b971b8815380e847ef560d32f805459fe6",
+    "filename": "paystub-march.pdf",
+    "prior_binding_hash": null
+  },
+  "changes": [
+    {
+      "op": "add",
+      "path": "documents.paystub[0]",
+      "itemKey": "documents_paystub",
+      "valueClass": "attachment",
+      "afterHash": "sha256:1f74d3a1e85f2f7a6df1e7cf8a580f2e9b5c17231ce0a91d89d8e3bb18c3e19a",
+      "displayAfter": "paystub-march.pdf",
+      "reasonCode": "respondent-upload"
+    }
+  ]
+}

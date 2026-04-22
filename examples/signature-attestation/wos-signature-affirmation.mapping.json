@@ -1,0 +1,82 @@
+{
+  "$schema": "https://formspec.org/schemas/mapping/1.0",
+  "$formspecMapping": "1.0",
+  "version": "1.0.0",
+  "definitionRef": "https://example.org/forms/signature-attestation",
+  "definitionVersion": ">=1.0.0 <2.0.0",
+  "direction": "forward",
+  "conformanceLevel": "core",
+  "targetSchema": {
+    "format": "json",
+    "name": "WOS SignatureAffirmation Evidence Seed",
+    "url": "https://wos-spec.example/schemas/signature-affirmation-evidence-seed.json"
+  },
+  "rules": [
+    {
+      "sourcePath": "authoredSignatures[0].signerId",
+      "targetPath": "signerId",
+      "transform": "preserve",
+      "description": "Carry signer identity into the WOS evidence seed."
+    },
+    {
+      "sourcePath": "authoredSignatures[0].documentId",
+      "targetPath": "documentId",
+      "transform": "preserve"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].documentHash",
+      "targetPath": "documentHash",
+      "transform": "preserve"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].documentHashAlgorithm",
+      "targetPath": "documentHashAlgorithm",
+      "transform": "preserve"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].signedAt",
+      "targetPath": "signedAt",
+      "transform": "preserve"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].identityBinding",
+      "targetPath": "identityBinding",
+      "transform": "preserve"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].consentTextRef",
+      "targetPath": "consentReference.consentTextRef",
+      "transform": "preserve"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].consentVersion",
+      "targetPath": "consentReference.consentVersion",
+      "transform": "preserve"
+    },
+    {
+      "targetPath": "consentReference.acceptedAtPath",
+      "transform": "constant",
+      "expression": "'authoredSignatures[0].signedAt'"
+    },
+    {
+      "targetPath": "consentReference.affirmationPath",
+      "transform": "constant",
+      "expression": "'authoredSignatures[0].consentAccepted'"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].signatureProvider",
+      "targetPath": "signatureProvider",
+      "transform": "preserve"
+    },
+    {
+      "sourcePath": "authoredSignatures[0].ceremonyId",
+      "targetPath": "ceremonyId",
+      "transform": "preserve"
+    },
+    {
+      "targetPath": "formspecResponseRef",
+      "transform": "expression",
+      "expression": "source.definitionUrl & '#responses/' & source.id"
+    }
+  ]
+}
