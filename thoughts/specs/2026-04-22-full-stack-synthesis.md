@@ -81,13 +81,13 @@ Older marketing/status prose can lag **[`trellis/ratification/`](../../trellis/r
 |-------|---------------------|--------|
 | **Formspec engine** | `packages/formspec-engine/tests/`; kernel deployable | TS `FormEngine` + Rust/WASM/Python paths |
 | **Formspec webcomponent** | `packages/formspec-webcomponent/tests/` | `<formspec-render>` working |
-| **WOS** | `wos-lint` `ALL_LINT_RULES` (`wos-spec/crates/wos-lint/src/rules/registry.rs`); `wos-spec/fixtures/`; `SIG-*` in `wos-conformance/tests/fixtures/` | 13 crates; T1/T2/T3 closed per `wos-spec/COMPLETED.md` |
-| **Trellis** | `trellis/fixtures/vectors/`; G-5 stranger corpus | Phase 1 ratified posture; **45/45** stranger pass |
-| **E2E** | `tests/e2e/browser/*.spec.ts` + package Playwright | Browser ↔ server paths exercised |
+| **WOS** | `wos-lint` `ALL_LINT_RULES` (`wos-spec/crates/wos-lint/src/rules/registry.rs`); `wos-spec/fixtures/`; `SIG-*` in `wos-spec/crates/wos-conformance/tests/fixtures/` | 13 crates; T1–T3 complete per `wos-spec/COMPLETED.md`; T4 WOS-side done, **cross-repo** T4 glue still in flight |
+| **Trellis** | `trellis/fixtures/vectors/`; G-5 stranger corpus | Phase 1 ratified posture; **45/45** stranger pass at last `trellis-py` BYTE-MATCH report — corpus has since gained more vector dirs |
+| **E2E** | `tests/e2e/browser/**/*.spec.ts` + `packages/formspec-studio/tests/e2e/playwright/` + other package Playwright | Browser ↔ server paths exercised |
 
 **Scale:** Rust dominates (Formspec engine + WOS + Trellis); Studio adds large TS surface. **Not a prototype.**
 
-**Drift guard:** Inline LOC counts rot. **`ct_merkle`:** recommended Merkle posture; **not** yet a workspace `Cargo.toml` dependency.
+**Drift guard:** Inline LOC counts rot. **`ct_merkle`:** recommended Merkle posture; **not** yet listed in root or `wos-spec` workspace `Cargo.toml` (Trellis is not a Rust workspace root here).
 
 ### 3.2 Decided enough to build on
 
@@ -311,7 +311,7 @@ Milestones **B** and **C** prove the technical claim. [Product vision](../../tre
 
 **Proposed:** **0066–0071**.
 
-**Numbering collision:** **`0061`** names two unrelated ADRs — WOS **custody hook → Trellis** ([`wos-spec/.../0061-custody-hook-trellis-wire-format.md`](../../wos-spec/thoughts/adr/0061-custody-hook-trellis-wire-format.md); load-bearing for T1) vs Formspec **authoring runtime** (`thoughts/adr/0061-current-state-*`; table row below).
+**Numbering collisions:** **`0061`** — WOS **custody hook → Trellis** ([`0061-custody-hook-trellis-wire-format.md`](../../wos-spec/thoughts/adr/0061-custody-hook-trellis-wire-format.md); load-bearing for T1) vs Formspec **authoring runtime** (`thoughts/adr/0061-current-state-*`; table row below). **`0062`** — Formspec **post-split follow-ups** ([`0062-post-split-follow-ups.md`](../../thoughts/adr/0062-post-split-follow-ups.md)) vs WOS **Signature Profile workflow** ([`0062-signature-profile-workflow-semantics.md`](../../wos-spec/thoughts/adr/0062-signature-profile-workflow-semantics.md)).
 
 | ADR | Title | Status | Cross-layer? | Blocks / blocked by |
 |-----|-------|--------|----------------|---------------------|
@@ -343,7 +343,7 @@ Milestones **B** and **C** prove the technical claim. [Product vision](../../tre
 
 ### 13.3 High-signal repo facts
 
-Trellis **F6** + **O-3/O-4/O-5**; model-check `tr-core-*`. WOS **sidecar** gaps, **~45** schema description holes, **synth v0** (syntax-only), **typed event meta-vocab**, **provenance export** blocked on 0066, **facts-tier snapshot** awaiting ADR acceptance. Formspec **Phase 11 coprocessor** stalled on T3. **Chaos-test** / **Studio** P0–P6 mostly internal beyond **T4-11**.
+Trellis **F6** + **O-3/O-4/O-5**; model-check `tr-core-*`. WOS **sidecar** gaps, **many** schema description gaps (confirm with `wos-lint` / schema pass — avoid hard counts in prose), **synth v0** (syntax-only), **typed event meta-vocab**, **provenance export** blocked on 0066, **facts-tier snapshot** awaiting ADR acceptance. Formspec **Phase 11 coprocessor** stalled on T3. **Chaos-test** / **Studio** P0–P6 mostly internal beyond **T4-11**.
 
 ### 13.4 Staleness inventory
 
@@ -357,7 +357,8 @@ Trellis **F6** + **O-3/O-4/O-5**; model-check `tr-core-*`. WOS **sidecar** gaps,
 | [`trellis/thoughts/handoff-prompt.md`](../../trellis/thoughts/handoff-prompt.md) | Signature-zeroing | COSE_Sign1 ADR 0001 |
 | [`thoughts/adr/0061-current-state-authoring-runtime.md`](../../thoughts/adr/0061-current-state-authoring-runtime.md) | Pre-split package | `formspec-core` + `formspec-studio-core` |
 | [`thoughts/adr/0061-current-state-authoring-runtime-tasks.md`](../../thoughts/adr/0061-current-state-authoring-runtime-tasks.md) | Pre-split | Same |
-| `wos-spec/thoughts/archive/drafts/wos-core-v2.md` … `v7` | Drafts | v7 closest; historical |
+| [`CLAUDE.md`](../../CLAUDE.md), [`thoughts/README.md`](../README.md) | “Next free id: **0061**” while **0061–0072** exist on disk | Refresh ADR index lines after each ADR batch |
+| [`wos-spec/thoughts/archive/drafts/wos-core-v2.md`](../../wos-spec/thoughts/archive/drafts/wos-core-v2.md) … [`v6`](../../wos-spec/thoughts/archive/drafts/wos-core-v6.md); [`v7-kernel`](../../wos-spec/thoughts/archive/drafts/wos-core-v7-kernel.md), [`v7-proposal`](../../wos-spec/thoughts/archive/drafts/wos-core-v7-proposal.md) | Drafts | Historical; no single `wos-core-v7.md` |
 | [`wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md`](../../wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md) | immudb/Trillian | Postgres + `ct_merkle` |
 | [`wos-spec/thoughts/reviews/2026-04-21-wos-t3-durable-runtime-temporal-restate-spike.md`](../../wos-spec/thoughts/reviews/2026-04-21-wos-t3-durable-runtime-temporal-restate-spike.md) | Title Temporal-Restate | Restate |
 
