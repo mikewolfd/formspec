@@ -166,6 +166,7 @@ True if query is empty or matches label, value, or any keyword (substring, case-
             id: string;
             type?: string;
         };
+        authoredSignatures?: AuthoredSignatureInput[];
         mode?: 'continuous' | 'submit';
     }): any`
 
@@ -420,6 +421,7 @@ Restore nested field values after repeat rows were reindexed.
             id: string;
             type?: string;
         };
+        authoredSignatures?: AuthoredSignatureInput[];
     };
 }): Record<string, unknown>`
 
@@ -873,6 +875,33 @@ Whether the tools WASM module has completed initialization.
 - **requiredFilled**: `number`
 - **complete**: `boolean`
 
+#### interface `AuthoredSignatureIdentityBinding`
+
+- **method**: `string`
+- **assuranceLevel**: `'none' | 'low' | 'standard' | 'high' | 'very-high'`
+- **providerRef?**: `string`
+- **externalAttestationRef?**: `string`
+
+#### interface `AuthoredSignatureInput`
+
+- **documentId**: `string`
+- **signatureValue**: `string`
+- **signatureMethod**: `string`
+- **signerId?**: `string`
+- **signerName?**: `string`
+- **signedAt**: `string`
+- **consentAccepted**: `boolean`
+- **consentTextRef**: `string`
+- **consentVersion**: `string`
+- **affirmationText**: `string`
+- **documentHash**: `string`
+- **documentHashAlgorithm**: `string`
+- **responseId?**: `string`
+- **identityProofRef?**: `string`
+- **identityBinding?**: `AuthoredSignatureIdentityBinding`
+- **signatureProvider**: `string`
+- **ceremonyId**: `string`
+
 #### interface `FormEngineDiagnosticsSnapshot`
 
 - **definition**: `{
@@ -969,6 +998,7 @@ Whether the tools WASM module has completed initialization.
             id: string;
             type?: string;
         };
+        authoredSignatures?: AuthoredSignatureInput[];
         mode?: 'continuous' | 'submit';
     }): any`
 

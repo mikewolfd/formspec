@@ -297,6 +297,77 @@ for consistency.
 Validate a response document against the current form definition.
 Returns a ValidationReport from formspec-engine.
 
+## `conditionToFEL(condition: Condition): string`
+
+## `groupToFEL(group: ConditionGroup): string`
+
+## `parseFELToGroup(fel: string): ConditionGroup | null`
+
+## `getOperatorsForDataType(dataType: string): OperatorInfo[]`
+
+## `getOperatorLabel(operator: Operator): string`
+
+## `operatorRequiresValue(operator: Operator): boolean`
+
+## `fieldOptionsFromItems(items: FELEditorFieldOption[]): FELEditorFieldOption[]`
+
+## `emptyCondition(field?: string): Condition`
+
+## `emptyGroup(): ConditionGroup`
+
+#### interface `Condition`
+
+- **field**: `string`
+- **operator**: `Operator`
+- **value**: `string`
+
+#### interface `ConditionGroup`
+
+- **logic**: `'and' | 'or'`
+- **conditions**: `Condition[]`
+
+#### interface `OperatorInfo`
+
+- **operator**: `Operator`
+- **label**: `string`
+- **requiresValue**: `boolean`
+
+#### type `ComparisonOperator`
+
+```ts
+type ComparisonOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
+```
+
+#### type `BooleanOperator`
+
+```ts
+type BooleanOperator = 'is_true' | 'is_false';
+```
+
+#### type `StringOperator`
+
+```ts
+type StringOperator = 'contains' | 'starts_with';
+```
+
+#### type `NullCheckOperator`
+
+```ts
+type NullCheckOperator = 'is_null' | 'is_not_null' | 'is_empty' | 'is_present';
+```
+
+#### type `MoneyOperator`
+
+```ts
+type MoneyOperator = 'money_eq' | 'money_neq' | 'money_gt' | 'money_gte' | 'money_lt' | 'money_lte';
+```
+
+#### type `Operator`
+
+```ts
+type Operator = ComparisonOperator | BooleanOperator | StringOperator | NullCheckOperator | MoneyOperator;
+```
+
 ## `validateFEL(expression: string): string | null`
 
 ## `buildFELHighlightTokens(expression: string, functionSignatures?: Record<string, string>): FELHighlightToken[]`
@@ -664,6 +735,12 @@ Preserves all other style properties.
 Walk all cascade levels for a PresentationBlock property on a given item.
 Returns entries in ascending level order: default → selector(s) → item-override.
 Only selectors whose match criteria apply to the item's type and dataType are included.
+
+## `getPresentationCascade(project: Project, itemKey: string): Record<string, ResolvedProperty>`
+
+Resolve the full 5-level presentation cascade for an item:
+formPresentation → item.presentation → theme.defaults → theme.selectors → theme.items[key].
+Returns per-property provenance showing which tier produced the effective value.
 
 ## `getEditableThemeProperties(project: Project, itemKey: string): EditableThemeProperty[]`
 
@@ -1269,6 +1346,19 @@ Update any property of an existing item — fan-out helper.
 ##### `setItemExtension(path: string, extension: string, value: unknown): HelperResult`
 
 Set or clear a custom extension payload on a definition item.
+
+##### `setWidgetConstraints(path: string, values: Partial<NumericConstraintValues> | Partial<DateConstraintValues>): HelperResult`
+
+Set widget constraint properties (min, max, step, minDate, maxDate) on a field.
+Updates both the component tree node AND generates a corresponding bind constraint.
+If the existing bind constraint is not widget-managed (custom FEL), it is preserved.
+Pass empty values to clear individual constraints.
+
+##### `getWidgetConstraints(path: string): WidgetConstraintState`
+
+Read current widget constraint values for a field from its component node.
+Returns the component-level min/max/step (or minDate/maxDate) and whether
+the bind constraint is widget-managed or custom.
 
 ##### `moveItem(path: string, targetParentPath?: string, targetIndex?: number): HelperResult`
 
@@ -2063,4 +2153,46 @@ for re-render notifications, they don't inspect command internals.
 ```ts
 type ChangeListener = () => void;
 ```
+
+## `widgetConstraintToFEL(spec: WidgetConstraintSpec): string | null`
+
+## `felToWidgetConstraint(expr: string): WidgetConstraintSpec | null`
+
+## `isWidgetManagedConstraint(expr: string): boolean`
+
+## `getWidgetConstraintProps(component: string): WidgetConstraintProp[]`
+
+#### interface `NumericConstraintValues`
+
+@filedesc Bidirectional conversion between widget constraint properties and FEL bind constraint expressions.
+
+- **min?**: `number | null`
+- **max?**: `number | null`
+- **step?**: `number | null`
+
+#### interface `DateConstraintValues`
+
+- **min?**: `string | null`
+- **max?**: `string | null`
+
+#### interface `WidgetConstraintState`
+
+- **type**: `'numeric' | 'date' | 'none'`
+- **numericValues**: `NumericConstraintValues`
+- **dateValues**: `DateConstraintValues`
+- **isManaged**: `boolean`
+- **hasCustomConstraint**: `boolean`
+- **component**: `string | null`
+
+#### interface `WidgetConstraintSpec`
+
+- **type**: `'numeric' | 'date'`
+- **values**: `NumericConstraintValues | DateConstraintValues`
+- **optional?**: `boolean`
+
+#### interface `WidgetConstraintProp`
+
+- **key**: `string`
+- **type**: `'number' | 'date'`
+- **label**: `string`
 

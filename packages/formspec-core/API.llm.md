@@ -1082,13 +1082,20 @@ Enforce cross-artifact invariants on a mutable state object.
 Runs after every dispatch and batch cycle.
 Undo/redo bypass this — snapshots were already normalized.
 
-## `resolveThemeCascade(theme: ThemeCascadeInput, itemKey: string, itemType: string, itemDataType?: string): Record<string, ResolvedProperty>`
+## `resolveThemeCascade(theme: ThemeCascadeInput, itemKey: string, itemType: string, itemDataType?: string, definition?: DefinitionCascadeInput): Record<string, ResolvedProperty>`
 
 #### interface `ResolvedProperty`
 
 - **value**: `unknown`
-- **source**: `'default' | 'selector' | 'item-override'`
+- **source**: `'form-default' | 'item-hint' | 'default' | 'selector' | 'item-override'`
 - **sourceDetail?**: `string`
+
+#### interface `DefinitionCascadeInput`
+
+Optional definition-level inputs for the 2 lowest cascade levels.
+
+- **formPresentation?**: `Record<string, unknown>`
+- **itemPresentation?**: `Record<string, unknown>`
 
 #### type `ThemeCascadeInput`
 
