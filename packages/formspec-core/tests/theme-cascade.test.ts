@@ -52,7 +52,6 @@ describe('resolveThemeCascade', () => {
       ],
     };
     const result = resolveThemeCascade(theme, 'amount', 'field', 'money');
-    // Second selector overrides widget, but cssClass from first persists
     expect(result.widget?.value).toBe('moneyInput');
     expect(result.cssClass?.value).toBe('field-base');
   });
@@ -71,5 +70,61 @@ describe('resolveThemeCascade', () => {
   it('empty theme returns empty record', () => {
     const result = resolveThemeCascade({}, 'name', 'field');
     expect(result).toEqual({});
+  });
+
+  it('formPresentation provides baseline at form-default level', () => {
+    const theme: ThemeState = {};
+    const result = resolveThemeCascade(theme, 'name', 'field', undefined, {
+      formPresentation: { labelPosition: 'start' },
+    });
+    expect(result.labelPosition).toEqual({ value: 'start', source: 'form-default' });
+  });
+
+  it('item presentation hints override formPresentation at item-hint level', () => {
+    const theme: ThemeState = {};
+    const result = resolveThemeCascade(theme, 'name', 'field', undefined, {
+      formPresentation: { labelPosition: 'start' },
+      itemPresentation: { widgetHint: 'textarea' },
+    });
+    expect(result.labelPosition).toEqual({ value: 'start', source: 'form-default' });
+    expect(result.widgetHint).toEqual({ value: 'textarea', source: 'item-hint' });
+  });
+
+  it('theme defaults override formPresentation', () => {
+    const theme: ThemeState = {
+      defaults: { labelPosition: 'top' },
+    };
+    const result = resolveThemeCascade(theme, 'name', 'field', undefined, {
+      formPresentation: { labelPosition: 'start' },
+    });
+    expect(result.labelPosition).toEqual({ value: 'top', source: 'default' });
+  });
+
+  it('full 5-level cascade: form-default < item-hint < default < selector < item-override', () => {
+    const theme: ThemeState = {
+      defaults: { labelPosition: 'top' },
+      selectors: [
+        { match: { type: 'field' }, apply: { labelPosition: 'hidden' } },
+      ],
+      items: {
+        name: { widget: 'fancy' },
+      },
+    };
+    const result = resolveThemeCascade(theme, 'name', 'field', undefined, {
+      formPresentation: { labelPosition: 'start' },
+      itemPresentation: { widgetHint: 'textarea' },
+    });
+    expect(result.labelPosition).toEqual({ value: 'hidden', source: 'selector', sourceDetail: 'selector #1: field' });
+    expect(result.widget).toEqual({ value: 'fancy', source: 'item-override' });
+    expect(result.widgetHint).toEqual({ value: 'textarea', source: 'item-hint' });
+  });
+
+  it('item-hint properties not overridden by theme persist', () => {
+    const theme: ThemeState = { defaults: { labelPosition: 'top' } };
+    const result = resolveThemeCascade(theme, 'name', 'field', undefined, {
+      itemPresentation: { widgetHint: 'slider' },
+    });
+    expect(result.widgetHint).toEqual({ value: 'slider', source: 'item-hint' });
+    expect(result.labelPosition).toEqual({ value: 'top', source: 'default' });
   });
 });
