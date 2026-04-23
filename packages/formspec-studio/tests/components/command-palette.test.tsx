@@ -14,7 +14,7 @@ const paletteDef = {
   ],
   variables: [{ name: 'isAdult', expression: '$age >= 18' }],
   binds: [{ path: 'age', required: '$age >= 18' }],
-  shapes: [{ name: 'adult-rule', severity: 'error', constraint: '$age >= 18', targets: ['age'] }],
+  shapes: [{ id: 'adult-rule', target: 'age', severity: 'error', constraint: '$age >= 18', message: 'Invalid' }],
 };
 
 function SelectionProbe() {

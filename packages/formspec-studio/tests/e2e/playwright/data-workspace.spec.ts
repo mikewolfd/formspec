@@ -5,7 +5,7 @@ const DATA_DEFINITION = {
   $formspec: '1.0',
   items: [
     { key: 'firstName', type: 'field', dataType: 'string', label: 'First Name' },
-    { key: 'status', type: 'field', dataType: 'select1', optionSet: 'statusValues' },
+    { key: 'status', type: 'field', dataType: 'choice', optionSet: 'statusValues' },
     { key: 'address', type: 'group', children: [
       { key: 'street', type: 'field', dataType: 'string', label: 'Street' },
       { key: 'city', type: 'field', dataType: 'string', label: 'City' },

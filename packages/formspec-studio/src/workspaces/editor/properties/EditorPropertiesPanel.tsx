@@ -132,7 +132,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
   const isGroup = item.type === 'group';
   const dataType = item.dataType as string | undefined;
   const info = dataType ? dataTypeInfo(dataType) : null;
-  const isChoice = dataType === 'choice' || dataType === 'multiChoice' || dataType === 'select1' || dataType === 'select';
+  const isChoice = dataType === 'choice' || dataType === 'multiChoice';
   const isDecimalLike = dataType === 'decimal' || dataType === 'money';
   const isMoney = dataType === 'money';
 

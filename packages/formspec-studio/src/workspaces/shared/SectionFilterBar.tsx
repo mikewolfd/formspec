@@ -26,6 +26,7 @@ export function SectionFilterBar<T extends string>({
         <button
           key={tab.id}
           type="button"
+          role="tab"
           aria-selected={activeTab === tab.id}
           data-testid={testIdPrefix ? `${testIdPrefix}-${tab.id}` : undefined}
           onClick={() => onTabChange(tab.id)}

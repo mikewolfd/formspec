@@ -9,8 +9,6 @@ const typeIcons: Record<string, { icon: string; color: string }> = {
   dateTime: { icon: 'DT', color: 'text-amber' },
   choice: { icon: '◉', color: 'text-logic' },
   multiChoice: { icon: '☑', color: 'text-logic' },
-  select1: { icon: '◉', color: 'text-logic' },
-  select: { icon: '☑', color: 'text-logic' },
   binary: { icon: '\u2191', color: 'text-muted' },
   geopoint: { icon: '\u2316', color: 'text-green' },
   barcode: { icon: '|||', color: 'text-muted' },

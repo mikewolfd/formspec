@@ -90,7 +90,7 @@ describe('buildPlatformTheme', () => {
 
     it('includes all expected token count', () => {
         const tokenKeys = Object.keys(theme.tokens ?? {});
-        // 15 light color + 15 dark color + 6 spacing + 2 radius + 1 font = 39
-        expect(tokenKeys.length).toBe(39);
+        // 15 light + 15 dark color + 6 spacing + 2 radius + 7 font (family, 3 weights, 3 lineHeights) = 45
+        expect(tokenKeys.length).toBe(45);
     });
 });

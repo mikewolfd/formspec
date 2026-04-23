@@ -19,6 +19,7 @@ export function Section({ title, children, defaultOpen = true }: SectionProps) {
     <div className="mb-5 rounded-[16px] border border-border/70 bg-bg-default/55 px-3 py-2.5">
       <button
         type="button"
+        aria-expanded={open}
         className="group flex w-full items-center justify-between gap-4 py-1 cursor-pointer text-left"
         onClick={() => setOpen(!open)}
       >

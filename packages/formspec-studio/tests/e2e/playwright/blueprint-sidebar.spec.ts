@@ -165,7 +165,7 @@ test.describe('Variables sidebar rows are navigation buttons', () => {
     // Note the current view before clicking.
     const manageBefore = await page.getByRole('radio', { name: 'Manage' }).getAttribute('aria-checked');
 
-    await page.getByRole('button', { name: /@taxRate/i }).click();
+    await page.getByRole('button').filter({ hasText: '@taxRate' }).filter({ hasText: /Manage/i }).click();
 
     // After clicking, the Manage view should become active (if it wasn't already).
     await expect(page.getByRole('radio', { name: 'Manage' })).toHaveAttribute('aria-checked', 'true', { timeout: 3000 });
@@ -180,8 +180,8 @@ test.describe('Variables sidebar rows are navigation buttons', () => {
     await page.waitForSelector('text=@taxRate', { timeout: 5000 });
 
     // VariablesList.tsx renders each variable as a <button> for navigation.
-    await expect(page.getByRole('button', { name: /@taxRate/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /@netIncome/i })).toBeVisible();
+    await expect(page.getByRole('button').filter({ hasText: '@taxRate' }).filter({ hasText: /Manage/i })).toBeVisible();
+    await expect(page.getByRole('button').filter({ hasText: '@netIncome' }).filter({ hasText: /Manage/i })).toBeVisible();
   });
 });
 

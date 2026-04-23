@@ -8,7 +8,7 @@ import { OptionSets } from '../../../src/workspaces/shared/OptionSets';
 const dataDef = {
   $formspec: '1.0', url: 'urn:test', version: '1.0.0',
   items: [
-    { key: 'color', type: 'field', dataType: 'select1', optionSet: 'colors' },
+    { key: 'color', type: 'field', dataType: 'choice', optionSet: 'colors' },
   ],
   optionSets: {
     colors: { options: [

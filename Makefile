@@ -29,13 +29,33 @@ build-wasm:
 	npm run build:wasm --workspace=@formspec/engine
 
 # Full compile: Rust workspace + npm workspaces (WASM via formspec-engine) + formspec_rust into active Python.
-build: build-rust build-js build-python
+# Also builds wos-spec and trellis submodules when their Makefiles are present (submodules may be uninitialized).
+build: build-rust build-js build-python build-wos-spec build-trellis
 
 build-rust:
 	cargo build --workspace
 
 build-js:
 	npm run build
+
+# Submodule delegation — no-ops silently when the submodule is not initialized.
+build-wos-spec:
+	@if [ -f wos-spec/Makefile ]; then $(MAKE) -C wos-spec build; else echo "wos-spec submodule not initialized — skipping build"; fi
+
+build-trellis:
+	@if [ -f trellis/Makefile ]; then $(MAKE) -C trellis build; else echo "trellis submodule not initialized — skipping build"; fi
+
+test-wos-spec:
+	@if [ -f wos-spec/Makefile ]; then $(MAKE) -C wos-spec test; else echo "wos-spec submodule not initialized — skipping test"; fi
+
+test-trellis:
+	@if [ -f trellis/Makefile ]; then $(MAKE) -C trellis test; else echo "trellis submodule not initialized — skipping test"; fi
+
+clean-wos-spec:
+	@if [ -f wos-spec/Makefile ]; then $(MAKE) -C wos-spec clean; else echo "wos-spec submodule not initialized — skipping clean"; fi
+
+clean-trellis:
+	@if [ -f trellis/Makefile ]; then $(MAKE) -C trellis clean; else echo "trellis submodule not initialized — skipping clean"; fi
 
 # Builds the Rust extension and places the .so into the source tree for editable installs.
 # Uses maturin develop so the in-tree _native.so stays current (pip install writes to
@@ -60,7 +80,10 @@ rebuild-python:
 test-rust:
 	cargo test --workspace
 
-test: test-unit test-python test-rust test-e2e test-studio-e2e
+# After pulling, if `git status` shows trellis/ or wos-spec/ submodule drift, run
+# `git submodule update --init --recursive` so local `make test` matches CI SHAs.
+# Submodule test suites run when their Makefiles are present.
+test: test-unit test-python test-rust test-e2e test-studio-e2e test-wos-spec test-trellis
 
 check: docs-check test
 
@@ -134,7 +157,7 @@ setup:
 serve:
 	busybox httpd -f -p 8000 -h docs
 
-clean:
+clean: clean-wos-spec clean-trellis
 	rm -f $(DOCS_DIR)/spec.html \
 	      $(DOCS_DIR)/mapping.html \
 	      $(DOCS_DIR)/fel-grammar.html \
@@ -155,4 +178,4 @@ clean:
 	      packages/formspec-mcp/API.llm.md \
 	      packages/formspec-studio-core/API.llm.md
 
-.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python rebuild-python build-wasm test test-unit test-python test-rust test-e2e test-studio-e2e setup serve clean
+.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python rebuild-python build-wasm build-wos-spec build-trellis test test-unit test-python test-rust test-e2e test-studio-e2e test-wos-spec test-trellis setup serve clean clean-wos-spec clean-trellis

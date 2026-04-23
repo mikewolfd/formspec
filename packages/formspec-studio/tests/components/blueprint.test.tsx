@@ -209,12 +209,12 @@ describe('Blueprint', () => {
     render(<Section title="Settings" defaultOpen={false}><div>Section body</div></Section>);
 
     const toggle = screen.getByRole('button', { name: /settings/i });
-    expect(toggle).toHaveTextContent('▶');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
     await act(async () => {
       toggle.click();
     });
 
-    expect(toggle).toHaveTextContent('▼');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
   });
 });

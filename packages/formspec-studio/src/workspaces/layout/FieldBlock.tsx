@@ -126,6 +126,7 @@ export function FieldBlock(props: FieldBlockProps) {
       {activeIdentityField === 'label' ? (
         <input
           autoFocus
+          aria-label="Inline label"
           data-layout-stop-select
           type="text"
           value={draftLabel}

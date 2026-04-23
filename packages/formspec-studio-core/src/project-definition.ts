@@ -62,7 +62,22 @@ export function _findPageNode(project: ProjectInternals, pageId: string): CompNo
 export function _resolvePageGroup(project: ProjectInternals, pageId?: string): string | undefined {
   if (!pageId) return undefined;
   const page = _findPageNode(project, pageId);
-  return page.definitionItemPath ?? undefined;
+  if (typeof page.definitionItemPath === 'string' && page.definitionItemPath.length > 0) {
+    return page.definitionItemPath;
+  }
+  const items = project.core.state.definition.items ?? [];
+  for (const child of _pageBoundChildren(project, page)) {
+    if (typeof child.bind !== 'string') continue;
+    const full = findKeyInItems(items, child.bind, '');
+    if (full === null) continue;
+    const item = project.core.itemAt(full);
+    if (item?.type === 'group') return full;
+    const dot = full.lastIndexOf('.');
+    if (dot !== -1) return full.slice(0, dot);
+    // Root-level non-group bind — try other page regions before giving up.
+    continue;
+  }
+  return undefined;
 }
 
 /** Internal: Get all bound children of a page node. */
@@ -329,6 +344,7 @@ export function addField(project: ProjectInternals, path: string, label: string,
       summary: `Added field '${label}' (${type}) at path "${fullPath}"`,
       action: { helper: 'addField', params: { path: fullPath, label, type } },
       affectedPaths: [fullPath],
+      createdId: fullPath,
     };
   }
 
@@ -445,6 +461,7 @@ export function addContent(
       summary: `Added ${kind ?? 'paragraph'} content at path "${fullPath}"`,
       action: { helper: 'addContent', params: { path: fullPath, body, kind } },
       affectedPaths: [fullPath],
+      createdId: fullPath,
     };
   }
 

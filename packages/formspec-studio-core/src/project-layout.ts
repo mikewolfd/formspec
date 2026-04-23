@@ -54,6 +54,14 @@ export function _regionIndexOf(project: ProjectInternals, pageId: string, itemKe
   return index;
 }
 
+/**
+ * Adds a `Page` node under the component root.
+ *
+ * **Page mode:** If `formPresentation.pageMode` is neither `tabs` nor `wizard`, this helper also
+ * dispatches `definition.setFormPresentation` with `pageMode: 'wizard'` so multi-page component
+ * trees stay consistent with Studio preview and layout step navigation. (Explicit `setFlow('tabs')`
+ * before adding pages keeps `tabs`.)
+ */
 export function addPage(project: ProjectInternals, title: string, description?: string, id?: string): HelperResult {
   if (id !== undefined) {
     if (!/^[a-zA-Z][a-zA-Z0-9_\-]*$/.test(id)) {
@@ -61,24 +69,40 @@ export function addPage(project: ProjectInternals, title: string, description?: 
     }
     const existing = definitionOps._getPageNodes(project).find((n: CompNode) => n.nodeId === id);
     if (existing) {
-      throw new HelperError('DUPLICATE_PAGE_ID', `Page ID "${id}" is already in use.`, { id });
+      throw new HelperError(
+        'DUPLICATE_PAGE_ID',
+        `Page ID "${id}" already exists — each page needs a unique id.`,
+        { id },
+      );
     }
   }
 
-  const result = project.core.dispatch({
+  const pageMode = (project.core.state.definition as { formPresentation?: { pageMode?: string } })
+    .formPresentation?.pageMode;
+  const commands: AnyCommand[] = [];
+  if (pageMode !== 'tabs' && pageMode !== 'wizard') {
+    commands.push({
+      type: 'definition.setFormPresentation',
+      payload: { property: 'pageMode', value: 'wizard' },
+    });
+  }
+
+  const pageProps: Record<string, unknown> = { title };
+  if (description !== undefined) pageProps.description = description;
+  if (id !== undefined) pageProps.nodeId = id;
+
+  commands.push({
     type: 'component.addNode',
     payload: {
       parent: { nodeId: 'root' },
       component: 'Page',
-      props: {
-        title,
-        description,
-        ...(id !== undefined ? { nodeId: id } : {}),
-      },
+      props: pageProps,
     },
   });
 
-  const nodeId = result?.nodeRef?.nodeId;
+  const results = project.core.batch(commands);
+  const addResult = results[results.length - 1] as { nodeRef?: { nodeId?: string } } | undefined;
+  const nodeId = addResult?.nodeRef?.nodeId;
   return {
     summary: `Added page "${title}"`,
     action: { helper: 'addPage', params: { title, description, id } },
@@ -128,12 +152,15 @@ export function movePageToIndex(project: ProjectInternals, pageId: string, targe
 export function listPages(project: ProjectInternals): Array<{ id: string; title: string; description?: string; groupPath?: string }> {
   return definitionOps._getPageNodes(project).map((n: CompNode) => {
     const boundChildren = definitionOps._pageBoundChildren(project, n);
-    return {
+    const entry: { id: string; title: string; description?: string; groupPath?: string } = {
       id: n.nodeId!,
       title: n.title ?? n.nodeId!,
-      description: n.description,
-      groupPath: boundChildren.length > 0 ? (boundChildren[0].bind as string) : undefined,
+      ...(n.description !== undefined && n.description !== ''
+        ? { description: n.description as string }
+        : {}),
+      ...(boundChildren.length > 0 ? { groupPath: boundChildren[0].bind as string } : {}),
     };
+    return entry;
   });
 }
 
@@ -232,6 +259,13 @@ export function reorderItemOnPage(project: ProjectInternals, pageId: string, ite
 }
 
 export function moveItemOnPageToIndex(project: ProjectInternals, pageId: string, itemKey: string, targetIndex: number): HelperResult {
+  if (targetIndex < 0) {
+    throw new HelperError(
+      'ROUTE_OUT_OF_BOUNDS',
+      `Target index ${targetIndex} is out of bounds for page '${pageId}'`,
+      { pageId, itemKey, targetIndex },
+    );
+  }
   _regionIndexOf(project, pageId, itemKey);
   project.core.dispatch({
     type: 'component.moveNode',
@@ -290,7 +324,7 @@ export function removeItemFromPage(project: ProjectInternals, pageId: string, it
 
 export function setFlow(project: ProjectInternals, mode: 'single' | 'wizard' | 'tabs', props?: FlowProps): HelperResult {
   const commands: AnyCommand[] = [
-    { type: 'component.setNodeProperty', payload: { node: { nodeId: 'root' }, property: 'flowMode', value: mode } },
+    { type: 'definition.setFormPresentation', payload: { property: 'pageMode', value: mode } },
   ];
 
   if (props?.pageTitles) {
@@ -325,10 +359,97 @@ export function setGroupRef(project: ProjectInternals, path: string, ref: string
   };
 }
 
+/** Default props merged onto new layout-only component nodes from the Layout add palette. */
+function defaultAuthoringPropsForLayoutNode(component: string, spec: LayoutAddItemSpec): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  if (spec.presentation && typeof spec.presentation === 'object') {
+    Object.assign(merged, spec.presentation);
+  }
+  if (spec.props && typeof spec.props === 'object') {
+    Object.assign(merged, spec.props);
+  }
+  switch (component) {
+    case 'Grid':
+      if (merged.columns === undefined) merged.columns = 2;
+      break;
+    case 'Stack':
+      if (merged.direction === undefined) merged.direction = 'column';
+      break;
+    case 'Collapsible':
+      if (merged.title === undefined && spec.label?.trim()) merged.title = spec.label.trim();
+      if (merged.defaultOpen === undefined) merged.defaultOpen = true;
+      break;
+    case 'Panel':
+      if (merged.position === undefined) merged.position = 'left';
+      break;
+    default:
+      break;
+  }
+  return merged;
+}
+
 export function addItemToLayout(project: ProjectInternals, spec: LayoutAddItemSpec, pageId?: string): HelperResult {
   const pageGroupPath = pageId ? definitionOps._resolvePageGroup(project, pageId) : undefined;
   const parentPath = spec.parentPath ?? pageGroupPath;
   const key = definitionOps._uniqueLayoutItemKey(project, spec.label, parentPath, spec.key);
+
+  if (spec.itemType === 'layout') {
+    const component = (spec.component ?? 'Stack').trim() || 'Stack';
+    const parentNodeId = pageId ?? 'root';
+    const layoutProps = defaultAuthoringPropsForLayoutNode(component, spec);
+    const result = project.core.dispatch({
+      type: 'component.addNode',
+      payload: {
+        parent: { nodeId: parentNodeId },
+        component,
+        props: layoutProps,
+      },
+    });
+    const nodeId = result?.nodeRef?.nodeId;
+    return {
+      summary: `Added ${component} to layout`,
+      action: { helper: 'addItemToLayout', params: { spec, pageId } },
+      affectedPaths: [parentNodeId],
+      createdId: nodeId,
+    };
+  }
+
+  if (spec.itemType === 'display' && (spec.component === 'Heading' || spec.component === 'Divider')) {
+    const parentNodeId = pageId ?? 'root';
+    const layoutProps: Record<string, unknown> =
+      spec.component === 'Heading'
+        ? { level: 2, text: spec.label }
+        : { label: spec.label };
+    const result = project.core.dispatch({
+      type: 'component.addNode',
+      payload: {
+        parent: { nodeId: parentNodeId },
+        component: spec.component,
+        props: layoutProps,
+      },
+    });
+    const nodeId = result?.nodeRef?.nodeId;
+    return {
+      summary: `Added ${spec.component} "${spec.label}"`,
+      action: { helper: 'addItemToLayout', params: { spec, pageId } },
+      affectedPaths: [parentNodeId],
+      createdId: nodeId,
+    };
+  }
+
+  if (spec.itemType === 'display') {
+    const result = definitionOps.addContent(
+      project,
+      key,
+      spec.label,
+      'paragraph',
+      parentPath ? { parentPath } : undefined,
+    );
+    if (pageId && result.createdId) {
+      placeOnPage(project, result.createdId, pageId);
+    }
+    return result;
+  }
 
   const result = definitionOps.addField(
     project,
@@ -350,8 +471,8 @@ export function setItemWidth(project: ProjectInternals, pageId: string, itemKey:
   const child = definitionOps._pageBoundChildren(project, page)[_regionIndexOf(project, pageId, itemKey)];
 
   project.core.dispatch({
-    type: 'component.setNodeStyle',
-    payload: { node: refForCompNode(child), property: 'gridSpan', value: width },
+    type: 'component.setNodeProperty',
+    payload: { node: refForCompNode(child), property: 'span', value: width },
   });
 
   return {
@@ -366,8 +487,8 @@ export function setItemOffset(project: ProjectInternals, pageId: string, itemKey
   const child = definitionOps._pageBoundChildren(project, page)[_regionIndexOf(project, pageId, itemKey)];
 
   project.core.dispatch({
-    type: 'component.setNodeStyle',
-    payload: { node: refForCompNode(child), property: 'gridOffset', value: offset ?? null },
+    type: 'component.setNodeProperty',
+    payload: { node: refForCompNode(child), property: 'start', value: offset ?? null },
   });
 
   return {
@@ -421,13 +542,29 @@ export function applyLayout(project: ProjectInternals, targets: string | string[
   const config = _LAYOUT_MAP[arrangement];
   if (!config) throw new HelperError('INVALID_ARRANGEMENT', `Invalid layout arrangement: ${arrangement}`, { arrangement });
 
-  const result = project.core.dispatch({
-    type: 'component.wrapSiblingNodes',
-    payload: {
-      nodes: targetPaths.map(p => _nodeRefForItem(project, p)),
-      wrapper: { component: config.component, props: config.props },
-    },
-  });
+  if (targetPaths.length === 0) {
+    throw new HelperError('INVALID_TARGET', 'applyLayout requires at least one target path', { arrangement });
+  }
+
+  const refs = targetPaths.map(p => _nodeRefForItem(project, p));
+
+  // wrapSiblingNodes requires ≥2 siblings; a single field uses wrapNode (Card, Grid, etc.).
+  const result =
+    refs.length === 1
+      ? project.core.dispatch({
+        type: 'component.wrapNode',
+        payload: {
+          node: refs[0],
+          wrapper: { component: config.component, props: config.props },
+        },
+      })
+      : project.core.dispatch({
+        type: 'component.wrapSiblingNodes',
+        payload: {
+          nodes: refs,
+          wrapper: { component: config.component, props: config.props },
+        },
+      });
 
   const nodeId = result?.nodeRef?.nodeId;
   return {
@@ -675,7 +812,7 @@ export function setComponentWhen(project: ProjectInternals, target: string, when
 export function setComponentAccessibility(project: ProjectInternals, target: string, property: string, value: unknown): HelperResult {
   const ref = _nodeRefForItem(project, target);
   project.core.dispatch({
-    type: 'component.setNodeProperty',
+    type: 'component.setNodeAccessibility',
     payload: { node: ref, property, value },
   });
 
@@ -687,7 +824,9 @@ export function setComponentAccessibility(project: ProjectInternals, target: str
 }
 
 export function setLayoutNodeProp(project: ProjectInternals, target: string, property: string, value: unknown): HelperResult {
-  const ref = _nodeRefForItem(project, target);
+  const ref = target.startsWith('__node:')
+    ? { nodeId: target.slice('__node:'.length) }
+    : _nodeRefForItem(project, target);
   project.core.dispatch({
     type: 'component.setNodeProperty',
     payload: { node: ref, property, value },

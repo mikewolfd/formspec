@@ -48,7 +48,7 @@ describe('Studio theme tokens', () => {
       </ProjectProvider>
     );
 
-    expect(screen.getByRole('button', { name: /sources/i })).not.toHaveClass('hover:text-foreground');
+    expect(screen.getByRole('tab', { name: /sources/i })).not.toHaveClass('hover:text-foreground');
     // No neutral dark-theme borders anywhere in the Data workspace
     expect(container.innerHTML).not.toMatch(/border-neutral-\d+/);
     expect(container.innerHTML).not.toMatch(/bg-neutral-\d+/);

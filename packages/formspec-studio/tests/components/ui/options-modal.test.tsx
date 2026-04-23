@@ -100,4 +100,14 @@ describe('OptionsModal', () => {
     const keywordsInput = screen.getByLabelText('Option 2 search keywords');
     expect(keywordsInput).toHaveValue('sky, ocean');
   });
+
+  it('calls onUpdateOptions with parsed keywords when keywords field changes', () => {
+    const { props } = renderModal();
+    const keywordsInput = screen.getByLabelText('Option 2 search keywords');
+    fireEvent.change(keywordsInput, { target: { value: 'sky, ocean, night' } });
+    expect(props.onUpdateOptions).toHaveBeenCalledWith([
+      { value: 'red', label: 'Red' },
+      { value: 'blue', label: 'Blue', keywords: ['sky', 'ocean', 'night'] },
+    ]);
+  });
 });

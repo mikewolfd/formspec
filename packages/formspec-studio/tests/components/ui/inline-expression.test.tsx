@@ -101,12 +101,9 @@ describe('InlineExpression', () => {
     expect(pathSpan!.textContent).toContain('$field');
   });
 
-  it('RED test: when rendering condition — callout visible when editing', () => {
+  it('when rendering condition — callout visible when editing', () => {
     // When InlineExpression is used to edit a "when" (rendering condition) expression,
-    // a callout must appear in the FELEditor explaining:
-    // - This condition controls rendering visibility only (NOT data filtering)
-    // - Use "relevant" binding in Editor workspace for data inclusion rules
-    // Currently this callout does NOT exist, so this test will FAIL.
+    // FELEditor shows a callout: rendering visibility vs relevant binding for data.
     render(<InlineExpression value="" onSave={vi.fn()} placeholder="When..." expressionType="when" />);
     fireEvent.click(screen.getByText('When...'));
     // After clicking to enter edit mode, the FELEditor should render with a callout

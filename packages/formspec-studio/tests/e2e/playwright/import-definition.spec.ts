@@ -23,7 +23,7 @@ test.describe('Import Definition', () => {
   });
 
   test('Import dialog opens and shows Definition selected by default', async ({ page }) => {
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     await expect(page.locator('[data-testid="import-dialog"]')).toBeVisible();
 
@@ -32,7 +32,7 @@ test.describe('Import Definition', () => {
   });
 
   test('import a definition via dialog', async ({ page }) => {
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     await page.waitForSelector('[data-testid="import-dialog"]');
 
@@ -64,7 +64,7 @@ test.describe('Import Definition', () => {
   });
 
   test('cancel closes dialog without changes', async ({ page }) => {
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     await page.waitForSelector('[data-testid="import-dialog"]');
 
@@ -74,7 +74,7 @@ test.describe('Import Definition', () => {
   });
 
   test('Escape closes the import dialog', async ({ page }) => {
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     await page.waitForSelector('[data-testid="import-dialog"]');
 
@@ -88,7 +88,7 @@ test.describe('Import Definition', () => {
     await expect(editorFieldRows(page)).toHaveCount(1);
     await expect(page.locator('[data-testid="undo-btn"]')).not.toBeDisabled();
 
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     const dialog = page.locator('[data-testid="import-dialog"]');
     await dialog.locator('textarea').fill(IMPORT_DEFINITION);
@@ -102,7 +102,7 @@ test.describe('Import Definition', () => {
   });
 
   test('reopening the import dialog resets previous text and artifact type', async ({ page }) => {
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     const dialog = page.locator('[data-testid="import-dialog"]');
     await dialog.getByRole('button', { name: 'Mapping' }).click();
@@ -110,7 +110,7 @@ test.describe('Import Definition', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('[data-testid="import-dialog"]')).not.toBeVisible();
 
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     const reopened = page.locator('[data-testid="import-dialog"]');
     await expect(reopened.getByRole('button', { name: 'Definition' })).toHaveClass(/bg-accent/);

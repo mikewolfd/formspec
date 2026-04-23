@@ -53,7 +53,9 @@ describe('LayoutCanvas', () => {
     project.wrapInLayoutComponent('name', 'Card');
 
     renderLayout(project);
-    const cardContainer = screen.getByTestId(/^layout-container-/);
+    const cardContainer = screen.getByTestId((id, el) =>
+      Boolean((el as HTMLElement).getAttribute('data-testid')?.startsWith('layout-container-')),
+    );
     expect(cardContainer).toHaveTextContent('Card');
     expect(cardContainer).toHaveTextContent('Full Name');
   });
@@ -163,7 +165,9 @@ describe('LayoutCanvas', () => {
     fireEvent.click(screen.getByTestId('layout-add-item'));
     fireEvent.click(screen.getByRole('button', { name: /^Card / }));
 
-    const cardContainer = screen.getByTestId(/^layout-container-/);
+    const cardContainer = screen.getByTestId((id, el) =>
+      Boolean((el as HTMLElement).getAttribute('data-testid')?.startsWith('layout-container-')),
+    );
     expect(cardContainer).toHaveTextContent('Card');
   });
 

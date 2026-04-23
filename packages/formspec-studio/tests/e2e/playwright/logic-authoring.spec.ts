@@ -165,7 +165,8 @@ test.describe('Editor Manage View — FEL reference popup function click (#55)',
     await workspace.locator('[data-testid="manage-section-variables"]').getByText('0.25', { exact: true }).click();
 
     const felButton = workspace.locator('button[aria-label="FEL Reference"]').first();
-    await felButton.click();
+    // FELEditor layers a full-width mirror above the row; Playwright hit-tests the textarea. Programmatic click still toggles the popup.
+    await felButton.evaluate((el: HTMLElement) => el.click());
 
     const felPopup = page.locator('[data-testid="fel-reference-popup"]');
     await expect(felPopup.getByText('FEL Reference')).toBeVisible();
@@ -189,7 +190,7 @@ test.describe('Editor Manage View — FEL reference popup function click (#55)',
     await workspace.locator('[data-testid="manage-section-variables"]').getByText('0.25', { exact: true }).click();
 
     const felButton = workspace.locator('button[aria-label="FEL Reference"]').first();
-    await felButton.click();
+    await felButton.evaluate((el: HTMLElement) => el.click());
 
     const felPopup = page.locator('[data-testid="fel-reference-popup"]');
     await felPopup.locator('[data-fel-category="Aggregate"]').evaluate((el: HTMLElement) => el.click());

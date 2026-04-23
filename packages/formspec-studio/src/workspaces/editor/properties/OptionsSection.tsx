@@ -18,7 +18,7 @@ export function OptionsSection({
   item: FormItem;
   project: Project;
 }) {
-  const rawChoiceOptions = item.options ?? item.choices;
+  const rawChoiceOptions = item.options;
   const choiceOptions = Array.isArray(rawChoiceOptions)
     ? (rawChoiceOptions as ChoiceOptionRow[])
     : [];

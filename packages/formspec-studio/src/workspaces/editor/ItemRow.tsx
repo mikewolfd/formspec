@@ -133,9 +133,7 @@ export function ItemRow({
 
   const isChoiceField =
     item?.type === 'field' &&
-    ['choice', 'multiChoice', 'select', 'select1'].includes(
-      String(item.dataType ?? ''),
-    );
+    ['choice', 'multiChoice'].includes(String(item.dataType ?? ''));
   const isDecimalLike =
     item?.type === 'field' &&
     ['decimal', 'money'].includes(String(item.dataType ?? ''));

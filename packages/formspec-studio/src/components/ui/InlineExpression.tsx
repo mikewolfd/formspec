@@ -50,6 +50,7 @@ export function InlineExpression({
   className,
   autoEdit = false,
   expressionType = 'default',
+  itemKey,
 }: InlineExpressionProps) {
   const [editing, setEditing] = useState(autoEdit);
 
@@ -77,6 +78,8 @@ export function InlineExpression({
           onSave={handleSave}
           onCancel={handleCancel}
           autoFocus
+          expressionType={expressionType}
+          itemKey={itemKey}
         />
         <div className="absolute right-2 top-2">
           <FELReferencePopup />

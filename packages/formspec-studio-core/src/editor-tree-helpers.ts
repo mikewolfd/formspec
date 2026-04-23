@@ -184,7 +184,7 @@ export function buildCategorySummaries(item: FormItem, binds: Record<string, str
   const rawChoiceOptions = item.options;
   if (Array.isArray(rawChoiceOptions) && rawChoiceOptions.length > 0) {
     result.Options = `${rawChoiceOptions.length} ${rawChoiceOptions.length === 1 ? 'choice' : 'choices'}`;
-  } else if (['choice', 'multiChoice', 'select', 'select1'].includes(String(item.dataType ?? ''))) {
+  } else if (['choice', 'multiChoice'].includes(String(item.dataType ?? ''))) {
     result.Options = '';
   }
 

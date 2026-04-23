@@ -50,7 +50,7 @@ export function editorDisplayRows(page: Page) {
  */
 export async function importDefinition(page: Page, definition: unknown) {
   // Import button is inside the account dropdown menu — open the menu first
-  await page.click('button[aria-label="Account menu"]');
+  await page.getByRole('button', { name: 'Open account menu' }).click();
   await page.click('[data-testid="import-btn"]');
   const dialog = page.locator('[data-testid="import-dialog"]');
   await dialog.waitFor();
@@ -70,7 +70,7 @@ export async function importProject(page: Page, state: Record<string, unknown>) 
     if (!(key in state)) continue;
 
     // Import button is inside the account dropdown menu — open the menu first
-    await page.click('button[aria-label="Account menu"]');
+    await page.getByRole('button', { name: 'Open account menu' }).click();
     await page.click('[data-testid="import-btn"]');
     const dialog = page.locator('[data-testid="import-dialog"]');
     await dialog.waitFor();

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createProject } from '../src/project.js';
 import { HelperError } from '../src/helper-types.js';
+import { _resolvePageGroup } from '../src/project-definition.js';
 import { findComponentNodeById, findComponentNodeByRef } from '../src/tree-utils.js';
 
 // ── Component tree page helpers for test assertions ──
@@ -1325,6 +1326,23 @@ describe('addSubmitButton', () => {
 });
 
 // ── Page Helpers ──
+
+describe('_resolvePageGroup', () => {
+  it('uses a later group-bound region when an earlier region is a root-level field', () => {
+    const project = createProject();
+    const { createdId: pageId } = project.addPage('Step');
+    project.addField('foo', 'Foo', 'string');
+    project.placeOnPage('foo', pageId!);
+    project.addGroup('grp', 'Group');
+    project.placeOnPage('grp', pageId!);
+    const page = findPageNode(project, pageId!);
+    if (page && typeof page.definitionItemPath === 'string') {
+      delete page.definitionItemPath;
+    }
+    const internals = { core: (project as any).core, definition: project.definition };
+    expect(_resolvePageGroup(internals, pageId!)).toBe('grp');
+  });
+});
 
 describe('addPage', () => {
   it('creates a Page node without a definition group', () => {
@@ -3531,6 +3549,25 @@ describe('component-level layout helpers', () => {
     const textItem = allItems.find((i: any) => i.label === 'Intro text');
     expect(textItem).toBeDefined();
     expect(textItem?.type).toBe('display');
+  });
+
+  it('Card from Layout palette adds a _layout component node, not a definition field', () => {
+    const project = createProject();
+    const result = project.addItemToLayout({
+      itemType: 'layout',
+      label: 'Card',
+      component: 'Card',
+    });
+
+    const allItems = (project.state.definition as any).items ?? [];
+    expect(allItems.some((i: any) => i.key === 'card')).toBe(false);
+
+    const tree = (project.component as any)?.tree;
+    const rootChildren: any[] = tree?.children ?? [];
+    const cardNode = rootChildren.find((n: any) => n.component === 'Card' && n._layout);
+    expect(cardNode).toBeDefined();
+    expect(result.createdId).toBeDefined();
+    expect(cardNode?.nodeId).toBe(result.createdId);
   });
 });
 

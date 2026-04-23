@@ -139,6 +139,59 @@ describe('FormPreviewV2', () => {
     expect(summary.textContent).toContain('~1 modified');
   });
 
+  it('sets aria-pressed on preview mode toggles (visual default, JSON after click)', () => {
+    (useChatState as any).mockReturnValue({
+      definition: mockDef,
+      bundle: mockBundle,
+      traces: [],
+      openIssueCount: 0,
+    });
+
+    render(<FormPreviewV2 />);
+
+    const visualBtn = screen.getByTestId('preview-mode-visual');
+    const jsonBtn = screen.getByTestId('preview-mode-json');
+    expect(visualBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(jsonBtn).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(jsonBtn);
+    expect(jsonBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(visualBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('disables regenerate and shows Regenerating while session.regenerate is in flight', async () => {
+    (useChatState as any).mockReturnValue({
+      definition: mockDef,
+      bundle: mockBundle,
+      traces: [],
+      openIssueCount: 0,
+    });
+
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mockSession.regenerate.mockImplementation(() => barrier);
+
+    render(<FormPreviewV2 />);
+
+    const regenBtn = screen.getByTestId('regenerate-btn');
+    await act(async () => {
+      fireEvent.click(regenBtn);
+    });
+
+    expect(regenBtn).toBeDisabled();
+    expect(screen.getByText('Regenerating...')).toBeInTheDocument();
+
+    await act(async () => {
+      release();
+      await barrier;
+    });
+
+    expect(regenBtn).not.toBeDisabled();
+    expect(screen.getByText('Regenerate')).toBeInTheDocument();
+  });
+
   it('highlights added and modified fields', () => {
     (useChatState as any).mockReturnValue({
       definition: mockDef,
@@ -153,11 +206,11 @@ describe('FormPreviewV2', () => {
     });
 
     render(<FormPreviewV2 />);
-    
-    const ageCard = screen.getByTestId('layout-field-age').closest('.v2-field-card');
+
+    const ageCard = screen.getByText('Age').closest('.v2-field-card');
     expect(ageCard).toHaveClass('v2-field-added');
 
-    const nameCard = screen.getByTestId('layout-field-name').closest('.v2-field-card');
+    const nameCard = screen.getByText('Full Name').closest('.v2-field-card');
     expect(nameCard).toHaveClass('v2-field-modified');
   });
 });

@@ -76,8 +76,7 @@ describe('resolveWidget — spec widgetHint coverage', () => {
     }
   });
 
-  it('preserves backward-compat short aliases', () => {
-    // "select" is not in the spec but existed before; still works
+  it('resolves authoring widget shortcuts to components', () => {
     expect(resolveWidget('select')).toBe('Select');
     expect(resolveWidget('file')).toBe('FileUpload');
     expect(resolveWidget('date')).toBe('DatePicker');

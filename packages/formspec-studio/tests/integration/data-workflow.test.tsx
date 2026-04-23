@@ -35,12 +35,12 @@ describe('DataTab', () => {
     expect(screen.getByText('External Sources')).toBeInTheDocument();
   });
 
-  it('section filter buttons work — clicking Sources hides other pillars', () => {
+  it('section filter tabs work — clicking Sources hides other pillars', () => {
     renderData({
       ...baseDef,
       items: [{ key: 'name', type: 'field', dataType: 'string' }],
     });
-    fireEvent.click(screen.getByRole('button', { name: /^sources$/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^sources$/i }));
     expect(screen.getByText('External Sources')).toBeInTheDocument();
     expect(screen.queryByText('Submission Structure')).not.toBeInTheDocument();
     expect(screen.queryByText('Lookup Tables')).not.toBeInTheDocument();

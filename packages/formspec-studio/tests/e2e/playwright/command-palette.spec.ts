@@ -24,7 +24,13 @@ const LOGIC_SEED_DEFINITION = {
     ageField: { constraint: '$ageField >= 18', required: 'true' },
   },
   shapes: [
-    { name: 'incomeCheck', severity: 'error', constraint: '$grossIncome > 0' },
+    {
+      id: 'incomeCheck',
+      target: 'grossIncome',
+      severity: 'error',
+      constraint: '$grossIncome > 0',
+      message: 'Gross income must be positive',
+    },
   ],
 };
 
@@ -143,7 +149,7 @@ test.describe('Command Palette', () => {
     await page.keyboard.press('Meta+k');
     await page.waitForSelector('[data-testid="command-palette"]');
 
-    // Search for "incomeCheck" — this is a shape name, not an item key
+    // Search for "incomeCheck" — shape id (not an item key)
     await page.fill('[data-testid="command-palette"] input', 'incomeCheck');
 
     // A "Rules" or "Shapes" section header should appear

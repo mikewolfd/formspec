@@ -201,10 +201,7 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
   });
 
   // #53 No choice options editor
-  // Selecting a Choice field (select1 / select) in the inspector shows only the
-  // Identity section — there is no "Choices" or "Options" section for managing
-  // the list of choices.
-  test('#53 clicking Options summary opens an options modal for a Select One field', async ({ page }) => {
+  test('#53 clicking Options summary opens an options modal for a choice field', async ({ page }) => {
     await waitForApp(page);
     await importDefinition(page, {
       $formspec: '1.0',
@@ -213,9 +210,9 @@ test.describe('Inspector Panel — Bug Cluster A', () => {
         {
           key: 'status',
           type: 'field',
-          dataType: 'select1',
+          dataType: 'choice',
           label: 'Status',
-          choices: [
+          options: [
             { value: 'active', label: 'Active' },
             { value: 'inactive', label: 'Inactive' },
           ],

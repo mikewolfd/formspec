@@ -2,7 +2,7 @@
 
 **Scope:** `packages/formspec-studio/`, `packages/formspec-studio-core/`
 **Goal:** Remove dead code, document real gaps, cut correctness and dependency risk, ship PRD-aligned features.
-**Last validated:** 2026-04-22 (full refactoring audit of 175+ files / ~29k lines in `packages/formspec-studio/`; P6 added).
+**Last validated:** 2026-04-23 (formspec-scout cross-check of all `- [x]` items vs repo; line refs and test counts refreshed).
 
 Use this file as a **backlog**: each `- [ ]` is one shippable task unless noted as a multi-step epic.
 
@@ -14,7 +14,7 @@ Use this file as a **backlog**: each `- [ ]` is one shippable task unless noted 
 
 ### P3 — `project.ts` modularization (epic — completed)
 
-**Context:** `project.ts` remains large (~4.4k lines after helper extraction). Preserve `src/index.ts` public API.
+**Context:** `packages/formspec-studio-core/src/project.ts` is ~1.1k lines; logic lives in `project-*.ts` modules. Preserve `studio-core` `src/index.ts` public API.
 
 - [x] **Split remaining `Project` responsibilities** into focused modules: layout/page/region operations, theme/breakpoint/locale, screener/phases, mapping — re-export or compose from `project.ts` without breaking consumers.
 
@@ -25,10 +25,10 @@ Use this file as a **backlog**: each `- [ ]` is one shippable task unless noted 
 - [x] Extend **`ChatState`** (or equivalent) so `FormPreviewV2.tsx` does not need `(state as any).screener` — the screener section was dead code (`ChatState` never had a `screener` field; removed the entire block + `ItemPreview` component).
 - [x] Reduce **`any`** in `FormPreviewV2.tsx` — replaced `ItemLike` with `FieldMockupItem` (typed `PresentationBlock`), fixed `findItem` to use `FormItem[]`, removed all `as any` casts (8 → 0). Remaining `any` reduction in other files deferred.
 - [x] Reduce **`any`** in remaining hot UI files: `OutputBlueprint.tsx`, `RuleCard.tsx`, `MultiSelectSummary.tsx`, `DefinitionProperties.tsx`, `ItemRow.tsx`, and `project-layout.ts` (Done: purged ~40 residual `any` and loose `unknown` casts across studio and studio-core).
-- [x] **chat-v2 a11y:** Added `aria-pressed` to mode toggles in `FormPreviewV2.tsx`; added `type="button"` and `aria-label` to all header buttons in `ChatShellV2.tsx` (back, issue badge, studio, export, settings, close sidebar).
+- [x] **chat-v2 a11y:** Added `aria-pressed` to mode toggles in `FormPreviewV2.tsx`; in `ChatShellV2.tsx`, `type="button"` + `aria-label` on header actions (back, issue badge, studio, export, settings, close sidebar) and on mobile Chat/Preview tab buttons.
 - [x] **`mapping-serialization.ts`:** Sanitize or validate **XML element names** derived from user-controlled keys (today `escapeXml` covers text, not tag names); document client-only risk if server exposure is out of scope.
-- [x] **`lib.ts` / `registerFormspecRender`:** Either add a real consumer + test, remove from public surface, or document as experimental embed API.
-- [ ] Add **targeted tests** for largest untested UI modules (pick order): `FormPreviewV2.tsx`, `ItemRow.tsx`, `GroupNode.tsx`, `DisplayBlock.tsx`, `OptionsModal.tsx`.
+- [x] **`lib.ts` / `registerFormspecRender`:** Documented as `@experimental` embed API in `lib.ts` (dynamic import). Automated consumer test not added (optional stretch).
+- [x] Add **targeted tests** for largest UI modules: `item-row.test.tsx`, `group-node.test.tsx`, `display-block.unit.test.tsx` (LayoutLeafBlock stub); extended `form-preview-v2.test.tsx` (aria-pressed, regenerate in-flight, diff highlight queries); extended `options-modal.test.tsx` (keywords → `onUpdateOptions`).
 - [ ] Replace hardcoded **`VITE_GEMINI_DEV_KEY=mock-key-for-playwright`** in `playwright-chat.config.ts` (~24) with a dedicated mock server or Playwright network interception pattern.
 - [ ] If profiling shows pain: evaluate **structural sharing** (e.g. Immer) for ProposalManager / partial merge paths that clone full `ProjectState` multiple times per operation (`_partialMerge` etc.).
 
@@ -46,7 +46,7 @@ Shipped. The ConditionBuilder component provides guided/advanced FEL editing for
 - [x] Apply to: `relevant`, `required`, `readonly`, `constraint` (`calculate` uses InlineExpression)
 - [x] "Advanced" toggle to raw FEL for power users
 - [x] Screener route conditions use the same ConditionBuilder (see 5.2)
-- [x] 79 core tests + 14 UI tests, all green
+- [x] 80 core tests + 15 UI tests (`fel-condition-builder.test.ts`, `condition-builder*.test.tsx`), all green
 
 #### 5.2 Screener: condition builder + test routing
 
@@ -63,8 +63,8 @@ Already implemented in Rust (`crates/formspec-core/src/assembler.rs` + `assembly
 - [x] Phase 1: `rewriteFEL(expression, keyMap)` core — implemented in Rust
 - [x] Phase 2: Bind FEL integration (relevant, required, readonly, calculate, constraint) — `rewrite_bind()` at `assembler.rs:763`
 - [x] Phase 3: Shape FEL integration (target paths, composition expressions) — `rewrite_shape()` at `assembler.rs:792`
-- [x] Phase 4: Variable import (key remapping in expressions) — `import_variables()` at `assembler.rs:560`
-- [x] Phase 5: Full integration smoke tests — covered by Rust tests in `formspec-core`
+- [x] Phase 4: Variable import (key remapping in expressions) — `import_variables()` at `assembler.rs:535`
+- [x] Phase 5: Full integration smoke tests — `assembly_fel_rewrite.rs` (formspec-core) + WASM FEL tests (`formspec-wasm`)
 
 #### 5.4 "Effective value" display in properties panel
 
@@ -131,12 +131,12 @@ Items already tracked in P4 are cross-referenced, not duplicated.
 #### 6.2 Decompose god components (epic — completed)
 
 - [x] **`LayoutLeafBlock`** — Extracted from `FieldBlock.tsx` and `DisplayBlock.tsx`, eliminating ~400 lines of identical code.
-- [x] **Decompose `Shell.tsx`** — Extracted `BlueprintSidebar`, `WorkspaceContent`, `ShellDialogs`, `useBlueprintSectionResolution`, and `ShellConstants`. Down to ~350 lines.
-- [x] **Decompose `LayoutCanvas.tsx`** — Extracted `LayoutCanvasHeader`, `useLayoutPageMaterializer`, and `layout-tree-utils`. Down to ~430 lines.
+- [x] **Decompose `Shell.tsx`** — Extracted `BlueprintSidebar`, `WorkspaceContent`, `ShellDialogs`, `useBlueprintSectionResolution`, and `ShellConstants`. ~479 lines post-extraction (further splits optional).
+- [x] **Decompose `LayoutCanvas.tsx`** — Extracted `LayoutCanvasHeader`, `useLayoutPageMaterializer`, and `layout-tree-utils`. ~449 lines.
 - [x] **Extract `useInlineIdentityEdit`** — identity editing state machine. Provided keyboard handlers and shared logic for `ItemRow`, `GroupNode`, and `ItemRowContent`.
-- [x] **Decompose `FELEditor.tsx`** — Extracted `useFELAutocomplete`, `FELHighlightOverlay`, and `FELAutocompleteMenu`. Down to ~250 lines.
-- [x] **Decompose `render-tree.tsx`** — Extracted helpers and cleaned up the main recursive loop.
-- [x] **Decompose `ItemListEditor.tsx`** — Extracted `WrapInGroupDialog`.
+- [x] **Decompose `FELEditor.tsx`** — Extracted `useFELAutocomplete`, `FELHighlightOverlay`, and `FELAutocompleteMenu`. ~274 lines.
+- [x] **Decompose `render-tree.tsx`** (`workspaces/layout/render-tree.tsx`) — Extracted helpers and cleaned up the main recursive loop (~429 lines).
+- [x] **Decompose `ItemListEditor.tsx`** — Extracted `WrapInGroupDialog` (~553 lines; still largest editor surface).
 
 #### 6.3 Bugs and correctness (completed)
 
@@ -181,4 +181,5 @@ Items already tracked in P4 are cross-referenced, not duplicated.
 ---
 
 ## Reference (not tasks)
+
 ...

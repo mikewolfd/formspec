@@ -52,6 +52,11 @@ interface DisplayBlockProps {
    * When set, a multi-line editor is shown while the block is selected.
    */
   onCommitDisplayLabel?: (text: string | null) => void;
+  /**
+   * When true (default), selecting the block with {@link onCommitDisplayLabel} opens the body editor immediately.
+   * Set false to keep collapsed preview until the user uses the pencil control or double-click.
+   */
+  autoOpenDisplayBodyOnSelect?: boolean;
   /** Layout canvas: parent reorder list id (with sortableIndex + treeDragNodeRef). */
   sortableGroup?: string;
   sortableIndex?: number;
@@ -60,7 +65,13 @@ interface DisplayBlockProps {
 
 export function DisplayBlock(props: DisplayBlockProps) {
   const {
-    itemKey, label, widgetHint, selected, onRenameDefinitionItem, onCommitDisplayLabel,
+    itemKey,
+    label,
+    widgetHint,
+    selected,
+    onRenameDefinitionItem,
+    onCommitDisplayLabel,
+    autoOpenDisplayBodyOnSelect = true,
   } = props;
 
   const [activeIdentityField, setActiveIdentityField] = useState<'label' | null>(null);
@@ -77,6 +88,13 @@ export function DisplayBlock(props: DisplayBlockProps) {
       setActiveIdentityField(null);
     }
   }, [selected]);
+
+  /** Tier-1 definition displays: optionally open the body editor when the block becomes selected (deps omit `label` so blur/commit does not immediately re-open). */
+  useEffect(() => {
+    if (!selected || !onCommitDisplayLabel || !autoOpenDisplayBodyOnSelect) return;
+    setDraftLabel(label?.trim() ? label.trim() : '');
+    setActiveIdentityField('label');
+  }, [selected, onCommitDisplayLabel, itemKey, autoOpenDisplayBodyOnSelect]);
 
   const openLabelEditor = () => {
     setDraftLabel(label?.trim() ? label.trim() : '');

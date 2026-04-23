@@ -1,10 +1,10 @@
 /** @filedesc Shared hook to compute and memoize a flat list of field options for FEL editors. */
 import { useMemo } from 'react';
 import { flatItems, type FELEditorFieldOption } from '@formspec-org/studio-core';
-import { useDefinition } from '../state/useDefinition';
+import { useOptionalDefinition } from '../state/useDefinition';
 
 export function useFieldOptions(): FELEditorFieldOption[] {
-  const definition = useDefinition();
+  const definition = useOptionalDefinition();
 
   return useMemo(() => {
     if (!definition?.items) return [];

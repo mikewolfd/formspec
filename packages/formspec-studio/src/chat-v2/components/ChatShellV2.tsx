@@ -234,12 +234,14 @@ function ActiveSessionV2({ onBack, onUpload, onOpenSettings }: { onBack: () => v
               {/* Mobile view toggle */}
               <div className="flex lg:hidden v2-tab-group items-center rounded-lg p-0.5">
                 <button
+                  type="button"
                   onClick={() => setMobileView('chat')}
                   aria-pressed={mobileView === 'chat'}
                   data-testid="mobile-chat-btn"
                   className={`v2-tab px-3 py-1 text-xs font-medium rounded-md transition-all duration-150 ${mobileView === 'chat' ? 'v2-tab-active' : ''}`}
                 >Chat</button>
                 <button
+                  type="button"
                   onClick={() => setMobileView('preview')}
                   aria-pressed={mobileView === 'preview'}
                   data-testid="mobile-preview-btn"

@@ -20,6 +20,8 @@ interface LayoutLeafBlockProps {
   selectionKey: string;
   selected?: boolean;
   itemType: 'field' | 'group' | 'display';
+  /** Definition data type for fields — used with {@link InlineToolbar} widget picker (not always on component `nodeProps`). */
+  dataType?: string;
   bindPath?: string;
   label?: string;
   icon?: ReactNode;
@@ -46,6 +48,7 @@ export function LayoutLeafBlock({
   selectionKey,
   selected = false,
   itemType,
+  dataType,
   bindPath,
   label,
   icon,
@@ -156,7 +159,11 @@ export function LayoutLeafBlock({
                 component={state.resolvedNodeProps.component as string ?? 'TextInput'}
                 nodeProps={state.resolvedNodeProps}
                 itemType={itemType}
-                itemDataType={itemType === 'field' ? (nodeProps?.dataType as string) : undefined}
+                itemDataType={
+                  itemType === 'field'
+                    ? (dataType ?? (nodeProps?.dataType as string | undefined))
+                    : undefined
+                }
                 layoutContext={layoutContext}
                 onSetProp={onSetProp!}
                 onSetStyle={onSetStyle}

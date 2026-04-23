@@ -18,7 +18,6 @@ import {
 const TABS: { name: string; help: string }[] = [
   { name: 'Editor', help: 'Build your form structure and manage shared resources' },
   { name: 'Layout', help: 'Visual form builder — pages, layout containers, and widget placement' },
-  { name: 'Theme', help: 'Brand styling, typography, and responsive breakpoints' },
   { name: 'Mapping', help: 'Bidirectional data transforms for import/export formats' },
   { name: 'Preview', help: 'Live form preview, behavior lab, and JSON document view' },
 ];
@@ -151,7 +150,7 @@ export function Header({
     <div ref={menuRef} className="relative ml-0.5 sm:ml-1">
       <button
         type="button"
-        aria-label="Account menu"
+        aria-label="Open account menu"
         aria-expanded={menuOpen}
         className={`w-7 h-7 rounded-full bg-[#E2D9CF] border-2 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
           menuOpen ? 'border-accent' : 'border-border hover:border-muted/40'
@@ -159,7 +158,7 @@ export function Header({
         onClick={() => setMenuOpen(!menuOpen)}
       />
       {menuOpen && (
-        <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-[6px] shadow-lg py-1 z-50" role="menu" aria-label="Account menu">
+        <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-[6px] shadow-lg py-1 z-50" role="menu" aria-label="Account actions">
           <button
             type="button"
             role="menuitem"

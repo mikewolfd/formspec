@@ -90,15 +90,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       };
     });
 
-    const shapeResults = shapes.map((shape, index) => ({
-      id: `shape:${shape.id ?? index}`,
-      section: 'Shapes' as const,
-      title: shape.id || `Shape ${index + 1}`,
-      subtitle: shape.constraint || undefined,
-      keywords: ['rule', 'shape', shape.id ?? '', shape.constraint ?? '', shape.severity ?? ''],
-      onSelect: () => onClose(),
-      actionable: true,
-    }));
+    const shapeResults = shapes.map((shape, index) => {
+      const id = typeof shape.id === 'string' && shape.id.trim() ? shape.id.trim() : `shape-${index}`;
+      const title = typeof shape.id === 'string' && shape.id.trim() ? shape.id.trim() : `Shape ${index + 1}`;
+      return {
+        id: `shape:${id}`,
+        section: 'Shapes' as const,
+        title,
+        subtitle: shape.constraint || undefined,
+        keywords: ['rule', 'shape', id, shape.constraint ?? '', shape.severity ?? ''],
+        onSelect: () => onClose(),
+        actionable: true,
+      };
+    });
 
     return [...itemResults, ...variableResults, ...bindResults, ...shapeResults];
   }, [binds, items, onClose, select, shapes, variables]);
