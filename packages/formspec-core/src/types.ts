@@ -205,8 +205,11 @@ export interface Command<T extends string = string, P = unknown> {
   id?: string;
 }
 
+import { builtinHandlers } from './handlers/index.js';
+export type BuiltinCommandType = keyof typeof builtinHandlers;
+
 /** A command with any type and payload -- used when the specific command type is not known statically. */
-export type AnyCommand = Command;
+export type AnyCommand = Command<BuiltinCommandType, unknown>;
 
 /**
  * Result returned by every command handler after mutating state.

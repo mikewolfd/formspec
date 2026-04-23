@@ -30,7 +30,7 @@ function ensureItemBlock(theme: ThemeState, itemKey: string): Record<string, any
   return items[itemKey];
 }
 
-export const themeHandlers: Record<string, CommandHandler> = {
+export const themeHandlers = {
 
   // ── Tokens & Defaults ───────────────────────────────────────────
 
@@ -211,4 +211,4 @@ export const themeHandlers: Record<string, CommandHandler> = {
     state.theme.targetDefinition.compatibleVersions = compatibleVersions;
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

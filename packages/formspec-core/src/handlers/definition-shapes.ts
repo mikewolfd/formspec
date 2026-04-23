@@ -24,7 +24,7 @@ import type { FormShape } from '@formspec-org/types';
 /** Auto-incrementing counter used to generate default shape IDs when none is provided. */
 let shapeCounter = 0;
 
-export const definitionShapesHandlers: Record<string, CommandHandler> = {
+export const definitionShapesHandlers = {
 
   'definition.addShape': (state, payload) => {
     const p = payload as Record<string, unknown>;
@@ -114,4 +114,4 @@ export const definitionShapesHandlers: Record<string, CommandHandler> = {
 
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

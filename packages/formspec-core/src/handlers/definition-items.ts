@@ -368,7 +368,7 @@ function rewriteAllPathReferences(
 
 // ── Handler table ────────────────────────────────────────────────────
 
-export const definitionItemsHandlers: Record<string, CommandHandler> = {
+export const definitionItemsHandlers = {
 
   // ── addItem ──────────────────────────────────────────────────────────
 
@@ -690,4 +690,4 @@ export const definitionItemsHandlers: Record<string, CommandHandler> = {
     const insertedPath = parentPrefix + clone.key;
     return { rebuildComponentTree: true, insertedPath };
   },
-};
+} satisfies Record<string, CommandHandler>;

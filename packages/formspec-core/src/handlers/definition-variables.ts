@@ -19,7 +19,7 @@ import type { FormVariable } from '@formspec-org/types';
 /** Auto-incrementing counter used to generate default variable names when none is provided. */
 let varCounter = 0;
 
-export const definitionVariablesHandlers: Record<string, CommandHandler> = {
+export const definitionVariablesHandlers = {
 
   'definition.addVariable': (state, payload) => {
     const p = payload as Record<string, unknown>;
@@ -52,4 +52,4 @@ export const definitionVariablesHandlers: Record<string, CommandHandler> = {
     state.definition.variables = state.definition.variables.filter(v => v.name !== name);
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

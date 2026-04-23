@@ -27,7 +27,7 @@ const PHASE_ALLOWED_PROPS = new Set([
   'strategy', 'label', 'description', 'activeWhen', 'config',
 ]);
 
-export const screenerHandlers: Record<string, CommandHandler> = {
+export const screenerHandlers = {
 
   // ── Document lifecycle ─────────────────────────────────────────
 
@@ -281,4 +281,4 @@ export const screenerHandlers: Record<string, CommandHandler> = {
     }
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

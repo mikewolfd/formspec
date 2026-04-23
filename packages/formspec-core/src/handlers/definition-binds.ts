@@ -140,7 +140,7 @@ function setNestedProperty(target: Record<string, unknown>, propertyPath: string
 
 // ── Handler table ────────────────────────────────────────────────────
 
-export const definitionBindsHandlers: Record<string, CommandHandler> = {
+export const definitionBindsHandlers = {
 
   'definition.setBind': (state, payload) => {
     const { path, properties } = payload as {
@@ -235,4 +235,4 @@ export const definitionBindsHandlers: Record<string, CommandHandler> = {
 
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

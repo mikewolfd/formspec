@@ -27,7 +27,7 @@ import type { FormItem } from '@formspec-org/types';
  */
 let instanceCounter = 0;
 
-export const definitionInstancesHandlers: Record<string, CommandHandler> = {
+export const definitionInstancesHandlers = {
 
   'definition.addInstance': (state, payload) => {
     const p = payload as Record<string, unknown>;
@@ -179,4 +179,4 @@ export const definitionInstancesHandlers: Record<string, CommandHandler> = {
     }
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

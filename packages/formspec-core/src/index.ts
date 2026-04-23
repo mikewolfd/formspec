@@ -36,6 +36,7 @@ export type {
   ProjectOptions,
   Command,
   AnyCommand,
+  BuiltinCommandType,
   CommandResult,
   CommandHandler,
   ChangeListener,

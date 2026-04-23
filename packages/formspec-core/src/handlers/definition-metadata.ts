@@ -40,10 +40,10 @@ import type { CommandHandler } from '../types.js';
  * @returns `{ rebuildComponentTree: false }` -- Title changes are purely
  * metadata and do not affect the component tree structure.
  */
-export const definitionMetadataHandlers: Record<string, CommandHandler> = {
+export const definitionMetadataHandlers = {
   'definition.setFormTitle': (state, payload) => {
     const { title } = payload as { title: string };
     state.definition.title = title;
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

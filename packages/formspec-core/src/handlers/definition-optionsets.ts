@@ -19,7 +19,7 @@
 import type { CommandHandler } from '../types.js';
 import type { FormItem } from '@formspec-org/types';
 
-export const definitionOptionsetsHandlers: Record<string, CommandHandler> = {
+export const definitionOptionsetsHandlers = {
 
   'definition.setOptionSet': (state, payload) => {
     const p = payload as { name: string; options?: unknown[]; source?: string };
@@ -108,4 +108,4 @@ export const definitionOptionsetsHandlers: Record<string, CommandHandler> = {
 
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

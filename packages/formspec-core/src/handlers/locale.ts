@@ -25,7 +25,7 @@ function getLocale(state: ProjectState, localeId?: string): LocaleState {
   return locale;
 }
 
-export const localeHandlers: Record<string, CommandHandler> = {
+export const localeHandlers = {
 
   'locale.load': (state, payload) => {
     const { document: doc } = payload as { document: Record<string, unknown> };
@@ -121,4 +121,4 @@ export const localeHandlers: Record<string, CommandHandler> = {
     }
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

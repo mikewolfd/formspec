@@ -17,7 +17,7 @@
 import type { CommandHandler } from '../types.js';
 import { resolveItemLocation } from './helpers.js';
 
-export const definitionPagesHandlers: Record<string, CommandHandler> = {
+export const definitionPagesHandlers = {
 
   'definition.setDefinitionProperty': (state, payload) => {
     const { property, value } = payload as { property: string; value: unknown };
@@ -62,4 +62,4 @@ export const definitionPagesHandlers: Record<string, CommandHandler> = {
 
     return { rebuildComponentTree: true };
   },
-};
+} satisfies Record<string, CommandHandler>;

@@ -14,7 +14,7 @@ import { normalizeBcp47 } from '../locale-utils.js';
 import { normalizeDefinition } from '../normalization.js';
 import { indexRegistryPayload } from '../registry-index.js';
 
-export const projectHandlers: Record<string, CommandHandler> = {
+export const projectHandlers = {
 
   'project.import': (state, payload) => {
     const p = payload as Record<string, any>;
@@ -121,4 +121,4 @@ export const projectHandlers: Record<string, CommandHandler> = {
 
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

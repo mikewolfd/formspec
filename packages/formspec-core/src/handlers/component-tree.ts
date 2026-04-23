@@ -106,7 +106,7 @@ function findParentContainingChild(
   return undefined;
 }
 
-export const componentTreeHandlers: Record<string, CommandHandler> = {
+export const componentTreeHandlers = {
 
   /**
    * Rebuild bound/display nodes from the current definition while preserving
@@ -364,4 +364,4 @@ export const componentTreeHandlers: Record<string, CommandHandler> = {
 
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

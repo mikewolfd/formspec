@@ -21,7 +21,7 @@ function getMapping(state: ProjectState, mappingId?: string): MappingState {
   return state.mappings[id];
 }
 
-export const mappingHandlers: Record<string, CommandHandler> = {
+export const mappingHandlers = {
 
   'mapping.create': (state, payload) => {
     const { id, targetSchema, ...rest } = payload as { id: string; targetSchema?: any };
@@ -274,4 +274,4 @@ export const mappingHandlers: Record<string, CommandHandler> = {
     [inner[innerIndex], inner[target]] = [inner[target], inner[innerIndex]];
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

@@ -10,7 +10,9 @@ import type {
   MappingState,
   LocaleState,
   LoadedRegistry,
+  Command,
   AnyCommand,
+  BuiltinCommandType,
   CommandResult,
   ChangeListener,
   LogEntry,
@@ -618,24 +620,24 @@ export class RawProject implements IProjectCore {
 
   // ── Dispatching commands ─────────────────────────────────────────
 
-  dispatch(command: AnyCommand): CommandResult;
-  dispatch(command: AnyCommand[]): CommandResult[];
-  dispatch(command: AnyCommand | AnyCommand[]): CommandResult | CommandResult[] {
-    const commands = Array.isArray(command) ? command : [command];
+  dispatch<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(command: Command<T, P>): CommandResult;
+  dispatch<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(command: Command<T, P>[]): CommandResult[];
+  dispatch<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(command: Command<T, P> | Command<T, P>[]): CommandResult | CommandResult[] {
+    const commands = (Array.isArray(command) ? command : [command]) as AnyCommand[];
     const results = this._execute([commands]);
     return Array.isArray(command) ? results : results[0];
   }
 
-  batchWithRebuild(phase1: AnyCommand[], phase2: AnyCommand[]): CommandResult[] {
-    return this._execute([phase1, phase2]);
+  batchWithRebuild<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(phase1: Command<T, P>[], phase2: Command<T, P>[]): CommandResult[] {
+    return this._execute([phase1 as AnyCommand[], phase2 as AnyCommand[]]);
   }
 
   clearRedo(): void {
     this._history.clearRedo();
   }
 
-  batch(commands: AnyCommand[]): CommandResult[] {
-    return this._execute([commands]);
+  batch<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(commands: Command<T, P>[]): CommandResult[] {
+    return this._execute([commands as AnyCommand[]]);
   }
 
   private _execute(phases: AnyCommand[][]): CommandResult[] {

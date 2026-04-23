@@ -32,7 +32,7 @@ function findMigration(state: { definition: { migrations?: { from?: Record<strin
   return descriptor;
 }
 
-export const definitionMigrationsHandlers: Record<string, CommandHandler> = {
+export const definitionMigrationsHandlers = {
 
   'definition.addMigration': (state, payload) => {
     const p = payload as { fromVersion: string; description?: string };
@@ -116,4 +116,4 @@ export const definitionMigrationsHandlers: Record<string, CommandHandler> = {
     (descriptor as any).defaults = defaults;
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

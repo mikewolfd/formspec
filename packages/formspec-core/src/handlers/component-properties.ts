@@ -42,7 +42,7 @@ function findNode(
   return undefined;
 }
 
-export const componentPropertiesHandlers: Record<string, CommandHandler> = {
+export const componentPropertiesHandlers = {
 
   // ── Node Properties ─────────────────────────────────────────────
 
@@ -283,4 +283,4 @@ export const componentPropertiesHandlers: Record<string, CommandHandler> = {
     }
     return { rebuildComponentTree: false };
   },
-};
+} satisfies Record<string, CommandHandler>;

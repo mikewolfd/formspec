@@ -5,12 +5,12 @@ import type {
 import type {
   ProjectState,
   LocaleState,
-  AnyCommand,
   CommandResult,
   ChangeListener,
   LogEntry,
   ProjectStatistics,
   ProjectBundle,
+  BuiltinCommandType,
   ItemFilter,
   ItemSearchResult,
   DataTypeInfo,
@@ -27,6 +27,7 @@ import type {
   FieldDependents,
   Diagnostics,
   ResponseSchemaRow,
+  Command,
 } from './types.js';
 
 /**
@@ -46,10 +47,10 @@ export interface IProjectCore {
   readonly locales: Readonly<Record<string, LocaleState>>;
 
   // ── Command dispatch ─────────────────────────────────────────
-  dispatch(command: AnyCommand): CommandResult;
-  dispatch(command: AnyCommand[]): CommandResult[];
-  batch(commands: AnyCommand[]): CommandResult[];
-  batchWithRebuild(phase1: AnyCommand[], phase2: AnyCommand[]): CommandResult[];
+  dispatch<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(command: Command<T, P>): CommandResult;
+  dispatch<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(command: Command<T, P>[]): CommandResult[];
+  batch<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(commands: Command<T, P>[]): CommandResult[];
+  batchWithRebuild<T extends BuiltinCommandType = BuiltinCommandType, P = unknown>(phase1: Command<T, P>[], phase2: Command<T, P>[]): CommandResult[];
 
   // ── History ──────────────────────────────────────────────────
   undo(): boolean;
