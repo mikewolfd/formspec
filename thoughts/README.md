@@ -28,7 +28,7 @@ All internal planning, research, decisions, and reviews live here. `docs/` is fo
 
 ## Active ADRs (open / in-flight)
 
-Next free id: **0061** (duplicate `0047` / `0048` / `0053` filenames remain on disk — disambiguate by slug when linking).
+Next free id: **0074** (duplicate `0047` / `0048` / `0053` / `0061` filenames remain on disk — disambiguate by slug when linking).
 
 | ADR | File | Status (from doc) | Notes |
 |-----|------|-------------------|-------|
@@ -50,6 +50,14 @@ Next free id: **0061** (duplicate `0047` / `0048` / `0053` filenames remain on d
 | 0055 | [studio-semantic-workspace-consolidation](adr/0055-studio-semantic-workspace-consolidation.md) | Proposed | Editor-centric semantic UX |
 | 0056 | [click-to-sign-attestation](adr/0056-click-to-sign-attestation-component.md) | Proposed | Click-to-sign component |
 | 0059 | [unified-ledger-canonical-event-store](adr/0059-unified-ledger-as-canonical-event-store.md) | Narrative locked 2026-04-22 | Phase 3+ target; program summary [wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md](../wos-spec/thoughts/plans/0059-unified-ledger-as-canonical-event-store.md) |
+| 0066 | [stack-amendment-and-supersession](adr/0066-stack-amendment-and-supersession.md) | Proposed | Cross-layer correction / amendment / supersession / rescission |
+| 0067 | [stack-statutory-clocks](adr/0067-stack-statutory-clocks.md) | Proposed | Cross-layer clock event semantics |
+| 0068 | [stack-tenant-and-scope-composition](adr/0068-stack-tenant-and-scope-composition.md) | Proposed | Tenant, definition, kernel, and ledger scope bundle |
+| 0069 | [stack-time-semantics](adr/0069-stack-time-semantics.md) | Proposed | UTC wire time, ordering, leap-smear, FEL timezone |
+| 0070 | [stack-failure-and-compensation](adr/0070-stack-failure-and-compensation.md) | Proposed | Trellis append as commit point; ledger-visible failure |
+| 0071 | [stack-cross-layer-migration-and-versioning](adr/0071-stack-cross-layer-migration-and-versioning.md) | Proposed | Version pins and verifier bundle semantics |
+| 0072 | [stack-evidence-integrity-and-attachment-binding](adr/0072-stack-evidence-integrity-and-attachment-binding.md) | Accepted | Attachment binding across intake, custody, export, verify |
+| 0073 | [stack-case-initiation-and-intake-handoff](adr/0073-stack-case-initiation-and-intake-handoff.md) | Accepted | WOS-owned case creation; Formspec intake handoff routes |
 
 **Implemented / accepted / historical ADRs:** [`archive/adr/`](archive/adr/) (tier plans, WASM split, WOS boundary, grant design, etc.).
 

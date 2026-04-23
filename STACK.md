@@ -36,13 +36,21 @@ The stack's target state is not three adjacent artifacts. It is one portable cas
 Six commitments follow from that target:
 
 1. **Independent verification.** A serious stack claim must reduce to published semantics, schemas or byte grammars, vectors, and verifier behavior. A live dashboard is useful product surface, not proof.
-2. **One case record.** Canonical response, respondent ledger, governance events, integrity checkpoints, evidence, identity, signatures, amendments, statutory clocks, and migration pins compose into one verifier-understandable artifact set.
+2. **One case record.** For a governed case, canonical response, respondent ledger, governance events, integrity checkpoints, evidence, identity, signatures, amendments, statutory clocks, and migration pins compose into one verifier-understandable artifact set.
 3. **One meaning of signing.** Intake evidence may capture a click or authored response, but the stack-level meaning of "signed" flows through WOS signature semantics and Trellis custody/export verification.
 4. **Ledger-visible workflow truth.** Durable engines may orchestrate and retry, but decisions, stalls, resumes, compensation, overrides, and policy-relevant transitions must be visible in exported evidence when they affect the case.
 5. **Custody-honest privacy.** Encryption, key destruction, selective disclosure, metadata minimization, and identity separation must match what operators can decrypt and what verifiers can still prove.
 6. **Product sequencing cannot weaken the center.** Demos, SaaS onboarding, and procurement packages may ship in practical order, but they cannot introduce rival semantics for proof, signing, custody, or governance.
 
 These commitments are architectural. Concrete storage engines, witness services, identity providers, workflow engines, and legal postures remain adapters unless a spec promotes them with vectors and conformance behavior.
+
+Not every inbound submission is already a governed case. The stack distinguishes three related objects:
+
+- **Submission** — the raw inbound artifact: canonical response, validation result, and intake evidence.
+- **Intake record** — the first-class handling object created when the platform acknowledges a submission and takes responsibility for what happens next.
+- **Governed case** — the subset of intake records accepted into WOS-managed identity, lifecycle, provenance, and, where applicable, Trellis-backed export.
+
+A simple product may stop at the intake-record layer. A deeper workflow may promote the intake record into a governed case or attach it to an existing governed case. The portable case-record commitment applies to the governed-case layer, not to every inbound artifact by default.
 
 ---
 
@@ -88,7 +96,7 @@ A rural county processes emergency rental-assistance applications. The workflow 
 
 ### Timeline of one case
 
-- **Session opens.** The form loads. A case instance opens. A respondent ledger begins, hash-chained and signed.
+- **Session opens.** The form loads. In workflow-initiated flows, a WOS case shell may already exist; in public-intake flows, Formspec opens intake first and WOS creates the governed case only after accepting the handoff. A respondent ledger begins, hash-chained and signed.
 - **AI prescreen runs.** The agent is declared at the autonomy level governance permits and prohibited from adverse determinations. Its recommendation is recorded as AI-generated narrative — never conflated with verified fact.
 - **Applicant fills the form.** Reactive validation and computed fields run locally. Autosaves record material changes. Identity verification, if required, lands normalized into the shape the ledger expects.
 - **Submission.** The browser signs the response. The server re-validates with the same semantics. A checkpoint seals events so far and anchors outward to one or more trust substrates.
@@ -97,6 +105,22 @@ A rural county processes emergency rental-assistance applications. The workflow 
 - **Export.** A single portable bundle carries everything needed to verify the case — canonical response, version-pinned definition, ledger events, signed anchored checkpoints, governance events, reasoning, evidence bindings, identity attestations, signature affirmations, amendment links, clock state, migration pins, and anchor proofs. A verifier tool proves the chain offline, without the county, without the vendor, without the original system.
 
 For most workflows you do not need this. For rights-impacting workflows where the record must outlive the vendor, this is what the stack is for.
+
+### Submission, intake, and case
+
+A submission is always first-class, but it is not always already a governed case.
+
+- **Submission** means "something came in."
+- **Intake record** means "the platform now owns handling this somehow."
+- **Governed case** means "this now has WOS identity, lifecycle, actors, and provenance expectations."
+
+That distinction keeps both ends of the product range honest:
+
+- a Google-Forms-style deployment can treat the intake record as the whole story;
+- a workflow-lite deployment can auto-promote the intake record into a tiny governed case;
+- a regulated deployment can route, screen, attach, or promote intake into a long-running governed case with full review, signature, and appeal semantics.
+
+The mistake is treating submissions as nothing. The opposite mistake is forcing every inbound artifact into heavyweight case semantics before the host has decided how it will be handled.
 
 ### Topology of what runs
 
@@ -169,7 +193,7 @@ Market messaging is not an architectural adapter, though it plugs in like one. I
 Five interfaces cross layer boundaries. They are the only surfaces where cross-project compatibility claims live.
 
 1. **The canonical response** — what intake produces, pinned to exactly one definition version. Downstream layers cannot reinterpret it against a later definition.
-2. **The governance coprocessor** — how a governance runtime asks the intake layer to prefill, validate, or map response data into case state.
+2. **The governance coprocessor** — how WOS asks Formspec to prefill, validate, or map response data into case state, and how Formspec hands public intake evidence back to WOS for governed case creation.
 3. **The event hash chain** — the abstract sequencing declared by the Respondent Ledger and concretized by Trellis.
 4. **The checkpoint seal** — the abstract sealing point declared by the Respondent Ledger and concretized by Trellis.
 5. **The governance custody hook** — the abstract provenance emit from workflow transitions, received and merged by Trellis into the same chain.
@@ -189,14 +213,15 @@ The five contracts are the baseline, not the full end state. The stack needs add
 - **Amendment and supersession.** Append-only is correct until a decision is wrong. Cross-layer semantics for one decision superseding another — new chain, linked chain, governance event shape — are undefined. Full proposal drafted at [ADR 0066](thoughts/adr/0066-stack-amendment-and-supersession.md); no adapter supplies this — fully center work.
 - **Statutory clocks.** Rights-impacting workflows run on deadlines — appeal windows, SLA limits, expirations. A contract declaring how a deadline attaches to an event, what fires when it elapses, and how clock state seals into the chain is missing. Full proposal drafted at [ADR 0067](thoughts/adr/0067-stack-statutory-clocks.md); timers are adapters, deadline semantics are center.
 
-**Integration primitives.** Not event shapes but composition protocols — how the three layers agree on scope, time, failure, and version. All four touch all three layers; none has an adapter that fills the gap. All four now have proposed ADRs at [`thoughts/adr/`](thoughts/adr/).
+**Integration primitives.** Not event shapes but composition protocols — how the three layers agree on initiation, scope, time, failure, and version. All five touch all three layers; none has an adapter that fills the gap. Four remain proposed ADRs; case initiation is accepted with an initial Formspec/WOS reference implementation and remaining Trellis/vector closeout.
 
+- **Case initiation and intake handoff.** Public forms and workflow-started cases are both normal. Every submission creates a first-class intake record. WOS owns governed case identity and `case.created`; Formspec owns the intake session, canonical response, validation report, and respondent-ledger evidence. The seam decides whether an intake record closes without promotion, attaches to an existing governed case, or creates a new governed case. Accepted in [ADR 0073](thoughts/adr/0073-stack-case-initiation-and-intake-handoff.md); Formspec now has an `IntakeHandoff` schema and WOS has a typed parser plus `caseCreated` provenance constructor. Trellis vectors and the shared stack fixture remain open.
 - **Tenant and scope composition.** Formspec has definition scope, WOS has `DurableRuntime` tenant scope, Trellis has ledger scope. Three parallel scoping concepts that do not yet compose. Full proposal at [ADR 0068](thoughts/adr/0068-stack-tenant-and-scope-composition.md).
 - **Time semantics.** All three layers timestamp. No shared pin on RFC3339 UTC, monotonic versus wall-clock, or leap-second policy. Full proposal at [ADR 0069](thoughts/adr/0069-stack-time-semantics.md).
 - **Cross-layer failure and compensation.** Partial-commit semantics — what happens when intake commits, governance fails, integrity has anchored — are undefined. Full proposal at [ADR 0070](thoughts/adr/0070-stack-failure-and-compensation.md).
 - **Cross-layer migration and versioning.** Single-spec migration is covered by each project's changelog. Chain validity under evolving cross-spec semantics is not. Full proposal at [ADR 0071](thoughts/adr/0071-stack-cross-layer-migration-and-versioning.md).
 
-Cost differs sharply. Evidence, identity, signatures, and authorization are cheap: adapters exist; the missing work is the shape they emit. Amendment, clocks, and the four integration primitives are expensive: they touch all three layers and every existing seam has to accommodate them. That cost does not make them optional; it makes them required closure work before the stack presents the full portable-case-record claim. Seven ADRs drafted as proposals (0066–0072); identity attestation and signature attestation are tracked in submodule TODOs (WOS-T4 for signatures; identity generalizes from T4-6); acceptance across the seven is the remaining blocker.
+Cost differs sharply. Evidence, identity, signatures, and authorization are cheap: adapters exist; the missing work is the shape they emit. Amendment, clocks, and the five integration primitives are expensive: they touch all three layers and every existing seam has to accommodate them. That cost does not make them optional; it makes them required closure work before the stack presents the full portable-case-record claim. Eight stack ADRs now cover the active cross-layer closure set (0066-0073, with 0072 accepted and the rest proposed); identity attestation and signature attestation are tracked in submodule TODOs (WOS-T4 for signatures; identity generalizes from T4-6).
 
 Open contracts are named here so downstream readers are not surprised, and so proposals can reference them by name. Their resolution lives in each owning project's planning documents or, when fully cross-layer, in stack-scoped ADRs at [`thoughts/adr/`](thoughts/adr/).
 

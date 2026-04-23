@@ -54,6 +54,10 @@ Each entry should make sense without hidden context. A reader should be able to 
 
 **Accepted signature-profile workflow slice.** The accepted workflow slice is the machine-verifiable path that emits `SignatureAffirmation` and feeds custody, export, and verification. It does not own human certificate-of-completion composition or every DocuSign-class administration feature.
 
+**Case initiation handoff.** [ADR 0073](../adr/0073-stack-case-initiation-and-intake-handoff.md) closes the case-boundary ownership question. WOS owns governed case identity and `case.created`; Formspec owns intake sessions and canonical responses; both workflow-initiated and public-intake-initiated routes cross a named handoff.
+
+**Intake record.** An intake record is the first-class handling object created when the platform acknowledges a submission and takes responsibility for it. It is broader than a governed case: some intake records are promoted into WOS-managed cases, some attach to existing governed cases, and some close without case promotion. This distinction keeps low-end form products and deep governed workflows on the same architecture without forcing every inbound artifact into immediate case semantics.
+
 **Unified-ledger-class work.** Unified-ledger-class work composes sealed response heads, governance events, and integrity exports into one logical case record. It does not require a single physical database.
 
 **`ct_merkle`.** `ct_merkle` is the current named Merkle inclusion mechanism over roots committed by one operational unit. In this document, an operational unit is the deployment authority that admits case appends and commits the corresponding roots.
@@ -68,7 +72,7 @@ These commitments describe the target architecture. They are not guesses about t
 
 **Every stack claim is independently verifiable.** A third party must be able to verify a case record from published specs, schemas or byte grammars, conformance vectors, and verifier behavior. A live dashboard, vendor account, private maintainer memory, or implementation comment is never enough.
 
-**The stack emits one portable case record.** The ideal record composes the Formspec canonical response, respondent ledger, WOS governance and provenance events, Trellis checkpoints and export bundle, identity attestations, signature affirmations, evidence bindings, actor-authorization claims, amendments, statutory clocks, and migration pins into one verifier-understandable artifact set.
+**The stack emits one portable case record.** For a governed case, the ideal record composes the Formspec canonical response, respondent ledger, WOS governance and provenance events, Trellis checkpoints and export bundle, identity attestations, signature affirmations, evidence bindings, actor-authorization claims, amendments, statutory clocks, and migration pins into one verifier-understandable artifact set. Every submission still creates a first-class intake record, but the portable-case-record commitment applies once that intake is accepted into governed-case semantics.
 
 **All cross-layer contracts close before serious product claims.** The five existing contracts are the baseline, not the whole end state. Evidence integrity, identity attestation, signature attestation beyond the accepted machine slice, actor authorization, amendment and supersession, statutory clocks, tenant and scope composition, time semantics, failure and compensation, and cross-layer migration are required closure work.
 
@@ -105,6 +109,8 @@ These commitments describe the target architecture. They are not guesses about t
 **Five named contracts connect the three centers.** The cross-layer contracts are the canonical response, the governance coprocessor, the event hash chain, the checkpoint seal, and the governance custody hook. In plain language, the stack needs one pinned intake output, one governed way for workflow to ask intake for help, one abstract activity chain, one sealing point, and one provenance handoff into the integrity record.
 
 **The five-contract count is a conformance checklist.** A change is not local if it crosses one of those contracts without updating the contract's types, mappings, custody behavior, append behavior, or verifier inputs. Reopen the count only if the integration model changes everywhere, not inside one service.
+
+**Case identity belongs to WOS; intake handoff belongs to the seam.** The stack supports both workflow-initiated intake, where WOS opens a case shell before Formspec collects data, and public-intake initiation, where Formspec validates an open form before asking WOS to create the governed case. Every submission creates an intake record as the minimum handling object. WOS owns `case.created`; Formspec owns the intake session, response, validation report, and respondent-ledger evidence. The seam decides whether that intake record closes without promotion, attaches to an existing governed case, or creates a new governed case. `IntakeHandoff` is now the accepted artifact name and schema-backed field shape; remaining vectored work is WOS acceptance policy and Trellis verification, not naming.
 
 **Known open contracts sit outside the five primitives.** Evidence binding, identity attestation, signature attestation beyond the current machine slice, actor authorization, amendment and supersession, and statutory clocks are event-shape gaps. Tenant and scope composition, time semantics, cross-layer failure and compensation, and cross-layer migration and versioning are integration primitives. Treat these as explicit center work or ADR-shaped proposals, not as features hidden inside the five existing contracts.
 
@@ -180,7 +186,7 @@ These commitments describe the target architecture. They are not guesses about t
 
 ### Durable Runtime And Interchange
 
-**`DurableRuntime` is the stable durable-execution seam.** The maximalist decision is the seam, not the engine. Restate-class execution is the current preferred reference adapter pending spike evidence; Temporal-class engines remain eligible behind the same semantic surface if ledger checkpointing stays honest. Promote any engine to committed reference status only with spike results for retry behavior, stalled-state handling, append idempotency, export reconstruction, operator fit, license posture, and SLA fit. Reopen this lean when those facts make the reference engine untenable.
+**`DurableRuntime` is the stable durable-execution seam.** The maximalist decision is the seam, not the engine. Restate-class execution is selected as the initial default reference adapter behind that seam; Temporal-class engines remain eligible behind the same semantic surface if ledger checkpointing stays honest. Treat Restate as replaceable machinery, not center meaning. Reopen this lean when retry behavior, stalled-state handling, append idempotency, export reconstruction, operator fit, license posture, SLA fit, or buyer constraints make the reference adapter untenable.
 
 **Append receipts must be idempotent under retries.** Durable execution exists for crash recovery, and retrying a workflow activity must not create duplicate evidence. The append and custody contracts must prove that retry behavior cannot fork the evidentiary spine. Reopen this rule only if the append contract changes and new vectors prove retry semantics.
 
@@ -264,7 +270,7 @@ The choices in this section remain open, but each one sits under an end-state co
 
 **BBS+ remains optional unless unlinkability becomes central.** The lean is SD-JWT-style selective disclosure. The fork is whether BBS+ becomes default for a profile after draft levels, implementation risk, and unlinkability requirements are pinned.
 
-**Engine selection sits behind `DurableRuntime`.** The lean is a stable durable-execution seam with Restate as the preferred reference adapter pending spike evidence. The fork is whether SLA, license cost, team skill, stalled-state behavior, or buyer constraints force Temporal or another engine behind the same semantic interface.
+**Engine selection sits behind `DurableRuntime`.** The lean is a stable durable-execution seam with Restate as the initial default reference adapter. The fork is whether SLA, license cost, team skill, stalled-state behavior, or buyer constraints force Temporal or another engine behind the same semantic interface.
 
 **Saga compensation edge cases sit under ledger-visible compensation.** The lean is governance-shaped, ledger-visible compensation. The fork is which workflow types need operational patterns that resemble saga behavior and how those patterns remain verifier-visible.
 
@@ -273,6 +279,8 @@ The choices in this section remain open, but each one sits under an end-state co
 **Sales packaging sits under per-layer technical tags.** The lean is per-layer tags with compatibility matrices. The fork is whether product or procurement needs a matrix-backed "stack 1.0" label or PoC milestone name.
 
 **Fixture ownership has a default and a fallback.** The lean is one shared cross-seam fixture under shared CI ownership. The fork is the fallback if joint ownership fails: seam-owned suites with explicit owners, fixture boundaries, and done criteria.
+
+**Case-initiation shape sits under WOS-owned case creation.** The lean is closed by [ADR 0073](../adr/0073-stack-case-initiation-and-intake-handoff.md): WOS emits the governed case boundary, and Formspec hands off intake evidence through the accepted `IntakeHandoff` artifact. Every submission creates an intake record first; the open question is not whether inbound work is first-class, but how intake records are promoted, attached, or closed under policy. The remaining fork is event granularity (`case.created` plus `case.intake.received` versus one compound event), anonymous public-intake policy, workflow-lite auto-promotion defaults, and full WOS/Trellis vector coverage.
 
 **Python cross-check depth remains adjustable.** The lean keeps Python in full CI cross-check for byte authority. The fork is whether a later ADR narrows Python to per-byte-authority checks, property tests, or another guard with equivalent seriousness.
 
@@ -309,8 +317,6 @@ The choices in this section have no end-state default yet. They need an owner de
 **Migration pin policy is not closed.** Formspec changelog-driven migration and verifier semantic bundles can conflict. The open decision is who guarantees completeness of what a verifier loads, and how auto-migration composes with cross-layer migration ADRs.
 
 **Verifier distribution is not closed.** CLI, SaaS-hosted verifier, embedded library, and reproducible release bundle each imply different trust roots, update channels, and air-gap behavior. This is productization and trust design, not just packaging.
-
-**The coprocessor boundary is not closed.** The intake coprocessor might emit the case boundary event, or workflow might emit `case.created`. The coprocessor spec gap cannot close until one owner owns that boundary.
 
 **The authoring middleware contract is not closed.** Freezing the `RawProject`-shaped middleware contract before Studio ships trades velocity for stability. Shipping Studio first trades stability for product speed. The project still needs to choose the acceptable risk.
 

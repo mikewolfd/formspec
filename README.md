@@ -10,7 +10,7 @@ Built by [Michael Deeb](https://www.linkedin.com/in/michael-deeb/), [TealWolf Co
 
 Formspec separates *what data to collect* from *how it behaves* from *how it looks*. A single definition drives validation, computed fields, conditional logic, and repeatable sections across any runtime — browser, server, mobile, offline. Every artifact is a JSON document backed by a JSON Schema, so the entire system is machine-readable.
 
-Formspec is also the intake layer in a three-spec stack with [WOS](wos-spec/README.md) and [Trellis](trellis/README.md). The stack target is one portable case record: Formspec captures the canonical response, WOS records how the decision was governed, and Trellis makes the record signed, durable, and verifiable offline without the original vendor runtime.
+Formspec is also the intake layer in a three-spec stack with [WOS](wos-spec/README.md) and [Trellis](trellis/README.md). The stack target is one portable governed case record: Formspec captures the canonical response and `IntakeHandoff` for governed-case scope, WOS records how the decision was governed, and Trellis makes the record signed, durable, and verifiable offline without the original vendor runtime.
 
 For the stack-level architecture, start with [STACK.md](STACK.md). For active platform leans, forks, kill criteria, and end-state commitments, see the [platform decisioning register](thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md).
 
@@ -20,7 +20,7 @@ Formspec stands alone as a portable form runtime and authoring substrate, but it
 
 | Layer | Spec | Responsibility |
 |---|---|---|
-| Intake | **Formspec** | Definitions, FEL, validation, canonical responses, respondent-ledger event shape |
+| Intake | **Formspec** | Definitions, FEL, validation, canonical responses, intake handoffs, respondent-ledger event shape |
 | Governance | **WOS** | Workflow semantics, AI constraints, review protocols, provenance, signature workflow meaning |
 | Integrity | **Trellis** | Signed event envelopes, checkpoint seals, export bundles, offline verification |
 
@@ -120,7 +120,7 @@ A small, deterministic expression language embedded in bind and shape declaratio
 
 ### Runtime Architectures
 
-**Client (TypeScript + WASM)** — The engine compiles FEL expressions via the Rust/WASM kernel, builds a reactive dependency graph using Preact Signals, and maintains live state for every field (value, relevance, required, readonly, validation). User input flows through `setValue()` → signals recompute → the web component's effects update the DOM. On submit, `getResponse()` + `getValidationReport()` produce schema-valid JSON documents ready for server-side re-verification.
+**Client (TypeScript + WASM)** — The engine compiles FEL expressions via the Rust/WASM kernel, builds a reactive dependency graph using Preact Signals, and maintains live state for every field (value, relevance, required, readonly, validation). User input flows through `setValue()` → signals recompute → the web component's effects update the DOM. On submit, `getResponse()` + `getValidationReport()` produce schema-valid JSON documents ready for server-side re-verification; cross-stack intake flows can then emit an `IntakeHandoff` so WOS, not Formspec, decides governed case creation.
 
 **Server (Python + PyO3)** — A CLI and library toolkit for offline and server-side use. Core logic (FEL, linting, evaluation, mapping, registry, changelog) runs through Rust via PyO3. Format adapters and the artifact orchestrator remain Python:
 
@@ -151,7 +151,7 @@ Neither runtime imports or wraps the other. They deploy and test independently, 
 
 | Tier | Spec | Schema |
 |------|------|--------|
-| Core | [Core Spec](specs/core/spec.md) · [FEL Grammar](specs/fel/fel-grammar.md) | [`definition`](schemas/definition.schema.json) · [`response`](schemas/response.schema.json) · [`validationReport`](schemas/validation-report.schema.json) |
+| Core | [Core Spec](specs/core/spec.md) · [FEL Grammar](specs/fel/fel-grammar.md) | [`definition`](schemas/definition.schema.json) · [`response`](schemas/response.schema.json) · [`intake-handoff`](schemas/intake-handoff.schema.json) · [`validationReport`](schemas/validation-report.schema.json) |
 | Theme | [Theme Spec](specs/theme/theme-spec.md) · [Token Registry](specs/theme/token-registry-spec.md) | [`theme`](schemas/theme.schema.json) · [`token-registry`](schemas/token-registry.schema.json) |
 | Components | [Component Spec](specs/component/component-spec.md) | [`component`](schemas/component.schema.json) |
 | Mapping | [Mapping DSL](specs/mapping/mapping-spec.md) | [`mapping`](schemas/mapping.schema.json) |
@@ -165,9 +165,10 @@ Neither runtime imports or wraps the other. They deploy and test independently, 
 
 ## Repository Structure
 
-`schemas/` — 20 JSON Schema files (the structural source of truth):
+`schemas/` — 21 JSON Schema files (the structural source of truth):
 [`definition`](schemas/definition.schema.json) ·
 [`response`](schemas/response.schema.json) ·
+[`intake-handoff`](schemas/intake-handoff.schema.json) ·
 [`validationReport`](schemas/validation-report.schema.json) ·
 [`validationResult`](schemas/validation-result.schema.json) ·
 [`theme`](schemas/theme.schema.json) ·

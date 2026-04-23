@@ -24,10 +24,10 @@ Use this file as a **backlog**: each `- [ ]` is one shippable task unless noted 
 
 - [x] Extend **`ChatState`** (or equivalent) so `FormPreviewV2.tsx` does not need `(state as any).screener` — the screener section was dead code (`ChatState` never had a `screener` field; removed the entire block + `ItemPreview` component).
 - [x] Reduce **`any`** in `FormPreviewV2.tsx` — replaced `ItemLike` with `FieldMockupItem` (typed `PresentationBlock`), fixed `findItem` to use `FormItem[]`, removed all `as any` casts (8 → 0). Remaining `any` reduction in other files deferred.
-- [ ] Reduce **`any`** in remaining hot UI files: `OutputBlueprint.tsx`, `RuleCard.tsx`, `MultiSelectSummary.tsx`, `DefinitionProperties.tsx` (counts from audit: ~24 studio, ~14 studio-core).
+- [x] Reduce **`any`** in remaining hot UI files: `OutputBlueprint.tsx`, `RuleCard.tsx`, `MultiSelectSummary.tsx`, `DefinitionProperties.tsx`, `ItemRow.tsx`, and `project-layout.ts` (Done: purged ~40 residual `any` and loose `unknown` casts across studio and studio-core).
 - [x] **chat-v2 a11y:** Added `aria-pressed` to mode toggles in `FormPreviewV2.tsx`; added `type="button"` and `aria-label` to all header buttons in `ChatShellV2.tsx` (back, issue badge, studio, export, settings, close sidebar).
-- [ ] **`mapping-serialization.ts`:** Sanitize or validate **XML element names** derived from user-controlled keys (today `escapeXml` covers text, not tag names); document client-only risk if server exposure is out of scope.
-- [ ] **`lib.ts` / `registerFormspecRender`:** Either add a real consumer + test, remove from public surface, or document as experimental embed API.
+- [x] **`mapping-serialization.ts`:** Sanitize or validate **XML element names** derived from user-controlled keys (today `escapeXml` covers text, not tag names); document client-only risk if server exposure is out of scope.
+- [x] **`lib.ts` / `registerFormspecRender`:** Either add a real consumer + test, remove from public surface, or document as experimental embed API.
 - [ ] Add **targeted tests** for largest untested UI modules (pick order): `FormPreviewV2.tsx`, `ItemRow.tsx`, `GroupNode.tsx`, `DisplayBlock.tsx`, `OptionsModal.tsx`.
 - [ ] Replace hardcoded **`VITE_GEMINI_DEV_KEY=mock-key-for-playwright`** in `playwright-chat.config.ts` (~24) with a dedicated mock server or Playwright network interception pattern.
 - [ ] If profiling shows pain: evaluate **structural sharing** (e.g. Immer) for ProposalManager / partial merge paths that clone full `ProjectState` multiple times per operation (`_partialMerge` etc.).
@@ -117,7 +117,7 @@ Items already tracked in P4 are cross-referenced, not duplicated.
 - [x] **Unify `CollapsibleSection`** — Consolidated `Section`, `CollapsibleSection`, and `AccordionSection` into a single pattern.
 - [x] **`useControllableState`** — "controlled if prop provided, uncontrolled otherwise" pattern. Consolidated into `useControllableState.ts`.
 - [x] **`exportProjectZip(project)`** — ZIP export logic. Move to `lib/`.
-- [ ] **`<RenderableBindCard>`** — `BindCard`+`GuidedBindEditor` wrapper copy-pasted 7 times in `ItemRowCategoryPanel.tsx`.
+- [x] **`<RenderableBindCard>`** — `BindCard`+`GuidedBindEditor` wrapper copy-pasted 7 times in `ItemRowCategoryPanel.tsx`.
 - [x] **FEL quoting utilities** — `quoteFELValue`/`unquoteFELValue` logic. Extract to shared utility.
 - [x] **`<EmptyBlueprintState>`** — dashed-border empty state repeated in 6 blueprint files.
 - [x] **`<EmptyWorkspaceState>`** — large dashed-border empty state extracted.

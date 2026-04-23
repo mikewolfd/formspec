@@ -195,6 +195,12 @@ Per-shape validation timing interacts with three global pipeline modes: `continu
 
 Missing fields (defined but no value entered) resolve to `null` in FEL expressions. This is distinct from a field whose value is an empty string or zero — a distinction that matters for progressive data collection where partial submissions are valid.
 
+### Intake Handoff
+
+`IntakeHandoff` is the Formspec-to-workflow boundary artifact. It binds a validated intake session to a pinned Definition, canonical Response reference, Response hash, ValidationReport reference, and respondent-ledger head. It supports two modes: `workflowInitiated`, where an existing WOS case reference is required, and `publicIntake`, where no governed case exists until WOS accepts the handoff.
+
+This keeps case ownership clean. Formspec owns intake evidence; WOS owns governed case identity and `case.created`; Trellis anchors and verifies the evidence without deciding case semantics.
+
 ### Extension Model
 
 Extensions use an `x-` namespace prefix and resolve against loaded registry entries. The Registry spec defines extension publishing, discovery, and lifecycle. Unresolved extensions emit validation errors — they don't silently pass through. Extension functions can be registered and called from FEL expressions.
@@ -250,7 +256,7 @@ The relationship is deliberate:
 - **Formspec** defines contracts for collecting, validating, explaining, and transforming structured data.
 - **WOS** defines how governed workflows use that data over time, including case state, decisions, review protocols, agent controls, and durable provenance.
 
-They compose cleanly. WOS uses Formspec where it needs contract validation and human-task response structure, rather than inventing a second form or validation language. That makes Formspec more than a form definition standard: it becomes the intake and interaction layer for governed workflow systems in benefits, eligibility, compliance, investigations, and other high-stakes domains.
+They compose cleanly. WOS uses Formspec where it needs contract validation, human-task response structure, and intake handoff evidence, rather than inventing a second form or validation language. That makes Formspec more than a form definition standard: it becomes the intake and interaction layer for governed workflow systems in benefits, eligibility, compliance, investigations, and other high-stakes domains.
 
 This matters for project positioning. Formspec remains focused on portable, spec-defined data collection and validation. WOS extends the broader architecture into workflow and decision governance without collapsing the two concerns into one document model.
 
